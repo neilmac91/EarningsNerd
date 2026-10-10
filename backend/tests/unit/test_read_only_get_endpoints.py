@@ -233,9 +233,24 @@ def _opens_session(expr: ast.AST) -> bool:
     )
 
 
+def _local_bindings(fn: ast.AST):
+    """(name, value) for every ``name = value``, ``name: T = value`` and ``(name := value)`` in ``fn``."""
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, (ast.AnnAssign, ast.NamedExpr)) and node.value is not None:
+            targets = [node.target]
+        else:
+            continue
+        for target in targets:
+            if isinstance(target, ast.Name):
+                yield target.id, node.value
+
+
 def _session_names_in(fn: ast.AST) -> set[str]:
     """``db``/``session``, plus every ``Session``-annotated parameter of ``fn`` or a def nested in
-    it, and every name bound from a session factory (``s = SessionLocal()``, ``with ... as s``)."""
+    it, and every name bound from a session factory (``s = SessionLocal()``, annotated or ``:=``
+    alike, and ``with ... as s``)."""
     names = set(_SESSION_NAMES)
     for node in ast.walk(fn):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
@@ -243,12 +258,11 @@ def _session_names_in(fn: ast.AST) -> set[str]:
             for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs]:
                 if arg.annotation is not None and "Session" in ast.unparse(arg.annotation):
                     names.add(arg.arg)
-        elif isinstance(node, ast.Assign) and _opens_session(node.value):
-            names.update(t.id for t in node.targets if isinstance(t, ast.Name))
         elif isinstance(node, (ast.With, ast.AsyncWith)):
             for item in node.items:
                 if isinstance(item.optional_vars, ast.Name) and _opens_session(item.context_expr):
                     names.add(item.optional_vars.id)
+    names.update(name for name, value in _local_bindings(fn) if _opens_session(value))
     return names
 
 
@@ -268,19 +282,18 @@ def _query_root(expr: ast.AST, sessions: set[str], queries: set[str]) -> str | N
 
 
 def _query_names_in(fn: ast.AST, sessions: set[str]) -> set[str]:
-    """Locals ``fn`` binds to a Query: ``q = db.query(X)``, then ``narrowed = q.filter(...)``. A chain
-    that ends by fetching (``.first()``, ``.all()`` …) binds its rows, not a Query."""
+    """Locals ``fn`` binds to a Query: ``q = db.query(X)`` (annotated or ``:=`` alike), then
+    ``narrowed = q.filter(...)``. A chain that ends by fetching (``.first()``, ``.all()`` …) binds
+    its rows, not a Query."""
     names: set[str] = set()
     while True:
-        bound: set[str] = set()
-        for node in ast.walk(fn):
-            if not isinstance(node, ast.Assign) or not _query_root(node.value, sessions, names):
-                continue
-            value = node.value
-            if isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute) \
-                    and value.func.attr in _QUERY_FETCHES:
-                continue
-            bound.update(target.id for target in node.targets if isinstance(target, ast.Name))
+        bound = {
+            name for name, value in _local_bindings(fn)
+            if _query_root(value, sessions, names) and not (
+                isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute)
+                and value.func.attr in _QUERY_FETCHES
+            )
+        }
         if bound <= names:
             return names
         names |= bound
@@ -749,6 +762,9 @@ def test_walk_follows_every_documented_form(tmp_path, monkeypatch):
 _WRITE_KINDS_ROUTER = """\
 from fastapi import APIRouter
 from sqlalchemy import delete, select, update
+from sqlalchemy.orm import Query, Session
+
+from app.database import SessionLocal
 
 router = APIRouter()
 
@@ -818,12 +834,37 @@ def reads_rows_and_merges_dicts(db):
     row = db.query(T).filter(T.x < 1).first()
     row.update({})
     {}.update({})
+
+
+@router.get("/m")
+def annotated_query_deletes(db):
+    stale: Query = db.query(T).filter(T.x < 1)
+    stale.delete()
+
+
+@router.get("/n")
+def walrus_query_deletes(db):
+    if (stale := db.query(T).filter(T.x < 1)).count():
+        stale.delete()
+
+
+@router.get("/o")
+def annotated_session_commits():
+    s: Session = SessionLocal()
+    s.commit()
+
+
+@router.get("/p")
+def walrus_session_commits():
+    if s := SessionLocal():
+        s.commit()
 """
 
 
 def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
     """Self-check for the session writes the gate used to miss: ``execute``, ``begin``, ``bulk_*``
-    and ``.update()``/``.delete()`` on a ``db.query(...)`` chain or a local bound to one. Every
+    and ``.update()``/``.delete()`` on a ``db.query(...)`` chain or a local bound to one. A local
+    is bound by ``=``, an annotated ``=`` or ``:=``, for a Query and a session alike. Every
     ``execute`` counts unless its function is pinned read-only with exactly its count; with any of
     these dropped, this fails."""
     _use_tree(tmp_path, monkeypatch, {
@@ -837,7 +878,8 @@ def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
     flagged = {name for (_, name) in _side_effecting_handlers([tmp_path / "app/routers/w.py"])}
     expected = {
         "executes", "begins", "bulk_saves", "bulk_inserts", "bulk_updates", "query_deletes",
-        "query_updates", "assigned_query_updates", "unpinned_read", "pinned_read_and_a_write",
+        "query_updates", "assigned_query_updates", "annotated_query_deletes", "walrus_query_deletes",
+        "annotated_session_commits", "walrus_session_commits", "unpinned_read", "pinned_read_and_a_write",
     }
     assert flagged == expected, f"missed: {sorted(expected - flagged)}; unexpected: {sorted(flagged - expected)}"
 
