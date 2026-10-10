@@ -211,7 +211,7 @@ function PreferenceRows({
             if (busy) return
             save({ digest: e.target.value })
           }}
-          className={clsx(inputClasses(), 'w-auto py-1.5 text-sm', fieldUnavailableClass)}
+          className={clsx(inputClasses({ select: true, autoWidth: true }), fieldUnavailableClass)}
         >
           <option value="immediate">Immediate</option>
           <option value="daily">Daily</option>

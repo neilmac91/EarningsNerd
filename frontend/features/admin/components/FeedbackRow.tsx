@@ -93,7 +93,9 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
             {/* aria-disabled + an early return while its own update is in flight, not native
                 `disabled`: Chromium blurs a focused select that turns disabled, dropping the
                 keyboard user to <body>. The early return leaves the controlled value unchanged.
-                The aria-disabled: classes repeat inputClasses()' disabled: look. */}
+                The aria-disabled: classes repeat inputClasses()' disabled: look. autoWidth, not the
+                default w-full: a percentage width zeroes the select's min-content width, so a table
+                wider than its scroller squeezed the select until its label clipped. */}
             <select
               id={`feedback-status-${feedback.id}`}
               value={feedback.status}
@@ -103,7 +105,7 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
                 if (statusMutation.isPending) return
                 statusMutation.mutate(e.target.value as FeedbackStatus)
               }}
-              className={`${inputClasses()} w-auto py-1.5 pr-8 text-xs ${fieldUnavailableClass}`}
+              className={`${inputClasses({ select: true, density: 'compact', autoWidth: true })} ${fieldUnavailableClass}`}
             >
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>

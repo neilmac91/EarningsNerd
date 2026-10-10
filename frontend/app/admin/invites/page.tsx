@@ -303,7 +303,9 @@ export default function AdminInvitesPage() {
             <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
               Invites
             </h2>
-            <div className="flex flex-wrap items-center gap-2">
+            {/* min-w-0: the cohort filter is as wide as its longest cohort name, which is data; as a
+                flex item this row would otherwise grow to that width and push the card past a phone. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <label htmlFor="filter-status" className="sr-only">
                 Filter by status
               </label>
@@ -311,7 +313,7 @@ export default function AdminInvitesPage() {
                 id="filter-status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as 'all' | InviteStatus)}
-                className={`${inputClasses()} w-auto`}
+                className={inputClasses({ select: true, autoWidth: true })}
               >
                 <option value="all">All statuses</option>
                 <option value="pending">Pending</option>
@@ -327,7 +329,7 @@ export default function AdminInvitesPage() {
                 id="filter-cohort"
                 value={cohortFilter}
                 onChange={(e) => setCohortFilter(e.target.value)}
-                className={`${inputClasses()} w-auto`}
+                className={inputClasses({ select: true, autoWidth: true })}
               >
                 <option value="all">All cohorts</option>
                 {cohorts.map((c) => (
