@@ -64,6 +64,7 @@
     missing_inputs: 'The source inputs needed for this calculation are unavailable.',
     repair_rolled_back: 'This figure was withdrawn during a data correction.',
     not_in_dataset: 'Not available in this dataset.',
+    legacy_unknown: 'Validation details are unavailable for this saved figure. No verification claim is made.',
   }
   const reasonText = (r) => REASONS[r] || 'The source or calculation basis needs review.'
   const FORMULAS = {
@@ -78,6 +79,20 @@
   // ---------- data notes: group every concern by its underlying issue ----------
   const LETTERS = 'abcdefghijklmnopqrstuvwxyz'
   function needsReview(p) { return p && p.provenance ? p.provenance.validation === 'needs_review' : p && p.reconciled === false }
+  // A populated figure with no validation record (older snapshots, or a record whose validation is neither
+  // passed nor needs_review) gets a note of its own and is never counted as passed.
+  function kindOf(p) {
+    if (!p || p.value == null) return 'unavailable'
+    if (p.provenance) return p.provenance.validation === 'needs_review' ? 'review' : p.provenance.validation === 'passed' ? null : 'unknown'
+    return p.reconciled === false ? 'review' : 'unknown'
+  }
+  function comparisonKindOf(p, basis) {
+    if (!p || p[basis] == null) return null
+    const prov = p[basis + '_provenance']
+    if (prov) return prov.validation === 'needs_review' ? 'review' : prov.validation === 'passed' ? null : 'unknown'
+    return p[basis + '_reconciled'] === false ? 'review' : 'unknown'
+  }
+  const UNKNOWN_KEY = 'unknown:legacy_unknown'
   function buildNotes(dataset) {
     const groups = new Map()
     const key = (reasons) => (reasons && reasons.length ? reasons.join('+') : 'source_check_needed')
@@ -85,8 +100,10 @@
     const latest = dataset.periods[dataset.periods.length - 1].key
     for (const s of dataset.series) {
       for (const p of s.points) {
-        if (p.value != null && needsReview(p)) {
-          const g = get(key(p.provenance && p.provenance.reasons), 'review')
+        const kind = p.value != null ? kindOf(p) : null
+        if (kind === 'review' || kind === 'unknown') {
+          const g = kind === 'review' ? get(key(p.provenance && p.provenance.reasons), 'review') : get(UNKNOWN_KEY, 'unknown')
+          if (kind === 'unknown') g.reasons = ['legacy_unknown']
           g.values.push({ series: s, point: p })
           if (!g.series.has(s.concept)) g.series.set(s.concept, { label: s.label, periods: [] })
           g.series.get(s.concept).periods.push(p.period)
@@ -108,24 +125,30 @@
     for (const s of dataset.series) {
       for (const p of s.points) {
         for (const basis of ['qoq', 'yoy']) {
+          const kind = comparisonKindOf(p, basis)
+          if (!kind) continue
           const prov = p[basis + '_provenance']
-          if (!prov || prov.validation !== 'needs_review') continue
-          const g = get(key(prov.reasons), 'review')
+          const g = kind === 'review' ? get(key(prov && prov.reasons), 'review') : get(UNKNOWN_KEY, 'unknown')
+          if (kind === 'unknown') g.reasons = ['legacy_unknown']
           g.comparisons.push({ series: s, point: p, basis })
         }
       }
     }
-    const list = [...groups.values()].sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'review' ? -1 : 1))
+    const ORDER = { review: 0, unknown: 1, unavailable: 2 }
+    const list = [...groups.values()].sort((a, b) => ORDER[a.kind] - ORDER[b.kind])
     list.forEach((g, i) => { g.letter = LETTERS[i] || `n${i + 1}` })
     const byKey = Object.fromEntries(list.map((g) => [g.key, g]))
-    const noteFor = (p) => { if (!p) return null; if (p.value == null) { const r = (p.provenance && p.provenance.reasons && p.provenance.reasons.length) ? p.provenance.reasons : ['not_in_dataset']; return byKey['unavailable:' + r.join('+')] || null } return needsReview(p) ? byKey[key(p.provenance && p.provenance.reasons)] || null : null }
-    const noteForComparison = (p, basis) => { const prov = p && p[basis + '_provenance']; if (!prov || prov.validation !== 'needs_review') return null; return byKey[key(prov.reasons)] || null }
+    const noteFor = (p) => { if (!p) return null; if (p.value == null) { const r = (p.provenance && p.provenance.reasons && p.provenance.reasons.length) ? p.provenance.reasons : ['not_in_dataset']; return byKey['unavailable:' + r.join('+')] || null } const k = kindOf(p); return k === 'review' ? byKey[key(p.provenance && p.provenance.reasons)] || null : k === 'unknown' ? byKey[UNKNOWN_KEY] || null : null }
+    const noteForComparison = (p, basis) => { const k = comparisonKindOf(p, basis); if (!k) return null; if (k === 'unknown') return byKey[UNKNOWN_KEY] || null; const prov = p[basis + '_provenance']; return byKey[key(prov && prov.reasons)] || null }
     const reviewValues = list.filter((g) => g.kind === 'review').reduce((n, g) => n + g.values.length, 0)
     const reviewComparisons = list.filter((g) => g.kind === 'review').reduce((n, g) => n + g.comparisons.length, 0)
+    const unknownValues = list.filter((g) => g.kind === 'unknown').reduce((n, g) => n + g.values.length, 0)
+    const unknownComparisons = list.filter((g) => g.kind === 'unknown').reduce((n, g) => n + g.comparisons.length, 0)
     const unavailable = list.filter((g) => g.kind === 'unavailable').reduce((n, g) => n + g.values.length, 0)
     const total = dataset.series.reduce((n, s) => n + s.points.filter((p) => p.value != null).length, 0)
     const calculated = dataset.series.reduce((n, s) => n + s.points.filter((p) => p.value != null && p.provenance && p.provenance.method === 'calculated').length, 0)
-    return { list, noteFor, noteForComparison, reviewValues, reviewComparisons, unavailable, total, calculated, latest }
+    const passed = total - reviewValues - unknownValues
+    return { list, noteFor, noteForComparison, reviewValues, reviewComparisons, unknownValues, unknownComparisons, unavailable, total, passed, calculated, latest }
   }
 
   // ---------- state ----------
@@ -137,7 +160,7 @@
     const calc = point && point.provenance && point.provenance.method === 'calculated'
     const parts = []
     if (calc && !(opts && opts.noDagger)) parts.push(el('span', { class: 'dag', 'aria-hidden': 'true' }, '†'))
-    if (note) parts.push(el('sup', { class: 'note' + (note.kind === 'unavailable' ? ' unavailable' : ''), 'aria-hidden': 'true' }, note.letter))
+    if (note) parts.push(el('sup', { class: 'note' + (note.kind === 'review' ? '' : ' ' + note.kind), 'aria-hidden': 'true' }, note.letter))
     if (!parts.length) return null
     return el('span', { class: 'affix' }, parts)
   }
@@ -208,18 +231,21 @@
   function renderNotes(dataset, notes) {
     const details = el('details', { class: 'notes', id: 'data-notes' })
     const reviewGroups = notes.list.filter((g) => g.kind === 'review')
+    const unknownGroups = notes.list.filter((g) => g.kind === 'unknown')
     const unavailableGroups = notes.list.filter((g) => g.kind === 'unavailable')
     const counts = el('span', { class: 'counts' })
     if (reviewGroups.length) counts.append(el('b', null, `${notes.reviewValues} value${notes.reviewValues === 1 ? '' : 's'}`), ` need${notes.reviewValues === 1 ? 's' : ''} review · `, el('b', null, `${notes.reviewComparisons} comparison${notes.reviewComparisons === 1 ? '' : 's'}`), ' built on them')
-    else counts.append(el('b', { class: 'ok' }, `${notes.total} figures`), ' passed automated source checks')
+    if (notes.unknownValues) counts.append(`${reviewGroups.length ? ' · ' : ''}${notes.unknownValues} figure${notes.unknownValues === 1 ? ' has' : 's have'} no validation record`)
+    if (notes.unknownComparisons) counts.append(` · ${notes.unknownComparisons} comparison${notes.unknownComparisons === 1 ? ' has' : 's have'} no validation record`)
+    if (!reviewGroups.length && !unknownGroups.length) counts.append(el('b', { class: 'ok' }, `${notes.passed} figures`), ' passed automated source checks')
     if (notes.unavailable) counts.append(` · ${notes.unavailable} unavailable`)
     counts.append(` · ${notes.calculated} calculated †`)
     details.append(el('summary', null, el('span', { class: 'caret', 'aria-hidden': 'true' }), el('span', { class: 'title' }, 'Data notes'), counts))
     const body = el('div', { class: 'body' })
     const ol = el('ol')
-    for (const g of [...reviewGroups, ...unavailableGroups]) {
+    for (const g of [...reviewGroups, ...unknownGroups, ...unavailableGroups]) {
       const li = el('li', { id: `note-${g.letter}` })
-      li.append(el('span', { class: 'mark' + (g.kind === 'unavailable' ? ' unavailable' : '') }, g.letter))
+      li.append(el('span', { class: 'mark' + (g.kind === 'review' ? '' : ' ' + g.kind) }, g.letter))
       const box = el('div')
       box.append(el('div', { class: 'what' }, g.reasons.map(reasonText).join(' ')))
       box.append(el('div', { class: 'where' }, describeWhere(g)))
@@ -229,6 +255,8 @@
         c.append(`${g.values.length} value${g.values.length === 1 ? '' : 's'}`, g.comparisons.length ? ` · ${g.comparisons.length} comparison${g.comparisons.length === 1 ? '' : 's'} inherit this note (${qoq} quarter-over-quarter in the table, ${yoy} year-over-year in the headline figures and charts)` : '')
         if (g.reasons.includes('legacy_calculation')) c.append(' · figures are shown as stored; their source lineage is not recorded')
         if (g.reasons.includes('source_conflict')) c.append(' · review the original filing before relying on these figures')
+      } else if (g.kind === 'unknown') {
+        c.append(`${g.values.length} value${g.values.length === 1 ? '' : 's'} shown as stored`, g.comparisons.length ? ` · ${g.comparisons.length} comparison${g.comparisons.length === 1 ? '' : 's'} carry this note` : '', ' · no verification claim is made')
       } else {
         c.append(`${g.values.length} value${g.values.length === 1 ? '' : 's'} shown as — · growth is not computed across a gap`)
       }
@@ -236,7 +264,7 @@
       li.append(box)
       ol.append(li)
     }
-    if (!reviewGroups.length && !unavailableGroups.length) ol.append(el('li', null, el('span', { class: 'mark' }, '—'), el('div', { class: 'what' }, 'No data notes for this report.')))
+    if (!reviewGroups.length && !unknownGroups.length && !unavailableGroups.length) ol.append(el('li', null, el('span', { class: 'mark' }, '—'), el('div', { class: 'what' }, 'No data notes for this report.')))
     body.append(ol)
     body.append(el('div', { class: 'methods' },
       el('p', null, 'Select any figure to inspect its source filing, reporting period and calculation. † marks a figure EarningsNerd calculated from reported inputs; it is not an error. Growth and ratios are calculated from the same inputs. Automated checks compare figures with the company’s XBRL and are not an audit of its accounts.'),
@@ -280,7 +308,7 @@
     S('text', { x: padL + (W - padL - padR) / 2, y: H - 4, 'text-anchor': 'middle', 'font-size': 11, 'font-family': 'Geist Mono, ui-monospace, monospace', fill: 'var(--axis)' }, 'Fiscal Quarter')
     if (bar) {
       const bw = Math.min(44, ((W - padL - padR) / n) * 0.6)
-      bar.points.forEach((p, i) => { if (p.value == null) return; const nt = notes.noteFor(p); const y0 = yL(0), y1 = yL(p.value); S('rect', { x: x(i) - bw / 2, y: Math.min(y0, y1), width: bw, height: Math.abs(y0 - y1), rx: 3, fill: nt ? 'none' : SERIES_COLORS[0], stroke: SERIES_COLORS[0], 'stroke-width': nt ? 2 : 0, 'stroke-dasharray': nt ? '4 3' : null }) ; if (nt) S('text', { x: x(i), y: Math.min(y0, y1) - 4, 'text-anchor': 'middle', 'font-size': 11, 'font-family': 'Geist Mono, ui-monospace, monospace', fill: 'var(--warning)' }, nt.letter) })
+      bar.points.forEach((p, i) => { if (p.value == null) return; const nt = notes.noteFor(p); const y0 = yL(0), y1 = yL(p.value); S('rect', { x: x(i) - bw / 2, y: Math.min(y0, y1), width: bw, height: Math.abs(y0 - y1), rx: 3, fill: nt ? 'none' : SERIES_COLORS[0], stroke: SERIES_COLORS[0], 'stroke-width': nt ? 2 : 0, 'stroke-dasharray': nt ? '4 3' : null }) ; if (nt) S('text', { x: x(i), y: Math.min(y0, y1) - 4, 'text-anchor': 'middle', 'font-size': 11, 'font-family': 'Geist Mono, ui-monospace, monospace', fill: nt.kind === 'review' ? 'var(--warning)' : 'var(--ink-3)' }, nt.letter) })
       if (spec.growthLine) {
         const gv = bar.points.map((p) => (typeof p.yoy === 'number' ? p.yoy * 100 : null))
         const yR = scale(gv.filter((v) => v != null), true)
@@ -301,7 +329,7 @@
         let d = '', pen = false
         s.points.forEach((p, i) => { if (p.value == null) { pen = false; return } d += `${pen ? ' L' : ' M'}${x(i)} ${yy(p.value)}`; pen = true })
         S('path', { d: d.trim(), fill: 'none', stroke: e.color, 'stroke-width': 2, 'stroke-linejoin': 'round' })
-        s.points.forEach((p, i) => { if (p.value == null) return; const nt = notes.noteFor(p); if (nt) { S('circle', { cx: x(i), cy: yy(p.value), r: 4.5, fill: 'var(--panel)', stroke: e.color, 'stroke-width': 2 }); S('text', { x: x(i), y: yy(p.value) - 8, 'text-anchor': 'middle', 'font-size': 11, 'font-family': 'Geist Mono, ui-monospace, monospace', fill: 'var(--warning)' }, nt.letter) } })
+        s.points.forEach((p, i) => { if (p.value == null) return; const nt = notes.noteFor(p); if (nt) { S('circle', { cx: x(i), cy: yy(p.value), r: 4.5, fill: 'var(--panel)', stroke: e.color, 'stroke-width': 2 }); S('text', { x: x(i), y: yy(p.value) - 8, 'text-anchor': 'middle', 'font-size': 11, 'font-family': 'Geist Mono, ui-monospace, monospace', fill: nt.kind === 'review' ? 'var(--warning)' : 'var(--ink-3)' }, nt.letter) } })
       }
     }
     const legendItems = bar ? [{ label: bar.label, color: SERIES_COLORS[0] }, ...(spec.growthLine ? [{ label: 'YoY growth', color: SERIES_COLORS[1] }] : [])] : entries.map((e) => ({ label: entries.some((x) => x.right) && entries.some((x) => !x.right) ? `${e.label} (${e.right ? 'right' : 'left'})` : e.label, color: e.color }))

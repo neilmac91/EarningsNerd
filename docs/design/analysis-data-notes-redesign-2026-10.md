@@ -2,8 +2,8 @@
 
 Date: 2026-10-10 · Scope: `/analysis` results surface (KPI strip, Sources & methods, charts, narrative,
 metrics table, period picker) and the PDF, Excel and PNG exports that mirror it · Status: the §9
-decisions are taken (2026-10-10); implementation follows §7 and has not started; nothing here is
-merged or deployed · Support material:
+decisions are taken (2026-10-10); Phase 1 items 1–4 and 11 of §7 are merged (#1199, #1200); items
+5–10 and Phase 2 are open; this document itself ships nothing · Support material:
 [`tasks/analysis-redesign-2026-10/`](../../tasks/analysis-redesign-2026-10/README.md) (runnable
 prototype, measurement harnesses, recorded measurements).
 
@@ -215,7 +215,7 @@ What a reader sees in the three states (prototype output, state 2 is the product
   recorded. Operating margin (Q2 2025, Q2 2026); Net margin (Q2 2025, Q2 2026); Working capital (Q4
   2023, Q1 2024, Q2 2026); Current ratio (Q4 2023, Q1 2024, Q2 2026) · 10 values · 24 comparisons
   inherit this note (14 quarter-over-quarter in the table, 10 year-over-year in the headline figures and
-  charts) · figures are shown; their source lineage is scheduled for rebuild"; note b as in state 1.
+  charts) · figures are shown as stored; their source lineage is not recorded"; note b as in state 1.
 - State 3: "Data notes · 3 values need review · 6 comparisons built on them · 10 unavailable · 101
   calculated †". Open: note a "Available sources disagree on this figure. Revenue (Q2 2026); Operating
   margin (Q2 2026); Net margin (Q2 2026) · 3 values · 6 comparisons inherit this note (3 quarter-over-

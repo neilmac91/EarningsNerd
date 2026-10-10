@@ -136,7 +136,7 @@ html.dark .field { background-color: rgba(255,255,255,0.05); }
 sup.affix, .affix sup { line-height: 0; vertical-align: baseline; position: relative; top: -0.45em; font-size: 0.6875rem; } /* 11px: the dense-annotation floor, never smaller */
 .affix .dag { color: var(--ink-2); }
 .affix .note { color: var(--warning); font-weight: 600; }
-.affix .note.unavailable { color: var(--ink-3); font-weight: 500; }
+.affix .note.unavailable, .affix .note.unknown { color: var(--ink-3); font-weight: 500; }
 
 /* ---------- Data notes strip (proposed) ---------- */
 .notes { border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); padding: 0.625rem 0; }
@@ -152,7 +152,7 @@ sup.affix, .affix sup { line-height: 0; vertical-align: baseline; position: rela
 .notes ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.625rem; }
 .notes li { display: grid; grid-template-columns: 1.75rem 1fr; gap: 0.5rem; }
 .notes li .mark { font-family: var(--font-data); font-weight: 600; color: var(--warning); }
-.notes li .mark.unavailable { color: var(--ink-3); }
+.notes li .mark.unavailable, .notes li .mark.unknown { color: var(--ink-3); }
 .notes li .what { color: var(--ink); font-weight: 500; }
 .notes li .where { font-size: 0.8125rem; color: var(--ink-2); }
 .notes li .where .data { font-size: 0.75rem; }
