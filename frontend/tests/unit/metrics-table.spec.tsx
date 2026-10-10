@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import MetricsTable from '@/features/analysis/components/MetricsTable'
@@ -34,8 +34,7 @@ const dataset: AnalysisDataset = {
       cagr: null,
       points: [
         { period: '2024Q3', value: 1.52, marker: 'F3' },
-        // Q4 EPS derives only when weighted share counts are available (shares-based derivation);
-        // this fixture models the no-shares case, where the cell stays an em-dash.
+        // EPS needs a reported quarter; this fixture has no reported Q4 value.
         { period: '2024Q4', value: null },
       ],
     },
@@ -83,7 +82,7 @@ describe('MetricsTable', () => {
     expect(screen.getAllByRole('button', { name: /unavailable.*data note/ }).length).toBeGreaterThan(0)
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
     // Quarterly mode shows QoQ deltas.
-    expect(screen.getByText(/QoQ \+2\.0%/)).toBeInTheDocument()
+    expect(screen.getByText('+2.0%').parentElement).toHaveTextContent('Change vs prior quarter')
   })
 
   it('hides the CAGR column entirely in quarterly mode (dead UI otherwise)', () => {
@@ -93,9 +92,37 @@ describe('MetricsTable', () => {
 
   it('makes the Metric column sticky', () => {
     const { container } = render(<MetricsTable dataset={dataset} />)
-    const firstBodyCell = container.querySelector('tbody tr td')
+    const firstBodyCell = container.querySelector('tbody tr th[scope="row"]')
     expect(firstBodyCell).toHaveClass('sticky')
     expect(firstBodyCell).toHaveClass('left-0')
+  })
+
+  it('rounds unusually long table figures while source detail preserves value and full comparison', async () => {
+    const large = structuredClone(dataset)
+    large.series[1].points[0] = { period: '2024Q3', value: -15154, reconciled: false, qoq: 1234.567, qoq_reconciled: false }
+    render(<MetricsTable dataset={large} />)
+    const figure = screen.getByRole('button', { name: /EPS \(diluted\), 2024Q3: -15154/ })
+    expect(figure).toHaveTextContent('-$15.2K')
+    expect(figure.closest('td')).toHaveTextContent('+123.5K%')
+    expect(screen.getByText('Figures are rounded for display. Select a value for full precision.')).toBeVisible()
+    await userEvent.click(figure)
+    const detail = screen.getByRole('dialog')
+    expect(within(detail).getByText('-15,154 USD/shares')).toBeVisible()
+    expect(within(detail).getByText('+123,456.7%')).toBeVisible()
+    expect(large.series[1].points[0].value).toBe(-15154)
+  })
+
+  it('states non-USD currency at the row and source control without a misleading dollar prefix', async () => {
+    const canadian = structuredClone(dataset)
+    canadian.series[1].unit = 'CAD/shares'
+    canadian.series[1].points[0].value = -15154
+    render(<MetricsTable dataset={canadian} />)
+    expect(screen.getByRole('rowheader', { name: 'EPS (diluted) CAD per share' })).toBeVisible()
+    const figure = screen.getByRole('button', { name: /EPS \(diluted\) \(CAD per share\), 2024Q3: -15154/ })
+    expect(figure).toHaveTextContent('-15.2K')
+    expect(figure).not.toHaveTextContent('$')
+    await userEvent.click(figure)
+    expect(within(screen.getByRole('dialog')).getByText('-15,154 CAD/shares')).toBeVisible()
   })
 
   it('shows the Export Excel button only when the handler is passed, and fires it', async () => {
@@ -176,7 +203,7 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     render(<MetricsTable dataset={annualDataset} />)
     expect(screen.getByText('CAGR')).toBeInTheDocument()
     // 47.3% -> 38.3% is -9.0pp — never "-19.0%" (the relative-change convention this fixes).
-    expect(screen.getByText(/YoY -9\.0pp/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Net margin, FY2024:/ }).closest('td')).toHaveTextContent('Change vs prior year -9.0pp')
   })
 
   it('marks annual window growth from flagged inputs separately from the period values', () => {
@@ -184,28 +211,96 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     flagged.series[0].window_pp_reconciled = false
     flagged.series[1].cagr_reconciled = false
     render(<MetricsTable dataset={flagged} />)
-    const windows = screen.getAllByRole('button', { name: /data note a\. Review data note/ })
+    const windows = screen.getAllByRole('button', { name: /(?:Chg|CAGR), .*data note a.*View source/ })
     expect(windows).toHaveLength(2)
     expect(windows[0]).toHaveTextContent('-9.0pp')
     expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
 
+  it('opens exact annual window comparison detail on the compact value control', async () => {
+    const large = structuredClone(annualDataset)
+    large.series[1].cagr = 1234.567
+    large.series[1].cagr_reconciled = false
+    render(<MetricsTable dataset={large} />)
+    const window = screen.getByRole('button', { name: /Long-term debt CAGR, FY2023\.\.FY2024: 1234.567/ })
+    expect(window).toHaveTextContent('+123.5K%')
+    await userEvent.click(window)
+    const detail = screen.getByRole('dialog')
+    expect(within(detail).getByText('1,234.567 growth fraction')).toBeVisible()
+    expect(within(detail).getByText('+123,456.7%')).toBeVisible()
+  })
+
   it('renders "n/m" for a sign-flip growth value instead of a nonsensical percentage', () => {
     render(<MetricsTable dataset={annualDataset} />)
-    expect(screen.getByText(/YoY n\/m/)).toBeInTheDocument()
+    expect(screen.getByText('n/m').parentElement).toHaveTextContent('Change vs prior year')
   })
 
   it('inverts tone for long-term debt: a decrease renders gain-toned, not loss-toned', () => {
     render(<MetricsTable dataset={annualDataset} />)
-    const delta = screen.getByText(/YoY -25\.2%/)
-    expect(delta.className).toMatch(/gain/)
+    const delta = screen.getByText('-25.2%')
+    expect(delta.parentElement?.className).toMatch(/gain/)
   })
 
   it('shows the window pp change in the CAGR column for a percent-unit row (never a dead —)', () => {
     render(<MetricsTable dataset={annualDataset} />)
     // net_margin: cagr is always null (unit "pure"), so the column resolves window_pp instead —
     // the same rule the KPI strip uses (windowGrowth). The tooltip names the basis window.
-    const cell = screen.getByText('-9.0pp')
+    const cell = screen.getAllByText('-9.0pp').find((node) => node.closest('[title]'))!
     expect(cell.closest('[title]')).toHaveAttribute('title', expect.stringContaining('FY2023..FY2024'))
+  })
+})
+
+
+describe('MetricsTable period windows', () => {
+  const twelve: AnalysisDataset = {
+    ...dataset,
+    period_key: '2023Q1..2025Q4',
+    periods: Array.from({ length: 12 }, (_, index) => ({
+      key: `${2023 + Math.floor(index / 4)}Q${index % 4 + 1}`,
+      fiscal_year: 2023 + Math.floor(index / 4), fiscal_period: `Q${index % 4 + 1}`,
+      period_end: `${2023 + Math.floor(index / 4)}-${['03', '06', '09', '12'][index % 4]}-28`,
+    })),
+    series: [{ ...dataset.series[0], points: Array.from({ length: 12 }, (_, index) => ({
+      period: `${2023 + Math.floor(index / 4)}Q${index % 4 + 1}`, value: (index + 1) * 1e9,
+      qoq: index ? 0.1 : null, derived: index === 3,
+    })) }],
+  }
+
+  it('keeps All as the default, limits only table columns, and resets for a new dataset', async () => {
+    const input = structuredClone(twelve)
+    const { rerender } = render(<MetricsTable dataset={input} />)
+    const region = screen.getByRole('region', { name: /table of 12 quarters/ })
+    expect(screen.getByRole('button', { name: 'All 12' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(region).getAllByRole('columnheader')).toHaveLength(13)
+    await userEvent.click(screen.getByRole('button', { name: 'Newest 6' }))
+    expect(screen.getByText('Showing 6 of 12 quarters')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Revenue, 2023Q1:/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Revenue, 2025Q4:/ })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Earliest 6' }))
+    expect(screen.getByRole('button', { name: /Revenue, 2023Q1:/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Revenue, 2025Q4:/ })).not.toBeInTheDocument()
+    expect(input).toEqual(twelve)
+    rerender(<MetricsTable dataset={{ ...input, ticker: 'OTHER' }} />)
+    expect(screen.getByRole('button', { name: 'All 12' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('region', { name: /table of 12 quarters/ })).toHaveAttribute('tabindex', '0')
+    rerender(<MetricsTable dataset={input} />)
+    expect(screen.getByRole('button', { name: 'All 12' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('marks only a populated, actually derived Q4 header and uses semantic row headers', () => {
+    const input = structuredClone(twelve)
+    input.series[0].points[7] = {
+      ...input.series[0].points[7], derived: true,
+      provenance: { version: 1, method: 'reported', validation: 'passed', reasons: [], formula: null, inputs: [] },
+    }
+    // An ordinary calculated ratio is not a quarter-derived input to the Q4 column marker.
+    input.series[0].points[11].provenance = { version: 1, method: 'calculated', validation: 'passed', reasons: [], formula: 'ratio', inputs: [] }
+    render(<MetricsTable dataset={input} />)
+    const headers = screen.getAllByRole('columnheader')
+    expect(headers[4]).toHaveTextContent('†')
+    expect(headers[8]).not.toHaveTextContent('†')
+    expect(headers[12]).not.toHaveTextContent('†')
+    expect(screen.getByRole('rowheader', { name: 'Revenue' })).toHaveAttribute('scope', 'row')
+    expect(screen.getByRole('table')).toHaveAccessibleName(/value and change versus prior quarter.*YoY labels/)
   })
 })
