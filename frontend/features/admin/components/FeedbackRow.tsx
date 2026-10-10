@@ -93,7 +93,7 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
             {/* aria-disabled + an early return while its own update is in flight, not native
                 `disabled`: Chromium blurs a focused select that turns disabled, dropping the
                 keyboard user to <body>. The early return leaves the controlled value unchanged.
-                The aria-disabled: classes repeat inputClasses()' disabled: look. */}
+                fieldUnavailableClass gives the unavailable look by fading the text ink, not the element. */}
             <select
               id={`feedback-status-${feedback.id}`}
               value={feedback.status}
