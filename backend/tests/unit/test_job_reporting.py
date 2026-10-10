@@ -545,9 +545,9 @@ def test_report_script_emits_new_sections_and_uses_separate_identity(sessions, m
 
 def test_ops_describe_statement_default_matches_settings():
     from app.config import Settings
-    workflow = Path(__file__).resolve().parents[3] / ".github/workflows/ops.yml"
+    readback = Path(__file__).resolve().parents[3] / "ops/describe/service.py"  # what describe-service runs
     default = Settings.model_fields["USE_STATEMENT_FINANCIALS"].default
-    assert f"Settings default applies ({default})" in workflow.read_text()
+    assert f"Settings default applies ({default})" in readback.read_text()
 
 
 def test_notable_midpagination_failure_is_not_success():

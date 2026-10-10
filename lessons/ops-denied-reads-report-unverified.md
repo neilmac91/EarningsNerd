@@ -22,9 +22,10 @@ and make the operator's checklist item complete only when a run prints the posit
 (`Worker invoker policy: PRIVATE`). Fail closed only on readable evidence: a public principal on any
 binding, a disabled IAM check, a pin that reads other than `1`, traffic that reads tagged or split.
 Never let UNVERIFIED mask a collected failure. A required read that cannot read never passes: it stops
-the step with no verdict, and a read the Python code makes stops it with the same closed class. The
-describe-service step's first read is a shell `gcloud` call that still prints gcloud's own stderr when
-it fails (an open follow-up in `tasks/todo.md`).
+the step with no verdict, and a read the Python code makes stops it with the same closed class. Every
+describe-service read, the API service's own describe included, is made by the Python code
+(`ops/describe/service.py`); describe-jobs' shell loop discards gcloud's stderr and stops with its own
+closed line.
 
 **Gate.** In `backend/tests/unit/test_prod_flag_visibility.py`,
 `test_ops_renderer_reports_denied_invoker_policy_as_unverified` pins the denied classes, the single
@@ -33,9 +34,11 @@ warning, the qualified verdict and that a denied read never prints `PRIVATE`;
 `test_ops_renderer_unverified_never_masks_a_fail` pins that UNVERIFIED never masks a collected failure;
 and `test_ops_renderer_fails_closed_on_failed_describe` pins that a failed required read in the
 describe-service code (the revision, pregenerate-job, worker and worker-revision describes) stops the
-step with its class; the two shell-level reads, describe-service's first service read and describe-jobs'
-job reads, stop the step without one (`test_describe_jobs_shell_reads_each_job_into_job_dir` pins the
-second's message); no test yet pins `error (gcloud not executable)` (an open item in `tasks/todo.md`);
-`docs/DEPLOYMENT.md` states the rule beside the checklist. The first live run (ops run 38053869837,
+step with its class, and `test_ops_renderer_fails_closed_on_failed_service_describe` pins the same for
+the API service's own describe, `error (gcloud not executable)` included;
+`backend/tests/unit/test_ops_stderr_withheld.py` runs the real steps against a fake gcloud and pins that
+no gcloud stderr reaches the log; describe-jobs' shell reads stop the step without a class
+(`test_describe_jobs_shell_reads_each_job_into_job_dir` pins the message); `docs/DEPLOYMENT.md` states the
+rule beside the checklist. The first live run (ops run 38053869837,
 2026-10-10T12:57Z) read the policy and printed `PRIVATE`, so the UNVERIFIED path stayed unexercised in
 production; the rule stands for the next read that a permission withholds.

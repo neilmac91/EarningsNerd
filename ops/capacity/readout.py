@@ -1,8 +1,8 @@
 """Bounded, read-only Cloud Run/Monitoring/Logging evidence; no raw logs or env values.
 
 Run with an existing gcloud identity. Missing permissions/data are recorded, never zeroed; a failed
-API call keeps only its structured error status, reason and a bounded message, never the raw body.
-The receipt is evidence to inspect, not a capacity verdict or an invitation limit.
+API call keeps only its structured error status, reason and a bounded, address-redacted message,
+never the raw body. The receipt is evidence to inspect, not a capacity verdict or an invitation limit.
 """
 from __future__ import annotations
 
@@ -32,6 +32,21 @@ MAX_ERROR_FIELD = 64  # error.status and ErrorInfo reason/domain (Google bounds 
 FRESHNESS_FLOOR_SECONDS = 300  # metric points appear up to 180 s after sampling; flag a window ending nearer than this
 QUEUE_NOTE = "Cloud Tasks points become visible up to 180 s after sampling; a window ending within that lag under-reports the tail."
 COUNTS_BASIS = "retained items only; a partial or unavailable state makes these counts a floor"
+# error.message is the one free-text field the receipt keeps, and it can name a URL, an email address or IAM
+# principal, a host or an IP address; each is replaced by a placeholder before the message is cut. A URL (any
+# scheme, principal:// included) and an email address or principal (any "@", or its encoding "%40") are withheld
+# as the whole whitespace-delimited token. A dotted name is a host when its last label is letters (any script) or
+# an IDN "xn--" label, so the rule fails closed on a suffix it does not know; the one exemption is an IAM
+# permission name of three ASCII letter labels ending in a PERMISSION_VERBS verb (monitoring.timeSeries.list),
+# which names no address. Four numeric labels are an IPv4 address.
+_URL = re.compile(r"(?<!\S)\S*://\S*")
+_EMAIL = re.compile(r"(?<!\S)\S*(?:@|%40)\S*")
+_DOTTED = re.compile(r"(?<![\w-])[\w-]+(?:\.[\w-]+)+")
+_HOST_LABEL = re.compile(r"[^\W\d_]{2,63}|xn--[\w-]{1,59}", re.IGNORECASE)
+_IPV6 = re.compile(r"(?<![0-9A-Za-z:])(?:(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|"
+                   r"(?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?::(?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)"
+                   r"(?![0-9A-Za-z:])")
+PERMISSION_VERBS = ("get", "list", "use")  # the receipt's reads are get/list calls; Service Usage names .use
 
 
 def timestamp(value):
@@ -54,9 +69,9 @@ def error_detail(exc):
     """Bounded, structured reason from a Google API error envelope; never the raw body or headers.
 
     Keeps only error.status, error.code, the first ErrorInfo detail's reason/domain (each at most
-    MAX_ERROR_FIELD characters) and at most MAX_ERROR_MESSAGE characters of error.message, reading at
-    most MAX_ERROR_BODY bytes. A diagnostic must never abort the receipt: whatever the body does, this
-    returns a dict and request() still records its `http_NNN` error.
+    MAX_ERROR_FIELD characters) and at most MAX_ERROR_MESSAGE characters of error.message after
+    redact_addresses(), reading at most MAX_ERROR_BODY bytes. A diagnostic must never abort the receipt:
+    whatever the body does, this returns a dict and request() still records its `http_NNN` error.
     """
     try:
         return _parse_error_envelope(exc)
@@ -86,10 +101,31 @@ def _parse_error_envelope(exc):
                            if isinstance(info.get(key), str)})
             break
     if isinstance(error.get("message"), str):
-        detail["message"] = error["message"][:MAX_ERROR_MESSAGE]
-        if len(error["message"]) > MAX_ERROR_MESSAGE:
+        # Redact, then cut: a cut first could leave part of an address that no longer matches its pattern.
+        message = redact_addresses(error["message"])
+        detail["message"] = message[:MAX_ERROR_MESSAGE]
+        if len(message) > MAX_ERROR_MESSAGE:
             detail["message_truncated"] = True
     return detail
+
+
+def _dotted(match):
+    labels = match.group().split(".")
+    if len(labels) == 4 and all(label.isdigit() and len(label) <= 3 for label in labels):
+        return "<host>"  # an IPv4 address
+    if not _HOST_LABEL.fullmatch(labels[-1]):
+        return match.group()  # a version, a decimal or a field path: its last label cannot end a host name
+    if len(labels) == 3 and labels[2] in PERMISSION_VERBS and all(label.isascii() and label.isalpha() for label in labels):
+        return match.group()  # an IAM permission name
+    return "<host>"
+
+
+def redact_addresses(text):
+    """Replace every URL, email address or principal, host name and IP address in `text` with a placeholder."""
+    text = _URL.sub("<url>", text)
+    text = _EMAIL.sub("<email>", text)
+    text = _DOTTED.sub(_dotted, text)
+    return _IPV6.sub("<host>", text)
 
 
 class Api:
