@@ -7,7 +7,7 @@ vi.mock('recharts', async () => {
   type Row = Record<string, number | string | null>
   const Data = createContext<Row[]>([])
   const Chart = ({ children, data }: { children: React.ReactNode; data: Row[] }) => <Data.Provider value={data}><svg>{children}</svg></Data.Provider>
-  const project = (value: number, axis: string) => 100 - value / (axis === 'right' ? 10 : 1)
+  const project = (value: number, axis: string) => 100 - value / (axis === 'right' ? 10 : axis === 'growth' ? 2 : 1)
   return {
     ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
     ComposedChart: Chart,
@@ -21,7 +21,11 @@ vi.mock('recharts', async () => {
     useYAxisScale: (axis: string) => (value: number) => project(value, axis),
     Bar: ({ dataKey, shape }: { dataKey: string; shape: (props: unknown) => React.ReactNode }) => {
       const rows = useContext(Data)
-      return <g>{rows.map((row, index) => <g key={index}>{row[dataKey] == null ? null : shape({ x: index * 20, y: 50, width: 15, height: 60, payload: row })}</g>)}</g>
+      // Recharts 3.10.1 supplies y at the value endpoint and signed height toward the baseline.
+      return <g>{rows.map((row, index) => {
+        const y = project(Number(row[dataKey]), 'value')
+        return <g key={index}>{row[dataKey] == null ? null : shape({ x: index * 20 - 7.5, y, width: 15, height: project(0, 'value') - y, payload: row })}</g>
+      })}</g>
     },
     Line: ({ dataKey, yAxisId, connectNulls, dot }: { dataKey: string; yAxisId: string; connectNulls?: boolean; dot: (props: unknown) => React.ReactNode }) => {
       const rows = useContext(Data)
@@ -117,6 +121,45 @@ describe('TrendCharts source note marks', () => {
     expect(container.querySelector('circle')?.parentElement).toHaveAttribute('aria-label', 'Data note b')
     expect(container.querySelectorAll('text')).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Review data notes a, b' })).toBeInTheDocument()
+  })
+
+  it.each([43, -43])('places bar and growth notes together at the actual %s value endpoint', (value) => {
+    const revenue = series('revenue', 'Revenue', [value, null, null])
+    revenue.points[0].provenance = { ...passed, validation: 'needs_review', reasons: ['source_conflict'] }
+    // The independent growth scale maps twice the bar value to the same rendered y.
+    revenue.points[0].yoy = value * 2 / 100
+    revenue.points[0].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }
+    const { container } = render(<TrendCharts dataset={{ ...dataset, series: [revenue] }} />)
+    const bar = container.querySelector('rect[stroke-dasharray="4 3"]')!
+    const dot = container.querySelector('circle[stroke-width="2"]')!
+    const endpoint = 100 - value
+    expect(bar).toHaveAttribute('x', '-7.5')
+    expect(bar).toHaveAttribute('y', String(endpoint))
+    expect(bar).toHaveAttribute('width', '15')
+    expect(bar).toHaveAttribute('height', String(value))
+    expect(dot).toHaveAttribute('cx', '0')
+    expect(dot).toHaveAttribute('cy', String(endpoint))
+    const barText = bar.parentElement!.querySelector('text')!
+    const growthText = dot.parentElement!.querySelector('text')!
+    expect(barText.textContent).not.toBe(growthText.textContent)
+    if (value < 0) {
+      const labelY = Number(barText.getAttribute('y'))
+      expect(Math.abs(labelY - endpoint)).toBeLessThan(Math.abs(labelY - 100))
+    }
+    const boxes = [barText, growthText].map((text) => {
+      expect(text).toHaveAttribute('font-size', '11')
+      return { x: Number(text.getAttribute('x')) - 3.5, y: Number(text.getAttribute('y')) - 11, width: 7, height: 14 }
+    })
+    const intersects = (a: typeof boxes[number], b: typeof boxes[number]) => Math.min(a.x + a.width, b.x + b.width) > Math.max(a.x, b.x)
+      && Math.min(a.y + a.height, b.y + b.height) > Math.max(a.y, b.y)
+    expect(intersects(boxes[0], boxes[1])).toBe(false)
+    for (const box of boxes) {
+      expect(intersects(box, { x: -5, y: endpoint - 5, width: 10, height: 10 })).toBe(false)
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.y).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.width).toBeLessThanOrEqual(300)
+      expect(box.y + box.height).toBeLessThanOrEqual(160)
+    }
   })
 
   it('never invents a plotted marker for a missing figure', () => {
