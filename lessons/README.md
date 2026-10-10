@@ -153,6 +153,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - frontend-preview-both-themes-before-done.md — Eyeball the deployed preview in both themes before declaring visual work done
 - frontend-reserve-fixed-chrome-with-scroll-padding.md — A focus scroll stops at the viewport edge, not at a fixed overlay: reserve the overlay with scroll-padding
 - frontend-route-redesign-needs-a-mount-gate.md — A self-omitting section needs a source-level mount gate — render tests cannot see it go missing
+- frontend-sanitize-telemetry-before-transport.md — Sanitize every telemetry transport, persisted attribution and recording lifecycle before authentication data can leave
 - frontend-site-overlays-outrank-in-page-sticky-chrome.md — A fixed site-level overlay ranks above in-page sticky chrome, and the ladder gate scans sticky sites too
 - frontend-sitemap-cache-ownership.md — Cache the rendered sitemap hourly while bypassing Next's fetch Data Cache
 - frontend-spinner-gate-on-shared-errored-query.md — Gate a page's spinner on the retained failure when its children observe the same query
