@@ -11,13 +11,13 @@ Both paths retain calculation operands and source-check evidence.
 from __future__ import annotations
 
 import asyncio
-import logging
+import logging  # noqa: F401 - preserve the facade import surface
 import math
-from concurrent.futures import TimeoutError as FuturesTimeoutError
+from concurrent.futures import TimeoutError as FuturesTimeoutError  # noqa: F401 - preserve the facade import surface
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 
-from app.services.event_loop import get_app_loop
+from app.services.event_loop import get_app_loop  # noqa: F401 - preserve the facade import surface
 from app.services.fact_provenance import fact_operand, provenance_for_fact, published_value
 from app.services.facts.calendar import (
     _fiscal_year_windows, _label_quarters, fiscal_duration_values, fiscal_year_labels, reported_fiscal_year,
@@ -26,7 +26,7 @@ from app.services.facts.lineage import (
     annotate_filing_calculations, authoritative_reconciliation, local_reconciliation,
 )
 from app.services.facts.quarterly import (
-    FINAL_QUARTER_WINDOW, QUARTER_WINDOW, derive_cumulative_quarters, derive_quarter_sum_fallback,
+    FINAL_QUARTER_WINDOW, QUARTER_WINDOW, derive_cumulative_quarters, derive_quarter_sum_fallback,  # noqa: F401 - preserve the facade import surface
     reported_fact, same_period_provenance, same_scope,
 )
 
@@ -35,116 +35,95 @@ from sqlalchemy import and_, or_
 
 from app.models import Company, Filing, FinancialFact, Watchlist
 
-logger = logging.getLogger(__name__)
-
-# Financial-institution revenue concepts affected by the as-reported-statement fix (filing 528).
-# When remediating, the stale rows under these concepts (e.g. a bank's fee-income-only "revenue")
-# are deleted and re-inserted from the corrected extraction — raw_tag is NOT in the identity key,
-# so a plain re-upsert would skip them.
-AFFECTED_FINANCIAL_CONCEPTS: tuple[str, ...] = (
-    "revenue", "net_interest_income", "noninterest_income",
-    "premiums_earned", "net_investment_income",
+from app.services.facts.concepts import (
+    AFFECTED_FINANCIAL_CONCEPTS,
+    COMPANYFACTS_DURATION_TAGS,
+    COMPANYFACTS_INFLIGHT_WAIT_SECONDS,
+    COMPANYFACTS_INSTANT_TAGS,
+    COMPANYFACTS_SYNC_TIMEOUT_SECONDS,
+    CROSS_CHECK_TOLERANCE,
+    HEADLINE_GAAP_TAGS,
+    NON_NEGATIVE_CONCEPTS,
+    _CF_ANNUAL_WINDOW,
+    _CF_QUARTER_WINDOW,
+    _CF_YTD6_WINDOW,
+    _CF_YTD9_WINDOW,
+    _CONCEPT_UNITS,
+    _FI_SKIPPED_CONCEPTS,
+    _INSTANT_HEADLINE,
+    _MAGNITUDE_TOLERANCE,
+    _QUARTER_PERIODS,
+    _VALID_FP,
+    _classify_duration,
+    _duration_start,
+    _fiscal_period,
+    _is_financial_sic,
+    _parse_date,
+    _unit_for,
+)
+from app.services.facts.transport import (
+    _fetch_companyfacts_async,
+    _fetch_companyfacts_sync,
+    _running_loop_in_this_thread,
+    logger,
 )
 
-# Standardized concept (from xbrl_service.extract_standardized_metrics) → DEFAULT unit, used only
-# when the fact carries no reporting currency (domestic US filers). When a fact carries a currency
-# (e.g. CNY/EUR for a foreign private issuer), `_unit_for` substitutes it so the value is never
-# implied-USD. Margins are ratios ("pure"); per-share metrics are <ccy>/shares.
-_CONCEPT_UNITS: dict[str, str] = {
-    "revenue": "USD",
-    "net_income": "USD",
-    "gross_profit": "USD",
-    "operating_income": "USD",
-    "total_assets": "USD",
-    "cash_and_equivalents": "USD",
-    "operating_cash_flow": "USD",
-    "capital_expenditures": "USD",
-    "free_cash_flow": "USD",
-    "shareholders_equity": "USD",
-    "long_term_debt": "USD",
-    "earnings_per_share": "USD/shares",
-    "eps_diluted": "USD/shares",
-    "net_margin": "pure",
-    "gross_margin": "pure",
-    "operating_margin": "pure",
-    # Financial-institution revenue components/totals (filing 528 / MCB fix). All monetary totals;
-    # deliberately NOT in NON_NEGATIVE_CONCEPTS (net interest income / net investment income can be
-    # negative), and NOT in HEADLINE_GAAP_TAGS so the companyfacts cross-check leaves them alone.
-    "net_interest_income": "USD",
-    "noninterest_income": "USD",
-    "premiums_earned": "USD",
-    "net_investment_income": "USD",
-    # Roadmap 2.6: full cash-flow statement + working-capital lines (flag-gated extraction).
-    "investing_cash_flow": "USD",
-    "financing_cash_flow": "USD",
-    "current_assets": "USD",
-    "current_liabilities": "USD",
-    "working_capital": "USD",
-    "current_ratio": "pure",
-    # T5.3 shareholder returns: cash PAID (as-tagged positive magnitudes, the capex precedent).
-    # Deliberately NOT in NON_NEGATIVE_CONCEPTS — mirror capex: a rare credit-signed filer's value
-    # is stored as-tagged rather than hard-rejected (the reconcile magnitude check is sign-invariant
-    # and will NOT flag it); user-visible surfaces normalize with abs(), the FCF/§4 precedent.
-    "dividends_paid": "USD",
-    "share_repurchases": "USD",
-}
-
-# Concepts that are physically impossible below zero — a negative value is a parse error,
-# not a legitimate datum (a loss lives in net_income/operating_income, never in revenue or
-# total_assets). These hard-reject; everything else can legitimately be negative.
-NON_NEGATIVE_CONCEPTS: frozenset[str] = frozenset(
-    {"revenue", "total_assets", "cash_and_equivalents", "long_term_debt",
-     # Roadmap 2.6: balance-sheet totals + the current ratio can't be negative (working_capital CAN
-     # be, and the investing/financing cash flows routinely are — so those stay out of this set).
-     "current_assets", "current_liabilities", "current_ratio"}
-)
-
-# A period-over-period swing beyond this factor (either direction) is treated as a likely
-# scale bug (the ABNB "$ in millions" → 1, XOM EPS 0.00 class), flagged not rejected.
-_MAGNITUDE_TOLERANCE = 10.0
-
-
-def _parse_date(value: Any) -> Optional[date]:
-    if isinstance(value, date):
-        return value
-    if not isinstance(value, str):
-        return None
-    try:
-        return date.fromisoformat(value[:10])
-    except ValueError:
-        return None
-
-
-def _fiscal_period(form: Optional[str]) -> Optional[str]:
-    # Annual reports report the full fiscal year: 10-K (domestic) and 20-F / 40-F (foreign private
-    # issuers). For a 10-Q the quarter can't be inferred from the period alone, and a 6-K is
-    # free-form, so both are left unset rather than guessed.
-    return "FY" if (form or "").upper().replace("-", "").startswith(("10K", "20F", "40F")) else None
-
-
-def _duration_start(raw: Any, period_end: date) -> Optional[date]:
-    """A source start that genuinely precedes its period end, else None (duration unknown).
-
-    Deliberately incurious: it parses what extraction preserved and rejects anything that is not a
-    real date strictly before the end. It never derives a start from the form, the fiscal label,
-    the period end or a neighbouring period.
-    """
-    start = _parse_date(raw)
-    return start if start is not None and start < period_end else None
-
-
-def _unit_for(concept: str, currency: Optional[str]) -> str:
-    """Resolve the stored unit for a fact, substituting the as-filed reporting currency.
-
-    Domestic filers carry no currency → the USD/USD-shares/pure defaults stand. A foreign issuer's
-    fact carries its reporting currency (e.g. "CNY"), which replaces the USD assumption so a CNY
-    value is never stored/labelled as USD: monetary → "CNY", per-share → "CNY/shares", ratios stay
-    "pure".
-    """
-    base = _CONCEPT_UNITS.get(concept, "USD")
-    if base == "pure" or not currency:
-        return base
-    return f"{currency}/shares" if base.endswith("/shares") else currency
+__all__ = [
+    'AFFECTED_FINANCIAL_CONCEPTS',
+    'COMPANYFACTS_DURATION_TAGS',
+    'COMPANYFACTS_INFLIGHT_WAIT_SECONDS',
+    'COMPANYFACTS_INSTANT_TAGS',
+    'COMPANYFACTS_SYNC_TIMEOUT_SECONDS',
+    'CROSS_CHECK_TOLERANCE',
+    'HEADLINE_GAAP_TAGS',
+    'NON_NEGATIVE_CONCEPTS',
+    '_CF_ANNUAL_WINDOW',
+    '_CF_QUARTER_WINDOW',
+    '_CF_YTD6_WINDOW',
+    '_CF_YTD9_WINDOW',
+    '_CONCEPT_UNITS',
+    '_FI_SKIPPED_CONCEPTS',
+    '_INSTANT_HEADLINE',
+    '_MAGNITUDE_TOLERANCE',
+    '_QUARTER_PERIODS',
+    '_VALID_FP',
+    '_classify_duration',
+    '_collect_companyfacts_values',
+    '_companyfacts_fresh_result',
+    '_duration_start',
+    '_fetch_companyfacts_async',
+    '_fetch_companyfacts_sync',
+    '_fiscal_period',
+    '_fiscal_year_windows',
+    '_fundamentals_payload',
+    '_inflight_syncs',
+    '_is_financial_sic',
+    '_label_quarters',
+    '_lock_fact_companies',
+    '_parse_date',
+    '_persist_companyfacts_payload',
+    '_prior_values',
+    '_running_loop_in_this_thread',
+    '_unit_for',
+    'backfill_company_sic',
+    'backfill_facts',
+    'cross_check_facts',
+    'derive_q4_facts',
+    'derive_same_period_metrics',
+    'extract_authoritative_values',
+    'get_filing_fundamentals',
+    'ingest_companyfacts',
+    'ingest_companyfacts_by_id',
+    'logger',
+    'normalize_companyfacts',
+    'normalize_standardized_to_facts',
+    'process_filing_facts',
+    'reconcile_facts',
+    'remediate_industry_facts',
+    'sync_companyfacts_batch',
+    'upsert_facts',
+    'upsert_facts_bulk',
+]
 
 
 def normalize_standardized_to_facts(
@@ -360,22 +339,6 @@ def _prior_values(
 # mismatch. Runs in the backfill (not the request path); best-effort — if companyfacts is
 # unavailable, the invariant-gate result stands.
 
-# Standardized concept -> candidate us-gaap tags (tried in priority order, filled per period).
-HEADLINE_GAAP_TAGS: dict[str, tuple[str, ...]] = {
-    "revenue": (
-        "RevenueFromContractWithCustomerExcludingAssessedTax",
-        "Revenues",
-        "RevenueFromContractWithCustomerIncludingAssessedTax",
-        "SalesRevenueNet",
-    ),
-    "net_income": ("NetIncomeLoss", "ProfitLoss"),
-    "total_assets": ("Assets",),
-}
-_INSTANT_HEADLINE = frozenset({"total_assets"})  # balance-sheet (instant) vs duration concepts
-# Relative gap above which the parsed value is treated as wrong and replaced by companyfacts.
-CROSS_CHECK_TOLERANCE = 0.01
-
-
 def extract_authoritative_values(companyfacts: Any) -> dict[tuple[str, date], float]:
     """Map ``(headline concept, period_end) -> authoritative annual USD value`` from companyfacts.
 
@@ -474,53 +437,6 @@ def cross_check_facts(
             fact["reconciled"] = True
         out.append(authoritative_reconciliation(fact, original, auth))
     return annotate_filing_calculations(out)
-
-
-# Upper bound on one sync companyfacts fetch when it is handed to the app loop: the limiter's full
-# backoff ladder (Retry-After honoured up to 120s per attempt) can legitimately take minutes.
-COMPANYFACTS_SYNC_TIMEOUT_SECONDS = 600.0
-
-
-def _fetch_companyfacts_sync(cik: str) -> Optional[dict]:
-    """Best-effort sync fetch of the companyfacts JSON for a CIK (used by the backfill job).
-
-    A thin bridge onto ``_fetch_companyfacts_async`` so the backfill shares the SEC token bucket +
-    backoff ladder in ``sec_rate_limiter`` (CLAUDE.md rule 5) instead of a bare ``httpx.Client`` with
-    an ad-hoc sleep. Two sync callers, two loop strategies (see ``app/services/event_loop.py``):
-
-    - API process (``/internal/jobs/backfill-facts`` BackgroundTask, run in FastAPI's threadpool
-      while the app loop is live): the coroutine is handed to the registered app loop with
-      ``run_coroutine_threadsafe`` — the limiter's ``asyncio.Lock`` must only ever be awaited on
-      that loop, or a contended acquire could bind it to a throwaway loop and kill SEC traffic.
-    - Standalone ``backfill-facts`` Cloud Run job (no loop registered): a private ``asyncio.run``.
-
-    Returns ``None`` on any failure — the cross-check is optional and must never break the backfill.
-    """
-    try:
-        if _running_loop_in_this_thread() is not None:
-            # Blocking on .result() here would deadlock the very loop that must run the coroutine.
-            logger.warning("companyfacts sync fetch skipped for CIK %s: called from inside a loop", cik)
-            return None
-        app_loop = get_app_loop()
-        if app_loop is not None:
-            future = asyncio.run_coroutine_threadsafe(_fetch_companyfacts_async(cik), app_loop)
-            try:
-                return future.result(timeout=COMPANYFACTS_SYNC_TIMEOUT_SECONDS)
-            except FuturesTimeoutError:
-                future.cancel()
-                logger.warning("companyfacts sync fetch timed out for CIK %s", cik)
-                return None
-        return asyncio.run(_fetch_companyfacts_async(cik))
-    except Exception as exc:  # noqa: BLE001 - best-effort, never break the backfill
-        logger.warning("companyfacts sync fetch failed for CIK %s: %s", cik, exc)
-        return None
-
-
-def _running_loop_in_this_thread() -> Optional[asyncio.AbstractEventLoop]:
-    try:
-        return asyncio.get_running_loop()
-    except RuntimeError:
-        return None
 
 
 def _lock_fact_companies(db: Session, facts: list[dict[str, Any]]) -> None:
@@ -1130,100 +1046,6 @@ def get_filing_fundamentals(db: Session, filing_id: int) -> Optional[dict[str, A
 # fiscal year), whose EARLIEST-filed item is the original 10-Q that reported it as its own current
 # period.
 
-# Duration windows shared with the per-filing extractor (instance_extractor.DURATION_WINDOWS):
-# 52/53-week fiscal years run 364-371 days, fiscal quarters 84-98 (incl. 14-week quarters).
-# Six-/nine-month cumulative slices are derivation inputs, never discrete-quarter rows.
-_CF_ANNUAL_WINDOW = (320, 390)
-_CF_QUARTER_WINDOW = QUARTER_WINDOW
-_CF_YTD6_WINDOW = (150, 215)
-_CF_YTD9_WINDOW = (250, 295)
-
-_QUARTER_PERIODS = ("Q1", "Q2", "Q3", "Q4")
-
-# us-gaap tag candidates per standardized concept, in priority order. Ordering follows
-# HEADLINE_GAAP_TAGS for the shared concepts (companyfacts context: the ASC-606 revenue tag first).
-# Periods are merged ACROSS tags (first tag with data wins per period), so a filer that migrated
-# tags (SalesRevenueNet → RevenueFromContractWithCustomer...) keeps its full history. us-gaap only:
-# IFRS filers (ifrs-full) are detected and reported unsupported (v1 scope).
-COMPANYFACTS_DURATION_TAGS: dict[str, tuple[str, ...]] = {
-    "revenue": (
-        "RevenueFromContractWithCustomerExcludingAssessedTax",
-        "Revenues",
-        "RevenueFromContractWithCustomerIncludingAssessedTax",
-        "SalesRevenueNet",
-        "NetSales",
-    ),
-    "net_income": ("NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"),
-    "gross_profit": ("GrossProfit",),
-    "operating_income": ("OperatingIncomeLoss",),
-    "operating_cash_flow": (
-        "NetCashProvidedByUsedInOperatingActivities",
-        "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
-    ),
-    "capital_expenditures": (
-        "PaymentsToAcquirePropertyPlantAndEquipment",
-        "PaymentsToAcquireProductiveAssets",
-    ),
-    "investing_cash_flow": (
-        "NetCashProvidedByUsedInInvestingActivities",
-        "NetCashProvidedByUsedInInvestingActivitiesContinuingOperations",
-    ),
-    "financing_cash_flow": (
-        "NetCashProvidedByUsedInFinancingActivities",
-        "NetCashProvidedByUsedInFinancingActivitiesContinuingOperations",
-    ),
-    "earnings_per_share": ("EarningsPerShareBasic", "EarningsPerShareBasicAndDiluted"),
-    "eps_diluted": ("EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"),
-    # Financial-institution components/totals — exact tags, safe for banks/insurers (unlike the
-    # generic revenue tags, which resolve to the ASC-606 fee-income subset for a bank — the
-    # filing 528 / MCB bug — hence the `financial_sic` guard in normalize_companyfacts).
-    "net_interest_income": ("InterestIncomeExpenseNet",),
-    "noninterest_income": ("NoninterestIncome",),
-    "premiums_earned": ("PremiumsEarnedNet",),
-    "net_investment_income": ("NetInvestmentIncome",),
-}
-
-COMPANYFACTS_INSTANT_TAGS: dict[str, tuple[str, ...]] = {
-    "total_assets": ("Assets",),
-    "cash_and_equivalents": (
-        "CashAndCashEquivalentsAtCarryingValue",
-        "CashCashEquivalentsAndShortTermInvestments",
-        "Cash",
-        # ASU 2016-18 total (includes restricted cash) — the tag JPM and every large-bank
-        # adopter MIGRATED to (JPM FY2019+, BAC FY2020+). Appended LAST deliberately: per-period
-        # first-tag-wins keeps pre-migration years on the legacy tags' identical values (zero
-        # churn), while post-migration years — previously MISSING entirely — fill from this tag
-        # (data-quality plan P0-3).
-        "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
-    ),
-    "shareholders_equity": (
-        "StockholdersEquity",
-        "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
-    ),
-    "long_term_debt": ("LongTermDebtNoncurrent", "LongTermDebt"),
-    "current_assets": ("AssetsCurrent",),
-    "current_liabilities": ("LiabilitiesCurrent",),
-}
-
-# Generic revenue tags are WRONG for banks/insurers (fee-income subset — the MCB fix would be
-# undone by re-ingesting them); the exact FI component tags above carry their top line instead.
-_FI_SKIPPED_CONCEPTS: frozenset[str] = frozenset({"revenue"})
-
-
-def _classify_duration(start: date, end: date) -> Optional[str]:
-    """Classify annual, discrete-quarter and cumulative calculation inputs."""
-    days = (end - start).days
-    if _CF_ANNUAL_WINDOW[0] <= days <= _CF_ANNUAL_WINDOW[1]:
-        return "FY"
-    if FINAL_QUARTER_WINDOW[0] <= days <= FINAL_QUARTER_WINDOW[1]:
-        return "Q"
-    if _CF_YTD6_WINDOW[0] <= days <= _CF_YTD6_WINDOW[1]:
-        return "YTD6"
-    if _CF_YTD9_WINDOW[0] <= days <= _CF_YTD9_WINDOW[1]:
-        return "YTD9"
-    return None
-
-
 def _collect_companyfacts_values(
     usgaap: dict, tags: tuple[str, ...], unit_key: str, *, instant: bool
 ) -> dict[tuple[date, str], dict[str, Any]]:
@@ -1301,9 +1123,6 @@ def _collect_companyfacts_values(
             record["candidates"] = tag_candidates[key]
             claimed.setdefault(key, record)
     return claimed
-
-
-_VALID_FP = frozenset(_QUARTER_PERIODS)
 
 
 def normalize_companyfacts(
@@ -1617,48 +1436,10 @@ def upsert_facts_bulk(
     return {"inserted": inserted, "skipped": skipped, "demoted": demoted}
 
 
-async def _fetch_companyfacts_async(cik: str) -> Optional[dict]:
-    """Async companyfacts fetch through the SEC rate limiter (the REQUEST-PATH fetcher).
-
-    User-triggerable via the coverage endpoint, and also what the backfill's
-    ``_fetch_companyfacts_sync`` bridges onto, so it MUST share the token bucket + exponential
-    backoff in ``sec_rate_limiter``. Returns ``None`` on any failure, including a malformed CIK.
-    """
-    import httpx
-
-    from app.config import settings
-    from app.services.sec_rate_limiter import sec_rate_limiter
-    from app.utils.sec_urls import companyfacts_url
-
-    headers = {"User-Agent": settings.SEC_USER_AGENT, "Accept": "application/json"}
-
-    try:
-        url = companyfacts_url(cik)  # ValueError on a malformed CIK -> None, like any other failure
-
-        async def _get() -> Any:
-            async with httpx.AsyncClient(timeout=20.0) as client:
-                response = await client.get(url, headers=headers)
-                response.raise_for_status()
-                return response.json()
-
-        data = await sec_rate_limiter.execute_with_backoff(_get)
-        return data if isinstance(data, dict) else None
-    except Exception as exc:  # noqa: BLE001 - the caller degrades gracefully (no stamp, retry later)
-        logger.warning("companyfacts async fetch failed for CIK %s: %s", cik, exc)
-        return None
-
-
-def _is_financial_sic(sic: Optional[str]) -> bool:
-    """Financial-services SIC band (6000-6799) — lexical compare on the 4-digit String column,
-    same convention as ``remediate_industry_facts``."""
-    return bool(sic) and "6000" <= str(sic) <= "6799"
-
-
 # Per-company in-flight sync dedup (the summary_pipeline._claim_inflight pattern): concurrent
 # coverage requests for the same company collapse into one SEC fetch. Process-local is the right
 # scope — prod is a single Cloud Run instance with Redis off.
 _inflight_syncs: dict[int, asyncio.Event] = {}
-COMPANYFACTS_INFLIGHT_WAIT_SECONDS = 25.0
 
 
 def _companyfacts_fresh_result(

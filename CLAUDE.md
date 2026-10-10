@@ -86,7 +86,7 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 5. **SEC calls:** use the existing SEC service/transport paths and shared rate limiter.
    `app/services/edgar/` provides breaker-wrapped fetches and deliberately breaker-exempt local
    parsing. Existing raw-HTTP paths outside it — `SECFullTextSearchClient` in
-   `app/integrations/sec_api.py` and companyfacts fetching in `app/services/facts_service.py` —
+   `app/integrations/sec_api.py` and companyfacts fetching in `app/services/facts/transport.py` —
    use the shared limiter/backoff without the breaker. The in-layer XBRL companyfacts fallback
    also uses the limiter without the breaker, with a single token wait. Preserve these existing
    transport owners: do not add raw-HTTP SEC bypasses outside them, even if paced. Do not assume

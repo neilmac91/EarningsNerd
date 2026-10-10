@@ -29,7 +29,7 @@ Use asynchronous I/O around the existing synchronous database ownership; do not 
 - `backend/app/services/entitlements.py`: the only plan/limit authority.
 - `backend/app/services/edgar/`: SEC services; selected fetches use the breaker, local parsing does not.
   Existing EFTS in `backend/app/integrations/sec_api.py` and companyfacts fetching in
-  `backend/app/services/facts_service.py` use shared limiter/backoff without the breaker;
+  `backend/app/services/facts/transport.py` use shared limiter/backoff without the breaker;
   the in-layer XBRL companyfacts fallback uses a single limiter wait without the breaker.
   Follow existing transport ownership and pacing; do not add new bypasses.
 - `backend/app/services/summary_pipeline.py`: the single summary orchestrator.
