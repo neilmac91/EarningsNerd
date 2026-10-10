@@ -541,7 +541,7 @@ def build_insights(run: SummaryRun) -> None:
             # Preserve compound sentiments such as "neutral to positive".
             if isinstance(tone, str):
                 if " to " in tone.lower():
-                        run.insights["sentiment"] = tone.title()
+                    run.insights["sentiment"] = tone.title()
                 else:
                     run.insights["sentiment"] = tone.capitalize()
             else:
@@ -562,8 +562,8 @@ def build_insights(run: SummaryRun) -> None:
 
     if run.risk_section:
         run.insights["risk_signals"] = [
-            risk.get("summary", "")[:100] 
-            for risk in run.risk_section[:5] 
+            risk.get("summary", "")[:100]
+            for risk in run.risk_section[:5]
             if isinstance(risk, dict) and risk.get("summary")
         ]
 
