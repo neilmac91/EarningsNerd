@@ -879,11 +879,11 @@ def test_eval_and_exec_read_the_callers_namespace_unless_given_globals_of_their_
 
 def test_a_builtin_is_reached_by_a_call_above_any_module_binding_of_its_name():
     """Code that runs at import above ``eval = fake`` still calls the builtin, which reads the new module's
-    namespace once moved; below the first binding, the call is the module's ``eval`` until a ``del`` of it. A
-    binding that may not happen (in a block or a ``match``, a bare annotation, a walrus) leaves the builtin, and
-    ``from builtins import eval`` is the builtin. A
-    class body looks the name up in the class first, a block in it too: an ``eval`` its class bound above for
-    certain is the class's, but a method's body, or a call above that binding, reaches the builtin."""
+    namespace once moved; below a binding, the call is the module's ``eval`` until a ``del`` of it, and again
+    after the next binding. A binding that may not happen (in a block or a ``match``, a bare annotation, a
+    walrus) leaves the builtin, and ``from builtins import eval`` is the builtin. A class body looks the name up
+    in the class first, a block in it too: an ``eval`` its class bound above for certain is the class's, but a
+    method's body, or a call above that binding, reaches the builtin."""
     above = 'RESULT = eval("__name__")\n\n\ndef fake(src):\n    return "fake"\n\n\neval = fake\n'
     split = compare(above, {"app/x.py": above.replace('RESULT = eval("__name__")\n\n\n', ""),
                             "app/y.py": 'RESULT = eval("__name__")\n'}, old_path="app/x.py")
@@ -907,14 +907,19 @@ def test_a_builtin_is_reached_by_a_call_above_any_module_binding_of_its_name():
         assert moved.relocated == {"RESULT": f"app/y.py, was app/x.py: {namespace}"}, binding
     deleted_after = 'def fake(src):\n    return "fake"\n\n\neval = fake\nRESULT = eval("__name__")\ndel eval\n'
     assert _relocated(deleted_after, "app/y.py", "app/x.py") == {}
+    rebound = 'def fake(src):\n    return "fake"\n\n\neval = fake\ndel eval\neval = fake\nRESULT = eval("__name__")\n'
+    assert _relocated(rebound, "app/y.py", "app/x.py") == {}
 
 
 def test_a_builtin_is_followed_through_any_name_or_import_that_binds_it():
     """A builtin is the builtin whatever name holds it: imported from ``builtins`` under another name or its
-    own, at module level or in the def; assigned from it by name (where the module has not bound that name,
-    an import from ``builtins`` aside) or from the ``builtins`` module; and an attribute of that module,
-    however imported. The reason names the builtin. An attribute of another module, or a name assigned from
-    one that shadows the builtin, is not."""
+    own, at module level (in a block too), in the def or in a class body; assigned from it by a name that is
+    the builtin there (an import from ``builtins`` aside) or from the ``builtins`` module; and an attribute of
+    that module, however imported. The reason names the builtin. Such a name is the builtin where its binding
+    is seen: the module's where the code reads the module's name, a class body's in that body (not in its
+    methods), a def's in its own code. A parameter that holds it is not, nor a parameter named like a module
+    alias or ``builtins``, an alias of an ``eval`` the module or the class binds, an attribute of another
+    module, or a name assigned from an import that shadows the builtin."""
     old = ("import builtins\nfrom builtins import eval as run, globals as scope, compile as build\n\nrebound = eval\n"
            "attribute: object = builtins.exec\n\n\ndef aliased(src):\n    return run(src)\n\n\n"
            "def lookup(name):\n    return scope()[name]\n\n\ndef local(src):\n    from builtins import eval as go\n"
@@ -922,11 +927,18 @@ def test_a_builtin_is_followed_through_any_name_or_import_that_binds_it():
            "def dotted(src):\n    return builtins.eval(src)\n\n\ndef renamed(src):\n    import builtins as b\n"
            "    b.exec(src)\n\n\ndef assigned(src):\n    return rebound(src)\n\n\n"
            "def annotated(src):\n    attribute(src)\n\n\ndef compiled(src):\n    return build(src, '<generated>', 'exec')\n\n\n"
-           "maker = compile\n\n\ndef made(src):\n    return maker(src, '<generated>', 'exec')\n")
+           "maker = compile\n\n\ndef made(src):\n    return maker(src, '<generated>', 'exec')\n\n\n"
+           "def given(run, src):\n    return run(src)\n\n\ndef scoped(src, eval):\n    held = eval\n    return held(src)\n\n\n"
+           "def mine(src):\n    held = eval\n    return held(src)\n\n\n"
+           "class Holder:\n    run_here = eval\n    result = run_here('__name__')\n\n    def later(self, src):\n"
+           "        return run_here(src)\n\n\ndef passed(builtins, src):\n    return builtins.eval(src)\n\n\n"
+           "class Shadowed:\n    eval = staticmethod(len)\n    run_here = eval\n    result = run_here('__name__')\n\n\n"
+           "try:\n    from builtins import exec as tried\nexcept ImportError:\n    tried = None\n\n\n"
+           "def attempt(src):\n    tried(src)\n")
     namespace = "reads its module's namespace through {} (app.y, was app.x)"
     assert _relocated(old, "app/y.py", "app/x.py") == {
-        **dict.fromkeys(("aliased", "local", "own", "dotted", "assigned"), namespace.format("eval()")),
-        **dict.fromkeys(("renamed", "annotated"), namespace.format("exec()")), "lookup": namespace.format("globals()")}
+        **dict.fromkeys(("aliased", "local", "own", "dotted", "assigned", "mine", "Holder.result"), namespace.format("eval()")),
+        **dict.fromkeys(("renamed", "annotated", "attempt"), namespace.format("exec()")), "lookup": namespace.format("globals()")}
     flufl = _relocated(old, "app/y.py", "app/x.py", "from __future__ import barry_as_FLUFL\n\n" + old)
     compiled = "the code it compiles with compile() inherits from __future__ barry_as_FLUFL now, nothing before"
     assert flufl["compiled"] == flufl["made"] == compiled
@@ -935,8 +947,12 @@ def test_a_builtin_is_followed_through_any_name_or_import_that_binds_it():
     others = ("import json\nimport re\nfrom re import compile\n\npattern = compile\nsearch = re.compile\n\n\n"
               "def fake(src):\n    return src\n\n\neval = fake\nrun = eval\n\n\ndef parse(src):\n    return json.loads(src)\n\n\n"
               "def match(src):\n    return pattern(src)\n\n\ndef find(src):\n    return search(src)\n\n\n"
-              "def call(src):\n    return run(src)\n\n\ndef method(engine, src):\n    return engine.eval(src)\n")
-    assert _relocated(others, "app/y.py", "app/x.py", "from __future__ import barry_as_FLUFL\n\n" + others) == {}
+              "def call(src):\n    return run(src)\n\n\ndef method(engine, src):\n    return engine.eval(src)\n\n\n"
+              "def kept(src):\n    held = eval\n    return held(src)\n\n\n"
+              "class Kept:\n    run_here = eval\n    result = run_here('__name__')\n\n\n"
+              "class Imports:\n    import builtins\n    result = builtins.eval('__name__')\n")
+    assert _relocated(others, "app/y.py", "app/x.py", "from __future__ import barry_as_FLUFL\n\n" + others) == {
+        "Imports.result": namespace.format("eval()") + "; " + compiled.replace("compile()", "eval()")}
 
 
 def test_module_is_a_class_bodys_only():

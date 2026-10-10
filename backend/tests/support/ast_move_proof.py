@@ -107,27 +107,29 @@ resolves to another module; a call of the builtin ``globals()``, or of ``eval`` 
 of their own (none, or ``None``), which now reads another module's namespace, or another file's (``x.py``
 and ``x/__init__.py`` differ in ``__file__`` and ``__path__``; a builtin is a name the module binds nothing
 under for certain above the calling symbol, an import included, nor, for a call in a class body itself, its
-class: a binding in a block, by a bare annotation or ``:=``, or deleted before the call, may leave the
-builtin; and a name the module binds to a builtin anywhere, by an import from ``builtins`` under any name or
-an assignment from one, is that builtin, as is an attribute of the ``builtins`` module); annotations
-postponed by ``from __future__ import annotations`` in one module and evaluated in the other (a def's
-parameters and return, and an annotated assignment at module level or in a class body, not one in a def's
-body, which Python never evaluates; reported once, on the class, for a class's members), and the code it
-compiles with the builtin ``eval``, ``exec`` or ``compile``, which inherits every ``from __future__`` import
-of its module, whatever globals it runs in, unless ``compile`` is told ``dont_inherit``, when those differ
-(for ``eval`` alone, all but ``annotations``: an expression holds no annotation; fail closed: a code object
-compiled elsewhere inherits nothing); and a module dunder it binds, at module level or through ``global``,
-which Python reads from the new module (a moved ``__getattr__`` no longer serves the façade). A block reads
-its header here, a ``globals()`` there too; its statements are symbols of their own. A name that both
-modules set outright above the reading symbol (outside a block, not by a bare annotation or ``:=``, from a
-value that does not read the name as ``__doc__ +=`` does; a def above the binding may be called at import
-before it), or that an earlier member of its class sets so for a read in the class body itself, is compared
-as those symbols; one that only one module sets outright, or binds at all, is reported; otherwise the values
-the import system derives are compared. Names are derived from the path relative to ``backend/`` (the CLI
-normalises how ``--old`` and ``--new`` are spelled), every directory a package, and without the old path
-(``compare()``'s ``old_path``, which the CLI always passes) every read but the docstring's and the
-annotations' is reported, as ``the old path is unknown`` or ``was an unknown module``. A RELOCATED symbol
-still counts as identical, as a REORDERED one does, and ``--allow`` takes its key.
+class: a binding in a block, by a bare annotation or ``:=``, or deleted before the call and not made again,
+may leave the builtin; and a name bound to a builtin, by an import from ``builtins`` under any name or an
+assignment from a name that is the builtin there, is that builtin where the binding is seen (the module's
+where the code reads the module's name, a class body's in that body, a def's in its own code), as is an
+attribute of the ``builtins`` module); annotations postponed by ``from __future__ import annotations`` in
+one module and evaluated in the other (a def's parameters and return, and an annotated assignment at module
+level or in a class body, not one in a def's body, which Python never evaluates; reported once, on the
+class, for a class's members), and the code it compiles with the builtin ``eval``, ``exec`` or ``compile``,
+which inherits every ``from __future__`` import of its module, whatever globals it runs in, unless
+``compile`` is told ``dont_inherit``, when those differ (for ``eval`` alone, all but ``annotations``: an
+expression holds no annotation; fail closed: a code object compiled elsewhere inherits nothing); and a
+module dunder it binds, at module level or through ``global``, which Python reads from the new module (a
+moved ``__getattr__`` no longer serves the façade). A block reads its header here, a ``globals()`` there
+too; its statements are symbols of their own. A name that both modules set outright above the reading symbol
+(outside a block, not by a bare annotation or ``:=``, from a value that does not read the name as ``__doc__
++=`` does; a def above the binding may be called at import before it), or that an earlier member of its
+class sets so for a read in the class body itself, is compared as those symbols; one that only one module
+sets outright, or binds at all, is reported; otherwise the values the import system derives are compared.
+Names are derived from the path relative to ``backend/`` (the CLI normalises how ``--old`` and ``--new`` are
+spelled), every directory a package, and without the old path (``compare()``'s ``old_path``, which the CLI
+always passes) every read but the docstring's and the annotations' is reported, as ``the old path is
+unknown`` or ``was an unknown module``. A RELOCATED symbol still counts as identical, as a REORDERED one
+does, and ``--allow`` takes its key.
 
 Limits. Code that a new class runs through a BASE (an inherited metaclass, or the base's
 ``__init_subclass__``) is not visible in the AST, so a new class with bases is ADDED; read every ADDED
@@ -175,6 +177,7 @@ import copy
 import difflib
 import subprocess
 import sys
+from collections.abc import Callable, Iterable, Set
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
@@ -210,9 +213,9 @@ def _target_names(target: ast.expr) -> list[str]:
     return [ast.unparse(target)]
 
 
-def _certain_bindings(body: list[ast.stmt]) -> dict[str, tuple[int, int | None]]:
-    """The names a body (a module's, or a class's) binds for certain as it runs, each with the lines that
-    binding holds between: from the first one not in a block or a ``match`` (it may not run), not by a bare
+def _certain_bindings(body: list[ast.stmt]) -> dict[str, list[tuple[int, int | None]]]:
+    """The names a body (a module's, or a class's) binds for certain as it runs, each with the lines every
+    such binding holds between: from each one not in a block or a ``match`` (it may not run), not by a bare
     annotation or ``:=``, to the first ``del`` of the name after it (None: never deleted). An import from
     ``builtins`` binds the builtin itself."""
     deletions: dict[str, list[int]] = {}
@@ -221,25 +224,39 @@ def _certain_bindings(body: list[ast.stmt]) -> dict[str, tuple[int, int | None]]
             for target in statement.targets:
                 for name in _target_names(target):
                     deletions.setdefault(name, []).append(statement.lineno)
-    first: dict[str, int] = {}
+    starts: dict[str, list[int]] = {}
     for statement in body:
-        if isinstance(statement, (*_COMPOUND, ast.Match)) or (isinstance(statement, ast.AnnAssign)
-                                                              and statement.value is None):
+        if isinstance(statement, (*_COMPOUND, ast.Match, ast.Delete)) or (isinstance(statement, ast.AnnAssign)
+                                                                          and statement.value is None):
             continue
         if isinstance(statement, ast.ImportFrom) and statement.module == "builtins" and not statement.level:
             continue
         walrus = {each.target.id for each in ast.walk(statement) if isinstance(each, ast.NamedExpr)}
         for name in _Scope().read(statement).bound - walrus:
-            first.setdefault(name, statement.lineno)
-    return {name: (line, min((at for at in deletions.get(name, ()) if at > line), default=None))
-            for name, line in first.items()}
+            starts.setdefault(name, []).append(statement.lineno)
+    return {name: [(line, min((at for at in deletions.get(name, ()) if at > line), default=None)) for line in lines]
+            for name, lines in starts.items()}
 
 
-def _bound_at(spans: dict[str, tuple[int, int | None]], name: str, line: int) -> bool:
-    """Whether a certain binding of ``name`` (``_certain_bindings``) holds at ``line``: made above it, and
+def _bound_at(spans: dict[str, list[tuple[int, int | None]]], name: str, line: int) -> bool:
+    """Whether a certain binding of ``name`` (``_certain_bindings``) holds at ``line``: one made above it, and
     not deleted since."""
-    start, end = spans.get(name, (line, None))
-    return start < line and (end is None or line < end)
+    return any(start < line and (end is None or line < end) for start, end in spans.get(name, ()))
+
+
+def _namespace_statements(body: list[ast.stmt]) -> list[ast.stmt]:
+    """Every statement a module or class body runs in its own namespace: through blocks, handlers and
+    ``match`` cases, not into a def's or a class's body."""
+    out: list[ast.stmt] = []
+    for node in body:
+        out.append(node)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        for name in ("body", "orelse", "finalbody", "handlers", "cases"):
+            for item in getattr(node, name, None) or []:
+                out.extend(_namespace_statements(item.body if isinstance(item, (ast.excepthandler, ast.match_case))
+                                                 else [item]))
+    return out
 
 
 def _is_docstring(node: ast.stmt) -> bool:
@@ -472,14 +489,15 @@ def _parameters(args: ast.arguments) -> list[ast.arg]:
     return [*args.posonlyargs, *args.args, *args.kwonlyargs, *filter(None, (args.vararg, args.kwarg))]
 
 
-def _builtin_names(tree: ast.Module, shadowing: dict[str, tuple[int, int | None]]
-                   ) -> tuple[dict[str, set[str]], set[str]]:
-    """The names a module binds to a builtin anywhere in it, each with the builtins it may be: an import from
-    ``builtins`` under any name, and an assignment of one by its name (where the module has not bound that
-    name for certain) or as an attribute of the ``builtins`` module; and the names it binds to that module."""
-    nodes = list(ast.walk(tree))
-    modules = {alias.asname or alias.name for each in nodes if isinstance(each, ast.Import)
-               for alias in each.names if alias.name == "builtins"}
+def _builtin_names(nodes: Iterable[ast.AST], builtin_at: Callable[[str, int], bool],
+                   modules: Set[str] = frozenset()) -> tuple[dict[str, set[str]], set[str]]:
+    """The names these nodes bind to a builtin, each with the builtins it may be: an import from ``builtins``
+    under any name, and an assignment of one by a name that is the builtin where it stands (``builtin_at``)
+    or as an attribute of the ``builtins`` module (a name in ``modules``, or one imported here); and the names
+    bound to that module, ``modules`` among them."""
+    nodes = list(nodes)
+    modules = set(modules) | {alias.asname or alias.name for each in nodes if isinstance(each, ast.Import)
+                              for alias in each.names if alias.name == "builtins"}
     aliases: dict[str, set[str]] = {}
     for each in nodes:
         if isinstance(each, ast.ImportFrom) and each.module == "builtins" and not each.level:
@@ -488,7 +506,7 @@ def _builtin_names(tree: ast.Module, shadowing: dict[str, tuple[int, int | None]
         elif isinstance(each, (ast.Assign, ast.AnnAssign)) and each.value is not None:
             value = each.value
             if isinstance(value, ast.Name) and value.id in _NAMESPACE_CALLS | _COMPILE_CALLS:
-                builtin = None if _bound_at(shadowing, value.id, each.lineno) else value.id
+                builtin = value.id if builtin_at(value.id, each.lineno) else None
             elif isinstance(value, ast.Attribute) and isinstance(value.value, ast.Name):
                 builtin = value.attr if value.value.id in modules else None
             else:
@@ -705,13 +723,15 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
     names: dict[str, _Names] = {}
     # A call by name reaches a builtin unless the module binds that name for certain (an import included) above
     # the symbol that calls it: code that runs at import above the binding still reaches the builtin. A name
-    # bound to a builtin anywhere in the module, or an attribute of the ``builtins`` module, may be one too.
+    # the module itself binds to a builtin, or an attribute of the ``builtins`` module, is one too.
     shadowing = _certain_bindings(tree.body)
-    aliases, modules = _builtin_names(tree, shadowing)
+    aliases, modules = _builtin_names(_namespace_statements(tree.body),
+                                      lambda name, line: not _bound_at(shadowing, name, line))
 
     def put(key: str, text: str, node: ast.AST, inert: bool, owner: str | None = None,
             code: ast.AST | None = None, documented: bool = False,
-            local: dict[str, tuple[int, int | None]] | None = None) -> None:
+            local: dict[str, list[tuple[int, int | None]]] | None = None,
+            in_body: tuple[dict[str, set[str]], set[str]] = ({}, set())) -> None:
         found[key] = f"{found[key]}\n{text}" if key in found else text  # every definition, in source order
         occurrences.append((node.lineno, node.col_offset, len(occurrences), key))
         if not inert:
@@ -742,15 +762,28 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
         # A class body looks a name up in the class first: a member bound above, unless a nested scope reads it.
         nested = set().union(*(scope.taken() for scope in head.nested))
         class_bound = {name for name in local or {} if _bound_at(local, name, node.lineno) and name not in nested}
+        # A name bound to a builtin is that builtin where the binding is seen: the module's where the code reads
+        # the module's name, its class body's (``in_body``) in that body itself, and its own code's when the
+        # builtin it assigns is one there (a parameter or a local of that name is not).
+        direct = head.loaded if owner else set()
+        class_aliases, class_modules = in_body
+        own, own_modules = _builtin_names(
+            code_nodes, lambda name, line: name in reads - class_bound and not _bound_at(shadowing, name, node.lineno),
+            (modules & reads) | (class_modules & direct))
+
         def reached(call: ast.Call) -> set[str]:  # the builtins a call may be
             func = call.func
             if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
-                return {func.attr} if func.value.id in modules else set()
+                return {func.attr} if func.value.id in own_modules else set()
             if not isinstance(func, ast.Name):
                 return set()
-            found = set(aliases.get(func.id, ()))
-            if func.id in reads - class_bound and not _bound_at(shadowing, func.id, node.lineno):
-                found.add(func.id)
+            found = set(own.get(func.id, ()))
+            if func.id in direct:
+                found |= class_aliases.get(func.id, set())
+            if func.id in reads - class_bound:
+                found |= aliases.get(func.id, set())
+                if not _bound_at(shadowing, func.id, node.lineno):
+                    found.add(func.id)
             return found
 
         calls = [(name, each) for each in code_nodes if isinstance(each, ast.Call) for name in reached(each)]
@@ -793,10 +826,13 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
                 if isinstance(each, ast.ImportFrom) and each.level for alias in each.names}
             documented = _is_docstring(node.body[0])
             local = _certain_bindings(node.body)
+            # What the class body binds to a builtin: a name it assigns one from is the class's above, else the module's.
+            in_body = _builtin_names(_namespace_statements(node.body), lambda name, line: not _bound_at(local, name, line)
+                                     and not _bound_at(shadowing, name, node.lineno), modules)
             for guard in _guards(node.body):
                 if not _type_checking_imports(guard):
                     put(f"{node.name}.guard:{_guard_header(guard)}", ast.unparse(_without_imports(guard)), guard,
-                        inert=False, owner=node.name, documented=documented, local=local)
+                        inert=False, owner=node.name, documented=documented, local=local, in_body=in_body)
             # Each member is judged where it stands in the class body; inside a block, no property above it counts.
             judged = {id(stmt): inert for stmt, inert in _class_body(node.body, postponed)}
             for member in members:
@@ -812,7 +848,7 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
                     key = "expr:" + ast.unparse(member)
                 inert = judged[id(member)] if id(member) in judged else _inert(member, postponed, frozenset())
                 put(f"{node.name}.{key}", ast.unparse(member), member, inert, owner=node.name, documented=documented,
-                    local=local)
+                    local=local, in_body=in_body)
         elif isinstance(node, ast.Assign):
             put(_assignment_key(node.targets), ast.unparse(node), node, _inert(node, postponed))
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
