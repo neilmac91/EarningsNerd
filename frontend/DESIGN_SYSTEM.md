@@ -237,6 +237,21 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  (the 600-level gain/loss are chips + graphics only — the 3:1 non-text floor).
                  lib/financialTone.directionText IS this recipe — route delta text through it.
 
+Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated origin, then a superscript
+                 letter for its grouped data note. The letter is text-data-xs (11px minimum), zero
+                 line-height, and does not size its row. Warning ink belongs only to unresolved review
+                 concerns; unavailable values and missing validation use secondary ink. The mark is
+                 aria-hidden inside the figure's source button; its accessible name states the note
+                 and any inherited comparison note. Letters are snapshot-local, review notes first.
+                 Data notes counts distinguish values, QoQ, YoY and annual window comparisons;
+                 a missing validation record is never counted as a passed check. Preserve every
+                 reason, including comparison-only concerns. Full-width status Badges and nowrap
+                 labels do not belong in an analysis KPI or metrics cell.
+                 Analysis table redesign contract: equal rem period columns, sticky row headers,
+                 a named keyboard scroll region, mandatory column snapping and inline-end space
+                 that makes the entire scroll range a multiple of the column width. A table window
+                 changes the table only. This geometry follows the note-model release separately.
+
 Solid chip       <Badge variant="solid">  — the primary colorway as a chip (brand.strong fill +
                  white label; dark: NAVY ink on brand.dark) for brand-weak TINTED grounds where the
                  tint chips vanish. <Badge variant="info"> = the info STATE tint
@@ -710,14 +725,17 @@ rendered ground.
 ## 10. Charts (recharts)
 
 **Financial source states (October 2026).** Consume the server’s separate `provenance.method`
-and `provenance.validation`; a calculated figure is not an error. Multi-period tables use the
-neutral `† calculated` legend and `SourceValue` buttons opening the shared Modal with source
-links, formulas and operands. `SourcesMethods` provides one report-level explanation; filing
-fundamentals and peers use `SourceChecks`. Amber “Source check needed” means an unresolved
-source concern, never routine arithmetic. Legacy false flags remain concerns until repaired;
-missing metadata makes no passed-check claim. Do not remove inherited concerns from growth.
-Missing values are “Unavailable”, never zero or an assertion that the company did not report
-them. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
+and `provenance.validation`; a calculated figure is not an error. Multi-period analysis uses
+neutral `† calculated` marks and lettered data notes with `SourceValue` buttons opening the shared
+Modal with source links, formulas, operands and the applicable note. The report-level disclosure
+groups concerns by reason and counts figures separately from inherited comparisons. Chart and
+narrative Notes controls open the same note; filing fundamentals and peers retain their own
+source-check presentation. Warning ink identifies an unresolved concern, never routine arithmetic.
+Legacy concerns remain until their stored validation changes; missing metadata makes no passed-check
+claim. Do not remove inherited concerns from growth. Unavailable table values use — with a note
+letter and read “Unavailable” in the evidence view, never zero or a claim that the company did not
+report them. The subsequent chart-mark release adds hollow points and outlined bars with note letters;
+PNG notes then use the same grouped reason sentences beneath the plot. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
 source dates, material gaps and a concise disclosure. Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the

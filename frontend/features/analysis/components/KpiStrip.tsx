@@ -6,17 +6,26 @@ import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth, windowRange } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
-import ReconciliationBadge from './ReconciliationBadge'
+import DataNoteMark from './DataNoteMark'
+import SourceValue from './SourceValue'
+import { useDataNotes } from './DataNotesContext'
+import type { DataNote } from '@/features/analysis/lib/dataNotes'
 import type { FactProvenance } from '@/features/analysis/lib/provenance'
 import type {
   AnalysisDataset,
   AnalysisSeries,
+  AnalysisPoint,
   GrowthValue,
   SeriesTone,
 } from '@/features/analysis/api/analysis-api'
 
 interface Kpi {
   label: string
+  metricLabel: string
+  concept: string
+  point: AnalysisPoint
+  note: DataNote | null
+  growthNote: DataNote | null
   value: number
   reconciled?: boolean
   provenance?: FactProvenance | null
@@ -47,21 +56,20 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
   const { text, direction } = formatGrowth(kpi.growth, kpi.isPercent)
   const tone = applySeriesTone(kpi.tone, direction)
   return (
-    <Card className="p-4">
+    <Card className="min-w-0 p-4" data-analysis-kpi>
       <div className="text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
         {kpi.label}
       </div>
-      <div className="tnum font-data mt-1 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-        {animated}
+      <div data-kpi-value className="tnum font-data mt-1 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+        <SourceValue point={kpi.point} label={kpi.metricLabel} concept={kpi.concept} note={kpi.note} comparison={text ? { label: kpi.growthLabel, display: text, provenance: kpi.growthProvenance, reconciled: kpi.growthReconciled, note: kpi.growthNote } : undefined}>{animated}</SourceValue>
       </div>
-      <ReconciliationBadge reconciled={kpi.reconciled} provenance={kpi.provenance} />
       {text && (
         <div
           className={`tnum font-data mt-0.5 text-xs ${directionText[tone]}${kpi.growthTitle ? ' cursor-help' : ''}`}
           title={kpi.growthTitle}
         >
           {kpi.growthLabel} {text}
-          <ReconciliationBadge reconciled={kpi.growthReconciled} provenance={kpi.growthProvenance} label="Growth source check needed" />
+          <DataNoteMark note={kpi.growthNote} announce />
         </div>
       )}
     </Card>
@@ -71,6 +79,7 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
 /** Headline strip: latest top line, net income, FCF, net margin — with the window's CAGR/YoY
  *  (or, for the percent-unit net-margin card, the window's pp change — CAGR doesn't apply). */
 export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
+  const notes = useDataNotes(dataset)
   const byConcept = Object.fromEntries(dataset.series.map((s) => [s.concept, s]))
 
   const specs: { concept: string; label?: string; format?: (v: number) => string }[] = [
@@ -94,6 +103,11 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
     const window = windowRange(series)
     kpis.push({
       label: `${series.label} (${point.period})`,
+      metricLabel: series.label,
+      concept: series.concept,
+      point: { ...point, unit: point.unit ?? series.unit },
+      note: notes.noteFor(point),
+      growthNote: isAnnual ? notes.noteForWindow(series) : notes.noteForComparison(point, 'yoy'),
       value: point.value as number,
       reconciled: point.reconciled,
       provenance: point.provenance,

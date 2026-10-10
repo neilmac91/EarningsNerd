@@ -11,7 +11,7 @@ import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { ThemeContext } from '@/components/ThemeProvider'
 import { Card, seriesColor, chartTheme, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton } from '@/components/ui'
 import { needsSourceCheck } from '@/features/analysis/lib/provenance'
-import ReconciliationBadge from '@/features/analysis/components/ReconciliationBadge'
+import SourceCheckBadge from '@/features/fundamentals/components/SourceCheckBadge'
 import SourceChecks from '@/features/analysis/components/SourceChecks'
 
 type FmtKind = 'usd' | 'eps' | 'pct'
@@ -122,7 +122,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Sector Peers</h2>
             {hasUnverified && (
-              <ReconciliationBadge reconciled={false} />
+              <SourceCheckBadge reconciled={false} />
             )}
           </div>
           {meaningful && subject?.rank != null && (

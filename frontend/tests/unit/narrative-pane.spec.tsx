@@ -2,7 +2,9 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 
 import NarrativePane, { type NarrativeState } from '@/features/analysis/components/NarrativePane'
-import type { AnalysisCitation, AnalysisCompletion } from '@/features/analysis/api/analysis-api'
+import type { AnalysisCitation, AnalysisCompletion, AnalysisDataset } from '@/features/analysis/api/analysis-api'
+import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
+import SourcesMethods from '@/features/analysis/components/SourcesMethods'
 
 const citation: AnalysisCitation = {
   n: 1,
@@ -41,12 +43,49 @@ describe('NarrativePane citation chips', () => {
     const state = doneState({ completion: doneCompletion({ citations: [{ ...citation, reconciled: false }] }) })
     const { rerender } = render(<NarrativePane state={state} />)
     expect(screen.getByText('1 source entry')).toBeInTheDocument()
-    expect(screen.getByText('Source checks needed')).toBeInTheDocument()
-    expect(screen.getByText('Source check needed').closest('li')).toHaveTextContent(citation.excerpt)
+    const notesButton = screen.getByRole('button', { name: 'Review data notes a' })
+    expect(document.getElementById('analysis-source-1')?.querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
+    expect(screen.getByRole('button', { name: /Citation 1:.*data note a/ })).toBeInTheDocument()
+    fireEvent.click(notesButton)
+    const note = document.getElementById('analysis-data-note-a')!
+    expect(note.closest('details')).toHaveAttribute('open')
+    expect(note).toHaveFocus()
+    expect(note).toHaveTextContent('A source check remains unresolved')
     expect(screen.getByText('Sources · SEC XBRL values and computed figures')).toBeInTheDocument()
     rerender(<NarrativePane state={doneState()} />)
-    expect(screen.queryByText('Source checks needed')).not.toBeInTheDocument()
-    expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
+    expect(document.querySelector('[data-note-kind="review"]')).not.toBeInTheDocument()
+    expect(document.querySelector('[data-note-kind="unknown"]')).toBeInTheDocument()
+  })
+
+  it('retains a citation-only concern beside report notes without changing report counts or colliding IDs', () => {
+    const dataset: AnalysisDataset = {
+      ticker: 'TST', company_name: 'Test', mode: 'annual', period_key: 'FY2024',
+      periods: [{ key: 'FY2024', fiscal_year: 2024, fiscal_period: 'FY', period_end: '2024-12-31' }],
+      series: [{ concept: 'revenue', label: 'Revenue', unit: 'USD', percent: false, cagr: null, points: [{
+        period: 'FY2024', value: 391035000000,
+        provenance: { version: 1, method: 'reported', validation: 'needs_review', reasons: ['unit_mismatch'], formula: null, calculation_version: 'quarterly-v2', inputs: [] },
+      }] }], inflections: [],
+    }
+    const state = doneState({ completion: doneCompletion({ citations: [{ ...citation, reconciled: false }] }) })
+    const { rerender } = render(<DataNotesProvider dataset={dataset}><SourcesMethods dataset={dataset} /><NarrativePane state={state} /></DataNotesProvider>)
+    expect(screen.getByText(/1 figure needs review/)).toBeInTheDocument()
+    expect(screen.queryByText(/2 figures need review/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Citation 1:.*data note b/ })).toBeInTheDocument()
+    expect(document.querySelectorAll('#analysis-data-note-a')).toHaveLength(1)
+    expect(document.querySelectorAll('#analysis-data-note-b')).toHaveLength(1)
+    const note = document.getElementById('analysis-data-note-b')!
+    fireEvent.click(screen.getByRole('button', { name: 'Review data notes b' }))
+    expect(note.closest('details')).toHaveAttribute('open')
+    expect(note).toHaveFocus()
+    expect(note).toHaveTextContent('A source check remains unresolved')
+    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('The source inputs use different units or currencies')
+    const passed = structuredClone(dataset)
+    passed.series[0].points[0].provenance!.validation = 'passed'
+    passed.series[0].points[0].provenance!.reasons = []
+    rerender(<DataNotesProvider dataset={passed}><SourcesMethods dataset={passed} /><NarrativePane state={state} /></DataNotesProvider>)
+    expect(screen.getByText(/1 figure passed automated checks/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Citation 1:.*data note a/ }).querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
+    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('A source check remains unresolved')
   })
 
   beforeEach(() => {

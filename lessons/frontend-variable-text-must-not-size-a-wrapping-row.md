@@ -50,3 +50,16 @@ helper's arguments and the receiver of `.join`, `.filter(Boolean)` or `.trim` co
 call's inputs are checked on their own. Codex then found that a reset under a variant
 (`grid grid-cols-1 sm:grid-cols-none md:grid-cols-2`) clears the tracks from `sm` up while a base sits
 below it. Such a reset is now reported on its own; use `grid-cols-[auto]` for content-sized tracks.
+
+
+**Additional evidence (2026-10-10, analysis data notes)**: The founder's META run still showed a
+source-check badge outside the net-margin card after the first quality-layer release. On the real
+frontend with the supplied incomplete-history fixture, the badge extends 49px beyond its card at
+390px and 84px at 320px; status text also makes flagged table columns much wider than clean ones.
+The data-notes redesign replaces repeated labels with figure affixes and an inspectable grouped
+explanation. Its analysis allowlist gate rejects Badge/nowrap labels in KPI and metrics components
+and annotations below the 11px floor. Layout acceptance must also compare document width with the
+configured viewport or document client width: mobile Chromium can expand window.innerWidth to the
+overflowing content, making document.scrollWidth − window.innerWidth incorrectly read zero.
+The separate analysis-layout browser gate is the final rollout item; the allowlist alone does not
+establish card containment, column alignment or sticky-column visibility.
