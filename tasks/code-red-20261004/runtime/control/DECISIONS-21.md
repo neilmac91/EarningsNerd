@@ -99,7 +99,7 @@ fixed on main. No paid run (tasks-only). Squash-merged `da8dc998` at 22:14:52Z w
 TASKS_WORKER_URL=set`, printed "No deployable backend changes - skipping deploy." and skipped every deploy step, 6 to 17
 (**fourteenth deploy-skip proof**).
 
-## Production after record 20: #1169's deploy read back from its log; six later main runs
+## Production after record 20: #1169's deploy read back from its log; twelve later main runs classified (four deploys by other writers read back)
 
 **#1169 (`86ac7878`, CI images through `mirror.gcr.io`) deployed production** (main run 37997043510; `deploy-backend` job
 114047761921, 22:09:50–22:12:21Z), shipping #1144 (the stage decomposition of the summary pipeline) and everything merged since
