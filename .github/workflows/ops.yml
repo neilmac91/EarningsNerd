@@ -200,7 +200,7 @@ jobs:
           import subprocess
           svc = json.load(open("/tmp/svc.json"))
           WORKER = "earningsnerd-task-worker"
-          GCLOUD_TIMEOUT = 120
+          GCLOUD_TIMEOUT = 100
           PUBLIC_PRINCIPALS = ("allUsers", "allAuthenticatedUsers")
           failures = []
           def fail(message):
@@ -208,6 +208,9 @@ jobs:
               # every defect and the later blocks still print. Reads that gate later reads stay immediate exits.
               failures.append(message)
               print(f"::error::Unresolved production configuration: {message}")
+          def stop(message):
+              # An immediate exit still names every defect collected before it.
+              raise SystemExit("Unresolved production configuration: " + "; ".join(failures + [message]))
           def percent(target):
               value = target.get("percent", 0)
               return value if type(value) is int else 0
@@ -216,7 +219,7 @@ jobs:
               # leftover tag keeps a retired image serving beside the release.
               tagged = [target.get("revisionName") for target in status.get("traffic", []) if target.get("tag")]
               if tagged:
-                  raise SystemExit(f"Unresolved production configuration: tagged traffic targets {tagged} on the {who}; remove stale revision tags.")
+                  stop(f"tagged traffic targets {tagged} on the {who}; remove stale revision tags.")
               # Only revisionName/percent are echoed: a traffic target can carry a private service URL.
               traffic = [{"revisionName": target.get("revisionName"), "percent": percent(target)}
                          for target in status.get("traffic", []) if percent(target) > 0]
@@ -231,10 +234,10 @@ jobs:
                   cause = f"traffic is not a single 100% target on {latest}"
               else:
                   return latest
-              raise SystemExit(f"Unresolved production configuration: require 100% traffic on the latest ready revision of the {who}; {cause}.")
+              stop(f"require 100% traffic on the latest ready revision of the {who}; {cause}.")
           latest = resolve_traffic("Service", "Serving traffic", svc["status"])
           def gcloud_json(argv):
-              # The one seam for every gcloud read. stderr is captured and reduced to a closed class, never
+              # The one seam for every gcloud read made from Python. stderr is captured and reduced to a closed class, never
               # echoed: gcloud's error text can name the acting principal or a private URL.
               try:
                   return json.loads(subprocess.check_output(
@@ -258,7 +261,7 @@ jobs:
           def describe(kind, name):
               data, failure = gcloud_json([kind, "describe", name])
               if failure:
-                  raise SystemExit(f"Unresolved production configuration: cannot describe {kind} {name} ({failure}).")
+                  stop(f"cannot describe {kind} {name} ({failure}).")
               return data
           revision = describe("revisions", latest)
           pregenerate = describe("jobs", "earningsnerd-pregenerate")
@@ -306,7 +309,7 @@ jobs:
                                   "--proxy-headers", "--forwarded-allow-ips=*"]
           def show(label, containers):
               if len(containers) != 1:
-                  raise SystemExit(f"Unresolved production configuration: {label} needs one application container.")
+                  stop(f"{label} needs one application container.")
               print(label)
               print("image:", containers[0]["image"])
               print("Absent values below use checkout Settings defaults; verify these against the reported image before pinning.")
@@ -344,6 +347,8 @@ jobs:
           def require_sec_pins(label, containers):
               # CODE RED D3: both SEC buckets are pinned to exactly 1 as plain values on every process.
               env = {entry.get("name"): entry for entry in containers[0].get("env", [])}
+              if len(env) != len(containers[0].get("env", [])):
+                  fail(f"{label} has a duplicate or nameless env entry")
               for pin in ("SEC_RATE_LIMIT_PER_SECOND", "EDGAR_RATE_LIMIT_PER_SEC"):
                   ok, shown = pin_state(env.get(pin))
                   if not ok:
@@ -499,7 +504,7 @@ jobs:
             earningsnerd-retention-purge
           )
           for job in "${jobs[@]}"; do
-            if ! gcloud run jobs describe "$job" --region="$REGION" --format=json > "$JOB_DIR/$job.json"; then
+            if ! gcloud run jobs describe "$job" --region="$REGION" --format=json > "$JOB_DIR/$job.json" 2>/dev/null; then
               echo "::error::expected Cloud Run job '$job' is missing or unreadable"
               exit 1
             fi

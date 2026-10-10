@@ -96,6 +96,16 @@ def test_production_pins_match_defaults_pregenerate_and_ops_visibility(tmp_path)
         "AI_ATTRIBUTION_VERIFY", "USE_STRUCTURED_OUTPUT", "USE_STATEMENT_FINANCIALS",
     }
     assert assignments["allow"] >= PROD_ENV_PINS.keys()
+    # The allow-list is the only gate deciding which env values print to the public log: pin it exactly.
+    assert assignments["allow"] == {
+        "USE_STATEMENT_FINANCIALS", "ENABLE_FPI_FILINGS", "STREAM_SECTION_REVEAL", "AI_DEFAULT_MODEL",
+        "OPENAI_BASE_URL", "ENVIRONMENT", "TRUSTED_PROXY_HOPS", "COOKIE_DOMAIN", "NOTABLE_FILINGS_ENABLED",
+        "AI_EVIDENCE_SNAP", "AI_FIGURE_TRACE_GATE", "AI_FORWARD_QUOTE_GATE", "AI_ATTRIBUTION_GATE",
+        "AI_ATTRIBUTION_VERIFY", "USE_STRUCTURED_OUTPUT", "CALENDAR_INDEX_FILTER_ENABLED", "REGISTRATION_MODE",
+        "AI_FALLBACK_MODEL", "AI_FALLBACK_BASE_URL", "SENTRY_RELEASE", "DB_POOL_SIZE", "DB_MAX_OVERFLOW",
+        "SEC_RATE_LIMIT_PER_SECOND", "EDGAR_RATE_LIMIT_PER_SEC", "DURABLE_TASKS_ENABLED", "ENABLE_INSIDER_ACTIVITY",
+        "TASKS_WORKER_PROCESS",
+    }
     assert assignments["flag_defaults"].keys() >= PROD_ENV_PINS.keys()
     for key, value in assignments["flag_defaults"].items():
         default = Settings.model_fields[key].default
@@ -159,7 +169,7 @@ def _execute(service, readbacks, *, denied=None, raw=None):
     def fake(argv, *, text, stderr, timeout):
         assert argv[:2] == ["gcloud", "run"] and argv[3] in ("describe", "get-iam-policy")
         assert argv[5:] == ["--region=fixture-region", "--format=json"] and text is True
-        assert stderr is subprocess.PIPE and timeout == 120
+        assert stderr is subprocess.PIPE and timeout == 100
         key = (argv[2], argv[3], argv[4])
         calls.append(key)
         if key in denied:
@@ -349,6 +359,30 @@ def test_ops_renderer_lists_every_pin_defect_once(resources):
     assert "PRIVATE_" not in str(exit_) and all("PRIVATE_" not in line for line in errors)
 
 
+def test_ops_renderer_collects_duplicate_env_names(resources):
+    """Container env resolution is last-wins, so a duplicate name could mask a pin: it is a collected defect."""
+    service, revision, job, worker, worker_revision, policy = resources
+    revision["spec"]["containers"][0]["env"].append({"name": "SEC_RATE_LIMIT_PER_SECOND", "value": "1"})
+    output, exit_, calls = _execute(service, _readbacks(revision, job, worker, worker_revision, policy))
+    assert exit_ is not None and calls == FIVE
+    assert "Serving revision serving has a duplicate or nameless env entry" in str(exit_)
+    errors = [line for line in output.splitlines() if line.startswith("::error::")]
+    assert len(errors) == 1 and "duplicate or nameless env entry" in errors[0]
+    assert "describe-service: FAIL (1 invariant failure(s))" in output
+
+
+def test_ops_renderer_immediate_exit_names_collected_defects(resources):
+    """A service pin defect is collected; an undescribable worker then exits at once, naming both."""
+    service, revision, job, worker, worker_revision, policy = resources
+    _plant_pin(revision["spec"]["containers"][0], "EDGAR_RATE_LIMIT_PER_SEC", "10")
+    readbacks = _readbacks(revision, job, worker, worker_revision, policy)
+    output, exit_, calls = _execute(service, readbacks, denied={FIVE[2]: "ERROR: NOT_FOUND " + STDERR})
+    assert exit_ is not None and calls == FIVE[:3]
+    assert "Serving revision serving must pin EDGAR_RATE_LIMIT_PER_SEC=1 as a plain value, got '10'" in str(exit_)
+    assert "cannot describe services earningsnerd-task-worker (not_found)" in str(exit_)
+    assert "describe-service:" not in output and "PRIVATE_" not in output + str(exit_)
+
+
 @pytest.mark.parametrize("defect", ["rollback", "split", "unready", "tagged"])
 def test_ops_renderer_rejects_worker_traffic_defects(resources, defect):
     """A worker traffic defect exits after the worker describe; the service's evidence has already printed."""
@@ -451,8 +485,9 @@ def test_ops_renderer_unverified_never_masks_a_fail(resources, defect):
 
 
 @pytest.mark.parametrize("failure,klass", [("ERROR: NOT_FOUND " + STDERR, "not_found"), ("timeout", "timeout"),
+                                           ("ERROR: DEADLINE_EXCEEDED " + STDERR, "unavailable"),
                                            ("<html>", "unreadable_response")])
-@pytest.mark.parametrize("index", [1, 2, 3])
+@pytest.mark.parametrize("index", [0, 1, 2, 3])
 def test_ops_renderer_fails_closed_on_failed_describe(resources, index, failure, klass):
     """Every describe read the heredoc depends on fails closed with its class; stderr never reaches the log."""
     service, revision, job, worker, worker_revision, policy = resources

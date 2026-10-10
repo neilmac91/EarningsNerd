@@ -101,7 +101,7 @@ def test_describe_jobs_shell_reads_each_job_into_job_dir():
     shell, code = _split(step)
     assert step["timeout-minutes"] == 10
     assert "set -euo pipefail" in shell and "export JOB_DIR" in shell
-    assert 'if ! gcloud run jobs describe "$job" --region="$REGION" --format=json > "$JOB_DIR/$job.json"; then' in shell
+    assert 'if ! gcloud run jobs describe "$job" --region="$REGION" --format=json > "$JOB_DIR/$job.json" 2>/dev/null; then' in shell
     assert "::error::expected Cloud Run job '$job' is missing or unreadable" in shell and "exit 1" in shell
     array = re.search(r"jobs=\(\n((?:\s+earningsnerd-[a-z-]+\n)+)\s*\)", shell)
     assert array is not None and array.group(1).split() == list(_literals(code)["expected_pools"])

@@ -266,18 +266,20 @@ def collect(api, project, region, start, end):
         runs["unplaced_count"] = 0
         runs["outside_scope_count"] = 0
         for record in raw_runs:
-            if not re.fullmatch(r"projects/[^/]+/locations/" + region + r"/jobs/" + job + r"/executions/[^/]+",
-                                record.get("name", "")):
-                runs["outside_scope_count"] += 1
-                continue
             try:
+                if not re.fullmatch(r"projects/[^/]+/locations/" + region + r"/jobs/" + job + r"/executions/[^/]+",
+                                    record.get("name", "")):
+                    runs["outside_scope_count"] += 1
+                    continue
                 begins = timestamp(record.get("startTime") or record["createTime"])
                 ends = timestamp(record["completionTime"]) if record.get("completionTime") else None
                 if begins < last and (ends is None or ends >= first):
                     item = execution(record)
                     item["interval_start_basis"] = "startTime" if record.get("startTime") else "createTime; actual start unknown"
                     runs["items"].append(item)
-            except (KeyError, ValueError, TypeError):
+            except (KeyError, ValueError, TypeError, AttributeError):
+                # A record-level shape surprise (a non-dict item, a non-string name or timestamp) counts here
+                # instead of aborting the receipt, like a shape surprise in a Monitoring or Logging channel.
                 runs["unplaced_count"] += 1
         # Complete pagination is not proof of lifetime completeness or known execution intervals.
         runs["coverage"] = "retained API resources only; expired/deleted history may be absent"

@@ -142,8 +142,9 @@ tags, revision names and percentages only), the serving revision image, `SENTRY_
 values, the allow-listed flag and SEC-pin values (`SEC_RATE_LIMIT_PER_SECOND`,
 `EDGAR_RATE_LIMIT_PER_SEC`, `DURABLE_TASKS_ENABLED`, `ENABLE_INSIDER_ACTIVITY`,
 `TASKS_WORKER_PROCESS`) for the serving revision and the pregenerate job, and the service's minimum
-and maximum instances at service and revision level (the API deploy sets only `--min-instances`, so
-`Service minScale` is expected to read `absent`; `Revision minScale` answers the checklist), CPU,
+and maximum instances at service and revision level (the API deploy sets `--min-instances` and a
+service-level `--max=2` but no service-level `--min`, so `Service minScale` is expected to read
+`absent` and `Service maxScale` `2`; `Revision minScale` answers the checklist), CPU,
 memory, CPU allocation (`request-based` or `always-allocated` from the revision's `cpu-throttling`
 annotation, an absent annotation meaning request-based, compared with the expectation `ci.yml`
 derives from `DURABLE_TASKS_ENABLED`), startup CPU boost, `containerConcurrency` and
@@ -152,12 +153,15 @@ revision and traffic, the same allow-listed env values (`TASKS_WORKER_URL`, `TAS
 and `TASKS_QUEUE` stay name-only), the same sizing lines, the ingress annotation, whether the
 configured command and args match the committed `uvicorn` `task_worker_main:app` entrypoint in
 `ci.yml` (values are never printed), whether the invoker IAM check is enforced, and whether the
-invoker policy admits the public. It fails (`Unresolved production configuration: …`, non-zero,
-after printing every block and one `::error::` line per defect) on tagged, split or non-latest
-traffic on the service or the worker, on a worker policy granting `allUsers` or
-`allAuthenticatedUsers` any role, on a disabled invoker IAM check, and on either SEC pin that is
-missing, a secret reference or any value other than `1` on the service's or the worker's serving
-revision. A denied or failed `get-iam-policy` read prints `Worker invoker policy: UNVERIFIED
+invoker policy admits the public. It fails (`Unresolved production configuration: …`, non-zero)
+immediately, before any later read and without a verdict line, on tagged, split or non-latest
+traffic on the service or the worker and on an undescribable or multi-container resource; and,
+after printing every block, one `::error::` line per defect and a `describe-service: FAIL (N
+invariant failure(s))` verdict, on a worker policy granting `allUsers` or `allAuthenticatedUsers`
+any role, on a disabled invoker IAM check, on a duplicate or nameless env entry, and on either SEC
+pin that is missing, a secret reference or any value other than `1` on the service's or the
+worker's serving revision. An immediate exit still names every defect collected before it. A
+denied or failed `get-iam-policy` read prints `Worker invoker policy: UNVERIFIED
 (<class>)` with a workflow warning and does not fail the step: it is absence of evidence, not
 evidence of exposure, and the grant that resolves `permission_denied` (`run.services.getIamPolicy`,
 carried by `roles/run.viewer`) is an IAM change the founder approves; any other class is a
@@ -165,14 +169,16 @@ transient or misdirected read to re-dispatch before concluding. A run that print
 not verified the invoker policy; the invoker-policy item of the durable-tasks checklist is complete
 only when a run prints `Worker invoker policy: PRIVATE`. A `PRIVATE` line with
 `0 roles/run.invoker member(s)` means Cloud Tasks cannot invoke the worker; the task identity's
-binding is a founder IAM item. The final line is `describe-service: PASS`,
+binding is a founder IAM item. When every block printed, the final line is `describe-service: PASS`,
 `describe-service: PASS; UNVERIFIED: worker invoker policy (<class>)`, or
-`describe-service: FAIL (N invariant failure(s))`.
+`describe-service: FAIL (N invariant failure(s))`; an immediate exit prints no verdict line.
 
 `describe-jobs` reports image, task count, pool values and both SEC pin values for all eight
 expected jobs, states whether `earningsnerd-backfill-facts` carries the committed
 `python scripts/backfill_facts.py --only-new` entrypoint (other jobs: override present or image
-default; values are never printed), prints every block before exiting, and fails when the release
+default; values are never printed), prints every block before exiting when a value defect (pool,
+pin, task count, image parity) is found (a malformed job description exits at that job; a missing
+or unreadable job stops the shell loop before any block prints), and fails when the release
 or connection-budget invariants drift, when either SEC pin is missing or not `1` on any job, or when
 any expected job, including `earningsnerd-retention-purge`, is missing or unreadable. These two
 operations call only Cloud Run describe APIs and one IAM policy read
@@ -190,7 +196,8 @@ error-level log entries for the service, the jobs and the worker as counts by se
 pool-timeout signature plus timestamp/severity/resource/signature records (never message text or
 URLs), together with a read-only database snapshot. Each source carries its own `state`
 (`complete`, `partial`, `unavailable`): a missing permission, an empty series or an unrecognised
-response shape is recorded as such, never as zero, and counts on a `partial` channel are a floor.
+response shape is recorded as such, never as zero (a job execution that cannot be placed counts in
+that channel's `unplaced_count`), and counts on a `partial` channel are a floor.
 The receipt is retained as the `capacity-readout-<run id>` Actions artifact for 14 days.
 
 ### Rollback (when a bad revision is live)

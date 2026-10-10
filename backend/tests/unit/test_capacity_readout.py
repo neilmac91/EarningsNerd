@@ -135,10 +135,11 @@ def test_capacity_readout_keeps_coverage_and_sanitizes_evidence(monkeypatch):
     assert histogram["points"][0]["value"]["distributionValue"]["count"] == "2"
 
 
-def _fake_request(module, requests, start, secret, *, break_queue=False, break_worker_logs=False):
+def _fake_request(module, requests, start, secret, *, break_queue=False, break_worker_logs=False, break_executions=False):
     """An Api.request fake serving every channel collect() reads; `secret` rides in every field a projection
     must drop (labels, payloads, request URLs, exemplars, a foreign queue). The break flags append a non-dict
-    item to one Monitoring and one Logging channel: a shape surprise must never abort the receipt."""
+    item to one Monitoring and one Logging channel, and a non-dict item plus a non-string startTime to the pregenerate
+    executions: a shape surprise must never abort the receipt."""
     run = {"name": "projects/test-project/locations/us-west1/jobs/earningsnerd-pregenerate/executions/a",
            "createTime": "2026-09-28T05:50:00Z", "startTime": "2026-09-28T06:00:00Z",
            "completionTime": "2026-09-28T06:20:00Z", "taskCount": 1,
@@ -182,7 +183,9 @@ def _fake_request(module, requests, start, secret, *, break_queue=False, break_w
             if params.get("pageToken"):
                 return {"executions": [{"name": run["name"] + "-old", "createTime": "2026-09-28T04:00:00Z",
                          "completionTime": "2026-09-28T05:00:00Z"}]}, None
-            return {"executions": [run, {"name": run["name"] + "-unplaced"}, {"name": run["name"].replace("earningsnerd-pregenerate", "unrelated-private-job")}], "nextPageToken": "second"}, None
+            broken = ["not-a-dict", {"name": run["name"] + "-badstart", "createTime": "2026-09-28T05:50:00Z", "startTime": 5}]
+            return {"executions": [run, {"name": run["name"] + "-unplaced"}, {"name": run["name"].replace("earningsnerd-pregenerate", "unrelated-private-job")}]
+                    + (broken if break_executions else []), "nextPageToken": "second"}, None
         if "monitoring.googleapis.com" in url:
             query = params["filter"]
             if module.WORKER in query:
@@ -275,8 +278,12 @@ def test_capacity_readout_marks_projection_errors_unavailable_and_flags_fresh_wi
     start, end = "2026-09-28T05:55:00Z", "2026-09-28T07:10:00Z"
     secret = "PRIVATE-MESSAGE-TOKEN-EMAIL"
     api = module.Api("unused-private-token")
-    monkeypatch.setattr(api, "request", _fake_request(module, [], start, secret, break_queue=True, break_worker_logs=True))
+    monkeypatch.setattr(api, "request", _fake_request(module, [], start, secret, break_queue=True, break_worker_logs=True,
+                                                      break_executions=True))
     result = module.collect(api, "test-project", "us-west1", start, end)
+    executions = result["executions"]["earningsnerd-pregenerate"]
+    # A non-dict execution and a non-string startTime count as unplaced beside the record missing its createTime.
+    assert executions["unplaced_count"] == 3 and len(executions["items"]) == 1 and executions["outside_scope_count"] == 1
     attempts = result["queue_task_attempts"]
     assert (attempts["state"], attempts["error"], attempts["items"]) == ("unavailable", "projection_error", [])
     worker_logs = result["worker_error_logs"]

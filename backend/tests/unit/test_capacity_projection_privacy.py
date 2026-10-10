@@ -39,6 +39,9 @@ def test_capacity_projection_withholds_commands_and_private_values(capfd, monkey
     workflow = yaml.safe_load((Path(__file__).parents[3] / ".github/workflows/ops.yml").read_text())
     step = next(s for s in workflow["jobs"]["ops"]["steps"]
                 if s.get("name") == "Describe service env (values only for known feature flags)")
+    assert step["timeout-minutes"] == 10  # five 100 s gcloud reads plus the shell describe fit with headroom
+    capacity = next(s for s in workflow["jobs"]["ops"]["steps"] if s.get("name") == "Read historical capacity evidence")
+    assert capacity["timeout-minutes"] >= 15  # the readout bounds itself to 17 channels x 5 pages x 10 s = 850 s
     # Execute the entire Python readback, including show(), not a comment-delimited suffix.
     # The fixed shell wrapper redirects its only external read; added shell output must fail too.
     shell, projection = step["run"].split("python3 - <<'PY'\n", 1)
@@ -233,7 +236,7 @@ def _run(projection, svc, readbacks, monkeypatch):
     def describe(argv: list[str], *, text: bool, stderr, timeout) -> str:
         assert argv[:2] == ["gcloud", "run"] and argv[3] in ("describe", "get-iam-policy")
         assert argv[5:] == ["--region=offline-region", "--format=json"] and text is True
-        assert stderr is subprocess.PIPE and timeout == 120  # stderr is classified, never inherited by the log
+        assert stderr is subprocess.PIPE and timeout == 100  # stderr is classified, never inherited by the log
         key = (argv[2], argv[3], argv[4])
         calls.append(key)
         return json.dumps(readbacks[key])
