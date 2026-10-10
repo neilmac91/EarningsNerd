@@ -16,7 +16,7 @@ const DOT_CLEARANCE = 6 // 4px radius + 1px half-stroke + 1px breathing room
 const overlaps = (a: ChartNoteBounds, b: ChartNoteBounds) =>
   a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y
 
-/** Place the few same-axis note letters around their true plotted points, within the plot.
+/** Place the few line-series note letters around their true plotted points, within the plot.
  * Pixel positions encode the actual axis scale/order. A stable tie-break and neighbouring
  * periods matter: independently clamping three labels can put them in the same position.
  */
