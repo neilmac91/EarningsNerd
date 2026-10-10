@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from app.services.trend_analysis.dataset import marker_index
 from app.services.trend_analysis.formatting import (
@@ -119,6 +119,26 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
         seen.add(obs_id)
         observations.append(TrendObservation(obs_id, section, markdown, required))
 
+    top, top_points = _add_top_line_observations(dataset, by, add)
+    net_income, ni_points = _add_net_income_observations(dataset, by, add)
+    _add_growth_pair_observations(dataset, by, add)
+    _add_margin_observations(dataset, by, observations, add)
+    _add_cash_income_observations(by, net_income, ni_points, add)
+    _add_balance_sheet_observations(by, add)
+    _add_current_ratio_observations(by, add)
+    _add_eps_observations(by, observations, add)
+    _add_selected_gap_observations(dataset, by, add)
+    _add_red_flag_observations(dataset, add)
+    _add_watch_next_observations(dataset, by, top, top_points, net_income, add)
+
+    return observations
+
+
+def _add_top_line_observations(
+    dataset: dict[str, Any],
+    by: dict[str, dict[str, Any]],
+    add: Callable[..., None],
+) -> tuple[Optional[dict[str, Any]], list[dict[str, Any]]]:
     top = next((by.get(name) for name in ("revenue", "net_interest_income") if by.get(name)), None)
     top_points = _valued_points(top)
     if top and top_points:
@@ -156,7 +176,14 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
                     f"{_derived_qualifier(*_growth_operand_points(dataset, top, point))}."
                 ), top["concept"], point["period"], required=point is growth_points[-1],
             )
+    return top, top_points
 
+
+def _add_net_income_observations(
+    dataset: dict[str, Any],
+    by: dict[str, dict[str, Any]],
+    add: Callable[..., None],
+) -> tuple[Optional[dict[str, Any]], list[dict[str, Any]]]:
     net_income = by.get("net_income")
     ni_points = _valued_points(net_income)
     if net_income and ni_points:
@@ -177,7 +204,14 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
                     f"{_derived_qualifier(*_growth_operand_points(dataset, net_income, point))}."
                 ), "net_income", point["period"], required=point is ni_growth[-1],
             )
+    return net_income, ni_points
 
+
+def _add_growth_pair_observations(
+    dataset: dict[str, Any],
+    by: dict[str, dict[str, Any]],
+    add: Callable[..., None],
+) -> None:
     growth_pairs = [
         ("net_income", comparison)
         for comparison in ("revenue", "net_interest_income", "noninterest_income")
@@ -214,6 +248,13 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
                 ), first_concept, second_concept, first_point["period"],
             )
 
+
+def _add_margin_observations(
+    dataset: dict[str, Any],
+    by: dict[str, dict[str, Any]],
+    observations: list[TrendObservation],
+    add: Callable[..., None],
+) -> None:
     for concept in ("gross_margin", "operating_margin", "net_margin"):
         series = by.get(concept)
         points = _valued_points(series)
@@ -238,6 +279,13 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
                 ), concept, point["period"],
             )
 
+
+def _add_cash_income_observations(
+    by: dict[str, dict[str, Any]],
+    net_income: Optional[dict[str, Any]],
+    ni_points: list[dict[str, Any]],
+    add: Callable[..., None],
+) -> None:
     # Same-period cash/earnings level comparisons.  No conversion rate or causal conclusion is
     # synthesized: the code states only the two supplied levels and their ordering.
     for cash_concept in ("free_cash_flow", "operating_cash_flow"):
@@ -270,6 +318,11 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
             ), cash_concept, "net-income", period, required=cash_concept == "free_cash_flow",
         )
 
+
+def _add_balance_sheet_observations(
+    by: dict[str, dict[str, Any]],
+    add: Callable[..., None],
+) -> None:
     for concept in (
         "cash_and_equivalents", "working_capital", "long_term_debt", "shareholders_equity",
     ):
@@ -284,6 +337,11 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
                 ), concept, point["period"],
             )
 
+
+def _add_current_ratio_observations(
+    by: dict[str, dict[str, Any]],
+    add: Callable[..., None],
+) -> None:
     current_ratio = by.get("current_ratio")
     ratio_points = _valued_points(current_ratio)
     if current_ratio and ratio_points:
@@ -303,6 +361,12 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
             ), "current-ratio", point["period"], required=True,
         )
 
+
+def _add_eps_observations(
+    by: dict[str, dict[str, Any]],
+    observations: list[TrendObservation],
+    add: Callable[..., None],
+) -> None:
     eps = next((by.get(name) for name in ("earnings_per_share", "eps_diluted") if by.get(name)), None)
     eps_points = _valued_points(eps)
     if eps and eps_points:
@@ -316,6 +380,12 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
             ),
         )
 
+
+def _add_selected_gap_observations(
+    dataset: dict[str, Any],
+    by: dict[str, dict[str, Any]],
+    add: Callable[..., None],
+) -> None:
     latest_period = dataset["periods"][-1]["key"] if dataset.get("periods") else None
     if latest_period:
         missing_sections = {
@@ -334,6 +404,11 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
                     ), concept, latest_period,
                 )
 
+
+def _add_red_flag_observations(
+    dataset: dict[str, Any],
+    add: Callable[..., None],
+) -> None:
     signals = dataset.get("inflections") or []
     if signals:
         point_index = marker_index(dataset)
@@ -364,6 +439,15 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
             "none", required=True,
         )
 
+
+def _add_watch_next_observations(
+    dataset: dict[str, Any],
+    by: dict[str, dict[str, Any]],
+    top: Optional[dict[str, Any]],
+    top_points: list[dict[str, Any]],
+    net_income: Optional[dict[str, Any]],
+    add: Callable[..., None],
+) -> None:
     if top and top_points:
         latest = top_points[-1]
         if isinstance(latest.get("yoy"), float):
@@ -396,8 +480,6 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
                 f"{_derived_qualifier(point)}."
             ), series["concept"], point["period"],
         )
-
-    return observations
 
 
 def compact_observation_catalogue(catalogue: list[TrendObservation]) -> str:
