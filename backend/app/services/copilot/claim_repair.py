@@ -212,7 +212,7 @@ def _fact_certifies_claim(fact: dict, claim: dict, filing: Any) -> bool:
 
     * The **form** cannot. ``facts_service._fiscal_period`` derives ``FY`` from the form, so the
       annual-form test and the ``FY`` label are one signal wearing two hats, not two signals.
-    * The **companyfacts fallback** cannot. ``edgar/xbrl_service.py``'s ``filter_and_sort`` only
+    * The **companyfacts fallback** cannot. ``edgar/xbrl_companyfacts.py``'s ``filter_and_sort`` only
       *ranks* the durations sharing a period end and keeps the best one; a sole quarterly point is
       not rejected. Both fallback and selected-instance paths now retain the selected source
       start, so an FY-labelled quarterly point can be rejected by its actual duration. Older

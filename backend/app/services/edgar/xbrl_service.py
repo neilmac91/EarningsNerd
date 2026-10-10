@@ -23,7 +23,7 @@ import asyncio
 import logging  # noqa: F401 - preserve the facade import surface
 from collections import OrderedDict  # noqa: F401 - preserve the facade import surface
 from datetime import date, datetime, timedelta  # noqa: F401 - preserve the facade import surface
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple  # noqa: F401 - preserve the facade import surface
 
 from edgar import set_identity
 
@@ -36,8 +36,8 @@ from edgar import set_identity
 from .async_executor import run_in_executor_with_timeout
 from app.services.request_work import run_owned_sync
 from .client import resolve_filing_by_accession
-from app.services.sec_rate_limiter import sec_rate_limiter
-from app.utils.sec_urls import companyfacts_url
+from app.services.sec_rate_limiter import sec_rate_limiter  # noqa: F401 - preserve the facade import surface
+from app.utils.sec_urls import companyfacts_url  # noqa: F401 - preserve the facade import surface
 from .config import EDGAR_IDENTITY, EDGAR_DEFAULT_TIMEOUT_SECONDS
 from .ads_ratios import ads_ratio_for_cik, build_per_ads_eps
 from .instance_extractor import (
@@ -59,6 +59,8 @@ from .instance_extractor import (
 from .financing_source import financing_comparison_source
 from .models import MetricChange
 
+from . import xbrl_companyfacts as _companyfacts
+from .xbrl_companyfacts import CASH_TAG_CANDIDATES
 from .xbrl_cache import (
     _XBRL_CACHE_VERSION,
     _cache_max_size,
@@ -80,19 +82,6 @@ __all__ = [
     "_extract_from_filing_instance_sync", "_extract_sections_sync", "_extract_segments",
     "_get_cache_lock", "_source_duration", "_xbrl_cache", "async_clear_xbrl_cache",
     "clear_xbrl_cache", "edgar_xbrl_service", "get_xbrl_cache_stats", "logger",
-]
-
-# Cash concept candidates for the single-filing statement path, in priority order. The
-# ASU 2016-18 restricted-cash total sits LAST (lowest priority): it only resolves when no
-# unrestricted-cash tag is present — the JPM-class bank case whose only cash line is the
-# migrated tag (data-quality plan P0-3). test_cash_registry_consistency.py pins this ordering
-# across all three cash registries.
-CASH_TAG_CANDIDATES: List[str] = [
-    "CashAndCashEquivalentsAtCarryingValue",
-    "Cash",
-    "CashAndCashEquivalents",
-    "CashCashEquivalentsAndShortTermInvestments",
-    "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
 ]
 
 # Ensure identity is set
@@ -719,35 +708,7 @@ class EdgarXBRLService:
         This replicates the logic from the legacy xbrl_service.py for cases
         where EdgarTools doesn't have the data.
         """
-        import httpx
-
-        logger.info(f"Falling back to SEC company facts API for CIK {cik}")
-
-        try:
-            facts_url = companyfacts_url(cik)
-
-            # Route through the SEC rate limiter with a SINGLE token wait (execute, NOT
-            # execute_with_backoff): this fallback runs inside user-facing summary generation, so it
-            # fail-fasts rather than sleeping through the full backoff ladder (S4 review #3).
-            # raise_for_status turns a non-200 into an exception, preserving "non-200 -> None" via the
-            # outer except.
-            async with httpx.AsyncClient() as client:
-                async def _do_request() -> httpx.Response:
-                    resp = await client.get(
-                        facts_url,
-                        headers={"User-Agent": EDGAR_IDENTITY},
-                        timeout=30.0,
-                    )
-                    resp.raise_for_status()
-                    return resp
-
-                response = await sec_rate_limiter.execute(_do_request)
-                data = response.json()
-                return self._parse_company_facts(data, accession_number)
-
-        except Exception as e:
-            logger.error(f"Error in company facts fallback: {e}")
-            return None
+        return await _companyfacts.fallback_to_company_facts(self, cik, accession_number)
 
     def _parse_company_facts(
         self,
@@ -755,162 +716,8 @@ class EdgarXBRLService:
         target_accession: str,
     ) -> Dict[str, List[Dict]]:
         """Parse SEC company facts API response."""
-        result = {
-            "revenue": [],
-            "net_income": [],
-            "total_assets": [],
-            "total_liabilities": [],
-            "cash_and_equivalents": [],
-            "earnings_per_share": [],
-        }
+        return _companyfacts.parse_company_facts(facts_data, target_accession)
 
-        normalized_accession = target_accession.replace("-", "") if target_accession else None
-
-        def _is_target(item: Dict) -> bool:
-            return bool(
-                normalized_accession
-                and isinstance(item.get("accn"), str)
-                and item["accn"].replace("-", "") == normalized_accession
-            )
-
-        def _duration_penalty(item: Dict) -> int:
-            """Distance from the standard duration for the item's form.
-
-            Companyfacts reports several durations sharing one period end
-            (Q4 + FY both end on the fiscal year end; Q3 + 9-month YTD both
-            end on the quarter end). The standard statement value is the
-            12-month figure for a 10-K and the 3-month figure for a 10-Q.
-            Instant facts (no start) have a single duration; penalty 0.
-            """
-            start, end = item.get("start"), item.get("end")
-            if not start:
-                return 0
-            try:
-                days = (date.fromisoformat(end) - date.fromisoformat(start)).days
-            except (ValueError, TypeError):
-                return 0
-            target_days = 365 if (item.get("form") or "").startswith("10-K") else 91
-            return abs(days - target_days)
-
-        def filter_and_sort(data_list: list, max_items: int = 5) -> list:
-            if not isinstance(data_list, list):
-                return []
-
-            valid_items = [
-                item for item in data_list
-                if isinstance(item, dict) and item.get("end")
-            ]
-
-            # Dedupe by period end: prefer the standard duration for the form,
-            # then the most recently filed restatement.
-            best_by_end: Dict[str, Dict] = {}
-            for item in valid_items:
-                incumbent = best_by_end.get(item["end"])
-                if incumbent is None:
-                    best_by_end[item["end"]] = item
-                    continue
-                key = (_duration_penalty(item), item.get("filed") or "")
-                incumbent_key = (_duration_penalty(incumbent), incumbent.get("filed") or "")
-                # Lower penalty wins; on a tie, later filed date wins.
-                if key[0] < incumbent_key[0] or (key[0] == incumbent_key[0] and key[1] > incumbent_key[1]):
-                    best_by_end[item["end"]] = item
-
-            sorted_items = sorted(
-                best_by_end.values(),
-                key=lambda x: x.get("end", ""),
-                reverse=True
-            )
-            return sorted_items[:max_items]
-
-        def select_fact_data_with_concept(
-            fields: List[str], unit_keys: Tuple[str, ...] = ("USD",),
-        ) -> Tuple[list, Optional[str]]:
-            """Pick the candidate concept actually used by recent filings.
-
-            Taking the first concept present is wrong: issuers retire tags over
-            time (e.g. AAPL last reported `Revenues` in FY2018 and has used
-            `RevenueFromContractWithCustomerExcludingAssessedTax` since), so a
-            stale concept would shadow the live one and surface years-old
-            values as "current". Prefer a concept with facts from the target
-            filing; concepts absent from that accession are unavailable.
-            """
-            best_end: Optional[str] = None
-            best_data: list = []
-            best_tag: Optional[str] = None
-            for field in fields:
-                fact = us_gaap.get(field)
-                if not (isinstance(fact, dict) and isinstance(fact.get("units"), dict)):
-                    continue
-                for unit_key in unit_keys:
-                    data = fact["units"].get(unit_key) or []
-                    # No match means unavailable, not permission to use another filing.
-                    valid = [i for i in data if isinstance(i, dict) and i.get("end") and _is_target(i)]
-                    if not valid:
-                        continue
-                    latest_end = max(i["end"] for i in valid)
-                    if best_end is None or latest_end > best_end:
-                        best_end, best_data = latest_end, valid
-                        best_tag = f"us-gaap:{field}"
-                    break  # first unit key with data for this concept
-            return best_data, best_tag
-
-        def select_fact_data(fields: List[str], unit_keys: Tuple[str, ...] = ("USD",)) -> list:
-            data, _raw_tag = select_fact_data_with_concept(fields, unit_keys)
-            return data
-
-        def append_items(metric: str, data: list, raw_tag: Optional[str] = None) -> None:
-            from .fiscal_periods import fiscal_label
-            from app.services.facts_service import _classify_duration
-
-            target = [item for item in data if _is_target(item)]
-            anchor = max(target, key=lambda item: item.get("end", "")) if target else {}
-            for item in filter_and_sort(data):
-                label = {}
-                # Classify the actual duration before treating the filing focus as a quarter.
-                # Instant facts share the selected filing's report-period anchor.
-                try:
-                    discrete = not item.get("start") or _classify_duration(
-                        date.fromisoformat(item["start"]), date.fromisoformat(item["end"])
-                    ) == "Q"
-                except (ValueError, TypeError):
-                    discrete = False
-                if discrete and (item.get("form") or "").removesuffix("/A") == "10-Q" and _is_target(item):
-                    label = fiscal_label(item["end"], anchor.get("end"), anchor.get("fy"), anchor.get("fp"))
-                result[metric].append({
-                    **label,
-                    "period": item.get("end"),
-                    "value": item.get("val"),
-                    "form": item.get("form"),
-                    "accn": item.get("accn"),
-                    # Preserve the selected source's duration; instant facts have no start.
-                    **({"period_start": item["start"]} if item.get("start") else {}),
-                    **({"raw_tag": raw_tag} if raw_tag is not None else {}),
-                })
-
-        try:
-            facts = facts_data.get("facts", {})
-            us_gaap = facts.get("us-gaap", {})
-
-            if not isinstance(us_gaap, dict):
-                return result
-
-            append_items("revenue", select_fact_data(
-                ["Revenues", "Revenue", "RevenueFromContractWithCustomerExcludingAssessedTax",
-                 "SalesRevenueNet", "NetSales", "TotalRevenue"]))
-            append_items("net_income", select_fact_data(
-                ["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"]))
-            append_items("total_assets", select_fact_data(["Assets"]))
-            append_items("total_liabilities", select_fact_data(["Liabilities"]))
-            cash_data, cash_tag = select_fact_data_with_concept(CASH_TAG_CANDIDATES)
-            append_items("cash_and_equivalents", cash_data, cash_tag)
-            append_items("earnings_per_share", select_fact_data(
-                ["EarningsPerShareBasic", "EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"],
-                unit_keys=("USD/shares", "USD", "pure")))
-
-        except Exception as e:
-            logger.warning(f"Error parsing company facts: {e}")
-
-        return result
 
     def extract_standardized_metrics(self, xbrl_data: Optional[Dict]) -> Dict[str, Any]:
         """
