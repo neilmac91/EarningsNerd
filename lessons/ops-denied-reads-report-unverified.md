@@ -31,8 +31,11 @@ it fails (an open follow-up in `tasks/todo.md`).
 warning, the qualified verdict and that a denied read never prints `PRIVATE`;
 `test_ops_renderer_treats_malformed_policy_as_unverified` pins `unreadable_response`;
 `test_ops_renderer_unverified_never_masks_a_fail` pins that UNVERIFIED never masks a collected failure;
-and `test_ops_renderer_fails_closed_on_failed_describe` pins that a failed required read the Python code
-makes stops the step with its class; no test yet pins `error (gcloud not executable)` (an open item in
-`tasks/todo.md`); `docs/DEPLOYMENT.md` states the rule beside the checklist. The first live run (ops run
-38053869837, 2026-10-10T12:57Z) read the policy and printed `PRIVATE`, so the UNVERIFIED path stayed
-unexercised in production; the rule stands for the next read that a permission withholds.
+and `test_ops_renderer_fails_closed_on_failed_describe` pins that a failed required read in the
+describe-service code (the revision, pregenerate-job, worker and worker-revision describes) stops the
+step with its class; the two shell-level reads, describe-service's first service read and describe-jobs'
+job reads, stop the step without one (`test_describe_jobs_shell_reads_each_job_into_job_dir` pins the
+second's message); no test yet pins `error (gcloud not executable)` (an open item in `tasks/todo.md`);
+`docs/DEPLOYMENT.md` states the rule beside the checklist. The first live run (ops run 38053869837,
+2026-10-10T12:57Z) read the policy and printed `PRIVATE`, so the UNVERIFIED path stayed unexercised in
+production; the rule stands for the next read that a permission withholds.

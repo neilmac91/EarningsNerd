@@ -286,7 +286,8 @@ fired (none could).
 3. **Follow-ups from the read-back review** (`readback-followups-pr-01`, closure 173; a workflow file, so a code PR's review), as an
    engineering line in `tasks/todo.md`: the describe-service shell read's inherited
    stderr, the receipt's address-redaction of `error_detail.message`, the logs-probe step's raw stderr echo, and the extraction of
-   both heredoc bodies to committed modules under `ops/` (the stopping point the PR named).
+   both heredoc bodies to committed modules under `ops/` (the stopping point the PR named); and, from this PR's review, a test pinning the
+   classifier's `error (gcloud not executable)` class.
 4. **Then the checkpoint's Next queue:** the COO's G3 first-customer-part review and the G4 gate; B32's qualifying retained window; R1
    waits on the founder's custody step-A answer.
 
