@@ -23,7 +23,6 @@ ROUTERS_DIR = Path(__file__).resolve().parents[2] / "app" / "routers"
 # file::name -> why it is not limiter state
 ALLOWED = {
     "companies.py::_quote_cache": "per-process quote cache keyed by ticker, values are (quote, stamp)",
-    "filings.py::_filings_synced_at": "per-process sync stamp per company, values are datetimes",
     "filings.py::_visit_task_handoffs": "bounded cache of accepted queue handoffs, values are bucket expiry timestamps",
 }
 

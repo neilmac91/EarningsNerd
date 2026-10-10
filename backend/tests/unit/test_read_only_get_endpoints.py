@@ -136,6 +136,8 @@ ALLOWED_WRITE_SITES: dict[tuple[str, str], frozenset[str]] = {
         "app/services/company_resolution.py::resolve_or_create_company_by_cik",
         "app/services/filing_amendment_service.py::mark_superseded_filings",
         "app/services/filing_history_service.py::_persist_history_rows",
+        "app/services/filing_list_service.py::persist_live_filings",
+        "app/services/filing_list_service.py::persist_sec_company",
         "app/services/filing_scan_service.py::upsert_filings",
     }),
     ("app/routers/summaries.py", "get_summary_progress"): frozenset({
