@@ -1,7 +1,8 @@
 // Measures the PROTOTYPE (prototype/index.html) in every state, in the proposed view and in the
 // reproduction of today's markup, at the brief's widths, both themes, 200% browser zoom and 200%
 // text size: page overflow, KPI card-child containment and value alignment, table width and
-// column widths, far-right sticky-column occlusion, clipped cells and the count of repeated labels.
+// column widths, sticky-column occlusion at EVERY rest position, both-sided cell clipping of the rendered
+// text, text-aware KPI containment, and the count of repeated labels; 200% text at 1480, 390 and 320.
 //
 //   node harness/measure-proto.mjs --out measurements/prototype.json [--fonts dir] [--shots dir]
 //
@@ -11,6 +12,7 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
+import { execSync } from 'node:child_process'
 const require = createRequire(import.meta.url)
 const { chromium } = require('playwright')
 
@@ -30,6 +32,8 @@ const CONFIGS = [
   { name: '320', width: 320, height: 568, mobile: true },
   { name: '1480@200%zoom', width: 740, height: 500, dsf: 2 },
   { name: '1480@200%text', width: 1480, height: 1000, textZoom: 2 },
+  { name: '390@200%text', width: 390, height: 844, mobile: true, textZoom: 2 },
+  { name: '320@200%text', width: 320, height: 568, mobile: true, textZoom: 2 },
 ]
 const STATES = ['clean', 'legacy', 'discrepancy']
 const MODES = ['proposed', 'current']
@@ -46,7 +50,7 @@ async function routeFonts(context) {
 
 async function run() {
   const browser = await chromium.launch()
-  const results = { generatedAt: new Date().toISOString(), configs: [] }
+  const results = { generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: (() => { try { return execSync('git rev-parse --short HEAD', { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { return null } })() }, configs: [] }
   for (const theme of ['light', 'dark']) {
     for (const cfg of CONFIGS) {
       const context = await browser.newContext({ viewport: { width: cfg.width, height: cfg.height }, deviceScaleFactor: cfg.dsf || 1, isMobile: !!cfg.mobile, hasTouch: !!cfg.mobile, reducedMotion: 'reduce' })
@@ -82,7 +86,7 @@ async function run() {
             mkdirSync(SHOTS, { recursive: true })
             await page.screenshot({ path: path.join(SHOTS, `proto-${key.replace(/[/@%]/g, '-')}.png`), fullPage: true })
           }
-          if (mode === 'proposed' && stateName === 'legacy') console.log(theme, cfg.name, 'overflow', m.pageOverflowPx, 'kpi worst', m.kpi.map((k) => k.worstOverflowPx).join(','), 'valueTop', [...new Set(m.kpi.map((k) => k.valueTop))].join('/'), 'table', m.table && `${m.table.tableWidth}/${m.table.containerWidth} cols ${m.table.minColumn}-${m.table.maxColumn} scrolls=${m.table.scrolls} clipped=${m.table.cellTextClipped} occluded=${m.table.occludedAtFarRight.length}`, 'win6', window6 && `${window6.tableWidth}/${window6.containerWidth} scrolls=${window6.scrolls}`)
+          if (mode === 'proposed' && stateName === 'legacy') console.log(theme, cfg.name, 'overflow', m.pageOverflowPx, 'kpi worst', m.kpi.map((k) => k.worstOverflowPx).join(','), 'clippedCells', m.table && m.table.clippedCount, 'occludedPositions', m.table && m.table.occludedPositions.length, 'readableCols', m.table && m.table.readableColumns, 'valueTop', [...new Set(m.kpi.map((k) => k.valueTop))].join('/'), 'table', m.table && `${m.table.tableWidth}/${m.table.containerWidth} cols ${m.table.minColumn}-${m.table.maxColumn} scrolls=${m.table.scrolls} clipped=${m.table.cellTextClipped} occluded=${m.table.occludedAtFarRight.length}`, 'win6', window6 && `${window6.tableWidth}/${window6.containerWidth} scrolls=${window6.scrolls}`)
         }
       }
       await context.close()

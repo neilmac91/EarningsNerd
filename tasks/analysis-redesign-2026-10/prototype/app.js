@@ -29,11 +29,13 @@
   const fmtPp = (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}pp`
   const fmtGrowth = (v) => `${v > 0 ? '+' : ''}${(v * 100).toFixed(1)}%`
   const fmtRatio = (v) => `${v.toFixed(2)}×`
-  const fmtExact = (v) => v.toLocaleString('en-US', { maximumFractionDigits: 8 })
+  // Integers in locale form; fractions exactly as stored (the shortest round-trip form), never re-rounded.
+  const fmtExact = (v) => (Number.isInteger(v) ? v.toLocaleString('en-US') : String(v))
+  const unitLabel = (unit) => (!unit || unit === 'USD' ? '' : unit === 'pure' ? '(ratio)' : unit === '%' || unit === 'percent' ? '%' : unit.endsWith('/shares') ? `${unit.split('/')[0]} per share` : unit)
   function fmtValue(v, series) {
     if (series.percent) return fmtPct(v)
     if (series.unit === 'pure') return fmtRatio(v)
-    if (series.unit.endsWith('/shares')) return `${v < 0 ? '-' : ''}$${Math.abs(v).toFixed(2)}`
+    if (series.unit.endsWith('/shares')) { const code = series.unit.split('/')[0].toUpperCase(); return `${v < 0 ? '-' : ''}${code === 'USD' ? '$' : code + ' '}${Math.abs(v).toFixed(2)}` }
     return fmtMoney(v, series.unit)
   }
   function fmtExactWithUnit(v, series) {
@@ -77,7 +79,7 @@
   const conceptLabel = (c) => ({ revenue: 'Revenue', net_income: 'Net income', operating_income: 'Operating income', operating_cash_flow: 'Operating cash flow', capital_expenditures: 'Capital expenditures', current_assets: 'Current assets', current_liabilities: 'Current liabilities', free_cash_flow: 'Free cash flow', working_capital: 'Working capital', current_ratio: 'Current ratio', net_margin: 'Net margin', operating_margin: 'Operating margin' }[c] || c.replace(/_/g, ' '))
 
   // ---------- data notes: group every concern by its underlying issue ----------
-  const LETTERS = 'abcdefghijklmnopqrstuvwxyz'
+  const letterFor = (index) => { let out = ''; for (let v = index + 1; v > 0; v = Math.floor((v - 1) / 26)) out = String.fromCharCode(97 + (v - 1) % 26) + out; return out }
   function needsReview(p) { return p && p.provenance ? p.provenance.validation === 'needs_review' : p && p.reconciled === false }
   // A populated figure with no validation record (older snapshots, or a record whose validation is neither
   // passed nor needs_review) gets a note of its own and is never counted as passed.
@@ -140,7 +142,7 @@
     }
     const ORDER = { review: 0, unknown: 1, unavailable: 2 }
     const list = [...groups.values()].sort((a, b) => ORDER[a.kind] - ORDER[b.kind])
-    list.forEach((g, i) => { g.letter = LETTERS[i] || `n${i + 1}` })
+    list.forEach((g, i) => { g.letter = letterFor(i) })
     const byKey = Object.fromEntries(list.map((g) => [g.key, g]))
     const noteFor = (p) => { if (!p) return null; if (p.value == null) { const r = (p.provenance && p.provenance.reasons && p.provenance.reasons.length) ? p.provenance.reasons : ['not_in_dataset']; return byKey['unavailable:' + canon(r).join('+')] || null } const k = kindOf(p); return k === 'review' ? byKey[key(p.provenance && p.provenance.reasons)] || null : k === 'unknown' ? byKey[UNKNOWN_KEY] || null : null }
     const noteForComparison = (p, basis) => { const k = comparisonKindOf(p, basis); if (!k) return null; if (k === 'unknown') return byKey[UNKNOWN_KEY] || null; const prov = p[basis + '_provenance']; return byKey[key(prov && prov.reasons)] || null }
@@ -159,6 +161,8 @@
   const state = { stateName: 'legacy', mode: 'proposed', window: '12', text: 1 }
   function current() { return window.EN_STATES[state.stateName] }
 
+  // Reveal the strip and move focus to the note itself (main's openDataNote): no dead jump, no forced motion.
+  function openNote(letter) { const d = $('#data-notes'); if (d) d.open = true; const t = $(`#note-${letter}`); if (!t) return; t.tabIndex = -1; t.focus({ preventScroll: true }); t.scrollIntoView({ block: 'center' }) }
   // ---------- affix: † for calculated, a note letter for a concern ----------
   function affix(point, note, opts) {
     const calc = isCalculated(point)
@@ -186,14 +190,14 @@
     root.replaceChildren(
       el('div', { class: 'picker' },
         el('div', { class: 'row' },
-          el('div', { style: 'display:flex;align-items:center;gap:.5rem;font-size:.875rem' }, el('span', { style: 'display:inline-block;width:20px;height:20px;border-radius:50%;background:var(--brand-weak);border:1px solid var(--brand-border)' }), el('b', null, 'Meta Platforms, Inc.'), el('span', { class: 'data', style: 'color:var(--ink-2)' }, 'META')),
+          el('div', { style: 'display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;font-size:.875rem' }, el('span', { style: 'display:inline-block;width:20px;height:20px;border-radius:50%;background:var(--brand-weak);border:1px solid var(--brand-border)' }), el('b', null, 'Meta Platforms, Inc.'), el('span', { class: 'data', style: 'color:var(--ink-2)' }, 'META')),
         ),
         el('div', { class: 'row' },
           el('div', { class: 'seg adaptive', role: 'group', 'aria-label': 'Analysis mode' }, el('button', { type: 'button', 'aria-pressed': 'false' }, 'Annual'), el('button', { type: 'button', 'aria-pressed': 'true' }, 'Quarterly')),
           el('div', { class: 'presets', role: 'group', 'aria-label': 'Quick ranges' }, ...[4, 8, 12].map((n) => el('button', { type: 'button', 'aria-pressed': String(n === dataset.periods.length) }, `Last ${n}`))),
           el('div', { class: 'range' },
-            el('label', null, 'From', el('select', { class: 'field', 'aria-label': 'First quarter' }, ...quarters.map((q) => el('option', { value: q, selected: q === start }, periodLong(q))))),
-            el('label', null, 'To', el('select', { class: 'field', 'aria-label': 'Last quarter' }, ...quarters.map((q) => el('option', { value: q, selected: q === end }, periodLong(q))))),
+            el('label', null, 'From', el('select', { class: 'field' }, ...quarters.map((q) => el('option', { value: q, selected: q === start }, periodLong(q))))),
+            el('label', null, 'To', el('select', { class: 'field' }, ...quarters.map((q) => el('option', { value: q, selected: q === end }, periodLong(q))))),
           ),
         ),
         el('p', { class: 'summary', style: 'margin:0' }, el('b', null, `${dataset.periods.length} quarters`), ` · ${periodLong(start)} – ${periodLong(end)} · ${derived} calculated Q4 columns (†) · data available ${periodLong(first)} – ${periodLong(last)} · up to 12 at a time`),
@@ -221,7 +225,7 @@
         el('dd', { class: 'value' }, btn),
         el('dd', { class: 'sub' },
           el('span', { class: 'period' }, periodLong(p.period), p.period !== notes.latest ? el('span', { class: 'late' }, ' · latest available') : null),
-          d.text ? el('span', { class: 'delta ' + t }, el('span', { class: 'sr-only' }, 'year over year '), 'YoY ', d.text, cmpNote ? el('sup', { class: 'affix', 'aria-hidden': 'true' }, el('span', { class: 'note' + (cmpNote.kind === 'review' ? '' : ' ' + cmpNote.kind) }, cmpNote.letter)) : null) : el('span', { class: 'delta flat' }, 'YoY —'),
+          d.text ? el('span', { class: 'delta ' + t }, el('span', { class: 'sr-only' }, 'year over year '), el('span', { 'aria-hidden': 'true' }, 'YoY '), d.text, cmpNote ? el('sup', { class: 'affix', 'aria-hidden': 'true' }, el('span', { class: 'note' + (cmpNote.kind === 'review' ? '' : ' ' + cmpNote.kind) }, cmpNote.letter)) : null) : el('span', { class: 'delta flat' }, 'YoY —'),
         ),
       ))
     }
@@ -241,7 +245,7 @@
     if (reviewGroups.length) counts.append(el('b', null, `${notes.reviewValues} value${notes.reviewValues === 1 ? '' : 's'}`), ` need${notes.reviewValues === 1 ? 's' : ''} review · `, el('b', null, `${notes.reviewComparisons} comparison${notes.reviewComparisons === 1 ? '' : 's'}`), ' built on them')
     if (notes.unknownValues) counts.append(`${reviewGroups.length ? ' · ' : ''}${notes.unknownValues} figure${notes.unknownValues === 1 ? ' has' : 's have'} no validation record`)
     if (notes.unknownComparisons) counts.append(` · ${notes.unknownComparisons} comparison${notes.unknownComparisons === 1 ? ' has' : 's have'} no validation record`)
-    if (!reviewGroups.length && !unknownGroups.length) counts.append(el('b', { class: 'ok' }, `${notes.passed} figures`), ' passed automated source checks')
+    if (!reviewGroups.length && !unknownGroups.length) counts.append(el('b', { class: 'ok' }, 'No figures need review'), ` · ${notes.passed} checked`)
     if (notes.unavailable) counts.append(` · ${notes.unavailable} unavailable`)
     counts.append(` · ${notes.calculated} calculated †`)
     details.append(el('summary', null, el('span', { class: 'caret', 'aria-hidden': 'true' }), el('span', { class: 'title' }, 'Data notes'), counts))
@@ -271,7 +275,7 @@
     if (!reviewGroups.length && !unknownGroups.length && !unavailableGroups.length) ol.append(el('li', null, el('span', { class: 'mark' }, '—'), el('div', { class: 'what' }, 'No data notes for this report.')))
     body.append(ol)
     body.append(el('div', { class: 'methods' },
-      el('p', null, 'Select any figure to inspect its source filing, reporting period and calculation. † marks a figure EarningsNerd calculated from reported inputs; it is not an error. Growth and ratios are calculated from the same inputs. Automated checks compare figures with the company’s XBRL and are not an audit of its accounts.'),
+      el('p', null, 'Select any figure to inspect its source filing, reporting period and calculation. † marks a figure EarningsNerd calculated from reported inputs; it is not an error. Growth and ratios are calculated from the same inputs. Automated checks confirm that reported figures come from the company’s SEC XBRL data and that calculations combine compatible periods and units; they are not an audit of the company’s accounts.'),
       el('p', null, 'Quarterly cash flows may be calculated by subtracting earlier year-to-date totals; fourth quarters from annual totals less the first nine months. Earnings per share uses a reported quarterly figure only. Free cash flow is operating cash flow minus cash capital expenditures and may differ from the company’s own measure.'),
       el('p', null, `Source data as of ${dataset.data_as_of ? dataset.data_as_of.slice(0, 10) : 'unknown'} · snapshot ${(dataset.snapshot_id || '').slice(0, 12)}.`),
     ))
@@ -312,7 +316,7 @@
     S('text', { x: padL + (W - padL - padR) / 2, y: H - 4, 'text-anchor': 'middle', 'font-size': 11, 'font-family': 'Geist Mono, ui-monospace, monospace', fill: 'var(--axis)' }, 'Fiscal Quarter')
     if (bar) {
       const bw = Math.min(44, ((W - padL - padR) / n) * 0.6)
-      bar.points.forEach((p, i) => { if (p.value == null) return; const nt = notes.noteFor(p); const y0 = yL(0), y1 = yL(p.value); S('rect', { x: x(i) - bw / 2, y: Math.min(y0, y1), width: bw, height: Math.abs(y0 - y1), rx: 3, fill: nt ? 'none' : SERIES_COLORS[0], stroke: SERIES_COLORS[0], 'stroke-width': nt ? 2 : 0, 'stroke-dasharray': nt ? '4 3' : null }) ; if (nt) S('text', { x: x(i), y: Math.min(y0, y1) - 4, 'text-anchor': 'middle', 'font-size': 11, 'font-family': 'Geist Mono, ui-monospace, monospace', fill: nt.kind === 'review' ? 'var(--warning)' : 'var(--ink-3)' }, nt.letter) })
+      bar.points.forEach((p, i) => { if (p.value == null) return; const nt = notes.noteFor(p); const y0 = yL(0), y1 = yL(p.value); S('rect', { x: x(i) - bw / 2, y: Math.min(y0, y1), width: bw, height: Math.abs(y0 - y1), rx: 3, fill: SERIES_COLORS[0] }) ; if (nt) S('text', { x: x(i), y: Math.min(y0, y1) - 4, 'text-anchor': 'middle', 'font-size': 11, 'font-family': 'Geist Mono, ui-monospace, monospace', fill: 'var(--ink-2)' }, nt.letter) })
       if (spec.growthLine) {
         const gv = bar.points.map((p) => (typeof p.yoy === 'number' ? p.yoy * 100 : null))
         const yR = scale(gv.filter((v) => v != null), true)
@@ -333,12 +337,12 @@
         let d = '', pen = false
         s.points.forEach((p, i) => { if (p.value == null) { pen = false; return } d += `${pen ? ' L' : ' M'}${x(i)} ${yy(p.value)}`; pen = true })
         S('path', { d: d.trim(), fill: 'none', stroke: e.color, 'stroke-width': 2, 'stroke-linejoin': 'round' })
-        s.points.forEach((p, i) => { if (p.value == null) return; const nt = notes.noteFor(p); if (nt) { S('circle', { cx: x(i), cy: yy(p.value), r: 4.5, fill: 'var(--panel)', stroke: e.color, 'stroke-width': 2 }); S('text', { x: x(i), y: yy(p.value) - 8, 'text-anchor': 'middle', 'font-size': 11, 'font-family': 'Geist Mono, ui-monospace, monospace', fill: nt.kind === 'review' ? 'var(--warning)' : 'var(--ink-3)' }, nt.letter) } })
+        s.points.forEach((p, i) => { if (p.value == null) return; const nt = notes.noteFor(p); if (nt) { S('circle', { cx: x(i), cy: yy(p.value), r: 4.5, fill: 'var(--panel)', stroke: e.color, 'stroke-width': 2 }); S('text', { x: x(i), y: yy(p.value) - 8, 'text-anchor': 'middle', 'font-size': 11, 'font-family': 'Geist Mono, ui-monospace, monospace', fill: 'var(--ink-2)' }, nt.letter) } })
       }
     }
     const legendItems = bar ? [{ label: bar.label, color: SERIES_COLORS[0] }, ...(spec.growthLine ? [{ label: 'YoY growth', color: SERIES_COLORS[1] }] : [])] : entries.map((e) => ({ label: entries.some((x) => x.right) && entries.some((x) => !x.right) ? `${e.label} (${e.right ? 'right' : 'left'})` : e.label, color: e.color }))
     const legend = el('div', { class: 'legend' }, ...legendItems.map((it) => el('span', null, el('i', { style: `background:${it.color}` }), it.label)))
-    if (noteLetters.size) legend.append(el('button', { type: 'button', class: 'pchip note notes-ref', onclick: () => { const d = $('#data-notes'); d.open = true; $(`#note-${[...noteLetters][0]}`).scrollIntoView({ block: 'center' }) } }, `Notes ${[...noteLetters].join(', ')}`))
+    if (noteLetters.size) legend.append(el('button', { type: 'button', class: 'pchip note notes-ref', onclick: () => openNote([...noteLetters][0]) }, `Notes ${[...noteLetters].join(', ')}`))
     const panel = el('section', { class: 'card panel', 'aria-labelledby': `panel-${spec.id}` },
       el('div', { class: 'head' }, el('div', { style: 'min-width:0' }, el('h2', { id: `panel-${spec.id}` }, spec.title), legend), el('div', { class: 'controls' }, el('button', { type: 'button', class: 'btn secondary icon', 'aria-label': 'Download chart as PNG', title: 'Download chart as PNG' }, '▣'), el('button', { type: 'button', class: 'btn secondary icon', 'aria-label': 'Expand chart', 'aria-expanded': 'false' }, '⤢'))),
       el('div', { class: 'plot', tabindex: '0', role: 'region', 'aria-label': `${spec.title} chart. Scroll horizontally to view all quarters.` }, svg),
@@ -361,13 +365,28 @@
   }
 
   // ---------- narrative (proposed): readable amounts, folded operand evidence ----------
+  // Relation-safe compaction (§4.8): the money tokens of a line are shortened together, with decimals added
+  // until figures that differ stay visibly different, so "$12.8B was below net income of $12.8B" cannot
+  // occur; a ratio within rounding of 1.00× keeps the engine's precision, so "1.0033×, above 1.00×" never
+  // becomes "1.00×, above 1.00×". Relations themselves are the engine's, computed on raw values.
   function compactify(text, dataset) {
-    return text
-      .replace(/USD (-?\d[\d,]*(?:\.\d+)?) per share/g, (_, n) => `${n.startsWith('-') ? '-' : ''}$${Math.abs(Number(n.replace(/,/g, ''))).toFixed(2)}`)
-      .replace(/USD (-?\d[\d,]*)/g, (_, n) => fmtMoney(Number(n.replace(/,/g, '')), 'USD'))
-      .replace(/(\d+\.\d{4,})x\b/g, (_, n) => `${Number(n).toFixed(2)}×`)
-      .replace(/(\d+\.\d\d)x\b/g, '$1×')
-      .replace(/\b(\d{4})(Q[1-4])\b/g, '$2 $1')
+    const compactMoney = (v, d) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact', minimumFractionDigits: d, maximumFractionDigits: d }).format(v)
+    const distinct = (values, render) => {
+      for (let d = 1; d <= 4; d++) { const out = values.map((v) => render(v, d)); if (new Set(out).size === new Set(values).size) return out }
+      return values.map((v) => render(v, 4))
+    }
+    let out = text.replace(/USD (-?\d[\d,]*(?:\.\d+)?) per share/g, (_, n) => { const v = Number(n.replace(/,/g, '')); return `${v < 0 ? '-' : ''}$${Math.abs(v).toFixed(2)}` })
+    const moneyRe = /USD (-?\d[\d,]*)/g
+    const moneyValues = [...out.matchAll(moneyRe)].map((m) => Number(m[1].replace(/,/g, '')))
+    if (moneyValues.length) { const rendered = distinct(moneyValues, compactMoney); let i = 0; out = out.replace(moneyRe, () => rendered[i++]) }
+    const ratioRe = /(\d+\.\d{2,})x\b/g
+    const ratioValues = [...out.matchAll(ratioRe)].map((m) => Number(m[1]))
+    if (ratioValues.length) {
+      const rendered = distinct(ratioValues, (v, d) => `${v.toFixed(Math.max(2, d))}×`)
+      let i = 0
+      out = out.replace(ratioRe, (_, n) => { const r = rendered[i++]; const v = Number(n); return v !== 1 && Math.abs(v - 1) < 0.005 ? `${n}×` : r })
+    }
+    return out.replace(/\b(\d{4})(Q[1-4])\b/g, '$2 $1')
   }
   function citeChip(n, citations, notes, dataset) {
     const c = citations.find((x) => x.n === n)
@@ -407,18 +426,32 @@
       const p = el('p', null, inlineWithCites(line, cites, notes, dataset))
       body.append(p)
       if (operands) {
-        const items = operands.split('; ').map((o) => { const m = /^(.*?) (USD [\d,]+|[\d.]+%|[\d.]+x) in (\d{4}Q[1-4]) \[(\d+)\]( \(derived Q4\))?$/.exec(o.trim()); return m ? { label: m[1], value: m[2], period: m[3], n: Number(m[4]), derived: !!m[5] } : { label: o } })
+        // The tail's [n] markers name the citations; the rows come from those records (concept, period,
+        // value), so negative amounts, annual periods or any other operand text never lose their row.
+        const items = [...operands.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])).map((n) => {
+          const c = cites.find((x) => x.n === n)
+          const sr = c && dataset.series.find((x) => x.concept === c.concept)
+          const pt = sr && sr.points.find((x) => x.period === c.period)
+          return c ? { label: sr ? sr.label : conceptLabel(c.concept), period: c.period, value: pt && sr && pt.value != null ? fmtValue(pt.value, sr) : fmtExact(c.value), n, derived: !!(pt && isCalculated(pt)) } : { label: `[${n}]`, n }
+        })
         const table = el('table', null, el('thead', null, el('tr', null, el('th', null, 'Quarter'), el('th', null, 'Figure'), el('th', { style: 'text-align:right' }, 'Value'), el('th', null, 'Source'))))
         const tb = el('tbody')
-        for (const it of items) tb.append(el('tr', null, el('td', null, it.period ? periodLong(it.period) + (it.derived ? ' †' : '') : ''), el('td', null, it.label), el('td', { class: 'num' }, compactify(it.value || '', dataset)), el('td', null, it.n ? citeChip(it.n, cites, notes, dataset) : '')))
+        for (const it of items) tb.append(el('tr', null, el('td', null, it.period ? periodLong(it.period) + (it.derived ? ' †' : '') : ''), el('td', null, it.label), el('td', { class: 'num' }, it.value || ''), el('td', null, it.n ? citeChip(it.n, cites, notes, dataset) : '')))
         table.append(tb)
-        body.append(el('details', { class: 'evidence' }, el('summary', null, `Show the ${items.length} figures behind this`), table))
+        const foldLetters = [...new Set(items.map((it) => { const c = cites.find((x) => x.n === it.n); const sr = c && dataset.series.find((x) => x.concept === c.concept); const pt = sr && sr.points.find((x) => x.period === c.period); const nt = pt && notes.noteFor(pt); return nt ? nt.letter : null }).filter(Boolean))]
+        if (items.length <= 3) {
+          // Short operand lists stay in the reading line, in display form, with their citation chips.
+          p.append(' (', ...items.flatMap((it, i) => [i ? '; ' : '', `${it.label} ${it.value}, ${periodLong(it.period || '')} `, citeChip(it.n, cites, notes, dataset)]), ')')
+        } else {
+          const foldNote = foldLetters.length ? ` · ${foldLetters.length === 1 ? 'figures carry note' : 'figures carry notes'} ${foldLetters.join(', ')}` : ''
+          body.append(el('details', { class: 'evidence' }, el('summary', null, `Show the ${items.length} source figures behind this${foldNote}`), el('div', { class: 'scroll' }, table)))
+        }
       }
     }
     const letters = new Set(); for (const c of cites) { const s = dataset.series.find((x) => x.concept === c.concept); const p = s && s.points.find((x) => x.period === c.period); const nt = p && notes.noteFor(p); if (nt) letters.add(nt.letter) }
     const head = el('div', { class: 'head' },
-      el('div', { class: 'left' }, el('h2', { tabindex: '-1' }, 'AI trend analysis'), el('span', { class: 'chip quiet' }, `${completion.grounded} sources`), letters.size ? el('button', { type: 'button', class: 'pchip note', onclick: () => { $('#data-notes').open = true; $('#data-notes').scrollIntoView({ block: 'start', behavior: 'smooth' }) } }, `Notes ${[...letters].join(', ')}`) : null, completion.cached ? el('span', { class: 'chip quiet' }, 'Cached') : null),
-      el('div', { style: 'display:flex;gap:.5rem' }, el('button', { type: 'button', class: 'btn secondary sm' }, '⤓ Export PDF'), el('button', { type: 'button', class: 'btn secondary sm' }, '↻ Refresh analysis')),
+      el('div', { class: 'left' }, el('h2', { id: 'narr-h', tabindex: '-1' }, 'AI trend analysis'), el('span', { class: 'chip quiet' }, `${completion.grounded} sources`), letters.size ? el('button', { type: 'button', class: 'pchip note', onclick: () => openNote([...letters][0]) }, `Notes ${[...letters].join(', ')}`) : null, completion.cached ? el('span', { class: 'chip quiet' }, 'Cached') : null),
+      el('div', { style: 'display:flex;gap:.5rem;flex-wrap:wrap' }, el('button', { type: 'button', class: 'btn secondary sm' }, '⤓ Export PDF'), el('button', { type: 'button', class: 'btn secondary sm' }, '↻ Refresh analysis')),
     )
     const sources = el('div', { class: 'sources' }, el('div', { class: 'eyebrow' }, 'Sources · SEC XBRL values and computed figures'))
     const ol = el('ol')
@@ -467,7 +500,7 @@
         const t = tone(s.tone, d.dir)
         const cell = el('div', { class: 'cell' },
           el('span', { class: 'v' }, el('button', { type: 'button', 'aria-label': nameFor(s, p, note, cmpNote), onclick: () => openEvidence(s, p, notes) }, fmtValue(p.value, s), affix(p, note))),
-          d.text ? el('span', { class: 'd ' + t, 'data-basis': basis }, el('span', { class: 'sr-only' }, basis === 'yoy' ? 'change vs same quarter last year ' : 'change vs prior quarter '), basis === 'yoy' ? 'YoY ' : '', d.text, cmpNote ? el('sup', { class: 'affix', 'aria-hidden': 'true' }, el('span', { class: 'note' + (cmpNote.kind === 'review' ? '' : ' ' + cmpNote.kind) }, cmpNote.letter)) : null) : el('span', { class: 'd empty', 'aria-hidden': 'true' }, '\u00a0'),
+          d.text ? el('span', { class: 'd ' + t, 'data-basis': basis }, el('span', { class: 'sr-only' }, basis === 'yoy' ? 'change vs same quarter last year ' : 'change vs prior quarter '), basis === 'yoy' ? el('span', { 'aria-hidden': 'true' }, 'YoY ') : '', d.text, cmpNote ? el('sup', { class: 'affix', 'aria-hidden': 'true' }, el('span', { class: 'note' + (cmpNote.kind === 'review' ? '' : ' ' + cmpNote.kind) }, cmpNote.letter)) : null) : el('span', { class: 'd empty', 'aria-hidden': 'true' }, '\u00a0'),
         )
         td.append(cell)
         tr.append(td)
@@ -475,10 +508,13 @@
       tbody.append(tr)
     }
     table.append(tbody)
-    const scroll = el('div', { class: 'metrics-scroll', tabindex: '0', role: 'region', 'aria-label': `Metrics by period, scrollable table of ${periods.length} quarters` }, el('div', { class: 'hint', 'aria-hidden': 'true' }, '← earlier quarters · scroll or use the arrow keys · snaps to whole columns'), table)
+    const phone = window.matchMedia('(max-width: 639px)').matches
+    const scroll = el('div', { class: 'metrics-scroll', role: 'region', 'aria-label': `Metrics by period, table of ${periods.length} quarters` }, phone ? el('div', { class: 'hint', 'aria-hidden': 'true' }, '← Earlier quarters') : null, table)
+    // Home/End move the table, never the page; arrows step one column through the mandatory snap.
+    scroll.addEventListener('keydown', (e) => { if (e.target !== scroll) return; const range = scroll.scrollWidth - scroll.clientWidth; const col = table.querySelector('tbody td'); const step = col ? col.getBoundingClientRect().width : scroll.clientWidth; const to = e.key === 'Home' ? 0 : e.key === 'End' ? range : e.key === 'ArrowRight' ? scroll.scrollLeft + step : e.key === 'ArrowLeft' ? scroll.scrollLeft - step : null; if (to == null) return; e.preventDefault(); scroll.scrollLeft = Math.max(0, Math.min(to, range)) })
     const legend = el('div', { class: 'legend' }, hasDerived ? el('span', null, el('span', { class: 'affix' }, el('span', { class: 'dag' }, '†')), ' calculated') : null, notes.list.some((g) => g.kind === 'review') ? el('span', null, el('span', { class: 'affix' }, el('sup', { class: 'note' }, 'a')), ' data note (see Data notes)') : null)
-    const windowCtl = el('div', { class: 'window' }, el('span', null, periods.length === dataset.periods.length ? `All ${dataset.periods.length} quarters` : `Showing ${periods.length} of ${dataset.periods.length} quarters`), el('div', { class: 'seg', role: 'group', 'aria-label': 'Table window' }, ...[['12', 'All 12'], ['6n', 'Newest 6'], ['6e', 'Earliest 6']].map(([v, l]) => el('button', { type: 'button', 'aria-pressed': String(state.window === v), onclick: () => { state.window = v; $('#ctl-window').value = v; render() } }, l))))
-    const head = el('div', { class: 'head' }, el('div', { class: 'left' }, el('h2', null, 'Metrics by period'), legend), el('div', { style: 'display:flex;gap:.75rem;align-items:center;flex-wrap:wrap' }, windowCtl, el('button', { type: 'button', class: 'btn secondary sm' }, '⬇ Export Excel')))
+    const windowCtl = el('div', { class: 'window' }, el('span', { role: 'status' }, periods.length === dataset.periods.length ? `All ${dataset.periods.length} quarters` : `Showing ${periods.length} of ${dataset.periods.length} quarters`), el('div', { class: 'seg', role: 'group', 'aria-label': 'Table window' }, ...[['12', 'All 12'], ['6n', 'Newest 6'], ['6e', 'Earliest 6']].map(([v, l]) => el('button', { type: 'button', 'data-window': v, 'aria-pressed': String(state.window === v), onclick: () => { state.window = v; $('#ctl-window').value = v; render(); const again = document.querySelector(`.window button[data-window="${v}"]`); if (again) again.focus() } }, l))))
+    const head = el('div', { class: 'head' }, el('div', { class: 'left' }, el('h2', { id: 'metrics-h' }, 'Metrics by period'), legend), el('div', { style: 'display:flex;gap:.75rem;align-items:center;flex-wrap:wrap' }, windowCtl, el('button', { type: 'button', class: 'btn secondary sm' }, '⬇ Export Excel')))
     const section = el('section', { class: 'card card-body metrics', 'aria-labelledby': 'metrics-h' }, head, scroll)
     // The scroll range is kept to a whole number of columns: an inline-end pad makes the far-right
     // rest position start exactly on a column edge, so the sticky metric column never half-hides a
@@ -488,12 +524,19 @@
       const col = table.querySelector('tbody td')
       const colWidth = col ? col.getBoundingClientRect().width : 0
       const range = scroll.scrollWidth - scroll.clientWidth
-      if (range <= 1 || !colWidth) { scroll.classList.remove('scrolls'); return }
-      const pad = (colWidth - (range % colWidth)) % colWidth
+      if (range <= 1 || !colWidth) { scroll.classList.remove('scrolls'); scroll.removeAttribute('tabindex'); return }
+      scroll.setAttribute('tabindex', '0')
+      // The metric column sticks only while the scroll area leaves room for one whole period column
+      // beside it; otherwise (200% text on a phone) the table scrolls as a whole, labels included.
+      const sticky = table.querySelector('thead th')
+      const unstick = !!sticky && scroll.clientWidth - sticky.getBoundingClientRect().width < colWidth - 1
+      table.classList.toggle('unstick', unstick)
+      scroll.classList.toggle('unstuck', unstick)
+      const pad = state.noPad ? 0 : (colWidth - (range % colWidth)) % colWidth
       scroll.style.paddingInlineEnd = `${Math.round(pad)}px`
       scroll.classList.add('scrolls')
     }
-    requestAnimationFrame(() => { alignScrollRange(); if (scroll.classList.contains('scrolls')) scroll.scrollLeft = scroll.scrollWidth })
+    requestAnimationFrame(() => { alignScrollRange(); if (phone && scroll.classList.contains('scrolls')) scroll.scrollLeft = scroll.scrollWidth })
     if (window.ResizeObserver) new ResizeObserver(alignScrollRange).observe(scroll)
     return section
   }
@@ -505,7 +548,7 @@
     for (const op of inputs || []) {
       const prov = op.provenance || {}
       const li = el('li')
-      li.append(el('span', { class: 'c' }, conceptLabel(op.concept), prov.method === 'calculated' ? ' †' : ''), el('span', { class: 'v' }, op.value == null ? 'Unavailable' : fmtExact(op.value) + (op.unit && op.unit !== 'USD' ? ' ' + op.unit : '')))
+      li.append(el('span', { class: 'c' }, conceptLabel(op.concept), prov.method === 'calculated' ? ' †' : ''), el('span', { class: 'v' }, op.value == null ? 'Unavailable' : fmtExact(op.value) + (unitLabel(op.unit) ? ' ' + unitLabel(op.unit) : '')))
       const meta = el('span', { class: 'meta' })
       if (op.period_start || op.period_end) meta.append(el('span', { class: 'data' }, [op.period_start, op.period_end].filter(Boolean).join(' → ')))
       if (prov.formula) meta.append(el('span', null, `= ${formulaText(prov.formula)}`))
@@ -527,7 +570,7 @@
     $('#evidence-title').textContent = `${series.label} · ${periodLong(point.period)}`
     const body = $('#evidence-body')
     body.replaceChildren()
-    body.append(el('div', { class: 'figure' }, el('span', { class: 'big' }, point.value == null ? 'Unavailable' : fmtValue(point.value, series), affix(point, note)), point.value != null ? el('span', { class: 'exact' }, `exact ${fmtExactWithUnit(point.value, series)}`) : null))
+    body.append(el('div', { class: 'figure' }, el('span', { class: 'big' }, point.value == null ? 'Unavailable' : fmtValue(point.value, series), affix(point, note)), point.value != null ? el('span', { class: 'exact' }, `as stored: ${fmtExactWithUnit(point.value, series)}`) : null))
     const method = el('div', { class: 'block' }, el('h3', null, 'Method'))
     if (calc) {
       method.append(el('p', { style: 'margin:0 0 .25rem' }, 'Calculated by EarningsNerd from reported inputs.'))
@@ -535,7 +578,12 @@
         method.append(el('div', { class: 'formula' }, formulaText(prov.formula)))
         const ins = prov.inputs || []
         if (ins.length === 2 && point.value != null && ins[0].value != null && ins[1].value != null) {
-          const [a, b] = ins
+          // The formula names its operands ("100 * net_income / revenue"); the stored inputs are not in
+          // formula order, so match them by concept and fall back to position only for same-concept
+          // period arithmetic ("FY - YTD9").
+          const tokens = prov.formula.replace(/abs\(/g, '').replace(/\)/g, '').split(/\s*[-\/*+]\s*/).map((t) => t.trim()).filter((t) => t && !/^\d+(\.\d+)?$/.test(t))
+          const byConcept = (name) => ins.find((i) => i.concept === name)
+          const [a, b] = tokens.length === 2 && byConcept(tokens[0]) && byConcept(tokens[1]) && tokens[0] !== tokens[1] ? [byConcept(tokens[0]), byConcept(tokens[1])] : ins
           const signed = (v) => (v < 0 ? `(${fmtExact(v)})` : fmtExact(v))
           const expr = prov.formula.includes('/') ? `${signed(a.value)} ÷ ${signed(b.value)}${series.percent ? ' × 100' : ''}` : prov.formula.includes('abs(') ? `${signed(a.value)} − |${fmtExact(b.value)}|` : `${signed(a.value)} − ${signed(b.value)}`
           method.append(el('div', { class: 'formula', style: 'color:var(--ink-3)' }, `${expr} = ${fmtExactWithUnit(point.value, series)}`))
@@ -545,10 +593,12 @@
     else method.append(el('p', { style: 'margin:0' }, 'Source method is not recorded for this saved figure.'))
     body.append(method)
     const checks = el('div', { class: 'block' }, el('h3', null, 'Checks'))
-    if (prov.validation === 'passed') checks.append(el('div', { class: 'status passed' }, el('span', { class: 'mark' }, '✓'), 'Automated source checks passed'), el('p', { class: 'fine', style: 'margin:.25rem 0 0' }, 'The figure matches the company’s XBRL as filed. This is not an audit of the company’s accounts.'))
-    else if (prov.validation === 'needs_review') checks.append(el('div', { class: 'status review' }, el('span', { class: 'mark' }, `Note ${note ? note.letter : ''}`), 'Needs review'), el('p', { style: 'margin:.25rem 0 0' }, (prov.reasons || []).map(reasonText).join(' ')))
-    else if (prov.validation === 'unavailable') checks.append(el('div', { class: 'status review' }, el('span', { class: 'mark' }, `Note ${note ? note.letter : ''}`), 'Withheld'), el('p', { style: 'margin:.25rem 0 0' }, (prov.reasons || []).map(reasonText).join(' ')))
-    else checks.append(el('div', { class: 'status' }, note ? el('span', { class: 'mark' }, `Note ${note.letter}`) : null, 'No validation record'), el('p', { class: 'fine', style: 'margin:.25rem 0 0' }, 'No verification claim is made for this figure.'))
+    const noteMark = note ? el('span', { class: 'mark' }, ` · Note ${note.letter}`) : null
+    if (point.value == null) checks.append(el('div', { class: 'status' }, 'Unavailable', noteMark), el('p', { style: 'margin:.25rem 0 0' }, note ? note.reasons.map(reasonText).join(' ') : reasonText('not_in_dataset'), ' Changes that need this quarter are not shown.'))
+    else if (prov.validation === 'passed') checks.append(el('div', { class: 'status passed' }, el('span', { class: 'mark' }, '✓'), 'Automated checks passed'), el('p', { class: 'fine', style: 'margin:.25rem 0 0' }, calc ? 'Calculated from reported figures with compatible periods and units. This is not an audit of the company’s accounts.' : 'Taken from the company’s XBRL data as filed with the SEC. This is not an audit of the company’s accounts.'))
+    else if (prov.validation === 'needs_review') checks.append(el('div', { class: 'status review' }, 'Needs review', noteMark), el('p', { style: 'margin:.25rem 0 0' }, (prov.reasons || []).map(reasonText).join(' ')))
+    else if (prov.validation === 'unavailable') checks.append(el('div', { class: 'status review' }, 'Unavailable', noteMark), el('p', { style: 'margin:.25rem 0 0' }, (prov.reasons || []).map(reasonText).join(' ')))
+    else checks.append(el('div', { class: 'status' }, 'No validation record', noteMark), el('p', { class: 'fine', style: 'margin:.25rem 0 0' }, 'No automated check result is recorded for this figure. No verification claim is made.'))
     body.append(checks)
     const sources = el('div', { class: 'block' }, el('h3', null, calc ? 'Inputs and source filings' : 'Source filing'))
     if (calc) {
@@ -646,23 +696,70 @@
     const settle = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
     const doc = document.documentElement
     const r = (x) => x.getBoundingClientRect()
-    const cards = [...document.querySelectorAll('.kpi, .kpi-card')].map((card) => { const cr = r(card); let worst = 0, text = ''; for (const c of card.querySelectorAll('*')) { const b = r(c); if (!b.width) continue; const o = Math.max(b.right - cr.right, cr.left - b.left); if (o > worst) { worst = o; text = (c.textContent || '').trim().slice(0, 30) } } const value = card.querySelector('.value'); return { kpi: card.dataset.kpi, width: Math.round(cr.width), height: Math.round(cr.height), valueTop: value ? Math.round(r(value).top - cr.top) : null, worstOverflowPx: Math.round(worst * 10) / 10, worstOverflowText: text } })
+    const EPS = 0.5
+    // Text-aware containment: element boxes AND the rendered text itself (a nowrap or clipped text
+    // keeps its box while the glyphs spill or are cut), excluding screen-reader-only text.
+    const textRects = (root) => {
+      const out = []
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.nodeValue.trim() || node.parentElement.closest('.sr-only')) continue
+        const range = document.createRange(); range.selectNodeContents(node)
+        for (const b of range.getClientRects()) if (b.width) out.push({ b, text: node.nodeValue.trim().slice(0, 30) })
+      }
+      return out
+    }
+    const worstOutside = (root, box) => {
+      let worst = 0, text = ''
+      for (const c of root.querySelectorAll('*')) { if (c.closest('.sr-only')) continue; const b = r(c); if (!b.width) continue; const o = Math.max(b.right - box.right, box.left - b.left); if (o > worst) { worst = o; text = (c.textContent || '').trim().slice(0, 30) } }
+      for (const { b, text: t } of textRects(root)) { const o = Math.max(b.right - box.right, box.left - b.left); if (o > worst) { worst = o; text = t } }
+      for (const c of root.querySelectorAll('*')) { if (c.closest('.sr-only')) continue; const cs = getComputedStyle(c); if (cs.overflow !== 'visible' && (c.scrollWidth > c.clientWidth + 1 || c.scrollHeight > c.clientHeight + 1)) { worst = Math.max(worst, c.scrollWidth - c.clientWidth, c.scrollHeight - c.clientHeight); text = (c.textContent || '').trim().slice(0, 30) } }
+      return { worst: Math.round(worst * 10) / 10, text }
+    }
+    const cards = [...document.querySelectorAll('.kpi, .kpi-card')].map((card) => { const cr = r(card); const w = worstOutside(card, cr); const value = card.querySelector('.value'); return { kpi: card.dataset.kpi, width: Math.round(cr.width), height: Math.round(cr.height), valueTop: value ? Math.round(r(value).top - cr.top) : null, worstOverflowPx: w.worst, worstOverflowText: w.text } })
     const t = document.querySelector('table.metrics, table.auto'); const sc = t && t.parentElement
     let table = null
     if (t) {
       const ths = [...t.querySelectorAll('thead th')]
       const cols = ths.map((th) => Math.round(r(th).width))
-      sc.scrollLeft = sc.scrollWidth
-      await settle()
-      const stickyRight = r(ths[0]).right
-      const firstRow = t.querySelector('tbody tr')
-      const occluded = [...firstRow.children].slice(1).map((td) => { const v = td.querySelector('button') || td; const vb = r(v); return { left: Math.round(vb.left - stickyRight), width: Math.round(vb.width) } }).filter((c) => c.left < 0 && c.left + c.width > 0)
-      sc.scrollLeft = 0
-      table = { tableWidth: Math.round(t.scrollWidth), containerWidth: Math.round(sc.clientWidth), scrolls: t.scrollWidth > sc.clientWidth + 1, columns: cols, minColumn: Math.min(...cols.slice(1)), maxColumn: Math.max(...cols.slice(1)), occludedAtFarRight: occluded, cellTextClipped: [...t.querySelectorAll('tbody td')].some((td) => td.scrollWidth > td.clientWidth + 1) }
+      const colWidth = ths.length > 1 ? r(ths[1]).width : 0
+      // Both-sided cell clipping: the rendered text of every body cell must sit inside the cell's
+      // content box (right-aligned overflow goes to the inline start, which scrollWidth never counts).
+      const clipped = []
+      for (const td of t.querySelectorAll('tbody td, tbody th')) {
+        const cs = getComputedStyle(td); const b = r(td)
+        const box = { left: b.left + parseFloat(cs.paddingLeft), right: b.right - parseFloat(cs.paddingRight) }
+        const w = worstOutside(td, box)
+        if (w.worst > EPS) clipped.push({ text: w.text, by: w.worst })
+      }
+      // Every rest position: scroll column by column and at the far right; a period header that
+      // straddles the sticky column's right edge is an occluded column.
+      const occluded = []
+      const positions = []
+      if (sc && colWidth && t.scrollWidth > sc.clientWidth + 1) {
+        const range = sc.scrollWidth - sc.clientWidth
+        const stops = []
+        for (let k = 0; k * colWidth <= range + EPS; k++) stops.push(Math.min(k * colWidth, range))
+        if (stops[stops.length - 1] < range - EPS) stops.push(range)
+        for (const stop of stops) {
+          sc.scrollLeft = stop
+          await settle()
+          const stickyRight = r(ths[0]).right
+          const straddling = ths.slice(1).filter((th) => { const hb = r(th); return hb.left < stickyRight - EPS && hb.right > stickyRight + EPS })
+          positions.push({ scrollLeft: Math.round(sc.scrollLeft), straddling: straddling.map((th) => th.textContent.replace(/\s+/g, ' ').trim()) })
+          if (straddling.length) occluded.push({ scrollLeft: Math.round(sc.scrollLeft), columns: straddling.map((th) => th.textContent.replace(/\s+/g, ' ').trim()) })
+        }
+        sc.scrollLeft = 0
+        await settle()
+      }
+      const stickyWidth = r(ths[0]).width
+      const unstuck = t.classList.contains('unstick')
+      table = { tableWidth: Math.round(t.scrollWidth), containerWidth: Math.round(sc.clientWidth), scrolls: t.scrollWidth > sc.clientWidth + 1, columns: cols, minColumn: Math.min(...cols.slice(1)), maxColumn: Math.max(...cols.slice(1)), stickyWidth: Math.round(stickyWidth), stickyColumn: !unstuck, readableColumns: colWidth ? Math.floor((sc.clientWidth - (unstuck ? 0 : stickyWidth)) / colWidth) : null, restPositions: positions.length, occludedPositions: occluded, occludedAtFarRight: occluded.filter((o) => o.scrollLeft >= (sc.scrollWidth - sc.clientWidth) - 1), cellTextClipped: clipped.length > 0, clippedCells: clipped.slice(0, 8), clippedCount: clipped.length }
     }
     const labels = [...document.querySelectorAll('.badge')].filter((b) => /source check/i.test(b.textContent)).length
     const affixes = document.querySelectorAll('.affix .note').length
-    return { viewport: viewportWidth, layoutViewport: window.innerWidth, documentWidth: doc.scrollWidth, pageOverflowPx: doc.scrollWidth - viewportWidth, kpi: cards, table, sourceCheckLabels: labels, noteAffixes: affixes, notes: $('#data-notes') ? $('#data-notes summary').textContent.replace(/\s+/g, ' ').trim() : null }
+    const fonts = ['Inter', 'Geist Mono'].map((f) => `${f}:${document.fonts.check(`12px "${f}"`)}`)
+    return { viewport: viewportWidth, layoutViewport: window.innerWidth, documentWidth: doc.scrollWidth, pageOverflowPx: doc.scrollWidth - viewportWidth, kpi: cards, table, sourceCheckLabels: labels, noteAffixes: affixes, notes: $('#data-notes') ? $('#data-notes summary').textContent.replace(/\s+/g, ' ').trim() : null, env: { userAgent: navigator.userAgent, fonts } }
   } }
 
   // controls

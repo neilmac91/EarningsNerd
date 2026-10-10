@@ -2,8 +2,9 @@
 
 Date: 2026-10-10 · Scope: `/analysis` results surface (KPI strip, Sources & methods, charts, narrative,
 metrics table, period picker) and the PDF, Excel and PNG exports that mirror it · Status: the §9
-decisions are taken (2026-10-10); Phase 1 items 1–4 and 11 of §7 are merged (#1199, #1200); items
-5–10 and Phase 2 are open; this document itself ships nothing · Support material:
+decisions are taken (2026-10-10); Phase 1 items 1–9 and 11 of §7 are merged (#1199, #1200, #1202, #1203);
+item 10, the follow-ups in §11 and Phase 2 are open; this document itself ships nothing · Support
+material:
 [`tasks/analysis-redesign-2026-10/`](../../tasks/analysis-redesign-2026-10/README.md) (runnable
 prototype, measurement harnesses, recorded measurements).
 
@@ -48,24 +49,27 @@ The proposal replaces label-per-instance with **note-per-issue**:
    counts; the narrative stays readable, the Sources & Methods appendix keeps full precision.
 
 Measured on the prototype with the real Meta Platforms 12-quarter dataset in its production-like
-state: no page overflow and no card-child overflow at 1480, 1054, 1024, 768, 390 and 320 CSS px, in
-both themes, at 2x device-scale emulation of 200% browser zoom and at 200% text size; twelve columns
-fit at 1480 px without scrolling; the "Newest 6" window fits without scrolling from 768 px up; no
-column is ever partly hidden under the sticky metric column. (The first prototype build overflowed
-on phones: its chart panels kept their 480 px min-content width inside `1fr` grid tracks, and both
-harnesses hid it by comparing the document with `window.innerWidth`, which mobile Chromium widens to
-the content. The Track A verification on the PR caught both; the panels now sit in `minmax(0, 1fr)`
-tracks with `min-width: 0`, and the harnesses compare the document with the configured viewport.
-§11 lists every correction.) The current build, measured the same way, overflows the device
-by 39 px at 390 and 93 px at 320, places a label 54 px past its card edge at 390 (126 px at 200% text),
-and lays the table out 2,076 px wide at every width.
+state, with probes that read the rendered text and visit every scroll rest position (§2.3): no page
+overflow, no card content outside its KPI card, no clipped cell text and no period column half-hidden
+under the sticky metric column at 1480, 1054, 1024, 768, 390 and 320 CSS px, in both themes, at 2x
+device-scale emulation of 200% browser zoom, and at 200% text size at 1480, 390 and 320; twelve
+columns fit at 1480 px without scrolling; the "Newest 6" window fits without scrolling from 768 px up.
+Two rules make the 200%-text phone configurations pass: the cards go one-up when the page is narrower
+than 17 em of its own text size (§4.4), and the metric column stops sticking when the scroll area
+cannot show a whole period column beside it (§4.5). Earlier builds measured less than this: the first
+overflowed on phones, and the first two runs' probes compared element boxes rather than text and read
+one row at the far right; the Track A verification and the comprehensive review of 2026-10-10 caught
+both (§11). The current build at `97293e7`, measured the same way, overflows the device by 39 px at
+390 and 93 px at 320 (78 px at 200% text), places a label 54 px past its card edge at 390 (126 px at
+200% text), and lays the table out 2,076 px wide at every width.
 
 ## 2. Observed
 
 This section describes `main` at `97293e7`, the build this review measured. Phase 1 items 1–2 and 11
-of §7 landed on `main` in #1199 and items 3–4 in #1200 on 2026-10-10, while this proposal was in
-review; the current page no longer shows the labels described here. The section is kept as the
-record of what the redesign answers.
+of §7 landed on `main` in #1199, items 3–4 in #1200, item 5 in #1202 and items 6–9 in #1203 on
+2026-10-10, while this proposal was in review; the current page no longer shows the labels, the table,
+the dialog, the narrative or the picker described here. The section is kept as the record of what the
+redesign answers.
 
 ### 2.1 How the labels arise (code)
 
@@ -116,6 +120,16 @@ not one the engine emits. The prototype's data modules are pruned for rendering 
 lineage-contract fixture.
 
 ### 2.3 Measurements of the current components
+
+Probes (both harnesses, after the comprehensive review of 2026-10-10): page overflow against the
+configured viewport; KPI containment from the rendered text (text-node rectangles and `scrollWidth`
+against `clientWidth` of every block, `.sr-only` excluded), not from element boxes alone; cell text
+against the cell's content box on both sides; sticky-column occlusion at every scroll rest position
+(a header straddling the sticky edge), not only at the far right; every probe asserts how many
+elements it found. The recorded run of the current build (`measurements/current.json`) predates the
+widening: its KPI and clipping numbers are element-box numbers, which understate the defect, and its
+far-right occlusion probe never fired on any build, so the "column half-hidden" row of §6 rests on
+the production screenshots for the current build and on the every-position probe for the prototype.
 
 Taken on the repository's frontend (`next build` + `next start`, `NEXT_PUBLIC_ENABLE_ANALYSIS=true`)
 with every API answered in the browser, state 2, light theme (dark theme measured identical):
@@ -209,43 +223,61 @@ shipped by the backend as `dataset.data_notes` (Phase 2, so exports agree):
   (the current `legacy_calculation` sentence stays: "This saved calculation predates the current source
   checks. Its inputs need review.").
 
-What a reader sees in the three states (prototype output, state 2 is the production-like one):
+What a reader sees in the three states (the strip's summary line; state 2 is the production-like one):
 
-- State 1: "Data notes · 230 figures passed automated source checks · 10 unavailable · 101 calculated †".
+- State 1: "Data notes · No figures need review · 230 checked · 10 unavailable (a) · 101 calculated †".
   Open: note a (unavailable) "Not available in this dataset. EPS (basic), EPS (diluted) (Q4 2023, Q4
   2024, Q4 2025); Capital expenditures, Free cash flow (Q3 2023, Q4 2023) · 10 values shown as — ·
   growth is not computed across a gap."
-- State 2: "Data notes · 10 values need review · 24 comparisons built on them · 10 unavailable · 101
-  calculated †". Open: note a "Saved calculation predates the current source checks; its inputs are not
-  recorded. Operating margin (Q2 2025, Q2 2026); Net margin (Q2 2025, Q2 2026); Working capital (Q4
-  2023, Q1 2024, Q2 2026); Current ratio (Q4 2023, Q1 2024, Q2 2026) · 10 values · 24 comparisons
-  inherit this note (14 quarter-over-quarter in the table, 10 year-over-year in the headline figures and
-  charts) · figures are shown as stored; their source lineage is not recorded"; note b as in state 1.
-- State 3: "Data notes · 3 values need review · 6 comparisons built on them · 10 unavailable · 101
-  calculated †". Open: note a "Available sources disagree on this figure. Revenue (Q2 2026); Operating
-  margin (Q2 2026); Net margin (Q2 2026) · 3 values · 6 comparisons inherit this note (3 quarter-over-
-  quarter in the table, 3 year-over-year in the headline figures and charts) · review the original
-  filing before relying on these figures"; note b as above.
+- State 2: "Data notes · 10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) ·
+  101 calculated †". Open: note a "This saved calculation predates the current source checks. Its inputs
+  need review. Operating margin (Q2 2025, Q2 2026); Net margin (Q2 2025, Q2 2026); Working capital (Q4
+  2023, Q1 2024, Q2 2026); Current ratio (Q4 2023, Q1 2024, Q2 2026) · 10 figures · 24 comparisons
+  carry this note: 14 quarter-over-quarter changes in the table and 10 year-over-year changes, of which
+  the headline cards show one and the exports carry all · figures are shown as stored; their source
+  lineage is not recorded"; note b as in state 1.
+- State 3: "Data notes · 3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) ·
+  101 calculated †". Open: note a "Available sources disagree on this figure. Revenue (Q2 2026);
+  Operating margin (Q2 2026); Net margin (Q2 2026) · 3 figures · 6 comparisons carry this note (3 in
+  the table, 3 in the headline cards) · check the original filing before relying on these figures";
+  note b as above.
 
-"Passed automated source checks" is the server's own `validation == passed`, stated as what it is; the
-strip's prose adds "automated checks compare figures with the company's XBRL and are not an audit of its
-accounts". The word "verified" does not appear.
+The summary names each note's letter beside its count, so the resting line is the key to the marks on
+the page; the counts of comparisons are the dataset's (every comparison the backend computed from an
+affected figure, which the exports carry), and the note says where on the page they appear rather than
+claiming a surface that does not show them (the charts plot values, never comparisons). The strip
+`DataNotes.tsx` shipped in #1200 prints "10 figures need review · 24 comparisons need review"; the
+letters, the "carry note a" wording and the locator sentence are the open copy change (§11).
+
+"Checked" and "automated checks passed" mean exactly what the backend records: a reported figure was
+taken from the company's XBRL data as filed with the SEC (`normalize_companyfacts` admits SEC's own
+structured data, rejecting only a negative amount), and a calculation combined inputs that passed with
+compatible periods and units (`calculated_provenance`). Nothing is "verified", nothing is compared with
+a second source, and the strip's prose says so: "Automated checks confirm that reported figures come
+from the company's SEC XBRL data and that calculations combine compatible periods and units; they are
+not an audit of the company's accounts." The word "verified" does not appear; a clean report says "No
+figures need review", never a sage count of figures that "passed".
 
 ### 4.2 The figure affix: what stays visible beside an affected number
 
 Beside a figure, at most two marks in the data face, never wrapping and never wider than two characters:
 
 - `†` in secondary ink for `method == calculated` (unchanged meaning).
-- a superscript letter in warning ink (`warning-light` / `warning-dark`) for the figure's note; the
-  same letter, on the change line, for a comparison that inherits it; a letter in tertiary ink after
-  "—" for an unavailable value with a note.
+- a superscript letter for the figure's note: warning ink (`warning-light` / `warning-dark`) only for a
+  review note, the muted pair `DataNoteMark` uses (tertiary in light, secondary in dark; 5.2:1 and
+  5.8:1 on panel) for a no-validation-record note and after "—" for an unavailable value; the same
+  letter, on the change line, for a comparison that carries a note. Warning ink claims an unresolved
+  concern; a missing record and a gap claim nothing (`DESIGN.md`, the Calculation Provenance Rule).
 
 The letter is the signal, not the colour, so the meaning survives colour-vision deficiency and
 monochrome print. Letters are 11 px (the dense-annotation floor) at every size; they ride a zero
 line-height superscript so a row with notes is no taller than one without.
 
 Accessible name of the figure's button: "Net margin, Q2 2026: 26.1%, calculated, data note a,
-comparison carries data note a. View source and calculation". The glyphs are `aria-hidden`.
+comparison carries data note a. View source and calculation": the display form the button shows (WCAG
+2.5.3, Label in Name; the raw value and raw period key the first implementation used were replaced in
+#1203), with the stored value in the dialog. The glyphs are `aria-hidden`, on the change line too; the
+comparison's note is announced once, in the figure's name, never again by a mark of its own.
 
 On click, Enter, Space or tap the figure opens the evidence dialog (§4.6). The letter itself is not a
 separate control (it would add dozens of Tab stops); the Data notes strip and the dialog both explain
@@ -266,7 +298,11 @@ replaces `SourcesMethods.tsx`.
 
 - `<dl>` grid, `grid-cols-2 lg:grid-cols-4`; each card `grid-rows-subgrid` spanning three rows (label,
   value, period + delta) so the three rows share heights across the strip and every value sits on the
-  same line. (Subgrid: Chrome 117, Safari 16, Firefox 71.)
+  same line. (Subgrid: Chrome 117, Safari 16, Firefox 71.) Two-up holds at 320 px and 100% text
+  (decision 4). When the page container is narrower than 17 em of its own text size (a 390 px phone at
+  200% text is 11 em; 320 px at 100% text is 20 em) the cards go one-up: a 48 px figure cannot share a
+  173 px card, and the measured overflow at 390 / 320 with 200% text was 55 / 90 px before this rule and
+  0 after it (§9, amendment to decision 4).
 - Label: the metric name only, eyebrow style, allowed to wrap. Value: 24 px data face with the affix.
   Third row: "Q2 2026 · YoY +28.0%" as two inline items that wrap independently on narrow cards; when
   the card's period is older than the dataset's latest period, "· latest available" in secondary ink
@@ -278,88 +314,157 @@ replaces `SourcesMethods.tsx`.
 
 ### 4.5 Metrics table
 
+Shipped in #1202 (`DataTable`'s opt-in `layout="fixed"`, `colWidths`, `cellPadding="compact"`,
+`scrollRegion`, `snapColumns` and `Column.rowHeader`; `MetricsTable`'s window, basis line and token
+budget in `lib/tableFormat.ts`). The rules, with the corrections of §11:
+
 - `table-layout: fixed` with explicit widths: metric column 8.25 rem (132 px), period columns 4.75 rem
   (76 px) from 768 px up; 6.5 rem and 4.25 rem below. Widths are in rem so they scale with the reader's
-  text size and never clip a figure (at 200% text the columns are 152 px and the table scrolls, which
-  WCAG 1.4.10 allows for data tables). Content never sizes a column.
+  text size. Content never sizes a column, so the cell's content must fit its box: the padding is part of
+  the geometry (the prototype uses 0.25 rem per side on phones and 0.5 rem above; #1202 uses the compact
+  inset), and a figure is formatted to a glyph budget before it is placed (#1202's `tableTokenBudget`:
+  normal precision first, then fewer decimals, compact scale or scientific notation; signs and units stay;
+  a non-USD currency code moves to the row heading). That rounding is a presentation decision outside
+  the §9 decisions and is recorded there for the founder. Columns stretch when the table is narrower
+  than its card (77 px at 1480 with twelve columns, 137 px in "Newest 6"): the gate asserts equal widths
+  and the rem minimum, never a pinned pixel value.
 - Cell: value line (`$60.8B†ᵃ`), then the change line in the series' financial tone with the sign only
-  (`+8.0%`, `−9.7ppᵃ`, `n/m`); "QoQ" is stated once, in the metric column's header ("value · Δ vs
+  (`+8.0%`, `−9.7ppᵃ`, `n/m`); the basis is stated once, in the metric column's header ("value · Δ vs
   prior quarter") and in the caption. Twelve columns of "QoQ " disappear. The one exception keeps its
-  label: today's table falls back to the YoY comparison when a quarter has no QoQ comparison (a gap
-  before it), and such a cell prints "YoY −3.1%" explicitly, with the caption saying that a cell
-  marked YoY compares with the same quarter a year earlier.
-- Header: quarter over year on two lines ("Q2" / "’26"), a `†` after the year of a calculated Q4 column.
+  label: a quarter with no QoQ comparison (a gap before it) prints the YoY comparison with an explicit
+  "YoY" prefix and an sr-only "change vs same quarter last year"; that line is the one change line wider
+  than a period column, so it wraps to two lines ("YoY" / "+35.6%") with top-aligned cells, and the
+  caption says what the label means. Clipping is measured on both sides of the content box: a
+  right-aligned overflow runs to the inline start, which `scrollWidth` never counts.
+- Header: quarter over year on two lines ("Q2" / "’26"); a `†` after the year of a derived Q4 column
+  marks the period's flow figures as calculated from annual totals (the balance-sheet figures in that
+  column are reported; the per-figure † stays the figure's own mark).
 - Unavailable: "—" with the note letter, a button only when there is a note to explain.
-- Sticky metric column (exists today) plus a **whole-column scroll range**: the scroll container gets an
-  inline-end pad of `(columnWidth − (range mod columnWidth)) mod columnWidth`, recomputed on resize,
-  so the far-right rest position starts exactly on a column edge; `scroll-snap-type: x mandatory` with
-  `scroll-padding-inline-start` equal to the metric column snaps every rest position to a column. Without
-  the pad, mandatory snapping still lets the scroller rest at its range end, half-hiding a column
-  (reproduced on the prototype before the rule; zero after it, at every width).
-- **Window control** on the table header (`SegmentedControl`): All 12 · Newest 6 · Earliest 6, with the
-  line "Showing 6 of 12 quarters" when a window is active. The default is always All 12: nothing is
-  dropped silently, the window is the reader's explicit choice, and charts and headline figures are not
-  affected by it.
+- Sticky metric column plus a **whole-column scroll range**: the scroll container gets an inline-end pad
+  of `(columnWidth − (range mod columnWidth)) mod columnWidth`, recomputed when the container or the
+  table resizes (a window or mode change resizes the table, not the container), so the far-right rest
+  position starts exactly on a column edge; `scroll-snap-type: x mandatory` with
+  `scroll-padding-inline-start` equal to the metric column snaps every rest position to a column. The
+  probe visits every rest position: 0 straddling columns at any of them, at every width; with the pad
+  removed at 1024 (range 110 px, column 76 px) the probe reports the "Q4 ’23" column straddling the
+  sticky edge at the far right, which is the mutation proof for the rule.
+- **The metric column sticks only while the scroll area leaves room for one whole period column beside
+  it.** At 200% text on a 390 px phone the scroll area is 244 px and the metric column 208 px: the
+  column stops sticking, `scroll-padding-inline-start` drops to 0 and the table scrolls as a whole, labels
+  included (WCAG 1.4.10 allows two-dimensional scrolling for a data table; a permanently half-hidden
+  column is worse than a scrolling label). The sticky cell stays opaque on row hover in dark (`#1206`
+  fixes the `dark:group-hover:bg-white/[0.03]` wash that let columns show through).
+- **Window control** on the table header (`SegmentedControl`, `size="md"`, full width on phones): All N ·
+  Newest 6 · Earliest 6, shown only when the report has more than six periods, with a `role="status"` line
+  "Showing 6 of 12 quarters" (years in annual mode). The default is always All: nothing is dropped
+  silently, the window is the reader's explicit choice, and charts, headline figures, the data-note totals
+  and the exports are not affected by it. Choosing a window keeps focus on the control.
+- **Annual mode** uses the same table: basis "Δ vs prior year", the window in years, and the CAGR /
+  window-change column last, at the period width, inside the snap set, with its window ("FY2016–FY2025")
+  in the header. The landing page's `AnalysisDemo` and the `AnalysisTeaser` render the annual sample with
+  the fixed columns and without the window control.
+- **Keyboard and focus**: the scroll container is a named `region` that is a Tab stop only while it
+  overflows; Left/Right move one column, Home/End the ends, handled only when the region itself has focus
+  (a cell's dialog bubbles its keys through the React tree); a focused cell is scrolled clear of the
+  sticky column. On phones the table starts scrolled to the newest quarter with the hint "← Earlier
+  quarters" shown while the table is scrolled away from its start; at wider widths it starts at the
+  earliest quarter without a hint.
+- **Print**: disclosures open on `beforeprint` so a printed page carries the notes and the evidence.
 - **When contained scrolling is appropriate:** when the table keeps every column at full readable
   width, the row labels stay sticky, the scroll region is a focusable landmark that names itself, every
   rest position shows whole columns, and a visible hint says what is off-screen. Under those conditions
   it is better than shrinking, truncating, dropping periods or stacking twelve periods into 240 rows of
   cards. It is not appropriate when the reason for the overflow is a label (today), when a column can be
   half-hidden (today), or when the page itself scrolls sideways (today on phones).
-- Measured (prototype, state 2, light and dark identical): 1480 → 1,062 px in a 1,062 px card, no
-  scroll, 77 px columns; 1054 → 1,044 in 964 (scrolls 80 px); 1024 → 1,044 in 934; 768 → 1,044 in
-  678; 390 → 920 in 316 (68 px columns); 320 → 920 in 246; 200% zoom → 920 in 650; 200% text → 2,088 in
-  1,302 (152 px columns). Newest 6 fits without scrolling at every width from 768 up and at 200% zoom;
-  at 390 and 320 it halves the scroll (512 px). No cell text clipped, no column occluded, at any width.
-- Phones: the table starts scrolled to the newest quarter with "← earlier quarters · scroll or use the
-  arrow keys · snaps to whole columns" above it; the window control sits above the table; the KPI strip
-  already answers "what is the latest" without scrolling.
+- Measured (prototype, state 2, light and dark identical, text-aware probes): 1480 → 1,062 px in a
+  1,062 px card, no scroll, 77 px columns; 1054 → 1,044 in 964 (scrolls 152 px with the pad); 1024 →
+  1,044 in 934; 768 → 1,044 in 678; 390 → 920 in 316 (68 px columns); 320 → 920 in 246; 200% zoom →
+  920 in 650; 200% text → 2,088 in 1,302 at 1480 (152 px columns), 1,840 in 244 at 390 and 1,840 in 174
+  at 320 with the metric column unstuck. Newest 6 fits without scrolling at every width from 768 up and
+  at 200% zoom; at 390 and 320 it cuts the range from 612 to 204 px. No cell text clipped on either side
+  of its box, no column straddling the sticky edge at any rest position, at any width.
 
 ### 4.6 Evidence dialog (`SourceValue`)
 
-The shared `Modal`, size `lg`, titled "Net margin · Q2 2026":
+Shipped in #1203 (display figure, stored value, method with substituted arithmetic, checks, lineage,
+the comparison block); the vocabulary corrections of §11 remain. The shared `Modal`, size `lg`, titled
+"Net margin · Q2 2026" with "Quarter ended 26 Jul 2026" beneath it (the fiscal basis of "Q2 2026"):
 
-1. **Figure**: display form in the data face (26.1%; 2.23×; $1.7B; $6.23) with the affix, then "exact
-   26.06536077%" / "exact 2.2255627095 (ratio)" / "exact 1,746,000,000 USD". The storage unit `pure`
-   never reaches the reader.
-2. **Method**: "Reported in the source filing." or "Calculated by EarningsNerd from reported inputs."
-   with the formula in words and, when both operands are known, the substituted arithmetic:
-   "15,848,000,000 ÷ 60,801,000,000 × 100 = 26.06536077%".
-3. **Checks**: "Automated source checks passed" (sage check), or "Needs review · Note a" (warning
-   ink) with the reason sentence, or "Withheld · Note b", or "No validation record. No verification
-   claim is made." Never "verified".
-4. **Inputs and source filings**: one row per operand (concept, exact value, period, its own method
-   and check status, "Open filing ↗", accession, XBRL tag), nested one level for a derived quarter
-   (FCF = OCF − capex, where OCF = YTD6 − Q1 shows both reported rows with their filings). For a legacy
-   record: "Source lineage is not recorded for this saved calculation. The figure is shown as stored.
-   Check the original filing before relying on it." (No promise about a repair: the repair is a separate
-   authorisation.) A source link the record itself carries is shown whether or not it has inputs. No
-   source is ever constructed on the client.
-5. The FCF definition for that series, and the existing "not an audit" line.
+1. **Figure**: display form in the data face (26.1%; 2.23×; $1.7B; $6.23) with the affix, then "As
+   stored: 26.0653607671%" / "2.2255627095 (ratio)" / "1,746,000,000 USD": the stored number in its
+   shortest round-trip form, never re-rounded and never called "exact" (the engine stores a float). The
+   storage unit `pure` never reaches the reader; a per-share figure keeps its currency; an operand's
+   unit goes through the same display map.
+2. **Status**: "Automated checks passed" with the sentence that says what passed ("Taken from the
+   company's XBRL data as filed with the SEC." for a reported figure; "Calculated from reported figures
+   with compatible periods and units." for a calculation), or "Needs review · note a" with the reason
+   sentence, or "Unavailable · note b" with the reason and, for a gap, "Changes that need this quarter are
+   not shown.", or "No validation record" with "No automated check result is recorded for this figure.
+   No verification claim is made." Never "verified"; never "withheld" (a reader hears EarningsNerd
+   holding a number back; the record is unavailable).
+3. **Method**: "Reported in the source filing." or "Calculated by EarningsNerd from reported inputs."
+   with the formula in words and, when the operands are known, the substituted arithmetic with the
+   operands bound by the concept the formula names, never by their position in the stored list (the
+   stored inputs of a margin are `[revenue, income]` while the formula is `income / revenue`):
+   "15,848,000,000 ÷ 60,801,000,000 × 100 = 26.0653607671%". Same-concept period arithmetic ("FY −
+   YTD9") binds by period span. An unbindable formula shows its words only.
+4. **Inputs and source filings**: one row per operand (concept, stored value, period, its own method
+   and status, "Open filing ↗" with a distinct name per link, accession, XBRL tag), nested one level
+   for a derived quarter (FCF = OCF − capex, where OCF = YTD6 − Q1 shows both reported rows with their
+   filings). For a legacy record: "Source lineage is not recorded for this saved calculation. The figure
+   is shown as stored. Check the original filing before relying on it." (No promise about a repair: the
+   repair is a separate authorisation.) A source link the record itself carries is shown whether or not
+   it has inputs (a calculated record never carries one). No source is ever constructed on the client.
+5. **Change vs prior quarter** (or "vs same quarter last year", "vs prior year"): the comparison's
+   display, its own status, and when it carries a note the sentence "Carries note a: it uses Operating
+   margin, Q2 2025, which needs review", so a figure whose own checks passed but whose change line shows
+   a letter is explained in its own dialog; then the comparison's formula and inputs.
+6. The FCF definition for that series, and the existing "not an audit" line.
 
-Opens from pointer, keyboard (Enter/Space on the figure button) and touch; focus moves in, Tab cycles,
-Escape closes, focus returns to the figure (the `Modal` contract).
+Opens from pointer, keyboard (Enter/Space on the figure button) and touch; focus moves in, Tab cycles
+(the `Modal` focus list includes `summary`, so the trailing "Technical source details" disclosure does
+not let Tab leave the dialog), Escape closes, focus returns to the figure (the `Modal` contract).
 
 ### 4.7 Charts
 
-- An affected point is a hollow marker in the series colour with the note letter above it; an affected
-  bar is outlined (dashed) rather than filled; the legend row ends with a "Notes a" provenance chip that
-  opens the strip. Gaps stay gaps.
-- PNG export notes carry the same sentences as the strip: "Note a: Saved calculation predates …
-  (Operating margin Q2 2025, Q2 2026 …)", the unavailability line, the calculated line, the FCF
-  definition, source date and disclosure, wrapped beneath the plot as today.
-- Dense-period behaviour (minimum plot width, every tick, the scroll region) is unchanged.
+Shipped in #1203 (chart notes with a placement pass, PNG notes). The rules, with the corrections of §11:
+
+- An affected point is a hollow marker (panel fill, 2 px series-colour stroke, ≥ 3:1 on both grounds)
+  with the note letter above it; an affected bar keeps its fill and carries the letter above it (a
+  dashed or hollow bar reads as an estimate in a financial chart). Letters are 11 px data face in the
+  chart label ink, never warning ink: against the honey series the warning pair measures 1.6:1 in dark
+  and 2.1:1 in light, and a letter in the series colour reads as part of the series. Colours are SVG
+  attributes taken from the chart theme, never CSS classes or variables, because the PNG export
+  serializes the SVG in isolation.
+- The legend row ends with a "Notes a" provenance chip that opens the strip and moves focus to the note.
+  Gaps stay gaps.
+- The plot is a named scroll region that is a Tab stop only while it overflows. recharts'
+  `accessibilityLayer` adds a second, unnamed Tab stop inside it whose arrow keys move a tooltip: either
+  turn it off or name the surface and put the note letter in the tooltip.
+- PNG export notes carry the same sentences as the strip: "Note a: This saved calculation predates …
+  (Operating margin Q2 2025, Q2 2026 …)", the unavailability line once (the panel's own gap line is the
+  same note), the calculated line, the FCF definition, source date and disclosure, wrapped beneath the
+  plot as today, with periods formatted as "Q2 2026".
 
 ### 4.8 Narrative
 
+Shipped in #1203 (`lib/narrativeDisplay.ts`: compact amounts, the 1.00× threshold kept, colliding
+amounts kept precise; the evidence fold; `lib/figureDisplay.ts`). The rules, with the corrections of §11:
+
 - Amounts in the compact display form the rest of the page uses ($60.8B, $1.7B, 26.1%, 2.23×,
   −12.1pp); periods as "Q2 2026"; citation chips unchanged, with the note letter inside the chip of a
-  cited figure that carries one. Ratios keep the engine's threshold rule (`_ratio_threshold_value`):
-  2.2256x prints as 2.23×, but a ratio within rounding of 1.00× keeps the decimals that show which side
-  of 1.00× it is on (1.00004× is never printed as "1.00×, above 1.00×"). The exact value stays in the Sources entry ("$60.8B
-  (60,801,000,000)"), so the appendix keeps full precision and the fidelity scan, which licenses
-  compact-scale tokens, keeps passing.
-- Header chips: "39 sources" (quiet), "Notes a" (provenance chip, opens the strip), "Cached".
+  cited figure that carries one. **Relation-safe compaction is a rule of this design, not the engine's**
+  (`_ratio_threshold_value` prints four or more decimals and never two): a figure is shortened only
+  while every relation the sentence states stays visibly true, against 1.00× and against the other
+  operand of a comparison; otherwise decimals are added until the figures differ (as the engine's
+  `_ordered_percentage_values` does for percentages). 2.2256x prints as 2.23×; 1.0033x, above 1.00×,
+  keeps "1.0033×"; free cash flow of 12,846,000,000 below net income of 12,849,000,000 prints "$12.846B
+  … $12.849B", never "$12.8B was below net income of $12.8B". Relations themselves are computed on raw
+  values; percentage tokens are left as the engine emitted them. The stored value stays in the Sources
+  entry ("$60.8B (60,801,000,000)"), so the appendix keeps full precision and the fidelity scan, which
+  licenses compact-scale tokens, keeps passing.
+- Header chips: "39 sources" (quiet), "Notes a" (provenance chip, opens the strip and moves focus to the
+  note), "Cached".
 - Sources list: "1 · Revenue · Q2 2026 · $60.8B (60,801,000,000) · Original filing ↗" / "† calculated
   from filing figures", one line each, wrapping at phone widths.
 
@@ -375,24 +480,43 @@ Escape closes, focus returns to the figure (the `Modal` contract).
 
 > Free-cash-flow conversion fell to 0.11× net income in Q2 2026 vs a 1.11× historical average —
 > earnings and cash are diverging.
-> ▸ Show the 20 figures behind this
+> ▸ Show the 20 source figures behind this · figures carry note a
 
 The disclosure opens a four-column list (Quarter · Figure · Value · Source chip) of the same twenty
-citations, in the page, keyboard-operable, and the PDF prints the list in full under the finding. The
-sentence keeps the two figures it asserts; the evidence is one click away rather than in the reading
-line. The same treatment applies to the margin (3 figures) and debt (2 figures) findings.
+citations, in the page, keyboard-operable, scrolling inside its box at 200% text, and the PDF prints the
+list in full under the finding. **Only a list of more than three figures folds.** The detector sentences
+carry their citations in the operand tail, so a fold would strip every chip and letter from the reading
+line; a shorter list stays inline, in display form, with its chips ("Operating margin 41.3%, Q4 2025
+[13]; 40.6%, Q1 2026 [15]; 30.9%, Q2 2026 [12]ᵃ"), and a fold's summary names the letters its figures
+carry, so a flag resting on a figure that needs review never reads unqualified. The rows of a fold come
+from the citations the markers name, never from parsing the operand text (negative amounts and annual
+periods would lose their row); Phase 2 ships them as a structured `evidence` list.
 
 ### 4.9 Period selector
 
+Shipped in #1203 (presets, From/To selects, the unavailable Quarterly segment). The rules, with the
+corrections of §11:
+
 - `SegmentedControl` Annual · Quarterly (the design system's single-choice group, replacing the
-  hand-rolled toggle).
-- Presets as quiet pills: Last 4 · Last 8 · Last 12 (Last 5 · Last 10 in annual mode), the active one
-  tinted.
-- Two compact selects, From and To, in the data face, listing every available period with its
-  availability marks (a `†` for a calculated Q4; a disabled option for an annual period without core
-  data); choosing one clamps the other to the 12-quarter cap.
-- One summary line: "12 quarters · Q3 2023 – Q2 2026 · 3 calculated Q4 columns (†) · data available
-  Q2 2011 – Q2 2026 · up to 12 at a time", then Run analysis.
+  hand-rolled toggle), `size="md"`, full width on phones. A mode without data is an `aria-disabled`
+  option that stays focusable and carries its reason ("Quarterly data isn't available for this company"),
+  the established unavailable recipe, never native `disabled` (#1203 shipped a native `disabled` option;
+  §11).
+- Presets as plain actions, `Button variant="ghost" size="sm"`: Last 4 · Last 8 · Last 12 (Last 5 ·
+  Last 10 in annual mode), without `aria-pressed` and without a selected tint: the mode control is the
+  one single-choice group in this toolbar, and the summary line already states the range (#1203 shipped
+  tinted `aria-pressed` pills; §11).
+- Two compact selects, From and To, named by their visible labels, in the data face through the raw
+  `<select>` with `inputClasses({ select: true, density: 'compact', autoWidth: true })` (the `Select`
+  component renders full width and keeps the font off the element), listing every available period with
+  its availability marks (a `†` for a calculated Q4; an unavailable option for an annual period without
+  core data). From moves only the start, To only the end; a choice that would exceed the 12-quarter cap
+  moves the other endpoint and says so in a `role="status"` line: "To moved to Q2 2014 to keep 12
+  quarters". Nothing is clamped silently.
+- One summary line: "Q3 2023 – Q2 2026 · 12 quarters", then "† Fourth quarters are calculated from
+  annual totals. Fiscal quarters. Data from Q2 2011; up to 12 quarters at a time.", then Run analysis.
+  (The Run button keeps native `disabled` while running: `analysis-api.spec.ts` pins it, a rule-6
+  contract; #1203's one-line change to that spec was the pre-approved contract change for the chips.)
 - The 61-chip grid is retired. On phones the selects are full width and 42 px tall; from 640 px up they
   are 36 px toolbar fields beside the segmented control.
 
@@ -401,63 +525,93 @@ line. The same treatment applies to the margin (3 figures) and debt (2 figures) 
 | Surface | Affected value | Comparison built on it | Unavailable value | Summary | Full precision |
 |---|---|---|---|---|---|
 | Web | `26.1%†ᵃ` | `−9.7ppᵃ` | `—ᵇ` | Data notes strip (counts + grouped notes) | evidence dialog, Sources list |
-| PDF | the same letters as footnote marks in the grid and after narrative citations | same | `—ᵇ` | "Data notes" list in the same order under the grid, replacing "[note n]" / "[unreconciled]" | Sources & Methods appendix (unchanged) |
-| Excel | cell comment "Data note a: …" (replacing the limitation sentence) | same on growth cells | empty cell with the comment | "Data notes" block on the cover sheet with the same counts | Sources & Methods sheet (unchanged, with a Note column) |
-| PNG | hollow marker + letter | hollow marker + letter | gap | "Note a: …" lines under the plot | not applicable |
+| PDF | the same letters as `<sup>` footnote marks in the grid and after narrative citations (never the U+1D43 modifier letter, which the bundled fonts may lack) | on the appendix YoY/QoQ rows, the only place the PDF prints comparisons | `—ᵇ` | "Data notes" list in the same order under the grid, replacing "[note n]" / "[unreconciled]" | Sources & Methods appendix (unchanged, with a Note column appended as column 17; columns 1–16 are positional and pinned) |
+| Excel | the letter in the cell's number format (`#,##0" (a)"`), so the cell stays numeric, sorts and prints; the sentence in the cell comment | the same on the growth cells the workbook has (window and top-line YoY) | empty cell with the comment | "Data notes" block on the cover sheet with the same counts | Sources & Methods sheet (unchanged, with the Note column) |
+| PNG | hollow marker / filled bar + letter | letter on the growth line | gap | "Note a: …" lines under the plot | not applicable |
 
-The backend owns the grouping so the four cannot disagree (Phase 2).
+Period headers in Excel read "Q2 2026" (the straight form; a typed filter cannot match a typographic
+apostrophe) and the data columns keep the period keys the API uses. The PDF's compact money formatter
+matches the web's ("$1.2T", "$1.0B"; today's prints "$1.23T" and "$1000.0M"). The backend owns the
+grouping and the sentences so the four cannot disagree (Phase 2); the exports compute the notes from
+the dataset they render, never from a stored list.
 
 ## 5. Keyboard, screen reader and touch
 
 - Reading order: picker → headline cards (each a definition group: term, value button, period and
   delta) → Data notes (a disclosure; open, a list of notes) → chart panels (heading, legend, Notes chip,
-  controls, the plot as a named scrollable region; arrow keys scroll it) → narrative (headings,
-  paragraphs with citation chips, evidence disclosures, Sources list) → table window control → table
-  region → cells.
-- Table: the scroll container is `role="region"`, `tabIndex=0`, named "Metrics by period, scrollable
-  table of 12 quarters"; with focus, Left/Right scroll by the snap unit (one column), Home/End to the
-  ends. The table has a caption that states the basis of the change line. Row headers are `<th
-  scope="row">`, column headers `<th scope="col">`. Each value is a button named as in §4.2; a cell's
-  change line carries an sr-only "change vs prior quarter". No cell text is clipped or truncated.
-- Announcements: the strip's summary is plain text; opening a note is a disclosure, not a live region.
-  The evidence dialog is `aria-modal`, labelled by its title; the note status line reads "Needs review,
-  note a" before the reason.
-- Touch: 36 px segments from 640 px up and 36–42 px on phones for the mode, window and range controls;
-  figure buttons are inline text targets (the WCAG 2.5.8 inline exception) and the dialog is also
-  reachable from the Sources list; the table scrolls by swipe and snaps to columns; the chart plot
-  scrolls by swipe inside its region, never the page.
+  controls, the plot as a named scrollable region while it overflows; arrow keys scroll it) → narrative
+  (headings, paragraphs with citation chips, evidence disclosures, Sources list) → table window control
+  → table region → cells.
+- Table: the scroll container is `role="region"` named "Metrics by period, table of 12 quarters", a Tab
+  stop (`tabIndex=0`) only while it overflows; with focus, Left/Right scroll by the snap unit (one
+  column), Home/End to the ends, handled only when the region itself is the event target (keys from a
+  cell's portalled dialog bubble through the React tree and must not scroll the hidden table). The table
+  has a caption that states the basis of the change line and the fiscal basis of the periods. Row
+  headers are `<th scope="row">`, column headers `<th scope="col">` with an sr-only long form ("Q4
+  2023, calculated"). Each value is a button named in display form as in §4.2; a cell's change line
+  carries an sr-only "change vs prior quarter" (or "vs same quarter last year" for the labelled
+  fallback); the comparison's note letter is `aria-hidden` because the name already states it. No cell
+  text is clipped or truncated on either side of its box.
+- Announcements: the strip's summary is plain text; opening a note is a disclosure, not a live region;
+  the "Showing 6 of 12 quarters" line and the picker's clamp line are persistent `role="status"`
+  regions. The evidence dialog is `aria-modal`, labelled by its title; the status line reads "Needs
+  review · note a" before the reason; Escape returns focus to the figure. Chips that open a note move
+  focus to the note's list item (`tabIndex=-1`, visible ring) without forced smooth scrolling.
+- Touch: `SegmentedControl` `size="adaptive"` is 36 px below the `sm` breakpoint and 26 px from it;
+  the mode and window controls use `size="md"` (36 px) and full width on phones; the range selects are
+  42 px on phones. Figure buttons are not inline text: they meet WCAG 2.5.8 by size (the KPI buttons) or
+  by the spacing exception (table rows about 41 px apart, columns at least 68 px); repeated "Open filing
+  ↗" links carry distinct names. The table scrolls by swipe and snaps to columns; the chart plot scrolls
+  by swipe inside its region, never the page.
 - Colour: letters and `†` carry the meaning; tones carry direction, as today. Warning ink is 6.4:1 on
-  cream and inside its tint 5.2:1; amber-500 on navy in dark. Hollow markers keep a 2 px stroke of the
-  series colour (≥ 3:1 on both grounds).
+  cream and inside its tint 5.2:1; amber-500 on navy in dark; the muted letter pair is 5.2:1 / 5.8:1 on
+  panel. Hollow markers keep a 2 px stroke of the series colour (≥ 3:1 on both grounds); chart letters
+  use the chart label ink.
+- Gates: the analysis route joins `tests/e2e/text-floors.spec.ts` in both themes; item 10 asserts the
+  region's role, name and conditional Tab stop, the header counts, every figure name containing its
+  visible text, the focused-cell clearance from the sticky column at 390 and 1024, Home/End changing
+  `scrollLeft` and never `scrollY`, the window control keeping focus and updating its status, the Notes
+  chip moving focus to `#analysis-data-note-a`, and the dialog's name and focus return.
 
 ## 6. Before and after
 
-| Measure (state 2) | Current build | Prototype |
+| Measure (state 2) | Current build (`97293e7`) | Prototype |
 |---|---|---|
 | Repeated source-check labels on the page | 33 | 0 (41 one-letter affixes; one strip) |
-| Document width at 390 / 320 | 429 / 413 | 390 / 320 |
-| Widest label past a KPI card edge at 390 / 320 / 200% text | 54 / 89 / 126 px | 0 / 0 / 0 |
+| Document width at 390 / 320 / 1480 at 200% text | 429 / 413 / 1,558 | 390 / 320 / 1,480 |
+| Widest card content past a KPI card edge at 390 / 320 / 200% text | 54 / 89 / 126 px | 0 / 0 / 0 (one-up at 200% text on phones) |
 | KPI value tops at 390 | 37 / 53 / 53 / 53 | 37 / 37 / 37 / 37 |
 | Table width at 1480 | 2,076 (container 1,054) | 1,062 (container 1,062, no scroll) |
 | Period column widths at 1480 | 77–105 clean, 234–240 warned | 77 all |
 | Table at 1024 / 768 / 390 | 2,076 at every width | 1,044 / 1,044 / 920; Newest 6 fits ≥ 768 |
-| Column half-hidden under the sticky column | observed in production | 0 at every width |
-| Count the reader sees | "24 source checks needed" (26 in production) | "10 values need review · 24 comparisons built on them · 10 unavailable" |
-| Evidence for a legacy margin | "26.06536077 pure", no inputs | "26.1% · exact 26.06536077% · Needs review · Note a · lineage not recorded" |
-| Red flags, FCF finding | 1 sentence + 20 inline operands | 1 sentence + "Show the 20 figures behind this" |
+| Cell text outside its content box (both sides) | not measured | 0 at every width, 200% text included |
+| Column straddling the sticky edge at any rest position | observed in production | 0 at every rest position, every width |
+| Count the reader sees | "24 source checks needed" (26 in production) | "10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b)" |
+| Evidence for a legacy margin | "26.06536077 pure", no inputs | "26.1% · As stored: 26.0653607671% · Needs review · note a · lineage not recorded" |
+| Red flags, FCF finding | 1 sentence + 20 inline operands | 1 sentence + "Show the 20 source figures behind this · figures carry note a" |
 
 Screenshots for every configuration are regenerated by the harnesses (`--shots`); they are not
 committed.
 
 ## 7. Implementation brief
 
-**Status (2026-10-10).** Phase 1 items 1–2 and 11 are on `main` (#1199: `lib/dataNotes.ts`,
+**Status (2026-10-10, evening).** Phase 1 items 1–2 and 11 are on `main` (#1199: `lib/dataNotes.ts`,
 `DataNoteMark`, `DataNotesContext`, `DataNotesLink`, the presentation allowlist gate
 `tests/unit/analysisDataNotePresentation.spec.ts`, the `DESIGN.md` / `DESIGN_SYSTEM.md` entries and
 `lessons/frontend-variable-text-must-not-size-a-wrapping-row.md`); items 3–4 are on `main` (#1200:
 `KpiStrip` as a definition list with subgrid rows and "latest available", `DataNotes.tsx` in place of
-the sources card, `formatAnalysisPeriod` in `lib/periodLabels.ts`). Items 5–10 and Phase 2 are open.
-Each of those PRs recorded its own gate tail and browser measurements in its body.
+the sources card, `formatAnalysisPeriod` in `lib/periodLabels.ts`); item 5 is on `main` (#1202:
+`DataTable`'s opt-in `layout`, `colWidths`, `cellPadding`, `scrollRegion`, `snapColumns` and
+`Column.rowHeader`, `MetricsTable`'s equal rem columns, table-only window, keyboard scroll region,
+bounded token formatting in `lib/tableFormat.ts`, with `tests/unit/data-table-scroll.spec.tsx` and
+`analysis-table-format.spec.ts`); items 6–9 are on `main` (#1203: `SourceValue` with display figure,
+stored value, bound arithmetic, checks and the comparison block; `lib/narrativeDisplay.ts` and
+`lib/figureDisplay.ts` with the evidence fold; chart notes with `lib/chartNoteLayout.ts` and PNG
+notes; `PeriodPicker` with presets and From/To selects; the one-line `analysis-api.spec.ts` change as
+the pre-approved rule-6 contract change). Open: item 10 (below, rewritten after the review), #1206
+(the dark sticky-hover wash), the follow-ups the comprehensive review lists in
+`tasks/analysis-redesign-2026-10/review-2026-10-10.md`, and Phase 2. Each landed PR recorded its own
+gate tail and browser measurements in its body.
 
 Risk tier per `AGENTS.md` §5: Phase 1 is frontend-only (routine); Phase 2 touches
 `trend_analysis/*`, `trend_analysis_service.py`, the export services and `fact_provenance.py`
@@ -504,17 +658,55 @@ operational action and is not part of this brief.
    company has no quarterly coverage: add an `aria-disabled` option (early return in the handler, the
    DS unavailable recipe, never native `disabled`) so that state survives the migration. Note the Run
    button keeps native `disabled` until the rule-6 item in `tasks/todo.md` is resolved.
-10. **Gate** (M): `tests/e2e/analysis-layout.spec.ts` on the real page with the API answered in the
-    browser (the harness in `tasks/analysis-redesign-2026-10/harness/measure-current.mjs` is the draft):
-    no document overflow at 320/390/768/1024/1480 and at 200% text; no KPI child past its card; value
-    tops equal within a row; period columns equal; no cell text clipped; no column partly under the sticky
-    column at the far-right rest position; the window control's "Showing 6 of 12" line; the strip's counts
-    for the three fixture states. The overflow probe compares `document.documentElement.scrollWidth`
-    with the configured viewport width, never with `window.innerWidth` (mobile Chromium widens the
-    layout viewport to the content). Grid tracks that hold a scrolling plot or table are
-    `minmax(0, 1fr)` with `min-width: 0` on the item, the class of defect
-    `lessons/frontend-variable-text-must-not-size-a-wrapping-row.md` describes. One mutation proof: reintroduce a nowrap label in a KPI card and show the
-    spec failing.
+10. **Gate** (M, high tier because it edits `ci.yml`): `tests/e2e/analysis-layout.spec.ts` with
+    `tests/e2e/fixtures/analysisApi.ts` in the shape of `filing3Api.ts`; nothing is read from `tasks/`.
+    - *CI*: the e2e build and start steps set `NEXT_PUBLIC_ENABLE_ANALYSIS: 'true'` (today they set only
+      the API URL and `WAITLIST_MODE`, and `app/analysis/layout.tsx` answers 404 without the flag); the
+      flag also shows the analysis links in the Header, Footer, ProDepth and the watchlist, so the whole
+      suite re-runs. The spec fails on a 404; it never skips.
+    - *Routes* on the house `API_ORIGIN` (`new URL(process.env.NEXT_PUBLIC_API_BASE_URL ||
+      'http://localhost:8000').origin`), answered in the browser: `/api/auth/me`,
+      `/api/subscriptions/{subscription,usage}` (the `analysis_used` / `analysis_limit` field names),
+      `/api/companies/META`, `/api/analysis/META/coverage`; `POST /api/analysis/META/dataset` asserting
+      the body `{mode:'quarterly', start_period:'2023Q3', end_period:'2026Q2'}`; `POST
+      /api/analysis/META/stream` as SSE (`progress` then `complete` with the dataset's `snapshot_id`);
+      every other path 404, recorded and asserted empty; non-localhost hosts aborted; a page error fails.
+    - *Fixtures*: `tests/unit/fixtures/meta-data-notes.json` (the captured production dataset, sha-pinned)
+      plus a small map adding `unit`, `tone` and the period fields per metric, as the captured, clean and
+      discrepancy states; one YoY-fallback cell with a note letter, one `n/m`, one "latest available"
+      card, a `source_check_needed` figure, a mixed reason set in both operand orders, a value without a
+      validation record, a legacy `reconciled: false`, and (annual) `cagr` / `window_pp` comparisons.
+    - *Setup*: `reducedMotion: 'reduce'`, the house `cookie_consent` value, light theme (light and dark
+      measure identically); go to `/analysis?ticker=META`, choose Quarterly, Run; ready when 4 cards,
+      20 table rows and the Sources eyebrow exist; then `document.fonts.ready`, `settled()` and an empty
+      `document.getAnimations()`; no fixed sleeps, no `networkidle`; 200% text through an injected
+      `:root{font-size:200%}` before Run.
+    - *Matrix* (about nine page loads): the captured state at 320 and 390 (mobile), 768, 1024, 1480, 1480
+      and 390 at 200% text; clean and discrepancy at 390.
+    - *Assertions* (soft, 0.5 px): (a) `document.documentElement.scrollWidth` ≤ the configured viewport
+      width (never `window.innerWidth`) and nothing in `main` past it; (b) exactly 4 KPI cards, every
+      element rect and text-node rect inside its card, text blocks `scroll ≤ client + 1`, no
+      `text-overflow` or line clamp (`.sr-only` and svg excluded); (c) label, value and third-row tops
+      equal across a row, 2 columns below 1024 and 4 from it; (d) one Data notes strip between the cards
+      and the charts with the shipped summary wording per state; (e) the table region by role and name,
+      12 period headers of equal width (0.5 px) and at least 4.75 rem (4.25 rem below 768), every cell's
+      text inside its content box on both sides, value lines aligned across each row; (f) for every rest
+      position (k·w and k·w + 0.4·w, polled until settled) the offset is a multiple of w or the maximum,
+      the maximum itself a multiple of w, and no period header straddles the sticky edge; End, Home and
+      the arrow keys land on the same grid; scroll area minus sticky column ≥ w while the column sticks;
+      phones start at the far right; (g) "Newest 6" shows "Showing 6 of 12 quarters" and 6 headers with
+      no scroll from 768 up, "All 12" restores; (h) the keyboard and screen-reader assertions of §5; (i)
+      the sticky cell stays opaque on dark hover. Grid tracks that hold a scrolling plot or table are
+      `minmax(0, 1fr)` with `min-width: 0` on the item (`lessons/frontend-variable-text-must-not-size-a-wrapping-row.md`).
+    - *Mutation proof*, committed: `text-nowrap` on the KPI `dt` (vitest stays green because the
+      presentation gate matches `whitespace-nowrap` only; assertion (b) fails at 320 and at 390 with 200%
+      text). Scratch proofs cited in the PR: the pad removed (f, at 1024: range 110 px, 76 px columns), one
+      column at 5 rem (e), `min-w-0` dropped from a card (a), the "Showing" line removed (g).
+    - *Ownership*: the presentation spec keeps `Badge`, nowrap and the 11 px floor (and grows to
+      `text-nowrap` and `truncate`); `data-notes.spec.ts` keeps the grouping counts; this spec covers
+      rendered geometry and interaction only. Assert invariants, never recorded pixel values; the
+      numbers in this document are one environment's run (Chromium 141 on Linux with Inter and Geist Mono
+      loaded).
 11. **Docs** (records, same PR as item 2): `DESIGN.md` Calculation Provenance Rule ("Amber 'Source check
     needed'" → the lettered note, "Unavailable" → "— with its note letter; 'Unavailable' in the evidence
     view and exports"), `frontend/DESIGN_SYSTEM.md` §4 (a "Data note mark" entry; the table scroll-range
@@ -523,28 +715,64 @@ operational action and is not part of this brief.
 
 ### Phase 2 — backend, one verified deploy
 
-1. **`trend_analysis/dataset_quality.py`** (M): `data_notes(dataset)` with the §4.1 rule; attached as
-   `dataset["data_notes"]` in `build_dataset` (outside the fingerprint, like `data_as_of`); a shared
-   JSON fixture pins the frontend and backend grouping to identical output. The frontend prefers the
-   server's list and keeps the local grouping for snapshots that predate it.
-2. **Exports** (M): `analysis_export_metadata.py` note labels; PDF grid footnote letters and the "Data
-   notes" list; Excel cover-sheet block and comment text; PNG unchanged (frontend). Tests:
+1. **`trend_analysis/dataset_quality.py`** (M): `data_notes(dataset)` as a line-for-line port of
+   `frontend/features/analysis/lib/dataNotes.ts` (the shipped rule, not the §4.1 prose and not the
+   prototype's `buildNotes`): `issueFor`'s kinds (a populated value whose validation is neither passed nor
+   needs_review is "unknown", keyed by its supplied reasons, so several unknown notes are possible),
+   unavailability notes keyed by the reason set, letters continuing "aa" after "z", periods missing from a
+   series as `not_in_dataset`, a comparison without provenance a review item only when `*_reconciled ===
+   false` and otherwise unknown (excluded from the review comparison count), annual `yoy + cagr +
+   window_pp` counts, `groupQualityNotes` continuing the lettering for citation-only notes; keys must be
+   byte-identical to the frontend's (`json.dumps(..., separators=(',', ':'))`; `{}` is truthy in JS; `0`
+   and `"nm"` are real comparisons, test `is None`). The list is **not stored on the dataset**: the
+   snapshot fingerprint is recomputed in three places from everything but `snapshot_id` and
+   `data_as_of`, so a stored list would change `snapshot_id`, invalidate every cached narrative and make
+   the exports answer 409. The exports call `data_notes(dataset)` on the dataset they render; if the API
+   ships the list, add `data_notes` to the fingerprint's exclusion set and extend
+   `test_quarterly_trust_dataset.py`. Citation-only notes need the completion's citations: computed
+   client-side on the web and from `citations_json` for the PDF. The frontend keeps its grouping for
+   deploy skew and for the checked-in samples (`AnalysisTeaser`, `AnalysisDemo`), not for old snapshots.
+   A shared JSON fixture pins both implementations to identical key, id, letter, message and counts.
+2. **One copy source** (S): the reason sentences live in one backend table that the API ships as
+   `data_notes[].message` and the exports read; `provenance.ts`'s `REASONS` stays as the fallback with a
+   parity test (today three tables disagree: `provenance.ts`, the prototype, and
+   `analysis_export_metadata.py`, whose `legacy_calculation` promises "needs rebuilding"; the backend
+   lacks `legacy_calculation_not_supported`, `not_in_dataset`, `legacy_unknown` and `source_conflict`).
+   `legacy_calculation`: "This saved calculation predates the current source checks. Its inputs need
+   review." `source_check_needed`: "This figure has not passed EarningsNerd's automated consistency
+   checks; check it against the filing before relying on it." `legacy_unknown`: "No automated check
+   result is recorded for this figure." A spec fails on `/source check|\bverif/i` in `features/analysis`
+   copy; "calculated" and † everywhere ("derived Q4", "(marked Computed)" retire).
+3. **Exports** (M): §4.10; the PDF grid holds values only, so comparison letters go on the appendix
+   YoY/QoQ rows; Excel growth comments exist only on the window and top-line YoY cells; the Note column
+   is column 17 of Sources & Methods (columns 1–16 are positional and pinned in `test_excel_export.py`);
+   letters as `<sup>` in the PDF; one compact money formatter matching `Intl`. Tests:
    `test_export_service.py`, `test_excel_export.py`, `test_data_completeness.py`'s export pins.
-3. **Narrative rendering** (M): `_point_value` display form and "Q2 2026" periods for the catalogue;
-   the red-flag operands as a structured `evidence` list on the completion (frontend renders the
-   disclosure from it) with the inline sentence kept for the PDF; a `NARRATIVE_FORMAT_VERSION` beside
-   `PROMPT_VERSION` in the cache key so cached narratives regenerate lazily, metered as system-invalidated
-   (the existing `invalidated` path). `scan_numeric_fidelity` needs no change (compact tokens are
-   licensed by `_FIDELITY_SCALES`; period tokens are skipped). The prompt file is untouched, but the
-   catalogue text is model input (the model selects observation IDs from lines that carry the
-   rendered sentences), so this item is an AI-facing change: run the eval RUNBOOK's regression gate
-   (B1) and judge the artifact as for a prompt change, and expect the lazy regeneration to cost
-   inference even though it is unmetered for users.
+4. **Narrative rendering** (M): compact amounts, "Q2 2026" periods and the relation-safe rule of §4.8
+   rendered at catalogue time from the structured fields (`_point_value` display form), keeping the
+   dataset bytes stable (the detector sentences carry dated periods that sit inside the fingerprint, so
+   rewriting them would change `snapshot_id` and 409 every saved PDF); the red-flag operands as a
+   structured `evidence` list derived in `analysis_completion` from the inflection markers plus the
+   citations, never persisted, with the inline sentence kept for the PDF. **Bump `PROMPT_VERSION`**
+   rather than adding a `NARRATIVE_FORMAT_VERSION`: the model has no column for a second version and a
+   new column is a migration (rule 3, high tier). Cached narratives then regenerate lazily, metered as
+   system-invalidated (exempt from the user meter, one or two selection calls per re-viewed range, and
+   existing PDF exports answer 409 until the analysis is re-run: state both in the PR). The prompt file
+   is untouched, but the catalogue text is model input (the model selects observation IDs from lines that
+   carry the rendered sentences), so this item is an AI-facing change: the evidence is the RUNBOOK's
+   "Multi-Period Analysis observation-selector gate" (offline tests, three companies in both modes, cache
+   re-serve identity, `analysis_inference_cost`), not B1, which scores filing summaries and cannot see
+   this change; add an offline test that renders the whole catalogue for both modes, negatives, the T
+   scale and ratios near 1 and asserts `scan_numeric_fidelity == []`, because the scan otherwise fails
+   closed after the paid model call.
 
 ### Not in this brief
 
 - Running the quarterly data repair (`docs/quarterly-data-repair.md`); the UI above is designed to look
-  right before it (state 2) and after it (state 1).
+  right before it (state 2: ten lineage-less calculations) and after it (the engine's own output carries
+  lineage for every calculation; the clean state models that, while the captured production fixture
+  keeps its own `not_in_dataset` and `legacy_calculation_not_supported` gaps, so "after the repair" is
+  not state 1 byte for byte).
 - Any frontend override that marks a legacy record validated, hides a note, or shows "verified".
 - Changing what counts as `needs_review` or `unavailable`.
 
@@ -582,6 +810,23 @@ founder - i'm aligned with your recommendations"). They are recorded here and in
 4. Keep the KPI strip two-up at 320 px (measured fine, "Free cash flow" wraps) or go one-up below 360.
    Recommended: two-up.
 5. Whether the table window should also drive the charts. Recommended: no.
+
+**Amended and added by the comprehensive review (2026-10-10, evening).** Each is implemented in the
+prototype as recommended; the founder may overrule any of them.
+
+4 (amended). Decision 4 was measured at 100% text only. At 200% text a 390 px phone shows 55 px of
+   card overflow two-up and 90 px at 320. Recommended and implemented: two-up stays at 320 px and 100%
+   text; the cards go one-up when the page is narrower than 17 em of its own text size (§4.4).
+6. Table figures are rounded to a glyph budget (#1202: fewer decimals, compact scale or scientific
+   notation for a token that would not fit) with the stored value one click away. This is a
+   presentation decision the brief did not take; it shipped. Recommended: keep it, with the rounding note
+   the table shows and the gate's clipping probe.
+7. Affected bars keep their fill with the letter above (§4.7), instead of a dashed outline that reads
+   as an estimate. Recommended: filled.
+8. Presets are plain buttons, not a second single-choice toggle group beside the mode control (§4.9).
+   Recommended: plain buttons.
+9. "Withheld" becomes "Unavailable" in the dialog status (§4.6), and the clean report says "No figures
+   need review" instead of a sage count of figures that "passed" (§4.1). Recommended: adopt.
 
 ## 10. Running the prototype and the harnesses
 
@@ -622,3 +867,57 @@ The implementing agent verified the proposal against `main` and ran both harness
   costs inference even when unmetered (§7).
 - **Test pins**: `trend-charts-legend.spec.tsx` also changes; the source-quality spec pins text, not the
   count (§7, items 4 and 8).
+
+### Corrections from the comprehensive review (2026-10-10, evening)
+
+Six review lenses (design system, accessibility, frontend brief against `main`, backend and exports,
+measurement and gate design, product and copy) and five Codex rounds reviewed PR #1197; every finding
+was verified against `main` at `af543b6` before it was accepted. The ranked list, with what each finding
+changed and what remains open, is `tasks/analysis-redesign-2026-10/review-2026-10-10.md`. Where each
+correction landed in this document:
+
+- **The probes were blind** (element boxes, `scrollWidth` only, one row at the far right, 200% text at
+  1480 only): widened in both harnesses and the prototype's `measure`; the recorded prototype run was
+  regenerated; §1, §2.3, §4.5, §6 state what is measured now. The widened probes found four clipped
+  change-line cells at every width (the YoY fallback) and seventeen at phone widths, 55 / 90 px of card
+  overflow and a swallowed scroll area at 200% text on phones: fixed by the two-line fallback, the phone
+  cell padding, the one-up rule (§4.4) and the un-sticking rule (§4.5), all measured at 0 afterwards.
+- **"Passed" overclaimed** ("matches the company's XBRL as filed" for calculated figures; "compare figures
+  with the company's XBRL"): the honest definitions in §4.1 and §4.6; "No figures need review" for a
+  clean report.
+- **The fold stripped letters and citations** from short Red-flag lists: the more-than-three rule, inline
+  short lists and letters on the summary (§4.8); evidence rows from the citations the markers name.
+- **Relation-safe compaction** is a new rule, not the engine's (§4.8); money pairs compact together.
+- **The dialog bound operands by position** (a margin's inputs are stored as `[revenue, income]`): bound
+  by the formula's concepts (§4.6); "As stored" replaces "exact"; units through one display map;
+  "Unavailable" replaces "Withheld"; the comparison block and the gap copy added to §4.6; the Modal's
+  focus list must include `summary`.
+- **Warning ink only for review notes**; the muted pair for no-record and unavailable letters (§4.2);
+  chart letters in the chart label ink as SVG attributes (§4.7); filled bars.
+- **The strip's locator was wrong** ("in the headline figures and charts" for YoY comparisons the charts
+  never show) and the resting line named no letters (§4.1).
+- **Annual mode, the teaser and the landing demo** render the same table and were unspecified (§4.5).
+- **Accessibility**: figure names in display form (shipped in #1203); Home/End guarded by the event
+  target; regions tabbable only while they overflow; status regions for the window and the clamp;
+  comparison letters announced once; recharts' accessibility layer; touch sizes corrected (§5).
+- **Item 10 could not run in CI** (`NEXT_PUBLIC_ENABLE_ANALYSIS` unset; high tier); the gate is now
+  specified in full (§7, item 10) and the current-build harness finds the shipped markup by data
+  attribute and asserts its counts.
+- **Phase 2**: `data_notes` computed at render time, never stored (the fingerprint); a line-for-line port
+  of the shipped `dataNotes.ts`; one copy source; `PROMPT_VERSION` bump rather than a new column; the
+  observation-selector gate, not B1; export mechanics and pins (§7, Phase 2).
+- **Fixtures**: the production capture on `main` (`meta-data-notes.json`) keeps its own gaps, so
+  "after the repair" is not state 1 (§7, Not in this brief); the gate builds on the capture plus
+  synthetic cases, and `prototype/data` stays a visual reference.
+- **Picker**: presets as plain buttons; the unavailable segment `aria-disabled`, not native `disabled`;
+  raw selects with `autoWidth`; clamps announced; fiscal basis stated (§4.9).
+- **Exports**: Excel letters in the number format, straight apostrophes in headers, `<sup>` in the PDF,
+  the Note column appended, one compact money formatter (§4.10).
+- **Three overstated phrases**: "scrolls 80 px" (152 with the pad), "halves the scroll" (612 to 204 px),
+  and §1's silence on the current build's 78 px overflow at 200% text; all corrected.
+- **The prototype itself**: letters continue "aa" after "z"; the From/To selects are named by their
+  labels; choosing a window keeps focus on the control; the hint and the start-at-newest position apply
+  below 640 px only; the Notes chips move focus to the note; the KPI delta no longer reads "year over
+  year YoY"; the sections' `aria-labelledby` targets exist; the fixture builder's restoration check is
+  real.
+

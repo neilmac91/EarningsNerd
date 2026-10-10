@@ -56,9 +56,12 @@ The Track A verification of 2026-10-10 (PR #1197) found a phone overflow in the 
 list of brief corrections; all are folded into the proposal's §11 and the sections it names. Read §11
 before building.
 
-Status on 2026-10-10: Track A is done (the verification comment on #1197). Phase 1 items 1–2 and 11
-landed in #1199 and items 3–4 in #1200, both merged to `main`; the proposal's §7 carries the same
-status line. Items 5–10 and Phase 2 remain.
+Status on 2026-10-10 (evening): Track A is done (the verification comment on #1197). Phase 1 items 1–2
+and 11 landed in #1199, items 3–4 in #1200, item 5 in #1202 and items 6–9 in #1203, all merged to
+`main`; the proposal's §7 carries the same status line. Open: item 10 (the layout gate, rewritten in §7
+after the comprehensive review), #1206 (the dark sticky-hover wash), the follow-ups ranked in
+`tasks/analysis-redesign-2026-10/review-2026-10-10.md` (read it before item 10: it names what the landed
+items still owe, each with its evidence and fix), and Phase 2 (rewritten in §7 after the review).
 
 The quarterly data repair (`docs/quarterly-data-repair.md`, #1191) is a separate operational action. The UI
 must look right before it (state 2) and after it (state 1). Never mark a legacy record validated from the
@@ -90,18 +93,23 @@ harnesses once to confirm the recorded numbers reproduce on your machine (the RE
 current-components harness needs `next build` with `NEXT_PUBLIC_ENABLE_ANALYSIS=true` and `next start`
 with `WAITLIST_MODE=false`, no backend).
 
-Track B, after Track A: implement the remaining Phase 1 items of proposal §7 (start at item 5), one PR per
-numbered item or grouped as the brief allows, each as a draft, each in the frontend only, each verified with
+Track B, after Track A: implement what is open in proposal §7 (item 10, then the P1 follow-ups of the review
+file, then Phase 2), one PR per numbered item or grouped as the brief allows, each as a draft, each verified with
 the full frontend gate from `CLAUDE.md` (`npm run lint && npx tsc -p tsconfig.ci.json && npm run test --
 --run && npm run build`) and the new e2e gate (`tests/e2e/analysis-layout.spec.ts`, item 10) once it
 exists. Order: items 1–2 (model and mark, with the allowlist gate and the design-doc updates of item 11
 in the same PR; done in #1199), then 3–4 (KPI strip, Data notes strip; done in #1200), then 5 (DataTable
-options + MetricsTable), then 6–9, then 10. Phase 2 (backend `data_notes`, exports, narrative rendering)
+options + MetricsTable; done in #1202), then 6–9 (done in #1203), then 10 (open; it edits `ci.yml`, so
+that PR is high tier), then the review file's follow-ups. Phase 2 (backend `data_notes`, exports, narrative rendering)
 follows after Phase 1 is on production; it changes `trend_analysis/*` and the export services only, never
 `facts_service.py`, prompts or evals, so no eval re-pin.
 
 Use the prototype as the reference for geometry, copy and behaviour (`prototype/app.js` is plain DOM; map
-each block to the React component the brief names), not as code to port. Reuse the design system: the
+each block to the React component the brief names), not as code to port. Do not port: its global
+`:focus-visible` rule, its 13 px and 10 px type, its eyebrow dialog headings, the data face inside AI
+prose, its tinted lineage box, its hand-drawn select chevron, its raw chart colours, or `buildNotes`
+(`lib/dataNotes.ts` on `main` is the model; its `total` counts every slot, the prototype's counts
+populated values). Where the prototype and `main` differ, the review file says which wins. Reuse the design system: the
 shared `Modal`, `SegmentedControl`, `Select` with `density="compact"`, the provenance-chip recipe
 (`features/filings/lib/sourceTraceChip.ts`), `lib/financialTone.directionText`, `DataTable`'s sticky
 first column. Column widths in rem, letters at 11 px minimum, warning ink only for an unresolved concern,

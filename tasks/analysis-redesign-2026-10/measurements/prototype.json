@@ -1,5 +1,11 @@
 {
- "generatedAt": "2026-10-10T20:12:50.004Z",
+ "generatedAt": "2026-10-10T23:27:42.126Z",
+ "environment": {
+  "chromium": "141.0.7390.37",
+  "platform": "linux x64",
+  "node": "v22.22.0",
+  "commit": "9a40aa6"
+ },
  "configs": [
   {
    "theme": "light",
@@ -67,12 +73,26 @@
     ],
     "minColumn": 77,
     "maxColumn": 77,
+    "stickyWidth": 134,
+    "stickyColumn": true,
+    "readableColumns": 12,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 1062,
     "containerWidth": 1062,
@@ -88,8 +108,15 @@
     ],
     "minColumn": 137,
     "maxColumn": 137,
+    "stickyWidth": 238,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -158,12 +185,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 119,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 8,
+    "restPositions": 3,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -232,12 +273,26 @@
     ],
     "minColumn": 77,
     "maxColumn": 77,
+    "stickyWidth": 134,
+    "stickyColumn": true,
+    "readableColumns": 12,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 1062,
     "containerWidth": 1062,
@@ -253,8 +308,15 @@
     ],
     "minColumn": 137,
     "maxColumn": 137,
+    "stickyWidth": 238,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -323,12 +385,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 237,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 8,
+    "restPositions": 10,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -397,12 +473,26 @@
     ],
     "minColumn": 77,
     "maxColumn": 77,
+    "stickyWidth": 134,
+    "stickyColumn": true,
+    "readableColumns": 12,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 1062,
     "containerWidth": 1062,
@@ -418,8 +508,15 @@
     ],
     "minColumn": 137,
     "maxColumn": 137,
+    "stickyWidth": 238,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -488,12 +585,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 231,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 8,
+    "restPositions": 4,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -562,12 +673,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 10,
+    "restPositions": 3,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 964,
     "containerWidth": 964,
@@ -583,8 +708,15 @@
     ],
     "minColumn": 125,
     "maxColumn": 125,
+    "stickyWidth": 216,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -653,12 +785,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 119,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 7,
+    "restPositions": 4,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -727,12 +873,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 10,
+    "restPositions": 3,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 964,
     "containerWidth": 964,
@@ -748,8 +908,15 @@
     ],
     "minColumn": 125,
     "maxColumn": 125,
+    "stickyWidth": 216,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -818,12 +985,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 237,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 7,
+    "restPositions": 11,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -892,12 +1073,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 10,
+    "restPositions": 3,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 964,
     "containerWidth": 964,
@@ -913,8 +1108,15 @@
     ],
     "minColumn": 125,
     "maxColumn": 125,
+    "stickyWidth": 216,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -983,12 +1185,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 231,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 7,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -1057,12 +1273,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 10,
+    "restPositions": 3,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 934,
     "containerWidth": 934,
@@ -1078,8 +1308,15 @@
     ],
     "minColumn": 121,
     "maxColumn": 121,
+    "stickyWidth": 210,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -1148,12 +1385,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 119,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 4,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -1222,12 +1473,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 10,
+    "restPositions": 3,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 934,
     "containerWidth": 934,
@@ -1243,8 +1508,15 @@
     ],
     "minColumn": 121,
     "maxColumn": 121,
+    "stickyWidth": 210,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -1313,12 +1585,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 237,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 11,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -1387,12 +1673,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 10,
+    "restPositions": 3,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 934,
     "containerWidth": 934,
@@ -1408,8 +1708,15 @@
     ],
     "minColumn": 121,
     "maxColumn": 121,
+    "stickyWidth": 210,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -1478,12 +1785,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 231,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -1552,12 +1873,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 7,
+    "restPositions": 6,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 678,
     "containerWidth": 678,
@@ -1573,8 +1908,15 @@
     ],
     "minColumn": 88,
     "maxColumn": 88,
+    "stickyWidth": 152,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -1643,12 +1985,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 119,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 6,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -1717,12 +2073,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 7,
+    "restPositions": 6,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 678,
     "containerWidth": 678,
@@ -1738,8 +2108,15 @@
     ],
     "minColumn": 88,
     "maxColumn": 88,
+    "stickyWidth": 152,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -1808,12 +2185,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 237,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 13,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -1882,12 +2273,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 7,
+    "restPositions": 6,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 678,
     "containerWidth": 678,
@@ -1903,8 +2308,15 @@
     ],
     "minColumn": 88,
     "maxColumn": 88,
+    "stickyWidth": 152,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -1973,12 +2385,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 231,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 7,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -2048,12 +2474,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 3,
+    "restPositions": 10,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 512,
     "containerWidth": 316,
@@ -2069,8 +2509,15 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 3,
+    "restPositions": 4,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -2140,12 +2587,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 119,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 1,
+    "restPositions": 9,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -2215,12 +2676,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 3,
+    "restPositions": 10,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 512,
     "containerWidth": 316,
@@ -2236,8 +2711,15 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 3,
+    "restPositions": 4,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -2307,12 +2789,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 237,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 1,
+    "restPositions": 16,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -2382,12 +2878,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 3,
+    "restPositions": 10,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 512,
     "containerWidth": 316,
@@ -2403,8 +2913,15 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 3,
+    "restPositions": 4,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -2474,12 +2991,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 231,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 1,
+    "restPositions": 10,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -2549,12 +3080,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 2,
+    "restPositions": 11,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 512,
     "containerWidth": 246,
@@ -2570,8 +3115,15 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 2,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -2641,12 +3193,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 119,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 1,
+    "restPositions": 10,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -2716,12 +3282,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 2,
+    "restPositions": 11,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 512,
     "containerWidth": 246,
@@ -2737,8 +3317,15 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 2,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -2808,12 +3395,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 237,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 1,
+    "restPositions": 17,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -2883,12 +3484,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 2,
+    "restPositions": 11,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 512,
     "containerWidth": 246,
@@ -2904,8 +3519,15 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 2,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -2975,12 +3597,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 231,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 1,
+    "restPositions": 11,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -3050,12 +3686,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 8,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 650,
     "containerWidth": 650,
@@ -3071,8 +3721,15 @@
     ],
     "minColumn": 86,
     "maxColumn": 86,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -3142,12 +3799,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 119,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 6,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -3217,12 +3888,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 8,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 650,
     "containerWidth": 650,
@@ -3238,8 +3923,15 @@
     ],
     "minColumn": 86,
     "maxColumn": 86,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -3309,12 +4001,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 237,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 14,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -3384,12 +4090,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 8,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 650,
     "containerWidth": 650,
@@ -3405,8 +4125,15 @@
     ],
     "minColumn": 86,
     "maxColumn": 86,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -3476,12 +4203,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 231,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 8,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -3551,12 +4292,26 @@
     ],
     "minColumn": 152,
     "maxColumn": 152,
+    "stickyWidth": 264,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 7,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 1302,
     "containerWidth": 1302,
@@ -3572,8 +4327,15 @@
     ],
     "minColumn": 168,
     "maxColumn": 168,
+    "stickyWidth": 292,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -3643,12 +4405,26 @@
     ],
     "minColumn": 151,
     "maxColumn": 222,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 6,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -3718,12 +4494,26 @@
     ],
     "minColumn": 152,
     "maxColumn": 152,
+    "stickyWidth": 264,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 7,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 1302,
     "containerWidth": 1302,
@@ -3739,8 +4529,15 @@
     ],
     "minColumn": 168,
     "maxColumn": 168,
+    "stickyWidth": 292,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -3810,12 +4607,26 @@
     ],
     "minColumn": 151,
     "maxColumn": 472,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 14,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -3885,12 +4696,26 @@
     ],
     "minColumn": 152,
     "maxColumn": 152,
+    "stickyWidth": 264,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 7,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 1302,
     "containerWidth": 1302,
@@ -3906,8 +4731,15 @@
     ],
     "minColumn": 168,
     "maxColumn": 168,
+    "stickyWidth": 292,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -3977,12 +4809,1250 @@
     ],
     "minColumn": 151,
     "maxColumn": 462,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 8,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "390@200%text",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 390,
+   "layoutViewport": 390,
+   "documentWidth": 390,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1840,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 13,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": {
+    "tableWidth": 1024,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 7,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   }
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "current",
+   "name": "390@200%text",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 390,
+   "layoutViewport": 413,
+   "documentWidth": 413,
+   "pageOverflowPx": 23,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 151,
+     "height": 322,
+     "valueTop": 113,
+     "worstOverflowPx": 54.8,
+     "worstOverflowText": "$60.8B"
+    },
+    {
+     "kpi": "net_income",
+     "width": 151,
+     "height": 322,
+     "valueTop": 149,
+     "worstOverflowPx": 54.8,
+     "worstOverflowText": "$15.8B"
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 151,
+     "height": 358,
+     "valueTop": 185,
+     "worstOverflowPx": 26,
+     "worstOverflowText": "$1.7B"
+    },
+    {
+     "kpi": "net_margin",
+     "width": 151,
+     "height": 358,
+     "valueTop": 149,
+     "worstOverflowPx": 26,
+     "worstOverflowText": "26.1%"
+    }
+   ],
+   "table": {
+    "tableWidth": 2367,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     222,
+     151,
+     165,
+     155,
+     222,
+     151,
+     165,
+     165,
+     222,
+     151,
+     165
+    ],
+    "minColumn": 151,
+    "maxColumn": 222,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": 0,
+    "restPositions": 11,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "390@200%text",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 390,
+   "layoutViewport": 390,
+   "documentWidth": 390,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1840,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 13,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": {
+    "tableWidth": 1024,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 7,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   }
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "current",
+   "name": "390@200%text",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 390,
+   "layoutViewport": 654,
+   "documentWidth": 654,
+   "pageOverflowPx": 264,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 151,
+     "height": 322,
+     "valueTop": 113,
+     "worstOverflowPx": 54.8,
+     "worstOverflowText": "$60.8B"
+    },
+    {
+     "kpi": "net_income",
+     "width": 151,
+     "height": 322,
+     "valueTop": 149,
+     "worstOverflowPx": 54.8,
+     "worstOverflowText": "$15.8B"
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 151,
+     "height": 410,
+     "valueTop": 185,
+     "worstOverflowPx": 26,
+     "worstOverflowText": "$1.7B"
+    },
+    {
+     "kpi": "net_margin",
+     "width": 151,
+     "height": 410,
+     "valueTop": 149,
+     "worstOverflowPx": 296.4,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 4137,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     472,
+     472,
+     462,
+     155,
+     222,
+     151,
+     462,
+     462,
+     222,
+     151,
+     472
+    ],
+    "minColumn": 151,
+    "maxColumn": 472,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": 0,
+    "restPositions": 19,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "390@200%text",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 390,
+   "layoutViewport": 390,
+   "documentWidth": 390,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1840,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 13,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": {
+    "tableWidth": 1024,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 7,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   }
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "390@200%text",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 390,
+   "layoutViewport": 654,
+   "documentWidth": 654,
+   "pageOverflowPx": 264,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 151,
+     "height": 374,
+     "valueTop": 113,
+     "worstOverflowPx": 296.4,
+     "worstOverflowText": "Growth source check needed"
+    },
+    {
+     "kpi": "net_income",
+     "width": 151,
+     "height": 374,
+     "valueTop": 149,
+     "worstOverflowPx": 54.8,
+     "worstOverflowText": "$15.8B"
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 151,
+     "height": 410,
+     "valueTop": 185,
+     "worstOverflowPx": 26,
+     "worstOverflowText": "$1.7B"
+    },
+    {
+     "kpi": "net_margin",
+     "width": 151,
+     "height": 410,
+     "valueTop": 149,
+     "worstOverflowPx": 296.4,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 2664,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     222,
+     151,
+     165,
+     155,
+     222,
+     151,
+     165,
+     165,
+     222,
+     151,
+     462
+    ],
+    "minColumn": 151,
+    "maxColumn": 462,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": 0,
+    "restPositions": 12,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "320@200%text",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 320,
+   "layoutViewport": 320,
+   "documentWidth": 320,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 256,
+     "height": 274,
+     "valueTop": 109,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1840,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 14,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": {
+    "tableWidth": 1024,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 8,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   }
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "current",
+   "name": "320@200%text",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 320,
+   "layoutViewport": 378,
+   "documentWidth": 378,
+   "pageOverflowPx": 58,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 116,
+     "height": 322,
+     "valueTop": 113,
+     "worstOverflowPx": 89.8,
+     "worstOverflowText": "$60.8B"
+    },
+    {
+     "kpi": "net_income",
+     "width": 116,
+     "height": 322,
+     "valueTop": 149,
+     "worstOverflowPx": 89.8,
+     "worstOverflowText": "$15.8B"
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 116,
+     "height": 358,
+     "valueTop": 185,
+     "worstOverflowPx": 61,
+     "worstOverflowText": "$1.7B"
+    },
+    {
+     "kpi": "net_margin",
+     "width": 116,
+     "height": 358,
+     "valueTop": 149,
+     "worstOverflowPx": 61,
+     "worstOverflowText": "26.1%"
+    }
+   ],
+   "table": {
+    "tableWidth": 2367,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     222,
+     151,
+     165,
+     155,
+     222,
+     151,
+     165,
+     165,
+     222,
+     151,
+     165
+    ],
+    "minColumn": 151,
+    "maxColumn": 222,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": -1,
+    "restPositions": 11,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "320@200%text",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 320,
+   "layoutViewport": 320,
+   "documentWidth": 320,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 256,
+     "height": 274,
+     "valueTop": 109,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1840,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 14,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": {
+    "tableWidth": 1024,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 8,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   }
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "current",
+   "name": "320@200%text",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 320,
+   "layoutViewport": 619,
+   "documentWidth": 619,
+   "pageOverflowPx": 299,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 116,
+     "height": 322,
+     "valueTop": 113,
+     "worstOverflowPx": 89.8,
+     "worstOverflowText": "$60.8B"
+    },
+    {
+     "kpi": "net_income",
+     "width": 116,
+     "height": 322,
+     "valueTop": 149,
+     "worstOverflowPx": 89.8,
+     "worstOverflowText": "$15.8B"
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 116,
+     "height": 410,
+     "valueTop": 185,
+     "worstOverflowPx": 61,
+     "worstOverflowText": "$1.7B"
+    },
+    {
+     "kpi": "net_margin",
+     "width": 116,
+     "height": 410,
+     "valueTop": 149,
+     "worstOverflowPx": 331.4,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 4137,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     472,
+     472,
+     462,
+     155,
+     222,
+     151,
+     462,
+     462,
+     222,
+     151,
+     472
+    ],
+    "minColumn": 151,
+    "maxColumn": 472,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": -1,
+    "restPositions": 19,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "320@200%text",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 320,
+   "layoutViewport": 320,
+   "documentWidth": 320,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 256,
+     "height": 274,
+     "valueTop": 109,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1840,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 14,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": {
+    "tableWidth": 1024,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 8,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   }
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "320@200%text",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 320,
+   "layoutViewport": 619,
+   "documentWidth": 619,
+   "pageOverflowPx": 299,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 116,
+     "height": 374,
+     "valueTop": 113,
+     "worstOverflowPx": 331.4,
+     "worstOverflowText": "Growth source check needed"
+    },
+    {
+     "kpi": "net_income",
+     "width": 116,
+     "height": 374,
+     "valueTop": 149,
+     "worstOverflowPx": 89.8,
+     "worstOverflowText": "$15.8B"
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 116,
+     "height": 410,
+     "valueTop": 185,
+     "worstOverflowPx": 61,
+     "worstOverflowText": "$1.7B"
+    },
+    {
+     "kpi": "net_margin",
+     "width": 116,
+     "height": 410,
+     "valueTop": 149,
+     "worstOverflowPx": 331.4,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 2664,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     222,
+     151,
+     165,
+     155,
+     222,
+     151,
+     165,
+     165,
+     222,
+     151,
+     462
+    ],
+    "minColumn": 151,
+    "maxColumn": 462,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": -1,
+    "restPositions": 13,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -4051,12 +6121,26 @@
     ],
     "minColumn": 77,
     "maxColumn": 77,
+    "stickyWidth": 134,
+    "stickyColumn": true,
+    "readableColumns": 12,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 1062,
     "containerWidth": 1062,
@@ -4072,8 +6156,15 @@
     ],
     "minColumn": 137,
     "maxColumn": 137,
+    "stickyWidth": 238,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -4142,12 +6233,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 119,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 8,
+    "restPositions": 3,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -4216,12 +6321,26 @@
     ],
     "minColumn": 77,
     "maxColumn": 77,
+    "stickyWidth": 134,
+    "stickyColumn": true,
+    "readableColumns": 12,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 1062,
     "containerWidth": 1062,
@@ -4237,8 +6356,15 @@
     ],
     "minColumn": 137,
     "maxColumn": 137,
+    "stickyWidth": 238,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -4307,12 +6433,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 237,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 8,
+    "restPositions": 10,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -4381,12 +6521,26 @@
     ],
     "minColumn": 77,
     "maxColumn": 77,
+    "stickyWidth": 134,
+    "stickyColumn": true,
+    "readableColumns": 12,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 1062,
     "containerWidth": 1062,
@@ -4402,8 +6556,15 @@
     ],
     "minColumn": 137,
     "maxColumn": 137,
+    "stickyWidth": 238,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -4472,12 +6633,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 231,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 8,
+    "restPositions": 4,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -4546,12 +6721,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 10,
+    "restPositions": 3,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 964,
     "containerWidth": 964,
@@ -4567,8 +6756,15 @@
     ],
     "minColumn": 125,
     "maxColumn": 125,
+    "stickyWidth": 216,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -4637,12 +6833,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 119,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 7,
+    "restPositions": 4,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -4711,12 +6921,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 10,
+    "restPositions": 3,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 964,
     "containerWidth": 964,
@@ -4732,8 +6956,15 @@
     ],
     "minColumn": 125,
     "maxColumn": 125,
+    "stickyWidth": 216,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -4802,12 +7033,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 237,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 7,
+    "restPositions": 11,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -4876,12 +7121,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 10,
+    "restPositions": 3,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 964,
     "containerWidth": 964,
@@ -4897,8 +7156,15 @@
     ],
     "minColumn": 125,
     "maxColumn": 125,
+    "stickyWidth": 216,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -4967,12 +7233,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 231,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 7,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -5041,12 +7321,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 10,
+    "restPositions": 3,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 934,
     "containerWidth": 934,
@@ -5062,8 +7356,15 @@
     ],
     "minColumn": 121,
     "maxColumn": 121,
+    "stickyWidth": 210,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -5132,12 +7433,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 119,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 4,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -5206,12 +7521,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 10,
+    "restPositions": 3,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 934,
     "containerWidth": 934,
@@ -5227,8 +7556,15 @@
     ],
     "minColumn": 121,
     "maxColumn": 121,
+    "stickyWidth": 210,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -5297,12 +7633,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 237,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 11,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -5371,12 +7721,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 10,
+    "restPositions": 3,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 934,
     "containerWidth": 934,
@@ -5392,8 +7756,15 @@
     ],
     "minColumn": 121,
     "maxColumn": 121,
+    "stickyWidth": 210,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -5462,12 +7833,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 231,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -5536,12 +7921,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 7,
+    "restPositions": 6,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 678,
     "containerWidth": 678,
@@ -5557,8 +7956,15 @@
     ],
     "minColumn": 88,
     "maxColumn": 88,
+    "stickyWidth": 152,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -5627,12 +8033,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 119,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 6,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -5701,12 +8121,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 7,
+    "restPositions": 6,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 678,
     "containerWidth": 678,
@@ -5722,8 +8156,15 @@
     ],
     "minColumn": 88,
     "maxColumn": 88,
+    "stickyWidth": 152,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -5792,12 +8233,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 237,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 13,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -5866,12 +8321,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 76,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 7,
+    "restPositions": 6,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 678,
     "containerWidth": 678,
@@ -5887,8 +8356,15 @@
     ],
     "minColumn": 88,
     "maxColumn": 88,
+    "stickyWidth": 152,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -5957,12 +8433,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 231,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 7,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -6032,12 +8522,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 3,
+    "restPositions": 10,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 512,
     "containerWidth": 316,
@@ -6053,8 +8557,15 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 3,
+    "restPositions": 4,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -6124,12 +8635,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 119,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 1,
+    "restPositions": 9,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -6199,12 +8724,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 3,
+    "restPositions": 10,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 512,
     "containerWidth": 316,
@@ -6220,8 +8759,15 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 3,
+    "restPositions": 4,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -6291,12 +8837,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 237,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 1,
+    "restPositions": 16,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -6366,12 +8926,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 3,
+    "restPositions": 10,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 512,
     "containerWidth": 316,
@@ -6387,8 +8961,15 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 3,
+    "restPositions": 4,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -6458,12 +9039,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 231,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 1,
+    "restPositions": 10,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -6533,12 +9128,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 2,
+    "restPositions": 11,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 512,
     "containerWidth": 246,
@@ -6554,8 +9163,15 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 2,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -6625,12 +9241,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 119,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 1,
+    "restPositions": 10,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -6700,12 +9330,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 2,
+    "restPositions": 11,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 512,
     "containerWidth": 246,
@@ -6721,8 +9365,15 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 2,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -6792,12 +9443,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 237,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 1,
+    "restPositions": 17,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -6867,12 +9532,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 2,
+    "restPositions": 11,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 512,
     "containerWidth": 246,
@@ -6888,8 +9567,15 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 2,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -6959,12 +9645,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 231,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 1,
+    "restPositions": 11,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -7034,12 +9734,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 8,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 650,
     "containerWidth": 650,
@@ -7055,8 +9769,15 @@
     ],
     "minColumn": 86,
     "maxColumn": 86,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -7126,12 +9847,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 119,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 6,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -7201,12 +9936,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 8,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 650,
     "containerWidth": 650,
@@ -7222,8 +9971,15 @@
     ],
     "minColumn": 86,
     "maxColumn": 86,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -7293,12 +10049,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 237,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 14,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -7368,12 +10138,26 @@
     ],
     "minColumn": 68,
     "maxColumn": 68,
+    "stickyWidth": 104,
+    "stickyColumn": true,
+    "readableColumns": 8,
+    "restPositions": 5,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 650,
     "containerWidth": 650,
@@ -7389,8 +10173,15 @@
     ],
     "minColumn": 86,
     "maxColumn": 86,
+    "stickyWidth": 132,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -7460,12 +10251,26 @@
     ],
     "minColumn": 76,
     "maxColumn": 231,
+    "stickyWidth": 105,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 8,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -7535,12 +10340,26 @@
     ],
     "minColumn": 152,
     "maxColumn": 152,
+    "stickyWidth": 264,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 7,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 1302,
     "containerWidth": 1302,
@@ -7556,8 +10375,15 @@
     ],
     "minColumn": 168,
     "maxColumn": 168,
+    "stickyWidth": 292,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -7627,12 +10453,26 @@
     ],
     "minColumn": 151,
     "maxColumn": 222,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 6,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 0,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -7702,12 +10542,26 @@
     ],
     "minColumn": 152,
     "maxColumn": 152,
+    "stickyWidth": 264,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 7,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
    "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 1302,
     "containerWidth": 1302,
@@ -7723,8 +10577,15 @@
     ],
     "minColumn": 168,
     "maxColumn": 168,
+    "stickyWidth": 292,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -7794,12 +10655,26 @@
     ],
     "minColumn": 151,
     "maxColumn": 472,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 14,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 27,
    "noteAffixes": 4,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   },
   {
@@ -7869,12 +10744,26 @@
     ],
     "minColumn": 152,
     "maxColumn": 152,
+    "stickyWidth": 264,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 7,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
    "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": {
     "tableWidth": 1302,
     "containerWidth": 1302,
@@ -7890,8 +10779,15 @@
     ],
     "minColumn": 168,
     "maxColumn": 168,
+    "stickyWidth": 292,
+    "stickyColumn": true,
+    "readableColumns": 6,
+    "restPositions": 0,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    }
   },
   {
@@ -7961,12 +10857,1250 @@
     ],
     "minColumn": 151,
     "maxColumn": 462,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": 4,
+    "restPositions": 8,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
-    "cellTextClipped": false
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
    },
    "sourceCheckLabels": 11,
    "noteAffixes": 2,
    "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "390@200%text",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 390,
+   "layoutViewport": 390,
+   "documentWidth": 390,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1840,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 13,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": {
+    "tableWidth": 1024,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 7,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "current",
+   "name": "390@200%text",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 390,
+   "layoutViewport": 413,
+   "documentWidth": 413,
+   "pageOverflowPx": 23,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 151,
+     "height": 322,
+     "valueTop": 113,
+     "worstOverflowPx": 54.8,
+     "worstOverflowText": "$60.8B"
+    },
+    {
+     "kpi": "net_income",
+     "width": 151,
+     "height": 322,
+     "valueTop": 149,
+     "worstOverflowPx": 54.8,
+     "worstOverflowText": "$15.8B"
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 151,
+     "height": 358,
+     "valueTop": 185,
+     "worstOverflowPx": 26,
+     "worstOverflowText": "$1.7B"
+    },
+    {
+     "kpi": "net_margin",
+     "width": 151,
+     "height": 358,
+     "valueTop": 149,
+     "worstOverflowPx": 26,
+     "worstOverflowText": "26.1%"
+    }
+   ],
+   "table": {
+    "tableWidth": 2367,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     222,
+     151,
+     165,
+     155,
+     222,
+     151,
+     165,
+     165,
+     222,
+     151,
+     165
+    ],
+    "minColumn": 151,
+    "maxColumn": 222,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": 0,
+    "restPositions": 11,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "390@200%text",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 390,
+   "layoutViewport": 390,
+   "documentWidth": 390,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1840,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 13,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": {
+    "tableWidth": 1024,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 7,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "current",
+   "name": "390@200%text",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 390,
+   "layoutViewport": 654,
+   "documentWidth": 654,
+   "pageOverflowPx": 264,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 151,
+     "height": 322,
+     "valueTop": 113,
+     "worstOverflowPx": 54.8,
+     "worstOverflowText": "$60.8B"
+    },
+    {
+     "kpi": "net_income",
+     "width": 151,
+     "height": 322,
+     "valueTop": 149,
+     "worstOverflowPx": 54.8,
+     "worstOverflowText": "$15.8B"
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 151,
+     "height": 410,
+     "valueTop": 185,
+     "worstOverflowPx": 26,
+     "worstOverflowText": "$1.7B"
+    },
+    {
+     "kpi": "net_margin",
+     "width": 151,
+     "height": 410,
+     "valueTop": 149,
+     "worstOverflowPx": 296.4,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 4137,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     472,
+     472,
+     462,
+     155,
+     222,
+     151,
+     462,
+     462,
+     222,
+     151,
+     472
+    ],
+    "minColumn": 151,
+    "maxColumn": 472,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": 0,
+    "restPositions": 19,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "390@200%text",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 390,
+   "layoutViewport": 390,
+   "documentWidth": 390,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 326,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1840,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 13,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": {
+    "tableWidth": 1024,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 7,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "390@200%text",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 390,
+   "layoutViewport": 654,
+   "documentWidth": 654,
+   "pageOverflowPx": 264,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 151,
+     "height": 374,
+     "valueTop": 113,
+     "worstOverflowPx": 296.4,
+     "worstOverflowText": "Growth source check needed"
+    },
+    {
+     "kpi": "net_income",
+     "width": 151,
+     "height": 374,
+     "valueTop": 149,
+     "worstOverflowPx": 54.8,
+     "worstOverflowText": "$15.8B"
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 151,
+     "height": 410,
+     "valueTop": 185,
+     "worstOverflowPx": 26,
+     "worstOverflowText": "$1.7B"
+    },
+    {
+     "kpi": "net_margin",
+     "width": 151,
+     "height": 410,
+     "valueTop": 149,
+     "worstOverflowPx": 296.4,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 2664,
+    "containerWidth": 244,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     222,
+     151,
+     165,
+     155,
+     222,
+     151,
+     165,
+     165,
+     222,
+     151,
+     462
+    ],
+    "minColumn": 151,
+    "maxColumn": 462,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": 0,
+    "restPositions": 12,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "320@200%text",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 320,
+   "layoutViewport": 320,
+   "documentWidth": 320,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 256,
+     "height": 274,
+     "valueTop": 109,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1840,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 14,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": {
+    "tableWidth": 1024,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 8,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "current",
+   "name": "320@200%text",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 320,
+   "layoutViewport": 378,
+   "documentWidth": 378,
+   "pageOverflowPx": 58,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 116,
+     "height": 322,
+     "valueTop": 113,
+     "worstOverflowPx": 89.8,
+     "worstOverflowText": "$60.8B"
+    },
+    {
+     "kpi": "net_income",
+     "width": 116,
+     "height": 322,
+     "valueTop": 149,
+     "worstOverflowPx": 89.8,
+     "worstOverflowText": "$15.8B"
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 116,
+     "height": 358,
+     "valueTop": 185,
+     "worstOverflowPx": 61,
+     "worstOverflowText": "$1.7B"
+    },
+    {
+     "kpi": "net_margin",
+     "width": 116,
+     "height": 358,
+     "valueTop": 149,
+     "worstOverflowPx": 61,
+     "worstOverflowText": "26.1%"
+    }
+   ],
+   "table": {
+    "tableWidth": 2367,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     222,
+     151,
+     165,
+     155,
+     222,
+     151,
+     165,
+     165,
+     222,
+     151,
+     165
+    ],
+    "minColumn": 151,
+    "maxColumn": 222,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": -1,
+    "restPositions": 11,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "320@200%text",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 320,
+   "layoutViewport": 320,
+   "documentWidth": 320,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 256,
+     "height": 274,
+     "valueTop": 109,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1840,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 14,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": {
+    "tableWidth": 1024,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 8,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "current",
+   "name": "320@200%text",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 320,
+   "layoutViewport": 619,
+   "documentWidth": 619,
+   "pageOverflowPx": 299,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 116,
+     "height": 322,
+     "valueTop": 113,
+     "worstOverflowPx": 89.8,
+     "worstOverflowText": "$60.8B"
+    },
+    {
+     "kpi": "net_income",
+     "width": 116,
+     "height": 322,
+     "valueTop": 149,
+     "worstOverflowPx": 89.8,
+     "worstOverflowText": "$15.8B"
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 116,
+     "height": 410,
+     "valueTop": 185,
+     "worstOverflowPx": 61,
+     "worstOverflowText": "$1.7B"
+    },
+    {
+     "kpi": "net_margin",
+     "width": 116,
+     "height": 410,
+     "valueTop": 149,
+     "worstOverflowPx": 331.4,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 4137,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     472,
+     472,
+     462,
+     155,
+     222,
+     151,
+     462,
+     462,
+     222,
+     151,
+     472
+    ],
+    "minColumn": 151,
+    "maxColumn": 472,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": -1,
+    "restPositions": 19,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "320@200%text",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 320,
+   "layoutViewport": 320,
+   "documentWidth": 320,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 256,
+     "height": 274,
+     "valueTop": 109,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 256,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1840,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 14,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
+   "window6": {
+    "tableWidth": 1024,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     208,
+     136,
+     136,
+     136,
+     136,
+     136,
+     136
+    ],
+    "minColumn": 136,
+    "maxColumn": 136,
+    "stickyWidth": 208,
+    "stickyColumn": false,
+    "readableColumns": 1,
+    "restPositions": 8,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "320@200%text",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "textZoom": 2,
+   "viewport": 320,
+   "layoutViewport": 619,
+   "documentWidth": 619,
+   "pageOverflowPx": 299,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 116,
+     "height": 374,
+     "valueTop": 113,
+     "worstOverflowPx": 331.4,
+     "worstOverflowText": "Growth source check needed"
+    },
+    {
+     "kpi": "net_income",
+     "width": 116,
+     "height": 374,
+     "valueTop": 149,
+     "worstOverflowPx": 89.8,
+     "worstOverflowText": "$15.8B"
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 116,
+     "height": 410,
+     "valueTop": 185,
+     "worstOverflowPx": 61,
+     "worstOverflowText": "$1.7B"
+    },
+    {
+     "kpi": "net_margin",
+     "width": 116,
+     "height": 410,
+     "valueTop": 149,
+     "worstOverflowPx": 331.4,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 2664,
+    "containerWidth": 174,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     222,
+     151,
+     165,
+     155,
+     222,
+     151,
+     165,
+     165,
+     222,
+     151,
+     462
+    ],
+    "minColumn": 151,
+    "maxColumn": 462,
+    "stickyWidth": 209,
+    "stickyColumn": true,
+    "readableColumns": -1,
+    "restPositions": 13,
+    "occludedPositions": [],
+    "occludedAtFarRight": [],
+    "cellTextClipped": false,
+    "clippedCells": [],
+    "clippedCount": 0
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "env": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+    "fonts": [
+     "Inter:true",
+     "Geist Mono:true"
+    ]
+   },
    "window6": null
   }
  ]

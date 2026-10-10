@@ -1,4 +1,7 @@
 // Measures the CURRENT production components (the repo's own frontend build, `next start`) on the
+// (The recorded run, measurements/current.json, is of main at 97293e7, before #1199–#1203; the probes
+// below find the markup of that build AND of main after #1200/#1202 by data attribute, and every
+// probe asserts how many elements it found so a markup change fails the run instead of passing it.)
 // real META 12-quarter dataset in its production-like legacy state, with every API answered inside
 // the browser (page.route) — the same no-backend discipline as tests/e2e. Records page overflow,
 // KPI card-child containment, the metrics table's width and per-column widths, sticky-column
@@ -55,7 +58,7 @@ async function mockApi(context) {
     const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
     if (p === '/api/auth/me') return json(user)
     if (p === '/api/subscriptions/subscription') return json(subscription)
-    if (p === '/api/subscriptions/usage') return json({ is_pro: true, summaries_used: 0, summaries_limit: 0, analyses_used: 1, analyses_limit: 50, qa_used: 0, qa_limit: 0 })
+    if (p === '/api/subscriptions/usage') return json({ is_pro: true, summaries_used: 0, summaries_limit: 0, analysis_used: 1, analysis_limit: 50, qa_used: 0, qa_limit: 0, copilot_free_taste_used: 0, copilot_free_taste_total: 0 })
     if (p === '/api/companies/META') return json(company)
     if (p === '/api/analysis/META/coverage') return json(coverage)
     if (p === '/api/analysis/META/dataset') return json(state.dataset)
@@ -76,8 +79,10 @@ async function measure(page, configuredWidth) {
     const r = (el) => el.getBoundingClientRect()
     const badges = [...document.querySelectorAll('span.rounded-full')].filter((el) => /source check/i.test(el.textContent || ''))
     // KPI strip: the first grid with four Card children after the picker.
-    const kpiGrid = [...document.querySelectorAll('main div.grid')].find((g) => g.className.includes('lg:grid-cols-4'))
-    const cards = kpiGrid ? [...kpiGrid.children] : []
+    // main after #1200: a <dl data-analysis-kpi> of cards; main at 97293e7: a div.grid of four Cards.
+    const markedCards = [...document.querySelectorAll('[data-analysis-kpi]')]
+    const legacyGrid = [...document.querySelectorAll('main div.grid')].find((g) => g.className.includes('lg:grid-cols-4'))
+    const cards = markedCards.length ? markedCards : legacyGrid ? [...legacyGrid.children] : []
     const kpi = cards.map((card) => {
       const cr = r(card)
       const children = [...card.querySelectorAll('*')]
@@ -89,7 +94,7 @@ async function measure(page, configuredWidth) {
         const over = Math.max(b.right - cr.right, cr.left - b.left)
         if (over > worst) { worst = over; worstText = (child.textContent || '').trim().slice(0, 40) }
       }
-      const value = card.querySelector('.text-2xl')
+      const value = card.querySelector('[data-kpi-value], .text-2xl')
       return { label: (card.querySelector('.uppercase')?.textContent || '').trim(), width: Math.round(cr.width), height: Math.round(cr.height), valueTop: value ? Math.round(r(value).top - cr.top) : null, worstOverflowPx: Math.round(worst * 10) / 10, worstOverflowText: worstText }
     })
     // Metrics table.
@@ -118,10 +123,20 @@ async function measure(page, configuredWidth) {
       scroller.scrollLeft = 0
       tableInfo = { tableWidth: Math.round(table.scrollWidth), containerWidth: Math.round(scroller.clientWidth), columns: cols, warnedWidths: cols.filter((c) => c.warned).map((c) => c.width), cleanWidths: cols.slice(1).filter((c) => !c.warned).map((c) => c.width), occludedAtFarRight: occluded }
     }
-    const sm = [...document.querySelectorAll('summary')].find((s) => /Sources/.test(s.textContent || ''))
+    // The report-level summary line: the Data notes strip after #1200, the Sources & methods summary before it.
+    const sm = document.querySelector('[data-analysis-data-notes] > details > summary') || [...document.querySelectorAll('summary')].find((s) => /Sources/.test(s.textContent || ''))
+    const counts = { kpiCards: cards.length, tableHeaders: tableInfo ? tableInfo.columns.length : 0, tableRows: table ? table.querySelectorAll('tbody tr').length : 0 }
+    // Every probe states what it found; a run whose counts are off measures nothing and must not pass.
+    const probeErrors = []
+    if (counts.kpiCards !== 4) probeErrors.push(`expected 4 KPI cards, found ${counts.kpiCards}`)
+    if (counts.tableHeaders !== 13) probeErrors.push(`expected 13 table header cells, found ${counts.tableHeaders}`)
+    if (counts.tableRows < 10) probeErrors.push(`expected the metric rows, found ${counts.tableRows}`)
     return {
       viewport: vw,
       layoutViewport: window.innerWidth,
+      counts,
+      probeErrors,
+      fonts: ['Inter', 'Geist Mono'].map((f) => `${f}:${document.fonts.check(`12px "${f}"`)}`),
       documentWidth: doc.scrollWidth,
       pageOverflowPx: doc.scrollWidth - vw,
       sourceCheckLabels: badges.length,
@@ -135,20 +150,26 @@ async function measure(page, configuredWidth) {
 
 async function run() {
   const browser = await chromium.launch()
-  const results = { base: BASE, state: STATE, generatedAt: new Date().toISOString(), configs: [] }
+  const results = { base: BASE, state: STATE, generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version }, configs: [] }
   for (const theme of ['light', 'dark']) {
     for (const cfg of CONFIGS) {
       const context = await browser.newContext({ viewport: { width: cfg.width, height: cfg.height }, deviceScaleFactor: cfg.dsf || 1, isMobile: !!cfg.mobile, hasTouch: !!cfg.mobile, reducedMotion: 'reduce' })
       await mockApi(context)
-      await context.addInitScript((t) => { try { localStorage.setItem('theme', t); localStorage.setItem('cookie-consent', 'accepted'); localStorage.setItem('en-cookie-consent', 'accepted') } catch {} }, theme)
+      // The app's consent key is `cookie_consent` (CookieConsent.tsx); a stored decision hides the bar.
+      await context.addInitScript((t) => { try { localStorage.setItem('theme', t); localStorage.setItem('cookie_consent', JSON.stringify({ necessary: true, analytics: false, decidedAt: '2026-01-01T00:00:00Z' })) } catch {} }, theme)
       const page = await context.newPage()
       await page.goto(`${BASE}/analysis?ticker=META`, { waitUntil: 'networkidle' })
       if (cfg.textZoom) await page.evaluate((z) => { document.documentElement.style.fontSize = `${z * 100}%` }, cfg.textZoom)
+      // The page opens in annual mode; the mocked dataset is quarterly, so choose Quarterly first.
+      const quarterly = page.getByRole('button', { name: 'Quarterly' })
+      if (await quarterly.count()) await quarterly.first().click()
       await page.getByRole('button', { name: 'Run analysis' }).click()
       await page.getByRole('heading', { name: 'Metrics by period' }).waitFor({ timeout: 30000 })
       await page.getByRole('heading', { name: 'AI trend analysis' }).waitFor({ timeout: 30000 })
+      await page.evaluate(() => document.fonts.ready)
       await page.waitForTimeout(600)
       const m = await measure(page, cfg.width)
+      if (m.probeErrors.length) throw new Error(`${theme} ${cfg.name}: ${m.probeErrors.join('; ')}`)
       results.configs.push({ theme, ...cfg, ...m })
       if (SHOTS) {
         mkdirSync(SHOTS, { recursive: true })

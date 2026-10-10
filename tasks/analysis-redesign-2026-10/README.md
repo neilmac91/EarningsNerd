@@ -22,17 +22,30 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   (`next build` + `next start` with `NEXT_PUBLIC_ENABLE_ANALYSIS=true`, every API answered in the browser
   with `page.route`, as `tests/e2e` does): page overflow, KPI card-child containment and value alignment,
   table and column widths, far-right sticky-column occlusion, label counts. Output: `measurements/current.json`.
-  The recorded run measured `main` at `97293e7`, before #1199 and #1200 replaced the labels; a run against
-  a later `main` measures that build, so its label-count probe reports 0 there and its KPI probe describes
-  the new definition-list markup.
+  The recorded run measured `main` at `97293e7`, before #1199–#1203 replaced the labels, the cards, the
+  table, the dialog, the narrative and the picker; it was taken with the first probes (element boxes,
+  `scrollWidth`, one row at the far right), with the page left in annual mode beside a quarterly dataset
+  and with the consent bar showing, none of which changes the component widths it reports. The script
+  now selects Quarterly, mocks the API's field names, stores the app's consent key, waits for fonts, finds
+  the shipped markup by data attribute (`[data-analysis-kpi]`, `[data-kpi-value]`,
+  `[data-analysis-data-notes]`) with a fallback to the `97293e7` markup, and fails the run when a probe
+  does not find what it expects (4 cards, 13 header cells, the metric rows).
 - `harness/measure-proto.mjs` — the same probes on the prototype, in every state and both views, at
   1480 / 1054 / 1024 / 768 / 390 / 320 CSS px, light and dark, 200% browser zoom (CSS viewport halved at
-  2x) and 200% text size. Output: `measurements/prototype.json`.
+  2x) and 200% text size at 1480, 390 and 320. Output: `measurements/prototype.json`. Since the
+  comprehensive review of 2026-10-10 the probes read the rendered text (text-node rectangles and
+  `scrollWidth` against `clientWidth` of every block, `.sr-only` excluded), test cell text against the
+  cell's content box on both sides (a right-aligned overflow runs to the inline start, which `scrollWidth`
+  never counts), visit every scroll rest position for a header straddling the sticky edge, and record the
+  Chromium, platform and commit of the run. `EN_PROTO.state.noPad = true` removes the whole-column pad for
+  the occlusion mutation proof (at 1024 the probe then reports the Q4 ’23 column straddling the edge).
 - `harness/build_states.py`, `harness/prune_states.py` — reproduce `prototype/data/` from a saved
   companyfacts payload.
 - `measurements/` — the two recorded runs the proposal cites.
 - `astra-prompt.md` — the hand-over prompt for the implementing agent (GPT-6 Astra / Codex), with the
   founder's §9 decisions recorded.
+- `review-2026-10-10.md` — the comprehensive review's findings, ranked, with what each changed in this
+  folder and in the proposal and what remains open for the implementation.
 
 Screenshots are not committed (binary bloat; the critique environment kept its evidence out of the
 repository too). Both harnesses take `--shots <dir>` to regenerate them. Both compare the document
@@ -51,7 +64,10 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
    `build_observation_catalogue` → `render_observation_selection` → `resolve_narrative_citations` →
    `scan_numeric_fidelity` inside a private SQLite database (the hermetic test environment's
    variables). It writes three states:
-   - `clean`: the engine's own output on a fresh ingest (every calculation carries its lineage).
+   - `clean`: the engine's own output on a fresh ingest (every calculation carries its lineage). This is
+     not the state the production data repair produces: `frontend/tests/unit/fixtures/meta-data-notes.json`
+     on `main` is the captured production dataset and keeps its own `not_in_dataset` and
+     `legacy_calculation_not_supported` gaps; the gate in proposal §7 item 10 builds on that capture.
    - `legacy`: ten computed rows have their stored provenance removed, as rows written before #1191 are
      (the `legacy_calculation` path of `fact_provenance.provenance_for_fact`), modelled on the cells the
      production screenshots show warned. The four capex / free-cash-flow gaps for Q3–Q4 2023 and the six
