@@ -411,10 +411,10 @@ module object and eight import names directly, three doing both (for example
 `acquisition_period_cases.py:12` `_build_messages`; `test_copilot_prose_quotations.py:43-50` four caps
 and two E functions; `test_copilot_gate.py:451` the exception and the logger).
 
-**Seams to cut.** K is the only cluster with edges into the others (A, B, C, D, E, F, H, I, J); H
-depends on B and G; J and I depend on G; D reads one E constant. A, C, F and G have no inbound edges
-except from K. So E, B+G, H, J+I and C+D+exceptions are each a clean leaf package module, and the
-only decision is where the loop lives. Recommendation: keep `answer_filing_question` and the loop in
+**Seams to cut.** K calls the other clusters (A, B, C, D, E, F, H, I, J); H
+depends on B and G; J and I depend on G; D reads one E constant; A reads B for reporting currency;
+E raises the shared publication exception. Extract E, B+G, H, J+I and C+D into package modules,
+with the exceptions in a shared leaf. Keep `answer_filing_question` and the loop in
 `copilot_service.py` (in-place decomposition, C2), because moving them changes the logger name the
 eval runner filters on (C:1624 warning, `copilot_runner.py:201`) and forces five more test re-points.
 
@@ -428,11 +428,17 @@ backend/app/services/copilot/
   fact_guards.py   ← clusters B + G (C:226–273, C:970–1157)
   claim_repair.py  ← cluster H (C:1160–1421); calls copilot_tools.run_tool as an attribute, never `from … import run_tool`
   resolution.py    ← clusters J + I (C:1424–1588)
-  envelope.py      ← the two exceptions (C:93–98) + clusters C and D (C:395–533)
+  envelope.py      ← clusters C and D (C:395–533), JSON-repair import fallback
+  exceptions.py    ← the two exceptions (C:93–98), shared by quotations and envelope
   prompt.py        ← (C3) SYSTEM_PROMPT, sentinels, _EVIDENCE_RETRY_GUIDANCE, cluster A
   __init__.py      ← empty
 backend/app/services/copilot_service.py  ← answer_filing_question + the attempt loop (decomposed in place) + re-exports; ≈ 750 lines after C1, ≈ 800 after C2
 ```
+
+C1 implementation correction (2026-10-10): cluster E also raises `_UnpublishableAnswer`, while
+cluster D reads E’s `_QUOTE_MARK_RE`. The unchanged exceptions therefore live in a shared
+`exceptions.py` leaf to avoid an envelope/quotations cycle. The façade re-exports both. Its measured C1 size is 900 lines, including explicit imports and
+`__all__` entries for the existing surface; its 297-line attempt loop is unchanged.
 
 Phase map of `_answer_filing_question_attempt` (C:1638–1934) for C2: P0 messages C:1657–1659; P1
 tool binding C:1666–1691 (`used_facts`, `_register_fact`, `_run_tool`) → a ~30-line `FactRegistry`
