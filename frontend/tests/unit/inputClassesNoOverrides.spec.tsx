@@ -23,8 +23,10 @@ import { bindingResolver } from './astBindings'
  * percentage width zeroed the feedback status select's min-content width, so the scrolling table squeezed it to
  * 58px and "Resolved" read "R". `py-1.5` (rule 620) lost to the field's `py-2.5` (625) at both sites that set it;
  * `text-xs` (699) beat `text-sm` (697) by one rule. The options are `select` (a raw <select>'s chevron room),
- * `autoWidth` (sized to its content), `density` and `leadingIcon`; Button's twin gate is
- * button-icon-size-gate.spec.ts.
+ * `autoWidth` (sized to its content), `density`, `leadingIcon` and `trailingIcon` (the password field's reveal
+ * toggle, which set `pr-10` on top until it existed); Button's twin gate is button-icon-size-gate.spec.ts. The
+ * options' own padding is held to explicit sides by "the field's padding is explicit" below: the scan skips
+ * Input.tsx, so nothing else would see a pad constant that sets one side twice.
  *
  * The scan reads the TypeScript AST of every .ts and .tsx under app/, components/, features/, hooks/ and lib/,
  * except Input.tsx, which defines the field. For each `inputClasses(…)` call (imported from components/ui/Input
@@ -72,13 +74,6 @@ const ROOTS = ['app', 'components', 'features', 'hooks', 'lib']
 const DEFINITION = 'components/ui/Input.tsx'
 
 const PINS: Record<string, { findings: string[]; reason: string }> = {
-  'features/auth/components/PasswordField.tsx': {
-    findings: ['pr-10 vs px-3.5 [padding-right] (same chain)'],
-    reason:
-      'Wins today only because the padding plugin emits side utilities after axis ones (.px-3.5 rule 614 < ' +
-      '.pr-10 658), the gamble the DS forbids. Needs a trailing-inset option on inputClasses (the Input ' +
-      "component's own `loading ? 'pr-10' : 'pr-3.5'`), with its compact and leading-icon combinations.",
-  },
   'app/dashboard/settings/page.tsx': {
     findings: [
       'focus:border-error-light vs dark:border-border-dark [border-color] (no dark twin)',
@@ -94,7 +89,7 @@ const PINS: Record<string, { findings: string[]; reason: string }> = {
   },
 }
 /** Shrink-only: files, and findings (one entry per site, so a second site with the same override fails). */
-const MAX_PINNED = { files: 2, findings: 6 }
+const MAX_PINNED = { files: 1, findings: 5 }
 
 /** The findings PINS does not cover, counting each pinned entry once, and the pins no finding matched. */
 function againstPins(found: { file: string; line: number; finding: string }[], pins: typeof PINS) {
@@ -115,9 +110,9 @@ function againstPins(found: { file: string; line: number; finding: string }[], p
 
 // ------------------------------------------------------------------------------------------------- scanner
 
-type Options = { invalid: boolean; leadingIcon: boolean; select: boolean; density: FieldDensity; autoWidth: boolean }
-const DEFAULTS: Options = { invalid: false, leadingIcon: false, select: false, density: 'comfortable', autoWidth: false }
-const BOOLEAN_OPTIONS = ['invalid', 'leadingIcon', 'select', 'autoWidth'] as const
+type Options = { invalid: boolean; leadingIcon: boolean; trailingIcon: boolean; select: boolean; density: FieldDensity; autoWidth: boolean }
+const DEFAULTS: Options = { invalid: false, leadingIcon: false, trailingIcon: false, select: false, density: 'comfortable', autoWidth: false }
+const BOOLEAN_OPTIONS = ['invalid', 'leadingIcon', 'trailingIcon', 'select', 'autoWidth'] as const
 const DENSITIES: FieldDensity[] = ['comfortable', 'compact']
 
 interface Site { file: string; line: number; tag: string; listBox: boolean; combos: Options[]; added: string[] }
@@ -254,7 +249,7 @@ function scanSource(file: string, text: string): Scan {
     if (!arg) return { combos: [DEFAULTS], className: [] }
     if (!ts.isObjectLiteralExpression(arg)) throw new Unreadable('inputClasses() options that are not an object literal')
     const values: { [K in keyof Options]: Options[K][] } = {
-      invalid: [false], leadingIcon: [false], select: [false], density: ['comfortable'], autoWidth: [false],
+      invalid: [false], leadingIcon: [false], trailingIcon: [false], select: [false], density: ['comfortable'], autoWidth: [false],
     }
     let className: string[] = []
     for (const p of arg.properties) {
@@ -560,7 +555,7 @@ describe('a raw field takes inputClasses() options, never a competing class on t
     expect(
       unpinned,
       'A class on top of inputClasses() that sets what the field sets resolves by stylesheet order, not class ' +
-        'order (cx and clsx do no tailwind-merge). Use an option (select, autoWidth, density, leadingIcon, invalid) ' +
+        'order (cx and clsx do no tailwind-merge). Use an option (select, autoWidth, density, leadingIcon, trailingIcon, invalid) ' +
         'or add one to components/ui/Input.tsx with explicit sides.',
     ).toEqual([])
     expect(stale, 'pins that no longer match a finding: remove them').toEqual([])
@@ -604,6 +599,11 @@ describe('the scanner', SLOW, () => {
     expect(await findingsOf(`${IMPORTS}export const D = () => <select className={clsx(inputClasses({ select: true, autoWidth: true }), fieldUnavailableClass)} />`)).toEqual([])
     expect(
       await findingsOf(`${IMPORTS}export const F = () => <select className={\`\${inputClasses({ select: true, density: 'compact', autoWidth: true })} \${fieldUnavailableClass}\`} />`),
+    ).toEqual([])
+    // The password field's `pr-10` on top, and a trailing control beside a leading icon (a flag read both ways).
+    expect(await findingsOf(`${IMPORTS}export const P = () => <input className={inputClasses({ trailingIcon: true })} />`)).toEqual([])
+    expect(
+      await findingsOf(`${IMPORTS}export const Q = ({ busy }: { busy: boolean }) => <input className={inputClasses({ leadingIcon: true, trailingIcon: busy, density: 'compact' })} />`),
     ).toEqual([])
   })
 
@@ -774,5 +774,64 @@ describe("the field's width is explicit", () => {
       </>,
     )
     for (const tag of ['input', 'textarea', 'select']) expect(container.querySelector(tag)?.classList.contains('w-full'), tag).toBe(true)
+  })
+})
+
+// ------------------------------------------------------------------------------------------------- padding
+
+describe("the field's padding is explicit", () => {
+  /** Every combination of the options, built from the gate's own lists so a new flag joins it unasked. */
+  const ALL: Options[] = BOOLEAN_OPTIONS.reduce<Options[]>(
+    (combos, k) => combos.flatMap((c) => [{ ...c, [k]: false }, { ...c, [k]: true }]),
+    DENSITIES.map((density) => ({ ...DEFAULTS, density })),
+  )
+  const SIDES_OF: Record<string, string[]> = { p: ['t', 'r', 'b', 'l'], px: ['r', 'l'], py: ['t', 'b'], pt: ['t'], pr: ['r'], pb: ['b'], pl: ['l'] }
+  /** Each side a combination's padding classes set: its screen (`sm:`, or '' for none), the side, the class. */
+  const padding = (o: Options) =>
+    inputClasses(o as InputClassesOptions)
+      .split(' ')
+      .flatMap((token) => {
+        const m = token.match(/^((?:[\w-]+:)*)(p[xytrbl]?)-\S+$/)
+        return m ? SIDES_OF[m[2]].map((side) => ({ screen: m[1], side, token })) : []
+      })
+  /** One side's padding on every screen, by spacing step in class order: `['3.5', 'sm:3']` is 14px, then 12px from sm. */
+  const steps = (o: Options, side: string) => padding(o).filter((p) => p.side === side).map((p) => p.token.replace(/p[xytrbl]?-/, ''))
+
+  it('sets each side once per screen, for every combination of the options', () => {
+    for (const o of ALL) {
+      const seen = new Map<string, string>()
+      for (const { screen, side, token } of padding(o)) {
+        const key = `${screen}${side}`
+        expect(seen.get(key), `${JSON.stringify(o)}: ${token} sets the same side as ${seen.get(key)}`).toBeUndefined()
+        seen.set(key, token)
+      }
+    }
+  })
+
+  it('gives every combination its documented box on every screen', () => {
+    expect(ALL.filter((o) => o.trailingIcon && !o.select).length, 'trailingIcon is one of BOOLEAN_OPTIONS').toBeGreaterThan(0)
+    for (const o of ALL) {
+      const compact = o.density === 'compact'
+      // A field's edge is 14px, and 12px from sm up when compact. A select's chevron keeps 36px and a trailing
+      // control 40px at both densities (neither moves), so a copied `sm:px-3` would put the reveal toggle over text.
+      const edge = compact ? ['3.5', 'sm:3'] : ['3.5']
+      const vertical = compact ? ['2.5', 'sm:1.5'] : ['2.5']
+      expect(
+        {
+          left: steps(o, 'l'),
+          right: steps(o, 'r'),
+          top: steps(o, 't'),
+          bottom: steps(o, 'b'),
+          height: inputClasses(o as InputClassesOptions).split(' ').filter((c) => /^((?:[\w-]+:)*)h-/.test(c)),
+        },
+        JSON.stringify(o),
+      ).toEqual({
+        left: o.leadingIcon && !o.select ? (compact ? ['11', 'sm:10'] : ['11']) : edge,
+        right: o.select ? ['9'] : o.trailingIcon ? ['10'] : edge,
+        top: vertical,
+        bottom: vertical,
+        height: compact ? ['sm:h-9'] : [],
+      })
+    }
   })
 })
