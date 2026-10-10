@@ -7,7 +7,7 @@ interval of chief defect 11 corrected), 05:21Z (the wrapper's `backend` scope ca
 defect 12), 05:50Z (`auto` also reads the commits since `origin/main`), 06:03Z (`auto` refuses a self-comparison with the local `main`), 06:19Z (untracked files read regardless of
 configuration), 09:26Z (`origin/main` the only base for `auto`; the second usage-limit interruption), 09:47Z (`origin/main` named in
 every description; the records scope runs the agent-workflow rules gate), 09:57Z (git inspection errors fail closed), 10:04Z (the reviewer's interim findings on `78e90d2`;
-disclosure 11) and 10:21Z (a damaged `.git` is an inspection error), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
+disclosure 11), 10:21Z (a damaged `.git` is an inspection error) and 10:32Z (a dangling `.git` link is a present entry), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
 Context: record 20 merged to main as `da8dc998` (PR #1167, 2026-10-09T22:14:52Z); this is the first PR from the successor's
 branch `claude/stoic-wright-6jeujo`, started at `a572876c`. Records, two lessons, the lessons index, one records-tree tool
 (`tools/records-gate.sh`) and its test under `backend/tests/unit/`, and the archive ledger's record-21 entry (`tasks/archive/todo-ledger-through-2026-10-07.md`): no application code, workflow, migration, cloud, IAM or
@@ -253,7 +253,9 @@ paid trigger can still fire (Plan, below); the predecessor's attempt to add it t
    `8fb9802`: a damaged `.git` (an emptied `HEAD`) also makes git say "not a git repository", so that message counts as a
    genuine non-repository only when no `.git` entry exists at the root (the reviewer's harness had reproduced the emptied-`HEAD`
    case on `8fb9802` and read it as acceptable; Codex's reading is the right one, and the reviewer said so); the reviewer's
-   three optional nits on `8fb9802` are taken with it (`LC_ALL=C` on the rev-parse call, a failed `merge-base` routed to the inspection message, no absolute path in it). The repository still cannot see the chief's shell, so the gate is the wrapper plus
+   three optional nits on `8fb9802` are taken with it (`LC_ALL=C` on the rev-parse call, a failed `merge-base` routed to the inspection message, no absolute path in it). Codex's P2 on `aa5fb5d`: that presence test
+   (`-e`) follows symlinks, so a dangling `.git` link read as no entry; the entry is now checked without following links (`-e`
+   or `-L`), and a dangling `.git` link is an inspection error too. The repository still cannot see the chief's shell, so the gate is the wrapper plus
    CI's own run of the records gate, which is what caught `7d65c89`.
 8. **The successor's side effects to this record:** read-only GitHub requests (runs, jobs, one PR, the open PR list, the balance
    job's log); two pages of the predecessor's session event log through the platform's session API (its own transcript events,

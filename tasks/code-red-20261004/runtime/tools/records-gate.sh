@@ -24,7 +24,8 @@
 #            there and the wrapper reports it; a plain export of the tree is not a place to prove the gate.
 #            A git inspection error (a failed status, diff, merge-base or rev-parse) fails closed (exit 2):
 #            an error is never read as "no backend change". "not a git repository" counts as a genuine
-#            non-repository only when no .git entry exists at the root; a damaged .git is an inspection error.
+#            non-repository only when no .git entry exists at the root (checked without following symlinks, so a
+#            dangling .git link counts as present); a damaged .git is an inspection error.
 #
 # Usage: tools/records-gate.sh [repo-root]
 # Environment overrides for the test: RECORDS_GATE_PYTHON, RECORDS_GATE_TEST, RECORDS_GATE_RULES_TEST, RECORDS_GATE_LINT_PATHS,
@@ -49,7 +50,7 @@ if [ "$scope" = "auto" ]; then
   inside=""
   if ! inside="$(LC_ALL=C git -C "$repo" rev-parse --is-inside-work-tree 2>"$log")"; then
     grep -q "not a git repository" "$log" || inspection_failed "rev-parse"
-    [ ! -e "$repo/.git" ] || inspection_failed "rev-parse"
+    if [ -e "$repo/.git" ] || [ -L "$repo/.git" ]; then inspection_failed "rev-parse"; fi
     inside="false"
   fi
   if [ "$inside" = "true" ]; then

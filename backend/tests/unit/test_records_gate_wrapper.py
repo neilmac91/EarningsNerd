@@ -21,6 +21,7 @@ from __future__ import annotations
 import os
 import re
 import stat
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -110,7 +111,8 @@ def _run_wrapper(
     ``"no-base"`` (a local ``main`` holds everything and there is no ``origin/main``; clean tree), ``"corrupt-index"`` (a
     committed repository whose ``.git/index`` is overwritten with garbage, so ``git status`` fails although it is a repository),
     ``"corrupt-head"`` (a committed repository whose ``.git/HEAD`` is emptied, so git says "not a git repository" although
-    ``.git`` is present).
+    ``.git`` is present), ``"dangling-gitlink"`` (a committed repository whose ``.git`` directory is replaced by a symlink to a
+    missing target, so git says "not a git repository" and ``-e`` reports the entry absent although it exists).
     """
     repo = tmp_path / "repo"
     tests = repo / "backend" / "tests" / "unit"
@@ -174,6 +176,14 @@ def _run_wrapper(
         _git(repo, "commit", "-q", "-m", "everything")
         _git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
         (repo / ".git" / "HEAD").write_bytes(b"")
+    elif git == "dangling-gitlink":
+        _git(repo, "init", "-q")
+        _git(repo, "symbolic-ref", "HEAD", "refs/heads/main")
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "everything")
+        _git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+        shutil.rmtree(repo / ".git")
+        (repo / ".git").symlink_to("missing-gitdir")
     else:
         assert git is None, git
     env = {
@@ -296,6 +306,14 @@ def test_auto_scope_fails_closed_on_a_git_inspection_error(tmp_path: Path) -> No
 def test_auto_scope_fails_closed_when_the_repository_metadata_is_damaged(tmp_path: Path) -> None:
     """An emptied .git/HEAD makes git say "not a git repository"; with .git present that is an inspection error, not a non-repository."""
     result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="corrupt-head")
+    assert result.returncode == 2, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert "git failed to inspect" in result.stderr and "(rev-parse:" in result.stderr, result.stderr
+    assert "records-gate: ok" not in result.stdout, result.stdout
+
+
+def test_auto_scope_fails_closed_when_the_git_entry_is_a_dangling_symlink(tmp_path: Path) -> None:
+    """A dangling .git symlink is an entry `-e` reports absent; the wrapper must still read it as present and fail closed."""
+    result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="dangling-gitlink")
     assert result.returncode == 2, f"stdout={result.stdout!r} stderr={result.stderr!r}"
     assert "git failed to inspect" in result.stderr and "(rev-parse:" in result.stderr, result.stderr
     assert "records-gate: ok" not in result.stdout, result.stdout
