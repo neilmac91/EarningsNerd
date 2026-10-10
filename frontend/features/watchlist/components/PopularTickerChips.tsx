@@ -12,13 +12,18 @@ import analytics from '@/lib/analytics'
 // for a beta user arriving with an empty watchlist (§2.5).
 const POPULAR_TICKERS = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'TSLA'] as const
 
+// While an add is in flight every chip fades its label and hairline, never the element: an element
+// opacity would fade the focus ring the focusable chip still shows (DESIGN_SYSTEM §4). The plus has an
+// ink of its own, so it fades through `group`. Dark's hairline is white/10, so its half is white/5.
 const CHIP_CLASSES = [
-  'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-semibold',
+  'group inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-semibold',
   'border-border-light bg-panel-light text-text-primary-light shadow-e1',
   'transition-colors duration-fast hover:bg-brand-weak hover:border-brand-border',
-  'focus-visible:outline-none focus-visible:shadow-ring-brand aria-disabled:opacity-50',
+  'focus-visible:outline-none focus-visible:shadow-ring-brand',
+  'aria-disabled:border-border-light/50 aria-disabled:text-text-primary-light/50',
   'dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none',
   'dark:hover:bg-white/5 dark:hover:border-brand-border-dark dark:focus-visible:shadow-ring-brand-dark',
+  'dark:aria-disabled:border-white/5 dark:aria-disabled:text-text-primary-dark/50',
 ].join(' ')
 
 export default function PopularTickerChips() {
@@ -66,7 +71,7 @@ export default function PopularTickerChips() {
           {pendingTicker === ticker ? (
             <CircleNotchIcon className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
           ) : (
-            <PlusIcon className="h-3.5 w-3.5 text-brand-strong dark:text-brand-strong-dark" />
+            <PlusIcon className="h-3.5 w-3.5 text-brand-strong group-aria-disabled:text-brand-strong/50 dark:text-brand-strong-dark dark:group-aria-disabled:text-brand-strong-dark/50" />
           )}
           {ticker}
         </button>

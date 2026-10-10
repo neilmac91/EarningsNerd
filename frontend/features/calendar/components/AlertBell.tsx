@@ -90,10 +90,13 @@ export function AlertBell({
         'inline-flex flex-none items-center justify-center rounded-lg transition-colors duration-fast',
         'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
         size === 'sm' ? 'h-7 w-7' : 'h-11 w-11',
+        // Its own toggle in flight (aria-disabled) fades the glyph's ink, not the element: an element
+        // opacity would fade the focus ring the focusable bell still shows (DESIGN_SYSTEM §4).
         on
-          ? 'bg-brand-weak text-brand-strong dark:bg-brand-weak-dark dark:text-brand-strong-dark'
-          : 'text-text-tertiary-light hover:bg-brand-weak hover:text-brand-strong dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark dark:hover:text-brand-strong-dark',
-        pending || checking ? 'cursor-progress opacity-60' : '',
+          ? 'bg-brand-weak text-brand-strong aria-disabled:text-brand-strong/60 dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:aria-disabled:text-brand-strong-dark/60'
+          : 'text-text-tertiary-light hover:bg-brand-weak hover:text-brand-strong aria-disabled:text-text-tertiary-light/60 dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark dark:hover:text-brand-strong-dark dark:aria-disabled:text-text-secondary-dark/60',
+        // `checking` is natively disabled, so the bell cannot hold focus then and keeps the element fade.
+        'disabled:cursor-progress disabled:opacity-60 aria-disabled:cursor-progress',
         className,
       )}
     >

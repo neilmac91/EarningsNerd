@@ -98,7 +98,9 @@ export default function InviteRow({ invite }: InviteRowProps) {
           {!isUsed && (
             // aria-disabled + an early return, not native `disabled` (the DS Button's `loading`
             // pattern): ResendShareModal returns focus here on close, and a disabled button can't
-            // take it (Chrome even blurs it mid-request), so focus would land on <body>.
+            // take it (Chrome even blurs it mid-request), so focus would land on <body>. Unavailable
+            // fades the label and hairline, not the element, so the focus indicator keeps its strength
+            // (dark's hairline is white/10, so its half is white/5).
             <button
               type="button"
               onClick={() => {
@@ -108,7 +110,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
               aria-disabled={resendDisabled || undefined}
               aria-busy={resendMutation.isPending || undefined}
               aria-label={`Resend invite to ${emailLabel}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light shadow-e1 transition hover:bg-brand-weak hover:shadow-e2 aria-disabled:opacity-50 aria-disabled:cursor-not-allowed dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light shadow-e1 transition hover:bg-brand-weak hover:shadow-e2 aria-disabled:cursor-not-allowed aria-disabled:border-border-light/50 aria-disabled:text-text-primary-light/50 dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5 dark:aria-disabled:border-white/5 dark:aria-disabled:text-text-primary-dark/50"
             >
               {resendMutation.isPending ? (
                 <CircleNotchIcon className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
