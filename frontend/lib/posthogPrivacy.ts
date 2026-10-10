@@ -28,8 +28,14 @@ export function beforeSendPostHog(client: PostHog, event: CaptureResult | null):
   if (!event) return null
   const mayRecord = canRecordTelemetry()
   sanitizePostHogPersistence(client)
-  // Replay can already be compressed here; do not attempt to redact it after collection.
-  if (event.event === '$snapshot' && !mayRecord) return null
+  if (event.event === '$snapshot') {
+    if (!mayRecord) return null
+    // The recorder masks data before compression. Binary gzip strings can accidentally match
+    // URL patterns, so sanitize only envelope metadata and preserve the opaque replay payload.
+    const { $snapshot_data, ...properties } = event.properties
+    const clean = sanitizeTelemetry({ ...event, properties }, true)
+    return { ...clean, properties: { ...clean.properties, $snapshot_data } }
+  }
   return sanitizeTelemetry(event, true)
 }
 

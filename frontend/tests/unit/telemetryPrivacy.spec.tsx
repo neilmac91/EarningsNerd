@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, act } from '@testing-library/react'
 import type { PostHog, PostHogConfig, QueuedRequestWithOptions } from 'posthog-js'
+import { gzipSync, gunzipSync } from 'node:zlib'
 
 const consent = vi.hoisted(() => ({ current: { analytics: true, sessionRecording: true } as { analytics: boolean; sessionRecording: boolean } | null }))
 const mockPostHog = vi.hoisted(() => ({
@@ -133,6 +134,42 @@ describe('authentication credentials never enter telemetry', () => {
     expect(privacy.beforeSendPostHog(isolated, { event: '$snapshot', properties: { $snapshot_data: 'opaque-compressed-snapshot', token: 'phc_synthetic_project' } })).toBeNull()
     const ordinary = privacy.beforeSendPostHog(isolated, { event: 'ordinary_event', properties: { token: 'phc_synthetic_project', symbol: 'AAPL' } })
     expect(ordinary?.properties.symbol).toBe('AAPL')
+  })
+
+  it('preserves valid compressed replay bytes on safe routes while sanitizing the envelope', async () => {
+    const { PostHog: RealPostHog } = await import('posthog-js')
+    const { beforeSendPostHog } = await import('@/lib/posthogPrivacy')
+    // Alphanumeric DOM text contains no URLs. Its deterministic gzip bytes nevertheless
+    // contain a slash/query-like sequence, which must never be treated as readable text.
+    let seed = 2
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    let text = ''
+    for (let index = 0; index < 4096; index++) {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
+      text += alphabet[(seed >>> 16) % alphabet.length]
+    }
+    const serialized = JSON.stringify({ node: { type: 3, textContent: text }, initialOffset: { top: 0, left: 0 } })
+    const compressed = gzipSync(serialized, { level: 9 })
+    expect(gunzipSync(compressed).toString()).toBe(serialized)
+    const snapshotData = [{ type: 2, data: compressed.toString('latin1'), timestamp: 1 }]
+    const event = {
+      event: '$snapshot', properties: {
+        $snapshot_data: snapshotData,
+        $current_url: tokenUrl,
+        token: 'phc_synthetic_project',
+      },
+    }
+    const isolated = new RealPostHog()
+    const clean = beforeSendPostHog(isolated, event)
+    expect(clean).not.toBeNull()
+    const outgoing = (clean!.properties.$snapshot_data as typeof snapshotData)[0].data
+    expect(Buffer.from(outgoing, 'latin1').equals(compressed)).toBe(true)
+    expect(gunzipSync(Buffer.from(outgoing, 'latin1')).toString()).toBe(serialized)
+    expect(clean!.properties.$current_url).toBe('https://example.test/reset-password')
+    expect(clean!.properties.token).toBe('phc_synthetic_project')
+    const { protectTelemetryRoute } = await import('@/lib/telemetryPrivacy')
+    protectTelemetryRoute('/reset-password')
+    expect(beforeSendPostHog(isolated, event)).toBeNull()
   })
 
   it('covers auth entry before SDK initialization and popstate restore', async () => {
