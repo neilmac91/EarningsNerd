@@ -72,6 +72,7 @@ async function pageAndCardGeometry(page: Page) {
 
 async function assertPageAndCards(page: Page, width: number, textScale: number) {
   const geometry = await pageAndCardGeometry(page)
+  await assertPaintedMarks(page, '[data-analysis-kpi]')
   await assertSourceControls(page, '[data-analysis-kpi]', 4)
   expect(geometry.scrollWidth, 'document must fit its layout viewport (including invisible positioned boxes)').toBeLessThanOrEqual(geometry.clientWidth + EPSILON)
   expect(geometry.scrollWidth, 'document must fit the configured viewport, even when innerWidth expands').toBeLessThanOrEqual(width + EPSILON)
@@ -87,6 +88,32 @@ async function assertPageAndCards(page: Page, width: number, textScale: number) 
     // Compare only cards in the same physical row; a phone's second row is independent.
     expect(row.values).toBeGreaterThan(0)
     expect(row.spread, 'numeric value tops align within each physical KPI row').toBeLessThanOrEqual(EPSILON)
+  }
+}
+
+/** A DOM note count is insufficient: each mark must actually paint its text. */
+async function assertPaintedMarks(page: Page, selector: string) {
+  const marks = await page.locator(selector).evaluateAll(containers => containers.flatMap(container =>
+    [...container.querySelectorAll('[data-note-letter], span')]
+      .filter(mark => mark.hasAttribute('data-note-letter') || mark.textContent?.trim() === '†')
+      .map(mark => {
+        const visible = mark.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && !mark.closest('.sr-only,[hidden]')
+        const glyphs: Array<{ width: number; height: number }> = []
+        const walker = document.createTreeWalker(mark, NodeFilter.SHOW_TEXT)
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const parent = node.parentElement
+          if (!node.textContent?.trim() || !parent?.checkVisibility({ visibilityProperty: true, opacityProperty: true }) || parent.closest('.sr-only,[hidden]')) continue
+          const range = document.createRange(); range.selectNodeContents(node)
+          for (const rect of range.getClientRects()) if (rect.width > 0 && rect.height > 0) glyphs.push({ width: rect.width, height: rect.height })
+        }
+        return { text: mark.textContent?.trim(), kind: mark.getAttribute('data-note-kind'), visible, glyphs }
+      })
+  ))
+  for (const mark of marks) {
+    expect(mark.visible, `${mark.kind ?? 'calculated'} mark ${mark.text}: text is visible and opaque`).toBe(true)
+    // A legitimate superscript has line-height: 0. Its element box can have zero height;
+    // use painted text ranges, never element height or Playwright's toBeVisible().
+    expect(mark.glyphs.length, `${mark.kind ?? 'calculated'} mark ${mark.text}: nonzero painted text range`).toBeGreaterThan(0)
   }
 }
 
@@ -228,6 +255,7 @@ async function assertTable(page: Page, expectedPeriods: string[], state: Analysi
   const window = expectedPeriods.length === 12 ? 'all' : expectedPeriods[0] === PERIODS[0] ? 'earliest' : 'newest'
   // Count value marks inside source controls separately from comparison marks below them.
   await expect(sourceControls.locator('[data-note-kind="review"]')).toHaveCount(EXPECTED_TABLE_REVIEWS[state][window])
+  await assertPaintedMarks(page, TABLE)
   const geometry = await tableGeometry(page)
   await assertSourceControls(page, `${TABLE} tbody`, METRICS * expectedPeriods.length)
   expect(geometry.widths).toHaveLength(expectedPeriods.length)
