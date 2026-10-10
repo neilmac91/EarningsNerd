@@ -185,7 +185,15 @@ ledger by event 45, the reservation for the read-back PR's `copilot-eval` run, t
    fresh reviewer context `record-21-reviewer-02` was pre-registered (closure 172 amended in place before merge) and launched.
    Nothing in the repository, the ledger or production changed during the interruption; PR #1172's CI completed green on
    `72f01ed` at 23:27Z.
-7. **The successor's side effects to this record:** read-only GitHub requests (runs, jobs, one PR, the open PR list, the balance
+7. **Chief defect 10 (the successor's):** at 04:05Z on 2026-10-10 a commit chain ran the runtime-records gate through a pipe
+   (`pytest … | tail -1`) without `pipefail`, so the gate's failure did not stop the chain and head `7d65c89` was committed and
+   pushed to this PR with the gate red. The failure: closure 172 resolved `record-21-reviewer-01` inside the closure that registered
+   it, which the chain rule forbids (a label is resolved only in a later closure). Noticed from the printed "1 failed" in the same
+   output; corrected in `351319f` six minutes later (the label annotated as exercised, its launch-time identity registered, the
+   formal resolution left to a later closure; 9 passed). No merge and no production effect; PR #1172's CI on `7d65c89` is expected
+   red on `backend-tests` for the same reason. Rule: a verification command in a chain is never piped away; its exit status gates
+   the commit. Added to `APPOINTMENTS.json`'s `chief_defects`; lesson `lessons/ops-a-piped-gate-does-not-gate.md`.
+8. **The successor's side effects to this record:** read-only GitHub requests (runs, jobs, one PR, the open PR list, the balance
    job's log); two pages of the predecessor's session event log through the platform's session API (its own transcript events,
    summarised through a redacting script; one path fragment of the predecessor's scratchpad seen in its tool calls, written nowhere);
    two signed job-log downloads (the #1169 and #1166 deploy logs) into the scratchpad, each read through the redacting filter
