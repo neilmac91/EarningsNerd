@@ -22,6 +22,9 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   (`next build` + `next start` with `NEXT_PUBLIC_ENABLE_ANALYSIS=true`, every API answered in the browser
   with `page.route`, as `tests/e2e` does): page overflow, KPI card-child containment and value alignment,
   table and column widths, far-right sticky-column occlusion, label counts. Output: `measurements/current.json`.
+  The recorded run measured `main` at `97293e7`, before #1199 and #1200 replaced the labels; a run against
+  a later `main` measures that build, so its label-count probe reports 0 there and its KPI probe describes
+  the new definition-list markup.
 - `harness/measure-proto.mjs` — the same probes on the prototype, in every state and both views, at
   1480 / 1054 / 1024 / 768 / 390 / 320 CSS px, light and dark, 200% browser zoom (CSS viewport halved at
   2x) and 200% text size. Output: `measurements/prototype.json`.
