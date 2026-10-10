@@ -39,12 +39,13 @@ function flashAndScrollToSource(n: number | string) {
 function NarrativeCitationChip({ citation, notes }: { citation: AnalysisCitation; notes: QualityNotesModel }) {
   const label = citation.section_ref || `Source ${citation.n}`
   const note = notes.noteForQuality(citation)
+  const display = citationDisplay(citation)
   return (
     <button
       type="button"
       onClick={() => flashAndScrollToSource(citation.n)}
-      title={`${citation.excerpt}${citation.section_ref ? ` · ${citation.section_ref}` : ''}`}
-      aria-label={`Citation ${citation.n}: ${label}. ${citation.excerpt}${note ? `, ${dataNoteDescription(note)}` : ''}`}
+      title={`${display}${citation.section_ref ? ` · ${citation.section_ref}` : ''}`}
+      aria-label={`Citation ${citation.n}: ${label}. ${display}${note ? `, ${dataNoteDescription(note)}` : ''}`}
       className="tnum inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 align-baseline font-data text-data-xs font-semibold leading-none transition-colors border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
       [{citation.n}]<DataNoteMark note={note} />
@@ -157,7 +158,7 @@ function CitationList({ citations, sample, notes }: { citations: AnalysisCitatio
               {sourceUrl(citation.source_url ?? citation.provenance?.source_url) && <a className="ml-2 rounded text-brand-strong underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark" href={sourceUrl(citation.source_url ?? citation.provenance?.source_url)!} target="_blank" rel="noopener noreferrer">Original filing</a>}
               {citation.section_ref && (
                 <span className="ml-1 text-text-tertiary-light dark:text-text-secondary-dark">
-                  · {citation.provenance?.method === 'calculated' ? 'Calculated from filing figures' : citation.provenance?.method === 'reported' ? 'SEC filing' : citation.section_ref}
+                  · {citation.provenance?.method === 'calculated' ? (citation.provenance.inputs.length ? 'Calculated from recorded inputs' : 'Calculated figure') : citation.provenance?.method === 'reported' ? 'SEC filing' : citation.section_ref}
                 </span>
               )}
             </span>

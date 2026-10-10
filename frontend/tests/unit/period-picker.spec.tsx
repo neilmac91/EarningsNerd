@@ -33,7 +33,7 @@ describe('PeriodPicker controls', () => {
   it('keeps unavailable annual options visible and refuses a mode with no quarters', () => {
     const onModeChange = vi.fn()
     render(<PeriodPicker coverage={{ ...coverage, quarterly: [] }} mode="annual" range={{ start: 'FY2021', end: 'FY2021' }} onModeChange={onModeChange} onRangeChange={vi.fn()} />)
-    expect(within(screen.getByLabelText('From')).getByRole('option', { name: 'FY2020 — insufficient data' })).toBeDisabled()
+    expect(within(screen.getByLabelText('From')).getByRole('option', { name: 'FY2020 (insufficient data)' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Quarterly' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Quarterly' }))
     expect(onModeChange).not.toHaveBeenCalled()
