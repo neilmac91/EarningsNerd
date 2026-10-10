@@ -22,8 +22,8 @@
        sticks to the left of the scroll container on an opaque panel
        surface with a token hairline on its right edge, so a wide financial
        table can scroll horizontally without losing the row label. Body
-       cells repaint on row hover via `group-hover` (their own opaque fill
-       would otherwise mask the row's hover brighten). Composes cleanly
+       cells retain an opaque fill on hover; a translucent replacement
+       would expose the values scrolling beneath the label. Composes cleanly
        with stickyHeader — the header's first cell (the "corner") gets a
        higher z-index than both plain sticky-header cells and the sticky
        column's body cells, so it is never overlapped by either.
@@ -373,9 +373,9 @@ export function DataTable<T extends Record<string, unknown>>({
             ? rows.map((row, i) => (
                 <tr
                   key={rowKey(row, i)}
-                  // `group` lets the sticky first column repaint on row hover via group-hover
-                  // (its own opaque fill would otherwise mask the row's hover brighten, since a
-                  // td's background paints over whatever the tr's hover background shows through).
+                  // Light sticky labels brighten with the row; dark labels keep their opaque
+                  // panel fill. Replacing that fill with the row's translucent white tint
+                  // would let horizontally scrolled values show through the sticky label.
                   className="group transition-colors hover:bg-white dark:hover:bg-white/[0.03]"
                 >
                   {columns.map((c, colIndex) => {
@@ -395,7 +395,7 @@ export function DataTable<T extends Record<string, unknown>>({
                           c.align === 'right' && 'text-right',
                           c.numeric && 'font-data tabular-nums',
                           tone && TONE[tone],
-                          isFirstCol && cx(STICKY_COL_BASE, 'group-hover:bg-white dark:group-hover:bg-white/[0.03]'),
+                          isFirstCol && cx(STICKY_COL_BASE, 'group-hover:bg-white dark:group-hover:bg-panel-dark'),
                           bodyZIndex(isFirstCol)
                         )}
                       >
