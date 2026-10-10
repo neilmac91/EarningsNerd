@@ -189,7 +189,10 @@ frontend/
 
 `extraction` (section layouts + financial-data extraction), `json_repair`,
 `section_recovery` (targeted LLM re-ask), `markdown_render` (deterministic non-LLM
-render), `xbrl_narrative`, `bank_guards`, `normalize`, `copilot_chat`, `model_flags`.
+render), `xbrl_narrative`, `bank_guards`, `normalize`, `copilot_chat`, `model_flags`,
+`summary_finalize` (ordered post-provider phases), and `summary_prompt` (primary request
+assembly and the raw schema template). Prompt assembly receives the live façade module,
+so its prompt loaders, settings and schema bindings remain patchable at call time.
 All external imports go through `app.services.openai_service` (re-export surface pinned
 by `__all__`); a pkgutil-walking test asserts no submodule can see the `User` model.
 
