@@ -20,9 +20,11 @@ complete only when a run prints the positive verdict (`Worker invoker policy: PR
 only on readable evidence: a public principal on any binding, a disabled IAM check, a pin that reads
 other than `1`, traffic that reads tagged or split. Never let UNVERIFIED mask a collected failure.
 
-**Gate.** `backend/tests/unit/test_prod_flag_visibility.py::test_ops_renderer_reports_denied_invoker_policy_as_unverified`
-pins the class set, the single warning, the qualified verdict and that a denied read never prints
-`PRIVATE` or masks a collected failure; `docs/DEPLOYMENT.md` states the rule beside the checklist. The
+**Gate.** In `backend/tests/unit/test_prod_flag_visibility.py`,
+`test_ops_renderer_reports_denied_invoker_policy_as_unverified` pins the denied classes, the single
+warning, the qualified verdict and that a denied read never prints `PRIVATE`;
+`test_ops_renderer_treats_malformed_policy_as_unverified` pins `unreadable_response`; and
+`test_ops_renderer_unverified_never_masks_a_fail` pins that UNVERIFIED never masks a collected failure; `docs/DEPLOYMENT.md` states the rule beside the checklist. The
 first live run (ops run 38053869837, 2026-10-10T12:57Z) read the policy and printed `PRIVATE`, so the
 UNVERIFIED path stayed unexercised in production; the rule stands for the next read that a permission
 withholds.

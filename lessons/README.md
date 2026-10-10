@@ -20,7 +20,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-ci-images-avoid-docker-hub.md — Pull CI and deploy images through a mirror, never anonymously from Docker Hub
 - ops-continue-approved-engineering.md — Continue the approved queue after verified releases and preserve specific founder holds
 - ops-demote-a-lesson-only-when-its-whole-rule-is-gated.md — Demote a lesson from session reading only when every clause of its rule is machine-gated and proven on the bad case
-- ops-denied-reads-report-unverified.md — A denied read-back reports UNVERIFIED with a closed failure class and a qualified verdict; fail closed only on readable evidence
+- ops-denied-reads-report-unverified.md — A denied read-back reports UNVERIFIED with a closed failure class; fail closed only on readable evidence
 - ops-deploy-owned-state-needs-a-distinctive-name.md — Give deploy-owned tables a name nothing else could have created; CREATE TABLE IF NOT EXISTS adopts strangers
 - ops-finish-only-job-owned-read-transactions.md — Finish the CLI's read transaction before transport while preserving attached inputs
 - ops-fix-the-exact-cited-site.md — Fix and test the plan's exact cited site, not an adjacent manifestation

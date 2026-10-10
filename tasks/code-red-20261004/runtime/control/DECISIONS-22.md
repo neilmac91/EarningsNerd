@@ -2,7 +2,7 @@
 
 Recorded 2026-10-10T13:45Z, by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
 Context: record 21 merged to main as `b32003f8` (PR #1172, 2026-10-10T10:44:46Z) and the read-back PR as `2d738050` (PR #1181,
-12:50:27Z); the records branch `claude/stoic-wright-6jeujo` was restarted from main `2d738050` after its merged history (GitHub had
+12:50:28Z); the records branch `claude/stoic-wright-6jeujo` was restarted from main `2d738050` after its merged history (GitHub had
 deleted the remote branch at the merge; it was recreated from main) and fast-forwarded to `aa9cf45b` (#1183) before this record's
 first commit. This PR: this record, closure 173, the checkpoint, the appointments
 file, one lesson and its index line, the archive ledger's record-22 entry, `tasks/todo.md` (two closed lines; the standing refreshed)
@@ -17,8 +17,10 @@ by its own guard) are read-only operations run from `main` by the founder's acco
 usage limit) reviewed `e375a7f` (BLOCKER: production had been redeployed by other writers while the record said it ran #1166's images;
 applied in `b57093e` with the later deploys read back) and then, in eleven same-context delta checks each from an exclusion-safe
 archive of the head, bound no blocker in turn to `c3b21fe`, `95780d5`, `61ed80e`, `8a3fd35`, `8fb9802`, `aa5fb5d` and `2d9d4a6`, with interim findings on the heads
-between (its check of `e4a9910` was cut by the second usage-limit interruption and resumed from its transcript). Codex reviewed every
-head: four P1 and eleven P2 findings (the four P1 and eight P2 on the records-gate wrapper or its durable descriptions, three P2 on
+between (its check of `e4a9910` was cut by the second usage-limit interruption and resumed from its transcript). Codex reviewed fourteen of
+the eighteen heads from `c3b21fe` (the PR was marked ready at 04:40:30Z) to `2d9d4a6`, each on the ready event or an `@codex review`
+request; four heads superseded within minutes, before a review was requested (`577edeb`, `2dc7a3b`, `10df20f`, `d0ce70a`), were
+covered only by their successors' reviews. Its findings: four P1 and eleven P2 (the four P1 and eight P2 on the records-gate wrapper or its durable descriptions, three P2 on
 the records' wording), each fixed and resolved — the last two, on `8fb9802` and `aa5fb5d`, taught the wrapper that a damaged `.git` and a dangling `.git` symlink are
 inspection errors, not non-repositories; no findings on `2d9d4a6`. The wrapper's own `backend` scope ran the full backend gate
 under Python 3.11 before every push from `8f64ee6` on (6438 passed on the final head; 20 wrapper cases). Squash-merged `b32003f8` at
@@ -59,13 +61,13 @@ its denied branch. The fixes landed as `9f7c771` (12:13Z; 6525 passed; 257 in th
 (launched 12:14Z) bound no blocker to `9f7c771` (three optional nits: the describe-service shell read's inherited stderr, a docs
 clause, one body wording — the wording applied) after six anti-vacuity mutations each failed their gate.
 **Ledger event 45, ready, Codex, merge.** Event 45 (floor only; below) was written, published and read back before the PR left draft
-at 12:32:19Z. Codex's ready-for-review run found one P2 on `9f7c771`: `show()` printed every allow-listed value with `repr()`, so a
+at 12:32:17Z. Codex's ready-for-review run found one P2 on `9f7c771`: `show()` printed every allow-listed value with `repr()`, so a
 nonnumeric SEC pin value would have reached the public log's env block before `require_sec_pins()` withheld it in the verdict. Fixed
 in `dab895b` (12:42Z): the two pin names print through the same bounded formatter as the verdict (`bounded_pin`, reused by
 `pin_state`); the privacy gate asserts the whole output; with the bounding removed five cases fail; full gate 6525 passed. Codex found
-no issues on `dab895b` (12:46:54Z); the delta reviewer bound no findings to it (12:48Z; a ten-scenario differential of both heredocs
+no issues on `dab895b` (12:46:52Z); the delta reviewer bound no findings to it (12:48Z; a ten-scenario differential of both heredocs
 showed byte-identical output for digit pins and exactly one env-block line changed for nonnumeric ones). Squash-merged `2d738050` at
-12:50:27Z with an explicit title and message, main carrying no pending deploy (#1176's deploy had been verified by the merge train at
+12:50:28Z with an explicit title and message, main carrying no pending deploy (#1176's deploy had been verified by the merge train at
 11:16Z); main CI run 38053444141 green (12:50:30–12:55:47Z); `deploy-backend` job: the detector step ran, steps 6 to 17 all skipped
 (**sixteenth deploy-skip proof**). Where the specification could not be applied as written is listed on the PR; after the review the
 heredoc bodies and `readout.py` are no longer byte-identical to the specification's prototypes (five deliberate deviations, named
@@ -99,14 +101,16 @@ revision and health lines kept; raw copies deleted):
 | `2d738050` | #1181 (the read-back PR) | 38053444141 | 114217934396 | every deploy step skipped (sixteenth proof) |
 | `aa9cf45b` | #1183 (ESLint wiring timeouts; a todo line) | 38053943458 | 114219454239 | every deploy step skipped |
 
-In each of the seven deploys, read from the echoed commands and gcloud's result lines: `apply_migrations: applied=0 skipped=41`; the
-worker update carries `SEC_RATE_LIMIT_PER_SECOND=1`, `EDGAR_RATE_LIMIT_PER_SEC=1`, `DURABLE_TASKS_ENABLED=true` and
-`TASKS_WORKER_PROCESS=true`; the service deploy carries both pins and `ENABLE_INSIDER_ACTIVITY=false`; pregenerate, the six-job loop
-and backfill-facts carry both pins (`DB_POOL_SIZE=1`, `DB_MAX_OVERFLOW=0`; pregenerate `DB_POOL_SIZE=3`); both services "deployed and
-serving 100 percent of traffic" after `update-traffic --to-latest --clear-tags`; the health body `status healthy` (database healthy,
-Redis disabled by design); "Deployed <sha> and verified healthy." So as of 11:15:45Z production runs #1176's images: the API service
-`earningsnerd-backend-00466-8d8` and the worker `earningsnerd-task-worker-00019-97g`, which the live `describe-service` below confirms
-from the services themselves. Main runs after `aa9cf45b` are classified in record 23.
+In each of the seven deploys, read through the redacting filter from the echoed commands and gcloud's result lines:
+`apply_migrations: applied=0 skipped=41`; the worker update carries `DURABLE_TASKS_ENABLED=true` and `TASKS_WORKER_PROCESS=true`;
+the six-job loop and backfill-facts carry both pins (`DB_POOL_SIZE=1`, `DB_MAX_OVERFLOW=0`) and pregenerate its pool
+(`DB_POOL_SIZE=3`); both services "deployed and serving 100 percent of traffic", then `update-traffic --to-latest --clear-tags`; the
+health body `status healthy` (database healthy, Redis disabled by design); "Deployed <sha> and verified healthy." The worker's, the
+service's and pregenerate's pins and the service's `ENABLE_INSIDER_ACTIVITY=false` sit past the filter's 400-character line cut, so
+they are read from `ci.yml` at the seven deployed commits (those lines are unchanged across them), each step succeeding, and the live
+`describe-service` and `describe-jobs` below read them back from the running revisions. So from 11:15:45Z production ran #1176's
+images: the API service `earningsnerd-backend-00466-8d8` and the worker `earningsnerd-task-worker-00019-97g`, which the live
+`describe-service` below confirms from the services themselves at 12:57Z. Main runs after `aa9cf45b` are classified in record 23.
 
 ## The first live read-backs
 
@@ -122,7 +126,7 @@ maxScale 2; revision minScale 1, maxScale 2, CPU 1, memory 1Gi, CPU allocation r
 CPU boost true, containerConcurrency 40, timeoutSeconds 600. The pregenerate job: both pins `'1'`, `DB_POOL_SIZE` `'3'`, the rollout
 flags not set (Settings defaults). The task worker: traffic 100% on `earningsnerd-task-worker-00019-97g`, the same image digest as the
 service; `DURABLE_TASKS_ENABLED` `'true'`; `TASKS_WORKER_PROCESS` `'true'`; `DB_POOL_SIZE` `'3'`; both pins `'1'`; service minScale
-absent, service maxScale 1; revision minScale `unset_or_unresolved` (no annotation: minimum zero), maxScale 1, CPU 1, memory 2Gi, CPU
+absent, service maxScale 1; revision minScale `unset_or_unresolved` (deduced: no annotation, so minimum zero; item 14), maxScale 1, CPU 1, memory 2Gi, CPU
 allocation request-based → MATCH, startup CPU boost true, containerConcurrency 1, timeoutSeconds 600; `Worker ingress: all`;
 `Worker command/args: matches the committed worker entrypoint (values withheld)`; `Worker invoker IAM check: enforced`;
 **`Worker invoker policy: PRIVATE (1 roles/run.invoker member(s); 1 binding(s))`** — the Ops identity may read the policy, so the UNVERIFIED path stayed unexercised and no
@@ -146,8 +150,10 @@ resources; both of its executions inside the window were found).
   8 in one minute); queue depth 0 at every one of the 120 one-minute samples. The worker served 17 requests, every one `200`, all on
   `earningsnerd-task-worker-00019-97g` (mean latency about 7.1 s; none on the revision before the deploy); worker error-level logs:
   none.
-- **The API.** 392 `2xx` (mean latency 69 ms on `00465-gjn` before the deploy, 90 ms on `00466-8d8` after); 15 `401` and 1 `405`
-  after 11:16Z, the merge train's signed-out smoke of the changed router; no `5xx`.
+- **The API.** 392 `2xx` (mean latency 69 ms on `00465-gjn` before the deploy, 90 ms on `00466-8d8` after); 15 `401` and 1 `405`,
+  all on `00466-8d8`: the `405` and 3 `401` in the minute of the merge train's signed-out smoke of the changed router (11:16–11:17Z;
+  the smoke made two `401` requests and one `405`), 10 `401` at 11:30–11:34Z and 2 at 12:42–12:43Z, of an origin the receipt does not
+  record; no `5xx`.
 - **Cloud SQL.** 3–4 backends on the application database (2 for `cloudsqladmin`) against `max_connections` 25 (3 reserved).
 - **Jobs.** filing-scan at 11:00 and 12:00 and notable-filings at 12:30, one task each, all succeeded; the other six jobs did not
   run in the window. Error-level logs for the service and the jobs: 3, all from notable-filings at 12:30:18–12:30:32Z, inside its
@@ -173,8 +179,8 @@ item completes only on a positive read.
    all 120 one-minute samples; requests and `ok` attempts agree minute by minute within one minute. The worker's INFO completion logs
    are not collected by the readout, as the text says.
 3. **The repository variables:** #1176's deploy job printed `Variable-driven rollout switches: DURABLE_TASKS_ENABLED=true
-   TASKS_WORKER_URL=set` at 11:13:17Z, and the jobs of the four later main pushes printed the same line (the last at 13:04:00Z). The URL
-   is not printed; the worker step's equality check of the variable against the worker's own URL passed under `set -euo pipefail`.
+   TASKS_WORKER_URL=set` at 11:13:17Z, and, as the independent check read from their logs, the jobs of the four later main pushes
+   (#1177, #1182, #1181, #1183) printed the same line (the last at 13:04:00Z). The URL is not printed; the worker step's equality check of the variable against the worker's own URL passed under `set -euo pipefail`.
 4. **CI requires the worker, updates it before the API, routes its traffic to the latest revision, and pins queue handoff with
    request-based CPU:** the deploy's step "Update configured private task worker" succeeded (11:14:03–11:14:22Z) before "Deploy Cloud
    Run service" (11:14:22–11:14:52Z), each printing its new revision serving 100 percent of traffic; `describe-service`: `Worker serving
@@ -196,9 +202,9 @@ item completes only on a positive read.
     empty.
 12. **Watch: API latency:** 408 requests at a count-weighted mean of 84 ms (for `2xx`, 69 ms on `00465-gjn` before the deploy and 90 ms
     on `00466-8d8` after); from the merged histograms, p95 211–232 ms and p99 602–663 ms; the worst one-minute means 1,045 ms (2
-    requests, 11:46Z) and 644 ms (7 requests during the deploy, 11:15Z); 392 `2xx`, 15 `401` and 1 `405` (the merge train's smoke), no
-    `5xx`.
-13. **Watch: SQL connections:** 3–4 backends on the application database (5–6 in all, 6 at 12:52Z) against `max_connections` 25 with 3
+    requests, 11:46Z) and 644 ms (7 requests during the deploy, 11:15Z); 392 `2xx`, 15 `401` and 1 `405` (the `405` and 3 `401` in the
+    smoke's minute; 12 `401` later, origin not recorded), no `5xx`.
+13. **Watch: SQL connections:** 3–4 backends on the application database (5–6 in all; 6 at 10:56–11:14Z, 12:31Z and 12:52Z) against `max_connections` 25 with 3
     reserved. The one-minute samples missed the worker's pool (3 during the 12:42–12:44Z burst), so its three-connection budget is
     unobserved, not disproved.
 14. **The worker's shape** in the rollout text (minimum zero, maximum one, concurrency one, 1 CPU, 2 GiB, request-based CPU, ingress
@@ -230,11 +236,12 @@ fired (none could).
 
 ## Disclosures
 
-1. **No chief defect this record.** Two process misses were harmless and are recorded as such: the first `capacity-readout`
+1. **No chief defect and no classifier denial this record.** Three process misses were harmless and are recorded as such: the first `capacity-readout`
    dispatch ran into the workflow's in-flight guard (above), one wasted read-only run with no effect; and the chief's local redacting
    filter at first dropped the `Worker invoker IAM check: enforced` line (its keep list did not name it), so the line was read from a
    second filtered download, the keep list was widened, and the independent check, told so, filtered its own copy again. No value was
-   lost or misread.
+   lost or misread. And four of #1172's eighteen ready heads were superseded within minutes, before an `@codex review` request was
+   posted (above); each successor was reviewed, and the merged head had no findings.
    **A wording correction** (the same class as record 21's correction of record 20): `b32003f8`'s squash message says Codex raised
    "P1 four times and P2 nine times across the heads"; the count is four P1 and eleven P2 (above). The PR body's own figure,
    "P1 four times and P2 eight times on the gate itself", is right. Main's history is left as merged.
@@ -290,8 +297,8 @@ after the usage limit); the implementation context (`launched-2026-10-10T0928Z`)
 agent contexts under the `workflow_lens_labels` convention; the delta reviewer (`launched-2026-10-10T1214Z`); and the
 `durable-tasks-check-01` context (`launched-2026-10-10T1322Z`). It resolves closure 172's `record-21-reviewer-01` and `record-21-reviewer-02` and
 closure 171's `ops-readback-pr-01` and `durable-tasks-check-01` to those identities, annotates `record-22-reviewer-01` as covering
-this record's reviewer (resolved in a later closure, the chain rule), and pre-registers `record-23-reviewer-01` and
-`readback-followups-pr-01` (every context of the follow-ups PR, plan item 3) before any launch.
+this record's reviewer (resolved in a later closure, the chain rule), re-annotates `monday-readout-20261012-01` (unchanged), and
+pre-registers `record-23-reviewer-01` and `readback-followups-pr-01` (every context of the follow-ups PR, plan item 3) before any launch.
 No context gains source, reconciliation or judging eligibility; every earlier identity and adverse history is retained.
 
 ## Spend
