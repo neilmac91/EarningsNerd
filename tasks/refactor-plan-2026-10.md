@@ -263,17 +263,16 @@ Each was checked against `main` at `da636f6`:
 |---|---|---|---|
 | Cloud Run deploy | a merge to `main` changes any `backend/` path outside `backend/tests/` | deploys the API service and refreshes the jobs; one unverified deploy at a time, so code-bearing merges are serial | `.github/workflows/ci.yml:544-557` (detector), `backend/tests/unit/test_backend_deploy_scope.py`, [AGENTS.md](../AGENTS.md) §6 |
 | `eval-baseline` (summary eval, paid) | every `pull_request` event, draft or not, whose diff touches `backend/app/*`, `backend/evals/*` or `backend/prompts/*`; also manual dispatch | measured at USD 0.35–0.36 per run (four runs, record 18; AGENTS.md says 0.30) and ~6 min; advisory (`continue-on-error`), but the report must be read before an AI-relevant merge | `.github/workflows/ci.yml:282-336`, `backend/evals/RUNBOOK.md:339-345`, [AGENTS.md](../AGENTS.md) §3, `tasks/code-red-20261004/runtime/control/DECISIONS-18.md:119-127` |
-| `copilot-eval` (paid) | a non-draft PR whose diff touches `backend/**`; re-runs on each push while ready | measured USD 0.006–0.026 per run (settled Code Red runs: `tasks/code-red-20261004/runtime/control/DECISIONS-09.md:149`, `tasks/code-red-20261004/runtime/control/DECISIONS-18.md:168-169`); the Code Red reserves 0.06 | `.github/workflows/copilot-eval.yml:3-8,20`; `tasks/code-red-20261004/runtime/control/DECISIONS-16.md:152-159` |
+| `copilot-eval` (paid) | a non-draft PR whose diff touches a file the Copilot eval can feel (its `paths:` filter: the `backend/app/` files the eval imports (top-level files, `models/`, `schemas/`, `services/`, `utils/`) and its data (`data/`, `assets/`), not `routers/` or `integrations/`; `backend/prompts/**`, its own `backend/evals/` modules, the requirements files, `.github/ai-model.env` and the workflow; never `backend/tests/**`, gate `backend/tests/unit/test_copilot_eval_paths.py`); re-runs on each push while ready | measured USD 0.006–0.026 per run (settled Code Red runs: `tasks/code-red-20261004/runtime/control/DECISIONS-09.md:149`, `tasks/code-red-20261004/runtime/control/DECISIONS-18.md:168-169`); the Code Red reserves 0.06 | `.github/workflows/copilot-eval.yml:3-40`; `tasks/code-red-20261004/runtime/control/DECISIONS-16.md:152-159` |
 | This plan's spend rule (decision 1) | before any paid run a PR of this plan fires | read the provider balance first (`.github/workflows/deepseek-balance.yml`, a dispatch that makes no inference call), state the reservation in the PR body (dearest measured run × 2: USD 0.06 a `copilot-eval` run, USD 0.73 an `eval-baseline` push), then log each paid run at its measured cost in the Spend log; programme ceiling USD 18 | [AGENTS.md](../AGENTS.md) §3; decision 1 |
 | Code Red ledger reservation (Code Red PRs only) | before any paid trigger the Code Red chief, its officers or its workers fire | "every paid action still needs a reservation written first" (`copilot-eval` USD 0.06 per run, `eval-baseline` USD 0.73 per push); the chief is the ledger's only writer, and its USD 25 ceiling is shared by the chief, officers and workers; other writers' paid runs are not in it | `tasks/code-red-20261004/runtime/CHECKPOINT.md:373`; `tasks/code-red-20261004/runtime/control/LEDGER-ACCESS.md:47,65-66`; `tasks/code-red-20261004/runtime/control/DECISIONS-18.md:121-124` |
 
-Open draft PR #1123 narrows `copilot-eval` to the eval's import closure (`backend/app/services/**`,
-`models/**`, `schemas/**`, `utils/**`, `backend/app/*`, prompts, golden set, requirements). Every
-module in this plan lives under `backend/app/services/`, so #1123 does not spare the code-bearing
-PRs; it does spare tests-only PRs. Tests-only PRs never arm `eval-baseline` and never deploy, but on
-today's main they still arm `copilot-eval` once each when marked ready for review (`backend/**`;
-measured USD 0.006–0.026 a run). Wave 0 does not wait for #1123 (decision 8): its seven un-drafts
-cost about USD 0.10 at measured rates, logged under decision 1, and nothing if #1123 lands first.
+#1123 (merged 2026-10-09, `8c304779`) narrowed `copilot-eval` to the eval's import closure and data,
+the filter in the row above. Every module in this plan lives under `backend/app/services/`, so each
+code-bearing PR still arms it once when marked ready for review and again on each push while ready
+(measured USD 0.006–0.026 a run). Tests-only and records-only PRs arm neither paid run and never
+deploy. Wave 0 did not wait for #1123 (decision 8), which priced its seven un-drafts at about USD 0.10
+under decision 1 in case they landed first.
 
 ### Open branches and PRs that touch these modules
 
@@ -1175,7 +1174,10 @@ pure-move PR and its reviewers run. `backend/tests/unit/test_ast_move_proof.py` 
 The proof reports MISSING, CHANGED and DUPLICATE. It also reports SIDE EFFECT: a new
 attribute or item assignment, or a new module-level call, which a move never adds; SHADOWS: a new
 symbol that binds a name the moved code uses, or a dunder that Python reads itself where moved code
-lives; and REORDERED: an old binding that now sits above one it followed. The proof's module
+lives; REORDERED: an old binding that now sits above one it followed; and RELOCATED: an old symbol
+that reads what its module gets from where it lives (`__name__`, so a moved `getLogger(__name__)`,
+`__file__`, `__package__`, the module docstring, a relative import's target, its namespace,
+postponed annotations, or a module dunder it binds), which its new module changes. The proof's module
 docstring holds the full list. A name bound
 twice in one file, such as a `try`/`except` fallback, keeps every definition. Each `--allow`ed delta
 prints its diff for the PR body. Mutation proof for the PR body (one, per AGENTS.md §4): pad one
