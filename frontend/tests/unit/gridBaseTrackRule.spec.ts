@@ -250,7 +250,7 @@ ruleTester.run('responsive-grid-base-track', responsiveGridBaseTrack, {
   ],
 })
 
-/** Building ESLint from the real config takes about 3.5s here and over 7s cold or on a loaded runner; 5s is too tight. */
+/** Building ESLint from the real config takes 2-3.5s warm and over 7s cold or on a loaded runner; 5s is too tight. */
 const SLOW = { timeout: 30_000 }
 
 describe('eslint.config.mjs wiring', SLOW, () => {
