@@ -5,27 +5,28 @@ They allow clearing cached summaries and XBRL data to fix issues with stale data
 """
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
-from datetime import datetime, timezone
+from datetime import datetime
 import logging
 
 from app.config import settings
 from app.database import get_db
-from app.models import Filing, Summary, SavedSummary, User, SummaryGenerationProgress, FilingContentCache, InviteCode
+from app.models import User
 from app.models.feedback import Feedback
 from app.routers.auth import get_current_user
 from app.schemas.feedback import FeedbackAdminItem, FeedbackStatusUpdate, FeedbackStatus, FeedbackType
 # EdgarTools migration: Using new edgar module
 from app.services.edgar import clear_xbrl_cache, get_xbrl_cache_stats
 from app.services.resend_service import send_email, ResendError
+from app.services import admin_feedback_service
+from app.services import admin_filing_service
+from app.services import admin_summary_service
 from app.services import invite_service
 from app.services import audit_service
 from app.services.email_service import send_invite_email
-from app.services.summary_refresh import generation_failed, stale_filter
-from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION, is_stale
+from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -46,13 +47,6 @@ def _require_admin(user: User) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
         )
-
-
-def _chunked(seq, size=900):
-    """Yield successive `size`-length slices so a bulk IN(...) can't exceed a DB parameter cap
-    (SQLite's 999, PostgreSQL's bind-parameter ceiling)."""
-    for i in range(0, len(seq), size):
-        yield seq[i:i + size]
 
 
 class EmailTestRequest(BaseModel):
@@ -132,23 +126,6 @@ class ResendInviteResponse(InviteResponse):
     revoked_invite_id: int
 
 
-def _invite_status(invite: InviteCode) -> str:
-    # "used" outranks "revoked": once an invite has been redeemed, that fact is the truth worth
-    # surfacing even if the row also carries a revoke flag (e.g. legacy data), so redemption
-    # history is never masked.
-    if invite.used_at is not None:
-        return "used"
-    if invite.is_revoked:
-        return "revoked"
-    exp = invite.expires_at
-    if exp is not None:
-        if exp.tzinfo is None:
-            exp = exp.replace(tzinfo=timezone.utc)
-        if exp < datetime.now(timezone.utc):
-            return "expired"
-    return "pending"
-
-
 @router.post("/invites", response_model=InviteResponse)
 async def mint_invite(
     payload: MintInviteRequest,
@@ -204,13 +181,13 @@ async def list_invites(
 ):
     """Admin-only: list recent invites with derived status (pending/used/revoked/expired)."""
     _require_admin(current_user)
-    rows = db.query(InviteCode).order_by(InviteCode.created_at.desc()).limit(200).all()
+    rows = invite_service.list_recent_invites(db)
     return {
         "invites": [
             {
                 "id": r.id,
                 "email": r.email,
-                "status": _invite_status(r),
+                "status": invite_service.invite_status(r),
                 "cohort": r.cohort,
                 "expires_at": r.expires_at,
                 "used_at": r.used_at,
@@ -230,14 +207,12 @@ async def revoke_invite(
 ):
     """Admin-only: revoke an unused invite so its link can no longer be redeemed."""
     _require_admin(current_user)
-    invite = db.query(InviteCode).filter(InviteCode.id == invite_id).first()
-    if not invite:
+    try:
+        invite = invite_service.revoke_invite(db, invite_id)
+    except invite_service.InviteNotFoundError:
         raise HTTPException(status_code=404, detail="Invite not found")
-    if invite.used_at is not None:
-        # A redeemed invite can't be "un-redeemed"; revoking it would only corrupt its status.
+    except invite_service.InviteAlreadyRedeemedError:
         raise HTTPException(status_code=409, detail="Invite already redeemed")
-    invite.is_revoked = True
-    db.commit()
     logger.info("Admin %s revoked invite %s", current_user.id, invite_id)
     try:
         audit_service.create_audit_log(
@@ -250,7 +225,7 @@ async def revoke_invite(
         )
     except Exception:
         logger.warning("Failed to write audit log for invite_revoked", exc_info=True)
-    return {"message": "Invite revoked", "invite_id": invite_id, "status": _invite_status(invite)}
+    return {"message": "Invite revoked", "invite_id": invite_id, "status": invite_service.invite_status(invite)}
 
 
 @router.post("/invites/{invite_id}/resend", response_model=ResendInviteResponse)
@@ -267,24 +242,18 @@ async def resend_invite(
     best-effort. The raw token is never persisted nor written to the audit log.
     """
     _require_admin(current_user)
-    old = db.query(InviteCode).filter(InviteCode.id == invite_id).first()
-    if not old:
-        raise HTTPException(status_code=404, detail="Invite not found")
-    if old.used_at is not None:
-        raise HTTPException(status_code=409, detail="Invite already redeemed")
-
     expires_in_hours = payload.expires_in_hours if payload else None
-    # Revoke the old invite BEFORE minting the replacement so there is never a window in which two
-    # links for the same invitee are simultaneously redeemable. mint_invite's commit persists the
-    # revoke (on the already-tracked ``old`` row) and the new row in a single transaction.
-    old.is_revoked = True
-    invite, _raw, link = invite_service.mint_invite(
-        db,
-        created_by=current_user.id,
-        email=old.email,
-        expires_in_hours=expires_in_hours,
-        cohort=old.cohort,
-    )
+    try:
+        invite, _raw, link = invite_service.reissue_invite(
+            db,
+            invite_id,
+            created_by=current_user.id,
+            expires_in_hours=expires_in_hours,
+        )
+    except invite_service.InviteNotFoundError:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    except invite_service.InviteAlreadyRedeemedError:
+        raise HTTPException(status_code=409, detail="Invite already redeemed")
 
     emailed = False
     if invite.email:
@@ -347,15 +316,7 @@ async def list_feedback(
     and ``type`` query params narrow the result when provided.
     """
     _require_admin(current_user)
-    query = (
-        db.query(Feedback, User.email)
-        .outerjoin(User, Feedback.user_id == User.id)
-    )
-    if status is not None:
-        query = query.filter(Feedback.status == status)
-    if type is not None:
-        query = query.filter(Feedback.type == type)
-    rows = query.order_by(Feedback.created_at.desc()).limit(200).all()
+    rows = admin_feedback_service.list_feedback(db, feedback_status=status, feedback_type=type)
     return {"feedback": [_feedback_item(row, email) for row, email in rows]}
 
 
@@ -372,14 +333,11 @@ async def update_feedback_status(
     re-resolved). An invalid status is rejected with 422 by the schema before this runs.
     """
     _require_admin(current_user)
-    feedback = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+    new_status = payload.status
+    feedback = admin_feedback_service.set_feedback_status(db, feedback_id, new_status)
     if not feedback:
         raise HTTPException(status_code=404, detail="Feedback not found")
 
-    new_status = payload.status
-    feedback.status = new_status
-    db.commit()
-    db.refresh(feedback)
     logger.info("Admin %s set feedback %s status to %s", current_user.id, feedback_id, new_status)
 
     try:
@@ -395,11 +353,7 @@ async def update_feedback_status(
     except Exception:
         logger.warning("Failed to write audit log for feedback_status_changed", exc_info=True)
 
-    # Re-resolve the submitter's email (null-safe when user_id is null/deleted).
-    user_email = None
-    if feedback.user_id is not None:
-        submitter = db.query(User).filter(User.id == feedback.user_id).first()
-        user_email = submitter.email if submitter else None
+    user_email = admin_feedback_service.submitter_email(db, feedback)
     return _feedback_item(feedback, user_email)
 
 
@@ -416,30 +370,15 @@ async def delete_filing_summary(
     """
     _require_admin(current_user)
 
-    # Find the filing
-    filing = db.query(Filing).filter(Filing.id == filing_id).first()
-    if not filing:
+    try:
+        summary_deleted = admin_filing_service.delete_filing_summary(db, filing_id, actor=current_user)
+    except admin_filing_service.FilingNotFoundError:
         raise HTTPException(status_code=404, detail="Filing not found")
-
-    # Delete summary if exists
-    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-    if summary:
-        db.delete(summary)
-        logger.info(f"Admin {current_user.id} deleted summary for filing {filing_id}")
-
-    # Delete progress record to allow fresh generation
-    progress = db.query(SummaryGenerationProgress).filter(
-        SummaryGenerationProgress.filing_id == filing_id
-    ).first()
-    if progress:
-        db.delete(progress)
-
-    db.commit()
 
     return {
         "message": f"Summary deleted for filing {filing_id}",
         "filing_id": filing_id,
-        "summary_deleted": summary is not None
+        "summary_deleted": summary_deleted
     }
 
 
@@ -456,16 +395,10 @@ async def clear_filing_xbrl(
     """
     _require_admin(current_user)
 
-    # Find the filing
-    filing = db.query(Filing).filter(Filing.id == filing_id).first()
-    if not filing:
+    try:
+        had_xbrl = admin_filing_service.clear_filing_xbrl(db, filing_id)
+    except admin_filing_service.FilingNotFoundError:
         raise HTTPException(status_code=404, detail="Filing not found")
-
-    # Clear XBRL data
-    had_xbrl = filing.xbrl_data is not None
-    filing.xbrl_data = None
-
-    db.commit()
     logger.info(f"Admin {current_user.id} cleared XBRL data for filing {filing_id}")
 
     return {
@@ -493,46 +426,10 @@ async def reset_filing(
     """
     _require_admin(current_user)
 
-    # Find the filing
-    filing = db.query(Filing).filter(Filing.id == filing_id).first()
-    if not filing:
+    try:
+        deleted = admin_filing_service.reset_filing(db, filing_id)
+    except admin_filing_service.FilingNotFoundError:
         raise HTTPException(status_code=404, detail="Filing not found")
-
-    deleted = {
-        "summary": False,
-        "xbrl_data": False,
-        "content_cache": False,
-        "progress": False
-    }
-
-    # Delete summary
-    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-    if summary:
-        db.delete(summary)
-        deleted["summary"] = True
-
-    # Clear XBRL data
-    if filing.xbrl_data is not None:
-        filing.xbrl_data = None
-        deleted["xbrl_data"] = True
-
-    # Delete content cache
-    content_cache = db.query(FilingContentCache).filter(
-        FilingContentCache.filing_id == filing_id
-    ).first()
-    if content_cache:
-        db.delete(content_cache)
-        deleted["content_cache"] = True
-
-    # Delete progress record
-    progress = db.query(SummaryGenerationProgress).filter(
-        SummaryGenerationProgress.filing_id == filing_id
-    ).first()
-    if progress:
-        db.delete(progress)
-        deleted["progress"] = True
-
-    db.commit()
     logger.info(f"Admin {current_user.id} reset filing {filing_id}: {deleted}")
 
     return {
@@ -583,27 +480,6 @@ async def get_cache_stats(
     return get_xbrl_cache_stats()
 
 
-def _extract_xbrl_years(xbrl_data: dict) -> set:
-    """Extract all years from XBRL data periods."""
-    years = set()
-    if not xbrl_data:
-        return years
-
-    # Check common metric keys that have period data
-    for key in ["revenue", "net_income", "total_assets", "earnings_per_share"]:
-        entries = xbrl_data.get(key, [])
-        if isinstance(entries, list):
-            for entry in entries:
-                period = entry.get("period") if isinstance(entry, dict) else None
-                if period and isinstance(period, str) and len(period) >= 4:
-                    try:
-                        year = int(period[:4])
-                        years.add(year)
-                    except ValueError:
-                        pass
-    return years
-
-
 @router.get("/filings/audit-xbrl")
 async def audit_stale_xbrl(
     current_user: User = Depends(get_current_user),
@@ -623,48 +499,12 @@ async def audit_stale_xbrl(
     """
     _require_admin(current_user)
 
-    # Find all filings with XBRL data
-    filings_with_xbrl = db.query(Filing).filter(
-        Filing.xbrl_data.isnot(None)
-    ).all()
-
-    stale_filings = []
-    for filing in filings_with_xbrl:
-        # Get the expected year from filing period
-        expected_year = None
-        if filing.period_end_date:
-            expected_year = filing.period_end_date.year
-        elif filing.filing_date:
-            expected_year = filing.filing_date.year
-
-        if not expected_year:
-            continue
-
-        # Extract years from XBRL data
-        xbrl_years = _extract_xbrl_years(filing.xbrl_data)
-
-        if not xbrl_years:
-            continue
-
-        # Check if any XBRL year is too far from expected
-        max_xbrl_year = max(xbrl_years)
-        year_diff = expected_year - max_xbrl_year
-
-        if year_diff > year_threshold:
-            stale_filings.append({
-                "filing_id": filing.id,
-                "company_id": filing.company_id,
-                "filing_type": filing.filing_type,
-                "filing_date": filing.filing_date.isoformat() if filing.filing_date else None,
-                "period_end_date": filing.period_end_date.isoformat() if filing.period_end_date else None,
-                "expected_year": expected_year,
-                "xbrl_years": sorted(xbrl_years, reverse=True),
-                "max_xbrl_year": max_xbrl_year,
-                "year_difference": year_diff
-            })
+    total_filings_with_xbrl, stale_filings = admin_filing_service.audit_stale_xbrl(
+        db, year_threshold=year_threshold
+    )
 
     return {
-        "total_filings_with_xbrl": len(filings_with_xbrl),
+        "total_filings_with_xbrl": total_filings_with_xbrl,
         "stale_filings_count": len(stale_filings),
         "year_threshold": year_threshold,
         "stale_filings": stale_filings
@@ -691,62 +531,11 @@ async def bulk_reset_stale_xbrl(
     """
     _require_admin(current_user)
 
-    # Find all filings with XBRL data
-    filings_with_xbrl = db.query(Filing).filter(
-        Filing.xbrl_data.isnot(None)
-    ).all()
-
-    affected_filings = []
-    for filing in filings_with_xbrl:
-        # Get the expected year from filing period
-        expected_year = None
-        if filing.period_end_date:
-            expected_year = filing.period_end_date.year
-        elif filing.filing_date:
-            expected_year = filing.filing_date.year
-
-        if not expected_year:
-            continue
-
-        # Extract years from XBRL data
-        xbrl_years = _extract_xbrl_years(filing.xbrl_data)
-
-        if not xbrl_years:
-            continue
-
-        # Check if any XBRL year is too far from expected
-        max_xbrl_year = max(xbrl_years)
-        year_diff = expected_year - max_xbrl_year
-
-        if year_diff > year_threshold:
-            affected_filings.append({
-                "filing_id": filing.id,
-                "expected_year": expected_year,
-                "max_xbrl_year": max_xbrl_year,
-                "year_difference": year_diff
-            })
-
-            if not dry_run:
-                # Reset the filing
-                # Clear XBRL data
-                filing.xbrl_data = None
-
-                # Delete summary if exists
-                summary = db.query(Summary).filter(Summary.filing_id == filing.id).first()
-                if summary:
-                    db.delete(summary)
-
-                # Delete progress if exists
-                progress = db.query(SummaryGenerationProgress).filter(
-                    SummaryGenerationProgress.filing_id == filing.id
-                ).first()
-                if progress:
-                    db.delete(progress)
-
-                logger.info(f"Admin {current_user.id} bulk-reset filing {filing.id} (stale XBRL)")
+    affected_filings = admin_filing_service.bulk_reset_stale_xbrl(
+        db, year_threshold=year_threshold, dry_run=dry_run, actor=current_user
+    )
 
     if not dry_run:
-        db.commit()
         logger.info(f"Admin {current_user.id} bulk-reset {len(affected_filings)} filings with stale XBRL data")
 
     return {
@@ -787,48 +576,14 @@ async def reset_all_summaries(
     """
     _require_admin(current_user)
 
-    # Select only the columns we need (id + filing_id). Summary has large JSON/text columns we
-    # never read here, so loading full ORM objects for a bulk op wastes memory + DB I/O.
-    query = db.query(Summary.id, Summary.filing_id)
-    if filing_type:
-        query = query.join(Filing, Filing.id == Summary.filing_id).filter(
-            Filing.filing_type == filing_type
-        )
-    summaries = query.all()
-
-    # Pinned (saved) summaries, scoped to the same filter so we don't load every bookmark in the DB.
-    pinned_query = db.query(SavedSummary.summary_id).join(
-        Summary, Summary.id == SavedSummary.summary_id
+    plan = admin_summary_service.select_reset_candidates(
+        db, filing_type=filing_type, include_saved=include_saved
     )
-    if filing_type:
-        pinned_query = pinned_query.join(Filing, Filing.id == Summary.filing_id).filter(
-            Filing.filing_type == filing_type
-        )
-    pinned_ids = {sid for (sid,) in pinned_query.all()}
-
-    to_delete = [s for s in summaries if include_saved or s.id not in pinned_ids]
-    skipped = [s for s in summaries if not include_saved and s.id in pinned_ids]
-
-    delete_ids = [s.id for s in to_delete]
-    delete_filing_ids = sorted({s.filing_id for s in to_delete})
-    skipped_saved = [{"filing_id": s.filing_id, "summary_id": s.id} for s in skipped]
+    delete_ids = plan.delete_ids
+    skipped_saved = plan.skipped_saved
 
     if not dry_run and delete_ids:
-        # Chunk every IN-list so a large reset can't exceed a DB parameter cap (SQLite's 999, etc.).
-        # When including saved summaries, drop their bookmarks first so the FK doesn't block.
-        if include_saved:
-            for chunk in _chunked(delete_ids):
-                db.query(SavedSummary).filter(
-                    SavedSummary.summary_id.in_(chunk)
-                ).delete(synchronize_session=False)
-        # Clear progress so regeneration starts clean (XBRL + content cache are intentionally kept).
-        for chunk in _chunked(delete_filing_ids):
-            db.query(SummaryGenerationProgress).filter(
-                SummaryGenerationProgress.filing_id.in_(chunk)
-            ).delete(synchronize_session=False)
-        for chunk in _chunked(delete_ids):
-            db.query(Summary).filter(Summary.id.in_(chunk)).delete(synchronize_session=False)
-        db.commit()
+        admin_summary_service.delete_summaries(db, plan)
         audit_service.create_audit_log(
             db=db,
             action="summaries_bulk_reset",
@@ -852,7 +607,7 @@ async def reset_all_summaries(
         "dry_run": dry_run,
         "filing_type": filing_type,
         "include_saved": include_saved,
-        "total_matched": len(summaries),
+        "total_matched": plan.total_matched,
         "deleted_count": len(delete_ids),
         "skipped_saved_count": len(skipped_saved),
         "skipped_saved": skipped_saved,
@@ -870,10 +625,6 @@ async def reset_all_summaries(
 # runs synchronously in the request, so the batch is capped to stay well within the Cloud Run request
 # timeout and avoid holding a DB connection for a long op. Large backlogs = repeated calls / a job.
 _REFRESH_STALE_MAX_BATCH = 10
-
-
-# One SQL encoding of staleness, shared with the job-side drain (scripts/refresh_stale_summaries.py).
-_stale_summary_filter = stale_filter
 
 
 @router.post("/summaries/refresh-stale")
@@ -913,77 +664,23 @@ async def refresh_stale_summaries(
     _require_admin(current_user)
     limit = max(1, min(limit, _REFRESH_STALE_MAX_BATCH))
 
-    query = (
-        db.query(Summary.id, Summary.filing_id, Summary.schema_version, Summary.prompt_version)
-        .join(Filing, Filing.id == Summary.filing_id)
-        .filter(_stale_summary_filter(schema_version_lt))
+    stale_total, candidate_filing_ids = admin_summary_service.select_stale_candidates(
+        db, schema_version_lt=schema_version_lt, filing_type=filing_type, limit=limit
     )
-    if filing_type:
-        query = query.filter(Filing.filing_type == filing_type)
-    stale_total = query.count()
-    # Randomized order (not filing_date DESC): a filing that keep-better-loses every time would
-    # otherwise park itself at a deterministic head-of-line and wedge every subsequent batch. Random
-    # sampling turns a permanent wedge into a diminishing nuisance.
-    candidates = query.order_by(func.random()).limit(limit).all()
-    candidate_filing_ids = [c.filing_id for c in candidates]
 
-    # Honest per-filing outcomes: a keep-better gate-keep regenerates nothing (the stored better
-    # version stays), so counting every non-raising call as "regenerated" would report progress the
-    # batch didn't make while the stale_total never moves. Classify by re-reading the row's stamps.
+    # Per-filing outcomes (see admin_summary_service.regenerate_in_place); a dry run regenerates nothing.
     updated: list[int] = []
     kept_by_gate: list[int] = []
     failed: list[int] = []
     if not dry_run and candidate_filing_ids:
-        from app.services.summary_generation_service import generate_summary_background
-
-        # Guard the admin session against N+1 re-expiry across the loop's own commits; generation
-        # runs in the pipeline's OWN sessions, so this only protects rows/audit held here.
-        prev_expire = db.expire_on_commit
-        db.expire_on_commit = False
-        try:
-            for fid in candidate_filing_ids:
-                try:
-                    outcome = await generate_summary_background(fid, None, force_regenerate=True)
-                except Exception:  # noqa: BLE001 — one filing's failure must not abort the batch
-                    logger.warning("refresh-stale: regeneration failed for filing %s", fid, exc_info=True)
-                    failed.append(fid)
-                    continue
-                if generation_failed(outcome):  # a terminal error event is a failed paid attempt, not a gate keep
-                    logger.warning("refresh-stale: generation ended in a terminal error for filing %s", fid)
-                    failed.append(fid)
-                    continue
-                # Re-read the (separately-committed) row's stamps: current => actually updated;
-                # still stale => the keep-better gate kept the stored version (not regenerated).
-                # Commit first to end this session's read transaction so the fresh SELECT sees the
-                # generation session's commit (no writes pending here, so it's a transaction reset).
-                db.commit()
-                stamp = (
-                    db.query(Summary.schema_version, Summary.prompt_version)
-                    .filter(Summary.filing_id == fid)
-                    .first()
-                )
-                if stamp is not None and not is_stale(stamp[0], stamp[1]):
-                    updated.append(fid)
-                else:
-                    kept_by_gate.append(fid)
-            audit_service.create_audit_log(
-                db=db,
-                action="summaries_refresh_stale",
-                user_id=current_user.id,
-                user_email=getattr(current_user, "email", None),
-                entity_type="summaries",
-                details={
-                    "filing_type": filing_type,
-                    "schema_version_lt": schema_version_lt,
-                    "stale_total": stale_total,
-                    "updated_count": len(updated),
-                    "kept_by_gate_count": len(kept_by_gate),
-                    "failed_count": len(failed),
-                },
-                status="success",
-            )
-        finally:
-            db.expire_on_commit = prev_expire
+        updated, kept_by_gate, failed = await admin_summary_service.regenerate_in_place(
+            db,
+            candidate_filing_ids,
+            actor=current_user,
+            filing_type=filing_type,
+            schema_version_lt=schema_version_lt,
+            stale_total=stale_total,
+        )
         logger.info(
             "Admin %s refresh-stale: updated %d, kept-by-gate %d, failed %d of %d stale (filing_type=%s)",
             current_user.id, len(updated), len(kept_by_gate), len(failed), stale_total, filing_type,

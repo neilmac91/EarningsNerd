@@ -83,8 +83,8 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
         "the signed SameSite=None, Secure cookie separately binds it to the initiating browser"
     ),
     ("app/routers/auth.py", "google_login"): (
-        "shares _start_google with POST /google/start, which stores the OAuth state row only for a "
-        "live invite; the GET passes invite=None, so the reachable write never runs on this route"
+        "shares _start_google with POST /google/start, whose save_google_state stores the OAuth state "
+        "row only for a live invite; the GET passes invite=None, so the reachable write never runs here"
     ),
     ("app/routers/auth.py", "google_callback"): (
         "OAuth redirect callback — the provider returns the user via GET by protocol; creates or "
@@ -125,21 +125,21 @@ ALLOWED_WRITE_SITES: dict[tuple[str, str], dict[str, dict[str, int]]] = {
         "app/services/facts_service.py::upsert_facts_bulk": {"add": 1, "commit": 1},
     },
     ("app/routers/auth.py", "apple_login"): {
-        "app/routers/auth.py::apple_login": {"commit": 1},
-        "app/routers/auth.py::_store_oauth_state": {"add": 1, "query.delete": 1},
+        "app/services/oauth_account_service.py::save_apple_state": {"commit": 1},
+        "app/services/oauth_account_service.py::store_oauth_state": {"add": 1, "query.delete": 1},
     },
     ("app/routers/auth.py", "google_login"): {
-        "app/routers/auth.py::_start_google": {"commit": 1},
-        "app/routers/auth.py::_store_oauth_state": {"add": 1, "query.delete": 1},
+        "app/services/oauth_account_service.py::save_google_state": {"commit": 1},
+        "app/services/oauth_account_service.py::store_oauth_state": {"add": 1, "query.delete": 1},
     },
     ("app/routers/auth.py", "google_callback"): {
-        "app/routers/auth.py::google_callback": {"add": 1},
-        "app/routers/auth.py::_consume_oauth_state": {"commit": 1, "delete": 1},
-        "app/routers/auth.py::_oauth_create_account": {"add": 1, "flush": 1},
-        "app/routers/auth.py::issue_session": {"commit": 1},
+        "app/services/oauth_account_service.py::consume_oauth_state": {"commit": 1, "delete": 1},
+        "app/services/oauth_account_service.py::oauth_create_account": {"add": 1, "flush": 1},
+        "app/services/oauth_account_service.py::resolve_google_user": {"add": 1},
         "app/services/audit_service.py::create_audit_log": {"add": 1, "commit": 1},
         "app/services/invite_service.py::redeem_invite": {"commit": 1, "execute": 1},
         "app/services/refresh_token_service.py::create_refresh_token": {"add": 1, "flush": 1},
+        "app/services/refresh_token_service.py::mint_refresh_token": {"commit": 1},
     },
     ("app/routers/companies.py", "search_companies"): {
         "app/routers/companies.py::search_companies": {"add": 1, "commit": 2, "flush": 1},

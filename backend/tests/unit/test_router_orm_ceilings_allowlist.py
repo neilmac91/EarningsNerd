@@ -55,11 +55,11 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # deleting a line (with or without its blank line) would not be. A cleanup PR prunes the zero rows
 # once no sibling branch is editing the table.
 ROUTER_ORM_CEILINGS: dict[str, int] = {
-    "app/routers/admin.py": 52,
+    "app/routers/admin.py": 0,
 
     "app/routers/analysis.py": 10,
 
-    "app/routers/auth.py": 60,
+    "app/routers/auth.py": 0,
 
     "app/routers/companies.py": 21,
 
