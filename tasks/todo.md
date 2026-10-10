@@ -10,8 +10,9 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
 ## Where things stand — 2026-10-10
 
 - Production: the last recorded state is the ledger's "2026-10-04 — CODE RED chief takeover"
-  section and its records under `code-red-20261004/runtime/` (record 20, `DECISIONS-20.md`, is the
-  latest merged; record 21 is open as #1172); verify the latest `deploy-backend` run on `main` and
+  section and its records under `code-red-20261004/runtime/` (record 21, `DECISIONS-21.md`, is the
+  latest merged; record 22 is open as #PRNUM and reads production back live: #1176's images, every
+  SEC pin at 1, durable tasks delivering); verify the latest `deploy-backend` run on `main` and
   `/health/detailed` before relying on it. Record 19 notes for the CPO that `eval-baseline`'s
   `mean_citation_fidelity` read 0.83–0.86 against its 0.9648 baseline on all six runs of
   2026-10-09 (advisory).
@@ -20,14 +21,15 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
   `continuation-plan-2026-09-26.md` stays held. The E7/R1/H20 acceptance programme and the CODE RED
   records are a separate task; nothing here redesigns, lifts or restates them.
 - Open PRs on 2026-10-10: #1121 (founder role contacts, held), #1035 (native delivery) and #1009
-  (Pro pricing, held) drafts, and #1172 (CODE RED record 21, the CODE RED chief's). The
+  (Pro pricing, held) drafts, and #PRNUM (CODE RED record 22, the CODE RED chief's). The
   chief-engineer merge train of 2026-10-09/10 landed them one verified backend deploy at a time:
   #1142 and #1143 (EN-05 parts a and c, EN-04), #1166 (the design-critique decisions A–E), #1170,
   #1134 (the Lane B gates), #1171, #1123 (copilot-eval paths), #1135 (the parallel backend suite),
   Lane B's seven router PRs (#1137–#1141, #1163, #1164: each router at ORM ceiling 0) and this
   page's PR (#1118, with #1126 folded in). Earlier on 2026-10-09: #1144 (the summary pipeline's
   named stages), #1153 (risk headings), #1156 (W0.G), #1167 (record 20), #1168 and #1169 (CI
-  images through `mirror.gcr.io`).
+  images through `mirror.gcr.io`). The CODE RED chief's #1172 (record 21) and #1181 (the read-back
+  PR) merged on 2026-10-10, deploying nothing.
 - Review and models: PRs are reviewed by risk tier (`AGENTS.md` §5); `review-gate.yml` needs a Codex
   review or a `Review override:` line; Codex reviews again since 2026-10-07, so the override
   exception rests while it does (CODE RED record 15). Marking a PR ready for review triggers the
@@ -58,8 +60,7 @@ Engineering:
 - [ ] Focus-ring follow-ups, recorded on the founder's instruction of 2026-10-10 (#1178's body, "Not in this PR"): the DS ring recipe on every Tab stop of the pages whose controls still draw the browser's outline (check-email, the settings cards, admin invites, and the watchlist add field's result rows, which need an inset ring; the hand-rolled notification switch becomes the DS `Switch`), with a gate that reaches page controls (`siteChromeFocusRing.spec.ts` covers the chrome only); `shadow-ring-error` has no dark token and reads 1.27:1 on panel in dark, part of the ring-token decision in the UI and a11y line below.
 - [ ] Hot-module refactor, lane D, under the founder's standing authorization (`refactor-plan-2026-10.md`; ledger, "2026-10-09 — Hot-module refactor", which states what it does not cover and lists Wave 0's PRs): the rest of Wave 0 (any anchor PR not yet merged; W0.G merged as #1156), then Wave 1 one verified deploy at a time; outside the plan, the Rule-7 follow-up and Wave 0's three behaviour bugs, each with its anchor updated in the same PR.
 - [ ] CODE RED chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window, the first with the whole fleet pinned and `backfill-facts` at 07:30, with the read-only `capacity-readout`: SEC errors, breaker opens, job outcomes (`DECISIONS-19.md`).
-- [ ] CODE RED chief: the read-back PR (`ops-readback-pr-01`): `describe-service` reads back the task worker (revision, traffic, command, sizing, ingress, invoker policy, SEC pins) and the service's minimum instances, CPU and memory; `describe-jobs` prints and checks both SEC pins per job; `capacity-readout` adds the worker's requests and errors and the Cloud Tasks queue; no deploy (`DECISIONS-19.md`, `DECISIONS-20.md`).
-- [ ] CODE RED chief: complete the durable-tasks post-deploy checklist (`docs/DEPLOYMENT.md`) from the read-backs and a readout, with an independent check (`durable-tasks-check-01`); the baseline is already read (`DECISIONS-20.md`).
+- [ ] CODE RED chief: the read-back follow-ups #1181's review left (`DECISIONS-22.md`): the describe-service shell read still inherits gcloud's stderr (behind the privacy test's byte-exact lock), the capacity receipt's `error_detail.message` is bounded but not address-redacted, the logs-probe step echoes raw stderr on its denied branch, and both heredoc bodies wait to be extracted to committed modules under `ops/`; none deploys.
 - [ ] Design critique 2026-10, what remains after its four PRs (#1146, #1147, #1148, #1150): outside the repo, P-01 republish the design-system package in Claude Design; in it, the three allowlisted full-page spinner screens wait for their pages' next rework (ledger, "2026-10-09 — Design critique 2026-10" sections).
 - [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", Codex's own summary boilerplate included, which cancelled a required run on PR #1131 (`DECISIONS-17.md`); exclude the Codex connector's comments.
 - [ ] Lane B follow-ups: `docs/ARCHITECTURE.md`'s service catalog rows for the new services, in one PR; prune the ceilings table's zero rows once no branch edits it; the routers still above 0 (analysis, contact, feedback, internal, sitemap, subscriptions, summaries, webhooks); the read-only GET gate's three open follow-ups, none with a live instance (tests only): a call through an unaliased `import app.x`, the last of #1134's named gaps (#1175 closed the other two); and two from #1175's review that the gate's docstring does not list yet, Connection-level `execute`/`begin` (`db.connection().execute`, `engine.begin() as conn`) and a Query bound through a tuple or a `for` target. The other limits that docstring states stay review concerns.

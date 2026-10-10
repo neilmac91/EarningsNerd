@@ -112,6 +112,13 @@ invoker-policy item is complete only when `describe-service` prints
 and SQL connections before expanding workload (`capacity-readout`: `queue_task_attempts`,
 `worker_error_logs`, `request_latencies`, `database_connections`). Cold worker starts affect queued
 work, not the warm API.
+These checks were completed on 2026-10-10 against #1176's deploy (`0a672ebe`): `describe-service`
+and `describe-jobs` passed with the worker invoker policy `PRIVATE`, and a `capacity-readout` over
+10:55–12:55Z showed 17 queue attempts, all `ok`, matching 17 worker requests, all 2xx, with no worker
+error logs (CODE RED record 22, `tasks/code-red-20261004/runtime/control/DECISIONS-22.md`). No
+operation reads back the queue's settings, the IAM grants, the worker's `DB_MAX_OVERFLOW` or `TASKS_*`
+values, or the first probe. Repeat these checks after any change to the worker, the queue or the
+service's sizing.
 
 For rollback, set `GCP_DURABLE_TASKS_ENABLED=false` and restore API `DURABLE_TASKS_ENABLED=false`
 with `--no-cpu-throttling`; keep the worker available to finish queued work. Do not pause the queue
