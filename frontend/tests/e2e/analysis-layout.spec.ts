@@ -278,7 +278,20 @@ async function stableAnalysisOutsideTable(page: Page) {
     notes: await page.locator(`${NOTES} > details > summary`).innerText(),
     charts: await page.locator('[data-analysis-chart]').evaluateAll(charts => charts.map(chart => ({
       name: chart.getAttribute('data-analysis-chart'),
-      ticks: [...chart.querySelectorAll('.recharts-xAxis .recharts-cartesian-axis-tick')].map(tick => tick.textContent),
+      // Recharts renders tick lines and labels in separate layers. Inspect the painted
+      // label layer: counting the line groups can pass with twelve empty strings.
+      ticks: [...chart.querySelectorAll('.recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-label')].map(tick => {
+        const glyphs = [...tick.querySelectorAll('text,tspan')].filter(glyph => glyph.textContent?.trim())
+        return {
+          text: tick.textContent?.replace(/\s/g, '') ?? '',
+          painted: glyphs.length > 0 && glyphs.every(glyph => {
+            const box = glyph.getBoundingClientRect()
+            const style = getComputedStyle(glyph)
+            return glyph.checkVisibility({ visibilityProperty: true, opacityProperty: true })
+              && box.width > 0 && box.height > 0 && style.fill !== 'none' && Number(style.fillOpacity) > 0
+          }),
+        }
+      }),
       // Rendered line/bar geometry makes this stronger than a period-count attribute.
       shapes: [...chart.querySelectorAll('.recharts-line-curve,.recharts-area-curve,.recharts-bar-rectangle path,.recharts-bar-rectangle rect')].map(shape => ['d', 'x', 'y', 'width', 'height'].map(attr => shape.getAttribute(attr))),
     }))),
@@ -312,7 +325,8 @@ for (const theme of THEMES) for (const profile of PROFILES) {
       await expect(page.locator('[data-analysis-chart]')).toHaveCount(4)
       const baseline = await stableAnalysisOutsideTable(page)
       for (const chart of baseline.charts) {
-        expect(chart.ticks, `${chart.name}: all twelve rendered chart periods`).toHaveLength(12)
+        expect(chart.ticks.map(tick => tick.text), `${chart.name}: all twelve ordered chart periods`).toEqual(PERIODS.map(period => `${period.slice(4)}'${period.slice(2, 4)}`))
+        for (const tick of chart.ticks) expect(tick.painted, `${chart.name}: ${tick.text} has visible glyphs`).toBe(true)
         expect(chart.shapes.length, `${chart.name}: actual plotted data`).toBeGreaterThan(0)
       }
       const section = page.locator('[data-analysis-metrics]')
