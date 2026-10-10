@@ -64,6 +64,6 @@ auto` and random order can split or reverse a definition-order pair. CI's backen
 parallel `python -m pytest`, so every PR exercises a different test-to-worker split.
 
 **Evidence.** W3-9 gate on `457933fd` (1 failed / 2703 passed) versus the verbose re-run on
-`70fca647` (2705 passed) with the worktree left alone; `tasks/todo.md` W3-9 section. The
+`70fca647` (2705 passed) with the worktree left alone; `tasks/archive/todo-ledger-through-2026-10-07.md` W3-9 section. The
 2026-10-09 parallel switch, its random-order runs and wall-clock figures are in the PR body of
 https://github.com/neilmac91/EarningsNerd/pull/1135.
