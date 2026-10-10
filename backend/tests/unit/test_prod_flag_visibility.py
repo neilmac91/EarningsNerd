@@ -341,8 +341,8 @@ def test_ops_renderer_collects_sec_pin_defects_and_prints_every_block(resources,
     assert len(errors) == 1 and f"must pin {pin}=1" in errors[0]
     assert "Worker invoker policy: PRIVATE" in output
     assert "describe-service: FAIL (1 invariant failure(s))" in output and "describe-service: PASS" not in output
-    # An echoed pin value is bounded to a short digit string; a sentinel never reaches the exit or the error line.
-    assert "PRIVATE_" not in str(exit_) and "PRIVATE_" not in errors[0]
+    # An echoed pin value is bounded to a short digit string; a sentinel never reaches the env block, the exit or the error line.
+    assert "PRIVATE_" not in output + str(exit_)
 
 
 def test_ops_renderer_lists_every_pin_defect_once(resources):
@@ -356,7 +356,9 @@ def test_ops_renderer_lists_every_pin_defect_once(resources):
             "got <value withheld: not a plain numeric string>") in str(exit_)
     errors = [line for line in output.splitlines() if line.startswith("::error::")]
     assert len(errors) == 2 and "describe-service: FAIL (2 invariant failure(s))" in output
-    assert "PRIVATE_" not in str(exit_) and all("PRIVATE_" not in line for line in errors)
+    # The env block prints the nonnumeric pin through the same bounded formatter as the verdict, so the whole output is clean.
+    assert "SEC_RATE_LIMIT_PER_SECOND = <value withheld: not a plain numeric string>" in output
+    assert "PRIVATE_" not in output + str(exit_)
 
 
 def test_ops_renderer_collects_duplicate_env_names(resources):

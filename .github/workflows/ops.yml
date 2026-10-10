@@ -307,6 +307,11 @@ jobs:
           expected_worker_command = ["uvicorn"]
           expected_worker_args = ["task_worker_main:app", "--host", "0.0.0.0", "--port", "8080",
                                   "--proxy-headers", "--forwarded-allow-ips=*"]
+          SEC_PINS = ("SEC_RATE_LIMIT_PER_SECOND", "EDGAR_RATE_LIMIT_PER_SEC")
+          def bounded_pin(value):
+              # A pin value is echoed only as a short digit string; anything else is withheld (it could be a secret
+              # placed in the wrong variable), in the env block as well as in the verdict.
+              return repr(value) if isinstance(value, str) and re.fullmatch(r"[0-9]{1,6}", value) else "<value withheld: not a plain numeric string>"
           def show(label, containers):
               if len(containers) != 1:
                   stop(f"{label} needs one application container.")
@@ -319,6 +324,8 @@ jobs:
                   seen.add(name)
                   if "valueFrom" in e or "valueSource" in e:
                       print(f"{name} = <secret-ref>")
+                  elif name in SEC_PINS:
+                      print(f"{name} = {bounded_pin(e.get('value'))}")
                   elif name in allow:
                       print(f"{name} = {e.get('value')!r}")
                   else:
@@ -342,8 +349,7 @@ jobs:
               if "valueFrom" in entry or "valueSource" in entry:
                   return False, "<secret-ref>"
               value = entry.get("value")
-              shown = repr(value) if isinstance(value, str) and re.fullmatch(r"[0-9]{1,6}", value) else "<value withheld: not a plain numeric string>"
-              return value == "1", shown
+              return value == "1", bounded_pin(value)
           def require_sec_pins(label, containers):
               # CODE RED D3: both SEC buckets are pinned to exactly 1 as plain values on every process.
               env = {entry.get("name"): entry for entry in containers[0].get("env", [])}
