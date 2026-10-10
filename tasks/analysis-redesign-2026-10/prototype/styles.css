@@ -161,9 +161,9 @@ sup.affix, .affix sup { line-height: 0; vertical-align: baseline; position: rela
 .notes .methods p { margin: 0; }
 
 /* ---------- Charts ---------- */
-.charts { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+.charts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
 @media (min-width: 768px) { .charts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.panel { padding: 1.25rem; }
+.panel { padding: 1.25rem; min-width: 0; } /* a grid item keeps its min-content width unless told otherwise; the plot scrolls inside */
 .panel .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.75rem; }
 .panel .head h2 { font-size: 0.875rem; line-height: 1.25rem; }
 .panel .legend { margin-top: 0.25rem; display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; font-size: 0.75rem; color: var(--ink-2); }
@@ -179,7 +179,7 @@ sup.affix, .affix sup { line-height: 0; vertical-align: baseline; position: rela
 
 /* ---------- Narrative ---------- */
 .narrative .head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.75rem; }
-.narrative .head .left { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.narrative .head .left { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; min-width: 0; }
 .narrative .head h2 { font-size: 1.25rem; line-height: 1.75rem; letter-spacing: var(--track-title3); }
 .markdown-body { line-height: 1.7; }
 .markdown-body h3 { font-size: 1.25rem; line-height: 1.35; letter-spacing: var(--track-title3); margin: 1.75rem 0 0.5rem; }
@@ -210,7 +210,8 @@ sup.affix, .affix sup { line-height: 0; vertical-align: baseline; position: rela
 .metrics .head .left { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
 .metrics .head h2 { font-size: 1.25rem; line-height: 1.75rem; letter-spacing: var(--track-title3); }
 .metrics .head .legend { font-size: 0.75rem; color: var(--ink-3); display: inline-flex; gap: 0.75rem; flex-wrap: wrap; }
-.metrics .head .window { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--ink-3); }
+.metrics .head .window { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--ink-3); min-width: 0; }
+.metrics .head .window .seg { flex-wrap: wrap; }
 .metrics-scroll { overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline-start: var(--metric-col); border-radius: 0.25rem; position: relative; }
 .metrics-scroll:focus-visible { box-shadow: var(--ring); }
 .metrics-scroll .hint { position: sticky; left: 0; font-size: 0.75rem; color: var(--ink-3); padding: 0.25rem 0 0.5rem; display: none; }

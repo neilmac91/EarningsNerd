@@ -68,9 +68,10 @@ async function mockApi(context) {
   await context.route(/^https?:\/\/(?!localhost)/, (route) => route.abort())
 }
 
-async function measure(page) {
-  return page.evaluate(() => {
-    const vw = window.innerWidth
+async function measure(page, configuredWidth) {
+  // Mobile Chromium widens the layout viewport to overflowing content, so innerWidth cannot detect
+  // overflow: compare the document with the configured viewport width instead.
+  return page.evaluate((vw) => {
     const doc = document.documentElement
     const r = (el) => el.getBoundingClientRect()
     const badges = [...document.querySelectorAll('span.rounded-full')].filter((el) => /source check/i.test(el.textContent || ''))
@@ -120,6 +121,7 @@ async function measure(page) {
     const sm = [...document.querySelectorAll('summary')].find((s) => /Sources/.test(s.textContent || ''))
     return {
       viewport: vw,
+      layoutViewport: window.innerWidth,
       documentWidth: doc.scrollWidth,
       pageOverflowPx: doc.scrollWidth - vw,
       sourceCheckLabels: badges.length,
@@ -128,7 +130,7 @@ async function measure(page) {
       kpi,
       table: tableInfo,
     }
-  })
+  }, configuredWidth)
 }
 
 async function run() {
@@ -146,7 +148,7 @@ async function run() {
       await page.getByRole('heading', { name: 'Metrics by period' }).waitFor({ timeout: 30000 })
       await page.getByRole('heading', { name: 'AI trend analysis' }).waitFor({ timeout: 30000 })
       await page.waitForTimeout(600)
-      const m = await measure(page)
+      const m = await measure(page, cfg.width)
       results.configs.push({ theme, ...cfg, ...m })
       if (SHOTS) {
         mkdirSync(SHOTS, { recursive: true })

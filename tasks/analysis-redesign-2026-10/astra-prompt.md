@@ -51,6 +51,11 @@ row without stored provenance `validation: needs_review` with reason `legacy_cal
 `build_observation_catalogue` with a "Source operands:" tail on each red flag; the fidelity scan
 (`trend_analysis/fidelity.py`) licenses compact-scale tokens such as $60.8B.
 
+The Track A verification of 2026-10-10 (PR #1197) found a phone overflow in the first prototype build
+(chart panels sized by their min-content width; harnesses comparing with `window.innerWidth`) and a
+list of brief corrections; all are folded into the proposal's §11 and the sections it names. Read §11
+before building.
+
 The quarterly data repair (`docs/quarterly-data-repair.md`, #1191) is a separate operational action. The UI
 must look right before it (state 2) and after it (state 1). Never mark a legacy record validated from the
 frontend, never hide a note, never show the word "verified".

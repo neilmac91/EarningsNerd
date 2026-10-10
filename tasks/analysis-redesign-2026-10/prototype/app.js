@@ -227,7 +227,7 @@
       if (g.kind === 'review') {
         const qoq = g.comparisons.filter((x) => x.basis === 'qoq').length, yoy = g.comparisons.filter((x) => x.basis === 'yoy').length
         c.append(`${g.values.length} value${g.values.length === 1 ? '' : 's'}`, g.comparisons.length ? ` · ${g.comparisons.length} comparison${g.comparisons.length === 1 ? '' : 's'} inherit this note (${qoq} quarter-over-quarter in the table, ${yoy} year-over-year in the headline figures and charts)` : '')
-        if (g.reasons.includes('legacy_calculation')) c.append(' · figures are shown; their source lineage is scheduled for rebuild')
+        if (g.reasons.includes('legacy_calculation')) c.append(' · figures are shown as stored; their source lineage is not recorded')
         if (g.reasons.includes('source_conflict')) c.append(' · review the original filing before relying on these figures')
       } else {
         c.append(`${g.values.length} value${g.values.length === 1 ? '' : 's'} shown as — · growth is not computed across a gap`)
@@ -519,7 +519,7 @@
     const sources = el('div', { class: 'block' }, el('h3', null, calc ? 'Inputs and source filings' : 'Source filing'))
     if (calc) {
       if (prov.inputs && prov.inputs.length) sources.append(operandList(prov.inputs, 0))
-      else sources.append(el('div', { class: 'absent' }, 'Source lineage is not recorded for this saved calculation. The figure is shown as stored; its inputs will be attached by the scheduled data repair. Check the original filing before relying on it.'))
+      else sources.append(el('div', { class: 'absent' }, 'Source lineage is not recorded for this saved calculation. The figure is shown as stored. Check the original filing before relying on it.'))
     } else {
       const url = point.source_url || prov.source_url
       const meta = el('span', { class: 'meta', style: 'display:flex;flex-wrap:wrap;gap:.25rem .75rem;font-size:.75rem;color:var(--ink-3)' })
@@ -602,10 +602,13 @@
       for (const card of document.querySelectorAll('.kpi, .kpi-card')) { const cr = card.getBoundingClientRect(); for (const c of card.querySelectorAll('*')) { const b = c.getBoundingClientRect(); if (b.width) worst = Math.max(worst, b.right - cr.right, cr.left - b.left) } }
       const t = document.querySelector('table.metrics, table.auto')
       const sc = t && t.parentElement
-      $('#readout').innerHTML = `viewport ${window.innerWidth} · page overflow <span class="${over > 0 ? 'bad' : ''}">${Math.max(0, Math.round(over))}px</span> · KPI child overflow <span class="${worst > 0.5 ? 'bad' : ''}">${Math.round(worst)}px</span>${t ? ` · table ${Math.round(t.scrollWidth)}px in ${Math.round(sc.clientWidth)}px` : ''}`
+      $('#readout').innerHTML = `document ${doc.scrollWidth}px wide (layout viewport ${window.innerWidth}) · page overflow <span class="${over > 0 ? 'bad' : ''}">${Math.max(0, Math.round(over))}px</span> · KPI child overflow <span class="${worst > 0.5 ? 'bad' : ''}">${Math.round(worst)}px</span>${t ? ` · table ${Math.round(t.scrollWidth)}px in ${Math.round(sc.clientWidth)}px` : ''}`
     })
   }
-  window.EN_PROTO = { render, state, buildNotes, measure: async () => {
+  window.EN_PROTO = { render, state, buildNotes, measure: async (configuredWidth) => {
+    // Mobile Chromium widens the layout viewport to overflowing content, so innerWidth cannot detect
+    // overflow; the harness passes the configured viewport width and overflow is measured against it.
+    const viewportWidth = configuredWidth || window.innerWidth
     const settle = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
     const doc = document.documentElement
     const r = (x) => x.getBoundingClientRect()
@@ -625,7 +628,7 @@
     }
     const labels = [...document.querySelectorAll('.badge')].filter((b) => /source check/i.test(b.textContent)).length
     const affixes = document.querySelectorAll('.affix .note').length
-    return { viewport: window.innerWidth, documentWidth: doc.scrollWidth, pageOverflowPx: doc.scrollWidth - window.innerWidth, kpi: cards, table, sourceCheckLabels: labels, noteAffixes: affixes, notes: $('#data-notes') ? $('#data-notes summary').textContent.replace(/\s+/g, ' ').trim() : null }
+    return { viewport: viewportWidth, layoutViewport: window.innerWidth, documentWidth: doc.scrollWidth, pageOverflowPx: doc.scrollWidth - viewportWidth, kpi: cards, table, sourceCheckLabels: labels, noteAffixes: affixes, notes: $('#data-notes') ? $('#data-notes summary').textContent.replace(/\s+/g, ' ').trim() : null }
   } }
 
   // controls

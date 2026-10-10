@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-10-10T18:54:05.556Z",
+ "generatedAt": "2026-10-10T20:12:50.004Z",
  "configs": [
   {
    "theme": "light",
@@ -9,6 +9,7 @@
    "width": 1480,
    "height": 1000,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -99,6 +100,7 @@
    "width": 1480,
    "height": 1000,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -172,6 +174,7 @@
    "width": 1480,
    "height": 1000,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -262,6 +265,7 @@
    "width": 1480,
    "height": 1000,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -335,6 +339,7 @@
    "width": 1480,
    "height": 1000,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -425,6 +430,7 @@
    "width": 1480,
    "height": 1000,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -498,6 +504,7 @@
    "width": 1054,
    "height": 1000,
    "viewport": 1054,
+   "layoutViewport": 1054,
    "documentWidth": 1054,
    "pageOverflowPx": 0,
    "kpi": [
@@ -588,6 +595,7 @@
    "width": 1054,
    "height": 1000,
    "viewport": 1054,
+   "layoutViewport": 1054,
    "documentWidth": 1054,
    "pageOverflowPx": 0,
    "kpi": [
@@ -661,6 +669,7 @@
    "width": 1054,
    "height": 1000,
    "viewport": 1054,
+   "layoutViewport": 1054,
    "documentWidth": 1054,
    "pageOverflowPx": 0,
    "kpi": [
@@ -751,6 +760,7 @@
    "width": 1054,
    "height": 1000,
    "viewport": 1054,
+   "layoutViewport": 1054,
    "documentWidth": 1054,
    "pageOverflowPx": 0,
    "kpi": [
@@ -824,6 +834,7 @@
    "width": 1054,
    "height": 1000,
    "viewport": 1054,
+   "layoutViewport": 1054,
    "documentWidth": 1054,
    "pageOverflowPx": 0,
    "kpi": [
@@ -914,6 +925,7 @@
    "width": 1054,
    "height": 1000,
    "viewport": 1054,
+   "layoutViewport": 1054,
    "documentWidth": 1054,
    "pageOverflowPx": 0,
    "kpi": [
@@ -987,6 +999,7 @@
    "width": 1024,
    "height": 1000,
    "viewport": 1024,
+   "layoutViewport": 1024,
    "documentWidth": 1024,
    "pageOverflowPx": 0,
    "kpi": [
@@ -1077,6 +1090,7 @@
    "width": 1024,
    "height": 1000,
    "viewport": 1024,
+   "layoutViewport": 1024,
    "documentWidth": 1024,
    "pageOverflowPx": 0,
    "kpi": [
@@ -1150,6 +1164,7 @@
    "width": 1024,
    "height": 1000,
    "viewport": 1024,
+   "layoutViewport": 1024,
    "documentWidth": 1024,
    "pageOverflowPx": 0,
    "kpi": [
@@ -1240,6 +1255,7 @@
    "width": 1024,
    "height": 1000,
    "viewport": 1024,
+   "layoutViewport": 1024,
    "documentWidth": 1024,
    "pageOverflowPx": 0,
    "kpi": [
@@ -1313,6 +1329,7 @@
    "width": 1024,
    "height": 1000,
    "viewport": 1024,
+   "layoutViewport": 1024,
    "documentWidth": 1024,
    "pageOverflowPx": 0,
    "kpi": [
@@ -1403,6 +1420,7 @@
    "width": 1024,
    "height": 1000,
    "viewport": 1024,
+   "layoutViewport": 1024,
    "documentWidth": 1024,
    "pageOverflowPx": 0,
    "kpi": [
@@ -1476,6 +1494,7 @@
    "width": 768,
    "height": 1024,
    "viewport": 768,
+   "layoutViewport": 768,
    "documentWidth": 768,
    "pageOverflowPx": 0,
    "kpi": [
@@ -1566,6 +1585,7 @@
    "width": 768,
    "height": 1024,
    "viewport": 768,
+   "layoutViewport": 768,
    "documentWidth": 768,
    "pageOverflowPx": 0,
    "kpi": [
@@ -1639,6 +1659,7 @@
    "width": 768,
    "height": 1024,
    "viewport": 768,
+   "layoutViewport": 768,
    "documentWidth": 768,
    "pageOverflowPx": 0,
    "kpi": [
@@ -1729,6 +1750,7 @@
    "width": 768,
    "height": 1024,
    "viewport": 768,
+   "layoutViewport": 768,
    "documentWidth": 768,
    "pageOverflowPx": 0,
    "kpi": [
@@ -1802,6 +1824,7 @@
    "width": 768,
    "height": 1024,
    "viewport": 768,
+   "layoutViewport": 768,
    "documentWidth": 768,
    "pageOverflowPx": 0,
    "kpi": [
@@ -1892,6 +1915,7 @@
    "width": 768,
    "height": 1024,
    "viewport": 768,
+   "layoutViewport": 768,
    "documentWidth": 768,
    "pageOverflowPx": 0,
    "kpi": [
@@ -1965,8 +1989,9 @@
    "width": 390,
    "height": 844,
    "mobile": true,
-   "viewport": 539,
-   "documentWidth": 539,
+   "viewport": 390,
+   "layoutViewport": 390,
+   "documentWidth": 390,
    "pageOverflowPx": 0,
    "kpi": [
     {
@@ -2057,6 +2082,7 @@
    "height": 844,
    "mobile": true,
    "viewport": 390,
+   "layoutViewport": 390,
    "documentWidth": 390,
    "pageOverflowPx": 0,
    "kpi": [
@@ -2130,8 +2156,9 @@
    "width": 390,
    "height": 844,
    "mobile": true,
-   "viewport": 539,
-   "documentWidth": 539,
+   "viewport": 390,
+   "layoutViewport": 390,
+   "documentWidth": 390,
    "pageOverflowPx": 0,
    "kpi": [
     {
@@ -2221,9 +2248,10 @@
    "width": 390,
    "height": 844,
    "mobile": true,
-   "viewport": 425,
+   "viewport": 390,
+   "layoutViewport": 425,
    "documentWidth": 425,
-   "pageOverflowPx": 0,
+   "pageOverflowPx": 35,
    "kpi": [
     {
      "kpi": "revenue",
@@ -2295,8 +2323,9 @@
    "width": 390,
    "height": 844,
    "mobile": true,
-   "viewport": 539,
-   "documentWidth": 539,
+   "viewport": 390,
+   "layoutViewport": 390,
+   "documentWidth": 390,
    "pageOverflowPx": 0,
    "kpi": [
     {
@@ -2386,9 +2415,10 @@
    "width": 390,
    "height": 844,
    "mobile": true,
-   "viewport": 425,
+   "viewport": 390,
+   "layoutViewport": 425,
    "documentWidth": 425,
-   "pageOverflowPx": 0,
+   "pageOverflowPx": 35,
    "kpi": [
     {
      "kpi": "revenue",
@@ -2460,8 +2490,9 @@
    "width": 320,
    "height": 568,
    "mobile": true,
-   "viewport": 538,
-   "documentWidth": 538,
+   "viewport": 320,
+   "layoutViewport": 320,
+   "documentWidth": 320,
    "pageOverflowPx": 0,
    "kpi": [
     {
@@ -2552,6 +2583,7 @@
    "height": 568,
    "mobile": true,
    "viewport": 320,
+   "layoutViewport": 320,
    "documentWidth": 320,
    "pageOverflowPx": 0,
    "kpi": [
@@ -2625,8 +2657,9 @@
    "width": 320,
    "height": 568,
    "mobile": true,
-   "viewport": 538,
-   "documentWidth": 538,
+   "viewport": 320,
+   "layoutViewport": 320,
+   "documentWidth": 320,
    "pageOverflowPx": 0,
    "kpi": [
     {
@@ -2716,9 +2749,10 @@
    "width": 320,
    "height": 568,
    "mobile": true,
-   "viewport": 390,
+   "viewport": 320,
+   "layoutViewport": 390,
    "documentWidth": 390,
-   "pageOverflowPx": 0,
+   "pageOverflowPx": 70,
    "kpi": [
     {
      "kpi": "revenue",
@@ -2790,8 +2824,9 @@
    "width": 320,
    "height": 568,
    "mobile": true,
-   "viewport": 538,
-   "documentWidth": 538,
+   "viewport": 320,
+   "layoutViewport": 320,
+   "documentWidth": 320,
    "pageOverflowPx": 0,
    "kpi": [
     {
@@ -2881,9 +2916,10 @@
    "width": 320,
    "height": 568,
    "mobile": true,
-   "viewport": 390,
+   "viewport": 320,
+   "layoutViewport": 390,
    "documentWidth": 390,
-   "pageOverflowPx": 0,
+   "pageOverflowPx": 70,
    "kpi": [
     {
      "kpi": "revenue",
@@ -2956,6 +2992,7 @@
    "height": 500,
    "dsf": 2,
    "viewport": 740,
+   "layoutViewport": 740,
    "documentWidth": 740,
    "pageOverflowPx": 0,
    "kpi": [
@@ -3047,6 +3084,7 @@
    "height": 500,
    "dsf": 2,
    "viewport": 740,
+   "layoutViewport": 740,
    "documentWidth": 740,
    "pageOverflowPx": 0,
    "kpi": [
@@ -3121,6 +3159,7 @@
    "height": 500,
    "dsf": 2,
    "viewport": 740,
+   "layoutViewport": 740,
    "documentWidth": 740,
    "pageOverflowPx": 0,
    "kpi": [
@@ -3212,6 +3251,7 @@
    "height": 500,
    "dsf": 2,
    "viewport": 740,
+   "layoutViewport": 740,
    "documentWidth": 740,
    "pageOverflowPx": 0,
    "kpi": [
@@ -3286,6 +3326,7 @@
    "height": 500,
    "dsf": 2,
    "viewport": 740,
+   "layoutViewport": 740,
    "documentWidth": 740,
    "pageOverflowPx": 0,
    "kpi": [
@@ -3377,6 +3418,7 @@
    "height": 500,
    "dsf": 2,
    "viewport": 740,
+   "layoutViewport": 740,
    "documentWidth": 740,
    "pageOverflowPx": 0,
    "kpi": [
@@ -3451,6 +3493,7 @@
    "height": 1000,
    "textZoom": 2,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -3542,6 +3585,7 @@
    "height": 1000,
    "textZoom": 2,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -3616,6 +3660,7 @@
    "height": 1000,
    "textZoom": 2,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -3707,6 +3752,7 @@
    "height": 1000,
    "textZoom": 2,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1551,
    "pageOverflowPx": 71,
    "kpi": [
@@ -3781,6 +3827,7 @@
    "height": 1000,
    "textZoom": 2,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -3872,6 +3919,7 @@
    "height": 1000,
    "textZoom": 2,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1551,
    "pageOverflowPx": 71,
    "kpi": [
@@ -3945,6 +3993,7 @@
    "width": 1480,
    "height": 1000,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -4035,6 +4084,7 @@
    "width": 1480,
    "height": 1000,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -4108,6 +4158,7 @@
    "width": 1480,
    "height": 1000,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -4198,6 +4249,7 @@
    "width": 1480,
    "height": 1000,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -4271,6 +4323,7 @@
    "width": 1480,
    "height": 1000,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -4361,6 +4414,7 @@
    "width": 1480,
    "height": 1000,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -4434,6 +4488,7 @@
    "width": 1054,
    "height": 1000,
    "viewport": 1054,
+   "layoutViewport": 1054,
    "documentWidth": 1054,
    "pageOverflowPx": 0,
    "kpi": [
@@ -4524,6 +4579,7 @@
    "width": 1054,
    "height": 1000,
    "viewport": 1054,
+   "layoutViewport": 1054,
    "documentWidth": 1054,
    "pageOverflowPx": 0,
    "kpi": [
@@ -4597,6 +4653,7 @@
    "width": 1054,
    "height": 1000,
    "viewport": 1054,
+   "layoutViewport": 1054,
    "documentWidth": 1054,
    "pageOverflowPx": 0,
    "kpi": [
@@ -4687,6 +4744,7 @@
    "width": 1054,
    "height": 1000,
    "viewport": 1054,
+   "layoutViewport": 1054,
    "documentWidth": 1054,
    "pageOverflowPx": 0,
    "kpi": [
@@ -4760,6 +4818,7 @@
    "width": 1054,
    "height": 1000,
    "viewport": 1054,
+   "layoutViewport": 1054,
    "documentWidth": 1054,
    "pageOverflowPx": 0,
    "kpi": [
@@ -4850,6 +4909,7 @@
    "width": 1054,
    "height": 1000,
    "viewport": 1054,
+   "layoutViewport": 1054,
    "documentWidth": 1054,
    "pageOverflowPx": 0,
    "kpi": [
@@ -4923,6 +4983,7 @@
    "width": 1024,
    "height": 1000,
    "viewport": 1024,
+   "layoutViewport": 1024,
    "documentWidth": 1024,
    "pageOverflowPx": 0,
    "kpi": [
@@ -5013,6 +5074,7 @@
    "width": 1024,
    "height": 1000,
    "viewport": 1024,
+   "layoutViewport": 1024,
    "documentWidth": 1024,
    "pageOverflowPx": 0,
    "kpi": [
@@ -5086,6 +5148,7 @@
    "width": 1024,
    "height": 1000,
    "viewport": 1024,
+   "layoutViewport": 1024,
    "documentWidth": 1024,
    "pageOverflowPx": 0,
    "kpi": [
@@ -5176,6 +5239,7 @@
    "width": 1024,
    "height": 1000,
    "viewport": 1024,
+   "layoutViewport": 1024,
    "documentWidth": 1024,
    "pageOverflowPx": 0,
    "kpi": [
@@ -5249,6 +5313,7 @@
    "width": 1024,
    "height": 1000,
    "viewport": 1024,
+   "layoutViewport": 1024,
    "documentWidth": 1024,
    "pageOverflowPx": 0,
    "kpi": [
@@ -5339,6 +5404,7 @@
    "width": 1024,
    "height": 1000,
    "viewport": 1024,
+   "layoutViewport": 1024,
    "documentWidth": 1024,
    "pageOverflowPx": 0,
    "kpi": [
@@ -5412,6 +5478,7 @@
    "width": 768,
    "height": 1024,
    "viewport": 768,
+   "layoutViewport": 768,
    "documentWidth": 768,
    "pageOverflowPx": 0,
    "kpi": [
@@ -5502,6 +5569,7 @@
    "width": 768,
    "height": 1024,
    "viewport": 768,
+   "layoutViewport": 768,
    "documentWidth": 768,
    "pageOverflowPx": 0,
    "kpi": [
@@ -5575,6 +5643,7 @@
    "width": 768,
    "height": 1024,
    "viewport": 768,
+   "layoutViewport": 768,
    "documentWidth": 768,
    "pageOverflowPx": 0,
    "kpi": [
@@ -5665,6 +5734,7 @@
    "width": 768,
    "height": 1024,
    "viewport": 768,
+   "layoutViewport": 768,
    "documentWidth": 768,
    "pageOverflowPx": 0,
    "kpi": [
@@ -5738,6 +5808,7 @@
    "width": 768,
    "height": 1024,
    "viewport": 768,
+   "layoutViewport": 768,
    "documentWidth": 768,
    "pageOverflowPx": 0,
    "kpi": [
@@ -5828,6 +5899,7 @@
    "width": 768,
    "height": 1024,
    "viewport": 768,
+   "layoutViewport": 768,
    "documentWidth": 768,
    "pageOverflowPx": 0,
    "kpi": [
@@ -5901,8 +5973,9 @@
    "width": 390,
    "height": 844,
    "mobile": true,
-   "viewport": 539,
-   "documentWidth": 539,
+   "viewport": 390,
+   "layoutViewport": 390,
+   "documentWidth": 390,
    "pageOverflowPx": 0,
    "kpi": [
     {
@@ -5993,6 +6066,7 @@
    "height": 844,
    "mobile": true,
    "viewport": 390,
+   "layoutViewport": 390,
    "documentWidth": 390,
    "pageOverflowPx": 0,
    "kpi": [
@@ -6066,8 +6140,9 @@
    "width": 390,
    "height": 844,
    "mobile": true,
-   "viewport": 539,
-   "documentWidth": 539,
+   "viewport": 390,
+   "layoutViewport": 390,
+   "documentWidth": 390,
    "pageOverflowPx": 0,
    "kpi": [
     {
@@ -6157,9 +6232,10 @@
    "width": 390,
    "height": 844,
    "mobile": true,
-   "viewport": 425,
+   "viewport": 390,
+   "layoutViewport": 425,
    "documentWidth": 425,
-   "pageOverflowPx": 0,
+   "pageOverflowPx": 35,
    "kpi": [
     {
      "kpi": "revenue",
@@ -6231,8 +6307,9 @@
    "width": 390,
    "height": 844,
    "mobile": true,
-   "viewport": 539,
-   "documentWidth": 539,
+   "viewport": 390,
+   "layoutViewport": 390,
+   "documentWidth": 390,
    "pageOverflowPx": 0,
    "kpi": [
     {
@@ -6322,9 +6399,10 @@
    "width": 390,
    "height": 844,
    "mobile": true,
-   "viewport": 425,
+   "viewport": 390,
+   "layoutViewport": 425,
    "documentWidth": 425,
-   "pageOverflowPx": 0,
+   "pageOverflowPx": 35,
    "kpi": [
     {
      "kpi": "revenue",
@@ -6396,8 +6474,9 @@
    "width": 320,
    "height": 568,
    "mobile": true,
-   "viewport": 538,
-   "documentWidth": 538,
+   "viewport": 320,
+   "layoutViewport": 320,
+   "documentWidth": 320,
    "pageOverflowPx": 0,
    "kpi": [
     {
@@ -6488,6 +6567,7 @@
    "height": 568,
    "mobile": true,
    "viewport": 320,
+   "layoutViewport": 320,
    "documentWidth": 320,
    "pageOverflowPx": 0,
    "kpi": [
@@ -6561,8 +6641,9 @@
    "width": 320,
    "height": 568,
    "mobile": true,
-   "viewport": 538,
-   "documentWidth": 538,
+   "viewport": 320,
+   "layoutViewport": 320,
+   "documentWidth": 320,
    "pageOverflowPx": 0,
    "kpi": [
     {
@@ -6652,9 +6733,10 @@
    "width": 320,
    "height": 568,
    "mobile": true,
-   "viewport": 390,
+   "viewport": 320,
+   "layoutViewport": 390,
    "documentWidth": 390,
-   "pageOverflowPx": 0,
+   "pageOverflowPx": 70,
    "kpi": [
     {
      "kpi": "revenue",
@@ -6726,8 +6808,9 @@
    "width": 320,
    "height": 568,
    "mobile": true,
-   "viewport": 538,
-   "documentWidth": 538,
+   "viewport": 320,
+   "layoutViewport": 320,
+   "documentWidth": 320,
    "pageOverflowPx": 0,
    "kpi": [
     {
@@ -6817,9 +6900,10 @@
    "width": 320,
    "height": 568,
    "mobile": true,
-   "viewport": 390,
+   "viewport": 320,
+   "layoutViewport": 390,
    "documentWidth": 390,
-   "pageOverflowPx": 0,
+   "pageOverflowPx": 70,
    "kpi": [
     {
      "kpi": "revenue",
@@ -6892,6 +6976,7 @@
    "height": 500,
    "dsf": 2,
    "viewport": 740,
+   "layoutViewport": 740,
    "documentWidth": 740,
    "pageOverflowPx": 0,
    "kpi": [
@@ -6983,6 +7068,7 @@
    "height": 500,
    "dsf": 2,
    "viewport": 740,
+   "layoutViewport": 740,
    "documentWidth": 740,
    "pageOverflowPx": 0,
    "kpi": [
@@ -7057,6 +7143,7 @@
    "height": 500,
    "dsf": 2,
    "viewport": 740,
+   "layoutViewport": 740,
    "documentWidth": 740,
    "pageOverflowPx": 0,
    "kpi": [
@@ -7148,6 +7235,7 @@
    "height": 500,
    "dsf": 2,
    "viewport": 740,
+   "layoutViewport": 740,
    "documentWidth": 740,
    "pageOverflowPx": 0,
    "kpi": [
@@ -7222,6 +7310,7 @@
    "height": 500,
    "dsf": 2,
    "viewport": 740,
+   "layoutViewport": 740,
    "documentWidth": 740,
    "pageOverflowPx": 0,
    "kpi": [
@@ -7313,6 +7402,7 @@
    "height": 500,
    "dsf": 2,
    "viewport": 740,
+   "layoutViewport": 740,
    "documentWidth": 740,
    "pageOverflowPx": 0,
    "kpi": [
@@ -7387,6 +7477,7 @@
    "height": 1000,
    "textZoom": 2,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -7478,6 +7569,7 @@
    "height": 1000,
    "textZoom": 2,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -7552,6 +7644,7 @@
    "height": 1000,
    "textZoom": 2,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -7643,6 +7736,7 @@
    "height": 1000,
    "textZoom": 2,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1551,
    "pageOverflowPx": 71,
    "kpi": [
@@ -7717,6 +7811,7 @@
    "height": 1000,
    "textZoom": 2,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "kpi": [
@@ -7808,6 +7903,7 @@
    "height": 1000,
    "textZoom": 2,
    "viewport": 1480,
+   "layoutViewport": 1480,
    "documentWidth": 1551,
    "pageOverflowPx": 71,
    "kpi": [

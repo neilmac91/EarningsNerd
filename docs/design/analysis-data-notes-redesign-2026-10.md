@@ -49,9 +49,14 @@ The proposal replaces label-per-instance with **note-per-issue**:
 
 Measured on the prototype with the real Meta Platforms 12-quarter dataset in its production-like
 state: no page overflow and no card-child overflow at 1480, 1054, 1024, 768, 390 and 320 CSS px, in
-both themes, at 200% browser zoom and at 200% text size; twelve columns fit at 1480 px without
-scrolling; the "Newest 6" window fits without scrolling from 768 px up; no column is ever partly
-hidden under the sticky metric column. The current build, measured the same way, overflows the device
+both themes, at 2x device-scale emulation of 200% browser zoom and at 200% text size; twelve columns
+fit at 1480 px without scrolling; the "Newest 6" window fits without scrolling from 768 px up; no
+column is ever partly hidden under the sticky metric column. (The first prototype build overflowed
+on phones: its chart panels kept their 480 px min-content width inside `1fr` grid tracks, and both
+harnesses hid it by comparing the document with `window.innerWidth`, which mobile Chromium widens to
+the content. The Track A verification on the PR caught both; the panels now sit in `minmax(0, 1fr)`
+tracks with `min-width: 0`, and the harnesses compare the document with the configured viewport.
+§11 lists every correction.) The current build, measured the same way, overflows the device
 by 39 px at 390 and 93 px at 320, places a label 54 px past its card edge at 390 (126 px at 200% text),
 and lays the table out 2,076 px wide at every width.
 
@@ -98,7 +103,12 @@ the three inflections and the twenty-operand finding). Three states were recorde
 | 3 genuine discrepancy | the latest reported revenue and the two margins calculated from it carry `source_conflict` (a simulation of the engine's output when sources disagree) | 3 values; 3 QoQ + 3 YoY comparisons; 10 unavailable |
 
 Production counted 26 because its comparison count is QoQ-only and its legacy set differs slightly
-from the modelled one; the mechanism is the same.
+from the modelled one (production: 236 populated values, 4 gaps, 16 QoQ + 10 YoY concerns; the
+fixture: 230, 10, 14 + 10); the mechanism is the same. `source_conflict` is a reason the frontend
+maps but no backend code path produces today, so state 3 simulates a reason the model must handle,
+not one the engine emits. The prototype's data modules are pruned for rendering (the provenance
+`version` and the comparison operands' shape are flattened); they are a visual reference, not a
+lineage-contract fixture.
 
 ### 2.3 Measurements of the current components
 
@@ -117,8 +127,9 @@ with every API answered in the browser, state 2, light theme (dark theme measure
 | 1480 at 200% zoom (740 CSS px) | 740 | 33 | 0 | 37 / 37 / 37 / 37 | 2,076 / 642 |
 | 1480 at 200% text | **1,558** | 33 | **125.6 px** | 73 / 105 / 105 / 105 | 4,151 / 1,286 |
 
-Table columns: warned period columns 234–240 px, clean ones 77–105 px (469–481 vs 154–209 at 200%
-text). The 33 labels are four texts: "Source check needed", "Growth source check needed", "24 source
+Document widths are measured against the configured viewport (mobile Chromium widens the layout
+viewport to the content, so `window.innerWidth` cannot detect overflow). Table columns: warned
+period columns 234–240 px, clean ones 77–105 px (469–481 vs 154–209 at 200% text). The 33 labels are four texts: "Source check needed", "Growth source check needed", "24 source
 checks needed" and "Source checks needed". The far-right sticky-column occlusion the founder saw was
 not reproduced at the rest position my probe measures; the mechanism, a scroll range that is not a
 whole number of columns, is real, and the prototype reproduced it before its range rule (§4.5).
@@ -136,7 +147,8 @@ modelled legacy set.
   the values across cards (the "value top" column above).
 - The narrative prints "USD 60,801,000,000" where the Sources list already carries the exact figure.
 - The "34 source entries" chip, the amber "Source checks needed" chip and "Cached" sit in one row with
-  the heading; on phones they wrap under it.
+  the heading; the row of chips itself does not wrap (only the outer group that holds the buttons
+  does), so on phones the chips run past the heading's row.
 - `SourcesMethods` is a full `Card` whose resting state is one summary line.
 
 ## 3. Diagnosis
@@ -178,6 +190,11 @@ shipped by the backend as `dataset.data_notes` (Phase 2, so exports agree):
   this dataset" when the point has no record (capex and FCF for Q3–Q4 2023).
 - Notes are lettered a, b, c in order of first appearance (series order, then period order), review
   notes before unavailability notes. Letters are stable within a snapshot; a new snapshot may re-letter.
+- The grouping must also carry: a populated value whose record has no provenance at all (older
+  snapshots) as a "no validation record" note that claims nothing; a legacy `reconciled: false`
+  without provenance under the `source_check_needed` key; annual CAGR and window-pp comparisons
+  (`cagr_provenance`, `window_pp_provenance`) in the comparison counts; and a comparison whose reason
+  set matches no value's (a comparison-only or mixed set) as its own lettered note.
 - Copy per reason reuses `provenance.ts` `REASONS`, rewritten to one sentence of plain English each
   (the current `legacy_calculation` sentence stays: "This saved calculation predates the current source
   checks. Its inputs need review.").
@@ -257,7 +274,10 @@ replaces `SourcesMethods.tsx`.
   WCAG 1.4.10 allows for data tables). Content never sizes a column.
 - Cell: value line (`$60.8B†ᵃ`), then the change line in the series' financial tone with the sign only
   (`+8.0%`, `−9.7ppᵃ`, `n/m`); "QoQ" is stated once, in the metric column's header ("value · Δ vs
-  prior quarter") and in the caption. Twelve columns of "QoQ " disappear.
+  prior quarter") and in the caption. Twelve columns of "QoQ " disappear. The one exception keeps its
+  label: today's table falls back to the YoY comparison when a quarter has no QoQ comparison (a gap
+  before it), and such a cell prints "YoY −3.1%" explicitly, with the caption saying that a cell
+  marked YoY compares with the same quarter a year earlier.
 - Header: quarter over year on two lines ("Q2" / "’26"), a `†` after the year of a calculated Q4 column.
 - Unavailable: "—" with the note letter, a button only when there is a note to explain.
 - Sticky metric column (exists today) plus a **whole-column scroll range**: the scroll container gets an
@@ -301,9 +321,10 @@ The shared `Modal`, size `lg`, titled "Net margin · Q2 2026":
 4. **Inputs and source filings**: one row per operand (concept, exact value, period, its own method
    and check status, "Open filing ↗", accession, XBRL tag), nested one level for a derived quarter
    (FCF = OCF − capex, where OCF = YTD6 − Q1 shows both reported rows with their filings). For a legacy
-   record: "Source lineage is not recorded for this saved calculation. The figure is shown as stored; its
-   inputs will be attached by the scheduled data repair. Check the original filing before relying on
-   it." No source is ever constructed on the client.
+   record: "Source lineage is not recorded for this saved calculation. The figure is shown as stored.
+   Check the original filing before relying on it." (No promise about a repair: the repair is a separate
+   authorisation.) A source link the record itself carries is shown whether or not it has inputs. No
+   source is ever constructed on the client.
 5. The FCF definition for that series, and the existing "not an audit" line.
 
 Opens from pointer, keyboard (Enter/Space on the figure button) and touch; focus moves in, Tab cycles,
@@ -323,7 +344,9 @@ Escape closes, focus returns to the figure (the `Modal` contract).
 
 - Amounts in the compact display form the rest of the page uses ($60.8B, $1.7B, 26.1%, 2.23×,
   −12.1pp); periods as "Q2 2026"; citation chips unchanged, with the note letter inside the chip of a
-  cited figure that carries one. The exact value stays in the Sources entry ("$60.8B
+  cited figure that carries one. Ratios keep the engine's threshold rule (`_ratio_threshold_value`):
+  2.2256x prints as 2.23×, but a ratio within rounding of 1.00× keeps the decimals that show which side
+  of 1.00× it is on (1.00004× is never printed as "1.00×, above 1.00×"). The exact value stays in the Sources entry ("$60.8B
   (60,801,000,000)"), so the appendix keeps full precision and the fidelity scan, which licenses
   compact-scale tokens, keeps passing.
 - Header chips: "39 sources" (quiet), "Notes a" (provenance chip, opens the strip), "Cached".
@@ -429,19 +452,22 @@ operational action and is not part of this brief.
    `noteForComparison(point, basis)`. Unit test with a synthetic dataset covering review, unavailable,
    mixed and clean cases, and a pinned count test against a trimmed Meta fixture. Keep `provenance.ts`'s
    `REASONS` as the one copy source; rewrite sentences there.
-2. **`DataNoteMark.tsx`** (S) replaces `ReconciliationBadge.tsx` at every site (`KpiStrip`,
-   `MetricsTable`, `TrendCharts`, `NarrativePane`, the citation list, `SourceValue`). Retire
-   `ReconciliationBadge`; `Badge variant="warning"` stays for its other uses. Gate: an allowlist spec
+2. **`DataNoteMark.tsx`** (S) replaces `ReconciliationBadge.tsx` at every analysis site (`KpiStrip`,
+   `MetricsTable`, `TrendCharts`, `NarrativePane` and its citation list; `SourceValue` does not use
+   it). `ReconciliationBadge` stays for its fundamentals and peers consumers
+   (`FundamentalsTrendChart`, `PeerComparisonPanel`) until those surfaces adopt the mark;
+   `Badge variant="warning"` stays for its other uses. Gate: an allowlist spec
    that fails on `Badge` or `whitespace-nowrap` inside `features/analysis/components/{KpiStrip,MetricsTable}.tsx`
    and on any `text-[` smaller than 11 px in `features/analysis`.
 3. **`KpiStrip.tsx`** (S): `<dl>` + subgrid rows, period line, "latest available" marker, value button.
    Update `kpi-strip.spec.tsx` (it pins the "Growth source check needed" text, which goes).
 4. **`DataNotes.tsx`** (M) replaces `SourcesMethods.tsx`: strip, counts, notes list, the existing prose,
-   `id` per note for the chips to target. Update `analysis-source-quality.spec.tsx` (it pins "Source
-   check needed" and the "N source checks needed" badge).
+   `id` per note for the chips to target. Update `analysis-source-quality.spec.tsx` (it pins the
+   "Source check needed" text; it does not assert the "N source checks needed" count).
 5. **`DataTable.tsx`** (M): `layout: 'fixed'` with `colWidths`, a `scrollRegion` option (role, name,
    arrow keys, Home/End), `snapColumns` (snap type, padding and the whole-column inline-end pad with a
-   `ResizeObserver`). **`MetricsTable.tsx`** (M): column widths, header basis line, change line without
+   `ResizeObserver`), and opt-in row-header semantics (`rowHeader` renders the first cell as
+   `<th scope="row">`). **`MetricsTable.tsx`** (M): column widths, header basis line, change line without
    prefix, "—ᵇ", window control (`SegmentedControl`), start-at-newest on phones with the hint, 12-of-12
    caption. Update `metrics-table.spec.tsx`.
 6. **`SourceValue.tsx`** (S): display form + exact value, substituted formula, checks block, lineage
@@ -452,16 +478,24 @@ operational action and is not part of this brief.
    export and pin it); header chips; Sources list lines. Update `narrative-pane.spec.tsx`.
 8. **`TrendCharts.tsx`** (S): `dot` render for hollow markers with the letter, dashed outline for a bar
    with a note, "Notes a" chip, PNG note sentences from `groupDataNotes`. Update
-   `trend-charts-annotation.spec.tsx`, `chart-export.spec.ts`.
+   `trend-charts-annotation.spec.tsx`, `trend-charts-legend.spec.tsx` (it owns the warning and PNG
+   metadata assertions) and `chart-export.spec.ts`.
 9. **`PeriodPicker.tsx`** (M): `SegmentedControl`, presets, From/To `Select`s with the cap clamp,
    summary line; `chipsFor`/`nextRange` become option builders. Update `period-picker-helpers.spec.ts`.
-   Note the Run button keeps native `disabled` until the rule-6 item in `tasks/todo.md` is resolved.
+   `SegmentedControl` has no unavailable-option API today and the picker disables Quarterly when a
+   company has no quarterly coverage: add an `aria-disabled` option (early return in the handler, the
+   DS unavailable recipe, never native `disabled`) so that state survives the migration. Note the Run
+   button keeps native `disabled` until the rule-6 item in `tasks/todo.md` is resolved.
 10. **Gate** (M): `tests/e2e/analysis-layout.spec.ts` on the real page with the API answered in the
     browser (the harness in `tasks/analysis-redesign-2026-10/harness/measure-current.mjs` is the draft):
     no document overflow at 320/390/768/1024/1480 and at 200% text; no KPI child past its card; value
     tops equal within a row; period columns equal; no cell text clipped; no column partly under the sticky
     column at the far-right rest position; the window control's "Showing 6 of 12" line; the strip's counts
-    for the three fixture states. One mutation proof: reintroduce a nowrap label in a KPI card and show the
+    for the three fixture states. The overflow probe compares `document.documentElement.scrollWidth`
+    with the configured viewport width, never with `window.innerWidth` (mobile Chromium widens the
+    layout viewport to the content). Grid tracks that hold a scrolling plot or table are
+    `minmax(0, 1fr)` with `min-width: 0` on the item, the class of defect
+    `lessons/frontend-variable-text-must-not-size-a-wrapping-row.md` describes. One mutation proof: reintroduce a nowrap label in a KPI card and show the
     spec failing.
 11. **Docs** (records, same PR as item 2): `DESIGN.md` Calculation Provenance Rule ("Amber 'Source check
     needed'" → the lettered note, "Unavailable" → "— with its note letter; 'Unavailable' in the evidence
@@ -482,8 +516,11 @@ operational action and is not part of this brief.
    disclosure from it) with the inline sentence kept for the PDF; a `NARRATIVE_FORMAT_VERSION` beside
    `PROMPT_VERSION` in the cache key so cached narratives regenerate lazily, metered as system-invalidated
    (the existing `invalidated` path). `scan_numeric_fidelity` needs no change (compact tokens are
-   licensed by `_FIDELITY_SCALES`; period tokens are skipped). The prompt is untouched, so no eval
-   re-pin.
+   licensed by `_FIDELITY_SCALES`; period tokens are skipped). The prompt file is untouched, but the
+   catalogue text is model input (the model selects observation IDs from lines that carry the
+   rendered sentences), so this item is an AI-facing change: run the eval RUNBOOK's regression gate
+   (B1) and judge the artifact as for a prompt change, and expect the lazy regeneration to cost
+   inference even though it is unmetered for users.
 
 ### Not in this brief
 
@@ -533,3 +570,36 @@ founder - i'm aligned with your recommendations"). They are recorded here and in
 `tasks/analysis-redesign-2026-10/prototype/index.html`, switch state, view (proposed / today's markup),
 table window, theme and 200% text in the bar at the top; the readout shows page overflow, KPI
 containment and the table's width live. The harnesses regenerate `measurements/*.json` and screenshots.
+
+## 11. Corrections from the Track A verification (2026-10-10)
+
+The implementing agent verified the proposal against `main` and ran both harnesses before building
+(PR #1197, Track A comment). Each finding and where it landed:
+
+- **Phone overflow in the prototype.** The chart panels kept their 480 px min-content width inside
+  `1fr` tracks (522 px items at 390 and 320), and the table toolbar overflowed at 320; both harnesses
+  compared the document with `window.innerWidth`, which hid it. Fixed in the prototype
+  (`minmax(0, 1fr)` tracks, `min-width: 0`, wrapping toolbar); both harnesses now compare with the
+  configured viewport; the recorded runs were regenerated; §1, §2.3 and §6 state the corrected rule.
+- **"200% browser zoom"** in the harnesses is 2x device-scale emulation at half the CSS width, not
+  native browser zoom; stated in §1.
+- **Font-dependent widths** reproduce within a few pixels, not exactly (the reviewer's run: table
+  2,044 px, KPI overflow 49.1 / 84.1 / 115.3 px); the proposal's numbers are this review's run.
+- **Fixture vs production.** The fixture is companyfacts-only modelled legacy state (230 / 10 / 14 + 10),
+  not the captured production snapshot (236 / 4 / 16 + 10); both remain distinct fixtures (§2.2).
+- **Pruned provenance is not the API schema** (§2.2).
+- **Ratio precision** keeps the threshold rule (§4.8).
+- **YoY fallback in the table** keeps an explicit label (§4.5).
+- **Grouping edge cases**: legacy `reconciled: false`, populated values without a validation record,
+  annual CAGR / window changes, comparison-only and mixed reason sets (§4.1).
+- **`ReconciliationBadge` consumers** outside analysis stay; `SourceValue` is not a site (§7, item 2).
+- **A record's own source link** is shown whether or not it has inputs (§4.6).
+- **Narrative header chips** do not wrap today; only the outer group does (§2.4).
+- **`SegmentedControl`** needs an unavailable-option API for the picker's Quarterly state (§7, item 9).
+- **`DataTable`** needs opt-in row-header semantics (§7, item 5).
+- **No repair promise** in the dialog copy (§4.6).
+- **`source_conflict`** has no backend producer today; state 3 is a simulation (§2.2).
+- **Catalogue wording is model input**; Phase 2 item 3 goes through the eval gate, and regeneration
+  costs inference even when unmetered (§7).
+- **Test pins**: `trend-charts-legend.spec.tsx` also changes; the source-quality spec pins text, not the
+  count (§7, items 4 and 8).

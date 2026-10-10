@@ -32,7 +32,10 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   founder's §9 decisions recorded.
 
 Screenshots are not committed (binary bloat; the critique environment kept its evidence out of the
-repository too). Both harnesses take `--shots <dir>` to regenerate them.
+repository too). Both harnesses take `--shots <dir>` to regenerate them. Both compare the document
+with the configured viewport width, never with `window.innerWidth`: mobile Chromium widens the layout
+viewport to overflowing content, which hid a phone overflow in the first prototype build (proposal
+§11). "200% zoom" in the configuration list is 2x device-scale emulation at half the CSS width.
 
 ## How the data was produced
 
@@ -52,18 +55,21 @@ repository too). Both harnesses take `--shots <dir>` to regenerate them.
      it carry the same reason on that operand. This is a simulation of the state the engine produces when
      sources disagree; it does not claim Meta's filings disagree.
 3. `python harness/prune_states.py <out> prototype/data` keeps every displayed figure, comparison,
-   validation state, reason, formula and first-level operand with its own lineage, and drops deeper nesting.
+   validation state, reason, formula and first-level operand with its own lineage, and drops deeper
+   nesting. The result is a visual reference, not the API schema: the provenance `version` is dropped
+   and a comparison's operands are flattened to concept, value, period and validation.
 
 ## Running the harnesses
 
 ```bash
-# current components (from frontend/, with the critique environment's flags; no backend needed)
-NEXT_PUBLIC_ENABLE_ANALYSIS=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8010 npm run build
-WAITLIST_MODE=false npx next start -p 3000
-node tasks/analysis-redesign-2026-10/harness/measure-current.mjs --base http://localhost:3000 --shots /tmp/shots
+# current components: build and serve the frontend from frontend/ (the critique environment's flags; no backend)
+(cd frontend && NEXT_PUBLIC_ENABLE_ANALYSIS=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8010 npm run build)
+(cd frontend && WAITLIST_MODE=false npx next start -p 3000 &)
+# then, from the repository root, with Playwright resolvable (the frontend's install, or the cloud image's global one)
+NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-current.mjs --base http://localhost:3000 --shots /tmp/shots
 
 # prototype (no server needed; --fonts answers Google Fonts from a local directory when offline)
-node tasks/analysis-redesign-2026-10/harness/measure-proto.mjs --shots /tmp/shots
+NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-proto.mjs --shots /tmp/shots
 ```
 
 Both scripts resolve Playwright through `createRequire`, so the cloud image's global install

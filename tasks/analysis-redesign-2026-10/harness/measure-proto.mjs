@@ -65,13 +65,13 @@ async function run() {
             window.EN_PROTO.render()
           }, { stateName, mode, textZoom: cfg.textZoom || null })
           await page.waitForTimeout(120)
-          const m = await page.evaluate(() => window.EN_PROTO.measure())
+          const m = await page.evaluate((w) => window.EN_PROTO.measure(w), cfg.width)
           // Does the proposed table fit without scrolling in the "Newest 6" window?
           let window6 = null
           if (mode === 'proposed') {
             await page.evaluate(() => { window.EN_PROTO.state.window = '6n'; window.EN_PROTO.render() })
             await page.waitForTimeout(80)
-            const m6 = await page.evaluate(() => window.EN_PROTO.measure())
+            const m6 = await page.evaluate((w) => window.EN_PROTO.measure(w), cfg.width)
             window6 = m6.table
             await page.evaluate(() => { window.EN_PROTO.state.window = '12'; window.EN_PROTO.render() })
             await page.waitForTimeout(80)
