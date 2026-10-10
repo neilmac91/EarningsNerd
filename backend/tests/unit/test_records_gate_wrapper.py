@@ -4,7 +4,8 @@ Two commit chains failed to gate a CODE RED records commit: one piped the record
 status decided; chief defect 10) and one relied on ``set -e``, which the chief's tool shell suppresses, so a failed
 ``ruff format --check`` did not stop the commit (chief defect 11; DECISIONS-21). A third gap (chief defect 12) was procedural:
 pushes that changed ``backend/tests/`` were not preceded by the repository's full backend gate. The wrapper is the supported way
-to verify a records commit: every step runs unpiped with its exit status captured explicitly, the ``backend`` scope adds the full
+to verify a records commit: every step runs unpiped with its exit status captured explicitly (the ``records`` scope runs the
+runtime-records gate, the agent-workflow rules gate and ruff on the records tree's test files), the ``backend`` scope adds the full
 backend gate (``ruff check .``, ``bandit -r app -ll``, ``python -m pytest``) and is chosen automatically when the working tree
 or the commits since ``origin/main`` change anything under ``backend/`` (failing closed when ``origin/main`` is absent: a
 local ``main`` is never a base), and the wrapper exits 0 only when every step passed. This test pins that form and proves
@@ -34,10 +35,11 @@ BANDIT_FINDING = (
     "def run(code: str) -> None:\n    exec(code)  # planted: Bandit B102 (medium severity), reported under -ll\n"
 )
 
-RECORDS_STEPS = ["records gate", "ruff check", "ruff format"]
+RECORDS_STEPS = ["records gate", "workflow rules", "ruff check", "ruff format"]
 BACKEND_STEPS = [*RECORDS_STEPS, "ruff check (backend)", "bandit", "pytest (backend)"]
 STEP_MARKERS = (
     '-m pytest "$test_path" -q -p no:cacheprovider',
+    '-m pytest "$rules_test" -q -p no:cacheprovider',
     "-m ruff check $lint_paths",
     "-m ruff format --check $lint_paths",
     "-m ruff check .",
@@ -159,6 +161,7 @@ def _run_wrapper(
         **os.environ,
         "RECORDS_GATE_PYTHON": sys.executable,
         "RECORDS_GATE_TEST": "tests/unit/test_probe.py",
+        "RECORDS_GATE_RULES_TEST": "tests/unit/test_probe.py",
         "RECORDS_GATE_LINT_PATHS": "tests/unit/test_probe.py",
         # Keep the inner pytest sessions hermetic and independent of this repository's pytest.ini and plugins' autoload.
         "PYTEST_ADDOPTS": "-p no:randomly -p no:xdist",
@@ -178,6 +181,7 @@ def test_wrapper_fails_when_the_pytest_step_fails(tmp_path: Path) -> None:
         f"a failing gate must fail the wrapper; stdout={result.stdout!r} stderr={result.stderr!r}"
     )
     assert "records-gate: FAIL  records gate (exit 1)" in result.stderr, result.stderr
+    assert "records-gate: FAIL  workflow rules (exit 1)" in result.stderr, result.stderr
     assert _ok_steps(result.stdout) == ["ruff check", "ruff format"], result.stdout
     assert result.stderr.rstrip().endswith("records-gate: FAILED"), result.stderr
 
@@ -188,7 +192,7 @@ def test_wrapper_fails_when_a_non_pytest_step_fails(tmp_path: Path) -> None:
     assert result.returncode != 0, (
         f"a failing non-pytest step must fail the wrapper; stdout={result.stdout!r} stderr={result.stderr!r}"
     )
-    assert _ok_steps(result.stdout) == ["records gate", "ruff check"], result.stdout
+    assert _ok_steps(result.stdout) == ["records gate", "workflow rules", "ruff check"], result.stdout
     assert "records-gate: FAIL  ruff format (exit 1)" in result.stderr, result.stderr
     assert result.stderr.rstrip().endswith("records-gate: FAILED"), result.stderr
 
@@ -231,7 +235,7 @@ def test_auto_scope_is_backend_when_the_working_tree_changes_backend(tmp_path: P
 
 
 def test_auto_scope_is_backend_when_a_commit_since_main_changes_backend(tmp_path: Path) -> None:
-    """After the commit the working tree is clean; the commits since main still change backend/, so auto picks the full gate."""
+    """After the commit the working tree is clean; the commits since origin/main still change backend/, so auto picks the full gate."""
     result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="committed-change")
     assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"
     assert result.stdout.startswith("records-gate: scope backend\n"), result.stdout
