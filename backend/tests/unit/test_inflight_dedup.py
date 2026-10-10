@@ -74,32 +74,40 @@ async def test_waiter_serves_leader_result_without_regenerating(monkeypatch):
     monkeypatch.setattr(summary_pipeline.openai_service, "summarize_filing", gen_mock)
 
     leader_event = summary_pipeline._claim_inflight(fid)  # a leader is already generating
+    joined = asyncio.Event()
 
     async def finish_leader():
-        await asyncio.sleep(0.2)  # let the waiter emit a couple of heartbeats first
+        await joined.wait()
         with SessionLocal() as db:
             db.add(Summary(filing_id=fid, business_overview="LEADER RESULT"))
             db.commit()
         summary_pipeline._release_inflight(fid, leader_event)
 
     task = asyncio.create_task(finish_leader())
-    events = [
-        ev
-        async for ev in summary_pipeline.stream_filing_summary(
-            filing_id=fid,
-            current_user=None,
-            user_id=None,
-            telemetry_distinct_id="t",
-            telemetry_entry_point=None,
-            telemetry_ctx={},
-        )
-    ]
-    await task
+    events = []
+    try:
+        async with asyncio.timeout(2):
+            async for ev in summary_pipeline.stream_filing_summary(
+                filing_id=fid,
+                current_user=None,
+                user_id=None,
+                telemetry_distinct_id="t",
+                telemetry_entry_point=None,
+                telemetry_ctx={},
+            ):
+                events.append(ev)
+                if ev.get("type") == "progress" and ev.get("stage") == "queued":
+                    joined.set()
+            await task
 
-    assert any(e.get("type") == "complete" and e.get("summary") == "LEADER RESULT" for e in events)
-    assert "queued" in [e.get("stage") for e in events if e.get("type") == "progress"]
-    gen_mock.assert_not_called()  # dedup: served the leader's result, no second generation
-    assert summary_pipeline._inflight_generations.get(fid) is None  # slot released
+        assert any(e.get("type") == "complete" and e.get("summary") == "LEADER RESULT" for e in events)
+        assert "queued" in [e.get("stage") for e in events if e.get("type") == "progress"]
+        gen_mock.assert_not_called()  # dedup: served the leader's result, no second generation
+        assert summary_pipeline._inflight_generations.get(fid) is None  # slot released
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        summary_pipeline._release_inflight(fid, leader_event)
 
 
 @pytest.mark.asyncio
