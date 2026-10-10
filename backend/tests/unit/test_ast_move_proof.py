@@ -1126,12 +1126,15 @@ def test_a_builtin_is_followed_through_any_name_or_import_that_binds_it():
 
 
 def test_module_is_a_class_bodys_only():
-    """A class body binds ``__module__`` before it runs, a nested one in a def too; anywhere else the name is
-    unbound before the move and after it (NameError), a method's body included."""
+    """A class body binds ``__module__`` before it runs, a nested one in a def too, until the body deletes it (in a
+    block too); anywhere else, and below that deletion, the name is unbound before the move and after it
+    (NameError), a method's body included."""
     old = ("def where():\n    return __module__\n\n\nclass Box:\n    origin = __module__\n\n    def own(self):\n"
-           "        return __module__\n\n\ndef build():\n    class Inner:\n        origin = __module__\n    return Inner\n")
-    assert _relocated(old, "app/y.py", "app/x.py") == {
-        "Box.origin": "reads __module__ (app.y, was app.x)", "build": "reads __module__ (app.y, was app.x)"}
+           "        return __module__\n\n\ndef build():\n    class Inner:\n        origin = __module__\n    return Inner\n\n\n"
+           "class Erased:\n    origin = __module__\n    del __module__\n    late = __module__\n\n\n"
+           "class Maybe:\n    if FLAG:\n        del __module__\n    late = __module__\n")
+    assert _relocated(old, "app/y.py", "app/x.py") == dict.fromkeys(
+        ("Box.origin", "build", "Erased.origin"), "reads __module__ (app.y, was app.x)")
 
 
 def test_only_annotations_python_evaluates_and_code_compiled_under_the_future_import_count():
