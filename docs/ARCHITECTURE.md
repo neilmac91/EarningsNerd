@@ -203,7 +203,7 @@ period), `statement_parser.py` (pure DataFrame helpers), `sixk_extractor.py`, pl
 `config.py`/`exceptions.py`/`models.py`. Breaker coverage is selective: the XBRL primary path
 uses plain timeouts for local parsing, and its raw companyfacts fallback uses a single limiter
 wait without the breaker. Existing raw-HTTP paths outside the layer — `SECFullTextSearchClient`
-in `app/integrations/sec_api.py` and companyfacts fetching in `app/services/facts_service.py` —
+in `app/integrations/sec_api.py` and companyfacts fetching in `app/services/facts/transport.py` —
 use shared limiter/backoff without the breaker. Preserve the existing transport owners;
 do not add raw-HTTP SEC bypasses outside them, even if paced.
 `test_sec_gov_importers_allowlist.py` checks URL-literal homes and pure-builder/Settings HTTP

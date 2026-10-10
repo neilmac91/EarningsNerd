@@ -2,8 +2,9 @@
 
 This app-only AST gate locates ``sec.gov`` string constants (including f-string fragments,
 excluding docstrings/comments). It is not a request-callgraph or universal pacing/breaker proof:
-existing facts-service companyfacts requests use a pure URL helper, and filing documents can
-arrive as dynamic URLs. Review those transport paths separately under CLAUDE rule 5.
+existing companyfacts requests in ``services/facts/transport.py`` use a pure URL helper, and
+filing documents can arrive as dynamic URLs. Review those transport paths separately under
+CLAUDE rule 5.
 
 Sanctioned literal homes beyond ``services/edgar/**``:
 - ``integrations/sec_api.py`` — EFTS; existing shared limiter/backoff, no breaker.
