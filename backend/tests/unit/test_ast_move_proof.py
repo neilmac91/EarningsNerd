@@ -763,7 +763,7 @@ def test_a_class_body_read_is_settled_by_an_earlier_member_that_sets_the_name_ou
 
 def test_a_name_one_module_sets_outright_and_the_other_does_not_is_relocated():
     """One module's own binding against the other's derived value, whichever side holds it: a binding moved
-    into a block may never run, and a def that binds through ``global`` binds the module's name."""
+    into a block may never run, and a def or a method that binds through ``global`` binds the module's name."""
     plain = '__doc__ = "Fixed."\nTEXT = __doc__\n'
     guarded = 'if READY:\n    __doc__ = "Fixed."\nTEXT = __doc__\n'
     assert _relocated(plain, "app/x.py", "app/x.py", guarded) == {"TEXT": "reads __doc__ (the old module bound it)"}
@@ -772,6 +772,11 @@ def test_a_name_one_module_sets_outright_and_the_other_does_not_is_relocated():
     split = compare(setup, {"app/x.py": setup.split("\n\n\n")[0] + "\n", "app/y.py": "def usage():\n    return __doc__\n"},
                     old_path="app/x.py")
     assert split.relocated == {"usage": "app/y.py, was app/x.py: reads __doc__ (the old module bound it)"}
+    method = ("class Setup:\n    def run(self):\n        global __doc__\n        __doc__ = 'Ready.'\n\n\n"
+              "def usage():\n    return __doc__\n")
+    moved = compare(method, {"app/x.py": method.split("\n\n\n")[0] + "\n", "app/y.py": "def usage():\n    return __doc__\n"},
+                    old_path="app/x.py")
+    assert moved.relocated == {"usage": "app/y.py, was app/x.py: reads __doc__ (the old module bound it)"}
 
 
 def test_moved_code_that_reads_the_module_docstring_is_relocated_when_it_differs():
