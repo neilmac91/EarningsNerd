@@ -18,6 +18,7 @@ vi.mock('@vercel/analytics/next', () => ({ Analytics: () => null }))
 const TOKEN = 'synthetic-auth-value-never-a-real-token'
 const JWT = ['eyJhbGciOiJub25lIn0', 'eyJzdWIiOiJmaXh0dXJlIn0', 'c3ludGhldGlj'].join('.')
 const tokenUrl = `https://example.test/reset-password?token=${TOKEN}`
+const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/check-email?email=synthetic%40example.test']
 let removeNavigationGuard: (() => void) | undefined
 let client: PostHog | undefined
 
@@ -118,7 +119,7 @@ describe('authentication credentials never enter telemetry', () => {
     expect(JSON.stringify(events)).toContain('AAPL')
   })
 
-  it('blocks recording before history/Next transitions and never releases compressed queued snapshots in the same document', async () => {
+  it.each(AUTH_ROUTES)('blocks recording before entering %s and never releases compressed queued snapshots in the same document', async (route) => {
     const guard = await import('@/lib/telemetryPrivacy')
     const privacy = await import('@/lib/posthogPrivacy')
     const { PostHog: RealPostHog } = await import('posthog-js')
@@ -127,7 +128,7 @@ describe('authentication credentials never enter telemetry', () => {
     guard.onRecordingBlocked(stopped)
     removeNavigationGuard = guard.installTelemetryNavigationGuard()
     expect(guard.canRecordTelemetry()).toBe(true)
-    window.history.pushState(null, '', `/reset-password?token=${TOKEN}`)
+    window.history.pushState(null, '', route)
     expect(stopped).toHaveBeenCalledOnce()
     window.history.replaceState(null, '', '/dashboard')
     expect(guard.canRecordTelemetry()).toBe(false)
@@ -230,15 +231,15 @@ describe('authentication credentials never enter telemetry', () => {
     view.unmount()
   })
 
-  it('does not start recording on a consented auth-page initial load', async () => {
-    window.history.replaceState(null, '', `/verify-email?token=${TOKEN}`)
+  it.each(AUTH_ROUTES)('does not start recording on a consented %s initial load', async (route) => {
+    window.history.replaceState(null, '', route)
     const { PostHogProvider } = await import('@/app/posthog-provider')
     mockPostHog.init.mockImplementation((_key, config: Partial<PostHogConfig>) => {
       expect(config.disable_session_recording).toBe(true)
       mockPostHog.__loaded = true
       config.loaded?.(mockPostHog as unknown as PostHog)
     })
-    render(<PostHogProvider><span>Verification remains available</span></PostHogProvider>)
+    render(<PostHogProvider><span>Account flow remains available</span></PostHogProvider>)
     expect(mockPostHog.startSessionRecording).not.toHaveBeenCalled()
     expect(mockPostHog.stopSessionRecording).toHaveBeenCalled()
   })

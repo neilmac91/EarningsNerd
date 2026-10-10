@@ -2,7 +2,7 @@
 const REDACTED = '[REDACTED]'
 const CREDENTIAL_NAMES = /^(?:token|accesstoken|refreshtoken|idtoken|authorization|password|secret|apikey|code|invite|invitetoken)$/i
 const QUERY_CREDENTIAL = /([?&#](?:token|access_token|refresh_token|id_token|authorization|password|secret|api_key|code|invite|invite_token)=)[^&#\s"'<>]*/gi
-const AUTH_PATH = /^\/(?:login|register|forgot-password|reset-password|verify-email|auth)(?:\/|$)/i
+const AUTH_PATH = /^\/(?:login|register|forgot-password|reset-password|verify-email|check-email|auth)(?:\/|$)/i
 
 function isCredentialName(name: string): boolean {
   return CREDENTIAL_NAMES.test(name.replace(/[$_-]/g, ''))
