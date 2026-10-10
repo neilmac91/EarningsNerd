@@ -11,7 +11,7 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
 
 - Production: the last recorded state is the ledger's "2026-10-04 — CODE RED chief takeover"
   section and its records under `code-red-20261004/runtime/` (record 21, `DECISIONS-21.md`, is the
-  latest merged; record 22 is open as #PRNUM and reads production back live: #1176's images, every
+  latest merged; record 22 is open as #1184 and reads production back live: #1176's images, every
   SEC pin at 1, durable tasks delivering); verify the latest `deploy-backend` run on `main` and
   `/health/detailed` before relying on it. Record 19 notes for the CPO that `eval-baseline`'s
   `mean_citation_fidelity` read 0.83–0.86 against its 0.9648 baseline on all six runs of
@@ -21,7 +21,7 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
   `continuation-plan-2026-09-26.md` stays held. The E7/R1/H20 acceptance programme and the CODE RED
   records are a separate task; nothing here redesigns, lifts or restates them.
 - Open PRs on 2026-10-10: #1121 (founder role contacts, held), #1035 (native delivery) and #1009
-  (Pro pricing, held) drafts, and #PRNUM (CODE RED record 22, the CODE RED chief's). The
+  (Pro pricing, held) drafts, and #1184 (CODE RED record 22, the CODE RED chief's). The
   chief-engineer merge train of 2026-10-09/10 landed them one verified backend deploy at a time:
   #1142 and #1143 (EN-05 parts a and c, EN-04), #1166 (the design-critique decisions A–E), #1170,
   #1134 (the Lane B gates), #1171, #1123 (copilot-eval paths), #1135 (the parallel backend suite),
