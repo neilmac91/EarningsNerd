@@ -1,4 +1,4 @@
-# Decision record 22 — record 21 merged (fifteenth deploy-skip proof); the read-back PR designed, implemented, reviewed and merged (sixteenth proof); the first live read-backs (`describe-service` PASS with the worker invoker policy PRIVATE, `describe-jobs` PASS, a `capacity-readout` over 10:55–12:55Z) and the durable-tasks checklist completed from them; ledger event 45; seven backend deploys by other writers read back; closure 173
+# Decision record 22 — record 21 merged (fifteenth deploy-skip proof); the read-back PR designed, implemented, reviewed and merged (sixteenth proof); the first live read-backs (`describe-service` PASS with the worker invoker policy PRIVATE, `describe-jobs` PASS, a `capacity-readout` over 10:55–12:55Z) and every durable-tasks post-deploy check completed from them (the first probe unverified); ledger event 45; seven backend deploys by other writers read back; closure 173
 
 Recorded 2026-10-10T13:45Z, by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
 Context: record 21 merged to main as `b32003f8` (PR #1172, 2026-10-10T10:44:46Z) and the read-back PR as `2d738050` (PR #1181,
@@ -156,13 +156,15 @@ resources; both of its executions inside the window were found).
   job is built to, so Cloud Run retried it; the retry succeeded (12:30:46–12:31:01Z; `retriedCount` 1, `succeededCount` 1). Not a
   durable-tasks signal; the Monday readout reads the error channels again.
 
-## The durable-tasks post-deploy checklist (`docs/DEPLOYMENT.md`, "Durable background delivery rollout"): every check completed
+## The durable-tasks post-deploy checklist (`docs/DEPLOYMENT.md`, "Durable background delivery rollout"): every post-deploy check completed, the first probe unverified
 
 The rollout text's steps and checks in its order, each with the evidence that answers it; the paragraph added to `docs/DEPLOYMENT.md`
-in this PR records the completion and what no operation reads back. Every check the text names is answered: its verification list,
-the invoker-policy item and the three watch items.
+in this PR records which checks completed, the unverified probe and what no operation reads back. Every post-deploy check the text
+names is completed: its verification list, the invoker-policy item and the three watch items. The first-enablement probe is not: no
+read-back can show it, so it stays unverified, under the rule of `lessons/ops-denied-reads-report-unverified.md` that a checklist
+item completes only on a positive read.
 
-1. **The authenticated `probe` with an empty payload, enqueued first:** not readable. No operation records a task's kind or payload,
+1. **The authenticated `probe` with an empty payload, enqueued first:** not readable, so **unverified**. No operation records a task's kind or payload,
    and Ops has no probe operation; the step belongs to the first enablement, before the repository variables were set, and they were
    already set at #1176's deploy (11:13:17Z) while the receipt's first sample is 10:56Z. The authenticated deliveries in item 9 answer
    the question the probe asks.

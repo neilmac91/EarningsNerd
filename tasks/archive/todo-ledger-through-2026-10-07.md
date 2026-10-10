@@ -6635,8 +6635,9 @@ Full local and hosted verification plus independent exact-head review precede re
   refuters and a delta reviewer: no blocker) and merged as PR #1181 → `2d738050` (sixteenth proof), after ledger event 45 (the
   founder's USD 5 floor and a fresh reading, USD 21.83; no reservation). The first live read-backs: `describe-service` PASS
   (the worker invoker policy PRIVATE), `describe-jobs` PASS, a `capacity-readout` with 17 of 17 task attempts `ok` and 17 of 17
-  worker requests `200`; the durable-tasks checklist completed, with an independent check. Seven deploys by other writers read
-  back (every pin in place, healthy). Lesson `lessons/ops-denied-reads-report-unverified.md`. Closure 173.
+  worker requests `200`; every durable-tasks post-deploy check completed, with an independent check (the first probe
+  unverified). Seven deploys by other writers read back (every pin in place, healthy). Lesson
+  `lessons/ops-denied-reads-report-unverified.md`. Closure 173.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
