@@ -6630,6 +6630,14 @@ Full local and hosted verification plus independent exact-head review precede re
   to 09:00Z. Chief defects 9, 10, 11 and 12; classifier denials 11–12. Lessons
   `lessons/ops-hand-over-when-the-harness-refuses-the-conversation.md` and `lessons/ops-a-piped-gate-does-not-gate.md`; the
   records-gate wrapper `runtime/tools/records-gate.sh` and its test.
+- 2026-10-10 (record 22, `runtime/control/DECISIONS-22.md`): PR #1172 (record 21) merged `b32003f8` (fifteenth deploy-skip
+  proof). The read-back PR (`ops-readback-pr-01`) designed by a workflow, implemented, reviewed in draft (three lenses with
+  refuters and a delta reviewer: no blocker) and merged as PR #1181 → `2d738050` (sixteenth proof), after ledger event 45 (the
+  founder's USD 5 floor and a fresh reading, USD 21.83; no reservation). The first live read-backs: `describe-service` PASS
+  (the worker invoker policy PRIVATE), `describe-jobs` PASS, a `capacity-readout` with 17 of 17 task attempts `ok` and 17 of 17
+  worker requests `200`; every durable-tasks post-deploy check completed, with an independent check (the first probe
+  unverified). Seven deploys by other writers read back (healthy; every pin in place, confirmed live). Lesson
+  `lessons/ops-denied-reads-report-unverified.md`. Closure 173.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
@@ -6658,13 +6666,15 @@ Full local and hosted verification plus independent exact-head review precede re
       the deploy's echoed commands (record 19).
 - [ ] Chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window (the first with the whole fleet pinned and
       backfill-facts at 07:30) with the read-only `capacity-readout`: SEC errors, breaker opens, job outcomes (record 19).
-- [ ] Chief: the read-back PR (`ops-readback-pr-01`, record 20): `describe-service` reads back the task worker (revision,
+- [x] Chief: the read-back PR (`ops-readback-pr-01`, record 20): `describe-service` reads back the task worker (revision,
       traffic, command, sizing, ingress, invoker policy, SEC pins) and the service's minimum instances, CPU and memory;
       `describe-jobs` prints and checks both SEC pins per job; `capacity-readout` adds the worker's requests and errors and
       the Cloud Tasks queue; tests and docs; one reserved `copilot-eval` run on leaving draft, each later push's run
-      reserved first; no deploy (records 19–20).
-- [ ] Chief: complete the durable-tasks post-deploy checklist (`docs/DEPLOYMENT.md`) from the read-backs and a readout,
-      with an independent check (`durable-tasks-check-01`); baseline already read (record 20).
+      reserved first; no deploy (records 19–20). Merged `2d738050` (PR #1181; no paid run could fire after PR #1123, so
+      none was reserved), deploying nothing (record 22).
+- [x] Chief: complete the durable-tasks post-deploy checklist (`docs/DEPLOYMENT.md`) from the read-backs and a readout,
+      with an independent check (`durable-tasks-check-01`); baseline already read (record 20). Completed 2026-10-10
+      (record 22).
 - [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", including Codex's own
       summary boilerplate, which cancelled a required run on PR #1131 (record 17); exclude the Codex connector's comments.
 - [x] Founder (optional, now; folded into record 17's option A): the D3 staging answer rested on an overstated premise (the insider panel is off in production;

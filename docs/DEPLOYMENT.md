@@ -112,6 +112,18 @@ invoker-policy item is complete only when `describe-service` prints
 and SQL connections before expanding workload (`capacity-readout`: `queue_task_attempts`,
 `worker_error_logs`, `request_latencies`, `database_connections`). Cold worker starts affect queued
 work, not the warm API.
+The post-deploy checks (the verification list, the invoker-policy item and the three watch items)
+were completed on 2026-10-10 against #1176's deploy (`0a672ebe`): `describe-service` passed with
+the worker invoker policy `PRIVATE` and `describe-jobs` passed, and a `capacity-readout` over
+10:55–12:55Z showed 17 queue attempts, all `ok`, matching 17 worker requests, all 2xx, with no worker
+error logs (CODE RED record 22, `tasks/code-red-20261004/runtime/control/DECISIONS-22.md`). The first
+probe stays unverified: no operation records it, and delivery through the enforced invoker check was
+observed instead. No operation reads back the queue's settings, the worker's `DB_MAX_OVERFLOW`,
+`TASKS_*` values or generation flags, or any IAM grant beyond the worker's own invoker policy: the
+enqueuer grant on the queue, the service-account-user grants on the task identity, project-level IAM,
+and which identity the policy's one invoker member is stay unread. Repeat the post-deploy checks after
+any change to the worker's or the queue's configuration or the service's sizing, and enqueue the probe
+first whenever delivery is switched on again.
 
 For rollback, set `GCP_DURABLE_TASKS_ENABLED=false` and restore API `DURABLE_TASKS_ENABLED=false`
 with `--no-cpu-throttling`; keep the worker available to finish queued work. Do not pause the queue
