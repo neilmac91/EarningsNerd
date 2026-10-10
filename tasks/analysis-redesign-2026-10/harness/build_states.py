@@ -99,6 +99,26 @@ def quality_summary(dataset):
             "n_values": sum(1 for _, p in points if p["value"] is not None)}
 
 
+def _differences(a, b, path="dataset"):
+    """Paths where two JSON-like structures differ (first-level detail only, for a failure message)."""
+    out = []
+    if isinstance(a, dict) and isinstance(b, dict):
+        for key in sorted(set(a) | set(b)):
+            if key not in a or key not in b:
+                out.append(f"{path}/{key} present on one side only")
+            else:
+                out.extend(_differences(a[key], b[key], f"{path}/{key}"))
+    elif isinstance(a, list) and isinstance(b, list):
+        if len(a) != len(b):
+            out.append(f"{path} length {len(a)} vs {len(b)}")
+        else:
+            for index, (x, y) in enumerate(zip(a, b)):
+                out.extend(_differences(x, y, f"{path}[{index}]"))
+    elif a != b:
+        out.append(f"{path}: {a!r:.60} vs {b!r:.60}")
+    return out
+
+
 def main():
     payload_path, out_dir = Path(sys.argv[1]), Path(sys.argv[2])
     probe = "--probe" in sys.argv
@@ -179,7 +199,13 @@ def main():
     for r in hidden:
         r.is_latest = True
     db.commit()
-    assert json.dumps(build(), sort_keys=True, default=str) == json.dumps(clean, sort_keys=True, default=str) or True
+    # The restoration must leave the engine's output exactly as the clean build saw it, or the discrepancy
+    # state below would be built on contaminated rows. Nothing volatile differs within one run (the
+    # source timestamp is the ingest time), so the comparison is exact.
+    restored = build()
+    differences = _differences(restored, clean)
+    if differences:
+        raise SystemExit("legacy restoration left the dataset changed: " + "; ".join(differences[:10]))
 
     # 3. discrepancy: sources disagree on the latest reported revenue; the margins computed from it inherit
     r = row(*CONFLICT_ROW)

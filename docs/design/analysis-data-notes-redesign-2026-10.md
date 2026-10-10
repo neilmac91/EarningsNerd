@@ -193,8 +193,13 @@ shipped by the backend as `dataset.data_notes` (Phase 2, so exports agree):
 - An **unavailability note** is one distinct reason among values that are null: the stored reason when
   the provenance carries one (`unsupported_eps_calculation`, `repair_rolled_back`) or "not available in
   this dataset" when the point has no record (capex and FCF for Q3–Q4 2023).
-- Notes are lettered a, b, c in order of first appearance (series order, then period order), review
-  notes before unavailability notes. Letters are stable within a snapshot; a new snapshot may re-letter.
+- Notes are lettered a, b, c by kind: review notes first, then notes for figures without a validation
+  record, then unavailability notes. Within a kind, letters follow first appearance in one traversal of
+  the report's values (series order, then period order), and the notes that only comparisons raise
+  (comparison-only or mixed reason sets) follow the value notes, in the same traversal order. This is
+  the order `lib/dataNotes.ts` on `main` assigns (#1199) and the one Phase 2 must reproduce; a note is
+  keyed by its canonical set of reason codes, whatever order the operands supplied them. Letters are
+  stable within a snapshot; a new snapshot may re-letter.
 - The grouping must also carry: a populated value whose record has no provenance at all (older
   snapshots) as a "no validation record" note that claims nothing; a legacy `reconciled: false`
   without provenance under the `source_check_needed` key; annual CAGR and window-pp comparisons

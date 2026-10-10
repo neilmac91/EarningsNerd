@@ -442,7 +442,7 @@
     const periods = windowPeriods(dataset)
     const hasDerived = dataset.series.some((s) => s.points.some((p) => isCalculated(p)))
     const table = el('table', { class: 'metrics', style: `width: max(100%, calc(var(--metric-col) + ${periods.length} * var(--period-col)))` })
-    table.append(el('caption', { class: 'sr-only' }, `Metrics by period, ${periods.length} of ${dataset.periods.length} quarters: value and quarter-over-quarter change per metric`))
+    table.append(el('caption', { class: 'sr-only' }, `Metrics by period, ${periods.length} of ${dataset.periods.length} quarters: value and quarter-over-quarter change per metric; a change marked YoY compares with the same quarter a year earlier because the prior quarter is unavailable`))
     const cg = el('colgroup', null, el('col', { class: 'metric' }), ...periods.map(() => el('col', { class: 'period' })))
     table.append(cg)
     const thead = el('thead', null, el('tr', null, el('th', { scope: 'col', class: 'sticky' }, 'Metric', el('span', { class: 'basis' }, 'value · Δ vs prior quarter')), ...periods.map((p) => { const [q, y] = periodShort(p.key); return el('th', { scope: 'col' }, q, el('span', { class: 'yr' }, y, p.fiscal_period === 'Q4' ? ' †' : '')) })))
@@ -460,12 +460,14 @@
           td.append(el('div', { class: 'cell' }, el('span', { class: 'v' }, note ? el('button', { type: 'button', class: 'gap', 'aria-label': nameFor(s, p, note), onclick: () => openEvidence(s, p, notes) }, el('span', { class: 'empty' }, '—'), affix(p, note, { noDagger: true })) : el('span', { class: 'empty' }, '—'))))
           tr.append(td); continue
         }
-        const d = fmtDelta(p.qoq, s.percent)
-        const cmpNote = notes.noteForComparison(p, 'qoq')
+        // QoQ when the prior quarter exists; otherwise today's labelled YoY fallback (§4.5), never an empty line.
+        const basis = p.qoq != null ? 'qoq' : p.yoy != null ? 'yoy' : null
+        const d = fmtDelta(basis ? p[basis] : null, s.percent)
+        const cmpNote = basis ? notes.noteForComparison(p, basis) : null
         const t = tone(s.tone, d.dir)
         const cell = el('div', { class: 'cell' },
           el('span', { class: 'v' }, el('button', { type: 'button', 'aria-label': nameFor(s, p, note, cmpNote), onclick: () => openEvidence(s, p, notes) }, fmtValue(p.value, s), affix(p, note))),
-          d.text ? el('span', { class: 'd ' + t }, el('span', { class: 'sr-only' }, 'change vs prior quarter ' ), d.text, cmpNote ? el('sup', { class: 'affix', 'aria-hidden': 'true' }, el('span', { class: 'note' + (cmpNote.kind === 'review' ? '' : ' ' + cmpNote.kind) }, cmpNote.letter)) : null) : el('span', { class: 'd empty', 'aria-hidden': 'true' }, '\u00a0'),
+          d.text ? el('span', { class: 'd ' + t, 'data-basis': basis }, el('span', { class: 'sr-only' }, basis === 'yoy' ? 'change vs same quarter last year ' : 'change vs prior quarter '), basis === 'yoy' ? 'YoY ' : '', d.text, cmpNote ? el('sup', { class: 'affix', 'aria-hidden': 'true' }, el('span', { class: 'note' + (cmpNote.kind === 'review' ? '' : ' ' + cmpNote.kind) }, cmpNote.letter)) : null) : el('span', { class: 'd empty', 'aria-hidden': 'true' }, '\u00a0'),
         )
         td.append(cell)
         tr.append(td)
