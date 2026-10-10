@@ -737,7 +737,9 @@ def test_a_name_a_module_binds_itself_is_compared_as_that_binding():
     """A name that a symbol of each module binds is compared as those symbols, so ``NAME`` moved with its
     ``__name__`` binding reads what it read; with the binding left behind it reads the new module's
     derived name. A relative import resolves against ``__package__``, so one the module pins is the same:
-    the binding left behind, or added, is reported, and kept on both sides the import resolves as it did.
+    the binding left behind, or added, is reported, and kept on both sides the import resolves as it did. Only
+    the module's own string pins it: Python reads no class's, and takes None, a ``del`` or a reset through
+    ``global`` as no pin, deriving the package from the path again.
     Each copy of a DUPLICATE away from the old path is DUPLICATE only."""
     old = "__name__ = 'legacy'\nNAME = __name__\n"
     both = compare(old, {"app/x.py": "", "app/y.py": old}, old_path="app/x.py")
@@ -755,8 +757,20 @@ def test_a_name_a_module_binds_itself_is_compared_as_that_binding():
     assert added.relocated == {"load": "app/x.py, was app/x.py: imports NAME from .mod (the new module binds __package__)"}
     assert _relocated(pinned, "app/x/__init__.py", "app/x.py") == {}
     # Only the definition that imports reads it: one above the binding that does not is no read.
-    late = "def load():\n    return None\n\n\n" + pinned
+    late = "import os\n\n\ndef load():\n    return None\n\n\n" + pinned
     assert _relocated(late, "app/x/__init__.py", "app/x.py") == {}
+    classes = ('class Loader:\n    __package__ = "app"\n\n    def load(self):\n        from .mod import NAME\n        return NAME\n\n\n'
+               'class Plugins:\n    __package__ = "app"\n    if READY:\n        from .mod import NAME\n')
+    assert _relocated(classes, "app/sub/x.py", "app/x.py") == {
+        "Loader.load": "imports NAME from .mod (app.sub.mod, was app.mod)",
+        "Plugins.guard:if READY": "imports NAME from .mod (app.sub.mod, was app.mod)"}
+    for above, below in (("__package__ = None", ""), ("__package__, OTHER = None, 1", ""),
+                         ('__package__ = "app"', "\n\ndel __package__\n"),
+                         ('__package__ = "app"', "\n\ndef reset():\n    global __package__\n    __package__ = None\n"),
+                         ('__package__ = "app"', "\n\nfrom app.settings import PACKAGE as __package__\n"),
+                         ("", '\n\n__package__ = "app"\n')):
+        undone = f"{above}\n\n\n{load}{below}"
+        assert _relocated(undone, "app/x/__init__.py", "app/x.py")["load"] == "imports NAME from .mod (app.x.mod, was app.mod)", undone
 
 
 def test_a_binding_settles_a_name_only_when_it_sets_it_outright_above_the_read():
@@ -766,7 +780,7 @@ def test_a_binding_settles_a_name_only_when_it_sets_it_outright_above_the_read()
     there before the binding runs, a symbol's first definition included. Each still reads what the new module
     derives. Below the first binding the binding is the value, and a ``global`` store sets it outright too (its
     def is compared as a symbol). A definition above it that reads nothing of the name is no read. A binding in a
-    ``match`` case may not run, and a ``del`` in one may."""
+    ``match`` case may not run."""
     cli = '"""Filing CLI."""\n__doc__ += "\\n\\nUsage: run"\n\n\ndef usage():\n    return __doc__\n'
     assert _relocated(cli, "app/cli.py", "app/cli.py", cli.replace("Filing CLI.", "Facade.")) == {
         "__doc__": "reads __doc__ (the module docstring differs)", "usage": "reads __doc__ (the module docstring differs)"}
@@ -791,8 +805,7 @@ def test_a_binding_settles_a_name_only_when_it_sets_it_outright_above_the_read()
         "TEXT": "reads __doc__ (the module docstring differs)"}
     drafted = '"""Old."""\nTEXT = "draft"\n__doc__ = "Fixed."\nTEXT = __doc__\n'
     assert _relocated(drafted, "app/x.py", "app/x.py", drafted.replace("Old.", "New.")) == {}
-    for binding in ("__doc__: str", '[(__doc__ := "x") for _ in ()]', 'match MODE:\n    case "cli":\n        __doc__ = "CLI."',
-                    '__doc__ = "Fixed."\nmatch MODE:\n    case 1:\n        del __doc__'):
+    for binding in ("__doc__: str", '[(__doc__ := "x") for _ in ()]', 'match MODE:\n    case "cli":\n        __doc__ = "CLI."'):
         tentative = f'"""Old."""\n{binding}\nTEXT = __doc__\n'
         assert _relocated(tentative, "app/x.py", "app/x.py", tentative.replace("Old.", "New.")) == {
             "TEXT": "reads __doc__ (the module docstring differs)"}, binding
@@ -867,21 +880,29 @@ def test_moved_code_that_reads_the_module_docstring_is_relocated_when_it_differs
 
 def test_a_documented_class_binds_its_own_docstring_wherever_it_stands():
     """Nested in a class or built in a def, a documented class reads its own ``__doc__``, and so does a
-    block in its body, until a ``del __doc__`` in its body (in a block too); an undocumented class body, or one
-    below that ``del``, falls through to the module's, past any enclosing class."""
+    block in its body, until its body deletes the name (a ``del``, in a block too, an ``except ... as __doc__``,
+    or a ``del`` in a loop, which runs again what stands above it); an undocumented class body, or one below that
+    deletion, falls through to the module's, past any enclosing class. A nested class that deletes it anywhere
+    reads the module's throughout (fail closed)."""
     old = ('"""Old."""\n\n\nclass Plain:\n    usage = __doc__\n\n\nclass Cli:\n    """Cli."""\n    if __doc__:\n        usage = 1\n\n\n'
            'class Job:\n    class Options:\n        """Scan."""\n        help = __doc__\n\n\n'
            'def build():\n    class Command:\n        """Backfill."""\n        help = __doc__\n    return Command\n\n\n'
            "class Outer:\n    class Inner:\n        help = __doc__\n\n\n"
            'class Erased:\n    """Gone."""\n    del __doc__\n    help = __doc__\n    if __doc__:\n        flag = 1\n\n\n'
            'class Maybe:\n    """Maybe."""\n    if FLAG:\n        del __doc__\n    help = __doc__\n\n\n'
-           'class Kept:\n    """Kept."""\n    spare = 1\n    del spare\n    help = __doc__\n')
+           'class Kept:\n    """Kept."""\n    spare = 1\n    del spare\n    help = __doc__\n\n\n'
+           'class Caught:\n    """Caught."""\n    try:\n        raise LookupError\n    except LookupError as __doc__:\n        pass\n'
+           '    help = __doc__\n\n\n'
+           'class Looped:\n    """Looped."""\n    seen = []\n    for _pass in range(2):\n        seen.append(__doc__)\n'
+           '        if _pass == 0:\n            del __doc__\n\n\n'
+           'class Waited:\n    """Waited."""\n    n = 0\n    while n < 2:\n        n += 1\n        last = __doc__\n'
+           '        if n == 1:\n            del __doc__\n\n\n'
+           'class Shell:\n    class Inner:\n        """Inner."""\n        del __doc__\n        help = __doc__\n\n\n'
+           'def make():\n    class Command:\n        """Backfill."""\n        del __doc__\n        help = __doc__\n    return Command\n')
     assert _relocated(old, "app/x.py", "app/x.py", old.replace("Old.", "New.")) == {
-        "Plain.usage": "reads __doc__ (the module docstring differs)",
-        "Outer.Inner": "reads __doc__ (the module docstring differs)",
-        "Erased.help": "reads __doc__ (the module docstring differs)",
-        "Erased.guard:if __doc__": "reads __doc__ (the module docstring differs)",
-        "Maybe.help": "reads __doc__ (the module docstring differs)"}
+        **dict.fromkeys(("Plain.usage", "Outer.Inner", "Erased.help", "Erased.guard:if __doc__", "Maybe.help", "Caught.help",
+                         "Looped.expr:seen.append(__doc__)", "Waited.last", "Shell.Inner", "make"),
+                        "reads __doc__ (the module docstring differs)")}
 
 
 def test_a_block_reads_its_header_and_a_class_its_body_imports():
@@ -966,9 +987,12 @@ def test_a_builtin_is_reached_by_a_call_above_any_module_binding_of_its_name():
     """Code that runs at import above ``eval = fake`` still calls the builtin, which reads the new module's
     namespace once moved; below a binding, the call is the module's ``eval`` until a ``del`` of it, and again
     after the next binding. A binding that may not happen (in a block or a ``match``, a bare annotation, a
-    walrus) leaves the builtin, and so does a ``del`` that may happen (in a block or a ``match`` case); ``from
-    builtins import eval`` is the builtin, and a call in the statement that binds ``eval`` is still made to the
-    builtin. A def's body runs when called, after import, past any ``del`` below it. A class body looks the name up
+    walrus) leaves the builtin, and so does a deletion that may happen: a ``del`` in a block or a ``match`` case,
+    an ``except ... as eval`` (which deletes its name), a ``del`` in a loop (which runs again what stands above
+    it), or one through ``global`` in a def; ``from builtins import eval`` is the builtin, and a call in the
+    statement that binds ``eval`` is still made to the builtin. A def's body runs when called, and a generator
+    expression's past its first iterable when consumed, both after import, past any ``del`` below them. A class
+    body looks the name up
     in the class first, a block in it too: an ``eval`` its class bound above for certain is the class's, but a
     method's body, or a call above that binding, reaches the builtin."""
     above = 'RESULT = eval("__name__")\n\n\ndef fake(src):\n    return "fake"\n\n\neval = fake\n'
@@ -988,7 +1012,10 @@ def test_a_builtin_is_reached_by_a_call_above_any_module_binding_of_its_name():
     for binding in ("if FLAG:\n    eval = fake", "eval = fake\ndel eval", "try:\n    from nowhere import eval\nexcept ImportError:\n    pass",
                     "eval: object", "[(eval := fake) for _ in ()]", "match FLAG:\n    case True:\n        eval = fake",
                     "from builtins import eval", "eval = fake\nif FLAG:\n    del eval",
-                    "eval = fake\nmatch FLAG:\n    case True:\n        del eval"):
+                    "eval = fake\nmatch FLAG:\n    case True:\n        del eval",
+                    "eval = fake\ntry:\n    raise LookupError\nexcept LookupError as eval:\n    pass",
+                    "eval = fake\n\n\ndef reset():\n    global eval\n    del eval\n\n\nreset()",
+                    "eval = fake\n\n\nclass Reset:\n    global eval\n    del eval\n"):
         uncertain = f'def fake(src):\n    return "fake"\n\n\n{binding}\nRESULT = eval("__name__")\n'
         moved = compare(uncertain, {"app/x.py": uncertain.replace('RESULT = eval("__name__")\n', ""),
                                     "app/y.py": 'RESULT = eval("__name__")\n'}, old_path="app/x.py")
@@ -1003,6 +1030,15 @@ def test_a_builtin_is_reached_by_a_call_above_any_module_binding_of_its_name():
     deferred = 'def fake(src):\n    return "fake"\n\n\neval = fake\n\n\ndef run(src):\n    return eval(src)\n\n\ndel eval\n'
     assert _relocated(deferred, "app/y.py", "app/x.py") == {"run": namespace}
     assert _relocated(deferred.replace("\n\n\ndel eval\n", "\n"), "app/y.py", "app/x.py") == {}
+    pending = ('def fake(src):\n    return "fake"\n\n\neval = fake\nPENDING = (eval(src) for src in ["__name__"])\n'
+               'FIRST = (src for src in eval("__name__"))\nRUN = lambda src: eval(src)\ndel eval\n')
+    assert _relocated(pending, "app/y.py", "app/x.py") == {"PENDING": namespace, "RUN": namespace}
+    # A def's own ``del`` of a local, with no ``global``, undoes nothing of the module's.
+    local = 'def fake(src):\n    return "fake"\n\n\neval = fake\n\n\ndef local():\n    eval = 1\n    del eval\n\n\nRESULT = eval("__name__")\n'
+    assert _relocated(local, "app/y.py", "app/x.py") == {}
+    looped = ('def fake(src):\n    return "fake"\n\n\neval = fake\nRESULT = []\nfor _pass in range(2):\n'
+              '    RESULT.append(eval("__name__"))\n    if _pass == 0:\n        del eval\n')
+    assert _relocated(looped, "app/y.py", "app/x.py") == {"expr:RESULT.append(eval('__name__'))": namespace}
 
 
 def test_a_builtin_is_followed_through_any_name_or_import_that_binds_it():
