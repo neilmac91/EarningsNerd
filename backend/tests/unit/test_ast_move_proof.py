@@ -749,7 +749,8 @@ def test_a_class_body_read_is_settled_by_an_earlier_member_that_sets_the_name_ou
     """A class body looks a name up in the class first, so a member that reads ``__module__`` or ``__doc__``
     after a member set it outright reads that value wherever the class moves, until a ``del`` of it and again
     after the next. A read above it, a binding in a block, one derived from the module's value, a read after a
-    ``del``, and a lambda's read (a nested scope reads the module's) still take what the new module derives."""
+    ``del`` (by a member defined above it too), and a lambda's read (a nested scope reads the module's) still
+    take what the new module derives."""
     old = ('"""Old."""\n\n\nclass C:\n    __module__ = "stable"\n    origin = __module__\n\n\n'
            'class D:\n    origin = __module__\n    __module__ = "stable"\n\n\n'
            'class E:\n    if READY:\n        __module__ = "stable"\n    origin = __module__\n\n\n'
@@ -757,11 +758,13 @@ def test_a_class_body_read_is_settled_by_an_earlier_member_that_sets_the_name_ou
            'class K:\n    __doc__ = __doc__ + "!"\n    usage = __doc__\n\n\n'
            'class G:\n    __doc__ = "Fixed."\n    del __doc__\n    usage = __doc__\n\n\n'
            'class H:\n    __doc__ = "Fixed."\n    del __doc__\n    __doc__ = "Again."\n    usage = __doc__\n\n\n'
-           'class J:\n    __doc__ = "Fixed."\n    del __doc__\n    __doc__, spare = "Again.", 1\n    usage = __doc__\n')
+           'class J:\n    __doc__ = "Fixed."\n    del __doc__\n    __doc__, spare = "Again.", 1\n    usage = __doc__\n\n\n'
+           'class L:\n    __doc__ = "Fixed."\n    usage = 1\n    del __doc__\n    usage = __doc__\n')
     assert _relocated(old, "app/y.py", "app/x.py", old.replace("Old.", "New.")) == {
         "D.origin": "reads __module__ (app.y, was app.x)", "E.origin": "reads __module__ (app.y, was app.x)",
         "F.both": "reads __doc__ (the module docstring differs)", "K.__doc__": "reads __doc__ (the module docstring differs)",
-        "K.usage": "reads __doc__ (the module docstring differs)", "G.usage": "reads __doc__ (the module docstring differs)"}
+        "K.usage": "reads __doc__ (the module docstring differs)", "G.usage": "reads __doc__ (the module docstring differs)",
+        "L.usage": "reads __doc__ (the module docstring differs)"}
 
 
 def test_a_name_one_module_sets_outright_and_the_other_does_not_is_relocated():

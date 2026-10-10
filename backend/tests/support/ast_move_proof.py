@@ -122,15 +122,15 @@ an expression holds no annotation; fail closed: a code object compiled elsewhere
 module dunder it binds, at module level or through ``global``, which Python reads from the new module (a
 moved ``__getattr__`` no longer serves the façade). A block reads its header here, a ``globals()`` there
 too; its statements are symbols of their own. A name that both modules set outright above the reading
-symbol, and not deleted since (outside a block, not by a bare annotation or ``:=``, from a value that does
-not read the name as ``__doc__ +=`` does; a def above the binding may be called at import before it), or
-that an earlier member of its class sets so for a read in the class body itself, is compared as those
-symbols; one that only one module sets outright, or binds at all, is reported; otherwise the values the
-import system derives are compared. Names are derived from the path relative to ``backend/`` (the CLI
-normalises how ``--old`` and ``--new`` are spelled), every directory a package, and without the old path
-(``compare()``'s ``old_path``, which the CLI always passes) every read but the docstring's and the
-annotations' is reported, as ``the old path is unknown`` or ``was an unknown module``. A RELOCATED symbol
-still counts as identical, as a REORDERED one does, and ``--allow`` takes its key.
+symbol, at each of its definitions, and not deleted since (outside a block, not by a bare annotation or
+``:=``, from a value that does not read the name as ``__doc__ +=`` does; a def above the binding may be
+called at import before it), or that an earlier member of its class sets so for a read in the class body
+itself, is compared as those symbols; one that only one module sets outright, or binds at all, is reported;
+otherwise the values the import system derives are compared. Names are derived from the path relative to
+``backend/`` (the CLI normalises how ``--old`` and ``--new`` are spelled), every directory a package, and
+without the old path (``compare()``'s ``old_path``, which the CLI always passes) every read but the
+docstring's and the annotations' is reported, as ``the old path is unknown`` or ``was an unknown module``. A
+RELOCATED symbol still counts as identical, as a REORDERED one does, and ``--allow`` takes its key.
 
 Limits. Code that a new class runs through a BASE (an inherited metaclass, or the base's
 ``__init_subclass__``) is not visible in the AST, so a new class with bases is ADDED; read every ADDED
@@ -160,11 +160,12 @@ RELOCATED reads old symbols only, so code a PR decomposes into NEW functions is 
 these reads, and ``vars()``, ``dir()`` or ``locals()`` without arguments at module level is not followed,
 nor is a builtin reached any other way (``getattr(builtins, ...)``, ``__builtins__``, a container, an
 argument passed in, a binding through ``global`` or as a ``for`` or ``with`` target, or a second name
-assigned from the first). A new annotated assignment writes its namespace's ``__annotations__`` without
-binding that name, so moved code that reads the dict, at module level too, sees one more key. And the names
-these rules trust (``property``, ``dataclass``, ``TYPE_CHECKING`` and the like) are taken at their word, so
-a move that rebinds one where no moved symbol reads it, such as an ADDED ``TYPE_CHECKING = True`` above an
-exempt block, is outside the proof.
+assigned from the first), and a name bound to a builtin is taken for it wherever the code calls it, though a
+later binding in a def may replace it first (fail closed). A new annotated assignment writes its namespace's
+``__annotations__`` without binding that name, so moved code that reads the dict, at module level too, sees
+one more key. And the names these rules trust (``property``, ``dataclass``, ``TYPE_CHECKING`` and the like)
+are taken at their word, so a move that rebinds one where no moved symbol reads it, such as an ADDED
+``TYPE_CHECKING = True`` above an exempt block, is outside the proof.
 
 The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE, SIDE EFFECT, SHADOWS, REORDERED or
 RELOCATED beyond the symbols passed with ``--allow`` (for SHADOWS, the new symbol's key); each allowed symbol
@@ -1004,13 +1005,14 @@ class _Module:
     outright: dict[str | None, dict[str, list[tuple[int, int | None]]]] = field(hash=False)
 
     def settles(self, name: str, used: _Names) -> bool:
-        """Whether a binding of its own is the value ``used`` reads of ``name``: in a class body, one an earlier
-        member of the class sets outright (a nested scope there reads the module's); else one the module sets
-        outright above ``used``. A def's body may run at import too, but only once the def statement has."""
+        """Whether a binding of its own is the value ``used`` reads of ``name`` wherever it stands, at each of its
+        definitions: in a class body, one an earlier member of the class sets outright (a nested scope there
+        reads the module's); else one the module sets outright above it. A def's body may run at import too,
+        but only once the def statement has."""
         member = self.outright.get(used.owner, {}) if used.owner else {}
-        if _bound_at(member, name, min(used.lines)) and name not in used.later:
+        if all(_bound_at(member, name, line) for line in used.lines) and name not in used.later:
             return True
-        return _bound_at(self.outright.get(None, {}), name, min(used.lines))
+        return all(_bound_at(self.outright.get(None, {}), name, line) for line in used.lines)
 
     @property
     def is_package(self) -> bool:
