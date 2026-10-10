@@ -34,7 +34,7 @@ import { bindingResolver, type Binding } from './astBindings'
  *     `loading` is no control. Which props make a shared control aria-disabled is read from its own
  *     expression: the props it is built from alone (Button's `loading`), or every use when it reads
  *     anything else (RetryButton, busy from its failures). A wrapper that forwards to a shared control is
- *     one too.
+ *     one too, and a use under an alias (`const BusyButton = Button`, `memo(Button)`) is a use of it.
  *     The scan reads every string and template chunk of the control's className and of what its
  *     identifiers name: a const's initializer or a function declaration's body, resolved in lexical
  *     scope, followed transitively and across modules, through an import (`@/…` or relative, named or
@@ -42,8 +42,9 @@ import { bindingResolver, type Binding } from './astBindings'
  *     list such as `fieldUnavailableClass` is read at each control that takes it, whatever variant it is
  *     written behind.
  *
- * What it cannot see: a component that takes its props undestructured (`props.className`) or is used
- * under a member tag (`ui.Button`); a trigger prop or a className that reaches a use through a props
+ * What it cannot see: a component that takes its props undestructured (`props.className`), is used
+ * under a member tag (`ui.Button`) or is loaded lazily (`dynamic(() => import(…))`); a trigger prop or a
+ * className that reaches a use through a props
  * spread; a class list reached through a namespace import (`import * as`; the app has none) or held in
  * a package; an `opacity` set by a `style` prop or by a rule in globals.css (it has none keyed to
  * aria-disabled); an ancestor's opacity.
@@ -238,13 +239,26 @@ function fadeScanner(read: Read, root: string): (file: string) => { offenders: O
     return out
   }
 
-  /** The component a held value is: the function itself, a declaration held by its body, or one a wrapper is given. */
-  const componentOf = (node: ts.Node): Component | undefined => {
-    if (isFunction(node)) return node
-    if (ts.isBlock(node) && isFunction(node.parent)) return node.parent
-    if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) return componentOf(node.expression)
-    // forwardRef(function Button(…) { … }), memo(…)
-    if (ts.isCallExpression(node)) for (const arg of node.arguments) if (componentOf(arg)) return componentOf(arg)
+  /**
+   * The component a value is, and its module: the function itself, a declaration held by its body, an alias of
+   * one (`const BusyButton = Button`), or the one a wrapper is given (`forwardRef(function Button…)`, `memo(Button)`).
+   */
+  const componentOf = (node: ts.Node, mod: Module, seen = new Set<ts.Node>()): { fn: Component; mod: Module } | undefined => {
+    if (seen.has(node)) return undefined
+    seen.add(node)
+    if (isFunction(node)) return { fn: node, mod }
+    if (ts.isBlock(node) && isFunction(node.parent)) return { fn: node.parent, mod }
+    if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) return componentOf(node.expression, mod, seen)
+    if (ts.isIdentifier(node)) {
+      const target = held(node, mod)
+      return target && componentOf(target.node, target.mod, seen)
+    }
+    if (ts.isCallExpression(node)) {
+      for (const arg of node.arguments) {
+        const found = componentOf(arg, mod, seen)
+        if (found) return found
+      }
+    }
     return undefined
   }
 
@@ -299,9 +313,8 @@ function fadeScanner(read: Read, root: string): (file: string) => { offenders: O
     const own = attributeOf(tag, 'aria-disabled')
     if (own) return [own.initializer]
     if (!ts.isIdentifier(tag.tagName) || !/^[A-Z]/.test(tag.tagName.text)) return undefined
-    const target = held(tag.tagName, mod)
-    const fn = target && componentOf(target.node)
-    const triggers = fn && sharedControl(fn, target.mod)
+    const component = componentOf(tag.tagName, mod)
+    const triggers = component && sharedControl(component.fn, component.mod)
     if (!triggers) return undefined
     if (triggers === 'always') return null
     const passed = [...triggers].map((prop) => attributeOf(tag, prop)).filter((a) => a !== undefined)
@@ -509,7 +522,7 @@ describe('no element opacity on an aria-disabled control (rule-12 gate)', () => 
     expect(tokensAmong(files, '/app/features/Quiet.tsx')).toEqual([])
   })
 
-  it('holds a use of a shared control to the rule: by the props that make it aria-disabled, through a wrapper, and nothing else', () => {
+  it('holds a use of a shared control to the rule: by the props that make it aria-disabled, through a wrapper or an alias, and nothing else', () => {
     const files = {
       '/app/components/ui/Button.tsx': `
         export const Button = forwardRef(function Button({ loading = false, className, children, ...rest }, ref) {
@@ -546,12 +559,17 @@ describe('no element opacity on an aria-disabled control (rule-12 gate)', () => 
         import { Bell } from './Bell'
         import Link from 'next/link'
         const FADED = 'hover:opacity-80'
+        const BusyButton = DsButton
+        const MemoButton = memo(BusyButton)
         export const Page = ({ busy, alerts }) => (
           <>
             <DsButton loading={busy} className={busy ? 'opacity-50' : ''}>Save</DsButton>
             <RetryButton failures={[]} className={FADED} />
             <Bell alerts={alerts} ticker="AAPL" className="opacity-40" />
             <DsButton loading className="opacity-30">Sending</DsButton>
+            <BusyButton loading={busy} className="opacity-20">Aliased</BusyButton>
+            <MemoButton loading={busy} className="opacity-10">Wrapped</MemoButton>
+            <MemoButton className="opacity-10">Never loading</MemoButton>
             <DsButton className="opacity-0 group-hover:opacity-100">Copy</DsButton>
             <DsButton loading={busy} className="w-full disabled:opacity-60">Send</DsButton>
             <Chip className="opacity-70">New</Chip>
@@ -567,6 +585,8 @@ describe('no element opacity on an aria-disabled control (rule-12 gate)', () => 
       'element hover:opacity-80',
       'element opacity-40',
       'element opacity-30',
+      'element opacity-20',
+      'element opacity-10',
     ])
     for (const file of ['/app/components/ui/Button.tsx', '/app/hooks/Retry.tsx', '/app/features/Bell.tsx']) {
       expect(tokensAmong(files, file)).toEqual([])
