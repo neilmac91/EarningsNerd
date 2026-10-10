@@ -840,7 +840,8 @@ def test_namespace_reads_postponed_annotations_and_moved_module_dunders_are_relo
     """``globals()``, and ``eval`` without a namespace, read another module's namespace from a new file;
     ``from __future__ import annotations`` in one module only changes how annotated code compiles (once on a
     class, for its members); and a module-level dunder, moved, is read from the new module. A file that keeps
-    its module keeps all three, and so does ``x.py`` to ``x/__init__.py`` for a module dunder."""
+    its module keeps all three. ``x.py`` to ``x/__init__.py`` keeps the name a module dunder is read under, but
+    not the namespace, which gains ``__path__`` and another ``__file__``, either way."""
     old = ("def lookup(name):\n    return globals()[name]\n\n\ndef run(src):\n    return eval(src)\n\n\n"
            "def scoped(src, ns):\n    return eval(src, ns)\n\n\ndef total(rows: list) -> int:\n    return len(rows)\n\n\n"
            "def plain(rows):\n    return rows\n\n\nclass Row:\n    key: str\n\n    def size(self) -> int:\n        return 0\n\n\n"
@@ -853,7 +854,11 @@ def test_namespace_reads_postponed_annotations_and_moved_module_dunders_are_relo
         "Row": "its annotations are postponed now (from __future__ import annotations), evaluated before",
         "__getattr__": "binds __getattr__, which Python reads from app.x.impl, was app.x"}
     assert _relocated(old, "app/x.py", "app/x.py") == {}
-    assert _relocated(old, "app/x/__init__.py", "app/x.py") == {}
+    package = "reads its module's namespace through {} (app.x, {} a package)"
+    assert _relocated(old, "app/x/__init__.py", "app/x.py") == {
+        "lookup": package.format("globals()", "now"), "run": package.format("eval()", "now")}
+    assert _relocated(old, "app/x.py", "app/x/__init__.py") == {
+        "lookup": package.format("globals()", "no longer"), "run": package.format("eval()", "no longer")}
 
 
 def test_eval_and_exec_read_the_callers_namespace_unless_given_globals_of_their_own():
@@ -870,6 +875,35 @@ def test_eval_and_exec_read_the_callers_namespace_unless_given_globals_of_their_
         "run": namespace.format("exec()"), "evaluate": namespace.format("eval()"), "closure": namespace.format("exec()"),
         "unpacked": namespace.format("eval()"), "keyword": namespace.format("eval()"),
         "only_locals": namespace.format("eval()")}
+
+
+def test_a_builtin_is_reached_by_a_call_above_any_module_binding_of_its_name():
+    """Code that runs at import above ``eval = fake`` still calls the builtin, which reads the new module's
+    namespace once moved; below the first binding, the call is the module's ``eval``. A class body looks the
+    name up in the class first, a block in it too: an ``eval`` its class bound above is the class's, but a
+    method's body, or a call above that binding, reaches the builtin."""
+    above = 'RESULT = eval("__name__")\n\n\ndef fake(src):\n    return "fake"\n\n\neval = fake\n'
+    split = compare(above, {"app/x.py": above.replace('RESULT = eval("__name__")\n\n\n', ""),
+                            "app/y.py": 'RESULT = eval("__name__")\n'}, old_path="app/x.py")
+    assert split.relocated == {"RESULT": "app/y.py, was app/x.py: reads its module's namespace through eval() (app.y, was app.x)"}
+    below = 'def fake(src):\n    return "fake"\n\n\neval = fake\nRESULT = eval("__name__")\neval = fake\n'
+    assert _relocated(below, "app/y.py", "app/x.py") == {}
+    classes = ('class C:\n    eval = staticmethod(lambda _: "stable")\n    result = eval("__name__")\n\n\n'
+               'class D:\n    eval = staticmethod(lambda _: "stable")\n\n    def run(self, src):\n        return eval(src)\n\n\n'
+               'class E:\n    result = eval("__name__")\n    eval = staticmethod(lambda _: "late")\n\n\n'
+               'class F:\n    eval = staticmethod(lambda _: True)\n    if eval("__name__"):\n        flag = 1\n\n\n'
+               'class G:\n    eval = staticmethod(lambda _: "first")\n    result = eval("__name__")\n    eval = staticmethod(lambda _: "next")\n')
+    namespace = "reads its module's namespace through eval() (app.y, was app.x)"
+    assert _relocated(classes, "app/y.py", "app/x.py") == {"D.run": namespace, "E.result": namespace}
+
+
+def test_module_is_a_class_bodys_only():
+    """A class body binds ``__module__`` before it runs, a nested one in a def too; anywhere else the name is
+    unbound before the move and after it (NameError), a method's body included."""
+    old = ("def where():\n    return __module__\n\n\nclass Box:\n    origin = __module__\n\n    def own(self):\n"
+           "        return __module__\n\n\ndef build():\n    class Inner:\n        origin = __module__\n    return Inner\n")
+    assert _relocated(old, "app/y.py", "app/x.py") == {
+        "Box.origin": "reads __module__ (app.y, was app.x)", "build": "reads __module__ (app.y, was app.x)"}
 
 
 def test_only_annotations_python_evaluates_and_code_compiled_under_the_future_import_count():
