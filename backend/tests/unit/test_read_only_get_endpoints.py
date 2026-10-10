@@ -142,11 +142,12 @@ ALLOWED_WRITE_SITES: dict[tuple[str, str], dict[str, dict[str, int]]] = {
         "app/services/refresh_token_service.py::mint_refresh_token": {"commit": 1},
     },
     ("app/routers/companies.py", "search_companies"): {
-        "app/routers/companies.py::search_companies": {"add": 1, "commit": 2, "flush": 1},
+        "app/services/company_lookup_service.py::resolve_search_conflict": {"commit": 1},
+        "app/services/company_lookup_service.py::upsert_search_results": {"add": 1, "commit": 1, "flush": 1},
         "app/services/company_resolution.py::resolve_or_create_company_by_cik": {"add": 1, "flush": 1},
     },
     ("app/routers/companies.py", "get_company"): {
-        "app/routers/companies.py::get_company": {"commit": 1},
+        "app/services/company_lookup_service.py::persist_sec_company": {"commit": 1},
         "app/services/company_resolution.py::resolve_or_create_company_by_cik": {"add": 1, "flush": 1},
     },
     ("app/routers/filings.py", "get_company_filings"): {

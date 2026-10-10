@@ -61,7 +61,7 @@ ROUTER_ORM_CEILINGS: dict[str, int] = {
 
     "app/routers/auth.py": 0,
 
-    "app/routers/companies.py": 21,
+    "app/routers/companies.py": 0,
 
     "app/routers/contact.py": 5,
 
