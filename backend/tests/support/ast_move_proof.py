@@ -514,7 +514,9 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
         used.here |= scope.loaded | scope.module
         used.later |= set().union(*(nested.taken() for nested in scope.nested))
         used.soon |= set().union(*(nested.taken(now=True) for nested in scope.nested))
-        used.declared |= scope.declared()
+        # A ``global`` directly in a class body holds for the whole body, but each member is read on its
+        # own, so the store is another member's: there the declaration alone counts.
+        used.declared |= scope.declared() | (scope.module if owner else set())
         used.lines.append(node.lineno)
 
     body = list(tree.body)

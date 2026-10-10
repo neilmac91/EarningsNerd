@@ -489,11 +489,14 @@ def test_a_symbol_of_the_target_file_shadows_moved_code_that_reads_it_at_import_
 def test_moved_code_that_rebinds_a_name_imported_from_the_target_file_shadows_it():
     """The exemption covers reads only. Before the move ``reset`` rebound the old file's own copy of
     ``cache``; in the target file it rebinds the target's binding, for every importer. A module-level loop
-    or ``except ... as`` target rebinds it as well, and so does a ``global`` declared in a method."""
+    or ``except ... as`` target rebinds it as well, and so does a ``global`` declared in a method or a class
+    body."""
     target = "cache = {}\n"
     for reader, key in (("def reset():\n    global cache\n    cache = {}\n", "reset"),
                         ("for cache in ROWS:\n    pass\n", "guard:for cache in ROWS"),
-                        ("class Box:\n    def reset(self):\n        global cache\n        cache = {}\n", "Box.reset")):
+                        ("class Box:\n    def reset(self):\n        global cache\n        cache = {}\n", "Box.reset"),
+                        # A class body's ``global`` and its store are two members: the declaration counts.
+                        ("class Box:\n    global cache\n    cache = {}\n", "Box.expr:global cache")):
         old = "from app.b import cache\n\n" + reader
         report = compare(old, {"app/a.py": "", "app/b.py": target + "\n\n" + reader}, old_path="app/a.py")
         assert report.shadows == {"cache": f"app/b.py: binds cache, bound by {key}"}, reader
