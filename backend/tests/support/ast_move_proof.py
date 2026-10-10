@@ -439,8 +439,9 @@ class _Scope:
         return taken.union(self.module, *(scope.taken(enclosing, now) for scope in self.nested))
 
     def declared(self) -> set[str]:
-        """The names this scope and the scopes nested in it declare ``global``, which they bind in the module."""
-        return self.module.union(*(scope.declared() for scope in self.nested))
+        """The module's names this scope and the scopes nested in it bind through ``global``: declared and
+        bound (stored or deleted) in the same scope. A ``global`` that is only read binds nothing."""
+        return (self.module & self.bound).union(*(scope.declared() for scope in self.nested))
 
 
 @dataclass
@@ -449,8 +450,9 @@ class _Names:
     ``binds`` and ``here`` are the names it binds and loads in that scope; ``later`` are the names its nested
     scopes (the body of a def, lambda, comprehension or nested class) take from the module, and ``soon`` the
     ones of those that a comprehension or class body takes where it stands, at import; ``declared`` the
-    names it or a nested scope declares ``global``. A ``block`` (a guard) binds whatever is bound in it: its
-    header's targets, its imports and its statements' names. ``lines``: where each of its definitions starts."""
+    module's names it or a nested scope binds through ``global``. A ``block`` (a guard) binds whatever is
+    bound in it: its header's targets, its imports and its statements' names. ``lines``: where each of its
+    definitions starts."""
     owner: str | None
     block: bool = False
     binds: set[str] = field(default_factory=set)

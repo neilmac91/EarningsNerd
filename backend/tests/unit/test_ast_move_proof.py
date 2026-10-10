@@ -497,10 +497,11 @@ def test_moved_code_that_rebinds_a_name_imported_from_the_target_file_shadows_it
         old = "from app.b import cache\n\n" + reader
         report = compare(old, {"app/a.py": "", "app/b.py": target + "\n\n" + reader}, old_path="app/a.py")
         assert report.shadows == {"cache": f"app/b.py: binds cache, bound by {key}"}, reader
-    # A read below the binding stays exempt, and a def that only reads the name needs no global.
-    reads = "def size():\n    return len(cache)\n"
-    assert compare("from app.b import cache\n\n" + reads, {"app/a.py": "", "app/b.py": target + "\n\n" + reads},
-                   old_path="app/a.py").ok
+    # A read below the binding stays exempt, a ``global`` that is only read included: it binds nothing.
+    for reads in ("def size():\n    return len(cache)\n", "def size():\n    global cache\n    return len(cache)\n"):
+        report = compare("from app.b import cache\n\n" + reads, {"app/a.py": "", "app/b.py": target + "\n\n" + reads},
+                         old_path="app/a.py")
+        assert report.ok, render(report)
 
 def test_a_new_module_dunder_beside_moved_code_is_read_by_python_itself():
     """No moved code loads ``__builtins__``, yet ``size`` below it resolves ``len`` through it. It runs
