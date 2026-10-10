@@ -1,16 +1,22 @@
-// Pricing anchor: $39/mo · $390/yr (annual = 2 months free) — the prosumer-band anchor the council
-// set (kill $14, which reads as "toy" for an accountability product). Beta members still pay $0 via
-// the 100%-off forever promo; this only changes the displayed/anchored price + the analytics value.
-//
-// Fake-door $39-vs-$29 A/B (roadmap 2.3): the `pricing-experiment` PostHog flag picks the arm.
-// Display-only — both arms route to the same checkout, so the charge path is unchanged. Only the
-// explicit `price_29` arm lowers the anchor; an unset/missing flag (or PostHog being down) falls
-// through to the $39 control, so there's no regression if the experiment isn't configured.
-//
-// Plain module (no 'use client') so BOTH the client page and the server layout (Product/Offer
-// JSON-LD) read one source of truth — a `'use client'` module's exports can't be consumed by a
-// Server Component (lessons/frontend-client-exports-need-next-build.md).
-export const PRICE_VARIANTS = {
-  control: { monthly: 39, yearly: 390, monthlyDisplay: '$39', yearlyDisplay: '$390' },
-  price_29: { monthly: 29, yearly: 290, monthlyDisplay: '$29', yearlyDisplay: '$290' },
-} as const
+// Pro offer: $25 per month, or $240 per year billed annually, advertised as $20 per month. Publish
+// only after the backend checkout prices match these amounts; see docs/PRICING_OFFER.md for the
+// held activation sequence and existing-customer protections.
+// Keep this a plain module: the client pages and server Product/Offer JSON-LD share it. Every
+// displayed amount and saving derives from here (gate: tests/unit/pricingFollowsModule.spec.tsx).
+const usd = (amount: number) => (Number.isInteger(amount) ? `$${amount}` : `$${amount.toFixed(2)}`)
+
+export function proPricing(monthly: number, yearly: number) {
+  const annualSavings = monthly * 12 - yearly
+  return {
+    monthly,
+    yearly,
+    monthlyDisplay: usd(monthly),
+    yearlyDisplay: usd(yearly),
+    yearlyPerMonthDisplay: usd(yearly / 12),
+    annualSavingsDisplay: usd(annualSavings),
+    // Rounded down, so the advertised saving can never exceed the real one.
+    annualSavingsPercent: Math.floor((annualSavings * 100) / (monthly * 12)),
+  } as const
+}
+
+export const PRO_PRICING = proPricing(25, 240)

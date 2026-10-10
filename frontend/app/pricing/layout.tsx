@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { PRICE_VARIANTS } from './prices'
+import { PRO_PRICING } from './prices'
 
 const SITE_URL = 'https://www.earningsnerd.io'
 
@@ -11,9 +11,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/pricing' },
 }
 
-// Product/Offer structured data for the pricing rich result. Uses the CONTROL anchor: the
-// $39-vs-$29 fake-door A/B is a client-side display experiment and must not leak a variant price
-// into what crawlers index.
+// Product/Offer structured data uses the same approved offer as the visible pricing surfaces.
 const PRICING_JSON_LD = {
   '@context': 'https://schema.org',
   '@type': 'Product',
@@ -27,7 +25,7 @@ const PRICING_JSON_LD = {
     {
       '@type': 'Offer',
       name: 'Pro (monthly)',
-      price: PRICE_VARIANTS.control.monthly,
+      price: PRO_PRICING.monthly,
       priceCurrency: 'USD',
       url: `${SITE_URL}/pricing`,
       availability: 'https://schema.org/InStock',
@@ -35,7 +33,7 @@ const PRICING_JSON_LD = {
     {
       '@type': 'Offer',
       name: 'Pro (annual)',
-      price: PRICE_VARIANTS.control.yearly,
+      price: PRO_PRICING.yearly,
       priceCurrency: 'USD',
       url: `${SITE_URL}/pricing`,
       availability: 'https://schema.org/InStock',

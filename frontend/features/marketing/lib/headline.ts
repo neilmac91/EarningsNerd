@@ -1,7 +1,6 @@
 /**
  * Hero headline variants (the design's `headline` tweak). Wired through the repo's existing
- * PostHog feature-flag experiments (the same `useFeatureFlagVariantKey` pattern as the pricing
- * page's `pricing-experiment`): A is the default served in HTML (and the `<title>` / `og:title`),
+ * PostHog feature-flag experiments: A is the default served in HTML (and the `<title>` / `og:title`),
  * C is the shipped control the experiment compares against. An unset flag (or PostHog down)
  * renders A, so nothing regresses when the experiment is not configured.
  */

@@ -150,6 +150,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - frontend-no-surface-fighting-global-colors.md — Never set a global element-level color that surfaces must opt out of
 - frontend-overrides-rot-when-the-constrained-package-moves.md — An npm override's meaning is set by the package it constrains — re-check every override on a major bump
 - frontend-preview-both-themes-before-done.md — Eyeball the deployed preview in both themes before declaring visual work done
+- frontend-price-copy-derives-from-the-module.md — Compute every displayed Pro price and saving claim from PRO_PRICING; never type one (partly gated by `frontend/tests/unit/pricingFollowsModule.spec.tsx`, which covers the pricing page and homepage section; a new price surface joining it is review-checked)
 - frontend-reserve-fixed-chrome-with-scroll-padding.md — A focus scroll stops at the viewport edge, not at a fixed overlay: reserve the overlay with scroll-padding
 - frontend-route-redesign-needs-a-mount-gate.md — A self-omitting section needs a source-level mount gate — render tests cannot see it go missing
 - frontend-site-overlays-outrank-in-page-sticky-chrome.md — A fixed site-level overlay ranks above in-page sticky chrome, and the ladder gate scans sticky sites too
