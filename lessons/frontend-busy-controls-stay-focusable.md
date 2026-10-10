@@ -88,8 +88,9 @@ the browser's own outline on the five controls with no ring recipe faded the sam
 `tests/unit/ariaDisabledKeepsItsRing.spec.ts` reads the AST of every .ts and .tsx under app/,
 components/, features/, hooks/ and lib/ and fails on an `opacity-*` class behind the element's own
 `aria-disabled:` variant, wherever the class list is written, and on any other `opacity-*` class on an
-element that carries `aria-disabled` (through same-file consts and functions), except behind
-`disabled:`. No allowlist.
+element that carries `aria-disabled`, except behind `disabled:`. It reads what the className's names
+hold (a const, a function's body) across imports and a barrel's re-exports, so a shared class list is
+held to the rule at each control that takes it. No allowlist.
 
 (f) Keeping focus makes a second activation reachable, so the guard must cover the whole
 operation. A mutation whose success refetches the data the control depends on returns that

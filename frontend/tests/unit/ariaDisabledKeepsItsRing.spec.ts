@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
@@ -28,13 +28,16 @@ import { bindingResolver, type Binding } from './astBindings'
  *     behind `disabled:` (a natively disabled control cannot hold focus, so it shows no ring). This is
  *     the pending-opacity shape, a fade a busy flag picks in JS: AlertBell's
  *     `pending || checking ? 'cursor-progress opacity-60' : ''`. It reads every string and template chunk
- *     of the element's className and of what its identifiers name in the same file (a const's
- *     initializer, a function declaration's body), resolved in lexical scope and followed transitively.
+ *     of the element's className and of what its identifiers name: a const's initializer or a function
+ *     declaration's body, resolved in lexical scope, followed transitively and across modules, through
+ *     an import (`@/…` or relative, named or default) and a barrel's re-exports (`export { a as b } from`,
+ *     `export * from`). So a shared class list such as `fieldUnavailableClass` is read at each control
+ *     that takes it, whatever variant it is written behind.
  *
- * What it cannot see: a class list imported from another module and held behind no `aria-disabled:`
- * variant (clause 2 follows same-file names only); a className or an `aria-disabled` that arrives through
- * a props spread; an `opacity` set by a `style` prop or by a rule in globals.css (it has none keyed to
- * aria-disabled); an ancestor's opacity.
+ * What it cannot see: a className or an `aria-disabled` that arrives through a prop or a props spread
+ * (a parameter holds what the caller passes); a class list reached through a namespace import
+ * (`import * as`; the app has none) or held in a package; an `opacity` set by a `style` prop or by a
+ * rule in globals.css (it has none keyed to aria-disabled); an ancestor's opacity.
  */
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -84,29 +87,133 @@ interface Offender {
   clause: 'variant' | 'element'
 }
 
-/** Every offending class token in one source file, and how many aria-disabled elements it holds. */
-function fadingTokens(source: string, fileName: string): { offenders: Offender[]; controls: number } {
-  const kind = fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
-  const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, kind)
-  const visible = bindingResolver(sf)
-  const lineOf = (n: ts.Node) => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1
-  const offenders: Offender[] = []
-  let controls = 0
+/** A source file's text, or undefined when there is no such file. */
+type Read = (file: string) => string | undefined
 
-  /** The class text a className expression can hold: its own chunks, and those its same-file names reach. */
-  const classChunks = (expr: ts.Node, seen: Set<Binding>, out: string[]): string[] => {
+interface Module {
+  file: string
+  sf: ts.SourceFile
+  visible: (ref: ts.Identifier) => Binding | undefined
+  /** Local name to the app module and the exported name an import brings in. */
+  imports: Map<string, { file: string; name: string }>
+}
+
+/** What a name holds, and the module whose names it is written in. */
+interface Held {
+  node: ts.Node
+  mod: Module
+}
+
+const hasModifier = (n: ts.Node, kind: ts.SyntaxKind) =>
+  ts.canHaveModifiers(n) && (ts.getModifiers(n)?.some((m) => m.kind === kind) ?? false)
+
+/**
+ * The scan over one set of files (`read`), with `@/` resolved against `root`. Returns, for a file, every
+ * offending class token in it and how many aria-disabled elements it holds.
+ */
+function fadeScanner(read: Read, root: string): (file: string) => { offenders: Offender[]; controls: number } {
+  const modules = new Map<string, Module | undefined>()
+
+  /** The app file an import specifier names; undefined for a package. */
+  const resolve = (from: string, specifier: string): string | undefined => {
+    const base = specifier.startsWith('@/')
+      ? path.join(root, specifier.slice(2))
+      : specifier.startsWith('.')
+        ? path.resolve(path.dirname(from), specifier)
+        : undefined
+    if (!base) return undefined
+    return [base, `${base}.ts`, `${base}.tsx`, path.join(base, 'index.ts'), path.join(base, 'index.tsx')].find(
+      (file) => /\.tsx?$/.test(file) && read(file) !== undefined,
+    )
+  }
+
+  const load = (file: string): Module | undefined => {
+    if (modules.has(file)) return modules.get(file)
+    const source = read(file)
+    let mod: Module | undefined
+    if (source !== undefined) {
+      const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+      const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, kind)
+      const imports: Module['imports'] = new Map()
+      for (const s of sf.statements) {
+        if (!ts.isImportDeclaration(s) || !ts.isStringLiteral(s.moduleSpecifier) || !s.importClause) continue
+        const target = resolve(file, s.moduleSpecifier.text)
+        if (!target) continue
+        const { name, namedBindings } = s.importClause
+        if (name) imports.set(name.text, { file: target, name: 'default' })
+        if (namedBindings && ts.isNamedImports(namedBindings)) {
+          for (const el of namedBindings.elements) imports.set(el.name.text, { file: target, name: (el.propertyName ?? el.name).text })
+        }
+      }
+      mod = { file, sf, visible: bindingResolver(sf), imports }
+    }
+    modules.set(file, mod)
+    return mod
+  }
+
+  /** What `name` exported from `mod` holds, through a barrel's re-exports. */
+  const exported = (mod: Module, name: string, seen: Set<string>): Held | undefined => {
+    if (seen.has(mod.file)) return undefined
+    seen.add(mod.file)
+    const stars: Module[] = []
+    for (const s of mod.sf.statements) {
+      if (ts.isVariableStatement(s) && hasModifier(s, ts.SyntaxKind.ExportKeyword)) {
+        for (const d of s.declarationList.declarations) {
+          if (ts.isIdentifier(d.name) && d.name.text === name && d.initializer) return { node: d.initializer, mod }
+        }
+      } else if (ts.isFunctionDeclaration(s) && s.body && hasModifier(s, ts.SyntaxKind.ExportKeyword)) {
+        const exportedAs = hasModifier(s, ts.SyntaxKind.DefaultKeyword) ? 'default' : s.name?.text
+        if (exportedAs === name) return { node: s.body, mod }
+      } else if (ts.isExportAssignment(s) && !s.isExportEquals && name === 'default') {
+        return { node: s.expression, mod }
+      } else if (ts.isExportDeclaration(s)) {
+        const from = s.moduleSpecifier && ts.isStringLiteral(s.moduleSpecifier) ? resolve(mod.file, s.moduleSpecifier.text) : undefined
+        const target = from ? load(from) : undefined
+        if (!s.exportClause) {
+          if (target) stars.push(target)
+        } else if (ts.isNamedExports(s.exportClause)) {
+          const el = s.exportClause.elements.find((e) => e.name.text === name)
+          if (!el) continue
+          const local = el.propertyName ?? el.name
+          if (s.moduleSpecifier) return target ? exported(target, local.text, seen) : undefined
+          return ts.isIdentifier(local) ? held(local, mod) : undefined
+        }
+      }
+    }
+    for (const star of stars) {
+      const found = exported(star, name, seen)
+      if (found) return found
+    }
+    return undefined
+  }
+
+  /**
+   * What the name at `ref` holds: a const's initializer or a function declaration's body, in this module
+   * or in the one it is imported from. A parameter or a destructured prop holds what the caller passes,
+   * which no file shows, and it shadows an import of the same name.
+   */
+  const held = (ref: ts.Identifier, mod: Module): Held | undefined => {
+    const binding = mod.visible(ref)
+    if (binding) {
+      const node = binding.init ?? (ts.isFunctionDeclaration(binding.decl) ? binding.alias : undefined)
+      return node ? { node, mod } : undefined
+    }
+    const imported = mod.imports.get(ref.text)
+    const from = imported && load(imported.file)
+    return from ? exported(from, imported.name, new Set()) : undefined
+  }
+
+  /** The class text a className expression can hold: its own chunks, and those the names in it reach. */
+  const classChunks = (expr: ts.Node, mod: Module, seen: Set<ts.Node>, out: string[]): string[] => {
     const visit = (n: ts.Node): void => {
       if (isChunk(n)) out.push(n.text)
       else if (ts.isIdentifier(n)) {
-        // `styles.chip` names a property, not a local binding.
+        // `styles.chip` names a property, not a binding.
         if (ts.isPropertyAccessExpression(n.parent) && n.parent.name === n) return
-        // A const's initializer or a function declaration's body. A parameter or a destructured prop
-        // holds what the caller passes, which this file does not show.
-        const binding = visible(n)
-        const held = binding && (binding.init ?? (ts.isFunctionDeclaration(binding.decl) ? binding.alias : undefined))
-        if (!binding || !held || seen.has(binding)) return
-        seen.add(binding)
-        classChunks(held, seen, out)
+        const target = held(n, mod)
+        if (!target || seen.has(target.node)) return
+        seen.add(target.node)
+        classChunks(target.node, target.mod, seen, out)
       }
       ts.forEachChild(n, visit)
     }
@@ -114,34 +221,46 @@ function fadingTokens(source: string, fileName: string): { offenders: Offender[]
     return out
   }
 
-  const visit = (n: ts.Node): void => {
-    if (isChunk(n)) {
-      for (const token of tokensOf(n.text)) {
-        const { variants, utility } = parseToken(token)
-        if (fadesElement(utility) && variants.some(ownAriaDisabled)) offenders.push({ line: lineOf(n), token, clause: 'variant' })
-      }
-    }
-    if (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) {
-      const attribute = (name: string) =>
-        n.attributes.properties.find((a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && a.name.getText(sf) === name)
-      const className = attribute('className')?.initializer
-      if (attribute('aria-disabled')) {
-        controls += 1
-        for (const token of className ? classChunks(className, new Set(), []).flatMap(tokensOf) : []) {
+  return (file) => {
+    const mod = load(file)
+    const offenders: Offender[] = []
+    let controls = 0
+    if (!mod) return { offenders, controls }
+    const { sf } = mod
+    const lineOf = (n: ts.Node) => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1
+
+    const visit = (n: ts.Node): void => {
+      if (isChunk(n)) {
+        for (const token of tokensOf(n.text)) {
           const { variants, utility } = parseToken(token)
-          // Clause 1 already reports a fade behind the element's own aria-disabled variant.
-          if (!fadesElement(utility) || variants.includes('disabled') || variants.some(ownAriaDisabled)) continue
-          offenders.push({ line: lineOf(n), token, clause: 'element' })
+          if (fadesElement(utility) && variants.some(ownAriaDisabled)) offenders.push({ line: lineOf(n), token, clause: 'variant' })
         }
       }
+      if (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) {
+        const attribute = (name: string) =>
+          n.attributes.properties.find((a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && a.name.getText(sf) === name)
+        const className = attribute('className')?.initializer
+        if (attribute('aria-disabled')) {
+          controls += 1
+          for (const token of className ? classChunks(className, mod, new Set(), []).flatMap(tokensOf) : []) {
+            const { variants, utility } = parseToken(token)
+            // Clause 1 already reports a fade behind the element's own aria-disabled variant, where it is written.
+            if (!fadesElement(utility) || variants.includes('disabled') || variants.some(ownAriaDisabled)) continue
+            offenders.push({ line: lineOf(n), token, clause: 'element' })
+          }
+        }
+      }
+      ts.forEachChild(n, visit)
     }
-    ts.forEachChild(n, visit)
+    visit(sf)
+    return { offenders, controls }
   }
-  visit(sf)
-  return { offenders, controls }
 }
 
-const tokensIn = (source: string) => fadingTokens(source, 'Fixture.tsx').offenders.map((o) => `${o.clause} ${o.token}`)
+/** The offenders of `file` among in-memory `files`, keyed by path under a root of `/app`. */
+const tokensAmong = (files: Record<string, string>, file: string) =>
+  fadeScanner((f) => files[f], '/app')(file).offenders.map((o) => `${o.clause} ${o.token}`)
+const tokensIn = (source: string) => tokensAmong({ '/app/Fixture.tsx': source }, '/app/Fixture.tsx')
 
 describe('no element opacity on an aria-disabled control (rule-12 gate)', () => {
   it('sees an opacity behind the element’s own aria-disabled variant wherever a class list is written, and nothing else', () => {
@@ -221,11 +340,60 @@ describe('no element opacity on an aria-disabled control (rule-12 gate)', () => 
     ).toEqual([])
   })
 
+  it('follows a class list across modules: an import, a barrel’s re-exports and a default export, and nothing a package or a parameter holds', () => {
+    const files = {
+      '/app/components/ui/Input.tsx': `
+        const FIELD = 'w-full rounded-lg disabled:opacity-60'
+        export function inputClasses() {
+          return cx(FIELD)
+        }
+        export const fieldUnavailableClass = cx('aria-disabled:cursor-not-allowed', 'opacity-60')
+      `,
+      '/app/components/ui/Look.ts': `
+        const dim = 'hover:opacity-80'
+        export { dim as busyLook }
+        export default 'opacity-30'
+      `,
+      '/app/components/ui/index.ts': `
+        export { fieldUnavailableClass as unavailable, inputClasses } from './Input'
+        export * from './Look'
+      `,
+      '/app/features/Row.tsx': `
+        import { clsx } from 'clsx'
+        import { unavailable, inputClasses, busyLook } from '@/components/ui'
+        import fade from '../components/ui/Look'
+        export const Row = ({ busy }) => (
+          <>
+            <select aria-disabled={busy || undefined} className={clsx(inputClasses(), unavailable)} />
+            <button aria-disabled={busy || undefined} className={busy ? busyLook : fade} />
+          </>
+        )
+      `,
+      '/app/features/Quiet.tsx': `
+        import { clsx } from 'clsx'
+        import { unavailable, busyLook } from '@/components/ui'
+        import { missing } from '@/components/ui/Nowhere'
+        export const Quiet = ({ busy, unavailable: passed }) => (
+          <>
+            <select className={clsx(unavailable, busyLook)} />
+            <button aria-disabled={busy || undefined} className={clsx(passed, missing, clsx)} />
+          </>
+        )
+        export const Shadowed = ({ busy, busyLook }) => <button aria-disabled={busy || undefined} className={busyLook} />
+      `,
+    }
+    // Each is reported at the control that takes it: its own module holds no aria-disabled variant to report.
+    expect(tokensAmong(files, '/app/features/Row.tsx')).toEqual(['element opacity-60', 'element hover:opacity-80', 'element opacity-30'])
+    expect(tokensAmong(files, '/app/components/ui/Input.tsx')).toEqual([])
+    expect(tokensAmong(files, '/app/features/Quiet.tsx')).toEqual([])
+  })
+
   it('no class fades an aria-disabled control as a whole', () => {
     const offenders: string[] = []
     let controls = 0
+    const scan = fadeScanner((file) => (existsSync(file) && statSync(file).isFile() ? readFileSync(file, 'utf8') : undefined), frontendRoot)
     for (const file of ROOTS.flatMap((root) => walk(path.join(frontendRoot, root), []))) {
-      const found = fadingTokens(readFileSync(file, 'utf8'), file)
+      const found = scan(file)
       controls += found.controls
       for (const o of found.offenders) offenders.push(`${path.relative(frontendRoot, file)}:${o.line} ${o.token}`)
     }
