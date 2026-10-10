@@ -1,8 +1,8 @@
 # Decision record 21 — chief succession: the predecessor session blocked by a Claude Code safety check from about 21:40Z and the successor appointed by the founder's handover brief at 22:38Z; PR #1167 (record 20) merged, fourteenth deploy-skip proof; #1169's deploy read back from its log (every process carries both SEC pins, the insider switch is off, the health check passed) and twelve later main runs classified, four of them deploys by other writers (#1166, #1123, #1135, #1140), each read back from its log; the founder's USD 5 balance floor recorded as a stop condition; a duplicate second successor session holds every write; the Monday check-in re-armed; disclosures (chief defects 9 and 10, classifier denials 11 and 12, a record-20 wording correction, the account's usage-limit interruption); closure 172 (chief, 2026-10-09)
 
 Recorded 2026-10-09T23:02Z, amended 2026-10-09T23:12Z (the relayed confirmation), 2026-10-10T04:05Z (the usage-limit
-interruption; the fresh reviewer context), 04:09Z (chief defect 10) and 04:30Z (after the record-21 review: the later main runs
-read back, including two deploys by other writers), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
+interruption; the fresh reviewer context), 04:09Z (chief defect 10) 04:30Z (after the record-21 review: the later main runs
+read back, including two deploys by other writers) and 05:03Z (chief defect 11), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
 Context: record 20 merged to main as `da8dc998` (PR #1167, 2026-10-09T22:14:52Z); this is the first PR from the successor's
 branch `claude/stoic-wright-6jeujo`, started at `a572876c`. Records, two lessons, the lessons index, one records-tree tool
 (`tools/records-gate.sh`) and its test under `backend/tests/unit/`: no application code, workflow, migration, cloud, IAM or
@@ -234,6 +234,16 @@ paid trigger can still fire (Plan, below); the predecessor's attempt to add it t
    the redacting filter and the raw copies deleted; the private ledger read back once; the two
    trigger operations; the agent copy and a virtual environment with the pinned backend toolchain in the scratchpad; four cross-session
    messages (three received, one sent). No SEC, production, `run.app` or Google Cloud request; no repository write before this PR.
+
+9. **Chief defect 11 (the successor's):** at 05:00Z on 2026-10-10 a commit chain for this PR ran `ruff format --check` on the new
+   wrapper test, the check failed (the file would be reformatted), and the chain committed and pushed head `577edeb` anyway: the
+   chain's `set -euo pipefail` did not stop it. A probe in the same tool shell, `(set -e; false; echo survived)`, prints, so errexit is
+   suppressed there (the shell's rule for commands run inside a conditional context); `set -e` at the top of a chain gates nothing in
+   this session's shell. The records gate (through `tools/records-gate.sh`, a separate script in which `set -e` does work), the
+   wrapper test and `ruff check` all passed on that head, and CI runs `ruff check` only, so nothing red reached CI; the file was
+   formatted in `2dc7a3b` two minutes later. The same rule as chief defect 10, failed by a second mechanism: in a chain that commits
+   or pushes, every verification step carries its own explicit exit (`cmd || exit 1`); `set -e` is not that check here. The lesson
+   gains the paragraph; `APPOINTMENTS.json`'s `chief_defects` has the entry.
 
 ## Plan
 

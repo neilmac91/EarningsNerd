@@ -18,8 +18,11 @@ the `&&` that commits. For the CODE RED records, run the gate only through
 `tasks/code-red-20261004/runtime/tools/records-gate.sh`, which runs pytest unpiped, prints the
 summary afterwards and exits with pytest's status; `backend/tests/unit/test_records_gate_wrapper.py`
 pins that form and proves by mutation that a failing test fails the wrapper (rule 12: the gate behind
-this rule).
+this rule). `set -e` is not that check in the Claude Code tool shell: a probe `(set -e; false; echo survived)` prints there, so
+errexit is suppressed (chief defect 11, 2026-10-10T05:00Z: a failed `ruff format --check` did not stop a chain from committing and
+pushing `577edeb`). Give every verification step of a chain that commits or pushes its own explicit exit, `cmd || exit 1`; the
+wrapper is a separate script, where `set -e` does work.
 
 **Evidence.** `tasks/code-red-20261004/runtime/control/DECISIONS-21.md` (disclosure 7);
 `tasks/code-red-20261004/runtime/control/APPOINTMENTS.json` (`chief_defects`, 2026-10-10T04:05Z);
-PR neilmac91/EarningsNerd#1172 heads `7d65c89` (gate red) and `351319f` (gate green).
+PR neilmac91/EarningsNerd#1172 heads `7d65c89` (gate red) and `351319f` (gate green); `577edeb` (unformatted) and `2dc7a3b` (formatted).
