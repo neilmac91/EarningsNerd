@@ -224,7 +224,10 @@ describe('globals.css animations stop under reduced motion', () => {
   })
 })
 
-describe('the repository config', () => {
+/** Building ESLint from the real config takes 2-3.5s warm and over 7s cold or on a loaded runner; 5s is too tight. */
+const SLOW = { timeout: 30_000 }
+
+describe('the repository config', SLOW, () => {
   it('runs the three rules as errors on app code', async () => {
     const eslint = new ESLint({ cwd: frontendRoot })
     const [result] = await eslint.lintText(
