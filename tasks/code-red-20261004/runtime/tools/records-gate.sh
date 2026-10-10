@@ -13,7 +13,8 @@
 #            test files the records tree owns;
 #   backend  the records steps plus the repository's full backend gate, required before every push
 #            that changes backend/ (AGENTS.md): ruff check ., bandit -r app -ll, python -m pytest;
-#   auto     in a git repository: backend when the working tree has a staged or unstaged change under
+#   auto     in a git repository: backend when the working tree has a staged, unstaged or untracked change
+#            (read with --untracked-files=all, so no git configuration can hide a new file) under
 #            backend/ or when the commits since the merge-base with origin/main (fallback main) change
 #            backend/; fails closed (exit 2) when neither base exists, or when the only base is the local
 #            main that HEAD itself sits on (the commits to be pushed are then unknown); records otherwise.
@@ -31,7 +32,7 @@ lint_paths="${RECORDS_GATE_LINT_PATHS:-tests/unit/test_code_red_runtime_records.
 scope="${RECORDS_GATE_SCOPE:-auto}"
 if [ "$scope" = "auto" ]; then
   if git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    changed="$(git -C "$repo" status --porcelain -- backend 2>/dev/null || true)"
+    changed="$(git -C "$repo" status --porcelain --untracked-files=all -- backend 2>/dev/null || true)"
     if [ -z "$changed" ]; then
       base=""
       base_ref=""

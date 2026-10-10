@@ -4,8 +4,8 @@ Recorded 2026-10-09T23:02Z, amended 2026-10-09T23:12Z (the relayed confirmation)
 interruption; the fresh reviewer context), 04:09Z (chief defect 10), 04:30Z (after the record-21 review: the later main runs
 read back, including two deploys by other writers), 05:03Z (chief defect 11), 05:11Z (the records gate extended to every verification step; the title; the
 interval of chief defect 11 corrected), 05:21Z (the wrapper's `backend` scope carries the full backend gate; chief
-defect 12), 05:50Z (`auto` also reads the commits since main) and 06:03Z (`auto` refuses a self-comparison with the local `main`), by the
-successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
+defect 12), 05:50Z (`auto` also reads the commits since main), 06:03Z (`auto` refuses a self-comparison with the local `main`) and 06:19Z (untracked files read regardless of
+configuration), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
 Context: record 20 merged to main as `da8dc998` (PR #1167, 2026-10-09T22:14:52Z); this is the first PR from the successor's
 branch `claude/stoic-wright-6jeujo`, started at `a572876c`. Records, two lessons, the lessons index, one records-tree tool
 (`tools/records-gate.sh`) and its test under `backend/tests/unit/`: no application code, workflow, migration, cloud, IAM or
@@ -238,7 +238,8 @@ paid trigger can still fire (Plan, below); the predecessor's attempt to add it t
    change under `backend/` in the working tree or in the commits since main, `records` otherwise, and fails closed without a base or
    when the only base is the local `main` that HEAD itself sits on (Codex's P1 on `8f64ee6`: the first `auto` read the working tree
    only, so a clean tree after a commit chose `records`; Codex's P2 on `f97a02f`: a self-comparison with the local `main` would have
-   hidden a change committed on it). The repository still cannot see the chief's shell, so the gate is the wrapper plus
+   hidden a change committed on it; Codex's P2 on `4f55e93`: the working tree is read with `--untracked-files=all`, so a
+   `status.showUntrackedFiles=no` configuration cannot hide a new file). The repository still cannot see the chief's shell, so the gate is the wrapper plus
    CI's own run of the records gate, which is what caught `7d65c89`.
 8. **The successor's side effects to this record:** read-only GitHub requests (runs, jobs, one PR, the open PR list, the balance
    job's log); two pages of the predecessor's session event log through the platform's session API (its own transcript events,

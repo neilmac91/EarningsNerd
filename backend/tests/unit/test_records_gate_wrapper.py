@@ -99,7 +99,7 @@ def _run_wrapper(
     """Run the wrapper on a temporary repository.
 
     ``git`` lays the repository out for the auto-scope proofs: ``"untracked-change"`` (initialised, nothing committed, so the
-    backend files are an unstaged change), ``"committed-change"`` (a ``main`` with the test only, then a branch whose commit
+    backend files are untracked, with ``status.showUntrackedFiles=no`` set to prove the read does not depend on it), ``"committed-change"`` (a ``main`` with the test only, then a branch whose commit
     adds ``backend/app``; the working tree is clean), ``"no-base"`` (one branch named ``work`` holding everything; no ``main``),
     ``"on-local-main"`` (``main`` itself holds everything, no ``origin/main``; the working tree is clean).
     """
@@ -116,6 +116,8 @@ def _run_wrapper(
         (app / "planted.py").write_text(app_body, encoding="utf-8")
     if git == "untracked-change":
         _git(repo, "init", "-q")
+        # A configuration that hides untracked files from a plain `git status`; the wrapper must see them regardless.
+        _git(repo, "config", "status.showUntrackedFiles", "no")
     elif git == "committed-change":
         _git(repo, "init", "-q")
         _git(repo, "symbolic-ref", "HEAD", "refs/heads/main")
