@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 from unittest.mock import AsyncMock, patch
 
+from app.services.edgar import xbrl_instance
 from app.services.edgar import xbrl_service as xbrl_module
 from app.services.edgar.debt_concepts import DEBT_COMPONENT_CONCEPTS
 from app.services.edgar.instance_extractor import (
@@ -327,7 +328,7 @@ def _patch_company(filings):
     # returns (company, filings). Patch that instead of EdgarCompany.
     company = FakeCompany(filings)
     return patch.object(
-        xbrl_module,
+        xbrl_instance,
         "resolve_filing_by_accession",
         lambda cik, accession_number: (company, list(filings)),
     )
@@ -599,10 +600,10 @@ def test_selected_cash_debt_provenance_preserves_owner_values_and_queries(monkey
     calls.clear()
     monkeypatch.setattr(settings, 'RICHER_FINANCIALS_ENABLED', False)
     monkeypatch.setattr(settings, 'USE_STATEMENT_FINANCIALS', False)
-    monkeypatch.setattr(xbrl_module, 'DURATION_CONCEPTS', {'net_income': ['NetIncomeLoss']})
-    monkeypatch.setattr(xbrl_module, 'INSTANT_CONCEPTS', {metric: concepts})
-    monkeypatch.setattr(xbrl_module, 'dividend_component_sum_series', lambda *a: ([], None))
-    monkeypatch.setattr(xbrl_module, '_extract_segments', lambda *a: [])
+    monkeypatch.setattr(xbrl_instance, 'DURATION_CONCEPTS', {'net_income': ['NetIncomeLoss']})
+    monkeypatch.setattr(xbrl_instance, 'INSTANT_CONCEPTS', {metric: concepts})
+    monkeypatch.setattr(xbrl_instance, 'dividend_component_sum_series', lambda *a: ([], None))
+    monkeypatch.setattr(xbrl_instance, '_extract_segments', lambda *a: [])
     with _patch_company([FakeFiling('10-K', period, xb)]):
         raw = _extract_from_filing_instance_sync('0000000001', accession)
     # The debt-scope slice adds exactly ONE additive evidence pass over the admissible debt
@@ -712,12 +713,12 @@ def test_instance_capex_identity_reaches_grounding_without_changing_selection(mo
     }])
     monkeypatch.setattr(settings, 'RICHER_FINANCIALS_ENABLED', False)
     monkeypatch.setattr(settings, 'USE_STATEMENT_FINANCIALS', False)
-    monkeypatch.setattr(xbrl_module, 'DURATION_CONCEPTS', {
+    monkeypatch.setattr(xbrl_instance, 'DURATION_CONCEPTS', {
         'net_income': ['NetIncomeLoss'], 'capital_expenditures': concepts,
     })
-    monkeypatch.setattr(xbrl_module, 'INSTANT_CONCEPTS', {})
-    monkeypatch.setattr(xbrl_module, 'dividend_component_sum_series', lambda *a: ([], None))
-    monkeypatch.setattr(xbrl_module, '_extract_segments', lambda *a: [])
+    monkeypatch.setattr(xbrl_instance, 'INSTANT_CONCEPTS', {})
+    monkeypatch.setattr(xbrl_instance, 'dividend_component_sum_series', lambda *a: ([], None))
+    monkeypatch.setattr(xbrl_instance, '_extract_segments', lambda *a: [])
     with _patch_company([FakeFiling('10-K', period, xb)]):
         raw = _extract_from_filing_instance_sync('0000000001', accession)
     # The debt-scope slice adds exactly ONE additive evidence pass over the admissible debt
@@ -793,11 +794,11 @@ def test_revenue_source_namespace_survives_fact_and_citation_paths(monkeypatch, 
     calls.clear()
     monkeypatch.setattr(settings, 'RICHER_FINANCIALS_ENABLED', False)
     monkeypatch.setattr(settings, 'USE_STATEMENT_FINANCIALS', False)
-    monkeypatch.setattr(xbrl_module, 'DURATION_CONCEPTS', {'revenue': concepts})
-    monkeypatch.setattr(xbrl_module, 'INSTANT_CONCEPTS', {})
-    monkeypatch.setattr(xbrl_module, 'dividend_component_sum_series', lambda *a: ([], None))
-    monkeypatch.setattr(xbrl_module, '_extract_segments', lambda *a: [])
-    monkeypatch.setattr(xbrl_module, 'debt_component_observations', lambda *a, **k: [])
+    monkeypatch.setattr(xbrl_instance, 'DURATION_CONCEPTS', {'revenue': concepts})
+    monkeypatch.setattr(xbrl_instance, 'INSTANT_CONCEPTS', {})
+    monkeypatch.setattr(xbrl_instance, 'dividend_component_sum_series', lambda *a: ([], None))
+    monkeypatch.setattr(xbrl_instance, '_extract_segments', lambda *a: [])
+    monkeypatch.setattr(xbrl_instance, 'debt_component_observations', lambda *a, **k: [])
     with _patch_company([FakeFiling('20-F', period, xb)]):
         raw = _extract_from_filing_instance_sync('0000000001', accession)
     assert calls == expected_queries  # Namespace preservation adds no source query.
@@ -877,13 +878,13 @@ def test_selected_cash_conversion_basis_survives_source_to_visible(monkeypatch, 
     monkeypatch.setattr(settings, "RICHER_FINANCIALS_ENABLED", False)
     monkeypatch.setattr(settings, "USE_STATEMENT_FINANCIALS", False)
     selected = {key: DURATION_CONCEPTS[key] for key in ("net_income", "operating_cash_flow", "capital_expenditures")}
-    monkeypatch.setattr(xbrl_module, "DURATION_CONCEPTS", selected)
-    monkeypatch.setattr(xbrl_module, "INSTANT_CONCEPTS", {
+    monkeypatch.setattr(xbrl_instance, "DURATION_CONCEPTS", selected)
+    monkeypatch.setattr(xbrl_instance, "INSTANT_CONCEPTS", {
         key: xbrl_module.INSTANT_CONCEPTS[key] for key in ("shareholders_equity", "total_assets")
     })
-    monkeypatch.setattr(xbrl_module, "dividend_component_sum_series", lambda *a: ([], None))
-    monkeypatch.setattr(xbrl_module, "_extract_segments", lambda *a: [])
-    monkeypatch.setattr(xbrl_module, "debt_component_observations", lambda *a, **k: [])
+    monkeypatch.setattr(xbrl_instance, "dividend_component_sum_series", lambda *a: ([], None))
+    monkeypatch.setattr(xbrl_instance, "_extract_segments", lambda *a: [])
+    monkeypatch.setattr(xbrl_instance, "debt_component_observations", lambda *a, **k: [])
     with _patch_company([FakeFiling("20-F", "2025-12-31", xb)]):
         raw = _extract_from_filing_instance_sync("0000000001", "selected-accession")
     assert raw["net_income"][0]["raw_tag"] == income_tag

@@ -1,8 +1,8 @@
 """Wave 0 anchors for the instance-extractor split (refactor plan 2026-10, module M6, PR I0).
 
 I1 moves ``app/services/edgar/instance_extractor.py`` into an ``edgar/instance/`` sub-package
-behind an explicit re-export façade, while ``app/services/edgar/xbrl_service.py:43-58`` keeps
-binding 14 names from that façade by name. These characterization tests pin today's behaviour at
+behind an explicit re-export façade, while ``app/services/edgar/xbrl_instance.py`` keeps
+binding the same 14 names from canonical submodules by name. These characterization tests pin behaviour at
 the seams that move cuts, so a pure move passes them unchanged and anything else fails:
 
 * I0.1 — the façade surface: the exact names xbrl_service binds, identity of each binding with the
@@ -29,7 +29,7 @@ import pandas as pd
 import pytest
 
 from app.services.edgar import instance_extractor as ie
-from app.services.edgar import xbrl_service
+from app.services.edgar import xbrl_instance as xbrl_service
 from app.services.edgar.debt_concepts import classify_debt_concept
 
 pytestmark = pytest.mark.unit
@@ -67,7 +67,7 @@ def _instance(frames):
 # ---------------------------------------------------------------------------
 # I0.1 — façade identity snapshot
 
-# The 14 names xbrl_service binds from the façade, in source order (xbrl_service.py:43-58).
+# The 14 names xbrl_service binds from the canonical submodules, in source order (xbrl_instance.py).
 XBRL_SERVICE_FACADE_BINDINGS = (
     "DURATION_CONCEPTS",
     "DURATION_WINDOWS",
@@ -98,27 +98,35 @@ TEST_IMPORTED_PRIVATE_NAMES = (
     "_reporting_currency",
 )
 
-_FACADE = "app.services.edgar.instance_extractor"
+_FACADE = (
+    "app.services.edgar.instance.concepts",
+    "app.services.edgar.instance.core",
+    "app.services.edgar.instance.debt",
+    "app.services.edgar.instance.financial_profiles",
+    "app.services.edgar.instance.segments",
+    "app.services.edgar.instance.series",
+    "app.services.edgar.instance.statements",
+)
 
 
 def _facade_imports(module):
-    """Every binding the module's source imports from the façade, anywhere in the file.
+    """Every binding the module's source imports from the canonical submodules, anywhere in the file.
 
     Evaluates the import statements rather than matching text: relative imports resolve against
-    the module's own package, an alias renders as ``"name as alias"``, and an import of the façade
+    the module's own package, an alias renders as ``"name as alias"``, and an import of a canonical
     MODULE itself (the attribute-access style that bypasses name binding) renders as ``"<module>"``.
     """
     package = module.__name__.split(".")[:-1]
     found = []
     for node in ast.walk(ast.parse(Path(module.__file__).read_text(encoding="utf-8"))):
         if isinstance(node, ast.Import):
-            pairs = [("<module>", alias.asname) for alias in node.names if alias.name == _FACADE]
+            pairs = [("<module>", alias.asname) for alias in node.names if alias.name in _FACADE]
         elif isinstance(node, ast.ImportFrom):
             base = node.module or ""
             if node.level:
                 base = ".".join(package[: len(package) - node.level + 1] + ([base] if base else []))
-            pairs = [(alias.name, alias.asname) for alias in node.names if base == _FACADE]
-            pairs += [("<module>", alias.asname) for alias in node.names if f"{base}.{alias.name}" == _FACADE]
+            pairs = [(alias.name, alias.asname) for alias in node.names if base in _FACADE]
+            pairs += [("<module>", alias.asname) for alias in node.names if f"{base}.{alias.name}" in _FACADE]
         else:
             continue
         found += [name if asname is None else f"{name} as {asname}" for name, asname in pairs]
@@ -126,9 +134,9 @@ def _facade_imports(module):
 
 
 def test_i0_1_xbrl_service_binds_exactly_the_pinned_facade_names():
-    """I0.1: xbrl_service imports exactly the 14 pinned names from the façade, by name, unaliased.
+    """I0.1: xbrl_service imports exactly the 14 pinned names from the canonical submodules, by name, unaliased.
 
-    Pins app/services/edgar/xbrl_service.py:43-58. Name binding is what lets the patches other
+    Pins app/services/edgar/xbrl_instance.py. Name binding is what lets the patches other
     tests set on xbrl_service's namespace (DURATION_CONCEPTS, INSTANT_CONCEPTS,
     dividend_component_sum_series, debt_component_observations, extract_financial_statement_metrics)
     reach the code that reads them; attribute access on a sub-module would blind them silently.
@@ -141,7 +149,7 @@ def test_i0_1_xbrl_service_binds_exactly_the_pinned_facade_names():
 def test_i0_1_each_xbrl_service_binding_is_the_facade_object(name):
     """I0.1: each binding on xbrl_service IS the façade's object, and a function keeps its own name.
 
-    Pins app/services/edgar/xbrl_service.py:43-58 against the definitions in
+    Pins app/services/edgar/xbrl_instance.py against the definitions in
     app/services/edgar/instance_extractor.py (constants :31-177, functions :180-1229). Identity, not
     equality: a copied registry or a re-wrapped function on either side breaks the shared object.
     """
