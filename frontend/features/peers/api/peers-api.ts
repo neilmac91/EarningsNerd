@@ -1,4 +1,5 @@
 import api from '@/lib/api/client'
+import type { FactProvenance } from '@/features/analysis/lib/provenance'
 
 // Mirrors the backend `PeerComparisonResponse` (backend/app/schemas/peers.py),
 // served by GET /api/companies/{ticker}/peers?metric={concept}.
@@ -13,6 +14,8 @@ export interface PeerEntry {
   percentile: number | null
   // false when the backend's reconciliation gate flagged this value (shown with a badge).
   reconciled: boolean
+  provenance?: FactProvenance | null
+  source_url?: string | null
 }
 
 export interface PeerComparisonResponse {

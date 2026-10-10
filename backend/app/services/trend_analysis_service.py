@@ -28,11 +28,19 @@ from app.config import settings
 from app.models import Company, FinancialFact
 from app.services import citation_markers
 from app.services.ai.copilot_chat import merge_chat_usage
+from app.services.fact_provenance import (
+    CALCULATION_VERSION, calculated_provenance,
+)
+
+from app.services.trend_analysis.dataset_quality import add_comparisons, dataset_point
+from app.services.trend_analysis.stream_events import analysis_completion
+from app.utils.datetimes import ensure_utc, iso_z
 
 logger = logging.getLogger(__name__)
 
-# Bump on ANY change to the narrative prompt or the compact dataset rendering — invalidates every
-# cached TrendAnalysis row fleet-wide (they regenerate lazily on next request).
+# Bump on changes to the live selector prompt or observation rendering. Dataset changes also
+# invalidate caches through dataset_fingerprint. compact_dataset_for_prompt is a legacy diagnostic
+# renderer; v7 sends the code-owned observation catalogue to the selector instead.
 # v2: derived flag narrowed to true computed-Q4 points, CAGR markers, per-marker signal brackets,
 # multi-reference resolver, pp-vs-relative guardrail.
 # v3: percent-unit series (margins) report YoY/QoQ as percentage-point deltas (not relative %);
@@ -378,35 +386,7 @@ def build_dataset(
                 points.append({"period": bucket["key"], "value": None})
                 continue
             any_value = True
-            points.append(
-                {
-                    "period": bucket["key"],
-                    "value": float(row.value),
-                    "unit": row.unit,
-                    "period_end": row.period_end.isoformat(),
-                    "form": row.form,
-                    "accession": row.accession,
-                    "raw_tag": row.raw_tag,
-                    # True computed-Q4 only. `source == "derived"` alone is NOT it: the ingest
-                    # also stamps same-period computed metrics (margins, FCF, working capital,
-                    # current ratio) "derived" for EVERY period — an FY2016 margin must never be
-                    # labelled a "derived Q4". The discriminator is `reconciled`: every row in
-                    # the Q4 DERIVATION CHAIN (FY−YTD9/ΣQ flows, shares-based EPS, and metrics
-                    # computed from those estimates) is reconciled=False, while a computed
-                    # metric on REAL same-period values is reconciled=True. Point-level (not
-                    # column-level) so a filer with SOME discrete Q4 rows still badges the rows
-                    # that genuinely rest on estimates (e.g. a derived Q4 EPS next to a real
-                    # discrete Q4 net income) instead of presenting them as reported values.
-                    "derived": (
-                        row.fiscal_period == "Q4"
-                        and row.source == "derived"
-                        and not row.reconciled
-                    ),
-                    "reconciled": bool(row.reconciled),
-                    "fiscal_year": row.fiscal_year,
-                    "fiscal_period": row.fiscal_period,
-                }
-            )
+            points.append(dataset_point(row, bucket["key"], getattr(company, "cik", None)))
         if not any_value:
             continue
 
@@ -418,34 +398,7 @@ def build_dataset(
         # growth (with the n/m sign-flip guard baked into `_growth`).
         delta_fn = _pp_delta if is_percent else _growth
 
-        # YoY: prior fiscal year (annual) / same quarter one fiscal year earlier (quarterly).
-        by_period_key = {p["period"]: p for p in points}
-        for bucket, point in zip(periods, points):
-            if point["value"] is None:
-                continue
-            if mode == "annual":
-                prior_key = f"FY{bucket['fiscal_year'] - 1}"
-            else:
-                prior_key = f"{bucket['fiscal_year'] - 1}{bucket['fiscal_period']}"
-            prior = by_period_key.get(prior_key)
-            point["yoy"] = delta_fn(point["value"], prior["value"] if prior else None)
-            point["yoy_reconciled"] = (
-                point.get("reconciled") is not False and prior.get("reconciled") is not False
-                if point["yoy"] is not None and prior else None
-            )
-        # QoQ: the immediately preceding column (quarterly only).
-        if mode == "quarterly":
-            previous: Optional[dict[str, Any]] = None
-            for point in points:
-                if point["value"] is not None:
-                    point["qoq"] = delta_fn(
-                        point["value"], previous["value"] if previous else None
-                    )
-                    point["qoq_reconciled"] = (
-                        point.get("reconciled") is not False and previous.get("reconciled") is not False
-                        if point["qoq"] is not None and previous else None
-                    )
-                    previous = point
+        add_comparisons(points, periods, mode, is_percent, delta_fn)
 
         # CAGR over the series' VALUED endpoints (annual mode, monetary/per-share series only).
         # The basis window is recorded because it can be narrower than the selected range (a
@@ -488,9 +441,15 @@ def build_dataset(
                 "cagr": cagr,
                 "cagr_window": cagr_window,
                 "cagr_reconciled": endpoints_reconciled if cagr is not None else None,
+                "cagr_provenance": calculated_provenance(
+                    "compound_annual_growth", [valued_points[0], valued_points[-1]]
+                ) if cagr is not None else None,
                 "window_pp": window_pp,
                 "window_pp_range": window_pp_range,
                 "window_pp_reconciled": endpoints_reconciled if window_pp is not None else None,
+                "window_pp_provenance": calculated_provenance(
+                    "percentage_point_change", [valued_points[0], valued_points[-1]]
+                ) if window_pp is not None else None,
                 "points": points,
             }
         )
@@ -525,8 +484,13 @@ def build_dataset(
             for bucket in periods
         ],
         "series": series_list,
+        "dataset_version": CALCULATION_VERSION,
+        "data_as_of": (
+            iso_z(ensure_utc(company.facts_synced_at)) if getattr(company, "facts_synced_at", None) else None
+        ),
     }
     dataset["inflections"] = detect_inflections(dataset)
+    dataset["snapshot_id"] = dataset_fingerprint(dataset)
     return dataset
 
 
@@ -739,7 +703,10 @@ def detect_inflections(dataset: dict[str, Any]) -> list[dict[str, Any]]:
 def dataset_fingerprint(dataset: dict[str, Any]) -> str:
     """sha256 of the canonical dataset JSON — new facts (or a changed range) change it, which
     invalidates the cached narrative for that key (D4)."""
-    canonical = json.dumps(dataset, sort_keys=True, separators=(",", ":"), default=str)
+    # A refresh that confirms the same source facts must not consume a new AI generation. The
+    # self-identifying hash and fetch time are metadata; source/quality/formula changes are not.
+    content = {key: value for key, value in dataset.items() if key not in {"snapshot_id", "data_as_of"}}
+    canonical = json.dumps(content, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
@@ -1304,6 +1271,7 @@ def marker_index(dataset: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 "percent": series["percent"],
                 "derived": False,
                 "reconciled": series.get("cagr_reconciled"),
+                "provenance": series.get("cagr_provenance"),
             }
     return index
 
@@ -1325,6 +1293,7 @@ def _point_citation(n: int, point: dict[str, Any]) -> dict[str, Any]:
     ``kind == "cagr"`` entries are series-level CAGR markers: the value is a growth fraction over
     the selected window, not an XBRL level, so only their excerpt/attribution differ — the dict
     shape is ONE literal so the citation contract with the frontend can't fork per kind."""
+    provenance = point.get("provenance") or {}
     if point.get("kind") == "cagr":
         excerpt = f"{point['label']} CAGR = {_pct_str(point['value'])} ({point['period']})"
         section_ref = "Computed · CAGR"
@@ -1339,7 +1308,12 @@ def _point_citation(n: int, point: dict[str, Any]) -> dict[str, Any]:
         excerpt = f"{point['label']} = {value_str} ({point['period']})"
         if point.get("derived"):
             excerpt += " — derived Q4"
-        section_ref = f"XBRL · {point.get('raw_tag') or point['concept']}"
+        section_ref = (
+            "Calculated · " + str(provenance.get("formula") or point["concept"])
+            if provenance.get("method") == "calculated"
+            else f"XBRL · {point['raw_tag']}" if point.get("raw_tag")
+            else f"Reported filing · {point['concept']}"
+        )
     return {
         "n": n,
         "excerpt": excerpt,
@@ -1351,6 +1325,8 @@ def _point_citation(n: int, point: dict[str, Any]) -> dict[str, Any]:
         "period": point["period"],
         "derived": bool(point.get("derived")),
         "reconciled": point.get("reconciled"),
+        "provenance": point.get("provenance"),
+        "source_url": point.get("source_url") or provenance.get("source_url"),
     }
 
 
@@ -1666,20 +1642,11 @@ async def stream_trend_narrative(
                 cached_citations,
                 marker_index(dataset),
             )
-            yield {
-                "type": "complete",
-                "kind": "analysis",
-                "analysis_id": cached.id,
-                "narrative": cached.narrative_md,
-                "citations": cached_citations,
-                "grounded": cached.grounded,
-                "unverified": cached.unverified,
-                "mismatched": len(cached_mismatched),
-                "cached": True,
-                "invalidated": False,
-                "n_periods": len(dataset["periods"]),
-                "usage": {},
-            }
+            yield analysis_completion(
+                dataset, analysis_id=cached.id, narrative=cached.narrative_md,
+                citations=cached_citations, grounded=cached.grounded, unverified=cached.unverified,
+                mismatched=len(cached_mismatched), cached=True, invalidated=False, usage={},
+            )
             return
         # A cached row existed but no longer matches (prompt bump or new facts): this regeneration
         # is system-triggered, not user-triggered — the router exempts it from the fair-use meter.
@@ -1811,21 +1778,8 @@ async def stream_trend_narrative(
         unverified=unverified,
         user_id=user_id,
     )
-    yield {
-        "type": "complete",
-        "kind": "analysis",
-        "analysis_id": analysis_id,
-        "narrative": narrative,
-        "citations": citations,
-        "grounded": grounded,
-        "unverified": unverified,
-        # Figures the deterministic fidelity scan could not reconcile in the code-rendered output.
-        # Surfaced in the badge tooltip so "verified" never silently overclaims. Not persisted
-        # (no column; cache hits recompute them from the saved narrative and citations against the
-        # fingerprint-matched dataset).
-        "mismatched": len(mismatched),
-        "cached": False,
-        "invalidated": invalidated,
-        "n_periods": len(dataset["periods"]),
-        "usage": total_usage,
-    }
+    yield analysis_completion(
+        dataset, analysis_id=analysis_id, narrative=narrative, citations=citations,
+        grounded=grounded, unverified=unverified, mismatched=len(mismatched),
+        cached=False, invalidated=invalidated, usage=total_usage,
+    )

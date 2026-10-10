@@ -7,6 +7,7 @@ import { directionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth, windowRange } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import ReconciliationBadge from './ReconciliationBadge'
+import type { FactProvenance } from '@/features/analysis/lib/provenance'
 import type {
   AnalysisDataset,
   AnalysisSeries,
@@ -18,6 +19,7 @@ interface Kpi {
   label: string
   value: number
   reconciled?: boolean
+  provenance?: FactProvenance | null
   format: (v: number) => string
   tone: SeriesTone | null | undefined
   isPercent: boolean
@@ -25,6 +27,7 @@ interface Kpi {
    *  series — CAGR doesn't apply to a percentage), or same-quarter YoY (quarterly). */
   growth: GrowthValue | null
   growthReconciled?: boolean | null
+  growthProvenance?: FactProvenance | null
   growthLabel: string
   /** Basis-window tooltip ("Computed over FY2016..FY2025") — annual cards only. */
   growthTitle?: string
@@ -51,14 +54,14 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
       <div className="tnum font-data mt-1 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
         {animated}
       </div>
-      <ReconciliationBadge reconciled={kpi.reconciled} />
+      <ReconciliationBadge reconciled={kpi.reconciled} provenance={kpi.provenance} />
       {text && (
         <div
           className={`tnum font-data mt-0.5 text-xs ${directionText[tone]}${kpi.growthTitle ? ' cursor-help' : ''}`}
           title={kpi.growthTitle}
         >
           {kpi.growthLabel} {text}
-          <ReconciliationBadge reconciled={kpi.growthReconciled} label="Unverified growth" />
+          <ReconciliationBadge reconciled={kpi.growthReconciled} provenance={kpi.growthProvenance} label="Growth source check needed" />
         </div>
       )}
     </Card>
@@ -93,13 +96,17 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
       label: `${series.label} (${point.period})`,
       value: point.value as number,
       reconciled: point.reconciled,
-      format: spec.format ?? ((v: number) => fmtCurrency(v, { compact: true })),
+      provenance: point.provenance,
+      format: spec.format ?? ((v: number) => fmtCurrency(v, { compact: true, currency: series.unit.split('/')[0] })),
       tone: series.tone,
       isPercent: series.percent,
       growth,
       growthReconciled: isAnnual
         ? (win.isPercent ? series.window_pp_reconciled : series.cagr_reconciled)
         : point.yoy_reconciled,
+      growthProvenance: isAnnual
+        ? (win.isPercent ? series.window_pp_provenance : series.cagr_provenance)
+        : point.yoy_provenance,
       growthLabel: isAnnual ? win.label : 'YoY',
       growthTitle: isAnnual && window ? `Computed over ${window}` : undefined,
     })

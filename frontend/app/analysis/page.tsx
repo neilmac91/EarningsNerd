@@ -4,7 +4,7 @@ import AnalysisPageClient from '@/features/analysis/components/AnalysisPageClien
 export const metadata: Metadata = {
   title: 'Multi-Period Analysis | EarningsNerd',
   description:
-    'Compare up to 10 fiscal years or 12 quarters with cited figures checked against SEC XBRL and source warnings shown for review.',
+    'Compare up to 10 fiscal years or 12 quarters with source-linked figures, transparent calculations and AI-assisted commentary.',
 }
 
 export default function AnalysisPage() {

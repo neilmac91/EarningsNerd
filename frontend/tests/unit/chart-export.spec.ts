@@ -7,6 +7,7 @@ import {
   exportPanelPng,
   headerHeight,
   layoutLegend,
+  layoutExportNotes,
 } from '@/features/analysis/lib/chartExport'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import tailwindConfig from '../../tailwind.config.js'
@@ -127,6 +128,21 @@ describe('headerHeight', () => {
   })
 })
 
+describe('standalone export qualification layout', () => {
+  it('preserves source, gaps and disclaimer when they wrap on narrow charts', () => {
+    const notes = ['Source: SEC filings. Cash flow unavailable for 2024Q2.', 'Not investment advice.']
+    const lines = layoutExportNotes((text) => text.length * 7, notes, 140)
+    expect(lines.join(' ')).toBe(notes.join(' '))
+    expect(lines.every((line) => line.length * 7 <= 140)).toBe(true)
+  })
+  it('keeps long source references inside the image without dropping characters', () => {
+    const text = '000132680124000012'
+    const lines = layoutExportNotes((value) => value.length * 7, [text], 35)
+    expect(lines.join('')).toBe(text)
+    expect(lines.every((line) => line.length <= 5)).toBe(true)
+  })
+})
+
 /* -------------------------------------------------------------------------
    exportPanelPng — the regression guard for the "no legend / no identity in
    exports" bug. The Recharts SVG carries the plot only; the export must redraw
@@ -228,6 +244,18 @@ describe('exportPanelPng header', () => {
     // Two-tone wordmark: "Earnings" (ink) + "Nerd" (sage), so the source is obvious.
     expect(fillTexts).toContain('Earnings')
     expect(fillTexts).toContain('Nerd')
+  })
+
+  it('renders source, missing periods and disclaimer into the downloaded image', async () => {
+    await exportPanelPng(makeContainer(), 'x.png', { header: { ...HEADER,
+      sourceNote: 'Source: SEC filings · data as of 2024-02-02',
+      notes: ['Operating cash flow: unavailable for 2024Q2.'],
+      disclosure: 'Research only. Not investment advice.',
+    } })
+    expect(fillTexts.join(' ')).toContain('Source: SEC filings · data as of 2024-02-02')
+    expect(fillTexts.join(' ')).toContain('Operating cash flow: unavailable for 2024Q2.')
+    expect(fillTexts.join(' ')).toContain('Research only. Not investment advice.')
+    expect(downloadBlob).toHaveBeenCalledOnce()
   })
 
   it('maxWidth-guards all three header tiers (company, subtitle, legend labels)', async () => {

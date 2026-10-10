@@ -37,6 +37,8 @@ import MetricsTable from './MetricsTable'
 import NarrativePane, { type NarrativeState } from './NarrativePane'
 import PeriodPicker, { defaultRange, type PeriodRange } from './PeriodPicker'
 import TrendCharts from './TrendCharts'
+import SourcesMethods from './SourcesMethods'
+import { ANALYSIS_DISCLOSURE } from '@/features/analysis/lib/provenance'
 
 /**
  * Multi-Period Analysis — the Pro flagship page.
@@ -64,6 +66,13 @@ function LinkedTicker({ onChange }: { onChange: (ticker: string | null) => void 
     onChange(linked)
   }, [linked, onChange])
   return null
+}
+
+function exportErrorMessage(error: unknown, format: 'PDF' | 'Excel'): string {
+  // Blob responses do not preserve JSON detail in the shared axios interceptor. Status 409
+  // still identifies an out-of-date source snapshot and must give a useful recovery action.
+  if (error instanceof ApiError && error.status === 409) return 'Source data changed. Run analysis again before exporting.'
+  return error instanceof ApiError ? error.detail : `${format} export failed. Please try again.`
 }
 
 export default function AnalysisPageClient() {
@@ -162,7 +171,7 @@ export default function AnalysisPageClient() {
   )
 
   const startNarrative = useCallback(
-    (force: boolean) => {
+    (force: boolean, expectedSnapshot = dataset?.snapshot_id) => {
       if (!ticker || !range) return
       abortRef.current?.abort()
       const controller = new AbortController()
@@ -178,10 +187,16 @@ export default function AnalysisPageClient() {
             if (isCurrent()) setNarrative((s) => (s.status === 'streaming' ? { ...s, stage } : s))
           },
           onToken: (text) => {
-            if (isCurrent()) setNarrative((s) => ({ ...s, status: 'streaming', text: s.text + text }))
+            // Keep commentary private until its completed snapshot matches the displayed figures.
+            if (isCurrent() && !expectedSnapshot) setNarrative((s) => ({ ...s, status: 'streaming', text: s.text + text }))
           },
           onComplete: (completion) => {
             if (!isCurrent()) return
+            if (expectedSnapshot && completion.snapshot_id !== expectedSnapshot) {
+              setNarrative({ status: 'error', text: '', error: 'Source data changed while this analysis was running. Run analysis again to refresh the figures and commentary together.' })
+              setRunning(false)
+              return
+            }
             setNarrative({ status: 'done', text: completion.narrative, completion })
             setRunning(false)
             // A fresh generation consumed quota — keep the settings usage meter honest.
@@ -196,7 +211,7 @@ export default function AnalysisPageClient() {
         controller.signal
       )
     },
-    [ticker, range, mode, queryClient]
+    [ticker, range, mode, queryClient, dataset?.snapshot_id]
   )
 
   const run = useCallback(async () => {
@@ -219,7 +234,7 @@ export default function AnalysisPageClient() {
       }, controller.signal)
       if (!isCurrent()) return
       setDataset(result)
-      startNarrative(false)
+      startNarrative(false, result.snapshot_id)
     } catch (err) {
       if (!isCurrent()) return
       setRunning(false)
@@ -239,7 +254,7 @@ export default function AnalysisPageClient() {
     const analysisId = narrative.completion?.analysis_id
     if (analysisId == null || !ticker) return
     setDatasetError(null)
-    void exportAnalysisPdf(analysisId)
+    void exportAnalysisPdf(analysisId, narrative.completion?.snapshot_id)
       .then((blob) => {
         downloadBlob(blob, `${ticker}_multi_period_analysis.pdf`)
         analytics.exportGenerated({
@@ -251,9 +266,9 @@ export default function AnalysisPageClient() {
         })
       })
       .catch((err) =>
-        setDatasetError(err instanceof ApiError ? err.detail : 'PDF export failed. Please try again.')
+        setDatasetError(exportErrorMessage(err, 'PDF'))
       )
-  }, [narrative.completion?.analysis_id, ticker, dataset?.mode, dataset?.period_key])
+  }, [narrative.completion?.analysis_id, narrative.completion?.snapshot_id, ticker, dataset?.mode, dataset?.period_key])
 
   // Excel replaces the old client-side CSV (owner decision D1). The request range comes from the
   // DATASET on screen — not the picker state, which the user may have changed since running —
@@ -268,6 +283,7 @@ export default function AnalysisPageClient() {
       mode: dataset.mode,
       start_period: dataset.periods[0].key,
       end_period: dataset.periods[dataset.periods.length - 1].key,
+      ...(dataset.snapshot_id ? { snapshot_id: dataset.snapshot_id } : {}),
     })
       .then((blob) => {
         downloadBlob(blob, exportFilename(dataset, `${dataset.mode}-metrics`, 'xlsx'))
@@ -281,7 +297,7 @@ export default function AnalysisPageClient() {
       })
       // Surface the server detail (e.g. the rate limiter's "retry in a minute") over a generic line.
       .catch((err) =>
-        setDatasetError(err instanceof ApiError ? err.detail : 'Excel export failed. Please try again.')
+        setDatasetError(exportErrorMessage(err, 'Excel'))
       )
       .finally(() => setExportingXlsx(false))
   }, [dataset, exportingXlsx])
@@ -304,8 +320,7 @@ export default function AnalysisPageClient() {
         </div>
         <p className="max-w-2xl text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Pick a company and up to 10 fiscal years or 12 quarters. Growth, margins, cash, and
-          balance sheet, plus an AI narrative with cited figures checked against SEC XBRL and
-          source warnings shown for review.
+          balance sheet, plus AI-assisted commentary with sources and calculation methods.
         </p>
       </header>
 
@@ -419,6 +434,7 @@ export default function AnalysisPageClient() {
       {isPro && dataset && (
         <div className="flex flex-col gap-4">
           <KpiStrip dataset={dataset} />
+          <SourcesMethods dataset={dataset} />
           <TrendCharts dataset={dataset} exportEnabled />
           <NarrativePane
             state={narrative}
@@ -427,20 +443,13 @@ export default function AnalysisPageClient() {
             onExport={exportPdf}
           />
           <MetricsTable dataset={dataset} onExportXlsx={exportXlsx} exporting={exportingXlsx} />
-          <AiDisclaimer lead={false}>
-            Cited figures are checked against SEC XBRL (companyfacts), and source warnings are
-            shown for review. Growth rates, margins and ratios are computed server-side. † =
-            computed Q4.
-          </AiDisclaimer>
         </div>
       )}
 
       {/* Legal one-liner: outside every result/Pro gate so guests, free users viewing the sample,
           and Pro users all see it (drafted in the audit's legal review; pending counsel polish). */}
       <AiDisclaimer lead={false}>
-        This analysis is AI-generated, for informational purposes only, and is not investment
-        advice or a recommendation; past performance does not predict future results. Verify
-        against the original filings on SEC EDGAR. See our{' '}
+        {ANALYSIS_DISCLOSURE} See our{' '}
         <Link href="/terms" className="underline">
           Terms
         </Link>

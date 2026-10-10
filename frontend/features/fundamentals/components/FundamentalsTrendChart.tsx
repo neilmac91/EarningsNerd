@@ -11,9 +11,11 @@ import {
 } from '@/features/fundamentals/api/fundamentals-api'
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
-import { WarningIcon } from '@/lib/icons'
 import { ThemeContext } from '@/components/ThemeProvider'
-import { Badge, Card, seriesColor, CHART_SERIES, gridProps, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton } from '@/components/ui'
+import { Card, seriesColor, CHART_SERIES, gridProps, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton } from '@/components/ui'
+import { needsSourceCheck } from '@/features/analysis/lib/provenance'
+import ReconciliationBadge from '@/features/analysis/components/ReconciliationBadge'
+import SourceChecks from '@/features/analysis/components/SourceChecks'
 
 type FmtKind = 'usd' | 'eps' | 'pct' | 'ratio'
 
@@ -129,7 +131,7 @@ export default function FundamentalsTrendChart({
   const hasUnverified = useMemo(() => {
     if (!data || !activeKey) return false
     const series = data.concepts.find((c) => c.concept === activeKey)
-    return !!series?.points.some((p) => p.reconciled === false)
+    return !!series?.points.some(needsSourceCheck)
   }, [data, activeKey])
 
   // Supplementary section: stay quiet on error, and disappear when there are no facts
@@ -145,13 +147,7 @@ export default function FundamentalsTrendChart({
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Financial Trends</h2>
             {hasUnverified && (
-              <Badge
-                variant="warning"
-                icon={<WarningIcon className="h-3 w-3" aria-hidden="true" />}
-                title="Some figures here are machine-extracted from XBRL and failed an automated sanity check (e.g. an unusual period-over-period swing). Treat them with caution and verify against the filing."
-              >
-                Unverified
-              </Badge>
+              <ReconciliationBadge reconciled={false} />
             )}
           </div>
           {subtitle && (
@@ -224,6 +220,7 @@ export default function FundamentalsTrendChart({
         Annual figures from SEC filings (XBRL){activeCurrency !== 'USD' ? `, reported in ${activeCurrency}` : ''}.{' '}
         {active ? active.label : ''} by fiscal year.
       </p>
+      <SourceChecks values={(data?.concepts.find((series) => series.concept === activeKey)?.points ?? []).map((point) => ({ ...point, label: `${active?.label ?? 'Figure'}, ${point.fiscal_year ?? point.period_end ?? 'period unavailable'}` }))} />
     </Card>
   )
 }

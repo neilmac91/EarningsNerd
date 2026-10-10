@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "representation": "httpx_identity_entity_bytes",
+  "sha256": "7378a846a09d6aa85a6439c6690f65915194b8367ab4b0536589047afc3466fe",
+  "bytes": 300463,
+  "cik": "1326801",
+  "accession_number": "000132680125000014",
+  "filename": "meta-12312024xexhibit991.htm",
+  "requested_url": "https://www.sec.gov/Archives/edgar/data/1326801/000132680125000014/meta-12312024xexhibit991.htm",
+  "final_url": "https://www.sec.gov/Archives/edgar/data/1326801/000132680125000014/meta-12312024xexhibit991.htm",
+  "status_code": 200,
+  "content_type": "text/html",
+  "content_encoding": null,
+  "content_length": null,
+  "etag": null,
+  "last_modified": "Wed, 29 Jan 2025 21:47:34 GMT",
+  "physical_attempts": 1
+}

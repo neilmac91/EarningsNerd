@@ -102,8 +102,8 @@ describe('TrendCharts legends', () => {
     flagged.series[0].points[1].reconciled = true
     flagged.series[0].points[1].yoy_reconciled = false
     render(<TrendCharts dataset={flagged} />)
-    expect(screen.getAllByText('Unverified')).toHaveLength(1)
-    expect(screen.getByText('Unverified').closest('section')).toHaveTextContent('Revenue & growth')
+    expect(screen.getAllByText('Source check needed')).toHaveLength(1)
+    expect(screen.getByText('Source check needed').closest('section')).toHaveTextContent('Revenue & growth')
   })
 
   it('labels only panels with plotted flagged values and preserves the caveat in PNG exports', async () => {
@@ -112,15 +112,15 @@ describe('TrendCharts legends', () => {
     // An out-of-window flag must not contaminate another visible panel.
     flagged.series[1].points.push({ period: 'FY1999', value: 50, reconciled: false })
     const { rerender } = render(<TrendCharts dataset={flagged} exportEnabled />)
-    expect(screen.getAllByText('Unverified')).toHaveLength(1)
+    expect(screen.getAllByText('Source check needed')).toHaveLength(1)
     const panel = screen.getByRole('heading', { name: 'Revenue & growth' }).closest('section')!
-    expect(within(panel).getByText('Unverified')).toBeInTheDocument()
+    expect(within(panel).getByText('Source check needed')).toBeInTheDocument()
     fireEvent.click(within(panel).getByRole('button', { name: 'Download chart as PNG' }))
     expect(exportPanelPng).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
-      header: expect.objectContaining({ title: 'Revenue & growth (includes unverified figures)' }),
+      header: expect.objectContaining({ title: 'Revenue & growth', notes: expect.arrayContaining([expect.stringContaining('source check needed')]) }),
     }))
     rerender(<TrendCharts dataset={dataset} />)
-    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+    expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
 
   it('shows a legend naming each line for a multi-series panel (Margins)', () => {

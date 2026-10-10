@@ -1,15 +1,17 @@
 import { Badge } from '@/components/ui'
+import { needsSourceCheck, qualityReasons, type FactProvenance } from '@/features/analysis/lib/provenance'
 
 /** Reconciliation is independent of whether a value was computed (for example, Q4). */
-export default function ReconciliationBadge({ reconciled, label = 'Unverified' }: {
+export default function ReconciliationBadge({ reconciled, provenance, label = 'Source check needed' }: {
   reconciled?: boolean | null
+  provenance?: FactProvenance | null
   label?: string
 }) {
-  if (reconciled !== false) return null
+  if (!needsSourceCheck({ reconciled, provenance })) return null
   return (
     <Badge
       variant="warning"
-      title="These figures have not passed automated reconciliation. Verify them against the original filing before relying on them."
+      title={qualityReasons({ reconciled, provenance }).join(' ')}
     >
       {label}
     </Badge>

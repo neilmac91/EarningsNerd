@@ -71,10 +71,10 @@ describe('PeerComparisonPanel', () => {
     expect(screen.getByText(/of 3 on Revenue/)).toBeInTheDocument()
     expect(screen.getByTestId('peers-chart')).toBeInTheDocument()
     // Clean data → no honesty badge.
-    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+    expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
 
-  it('shows the Unverified badge when a shown value is flagged', async () => {
+  it('shows a source check when a shown value is flagged', async () => {
     getPeers.mockResolvedValue({
       ...RESP,
       peers: [
@@ -85,7 +85,15 @@ describe('PeerComparisonPanel', () => {
     })
     renderPanel()
 
-    expect(await screen.findByText('Unverified')).toBeInTheDocument()
+    expect(await screen.findByText('Source check needed')).toBeInTheDocument()
+  })
+
+  it('keeps the reason for a withheld subject figure available without ranking it', async () => {
+    const subject = { ...peer('AAPL', 100, true), value: null, rank: null, percentile: null, provenance: { version: 1, method: 'unknown', validation: 'unavailable', reasons: ['unsupported_eps_calculation'], formula: null, inputs: [], calculation_version: 'quarterly-v2' } }
+    getPeers.mockResolvedValue({ ...RESP, subject, peers: [RESP.peers[0], RESP.peers[1], subject] })
+    renderPanel()
+    expect(await screen.findByText(/AAPL: unavailable\./)).toHaveTextContent('Use a reported quarterly EPS figure')
+    expect(screen.queryByText(/Ranks/)).not.toBeInTheDocument()
   })
 
   it('renders nothing when there are no meaningful peers', async () => {

@@ -9,6 +9,7 @@ import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import ReconciliationBadge from './ReconciliationBadge'
+import SourceValue from './SourceValue'
 
 const currencyFromUnit = (unit: string | undefined): string => {
   const code = (unit || 'USD').split('/')[0].trim().toUpperCase()
@@ -56,34 +57,27 @@ export default function MetricsTable({
       numeric: true,
       render: (row: Row) => {
         const point = row.series.points.find((p) => p.period === period.key)
-        if (!point || point.value === null || point.value === undefined) {
+        if (!point) {
           return <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
         }
+        if (point.value == null) return <SourceValue point={point} label={row.series.label} concept={row.series.concept}>Unavailable</SourceValue>
         const growth = dataset.mode === 'quarterly' ? point.qoq ?? point.yoy : point.yoy
         const growthReconciled = dataset.mode === 'quarterly' && point.qoq != null
           ? point.qoq_reconciled : point.yoy_reconciled
         const growthLabel = dataset.mode === 'quarterly' && point.qoq != null ? 'QoQ' : 'YoY'
+        const growthProvenance = dataset.mode === 'quarterly' && point.qoq != null ? point.qoq_provenance : point.yoy_provenance
         const { text: growthText, direction } = formatGrowth(growth, row.series.percent)
         const tone = applySeriesTone(row.series.tone, direction)
         return (
           <div className="flex flex-col items-end gap-0.5">
             <span className="flex items-center gap-1">
-              {formatSeriesValue(point.value, row.series)}
-              <ReconciliationBadge reconciled={point.reconciled} />
-              {point.derived && (
-                <span
-                  className="cursor-help text-warning-light dark:text-warning-dark"
-                  title="Computed fourth quarter: derived from the annual report (full year minus the reported year-to-date quarters; EPS re-derived from Q4 net income and weighted shares)."
-                  aria-label="Derived value"
-                >
-                  †
-                </span>
-              )}
+              <SourceValue point={point} label={row.series.label} concept={row.series.concept}>{formatSeriesValue(point.value, row.series)}</SourceValue>
+              <ReconciliationBadge reconciled={point.reconciled} provenance={point.provenance} />
             </span>
             {growthText && (
               <span className={`text-xs ${directionText[tone]}`}>
                 {growthLabel} {growthText}
-                <ReconciliationBadge reconciled={growthReconciled} label="Unverified growth" />
+                <ReconciliationBadge reconciled={growthReconciled} provenance={growthProvenance} label="Growth source check needed" />
               </span>
             )}
           </div>
@@ -130,7 +124,8 @@ export default function MetricsTable({
             {text}
             <ReconciliationBadge
               reconciled={win.isPercent ? row.series.window_pp_reconciled : row.series.cagr_reconciled}
-              label="Unverified growth"
+              provenance={win.isPercent ? row.series.window_pp_provenance : row.series.cagr_provenance}
+              label="Growth source check needed"
             />
           </span>
         ) : (
@@ -142,7 +137,7 @@ export default function MetricsTable({
   }, [dataset])
 
   const rows = useMemo<Row[]>(() => dataset.series.map((series) => ({ series })), [dataset])
-  const hasDerived = dataset.series.some((s) => s.points.some((p) => p.derived))
+  const hasDerived = dataset.series.some((s) => s.points.some((p) => p.provenance?.method === 'calculated' || (!p.provenance && p.derived)))
 
   return (
     <Card as="section" className="p-6">
@@ -153,10 +148,10 @@ export default function MetricsTable({
           </Heading>
           {hasDerived && (
             <Badge
-              variant="warning"
-              title="† values are computed fourth quarters, derived from the annual report, since companies disclose Q4 only inside the full-year figures. Flows: full year minus the reported year-to-date quarters; EPS: Q4 net income ÷ Q4 weighted shares."
+              variant="neutral"
+              title="Calculated from source figures. Select a value to inspect its inputs and method."
             >
-              † computed Q4
+              † calculated
             </Badge>
           )}
         </div>

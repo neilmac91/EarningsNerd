@@ -380,6 +380,88 @@ class TestAnalysisPdfHtml:
         assert "<b>" not in html
         assert "Test &amp; Co" in html
 
+    def test_snapshot_lineage_and_specific_unavailable_reason_survive_pdf(self):
+        analysis = self._analysis()
+        analysis.dataset_json.update(
+            dataset_version="quarterly-v2", snapshot_id="a" * 64, data_as_of="2026-07-01T09:00:00Z",
+        )
+        point = analysis.dataset_json["series"][0]["points"][2]
+        point.update(reconciled=False, provenance={
+            "method": "calculated", "validation": "passed", "reasons": [],
+            "formula": "annual_minus_ytd", "inputs": [{
+                "concept": "revenue", "value": 2500, "unit": "USD",
+                "period_start": "2024-01-01", "period_end": "2024-12-31",
+                "source_url": "https://example.com/filing?x=1&y=2",
+            }],
+        })
+        analysis.dataset_json["series"][0]["points"][1].update(provenance={
+            "method": "unknown", "validation": "unavailable", "inputs": [],
+            "reasons": ["unsupported_eps_calculation"],
+        })
+        html = ExportService().generate_analysis_pdf_html(analysis, self._company())
+        assert "$1,500 †</td>" in html
+        assert "[unreconciled]" not in html
+        assert "— [note 1]" in html
+        assert "reported figure has not been located" in html
+        assert 'href="https://example.com/filing?x=1&amp;y=2"' in html
+        assert "annual_minus_ytd" in html
+        assert "2,500 USD (2024-01-01 to 2024-12-31)" in html
+        assert "a" * 64 in html and "quarterly-v2" in html
+        assert "2026-07-01T09:00:00Z" in html
+        assert "finance-lease principal" in html
+        assert "do not appear in the filings" not in html
+        assert "This analysis was generated" not in html
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("changed", ["facts", "version", "saved_fingerprint", "saved_snapshot", "requested_snapshot", "prompt", None])
+async def test_analysis_pdf_refuses_stale_or_replaced_snapshots(monkeypatch, changed):
+    from copy import deepcopy
+    from unittest.mock import AsyncMock
+
+    from fastapi import HTTPException
+
+    from app.models import TrendAnalysis
+    from app.routers import analysis as router
+    from app.services import entitlements
+    from app.services.export_service import export_service
+
+    record = TestAnalysisPdfHtml()._analysis()
+    record.company_id = 123
+    record.dataset_json.update(dataset_version="quarterly-v2")
+    record.dataset_fingerprint = router.trend_analysis_service.dataset_fingerprint(record.dataset_json)
+    record.dataset_json["snapshot_id"] = record.dataset_fingerprint
+    record.prompt_version = router.trend_analysis_service.PROMPT_VERSION
+    current = deepcopy(record.dataset_json)
+    requested_snapshot = record.dataset_fingerprint
+    if changed == "facts":
+        current["series"][0]["points"][0]["value"] = 2000
+    elif changed == "version":
+        record.dataset_json["dataset_version"] = "legacy"
+    elif changed == "saved_fingerprint":
+        record.dataset_fingerprint = "0" * 64
+    elif changed == "saved_snapshot":
+        record.dataset_json["snapshot_id"] = "0" * 64
+    elif changed == "requested_snapshot":
+        requested_snapshot = "0" * 64
+    elif changed == "prompt":
+        record.prompt_version = "older-prompt"
+    company = TestAnalysisPdfHtml()._company()
+    db = SimpleNamespace(get=lambda model, identifier: record if model is TrendAnalysis else company)
+    monkeypatch.setattr(entitlements, "get_entitlements", lambda user: SimpleNamespace(can_export=True))
+    monkeypatch.setattr(router.trend_analysis_service, "build_dataset", lambda *args: current)
+    render = AsyncMock(return_value=b"%PDF-test")
+    monkeypatch.setattr(export_service, "export_analysis_pdf", render)
+    if changed:
+        with pytest.raises(HTTPException) as exc:
+            await router.export_analysis_pdf(1, snapshot_id=requested_snapshot, current_user=SimpleNamespace(), db=db)
+        assert exc.value.status_code == 409
+        render.assert_not_awaited()
+    else:
+        response = await router.export_analysis_pdf(1, snapshot_id=requested_snapshot, current_user=SimpleNamespace(), db=db)
+        assert response.body == b"%PDF-test"
+        render.assert_awaited_once()
+
 
 class TestBrandedShell:
     """The shared PDF shell (pdf_branding): both exports must carry EarningsNerd branding,

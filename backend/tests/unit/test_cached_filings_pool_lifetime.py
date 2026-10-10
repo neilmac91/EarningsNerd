@@ -97,7 +97,12 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
                 concepts = [{"concept": "revenue", "unit": "USD", "points": [{
                     "period_end": "2025-12-31", "fiscal_year": 2025, "fiscal_period": "FY",
                     "value": 123.0, "unit": "USD", "form": "10-K", "accession": accession,
-                    "reconciled": True,
+                    "reconciled": True, "provenance": {
+                        "version": 1, "method": "reported", "validation": "passed",
+                        "reasons": [], "formula": None, "inputs": [],
+                        "calculation_version": None, "filed_at": None,
+                        "source_url": "https://www.sec.gov/Archives/edgar/data/1/000000000126000001/",
+                    },
                 }]}] if payload_kind == "facts" else []
                 assert payload == {"ticker": "CACHED", "company_name": "Cached fixture", "concepts": concepts}
             else:

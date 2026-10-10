@@ -74,13 +74,13 @@ describe('KpiStrip', () => {
     flagged.series[0].cagr_reconciled = false
     flagged.series[3].window_pp_reconciled = false
     const { rerender } = render(<KpiStrip dataset={flagged} />)
-    expect(screen.getAllByText('Unverified growth')).toHaveLength(2)
-    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Growth source check needed')).toHaveLength(2)
+    expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
     flagged.mode = 'quarterly'
     flagged.series[0].points[1].yoy = 0.2
     flagged.series[0].points[1].yoy_reconciled = false
     rerender(<KpiStrip dataset={flagged} />)
-    expect(screen.getAllByText('Unverified growth')).toHaveLength(1)
+    expect(screen.getAllByText('Growth source check needed')).toHaveLength(1)
   })
 
   it('retains reconciliation on the latest populated KPI point', () => {
@@ -89,10 +89,10 @@ describe('KpiStrip', () => {
     flagged.series[0].points.push({ period: 'FY2026', value: null, reconciled: true })
     flagged.series[1].points[1].reconciled = true
     const { rerender } = render(<KpiStrip dataset={flagged} />)
-    expect(screen.getAllByText('Unverified')).toHaveLength(1)
-    expect(screen.getByText('Unverified').parentElement).toHaveTextContent('Revenue (FY2025)')
+    expect(screen.getAllByText('Source check needed')).toHaveLength(1)
+    expect(screen.getByText('Source check needed').parentElement).toHaveTextContent('Revenue (FY2025)')
     rerender(<KpiStrip dataset={annualDataset} />)
-    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+    expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
 
   it('shows CAGR for monetary KPI cards in annual mode', () => {

@@ -3,15 +3,10 @@
 `normalize_standardized_to_facts` is pure (dict in → list[dict] out, unit-testable). `upsert_facts`
 writes them while maintaining the restatement-safe `is_latest` flag.
 
-The per-filing path sources the current period each filing reports, attributed to that filing's
-accession — accurate and dependency-free (it reuses `xbrl_service.extract_standardized_metrics`).
-A local-invariant reconciliation gate (`reconcile_facts`, no network) runs on write: it
-hard-rejects impossible values and flags implausible ones (`reconciled=False`) so the UI can
-surface them honestly ("reconciled or visibly flagged" — strategy §3.5/§5). The companyfacts
-ingest (`normalize_companyfacts` → `ingest_companyfacts`) is the multi-period source: FY +
-positionally-labelled quarters, cross-checked against the per-filing rows, plus the Q4
-derivations (YTD9-preferred flows, shares-based EPS) and same-period computed metrics. FSDS /
-Frames backfill remains a later wave.
+Per-filing facts reuse `xbrl_service.extract_standardized_metrics`. The local reconciliation
+gate rejects impossible values and records warnings for implausible ones. Companyfacts supplies
+FY and fiscal quarters, with compatible cumulative-flow calculations and reported-only EPS.
+Both paths retain calculation operands and source-check evidence.
 """
 from __future__ import annotations
 
@@ -23,6 +18,17 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 
 from app.services.event_loop import get_app_loop
+from app.services.fact_provenance import fact_operand, provenance_for_fact, published_value
+from app.services.facts.calendar import (
+    _fiscal_year_windows, _label_quarters, fiscal_duration_values, fiscal_year_labels, reported_fiscal_year,
+)
+from app.services.facts.lineage import (
+    annotate_filing_calculations, authoritative_reconciliation, local_reconciliation,
+)
+from app.services.facts.quarterly import (
+    FINAL_QUARTER_WINDOW, QUARTER_WINDOW, derive_cumulative_quarters, derive_quarter_sum_fallback,
+    reported_fact, same_period_provenance, same_scope,
+)
 
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_
@@ -208,7 +214,7 @@ def normalize_standardized_to_facts(
                     "source": "edgar_xbrl",
                 }
             )
-    return facts
+    return annotate_filing_calculations(facts, initialize_reported=True)
 
 
 def reconcile_facts(
@@ -312,14 +318,14 @@ def reconcile_facts(
                     fact.get("value"),
                     ",".join(reasons),
                 )
-            accepted.append({**fact, "reconciled": not reasons})
+            accepted.append(local_reconciliation(fact, reasons))
             if value is not None:
                 period_values[concept] = value
 
         # This period's values become the prior for the next (newer) period in the batch.
         running_prior.update(period_values)
 
-    return accepted, rejected
+    return annotate_filing_calculations(accepted), rejected
 
 
 def _prior_values(
@@ -451,6 +457,7 @@ def cross_check_facts(
         if auth is None:
             out.append(fact)
             continue
+        original = fact
         fact = dict(fact)
         value = fact.get("value")
         numeric = value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
@@ -465,8 +472,8 @@ def cross_check_facts(
             fact["value"] = auth
             fact["source"] = "companyfacts"
             fact["reconciled"] = True
-        out.append(fact)
-    return out
+        out.append(authoritative_reconciliation(fact, original, auth))
+    return annotate_filing_calculations(out)
 
 
 # Upper bound on one sync companyfacts fetch when it is handed to the app loop: the limiter's full
@@ -1041,7 +1048,7 @@ def backfill_company_sic(
     return stats
 
 
-def _fundamentals_payload(ticker: str, company_name: str, rows) -> dict[str, Any]:
+def _fundamentals_payload(ticker: str, company_name: str, rows, cik: str | None = None) -> dict[str, Any]:
     """Group flat ``FinancialFact`` rows into the FundamentalsResponse shape (per-concept series, in
     the order queried — oldest→newest). Shared by the company- and filing-scoped readers."""
     series: dict[str, list[dict[str, Any]]] = {}
@@ -1051,11 +1058,12 @@ def _fundamentals_payload(ticker: str, company_name: str, rows) -> dict[str, Any
                 "period_end": row.period_end.isoformat() if row.period_end else None,
                 "fiscal_year": row.fiscal_year,
                 "fiscal_period": row.fiscal_period,
-                "value": float(row.value) if row.value is not None else None,
+                "value": published_value(row),
                 "unit": row.unit,
                 "form": row.form,
                 "accession": row.accession,
                 "reconciled": bool(row.reconciled),
+                "provenance": provenance_for_fact(row, cik),
             }
         )
     return {
@@ -1102,6 +1110,7 @@ def get_filing_fundamentals(db: Session, filing_id: int) -> Optional[dict[str, A
         (company.ticker if company else "") or "",
         (company.name if company else "") or "",
         rows,
+        cik=company.cik if company else None,
     )
 
 
@@ -1123,11 +1132,10 @@ def get_filing_fundamentals(db: Session, filing_id: int) -> Optional[dict[str, A
 
 # Duration windows shared with the per-filing extractor (instance_extractor.DURATION_WINDOWS):
 # 52/53-week fiscal years run 364-371 days, fiscal quarters 84-98 (incl. 14-week quarters).
-# A 39-week YTD slice (~273 days; up to 40 weeks with one 14-week quarter) is classified "YTD9"
-# for the Q4 derivation ONLY (Q4 = FY − YTD9, two vintages instead of four) — never stored as a
-# fact row. Anything else (26-week half) is the wrong slice and is dropped.
+# Six-/nine-month cumulative slices are derivation inputs, never discrete-quarter rows.
 _CF_ANNUAL_WINDOW = (320, 390)
-_CF_QUARTER_WINDOW = (75, 105)
+_CF_QUARTER_WINDOW = QUARTER_WINDOW
+_CF_YTD6_WINDOW = (150, 215)
 _CF_YTD9_WINDOW = (250, 295)
 
 _QUARTER_PERIODS = ("Q1", "Q2", "Q3", "Q4")
@@ -1203,13 +1211,14 @@ _FI_SKIPPED_CONCEPTS: frozenset[str] = frozenset({"revenue"})
 
 
 def _classify_duration(start: date, end: date) -> Optional[str]:
-    """"FY" annual slice, "Q" discrete quarter, "YTD9" nine-month YTD (kept ONLY as a Q4
-    derivation input — never emitted as a fact row), None for anything else (26-week half)."""
+    """Classify annual, discrete-quarter and cumulative calculation inputs."""
     days = (end - start).days
     if _CF_ANNUAL_WINDOW[0] <= days <= _CF_ANNUAL_WINDOW[1]:
         return "FY"
-    if _CF_QUARTER_WINDOW[0] <= days <= _CF_QUARTER_WINDOW[1]:
+    if FINAL_QUARTER_WINDOW[0] <= days <= FINAL_QUARTER_WINDOW[1]:
         return "Q"
+    if _CF_YTD6_WINDOW[0] <= days <= _CF_YTD6_WINDOW[1]:
+        return "YTD6"
     if _CF_YTD9_WINDOW[0] <= days <= _CF_YTD9_WINDOW[1]:
         return "YTD9"
     return None
@@ -1236,11 +1245,12 @@ def _collect_companyfacts_values(
         if not isinstance(items, list):
             continue
         tag_best: dict[tuple[date, str], dict[str, Any]] = {}
+        tag_candidates: dict[tuple[date, str], list[dict]] = {}
         for item in items:
             if not isinstance(item, dict):
                 continue
             value = item.get("val")
-            if not isinstance(value, (int, float)) or isinstance(value, bool):
+            if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
                 continue
             end = _parse_date(item.get("end"))
             if end is None:
@@ -1258,6 +1268,7 @@ def _collect_companyfacts_values(
             filed = str(item.get("filed") or "")
             record = {
                 "value": float(value),
+                "unit": unit_key,
                 "period_start": start,
                 "period_end": end,
                 "accession": item.get("accn"),
@@ -1268,6 +1279,7 @@ def _collect_companyfacts_values(
                 "fy": item.get("fy"),
             }
             key = (end, klass)
+            tag_candidates.setdefault(key, []).append(dict(record))
             best = tag_best.get(key)
             if best is None:
                 record["first_fp"] = record["fp"]
@@ -1286,73 +1298,12 @@ def _collect_companyfacts_values(
             winner.update(first_fp=first_fp, first_fy=first_fy, first_filed=first_filed)
             tag_best[key] = winner
         for key, record in tag_best.items():
+            record["candidates"] = tag_candidates[key]
             claimed.setdefault(key, record)
     return claimed
 
 
-def _fiscal_year_windows(
-    duration_values: dict[str, dict[tuple[date, str], dict[str, Any]]]
-) -> list[tuple[date, date]]:
-    """Distinct completed fiscal-year [start, end] windows across all concepts' FY-class facts.
-
-    Per end date the widest observed start wins (tags occasionally disagree by a day). Sorted by
-    end ascending.
-    """
-    by_end: dict[date, date] = {}
-    for per_concept in duration_values.values():
-        for (end, klass), record in per_concept.items():
-            if klass != "FY" or record["period_start"] is None:
-                continue
-            start = record["period_start"]
-            if end not in by_end or start < by_end[end]:
-                by_end[end] = start
-    return [(start, end) for end, start in sorted(by_end.items())]
-
-
 _VALID_FP = frozenset(_QUARTER_PERIODS)
-
-
-def _label_quarters(
-    duration_values: dict[str, dict[tuple[date, str], dict[str, Any]]],
-    fy_windows: list[tuple[date, date]],
-) -> dict[date, tuple[str, int]]:
-    """period_end -> (Q1..Q4, fiscal_year) for every discrete-quarter period.
-
-    Calendar-agnostic AND gap-tolerant: a quarter belongs to the FY window containing it, and its
-    number comes from its distance to the window END (~91.3 days per quarter back from fiscal year
-    end), so a missing sibling quarter (IPO year, edge of companyfacts history) can never shift the
-    label the way a sorted-position scheme would. A discrete Q4 ends AT the window end (distance 0
-    → Q4). fiscal_year = the window end's year, so Jan-FYE filers group Q rows with the right FY
-    rows. Quarters outside any completed window (the in-progress fiscal year) fall back to the
-    earliest filer's `fp`/`fy` — the original 10-Q, the one place those fields are reliable (a
-    LATER filer's fp/fy describe its own filing, not this period). Unlabelable quarters are
-    dropped rather than guessed.
-    """
-    q_records: dict[date, dict[str, Any]] = {}
-    for per_concept in duration_values.values():
-        for (end, klass), record in per_concept.items():
-            if klass != "Q":
-                continue
-            existing = q_records.get(end)
-            # Keep the record with the earliest original filer for the fp/fy fallback.
-            if existing is None or record["first_filed"] < existing["first_filed"]:
-                q_records[end] = record
-
-    labels: dict[date, tuple[str, int]] = {}
-    for end, record in q_records.items():
-        window = next(((ws, we) for ws, we in fy_windows if ws <= end <= we), None)
-        if window is not None:
-            window_end = window[1]
-            index = 4 - round((window_end - end).days / 91.3)
-            if 1 <= index <= 4:
-                labels[end] = (f"Q{index}", window_end.year)
-                continue
-            logger.debug("companyfacts: quarter end %s at odd offset in FY window %s", end, window_end)
-        fp = record.get("first_fp")
-        if fp in _VALID_FP:
-            fy = record.get("first_fy")
-            labels[end] = (fp, fy if isinstance(fy, int) else end.year)
-    return labels
 
 
 def normalize_companyfacts(
@@ -1361,11 +1312,10 @@ def normalize_companyfacts(
     """Classify a raw companyfacts payload into labelled fact dicts (pure; unit-testable).
 
     Returns ``(facts, meta)`` where meta carries ``unsupported_ifrs`` (an ifrs-full-only filer —
-    out of v1 scope) . Emits FY rows, positionally-labelled Q1..Q4 rows, derived Q4 rows
-    (``derive_q4_facts`` — YTD9-preferred, ΣQ fallback), derived Q4 EPS
-    (``derive_q4_eps_facts`` — shares-based) and same-period derived metrics
-    (``derive_same_period_metrics``); YTD slices and weighted share counts feed the derivations
-    but are never stored. Direct rows are ``source="companyfacts", reconciled=True`` — this is
+    out of v1 scope). Emits reported FY/quarter rows and compatible cumulative-flow
+    calculations with operand provenance. EPS is reported-only. Cumulative slices feed
+    calculations but are never stored as quarter facts. Direct rows are
+    ``source="companyfacts", reconciled=True`` — this is
     SEC's own structured data, the same authority `cross_check_facts` treats as ground truth — with
     only the NON_NEGATIVE hard-reject applied (a negative revenue/assets is corrupt regardless of
     source). ``financial_sic`` skips the generic revenue concept (fee-income subset for banks — the
@@ -1395,37 +1345,28 @@ def normalize_companyfacts(
             instant_values[concept] = values
 
     fy_windows = _fiscal_year_windows(duration_values)
+    duration_values = fiscal_duration_values(duration_values, fy_windows, meta)
+    fy_labels = fiscal_year_labels(duration_values, fy_windows)
     fy_ends = {end for _start, end in fy_windows}
-    quarter_labels = _label_quarters(duration_values, fy_windows)
+    quarter_labels = _label_quarters(duration_values, fy_windows, fy_labels)
 
     def _base_fact(concept: str, record: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "company_id": company_id,
-            "filing_id": None,  # companyfacts rows may precede any Filing row for that accession
-            "concept": concept,
-            "raw_tag": record["raw_tag"],
-            "unit": _CONCEPT_UNITS.get(concept, "USD"),
-            "period_start": record["period_start"],
-            "period_end": record["period_end"],
-            "value": record["value"],
-            "form": record["form"],
-            "accession": record["accession"] or "companyfacts",
-            "source": "companyfacts",
-            "reconciled": True,
-        }
+        return reported_fact(company_id, concept, _CONCEPT_UNITS.get(concept, "USD"), record)
 
     facts: list[dict[str, Any]] = []
     for concept, values in duration_values.items():
         for (end, klass), record in values.items():
             if klass == "FY":
                 facts.append(
-                    {**_base_fact(concept, record), "fiscal_year": end.year, "fiscal_period": "FY"}
+                    {**_base_fact(concept, record), "fiscal_year": fy_labels[end], "fiscal_period": "FY"}
                 )
             elif klass == "Q":
                 label = quarter_labels.get(end)
                 if label is None:
                     continue  # unlabelable quarter — dropped rather than guessed
                 fiscal_period, fiscal_year = label
+                if fiscal_period != "Q4" and (end - record["period_start"]).days > QUARTER_WINDOW[1]:
+                    continue  # Extended 16/17-week quarters require a fiscal year-end anchor.
                 facts.append(
                     {
                         **_base_fact(concept, record),
@@ -1433,22 +1374,20 @@ def normalize_companyfacts(
                         "fiscal_period": fiscal_period,
                     }
                 )
-            # klass == "YTD9": a Q4-derivation input only (see derive_q4_facts) — a YTD9 slice
-            # ends at the SAME date as Q3, so letting it fall through to the quarter-label path
-            # would emit the nine-month value as a Q3 row. Never stored.
+            # Cumulative YTD6/YTD9 slices are calculation inputs, never quarter rows.
 
     for concept, values in instant_values.items():
         for (end, _klass), record in values.items():
             # A fiscal-year-end balance sheet IS the Q4 instant: store it once, labelled FY —
             # quarterly readers select instants by period_end, never by label (D2c).
             if end in fy_ends:
-                fiscal_period, fiscal_year = "FY", end.year
+                fiscal_period, fiscal_year = "FY", fy_labels[end]
             elif end in quarter_labels:
                 fiscal_period, fiscal_year = quarter_labels[end]
             elif record.get("first_fp") == "FY":
                 # FY-end balance sheet older than the earliest FY duration window; the original
-                # 10-K reported it as its own year end. end.year keeps the FY-row convention.
-                fiscal_period, fiscal_year = "FY", end.year
+                # Use an original annual report's year when available, never a later comparative.
+                fiscal_period, fiscal_year = "FY", reported_fiscal_year(record, end) or end.year
             elif record.get("first_fp") in _VALID_FP:
                 fy = record.get("first_fy")
                 fiscal_period = record["first_fp"]
@@ -1459,28 +1398,12 @@ def normalize_companyfacts(
                 {**_base_fact(concept, record), "fiscal_year": fiscal_year, "fiscal_period": fiscal_period}
             )
 
-    facts.extend(derive_q4_facts(facts, duration_values))
-
-    # Weighted shares (transient — never stored) labelled with the same quarter/FY scheme as the
-    # facts, backing the shares-based Q4 EPS derivation. Runs after derive_q4_facts so the Q4 net
-    # income it divides is available.
-    shares_by_eps_concept: dict[str, dict[tuple[int, str], float]] = {}
-    for eps_concept, share_tags in _EPS_SHARES_TAGS.items():
-        share_values = _collect_companyfacts_values(usgaap, share_tags, "shares", instant=False)
-        labelled: dict[tuple[int, str], float] = {}
-        for (end, klass), record in share_values.items():
-            if klass == "FY":
-                labelled[(end.year, "FY")] = record["value"]
-            elif klass == "Q":
-                label = quarter_labels.get(end)
-                if label is not None:
-                    fiscal_period, fiscal_year = label
-                    labelled[(fiscal_year, fiscal_period)] = record["value"]
-        if labelled:
-            shares_by_eps_concept[eps_concept] = labelled
-    if shares_by_eps_concept:
-        facts.extend(derive_q4_eps_facts(facts, shares_by_eps_concept))
-
+    quarters, exclusions = derive_cumulative_quarters(company_id, facts, duration_values, quarter_labels)
+    facts.extend(quarters)
+    facts.extend(derive_quarter_sum_fallback(facts, duration_values))
+    filled = {(f["concept"], f.get("fiscal_year"), f["fiscal_period"]) for f in facts}
+    exclusions = [e for e in exclusions
+                  if (e["concept"], e["fiscal_year"], e["fiscal_period"]) not in filled]
     # NON_NEGATIVE hard-reject BEFORE the same-period metrics derive: a rejected negative row
     # (e.g. a derived Q4 revenue gone negative under a recast/vintage mismatch) must not leave
     # behind margins computed from it — margins pass the filter themselves (legitimately
@@ -1488,6 +1411,10 @@ def normalize_companyfacts(
     def _hard_reject_ok(fact: dict[str, Any]) -> bool:
         value = fact.get("value")
         if fact["concept"] in NON_NEGATIVE_CONCEPTS and isinstance(value, (int, float)) and value < 0:
+            if fact.get("source") == "derived" and fact.get("fiscal_period") in _QUARTER_PERIODS:
+                exclusions.append({"concept": fact["concept"], "fiscal_year": fact["fiscal_year"],
+                                   "fiscal_period": fact["fiscal_period"],
+                                   "reason": "negative_calculated_value", "inputs": [fact_operand(fact)]})
             logger.warning(
                 "companyfacts_reject concept=%s period=%s value=%s reason=negative",
                 fact["concept"], fact["period_end"], value,
@@ -1497,6 +1424,7 @@ def normalize_companyfacts(
 
     facts = [fact for fact in facts if _hard_reject_ok(fact)]
     facts.extend(fact for fact in derive_same_period_metrics(facts) if _hard_reject_ok(fact))
+    meta.update(quarterly_exclusions=exclusions, quarterly_excluded_count=len(exclusions))
 
     # In-batch identity dedup.
     kept: list[dict[str, Any]] = []
@@ -1512,215 +1440,20 @@ def normalize_companyfacts(
     return kept, meta
 
 
-def _matching_ytd9(
-    fy_fact: dict[str, Any],
-    concept_values: Optional[dict[tuple[date, str], dict[str, Any]]],
-) -> Optional[dict[str, Any]]:
-    """The nine-month YTD slice belonging to a FY fact's fiscal year, or None.
-
-    Match rule: the YTD9 comes from the SAME us-gaap tag as the FY fact (tags within one concept
-    can carry different accounting scopes — total vs continuing-operations cash flow — and
-    subtracting across scopes would put nine months of the difference into Q4), starts where the
-    fiscal year starts (±3 days — tags occasionally disagree by a day), AND leaves a
-    quarter-length residual (FY end − YTD9 end), so FY − YTD9 is guaranteed to describe exactly
-    one discrete Q4 in one scope. No same-tag YTD9 → the caller falls back to ΣQ1–3.
-    """
-    if not concept_values:
-        return None
-    fy_start, fy_end = fy_fact["period_start"], fy_fact["period_end"]
-    if fy_start is None:
-        return None
-    for (end, klass), record in concept_values.items():
-        if klass != "YTD9" or record["period_start"] is None:
-            continue
-        if record.get("raw_tag") != fy_fact.get("raw_tag"):
-            continue
-        starts_together = abs((record["period_start"] - fy_start).days) <= 3
-        residual_days = (fy_end - end).days
-        if starts_together and _CF_QUARTER_WINDOW[0] <= residual_days <= _CF_QUARTER_WINDOW[1]:
-            return record
-    return None
-
-
 def derive_q4_facts(
     facts: list[dict[str, Any]],
     duration_values: Optional[dict[str, dict[tuple[date, str], dict[str, Any]]]] = None,
 ) -> list[dict[str, Any]]:
-    """Q4 for flow (duration, monetary) concepts where no discrete Q4 exists.
-
-    Companies report Q4 only inside the 10-K's full-year figure, so quarterly mode would
-    otherwise always miss the fourth bar. Preferred derivation: **Q4 = FY − YTD9** (the
-    nine-month slice from the Q3 10-Q — two vintages instead of four, and it survives a missing
-    Q1/Q2 10-Q at the edge of companyfacts history). Fallback: FY − (Q1+Q2+Q3), all three
-    required. Derived rows mix vintages and are marked ``source="derived", reconciled=False`` so
-    the UI badges them. Per-share/ratio units are never derived HERE — plain subtraction is
-    wrong for a ratio — quarterly EPS gets its own shares-based derivation
-    (``derive_q4_eps_facts``).
-
-    NOTE: a previously ingested ΣQ-derived row keeps its stored value — the upsert identity
-    (concept, period_end, fiscal_period, unit, accession) excludes ``value``, so the YTD9
-    preference applies to newly ingested periods. Accepted: the two derivations agree by
-    construction (mismatches >1% are logged below), and rewriting history through the
-    idempotent writer would trade that residual for core-write-path churn.
-    """
-    groups: dict[tuple[str, Any], dict[str, dict[str, Any]]] = {}
+    """Reported-only EPS; additive Q4 from compatible cumulative or discrete inputs."""
+    if not facts:
+        return []
+    values = {concept: dict(records) for concept, records in (duration_values or {}).items()}
     for fact in facts:
-        if fact.get("unit") != "USD" or fact.get("period_start") is None:
-            continue  # flows only: monetary durations
-        groups.setdefault((fact["concept"], fact.get("fiscal_year")), {})[fact["fiscal_period"]] = fact
-
-    derived: list[dict[str, Any]] = []
-    for (concept, _fy), by_period in groups.items():
-        fy_fact = by_period.get("FY")
-        if fy_fact is None or "Q4" in by_period:
-            continue
-        quarters = [by_period.get(q) for q in ("Q1", "Q2", "Q3")]
-        ytd9 = _matching_ytd9(fy_fact, (duration_values or {}).get(concept))
-        if ytd9 is not None:
-            value = fy_fact["value"] - ytd9["value"]
-            period_start = ytd9["period_end"] + timedelta(days=1)
-            if all(q is not None for q in quarters):
-                # Observability for the dual-path window: the two derivations should agree
-                # (ΣQ1–3 ≈ YTD9); a real gap means a restatement landed in one path only.
-                sum_q = sum(q["value"] for q in quarters)
-                if abs(sum_q - ytd9["value"]) > max(abs(fy_fact["value"]) * 0.01, 1.0):
-                    logger.warning(
-                        "companyfacts_q4_derivation_mismatch concept=%s fy=%s ytd9=%s sum_q=%s",
-                        concept, fy_fact.get("fiscal_year"), ytd9["value"], sum_q,
-                    )
-        else:
-            if any(q is None for q in quarters):
-                continue
-            value = fy_fact["value"] - sum(q["value"] for q in quarters)
-            period_start = quarters[2]["period_end"] + timedelta(days=1)
-        derived.append(
-            {
-                **fy_fact,
-                "value": value,
-                "period_start": period_start,
-                "fiscal_period": "Q4",
-                "source": "derived",
-                "reconciled": False,
-            }
-        )
-    return derived
-
-
-# Weighted-average share-count tags backing each EPS concept — collected transiently for the Q4
-# EPS derivation only; share counts are never stored as fact rows.
-_EPS_SHARES_TAGS: dict[str, tuple[str, ...]] = {
-    "earnings_per_share": (
-        "WeightedAverageNumberOfSharesOutstandingBasic",
-        "WeightedAverageNumberOfSharesOutstanding",
-    ),
-    "eps_diluted": ("WeightedAverageNumberOfDilutedSharesOutstanding",),
-}
-
-# EPS ≈ NI ÷ weighted shares must hold for every REPORTED period before Q4 EPS is derived —
-# relative 5%, or one cent absolute (filed EPS is rounded to 2 decimals, so tiny EPS values
-# carry large relative rounding). A failure means the share counts and the (restated) EPS
-# history disagree — classically a mid-year split — and deriving would produce garbage.
-_EPS_VALIDATION_REL_TOL = 0.05
-_EPS_VALIDATION_ABS_TOL = 0.011
-
-
-def derive_q4_eps_facts(
-    facts: list[dict[str, Any]],
-    shares_by_eps_concept: dict[str, dict[tuple[int, str], float]],
-) -> list[dict[str, Any]]:
-    """Derived Q4 EPS = Q4 net income ÷ Q4 weighted shares (the EdgarTools quarterization idea).
-
-    Plain FY − ΣQ subtraction is wrong for EPS (weighted-average shares move between quarters),
-    so Q4 EPS re-derives from first principles: Q4 shares = 4×FY − (Q1+Q2+Q3) (a weighted
-    average over the year is the mean of the four quarterly averages), then Q4 NI ÷ Q4 shares.
-    Requires the fiscal year's FY EPS, a Q4 net income (usually itself derived), and all four
-    share counts; every reported period must pass the EPS ≈ NI ÷ shares consistency check
-    (``_EPS_VALIDATION_*``) or the year is skipped. Derived rows are ``source="derived",
-    reconciled=False`` — same badging as the flow derivation.
-    """
-    by_key: dict[tuple[str, Any, str], dict[str, Any]] = {
-        (f["concept"], f.get("fiscal_year"), f["fiscal_period"]): f for f in facts
-    }
-
-    def _consistent(eps_concept: str, fy: Any, fp: str, shares: Optional[float]) -> bool:
-        eps_fact = by_key.get((eps_concept, fy, fp))
-        ni_fact = by_key.get(("net_income", fy, fp))
-        if eps_fact is None or ni_fact is None or not shares:
-            return True  # nothing reported to validate against
-        expected = ni_fact["value"] / shares
-        return abs(eps_fact["value"] - expected) <= max(
-            abs(expected) * _EPS_VALIDATION_REL_TOL, _EPS_VALIDATION_ABS_TOL
-        )
-
-    derived: list[dict[str, Any]] = []
-    for eps_concept, shares in shares_by_eps_concept.items():
-        fiscal_years = {
-            f.get("fiscal_year")
-            for f in facts
-            if f["concept"] == eps_concept and f["fiscal_period"] == "FY"
-        }
-        for fy in fiscal_years:
-            if (eps_concept, fy, "Q4") in by_key:
-                continue  # a rare discrete Q4 EPS is real — never overwrite it
-            fy_eps = by_key.get((eps_concept, fy, "FY"))
-            q4_ni = by_key.get(("net_income", fy, "Q4"))
-            if fy_eps is None or q4_ni is None:
-                continue
-            fy_shares = shares.get((fy, "FY"))
-            quarter_shares = [shares.get((fy, q)) for q in ("Q1", "Q2", "Q3")]
-            if not fy_shares or any(not s or s <= 0 for s in quarter_shares) or fy_shares <= 0:
-                continue
-            q4_shares = 4.0 * fy_shares - sum(quarter_shares)  # type: ignore[arg-type]
-            if q4_shares <= 0:
-                continue
-            # Split-basis guard: weighted counts drift single-digit percentages through
-            # buybacks/issuance; a 1.5× spread across the four inputs means mixed pre-/post-
-            # split bases (a mid-year split whose earlier 10-Qs were never restated — each
-            # period can still pass the per-period gate because its EPS is on the same stale
-            # basis). Deriving across bases would be garbage.
-            all_counts = [fy_shares, *quarter_shares]
-            if max(all_counts) / min(all_counts) > 1.5:  # type: ignore[type-var]
-                logger.warning(
-                    "companyfacts_q4_eps_skipped concept=%s fy=%s reason=share_basis_spread",
-                    eps_concept, fy,
-                )
-                continue
-            checks = [("FY", fy_shares), ("Q1", quarter_shares[0]),
-                      ("Q2", quarter_shares[1]), ("Q3", quarter_shares[2])]
-            if not all(_consistent(eps_concept, fy, fp, sh) for fp, sh in checks):
-                logger.warning(
-                    "companyfacts_q4_eps_skipped concept=%s fy=%s reason=eps_ni_shares_inconsistent",
-                    eps_concept, fy,
-                )
-                continue
-            # Numerator-wedge guard: FY EPS × FY shares should reproduce FY net income. The gap
-            # is the part of the EPS numerator NOT in consolidated NI (preferred dividends,
-            # noncontrolling interests — EPS divides income AVAILABLE TO COMMON), and on the
-            # derived quarter that whole annual wedge lands in one number. Require it to be
-            # small RELATIVE TO Q4 NI (not FY NI — the error concentrates where NI is small),
-            # with a one-cent-per-share floor for filed-EPS rounding.
-            fy_ni = by_key.get(("net_income", fy, "FY"))
-            if fy_ni is None:
-                continue
-            wedge = abs(fy_eps["value"] * fy_shares - fy_ni["value"])
-            if wedge > max(0.05 * abs(q4_ni["value"]), _EPS_VALIDATION_ABS_TOL * fy_shares):
-                logger.warning(
-                    "companyfacts_q4_eps_skipped concept=%s fy=%s reason=fy_numerator_wedge",
-                    eps_concept, fy,
-                )
-                continue
-            derived.append(
-                {
-                    **fy_eps,
-                    "value": q4_ni["value"] / q4_shares,
-                    "period_start": q4_ni["period_start"],
-                    "period_end": q4_ni["period_end"],
-                    "fiscal_period": "Q4",
-                    "source": "derived",
-                    "reconciled": False,
-                }
-            )
-    return derived
+        if fact["fiscal_period"] == "FY" and fact.get("reconciled") and fact.get("period_start"):
+            values.setdefault(fact["concept"], {}).setdefault((fact["period_end"], "FY"), fact)
+    derived, _ = derive_cumulative_quarters(facts[0]["company_id"], facts, values, {})
+    q4 = [fact for fact in derived if fact["fiscal_period"] == "Q4"]
+    return q4 + derive_quarter_sum_fallback([*facts, *q4], duration_values)
 
 
 def derive_same_period_metrics(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1729,17 +1462,9 @@ def derive_same_period_metrics(facts: list[dict[str, Any]]) -> list[dict[str, An
     Margins ×100 (unit "pure"), free_cash_flow = OCF − |capex|, working_capital = CA − CL,
     current_ratio = CA ÷ CL — the exact formulas the per-filing extractor uses
     (xbrl_service.extract_standardized_metrics), so companyfacts- and filing-sourced rows agree.
-    Same-period arithmetic on SEC values is ``reconciled=True`` unless an input was itself
-    unreconciled (a derived Q4 chain propagates its badge). Skipped when the group already carries
-    the concept.
-
-    DUAL-WRITER NOTE: these computed metrics are written by TWO paths with different ``source``
-    values — here as ``"derived"`` and by the per-filing pipeline (which emits the same
-    computations from ``extract_standardized_metrics``) as ``"edgar_xbrl"``. Which row holds
-    ``is_latest`` for a period is last-writer-wins and therefore ingest-order dependent. That is
-    accepted (audit decision D4): values converge across the paths by construction, and readers
-    must never infer meaning from ``source == "derived"`` alone — "computed Q4" semantics are
-    ``source == "derived" AND fiscal_period == "Q4"`` (see trend_analysis_service.build_dataset).
+    Identical periods and units are required. Operand provenance carries validation and
+    calculation method independently; an unsupported operand cannot gain passing quality
+    through a margin, cash-flow or liquidity calculation. Existing concepts are preserved.
     """
     groups: dict[tuple[Any, Any], dict[str, dict[str, Any]]] = {}
     for fact in facts:
@@ -1749,14 +1474,11 @@ def derive_same_period_metrics(facts: list[dict[str, Any]]) -> list[dict[str, An
     def _make(
         concept: str, value: float, template: dict[str, Any], inputs: list[dict[str, Any]]
     ) -> dict[str, Any]:
+        provenance = same_period_provenance(concept, inputs)
         return {
-            **template,
-            "concept": concept,
-            "raw_tag": None,
-            "unit": _CONCEPT_UNITS.get(concept, "USD"),
-            "value": value,
-            "source": "derived",
-            "reconciled": all(f.get("reconciled", False) for f in inputs),
+            **template, "concept": concept, "raw_tag": None,
+            "unit": _CONCEPT_UNITS.get(concept, "USD"), "value": value, "source": "derived",
+            "reconciled": provenance["validation"] == "passed", "provenance": provenance,
         }
 
     derived: list[dict[str, Any]] = []
@@ -1772,7 +1494,7 @@ def derive_same_period_metrics(facts: list[dict[str, Any]]) -> list[dict[str, An
                 if (
                     margin_key not in by_concept
                     and numerator is not None
-                    and numerator["period_end"] == revenue["period_end"]
+                    and same_scope(numerator, revenue)
                 ):
                     derived.append(
                         _make(
@@ -1788,7 +1510,7 @@ def derive_same_period_metrics(facts: list[dict[str, Any]]) -> list[dict[str, An
             "free_cash_flow" not in by_concept
             and ocf is not None
             and capex is not None
-            and ocf["period_end"] == capex["period_end"]
+            and same_scope(ocf, capex)
         ):
             derived.append(
                 _make("free_cash_flow", ocf["value"] - abs(capex["value"]), ocf, [ocf, capex])
@@ -1798,7 +1520,7 @@ def derive_same_period_metrics(facts: list[dict[str, Any]]) -> list[dict[str, An
         if (
             ca is not None
             and cl is not None
-            and ca["period_end"] == cl["period_end"]
+            and same_scope(ca, cl)
             and ca["value"] >= 0
             and cl["value"] >= 0
         ):

@@ -6,9 +6,12 @@ from html import escape
 
 from app.models import Summary, Filing
 from app.services.pdf_branding import PALETTE, render_branded_pdf
+from app.services.analysis_export_metadata import (
+    ANALYSIS_DISCLAIMER, FCF_DEFINITION, export_points, formula_text, operand_records, point_limitations, point_method, source_urls,
+)
 from app.services.summary_sections import Block, Section, render_sections
 from app.services.provenance_service import project_summary_risks
-from app.utils.datetimes import utcnow
+from app.utils.datetimes import ensure_utc, iso_z, utcnow
 
 class ExportService:
     def __init__(self):
@@ -269,63 +272,122 @@ class ExportService:
                 return f"{sign}{currency}{magnitude / 1e6:.1f}M"
             return f"{sign}{currency}{magnitude:,.0f}"
 
+        def links_html(provenance: dict) -> str:
+            return " · ".join(
+                f'<a href="{escape(url, quote=True)}">Source filing {index}</a>'
+                for index, url in enumerate(source_urls(provenance), start=1)
+            )
+
         header_cells = "".join(f"<th>{escape(period)}</th>" for period in periods)
         body_rows = []
+        limitation_items = []
+        method_sections = []
         for series in dataset.get("series", []):
             by_period = {p.get("period"): p for p in series.get("points", [])}
+            label = str(series.get("label", series.get("concept", "")))
             cells = []
+            method_items = []
             for period in periods:
                 point = by_period.get(period) or {}
+                provenance = point.get("provenance") or {}
                 rendered = format_value(
                     point.get("value"), series.get("unit", "USD"), bool(series.get("percent"))
                 )
-                if point.get("derived"):
+                if point_method(point) == "calculated" and point.get("value") is not None:
                     rendered += " †"
-                if point.get("reconciled") is False:
-                    rendered += " [unreconciled]"
+                limitations = point_limitations(point)
+                if limitations:
+                    note_number = len(limitation_items) + 1
+                    rendered += f" [note {note_number}]" if provenance else " [unreconciled]"
+                    limitation_items.append(
+                        f"<li>{escape(label)} · {escape(period)}: {escape('; '.join(limitations))}</li>"
+                    )
                 cells.append(f'<td class="num">{escape(rendered)}</td>')
-            body_rows.append(
-                f"<tr><td>{escape(series.get('label', series.get('concept', '')))}</td>"
-                + "".join(cells)
-                + "</tr>"
-            )
 
-        citation_items = "".join(
-            f"<li><strong>[{c.get('n')}]</strong> {escape(str(c.get('excerpt', '')))}"
-            f" <span class=\"ref\">{escape(str(c.get('section_ref') or ''))}</span>"
-            + (" <strong>Unreconciled value — check source filing.</strong>" if c.get("reconciled") is False else "")
-            + "</li>"
-            for c in (analysis.citations_json or [])
-        )
-        has_derived = any(
-            p.get("derived")
-            for series in dataset.get("series", [])
-            for p in series.get("points", [])
+            for measure, point, unit in export_points(series):
+                provenance = point.get("provenance") or {}
+                period = str(point.get("period") or "")
+                value = point.get("value")
+                value_text = f"{value:,.10g}" if isinstance(value, (int, float)) else str(value or "Unavailable")
+                detail = (
+                    f"<strong>{escape(period)} · {escape(measure)}</strong>: "
+                    f"{escape(value_text)} {escape(unit)} · {escape(point_method(point).capitalize())}"
+                )
+                if provenance.get("formula"):
+                    detail += " · " + escape(formula_text(provenance["formula"]))
+                if point_limitations(point):
+                    detail += " · " + escape("; ".join(point_limitations(point)))
+                links = links_html(provenance)
+                if links:
+                    detail += " · " + links
+                operands = []
+                for operand_label, operand in operand_records(provenance):
+                    value = operand.get("value")
+                    value_text = f"{value:,}" if isinstance(value, (int, float)) else "Unavailable"
+                    period_text = " to ".join(str(operand[key]) for key in ("period_start", "period_end") if operand.get(key))
+                    operand_text = (
+                        f"{operand_label}: {operand.get('concept', '')} = {value_text} "
+                        f"{operand.get('unit', '')} ({period_text})"
+                    )
+                    nested_formula = (operand.get("provenance") or {}).get("formula")
+                    if nested_formula:
+                        operand_text += " · " + formula_text(nested_formula)
+                    operands.append(f"<li>{escape(operand_text)}</li>")
+                if operands:
+                    detail += '<ul class="operands">' + "".join(operands) + "</ul>"
+                method_items.append(f"<li>{detail}</li>")
+            body_rows.append(
+                f"<tr><td>{escape(label)}</td>" + "".join(cells) + "</tr>"
+            )
+            method_sections.append(f"<h3>{escape(label)}</h3><ul>{''.join(method_items)}</ul>")
+
+        citation_parts = []
+        for citation in analysis.citations_json or []:
+            provenance = citation.get("provenance") or {}
+            warning = "; ".join(point_limitations(citation))
+            # Preserve legacy quality flags for old direct service callers; the HTTP route
+            # rejects stale snapshots before rendering and new records carry specific reasons.
+            if not provenance and citation.get("reconciled") is False:
+                warning = "Unreconciled value — check source filing."
+            citation_parts.append(
+                f"<li><strong>[{escape(str(citation.get('n')))}]</strong> "
+                f"{escape(str(citation.get('excerpt', '')))} "
+                f"<span class=\"ref\">{escape(str(citation.get('section_ref') or ''))}</span> "
+                + links_html(provenance)
+                + (f" <strong>{escape(warning)}</strong>" if warning else "") + "</li>"
+            )
+        citation_items = "".join(citation_parts)
+        has_calculated = any(
+            point_method(point) == "calculated"
+            for series in dataset.get("series", []) for point in series.get("points", [])
         )
         derived_note = (
-            '<p class="footnote">† Computed fourth quarter, derived from the annual report: full year minus the reported year-to-date quarters (EPS: Q4 net income ÷ Q4 weighted shares).</p>'
-            if has_derived
-            else ""
+            '<p class="footnote">† Calculated from reported inputs. The Sources &amp; Methods '
+            'appendix identifies each formula and its operands. Calculation method is separate '
+            'from whether the source checks passed.</p>' if has_calculated else ""
         )
-        has_unreconciled = any(
-            p.get("reconciled") is False
-            for series in dataset.get("series", []) for p in series.get("points", [])
-        ) or any(c.get("reconciled") is False for c in (analysis.citations_json or []))
+        limitations_html = (
+            '<h3>Data limitations</h3><ol class="limitations">' + "".join(limitation_items) + "</ol>"
+            if limitation_items else ""
+        )
         quality_note = (
-            '<p class="footnote"><strong>Some values are unreconciled.</strong> Check flagged '
-            'figures and growth based on them against the source filing. Citation verification '
-            'confirms traceability, not financial reconciliation.</p>' if has_unreconciled else ""
+            '<p class="footnote">Some figures are unavailable or need source review. '
+            'Specific limitations appear beside the metrics grid. Citation verification confirms '
+            'traceability, not financial reconciliation.</p>' if limitation_items else ""
         )
-        # "Generated" = when the AI actually wrote this narrative (the row's timestamps) — a
-        # cached analysis exported weeks later must not present itself as freshly generated.
         generated_at = getattr(analysis, "updated_at", None) or getattr(analysis, "created_at", None)
-        generated_date = (generated_at or utcnow()).strftime("%B %d, %Y")
-        exported_date = utcnow().strftime("%B %d, %Y")
+        generated_date = iso_z(ensure_utc(generated_at)) if generated_at else "Not recorded"
+        exported_date = iso_z(utcnow())
+        data_as_of = str(dataset.get("data_as_of") or "Not recorded")
+        dataset_version = str(dataset.get("dataset_version") or "Legacy snapshot")
+        snapshot_id = str(dataset.get("snapshot_id") or "Not recorded")
 
         meta_html = (
             f'<span class="data">{escape(company.ticker or "")}</span> · {mode_label} · '
             f'<span class="data">{escape(analysis.period_key)}</span> · '
             f"Generated {generated_date} · Exported {exported_date}"
+            f"<br>Data as of: {escape(data_as_of)} · Dataset version: {escape(dataset_version)}"
+            f'<br>Snapshot: <span class="snapshot">{escape(snapshot_id)}</span>'
         )
         body_html = f"""
             {quality_note}
@@ -338,35 +400,28 @@ class ExportService:
                     <tbody>{"".join(body_rows)}</tbody>
                 </table>
                 {derived_note}
+                {limitations_html}
+                <p class="footnote">{escape(FCF_DEFINITION)}</p>
             </section>
 
-            <h2>Sources</h2>
+            <h2>Narrative sources</h2>
             <ol class="sources">{citation_items}</ol>
             <p class="footnote">
-                Source entries identify SEC XBRL values or computed figures. They do not verify
-                every nearby narrative figure or conclusion. The analysis can be incomplete or wrong.
+                Source entries identify reported or calculated figures. A source reference
+                establishes traceability; it does not independently validate every conclusion.
             </p>
+            <section class="methods">
+                <h2>Sources &amp; Methods</h2>
+                <p class="footnote">Reported figures come from SEC filings. Calculated figures
+                use the formulas and operands below. Missing values are unavailable in this
+                analysis, which does not establish that the company did not report them.</p>
+                {"".join(method_sections)}
+            </section>
             <h2>About this document</h2>
-            <p class="footnote">
-                This analysis was generated by EarningsNerd (earningsnerd.io) using automated AI
-                models on {generated_date} and exported on {exported_date}. Data reflects SEC
-                filings available at generation time. All underlying figures come from the company's XBRL
-                filings with the U.S. Securities and Exchange Commission (SEC EDGAR,
-                companyfacts); growth rates, margins, ratios, and any values marked † are
-                computed by EarningsNerd and do not appear in the filings themselves.
-                AI-generated text may be incomplete, out of date, or wrong; the authoritative
-                source is always the original SEC filing.
-            </p>
-            <p class="footnote">
-                This document is provided for general informational and research purposes only.
-                It is not investment, financial, legal, accounting, or tax advice; it is not a
-                recommendation or solicitation to buy, sell, or hold any security; and
-                EarningsNerd is not a broker-dealer, investment adviser, or fiduciary. Past
-                performance is not indicative of future results. Use is subject to the
-                EarningsNerd Terms of Service (earningsnerd.io/terms), including its disclaimer
-                of warranties and limitation of liability. EarningsNerd is not affiliated with
-                or endorsed by the SEC.
-            </p>
+            <p class="footnote">This document combines financial data, deterministic calculations
+                and AI-assisted commentary. The data snapshot is identified above; the export date
+                does not imply that the source data or commentary were refreshed.</p>
+            <p class="footnote">{escape(ANALYSIS_DISCLAIMER)}</p>
         """
         # The metrics grid can be 13+ columns for a quarterly window — it gets the shell's
         # metrics-landscape named page (new page, A4 landscape); everything else stays portrait.
@@ -375,7 +430,9 @@ class ExportService:
             doc_kind="Multi-Period<br>Analysis",
             meta_html=meta_html,
             body_html=body_html,
-            extra_css="ol.sources { font-size: 8.5pt; }",
+            extra_css=("ol.sources, ol.limitations, .methods { font-size: 8.5pt; } "
+                       ".methods li { margin-bottom: 4px; } .operands { margin-top: 2px; } "
+                       ".snapshot { overflow-wrap: anywhere; }"),
         )
 
     async def export_analysis_pdf(self, analysis, company) -> bytes:
