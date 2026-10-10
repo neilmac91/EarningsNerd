@@ -151,14 +151,14 @@ ALLOWED_WRITE_SITES: dict[tuple[str, str], dict[str, dict[str, int]]] = {
         "app/services/company_resolution.py::resolve_or_create_company_by_cik": {"add": 1, "flush": 1},
     },
     ("app/routers/filings.py", "get_company_filings"): {
-        "app/routers/filings.py::get_company_filings": {
-            "BackgroundTasks": 1, "add": 1, "add_task": 2, "commit": 2, "flush": 1,
-        },
+        "app/routers/filings.py::get_company_filings": {"BackgroundTasks": 1, "add_task": 2},
         "app/services/company_resolution.py::resolve_or_create_company_by_cik": {"add": 1, "flush": 1},
         "app/services/filing_amendment_service.py::mark_superseded_filings": {
             "bulk_update_mappings": 1, "flush": 1,
         },
         "app/services/filing_history_service.py::_persist_history_rows": {"commit": 1},
+        "app/services/filing_list_service.py::persist_live_filings": {"add": 1, "commit": 1, "flush": 1},
+        "app/services/filing_list_service.py::persist_sec_company": {"commit": 1},
         "app/services/filing_scan_service.py::upsert_filings": {"add": 1, "commit": 1},
     },
     ("app/routers/summaries.py", "get_summary_progress"): {
