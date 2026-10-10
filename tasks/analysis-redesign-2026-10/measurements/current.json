@@ -1,0 +1,2239 @@
+{
+ "base": "http://localhost:3000",
+ "state": "legacy",
+ "generatedAt": "2026-10-10T18:54:41.006Z",
+ "configs": [
+  {
+   "theme": "light",
+   "name": "1480",
+   "width": 1480,
+   "height": 1000,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 267,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 267,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 267,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 267,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2076,
+    "containerWidth": 1054,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 107,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 240,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     240,
+     240,
+     234,
+     234,
+     234,
+     240
+    ],
+    "cleanWidths": [
+     105,
+     77,
+     105,
+     77,
+     105,
+     77
+    ],
+    "occludedAtFarRight": []
+   }
+  },
+  {
+   "theme": "light",
+   "name": "1054",
+   "width": 1054,
+   "height": 1000,
+   "viewport": 1054,
+   "documentWidth": 1054,
+   "pageOverflowPx": 0,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 243,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 243,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 243,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 243,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2076,
+    "containerWidth": 956,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 107,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 240,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     240,
+     240,
+     234,
+     234,
+     234,
+     240
+    ],
+    "cleanWidths": [
+     105,
+     77,
+     105,
+     77,
+     105,
+     77
+    ],
+    "occludedAtFarRight": []
+   }
+  },
+  {
+   "theme": "light",
+   "name": "1024",
+   "width": 1024,
+   "height": 1000,
+   "viewport": 1024,
+   "documentWidth": 1024,
+   "pageOverflowPx": 0,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 235,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 235,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 235,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 235,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2076,
+    "containerWidth": 926,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 107,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 240,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     240,
+     240,
+     234,
+     234,
+     234,
+     240
+    ],
+    "cleanWidths": [
+     105,
+     77,
+     105,
+     77,
+     105,
+     77
+    ],
+    "occludedAtFarRight": []
+   }
+  },
+  {
+   "theme": "light",
+   "name": "768",
+   "width": 768,
+   "height": 1024,
+   "viewport": 768,
+   "documentWidth": 768,
+   "pageOverflowPx": 0,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 354,
+     "height": 132,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 354,
+     "height": 132,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2076,
+    "containerWidth": 670,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 107,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 240,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     240,
+     240,
+     234,
+     234,
+     234,
+     240
+    ],
+    "cleanWidths": [
+     105,
+     77,
+     105,
+     77,
+     105,
+     77
+    ],
+    "occludedAtFarRight": []
+   }
+  },
+  {
+   "theme": "light",
+   "name": "390",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "viewport": 429,
+   "documentWidth": 429,
+   "pageOverflowPx": 0,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 173,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 173,
+     "height": 120,
+     "valueTop": 53,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 173,
+     "height": 164,
+     "valueTop": 53,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 173,
+     "height": 164,
+     "valueTop": 53,
+     "worstOverflowPx": 54.3,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 2076,
+    "containerWidth": 308,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 107,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 240,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     240,
+     240,
+     234,
+     234,
+     234,
+     240
+    ],
+    "cleanWidths": [
+     105,
+     77,
+     105,
+     77,
+     105,
+     77
+    ],
+    "occludedAtFarRight": []
+   }
+  },
+  {
+   "theme": "light",
+   "name": "320",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "viewport": 413,
+   "documentWidth": 413,
+   "pageOverflowPx": 0,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 138,
+     "height": 120,
+     "valueTop": 53,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 138,
+     "height": 120,
+     "valueTop": 53,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 138,
+     "height": 164,
+     "valueTop": 69,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 138,
+     "height": 164,
+     "valueTop": 53,
+     "worstOverflowPx": 89.3,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 2076,
+    "containerWidth": 238,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 107,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 240,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     240,
+     240,
+     234,
+     234,
+     234,
+     240
+    ],
+    "cleanWidths": [
+     105,
+     77,
+     105,
+     77,
+     105,
+     77
+    ],
+    "occludedAtFarRight": []
+   }
+  },
+  {
+   "theme": "light",
+   "name": "1480@200%zoom",
+   "width": 740,
+   "height": 500,
+   "dsf": 2,
+   "viewport": 740,
+   "documentWidth": 740,
+   "pageOverflowPx": 0,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 340,
+     "height": 132,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 340,
+     "height": 132,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2076,
+    "containerWidth": 642,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 107,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 240,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     240,
+     240,
+     234,
+     234,
+     234,
+     240
+    ],
+    "cleanWidths": [
+     105,
+     77,
+     105,
+     77,
+     105,
+     77
+    ],
+    "occludedAtFarRight": []
+   }
+  },
+  {
+   "theme": "light",
+   "name": "1480@200%text",
+   "width": 1480,
+   "height": 1000,
+   "textZoom": 2,
+   "viewport": 1480,
+   "documentWidth": 1558,
+   "pageOverflowPx": 78,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 328,
+     "height": 326,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 328,
+     "height": 326,
+     "valueTop": 105,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 328,
+     "height": 326,
+     "valueTop": 105,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 328,
+     "height": 326,
+     "valueTop": 105,
+     "worstOverflowPx": 125.6,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 4151,
+    "containerWidth": 1286,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 212,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 209,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 481,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 481,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 469,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 155,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 209,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 154,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 469,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 469,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 209,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 154,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 481,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     481,
+     481,
+     469,
+     469,
+     469,
+     481
+    ],
+    "cleanWidths": [
+     209,
+     155,
+     209,
+     154,
+     209,
+     154
+    ],
+    "occludedAtFarRight": []
+   }
+  },
+  {
+   "theme": "dark",
+   "name": "1480",
+   "width": 1480,
+   "height": 1000,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 267,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 267,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 267,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 267,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2076,
+    "containerWidth": 1054,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 107,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 240,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     240,
+     240,
+     234,
+     234,
+     234,
+     240
+    ],
+    "cleanWidths": [
+     105,
+     77,
+     105,
+     77,
+     105,
+     77
+    ],
+    "occludedAtFarRight": []
+   }
+  },
+  {
+   "theme": "dark",
+   "name": "1054",
+   "width": 1054,
+   "height": 1000,
+   "viewport": 1054,
+   "documentWidth": 1054,
+   "pageOverflowPx": 0,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 243,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 243,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 243,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 243,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2076,
+    "containerWidth": 956,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 107,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 240,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     240,
+     240,
+     234,
+     234,
+     234,
+     240
+    ],
+    "cleanWidths": [
+     105,
+     77,
+     105,
+     77,
+     105,
+     77
+    ],
+    "occludedAtFarRight": []
+   }
+  },
+  {
+   "theme": "dark",
+   "name": "1024",
+   "width": 1024,
+   "height": 1000,
+   "viewport": 1024,
+   "documentWidth": 1024,
+   "pageOverflowPx": 0,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 235,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 235,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 235,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 235,
+     "height": 148,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2076,
+    "containerWidth": 926,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 107,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 240,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     240,
+     240,
+     234,
+     234,
+     234,
+     240
+    ],
+    "cleanWidths": [
+     105,
+     77,
+     105,
+     77,
+     105,
+     77
+    ],
+    "occludedAtFarRight": []
+   }
+  },
+  {
+   "theme": "dark",
+   "name": "768",
+   "width": 768,
+   "height": 1024,
+   "viewport": 768,
+   "documentWidth": 768,
+   "pageOverflowPx": 0,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 354,
+     "height": 132,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 354,
+     "height": 132,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2076,
+    "containerWidth": 670,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 107,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 240,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     240,
+     240,
+     234,
+     234,
+     234,
+     240
+    ],
+    "cleanWidths": [
+     105,
+     77,
+     105,
+     77,
+     105,
+     77
+    ],
+    "occludedAtFarRight": []
+   }
+  },
+  {
+   "theme": "dark",
+   "name": "390",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "viewport": 429,
+   "documentWidth": 429,
+   "pageOverflowPx": 0,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 173,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 173,
+     "height": 120,
+     "valueTop": 53,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 173,
+     "height": 164,
+     "valueTop": 53,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 173,
+     "height": 164,
+     "valueTop": 53,
+     "worstOverflowPx": 54.3,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 2076,
+    "containerWidth": 308,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 107,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 240,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     240,
+     240,
+     234,
+     234,
+     234,
+     240
+    ],
+    "cleanWidths": [
+     105,
+     77,
+     105,
+     77,
+     105,
+     77
+    ],
+    "occludedAtFarRight": []
+   }
+  },
+  {
+   "theme": "dark",
+   "name": "320",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "viewport": 413,
+   "documentWidth": 413,
+   "pageOverflowPx": 0,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 138,
+     "height": 120,
+     "valueTop": 53,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 138,
+     "height": 120,
+     "valueTop": 53,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 138,
+     "height": 164,
+     "valueTop": 69,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 138,
+     "height": 164,
+     "valueTop": 53,
+     "worstOverflowPx": 89.3,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 2076,
+    "containerWidth": 238,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 107,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 240,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     240,
+     240,
+     234,
+     234,
+     234,
+     240
+    ],
+    "cleanWidths": [
+     105,
+     77,
+     105,
+     77,
+     105,
+     77
+    ],
+    "occludedAtFarRight": []
+   }
+  },
+  {
+   "theme": "dark",
+   "name": "1480@200%zoom",
+   "width": 740,
+   "height": 500,
+   "dsf": 2,
+   "viewport": 740,
+   "documentWidth": 740,
+   "pageOverflowPx": 0,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 340,
+     "height": 132,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 340,
+     "height": 132,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2076,
+    "containerWidth": 642,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 107,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 240,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 234,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 105,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 77,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 240,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     240,
+     240,
+     234,
+     234,
+     234,
+     240
+    ],
+    "cleanWidths": [
+     105,
+     77,
+     105,
+     77,
+     105,
+     77
+    ],
+    "occludedAtFarRight": []
+   }
+  },
+  {
+   "theme": "dark",
+   "name": "1480@200%text",
+   "width": 1480,
+   "height": 1000,
+   "textZoom": 2,
+   "viewport": 1480,
+   "documentWidth": 1558,
+   "pageOverflowPx": 78,
+   "sourceCheckLabels": 33,
+   "sourceCheckLabelTexts": [
+    "Source check needed",
+    "Growth source check needed",
+    "24 source checks needed",
+    "Source checks needed"
+   ],
+   "summaryLine": "Sources & methods · SEC filings · includes calculated figures24 source checks needed",
+   "kpi": [
+    {
+     "label": "Revenue (2026Q2)",
+     "width": 328,
+     "height": 326,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net income (2026Q2)",
+     "width": 328,
+     "height": 326,
+     "valueTop": 105,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Free cash flow (2026Q2)",
+     "width": 328,
+     "height": 326,
+     "valueTop": 105,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "label": "Net margin (2026Q2)",
+     "width": 328,
+     "height": 326,
+     "valueTop": 105,
+     "worstOverflowPx": 125.6,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 4151,
+    "containerWidth": 1286,
+    "columns": [
+     {
+      "header": "Metric",
+      "width": 212,
+      "warned": false
+     },
+     {
+      "header": "2023Q3",
+      "width": 209,
+      "warned": false
+     },
+     {
+      "header": "2023Q4",
+      "width": 481,
+      "warned": true
+     },
+     {
+      "header": "2024Q1",
+      "width": 481,
+      "warned": true
+     },
+     {
+      "header": "2024Q2",
+      "width": 469,
+      "warned": true
+     },
+     {
+      "header": "2024Q3",
+      "width": 155,
+      "warned": false
+     },
+     {
+      "header": "2024Q4",
+      "width": 209,
+      "warned": false
+     },
+     {
+      "header": "2025Q1",
+      "width": 154,
+      "warned": false
+     },
+     {
+      "header": "2025Q2",
+      "width": 469,
+      "warned": true
+     },
+     {
+      "header": "2025Q3",
+      "width": 469,
+      "warned": true
+     },
+     {
+      "header": "2025Q4",
+      "width": 209,
+      "warned": false
+     },
+     {
+      "header": "2026Q1",
+      "width": 154,
+      "warned": false
+     },
+     {
+      "header": "2026Q2",
+      "width": 481,
+      "warned": true
+     }
+    ],
+    "warnedWidths": [
+     481,
+     481,
+     469,
+     469,
+     469,
+     481
+    ],
+    "cleanWidths": [
+     209,
+     155,
+     209,
+     154,
+     209,
+     154
+    ],
+    "occludedAtFarRight": []
+   }
+  }
+ ]
+}

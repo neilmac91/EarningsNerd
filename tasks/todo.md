@@ -41,6 +41,7 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
 ## Open items
 
 Founder:
+- [ ] Decide on the Multi-Period Analysis data-notes redesign (`docs/design/analysis-data-notes-redesign-2026-10.md`; prototype, harnesses and measurements under `analysis-redesign-2026-10/`): accept the phased brief, amend it, or hold it. Nothing in it is implemented; the quarterly data repair it depends on stays the separate operational action `docs/quarterly-data-repair.md` describes.
 - [ ] The dead OUTPUT REFERENCE prompt branch Wave 0 found (`prompt_loader.py:50-54`'s markers never match, so each prompt loads whole): reviving or deleting it changes prompt bytes, a RUNBOOK event that is yours (ledger, "2026-10-09 — Hot-module refactor").
 - [ ] Optional; recommended now (record 20): relay record 16's custody step A (five metadata fields) once — the text is in `DECISIONS-20.md`'s appendix — and, if you agree, tell the chief in your own words "If the answer is outcome B, I adopt record 16's form (b) for R1" (`code-red-20261004/runtime/control/DECISIONS-16.md`).
 - [ ] Optional; recommended (record 20): set the repository's squash default to "Pull request title and description" (Settings → General → Pull Requests → "Allow squash merging" → "Default commit message"), so a squash merge without an explicit message carries the reviewed PR text; the chief's attempt was refused by the auto-mode classifier (`DECISIONS-18.md`, chief defect 7; `DECISIONS-20.md`).

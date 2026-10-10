@@ -1,0 +1,7877 @@
+{
+ "generatedAt": "2026-10-10T18:54:05.556Z",
+ "configs": [
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "1480",
+   "width": 1480,
+   "height": 1000,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1062,
+    "containerWidth": 1062,
+    "scrolls": false,
+    "columns": [
+     134,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77
+    ],
+    "minColumn": 77,
+    "maxColumn": 77,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 1062,
+    "containerWidth": 1062,
+    "scrolls": false,
+    "columns": [
+     238,
+     137,
+     137,
+     137,
+     137,
+     137,
+     137
+    ],
+    "minColumn": 137,
+    "maxColumn": 137,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "current",
+   "name": "1480",
+   "width": 1480,
+   "height": 1000,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 267,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 267,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 267,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 267,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1223,
+    "containerWidth": 1062,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     84
+    ],
+    "minColumn": 76,
+    "maxColumn": 119,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "1480",
+   "width": 1480,
+   "height": 1000,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1062,
+    "containerWidth": 1062,
+    "scrolls": false,
+    "columns": [
+     134,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77
+    ],
+    "minColumn": 77,
+    "maxColumn": 77,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 1062,
+    "containerWidth": 1062,
+    "scrolls": false,
+    "columns": [
+     238,
+     137,
+     137,
+     137,
+     137,
+     137,
+     137
+    ],
+    "minColumn": 137,
+    "maxColumn": 137,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "current",
+   "name": "1480",
+   "width": 1480,
+   "height": 1000,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2098,
+    "containerWidth": 1062,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     237,
+     237,
+     231,
+     77,
+     119,
+     76,
+     231,
+     231,
+     119,
+     76,
+     237
+    ],
+    "minColumn": 76,
+    "maxColumn": 237,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "1480",
+   "width": 1480,
+   "height": 1000,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1062,
+    "containerWidth": 1062,
+    "scrolls": false,
+    "columns": [
+     134,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77
+    ],
+    "minColumn": 77,
+    "maxColumn": 77,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 1062,
+    "containerWidth": 1062,
+    "scrolls": false,
+    "columns": [
+     238,
+     137,
+     137,
+     137,
+     137,
+     137,
+     137
+    ],
+    "minColumn": 137,
+    "maxColumn": 137,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "1480",
+   "width": 1480,
+   "height": 1000,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1370,
+    "containerWidth": 1062,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     231
+    ],
+    "minColumn": 76,
+    "maxColumn": 231,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "1054",
+   "width": 1054,
+   "height": 1000,
+   "viewport": 1054,
+   "documentWidth": 1054,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 964,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 964,
+    "containerWidth": 964,
+    "scrolls": false,
+    "columns": [
+     216,
+     125,
+     125,
+     125,
+     125,
+     125,
+     125
+    ],
+    "minColumn": 125,
+    "maxColumn": 125,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "current",
+   "name": "1054",
+   "width": 1054,
+   "height": 1000,
+   "viewport": 1054,
+   "documentWidth": 1054,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 243,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 243,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 243,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 243,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1223,
+    "containerWidth": 964,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     84
+    ],
+    "minColumn": 76,
+    "maxColumn": 119,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "1054",
+   "width": 1054,
+   "height": 1000,
+   "viewport": 1054,
+   "documentWidth": 1054,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 964,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 964,
+    "containerWidth": 964,
+    "scrolls": false,
+    "columns": [
+     216,
+     125,
+     125,
+     125,
+     125,
+     125,
+     125
+    ],
+    "minColumn": 125,
+    "maxColumn": 125,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "current",
+   "name": "1054",
+   "width": 1054,
+   "height": 1000,
+   "viewport": 1054,
+   "documentWidth": 1054,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2098,
+    "containerWidth": 964,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     237,
+     237,
+     231,
+     77,
+     119,
+     76,
+     231,
+     231,
+     119,
+     76,
+     237
+    ],
+    "minColumn": 76,
+    "maxColumn": 237,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "1054",
+   "width": 1054,
+   "height": 1000,
+   "viewport": 1054,
+   "documentWidth": 1054,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 964,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 964,
+    "containerWidth": 964,
+    "scrolls": false,
+    "columns": [
+     216,
+     125,
+     125,
+     125,
+     125,
+     125,
+     125
+    ],
+    "minColumn": 125,
+    "maxColumn": 125,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "1054",
+   "width": 1054,
+   "height": 1000,
+   "viewport": 1054,
+   "documentWidth": 1054,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1370,
+    "containerWidth": 964,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     231
+    ],
+    "minColumn": 76,
+    "maxColumn": 231,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "1024",
+   "width": 1024,
+   "height": 1000,
+   "viewport": 1024,
+   "documentWidth": 1024,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 934,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 934,
+    "containerWidth": 934,
+    "scrolls": false,
+    "columns": [
+     210,
+     121,
+     121,
+     121,
+     121,
+     121,
+     121
+    ],
+    "minColumn": 121,
+    "maxColumn": 121,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "current",
+   "name": "1024",
+   "width": 1024,
+   "height": 1000,
+   "viewport": 1024,
+   "documentWidth": 1024,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 235,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 235,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 235,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 235,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1223,
+    "containerWidth": 934,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     84
+    ],
+    "minColumn": 76,
+    "maxColumn": 119,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "1024",
+   "width": 1024,
+   "height": 1000,
+   "viewport": 1024,
+   "documentWidth": 1024,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 934,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 934,
+    "containerWidth": 934,
+    "scrolls": false,
+    "columns": [
+     210,
+     121,
+     121,
+     121,
+     121,
+     121,
+     121
+    ],
+    "minColumn": 121,
+    "maxColumn": 121,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "current",
+   "name": "1024",
+   "width": 1024,
+   "height": 1000,
+   "viewport": 1024,
+   "documentWidth": 1024,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2098,
+    "containerWidth": 934,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     237,
+     237,
+     231,
+     77,
+     119,
+     76,
+     231,
+     231,
+     119,
+     76,
+     237
+    ],
+    "minColumn": 76,
+    "maxColumn": 237,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "1024",
+   "width": 1024,
+   "height": 1000,
+   "viewport": 1024,
+   "documentWidth": 1024,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 934,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 934,
+    "containerWidth": 934,
+    "scrolls": false,
+    "columns": [
+     210,
+     121,
+     121,
+     121,
+     121,
+     121,
+     121
+    ],
+    "minColumn": 121,
+    "maxColumn": 121,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "1024",
+   "width": 1024,
+   "height": 1000,
+   "viewport": 1024,
+   "documentWidth": 1024,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1370,
+    "containerWidth": 934,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     231
+    ],
+    "minColumn": 76,
+    "maxColumn": 231,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "768",
+   "width": 768,
+   "height": 1024,
+   "viewport": 768,
+   "documentWidth": 768,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 678,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 678,
+    "containerWidth": 678,
+    "scrolls": false,
+    "columns": [
+     152,
+     88,
+     88,
+     88,
+     88,
+     88,
+     88
+    ],
+    "minColumn": 88,
+    "maxColumn": 88,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "current",
+   "name": "768",
+   "width": 768,
+   "height": 1024,
+   "viewport": 768,
+   "documentWidth": 768,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 354,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 354,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 354,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 354,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1223,
+    "containerWidth": 678,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     84
+    ],
+    "minColumn": 76,
+    "maxColumn": 119,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "768",
+   "width": 768,
+   "height": 1024,
+   "viewport": 768,
+   "documentWidth": 768,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 678,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 678,
+    "containerWidth": 678,
+    "scrolls": false,
+    "columns": [
+     152,
+     88,
+     88,
+     88,
+     88,
+     88,
+     88
+    ],
+    "minColumn": 88,
+    "maxColumn": 88,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "current",
+   "name": "768",
+   "width": 768,
+   "height": 1024,
+   "viewport": 768,
+   "documentWidth": 768,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 354,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 354,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 354,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 354,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2098,
+    "containerWidth": 678,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     237,
+     237,
+     231,
+     77,
+     119,
+     76,
+     231,
+     231,
+     119,
+     76,
+     237
+    ],
+    "minColumn": 76,
+    "maxColumn": 237,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "768",
+   "width": 768,
+   "height": 1024,
+   "viewport": 768,
+   "documentWidth": 768,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 678,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 678,
+    "containerWidth": 678,
+    "scrolls": false,
+    "columns": [
+     152,
+     88,
+     88,
+     88,
+     88,
+     88,
+     88
+    ],
+    "minColumn": 88,
+    "maxColumn": 88,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "768",
+   "width": 768,
+   "height": 1024,
+   "viewport": 768,
+   "documentWidth": 768,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 354,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 354,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 354,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 354,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1370,
+    "containerWidth": 678,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     231
+    ],
+    "minColumn": 76,
+    "maxColumn": 231,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "390",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "viewport": 539,
+   "documentWidth": 539,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 512,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "current",
+   "name": "390",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "viewport": 390,
+   "documentWidth": 390,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 173,
+     "height": 126,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 173,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 173,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 173,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1223,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     84
+    ],
+    "minColumn": 76,
+    "maxColumn": 119,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "390",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "viewport": 539,
+   "documentWidth": 539,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 173,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 173,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 512,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "current",
+   "name": "390",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "viewport": 425,
+   "documentWidth": 425,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 173,
+     "height": 126,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 173,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 173,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 173,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 51.2,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 2098,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     237,
+     237,
+     231,
+     77,
+     119,
+     76,
+     231,
+     231,
+     119,
+     76,
+     237
+    ],
+    "minColumn": 76,
+    "maxColumn": 237,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "390",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "viewport": 539,
+   "documentWidth": 539,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 173,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 173,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 512,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "390",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "viewport": 425,
+   "documentWidth": 425,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 173,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 51.2,
+     "worstOverflowText": "Growth source check needed"
+    },
+    {
+     "kpi": "net_income",
+     "width": 173,
+     "height": 152,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 173,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 173,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 51.2,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 1370,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     231
+    ],
+    "minColumn": 76,
+    "maxColumn": 231,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "320",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "viewport": 538,
+   "documentWidth": 538,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 138,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 138,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 138,
+     "height": 138,
+     "valueTop": 55,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 138,
+     "height": 138,
+     "valueTop": 55,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 512,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "current",
+   "name": "320",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "viewport": 320,
+   "documentWidth": 320,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 138,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 138,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 138,
+     "height": 144,
+     "valueTop": 75,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 138,
+     "height": 144,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1223,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     84
+    ],
+    "minColumn": 76,
+    "maxColumn": 119,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "320",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "viewport": 538,
+   "documentWidth": 538,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 138,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 138,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 138,
+     "height": 138,
+     "valueTop": 55,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 138,
+     "height": 138,
+     "valueTop": 55,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 512,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "current",
+   "name": "320",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "viewport": 390,
+   "documentWidth": 390,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 138,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 138,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 138,
+     "height": 170,
+     "valueTop": 75,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 138,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 86.2,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 2098,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     237,
+     237,
+     231,
+     77,
+     119,
+     76,
+     231,
+     231,
+     119,
+     76,
+     237
+    ],
+    "minColumn": 76,
+    "maxColumn": 237,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "320",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "viewport": 538,
+   "documentWidth": 538,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 138,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 138,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 138,
+     "height": 138,
+     "valueTop": 55,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 138,
+     "height": 138,
+     "valueTop": 55,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 512,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "320",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "viewport": 390,
+   "documentWidth": 390,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 138,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 86.2,
+     "worstOverflowText": "Growth source check needed"
+    },
+    {
+     "kpi": "net_income",
+     "width": 138,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 138,
+     "height": 170,
+     "valueTop": 75,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 138,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 86.2,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 1370,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     231
+    ],
+    "minColumn": 76,
+    "maxColumn": 231,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "1480@200%zoom",
+   "width": 740,
+   "height": 500,
+   "dsf": 2,
+   "viewport": 740,
+   "documentWidth": 740,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 650,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 650,
+    "containerWidth": 650,
+    "scrolls": false,
+    "columns": [
+     132,
+     86,
+     86,
+     86,
+     86,
+     86,
+     86
+    ],
+    "minColumn": 86,
+    "maxColumn": 86,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "current",
+   "name": "1480@200%zoom",
+   "width": 740,
+   "height": 500,
+   "dsf": 2,
+   "viewport": 740,
+   "documentWidth": 740,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 340,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 340,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 340,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 340,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1223,
+    "containerWidth": 650,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     84
+    ],
+    "minColumn": 76,
+    "maxColumn": 119,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "1480@200%zoom",
+   "width": 740,
+   "height": 500,
+   "dsf": 2,
+   "viewport": 740,
+   "documentWidth": 740,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 650,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 650,
+    "containerWidth": 650,
+    "scrolls": false,
+    "columns": [
+     132,
+     86,
+     86,
+     86,
+     86,
+     86,
+     86
+    ],
+    "minColumn": 86,
+    "maxColumn": 86,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "current",
+   "name": "1480@200%zoom",
+   "width": 740,
+   "height": 500,
+   "dsf": 2,
+   "viewport": 740,
+   "documentWidth": 740,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 340,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 340,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 340,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 340,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2098,
+    "containerWidth": 650,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     237,
+     237,
+     231,
+     77,
+     119,
+     76,
+     231,
+     231,
+     119,
+     76,
+     237
+    ],
+    "minColumn": 76,
+    "maxColumn": 237,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "1480@200%zoom",
+   "width": 740,
+   "height": 500,
+   "dsf": 2,
+   "viewport": 740,
+   "documentWidth": 740,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 650,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 650,
+    "containerWidth": 650,
+    "scrolls": false,
+    "columns": [
+     132,
+     86,
+     86,
+     86,
+     86,
+     86,
+     86
+    ],
+    "minColumn": 86,
+    "maxColumn": 86,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "1480@200%zoom",
+   "width": 740,
+   "height": 500,
+   "dsf": 2,
+   "viewport": 740,
+   "documentWidth": 740,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 340,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 340,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 340,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 340,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1370,
+    "containerWidth": 650,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     231
+    ],
+    "minColumn": 76,
+    "maxColumn": 231,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "1480@200%text",
+   "width": 1480,
+   "height": 1000,
+   "textZoom": 2,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2088,
+    "containerWidth": 1302,
+    "scrolls": true,
+    "columns": [
+     264,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152
+    ],
+    "minColumn": 152,
+    "maxColumn": 152,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 1302,
+    "containerWidth": 1302,
+    "scrolls": false,
+    "columns": [
+     292,
+     168,
+     168,
+     168,
+     168,
+     168,
+     168
+    ],
+    "minColumn": 168,
+    "maxColumn": 168,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "clean",
+   "mode": "current",
+   "name": "1480@200%text",
+   "width": 1480,
+   "height": 1000,
+   "textZoom": 2,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 328,
+     "height": 250,
+     "valueTop": 77,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 328,
+     "height": 250,
+     "valueTop": 113,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 328,
+     "height": 250,
+     "valueTop": 113,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 328,
+     "height": 250,
+     "valueTop": 113,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2367,
+    "containerWidth": 1302,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     222,
+     151,
+     165,
+     155,
+     222,
+     151,
+     165,
+     165,
+     222,
+     151,
+     165
+    ],
+    "minColumn": 151,
+    "maxColumn": 222,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "1480@200%text",
+   "width": 1480,
+   "height": 1000,
+   "textZoom": 2,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2088,
+    "containerWidth": 1302,
+    "scrolls": true,
+    "columns": [
+     264,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152
+    ],
+    "minColumn": 152,
+    "maxColumn": 152,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 1302,
+    "containerWidth": 1302,
+    "scrolls": false,
+    "columns": [
+     292,
+     168,
+     168,
+     168,
+     168,
+     168,
+     168
+    ],
+    "minColumn": 168,
+    "maxColumn": 168,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "legacy",
+   "mode": "current",
+   "name": "1480@200%text",
+   "width": 1480,
+   "height": 1000,
+   "textZoom": 2,
+   "viewport": 1480,
+   "documentWidth": 1551,
+   "pageOverflowPx": 71,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 328,
+     "height": 338,
+     "valueTop": 77,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 328,
+     "height": 338,
+     "valueTop": 113,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 328,
+     "height": 338,
+     "valueTop": 113,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 328,
+     "height": 338,
+     "valueTop": 113,
+     "worstOverflowPx": 119.4,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 4137,
+    "containerWidth": 1302,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     472,
+     472,
+     462,
+     155,
+     222,
+     151,
+     462,
+     462,
+     222,
+     151,
+     472
+    ],
+    "minColumn": 151,
+    "maxColumn": 472,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "1480@200%text",
+   "width": 1480,
+   "height": 1000,
+   "textZoom": 2,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2088,
+    "containerWidth": 1302,
+    "scrolls": true,
+    "columns": [
+     264,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152
+    ],
+    "minColumn": 152,
+    "maxColumn": 152,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 1302,
+    "containerWidth": 1302,
+    "scrolls": false,
+    "columns": [
+     292,
+     168,
+     168,
+     168,
+     168,
+     168,
+     168
+    ],
+    "minColumn": 168,
+    "maxColumn": 168,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "light",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "1480@200%text",
+   "width": 1480,
+   "height": 1000,
+   "textZoom": 2,
+   "viewport": 1480,
+   "documentWidth": 1551,
+   "pageOverflowPx": 71,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 328,
+     "height": 338,
+     "valueTop": 77,
+     "worstOverflowPx": 119.4,
+     "worstOverflowText": "Growth source check needed"
+    },
+    {
+     "kpi": "net_income",
+     "width": 328,
+     "height": 338,
+     "valueTop": 113,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 328,
+     "height": 338,
+     "valueTop": 113,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 328,
+     "height": 338,
+     "valueTop": 113,
+     "worstOverflowPx": 119.4,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 2664,
+    "containerWidth": 1302,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     222,
+     151,
+     165,
+     155,
+     222,
+     151,
+     165,
+     165,
+     222,
+     151,
+     462
+    ],
+    "minColumn": 151,
+    "maxColumn": 462,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "1480",
+   "width": 1480,
+   "height": 1000,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1062,
+    "containerWidth": 1062,
+    "scrolls": false,
+    "columns": [
+     134,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77
+    ],
+    "minColumn": 77,
+    "maxColumn": 77,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 1062,
+    "containerWidth": 1062,
+    "scrolls": false,
+    "columns": [
+     238,
+     137,
+     137,
+     137,
+     137,
+     137,
+     137
+    ],
+    "minColumn": 137,
+    "maxColumn": 137,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "current",
+   "name": "1480",
+   "width": 1480,
+   "height": 1000,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 267,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 267,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 267,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 267,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1223,
+    "containerWidth": 1062,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     84
+    ],
+    "minColumn": 76,
+    "maxColumn": 119,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "1480",
+   "width": 1480,
+   "height": 1000,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1062,
+    "containerWidth": 1062,
+    "scrolls": false,
+    "columns": [
+     134,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77
+    ],
+    "minColumn": 77,
+    "maxColumn": 77,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 1062,
+    "containerWidth": 1062,
+    "scrolls": false,
+    "columns": [
+     238,
+     137,
+     137,
+     137,
+     137,
+     137,
+     137
+    ],
+    "minColumn": 137,
+    "maxColumn": 137,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "current",
+   "name": "1480",
+   "width": 1480,
+   "height": 1000,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2098,
+    "containerWidth": 1062,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     237,
+     237,
+     231,
+     77,
+     119,
+     76,
+     231,
+     231,
+     119,
+     76,
+     237
+    ],
+    "minColumn": 76,
+    "maxColumn": 237,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "1480",
+   "width": 1480,
+   "height": 1000,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 267,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1062,
+    "containerWidth": 1062,
+    "scrolls": false,
+    "columns": [
+     134,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77,
+     77
+    ],
+    "minColumn": 77,
+    "maxColumn": 77,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 1062,
+    "containerWidth": 1062,
+    "scrolls": false,
+    "columns": [
+     238,
+     137,
+     137,
+     137,
+     137,
+     137,
+     137
+    ],
+    "minColumn": 137,
+    "maxColumn": 137,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "1480",
+   "width": 1480,
+   "height": 1000,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 267,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1370,
+    "containerWidth": 1062,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     231
+    ],
+    "minColumn": 76,
+    "maxColumn": 231,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "1054",
+   "width": 1054,
+   "height": 1000,
+   "viewport": 1054,
+   "documentWidth": 1054,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 964,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 964,
+    "containerWidth": 964,
+    "scrolls": false,
+    "columns": [
+     216,
+     125,
+     125,
+     125,
+     125,
+     125,
+     125
+    ],
+    "minColumn": 125,
+    "maxColumn": 125,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "current",
+   "name": "1054",
+   "width": 1054,
+   "height": 1000,
+   "viewport": 1054,
+   "documentWidth": 1054,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 243,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 243,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 243,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 243,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1223,
+    "containerWidth": 964,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     84
+    ],
+    "minColumn": 76,
+    "maxColumn": 119,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "1054",
+   "width": 1054,
+   "height": 1000,
+   "viewport": 1054,
+   "documentWidth": 1054,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 964,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 964,
+    "containerWidth": 964,
+    "scrolls": false,
+    "columns": [
+     216,
+     125,
+     125,
+     125,
+     125,
+     125,
+     125
+    ],
+    "minColumn": 125,
+    "maxColumn": 125,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "current",
+   "name": "1054",
+   "width": 1054,
+   "height": 1000,
+   "viewport": 1054,
+   "documentWidth": 1054,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2098,
+    "containerWidth": 964,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     237,
+     237,
+     231,
+     77,
+     119,
+     76,
+     231,
+     231,
+     119,
+     76,
+     237
+    ],
+    "minColumn": 76,
+    "maxColumn": 237,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "1054",
+   "width": 1054,
+   "height": 1000,
+   "viewport": 1054,
+   "documentWidth": 1054,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 243,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 964,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 964,
+    "containerWidth": 964,
+    "scrolls": false,
+    "columns": [
+     216,
+     125,
+     125,
+     125,
+     125,
+     125,
+     125
+    ],
+    "minColumn": 125,
+    "maxColumn": 125,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "1054",
+   "width": 1054,
+   "height": 1000,
+   "viewport": 1054,
+   "documentWidth": 1054,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 243,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1370,
+    "containerWidth": 964,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     231
+    ],
+    "minColumn": 76,
+    "maxColumn": 231,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "1024",
+   "width": 1024,
+   "height": 1000,
+   "viewport": 1024,
+   "documentWidth": 1024,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 934,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 934,
+    "containerWidth": 934,
+    "scrolls": false,
+    "columns": [
+     210,
+     121,
+     121,
+     121,
+     121,
+     121,
+     121
+    ],
+    "minColumn": 121,
+    "maxColumn": 121,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "current",
+   "name": "1024",
+   "width": 1024,
+   "height": 1000,
+   "viewport": 1024,
+   "documentWidth": 1024,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 235,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 235,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 235,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 235,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1223,
+    "containerWidth": 934,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     84
+    ],
+    "minColumn": 76,
+    "maxColumn": 119,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "1024",
+   "width": 1024,
+   "height": 1000,
+   "viewport": 1024,
+   "documentWidth": 1024,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 934,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 934,
+    "containerWidth": 934,
+    "scrolls": false,
+    "columns": [
+     210,
+     121,
+     121,
+     121,
+     121,
+     121,
+     121
+    ],
+    "minColumn": 121,
+    "maxColumn": 121,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "current",
+   "name": "1024",
+   "width": 1024,
+   "height": 1000,
+   "viewport": 1024,
+   "documentWidth": 1024,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2098,
+    "containerWidth": 934,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     237,
+     237,
+     231,
+     77,
+     119,
+     76,
+     231,
+     231,
+     119,
+     76,
+     237
+    ],
+    "minColumn": 76,
+    "maxColumn": 237,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "1024",
+   "width": 1024,
+   "height": 1000,
+   "viewport": 1024,
+   "documentWidth": 1024,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 235,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 934,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 934,
+    "containerWidth": 934,
+    "scrolls": false,
+    "columns": [
+     210,
+     121,
+     121,
+     121,
+     121,
+     121,
+     121
+    ],
+    "minColumn": 121,
+    "maxColumn": 121,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "1024",
+   "width": 1024,
+   "height": 1000,
+   "viewport": 1024,
+   "documentWidth": 1024,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 235,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1370,
+    "containerWidth": 934,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     231
+    ],
+    "minColumn": 76,
+    "maxColumn": 231,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "768",
+   "width": 768,
+   "height": 1024,
+   "viewport": 768,
+   "documentWidth": 768,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 678,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 678,
+    "containerWidth": 678,
+    "scrolls": false,
+    "columns": [
+     152,
+     88,
+     88,
+     88,
+     88,
+     88,
+     88
+    ],
+    "minColumn": 88,
+    "maxColumn": 88,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "current",
+   "name": "768",
+   "width": 768,
+   "height": 1024,
+   "viewport": 768,
+   "documentWidth": 768,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 354,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 354,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 354,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 354,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1223,
+    "containerWidth": 678,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     84
+    ],
+    "minColumn": 76,
+    "maxColumn": 119,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "768",
+   "width": 768,
+   "height": 1024,
+   "viewport": 768,
+   "documentWidth": 768,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 678,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 678,
+    "containerWidth": 678,
+    "scrolls": false,
+    "columns": [
+     152,
+     88,
+     88,
+     88,
+     88,
+     88,
+     88
+    ],
+    "minColumn": 88,
+    "maxColumn": 88,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "current",
+   "name": "768",
+   "width": 768,
+   "height": 1024,
+   "viewport": 768,
+   "documentWidth": 768,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 354,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 354,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 354,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 354,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2098,
+    "containerWidth": 678,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     237,
+     237,
+     231,
+     77,
+     119,
+     76,
+     231,
+     231,
+     119,
+     76,
+     237
+    ],
+    "minColumn": 76,
+    "maxColumn": 237,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "768",
+   "width": 768,
+   "height": 1024,
+   "viewport": 768,
+   "documentWidth": 768,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 354,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1044,
+    "containerWidth": 678,
+    "scrolls": true,
+    "columns": [
+     132,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76,
+     76
+    ],
+    "minColumn": 76,
+    "maxColumn": 76,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 678,
+    "containerWidth": 678,
+    "scrolls": false,
+    "columns": [
+     152,
+     88,
+     88,
+     88,
+     88,
+     88,
+     88
+    ],
+    "minColumn": 88,
+    "maxColumn": 88,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "768",
+   "width": 768,
+   "height": 1024,
+   "viewport": 768,
+   "documentWidth": 768,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 354,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 354,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 354,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 354,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1370,
+    "containerWidth": 678,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     231
+    ],
+    "minColumn": 76,
+    "maxColumn": 231,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "390",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "viewport": 539,
+   "documentWidth": 539,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 512,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "current",
+   "name": "390",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "viewport": 390,
+   "documentWidth": 390,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 173,
+     "height": 126,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 173,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 173,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 173,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1223,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     84
+    ],
+    "minColumn": 76,
+    "maxColumn": 119,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "390",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "viewport": 539,
+   "documentWidth": 539,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 173,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 173,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 512,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "current",
+   "name": "390",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "viewport": 425,
+   "documentWidth": 425,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 173,
+     "height": 126,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 173,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 173,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 173,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 51.2,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 2098,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     237,
+     237,
+     231,
+     77,
+     119,
+     76,
+     231,
+     231,
+     119,
+     76,
+     237
+    ],
+    "minColumn": 76,
+    "maxColumn": 237,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "390",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "viewport": 539,
+   "documentWidth": 539,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 173,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 173,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 173,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 512,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "390",
+   "width": 390,
+   "height": 844,
+   "mobile": true,
+   "viewport": 425,
+   "documentWidth": 425,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 173,
+     "height": 152,
+     "valueTop": 39,
+     "worstOverflowPx": 51.2,
+     "worstOverflowText": "Growth source check needed"
+    },
+    {
+     "kpi": "net_income",
+     "width": 173,
+     "height": 152,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 173,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 173,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 51.2,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 1370,
+    "containerWidth": 316,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     231
+    ],
+    "minColumn": 76,
+    "maxColumn": 231,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "320",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "viewport": 538,
+   "documentWidth": 538,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 138,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 138,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 138,
+     "height": 138,
+     "valueTop": 55,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 138,
+     "height": 138,
+     "valueTop": 55,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 512,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "current",
+   "name": "320",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "viewport": 320,
+   "documentWidth": 320,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 138,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 138,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 138,
+     "height": 144,
+     "valueTop": 75,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 138,
+     "height": 144,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1223,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     84
+    ],
+    "minColumn": 76,
+    "maxColumn": 119,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "320",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "viewport": 538,
+   "documentWidth": 538,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 138,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 138,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 138,
+     "height": 138,
+     "valueTop": 55,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 138,
+     "height": 138,
+     "valueTop": 55,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 512,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "current",
+   "name": "320",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "viewport": 390,
+   "documentWidth": 390,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 138,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 138,
+     "height": 126,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 138,
+     "height": 170,
+     "valueTop": 75,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 138,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 86.2,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 2098,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     237,
+     237,
+     231,
+     77,
+     119,
+     76,
+     231,
+     231,
+     119,
+     76,
+     237
+    ],
+    "minColumn": 76,
+    "maxColumn": 237,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "320",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "viewport": 538,
+   "documentWidth": 538,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 138,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 138,
+     "height": 120,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 138,
+     "height": 138,
+     "valueTop": 55,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 138,
+     "height": 138,
+     "valueTop": 55,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 512,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "320",
+   "width": 320,
+   "height": 568,
+   "mobile": true,
+   "viewport": 390,
+   "documentWidth": 390,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 138,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 86.2,
+     "worstOverflowText": "Growth source check needed"
+    },
+    {
+     "kpi": "net_income",
+     "width": 138,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 138,
+     "height": 170,
+     "valueTop": 75,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 138,
+     "height": 170,
+     "valueTop": 57,
+     "worstOverflowPx": 86.2,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 1370,
+    "containerWidth": 246,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     231
+    ],
+    "minColumn": 76,
+    "maxColumn": 231,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "1480@200%zoom",
+   "width": 740,
+   "height": 500,
+   "dsf": 2,
+   "viewport": 740,
+   "documentWidth": 740,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 650,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 650,
+    "containerWidth": 650,
+    "scrolls": false,
+    "columns": [
+     132,
+     86,
+     86,
+     86,
+     86,
+     86,
+     86
+    ],
+    "minColumn": 86,
+    "maxColumn": 86,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "current",
+   "name": "1480@200%zoom",
+   "width": 740,
+   "height": 500,
+   "dsf": 2,
+   "viewport": 740,
+   "documentWidth": 740,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 340,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 340,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 340,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 340,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1223,
+    "containerWidth": 650,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     84
+    ],
+    "minColumn": 76,
+    "maxColumn": 119,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "1480@200%zoom",
+   "width": 740,
+   "height": 500,
+   "dsf": 2,
+   "viewport": 740,
+   "documentWidth": 740,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 650,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 650,
+    "containerWidth": 650,
+    "scrolls": false,
+    "columns": [
+     132,
+     86,
+     86,
+     86,
+     86,
+     86,
+     86
+    ],
+    "minColumn": 86,
+    "maxColumn": 86,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "current",
+   "name": "1480@200%zoom",
+   "width": 740,
+   "height": 500,
+   "dsf": 2,
+   "viewport": 740,
+   "documentWidth": 740,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 340,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 340,
+     "height": 108,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 340,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 340,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2098,
+    "containerWidth": 650,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     237,
+     237,
+     231,
+     77,
+     119,
+     76,
+     231,
+     231,
+     119,
+     76,
+     237
+    ],
+    "minColumn": 76,
+    "maxColumn": 237,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "1480@200%zoom",
+   "width": 740,
+   "height": 500,
+   "dsf": 2,
+   "viewport": 740,
+   "documentWidth": 740,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 340,
+     "height": 104,
+     "valueTop": 37,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 920,
+    "containerWidth": 650,
+    "scrolls": true,
+    "columns": [
+     104,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68,
+     68
+    ],
+    "minColumn": 68,
+    "maxColumn": 68,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 650,
+    "containerWidth": 650,
+    "scrolls": false,
+    "columns": [
+     132,
+     86,
+     86,
+     86,
+     86,
+     86,
+     86
+    ],
+    "minColumn": 86,
+    "maxColumn": 86,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "1480@200%zoom",
+   "width": 740,
+   "height": 500,
+   "dsf": 2,
+   "viewport": 740,
+   "documentWidth": 740,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 340,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 340,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 340,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 340,
+     "height": 134,
+     "valueTop": 39,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 1370,
+    "containerWidth": 650,
+    "scrolls": true,
+    "columns": [
+     105,
+     119,
+     119,
+     76,
+     84,
+     77,
+     119,
+     76,
+     84,
+     84,
+     119,
+     76,
+     231
+    ],
+    "minColumn": 76,
+    "maxColumn": 231,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "proposed",
+   "name": "1480@200%text",
+   "width": 1480,
+   "height": 1000,
+   "textZoom": 2,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2088,
+    "containerWidth": 1302,
+    "scrolls": true,
+    "columns": [
+     264,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152
+    ],
+    "minColumn": 152,
+    "maxColumn": 152,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 10,
+   "notes": "Data notes230 figures passed automated source checks · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 1302,
+    "containerWidth": 1302,
+    "scrolls": false,
+    "columns": [
+     292,
+     168,
+     168,
+     168,
+     168,
+     168,
+     168
+    ],
+    "minColumn": 168,
+    "maxColumn": 168,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "clean",
+   "mode": "current",
+   "name": "1480@200%text",
+   "width": 1480,
+   "height": 1000,
+   "textZoom": 2,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 328,
+     "height": 250,
+     "valueTop": 77,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 328,
+     "height": 250,
+     "valueTop": 113,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 328,
+     "height": 250,
+     "valueTop": 113,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 328,
+     "height": 250,
+     "valueTop": 113,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2367,
+    "containerWidth": 1302,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     222,
+     151,
+     165,
+     155,
+     222,
+     151,
+     165,
+     165,
+     222,
+     151,
+     165
+    ],
+    "minColumn": 151,
+    "maxColumn": 222,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 0,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "proposed",
+   "name": "1480@200%text",
+   "width": 1480,
+   "height": 1000,
+   "textZoom": 2,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2088,
+    "containerWidth": 1302,
+    "scrolls": true,
+    "columns": [
+     264,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152
+    ],
+    "minColumn": 152,
+    "maxColumn": 152,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 41,
+   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 1302,
+    "containerWidth": 1302,
+    "scrolls": false,
+    "columns": [
+     292,
+     168,
+     168,
+     168,
+     168,
+     168,
+     168
+    ],
+    "minColumn": 168,
+    "maxColumn": 168,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "legacy",
+   "mode": "current",
+   "name": "1480@200%text",
+   "width": 1480,
+   "height": 1000,
+   "textZoom": 2,
+   "viewport": 1480,
+   "documentWidth": 1551,
+   "pageOverflowPx": 71,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 328,
+     "height": 338,
+     "valueTop": 77,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 328,
+     "height": 338,
+     "valueTop": 113,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 328,
+     "height": 338,
+     "valueTop": 113,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 328,
+     "height": 338,
+     "valueTop": 113,
+     "worstOverflowPx": 119.4,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 4137,
+    "containerWidth": 1302,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     472,
+     472,
+     462,
+     155,
+     222,
+     151,
+     462,
+     462,
+     222,
+     151,
+     472
+    ],
+    "minColumn": 151,
+    "maxColumn": 472,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 27,
+   "noteAffixes": 4,
+   "notes": null,
+   "window6": null
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "proposed",
+   "name": "1480@200%text",
+   "width": 1480,
+   "height": 1000,
+   "textZoom": 2,
+   "viewport": 1480,
+   "documentWidth": 1480,
+   "pageOverflowPx": 0,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_income",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 328,
+     "height": 238,
+     "valueTop": 73,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    }
+   ],
+   "table": {
+    "tableWidth": 2088,
+    "containerWidth": 1302,
+    "scrolls": true,
+    "columns": [
+     264,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152,
+     152
+    ],
+    "minColumn": 152,
+    "maxColumn": 152,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 0,
+   "noteAffixes": 23,
+   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "window6": {
+    "tableWidth": 1302,
+    "containerWidth": 1302,
+    "scrolls": false,
+    "columns": [
+     292,
+     168,
+     168,
+     168,
+     168,
+     168,
+     168
+    ],
+    "minColumn": 168,
+    "maxColumn": 168,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   }
+  },
+  {
+   "theme": "dark",
+   "state": "discrepancy",
+   "mode": "current",
+   "name": "1480@200%text",
+   "width": 1480,
+   "height": 1000,
+   "textZoom": 2,
+   "viewport": 1480,
+   "documentWidth": 1551,
+   "pageOverflowPx": 71,
+   "kpi": [
+    {
+     "kpi": "revenue",
+     "width": 328,
+     "height": 338,
+     "valueTop": 77,
+     "worstOverflowPx": 119.4,
+     "worstOverflowText": "Growth source check needed"
+    },
+    {
+     "kpi": "net_income",
+     "width": 328,
+     "height": 338,
+     "valueTop": 113,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "free_cash_flow",
+     "width": 328,
+     "height": 338,
+     "valueTop": 113,
+     "worstOverflowPx": 0,
+     "worstOverflowText": ""
+    },
+    {
+     "kpi": "net_margin",
+     "width": 328,
+     "height": 338,
+     "valueTop": 113,
+     "worstOverflowPx": 119.4,
+     "worstOverflowText": "Growth source check needed"
+    }
+   ],
+   "table": {
+    "tableWidth": 2664,
+    "containerWidth": 1302,
+    "scrolls": true,
+    "columns": [
+     209,
+     222,
+     222,
+     151,
+     165,
+     155,
+     222,
+     151,
+     165,
+     165,
+     222,
+     151,
+     462
+    ],
+    "minColumn": 151,
+    "maxColumn": 462,
+    "occludedAtFarRight": [],
+    "cellTextClipped": false
+   },
+   "sourceCheckLabels": 11,
+   "noteAffixes": 2,
+   "notes": null,
+   "window6": null
+  }
+ ]
+}
