@@ -52,8 +52,9 @@ describe('MetricsTable', () => {
     flagged.series[0].points[0].yoy_reconciled = false
     flagged.series[0].points[1].qoq_reconciled = false
     render(<MetricsTable dataset={flagged} />)
-    expect(screen.getAllByText('Growth source check needed')).toHaveLength(2)
-    expect(screen.getAllByText('Growth source check needed')[0].parentElement).toHaveTextContent('YoY +5.0%')
+    const figures = screen.getAllByRole('button', { name: /comparison carries data note a/ })
+    expect(figures).toHaveLength(2)
+    expect(figures[0].closest('td')).toHaveTextContent('YoY +5.0%')
     expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
 
@@ -62,9 +63,10 @@ describe('MetricsTable', () => {
     flagged.series[0].points[0].reconciled = false
     flagged.series[0].points[1].reconciled = true
     const { rerender } = render(<MetricsTable dataset={flagged} />)
-    expect(screen.getAllByText('Source check needed')).toHaveLength(1)
-    expect(screen.getByText('Source check needed').parentElement).toHaveTextContent('$310.0M')
-    expect(screen.getByLabelText('Calculated value')).toBeInTheDocument()
+    const flaggedValue = screen.getByRole('button', { name: /Revenue, 2024Q3:.*data note a/ })
+    expect(flaggedValue).toHaveTextContent('$310.0M')
+    expect(flaggedValue.querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
+    expect(screen.getByRole('button', { name: /Revenue, 2024Q4:.*calculated/ })).toBeInTheDocument()
     rerender(<MetricsTable dataset={dataset} />)
     expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
@@ -75,10 +77,11 @@ describe('MetricsTable', () => {
     expect(screen.getByText('Revenue')).toBeInTheDocument()
     expect(screen.getByText('EPS (diluted)')).toBeInTheDocument()
     // Derived Q4 revenue carries the computed dagger; the badge explains it.
-    expect(screen.getByLabelText('Calculated value')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Revenue, 2024Q4:.*calculated/ })).toBeInTheDocument()
     expect(screen.getByText('† calculated')).toBeInTheDocument()
     // The never-derived EPS Q4 renders an em-dash placeholder.
-    expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /unavailable.*data note/ }).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
     // Quarterly mode shows QoQ deltas.
     expect(screen.getByText(/QoQ \+2\.0%/)).toBeInTheDocument()
   })
@@ -181,8 +184,9 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     flagged.series[0].window_pp_reconciled = false
     flagged.series[1].cagr_reconciled = false
     render(<MetricsTable dataset={flagged} />)
-    expect(screen.getAllByText('Growth source check needed')).toHaveLength(2)
-    expect(screen.getAllByText('Growth source check needed')[0].parentElement).toHaveTextContent('-9.0pp')
+    const windows = screen.getAllByRole('button', { name: /data note a\. Review data note/ })
+    expect(windows).toHaveLength(2)
+    expect(windows[0]).toHaveTextContent('-9.0pp')
     expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
 
@@ -202,6 +206,6 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     // net_margin: cagr is always null (unit "pure"), so the column resolves window_pp instead —
     // the same rule the KPI strip uses (windowGrowth). The tooltip names the basis window.
     const cell = screen.getByText('-9.0pp')
-    expect(cell).toHaveAttribute('title', expect.stringContaining('FY2023..FY2024'))
+    expect(cell.closest('[title]')).toHaveAttribute('title', expect.stringContaining('FY2023..FY2024'))
   })
 })

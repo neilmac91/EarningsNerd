@@ -40,8 +40,10 @@ import {
   periodAxisLabel,
 } from '@/features/analysis/lib/periodAxis'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
-import ReconciliationBadge from './ReconciliationBadge'
-import { needsSourceCheck, qualityReasons, FCF_DEFINITION } from '@/features/analysis/lib/provenance'
+import DataNotesLink from './DataNotesLink'
+import { useDataNotes } from './DataNotesContext'
+import type { DataNotesModel } from '@/features/analysis/lib/dataNotes'
+import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 
 const bySeries = (dataset: AnalysisDataset): Record<string, AnalysisSeries> =>
   Object.fromEntries(dataset.series.map((s) => [s.concept, s]))
@@ -141,11 +143,13 @@ function PanelCard({
   dataset,
   series,
   exportEnabled,
+  notes,
 }: {
   panel: PanelSpec
   dataset: AnalysisDataset
   series: Record<string, AnalysisSeries>
   exportEnabled: boolean
+  notes: DataNotesModel
 }) {
   const dark = useContext(ThemeContext)?.theme === 'dark'
   const reduced = usePrefersReducedMotion()
@@ -172,12 +176,17 @@ function PanelCard({
 
   const visiblePeriods = new Set(dataset.periods.map((period) => period.key))
   const plottedSeries = barSeries ? [barSeries] : lineEntries.map(({ concept }) => series[concept])
-  const hasUnverified = plottedSeries.some((item) => item.points.some(
-    (point) => visiblePeriods.has(point.period) && point.value != null && (
-      needsSourceCheck(point) ||
-      (panel.growthLine && typeof point.yoy === 'number' && needsSourceCheck({ reconciled: point.yoy_reconciled, provenance: point.yoy_provenance }))
-    ),
-  ))
+  const noteReferences = new Map<string, string[]>()
+  for (const item of plottedSeries) {
+    for (const period of dataset.periods) {
+      const point = item.points.find((entry) => entry.period === period.key) ?? { period: period.key, value: null }
+      const valueNote = notes.noteFor(point)
+      if (valueNote) noteReferences.set(valueNote.key, [...(noteReferences.get(valueNote.key) ?? []), `${item.label}, ${point.period}`])
+      const growthNote = panel.growthLine && typeof point.yoy === 'number' ? notes.noteForComparison(point, 'yoy') : null
+      if (growthNote) noteReferences.set(growthNote.key, [...(noteReferences.get(growthNote.key) ?? []), `${item.label} YoY, ${point.period}`])
+    }
+  }
+  const panelNotes = notes.notes.filter((note) => noteReferences.has(note.key))
 
   // One row per period; keys are concept names (+ `growth` for the yoy line).
   const data = dataset.periods.map((period) => {
@@ -227,14 +236,7 @@ function PanelCard({
     return missing.length ? [`${item.label}: unavailable for ${missing.map((period) => period.key).join(', ')}.`] : []
   })
   const hasCalculated = plottedSeries.some((item) => item.points.some((point) => visiblePeriods.has(point.period) && point.provenance?.method === 'calculated'))
-  const reviewNotes = plottedSeries.flatMap((item) => item.points.flatMap((point) => {
-    if (!visiblePeriods.has(point.period) || point.value == null) return []
-    const growth = { reconciled: point.yoy_reconciled, provenance: point.yoy_provenance }
-    return [
-      ...(needsSourceCheck(point) ? [`${item.label}, ${point.period}: source check needed. ${qualityReasons(point).join(' ')}`] : []),
-      ...(panel.growthLine && typeof point.yoy === 'number' && needsSourceCheck(growth) ? [`${item.label} YoY growth, ${point.period}: source check needed. ${qualityReasons(growth).join(' ')}`] : []),
-    ]
-  }))
+  const reviewNotes = panelNotes.map((note) => `Note ${note.letter}: ${note.message} ${noteReferences.get(note.key)!.join('; ')}.`)
   const exportNotes = [
     ...reviewNotes,
     ...(hasCalculated ? ['Includes figures calculated by EarningsNerd from reported inputs.'] : []),
@@ -286,7 +288,7 @@ function PanelCard({
             {panel.title}
           </h2>
           <PanelLegend items={legendItems} />
-          <ReconciliationBadge reconciled={hasUnverified ? false : undefined} />
+          <DataNotesLink notes={panelNotes} />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {exportEnabled && (
@@ -444,6 +446,7 @@ export default function TrendCharts({
   /** Shows the per-panel PNG download (the page passes this on the Pro results surface only). */
   exportEnabled?: boolean
 }) {
+  const notes = useDataNotes(dataset)
   const series = useMemo(() => bySeries(dataset), [dataset])
 
   const topLine = series['revenue'] ? 'revenue' : 'net_interest_income'
@@ -512,6 +515,7 @@ export default function TrendCharts({
             dataset={dataset}
             series={series}
             exportEnabled={exportEnabled}
+            notes={notes}
           />
         ))}
       </div>

@@ -39,6 +39,7 @@ export function validationLabel(value: QualityValue): string {
 }
 
 const REASONS: Record<string, string> = {
+  not_in_dataset: 'Not available in this dataset.',
   legacy_calculation: 'This saved calculation predates the current source checks. Its inputs need review.',
   source_check_needed: 'A source check remains unresolved. Review the original filing before use.',
   unsupported_eps_calculation: 'This quarterly earnings-per-share calculation is not supported. Use a reported quarterly EPS figure.',
@@ -53,7 +54,7 @@ const REASONS: Record<string, string> = {
   missing_provenance: 'Detailed source information is unavailable for this figure.',
   legacy_unverified: 'This saved figure needs a source check before use.',
   legacy_unreconciled: 'This saved figure needs a source check before use.',
-  legacy_unknown: 'Validation details are unavailable for this saved figure.',
+  legacy_unknown: 'Validation details are unavailable for this saved figure. No verification claim is made.',
   legacy_provenance_unavailable: 'Detailed source information is unavailable for this saved figure.',
   incompatible_inputs: 'The source inputs do not have a compatible reporting basis.',
   mixed_vintage: 'The calculation combines figures from different filing versions.',

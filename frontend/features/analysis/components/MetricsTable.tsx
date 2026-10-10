@@ -1,14 +1,16 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Badge, Button, Card, DataTable, type Column } from '@/components/ui'
+import { Button, Card, DataTable, type Column } from '@/components/ui'
 import { FileXlsIcon } from '@/lib/icons'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
-import ReconciliationBadge from './ReconciliationBadge'
+import DataNoteMark from './DataNoteMark'
+import { useDataNotes } from './DataNotesContext'
+import { openDataNote } from './DataNotesLink'
 import SourceValue from './SourceValue'
 
 const currencyFromUnit = (unit: string | undefined): string => {
@@ -49,6 +51,7 @@ export default function MetricsTable({
    *  network call, so the button shows a loading state. */
   exporting?: boolean
 }) {
+  const notes = useDataNotes(dataset)
   const columns = useMemo<Column<Row>[]>(() => {
     const periodColumns: Column<Row>[] = dataset.periods.map((period) => ({
       key: period.key,
@@ -56,11 +59,8 @@ export default function MetricsTable({
       align: 'right' as const,
       numeric: true,
       render: (row: Row) => {
-        const point = row.series.points.find((p) => p.period === period.key)
-        if (!point) {
-          return <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
-        }
-        if (point.value == null) return <SourceValue point={point} label={row.series.label} concept={row.series.concept}>Unavailable</SourceValue>
+        const point = row.series.points.find((p) => p.period === period.key) ?? { period: period.key, value: null }
+        if (point.value == null) return <SourceValue point={point} label={row.series.label} concept={row.series.concept} note={notes.noteFor(point)}>—</SourceValue>
         const growth = dataset.mode === 'quarterly' ? point.qoq ?? point.yoy : point.yoy
         const growthReconciled = dataset.mode === 'quarterly' && point.qoq != null
           ? point.qoq_reconciled : point.yoy_reconciled
@@ -68,16 +68,16 @@ export default function MetricsTable({
         const growthProvenance = dataset.mode === 'quarterly' && point.qoq != null ? point.qoq_provenance : point.yoy_provenance
         const { text: growthText, direction } = formatGrowth(growth, row.series.percent)
         const tone = applySeriesTone(row.series.tone, direction)
+        const growthNote = notes.noteForComparison(point, growthLabel === 'QoQ' ? 'qoq' : 'yoy')
         return (
           <div className="flex flex-col items-end gap-0.5">
             <span className="flex items-center gap-1">
-              <SourceValue point={point} label={row.series.label} concept={row.series.concept}>{formatSeriesValue(point.value, row.series)}</SourceValue>
-              <ReconciliationBadge reconciled={point.reconciled} provenance={point.provenance} />
+              <SourceValue point={{ ...point, unit: point.unit ?? row.series.unit }} label={row.series.label} concept={row.series.concept} note={notes.noteFor(point)} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote } : undefined}>{formatSeriesValue(point.value, row.series)}</SourceValue>
             </span>
             {growthText && (
               <span className={`text-xs ${directionText[tone]}`}>
                 {growthLabel} {growthText}
-                <ReconciliationBadge reconciled={growthReconciled} provenance={growthProvenance} label="Growth source check needed" />
+                <DataNoteMark note={growthNote} announce />
               </span>
             )}
           </div>
@@ -111,6 +111,7 @@ export default function MetricsTable({
         const win = windowGrowth(row.series)
         const { text, direction } = formatGrowth(win.value, win.isPercent)
         const tone = applySeriesTone(row.series.tone, direction)
+        const note = notes.noteForWindow(row.series)
         // cursor-help only when the tooltip actually exists — same condition for both.
         const windowTooltip =
           win.isPercent && row.series.window_pp_range
@@ -121,12 +122,7 @@ export default function MetricsTable({
             className={windowTooltip ? `cursor-help ${directionText[tone]}` : directionText[tone]}
             title={windowTooltip}
           >
-            {text}
-            <ReconciliationBadge
-              reconciled={win.isPercent ? row.series.window_pp_reconciled : row.series.cagr_reconciled}
-              provenance={win.isPercent ? row.series.window_pp_provenance : row.series.cagr_provenance}
-              label="Growth source check needed"
-            />
+            {note ? <button type="button" onClick={() => openDataNote(note.id)} aria-label={`${row.series.label}, ${win.label} ${text}, data note ${note.letter}. Review data note`} className="rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{text}<DataNoteMark note={note} /></button> : text}
           </span>
         ) : (
           <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
@@ -134,25 +130,25 @@ export default function MetricsTable({
       },
     }
     return [metricColumn, ...periodColumns, cagrColumn]
-  }, [dataset])
+  }, [dataset, notes])
 
   const rows = useMemo<Row[]>(() => dataset.series.map((series) => ({ series })), [dataset])
   const hasDerived = dataset.series.some((s) => s.points.some((p) => p.provenance?.method === 'calculated' || (!p.provenance && p.derived)))
 
   return (
-    <Card as="section" className="p-6">
+    <Card as="section" className="p-6" data-analysis-metrics>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Heading className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Metrics by period
           </Heading>
           {hasDerived && (
-            <Badge
-              variant="neutral"
+            <span
+              className="text-xs text-text-secondary-light dark:text-text-secondary-dark"
               title="Calculated from source figures. Select a value to inspect its inputs and method."
             >
               † calculated
-            </Badge>
+            </span>
           )}
         </div>
         {onExportXlsx && (

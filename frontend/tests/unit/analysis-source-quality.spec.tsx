@@ -6,6 +6,7 @@ import SourcesMethods from '@/features/analysis/components/SourcesMethods'
 import SourceValue from '@/features/analysis/components/SourceValue'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import type { FactProvenance } from '@/features/analysis/lib/provenance'
+import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 
 const calculated: FactProvenance = {
   version: 1, method: 'calculated', validation: 'passed', reasons: [],
@@ -32,9 +33,11 @@ describe('Financial origin and source checks', () => {
     value.focus()
     await user.keyboard('{Enter}')
     const dialog = screen.getByRole('dialog', { name: 'Revenue · 2023Q4' })
-    expect(within(dialog).getByText(/Automated checks passed/)).toBeInTheDocument()
-    expect(within(dialog).getByText(/134,902,000,000 USD/)).toBeInTheDocument()
-    expect(within(dialog).getByRole('link', { name: 'Open original SEC filing' })).toHaveAttribute('href', calculated.inputs[0].source_url)
+    expect(within(dialog).getByText(/Calculated by EarningsNerd from source figures\. Automated checks passed/)).toBeInTheDocument()
+    expect(within(dialog).getAllByText(/134,902,000,000 USD/)).toHaveLength(2)
+    for (const link of within(dialog).getAllByRole('link', { name: 'Open original SEC filing' })) {
+      expect(link).toHaveAttribute('href', calculated.inputs[0].source_url)
+    }
     await user.keyboard('{Escape}')
     expect(value).toHaveFocus()
   })
@@ -44,8 +47,10 @@ describe('Financial origin and source checks', () => {
     flagged.series[0].points[0].provenance!.validation = 'needs_review'
     flagged.series[0].points[0].provenance!.reasons = ['unit_mismatch']
     render(<><SourcesMethods dataset={flagged} /><MetricsTable dataset={flagged} /></>)
-    expect(screen.getByText('Source check needed')).toBeInTheDocument()
-    expect(screen.getByText(/Revenue, 2023Q3: The source inputs use different units or currencies/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Revenue, 2023Q3:.*data note a/ }).querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
+    const note = screen.getByText(/The source inputs use different units or currencies/).closest('li')
+    expect(note).toHaveTextContent('Revenue (2023Q3)')
+    expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
 
   it('does not promote legacy true or absent quality into a passed validation claim', async () => {
@@ -62,5 +67,33 @@ describe('Financial origin and source checks', () => {
     await userEvent.click(screen.getByRole('button', { name: /2023Q4: unavailable/ }))
     expect(screen.getByText('A reported quarterly earnings-per-share figure is unavailable.')).toBeInTheDocument()
     expect(screen.queryByText('$40.1B')).not.toBeInTheDocument()
+  })
+
+  it('keeps a comparison-only concern inspectable without marking the current value as needing review', async () => {
+    const flagged = structuredClone(dataset)
+    flagged.series[0].points[1].qoq_provenance = { ...calculated, validation: 'needs_review', reasons: ['unit_mismatch'] }
+    render(<DataNotesProvider dataset={flagged}><SourcesMethods dataset={flagged} /><MetricsTable dataset={flagged} /></DataNotesProvider>)
+    expect(screen.getByText(/1 comparison needs review/)).toBeInTheDocument()
+    expect(screen.getByText(/Comparisons: Revenue QoQ \(2023Q4\)/)).toBeInTheDocument()
+    const figure = screen.getByRole('button', { name: /Revenue, 2023Q4:.*comparison carries data note a/ })
+    expect(figure.querySelector('[data-note-kind="review"]')).not.toBeInTheDocument()
+    await userEvent.click(figure)
+    const dialog = screen.getByRole('dialog', { name: 'Revenue · 2023Q4' })
+    expect(within(dialog).getByRole('heading', { name: 'QoQ comparison' })).toBeInTheDocument()
+    expect(within(dialog).getByText(/Data note a\. The source inputs use different units or currencies/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/Calculated by EarningsNerd from source figures\. Automated checks passed/)).toBeInTheDocument()
+  })
+
+  it('explains an absent metric-period slot with the same unavailable note counted in the report', async () => {
+    const missing = structuredClone(dataset)
+    missing.series[0].points.pop()
+    render(<DataNotesProvider dataset={missing}><SourcesMethods dataset={missing} /><MetricsTable dataset={missing} /></DataNotesProvider>)
+    expect(screen.getByText(/1 unavailable/)).toBeInTheDocument()
+    const value = screen.getByRole('button', { name: /Revenue, 2023Q4: unavailable, data note a/ })
+    expect(value.querySelector('[data-note-kind="unavailable"]')).toHaveTextContent('a')
+    await userEvent.click(value)
+    const dialog = screen.getByRole('dialog', { name: 'Revenue · 2023Q4' })
+    expect(within(dialog).getByText(/Not available in this dataset/)).toBeInTheDocument()
+    expect(within(dialog).queryByText(/Automated checks passed/)).not.toBeInTheDocument()
   })
 })

@@ -10,8 +10,12 @@ import { ArrowClockwiseIcon, CircleNotchIcon, DownloadSimpleIcon } from '@/lib/i
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 import { flashElement } from '@/lib/citationFlash'
 import type { AnalysisCitation, AnalysisCompletion } from '@/features/analysis/api/analysis-api'
-import ReconciliationBadge from './ReconciliationBadge'
-import { needsSourceCheck, sourceUrl } from '@/features/analysis/lib/provenance'
+import { sourceUrl } from '@/features/analysis/lib/provenance'
+import { groupQualityNotes, type QualityNotesModel } from '@/features/analysis/lib/dataNotes'
+import { useReportDataNotes } from './DataNotesContext'
+import DataNoteMark, { dataNoteDescription } from './DataNoteMark'
+import DataNotesLink from './DataNotesLink'
+import { DataNotesList } from './SourcesMethods'
 
 const SOURCE_ROW_ID = (n: number | string) => `analysis-source-${n}`
 
@@ -29,17 +33,18 @@ function flashAndScrollToSource(n: number | string) {
  *  clicking scrolls to + flashes the matching Sources row instead. The excerpt is exposed via
  *  `title` (hover) and `aria-label` (screen readers) — the full text is also visible below in
  *  the Sources list, so a heavier popover isn't needed here. */
-function NarrativeCitationChip({ citation }: { citation: AnalysisCitation }) {
+function NarrativeCitationChip({ citation, notes }: { citation: AnalysisCitation; notes: QualityNotesModel }) {
   const label = citation.section_ref || `Source ${citation.n}`
+  const note = notes.noteForQuality(citation)
   return (
     <button
       type="button"
       onClick={() => flashAndScrollToSource(citation.n)}
       title={`${citation.excerpt}${citation.section_ref ? ` · ${citation.section_ref}` : ''}`}
-      aria-label={`Citation ${citation.n}: ${label}. ${citation.excerpt}`}
+      aria-label={`Citation ${citation.n}: ${label}. ${citation.excerpt}${note ? `, ${dataNoteDescription(note)}` : ''}`}
       className="tnum inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 align-baseline font-data text-data-xs font-semibold leading-none transition-colors border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
-      [{citation.n}]
+      [{citation.n}]<DataNoteMark note={note} />
     </button>
   )
 }
@@ -50,10 +55,10 @@ type NarrativeTag = 'p' | 'li' | 'strong' | 'em' | 'td'
 /** Text-bearing element overrides that route their children through the citation-chip injector —
  *  no className overrides, since `.markdown-body`'s global CSS (globals.css) targets the plain
  *  tag names directly and must keep applying unchanged. */
-function buildNarrativeComponents(citations: AnalysisCitation[]) {
+function buildNarrativeComponents(citations: AnalysisCitation[], notes: QualityNotesModel) {
   const inject = (children: ReactNode) =>
     injectCitationMarkers(children, citations, (citation, key) => (
-      <NarrativeCitationChip key={key} citation={citation} />
+      <NarrativeCitationChip key={key} citation={citation} notes={notes} />
     ))
   // The five overrides differ only in tag name — one factory (strip react-markdown's `node`,
   // spread the rest, inject the children) instead of five hand-copied wrappers.
@@ -104,7 +109,7 @@ function sourceBadgeTitle(unverified: number | null | undefined, mismatched?: nu
   return warning ? `${SOURCE_BADGE_BASE} ${warning}` : SOURCE_BADGE_BASE
 }
 
-function CitationList({ citations, sample }: { citations: AnalysisCitation[]; sample?: boolean }) {
+function CitationList({ citations, sample, notes }: { citations: AnalysisCitation[]; sample?: boolean; notes: QualityNotesModel }) {
   if (citations.length === 0) return null
   return (
     <div className="mt-4 border-t border-border-light pt-3 dark:border-white/10">
@@ -128,7 +133,7 @@ function CitationList({ citations, sample }: { citations: AnalysisCitation[]; sa
                 at mobile widths instead of overflowing it. */}
             <span className="min-w-0 break-words">
               {citation.excerpt}
-              <ReconciliationBadge reconciled={citation.reconciled} provenance={citation.provenance} />
+              <DataNoteMark note={notes.noteForQuality(citation)} calculated={citation.provenance?.method === 'calculated' || (!citation.provenance && citation.derived)} announce />
               {sourceUrl(citation.source_url ?? citation.provenance?.source_url) && <a className="ml-2 rounded text-brand-strong underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark" href={sourceUrl(citation.source_url ?? citation.provenance?.source_url)!} target="_blank" rel="noopener noreferrer">Original filing</a>}
               {citation.section_ref && (
                 <span className="ml-1 text-text-tertiary-light dark:text-text-secondary-dark">
@@ -165,6 +170,15 @@ export default function NarrativePane({
   sample?: boolean
 }) {
   const completion = state.completion
+  const reportNotes = useReportDataNotes()
+  // A citation can retain its own concern even when the corresponding report value has a
+  // different quality record. Reuse report letters; append citation-only notes without
+  // changing dataset counts or inferring that a separately checked value clears the citation.
+  const notes = useMemo(() => groupQualityNotes(completion?.citations ?? [], reportNotes ?? undefined), [reportNotes, completion?.citations])
+  const citedNoteKeys = new Set((completion?.citations ?? []).map((citation) => notes.noteForQuality(citation)?.key))
+  const citedNotes = notes.notes.filter((note) => citedNoteKeys.has(note.key))
+  const reportNoteKeys = new Set(reportNotes?.notes.map((note) => note.key))
+  const supplementalNotes = citedNotes.filter((note) => !reportNoteKeys.has(note.key))
   const headingRef = useRef<HTMLHeadingElement>(null)
   // Stable components-map identity across re-renders — a fresh object every render would make
   // react-markdown treat each element type as new and remount the whole narrative subtree
@@ -172,9 +186,9 @@ export default function NarrativePane({
   const narrativeComponents = useMemo(
     () =>
       completion && completion.citations.length > 0
-        ? buildNarrativeComponents(completion.citations)
+        ? buildNarrativeComponents(completion.citations, notes)
         : undefined,
-    [completion]
+    [completion, notes]
   )
 
   if (state.status === 'idle') return null
@@ -188,7 +202,7 @@ export default function NarrativePane({
   return (
     <Card as="section" className="p-6">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h2
             ref={headingRef}
             tabIndex={-1}
@@ -215,9 +229,7 @@ export default function NarrativePane({
               {completion.grounded} source {completion.grounded === 1 ? 'entry' : 'entries'}
             </Badge>
           )}
-          {state.status === 'done' && completion?.citations.some(needsSourceCheck) && (
-            <ReconciliationBadge reconciled={false} label="Source checks needed" />
-          )}
+          {state.status === 'done' && <DataNotesLink notes={citedNotes} />}
           {state.status === 'done' && completion?.cached && !sample && (
             <Badge title="Served from a previous run of this exact period range. It regenerates automatically when new filings arrive.">
               Cached
@@ -288,8 +300,9 @@ export default function NarrativePane({
             )}
           </div>
           {state.status === 'done' && completion && (
-            <CitationList citations={completion.citations} sample={sample} />
+            <CitationList citations={completion.citations} sample={sample} notes={notes} />
           )}
+          {state.status === 'done' && supplementalNotes.length > 0 && <details className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark"><summary className="cursor-pointer rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Data notes for these sources</summary><div className="mt-2"><DataNotesList notes={supplementalNotes} /></div></details>}
           {state.status === 'done' && completion && (
             <AiDisclaimer className="mt-3">
               {sample
