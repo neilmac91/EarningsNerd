@@ -1,6 +1,7 @@
 # Decision record 21 — chief succession: the predecessor session blocked by a Claude Code safety check from about 21:40Z and the successor appointed by the founder's handover brief at 22:38Z; PR #1167 (record 20) merged, fourteenth deploy-skip proof; #1169's deploy read back from its log (every process carries both SEC pins, the insider switch is off, the health check passed) and six later main runs classified; the founder's USD 5 balance floor recorded as a stop condition; a duplicate second successor session holds every write; the Monday check-in re-armed; disclosures (chief defect 9, classifier denials 11 and 12, a record-20 wording correction); closure 172 (chief, 2026-10-09)
 
-Recorded 2026-10-09T23:02Z by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
+Recorded 2026-10-09T23:02Z, amended 2026-10-09T23:12Z (the relayed confirmation) and 2026-10-10T04:05Z (the usage-limit
+interruption; the fresh reviewer context), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
 Context: record 20 merged to main as `da8dc998` (PR #1167, 2026-10-09T22:14:52Z); main has since moved to `a572876c` through
 other writers' PRs (#1143, #1142, #1166); this is the first PR from the successor's branch `claude/stoic-wright-6jeujo`, started
 at `a572876c`. Records, one lesson and the lessons index only: no code, workflow, migration, cloud, IAM or production change in
@@ -175,7 +176,16 @@ ledger by event 45, the reservation for the read-back PR's `copilot-eval` run, t
 5. **The duplicate launch** (above): two successor sessions created six minutes apart with the same brief; both had written nothing
    to the repository or the ledger at the time of the agreement; the second holds every write and has stood down, the founder's
    confirmation reaching this session as relayed by the second.
-6. **The successor's side effects to this record:** read-only GitHub requests (runs, jobs, one PR, the open PR list, the balance
+6. **The account's usage limit interrupted the successor's first launches.** At about 23:25Z the Claude account's five-hour usage
+   limit (reset 00:50Z) ended the first `record-21-reviewer-01` context (launched 23:05Z on `65dc598a`; it had built its archive,
+   run the gate with 9 passed and begun the hash and closure checks; no verdict, nothing bound) and 13 of the 15 agents of the
+   read-back design workflow `wf_b0cbcf69-f9d` (two readers completed; every design, judge, refuter and the synthesis failed
+   before running); the session's worker process restarted twice. Work resumed at 04:04Z on 2026-10-10 on the founder's "Try
+   again": the design workflow resumed from its journal (the two completed readers replay from cache; the rest run live) and a
+   fresh reviewer context `record-21-reviewer-02` was pre-registered (closure 172 amended in place before merge) and launched.
+   Nothing in the repository, the ledger or production changed during the interruption; PR #1172's CI completed green on
+   `72f01ed` at 23:27Z.
+7. **The successor's side effects to this record:** read-only GitHub requests (runs, jobs, one PR, the open PR list, the balance
    job's log); two pages of the predecessor's session event log through the platform's session API (its own transcript events,
    summarised through a redacting script; one path fragment of the predecessor's scratchpad seen in its tool calls, written nowhere);
    two signed job-log downloads (the #1169 and #1166 deploy logs) into the scratchpad, each read through the redacting filter
@@ -185,8 +195,9 @@ ledger by event 45, the reservation for the read-back PR's `copilot-eval` run, t
 
 ## Plan
 
-1. **This record's PR** (`record-21-reviewer-01`, closure 172; records-only rule: one reviewer context bound to the final head, with
-   same-context delta checks; Codex; explicit squash title and message; then the deploy-skip proof).
+1. **This record's PR** (`record-21-reviewer-02`, closure 172, after the first context ended at the usage limit; records-only rule:
+   one reviewer context bound to the final head, with same-context delta checks; Codex; explicit squash title and message; then
+   the deploy-skip proof).
 2. **The read-back PR** (`ops-readback-pr-01`; redone by the successor on a second branch so it runs beside this record): a read-only
    design workflow (readers of `ops.yml`, `ops/capacity/readout.py` and its tests, `ci.yml`'s deploy steps and the
    `docs/DEPLOYMENT.md` checklist; independent designs; judges; refuters) fixes the design, then the implementation, then the lean
@@ -212,11 +223,13 @@ ledger by event 45, the reservation for the read-back PR's `copilot-eval` run, t
 
 ## Registration (closure 172)
 
-Closure 172 (574 → 580; recorded 22:53:10Z) registers as actual: this session; the second successor session (reads only, every write
-held); `record-20-reviewer-01` resolved to its launch-time identity (`launched-2026-10-09T1958Z`; five checks, the last bound to
-`86334d59`; the final head not re-bound); and the predecessor's read-back design workflow `wf_11203ef3-3cf` at workflow level (its
-agent identities are not recoverable here; nothing from it enters the repository). It pre-registers, before any launch by the
-successor, `record-21-reviewer-01` and `record-22-reviewer-01`, and annotates `ops-readback-pr-01`, `durable-tasks-check-01` and
+Closure 172 (574 → 582; recorded 22:53:10Z; amended in place before merge twice, 23:12Z and 2026-10-10 about 04:10Z, its scope
+saying so) registers as actual: this session; the second successor session (reads only, every write held); `record-20-reviewer-01`
+resolved to its launch-time identity (`launched-2026-10-09T1958Z`; five checks, the last bound to `86334d59`; the final head not
+re-bound); the predecessor's read-back design workflow `wf_11203ef3-3cf` at workflow level (its agent identities are not recoverable
+here; nothing from it enters the repository); and the first record-21 reviewer context (`launched-2026-10-09T2305Z`, ended by the
+usage limit before a verdict, resolving the provisional `record-21-reviewer-01`). It pre-registers, before any launch by the
+successor, `record-21-reviewer-02` (the fresh reviewer) and `record-22-reviewer-01`, and annotates `ops-readback-pr-01`, `durable-tasks-check-01` and
 `monday-readout-20261012-01` as covering the contexts this session launches under them, each resolved to launch-time identities in a
 later closure. The side effects of `record-20-reviewer-01` beyond its five reported checks are not independently disclosed: the
 predecessor's transcript is not available to the successor, and the PR #1167 description records its verdicts. No context gains
