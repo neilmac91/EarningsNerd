@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import api from '@/lib/api/client'
 import { queryKeys } from '@/lib/queryKeys'
@@ -20,8 +20,8 @@ vi.mock('@/features/filings/components/copilot/FilingViewerContext', () => ({ Fi
 vi.mock('@/features/filings/components/copilot/AskAboutSelection', () => ({ default: () => null }))
 vi.mock('@/features/filings/components/copilot/AskCopilotRail', () => ({ default: () => null }))
 vi.mock('@/features/filings/components/copilot/FilingViewer', () => ({ default: () => null }))
-vi.mock('@/features/summaries/components/SummaryDisplay', () => ({ SummaryDisplay: ({ isSaved, isAuthenticated, summary, saveMutation }: { isSaved: boolean; isAuthenticated: boolean; summary: { id: number }; saveMutation: { mutate: (id: number) => void } }) => (
-  <button disabled={isSaved || !isAuthenticated} onClick={() => saveMutation.mutate(summary.id)}>{isSaved ? 'Saved' : 'Save'}</button>
+vi.mock('@/features/summaries/components/SummaryDisplay', () => ({ SummaryDisplay: ({ isSaved, isAuthenticated, summary, saveMutation }: { isSaved: boolean; isAuthenticated: boolean; summary: { id: number }; saveMutation: { mutate: (id: number) => void; isPending: boolean } }) => (
+  <button disabled={isSaved || !isAuthenticated} aria-busy={saveMutation.isPending || undefined} onClick={() => saveMutation.mutate(summary.id)}>{isSaved ? 'Saved' : 'Save'}</button>
 ) }))
 
 function mount(identity?: { id: number } | null) {
@@ -58,6 +58,28 @@ describe('filing saved status consumer', () => {
     expect(api.post).toHaveBeenCalledWith('/api/saved-summaries/', { summary_id: 91, notes: undefined })
     expect(api.get).toHaveBeenCalledTimes(2)
     expect(client.getQueryState(queryKeys.savedSummaries())?.isInvalidated).toBe(true)
+    client.clear()
+  })
+
+  // The real Save (SummaryActionsBar) keeps focus and refuses presses while `isPending`, so the
+  // mutation must stay pending until the status refetch swaps it for Saved: released any sooner, a
+  // second Enter would save (and count) the summary again.
+  it('keeps the save pending until the status refetch shows Saved', async () => {
+    const client = mount()
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/api/saved-summaries/status/91'))
+    let landStatus!: () => void
+    vi.mocked(api.get).mockImplementationOnce(() => new Promise((resolve) => {
+      landStatus = () => resolve({ data: { is_saved: true } })
+    }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2))
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+    expect(api.post).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('aria-busy', 'true')
+
+    await act(async () => landStatus())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Saved' })).not.toHaveAttribute('aria-busy'))
+    expect(analytics.summarySaved).toHaveBeenCalledTimes(1)
     client.clear()
   })
 

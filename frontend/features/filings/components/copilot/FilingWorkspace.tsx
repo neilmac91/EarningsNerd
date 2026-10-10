@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { ArrowSquareOutIcon, SparkleIcon } from '@/lib/icons'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
+import { ArrowSquareOutIcon, FileTextIcon } from '@/lib/icons'
 import PaneResizer from './PaneResizer'
 import SecondaryPaneTabs, { PANE_PANEL_IDS, PANE_TAB_IDS } from './SecondaryPaneTabs'
 import CopilotCoachmark from './CopilotCoachmark'
@@ -9,22 +9,29 @@ import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
 import { useSheetFocusTrap } from './useSheetFocusTrap'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { useConsentLayer } from '@/hooks/useConsentLayer'
+import { useFocusHandoff } from '@/hooks/useFocusHandoff'
+import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
 
-// Below lg the secondary pane is a modal bottom-sheet; at lg+ it's a static side pane (no modal).
+// Below lg the secondary pane is a modal bottom-sheet (role="dialog"); at lg+ it's a static side pane,
+// an <aside> by role (complementary), with no dialog semantics (2026-10 critique P-06).
 const MOBILE_MEDIA_QUERY = '(max-width: 1023.98px)'
 
 // One-time discovery nudge (ping + coachmark) keyed in localStorage so it never nags twice.
 const COACH_KEY = 'en:copilot-coachmark-v1'
 
-// Hero launcher pinned bottom-RIGHT, clear of the iOS home indicator / Android nav bar. max() keeps a
-// 1.25rem base gap on flat phones and adds the inset on notched ones (needs viewport-fit=cover).
+// Hero launcher pinned bottom-RIGHT, clear of the iOS home indicator / Android nav bar and of the
+// cookie-consent bar: BOTTOM_CHROME_OFFSET keeps a 1.25rem base gap on flat phones, adds the
+// safe-area inset on notched ones (needs viewport-fit=cover) and the bar's height while it is
+// mounted (`--consent-inset`, lib/consentLayer) — the bar sits beneath this z-40 chrome on z-consent
+// and must never be covered by it, nor cover it.
 const LAUNCHER_OFFSET: CSSProperties = {
-  bottom: 'max(1.25rem, env(safe-area-inset-bottom))',
+  bottom: BOTTOM_CHROME_OFFSET,
   right: 'max(1.25rem, env(safe-area-inset-right))',
 }
 // The coachmark floats just above the launcher.
 const COACHMARK_OFFSET: CSSProperties = {
-  bottom: 'calc(max(1.25rem, env(safe-area-inset-bottom)) + 4rem)',
+  bottom: `calc(${BOTTOM_CHROME_OFFSET} + 4rem)`,
   right: 'max(1.25rem, env(safe-area-inset-right))',
 }
 
@@ -35,6 +42,11 @@ const STORAGE_KEY = 'copilot:paneWidth'
 
 function clampWidth(w: number): number {
   return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, w))
+}
+
+/** Where a closing pane may return focus: an element still in the document and outside the pane. */
+function isReturnTarget(el: HTMLElement | null | undefined, pane: HTMLElement | null): el is HTMLElement {
+  return !!el?.isConnected && !pane?.contains(el)
 }
 
 function readStoredWidth(): number {
@@ -51,9 +63,11 @@ function readStoredWidth(): number {
 
 // The secondary pane's container: a bottom-sheet below lg, a static full-height pane on lg+ (it fills
 // the grid cell; PaneResizer + the sticky cell wrapper provide width/height). One element, two CSS
-// personalities — so each body mounts exactly once across breakpoints.
+// personalities — so each body mounts exactly once across breakpoints. The sheet rests on the
+// cookie-consent bar while that is mounted (bottom = --consent-inset) and gives up the same height
+// from its 85vh cap, so its composer stays inside the viewport above the bar (EN-02).
 const SHELL_CLASSES =
-  'fixed inset-x-0 bottom-0 z-40 flex max-h-[85vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none lg:static lg:inset-auto lg:z-auto lg:h-full lg:max-h-none lg:w-full lg:rounded-none lg:border-y-0 lg:shadow-none'
+  'fixed inset-x-0 bottom-[var(--consent-inset,0px)] z-40 flex max-h-[calc(85vh_-_var(--consent-inset,0px))] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none lg:static lg:inset-auto lg:z-auto lg:h-full lg:max-h-none lg:w-full lg:rounded-none lg:border-y-0 lg:shadow-none'
 
 interface FilingWorkspaceProps {
   /** Whether the Copilot pane is open (drives the two-column desktop layout + launcher). */
@@ -68,18 +82,22 @@ interface FilingWorkspaceProps {
   copilotBody: ReactNode
   /** The embedded filing reader (<FilingViewer embedded .../>). */
   filingBody: ReactNode
-  /** SEC URL for the "open original" link on the filing tab. */
+  /** The original document for the filing tab's "Original on SEC EDGAR" link: `document_url`, then
+   * `sec_url` (the page derives it with `originalDocumentUrl`). */
   secUrl: string | null
+  /** The filing the pane shows, in the data face, under the pane's "Source" title. */
+  sourceLabel?: string | null
   /** The filing summary content (the left pane). */
   children: ReactNode
 }
 
 /**
- * Desktop "research desk" layout for the filing page (audit 1.1): the summary and a unified Copilot
- * pane sit side by side as reflowing CSS-grid panes a draggable divider resizes. The secondary pane
- * is one shell hosting an [Answer · Filing] tab switch — the Copilot conversation and the in-app
- * filing reader share the space (a citation flips to the filing view next to the answer). Below lg the
- * grid collapses to one column and the shell becomes a bottom sheet.
+ * Desktop "research desk" layout for the filing page (audit 1.1): the summary and the research pane
+ * sit side by side as reflowing CSS-grid panes a draggable divider resizes. The pane is named for the
+ * source (2026-10 critique P-06): "Source", labelled "Filing source and Ask", one shell hosting the
+ * [Filing · Ask] tabs — the in-app filing reader first, the Ask conversation beside it (a citation
+ * flips to the filing view next to the answer). Below lg the grid collapses to one column and the
+ * shell becomes a bottom sheet with dialog semantics; at lg+ it is a complementary landmark.
  *
  * Both bodies stay mounted at all times (the shell is hidden, not unmounted, when closed; the inactive
  * tab is hidden, not unmounted) so a live SSE stream and the conversation survive view switches,
@@ -93,13 +111,14 @@ export default function FilingWorkspace({
   copilotBody,
   filingBody,
   secUrl,
+  sourceLabel,
   children,
 }: FilingWorkspaceProps) {
   const [width, setWidth] = useState<number>(DEFAULT_WIDTH)
   const viewer = useFilingViewer()
   const activeView = viewer?.activeView ?? 'copilot'
   const shellRef = useRef<HTMLDivElement>(null)
-  const launcherRef = useRef<HTMLButtonElement>(null)
+  const launcherRef = useRef<HTMLButtonElement | null>(null)
 
   // Hydrate the persisted width after mount (keeps SSR markup deterministic, avoids hydration drift).
   useEffect(() => {
@@ -137,8 +156,12 @@ export default function FilingWorkspace({
     if (open) dismissCoach()
   }, [open, dismissCoach])
   // Show the nudge only once there's a summary to ask about and the rail is closed — but never in
-  // demo mode, where the curated first impression stays calm (the launcher remains, just no nudge).
-  const showAttention = coachMounted && !coachDismissed && summaryAvailable && !open && !demoMode
+  // demo mode, where the curated first impression stays calm (the launcher remains, just no nudge),
+  // and not while the cookie-consent bar is up: the launcher has moved up to clear the bar, and a
+  // coachmark must not compete with the consent choice. It is deferred, not dismissed — once the
+  // bar is gone it shows (unless the user already dismissed it) and points at a visible launcher.
+  const consentVisible = useConsentLayer()
+  const showAttention = coachMounted && !coachDismissed && summaryAvailable && !open && !demoMode && !consentVisible
 
   // Below lg the bottom-sheet acts as a modal (focus trap + scrim); at lg+ it's a static side pane.
   const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY)
@@ -162,52 +185,183 @@ export default function FilingWorkspace({
   // FilingWorkspace owns the trap/scrim for the embedded rail; the embedded rail never adds its own.
   const modalActive = paneOpen && isMobile
   const handleClose = useCallback(() => onOpenChange(false), [onOpenChange])
-  useSheetFocusTrap({ active: modalActive, containerRef: shellRef, onClose: handleClose, restoreFocusRef: launcherRef })
+  // A provenance chip that opened the pane (the provider's opener, recorded by requestHighlight) is
+  // where focus returns on close; otherwise the launcher, which remounts on close. The trap reads
+  // `.current` at cleanup time, so a getter resolves whichever applies at that moment (EN-01). An
+  // opener inside the shell never qualifies: it is hidden with the pane it would return focus to.
+  const peekOpener = viewer?.peekOpener
+  const takeOpener = viewer?.takeOpener
+  const restoreFocusRef = useMemo<RefObject<HTMLElement | null>>(
+    () => ({
+      get current() {
+        const opener = peekOpener?.()
+        return isReturnTarget(opener, shellRef.current) ? opener : launcherRef.current
+      },
+    }),
+    [peekOpener],
+  )
+  useSheetFocusTrap({ active: modalActive, containerRef: shellRef, onClose: handleClose, restoreFocusRef })
+  // Where focus was as the pane opened: the control a keyboard user pressed (an in-page Ask button or
+  // starter) or pressed Ctrl/⌘+K or "/" on. The page's Ask entries and the rail's shortcuts open the
+  // pane without telling it who asked, so it is read here, in the opening commit, before the rail moves
+  // focus to its composer (a frame later). <body> when the opener left with the open (the launcher,
+  // the coachmark's Try) or nothing held focus; an element inside the shell never counts.
+  const paneOpener = useRef<HTMLElement | null>(null)
+  useLayoutEffect(() => {
+    if (!paneOpen) return
+    const active = document.activeElement
+    paneOpener.current =
+      active instanceof HTMLElement && active !== document.body && !shellRef.current?.contains(active) ? active : null
+  }, [paneOpen])
+  // On lg+ nothing traps focus: when the pane closes, the shell goes display:none and any focus inside
+  // it falls to <body>. Hand it on, only when it fell (focus the pane never held is never moved), to the
+  // first of: the provenance chip that opened the pane (EN-01), the control focus was on as it opened,
+  // the launcher, which has remounted by now (EN-05). A candidate that left the page, sits in the
+  // pane, or cannot take focus (hidden since) is passed over. Both openers are forgotten on every
+  // close, so a later open never returns to a stale one. This effect runs synchronously after the
+  // closing click or keydown, before Chromium has moved focus off the now-hidden control (that happens
+  // in a later task), so focus still inside the shell is focus that has fallen. Below lg the sheet's
+  // trap has already restored focus (to the chip or the launcher) in its cleanup, so this finds it
+  // placed and leaves it. lessons/frontend-busy-controls-stay-focusable.md (g), "after it" form;
+  // lessons/frontend-dialog-opener-outlives-the-dialog.md (b).
+  const wasPaneOpen = useRef(paneOpen)
+  useEffect(() => {
+    const was = wasPaneOpen.current
+    wasPaneOpen.current = paneOpen
+    if (!was || paneOpen) return
+    const candidates = [takeOpener?.() ?? null, paneOpener.current, launcherRef.current]
+    paneOpener.current = null
+    const active = document.activeElement
+    if (active !== null && active !== document.body && !shellRef.current?.contains(active)) return
+    for (const el of candidates) {
+      if (!isReturnTarget(el, shellRef.current)) continue
+      el.focus({ preventScroll: true })
+      if (document.activeElement === el) return
+    }
+  }, [paneOpen, takeOpener])
 
+  // The launcher and the coachmark's Try leave the page as the pane they open appears, so a keyboard
+  // press on either drops focus to <body> at open. The rail then moves it to its composer, but only
+  // for a visitor who can ask: anyone else had nothing focused in the pane until they Tabbed from the
+  // top of the page. On lg+ each hands its focus to the pane's selected tab instead, the stop that
+  // says which view is showing, and the rail's composer takes it from there when it can. Below lg the
+  // sheet's trap has already focused its first stop, Close (it precedes the tabs), when the hand-off
+  // runs, so the hand-off finds focus placed and leaves it: the modal sheet opens on Close, the usual
+  // first stop for a dialog. Keyboard only: a pointer's press leaves focus to the pointer, as the
+  // citation hand-off below does, so the tab never takes the arrow keys and Space from someone who
+  // clicked. A chip outside the pane stays put as it opens it (EN-01): it never unmounts, so it hands
+  // nothing off.
+  const selectedTab = useMemo<RefObject<HTMLElement | null>>(
+    () => ({
+      get current() {
+        return shellRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ?? null
+      },
+    }),
+    [],
+  )
+  const launcherHandoff = useFocusHandoff(selectedTab, { keyboardOnly: true })
+  const tryHandoff = useFocusHandoff(selectedTab, { keyboardOnly: true })
+  const attachLauncherHandoff = launcherHandoff.attach
+  const launcherCallbackRef = useCallback(
+    (el: HTMLButtonElement | null) => {
+      launcherRef.current = el
+      attachLauncherHandoff(el)
+    },
+    [attachLauncherHandoff],
+  )
+
+  // A citation activated inside the Answer panel (an Ask answer's [n] chip) switches the pane to the
+  // Filing tab, which hides the chip with its panel (and the answer re-renders it besides), so
+  // keyboard focus falls to <body> and the next Tab restarts at the top of the page. When a keyboard
+  // activation inside the panels switches the view and focus fell (to <body>, or still on the panel
+  // just hidden: Chromium moves it off a hidden control only in a later task), hand it to the newly
+  // selected tab, the visible control that says where the user now is. Only such an activation, in a
+  // pane that was already open: opening the pane moves no focus (EN-01), and <body> after a summary
+  // chip's click is focus that was never anywhere (Safari and Firefox on macOS do not focus a clicked
+  // button), so it stays put; the tabs, the composer and a chip outside the pane keep their focus.
+  // Keyboard only (Enter or Space on a button: a click with detail 0), as AskCopilotRail hands its
+  // composer focus only to a keyboard user: a pointer's click leaves focus to the pointer, so the tab
+  // never takes the arrow keys and Space from someone who clicked. The marker lasts for its event's
+  // task; the effect of a discrete event runs inside it.
+  const panelActivation = useRef(false)
+  const markPanelActivation = useCallback((e: { detail: number }) => {
+    if (e.detail !== 0) return
+    panelActivation.current = true
+    setTimeout(() => {
+      panelActivation.current = false
+    }, 0)
+  }, [])
+  const shown = useRef({ view: activeView, open: paneOpen })
+  useEffect(() => {
+    const was = shown.current
+    shown.current = { view: activeView, open: paneOpen }
+    const fromPanel = panelActivation.current
+    panelActivation.current = false
+    if (!fromPanel || !was.open || !paneOpen || was.view === activeView) return
+    const active = document.activeElement
+    const hiddenPanel = document.getElementById(PANE_PANEL_IDS[was.view])
+    if (active !== null && active !== document.body && !hiddenPanel?.contains(active)) return
+    document.getElementById(PANE_TAB_IDS[activeView])?.focus({ preventScroll: true })
+  }, [activeView, paneOpen])
+
+  // The Filing tab's footer: the original on SEC EDGAR, quiet and always reachable.
   const openOriginal = isHttpUrl(secUrl) ? (
-    <a
-      href={secUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline"
-    >
-      Open original <ArrowSquareOutIcon className="h-3 w-3" />
-    </a>
+    <div className="flex items-center border-t border-border-light px-4 py-3 dark:border-white/10">
+      <a
+        href={secUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 rounded-sm text-sm text-brand-strong underline decoration-brand-border underline-offset-4 transition-colors duration-fast hover:decoration-current focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:decoration-brand-border-dark dark:focus-visible:shadow-ring-brand-dark"
+      >
+        Original on SEC EDGAR <ArrowSquareOutIcon className="h-3.5 w-3.5" aria-hidden="true" />
+      </a>
+    </div>
   ) : null
 
   return (
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_var(--copilot-w)]" style={style}>
       <div className="min-w-0">{children}</div>
-      <div className="relative min-w-0 lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)]">
+      {/* The desktop pane is sticky under the 4rem header and ends where the consent bar begins. */}
+      <div className="relative min-w-0 lg:sticky lg:top-16 lg:h-[calc(100vh_-_4rem_-_var(--consent-inset,0px))]">
         {summaryAvailable && (
           <>
             {/* Launcher (closed) */}
             {!open && (
               <>
+                {/* "Source ⌘K" (P-06): a secondary control, panel fill and hairline, floating over
+                    the page with the e3 lift; the kbd hint reads at 9.3:1 on its cream key, never
+                    white on cream again. No sparkle: the pane is the source, not a chat feature. */}
                 <button
-                  ref={launcherRef}
+                  ref={launcherCallbackRef}
                   type="button"
-                  onClick={() => onOpenChange(true)}
-                  aria-haspopup="dialog"
+                  onFocus={launcherHandoff.onFocus}
+                  onPointerDown={launcherHandoff.onPointerDown}
+                  onClick={(e) => {
+                    launcherHandoff.onPress(e)
+                    onOpenChange(true)
+                  }}
+                  aria-haspopup={isMobile ? 'dialog' : undefined}
                   aria-expanded={false}
+                  aria-keyshortcuts="Meta+K Control+K"
                   style={LAUNCHER_OFFSET}
-                  className="fixed z-40 inline-flex items-center gap-2 rounded-full bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-                  aria-label="Ask this Filing"
+                  className="fixed z-40 inline-flex items-center gap-2 rounded-full border border-border-light bg-panel-light px-4 py-3 text-sm font-semibold text-text-primary-light shadow-e3 transition-colors duration-fast hover:bg-white focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5 dark:focus-visible:shadow-ring-brand-dark"
+                  aria-label="Source"
                 >
-                  <SparkleIcon className="h-4 w-4" />
-                  Ask this Filing
-                  <kbd className="ml-1 hidden rounded border border-border-light bg-background-light px-1.5 py-0.5 text-[10px] font-semibold leading-none sm:inline-block">
+                  <FileTextIcon className="h-4 w-4" aria-hidden="true" />
+                  Source
+                  <kbd className="ml-1 hidden rounded border border-border-light bg-background-light px-1.5 py-0.5 font-data text-xs font-medium leading-none text-text-secondary-light sm:inline-block dark:border-white/15 dark:bg-white/5 dark:text-text-secondary-dark">
                     ⌘K
                   </kbd>
                   {/* First-run "new" dot — static (the decorative ping ring was removed for
                       reduced-motion parity; the solid dot is the attention affordance). */}
                   {showAttention && (
-                    <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-white ring-2 ring-brand-strong dark:ring-brand-dark" />
+                    <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-brand ring-2 ring-panel-light dark:bg-brand-dark dark:ring-panel-dark" />
                   )}
                 </button>
                 {showAttention && (
                   <CopilotCoachmark
                     onTry={() => onOpenChange(true)}
+                    tryHandoff={tryHandoff}
                     onDismiss={dismissCoach}
                     style={COACHMARK_OFFSET}
                   />
@@ -226,36 +380,42 @@ export default function FilingWorkspace({
               />
             )}
 
-            {/* Mobile-only scrim behind the bottom-sheet (z-30 < shell's z-40). Tapping it closes
-                the sheet. `lg:hidden` keeps it out of the desktop static-pane layout entirely. */}
+            {/* Mobile-only scrim behind the bottom-sheet (z-scrim: above the consent bar, which it dims
+                and makes inert like any modal backdrop; below the shell's z-40). Tapping it closes the
+                sheet. `lg:hidden` keeps it out of the desktop static-pane layout entirely. */}
             {paneOpen && (
               <button
                 type="button"
                 aria-hidden="true"
                 tabIndex={-1}
                 onClick={handleClose}
-                className="lg:hidden fixed inset-0 z-30 bg-black/50"
+                className="lg:hidden fixed inset-0 z-scrim bg-overlay"
               />
             )}
 
             {/* Unified secondary-pane shell — always mounted (bodies persist across close/reopen),
-                but hidden + removed from the a11y tree when closed. */}
+                but hidden + removed from the a11y tree when closed. A dialog only where it is one
+                (the sheet below lg); an <aside> by role on lg+. */}
             <div
               ref={shellRef}
-              role="dialog"
-              aria-label="Ask this Filing"
+              role={isMobile ? 'dialog' : 'complementary'}
+              aria-label="Filing source and Ask"
               aria-modal={modalActive ? true : undefined}
               aria-hidden={!paneOpen}
               className={`${SHELL_CLASSES} ${paneOpen ? 'lg:border-l lg:border-border-light dark:lg:border-white/10' : 'hidden'}`}
             >
+              {/* The sheet's grab handle (decorative; the sheet closes by its button, scrim or Escape). */}
+              <div aria-hidden="true" className="flex justify-center pt-2 lg:hidden">
+                <span className="h-1 w-9 rounded-full bg-border-light dark:bg-white/20" />
+              </div>
               <SecondaryPaneTabs
                 activeView={activeView}
                 onSelectAnswer={() => viewer?.setActiveView('copilot')}
                 onSelectFiling={() => viewer?.openFiling()}
                 onClose={() => onOpenChange(false)}
-                openOriginal={activeView === 'filing' ? openOriginal : null}
+                sourceLabel={sourceLabel}
               />
-              <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex min-h-0 flex-1 flex-col" onClickCapture={markPanelActivation}>
                 <div
                   id={PANE_PANEL_IDS.copilot}
                   role="tabpanel"
@@ -271,6 +431,7 @@ export default function FilingWorkspace({
                   className={activeView === 'filing' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}
                 >
                   {filingBody}
+                  {openOriginal}
                 </div>
               </div>
             </div>

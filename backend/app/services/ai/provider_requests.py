@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from contextlib import contextmanager
 from contextvars import ContextVar
+from typing import Callable, Optional
 from dataclasses import dataclass, field
 from functools import wraps
 from urllib.parse import urlsplit
@@ -171,6 +172,33 @@ def fallback_client() -> AsyncOpenAI | None:
     return AsyncOpenAI(api_key=key, base_url=url, max_retries=0)
 
 
+# A one-shot provider-start signal, armed by a caller around the creation of the task that will
+# issue the request (``provider_start_signal``) and fired by the dispatcher immediately before the
+# first provider request leaves (``signal_provider_start``). It travels in the task's context, not
+# as a parameter: the summary entry points take filing inputs only, and the acceptance worker
+# records their keyword arguments as grounding. Nothing before the signal (admission, local parsing,
+# prompt assembly) has cost the provider anything, so a caller meters on it.
+_provider_start: ContextVar[Optional[Callable[[], None]]] = ContextVar("provider_start", default=None)
+
+
+@contextmanager
+def provider_start_signal(callback: Callable[[], None]):
+    """Arm ``callback`` for the task(s) created inside the block; each fires it at most once."""
+    token = _provider_start.set(callback)
+    try:
+        yield
+    finally:
+        _provider_start.reset(token)
+
+
+def signal_provider_start() -> None:
+    """Fire the armed signal once within the current context (a later call is a no-op)."""
+    callback = _provider_start.get()
+    if callback is not None:
+        _provider_start.set(None)
+        callback()
+
+
 async def close_stream(stream) -> None:
     closer = getattr(stream, "close", None) or getattr(stream, "aclose", None)
     if closer is not None:
@@ -256,6 +284,8 @@ class _ProviderRequestsMixin:
                             raise ValueError("Measured request lacks a valid reservation")
                         reservation = admitted
                         attempt_token = _meter_attempt.set(reservation)
+                    if not recovery:
+                        signal_provider_start()  # the metering signal: a provider request is about to leave
                     if streaming:
                         content = await self._stream_collect(
                             request, stream_cb, filing_type_key, xbrl_metrics, _client=client, _observation=observation,

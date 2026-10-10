@@ -2,7 +2,7 @@
 
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { SparkleIcon, XIcon } from '@/lib/icons'
 import {
@@ -23,6 +23,7 @@ import UpgradeModal from '@/features/subscriptions/components/UpgradeModal'
 import { analytics } from '@/lib/analytics'
 import { starterQuestions } from './starterQuestions'
 import { queryKeys } from '@/lib/queryKeys'
+import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
 
 // Below lg the standalone overlay is a modal bottom-sheet; at lg+ it docks as a static side pane.
 const MOBILE_MEDIA_QUERY = '(max-width: 1023.98px)'
@@ -50,13 +51,22 @@ interface AskCopilotRailProps {
 }
 
 // Open-panel container classes per layout variant. Mobile (bottom-sheet) is identical; they differ
-// only at lg+: overlay docks fixed on the right, pane fills the FilingWorkspace grid cell.
+// only at lg+: overlay docks fixed on the right, pane fills the FilingWorkspace grid cell. Both the
+// sheet and the docked overlay rest on the cookie-consent bar while it is mounted (bottom =
+// --consent-inset, lib/consentLayer) and the sheet gives up that height from its 80vh cap (EN-02).
 const PANEL_BASE =
-  'fixed inset-x-0 bottom-0 z-40 flex max-h-[80vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none'
+  'fixed inset-x-0 bottom-[var(--consent-inset,0px)] z-40 flex max-h-[calc(80vh_-_var(--consent-inset,0px))] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none'
 const PANEL_VARIANT: Record<'overlay' | 'pane', string> = {
   overlay:
-    'lg:inset-x-auto lg:bottom-0 lg:right-0 lg:top-16 lg:max-h-none lg:w-[420px] lg:rounded-none lg:border-y-0 lg:border-l',
+    'lg:inset-x-auto lg:right-0 lg:top-16 lg:max-h-none lg:w-[420px] lg:rounded-none lg:border-y-0 lg:border-l',
   pane: 'lg:static lg:inset-auto lg:z-auto lg:h-full lg:w-full lg:max-h-none lg:rounded-none lg:border-y-0 lg:border-l lg:shadow-none',
+}
+
+// Standalone launcher pinned bottom-RIGHT: clear of the home indicator and of the consent bar
+// (BOTTOM_CHROME_OFFSET adds the bar's height while it is mounted), like FilingWorkspace's.
+const LAUNCHER_OFFSET: CSSProperties = {
+  bottom: BOTTOM_CHROME_OFFSET,
+  right: 'max(1.25rem, env(safe-area-inset-right))',
 }
 
 // Number of prior turns sent back as `history` so the model has conversational context
@@ -110,7 +120,7 @@ export default function AskCopilotRail({
     controller?.abort()
     if (clearPending && controller) {
       const next = messagesRef.current.map((m): CopilotMessageData =>
-        m.role === 'assistant' && (m.status === 'reading' || m.status === 'streaming')
+        m.role === 'assistant' && m.status === 'reading'
           ? { ...m, content: '', citations: [], followups: [], grounded: undefined, kind: undefined,
               status: 'error', error: 'The question was cancelled. Please try again.' }
           : m,
@@ -248,6 +258,14 @@ export default function AskCopilotRail({
   }
 
   const runQuestion = (question: string, priorMessages: CopilotMessageData[]) => {
+    // A starter, a follow-up chip or Retry sits in the conversation and is replaced by the turn it
+    // starts, so the control a keyboard user just pressed unmounts and focus falls to <body>. Hand
+    // it to the composer first. Only keyboard focus (:focus-visible): moving a tap's focus into the
+    // textarea would raise the touch keyboard over the answer.
+    const active = document.activeElement
+    if (active instanceof HTMLElement && scrollRef.current?.contains(active) && active.matches(':focus-visible')) {
+      composerRef.current?.focus()
+    }
     lastQuestionRef.current = question
     // Build history from finalized turns only (user + completed assistant answers).
     const history: CopilotTurn[] = priorMessages
@@ -386,7 +404,7 @@ export default function AskCopilotRail({
               Ask anything about {subjectLabel}’s {filingType}. Answers are grounded in the filing and
               cite the excerpts they came from.
             </p>
-            <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">
+            <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">
               Try asking
             </p>
             <div className="flex flex-col gap-2">
@@ -420,8 +438,9 @@ export default function AskCopilotRail({
         )}
       </div>
 
-      {/* Composer — disabled while streaming, or once a FREE user has spent their taste. */}
-      <CopilotComposer ref={composerRef} onSubmit={handleSubmit} disabled={isStreaming || !canAsk} />
+      {/* Composer — Send locked (aria-disabled, still focusable) while streaming, or once a FREE
+          user has spent their taste. */}
+      <CopilotComposer ref={composerRef} onSubmit={handleSubmit} locked={isStreaming || !canAsk} />
 
       {/* Honest usage line. PRO: a calm monthly count. FREE: the lifetime taste balance, then a
           gentle upsell at exhaustion (the conversation above stays put). */}
@@ -485,7 +504,7 @@ export default function AskCopilotRail({
         onClick={() => onOpenChange(true)}
         aria-haspopup="dialog"
         aria-expanded={false}
-        style={{ bottom: 'max(1.25rem, env(safe-area-inset-bottom))', right: 'max(1.25rem, env(safe-area-inset-right))' }}
+        style={LAUNCHER_OFFSET}
         className="fixed z-40 inline-flex items-center gap-2 rounded-full bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
         aria-label="Ask this Filing"
       >
@@ -501,14 +520,15 @@ export default function AskCopilotRail({
   // --- Panel (open, standalone overlay) ---
   return (
     <>
-      {/* Mobile-only scrim behind the bottom-sheet (z-30 < panel's z-40). Tapping it closes the
-          sheet. `lg:hidden` keeps it out of the desktop docked/static layout entirely. */}
+      {/* Mobile-only scrim behind the bottom-sheet (z-scrim: above the consent bar, which it dims and
+          makes inert like any modal backdrop; below the panel's z-40). Tapping it closes the sheet.
+          `lg:hidden` keeps it out of the desktop docked/static layout entirely. */}
       <button
         type="button"
         aria-hidden="true"
         tabIndex={-1}
         onClick={handleClose}
-        className="lg:hidden fixed inset-0 z-30 bg-black/50"
+        className="lg:hidden fixed inset-0 z-scrim bg-overlay"
       />
       <div
         ref={panelRef}

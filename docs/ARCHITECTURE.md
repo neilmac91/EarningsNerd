@@ -35,6 +35,30 @@ reference is [`docs/CONFIGURATION.md`](./CONFIGURATION.md).
 
 ## How a summary is generated (the ONE orchestrator)
 
+### Durable after-response work
+
+With `DURABLE_TASKS_ENABLED`, on-visit filing refresh/history and timed-out coverage syncs hand
+identifier-only control messages to Cloud Tasks before claiming delivery. A private task-only
+Cloud Run service runs one delivery at a time. Its `task_worker_main:app` entrypoint verifies
+Google-signed OIDC audience and the dedicated service-account email; queue headers grant no access.
+It executes existing services in a fresh Python child, killing and reaping that process at 480
+seconds or on cancellation. Task acknowledgement follows successful persistence, before the
+540-second dispatch and 600-second service deadlines. This bounds native threads as well as async
+work. An application guard admits only one native child per worker process and rejects overlapping
+delivery promptly for retry, holding that permit through kill/reap. [HTTP/1.1 client disconnects do
+not reach Cloud Run containers](https://docs.cloud.google.com/run/docs/troubleshooting#client_disconnect_does_not_propagate_to_cloud_run); cleanup guarantees cover the work deadline or handler cancellation,
+not all transport loss. At-least-once delivery can still repeat completed work, so existing
+cache/upsert and notification ownership remain necessary. The parent opens no SQL pool or startup
+schema path. Existing scheduled jobs remain primary
+for fleet work; manual HTTP cohorts fan out at most 50 identifiers/pairs with stable retry names.
+Forced paid precompute is rejected in durable mode because it cannot be safely replayed.
+
+The API keeps its warm instance. Coverage retains its 20-second fast path and `syncing` polling;
+the local attempt is cancelled/drained before durable handoff. Summary generation retains its
+single pipeline and SSE contract. Its synchronous workers are owned and drained before releasing
+generation leadership. A valid cached excerpt no longer launches a redundant document download.
+
+
 There is a single generation pipeline — `app/services/summary_pipeline.py`
 (`stream_filing_summary`, a transport-agnostic async generator yielding plain event dicts).
 Every consumer drains it:
@@ -53,11 +77,34 @@ stream_filing_summary(filing_id, ...)
   a. Fetch filing text from SEC EDGAR   (24h FilingContentCache short-circuit)
   b. Extract XBRL financials in parallel (edgar/xbrl_service, accession-aware)
   c. Extract critical sections from the filing text
-  d. Summarize with the AI model         (in-stage timeout → deterministic XBRL fallback)
-  e. Quality verdict via assess_quality  (9-section taxonomy, 4/9 bar, XBRL grounding)
-  f. Persist Summary + FilingContentCache; increment usage (full results only)
+  d. Summarize with the AI model; the admission lease is counted as one usage unit when the
+                                         request dispatcher signals the first provider request
+                                         (in-stage timeout → deterministic XBRL fallback)
+  e. Quality verdict via assess_quality  (9-section taxonomy, 4/9 bar, XBRL grounding);
+                                         a partial verdict refunds the unit
+  f. Persist Summary + FilingContentCache (settles the unit; a provider-side failure before
+                                         this refunds it, a client disconnect never does;
+                                         lease-less callers — the background drain, uncapped
+                                         Pro — count full results here instead)
   → events: progress → chunk → (partial|complete) | error
 ```
+
+The generator itself is a short stage map (`_stage_sequence()` in `summary_pipeline.py`) over
+`app/services/summary_stages/`, one shared `GenerationRun` per generation:
+
+| stage module | owns |
+|---|---|
+| `generation_run.py` | the run state (timings, lease/charge, owned tasks, filing snapshot) and the former closures: `run_sync_db`, `settle_charge`, `refund_charge`, `begin_charge`/`charge_lease` (metering at provider start), `release()` (the `finally`) |
+| `admission.py` | `load_filing` (snapshot + existing-summary short-circuit), `join_or_lead` (A3 in-flight dedup), `admit` (24h cache validity, usage/fair-use gate, generation slot) |
+| `fetch.py` | `fetch_document` (starts the XBRL/section tasks; cached text, 6-K exhibits, or the SEC fetch with heartbeats) |
+| `enrichment.py` | `start_enrichment_tasks`, `parse_and_enrich` (progress, excerpt, bounded join) |
+| `generation.py` | `generate` (provider task under the metering signal, heartbeats/previews, 75s fallback, error payload) |
+| `finalize.py` | `finalize` (projection, quality verdict + measurement logs, persist, usage, telemetry, terminal events) |
+| `failure.py` | `timed_out`, `failed` (the two `except` bodies) |
+
+The stage modules reach every collaborator as `summary_pipeline.<name>` at call time (the patch
+seams the tests rely on); `tests/unit/test_summary_stages_seams.py` gates that, the terminal-event
+protocol and the orchestrator's length.
 
 Product invariant: summaries are **filing-only** — no content from outside the chosen
 filing (including prior filings) enters user-visible output. Cross-filing insight lives in
@@ -111,7 +158,7 @@ frontend/
 
 | Service | Purpose |
 |---|---|
-| `summary_pipeline.py` | THE summary orchestrator (see above) |
+| `summary_pipeline.py` + `summary_stages/` | THE summary orchestrator (see above): the stage map, its stages and the patch seams the tests rely on |
 | `summary_generation_service.py` | Headless drain for batch callers + quality verdict helpers (`assess_quality`, `calculate_section_coverage`) |
 | `openai_service.py` | Façade over `app/services/ai/*` — orchestration core (`summarize_filing`, `generate_structured_summary`) stays here |
 | `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` |
@@ -208,7 +255,10 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
 - **Feature flags** in `lib/featureFlags.ts`; error boundaries: `GlobalErrorBoundary`
   (Sentry) + `ChartErrorBoundary`; chrome: `CompanyLogo` (Logo.dev + monogram fallback),
   `CookieConsent`, Header/Footer/Theme*.
-- Design system: `frontend/DESIGN_SYSTEM.md` is canonical and MANDATORY before UI work.
+- Design system: read [`DESIGN.md`](../DESIGN.md) (portable visual reference) and then
+  [`frontend/DESIGN_SYSTEM.md`](../frontend/DESIGN_SYSTEM.md) (implementation conventions and
+  verification gates) before UI work. Token definitions and component code take precedence over
+  both; maintenance rules are in [CLAUDE.md](../CLAUDE.md#design-documentation).
 
 ## Data model
 
@@ -302,11 +352,15 @@ unused since generation became account-required in #619; kept because migrations
 
 - `FilingContentCache.markdown_*` columns are inert legacy (dropping needs a destructive
   migration).
-- Recorded follow-ups from the 2026-07 refactor (see `tasks/architecture-refactor-plan.md`
-  delta log): unify the two companyfacts fetchers on the async+limiter pattern; the
-  concept-list registries stay deliberately separate (orderings encode tag priority);
-  `_parse_company_facts` never populates its `total_liabilities`/`cash_and_equivalents`
-  buckets (pinned as characterization, fix pending).
+- Recorded follow-up from the 2026-07 refactor (see `tasks/architecture-refactor-plan.md`
+  delta log): the three concept-list registries (`facts_service`, `edgar/xbrl_service`,
+  `edgar/instance_extractor`) stay deliberately separate, because their orderings encode tag
+  priority; unifying them would change which tag wins. The other two follow-ups on that list are
+  done: both companyfacts fetchers run on the shared SEC limiter (WS-8, 2026-09-04, made
+  `facts_service`'s sync fetcher a bridge onto the rate-limited async one; the `xbrl_service`
+  fallback was already limiter-wired), and `_parse_company_facts` has filled its
+  `total_liabilities`/`cash_and_equivalents` buckets since 2026-09-05, pinned by
+  `backend/tests/unit/test_companyfacts_fixture.py`.
 
 ## Decision records
 
@@ -315,12 +369,16 @@ The significant, hard-to-reverse decisions — and their trade-offs — are ADRs
 (Gemini, then DeepSeek — ADR-0002/0006), `edgartools` for SEC data, Redis-off-in-prod,
 and staying on React 18 under Next 16.
 
-Monthly usage counter writes preserve existing first-row history and completion billing rules.
-Existing buckets skip the parent User lock; first-month creation can contend with Stripe account
-work, subject to `USAGE_COUNTER_LOCK_TIMEOUT_MS`. SQL increments prevent stale-session lost
-updates for successfully committed calls. All old service and job writers must drain before the
-first-use protocol holds fleet-wide. This does not reserve admission, repair historical duplicate
-buckets or make best-effort completion metering strict billing accounting.
+Monthly usage counter writes preserve existing first-row history. A metered summary or Copilot
+generation is counted as its provider call starts (summaries and Copilot alike: on the request
+dispatcher's provider-start signal, fired at the request site, the admission lease converted in
+the increment's commit); a provider-side failure or a partial-quality verdict refunds the unit through
+the same SQL-arithmetic protocol (floor 0), and a client disconnect after the provider started
+does not. Existing buckets skip the parent User lock; first-month creation can contend with
+Stripe account work, subject to `USAGE_COUNTER_LOCK_TIMEOUT_MS`. SQL increments prevent
+stale-session lost updates for successfully committed calls. All old service and job writers must
+drain before the first-use protocol holds fleet-wide. This does not repair historical duplicate
+buckets or make best-effort metering strict billing accounting.
 
 Failed-login recording uses the existing `login_attempts.email_hash` primary key for concurrent
 insert/update and successful-clear ordering on PostgreSQL and SQLite. A failure waiting behind

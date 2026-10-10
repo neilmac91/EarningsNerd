@@ -1,23 +1,53 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CircleNotchIcon, WarningCircleIcon, XIcon } from '@/lib/icons'
+import { CheckCircleIcon, WarningCircleIcon } from '@/lib/icons'
+import {
+  Button,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  Notice,
+  cx,
+  secondaryUnavailableClass,
+} from '@/components/ui'
 import { getCurrentUserSafe, resendVerification } from '@/features/auth/api/auth-api'
 import { EMAIL_VERIFICATION_REQUIRED_EVENT } from '@/lib/api/client'
+import { getErrorStatus } from '@/lib/api/types'
 import { queryKeys } from '@/lib/queryKeys'
+
+/** Resend's lifecycle within one prompt. `sent` and `limited` (a 429) leave Resend unavailable as a
+    result of its own press, so it stays focusable: aria-disabled plus handleResend's early return,
+    never native `disabled`. Chromium blurs a focused control that turns disabled, which dropped
+    keyboard focus to <body> inside the open dialog. lessons/frontend-busy-controls-stay-focusable.md (e) */
+type ResendState = {
+  phase: 'idle' | 'sending' | 'sent' | 'failed' | 'limited'
+  /** The last failure, kept through the next send so the panel does not shrink under the pointer: the
+      centred dialog would move "I've verified" (or the scrim) under a quick second tap on Resend. `n`
+      keys its Notice, so each new failure re-mounts its role="alert" and is announced again. */
+  failure: { message: string; n: number } | null
+}
+
+const IDLE: ResendState = { phase: 'idle', failure: null }
+const RESEND_FAILED = 'Please try again in a moment.'
+// A 429 may come from the per-address cap or the shared per-IP one, so the copy fits both.
+const RESEND_LIMITED = "We can't send another link right now. Use the newest link in your inbox, or try again later."
 
 /**
  * Global, graceful intercept of the backend's "verify your email" 403. The axios
  * interceptor dispatches EMAIL_VERIFICATION_REQUIRED_EVENT when an unverified user
  * hits a gated action (generate / checkout); this modal turns that into a friendly
  * resend prompt instead of a raw error toast.
+ *
+ * v3 (DS-04): composed on ui/Modal — the focus trap, Escape, focus return, scroll lock
+ * and the overlay / z-modal tokens come from the primitive; actions are <Button>s.
  */
 export default function EmailVerificationModal() {
   const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [resent, setResent] = useState(false)
+  const [resend, setResend] = useState<ResendState>(IDLE)
   const router = useRouter()
   const queryClient = useQueryClient()
 
@@ -28,36 +58,45 @@ export default function EmailVerificationModal() {
     staleTime: 60_000,
   })
 
+  // Whether the dialog is showing, readable from the event handler without re-subscribing.
+  const openRef = useRef(false)
+  useEffect(() => {
+    openRef.current = open
+  }, [open])
+
   useEffect(() => {
     const handler = () => {
-      setResent(false)
+      // A new prompt starts fresh. Another gated 403 while this one is open is the same prompt: it
+      // must not re-arm a just-sent Resend, whose next press would replace the fresh link. Nor does a
+      // prompt reset a send still in flight, which would re-arm Resend under the live request.
+      if (!openRef.current) setResend((r) => (r.phase === 'sending' ? r : IDLE))
+      openRef.current = true
       setOpen(true)
     }
     window.addEventListener(EMAIL_VERIFICATION_REQUIRED_EVENT, handler)
     return () => window.removeEventListener(EMAIL_VERIFICATION_REQUIRED_EVENT, handler)
   }, [])
 
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open])
+  const close = () => setOpen(false)
 
-  if (!open) return null
+  const sending = resend.phase === 'sending'
+  const unavailable = resend.phase === 'sent' || resend.phase === 'limited'
 
   const handleResend = async () => {
-    if (!user?.email || loading || resent) return
-    setLoading(true)
+    if (!user?.email || sending || unavailable) return
+    setResend((r) => ({ phase: 'sending', failure: r.failure }))
     try {
       await resendVerification(user.email)
-      setResent(true)
-    } catch {
-      // best-effort
-    } finally {
-      setLoading(false)
+      setResend({ phase: 'sent', failure: null })
+    } catch (err) {
+      // A 429 is the server's cap (3/hr per address, 20/hr per IP). The route charges the per-IP
+      // bucket before the per-address check rejects, so a live button would let each further press
+      // spend the shared IP allowance for nothing: Resend turns unavailable for this prompt.
+      const limited = getErrorStatus(err) === 429
+      setResend((r) => ({
+        phase: limited ? 'limited' : 'failed',
+        failure: { message: limited ? RESEND_LIMITED : RESEND_FAILED, n: (r.failure?.n ?? 0) + 1 },
+      }))
     }
   }
 
@@ -69,76 +108,55 @@ export default function EmailVerificationModal() {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="verify-modal-title"
-      onClick={() => setOpen(false)}
-    >
-      <div
-        className="w-full max-w-md rounded-2xl border border-border-light bg-panel-light p-6 shadow-e4 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-warning-dark/15">
-            <WarningCircleIcon className="h-5 w-5 text-warning-light dark:text-warning-dark" />
-          </div>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="Close"
-            className="rounded p-1 text-text-tertiary-light transition-colors hover:bg-black/5 dark:text-text-secondary-dark dark:hover:bg-white/5"
-          >
-            <XIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        <h2
-          id="verify-modal-title"
-          className="mt-4 text-lg font-semibold text-text-primary-light dark:text-text-primary-dark"
-        >
-          Verify your email to continue
-        </h2>
-        <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          {resent ? (
-            <>
-              We sent a fresh link to{' '}
-              <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
-                {user?.email}
-              </span>
-              . Click it, then come back and refresh.
-            </>
-          ) : (
-            <>
-              Generating summaries and subscribing require a verified email. We sent a link to{' '}
-              <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
-                {user?.email}
-              </span>
-              .
-            </>
-          )}
+    <Modal open={open} onClose={close} labelledBy="verify-modal-title" size="md">
+      <ModalHeader id="verify-modal-title" onClose={close} icon={<WarningCircleIcon className="h-5 w-5" />} tone="warning">
+        Verify your email to continue
+      </ModalHeader>
+      <ModalBody>
+        <p className="text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
+          Generating summaries and subscribing require a verified email. We sent a link to{' '}
+          <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
+            {user?.email ?? 'your email address'}
+          </span>
+          .
         </p>
-
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-          <button
-            type="button"
-            onClick={handleResend}
-            disabled={loading || resent}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-border-light bg-transparent px-4 py-2.5 text-sm font-medium text-text-primary-light transition hover:bg-black/5 disabled:opacity-50 dark:border-border-dark dark:text-text-primary-dark dark:hover:bg-white/5"
-          >
-            {loading && <CircleNotchIcon className="h-4 w-4 animate-spin" />}
-            {resent ? 'Link sent' : 'Resend link'}
-          </button>
-          <button
-            type="button"
-            onClick={handleRefresh}
-            className="flex-1 rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark px-4 py-2.5 text-sm font-semibold transition active:scale-[0.99]"
-          >
-            I&apos;ve verified
-          </button>
+        {/* A polite live region, mounted and empty from the moment the dialog opens: the sent line is
+            announced when it appears, and nothing else in it ever changes. */}
+        <div role="status">
+          {resend.phase === 'sent' ? (
+            <p className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
+              <CheckCircleIcon aria-hidden="true" className="mt-0.5 h-4 w-4 flex-shrink-0 text-success-light dark:text-success-dark" />
+              <span>
+                New link sent. Only the newest link works. Not there in a minute or two? Check your spam folder.
+              </span>
+            </p>
+          ) : null}
         </div>
-      </div>
-    </div>
+        {resend.failure ? (
+          <Notice
+            key={resend.failure.n}
+            variant="error"
+            title="Couldn't send a new link"
+            description={resend.failure.message}
+            className="mt-4"
+          />
+        ) : null}
+      </ModalBody>
+      <ModalFooter>
+        <Button
+          variant="secondary"
+          onClick={handleResend}
+          loading={sending}
+          loadingText="Sending…"
+          aria-disabled={unavailable || sending || undefined}
+          className={cx('w-full sm:w-auto', unavailable && secondaryUnavailableClass)}
+        >
+          {resend.phase === 'sent' ? 'Link sent' : 'Resend link'}
+        </Button>
+        <Button onClick={handleRefresh} className="w-full sm:w-auto">
+          I&apos;ve verified
+        </Button>
+      </ModalFooter>
+    </Modal>
   )
 }

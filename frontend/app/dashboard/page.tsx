@@ -8,8 +8,8 @@ import { getUsage, getSubscriptionStatus, createPortalSession } from '@/features
 import { getSavedSummaries, deleteSavedSummary, SavedSummary } from '@/features/summaries/api/summaries-api'
 import { getWatchlistInsights } from '@/features/watchlist/api/watchlist-api'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
-import { CheckCircleIcon, CircleNotchIcon, LightningIcon, TrashIcon, WarningCircleIcon } from '@/lib/icons'
+import { useEffect, useRef } from 'react'
+import { CheckCircleIcon, LightningIcon, TrashIcon, WarningCircleIcon } from '@/lib/icons'
 import Link from 'next/link'
 import { formatLocalDate } from '@/lib/format'
 import { toast } from 'sonner'
@@ -21,32 +21,46 @@ import EarningsCalendar from '@/features/dashboard/components/EarningsCalendar'
 import YourCompanies from '@/features/dashboard/components/YourCompanies'
 import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import analytics from '@/lib/analytics'
-import { Badge, Button, buttonVariants, Card, GuidanceCard } from '@/components/ui'
+import { Badge, Button, buttonVariants, Card, GuidanceCard, SkeletonStat, SkeletonText } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { untilPageReturns } from '@/lib/untilPageReturns'
 
 export default function DashboardPage() {
   const router = useRouter()
 
-  const { data: user, isLoading: userLoading, isError: userError, error: userErrorData, refetch: refetchUser, isFetching: userFetching } = useQuery({
+  const userQuery = useQuery({
     queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
   })
+  // isPending, not isLoading: a first load paused offline is still loading the page, not a blank one.
+  const { data: user, isPending: userPending } = userQuery
 
-  const { data: usage, isLoading: usageLoading, isError: usageError, refetch: refetchUsage, isFetching: usageFetching } = useQuery({
+  const usageQuery = useQuery({
     queryKey: queryKeys.usage.byUser(user?.id),
     queryFn: getUsage,
     retry: false,
     enabled: !!user,
   })
+  const { data: usage, isLoading: usageLoading } = usageQuery
 
-  const { data: subscription, isLoading: subscriptionLoading, isError: subscriptionError, refetch: refetchSubscription, isFetching: subscriptionFetching } = useQuery({
+  const subscriptionQuery = useQuery({
     queryKey: queryKeys.subscription.byUser(user?.id),
     queryFn: getSubscriptionStatus,
     retry: false,
     enabled: !!user,
   })
+  const { data: subscription, isLoading: subscriptionLoading } = subscriptionQuery
+
+  // A failure keeps the error card or plan strip (and a focused Retry in it) mounted through any refetch
+  // until data replaces it. Read raw, the errored query, which has no data, goes back to pending, isLoading
+  // turns true, and the page-wide skeleton replaces the button.
+  const userFailure = useRetainedFailure(userQuery, queryKeys.currentUser())
+  const usageFailure = useRetainedFailure(usageQuery, queryKeys.usage.byUser(user?.id))
+  const subscriptionFailure = useRetainedFailure(subscriptionQuery, queryKeys.subscription.byUser(user?.id))
+  const planFailed = usageFailure.failed || subscriptionFailure.failed
 
   const { data: savedSummaries, isError: savedError } = useQuery({
     queryKey: queryKeys.savedSummaries(),
@@ -55,35 +69,55 @@ export default function DashboardPage() {
     enabled: !!user,
   })
 
-  const { data: watchlistInsights, isLoading: insightsLoading, isError: insightsError, refetch: refetchInsights, isFetching: insightsFetching } = useQuery({
+  const insightsQuery = useQuery({
     queryKey: queryKeys.watchlistInsights(),
     queryFn: getWatchlistInsights,
     retry: false,
     enabled: !!user,
   })
+  const { data: watchlistInsights, isLoading: insightsLoading } = insightsQuery
+  // Your companies' Retry, as the two above: its skeleton branch would otherwise replace the error card.
+  const insightsFailure = useRetainedFailure(insightsQuery, queryKeys.watchlistInsights())
 
   const queryClient = useQueryClient()
 
+  // Focus targets for controls that unmount while they hold focus: a Retry (RetryButton hands off) and
+  // a deleted row's Delete (the effect below, only when focus fell to <body>).
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const savedHeadingRef = useRef<HTMLHeadingElement>(null)
+  const planHeadingRef = useRef<HTMLHeadingElement>(null)
+  const deletedId = useRef<number | null>(null)
+
   const deleteSummaryMutation = useMutation({
     mutationFn: deleteSavedSummary,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.savedSummaries() })
+    onSuccess: (_data, id) => {
+      deletedId.current = id
       toast.success('Saved summary removed')
+      // Drop the row from the cache now, so it and its focused Delete go with the DELETE itself.
+      // Waiting for the refetch instead is not enough: a refetch that fails resolves the
+      // invalidation anyway and leaves the deleted row's Delete live, where a second Enter would
+      // DELETE it again. The refetch then only confirms the list.
+      queryClient.setQueryData<SavedSummary[]>(queryKeys.savedSummaries(), (items) => items?.filter((item) => item.id !== id))
+      void queryClient.invalidateQueries({ queryKey: queryKeys.savedSummaries() })
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Couldn't delete that summary. Please try again.")
     },
   })
+  const pendingDeleteId = deleteSummaryMutation.isPending ? deleteSummaryMutation.variables : null
 
   const portalMutation = useMutation({
     mutationFn: createPortalSession,
     onSuccess: (data) => {
-      if (data.url) {
-        window.location.href = data.url
-      } else {
+      if (!data.url) {
         // 200 with no URL means the billing portal couldn't be created — don't leave a dead click.
         toast.error('Could not open the billing portal. Please try again.')
+        return
       }
+      window.location.href = data.url
+      // Pending while the page leaves for Stripe, as BillingPanel's Manage billing: the button keeps
+      // focus, and released any sooner a second Enter would open a second portal session.
+      return untilPageReturns()
     },
     onError: (error) => {
       // Surfaces the backend detail (e.g. "No subscription found") instead of failing silently.
@@ -101,11 +135,20 @@ export default function DashboardPage() {
   })
 
   useEffect(() => {
-    // Redirect to login if not authenticated
-    if (!userLoading && !user && !userError) {
-      router.push('/login')
-    }
-  }, [user, userLoading, userError, router])
+    // Only a confirmed guest (a 401 resolves to null, and logout resets the user to null). An unresolved
+    // user (a fetch paused offline, a failure) is not logged out.
+    if (user === null) router.push('/login')
+  }, [user, router])
+
+  // A successful delete drops its row once saved summaries refetch. Land on the section heading, or
+  // on the next section's when the last summary went and the section with it.
+  useEffect(() => {
+    const id = deletedId.current
+    if (id === null || savedSummaries?.some((item) => item.id === id)) return
+    deletedId.current = null
+    if (document.activeElement !== document.body) return
+    ;(savedHeadingRef.current ?? planHeadingRef.current)?.focus({ preventScroll: true })
+  }, [savedSummaries])
 
   useEffect(() => {
     if (user?.id) {
@@ -116,27 +159,70 @@ export default function DashboardPage() {
     }
   }, [user])
 
-  if (userLoading || usageLoading || subscriptionLoading) {
+  // One header for the skeleton and the loaded page. Usage and subscription only start once the user
+  // resolves, so by the time the grid replaces the bones the header already carries the real name and
+  // the Log out action, and the grid lands without a shift. The name arriving on a cold load moves
+  // nothing either: SecondaryHeader's subtitle never sizes the header row.
+  const header = (
+    <SecondaryHeader
+      titleRef={titleRef}
+      title="Dashboard"
+      subtitle={user ? `Welcome back, ${user.full_name || user.email}` : 'Welcome back'}
+      backHref="/"
+      backLabel="Back to home"
+      actions={
+        <button
+          type="button"
+          onClick={() => logoutMutation.mutate()}
+          className="rounded-lg text-sm font-medium text-text-secondary-light hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark"
+        >
+          Log out
+        </button>
+      }
+    />
+  )
+
+  if (
+    (userPending && !userFailure.failed) ||
+    (usageLoading && !usageFailure.failed) ||
+    (subscriptionLoading && !subscriptionFailure.failed)
+  ) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
-        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+      <div className="min-h-screen bg-background-light dark:bg-background-dark">
+        {/* The loaded page's own header, so the bones below sit where the grid lands. */}
+        {header}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          {/* Layout-preserving bones on the loaded grid's own tracks (grid-cols-1 = minmax(0, 1fr)), so they
+              hand off without a reflow. SkeletonText/Stat own role="status" — no wrapper role. */}
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+            <div className="space-y-8 lg:col-span-2">
+              <Card className="p-5"><SkeletonText lines={2} /></Card>
+              <Card className="p-5"><SkeletonText lines={4} /></Card>
+              <Card className="p-5"><SkeletonText lines={4} /></Card>
+            </div>
+            <div className="space-y-8">
+              <Card className="p-5"><SkeletonStat /></Card>
+              <Card className="p-5"><SkeletonText lines={3} /></Card>
+            </div>
+          </div>
+        </main>
       </div>
     )
   }
 
-  if (userError) {
+  if (userFailure.failed) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark px-4">
         <div className="max-w-md w-full">
           <GuidanceCard
             variant="error"
             title="Unable to load your dashboard"
-            description={userErrorData instanceof Error ? userErrorData.message : 'Please try again in a moment.'}
+            description={userFailure.error instanceof Error ? userFailure.error.message : 'Please try again in a moment.'}
             action={
               <>
-                <Button variant="secondary" onClick={() => refetchUser()} loading={userFetching} loadingText="Retrying…">
+                <RetryButton failures={[userFailure]} focusTarget={titleRef}>
                   Retry
-                </Button>
+                </RetryButton>
                 <Link href="/login" className={buttonVariants({ variant: 'primary' })}>
                   Go to login
                 </Link>
@@ -158,26 +244,13 @@ export default function DashboardPage() {
   // Key the warning off the usage query (which also drives usagePercentage), NOT subscription, so a
   // transient subscription-API error can't flip it: a Pro user reads usage.is_pro (never warned) and
   // a free user near the cap still gets warned even if the subscription call flaked.
-  const showUsageWarning = usagePercentage >= 80 && !usage?.is_pro && !usageError
+  const showUsageWarning = usagePercentage >= 80 && !usage?.is_pro && !usageFailure.failed
   const hasSavedSummaries = Boolean(savedSummaries && savedSummaries.length > 0)
   const watchlistCount = watchlistInsights?.length
 
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
-      <SecondaryHeader
-        title="Dashboard"
-        subtitle={`Welcome back, ${user.full_name || user.email}`}
-        backHref="/"
-        backLabel="Back to home"
-        actions={
-          <button
-            onClick={() => logoutMutation.mutate()}
-            className="text-sm font-medium text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
-          >
-            Log out
-          </button>
-        }
-      />
+      {header}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
@@ -224,10 +297,8 @@ export default function DashboardPage() {
 
             <YourCompanies
               insights={watchlistInsights}
-              isLoading={insightsLoading}
-              isError={insightsError}
-              refetch={refetchInsights}
-              isFetching={insightsFetching}
+              isLoading={insightsLoading && !insightsFailure.failed}
+              failure={insightsFailure}
             />
           </div>
 
@@ -238,7 +309,13 @@ export default function DashboardPage() {
             {/* Saved summaries render only when the user has any (the empty block is gone). */}
             {hasSavedSummaries ? (
               <section>
-                <h2 className="mb-4 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Saved summaries</h2>
+                <h2
+                  ref={savedHeadingRef}
+                  tabIndex={-1}
+                  className="mb-4 text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+                >
+                  Saved summaries
+                </h2>
                 <div className="space-y-3">
                   {savedSummaries!.map((item: SavedSummary) => (
                     <Card key={item.id} className="p-4">
@@ -259,9 +336,18 @@ export default function DashboardPage() {
                             </p>
                           )}
                         </div>
+                        {/* aria-disabled + aria-busy + an early return while a delete is in flight, not
+                            native `disabled`: Chromium blurs a focused button that turns disabled. Busy fades
+                            the glyph's ink, not the element: an element opacity would fade the focus ring too
+                            (DESIGN_SYSTEM §4). */}
                         <button
-                          onClick={() => deleteSummaryMutation.mutate(item.id)}
-                          className="text-error-light hover:bg-error-light/10 inline-flex min-h-11 min-w-11 items-center justify-center p-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-error dark:text-error-dark dark:hover:bg-error-dark/15"
+                          onClick={() => {
+                            if (deleteSummaryMutation.isPending) return
+                            deleteSummaryMutation.mutate(item.id)
+                          }}
+                          aria-disabled={deleteSummaryMutation.isPending || undefined}
+                          aria-busy={pendingDeleteId === item.id || undefined}
+                          className="text-error-light hover:bg-error-light/10 inline-flex min-h-11 min-w-11 items-center justify-center p-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-error aria-disabled:text-error-light/50 dark:text-error-dark dark:hover:bg-error-dark/15 dark:aria-disabled:text-error-dark/50"
                           title="Delete"
                           aria-label={`Delete summary for ${formatCompanyName(item.company.name)}`}
                         >
@@ -286,7 +372,13 @@ export default function DashboardPage() {
             {/* Plan and usage — a single compact strip. The ≥80% warning is surfaced at the top. */}
             <Card className="p-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Plan and usage</h2>
+                <h2
+                  ref={planHeadingRef}
+                  tabIndex={-1}
+                  className="text-sm font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+                >
+                  Plan and usage
+                </h2>
                 {subscription?.is_pro ? (
                   <Badge variant="brand" icon={<LightningIcon className="h-4 w-4" />}>Pro</Badge>
                 ) : (
@@ -294,24 +386,15 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {subscriptionError || usageError ? (
+              {planFailed ? (
                 <div role="alert" className="mt-3 space-y-2">
                   <p className="flex items-center gap-2 text-sm font-medium text-error-light dark:text-error-dark">
                     <WarningCircleIcon className="h-4 w-4 flex-shrink-0" />
                     Unable to load plan details
                   </p>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      refetchUsage()
-                      refetchSubscription()
-                    }}
-                    loading={usageFetching || subscriptionFetching}
-                    loadingText="Retrying…"
-                  >
+                  <RetryButton size="sm" failures={[usageFailure, subscriptionFailure]} focusTarget={planHeadingRef}>
                     Retry
-                  </Button>
+                  </RetryButton>
                 </div>
               ) : subscription?.is_pro ? (
                 <div className="mt-3 space-y-3">

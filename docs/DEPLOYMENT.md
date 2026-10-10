@@ -20,7 +20,7 @@ EarningsNerd runs on two platforms:
 The `deploy-backend` job in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) deploys automatically when:
 
 - the push is to `main`, **and**
-- `backend/` changed, **and**
+- `backend/` changed outside `backend/tests/`, **and**
 - all test jobs (`backend-tests`, `migrations-postgres`, `frontend-tests`, `e2e-tests`) passed.
 
 It builds `backend/Dockerfile`, pushes to Artifact Registry
@@ -43,18 +43,83 @@ not provisioned by CI. It then health-checks `https://api.earningsnerd.io/health
 default. Auth is keyless via Workload Identity Federation (repo variables `GCP_WIF_PROVIDER` +
 `GCP_DEPLOYER_SA`).
 
-> **Only a push to `main` that touches `backend/` deploys.** `workflow_dispatch` runs tests only,
-> and a cancelled/failed deploy is not retried automatically — the next backend-touching merge
-> is the lever. Check the `deploy-backend` job's conclusion after every backend merge.
+> **Only a push to `main` that touches `backend/` outside `backend/tests/` deploys.** Changes confined to
+> `backend/tests/` still run all CI gates (the exclusion is that path prefix only); `backend/.dockerignore`
+> excludes `tests/` from the image.
+> `workflow_dispatch` runs tests only, and a cancelled/failed deploy is not retried automatically —
+> the next merge touching deployable backend files is the lever. Check the `deploy-backend` job's
+> conclusion after every such merge.
 
 **Nothing manual is required for routine releases** — merge to `main` and the pipeline ships it.
+
+### Docker build caching
+
+Backend releases build with Docker Buildx and reuse dependency layers through a scoped GitHub
+Actions v2 cache. Registry authentication, the seven-character commit tag and `latest` tag are
+unchanged. Cache export failure does not block a successful image push; imports and exports each
+have a five-minute timeout. The first build or an evicted cache builds normally. This uses the
+repository's GitHub cache quota; it does not remove older Artifact Registry images.
+
+### Durable background delivery rollout
+
+The default remains `DURABLE_TASKS_ENABLED=false` and CPU always allocated. Keep one warm API
+instance and 1 GiB; do not reduce either as part of this rollout. Provision a dedicated Cloud Tasks
+queue in us-west1 with one concurrent dispatch, 0.2 dispatches/second, five attempts,
+`max-retry-duration=0s` and 30–900 second backoff. The finite attempt count controls retry exposure;
+a positive duration would allow retries past five until both conditions are satisfied
+([Google retry semantics](https://docs.cloud.google.com/tasks/docs/configuring-queues#retry)).
+Enable the Cloud Tasks API; create a dedicated task
+identity. Grant the API runtime `roles/cloudtasks.enqueuer` on that queue and
+`roles/iam.serviceAccountUser` on the task identity, and the task identity `roles/run.invoker` only
+on the private worker. Grant the Cloud Tasks primary service agent
+`service-PROJECT_NUMBER@gcp-sa-cloudtasks.iam.gserviceaccount.com`
+`roles/iam.serviceAccountUser` on that task identity as required by Google's
+[authenticated HTTP task setup](https://docs.cloud.google.com/tasks/docs/creating-http-target-tasks).
+IAM changes require the founder's specific approval.
+
+Bootstrap `earningsnerd-task-worker` using a verified image built from this migration; an older
+live image does not contain the worker entrypoint. Set ingress to `all` so Cloud Tasks can reach
+it, enforce IAM authentication, and grant neither `allUsers` nor `allAuthenticatedUsers` access.
+Use minimum zero, maximum one, concurrency one, 1 CPU, 2 GiB and request-based CPU.
+Override the image command to `uvicorn` with args
+`task_worker_main:app,--host,0.0.0.0,--port,8080,--proxy-headers,--forwarded-allow-ips=*`.
+Do not launch it through `main:app`: the API's HTTP middleware deadline is shorter than task work.
+The parent imports no database engine; its isolated child uses `DB_POOL_SIZE=3`,
+`DB_MAX_OVERFLOW=0`, and the existing Cloud SQL socket. Budget three additional connections.
+Use the existing runtime identity and Secret Manager references needed for SQL, SEC, AI and email;
+do not copy secret values into commands, tasks, source or logs. Match current generation flags.
+Set `TASKS_WORKER_PROCESS=true`, `DURABLE_TASKS_ENABLED=true`, and the complete `TASKS_*` queue,
+worker-origin and identity settings on the worker, plus `SEC_RATE_LIMIT_PER_SECOND=1` and
+`EDGAR_RATE_LIMIT_PER_SEC=1` (`docs/OPERATIONS.md`, "SEC budgets per process").
+
+First enqueue an authenticated `probe` with an empty payload. It verifies delivery without SQL
+business work, SEC calls, email or AI generation. Confirm worker completion logs and task removal.
+Then set nonsecret repository variables `GCP_TASKS_WORKER_URL` and
+`GCP_DURABLE_TASKS_ENABLED=true`. CI requires the existing worker and updates its pinned image
+before deploying the API, routing worker traffic to the latest revision and clearing tags; it
+also pins queue handoff and request-based CPU together. Verify the
+current-head CI run, API detailed health, service minimum one/memory 1 GiB, worker command and
+revision, and authenticated task success. Watch task retry/errors, API latency and SQL connections
+before expanding workload. Cold worker starts affect queued work, not the warm API.
+
+For rollback, set `GCP_DURABLE_TASKS_ENABLED=false` and restore API `DURABLE_TASKS_ENABLED=false`
+with `--no-cpu-throttling`; keep the worker available to finish queued work. Do not pause the queue
+or delete it with unfinished tasks. Future CI pins the flag-off API back to always allocated CPU.
+
+Cloud Tasks can duplicate a delivery. Existing cache/upsert/delivery ownership remains the
+idempotency authority; force-generating a paid summary is deliberately excluded. Ordinary API
+SEC read-only timeout tails and SDK telemetry remain best effort; they do not perform the durable
+business mutations above. A slow native summary worker can extend cleanup, so monitor error tails
+and latency during the billing-mode change rather than claiming all thread operations are bounded.
 
 ### Read-only release configuration audit
 
 Dispatch the `Ops` workflow with `describe-service`, then `describe-jobs`, when an operator needs
 independent release evidence through the repository's existing keyless WIF identity. The first
-operation reports the serving revision image, `SENTRY_RELEASE`, service pool values, and both
-service and revision `maxScale` for operator comparison. The second reports image, task count, and
+operation reports the serving revision image, `SENTRY_RELEASE`, service pool values, the allow-listed
+flag and SEC-pin values (`SEC_RATE_LIMIT_PER_SECOND`, `EDGAR_RATE_LIMIT_PER_SEC`,
+`DURABLE_TASKS_ENABLED`, `ENABLE_INSIDER_ACTIVITY`) for the serving revision and the pregenerate job, and
+both service and revision `maxScale` for operator comparison. The second reports image, task count, and
 pool values for all eight expected jobs, and fails when their release or connection budget
 invariants drift. `describe-jobs` also fails if any expected job, including
 `earningsnerd-retention-purge`, is missing or unreadable.
@@ -200,7 +265,7 @@ gcloud run deploy earningsnerd-backend \
   --add-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
   --cpu=1 --memory=1Gi --cpu-boost --min-instances=1 --max=2 --max-instances=2 --concurrency=40 --timeout=600 \
   --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest \
-  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io"
+  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1@ENABLE_INSIDER_ACTIVITY=false"
 ```
 
 ### 7. Verify
@@ -240,7 +305,7 @@ SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-co
 # NOTE: app/config.py requires SECRET_KEY and OPENAI_API_KEY at import — the job crashes on startup
 # without them, even though the scan itself makes no AI calls. RESEND_API_KEY is needed to send mail.
 SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest
-ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_EDGAR_BASE_URL=https://data.sec.gov"
+ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_EDGAR_BASE_URL=https://data.sec.gov@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1"
 
 # Real-time scan job
 gcloud run jobs create earningsnerd-filing-scan --region=us-west1 \
@@ -281,8 +346,12 @@ gcloud scheduler jobs create http filing-digest-daily --location=us-west1 --sche
   --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-filing-digest:run" \
   --http-method=POST --oauth-service-account-email="${SA}"
 
-# Facts backfill weekly (Mondays 07:00 UTC — after the scan has ingested the week's filings)
-gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --schedule="0 7 * * 1" \
+# Facts backfill weekly (Mondays 07:30 UTC — after the scan has ingested the week's filings, and after a
+# first attempt of pregenerate's 06:00 run has ended, so the SEC overlap stays at the cap;
+# docs/OPERATIONS.md "SEC budgets per process"). Move an existing job, then check it:
+# gcloud scheduler jobs update http backfill-facts-weekly --location=us-west1 --schedule="30 7 * * 1"
+# gcloud scheduler jobs describe backfill-facts-weekly --location=us-west1 --format="value(schedule,timeZone)"
+gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --schedule="30 7 * * 1" \
   --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-backfill-facts:run" \
   --http-method=POST --oauth-service-account-email="${SA}"
 ```
@@ -319,7 +388,7 @@ Create them once, with one Cloud Scheduler trigger each:
 CONN=earnings-nerd:us-west1:earningsnerd-db
 SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
 SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,ALPHA_VANTAGE_API_KEY=ALPHA_VANTAGE_API_KEY:latest
-ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true"
+ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1"
 
 # Daily refresh job
 gcloud run jobs create earningsnerd-earnings-calendar-refresh --region=us-west1 \
@@ -610,7 +679,7 @@ otherwise). Create it once, with one Cloud Scheduler trigger:
 CONN=earnings-nerd:us-west1:earningsnerd-db
 SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
 SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest
-ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true"
+ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1"
 
 gcloud run jobs create earningsnerd-notable-filings --region=us-west1 \
   --image=us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:latest \

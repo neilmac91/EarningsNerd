@@ -74,6 +74,8 @@ _ADDITIVE_COLUMNS: list[tuple[str, str, str]] = [
     ("summaries", "prompt_version", "TEXT"),
     # Bounded application-prepared decoded source for source-first Risks on degraded filings.
     ("filing_content_cache", "risk_source_text", "TEXT"),
+    # Invite hash carried through a social sign-in under REGISTRATION_MODE=invite_only.
+    ("oauth_states", "invite_code_hash", "VARCHAR(64)"),
 ]
 
 

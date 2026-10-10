@@ -1,6 +1,7 @@
 """Bounded, read-only Cloud Run/Monitoring/Logging evidence; no raw logs or env values.
 
-Run with an existing gcloud identity. Missing permissions/data are recorded, never zeroed.
+Run with an existing gcloud identity. Missing permissions/data are recorded, never zeroed; a failed
+API call keeps only its structured error status, reason and a bounded message, never the raw body.
 The receipt is evidence to inspect, not a capacity verdict or an invitation limit.
 """
 from __future__ import annotations
@@ -23,6 +24,9 @@ JOBS = ("pregenerate", "filing-scan", "filing-digest", "backfill-facts",
         "earnings-calendar-refresh", "earnings-day-alerts", "notable-filings", "retention-purge")
 MAX_PAGES = 5
 MAX_RESPONSE = 8 * 1024 * 1024
+MAX_ERROR_BODY = 8 * 1024
+MAX_ERROR_MESSAGE = 240
+MAX_ERROR_FIELD = 64  # error.status and ErrorInfo reason/domain (Google bounds reason to 63 characters)
 
 
 def timestamp(value):
@@ -41,11 +45,57 @@ def window(start, end):
     return first, last
 
 
+def error_detail(exc):
+    """Bounded, structured reason from a Google API error envelope; never the raw body or headers.
+
+    Keeps only error.status, error.code, the first ErrorInfo detail's reason/domain (each at most
+    MAX_ERROR_FIELD characters) and at most MAX_ERROR_MESSAGE characters of error.message, reading at
+    most MAX_ERROR_BODY bytes. A diagnostic must never abort the receipt: whatever the body does, this
+    returns a dict and request() still records its `http_NNN` error.
+    """
+    try:
+        return _parse_error_envelope(exc)
+    except Exception:  # any failure while reading or parsing the body is itself the recorded reason
+        return {"body": "non_json_or_unreadable"}
+
+
+def _parse_error_envelope(exc):
+    raw = exc.read(MAX_ERROR_BODY)
+    try:
+        envelope = json.loads(raw)
+    except ValueError:
+        # A valid envelope longer than the cap is cut mid-document and cannot parse either; say so.
+        return {"body": "truncated_or_non_json" if len(raw) >= MAX_ERROR_BODY else "non_json_or_unreadable"}
+    error = envelope.get("error") if isinstance(envelope, dict) else None
+    if not isinstance(error, dict):
+        return {}  # JSON, but not a Google API error envelope: nothing recognised to record.
+    detail = {}
+    if isinstance(error.get("status"), str):
+        detail["status"] = error["status"][:MAX_ERROR_FIELD]
+    if isinstance(error.get("code"), int):
+        detail["code"] = error["code"]
+    details = error.get("details") if isinstance(error.get("details"), list) else []
+    for info in details:
+        if isinstance(info, dict) and isinstance(info.get("@type"), str) and info["@type"].endswith("ErrorInfo"):
+            detail.update({key: info[key][:MAX_ERROR_FIELD] for key in ("reason", "domain")
+                           if isinstance(info.get(key), str)})
+            break
+    if isinstance(error.get("message"), str):
+        detail["message"] = error["message"][:MAX_ERROR_MESSAGE]
+        if len(error["message"]) > MAX_ERROR_MESSAGE:
+            detail["message_truncated"] = True
+    return detail
+
+
 class Api:
     def __init__(self, token):
         self.token = token
+        # Structured reason for the latest failed request(), or None. It lives on the instance so
+        # request() keeps its (data, error) return shape and existing callers and fakes stay unchanged.
+        self.last_error_detail = None
 
     def request(self, url, params, post=False):
+        self.last_error_detail = None
         # Hosts and paths are code-owned; no endpoint/SQL/command comes from workflow input.
         body = json.dumps(params).encode() if post else None
         request = Request(url if post else url + "?" + urlencode(params), data=body,
@@ -59,7 +109,9 @@ class Api:
                 return None, "response_size_limit"
             return json.loads(raw), None
         except HTTPError as exc:
-            return None, "http_" + str(exc.code)  # Never echo response bodies or auth headers.
+            # Never echo response bodies or auth headers; keep only the bounded, structured reason.
+            self.last_error_detail = error_detail(exc)
+            return None, "http_" + str(exc.code)
         except (URLError, TimeoutError, OSError, ValueError):
             return None, "transport_or_decode_error"
 
@@ -69,8 +121,11 @@ class Api:
         for page in range(1, MAX_PAGES + 1):
             data, error = self.request(url, params, post)
             if error or not isinstance(data, dict) or not isinstance(data.get(key, []), list):
-                return {"state": "partial" if items else "unavailable", "pages": page - 1,
-                        "error": error or "invalid_response", "items": items}
+                failure = {"state": "partial" if items else "unavailable", "pages": page - 1,
+                           "error": error or "invalid_response", "items": items}
+                if self.last_error_detail:
+                    failure["error_detail"] = self.last_error_detail
+                return failure
             items.extend(data.get(key, []))
             token = data.get("nextPageToken")
             if not token:
@@ -137,7 +192,8 @@ def collect(api, project, region, start, end):
         raise ValueError("Only the production region is supported")
     result = {"schema_version": 1, "observed_at": datetime.now(timezone.utc).isoformat(),
               "project": project, "region": region, "window": {"start": start, "end": end},
-              "limits": {"max_pages_per_query": MAX_PAGES, "max_response_bytes": MAX_RESPONSE},
+              "limits": {"max_pages_per_query": MAX_PAGES, "max_response_bytes": MAX_RESPONSE,
+                         "max_error_body_bytes": MAX_ERROR_BODY, "max_error_message_chars": MAX_ERROR_MESSAGE},
               "interpretation": "Samples are not instantaneous peaks. Empty/partial/unavailable data cannot prove headroom. Execution success is not a business outcome. Current SQL snapshots are not historical samples."}
     result["executions"] = {}
     for name in JOBS:

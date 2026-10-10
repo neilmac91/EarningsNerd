@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, type ComponentProps, type ElementType, type ReactNode } from 'react'
+import { useMemo, useRef, type ComponentProps, type ElementType, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -36,7 +36,7 @@ function NarrativeCitationChip({ citation }: { citation: AnalysisCitation }) {
       onClick={() => flashAndScrollToSource(citation.n)}
       title={`${citation.excerpt}${citation.section_ref ? ` · ${citation.section_ref}` : ''}`}
       aria-label={`Citation ${citation.n}: ${label}. ${citation.excerpt}`}
-      className="tnum inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 align-baseline font-data text-[10px] font-semibold leading-none transition-colors border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+      className="tnum inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 align-baseline font-data text-data-xs font-semibold leading-none transition-colors border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
       [{citation.n}]
     </button>
@@ -107,7 +107,7 @@ function CitationList({ citations, sample }: { citations: AnalysisCitation[]; sa
   if (citations.length === 0) return null
   return (
     <div className="mt-4 border-t border-border-light pt-3 dark:border-white/10">
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
+      <div className="mb-2 text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
         {sample
           ? 'Sources · sample data (approximate figures)'
           : 'Sources · SEC XBRL values and computed figures'}
@@ -163,6 +163,7 @@ export default function NarrativePane({
   sample?: boolean
 }) {
   const completion = state.completion
+  const headingRef = useRef<HTMLHeadingElement>(null)
   // Stable components-map identity across re-renders — a fresh object every render would make
   // react-markdown treat each element type as new and remount the whole narrative subtree
   // (losing e.g. focus on a citation chip) instead of reconciling it.
@@ -186,12 +187,16 @@ export default function NarrativePane({
     <Card as="section" className="p-6">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+          <h2
+            ref={headingRef}
+            tabIndex={-1}
+            className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+          >
             AI trend analysis
           </h2>
           {state.status === 'streaming' && (
             <span className="flex items-center gap-1.5 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-              <CircleNotchIcon className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              <CircleNotchIcon className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
               {state.stage === 'assembling' ? 'Assembling the numbers…' : 'Writing…'}
             </span>
           )}
@@ -226,8 +231,20 @@ export default function NarrativePane({
               </Button>
             )}
             {onRefresh && (
-              <Button size="sm" variant="secondary" onClick={onRefresh} disabled={refreshDisabled}>
-                <ArrowClockwiseIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              // Refresh restarts the stream, which unmounts this row and the focused button with it;
+              // hand focus to the heading first so a keyboard user is not dropped to <body>.
+              // `loading`, never native `disabled`, for refreshDisabled: Chromium blurs a focused
+              // button that turns disabled.
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={(e) => {
+                  if (document.activeElement === e.currentTarget) headingRef.current?.focus({ preventScroll: true })
+                  onRefresh()
+                }}
+                loading={refreshDisabled}
+                leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" aria-hidden="true" />}
+              >
                 Refresh analysis
               </Button>
             )}

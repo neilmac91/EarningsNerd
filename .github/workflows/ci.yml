@@ -34,6 +34,9 @@ jobs:
           # ruff upgrade (0.16 widened its default rule set) turned a clean tree red with no code
           # change. Guarded by tests/unit/test_migration_lock_safety.py.
           pip install -r backend/requirements-dev.txt
+          # pytest.ini's addopts carry `-n auto`: fail here, by name, if the pinned file stops
+          # providing the parallel runner, rather than with pytest's "unrecognized arguments: -n".
+          pip show -q pytest-xdist
       - name: Lint with Ruff
         # Blocking: the tree is clean and the rule set is pinned explicitly in backend/ruff.toml.
         run: cd backend && ruff check .
@@ -50,11 +53,42 @@ jobs:
       - name: Run pytest
         # Fast lane: pytest.ini deselects the performance suite by default (slow-marked tests run
         # here in the default lane). conftest.py sets SECRET_KEY at import, so no env is needed.
+        # Parallel: the ini's `-n auto` runs one pytest-xdist worker per runner CPU, and conftest.py
+        # gives each worker a private temp database. This is the same command as the local gate.
         run: cd backend && python -m pytest
       - name: Run performance tests
         # Explicit step (same job, so it stays inside the deploy gate's `needs:` list). Clear the
         # ini addopts and scope to the performance dir so it doesn't collect the whole tree.
+        # Clearing addopts also drops `-n auto`: the real-sleep timings run serially, alone.
         run: cd backend && python -m pytest -o addopts= -m performance tests/performance
+
+  # Committed-credential gate (rule 12). Scans the full history of every branch with a
+  # checksum-pinned gitleaks binary; reviewed false positives are listed by fingerprint in
+  # .gitleaksignore. deploy-backend needs: this job, so a credential in any branch commit blocks a
+  # release. Tag refs are curated by hand and are outside this scan (--branches --remotes), so the
+  # gate's verdict follows the branches a pull request can change.
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      GITLEAKS_VERSION: 8.24.3
+      GITLEAKS_SHA256: 9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan branch history for committed credentials
+        run: |
+          set -euo pipefail
+          curl -fsSL -o gitleaks.tgz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks
+          # --redact keeps any match out of this public log; the exit code is the signal.
+          ./gitleaks git . --log-opts="--branches --remotes" --redact=100 --no-banner --exit-code 1
 
   # Real-Postgres migration gate (ADR-0007; CLAUDE.md rule 12). backend-tests runs on SQLite, so
   # before this job the first place a backend/migrations/*.sql file ever met PostgreSQL was the
@@ -73,7 +107,10 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: postgres:15
+        # Google's Docker Hub mirror, never Docker Hub itself: runners share IPs, and on 2026-10-09
+        # Docker Hub's unauthenticated pull limit failed this required job on every PR and skipped
+        # deploy-backend on main. Same image and digest. Gate: tests/unit/test_ci_images_avoid_docker_hub.py.
+        image: mirror.gcr.io/library/postgres:15
         env:
           POSTGRES_USER: earningsnerd
           POSTGRES_PASSWORD: earningsnerd
@@ -90,6 +127,10 @@ jobs:
       PGUSER: earningsnerd
       PGPASSWORD: earningsnerd
       PGDATABASE: earningsnerd
+      # The PostgreSQL concurrency steps below stay serial, one process each, as their barriers and
+      # statement timeouts assume. This job installs only requirements.txt (no pytest-xdist), so
+      # clear pytest.ini's addopts and its `-n auto` for every pytest run in the job.
+      PYTEST_ADDOPTS: '-o addopts='
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python
@@ -468,7 +509,8 @@ jobs:
 
   # Backend continuous deployment to Cloud Run.
   # Runs only on push to main, only after every test job is green, and only
-  # when backend/ actually changed (frontend deploys are Vercel's job).
+  # when backend/ changed outside backend/tests/ (changes confined to the tests stay in CI;
+  # frontend deploys are Vercel's job).
   # Inert until the two repo VARIABLES exist (Settings -> Secrets and
   # variables -> Actions -> Variables): GCP_WIF_PROVIDER, GCP_DEPLOYER_SA.
   # Auth is keyless via Workload Identity Federation - no stored credentials.
@@ -477,7 +519,7 @@ jobs:
     # A normal deploy is ~10 min. Without this, a migration waiting on a Postgres lock held the job
     # for GitHub's 6 h default on 2026-07-16 and the release never shipped (lessons/ops-migrations-need-lock-timeout.md).
     timeout-minutes: 30
-    needs: [backend-tests, migrations-postgres, frontend-tests, e2e-tests]
+    needs: [backend-tests, migrations-postgres, frontend-tests, e2e-tests, secret-scan]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.GCP_WIF_PROVIDER != ''
     concurrency:
       group: deploy-backend
@@ -487,6 +529,8 @@ jobs:
       id-token: write # mint the OIDC token Workload Identity Federation exchanges
     env:
       IMAGE: us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend
+      DURABLE_TASKS_ENABLED: ${{ vars.GCP_DURABLE_TASKS_ENABLED || 'false' }}
+      TASKS_WORKER_URL: ${{ vars.GCP_TASKS_WORKER_URL || '' }}
       # Pinned proxy build, verified with sha256sum before it runs. Digest computed 2026-09-04 from two
       # independent downloads of this exact object (the bucket publishes no checksum sidecar; the
       # binary reports `2.14.0+linux.amd64`). Bump version + digest together, in BOTH workflows —
@@ -499,16 +543,30 @@ jobs:
           fetch-depth: 2
       - name: Load AI model configuration
         run: grep -v '^#' .github/ai-model.env >> "$GITHUB_ENV"
+      - name: Report variable-driven rollout switches
+        # Repository variables change without a commit, so a deploy rolls out whatever they say now:
+        # PR #1131's merge rolled out durable tasks switched on hours earlier (CODE RED record 17).
+        # Printed on every run, deploying or not; every vars-derived env entry above must appear here
+        # (gate: backend/tests/unit/test_backend_deploy_scope.py).
+        run: |
+          worker_url=unset
+          if [ -n "$TASKS_WORKER_URL" ]; then worker_url=set; fi
+          summary="Variable-driven rollout switches: DURABLE_TASKS_ENABLED=$DURABLE_TASKS_ENABLED TASKS_WORKER_URL=$worker_url"
+          echo "$summary"
+          echo "$summary" >> "$GITHUB_STEP_SUMMARY"
       - name: Detect backend changes
         id: changes
         # HEAD^ is the previous main tip (first parent of the merge commit),
-        # so this diff covers everything the merge brought in.
+        # so this diff covers everything the merge brought in. backend/tests/ is excluded from the
+        # image by backend/.dockerignore, so changes confined to it do not deploy; --no-renames lists
+        # both sides of a rename, so a runtime file moved under backend/tests/ still deploys
+        # (gate: backend/tests/unit/test_backend_deploy_scope.py; lessons/ops-deploy-detector-mirrors-the-image-context.md).
         run: |
-          if git diff --name-only HEAD^ HEAD | grep -qE '^backend/'; then
+          if git diff --name-only --no-renames HEAD^ HEAD | grep -v '^backend/tests/' | grep -qE '^backend/'; then
             echo "backend=true" >> "$GITHUB_OUTPUT"
           else
             echo "backend=false" >> "$GITHUB_OUTPUT"
-            echo "No backend changes - skipping deploy."
+            echo "No deployable backend changes - skipping deploy."
           fi
       - name: Authenticate to Google Cloud
         if: steps.changes.outputs.backend == 'true'
@@ -519,12 +577,31 @@ jobs:
       - name: Set up gcloud
         if: steps.changes.outputs.backend == 'true'
         uses: google-github-actions/setup-gcloud@v3
-      - name: Build and push image
+      - name: Configure registry authentication and image tag
         if: steps.changes.outputs.backend == 'true'
+        id: image
         run: |
           gcloud auth configure-docker us-west1-docker.pkg.dev --quiet
-          docker build -t "$IMAGE:${GITHUB_SHA::7}" -t "$IMAGE:latest" backend
-          docker push --all-tags "$IMAGE"
+          echo "sha_tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - name: Set up Docker Buildx
+        if: steps.changes.outputs.backend == 'true'
+        uses: docker/setup-buildx-action@v4
+      - name: Build and push image
+        if: steps.changes.outputs.backend == 'true'
+        uses: docker/build-push-action@v7
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: 'false'
+        with:
+          context: backend
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.image.outputs.sha_tag }}
+            ${{ env.IMAGE }}:latest
+          # Reuse dependency layers across releases without storing a cache tag in Artifact Registry.
+          cache-from: type=gha,scope=earningsnerd-backend,version=2,timeout=5m
+          cache-to: type=gha,scope=earningsnerd-backend,version=2,mode=max,timeout=5m,ignore-error=true
       - name: Apply database migrations
         if: steps.changes.outputs.backend == 'true'
         # Schema is created for fresh DBs by Base.metadata.create_all(), but that never ALTERs an
@@ -569,6 +646,28 @@ jobs:
           done
 
           bash backend/scripts/apply_migrations.sh
+      - name: Update configured private task worker
+        if: steps.changes.outputs.backend == 'true'
+        run: |
+          set -euo pipefail
+          if [ "$DURABLE_TASKS_ENABLED" != "true" ]; then
+            echo "Durable task worker rollout is disabled."
+            exit 0
+          fi
+          test -n "$TASKS_WORKER_URL"
+          # An enabled rollout requires this pre-provisioned private service. Fail before moving
+          # the API if its worker is absent or the configured OIDC audience points elsewhere.
+          worker_url=$(gcloud run services describe earningsnerd-task-worker --region=us-west1 --format='value(status.url)')
+          test "$worker_url" = "$TASKS_WORKER_URL"
+          gcloud run services update earningsnerd-task-worker --region=us-west1 \
+            --image="$IMAGE:${GITHUB_SHA::7}" \
+            --cpu=1 --memory=2Gi --cpu-throttling --cpu-boost \
+            --min=0 --min-instances=0 --max=1 --max-instances=1 --concurrency=1 --timeout=600 \
+            --command=uvicorn \
+            --args='task_worker_main:app,--host,0.0.0.0,--port,8080,--proxy-headers,--forwarded-allow-ips=*' \
+            --update-env-vars=ENVIRONMENT=production,SKIP_REDIS_INIT=true,DURABLE_TASKS_ENABLED=true,TASKS_WORKER_PROCESS=true,TASKS_PROJECT_ID=earnings-nerd,TASKS_LOCATION=us-west1,TASKS_QUEUE=earningsnerd-background,TASKS_WORKER_URL=${TASKS_WORKER_URL},TASKS_INVOKER_EMAIL=earningsnerd-tasks@earnings-nerd.iam.gserviceaccount.com,DB_POOL_SIZE=3,DB_MAX_OVERFLOW=0,OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},SENTRY_RELEASE=${GITHUB_SHA},ENABLE_FPI_FILINGS=true,NOTABLE_FILINGS_ENABLED=true,AI_EVIDENCE_SNAP=true,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,AI_ATTRIBUTION_GATE=false,AI_ATTRIBUTION_VERIFY=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=true,USE_STATEMENT_FINANCIALS=true,SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1 \
+            --quiet
+          gcloud run services update-traffic earningsnerd-task-worker --region=us-west1 --to-latest --clear-tags --quiet
       - name: Deploy Cloud Run service
         if: steps.changes.outputs.backend == 'true'
         run: |
@@ -578,23 +677,38 @@ jobs:
           # freshness stamp, XBRL L1, tickers) survive between requests (QW4, PR follow-up to the
           # filing-load audit). The 2026-09-27 source/session audit budgets four connections per
           # serving instance with no overflow. At the current two-instance cap, pregenerate's three
-          # sessions and one execution of each other job, configured application demand is 18 and
-          # preserves an operational database reserve. --max=2 pins the service-level limit across
+          # sessions and one execution of each other job, configured application demand is 18,
+          # or 21 with the optional worker's three connections; preserve a database reserve.
+          # --max=2 pins the service-level limit across
           # traffic-serving revisions while --max-instances=2 pins each new revision. Cloud Run can
           # briefly exceed a configured maximum, and jobs remain outside this service limit; measure
-          # them before expanding traffic or schedules.
+          # them before expanding traffic or schedules. SEC allows 10 requests/second per user across
+          # every machine, and each process carries two independent SEC buckets (the app's
+          # SEC_RATE_LIMIT_PER_SECOND and edgartools' EDGAR_RATE_LIMIT_PER_SEC, defaults 10 and 9).
+          # This service, the task worker above and every job update below pin both to 1; the insider
+          # endpoint, whose cold fetch cannot fit 1 req/s, is pinned off (ENABLE_INSIDER_ACTIVITY=false is
+          # re-asserted on every deploy, so a hand-set true does not survive the next one).
+          # tests/unit/test_sec_process_budgets.py and docs/OPERATIONS.md state the arithmetic and
+          # what it does not guarantee.
+          cpu_billing=--no-cpu-throttling
+          if [ "$DURABLE_TASKS_ENABLED" = "true" ]; then
+            cpu_billing=--cpu-throttling
+          fi
           gcloud run deploy earningsnerd-backend --region=us-west1 \
             --image="$IMAGE:${GITHUB_SHA::7}" \
-            --cpu=1 --memory=1Gi --cpu-boost \
+            --cpu=1 --memory=1Gi --cpu-boost "$cpu_billing" \
             --min-instances=1 --max=2 --max-instances=2 --concurrency=40 --timeout=600 \
             --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
             --remove-env-vars=ENABLE_GUEST_DAILY_QUOTA \
-            --update-env-vars=ENVIRONMENT=production,OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},COOKIE_DOMAIN=.earningsnerd.io,SENTRY_RELEASE=${GITHUB_SHA},TRUSTED_PROXY_HOPS=1,ENABLE_FPI_FILINGS=true,STREAM_SECTION_REVEAL=true,REGISTRATION_MODE=invite_only,DB_POOL_SIZE=4,DB_MAX_OVERFLOW=0,NOTABLE_FILINGS_ENABLED=true,AI_EVIDENCE_SNAP=true,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,AI_ATTRIBUTION_GATE=false,AI_ATTRIBUTION_VERIFY=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=true,USE_STATEMENT_FINANCIALS=true \
+            --update-env-vars=ENVIRONMENT=production,OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},COOKIE_DOMAIN=.earningsnerd.io,SENTRY_RELEASE=${GITHUB_SHA},TRUSTED_PROXY_HOPS=1,ENABLE_FPI_FILINGS=true,STREAM_SECTION_REVEAL=true,REGISTRATION_MODE=invite_only,DB_POOL_SIZE=4,DB_MAX_OVERFLOW=0,NOTABLE_FILINGS_ENABLED=true,AI_EVIDENCE_SNAP=true,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,AI_ATTRIBUTION_GATE=false,AI_ATTRIBUTION_VERIFY=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=true,USE_STATEMENT_FINANCIALS=true,DURABLE_TASKS_ENABLED=${DURABLE_TASKS_ENABLED},TASKS_WORKER_PROCESS=false,TASKS_PROJECT_ID=earnings-nerd,TASKS_LOCATION=us-west1,TASKS_QUEUE=earningsnerd-background,TASKS_WORKER_URL=${TASKS_WORKER_URL},TASKS_INVOKER_EMAIL=earningsnerd-tasks@earnings-nerd.iam.gserviceaccount.com,SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1,ENABLE_INSIDER_ACTIVITY=false \
             --quiet
           # Always route live traffic to the new revision. A prior manual `--no-traffic --tag`
           # deploy can pin traffic to an old revision, which silently makes every CD deploy "dark"
           # (new revision built + healthy at 0% traffic while prod keeps serving the old image).
-          gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-latest --quiet
+          # --clear-tags removes every revision tag at the same time: a tagged revision stays
+          # addressable at its own URL even at 0% traffic, so a leftover tag keeps an old image
+          # serving beside the release (tests/unit/test_prod_flag_visibility.py pins this flag).
+          gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-latest --clear-tags --quiet
       - name: Update pregenerate job image
         if: steps.changes.outputs.backend == 'true'
         run: |
@@ -603,12 +717,13 @@ jobs:
           gcloud run jobs update earningsnerd-pregenerate --region=us-west1 \
             --image="$IMAGE:${GITHUB_SHA::7}" \
             --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
-            --update-env-vars=OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},DB_POOL_SIZE=3,DB_MAX_OVERFLOW=0,ENABLE_FPI_FILINGS=true,NOTABLE_FILINGS_ENABLED=true,AI_EVIDENCE_SNAP=true,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,AI_ATTRIBUTION_GATE=false,AI_ATTRIBUTION_VERIFY=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=false,USE_STATEMENT_FINANCIALS=true \
+            --update-env-vars=OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},DB_POOL_SIZE=3,DB_MAX_OVERFLOW=0,ENABLE_FPI_FILINGS=true,NOTABLE_FILINGS_ENABLED=true,AI_EVIDENCE_SNAP=true,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,AI_ATTRIBUTION_GATE=false,AI_ATTRIBUTION_VERIFY=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=false,USE_STATEMENT_FINANCIALS=true,SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1 \
             --quiet
       - name: Update filing-scan + digest + calendar + alert + notable + retention job images
         if: steps.changes.outputs.backend == 'true'
         # The jobs + their Cloud Scheduler triggers are created once out-of-band (see DEPLOYMENT.md);
-        # CI only bumps the image. Skip each gracefully if it hasn't been created yet so CD never fails.
+        # CI bumps the image and sets the DB pool and SEC budget keys. Skip each gracefully if it hasn't been
+        # created yet so CD never fails.
         run: |
           for job in earningsnerd-filing-scan earningsnerd-filing-digest earningsnerd-earnings-calendar-refresh earningsnerd-earnings-day-alerts earningsnerd-notable-filings earningsnerd-retention-purge; do
             if gcloud run jobs describe "$job" --region=us-west1 >/dev/null 2>&1; then
@@ -617,7 +732,7 @@ jobs:
               # for these serial jobs (operator --args overrides are outside this source audit).
               gcloud run jobs update "$job" --region=us-west1 \
                 --image="$IMAGE:${GITHUB_SHA::7}" \
-                --update-env-vars=DB_POOL_SIZE=1,DB_MAX_OVERFLOW=0 \
+                --update-env-vars=DB_POOL_SIZE=1,DB_MAX_OVERFLOW=0,SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1 \
                 --quiet
             else
               echo "$job not found — create it once per DEPLOYMENT.md. Skipping."
@@ -631,7 +746,7 @@ jobs:
           if gcloud run jobs describe earningsnerd-backfill-facts --region=us-west1 >/dev/null 2>&1; then
             gcloud run jobs update earningsnerd-backfill-facts --region=us-west1 \
               --image="$IMAGE:${GITHUB_SHA::7}" \
-              --update-env-vars=DB_POOL_SIZE=1,DB_MAX_OVERFLOW=0 \
+              --update-env-vars=DB_POOL_SIZE=1,DB_MAX_OVERFLOW=0,SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1 \
               --command=python \
               --args=scripts/backfill_facts.py,--only-new \
               --quiet

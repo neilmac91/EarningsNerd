@@ -1,0 +1,656 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-10-04T14:39:54Z",
+  "dispatch": {
+    "dispatch_id": "CPO-COORDINATOR-01",
+    "manifest_path": "tasks/code-red-20261004/runtime/dispatch/CPO-COORDINATOR-01.json",
+    "manifest_sha256": "1fbbc3e057be56bea74676c9c906684412dd07e919f9023bc9226278294c640e",
+    "package_sha256": "14e66f5461144cee3bf7cda92b59c61878635379e9bff8b0278fc20b40a5d3dc",
+    "dispatched_by": "chief session_01GWYV7WXWstgVGQG43YcSM8",
+    "wave": "R2 (administrative readiness only)"
+  },
+  "identity": {
+    "role_label": "claude-cpo-coordinator-01",
+    "runtime": "Claude Code workflow subagent dispatched by chief session_01GWYV7WXWstgVGQG43YcSM8",
+    "requested_model": "claude-sonnet-5-5",
+    "served_model": null,
+    "runtime_id": null,
+    "limitation": "This subagent cannot observe its served model or runtime id itself; the chief appends the actual id to the next exclusion successor. A requested model is not observed runtime evidence and no isolation is claimed from a job title.",
+    "eligibility": "Ineligible for source A/B authorship, source reconciliation, blind quality review, Fable semantic judging and source challenge.",
+    "registered_in_exclusion_closure": false,
+    "exclusion_successor_cited": "source-context-exclusion-136.json"
+  },
+  "role": "process_coordinator",
+  "source_dispatch_authorized_by_this_task": false,
+  "judge_dispatch_authorized_by_this_task": false,
+  "dispatch_decision_referral": "Any actual source or judge dispatch decision belongs to the authorized owner through the CEO. Both flags stay false even if owner receipts arrive.",
+  "administrative_result": "complete",
+  "administrative_result_meaning": "Descriptive administrative status only: the absence of technical evidence is stated precisely. It is not an admission override and not a quality or financial decision.",
+  "execution_admission": "not_admitted",
+  "candidate_freeze": "HOLD",
+  "counters": {
+    "complete_dossiers": 3,
+    "dossiers_required": 30,
+    "complete_dossier_ids": [
+      "H28",
+      "H29",
+      "H30"
+    ],
+    "dossiers_remaining": 27,
+    "remaining_independent_briefs": 54,
+    "remaining_reconciliations": 27,
+    "whole_programme_briefs": 60,
+    "whole_programme_reconciliations": 30,
+    "h20": {
+      "attempts": 24,
+      "complete_reports": 19,
+      "partial_reports": 5,
+      "counted_as_dossiers": 0
+    },
+    "formal_e7": {
+      "candidate_outputs": 90,
+      "comparator_assessments": 30,
+      "state": "unadmitted"
+    },
+    "beta": {
+      "reporting_groups": 5,
+      "capacity_decisions": 1,
+      "actual_weekly_readouts": 0,
+      "weekly_readouts_required": 2,
+      "intended_cohort": "10-20, not enrolled or consented"
+    },
+    "source_dispatches_by_this_task": 0,
+    "judge_dispatches_by_this_task": 0,
+    "formal_E7_E8_slots_used": 0
+  },
+  "spend": {
+    "incremental_usd": "0.000000",
+    "provider_or_evaluation_calls": 0,
+    "reservations_usd": "0.000000",
+    "ledger_written": false,
+    "scope_of_zero": "No DeepSeek, judge, provider, network, GitHub or cloud call and no ledger write by this task. This subagent's own assistant usage is unmeasured and is not claimed to be zero.",
+    "recorded_usage_cited_not_recalculated": "2,356 calls / USD 4.331765 cumulative usage estimate; future USD 15 authority: 297 calls / USD 0.547516 known use, USD 1.881713 retained holds (cancelled-run unknown is not zero), USD 12.570771 conditional unreserved. Quoted from CURRENT-SNAPSHOT.md and TAKEOVER.md as dated telemetry; not a spendable balance and not recomputed.",
+    "ledger_authority": "CEO is the only ledger writer; the live ledger is not reachable from the chief's cloud session (LEDGER-ACCESS.md)."
+  },
+  "locked_criteria_preserved": {
+    "r2_pass_requires": [
+      "exactly 90 candidate outputs and 30 comparator assessments, every requested judgment complete",
+      "zero confirmed S0/S1 material defects, fabricated quotations or misleading citations",
+      "no unresolved material claims or incomplete required evidence",
+      "at least 86/90 candidate outputs each scoring at least 4/5 on both completeness and usefulness",
+      "no filing with two deficient draws in either dimension",
+      "deterministic gates and frozen evidence checks passed across canonical, preview, render and export surfaces"
+    ],
+    "fable_semantic_judge": {
+      "model": "claude-fable-5-1 (frozen, contract version 2, subscription route)",
+      "max_calls": 243,
+      "substantive_inputs_including_smoke": 121,
+      "optional_quota_probes": 1,
+      "error_only_retry_per_substantive_input": 1,
+      "retry_negative_verdict": false,
+      "model_substitution": false
+    },
+    "fail_precedence": "A known veto takes precedence over incomplete status; incomplete evidence stays visible.",
+    "protocol_label": "AI-assisted protocol; never labelled human-reviewed; old human panel not re-requested."
+  },
+  "admission_rows": [
+    {
+      "id": "A1",
+      "boundary": "H20 delivery",
+      "status": "held",
+      "first_deliverable_disposition": "FAIL readiness / HOLD dispatch.",
+      "owner": "Existing delivery/engineering owner and separately eligible source planner (the H20 source-only planner context and its private clean inputs sit in the founder's local Codex workspace, not reachable from the chief's cloud session per R1-STATUS)",
+      "accountable_executive": "CTO (R1)",
+      "required_receipt_observed": false,
+      "evidence_observed": [
+        {
+          "file": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/H20-NEXT-DELIVERY-BLOCKER.md",
+          "sha256": "5b1d8e810356067edb83cccc6400548d1f58975e9bc3233df42c2495c96b467d",
+          "bytes": 3759,
+          "date": "2026-10-04",
+          "supports": "730/838 projection tiles need a foreign native context above 65,536 bytes; largest combined context 1,020,203 bytes; naive repeated context 254,106,640 bytes vs 67,108,864 aggregate; actual-route token counts, wrapper overhead, output reserve, complete child-output preservation and native finish unproved; v1 adapter refuses v2 by design"
+        },
+        {
+          "file": "tasks/code-red-20261004/runtime/handbacks/cto/R1-STATUS.md",
+          "sha256": "fb3d032e41f460ed7e45e39de5bca4a84aeb0061438b490421b98de8018e29b7",
+          "bytes": 3985,
+          "date": "2026-10-04",
+          "supports": "CEO-recorded status BLOCKED_SOURCE_OWNED_PACKING; CTO held worker prompt not launched; remaining timebox balance unknown to the chief"
+        }
+      ],
+      "limitation": "Released offline custody (PR1084, main 100fb7d6) is not delivery proof. Tiles are not call counts. No cap enlargement, clipping, inferred attention, text-only modality claim or synthetic probe counts as route capacity. The remaining source-engineering timebox balance is unknown here (CURRENT-EXECUTION-STATE.md is outside the package) and CODE RED does not reset it.",
+      "next_evidence": "A versioned route receipt for the approved hierarchy proving: fully rendered actual input sizes/tokens on the actual route; system/wrapper overhead; output reserve; supported native modalities; complete child outputs and issue union; terminal/finish evidence; immutable source/contract bindings; retained adverse attempts. Or one precise source-owned refinement of an indivisible closure if actual capacity refuses it. Returned as structural identifiers, hashes, span bounds, byte totals, modality declarations and dependency identities only.",
+      "dependency": "Immediate decision D1 (CTO/CEO). R1-STATUS leaves the engineering order-3 compatibility work (versioned delivery request/receipt/replay) unselected until source-owned orders 1-2 are admissible.",
+      "trace": {
+        "first_deliverable_row": "A1",
+        "first_deliverable_sha256": "536299612ca31ebfd41505d9b5327cd91e7c3335896b49cd366871012f20f1c9"
+      }
+    },
+    {
+      "id": "A2",
+      "boundary": "Source role admission",
+      "status": "not_evidenced",
+      "first_deliverable_disposition": "Conditional permission exists, technical admission does not.",
+      "owner": "Existing custody/eligibility owner; CEO maintains administrative exclusions",
+      "accountable_executive": "CTO",
+      "required_receipt_observed": false,
+      "evidence_observed": [
+        {
+          "file": "tasks/code-red-20261004/runtime/control/source-context-exclusion-136.json",
+          "sha256": "f6c065fd30650547e6cdb597faca44138ccd54bc50e5d9ab63b9883c61862f9a",
+          "bytes": 9672,
+          "date": "2026-10-04T14:31:38Z",
+          "supports": "append-only closure of 136 unique entries; source_role_allowlist false; source_role_dispatches 0; formal_E7_E8_slots_used 0; contains CPO, CTO, COO, chief and the H20 source planner; all 134 entries of the predecessor are contained (checked locally)"
+        },
+        {
+          "file": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/source-context-exclusion-134.json",
+          "sha256": "554b94355855651ab14d3be3cca234b48223acec81d69cef0d07ab30e1566ec2",
+          "bytes": 9448,
+          "date": "2026-10-04T13:10:01Z",
+          "supports": "predecessor record, 134 entries, CTO and CPO registered"
+        }
+      ],
+      "limitation": "A registration or exclusion record is not an eligibility receipt. Fresh names or the absence of a known match do not prove independence. The conditional H20-only permission (cited, not opened: H20-DELIVERY-SCOPE-DECISION.json) must not silently expand to another case or the remaining roster. This coordinator is not yet in the closure; the CEO appends its actual id.",
+      "next_evidence": "Per accession and role (all 60 author contexts and 30 reconciler contexts unique): actual context identity before input release; clean role-specific allowlist; independent eligibility receipt against the full exclusion and adverse-history closure including every later successor; frozen provider/model/version and prompt/contract identities; confirmation of no candidate or foreign-role input.",
+      "dependency": "A1 (no receipt can issue until the route is admissible); CEO successor registering delegate identities.",
+      "trace": {
+        "first_deliverable_row": "A2",
+        "first_deliverable_sha256": "536299612ca31ebfd41505d9b5327cd91e7c3335896b49cd366871012f20f1c9"
+      }
+    },
+    {
+      "id": "A3",
+      "boundary": "Complete source dossiers",
+      "status": "incomplete",
+      "first_deliverable_disposition": "INCOMPLETE: 3/30.",
+      "owner": "Eligible A/B authors and separate reconciliation roles (none dispatched); source custodian preserves evidence",
+      "accountable_executive": "CTO (delivery only)",
+      "required_receipt_observed": false,
+      "evidence_observed": [
+        {
+          "file": "tasks/code-red-20261004/runtime/handbacks/cto/R1-STATUS.md",
+          "sha256": "fb3d032e41f460ed7e45e39de5bca4a84aeb0061438b490421b98de8018e29b7",
+          "bytes": 3985,
+          "date": "2026-10-04",
+          "supports": "3/30 complete dossiers (H28/H29/H30); 27 remaining = 54 briefs + 27 reconciliations; H20 24 attempts / 19 complete reports / 5 partial, not dossiers"
+        },
+        {
+          "file": "tasks/code-red-20261004/runtime/control/source-context-exclusion-136.json",
+          "sha256": "f6c065fd30650547e6cdb597faca44138ccd54bc50e5d9ab63b9883c61862f9a",
+          "bytes": 9672,
+          "date": "2026-10-04T14:31:38Z",
+          "supports": "h20_attempts 24, h20_complete 19, h20_partial 5, dossiers 3/30, source_role_dispatches 0"
+        }
+      ],
+      "limitation": "No engineering or C-suite financial authorship. Unresolved source-reference disagreement, missing coverage, truncation or a lost child issue prevents sealing as complete. Properly classified legacy runtime limitations stay explicit; no financial content was reinterpreted. No dossier content was opened.",
+      "next_evidence": "For each of the 27 remaining accessions: two independent source-only briefs plus one reconciliation (whole programme 60 + 30), with exact packet hashes and coverage declarations/limits, complete retained inputs/outputs, stable issue IDs, a disposition for every original issue/disagreement, both brief hashes bound in the reconciliation, and every transitive/retired context in the downstream exclusion closure.",
+      "dependency": "A1 and A2.",
+      "trace": {
+        "first_deliverable_row": "A3",
+        "first_deliverable_sha256": "536299612ca31ebfd41505d9b5327cd91e7c3335896b49cd366871012f20f1c9"
+      }
+    },
+    {
+      "id": "A4",
+      "boundary": "Candidate/comparator and source freeze",
+      "status": "held",
+      "first_deliverable_disposition": "HOLD.",
+      "owner": "Existing candidate-disposition owner and engineering custodian",
+      "accountable_executive": "CTO hands the R1 receipt to CPO",
+      "required_receipt_observed": false,
+      "evidence_observed": [
+        {
+          "file": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/control/WAVE-REGISTER.json",
+          "sha256": "55a602dfaa24457553ad324f2dd531c49f9bff27f3fa694447dfbb2f713bd16d",
+          "bytes": 2249,
+          "date": "2026-10-04T13:11:10Z",
+          "supports": "R1 current state: candidate HOLD"
+        },
+        {
+          "file": "tasks/code-red-20261004/runtime/control/REPOSITORY-SNAPSHOT.json",
+          "sha256": "a0666c424912e25b8dab6a689494d04dbe9507cc3bd7fdeb684a0734118741e9",
+          "bytes": 2770,
+          "date": "2026-10-04T14:21:00Z",
+          "supports": "main 100fb7d6 unchanged since package; no in-progress workflows; PR1074 Copilot candidate held as Not qualified"
+        }
+      ],
+      "limitation": "A main-branch identity is not a candidate/comparator binding. Historical rejected candidates cannot be relabeled accepted. Development disposition is not source ownership or holdout acceptance. Known candidate/tuning exposure holds; unknown external exposure can only support explicitly limited descriptive AI measurement. The frozen source contract still needs the revised archive binding.",
+      "next_evidence": "Exact current source commit/tree; content/config stamps; model/provider, flags, fallback, extraction/stream, dependencies, token/retry settings; the frozen unchanged 30-filing selection; revised archive binding; current source-owner disposition of material period/sign/basis/causality concerns; current exposure review.",
+      "dependency": "Candidate-disposition owner receipt via CTO to CPO; source-owner disposition depends on A3; runtime parity depends on A6.",
+      "trace": {
+        "first_deliverable_row": "A4",
+        "first_deliverable_sha256": "536299612ca31ebfd41505d9b5327cd91e7c3335896b49cd366871012f20f1c9"
+      }
+    },
+    {
+      "id": "A5",
+      "boundary": "Source seal and blinding",
+      "status": "not_evidenced",
+      "first_deliverable_disposition": "NOT READY while A3/A4 hold.",
+      "owner": "Existing acceptance execution/custody owner",
+      "accountable_executive": "CTO (R1); CPO checks administrative completeness",
+      "required_receipt_observed": false,
+      "evidence_observed": null,
+      "limitation": "No seal inventory, projection set or leakage check was observed. A coordinator cannot certify isolation by self-attestation. Root/C-suite/coordinator package, model/config identities, arm/draw labels and custody paths never enter blind projections.",
+      "next_evidence": "Immutable transitive review-evidence inventory sealed after completed references and exposure observation and before generation; exact independently shuffled reviewer projections with a custodian-only mapping; preserved limitations; role leakage checks.",
+      "dependency": "A3 and A4.",
+      "trace": {
+        "first_deliverable_row": "A5",
+        "first_deliverable_sha256": "536299612ca31ebfd41505d9b5327cd91e7c3335896b49cd366871012f20f1c9"
+      }
+    },
+    {
+      "id": "A6",
+      "boundary": "Execution/budget/runtime",
+      "status": "not_evidenced",
+      "first_deliverable_disposition": "NOT ADMITTED.",
+      "owner": "Existing execution owner; CFO/CEO control reservations; CTO controls technical readiness",
+      "accountable_executive": "CFO and CEO (reservations); CTO (technical readiness)",
+      "required_receipt_observed": false,
+      "evidence_observed": [
+        {
+          "file": "tasks/code-red-20261004/runtime/control/LEDGER-ACCESS.md",
+          "sha256": "9d6143456b4b43c940f684638f9a65ed765bd6a0299084487f3a31aaf68d5e9f",
+          "bytes": 2225,
+          "date": "2026-10-04",
+          "supports": "live spend-and-reservation ledger not reachable from the chief's cloud session; no successor ledger designated; paid dispatch, paid-CI triggers, reservations and ledger writes HELD until the founder supplies the current ledger bytes and SHA-256 or confirms byte-identity with the packaged snapshot"
+        },
+        {
+          "file": "tasks/code-red-20261004/runtime/TAKEOVER.md",
+          "sha256": "af840e195c5d9a5c1b42d60ae906639d508b1437b93839ac5fe6742082db7e05",
+          "bytes": 6510,
+          "date": "2026-10-04T14:31:37Z",
+          "supports": "same ledger consequences; zero DeepSeek calls / USD 0.000000 by the chief"
+        }
+      ],
+      "limitation": "No provider call or quota probe is authorized by this task. The packaged snapshot is reference evidence, not a spendable balance. The shared future USD 15 ceiling is one common ledger, not a per-chat E7 allowance, and is not recalculated here. Unknown usage (including the cancelled-run unknown) is not zero. The paid non-holdout smoke has not run (frozen-source-contract).",
+      "next_evidence": "Founder-supplied live ledger bytes and SHA-256 (or byte-identity confirmation) so the CEO can designate one successor ledger; reviewed fail-closed reservation before every provider request and internal retry; fresh tariff/balance/quota observations when admitted; admissible frozen runtime with retained limits; existing deterministic checks; one separately bounded non-holdout smoke with retained exact evidence.",
+      "dependency": "Founder ledger item (blocks nothing today); A1 and A4 for runtime; CEO reservation.",
+      "trace": {
+        "first_deliverable_row": "A6",
+        "first_deliverable_sha256": "536299612ca31ebfd41505d9b5327cd91e7c3335896b49cd366871012f20f1c9"
+      }
+    },
+    {
+      "id": "A7",
+      "boundary": "Judge resumption",
+      "status": "held",
+      "first_deliverable_disposition": "GATED, authority not inferred.",
+      "owner": "Authorized independent acceptance owner",
+      "accountable_executive": "CPO (process and recommendation); CEO routes explicit authority",
+      "required_receipt_observed": false,
+      "evidence_observed": [
+        {
+          "file": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/ai-assisted/judge-runner.md",
+          "sha256": "11b0f444df106f35fa98efea10f16c26fa2318a29de27f4b43186a39a6061878",
+          "bytes": 2934,
+          "date": null,
+          "supports": "controls only: at most 243 calls including one optional quota probe; one error-only retry per substantive slot; a FAIL is never redrawn; uncertain or non-OK probe stops later calls (a control description, not resumption authority)"
+        },
+        {
+          "file": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/ai-assisted/decision.md",
+          "sha256": "0ac0cc2efae570601d6cc3a4f4f555c7a26e8d25487e33f89db3ad0918abd356",
+          "bytes": 6142,
+          "date": null,
+          "supports": "controls only: exactly 90 candidate and 30 comparator assessments, 86/90 and filing-level rules, retained Fable ledger verification (not authority)"
+        }
+      ],
+      "limitation": "No resumption authority was observed in any allowed input. H20 source permission, released PR1084, a protocol template, an administrative pass or a budget balance cannot resume judging. Fable 5.1 stays frozen under contract version 2 with no model substitution; maximum 243 calls = 121 substantive inputs including smoke, one optional quota probe, at most one error-only retry per exact substantive input; never retry a negative verdict; quota/uncertain-call stops preserved.",
+      "next_evidence": "R1 completed and accepted; exact applicable protocol/runtime bound; explicit retained resumption authority recorded by the authorized owner through the CEO; source, quality and challenge contexts eligible and separate; frozen Fable model/contract and pre-invocation ledger controls bound (A6).",
+      "dependency": "A1 through A6, then explicit retained authority. Separate from, and later than, D1.",
+      "trace": {
+        "first_deliverable_row": "A7",
+        "first_deliverable_sha256": "536299612ca31ebfd41505d9b5327cd91e7c3335896b49cd366871012f20f1c9"
+      }
+    },
+    {
+      "id": "A8",
+      "boundary": "R2 evidence and decision",
+      "status": "not_evidenced",
+      "first_deliverable_disposition": "NOT RUN / INCOMPLETE.",
+      "owner": "Eligible blind quality, frozen Fable semantic judge, separate source-challenge roles; custodian binds evidence",
+      "accountable_executive": "CPO assembles the recommendation",
+      "required_receipt_observed": false,
+      "evidence_observed": [
+        {
+          "file": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/ai-assisted-plan.md",
+          "sha256": "aa60498044e9a7aadedf688edd5d310f746e97c768660163162293beb9f8f15f",
+          "bytes": 6787,
+          "date": null,
+          "supports": "states that no AI-assisted acceptance outputs or scores have been produced; undated statement, no later contradicting record in the allowed inputs"
+        }
+      ],
+      "limitation": "No missing item is scored as a pass, dropped or replaced by an improved redraw. Output errors retain the attempted denominator. Locked thresholds unchanged: zero confirmed S0/S1, fabricated quotations or misleading citations; at least 86/90 candidate outputs each at least 4/5 on both completeness and usefulness; no filing with two deficient draws in either dimension; fail takes precedence over incomplete.",
+      "next_evidence": "Exactly 120 retained assessments (90 candidate + 30 comparator) plus smoke evidence; complete Fable invocation record; all in-scope surfaces checked; full scores and 30 triples; defect/challenge/refutation records; paired comparison; actual and unknown usage; limitations; machine decision report under the unchanged contract.",
+      "dependency": "A1 through A7.",
+      "trace": {
+        "first_deliverable_row": "A8",
+        "first_deliverable_sha256": "536299612ca31ebfd41505d9b5327cd91e7c3335896b49cd366871012f20f1c9"
+      }
+    },
+    {
+      "id": "A9",
+      "boundary": "Beta risk/entry",
+      "status": "held",
+      "first_deliverable_disposition": "HELD.",
+      "owner": "CEO/founder decision; COO R3/R4; CPO supplies the quality recommendation",
+      "accountable_executive": "CEO and founder (decision); COO (R3/R4)",
+      "required_receipt_observed": false,
+      "evidence_observed": [
+        {
+          "file": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/control/WAVE-REGISTER.json",
+          "sha256": "55a602dfaa24457553ad324f2dd531c49f9bff27f3fa694447dfbb2f713bd16d",
+          "bytes": 2249,
+          "date": "2026-10-04T13:11:10Z",
+          "supports": "R3: 5 reporting groups + 1 capacity decision, security verified; R4: 0/2 actual weekly readouts, 10-20 intended participants not enrolled"
+        },
+        {
+          "file": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/control/CURRENT-SNAPSHOT.md",
+          "sha256": "5015c115573443e55b4c92717110161289053b7cb727cdf85c21854349fe95fe",
+          "bytes": 4046,
+          "date": "2026-10-04",
+          "supports": "invitation authority, consent, quality and operations entry gates remain; support target two business days already settled"
+        }
+      ],
+      "limitation": "Even an AI-protocol pass is a recommendation for limited beta, not a production flag, pricing, invitation, broad-generation or scale approval, and not human-reviewed acceptance. The founder retains the limited-beta product-risk decision after the dossier.",
+      "next_evidence": "Founder-recorded offered-class product-risk decision after the R2 dossier; R3 gates clear (5 reporting groups + 1 capacity decision); separate invitation/consent process respected; two actual weekly readouts after entry (0/2 today).",
+      "dependency": "A8 (R2 dossier); R3; invitation/consent authority.",
+      "trace": {
+        "first_deliverable_row": "A9",
+        "first_deliverable_sha256": "536299612ca31ebfd41505d9b5327cd91e7c3335896b49cd366871012f20f1c9"
+      }
+    }
+  ],
+  "row_status_counts": {
+    "satisfied": 0,
+    "held": 4,
+    "incomplete": 1,
+    "not_evidenced": 4
+  },
+  "status_mapping_rule": "FAIL/HOLD/HELD/GATED dispositions map to held; INCOMPLETE with observed partial progress maps to incomplete; NOT READY/NOT ADMITTED/NOT RUN with no observed receipt map to not_evidenced. The verbatim FIRST-DELIVERABLE disposition is retained in every row.",
+  "authority_distinctions": {
+    "conditional_h20_source_role_permission": "granted; not asked again; H20-only",
+    "source_dispatch_admission": "not granted; needs A1 route proof and A2 eligibility/custody receipts",
+    "judging_resumption": "separate explicit gate (A7); not cleared by anything in this file",
+    "founder_product_risk_decision": "after the R2 dossier (A9)",
+    "spend_and_reservations": "CEO only, via the shared ledger; held while the live ledger is unreachable"
+  },
+  "exclusions": {
+    "successor_cited": {
+      "file": "tasks/code-red-20261004/runtime/control/source-context-exclusion-136.json",
+      "sha256": "f6c065fd30650547e6cdb597faca44138ccd54bc50e5d9ab63b9883c61862f9a",
+      "exclusion_count": 136,
+      "previous_count": 135,
+      "recorded_at": "2026-10-04T14:31:38.078611+00:00"
+    },
+    "predecessors": {
+      "134": {
+        "sha256": "554b94355855651ab14d3be3cca234b48223acec81d69cef0d07ab30e1566ec2",
+        "count": 134
+      },
+      "135": {
+        "sha256": "a91f4e6e613d21153d3e452edab28e70f641234257f238e56b6d9adf77241eab",
+        "count": 135,
+        "opened_by_this_task": false
+      },
+      "132": {
+        "sha256": "04887545fa2a9e70b6177d3f4bfa9095b860c016f9900b4eab94565eb02e3a76",
+        "count": 132,
+        "opened_by_this_task": false
+      }
+    },
+    "local_observation": {
+      "entries_in_136": 136,
+      "unique_in_136": 136,
+      "entries_in_134": 134,
+      "all_134_entries_present_in_136": true,
+      "added_since_134": 2,
+      "added_since_134_are": [
+        "code_red_coo",
+        "chief session_01GWYV7WXWstgVGQG43YcSM8"
+      ],
+      "cpo_cto_coo_chief_and_h20_source_planner_present": true
+    },
+    "this_coordinator_registered": false,
+    "no_replacement_inventory": "This task did not create a shorter inventory and edited no exclusion or ledger file."
+  },
+  "changes_since_first_deliverable": [
+    "Exclusion closure to cite is 136 (FIRST-DELIVERABLE cites 132 as source checkpoint and 134 as CEO successor); all earlier entries preserved.",
+    "PR1085 head is now 583e828d32496f7b1fae22e6fe705767d907be57 (owner session pushed 2026-10-04T14:02:54Z; CI success; draft); FIRST-DELIVERABLE cites 5cd04aa9. Ownership unchanged; PR1081 53cc2762 unchanged. No duplicate design or implementation work.",
+    "The fresh repository snapshot is the CEO-supplied REPOSITORY-SNAPSHOT.json (observed 2026-10-04T14:21:00Z): main 100fb7d6 unchanged, no in-progress workflows. FIRST-DELIVERABLE names CURRENT-REPOSITORY-SNAPSHOT.json, which is not in the allowed inputs.",
+    "New: the live spending ledger is unreachable from the chief's cloud session, so paid dispatch and reservations are held (LEDGER-ACCESS.md). This adds to A6 and changes no counter.",
+    "New: R1 is recorded as BLOCKED_SOURCE_OWNED_PACKING with the remaining source-engineering timebox balance unknown (R1-STATUS.md)."
+  ],
+  "held_surfaces_unchanged": [
+    "Copilot PR1074 Not qualified / HOLD",
+    "pricing PR1009 draft-held at the approved $19/month or $190/year",
+    "Calendar/Insiders optional and held",
+    "E8, dormant verifier and broad pregeneration held",
+    "PR1070 and PR1035 held",
+    "separate design chat 'Document GitHub plugin' (01a105b6-7596-7361-9f9c-ecc2d0f2cb02) and its two Claude design ZIPs preserved; implementation awaits accepted findings",
+    "PR1085 and PR1081 stay with their existing Claude owners"
+  ],
+  "immediate_decision": {
+    "id": "D1",
+    "status": "unresolved",
+    "owner": "CTO/CEO",
+    "decision": "CTO/CEO must select a bounded versioned complete-input/output H20 route, or one precise eligible source-owned refinement if an indivisible closure cannot fit.",
+    "not_to_be_done_here": "The route is not invented by this coordinator and no automatic experiment is launched or selected. This is a route/owner/evidence decision, not a request to repeat the already-granted conditional H20 source-role permission.",
+    "routing_context_from_ceo_record": "R1-STATUS.md records that the source-owned planner and its private clean inputs are not reachable from the chief's cloud session and that the timebox balance is unknown; it frames a founder-dependent item (run the already-authorized refinement locally and return structural identifiers only, or record the timebox exhausted). This coordinator selects neither.",
+    "distinct_from": "Judging resumption (A7) is a later, separate explicit gate needing R1 completion, admissible runtime/budget/smoke and explicit retained resumption authority. D1 does not clear it, and neither does H20 permission, an administrative pass, an engineering release or an available budget."
+  },
+  "inputs_verified": [
+    {
+      "label": "CPO acknowledgement",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/cpo/ACKNOWLEDGEMENT.md",
+      "sha256": "03f65ac7ddefe9f95a31ee58b6aeb67d915e471e7fd2b18fbc0c7448790a9e10",
+      "bytes": 3185,
+      "sha256_verified": true
+    },
+    {
+      "label": "CPO first deliverable (A1–A9 matrix)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/cpo/FIRST-DELIVERABLE.md",
+      "sha256": "536299612ca31ebfd41505d9b5327cd91e7c3335896b49cd366871012f20f1c9",
+      "bytes": 16374,
+      "sha256_verified": true
+    },
+    {
+      "label": "CPO coordinator worker prompt",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/cpo/CLAUDE-IMPLEMENTATION-PROMPT.md",
+      "sha256": "ff7a2ed0b5b4789cef10503dc3ed263fecb6fce240c42970ea43d3221ff5ee3c",
+      "bytes": 10052,
+      "sha256_verified": true
+    },
+    {
+      "label": "CPO REQUIRED-FILES.json",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/officer/REQUIRED-FILES.json",
+      "sha256": "a6c5b8ae1b3cc058e2b7095eb8f2031e14fd1f07005d20c6c92d8ce7308eb8d1",
+      "bytes": 9190,
+      "sha256_verified": true
+    },
+    {
+      "label": "CEO directive (current)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/control/CEO-DIRECTIVE.md",
+      "sha256": "5008dbbc240ab9628b0d2f91913a14662e770347174990852eb21563eac0d48b",
+      "bytes": 4979,
+      "sha256_verified": true
+    },
+    {
+      "label": "Chief transfer policy",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/control/CHIEF-TRANSFER-POLICY.md",
+      "sha256": "c6b8dc3a47dfcdc115ac966ec1bf52793627e0fdad43574cba3573680d8b54d3",
+      "bytes": 10803,
+      "sha256_verified": true
+    },
+    {
+      "label": "Wave register",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/control/WAVE-REGISTER.json",
+      "sha256": "55a602dfaa24457553ad324f2dd531c49f9bff27f3fa694447dfbb2f713bd16d",
+      "bytes": 2249,
+      "sha256_verified": true
+    },
+    {
+      "label": "Current snapshot (package)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/control/CURRENT-SNAPSHOT.md",
+      "sha256": "5015c115573443e55b4c92717110161289053b7cb727cdf85c21854349fe95fe",
+      "bytes": 4046,
+      "sha256_verified": true
+    },
+    {
+      "label": "Handback contract",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/control/HANDBACK-CONTRACT.md",
+      "sha256": "cc4d5b743cd78c65998b38efeeadc6cd51ef84939c56905bd6b687f0068f8e32",
+      "bytes": 1370,
+      "sha256_verified": true
+    },
+    {
+      "label": "Quality acceptance specification 2026-09-19",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/quality-acceptance-specification-2026-09-19.md",
+      "sha256": "95416298c549890cdd11c5b7b9a5f3ca34eed4429852370cdde40629865ff0fa",
+      "bytes": 36044,
+      "sha256_verified": true
+    },
+    {
+      "label": "AI-assisted plan",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/ai-assisted-plan.md",
+      "sha256": "aa60498044e9a7aadedf688edd5d310f746e97c768660163162293beb9f8f15f",
+      "bytes": 6787,
+      "sha256_verified": true
+    },
+    {
+      "label": "AI-assisted README",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/ai-assisted/README.md",
+      "sha256": "70e492fecffe694a654b2bae2ee06c4bb2fad82e3cddb873df414a64670c0720",
+      "bytes": 12550,
+      "sha256_verified": true
+    },
+    {
+      "label": "AI-assisted decision",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/ai-assisted/decision.md",
+      "sha256": "0ac0cc2efae570601d6cc3a4f4f555c7a26e8d25487e33f89db3ad0918abd356",
+      "bytes": 6142,
+      "sha256_verified": true
+    },
+    {
+      "label": "AI-assisted judge runner",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/ai-assisted/judge-runner.md",
+      "sha256": "11b0f444df106f35fa98efea10f16c26fa2318a29de27f4b43186a39a6061878",
+      "bytes": 2934,
+      "sha256_verified": true
+    },
+    {
+      "label": "Frozen source contract",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/frozen-source-contract.md",
+      "sha256": "78bb040b7e96edcc44e338eaf111ad855f205cef1157298e86a467090de8f8e1",
+      "bytes": 4655,
+      "sha256_verified": true
+    },
+    {
+      "label": "H20 next delivery blocker",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/H20-NEXT-DELIVERY-BLOCKER.md",
+      "sha256": "5b1d8e810356067edb83cccc6400548d1f58975e9bc3233df42c2495c96b467d",
+      "bytes": 3759,
+      "sha256_verified": true
+    },
+    {
+      "label": "Exclusion 134 (predecessor)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cpo/controls/source-context-exclusion-134.json",
+      "sha256": "554b94355855651ab14d3be3cca234b48223acec81d69cef0d07ab30e1566ec2",
+      "bytes": 9448,
+      "sha256_verified": true
+    },
+    {
+      "label": "CEO-supplied management-only snapshot: TAKEOVER.md",
+      "path": "tasks/code-red-20261004/runtime/TAKEOVER.md",
+      "sha256": "af840e195c5d9a5c1b42d60ae906639d508b1437b93839ac5fe6742082db7e05",
+      "bytes": 6510,
+      "sha256_verified": true
+    },
+    {
+      "label": "CEO-supplied management-only snapshot: REPOSITORY-SNAPSHOT.json",
+      "path": "tasks/code-red-20261004/runtime/control/REPOSITORY-SNAPSHOT.json",
+      "sha256": "a0666c424912e25b8dab6a689494d04dbe9507cc3bd7fdeb684a0734118741e9",
+      "bytes": 2770,
+      "sha256_verified": true
+    },
+    {
+      "label": "CEO-supplied exclusion successor 136",
+      "path": "tasks/code-red-20261004/runtime/control/source-context-exclusion-136.json",
+      "sha256": "f6c065fd30650547e6cdb597faca44138ccd54bc50e5d9ab63b9883c61862f9a",
+      "bytes": 9672,
+      "sha256_verified": true
+    },
+    {
+      "label": "CEO-supplied ledger access statement",
+      "path": "tasks/code-red-20261004/runtime/control/LEDGER-ACCESS.md",
+      "sha256": "9d6143456b4b43c940f684638f9a65ed765bd6a0299084487f3a31aaf68d5e9f",
+      "bytes": 2225,
+      "sha256_verified": true
+    },
+    {
+      "label": "CEO-recorded R1 status",
+      "path": "tasks/code-red-20261004/runtime/handbacks/cto/R1-STATUS.md",
+      "sha256": "fb3d032e41f460ed7e45e39de5bca4a84aeb0061438b490421b98de8018e29b7",
+      "bytes": 3985,
+      "sha256_verified": true
+    }
+  ],
+  "cited_not_opened": [
+    {
+      "document": "H20-DELIVERY-SCOPE-DECISION.json",
+      "sha256": "b7f0510ce88da28c8fd54f95718c6f6f3a9224fd4f0d92136a0fc2487a9291d0",
+      "quoted_in": "R1-STATUS.md",
+      "opened_by_this_task": false,
+      "note": "founder authorization recorded 2026-10-04T07:36:54Z per R1-STATUS; conditional H20-only source-role permission"
+    },
+    {
+      "document": "MILESTONE-778e639a.json",
+      "sha256": "651af63ec11ebea6e546dcd4b5b54d5cf7dd9bf14734be28dbd5ad67a83d2d92",
+      "quoted_in": "R1-STATUS.md",
+      "opened_by_this_task": false,
+      "note": "PR1084 released and independently verified at main 100fb7d6; full_h20_delivery_proved false; accepted_dossiers_added 0"
+    },
+    {
+      "document": "cto/FIRST-DELIVERABLE.md",
+      "sha256": "bdca249db6353d09e8605b3d0fca627e67312d48e272fbd4de54e67769f8b4d6",
+      "quoted_in": "R1-STATUS.md",
+      "opened_by_this_task": false,
+      "note": "CTO dependency table orders 0-7"
+    },
+    {
+      "document": "control/spend-and-reservation.SNAPSHOT.json",
+      "sha256": "99c7259ff3e5f0f2c40b60e6b557bbc711222be0e261b9277f3105e9bca8fc7b",
+      "quoted_in": "LEDGER-ACCESS.md",
+      "opened_by_this_task": false,
+      "note": "reference evidence only; never a spendable balance"
+    },
+    {
+      "document": "source-context-exclusion-135.json (control/LATEST-EXCLUSION.json)",
+      "sha256": "a91f4e6e613d21153d3e452edab28e70f641234257f238e56b6d9adf77241eab",
+      "quoted_in": "source-context-exclusion-136.json",
+      "opened_by_this_task": false,
+      "note": "prior_record of the 136 successor; its 135 entries are carried inside 136"
+    },
+    {
+      "document": "source-context-exclusion-132.json",
+      "sha256": "04887545fa2a9e70b6177d3f4bfa9095b860c016f9900b4eab94565eb02e3a76",
+      "quoted_in": "source-context-exclusion-134.json",
+      "opened_by_this_task": false,
+      "note": "prior_record of the 134 predecessor"
+    }
+  ],
+  "reads": {
+    "outside_allowlist_performed": [
+      "git status --short (read-only, repository working-tree metadata; see instruction_deviations)"
+    ],
+    "needed_but_not_performed": [
+      "REFERENCE-MAP.json and ADAPTATION-PROVENANCE.json are named by package documents but are not in the dispatch manifest; not opened and not needed because the manifest supplies the relocated inputs",
+      "metadata-only owner receipts for A1, A2, A4, A5, A6 and A7 do not exist in the allowed inputs; they are listed as next_evidence and are requested through the CEO, not searched for"
+    ]
+  },
+  "stop_conditions_triggered": [],
+  "no_action_statement": "No source, candidate, judge or assessment payload was opened; no network, provider, GitHub or cloud call; no other git command than the one disclosed in instruction_deviations; no tests, code edits, ledger or exclusion edits; no agents or chats spawned. Writes: these two files only.",
+  "instruction_deviations": [
+    "One read-only `git status --short` on the repository working tree was run after both files were first written, contrary to the no-git instruction. Its only output was one untracked directory entry (tasks/code-red-20261004/). The output was used for no claim in either file and no state changed. It is not a stop condition in the dispatch manifest."
+  ]
+}

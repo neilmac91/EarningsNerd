@@ -160,7 +160,7 @@ export default function EmailChipsInput({
               {chip.kind === 'invalid' && <WarningCircleIcon className="h-3.5 w-3.5 flex-shrink-0" />}
               <span className="truncate">{chip.email}</span>
               {chip.kind === 'invited' && (
-                <span className="text-[10px] uppercase tracking-wide opacity-70">invited</span>
+                <span className="text-data-xs uppercase tracking-eyebrow opacity-70">invited</span>
               )}
               <button
                 type="button"

@@ -1,10 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import CompanySearch from '@/features/companies/components/CompanySearch'
+import { getCompany } from '@/features/companies/api/companies-api'
+import { tickerShaped } from '@/features/companies/lib/tickerShape'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge, Button, Card, Notice, Skeleton } from '@/components/ui'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
@@ -44,9 +47,41 @@ import TrendCharts from './TrendCharts'
  * instantly, then the AI narrative streams in with source-linked citations. Free users get the full
  * picker plus the PeekLocked sample instead of live results (zero AI cost, maximum clarity about
  * what Pro unlocks).
+ *
+ * `?ticker=` (the homepage's "Try it on Apple" links to /analysis?ticker=AAPL) preselects that
+ * company and nothing more: a run costs AI, so only the user's "Run analysis" starts one.
  */
+/**
+ * Reports the page's ticker-shaped `?ticker=` (or null), and again whenever it changes: the App Router
+ * keeps this page mounted across a search-param-only navigation (the Header's and Footer's /analysis
+ * links, or a link to another `?ticker=`). It renders nothing inside its own Suspense boundary, since
+ * useSearchParams() on a statically rendered page suspends to the nearest one, and so the page's
+ * server HTML keeps everything else.
+ */
+function LinkedTicker({ onChange }: { onChange: (ticker: string | null) => void }) {
+  const linked = tickerShaped(useSearchParams()?.get('ticker'))
+  useEffect(() => {
+    onChange(linked)
+  }, [linked, onChange])
+  return null
+}
+
 export default function AnalysisPageClient() {
-  const [ticker, setTicker] = useState<string | null>(null)
+  // The linked ticker comes from LinkedTicker, after hydration. A malformed value is never sent; a
+  // ticker-shaped one is resolved through the company API before the page trusts it, so an unknown
+  // ticker leaves the empty picker.
+  const [linkedTicker, setLinkedTicker] = useState<string | null>(null)
+  const lastLink = useRef<string | null | undefined>(undefined)
+  const { data: linkedCompany } = useQuery({
+    queryKey: queryKeys.analysisCompany(linkedTicker ?? ''),
+    queryFn: () => getCompany(linkedTicker as string),
+    enabled: !!linkedTicker,
+    retry: false,
+    staleTime: 10 * 60 * 1000,
+  })
+  // The user's own pick always wins, including one made while the link resolves.
+  const [pickedTicker, setPickedTicker] = useState<string | null>(null)
+  const ticker = pickedTicker ?? (linkedCompany?.ticker ? linkedCompany.ticker.toUpperCase() : null)
   const [mode, setMode] = useState<AnalysisMode>('annual')
   const [range, setRange] = useState<PeriodRange | null>(null)
   const [dataset, setDataset] = useState<AnalysisDataset | null>(null)
@@ -101,11 +136,27 @@ export default function AnalysisPageClient() {
     setRunning(false)
   }, [])
 
+  // The first report is the link the page opened with. A later, different one is a navigation that kept
+  // the page mounted, so the page starts over from it: no pick, no results, the new link (or none), as
+  // a reload of that URL would show.
+  const followLink = useCallback(
+    (next: string | null) => {
+      if (lastLink.current !== undefined && lastLink.current !== next) {
+        resetResults()
+        setMode('annual')
+        setPickedTicker(null)
+      }
+      lastLink.current = next
+      setLinkedTicker(next)
+    },
+    [resetResults]
+  )
+
   const selectCompany = useCallback(
     (nextTicker: string) => {
       resetResults()
       setMode('annual')
-      setTicker(nextTicker.toUpperCase())
+      setPickedTicker(nextTicker.toUpperCase())
     },
     [resetResults]
   )
@@ -239,7 +290,11 @@ export default function AnalysisPageClient() {
   const paywalled = narrative.status === 'error' && isAnalysisPaywallError(narrative.error || '')
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
+    // The page's one <main> landmark (the root layout's #main is a non-landmark skip-link target).
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
+      <Suspense fallback={null}>
+        <LinkedTicker onChange={followLink} />
+      </Suspense>
       <header className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -261,7 +316,7 @@ export default function AnalysisPageClient() {
         <CompanySearch onSelect={selectCompany} />
         {ticker && (
           <div className="mt-3 flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            <CompanyLogo ticker={ticker} name={coverage?.company_name || ticker} size={20} />
+            <CompanyLogo decorative ticker={ticker} name={coverage?.company_name || ticker} size={20} />
             <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
               {coverage?.company_name || ticker}
             </span>
@@ -391,6 +446,6 @@ export default function AnalysisPageClient() {
         </Link>
         .
       </AiDisclaimer>
-    </div>
+    </main>
   )
 }

@@ -2,7 +2,8 @@
 
 How to run `backend/evals/` for adoption decisions and ongoing regression measurement.
 Live runs need SEC EDGAR network access and provider API keys; CI uses its existing Actions
-secret. Offline scorer/parity tests need neither: `pytest tests/unit/test_eval_*`.
+secret. Offline scorer/parity tests need neither, only `requirements-dev.txt` (pytest.ini runs every
+pytest under pytest-xdist): `pytest tests/unit/test_eval_*`.
 
 The original adoption steps below remain a procedure for future comparisons. Current code
 defaults and deployment overrides are documented in `docs/CONFIGURATION.md`: the quality gate
@@ -44,6 +45,7 @@ normal env loaded.
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+pip install -r requirements-dev.txt   # pytest-xdist: pytest.ini runs every pytest with `-n auto`
 pip install anthropic          # only for Claude candidates + the LLM judge
 
 # Load your normal backend .env, then add provider keys:
@@ -720,10 +722,10 @@ reused as year labels on gross-profit/net-income figures).
 
 | Layer | Citation kind | Check | On failure |
 |---|---|---|---|
-| Publication admission | text `[n]` | an answer must contain a complete citation envelope and array with unambiguous referenced identities; every referenced excerpt must pass the existing source matcher | whole answer withheld with an application error; no draft prose is published |
+| Publication admission | text `[n]` | an answer must contain a complete citation envelope and array with unambiguous referenced identities; every referenced excerpt must pass the existing source matcher | candidate withheld; an excerpt-only mismatch may privately regenerate once as described below; terminal failures return an application error; no draft prose is published |
 | Excerpt verification | text `[n]` | the WHOLE displayed excerpt is contiguous in the normalized filing (`verify_whole_excerpt_in_text`: only a quote pair wrapping the entire excerpt is stripped, never an inner quoted span; `_MIN_VERIFIABLE_LEN` floor, 24), and the section label contains none of decision F's double quote marks `"`, `＂`, `“`, `”`, `„`, `‟` (`section_label_is_quoted`, which reads F's one `_QUOTE_MARK_RE` definition; labels are published unchecked); the published excerpt is never trimmed or substituted. The eval's CITATION gate (`score_citation_faithfulness`) re-checks every published text citation with this same verifier and label predicate | referenced failed evidence prevents completion; unused failed declarations remain omitted |
 | Final numbering | both | an unresolved literal numeric marker must not acquire an unrelated citation's number | whole answer withheld with an application error |
-| Prose quotations (decision F) | — | `_withhold_unsupported_quotations`: the answer is read as displayed markdown within a small subset that both renderers are assumed to read alike (react-markdown + remark-gfm on screen, markdown-it-py here: paragraphs, headings, thematic breaks, lists, top-level blockquotes and tables, emphasis, code). That agreement is the residual assumption, not exact parity; a quoting answer that uses anything else (link syntax and raw URL, www. and email literals; raw HTML, images, reference definitions, footnotes, deep nesting, runs of three or more emphasis delimiters, any adjacent pair of different `*`, `_`, `~`, a Unicode space (U+00A0, U+2000-U+200A, U+202F, U+205F, U+3000) at a line's edge, ...) fails closed. A URL or address built from character references or escapes (`www&#46;sec.gov`) is linked by the display too but shows the same text, so it is read as text. The not-disclosed reason and every follow-up chip (as published, after the 140-character trim) are displayed as plain text and read as such. On every surface, text that may quote and holds a control character, a line or paragraph separator, a byte-order mark, a bidi control, a right-to-left script, an astral character or a character unassigned in Python's Unicode tables fails closed. In each, every double-quoted span of at least `_MIN_QUOTED_LEN` (8) normalized characters (the founder's decision on PR #1029; citation excerpts keep `_MIN_VERIFIABLE_LEN`, 24), or with an interior ellipsis, must occur contiguously in the normalized filing, and the quote marks must admit exactly one balanced reading within the work bounds. Single quotes, guillemets, other marks and blockquotes are not checked (decided scope), and shorter quoted spans are labels | whole response withheld with an application error before any answer, reason or chip is emitted; only the reason code is logged; never repaired |
+| Prose quotations (decision F) | — | `_withhold_unsupported_quotations`: the answer is read as displayed markdown within a small subset that both renderers are assumed to read alike (react-markdown + remark-gfm on screen, markdown-it-py here: paragraphs, headings, thematic breaks, lists, top-level blockquotes and tables, emphasis, code). That agreement is the residual assumption, not exact parity; a quoting answer that uses anything else (link syntax and raw URL, www. and email literals; raw HTML, images, reference definitions, footnotes, deep nesting, runs of three or more emphasis delimiters, any adjacent pair of different `*`, `_`, `~`, a Unicode space (U+00A0, U+2000-U+200A, U+202F, U+205F, U+3000) at a line's edge, ...) fails closed. A URL or address built from character references or escapes (`www&#46;sec.gov`) is linked by the display too but shows the same text, so it is read as text. The not-disclosed reason and every follow-up chip (as published, after the 140-character trim) are displayed as plain text and read as such. On every surface, text that may quote and holds a control character, a line or paragraph separator, a byte-order mark, a bidi control, a right-to-left script, an astral character or a character unassigned in Python's Unicode tables fails closed. In each, every double-quoted span of at least `_MIN_QUOTED_LEN` (8) normalized characters (the founder's decision on PR #1029; citation excerpts keep `_MIN_VERIFIABLE_LEN`, 24), or with an interior ellipsis, must occur contiguously in the normalized filing, and the quote marks must admit exactly one balanced reading within the work bounds. Single quotes, guillemets, other marks and blockquotes are not checked (decided scope), and shorter quoted spans are labels | candidate withheld before any answer, reason or chip is emitted; only the reason code is logged; never repaired; one fresh generation may recover the two source-matching reasons described below |
 | Marker resolution | both | every inline marker resolves to a declared source | unresolvable F-marker stripped from prose |
 | Value adjacency | fact `[Fn]` | a figure matching the fact's value (display-rounding tolerance) must sit in the claim span before the marker — bounded by the previous marker | occurrence stripped, counted as misplaced |
 | Concept adjacency | fact `[Fn]` | the claim span must not name a *different* curated metric while never naming the fact's own (right value, wrong label — `_CONCEPT_SYNONYMS`) | occurrence stripped, counted as misplaced |
@@ -734,13 +736,29 @@ reused as year labels on gross-profit/net-income figures).
 | Figure coverage | — | `count_uncited_figures`: financial figures outside every citation's claim span (the misplacement guards convert wrong chips into *uncited* prose — this counts what shipped naked) | counted, never modified |
 | Telemetry | — | `misplaced_fact_markers` / `figure_count` / `uncited_figures` on the complete event, both warning logs, and the same trio on the PostHog `copilot_inference_cost` event | — |
 
+One `quotation_not_in_source` or `elided_quotation` rejection, or a referenced excerpt mismatch
+with adequate source and excerpt length, complete unambiguous literal identities and quote-free
+section labels, may privately
+start one fresh generation from the original filing and question. The rejected candidate is never
+repaired, published or added to the replacement prompt. Both generations use the same selected
+source and original 75-second provider deadline;
+their physical usage is accumulated, while successful-answer quota is charged once. The replacement
+passes every existing admission check. An excerpt rejection combined with missing source/identities,
+short excerpts, conflicting IDs or quoted section labels is ineligible for regeneration.
+A second rejection, another admission reason, provider
+failure or exhausted budget remains terminal. Prompt guidance prefers cited paraphrases and exact
+contiguous direct quotations, with quote-free displayed followups, refusal reasons and section labels.
+Citation excerpts preserve all source punctuation, including inner quotation marks escaped in JSON.
+
 Copilot publishes answer prose only in its final admitted completion. Fixed progress and tool
 activity remain live. The browser rejects malformed or known-unverified completion payloads,
 including those from an older backend revision, and treats EOF or timeout without completion as
-an error. Closing the rail cancels only its pending response. Failed or cancelled requests do
-not consume successful-answer quota; physical provider usage remains recorded by the provider
-wrapper, including unknown cost. A rejected answerable evaluation attempt remains a failure;
-the copilot-eval report names its publication-withhold reason (below), which admits nothing.
+an error. Closing the rail cancels only its pending response. Terminal failures refund quota.
+Cancellation before provider dispatch consumes no quota; a disconnect after dispatch retains the
+charged unit under the existing router policy. Physical provider usage remains recorded by the provider
+wrapper, including unknown cost. A terminally rejected answerable evaluation attempt remains a
+failure; a recovered question is scored on its fully admitted replacement, with the first
+candidate's rejection retained separately in the trace. The reason code admits nothing.
 
 This boundary prevents publication of known failed referenced evidence. Source matching does
 not establish the meaning, period, entity or cause of the surrounding claim. An explicit empty
@@ -753,7 +771,7 @@ answers retain their optional-followups behavior. The browser validates the corr
 not-disclosed completion shape; it cannot reconstruct a prior server's raw envelope or reverse
 quota that server already charged. Neither path is promoted to financial-quality acceptance. Existing fact-marker removal
 and repair behavior below is unchanged. Rejection logs identify the application-owned reason
-without logging candidate prose; the client receives the same generic error.
+without logging candidate prose; a terminal rejection gives the client the same generic error.
 
 Output-format step 3 of `SYSTEM_PROMPT` distinguishes the two citation namespaces explicitly:
 the JSON array contains only positive-integer filing-text IDs, never tool `F#` objects. An answer
@@ -813,9 +831,13 @@ regression can't hide from the harness).
 **Complete live acceptance (same-repository PR, explicit Ready for review opt-in):**
 `copilot-eval.yml` stays skipped while the PR is draft. After the full offline gate and three
 independent review lenses, the orchestrator marks it ready. The dedicated workflow responds to
-`ready_for_review` and subsequent non-draft pushes; existing summary CI does not claim an automatic
-restart on that event. Acceptance still requires its separate full summary artifact against the
-sole unchanged baseline.
+`ready_for_review` and subsequent non-draft pushes, but only for a pull request whose diff matches
+its `paths:` filter: the eval's import closure, its runtime data and the workflow itself, gated by
+`tests/unit/test_copilot_eval_paths.py`. A pull request whose files all fall outside the filter
+(routers, tests, scripts and migrations, for example) never starts it and needs no copilot-eval
+artifact. Existing summary CI does not claim an automatic restart on that event. Where the
+workflow runs, acceptance still requires its separate full summary artifact against the sole
+unchanged baseline.
 
 The workflow prepares six verified accessions/five issuers in a new file-backed SQLite database
 using only `copilot_sources.json` identities and the production SEC/excerpt/fact paths. It records
@@ -849,12 +871,17 @@ sanitized provider telemetry. Unknown cost is not free. Source-preparation failu
 provider calls and requires diagnosis. No live acceptance result is claimed by implementation or
 offline tests. The first weekly strong-judge readout and evidence-snap activation remain held.
 
-**Publication-withhold reason (diagnostic only).** When the service withholds a candidate at the
-publication boundary, the client receives only the shared generic error and the service logs the
+**Publication-withhold reason (diagnostic only).** When the service terminally withholds an answer at the
+publication boundary, the client receives only the shared generic error. Every candidate rejection logs the
 application-owned reason. For each attempt the runner records that reason from the `copilot_service`
 log through a logger filter scoped to the attempt (service log output unchanged; attempts run one at
 a time; a record logged under any other attempt's context is ignored), in
-`tool_trace.withheld_reasons`, and copies it to the row as `error.withheld_reason`. Decision F
+`tool_trace.withheld_reasons`. Each physical generation also retains its own messages, options,
+candidate deltas, provider-control types, tool results and withheld reasons in
+`tool_trace.generation_attempts`; the aggregate fields remain for compatibility. A recovered question
+retains the rejected generation's evidence and is scored on its admitted replacement. A terminal
+admission failure copies that final generation's last reason to `error.withheld_reason`; a provider
+failure on the replacement does not inherit an earlier candidate's rejection reason. Decision F
 reasons start with `Unsupported prose quotation:` (for example `Unsupported prose quotation:
 quotation_not_in_source`); every other reason, such as `Invalid citation declaration` or `Unverified
 or ambiguous referenced citation` (whole-excerpt or section-label check), is not F.
@@ -863,23 +890,55 @@ or ambiguous referenced citation` (whole-excerpt or section-label check), is not
 the workflow appends `copilot-eval.md` to the job summary, so the reason is readable on the run page
 without the artifact. The row stays an execution error: `summary.errors`, `failures` being
 non-empty, `accepted`, thresholds and the exit code are unchanged, and an uncaptured reason leaves
-the generic label, never a pass. Product behaviour, SSE events and the locked stream contract tests
-are unchanged.
+the generic label, never a pass. The scorer, thresholds and locked stream contract tests are unchanged.
 
 **Triage rule for a red copilot-eval run** (founder approval, 2026-10-02 13:10Z: "Go with your
 recommendation on all open points"; recorded in `tasks/pr-disposition-2026-09-30.md`, log entry
-13:10Z). A red copilot-eval run may be recorded as not caused by a PR only when ALL hold: (1) every
-errored row carries a decision-F prose-quotation withhold reason (named in the report); (2) the PR
-changes no Copilot model-facing bytes (system prompt, tool schema, context building, generation
-options) and no decision-F prose-quotation logic beyond a behaviour-preserving refactor proven
-offline; (3) offline replay of each such row's retained candidate gives the same F reason under
-main's code (f_attribution exit 0, 0 UNEXPLAINED); (4) every other row passes; (5) the PR records
-the red run, the attribution and this rule in a comment. Any other failure — including non-F
-publication withholds — blocks as before. The run is never re-run to obtain a green result outside a
-predeclared protocol. This does not change accepted, error counting, thresholds or exit codes.
+13:10Z. Widened on 2026-10-09 from decision-F reasons to every named publication withhold, under the
+founder's delegation of the open decisions: `tasks/decisions-2026-10-09-design-followups.md`,
+decision D. From 3 to 9 October, after #1052 began verifying whole citation excerpts, 16 runs went
+red on PRs that change no Copilot code. 13 of them carried `Unverified or ambiguous referenced
+citation`, which the F-only rule left blocking. In all 17 such rows the model had cited table or KPI
+cells as an elided or short excerpt: 15 on one BABA question, 2 on one ASML question.) A red
+copilot-eval run may be recorded as not caused by a PR only when ALL hold:
+(1) every errored row carries a named publication-withhold reason (`publication withheld: <reason>`
+in the report): a decision-F prose-quotation reason, or any other reason the service logs at the
+publication boundary, such as `Unverified or ambiguous referenced citation` or `Invalid citation
+declaration`. A provider failure, a timeout or the generic `operationally incomplete attempt` label
+is not one;
+(2) the PR changes no Copilot model-facing bytes (system prompt, tool schema and tool results, context
+building including source selection and extraction, generation options), no publication-boundary
+logic (citation parsing and verification, decision F, the private regeneration) and no Copilot eval
+harness (runner, scorers, golden set and sources, `copilot-eval.yml`), beyond a behaviour-preserving
+refactor proven offline;
+(3) offline replay of each such row's retained generations under main's code reproduces the run: the
+replay tool exits 0 with 0 UNEXPLAINED, and each such row is classified with its recorded reason
+("other reason" whose `other_reason` equals the row's `tool_trace.withheld_reasons`, or
+"F-withheld" with the row's decision-F code). A row the replay does not reproduce is UNEXPLAINED, and
+blocks;
+(4) every other row passes;
+(5) the PR records the red run, the attribution and this rule in a comment.
+Any other failure blocks as before. A PR that changes this rule does not apply it to its own run. The
+run is never drawn again to obtain a green result outside a predeclared protocol. `copilot-eval.yml`
+draws once per head commit. A re-run attempt, a draft-to-ready toggle or a reopen on a head that
+already drew reports that draw's verdict before it spends, and draws nothing
+(`backend/scripts/copilot_eval_draw_gate.py`, `tests/unit/test_copilot_eval_rerun_refusal.py`).
+Nothing exempts a head, since anything that can change after a draw, such as the PR body, could buy
+another draw once the result is known. A draw that was cancelled (a toggle or a new run mid-draw
+cancels it) or is still running counts as the head's draw, and not as a green one. A new draw comes
+from a new push. A push made only to draw again, changing nothing under `backend/` or `.github/`, is
+a re-draw too, forbidden outside a predeclared protocol; the gate keys on the head commit and does not
+catch it (follow-up 11 in `tasks/decisions-2026-10-09-design-followups.md`, the founder's call). A
+predeclared protocol that needs several draws of the same code gives each draw its own head, a commit
+that changes only its evidence folder, and says so in its preregistration. This does not change
+accepted, error counting, thresholds or exit codes.
 Condition (1) is read off each errored row in the per-row verdict column of `copilot-eval.md` (the
 `Failures:` line lists each label only once); the replay tool for (3) is
-`tasks/review-evidence/f-quote-containment-2026-10-01/f1-attribution-2026-10-02/f_attribution.py`.
+`tasks/review-evidence/copilot-eval-triage-2026-10-09/f_attribution.py`. It replays each generation
+from `tool_trace.generation_attempts` and enforces decision F, as production does. Its predecessor
+(`tasks/review-evidence/f-quote-containment-2026-10-01/f1-attribution-2026-10-02/f_attribution.py`,
+kept unchanged for the records that pin it) predates #1111's second generation and exits 3 on any
+report that holds a recovered row.
 
 **Gating rule — two different standards (July 2026, learned the hard way):**
 - **Resolver/guard changes** gate DETERMINISTICALLY: the offline suites replay real failure shapes

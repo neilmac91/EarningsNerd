@@ -20,6 +20,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from evals.acceptance_h20_joint_inputs import ValidatedH20JointInputs, validate_h20_joint_inputs
 from evals.acceptance_source_review_graph import (
     ATTESTATION_FLAGS,
     CONTEXT_STATUSES,
@@ -89,6 +90,15 @@ _SETTLEMENT_INTENT_KEYS = frozenset({
     "artifact_base64", "receipt",
 })
 _SOURCE_CACHE: tuple[tuple[Path, str], ValidatedPromptSource] | None = None
+_JOINT_CACHE: tuple[tuple[Path, str], ValidatedH20JointInputs] | None = None
+
+
+def _joint_keys(value: dict[str, Any]) -> set[str]:
+    return {"joint_contract_sha256"} if value.get("schema_version") == 2 else set()
+
+
+def _limitations(version: int) -> list[str]:
+    return [item.replace("schema-1", "schema-2") for item in LIMITATIONS] if version == 2 else list(LIMITATIONS)
 
 
 def _canonical(value: Any) -> bytes:
@@ -190,14 +200,14 @@ def _load_binding(root: Path, db: sqlite3.Connection) -> dict[str, Any]:
         binding = json.loads(binding_bytes.decode("ascii"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("frozen journal binding is invalid") from exc
-    _object(binding, _BINDING_KEYS, "journal binding")
+    _object(binding, _BINDING_KEYS | _joint_keys(binding), "journal binding")
     if _canonical(binding) != binding_bytes:
         raise ValueError("frozen journal binding is not canonical")
-    if binding["schema_version"] != SCHEMA_VERSION or binding["kind"] != JOURNAL_KIND:
+    if type(binding["schema_version"]) is not int or binding["schema_version"] not in (1, 2) or binding["kind"] != JOURNAL_KIND:
         raise ValueError("unsupported journal binding")
     if any(binding[flag] is not False for flag in ATTESTATION_FLAGS):
         raise ValueError("journal binding cannot attest review or admission")
-    if binding["limitations"] != list(LIMITATIONS):
+    if binding["limitations"] != _limitations(binding["schema_version"]):
         raise ValueError("journal binding limitations changed")
     if validate_role_contract(binding["role_contract"]) != binding["role_contract_sha256"]:
         raise ValueError("frozen role contract changed")
@@ -212,6 +222,8 @@ def _load_binding(root: Path, db: sqlite3.Connection) -> dict[str, Any]:
         raise ValueError("frozen packet_bytes_sha256 must map packet roles to hashes")
     for role, digest in packet_hashes.items():
         _token(digest, _SHA256, f"frozen packet hash for {role}")
+    if binding["schema_version"] == 2:
+        _token(binding["joint_contract_sha256"], _SHA256, "joint_contract_sha256")
     return binding
 
 
@@ -256,6 +268,36 @@ def _validated_source(root: Path, binding: dict[str, Any]) -> ValidatedPromptSou
     # bytes while avoiding a full corpus read and validation for every leaf reservation.
     _SOURCE_CACHE = (cache_key, source)
     return source
+
+
+def _validated_joint(root: Path, binding: dict[str, Any], *, fresh: bool = False) -> ValidatedH20JointInputs | None:
+    global _JOINT_CACHE
+    if binding["schema_version"] == 1:
+        return None
+    key = (root, _sha(_canonical(binding)))
+    if not fresh and _JOINT_CACHE is not None and _JOINT_CACHE[0] == key:
+        return _JOINT_CACHE[1]
+    directory = root / "source" / "joint"
+    contract_bytes = (directory / "contract.json").read_bytes()
+    if _sha(contract_bytes) != binding["joint_contract_sha256"]:
+        raise ValueError("frozen joint contract changed")
+    contract = json.loads(contract_bytes)
+    original_bytes = (directory / "original-contract.json").read_bytes()
+    review_bytes = (directory / "review-contract.json").read_bytes()
+    original = json.loads(original_bytes)
+    raw = {}
+    for packet in original["packets"]:
+        digest = _token(packet["sha256"], _SHA256, "original packet sha256")
+        raw[packet["role"]] = (directory / "packets" / f"{digest}.bin").read_bytes()
+    manifest, expected, review_packets = _read_frozen_source(root, binding)
+    owner = validate_h20_joint_inputs(
+        original_contract_bytes=original_bytes, expected_original_contract_sha256=contract["original_contract_sha256"],
+        review_contract_bytes=review_bytes, expected_review_contract_sha256=contract["review_contract_sha256"],
+        joint_contract_bytes=contract_bytes, expected_joint_contract_sha256=binding["joint_contract_sha256"],
+        original_packet_bytes=raw, unit_manifest=manifest, expected_packets=expected, packet_bytes=review_packets,
+    )
+    _JOINT_CACHE = (key, owner)
+    return owner
 
 
 def _require_open(db: sqlite3.Connection) -> None:
@@ -384,7 +426,7 @@ def _intent_payloads(intent: dict[str, Any]) -> tuple[bytes | None, dict[str, An
     return artifact, receipt
 
 
-def _render_identity(node_kind: str, render_inputs: dict[str, Any]) -> tuple[dict[str, Any], bytes]:
+def _render_identity(node_kind: str, render_inputs: dict[str, Any], joint_contract_sha256: str | None = None) -> tuple[dict[str, Any], bytes]:
     if type(render_inputs) is not dict or any(type(key) is not str for key in render_inputs):
         raise ValueError("render_inputs must be an object")
     template = render_inputs.get("template")
@@ -395,7 +437,10 @@ def _render_identity(node_kind: str, render_inputs: dict[str, Any]) -> tuple[dic
         if set(render_inputs) != expected:
             raise ValueError("leaf render_inputs must contain template and unit_id")
         unit_id = _token(render_inputs["unit_id"], _SHA256, "leaf unit_id")
-        return {"unit_id": unit_id}, template
+        identity = {"unit_id": unit_id}
+        if joint_contract_sha256 is not None:
+            identity["joint_contract_sha256"] = joint_contract_sha256
+        return identity, template
     expected = {"template", "children", "child_artifacts"}
     if set(render_inputs) != expected:
         raise ValueError("parent render_inputs must contain template, children, child_artifacts")
@@ -408,9 +453,9 @@ def _render_identity(node_kind: str, render_inputs: dict[str, Any]) -> tuple[dic
     return {"children": copied}, template
 
 
-def _validate_render_result(result: Any) -> dict[str, Any]:
+def _validate_render_result(result: Any, version: int = 1) -> dict[str, Any]:
     _object(result, _RENDER_RESULT_KEYS, "prompt render result")
-    if type(result["schema_version"]) is not int or result["schema_version"] != SCHEMA_VERSION:
+    if type(result["schema_version"]) is not int or result["schema_version"] != version:
         raise ValueError("unsupported prompt render schema_version")
     if type(result["kind"]) is not str or result["kind"] != RENDER_KIND:
         raise ValueError("unsupported prompt render kind")
@@ -436,8 +481,14 @@ def _render(
     reservation_id: str,
     render_inputs: dict[str, Any],
     source: ValidatedPromptSource | None = None,
+    joint_inputs: ValidatedH20JointInputs | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], bytes]:
-    identity, template = _render_identity(node_kind, render_inputs)
+    identity, template = _render_identity(node_kind, render_inputs, binding.get("joint_contract_sha256"))
+    if binding["schema_version"] == 2 and (type(joint_inputs) is not ValidatedH20JointInputs
+            or joint_inputs.contract_sha256 != binding["joint_contract_sha256"]):
+        raise ValueError("v2 rendering requires the frozen validated joint input owner")
+    if binding["schema_version"] == 1 and joint_inputs is not None:
+        raise ValueError("v1 rendering cannot accept joint inputs")
     common = {
         "template": template,
         "accession_number": binding["accession_number"],
@@ -453,6 +504,7 @@ def _render(
             **common,
             source=source,
             unit_id=render_inputs["unit_id"],
+            joint_inputs=joint_inputs,
         )
     else:
         result = render_parent_prompt(
@@ -460,8 +512,9 @@ def _render(
             node_kind=node_kind,
             children=render_inputs["children"],
             child_artifacts=render_inputs["child_artifacts"],
+            joint_contract_sha256=binding.get("joint_contract_sha256"),
         )
-    return _validate_render_result(result), identity, template
+    return _validate_render_result(result, binding["schema_version"]), identity, template
 
 
 def initialize_journal(
@@ -474,6 +527,7 @@ def initialize_journal(
     unit_manifest: dict[str, Any],
     expected_packets: list[dict[str, Any]],
     packet_bytes: dict[str, bytes],
+    joint_inputs: ValidatedH20JointInputs | None = None,
 ) -> dict[str, Any]:
     """Create a new immutable programme binding before any review context is opened."""
     root = Path(root)
@@ -502,8 +556,14 @@ def initialize_journal(
     if source.manifest_sha256 != unit_manifest_sha256:
         raise ValueError("unit_manifest_sha256 does not match the validated source manifest")
     packet_hashes = {role: _sha(data) for role, data in frozen_packet_bytes.items()}
+    version = 1 if joint_inputs is None else 2
+    if joint_inputs is not None:
+        if type(joint_inputs) is not ValidatedH20JointInputs:
+            raise ValueError("journal requires mechanically validated joint inputs")
+        joint_inputs.require_review(unit_manifest_sha256, frozen_expected, packet_hashes)
     binding = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": version,
+        **({"joint_contract_sha256": joint_inputs.contract_sha256} if joint_inputs is not None else {}),
         "kind": JOURNAL_KIND,
         "programme_id": programme_id,
         "accession_number": accession_number,
@@ -512,7 +572,7 @@ def initialize_journal(
         "unit_manifest_sha256": unit_manifest_sha256,
         "expected_packets_sha256": _sha(frozen_expected_bytes),
         "packet_bytes_sha256": packet_hashes,
-        "limitations": list(LIMITATIONS),
+        "limitations": _limitations(version),
         **{flag: False for flag in ATTESTATION_FLAGS},
     }
     binding_bytes = _canonical(binding)
@@ -528,6 +588,19 @@ def initialize_journal(
         if digest not in written:
             _durable_new(root / "source" / "packets" / f"{digest}.bin", data)
             written.add(digest)
+    if joint_inputs is not None:
+        directory = root / "source" / "joint"
+        (directory / "packets").mkdir(mode=0o700, parents=True)
+        for name, raw in (("contract.json", joint_inputs.contract_bytes),
+                          ("original-contract.json", joint_inputs.original_contract_bytes),
+                          ("review-contract.json", joint_inputs.review_contract_bytes)):
+            _durable_new(directory / name, raw)
+        joint_written: set[str] = set()
+        for _role, raw in joint_inputs.original_packets:
+            digest = _sha(raw)
+            if digest not in joint_written:
+                _durable_new(directory / "packets" / f"{digest}.bin", raw)
+                joint_written.add(digest)
     _durable_new(root / "binding.json", binding_bytes)
     with _connect(root) as db:
         db.executescript(
@@ -562,8 +635,10 @@ def initialize_journal(
             """
         )
         db.execute("INSERT INTO programme(singleton,binding_bytes) VALUES (1,?)", (binding_bytes,))
-    global _SOURCE_CACHE
+    global _SOURCE_CACHE, _JOINT_CACHE
     _SOURCE_CACHE = ((root, _sha(binding_bytes)), source)
+    if joint_inputs is not None:
+        _JOINT_CACHE = ((root, _sha(binding_bytes)), joint_inputs)
     _fsync_directory(root)
     return binding
 
@@ -598,7 +673,7 @@ def reserve_attempt(
             raise ValueError("an eligible node cannot be redrawn")
         if prior and prior[-1]["status"] == RESERVED_STATUS:
             raise ValueError("a pending attempt blocks retry")
-        _identity, template = _render_identity(node_kind, render_inputs)
+        _identity, template = _render_identity(node_kind, render_inputs, binding.get("joint_contract_sha256"))
         template_sha256 = _sha(template)
         declared_template = binding["role_contract"]["node_kinds"].get(node_kind)
         if declared_template is None or declared_template["template_sha256"] != template_sha256:
@@ -620,6 +695,7 @@ def reserve_attempt(
             reservation_id=reservation_id,
             render_inputs=render_inputs,
             source=source,
+            joint_inputs=_validated_joint(root, binding),
         )
         identity_bytes = _canonical(render_identity)
         if prior:
@@ -789,10 +865,12 @@ def recover_pending_attempt(root: Path) -> dict[str, Any] | None:
         if _canonical(input_manifest) != input_manifest_bytes:
             raise ValueError("retained pending input manifest is not canonical JSON")
         if (
-            input_manifest.get("schema_version") != SCHEMA_VERSION
+            input_manifest.get("schema_version") != binding["schema_version"]
             or input_manifest.get("kind") != INPUT_MANIFEST_KIND
         ):
             raise ValueError("retained pending input manifest has an unsupported schema")
+        if input_manifest.get("joint_contract_sha256") != binding.get("joint_contract_sha256"):
+            raise ValueError("pending prompt joint contract differs from its journal")
         expected_identity = {
             "accession_number": binding["accession_number"],
             "role": binding["role_contract"]["role"],
@@ -822,7 +900,8 @@ def recover_pending_attempt(root: Path) -> dict[str, Any] | None:
         if _canonical(render_identity) != bytes(row["render_identity"]):
             raise ValueError("stored render identity is not canonical JSON")
         manifest_identity = (
-            {"unit_id": input_manifest.get("leaf", {}).get("unit_id")}
+            {"unit_id": input_manifest.get("leaf", {}).get("unit_id"),
+             **({"joint_contract_sha256": binding["joint_contract_sha256"]} if binding["schema_version"] == 2 else {})}
             if row["node_kind"] == "leaf"
             else {"children": input_manifest.get("children")}
         )
@@ -1012,14 +1091,15 @@ def seal_history(root: Path) -> dict[str, str]:
         ):
             raise ValueError("every attempt must be terminal with a retained receipt")
         history = {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": binding["schema_version"],
+            **({"joint_contract_sha256": binding["joint_contract_sha256"]} if binding["schema_version"] == 2 else {}),
             "kind": HISTORY_KIND,
             "programme_id": binding["programme_id"],
             "accession_number": binding["accession_number"],
             "role_contract_sha256": binding["role_contract_sha256"],
             "unit_manifest_sha256": binding["unit_manifest_sha256"],
             "attempts": [_attempt_snapshot(row) for row in rows],
-            "limitations": list(LIMITATIONS),
+            "limitations": _limitations(binding["schema_version"]),
             **{flag: False for flag in ATTESTATION_FLAGS},
         }
         history_bytes = _canonical(history)
@@ -1055,14 +1135,14 @@ def _load_history(path: Path, expected_sha256: str) -> tuple[dict[str, Any], byt
         history = json.loads(raw.decode("ascii"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("sealed history is not canonical JSON") from exc
-    _object(history, _HISTORY_KEYS, "sealed history")
+    _object(history, _HISTORY_KEYS | _joint_keys(history), "sealed history")
     if _canonical(history) != raw:
         raise ValueError("sealed history is not canonical JSON")
-    if history["schema_version"] != SCHEMA_VERSION or history["kind"] != HISTORY_KIND:
+    if type(history["schema_version"]) is not int or history["schema_version"] not in (1, 2) or history["kind"] != HISTORY_KIND:
         raise ValueError("unsupported sealed history")
     if any(history[flag] is not False for flag in ATTESTATION_FLAGS):
         raise ValueError("sealed history cannot attest review or admission")
-    if history["limitations"] != list(LIMITATIONS):
+    if history["limitations"] != _limitations(history["schema_version"]):
         raise ValueError("sealed history limitations changed")
     if type(history["attempts"]) is not list or not history["attempts"]:
         raise ValueError("sealed history needs terminal attempts")
@@ -1177,7 +1257,7 @@ def validate_execution_binding(
     history_path = Path(history_path).resolve()
     history, history_bytes = _load_history(history_path, expected_history_sha256)
     root = history_path.parent
-    _object(graph_validation_inputs, _GRAPH_INPUT_KEYS, "graph_validation_inputs")
+    _object(graph_validation_inputs, _GRAPH_INPUT_KEYS | ({"joint_inputs"} if history["schema_version"] == 2 else set()), "graph_validation_inputs")
     with _connect(root, read_only=True) as db:
         binding = _load_binding(root, db)
         programme = db.execute(
@@ -1194,6 +1274,8 @@ def validate_execution_binding(
         or history["accession_number"] != binding["accession_number"]
         or history["role_contract_sha256"] != binding["role_contract_sha256"]
         or history["unit_manifest_sha256"] != binding["unit_manifest_sha256"]
+        or history["schema_version"] != binding["schema_version"]
+        or history.get("joint_contract_sha256") != binding.get("joint_contract_sha256")
     ):
         raise ValueError("sealed history differs from the frozen journal binding")
     if _canonical(graph_validation_inputs["role_contract"]) != _canonical(binding["role_contract"]):
@@ -1207,6 +1289,11 @@ def validate_execution_binding(
     ):
         raise ValueError("graph validation uses different frozen source inputs")
     source = _validated_source(root, binding)
+    joint_inputs = _validated_joint(root, binding, fresh=True)
+    if joint_inputs is not None:
+        supplied_joint = graph_validation_inputs["joint_inputs"]
+        if type(supplied_joint) is not ValidatedH20JointInputs or supplied_joint.contract_sha256 != joint_inputs.contract_sha256:
+            raise ValueError("graph validation uses different frozen joint inputs")
 
     graph_result = validate_review_graph(graph, **graph_validation_inputs)
     attempts = history["attempts"]
@@ -1258,7 +1345,7 @@ def validate_execution_binding(
         if type(template) is not bytes:
             raise ValueError("graph artifacts omit a journal template")
         if attempt["node_kind"] == "leaf":
-            identity = _object(attempt["render_identity"], frozenset({"unit_id"}), "leaf render identity")
+            identity = _object(attempt["render_identity"], frozenset({"unit_id"}) | _joint_keys(binding), "leaf render identity")
             render_inputs = {
                 "template": template,
                 "unit_id": identity["unit_id"],
@@ -1298,6 +1385,7 @@ def validate_execution_binding(
             reservation_id=attempt["reservation_id"],
             render_inputs=render_inputs,
             source=source if attempt["node_kind"] == "leaf" else None,
+            joint_inputs=joint_inputs,
         )
         if identity_check != attempt["render_identity"]:
             raise ValueError("retained render identity is not canonical")
@@ -1345,7 +1433,8 @@ def validate_execution_binding(
             raise ValueError("graph node differs from its terminal eligible journal attempt")
 
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": binding["schema_version"],
+        **({"joint_contract_sha256": binding["joint_contract_sha256"]} if binding["schema_version"] == 2 else {}),
         "kind": VALIDATION_KIND,
         "graph_sha256": graph_result["graph_sha256"],
         "history_sha256": _sha(history_bytes),
@@ -1360,5 +1449,5 @@ def validate_execution_binding(
         "exact_prompt_construction_verified": True,
         "complete_operator_history_verified": True,
         **{flag: False for flag in ATTESTATION_FLAGS},
-        "limitations": list(LIMITATIONS),
+        "limitations": _limitations(binding["schema_version"]),
     }

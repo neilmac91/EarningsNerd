@@ -1,12 +1,14 @@
-"""E07b: the summary pipeline reserves a quota unit at admission and converts or releases it.
+"""E07b: the summary pipeline reserves a quota unit at admission and counts it when the provider starts.
 
 Runs the real pipeline offline (shared harness) against the SQLite test DB the way the route
 does: with a ``GenerationUserSnapshot`` as ``current_user`` (the headless drain passes None and
 never reaches the admission block). The harness patches ``check_usage_limit`` (the patchable
-read) but leaves ``reserve_summary_use`` real, so these pin the wiring: a full result converts
-the reservation into exactly one counted unit, a partial or failed generation releases it, the
-read-side block never reserves, and the serialized decision can still block a request the read
-admitted. PostgreSQL concurrency lives in tests/integration/test_usage_counter_transactions.py.
+read) but leaves ``reserve_summary_use`` real, so these pin the wiring: the reservation becomes
+exactly one counted unit as the provider call starts (section previews can stream before the
+complete event, so a client disconnect after that point keeps the unit); a provider-side failure
+or a partial verdict under the quality gate refunds it (net zero); the read-side block never
+reserves; and the serialized decision can still block a request the read admitted. PostgreSQL
+concurrency lives in tests/integration/test_usage_counter_transactions.py.
 """
 import uuid
 from datetime import timedelta
@@ -18,6 +20,7 @@ from app.database import SessionLocal
 from app.models import UsageReservation, User, UserUsage
 from app.services import subscription_service as usage
 from app.services import summary_pipeline
+from app.services.ai.provider_requests import signal_provider_start
 from app.services.subscription_service import get_current_month
 from app.services.summary_pipeline import GenerationUserSnapshot, stream_filing_summary
 from tests.support.summary_stream_harness import (
@@ -70,40 +73,82 @@ async def test_full_result_converts_the_reservation_into_one_counted_unit():
     assert _state(user_id) == (0, 1)
 
 
+def _observer(user_id: int, seen: list[tuple[int, int]], outcome):
+    """A provider stand-in that signals the provider request (as the real dispatcher does right
+    before issuing it), records the (leases, counted) state while it runs, then returns ``outcome``
+    (a payload) or raises it (an exception). The pipeline charges on that signal from its heartbeat
+    loop, so the observation waits a beat for the write to land."""
+    async def observe(*args, **kwargs):
+        import asyncio
+        signal_provider_start()
+        await asyncio.sleep(0.3)
+        seen.append(_state(user_id))
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+    return observe
+
+
 @pytest.mark.asyncio
-async def test_partial_result_releases_the_reservation_without_counting():
+async def test_partial_result_refunds_the_unit_counted_at_provider_start():
     user_id, filing_id = _seed_user(), seed_company_filing()
+    seen: list[tuple[int, int]] = []
     partial = {**CANONICAL_PAYLOAD, "raw_summary": {"sections": {}, "section_coverage": {
         "per_section": {"executive_snapshot": True, "financial_highlights": True}, "covered_count": 2, "total_count": 9,
     }}}
-    with stream_boundaries(payload=partial), patch.object(summary_pipeline.settings, "AI_QUALITY_GATE", True):
+    with stream_boundaries(payload=partial) as summarize, patch.object(summary_pipeline.settings, "AI_QUALITY_GATE", True):
+        summarize.side_effect = _observer(user_id, seen, partial)
         await _run(filing_id, user_id)
-    assert _state(user_id) == (0, 0)
+    assert seen == [(0, 1)]  # counted when the provider started
+    assert _state(user_id) == (0, 0)  # the partial verdict refunded it: an honest partial costs nothing
 
 
 @pytest.mark.asyncio
-async def test_reservation_is_held_while_the_provider_runs():
+async def test_reservation_is_converted_into_a_counted_unit_as_the_provider_starts():
     user_id, filing_id = _seed_user(), seed_company_filing()
     seen: list[tuple[int, int]] = []
 
-    async def observe(*args, **kwargs):
-        seen.append(_state(user_id))
-        return CANONICAL_PAYLOAD
-
     with stream_boundaries() as summarize:
-        summarize.side_effect = observe
+        summarize.side_effect = _observer(user_id, seen, CANONICAL_PAYLOAD)
         await _run(filing_id, user_id)
-    assert seen == [(1, 0)]  # one reservation, nothing counted, while the provider ran
+    assert seen == [(0, 1)]  # no lease left and one counted unit while the provider runs
     assert _state(user_id) == (0, 1)
 
 
 @pytest.mark.asyncio
-async def test_failed_generation_releases_the_reservation():
+async def test_provider_failure_before_output_refunds_the_unit():
     user_id, filing_id = _seed_user(), seed_company_filing()
+    seen: list[tuple[int, int]] = []
     with stream_boundaries() as summarize:
-        summarize.side_effect = RuntimeError("provider down")
+        summarize.side_effect = _observer(user_id, seen, RuntimeError("provider down"))
         events = await _run(filing_id, user_id)
     assert events[-1]["type"] == "error"
+    assert seen == [(0, 1)]  # counted when the provider started
+    assert _state(user_id) == (0, 0)  # the provider-side failure refunded it
+
+
+@pytest.mark.asyncio
+async def test_provider_error_payload_refunds_the_unit():
+    """The service converts its own failures into ``{"status": "error"}`` payloads; the pipeline
+    treats that like a raised failure: nothing persisted, the unit refunded."""
+    user_id, filing_id = _seed_user(), seed_company_filing()
+    seen: list[tuple[int, int]] = []
+    with stream_boundaries() as summarize:
+        summarize.side_effect = _observer(user_id, seen, {"status": "error", "message": "model unavailable"})
+        events = await _run(filing_id, user_id)
+    assert events[-1]["type"] == "error"
+    assert seen == [(0, 1)]
+    assert _state(user_id) == (0, 0)
+
+
+def test_refund_never_takes_the_counter_below_zero():
+    user_id, month = _seed_user(), get_current_month()
+    with SessionLocal() as db:
+        usage.refund_summary_use(user_id, month, db)  # no bucket yet: a no-op
+        assert db.query(UserUsage).filter_by(user_id=user_id).count() == 0
+        usage.increment_user_usage(user_id, month, db)
+        usage.refund_summary_use(user_id, month, db)
+        usage.refund_summary_use(user_id, month, db)  # floor 0, never negative
     assert _state(user_id) == (0, 0)
 
 
@@ -171,15 +216,18 @@ def test_unlimited_pro_without_a_cap_reserves_nothing(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_client_disconnect_mid_generation_releases_lease_slot_and_leadership():
-    """uvicorn speaks ASGI 2.3, so on a client disconnect Starlette CANCELS the streaming task
+async def test_client_disconnect_after_provider_start_keeps_the_counted_unit_and_releases_slot_and_leadership():
+    """A disconnect after the provider call started keeps the unit counted at that point: the
+    provider bill has accrued and section previews may already have streamed, so refunding here
+    would let a client read previews and leave before ``complete`` without ever being charged.
+
+    uvicorn speaks ASGI 2.3, so on a client disconnect Starlette CANCELS the streaming task
     and keeps re-delivering the cancellation at every await until the generator exits. The
-    pipeline's ``finally`` awaits (provider task drain, lease release) before it releases the
-    generation slot and in-flight leadership, so unshielded cleanup aborts at its first await:
-    the lease waits out its TTL, the slot is gone for the process lifetime and every later
-    request for the filing joins a leader that never finishes. Drives the real pipeline through
-    the route's wrapper and ``StreamingResponse`` with a raw 2.3 scope; TestClient never takes
-    that path."""
+    pipeline's ``finally`` awaits (provider task drain) before it releases the generation slot
+    and in-flight leadership, so unshielded cleanup aborts at its first await: the slot is gone
+    for the process lifetime and every later request for the filing joins a leader that never
+    finishes. Drives the real pipeline through the route's wrapper and ``StreamingResponse``
+    with a raw 2.3 scope; TestClient never takes that path."""
     import asyncio
 
     from starlette.responses import StreamingResponse
@@ -190,6 +238,8 @@ async def test_client_disconnect_mid_generation_releases_lease_slot_and_leadersh
     provider_started, disconnected = asyncio.Event(), asyncio.Event()
 
     async def blocking_provider(*args, **kwargs):
+        signal_provider_start()
+        await asyncio.sleep(0.3)  # the charge lands while the provider streams
         provider_started.set()
         await asyncio.sleep(30)  # still generating when the client leaves
         return CANONICAL_PAYLOAD
@@ -219,6 +269,192 @@ async def test_client_disconnect_mid_generation_releases_lease_slot_and_leadersh
         response = StreamingResponse(event_stream(), media_type="text/event-stream")
         await asyncio.wait_for(response({"type": "http", "asgi": {"spec_version": "2.3"}, "headers": []}, receive, send), 10)
         await asyncio.sleep(0.1)
-    assert _state(user_id) == (0, 0)  # lease released, nothing counted
+    assert _state(user_id) == (0, 1)  # no lease left; the unit counted at provider start stays counted
     assert semaphore._value == slots_before  # generation slot given back
     assert filing_id not in summary_pipeline._inflight_generations  # leadership released
+
+
+@pytest.mark.asyncio
+async def test_client_disconnect_during_the_charge_write_has_a_provider_call_in_flight():
+    """The charge runs only after the provider signals that its request is issued, so a client that
+    leaves while the counter write is still in the thread pool has a provider call in flight; the
+    unit that write counted is owed (and stays counted, as after any post-start disconnect).
+    Charging before the task would let the same disconnect count a unit for a call that never
+    started."""
+    import asyncio
+
+    from starlette.responses import StreamingResponse
+
+    from app.services.summary_pipeline import to_sse
+
+    import time
+
+    user_id, filing_id = _seed_user(), seed_company_filing()
+    provider_started, charging, disconnected = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    loop = asyncio.get_running_loop()
+    real_increment = summary_pipeline.increment_user_usage
+    at: dict[str, float] = {}
+
+    def slow_increment(*args, **kwargs):
+        loop.call_soon_threadsafe(charging.set)
+        time.sleep(0.3)  # the client leaves while this write is in the thread pool
+        result = real_increment(*args, **kwargs)
+        at["charge_done"] = time.monotonic()
+        return result
+
+    async def blocking_provider(*args, **kwargs):
+        at["provider_started"] = time.monotonic()
+        signal_provider_start()  # the request is issued: the pipeline charges from here
+        provider_started.set()
+        await asyncio.sleep(30)
+        return CANONICAL_PAYLOAD
+
+    async def event_stream():
+        async for event in stream_filing_summary(
+            filing_id=filing_id, current_user=GenerationUserSnapshot(user_id, False, None), user_id=user_id,
+            telemetry_distinct_id=str(user_id), telemetry_entry_point=None, telemetry_ctx={},
+            emit_funnel_telemetry=False,
+        ):
+            yield to_sse(event)
+
+    async def receive():
+        await charging.wait()
+        disconnected.set()
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        if disconnected.is_set() and message["type"] == "http.response.body":
+            raise OSError("peer closed connection")
+
+    with stream_boundaries() as summarize, patch.object(summary_pipeline, "increment_user_usage", slow_increment), \
+            patch.object(summary_pipeline.settings, "STREAM_HEARTBEAT_INTERVAL", 0.2):
+        summarize.side_effect = blocking_provider
+        response = StreamingResponse(event_stream(), media_type="text/event-stream")
+        await asyncio.wait_for(response({"type": "http", "asgi": {"spec_version": "2.3"}, "headers": []}, receive, send), 10)
+        await asyncio.sleep(0.5)  # let the thread-pool write finish
+    assert provider_started.is_set()  # the provider call was in flight when the client left
+    # The provider request was issued before the charge write finished: the call the unit pays for
+    # exists before the unit is counted (charging first would start it only afterwards).
+    assert at["provider_started"] < at["charge_done"], at
+    assert _state(user_id) == (0, 1)  # the unit that write counted is owed and stays counted
+
+
+@pytest.mark.asyncio
+async def test_failure_before_the_provider_request_leaves_nothing_counted():
+    """A service failure before any provider request (no start signal) never counts: the lease is
+    released, the counter untouched. This is the disconnect-before-provider case's twin."""
+    user_id, filing_id = _seed_user(), seed_company_filing()
+    with stream_boundaries() as summarize:
+        summarize.side_effect = RuntimeError("prompt build failed before any provider request")
+        events = await _run(filing_id, user_id)
+    assert events[-1]["type"] == "error"
+    assert _state(user_id) == (0, 0)
+
+
+@pytest.mark.asyncio
+async def test_result_without_a_start_signal_is_counted_on_completion():
+    """A stand-in service that returns a result without signalling still ran a provider: the unit
+    is counted when the result arrives, so metering never depends on the signal being wired."""
+    user_id, filing_id = _seed_user(), seed_company_filing()
+    with stream_boundaries():
+        events = await _run(filing_id, user_id)
+    assert events[-1]["type"] == "complete"
+    assert _state(user_id) == (0, 1)
+
+
+
+@pytest.mark.asyncio
+async def test_timeout_fallback_without_a_start_signal_is_not_counted(monkeypatch):
+    """The service's own deadline can pass before any provider request (local parsing, admission).
+    The pipeline then serves the deterministic XBRL fallback; with no start signal, no provider was
+    billed, so the lease is released and nothing is counted. The quality gate is off here so the
+    observation is the charge decision itself, not a partial-verdict refund: a well-populated
+    fallback passes that gate and would otherwise stay counted."""
+    monkeypatch.setattr(summary_pipeline.settings, "AI_QUALITY_GATE", False)
+    user_id, filing_id = _seed_user(), seed_company_filing()
+    with stream_boundaries() as summarize:
+        summarize.side_effect = TimeoutError("service deadline passed before the provider request")
+        events = await _run(filing_id, user_id)
+    assert events[-1]["type"] in ("complete", "partial")
+    assert _state(user_id) == (0, 0)
+
+
+@pytest.mark.asyncio
+async def test_pipeline_timeout_during_the_charge_write_still_refunds_the_committed_unit():
+    """The thread-pool charge write cannot be cancelled: when the pipeline deadline passes while
+    it is running, the worker still commits, and the coroutine awaiting it is cancelled before it
+    can record the month. The timeout refund must still find that committed unit, or a timed-out
+    generation costs quota against the stated refund policy."""
+    import asyncio
+    import time
+
+    user_id, filing_id = _seed_user(), seed_company_filing()
+    loop = asyncio.get_running_loop()
+    real_increment = summary_pipeline.increment_user_usage
+    write_done = asyncio.Event()
+
+    def slow_increment(*args, **kwargs):
+        time.sleep(1.2)  # the pipeline deadline passes while this write is in the thread pool
+        result = real_increment(*args, **kwargs)
+        loop.call_soon_threadsafe(write_done.set)
+        return result
+
+    async def blocking_provider(*args, **kwargs):
+        signal_provider_start()
+        await asyncio.sleep(30)
+        return CANONICAL_PAYLOAD
+
+    with stream_boundaries() as summarize, patch.object(summary_pipeline, "increment_user_usage", slow_increment), \
+            patch.object(summary_pipeline, "PIPELINE_TIMEOUT_SECONDS", 0.6), \
+            patch.object(summary_pipeline.settings, "STREAM_HEARTBEAT_INTERVAL", 0.1):
+        summarize.side_effect = blocking_provider
+        events = await _run(filing_id, user_id)
+        await asyncio.wait_for(write_done.wait(), 5)
+    assert events[-1]["type"] == "error" and "timed out" in events[-1]["message"]
+    assert _state(user_id) == (0, 0)  # the committed unit was found and refunded; no lease left
+
+
+@pytest.mark.asyncio
+async def test_client_disconnect_at_the_instant_of_the_provider_start_signal_keeps_the_counted_unit():
+    """The start signal fires inside the provider task; the pipeline's heartbeat loop charges on
+    its next turn. A client that leaves in that gap must still be counted: the signal itself starts
+    the charge write, so `finally` finds and settles it instead of releasing the lease for a request
+    that has already been issued."""
+    import asyncio
+
+    from starlette.responses import StreamingResponse
+
+    from app.services.summary_pipeline import to_sse
+
+    user_id, filing_id = _seed_user(), seed_company_filing()
+    provider_started, disconnected = asyncio.Event(), asyncio.Event()
+
+    async def blocking_provider(*args, **kwargs):
+        signal_provider_start()  # the request is issued ...
+        provider_started.set()   # ... and the client leaves before the pipeline resumes
+        await asyncio.sleep(30)
+        return CANONICAL_PAYLOAD
+
+    async def event_stream():
+        async for event in stream_filing_summary(
+            filing_id=filing_id, current_user=GenerationUserSnapshot(user_id, False, None), user_id=user_id,
+            telemetry_distinct_id=str(user_id), telemetry_entry_point=None, telemetry_ctx={},
+            emit_funnel_telemetry=False,
+        ):
+            yield to_sse(event)
+
+    async def receive():
+        await provider_started.wait()
+        disconnected.set()
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        if disconnected.is_set() and message["type"] == "http.response.body":
+            raise OSError("peer closed connection")
+
+    with stream_boundaries() as summarize, patch.object(summary_pipeline.settings, "STREAM_HEARTBEAT_INTERVAL", 0.2):
+        summarize.side_effect = blocking_provider
+        response = StreamingResponse(event_stream(), media_type="text/event-stream")
+        await asyncio.wait_for(response({"type": "http", "asgi": {"spec_version": "2.3"}, "headers": []}, receive, send), 10)
+    assert provider_started.is_set()
+    assert _state(user_id) == (0, 1)  # the request was issued: the unit is counted, no lease is left

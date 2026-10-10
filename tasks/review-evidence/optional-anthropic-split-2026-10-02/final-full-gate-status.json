@@ -1,0 +1,27 @@
+{
+  "lane": "optional",
+  "head": "36408c8b128b5b272678a7be1ef22c677aef5aa4",
+  "steps": [
+    {
+      "name": "ruff",
+      "exit_code": 0,
+      "seconds": 0.2000720500946045,
+      "log": "/private/tmp/earningsnerd-deps-20261002/optional-final-ruff.log"
+    },
+    {
+      "name": "bandit",
+      "exit_code": 0,
+      "seconds": 3.7400929927825928,
+      "log": "/private/tmp/earningsnerd-deps-20261002/optional-final-bandit.log"
+    },
+    {
+      "name": "pytest",
+      "exit_code": 0,
+      "seconds": 337.1569650173187,
+      "log": "/private/tmp/earningsnerd-deps-20261002/optional-final-pytest.log"
+    }
+  ],
+  "started": 1790977584.865812,
+  "python_cache": "/private/tmp/dependency-final-optional-pycache-_awiqqkf",
+  "finished": 1790977925.9633632
+}

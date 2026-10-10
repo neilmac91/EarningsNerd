@@ -33,7 +33,7 @@ export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 {hit.form && (
-                  <span className="rounded border border-border-light dark:border-white/10 bg-black/[0.03] dark:bg-white/5 px-1.5 py-0.5 uppercase tracking-wide">
+                  <span className="rounded border border-border-light dark:border-white/10 bg-black/[0.03] dark:bg-white/5 px-1.5 py-0.5 uppercase tracking-eyebrow">
                     {hit.form}
                   </span>
                 )}
@@ -127,7 +127,7 @@ export default function FullTextSearch() {
           className={inputClasses({ leadingIcon: true })}
         />
         {isFetching && (
-          <CircleNotchIcon className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+          <CircleNotchIcon className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
         )}
       </div>
 

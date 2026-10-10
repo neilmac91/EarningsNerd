@@ -12,6 +12,7 @@ from sqlalchemy.pool import QueuePool
 from app import database
 from app.models import Company, Filing, FilingContentCache, FinancialFact
 from app.routers import filings
+from app.services import filing_list_service
 from app.services.filing_amendment_service import expand_amendment_forms
 from app.utils.datetimes import utcnow
 from main import app
@@ -72,9 +73,9 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
 
     monkeypatch.setattr(database, "SessionLocal", sessions)
     monkeypatch.setattr(app, "dependency_overrides", {})
-    monkeypatch.setattr(filings, "_filings_synced_at", {})
+    monkeypatch.setattr(filing_list_service, "_filings_synced_at", {})
     monkeypatch.setattr(filings.sec_edgar_service, "get_filings", unexpected_upstream)
-    filings._mark_filings_synced("CACHED", expand_amendment_forms(["10-K", "10-Q"]))
+    filing_list_service._mark_filings_synced("CACHED", expand_amendment_forms(["10-K", "10-Q"]))
     try:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"

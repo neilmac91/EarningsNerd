@@ -10,7 +10,8 @@
 
      - CopilotCitation { n, excerpt, section_ref, verified, fragment_url } —
        marker ids are `n` (1, 2… for excerpts; "F1"/"F 2" for XBRL facts).
-     - status: 'reading' | 'streaming' | 'done' | 'error'.
+     - status: 'reading' | 'done' | 'error' (answers arrive whole; this
+       reference keeps a 'streaming' caret state the live Ask never reaches).
      - answer is GFM MARKDOWN — react-markdown + remark-gfm (already app deps
        via the live copilot; this file adds no new dependency to the app).
      - Marker grammar: [n] AND [F1]/[f1]/[F 1] — case/whitespace tolerant.
@@ -31,15 +32,7 @@
    preserved).
 ============================================================================= */
 
-import {
-  Fragment,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentProps,
-  type ReactNode,
-} from 'react'
+import { Fragment, useMemo, type ComponentProps, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cx } from '@/components/ui/cx'
@@ -47,6 +40,7 @@ import { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { SkeletonText } from '@/components/ui/Skeleton'
+import { useContentIn } from '@/hooks/useContentIn'
 
 export type CopilotStatus = 'reading' | 'streaming' | 'done' | 'error'
 
@@ -135,7 +129,7 @@ function renderMarkers(
         // (targets within a line of text) — sized 18px for comfort, no fake
         // 44px overlay that would collide with neighboring prose.
         className={cx(
-          'mx-0.5 inline-flex h-[18px] min-w-[18px] -translate-y-0.5 items-center justify-center rounded px-1 align-middle font-data text-[10px] font-semibold',
+          'mx-0.5 inline-flex h-[18px] min-w-[18px] -translate-y-0.5 items-center justify-center rounded px-1 align-middle font-data text-data-xs font-semibold',
           CHIP,
           'hover:bg-brand-border/60 focus-visible:outline-none focus-visible:shadow-ring-brand',
           'dark:hover:bg-brand-border-dark dark:focus-visible:shadow-ring-brand-dark',
@@ -229,7 +223,7 @@ function buildMdComponents(index: CitationIndex, onCitationClick?: (n: CopilotCi
       // Reader-table manners: hairline rows only, 12px-register uppercase header.
       <th
         {...rest}
-        className="border-b border-border-light px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-text-tertiary-light dark:border-border-dark dark:text-text-secondary-dark"
+        className="border-b border-border-light px-2 py-1.5 text-left text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:border-border-dark dark:text-text-secondary-dark"
       >
         {marked(children)}
       </th>
@@ -282,12 +276,12 @@ function CheckIcon() {
     verified (quiet chip). */
 function TrustBadge({ verified }: { verified: boolean }) {
   return verified ? (
-    <span className={cx('inline-flex items-center gap-1 rounded-full border px-2 py-px text-[10.5px] font-semibold', CHIP)}>
+    <span className={cx('inline-flex items-center gap-1 rounded-full border px-2 py-px text-data-xs font-semibold', CHIP)}>
       <CheckIcon />
       Verified
     </span>
   ) : (
-    <span className="inline-flex items-center rounded-full border border-border-light bg-white px-2 py-px text-[10.5px] font-medium text-text-secondary-light dark:border-border-dark dark:bg-white/5 dark:text-text-secondary-dark">
+    <span className="inline-flex items-center rounded-full border border-border-light bg-white px-2 py-px text-data-xs font-medium text-text-secondary-light dark:border-border-dark dark:bg-white/5 dark:text-text-secondary-dark">
       Cited
     </span>
   )
@@ -315,19 +309,9 @@ export function AskFilingAnswer({
 }: AskFilingAnswerProps) {
   const busy = status === 'reading' || status === 'streaming'
 
-  // Skeleton→content handoff (same pattern as DataTable): when status leaves
-  // 'reading', the replacing body — answer or error card — crossfades in at
-  // duration-base / ease-standard; instant under reduced motion.
-  const wasReading = useRef(status === 'reading')
-  const [entered, setEntered] = useState(false)
-  useEffect(() => {
-    const isReading = status === 'reading'
-    if (wasReading.current && !isReading) setEntered(true)
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot skeleton→content crossfade armed on the reading flip; intentional sync
-    if (isReading) setEntered(false)
-    wasReading.current = isReading
-  }, [status])
-  const enterClass = entered ? 'animate-content-in motion-reduce:animate-none' : undefined
+  // Skeleton→content handoff (hooks/useContentIn, as DataTable): when status leaves
+  // 'reading', the replacing body — answer or error card — crossfades in.
+  const enterClass = useContentIn(status === 'reading')
 
   const index = useMemo(() => buildIndex(citations), [citations])
   const mdComponents = useMemo(() => buildMdComponents(index, onCitationClick), [index, onCitationClick])
@@ -349,7 +333,7 @@ export function AskFilingAnswer({
         <h3 className="text-sm font-semibold">Ask this Filing</h3>
         <Badge variant="pro">Pro</Badge>
         {filingLabel ? (
-          <span className="ml-auto font-data text-[11px] text-text-tertiary-light dark:text-text-secondary-dark">
+          <span className="ml-auto font-data text-data-xs text-text-tertiary-light dark:text-text-secondary-dark">
             {filingLabel}
           </span>
         ) : null}
@@ -375,7 +359,7 @@ export function AskFilingAnswer({
         ) : null}
 
         {status === 'streaming' ? (
-          <p className="mt-3 text-[11px] text-text-tertiary-light dark:text-text-secondary-dark">
+          <p className="mt-3 text-data-xs text-text-tertiary-light dark:text-text-secondary-dark">
             Citations resolve as each claim verifies against the filing.
           </p>
         ) : null}
@@ -389,7 +373,7 @@ export function AskFilingAnswer({
                 <li key={`${key}-${i}`} className="flex gap-2.5">
                   <span
                     className={cx(
-                      'flex h-[18px] min-w-[18px] flex-none items-center justify-center rounded border px-1 font-data text-[10px] font-semibold',
+                      'flex h-[18px] min-w-[18px] flex-none items-center justify-center rounded border px-1 font-data text-data-xs font-semibold',
                       CHIP,
                     )}
                   >
@@ -465,7 +449,7 @@ export function AskFilingAnswer({
         ) : null}
       </div>
 
-      <footer className="flex items-center justify-between gap-3 border-t border-border-light px-5 py-2.5 text-[11px] text-text-tertiary-light dark:border-border-dark dark:text-text-secondary-dark">
+      <footer className="flex items-center justify-between gap-3 border-t border-border-light px-5 py-2.5 text-data-xs text-text-tertiary-light dark:border-border-dark dark:text-text-secondary-dark">
         <span>{SEC_EDGAR_NOT_ADVICE}</span>
         {status === 'done' && citations.length > 0 ? (
           <span className="font-data">

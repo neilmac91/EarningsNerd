@@ -1,0 +1,89 @@
+{
+  "dispatch_id": "COO-QUERY-ROUTE-04",
+  "recorded_at": "2026-10-05T18:36:02.037958+00:00",
+  "dispatched_by": "chief session_01GWYV7WXWstgVGQG43YcSM8",
+  "officer": "COO",
+  "wave": "R3 (reporting groups G1–G3; option C)",
+  "lane": "beta operations",
+  "role_label": "coo-query-route-contract-draft-01",
+  "requested_model": "inherited (claude-fable-5-1)",
+  "repository_read_scope": {
+    "commit": "branch claude/vigilant-goodall-633yx3 at e1b00514",
+    "mode": "read-only; no git writes; no network; no PostHog or other connector call; no customer query; no production read"
+  },
+  "measurable_output": [
+    "tasks/code-red-20261004/runtime/handbacks/coo/QUERY-ROUTE-READOUT-CONTRACT-DRAFT-01.md (new file)"
+  ],
+  "allowed_inputs": [
+    {
+      "label": "COO report-route proposal 01 (the three options; option C adopted)",
+      "path": "tasks/code-red-20261004/runtime/handbacks/coo/REPORT-ROUTE-PROPOSAL-01.md",
+      "sha256": "0916b5f27190cb7805b561d82498552697375071f14121b5a91901ce24017810",
+      "bytes": 33854
+    },
+    {
+      "label": "Decision record 08 (founder's option C decision; operator-identity question; no spend, no customer data)",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-08.md",
+      "sha256": "9a19701dab44f1ef1f8827a3c7355b6a10d72404892c75dcb965c52adfe2be91",
+      "bytes": 13211
+    },
+    {
+      "label": "Decision record 07 (PostHog query-route evidence; caps labelled connector-stated)",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-07.md",
+      "sha256": "0f511f5a9f6eeb97cd59886b732cb96adc6828d16373d1fae57198b980897bf0",
+      "bytes": 18305
+    },
+    {
+      "label": "COO disposition (G1–G5 and R4 dependencies, §5)",
+      "path": "tasks/code-red-20261004/runtime/handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION.md",
+      "sha256": "d30bdd50125ae304ad5c4fd1c6559326d3767c0f17c1ca7ec41d895ab6fc13be",
+      "bytes": 40291
+    },
+    {
+      "label": "COO disposition update 01",
+      "path": "tasks/code-red-20261004/runtime/handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION-UPDATE-01.md",
+      "sha256": "07ebaaf3f1433460a6b78738314152ba00b7caeba0bbbcf447e0374cf959fdeb",
+      "bytes": 37570
+    },
+    {
+      "label": "Decision record 02 (D5 privacy; D9 refuter record)",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-02.md",
+      "sha256": "4d93171f68c7491afd70fcd54b19a355093c5f2a14b437d02c4fd13d3f4f508b",
+      "bytes": 21885
+    },
+    {
+      "label": "COO first deliverable (G1–G5 definitions, C1)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/coo/references/FIRST-DELIVERABLE.md",
+      "sha256": "c82773953be1e85daa87525003d1ade26db4e8f8e9df428f97fff80d10ee3f7f",
+      "bytes": 15184
+    },
+    {
+      "label": "Masterplan review (§3B: no substitute reporting contract is silently approved)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/cto/evidence/MASTERPLAN-REVIEW.md",
+      "sha256": "0c946f93c801bbb98836aab9c11b789d7748d88bf8894f3fbf57d0370399c710",
+      "bytes": 21877
+    }
+  ],
+  "required_content": [
+    "Identity, inputs with hashes and byte lengths (verify all eight on sha256sum before relying on any), observation date, authority (COO drafts; the founder with the CEO accepts; MASTERPLAN-REVIEW §3B: no substitute reporting contract is silently approved; option C adopted by the founder 2026-10-05 — record 08)",
+    "The query-route readout contract in G2/G3 shape, made executable: for each reporting group G1–G5 the bounded query set as HogQL text with explicit UTC half-open windows and placeholders only (no literal customer identifiers), the count-bracketed pagination-completeness rule (count query, then LIMIT/OFFSET pages; the 100-row default and 500-row maximum stated as connector-reported and to be confirmed on first use), the retention rule (query text, UTC window, result SHA-256 and row count retained privately; hashes only in the repository), the review checklist for Q-G3",
+    "Operator-identity rule written as a decision for the founder with the CEO, not assumed: which non-executive context may run a customer query, how its identity is registered before any run, and the fact that the connector is currently attached only to the chief's interactive session (executive context, which must never run a customer query)",
+    "A dry-run plan that costs nothing and reads no customer data: what one invented-literal probe per query shape would prove and what it cannot prove; explicitly no execution by this worker",
+    "What the contract settles and does not settle for G1–G5; what G1's explicit access decision must say for this route; the ticket 76581 stays open",
+    "Risks with owners; return contract; closing record with no invented numbers (participant counts, thresholds, budgets)"
+  ],
+  "entry_condition": "Record 08 records the founder's option C decision on the branch.",
+  "stop_conditions": [
+    "any PostHog or network call",
+    "any customer or participant data",
+    "any invitation, flag, pricing, registration, load or production action",
+    "any invented number (participant count, threshold, budget)",
+    "hash mismatch or missing input"
+  ],
+  "spend": {
+    "reservation_usd": "0.000000",
+    "deepseek_calls_authorized": 0,
+    "ledger_written": false
+  },
+  "one_writer_for_output_paths": true
+}

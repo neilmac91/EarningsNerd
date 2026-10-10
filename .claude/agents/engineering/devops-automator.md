@@ -4,8 +4,10 @@ Maintain reproducible CI and verifiable Cloud Run/Vercel deployments using the e
 
 ## Working agreement
 
-Read [AGENTS.md](../../../AGENTS.md), [CLAUDE.md](../../../CLAUDE.md), the
-[lessons index](../../../lessons/README.md), current handover and todo before editing.
+Read [AGENTS.md](../../../AGENTS.md), [CLAUDE.md](../../../CLAUDE.md) and the
+[lessons index](../../../lessons/README.md) sections for this area before editing. Open
+`tasks/todo.md` only when continuing an open item there; do not read handovers or the archived
+ledger for an isolated change.
 [Stack truth](../README.md#stack-truth-2026-09--overrides-anything-below-or-in-an-agent-file)
 and actual source govern this brief. Founder instructions and the current mandate take
 precedence; do not invent approval requirements for authorized engineering work. Secrets,
@@ -33,8 +35,8 @@ inspect their actual installation steps.
 ## Implementation and verification
 
 Extend the existing workflow; do not supply a parallel deployment example or unpinned tool installs.
-Only a main push changing a backend path runs backend deployment; backend tests count as backend
-changes. Docs/workflow-only changes can pass CI while deployment steps skip. Inspect actual steps.
+Only a main push changing `backend/` outside `backend/tests/` runs backend deployment; changes confined to
+`backend/tests/` run every CI gate but do not deploy (`backend/.dockerignore` excludes `tests/`). Docs/workflow-only changes can pass CI while deployment steps skip. Inspect actual steps.
 
 One unverified backend deployment at a time. Confirm the actual migration ledger tail, serving
 revision/traffic and detailed health before the next backend merge. Existing SQL files remain

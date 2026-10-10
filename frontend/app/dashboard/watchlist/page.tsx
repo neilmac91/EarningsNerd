@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { formatLocalDate } from '@/lib/format'
-import { ArrowsCounterClockwiseIcon, CalendarDotsIcon, CircleNotchIcon, ClockIcon, SparkleIcon, WarningCircleIcon } from '@/lib/icons'
+import { ArrowsCounterClockwiseIcon, CalendarDotsIcon, ClockIcon, SparkleIcon, WarningCircleIcon } from '@/lib/icons'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api/watchlist-api'
 import SecondaryHeader from '@/components/SecondaryHeader'
@@ -15,8 +15,9 @@ import WatchlistAddSearch from '@/features/watchlist/components/WatchlistAddSear
 import SummaryStatusBadge from '@/features/watchlist/components/SummaryStatusBadge'
 import CompanyLogo from '@/components/CompanyLogo'
 import { ENABLE_ANALYSIS } from '@/lib/featureFlags'
-import { Badge, buttonVariants, Card, GuidanceCard } from '@/components/ui'
+import { Badge, buttonVariants, Card, cx, GuidanceCard, Skeleton } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
+import { useContentIn } from '@/hooks/useContentIn'
 
 function useAuthGate() {
   const router = useRouter()
@@ -53,11 +54,63 @@ export default function WatchlistDashboardPage() {
   })
 
   const insights = useMemo(() => data ?? [], [data])
+  // The list crossfades in when it replaces the bones below; a cached list paints at once.
+  const enterClass = useContentIn(!isReady || isLoading)
+
+  // One header for the skeleton and the loaded page, and the add field in both (it needs no data, so
+  // it is live while the list loads): the flip moves nothing above the list.
+  const header = (
+    <SecondaryHeader
+      title="Watchlist insights"
+      subtitle="Monitor filings and summary freshness for tracked companies."
+      backHref="/dashboard"
+      backLabel="Back to dashboard"
+      actions={
+        ENABLE_ANALYSIS ? (
+          <Link href="/analysis" className={buttonVariants({ variant: 'primary' })}>
+            <SparkleIcon className="h-4 w-4" />
+            Analyze trends
+          </Link>
+        ) : undefined
+      }
+    />
+  )
 
   if (!isReady || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
-        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+      <div className="min-h-screen bg-background-light dark:bg-background-dark">
+        {header}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+          <WatchlistAddSearch />
+          {/* Two insight cards on the list's own track (grid-cols-1 = minmax(0, 1fr)) and in the card's own
+              shape: logo, name and filings line, the two actions, the three facts tiles. Raw bones are
+              aria-hidden: one status names the wait. */}
+          <div role="status" aria-label="Loading your watchlist" className="grid grid-cols-1 gap-6">
+            {[0, 1].map((i) => (
+              <Card key={i} className="p-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-7 w-48" />
+                      <Skeleton className="h-4 w-32" />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <Skeleton className="h-10 w-32 rounded-lg" />
+                    <Skeleton className="h-10 w-44 rounded-lg" />
+                  </div>
+                </div>
+                <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+                  {[0, 1, 2].map((j) => (
+                    <Skeleton key={j} className="h-32 rounded-lg" />
+                  ))}
+                </div>
+              </Card>
+            ))}
+            <span className="sr-only">Loading your watchlist…</span>
+          </div>
+        </main>
       </div>
     )
   }
@@ -68,20 +121,7 @@ export default function WatchlistDashboardPage() {
 
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
-      <SecondaryHeader
-        title="Watchlist insights"
-        subtitle="Monitor filings and summary freshness for tracked companies."
-        backHref="/dashboard"
-        backLabel="Back to dashboard"
-        actions={
-          ENABLE_ANALYSIS ? (
-            <Link href="/analysis" className={buttonVariants({ variant: 'primary' })}>
-              <SparkleIcon className="h-4 w-4" />
-              Analyze trends
-            </Link>
-          ) : undefined
-        }
-      />
+      {header}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
         {/* Add-from-search: track a company without visiting its page first. */}
@@ -91,7 +131,9 @@ export default function WatchlistDashboardPage() {
           <GuidanceCard
             variant="error"
             title="Unable to load watchlist insights"
+            headingLevel="h2"
             description="Please retry in a moment, or confirm you are signed in with an active session."
+            className={enterClass}
           />
         )}
 
@@ -99,10 +141,13 @@ export default function WatchlistDashboardPage() {
           <GuidanceCard
             variant="empty"
             title="No watchlist companies yet"
+            headingLevel="h2"
             description="Use the search above to track your first company. You'll get an alert here and by email whenever it files with the SEC."
+            className={enterClass}
           />
         ) : (
-          <div className="grid gap-6">
+          // grid-cols-1 (minmax(0, 1fr)): an implicit track would size to the widest card's min-content.
+          <div className={cx('grid grid-cols-1 gap-6', enterClass)}>
             {insights.map((insight: WatchlistInsight) => {
               const latest = insight.latest_filing
               const progressStage = latest?.progress?.stage
@@ -114,11 +159,15 @@ export default function WatchlistDashboardPage() {
                 <Card key={insight.company.id} className="p-6">
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
-                      <div className="flex items-center space-x-3">
-                        <CompanyLogo ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={36} />
-                        <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-                          {formatCompanyName(insight.company.name)}
-                        </h2>
+                      {/* Below sm, logo and name fill the first line and the ticker and status badges sit
+                          on the line below, instead of widening the card. One unwrapped row from sm up. */}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap">
+                        <div className="flex min-w-0 basis-full items-center gap-3 sm:basis-auto">
+                          <CompanyLogo decorative ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={36} />
+                          <h2 className="min-w-0 break-words text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+                            {formatCompanyName(insight.company.name)}
+                          </h2>
+                        </div>
                         <Badge variant="neutral">{insight.company.ticker}</Badge>
                         {latest && (
                           <SummaryStatusBadge
@@ -149,7 +198,7 @@ export default function WatchlistDashboardPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 grid gap-4 md:grid-cols-3">
+                  <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div className="bg-background-light dark:bg-background-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
                       <div className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">Latest filing</div>
                       {latest ? (

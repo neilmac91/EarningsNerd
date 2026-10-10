@@ -15,17 +15,18 @@
    (backend/app/services/summary_pipeline.py), not here.
 ============================================================================= */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Filing } from '@/features/filings/api/filings-api'
 import AiDisclaimer from '@/components/AiDisclaimer'
 import { Badge, Card, GuidanceCard, Notice, SkeletonText, buttonVariants } from '@/components/ui'
-import { Button } from '@/components/ui/Button'
 import { isPaywallStreamError } from '@/features/summaries/api/summaries-api'
 import { SparkleIcon } from '@/lib/icons'
 import { useCountUp } from '@/hooks/useCountUp'
+import { useFocusOnArrival } from '@/hooks/useFocusHandoff'
+import { RetryButton } from '@/hooks/useRetainedFailure'
 import { MOTION } from '@/lib/motion'
 import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 
@@ -140,6 +141,7 @@ export default function StreamingSummaryDisplay({
   onRetry,
   elapsedSeconds = 0,
   trialEligible = false,
+  afterFailure,
 }: {
   streamingText: string
   stage: string
@@ -153,14 +155,25 @@ export default function StreamingSummaryDisplay({
    * user is charged immediately, so promising them "you won't be charged" is a false billing
    * claim (staff review, PR #619). Defaults false: under-promising is the safe direction. */
   trialEligible?: boolean
+  /** Shown under the failure surface once the run has ended without a summary (an error, or the
+   * monthly limit): the filing page passes its change report, which needs no summary. */
+  afterFailure?: ReactNode
 }) {
   const [isClient, setIsClient] = useState(false)
   const [whimsyMessage, setWhimsyMessage] = useState('')
   const [showWhimsy, setShowWhimsy] = useState(false)
   const [optimisticProgress, setOptimisticProgress] = useState(0)
   const [isStalled, setIsStalled] = useState(false)
+  // Focus targets: the progress card's heading takes focus from a Retry that leaves (RetryButton's
+  // hand-off), the failure card's heading takes focus nobody holds when it appears.
+  const progressHeadingRef = useRef<HTMLHeadingElement>(null)
+  const failureHeadingRef = useRef<HTMLHeadingElement>(null)
 
   const isError = stage === 'error' || !!error
+  // A failed generation (or the monthly limit) ends the run the user is waiting on, often from page load
+  // with focus on <body>: its card's heading takes focus then, so the next Tab is the card's action, not
+  // the site header. Gated on isClient: the first client render is the skeleton, with no card to focus.
+  useFocusOnArrival(failureHeadingRef, isClient && isError)
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time client detection to gate SSR-unsafe rendering (avoids hydration mismatch)
@@ -304,7 +317,11 @@ export default function StreamingSummaryDisplay({
             <div className="flex items-start gap-3 min-w-0">
               <SparkleIcon className="mt-0.5 h-5 w-5 flex-none text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
               <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
+                <h2
+                  ref={progressHeadingRef}
+                  tabIndex={-1}
+                  className="text-lg font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+                >
                   Generating your analysis
                 </h2>
                 <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -370,6 +387,8 @@ export default function StreamingSummaryDisplay({
         <GuidanceCard
           icon={<SparkleIcon className="h-5 w-5" aria-hidden="true" />}
           title="You've hit this month's free limit"
+          headingLevel="h2"
+          headingRef={failureHeadingRef}
           description={
             trialEligible
               ? 'Your free summaries reset next month. Or go unlimited now with a 7-day free trial of Pro: cancel anytime during the trial and you won’t be charged.'
@@ -385,17 +404,29 @@ export default function StreamingSummaryDisplay({
         <GuidanceCard
           variant="error"
           title="Generation interrupted"
+          headingLevel="h2"
+          headingRef={failureHeadingRef}
           description={error || message || 'Generation timed out. Please retry to continue.'}
           action={
             onRetry ? (
-              // Secondary, per the GuidanceCard convention (error retry is never the page's primary action)
-              <Button variant="secondary" onClick={onRetry}>
+              // RetryButton (secondary by default: an error retry is never the page's primary action).
+              // It restarts the SSE stream, not a query, so its failure is the stream's own state, not
+              // useRetainedFailure's hold: a press clears the error in the render that starts the stream,
+              // so this card never shows a run in flight (busy stays false) and leaves with the press when
+              // the run starts; focus then goes to the progress card's heading, in the branch that replaced
+              // this one. A signed-out press starts no run: the card stays, with the sign-in message, and
+              // its Retry keeps focus.
+              <RetryButton
+                failures={[{ failed: true, error: error || message, busy: false, retry: onRetry }]}
+                focusTarget={progressHeadingRef}
+              >
                 Retry generation
-              </Button>
+              </RetryButton>
             ) : undefined
           }
         />
       ) : null}
+      {isError && afterFailure}
 
       {/* Streamed summary — the payoff, canonical .markdown-body render */}
       {displayText && (

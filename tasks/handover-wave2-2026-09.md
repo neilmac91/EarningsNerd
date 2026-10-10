@@ -44,7 +44,7 @@ independent lenses and two refuters per serious finding. Missing review output w
 | # | Decision | Status |
 |---|---|---|
 | D1 | Migration ledger | Done (#658 + hotfix #678). Table is `migration_ledger`, never `schema_migrations`. |
-| D2 | Universe refresh: public sources, loud partial-list abort | The founder superseded the earlier FMP-first choice on 2026-09-06. #718 is deployed; public refresh 34016016776 validated 518 members and retained the unchanged candidate. FMP access is unnecessary. Automatic PR publication remains held on the Actions setting and actual publication evidence; see [current W3-3 checkpoint](todo.md#w3-3-public-source-replacement--2026-09-06). |
+| D2 | Universe refresh: public sources, loud partial-list abort | The founder superseded the earlier FMP-first choice on 2026-09-06. #718 is deployed; public refresh 34016016776 validated 518 members and retained the unchanged candidate. FMP access is unnecessary. Automatic PR publication remains held on the Actions setting and actual publication evidence; see [current W3-3 checkpoint](archive/todo-ledger-through-2026-10-07.md#w3-3-public-source-replacement--2026-09-06). |
 | D3 | Dark surfaces: Analysis on; Notable after a week of job output; Calendar off until AV licence; Insiders off | **Held at founder boundary.** #692 prepared the rollout/archive; job creation and one-week review remain outstanding. |
 | D4 | Spend approved: pregeneration (~$25–50), v1→v2 drain, golden-set runs | **Approved; founder execution pending.** Seed/SIC prerequisites before off-peak pregeneration; drain after D5. |
 | D5 | Arm `AI_EVIDENCE_SNAP` after the first weekly readout; figure-trace / forward-quote stay advisory | **Accepted; held** until the first actual strong-judge readout. |

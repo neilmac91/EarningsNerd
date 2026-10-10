@@ -47,7 +47,7 @@ export default function SummaryContents() {
                 {FILING_NOTE}
               </span>
             </CardHeader>
-            <ol className="grid gap-x-6 px-3 py-2 sm:grid-cols-2">
+            <ol className="grid grid-cols-1 gap-x-6 px-3 py-2 sm:grid-cols-2">
               {SECTIONS.map((name, index) => (
                 <li
                   key={name}
@@ -56,7 +56,7 @@ export default function SummaryContents() {
                   <span className="w-5 shrink-0 font-data tnum text-xs text-text-secondary-light dark:text-text-secondary-dark">
                     {String(index + 1).padStart(2, '0')}
                   </span>
-                  <span className="text-[15px] font-medium text-text-primary-light dark:text-text-primary-dark">
+                  <span className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">
                     {name}
                   </span>
                 </li>

@@ -39,9 +39,14 @@ def session_factory():
 
 
 class _EmailRecorder(list):
-    """Recorded ``(to, subject)`` pairs; set ``raise_with`` to make every send fail."""
+    """Recorded ``(to, subject)`` pairs (``bodies`` keeps each ``html`` in send order); set
+    ``raise_with`` to make every send fail."""
 
     raise_with: Exception | None = None
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.bodies: list[str] = []
 
 
 @pytest.fixture
@@ -50,6 +55,7 @@ def sent_emails(monkeypatch):
 
     async def _fake_send_email(to, subject, html, *args, **kwargs):
         recorder.append((list(to), subject))
+        recorder.bodies.append(html)
         if recorder.raise_with is not None:
             raise recorder.raise_with
         return {"id": "msg_test"}
@@ -98,6 +104,20 @@ def test_submission_persists_hashed_ip_and_sends_admin_and_user_emails(client, s
 
     recipients = [to for to, _subject in sent_emails]
     assert recipients == [[ADMIN_EMAIL], [PAYLOAD["email"]]]
+
+
+def test_user_confirmation_never_echoes_the_message_while_the_admin_copy_carries_it(client, sent_emails):
+    message = "Does the summary include segment data? Asking for the Q3 10-Q."
+    resp = _post(client, IP_A, message=message)
+    assert resp.status_code == 201, resp.text
+
+    recipients = [to for to, _subject in sent_emails]
+    assert recipients == [[ADMIN_EMAIL], [PAYLOAD["email"]]]
+    admin_html, user_html = sent_emails.bodies
+    assert message in admin_html
+    assert message not in user_html
+    assert "Your message" not in user_html
+    assert PAYLOAD["name"] in user_html  # the greeting is still personal
 
 
 def test_limit_plus_one_from_one_ip_is_429_with_retry_after_and_other_ip_still_succeeds(client, session_factory):

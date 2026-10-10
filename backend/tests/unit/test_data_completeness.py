@@ -315,7 +315,7 @@ def test_backfill_deploy_restores_only_its_scheduled_entrypoint():
     assert len(updates) == 1
     tokens = shlex.split(updates[0])
     assert "--image=$IMAGE:${GITHUB_SHA::7}" in tokens
-    assert "--update-env-vars=DB_POOL_SIZE=1,DB_MAX_OVERFLOW=0" in tokens
+    assert "--update-env-vars=DB_POOL_SIZE=1,DB_MAX_OVERFLOW=0,SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1" in tokens
     assert "--command=python" in tokens
     assert "--args=scripts/backfill_facts.py,--only-new" in tokens
     assert "--dry-run" not in tokens

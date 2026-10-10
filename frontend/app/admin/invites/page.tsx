@@ -5,12 +5,11 @@ import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  CircleNotchIcon,
   EnvelopeSimpleIcon,
   PaperPlaneTiltIcon,
   UserIcon,
 } from '@/lib/icons'
-import { Button } from '@/components/ui/Button'
+import { Button, primaryUnavailableClass } from '@/components/ui/Button'
 import { Input, inputClasses } from '@/components/ui/Input'
 import { GuidanceCard, Skeleton } from '@/components/ui'
 import SecondaryHeader from '@/components/SecondaryHeader'
@@ -122,10 +121,10 @@ export default function AdminInvitesPage() {
 
   const toInviteCount = breakdown.toInvite.length
   const overBatchLimit = toInviteCount > MAX_BATCH
-  const canSend = toInviteCount > 0 && !overBatchLimit && !sending
+  const nothingToSend = toInviteCount === 0
 
   const handleSend = async () => {
-    if (toInviteCount === 0 || sending) return
+    if (nothingToSend || sending) return
     if (overBatchLimit) {
       toast.error(`Too many at once. Send at most ${MAX_BATCH} per batch (${toInviteCount} entered).`)
       return
@@ -159,6 +158,9 @@ export default function AdminInvitesPage() {
     )
 
     setOutcomes(results)
+    // Send keeps focus, so it stays busy until the refetched list marks these addresses invited:
+    // re-enabled any sooner, a second Enter would mint (and email) every invite in the batch again.
+    await queryClient.invalidateQueries({ queryKey: queryKeys.adminInvites() })
     setSending(false)
 
     const failedCount = results.filter((r) => !r.ok).length
@@ -170,8 +172,6 @@ export default function AdminInvitesPage() {
     } else if (failedCount > 0) {
       toast.error(`${failedCount} invite${failedCount === 1 ? '' : 's'} failed`)
     }
-
-    queryClient.invalidateQueries({ queryKey: queryKeys.adminInvites() })
   }
 
   return (
@@ -193,13 +193,15 @@ export default function AdminInvitesPage() {
             </h2>
           </div>
 
+          {/* Zone A fields stay natively disabled while sending: only Send's click starts a send
+              (no form, so no Enter-submit), so focus is on Send, never on a field, when it flips. */}
           <EmailChipsInput
             alreadyInvited={pendingEmails}
             onChange={setBreakdown}
             disabled={sending}
           />
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label
                 htmlFor="cohort"
@@ -228,7 +230,7 @@ export default function AdminInvitesPage() {
                 value={expiryHours}
                 onChange={(e) => setExpiryHours(Number(e.target.value))}
                 disabled={sending}
-                className={inputClasses()}
+                className={inputClasses({ select: true })}
               >
                 {EXPIRY_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -274,13 +276,21 @@ export default function AdminInvitesPage() {
           )}
 
           <div className="mt-4">
-            <Button onClick={handleSend} disabled={!canSend}>
-              {sending ? (
-                <CircleNotchIcon className="h-4 w-4 animate-spin" />
-              ) : (
-                <PaperPlaneTiltIcon className="h-4 w-4" />
-              )}
-              {sending ? 'Sending…' : 'Send invites'}
+            {/* Busy and nothing-to-send are aria-disabled (handleSend returns early), not native
+                `disabled`: Chromium blurs a focused button that turns disabled, and an all-success
+                send refetches the list, turning the sent chips "already invited" (nothing to send)
+                while Send still holds focus. Over the batch cap is set only by the chips field,
+                never by Send itself, so it stays natively disabled. */}
+            <Button
+              onClick={handleSend}
+              loading={sending}
+              loadingText="Sending…"
+              leftIcon={<PaperPlaneTiltIcon className="h-4 w-4" />}
+              disabled={overBatchLimit}
+              aria-disabled={sending || nothingToSend || undefined}
+              className={nothingToSend && !sending ? primaryUnavailableClass : undefined}
+            >
+              Send invites
             </Button>
           </div>
 
@@ -293,7 +303,9 @@ export default function AdminInvitesPage() {
             <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
               Invites
             </h2>
-            <div className="flex flex-wrap items-center gap-2">
+            {/* min-w-0: the cohort filter is as wide as its longest cohort name, which is data; as a
+                flex item this row would otherwise grow to that width and push the card past a phone. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <label htmlFor="filter-status" className="sr-only">
                 Filter by status
               </label>
@@ -301,7 +313,7 @@ export default function AdminInvitesPage() {
                 id="filter-status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as 'all' | InviteStatus)}
-                className={`${inputClasses()} w-auto`}
+                className={inputClasses({ select: true, autoWidth: true })}
               >
                 <option value="all">All statuses</option>
                 <option value="pending">Pending</option>
@@ -317,7 +329,7 @@ export default function AdminInvitesPage() {
                 id="filter-cohort"
                 value={cohortFilter}
                 onChange={(e) => setCohortFilter(e.target.value)}
-                className={`${inputClasses()} w-auto`}
+                className={inputClasses({ select: true, autoWidth: true })}
               >
                 <option value="all">All cohorts</option>
                 {cohorts.map((c) => (
@@ -370,37 +382,37 @@ export default function AdminInvitesPage() {
                   <tr>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
                     >
                       Email
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
                     >
                       Cohort
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
                     >
                       Status
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
                     >
                       Created
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
                     >
                       Expires
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
                     >
                       Actions
                     </th>

@@ -1,0 +1,119 @@
+{
+  "dispatch_id": "COO-ENVELOPE-DISPOSITION-02",
+  "recorded_at": "2026-10-05T08:43:37.775546+00:00",
+  "dispatched_by": "chief session_01GWYV7WXWstgVGQG43YcSM8",
+  "officer": "COO",
+  "wave": "R3 (C1 capacity decision; G1–G5 reporting groups carried)",
+  "lane": "beta operations",
+  "role_label": "coo-envelope-disposition-update-01",
+  "provisional_label_registered": "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:coo-envelope-disposition-update-01 (closure 145)",
+  "requested_model": "inherited (claude-fable-5-1)",
+  "repository_read_scope": {
+    "commit": "branch claude/vigilant-goodall-633yx3 (main 0b8d39eb plus the runtime records)",
+    "mode": "read-only; no git writes; no tests or servers; no gcloud/network/production reads; no provider call"
+  },
+  "measurable_output": [
+    "tasks/code-red-20261004/runtime/handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION-UPDATE-01.md (new file; the revision-1 disposition is never edited after return)"
+  ],
+  "allowed_inputs": [
+    {
+      "label": "CTO handback revision 4 (Markdown)",
+      "path": "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-HANDBACK.md",
+      "sha256": "94c155c7c517b36b73d751a1935fa78060747907dd810fcbf84685ac19ee3d41",
+      "bytes": 72085
+    },
+    {
+      "label": "CTO handback revision 4 (bounds JSON, 62 bounds)",
+      "path": "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-BOUNDS.json",
+      "sha256": "d675516eea6b401780e6dbe29061388573b5c736f4447b979bb86536a2577505",
+      "bytes": 68998
+    },
+    {
+      "label": "Correction 03 (rev 3 → rev 4)",
+      "path": "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CORRECTION-03.md",
+      "sha256": "33ce976660442b467d15c020762e7c3ca2afc1aa2d58f5b5abe0cb2e1b2e9b78",
+      "bytes": 16882
+    },
+    {
+      "label": "COO operating-envelope disposition (revision 1, HOLD, 8 items) — the document being updated, never edited",
+      "path": "tasks/code-red-20261004/runtime/handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION.md",
+      "sha256": "d30bdd50125ae304ad5c4fd1c6559326d3767c0f17c1ca7ec41d895ab6fc13be",
+      "bytes": 40291
+    },
+    {
+      "label": "Capacity-readout receipt note (chief → COO, 2026-10-05)",
+      "path": "tasks/code-red-20261004/runtime/handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md",
+      "sha256": "eea93bba6b1285354bd921e472ad18e8ffb83edaf60ce13cfbc757174ec9c297",
+      "bytes": 7453
+    },
+    {
+      "label": "Decision record 02 (D1–D9, Appendices A/B)",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-02.md",
+      "sha256": "4d93171f68c7491afd70fcd54b19a355093c5f2a14b437d02c4fd13d3f4f508b",
+      "bytes": 21885
+    },
+    {
+      "label": "Decision record 03",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-03.md",
+      "sha256": "56bfb21b3ff5b7dccfafd53a7355cb70795a8962f1454aab951223c70efccd26",
+      "bytes": 8578
+    },
+    {
+      "label": "Decision record 04",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-04.md",
+      "sha256": "9d66fbd093b5ff9cd022c98058dca0fcdfd5a2dbb126e8f4c8c76bfa00b116cd",
+      "bytes": 7812
+    },
+    {
+      "label": "Decision record 05",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-05.md",
+      "sha256": "d3723842b2140cdc81976edfefecfe94a307d613ce5410bb17571c9862799d50",
+      "bytes": 10357
+    },
+    {
+      "label": "Decision record 06 (C1 item closures by the CEO; readout plan; founder update)",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-06.md",
+      "sha256": "13f852f0b4bb8f69e37d4e5477e30e2b8d3363efb2ecc3e53d3a38213c56a8d3",
+      "bytes": 14904
+    },
+    {
+      "label": "CTO dispatch manifest 02",
+      "path": "tasks/code-red-20261004/runtime/dispatch/CTO-ENVELOPE-HANDBACK-02.json",
+      "sha256": "260a706a37cd448b075cedbb96246101a6f41895ba16c70195e0463ed4f30fd5",
+      "bytes": 8584
+    },
+    {
+      "label": "Exclusion closure 146",
+      "path": "tasks/code-red-20261004/runtime/control/source-context-exclusion-146.json",
+      "sha256": "804426be7030c64a52e3de04e82d489d526b81a96cb4cbbbbef6e3567463ebd3",
+      "bytes": 18618
+    },
+    {
+      "label": "COO first deliverable (five reporting groups; C1 five components)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/coo/references/FIRST-DELIVERABLE.md",
+      "sha256": "c82773953be1e85daa87525003d1ade26db4e8f8e9df428f97fff80d10ee3f7f",
+      "bytes": 15184
+    }
+  ],
+  "required_content": [
+    "Identity, inputs read with hashes, observation date, authority (record 02 D4/D9, record 06 CEO closures), limits",
+    "Per-item state for the eight C1 items of the revision-1 disposition §4: 1 (B32: readout ran; Monitoring/Logging 403; still unknown; new sub-dependency B62), 2 (B39 open; B37 closed by D8), 3 (founder patch decision open), 4 (closed by D7), 5 (open; D6 provisional stands), 6 (dependency closed by D1/event 2; field value not set), 7 (CTO re-determination delivered in rev 4: undetermined, no E09 subset demonstrated necessary), 8 (closed by the CEO on Appendices A/B; the six qualifications carried here)",
+    "What the 2026-10-05 readout does and does not change for the five C1 components and for the COO HOLD; whether the HOLD stands (it is expected to) and the exact smallest next handback per open item with owner",
+    "G1–G5 and R4 entry dependencies carried forward unchanged unless an input changes them (PostHog ticket 76581 still no decision)",
+    "Return contract: counts unchanged (3/30 dossiers, 0/2 readouts, 5 reporting groups + 1 capacity decision), 0 calls/spend/reservations/mutations, next owner"
+  ],
+  "entry_condition": "CTO handback revision 4 and the readout receipt exist with hashes above; record 06 closures recorded.",
+  "stop_conditions": [
+    "any production/cloud read or mutation",
+    "any numeric participant count, threshold, budget or policy number supplied",
+    "any invitation, flag, pricing, registration or E09 code",
+    "any source/customer payload",
+    "hash mismatch or missing input"
+  ],
+  "spend": {
+    "reservation_usd": "0.000000",
+    "deepseek_calls_authorized": 0,
+    "ledger_written": false
+  },
+  "one_writer_for_output_paths": true
+}

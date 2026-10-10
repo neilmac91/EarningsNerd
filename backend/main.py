@@ -442,6 +442,19 @@ async def circuit_open_exception_handler(request: Request, exc: CircuitOpenError
 
 
 # Global exception handler for unhandled errors
+from app.services.durable_tasks import TaskUnavailable
+
+
+@app.exception_handler(TaskUnavailable)
+async def task_handoff_exception_handler(request: Request, exc: TaskUnavailable):
+    from fastapi.responses import JSONResponse
+    logger.error("Durable task handoff unavailable path=%s", request.url.path)
+    return JSONResponse(
+        status_code=503, headers=_error_response_cors_headers(request),
+        content={"detail": "Background work could not be queued. Please retry."},
+    )
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """

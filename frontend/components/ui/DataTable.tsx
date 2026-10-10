@@ -29,7 +29,8 @@
        column's body cells, so it is never overlapped by either.
 ============================================================================= */
 
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type ReactNode } from 'react'
+import { useContentIn } from '../../hooks/useContentIn'
 import { cx } from './cx'
 import { Skeleton } from './Skeleton'
 
@@ -138,17 +139,9 @@ export function DataTable<T extends Record<string, unknown>>({
   const d = DENSITY[density]
 
   // Skeleton→content handoff: when `loading` flips false, whatever replaces the
-  // skeleton rows (data, empty, error) crossfades in — animate-content-in =
-  // duration-base / ease-standard; instant under reduced motion. Tables that
-  // never load don't animate on first paint.
-  const wasLoading = useRef(loading)
-  const [entered, setEntered] = useState(false)
-  useEffect(() => {
-    if (wasLoading.current && !loading) setEntered(true)
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot skeleton→content crossfade armed on the loading flip; intentional sync with the loading prop
-    if (loading) setEntered(false)
-    wasLoading.current = loading
-  }, [loading])
+  // skeleton rows (data, empty, error) crossfades in; tables that never load
+  // don't animate on first paint (hooks/useContentIn).
+  const enterClass = useContentIn(loading)
 
   // Row hairlines sit on the cells (renders identically to tr borders) so they
   // survive border-separate. With a sticky header the th's border-b already
@@ -168,7 +161,7 @@ export function DataTable<T extends Record<string, unknown>>({
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
           {/* 12px uppercase metric-label header — eyebrow tracking 0.08em (--track-eyebrow), matching .markdown-body th */}
-          <tr className="text-left text-xs uppercase tracking-[0.08em] text-text-tertiary-light dark:text-text-secondary-dark">
+          <tr className="text-left text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
             {columns.map((c, colIndex) => {
               const sorted = sort && sort.key === c.key ? sort.dir : undefined
               const isFirstCol = colIndex === 0 && stickyFirstColumn
@@ -191,7 +184,7 @@ export function DataTable<T extends Record<string, unknown>>({
                       type="button"
                       onClick={() => onSort(c.key)}
                       className={cx(
-                        'inline-flex items-center gap-1 rounded uppercase tracking-[0.08em]',
+                        'inline-flex items-center gap-1 rounded uppercase tracking-eyebrow',
                         'hover:text-text-primary-light dark:hover:text-text-primary-dark',
                         'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
                         c.align === 'right' && 'flex-row-reverse',
@@ -201,6 +194,7 @@ export function DataTable<T extends Record<string, unknown>>({
                       <span
                         aria-hidden="true"
                         className={cx(
+                          // eslint-disable-next-line no-restricted-syntax -- aria-hidden sort glyph, not type (DS-08 exemption)
                           'text-[9px] leading-none',
                           sorted ? 'text-brand-strong dark:text-brand-strong-dark' : 'opacity-40',
                         )}
@@ -216,7 +210,7 @@ export function DataTable<T extends Record<string, unknown>>({
             })}
           </tr>
         </thead>
-        <tbody className={entered ? 'animate-content-in motion-reduce:animate-none' : undefined}>
+        <tbody className={enterClass}>
           {loading
             ? Array.from({ length: skeletonRows }).map((_, r) => (
                 <tr key={r}>

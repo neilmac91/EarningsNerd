@@ -317,13 +317,16 @@ describe('AskCopilotRail', () => {
     })
     expect(screen.queryByText(/OBSOLETE/)).not.toBeInTheDocument()
     await user.type(screen.getByLabelText(/ask about this filing/i), 'Queued next question')
-    expect(screen.getByRole('button', { name: /^send$/i })).toBeDisabled()
+    // Unavailable mid-stream via aria-disabled, never native `disabled` (Chromium blurs a focused
+    // button that turns disabled) — busyControls.filings.spec.tsx pins focus + the re-entry guard.
+    expect(screen.getByRole('button', { name: /^send$/i })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: /^send$/i })).not.toBeDisabled()
     expect(vi.mocked(askFilingStream).mock.calls[2][2]).toEqual([
       { role: 'user', content: 'Completed question' }, { role: 'assistant', content: 'Retained completed answer.' },
     ])
     act(() => requests[2].handlers.onComplete({ answer: 'New admitted answer.', citations: [], grounded: 0, kind: 'answer', followups: [] }))
     expect(screen.getByText('New admitted answer.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^send$/i })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /^send$/i })).not.toHaveAttribute('aria-disabled')
     expect(analytics.copilotAnswerCompleted).toHaveBeenCalledTimes(2)
     rail.unmount()
   })

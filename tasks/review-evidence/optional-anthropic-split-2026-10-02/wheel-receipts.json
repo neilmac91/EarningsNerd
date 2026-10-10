@@ -1,0 +1,50 @@
+[
+  {
+    "package": "anthropic",
+    "version": "1.8.0",
+    "filename": "anthropic-1.8.0-py3-none-any.whl",
+    "sha256": "79a4516a21e64fd7b15be1a49ebf544bd6376c96a971a77365358823a2717bc6",
+    "requires_dist": [
+      "anyio<5,>=4.1.0",
+      "docstring-parser<1,>=0.15",
+      "httpx2<3,>=2.0.0",
+      "jiter<1,>=0.4.0",
+      "pydantic<3,>=1.10.0",
+      "sniffio<2,>=1",
+      "typing-extensions<5,>=4.14",
+      "aiohttp<4,>=3.10.0; extra == \"aiohttp\"",
+      "boto3<2,>=1.28.57; extra == \"aws\"",
+      "botocore<2,>=1.31.57; extra == \"aws\"",
+      "boto3<2,>=1.28.57; extra == \"bedrock\"",
+      "botocore<2,>=1.31.57; extra == \"bedrock\"",
+      "google-auth[requests]<3,>=2; extra == \"google-cloud\"",
+      "mcp<3,>=1.0; python_version >= \"3.10\" and extra == \"mcp\"",
+      "google-auth[requests]<3,>=2; extra == \"vertex\"",
+      "standardwebhooks<2,>=1.0.1; extra == \"webhooks\""
+    ]
+  },
+  {
+    "package": "anthropic",
+    "version": "1.9.0",
+    "filename": "anthropic-1.9.0-py3-none-any.whl",
+    "sha256": "a7fe05a9e4b72113b934501698df5d56484ac89f05677f0f793f8bfddb15cfff",
+    "requires_dist": [
+      "anyio<5,>=4.1.0",
+      "docstring-parser<1,>=0.15",
+      "httpx2<3,>=2.0.0",
+      "jiter<1,>=0.4.0",
+      "pydantic<3,>=1.10.0",
+      "sniffio<2,>=1",
+      "typing-extensions<5,>=4.14",
+      "aiohttp<4,>=3.10.0; extra == \"aiohttp\"",
+      "boto3<2,>=1.28.57; extra == \"aws\"",
+      "botocore<2,>=1.31.57; extra == \"aws\"",
+      "boto3<2,>=1.28.57; extra == \"bedrock\"",
+      "botocore<2,>=1.31.57; extra == \"bedrock\"",
+      "google-auth[requests]<3,>=2; extra == \"google-cloud\"",
+      "mcp<3,>=1.0; python_version >= \"3.10\" and extra == \"mcp\"",
+      "google-auth[requests]<3,>=2; extra == \"vertex\"",
+      "standardwebhooks<2,>=1.0.1; extra == \"webhooks\""
+    ]
+  }
+]

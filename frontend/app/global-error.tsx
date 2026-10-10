@@ -32,13 +32,13 @@ export default function GlobalError({
                         <div className="flex justify-center gap-4">
                             <button
                                 onClick={() => reset()}
-                                className="rounded-lg bg-brand px-4 py-2 font-medium text-white transition-colors hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark focus:outline-none focus:shadow-ring-brand "
+                                className="rounded-lg bg-brand px-4 py-2 font-medium text-white transition-colors hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                             >
                                 Try again
                             </button>
                             <button
                                 onClick={() => window.location.reload()}
-                                className="rounded-lg border border-border-light bg-white px-4 py-2 font-medium text-text-secondary-light transition-colors hover:bg-background-light focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 dark:border-border-dark dark:bg-panel-dark dark:text-text-secondary-dark dark:hover:bg-white/5"
+                                className="rounded-lg border border-border-light bg-white px-4 py-2 font-medium text-text-secondary-light transition-colors hover:bg-background-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark dark:border-border-dark dark:bg-panel-dark dark:text-text-secondary-dark dark:hover:bg-white/5"
                             >
                                 Reload page
                             </button>

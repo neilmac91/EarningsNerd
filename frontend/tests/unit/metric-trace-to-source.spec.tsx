@@ -14,11 +14,12 @@ describe('Financial metric Trace-to-Source', () => {
     expect(link.getAttribute('aria-label')).toMatch(/SEC XBRL/i)
   })
 
-  it('shows a plain source link when unverified', () => {
+  it('shows the honest "Cited" chip when unverified, never named "Source: Source"', () => {
     render(<MetricSourceLink url="https://sec.gov/x.htm" verified={false} />)
-    const link = screen.getByRole('link')
-    expect(link.textContent).toContain('Source')
+    const link = screen.getByRole('link', { name: 'Source: Cited' })
+    expect(link.textContent).toContain('Cited')
     expect(link.textContent).not.toContain('SEC XBRL')
+    expect(screen.queryByRole('link', { name: 'Source: Source' })).toBeNull()
   })
 
   it('renders nothing without a url', () => {

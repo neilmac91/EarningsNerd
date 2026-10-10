@@ -24,7 +24,7 @@ export default function WaitlistPage() {
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
           <div className="text-center lg:text-left">
-            <h1 className="text-4xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-5xl md:text-6xl">
+            <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark sm:text-5xl md:text-6xl">
               Read a 10-K in{' '}
               <span className="text-brand-strong dark:text-brand-strong-dark">5 minutes</span>, not 5 hours.
             </h1>
@@ -73,7 +73,7 @@ export default function WaitlistPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {[
             {
               title: 'Filings are long and dense.',
@@ -121,7 +121,7 @@ export default function WaitlistPage() {
               Join the waitlist
             </a>
           </div>
-          <div className="mt-8 grid gap-6 md:grid-cols-4">
+          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-4">
             {[
               {
                 step: '01',
@@ -148,7 +148,7 @@ export default function WaitlistPage() {
                 key={item.step}
                 className="rounded-2xl border border-border-light bg-background-light px-5 py-4 dark:border-border-dark dark:bg-background-dark"
               >
-                <div className="text-xs font-semibold uppercase tracking-widest text-brand-strong dark:text-brand-strong-dark">
+                <div className="text-xs font-semibold uppercase tracking-eyebrow text-brand-strong dark:text-brand-strong-dark">
                   {item.step}
                 </div>
                 <h3 className="mt-2 text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -162,7 +162,7 @@ export default function WaitlistPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {[
             {
               title: 'Structured AI summaries',
@@ -202,7 +202,7 @@ export default function WaitlistPage() {
           <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Data is sourced directly from SEC EDGAR. We focus on clarity, not hype.
           </p>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
             {[
               {
                 title: 'Source: SEC EDGAR',

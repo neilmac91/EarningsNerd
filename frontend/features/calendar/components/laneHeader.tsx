@@ -19,7 +19,7 @@ export function WeekViewLaneHeader({ laneKey, label, dense }: { laneKey: LaneKey
       )}
     >
       <Icon aria-hidden="true" className="h-3 w-3 flex-none" />
-      <span className="text-xs font-semibold uppercase tracking-[0.08em]">{label}</span>
+      <span className="text-xs font-semibold uppercase tracking-eyebrow">{label}</span>
       <span aria-hidden="true" className="h-px flex-1 bg-border-light/60 dark:bg-white/[0.06]" />
     </div>
   )

@@ -1,0 +1,10 @@
+cache/
+evidence/
+*.log
+*.pid
+*.stdout
+live-server.started
+*.proc
+*.proc.rejected*
+*.unverified
+*.tmp

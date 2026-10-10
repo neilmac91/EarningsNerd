@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { resetPassword } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
-import { CheckCircleIcon, CircleNotchIcon } from '@/lib/icons'
+import { CheckCircleIcon } from '@/lib/icons'
 import AuthShell from '@/features/auth/components/AuthShell'
 import PasswordField from '@/features/auth/components/PasswordField'
 import { Button, Notice } from '@/components/ui'
@@ -22,6 +22,7 @@ function ResetPasswordContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading) return
     setError('')
 
     if (password !== confirm) {
@@ -114,19 +115,8 @@ function ResetPasswordContent() {
           minLength={12}
         />
 
-        <Button
-          type="submit"
-          disabled={loading || !token}
-          className="w-full py-2.5 font-semibold active:scale-[0.99]"
-        >
-          {loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <CircleNotchIcon className="h-4 w-4 animate-spin" />
-              Resetting…
-            </span>
-          ) : (
-            'Reset password'
-          )}
+        <Button type="submit" loading={loading} loadingText="Resetting…" disabled={!token} className="w-full">
+          Reset password
         </Button>
       </form>
 

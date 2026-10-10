@@ -102,6 +102,16 @@ class Settings(BaseSettings):
     # Unset disables those endpoints (they 503). Set to a long random string in prod.
     INTERNAL_JOB_TOKEN: str = ""
 
+    # Opt-in rollout: queue delivery must be verified before enabling request-based CPU billing.
+    DURABLE_TASKS_ENABLED: bool = False
+    TASKS_PROJECT_ID: str = ""
+    TASKS_LOCATION: str = "us-west1"
+    TASKS_QUEUE: str = "earningsnerd-background"
+    TASKS_WORKER_URL: str = ""
+    TASKS_INVOKER_EMAIL: str = ""
+    TASKS_WORKER_PROCESS: bool = False
+    TASKS_WORK_TIMEOUT_SECONDS: float = Field(default=480, gt=0, le=480)
+
     # PostHog (server-side tracking)
     POSTHOG_API_KEY: str = ""
     POSTHOG_HOST: str = "https://us.i.posthog.com"
@@ -412,6 +422,13 @@ class Settings(BaseSettings):
     # their own form sets until a later phase. Toggle with ENABLE_FPI_FILINGS=true.
     ENABLE_FPI_FILINGS: bool = False
 
+    # Insider-activity endpoint (GET /api/companies/{ticker}/insiders). A cold load is a live
+    # edgartools fan-out of about two SEC requests per Form 4 (up to 60 Form 4s), which cannot fit the
+    # deploy-pinned 1 req/s budget (CODE RED D3, docs/OPERATIONS.md), so the endpoint answers 404
+    # unless this is set. Its company-page panel is dark too (frontend NEXT_PUBLIC_ENABLE_INSIDER_
+    # ACTIVITY); turning both on needs a budget-aware insider scan first (decision record 17).
+    ENABLE_INSIDER_ACTIVITY: bool = False
+
     # Restrict the public earnings calendar (and homepage "Reporting This Week" strip) to companies
     # in the S&P 500 or Nasdaq 100 — a tight, defensible, high-signal universe (~515 tickers) instead
     # of the full Alpha Vantage long tail. Membership is the committed app/data/index_membership.json
@@ -709,4 +726,3 @@ class Settings(BaseSettings):
         return (not warnings), warnings
 
 settings = Settings()
-

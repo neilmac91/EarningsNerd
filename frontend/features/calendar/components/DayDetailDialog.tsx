@@ -6,6 +6,11 @@
    The full, uncapped day: every company grouped into lanes with roomy rows.
    Native <dialog> + showModal() supplies the focus trap, Esc handling, and
    top-layer stacking; we add backdrop-click dismissal and focus restoration.
+   Layers raised while it is open (the bell's popover) portal INTO it — a
+   <body> portal is inert beneath the top layer — so it must never gain a
+   transform/filter/contain, which would clip their fixed positioning; and
+   ui/Modal is never raised from the calendar page (both gated in
+   dialogAllowlist.spec.ts).
 ============================================================================= */
 
 import { useEffect, useRef } from 'react'
@@ -55,7 +60,7 @@ export function DayDetailDialog({
       onClick={(e) => e.target === ref.current && onClose()}
       className={cx(
         'w-[min(560px,calc(100vw-32px))] rounded-xl border border-border-light bg-panel-light p-0 text-text-primary-light shadow-e5',
-        'backdrop:bg-background-dark/45 dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark',
+        'backdrop:bg-overlay dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark',
         'motion-safe:animate-content-in',
       )}
     >

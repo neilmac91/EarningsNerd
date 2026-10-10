@@ -1,12 +1,17 @@
-export { Button, buttonVariants, type ButtonProps, type ButtonVariant, type ButtonSize, type ButtonVariantsOptions } from './Button'
+export { Button, buttonVariants, primaryUnavailableClass, secondaryUnavailableClass, type ButtonProps, type ButtonVariant, type ButtonSize, type ButtonVariantsOptions } from './Button'
 export { Badge, type BadgeProps, type BadgeVariant } from './Badge'
 export {
-  Input, Textarea, Select, inputClasses,
-  type InputProps, type TextareaProps, type SelectProps, type InputClassesOptions,
+  Input, Textarea, Select, inputClasses, fieldUnavailableClass,
+  type InputProps, type TextareaProps, type SelectProps, type InputClassesOptions, type FieldDensity,
 } from './Input'
+// v3.1: the one single-choice toggle group (calendar view + filings form filter).
+export { SegmentedControl, type SegmentedControlProps, type SegmentedOption, type SegmentedControlSize } from './SegmentedControl'
 export { Card, CardHeader, CardTitle, CardBody, CardFooter, type CardProps } from './Card'
 export { Notice, type NoticeProps, type NoticeVariant } from './Notice'
 export { Switch, type SwitchProps } from './Switch'
+// v3: the ONE dialog primitive (DS-04) — the dialog role ships only through Modal
+// (plus the documented copilot sheets; gated by tests/unit/dialogAllowlist.spec.ts).
+export { Modal, ModalHeader, ModalBody, ModalFooter, type ModalProps, type ModalHeaderProps } from './Modal'
 export { DataTable, type DataTableProps, type Column, type CellTone, type SortState, type Density } from './DataTable'
 export { Skeleton, SkeletonText, SkeletonStat } from './Skeleton'
 // v2.1: ui/StateCard renamed → GuidanceCard (collision with the app's own

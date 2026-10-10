@@ -47,7 +47,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `SKIP_REDIS_INIT` | `false` | Skip Redis initialization; true in hermetic tests and Redis-off deployments. |
 | `SEC_EDGAR_BASE_URL` | `"https://data.sec.gov"` | SEC submissions/companyfacts API origin; calls must use the EDGAR service layer. |
 | `SEC_USER_AGENT` | `"EarningsNerd/1.0 (contact@earningsnerd.io)"` | SEC contact identity; use a reachable operator address. |
-| `SEC_RATE_LIMIT_PER_SECOND` | `10` | Per-process SEC request ceiling; SEC traffic from other processes also counts at the IP. |
+| `SEC_RATE_LIMIT_PER_SECOND` | `10` | Per-process rate of the app's own SEC token bucket (capacity equals rate). SEC's 10 req/s applies per user across every process, so production pins `1` on the API service, every job and the task worker (`ci.yml`); edgartools' separate limiter is `EDGAR_RATE_LIMIT_PER_SEC` (see below the table). |
 | `SEC_MAX_RETRIES` | `5` | EDGAR retry limit. |
 | `SEC_BASE_BACKOFF_SECONDS` | `1.0` | Initial EDGAR retry backoff, seconds. |
 | `COMPANYFACTS_SYNC_TTL_HOURS` | `24` | Companyfacts freshness, hours; a newer Filing can force a refresh earlier. |
@@ -70,9 +70,17 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `PRO_TRIAL_DAYS` | `0` | Card-required monthly trial; 0 disables; validated 0–30. Enable only with the matching frontend flag after the Stripe checklist. |
 | `REVERSE_TRIAL_ENABLED` | `false` | Retired no-card signup trial; keep off. Cannot coexist with a positive PRO_TRIAL_DAYS. |
 | `REVERSE_TRIAL_DAYS` | `7` | Duration of the retired reverse trial, days. |
-| `REGISTRATION_MODE` | `"public"` | Validated public or invite_only registration; CI explicitly sets invite_only on the service. |
+| `REGISTRATION_MODE` | `"public"` | Validated public or invite_only registration, enforced on `/api/auth/register` and on the Google/Apple callbacks (an invited social sign-up sends the invite in the body of `POST /api/auth/google|apple/start`, never in a URL); CI explicitly sets invite_only on the service. |
 | `INVITE_EXPIRY_HOURS` | `168` | Invite token lifetime, hours. |
 | `INTERNAL_JOB_TOKEN` | `""` | Shared internal-job endpoint secret; unset endpoints return 503. |
+| `DURABLE_TASKS_ENABLED` | `false` | Opt-in queue handoff for on-visit work and internal jobs. Enable after authenticated worker delivery is verified; keep CPU always allocated until then. |
+| `TASKS_PROJECT_ID` | `""` | Project containing the task queue; required when durable delivery is enabled. |
+| `TASKS_LOCATION` | `"us-west1"` | Queue region; co-locate with the API and worker. |
+| `TASKS_QUEUE` | `"earningsnerd-background"` | Dedicated background queue with one concurrent delivery. |
+| `TASKS_WORKER_URL` | `""` | Exact HTTPS run.app origin of the private worker, also its expected OIDC audience. |
+| `TASKS_INVOKER_EMAIL` | `""` | Dedicated task service account whose verified email is accepted by the worker. |
+| `TASKS_WORKER_PROCESS` | `false` | Enable only on the private task-only service; permits isolated child execution. |
+| `TASKS_WORK_TIMEOUT_SECONDS` | `480` | Hard child work deadline, greater than zero and at most 480 seconds; child is killed and reaped before HTTP completion on timeout or disconnect. |
 | `POSTHOG_API_KEY` | `""` | Server-side PostHog credential. |
 | `POSTHOG_HOST` | `"https://us.i.posthog.com"` | Server-side PostHog ingestion origin. |
 | `SENTRY_DSN` | `""` | Error tracking DSN; empty disables SDK setup. |
@@ -133,6 +141,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `AI_EVIDENCE_SNAP` | `false` | Replace unverifiable evidence with matched filing sentences when armed; off keeps advisory audits. **Armed in production since 2026-09-15** (founder decision after the first complete strong-judge readout, D5): the `ci.yml` service and pregenerate deploy env pin `true`; the code default stays `false` for local/dev. |
 | `EVIDENCE_SNAP_MIN_SCORE` | `72.0` | Figure-bearing evidence similarity floor; no-figure evidence uses the separate in-module floor of 88. |
 | `ENABLE_FPI_FILINGS` | `false` | Page-scoped 20-F/6-K/40-F discovery; CI explicitly enables it on the service. Other job form sets are separate. |
+| `ENABLE_INSIDER_ACTIVITY` | `false` | Serves `GET /api/companies/{ticker}/insiders`; off, it answers 404. A cold load is a live edgartools fan-out (about two SEC requests per Form 4 for up to 60 Form 4s, so about 120) that the deploy-pinned 1 req/s budget cannot carry; the deploy pins it `false`, so leave it off with the frontend's `NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY` until a budget-aware insider scan lands (CODE RED record 17). |
 | `CALENDAR_INDEX_FILTER_ENABLED` | `false` | Restrict public calendar serve/ingest to committed index universe; watchlist exceptions remain; missing/short universe fails open. Settings default stays false. Founder-approved intentional service override is true; pregenerate is false, both explicit in `ci.yml`. This does not activate the Calendar UI. |
 | `NOTABLE_FILINGS_ENABLED` | `false` | Serving gate only; scan job populates independently. Code default stays false; the [bounded September 28 rollout](../tasks/notable-rollout-2026-09-28.md) pins true in service and pregenerate deployment settings after the corrected labels release. This adds no model generation. |
 | `NOTABLE_FILINGS_SCAN_DAYS` | `2` | Scheduled scan trailing window, days; manual seed --days overrides it. |
@@ -168,6 +177,14 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `STREAM_TIMEOUT` | `600` | SSE timeout, seconds. |
 | `STREAM_SECTION_REVEAL` | `false` | Progressive section previews with non-streaming fallback; CI enables on the service. |
 
+**Library-read SEC budget (not a Settings field).** edgartools paces its own EDGAR HTTP (submissions,
+filing objects, XBRL) with a second process-global limiter, a sliding window read once at import:
+`EDGAR_RATE_LIMIT_PER_SEC` (library default `9`; `edgar/httpclient.py` in the pinned release). The app
+wraps that traffic in `sec_rate_limiter` only in the SIC lookup (`app/services/edgar/company_sic.py`), so a
+process's configured SEC ceiling is at most the sum of both. Production pins both to `1` on the API service,
+every job and the task worker (`.github/workflows/ci.yml`; gate
+`backend/tests/unit/test_sec_process_budgets.py`); leave it unset locally.
+
 Current-bound-ID subscription created/updated reconciliation makes one Stripe read with zero SDK
 retries and a dedicated transport closed after every outcome. These connect/read inactivity limits
 are not a total five-second deadline: DNS or a progressing response can exceed their sum. The
@@ -199,6 +216,7 @@ AI_FORWARD_QUOTE_GATE=false                   # T5.4 forward-quote hard gate: wh
 AI_EVIDENCE_SNAP=false                        # Evidence auto-snap (post-#631): when on, non-verifying P&L-takeaway/footnote supporting_evidence is REPLACED at generation time by the best-matching REAL excerpt sentence (which then earns the Verified badge). Code default off (advisory: audit + greppable evidence_snap counter always emitted, recording original + candidate per would-snap); production deploys pin true since 2026-09-15 (founder decision after the first complete strong-judge readout)
 EVIDENCE_SNAP_MIN_SCORE=72.0                  # Snap floor for FIGURE-BEARING evidence (rapidfuzz max(token_set, partial) on normalized text; the shared non-year-figure guard supplies the precision). No-figure evidence uses a stricter in-module floor (88)
 ENABLE_FPI_FILINGS=false                      # Foreign private issuer (ADR) filings: list 20-F/6-K/40-F on the company page (page-scoped; default off — see tasks/archive/fpi-support-roadmap.md)
+ENABLE_INSIDER_ACTIVITY=false                 # Insider (Form 4) endpoint; off = 404. Pairs with NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY; leave off until the insider scan fits the 1 req/s SEC pin
 NOTABLE_FILINGS_ENABLED=false                 # Local default; production serving pin is true under tasks/notable-rollout-2026-09-28.md (scan populates independently)
 NOTABLE_FILINGS_SCAN_DAYS=2                   # Trailing window (days) per scheduled notable-filings scan; seed run overrides via --days
 
@@ -290,7 +308,7 @@ NEXT_PUBLIC_LOGO_DEV_TOKEN=...                     # Logo.dev publishable token 
 NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS=true|false
 NEXT_PUBLIC_ENABLE_SECTION_TABS=true|false
 NEXT_PUBLIC_ENABLE_CALENDAR=true|false             # Earnings calendar (owned EDGAR+Alpha Vantage engine; FMP no longer used)
-NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY=true|false     # Form 4 insider activity panel
+NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY=true|false     # Form 4 insider activity panel (needs backend ENABLE_INSIDER_ACTIVITY=true; keep both off, see above)
 NEXT_PUBLIC_ENABLE_ANALYSIS=true|false             # Multi-Period Analysis (off: nav/CTA hidden + /analysis route 404s)
 NEXT_PUBLIC_ENABLE_PRO_TRIAL=true|false            # Advertise the 7-day Pro trial (default off; flip WITH backend PRO_TRIAL_DAYS=7)
 WAITLIST_MODE=...                                  # Server-side waitlist gating (not NEXT_PUBLIC_)

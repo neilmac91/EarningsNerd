@@ -2,6 +2,7 @@
 
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import Link from 'next/link'
+import { useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ArrowRightIcon, XIcon } from '@/lib/icons'
@@ -10,16 +11,16 @@ import { queryKeys } from '@/lib/queryKeys'
 import analytics from '@/lib/analytics'
 import { formatLocalDate } from '@/lib/format'
 import CompanyLogo from '@/components/CompanyLogo'
-import { Button, Card, GuidanceCard, Skeleton } from '@/components/ui'
+import { Card, GuidanceCard, Skeleton } from '@/components/ui'
+import { RetryButton, type RetainedFailure } from '@/hooks/useRetainedFailure'
 import WatchlistAddSearch from '@/features/watchlist/components/WatchlistAddSearch'
 import SummaryStatusBadge from '@/features/watchlist/components/SummaryStatusBadge'
 
 interface YourCompaniesProps {
   insights: WatchlistInsight[] | undefined
   isLoading: boolean
-  isError: boolean
-  refetch: () => void
-  isFetching: boolean
+  /** The insights query's failure, held through any refetch until data replaces it. */
+  failure: RetainedFailure
 }
 
 /**
@@ -29,27 +30,47 @@ interface YourCompaniesProps {
  * "Latest report": insights has no form filter, so "last filed" may be a recent 8-K while the feed
  * shows an older 10-Q for the same company.
  */
-export default function YourCompanies({ insights, isLoading, isError, refetch, isFetching }: YourCompaniesProps) {
+export default function YourCompanies({ insights, isLoading, failure }: YourCompaniesProps) {
   const queryClient = useQueryClient()
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const removedTicker = useRef<string | null>(null)
+
+  // A successful removal drops its row, and the focused remove button with it, once insights
+  // refetch. Focus would fall to <body>; land it on the section heading instead.
+  useEffect(() => {
+    const ticker = removedTicker.current
+    if (ticker === null || insights?.some((insight) => insight.company.ticker === ticker)) return
+    removedTicker.current = null
+    if (document.activeElement === document.body) headingRef.current?.focus({ preventScroll: true })
+  }, [insights])
 
   const removeMutation = useMutation({
     mutationFn: removeFromWatchlist,
     onSuccess: (_data, ticker) => {
+      removedTicker.current = ticker
       queryClient.invalidateQueries({ queryKey: queryKeys.watchlist() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.watchlistInsights() })
+      const rowGone = queryClient.invalidateQueries({ queryKey: queryKeys.watchlistInsights() })
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardFeed() })
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCalendar() })
       analytics.watchlistRemoved(ticker)
       toast.success(`${ticker} removed from your watchlist`)
+      // Returned, so the removal stays pending until the insights refetch drops the row: the remove
+      // button keeps focus, and released any sooner a second Enter would DELETE the ticker again.
+      return rowGone
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Couldn't update your watchlist. Please try again.")
     },
   })
+  const pendingTicker = removeMutation.isPending ? removeMutation.variables : null
 
   return (
     <section>
-      <h2 className="mb-4 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+      <h2
+        ref={headingRef}
+        tabIndex={-1}
+        className="mb-4 text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+      >
         Your companies
       </h2>
 
@@ -65,15 +86,15 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
           <Skeleton className="h-14 rounded-xl" />
           <span className="sr-only">Loading your companies…</span>
         </div>
-      ) : isError ? (
+      ) : failure.failed ? (
         <GuidanceCard
           variant="error"
           title="Unable to load your companies"
           description="Please retry in a moment."
           action={
-            <Button variant="secondary" onClick={() => refetch()} loading={isFetching} loadingText="Retrying…">
+            <RetryButton failures={[failure]} focusTarget={headingRef}>
               Retry
-            </Button>
+            </RetryButton>
           }
         />
       ) : !insights || insights.length === 0 ? (
@@ -96,7 +117,7 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
                     href={`/company/${insight.company.ticker}`}
                     className="flex min-w-0 max-w-fit grow basis-16 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                   >
-                    <CompanyLogo ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={28} />
+                    <CompanyLogo decorative ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={28} />
                     <div className="min-w-0">
                       <div className="truncate font-semibold text-text-primary-light hover:text-brand-strong dark:text-text-primary-dark dark:hover:text-brand-strong-dark">
                         {formatCompanyName(insight.company.name)}
@@ -118,10 +139,18 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
                         needsRegeneration={latest.needs_regeneration}
                       />
                     )}
+                    {/* aria-disabled + aria-busy + an early return while a removal is in flight, not
+                        native `disabled`: Chromium blurs a focused button that turns disabled. Busy fades
+                        the glyph's ink, not the element: an element opacity would fade the focus ring too
+                        (DESIGN_SYSTEM §4). */}
                     <button
-                      onClick={() => removeMutation.mutate(insight.company.ticker)}
-                      disabled={removeMutation.isPending}
-                      className="rounded-lg p-2 text-error-light hover:bg-error-light/10 focus-visible:outline-none focus-visible:shadow-ring-error disabled:opacity-50 dark:text-error-dark dark:hover:bg-error-dark/15"
+                      onClick={() => {
+                        if (removeMutation.isPending) return
+                        removeMutation.mutate(insight.company.ticker)
+                      }}
+                      aria-disabled={removeMutation.isPending || undefined}
+                      aria-busy={pendingTicker === insight.company.ticker || undefined}
+                      className="rounded-lg p-2 text-error-light hover:bg-error-light/10 focus-visible:outline-none focus-visible:shadow-ring-error aria-disabled:text-error-light/50 dark:text-error-dark dark:hover:bg-error-dark/15 dark:aria-disabled:text-error-dark/50"
                       title="Remove from watchlist"
                       aria-label={`Remove ${formatCompanyName(insight.company.name)} from watchlist`}
                     >

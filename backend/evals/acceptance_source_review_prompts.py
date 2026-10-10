@@ -14,6 +14,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Literal, Mapping
 
+from evals.acceptance_h20_joint_inputs import H20_TEXT_STRUCTURAL_KINDS, ValidatedH20JointInputs
 from evals.acceptance_source_review_graph import children_sha256
 from evals.acceptance_source_units import validate_unit_manifest
 
@@ -136,18 +137,21 @@ def _render(template: bytes, manifest: dict[str, Any], parts: list[bytes]) -> di
     checked_parts = [_utf8(part, f"prompt part {index}") for index, part in enumerate(parts)]
     manifest_bytes = _canonical(manifest)
     manifest_sha256 = _sha(manifest_bytes)
-    frames = [template, _START,
+    version = manifest["schema_version"]
+    start = _START if version == 1 else b"\n\n<<<E7_SOURCE_REVIEW_INPUT_V2>>>\n"
+    end = _END if version == 1 else b"<<<E7_SOURCE_REVIEW_INPUT_END_V2>>>\n"
+    frames = [template, start,
               f"manifest {len(manifest_bytes):020d} {manifest_sha256}\n".encode("ascii"),
               manifest_bytes, b"\n"]
     for index, part in enumerate(checked_parts):
         frames.extend((f"part {index:08d} {len(part):020d} {_sha(part)}\n".encode("ascii"),
                        part, b"\n"))
-    prompt = b"".join((*frames, _END))
+    prompt = b"".join((*frames, end))
     # Defence in depth: every component was checked separately, and the final provider-facing
     # payload must still be one strict UTF-8 byte string.
     _utf8(prompt, "rendered prompt")
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": version,
         "kind": RENDER_KIND,
         "prompt_bytes": prompt,
         "prompt_sha256": _sha(prompt),
@@ -214,6 +218,7 @@ def render_leaf_prompt(
     source: ValidatedPromptSource,
     unit_id: str,
     reservation_id: str,
+    joint_inputs: ValidatedH20JointInputs | None = None,
 ) -> dict[str, Any]:
     """Render one leaf from an immutable validated owner and its exact covered/context bytes."""
     identity = _identity(accession_number=accession_number, role=role, node_id=node_id,
@@ -227,6 +232,26 @@ def render_leaf_prompt(
     if len(units) != 1:
         raise ValueError("unit_id must identify exactly one unit in the validated manifest")
     unit = units[0]
+    if joint_inputs is not None:
+        if type(joint_inputs) is not ValidatedH20JointInputs:
+            raise ValueError("joint inputs require a validated original-to-review mapping")
+        if unit.structural_kind not in H20_TEXT_STRUCTURAL_KINDS:
+            raise ValueError("unsupported H20 structural kind cannot be rendered as text")
+        joint_inputs.require_review(source.manifest_sha256,
+                                    [{"role": p.role, "sha256": p.sha256, "byte_length": p.byte_length} for p in source.packets],
+                                    {p.role: p.sha256 for p in source.packets})
+        joint_unit = joint_inputs.unit(unit.unit_id)
+        record = json.loads(joint_unit.record_bytes)
+        manifest = {
+            "schema_version": 2, "kind": INPUT_MANIFEST_KIND, "node_kind": "leaf", **identity,
+            "joint_contract_sha256": joint_inputs.contract_sha256,
+            "unmapped_original_roles_not_credited": list(joint_inputs.unmapped_original_roles),
+            "template": {"byte_length": len(template), "sha256": _sha(template)},
+            "input_sha256": joint_unit.input_sha256,
+            "leaf": {"manifest_sha256": source.manifest_sha256, **record["unit"]},
+            "parts": record["parts"],
+        }
+        return _render(template, manifest, list(joint_unit.parts))
     structural_kind = unit.structural_kind
     if structural_kind not in TEXT_STRUCTURAL_KINDS:
         raise ValueError(f"unsupported structural_kind {structural_kind!r} is not model-ready in prompt format 1")
@@ -291,6 +316,7 @@ def render_parent_prompt(
     children: list[dict[str, str]],
     child_artifacts: Mapping[str, bytes],
     reservation_id: str,
+    joint_contract_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Render a reducer or role synthesis from its ordered exact child artifacts."""
     identity = _identity(accession_number=accession_number, role=role, node_id=node_id,
@@ -343,4 +369,7 @@ def render_parent_prompt(
         "children": checked_children,
         "parts": part_records,
     }
+    if joint_contract_sha256 is not None:
+        manifest["schema_version"] = 2
+        manifest["joint_contract_sha256"] = _token(joint_contract_sha256, _SHA256, "joint contract sha256")
     return _render(template, manifest, parts)

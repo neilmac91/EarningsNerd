@@ -1,9 +1,10 @@
 'use client'
 
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { useRef } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { CircleNotchIcon, CreditCardIcon, SparkleIcon } from '@/lib/icons'
+import { CreditCardIcon, SparkleIcon } from '@/lib/icons'
 import {
   getSubscriptionStatus,
   getUsage,
@@ -20,6 +21,8 @@ import { Badge } from '@/components/ui/Badge'
 import { Notice } from '@/components/ui/Notice'
 import { SkeletonText } from '@/components/ui/Skeleton'
 import { queryKeys } from '@/lib/queryKeys'
+import { untilPageReturns } from '@/lib/untilPageReturns'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 
 function daysUntil(value: string | null): number | null {
   if (!value) return null
@@ -29,50 +32,56 @@ function daysUntil(value: string | null): number | null {
 }
 
 export default function BillingPanel() {
-  const { data: user, isPending: identityPending, isError: identityError, refetch: refetchIdentity, isFetching: identityFetching } = useQuery({
+  const identityQuery = useQuery({
     queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, retry: false,
   })
-  const { data: sub, isError, refetch: refetchSubscription, isFetching: subscriptionFetching } = useQuery({
+  const { data: user, isPending: identityPending } = identityQuery
+  const subscriptionQuery = useQuery({
     queryKey: queryKeys.subscription.byUser(user?.id),
     queryFn: getSubscriptionStatus,
     enabled: !!user,
     retry: false,
   })
+  const { data: sub } = subscriptionQuery
+  // A failure keeps its Notice, and a focused Retry in it, through any refetch until data replaces it.
+  const identityFailure = useRetainedFailure(identityQuery, queryKeys.currentUser())
+  const subscriptionFailure = useRetainedFailure(subscriptionQuery, queryKeys.subscription.byUser(user?.id))
+  // Where a Retry's focus goes when its Notice clears (RetryButton). Both branches render this heading
+  // at the same place, so it is the same node across the swap.
+  const headingRef = useRef<HTMLHeadingElement>(null)
   const { data: usage } = useQuery({ queryKey: queryKeys.usage.byUser(user?.id), queryFn: getUsage, enabled: !!user, retry: false })
 
   const portal = useMutation({
     mutationFn: createPortalSession,
     onSuccess: (data) => {
-      if (data.url) window.location.href = data.url
+      if (!data.url) return
+      window.location.href = data.url
+      // Pending while the page leaves for Stripe: Manage billing keeps focus, and released any sooner
+      // a second Enter would open a second portal session.
+      return untilPageReturns()
     },
   })
 
   // Surface a failure with nothing to show rather than silently falling back to "Free" — that
   // would mislead a Pro subscriber on a transient network error. A failed REFRESH of retained
   // same-account data is different: the last resolved plan stays visible with a notice below.
-  const identityUnavailable = identityError && user === undefined
-  const subscriptionUnavailable = isError && sub === undefined
+  const identityUnavailable = identityFailure.failed && user === undefined
+  const subscriptionUnavailable = subscriptionFailure.failed && sub === undefined
   if (identityUnavailable || subscriptionUnavailable) {
     return (
       <Card className="p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
           <CreditCardIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Billing</h2>
+          <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark">Billing</h2>
         </div>
         <Notice
           variant="error"
           title="Failed to load billing information"
           description="Please try again."
           action={
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void (identityUnavailable ? refetchIdentity() : refetchSubscription())}
-              loading={identityUnavailable ? identityFetching : subscriptionFetching}
-              loadingText="Retrying…"
-            >
+            <RetryButton size="sm" failures={[identityUnavailable ? identityFailure : subscriptionFailure]} focusTarget={headingRef}>
               Retry
-            </Button>
+            </RetryButton>
           }
         />
       </Card>
@@ -81,7 +90,7 @@ export default function BillingPanel() {
 
   if (user === null) return null
 
-  const subscriptionStale = isError && sub !== undefined
+  const subscriptionStale = subscriptionFailure.failed && sub !== undefined
 
   const isPro = Boolean(sub?.is_pro)
   // The API resolves expired trial rows to Free even while their raw status stays trialing.
@@ -93,7 +102,7 @@ export default function BillingPanel() {
     <Card className="p-6 mb-6">
       <div className="flex items-center gap-3 mb-4">
         <CreditCardIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Billing</h2>
+        <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark">Billing</h2>
       </div>
 
       {identityPending || sub === undefined ? (
@@ -106,9 +115,9 @@ export default function BillingPanel() {
               title="Couldn't refresh billing details"
               description="Showing your last loaded details."
               action={
-                <Button variant="secondary" size="sm" onClick={() => void refetchSubscription()} loading={subscriptionFetching} loadingText="Retrying…">
+                <RetryButton size="sm" failures={[subscriptionFailure]} focusTarget={headingRef}>
                   Retry
-                </Button>
+                </RetryButton>
               }
             />
           )}
@@ -154,7 +163,7 @@ export default function BillingPanel() {
 
           {/* Trial countdown */}
           {isTrialing && trialDays !== null && (
-            <div className="rounded-lg border border-brand-border bg-brand-weak dark:bg-white/5 px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            <div className="rounded-lg border border-brand-border bg-brand-weak dark:border-white/10 dark:bg-white/5 px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
               <strong>{trialDays} {trialDays === 1 ? 'day' : 'days'} left</strong> in your Pro trial
               {sub?.trial_end ? ` · ends ${formatLocalDate(sub.trial_end, 'MMM d, yyyy')}` : ''}.
             </div>
@@ -172,12 +181,13 @@ export default function BillingPanel() {
               the customer id, and send everyone else to /pricing to subscribe. */}
           <div className="border-t border-border-light dark:border-border-dark pt-3">
             {sub?.stripe_customer_id ? (
+              /* `loading`, not `disabled`, while the portal session is requested: a focused button
+                 that turns natively disabled is blurred to <body> in Chromium. */
               <Button
                 variant="secondary"
                 onClick={() => portal.mutate()}
-                disabled={portal.isPending}
+                loading={portal.isPending}
               >
-                {portal.isPending ? <CircleNotchIcon className="h-4 w-4 animate-spin" /> : null}
                 Manage billing
               </Button>
             ) : (

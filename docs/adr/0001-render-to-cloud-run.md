@@ -32,7 +32,8 @@ service `earningsnerd-backend`):
   consolidation that shaped it, and the pip-tools lockfile).
 - **Continuous deployment** runs from the `deploy-backend` job in
   `.github/workflows/ci.yml` on push to `main`, gated on all test jobs and only when
-  `backend/` changed. Auth to GCP is **keyless** via Workload Identity Federation
+  `backend/` changed (amended 2026-10-06: `backend/tests/` is excluded from the trigger, PR #1101;
+  see `lessons/ops-deploy-detector-mirrors-the-image-context.md`). Auth to GCP is **keyless** via Workload Identity Federation
   (repo variables `GCP_WIF_PROVIDER` + `GCP_DEPLOYER_SA`) — no long-lived service-account
   keys in the repo.
 - The database is **Cloud SQL for PostgreSQL 15** (`earningsnerd-db`), reached through the

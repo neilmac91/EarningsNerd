@@ -10,6 +10,9 @@ type SecondaryHeaderProps = {
   backHref?: string
   backLabel?: string
   actions?: React.ReactNode
+  /** Makes the title a focus target (`tabIndex={-1}`) for a page that hands focus to it when the
+      control a keyboard user pressed unmounts. */
+  titleRef?: React.Ref<HTMLHeadingElement>
 }
 
 export default function SecondaryHeader({
@@ -18,6 +21,7 @@ export default function SecondaryHeader({
   backHref,
   backLabel = 'Back',
   actions,
+  titleRef,
 }: SecondaryHeaderProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-border-light dark:border-white/10 bg-panel-light/80 dark:bg-panel-dark/80 backdrop-blur">
@@ -33,7 +37,7 @@ export default function SecondaryHeader({
             // the caret on the page edge.
             <Link
               href={backHref}
-              className="-ml-3.5 inline-flex min-h-11 min-w-11 items-center justify-center text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark transition hover:text-text-primary-light dark:hover:text-text-primary-dark sm:ml-0 sm:min-h-0 sm:min-w-0 sm:justify-start"
+              className="-ml-3.5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark transition hover:text-text-primary-light dark:hover:text-text-primary-dark sm:ml-0 sm:min-h-0 sm:min-w-0 sm:justify-start focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             >
               <CaretLeftIcon aria-hidden="true" className="h-4 w-4 sm:mr-1" />
               <span className="sr-only sm:not-sr-only">{backLabel}</span>
@@ -43,7 +47,13 @@ export default function SecondaryHeader({
             <EarningsNerdLogoIcon className="h-8 w-8 shrink-0" />
             <div className="min-w-0 grow">
               {title && (
-                <h1 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">{title}</h1>
+                <h1
+                  ref={titleRef}
+                  tabIndex={titleRef ? -1 : undefined}
+                  className="text-lg font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+                >
+                  {title}
+                </h1>
               )}
               {subtitle && (
                 <p className="truncate text-xs text-text-secondary-light [contain:inline-size] dark:text-text-secondary-dark">

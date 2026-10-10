@@ -238,7 +238,7 @@ class OpenAIService(
         in; the COMPLETE content is then assembled through the same path as the non-streaming branch,
         so both use the same assembly. Transient streaming failures discard buffered content and
         retry non-streaming within the shared deadline; callback errors remain best-effort."""
-        from fastapi.concurrency import run_in_threadpool
+        from app.services.request_work import run_owned_sync as run_in_threadpool
 
         filing_type_key = (filing_type or "10-K").upper()
         
@@ -694,7 +694,9 @@ Rules:
         """Generate newsroom-ready summary using structured extraction + editorial writer phases.
 
         ``stream_cb`` opts into progressive previews. The provider request policy owns bounded
-        transient retries; exhausted/authentication failures retain the existing error contract."""
+        transient retries; exhausted/authentication failures retain the existing error contract.
+        The metering signal (``provider_requests.provider_start_signal``) travels in the task
+        context, not as a parameter."""
         import asyncio
 
         filing_type_key = (filing_type or "10-K").upper()
@@ -825,7 +827,7 @@ Rules:
         # EXCERPT-ONLY grounding; recovery-authored sections are skipped (their context is
         # separately selected context, potentially different from the exact primary excerpt); and the candidate scan
         # (~0.5s on a 320k excerpt) runs off the event loop (skeptic F5).
-        from fastapi.concurrency import run_in_threadpool
+        from app.services.request_work import run_owned_sync as run_in_threadpool
 
         recovered_keys = frozenset(structured_summary.pop("_recovered_sections", []) or [])
         # Bind original primary evidence before auto-snap can replace its bytes.

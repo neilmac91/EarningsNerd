@@ -55,6 +55,8 @@ const BILLING_OPTIONS = ['monthly', 'annual'] as const
 type Billing = (typeof BILLING_OPTIONS)[number]
 
 const PRICE_CLASS =
+  /* display figure — deliberate, ramp has no 40 */
+  // eslint-disable-next-line no-restricted-syntax -- the 40px display figure sets its own tracking; the ramp has no 40
   'font-data tnum text-[40px] font-semibold leading-[1.1] tracking-[-0.02em] text-text-primary-light dark:text-text-primary-dark'
 const MUTED_CLASS = 'text-text-secondary-light dark:text-text-secondary-dark'
 // Design: 44px tall, full card width. buttonVariants' md size sets h-10; h-11 is emitted later in
@@ -185,7 +187,7 @@ export default function PricingSection({
             </div>
           </div>
 
-          <div className="mt-10 grid items-stretch gap-6 md:grid-cols-2">
+          <div className="mt-10 grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
             <Card className="flex flex-col p-5 sm:p-7">
               <h3 className="text-xl">Free</h3>
               <div className="mt-3 flex items-baseline gap-1.5">

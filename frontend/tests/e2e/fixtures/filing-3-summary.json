@@ -1,0 +1,163 @@
+{
+ "id": 58,
+ "filing_id": 3,
+ "business_overview": "## The Print\n\nApple's FY2025 total net sales rose 6.4% to $416.2B with net income of $112.0B and diluted EPS of $7.46, while operating cash flow declined to $111.5B from $118.3B.\n\nTotal net sales increased 6.4% to $416.2B in 2025 from $391.0B in 2024. The Company's MD&A attributes the increase to higher net sales of iPhone and Services in the Americas, higher net sales of Services, iPhone and Mac ",
+ "financial_highlights": null,
+ "risk_factors": [
+  {
+   "summary": "Filing excerpt",
+   "supporting_evidence": "Tariffs and other measures that are applied to the Company\u2019s products or their components can have a material adverse impact on the Company\u2019s business, results of operations and financial condition, including impacting the Company\u2019s supply chain, the availability of rare earths and other raw materials and components, pricing and gross margin.",
+   "source_section_ref": "Filing excerpt",
+   "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm#:~:text=Tariffs%20and%20other%20measures%20that%20are%20applied%20to%20the%20Company%E2%80%99s",
+   "source_verified": true
+  }
+ ],
+ "management_discussion": "",
+ "key_changes": "",
+ "raw_summary": {
+  "status": "complete",
+  "quality": {
+   "tier": "full",
+   "reasons": [],
+   "numeric_grounded": true,
+   "covered_count": 8,
+   "total_count": 8,
+   "figures_untraceable": [
+    "10078m",
+    "39777m",
+    "49303m",
+    "4972m",
+    "5235m",
+    "9300m"
+   ],
+   "machine_sections_only": false
+  },
+  "risk_source_context_version": 1,
+  "sections": {
+   "_risk_source_projection": {
+    "version": 1,
+    "verified_count": 4,
+    "withheld_count": 0,
+    "candidate_count": 4,
+    "source_available": true
+   }
+  }
+ },
+ "rendered_sections": [
+  {
+   "id": "the-print",
+   "title": "The Print",
+   "blocks": [
+    {
+     "kind": "paragraph",
+     "text": "Apple's FY2025 total net sales rose 6.4% to $416.2B with net income of $112.0B and diluted EPS of $7.46, while operating cash flow declined to $111.5B from $118.3B."
+    },
+    {
+     "kind": "paragraph",
+     "text": "Total net sales increased 6.4% to $416.2B in 2025 from $391.0B in 2024. The Company's MD&A attributes the increase to higher net sales of iPhone and Services in the Americas, higher net sales of Services, iPhone and Mac in Europe, higher net sales of iPhone, Services and iPad in Japan, and higher net sales of iPhone, Services and Mac in Rest of Asia Pacific, partially offset by lower net sales of iPhone in Greater China. Net income increased 19.5% to $112.0B, and the MD&A states the effective tax rate for 2025 was lower compared to 2024 due to a $10.7 billion year-over-year decrease in the provision for income taxes related to the State Aid Decision and the impact of changes in unrecognized tax benefits, partially offset by a change in valuation allowance and a higher effective tax rate on foreign earnings."
+    },
+    {
+     "kind": "bullets",
+     "items": [
+      "Total net sales increased 6.4% to $416.2B, with Services up 13.5% to $109.2B and iPhone up 4.2% to $209.6B.",
+      "Net income rose 19.5% to $112.0B and diluted EPS rose 22.7% to $7.46, aided by a lower effective tax rate of 15.6% versus 24.1%."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "results-that-matter",
+   "title": "Results That Matter",
+   "blocks": [
+    {
+     "kind": "metrics",
+     "headers": [
+      "Metric",
+      "Current Period",
+      "Prior Period",
+      "Change",
+      "Investor Takeaway"
+     ],
+     "rows": [
+      [
+       "Total net sales",
+       "$416,161M",
+       "$391,035M",
+       "+6.4%",
+       "The increase was attributed by management to higher net sales of iPhone and Services in the Americas, higher net sales of Services, iPhone and Mac in Europe, higher net sales of iPhone, Services and iPad in Japan, and higher net sales of iPhone, Services and Mac in Rest of Asia Pacific, partially offset by lower net sales of iPhone in Greater China."
+      ],
+      [
+       "Products net sales",
+       "$307,003M",
+       "$294,866M",
+       "+4.1%",
+       "Products net sales increased 4.1% YoY."
+      ]
+     ],
+     "metric_rows": [
+      {
+       "metric": "Total net sales",
+       "current_period": "$416,161M",
+       "prior_period": "$391,035M",
+       "change": "up 6.4% YoY",
+       "commentary": "The increase was attributed by management to higher net sales of iPhone and Services in the Americas, higher net sales of Services, iPhone and Mac in Europe, higher net sales of iPhone, Services and iPad in Japan, and higher net sales of iPhone, Services and Mac in Rest of Asia Pacific, partially offset by lower net sales of iPhone in Greater China.",
+       "source_section_ref": "Item 8. Financial Statements",
+       "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+       "source_verified": true,
+       "xbrl_concept": "Revenue",
+       "commentary_evidence": {
+        "excerpt": "Americas net sales increased during 2025 compared to 2024 primarily due to higher net sales of iPhone and Services.",
+        "section_ref": "Item 8. Financial Statements",
+        "verified": true,
+        "fragment_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm#:~:text=Americas%20net%20sales%20increased%20during%202025%20compared%20to%202024%20primarily"
+       },
+       "change_display": "+6.4%",
+       "change_direction": "up",
+       "change_tone": "gain"
+      },
+      {
+       "metric": "Products net sales",
+       "current_period": "$307,003M",
+       "prior_period": "$294,866M",
+       "change": "up 4.1% YoY",
+       "commentary": "Products net sales increased 4.1% YoY.",
+       "source_section_ref": "Item 8. Financial Statements",
+       "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+       "source_verified": false,
+       "xbrl_concept": null,
+       "change_display": "+4.1%",
+       "change_direction": "up",
+       "change_tone": "gain"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "risks",
+   "title": "Risks",
+   "blocks": [
+    {
+     "kind": "paragraph",
+     "text": "4 source-verified filing excerpts. Selected excerpts are not a complete risk inventory."
+    },
+    {
+     "kind": "table",
+     "headers": [
+      "#",
+      "Risk",
+      "Supporting Evidence"
+     ],
+     "rows": [
+      [
+       "1",
+       "Filing excerpt",
+       "Tariffs and other measures that are applied to the Company\u2019s products or their components can have a material adverse impact on the Company\u2019s business, results of operations and financial condition, including impacting the Company\u2019s supply chain, the availability of rare earths and other raw materials and components, pricing and gross margin."
+      ]
+     ]
+    }
+   ],
+   "role": "risks"
+  }
+ ]
+}

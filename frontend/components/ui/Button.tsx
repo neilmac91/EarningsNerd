@@ -114,6 +114,30 @@ export function buttonVariants({ variant = 'primary', size = 'md', className }: 
   return cx(BASE, SIZE[size], VARIANT[resolveVariant(variant)], className)
 }
 
+/** The primary variant's `disabled:` look keyed to `aria-disabled`, for a primary <Button> that is
+    unavailable but must keep keyboard focus: aria-disabled plus the caller's own guard, never native
+    `disabled` (Chromium blurs a focused control that turns disabled). Apply it only while the button
+    is unavailable: `loading` also sets aria-disabled and keeps the resting look by design.
+    shadow-none would also erase the light focus ring this focusable state can show, so that ring is
+    restored (dark's ring out-specifies it). lessons/frontend-busy-controls-stay-focusable.md */
+export const primaryUnavailableClass = cx(
+  'aria-disabled:cursor-not-allowed aria-disabled:bg-brand/45 aria-disabled:text-white/80 aria-disabled:shadow-none',
+  'aria-disabled:focus-visible:shadow-ring-brand dark:aria-disabled:bg-brand-dark/35 dark:aria-disabled:text-background-dark/60',
+)
+
+/** The secondary variant's `disabled:` look keyed to `aria-disabled`, for a secondary <Button> that is
+    unavailable but must keep keyboard focus: aria-disabled plus the caller's own guard, never native
+    `disabled`. Apply it only while the button is unavailable, never while `loading`. It fades the
+    label and the hairline, not the element: the native `opacity-50` would fade the focus ring with
+    them, from 1.97:1 to 1.39:1 on panel in light and from 2.85:1 to 1.66:1 in dark. Dark's hairline is
+    brand-weak-dark (0.14), exactly half of brand-border-dark (0.28): `/50` on that rgba token would
+    REPLACE its alpha with 0.5, not halve it. Dark repeats the transparent fill because dark:hover: and
+    dark:active: out-specify a bare aria-disabled:. lessons/frontend-busy-controls-stay-focusable.md (e) */
+export const secondaryUnavailableClass = cx(
+  'aria-disabled:cursor-not-allowed aria-disabled:bg-transparent aria-disabled:border-brand-border/50 aria-disabled:text-brand-strong/50',
+  'dark:aria-disabled:bg-transparent dark:aria-disabled:border-brand-weak-dark dark:aria-disabled:text-brand-strong-dark/50',
+)
+
 function Spinner({ className }: { className?: string }) {
   return (
     <svg

@@ -6,6 +6,7 @@ import { ArrowSquareOutIcon, CheckCircleIcon } from '@/lib/icons'
 import { isXbrlCitation, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import { useFilingViewer } from './FilingViewerContext'
 import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
+import { useEvidencePopoverKeys } from './useEvidencePopoverKeys'
 
 // Only render a citation as an active link when it's an http(s) URL. Defense-in-depth against a
 // malicious/unexpected scheme (e.g. javascript:) reaching the href — the backend builds these from
@@ -45,6 +46,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
   const popoverRef = useRef<HTMLSpanElement | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [pos, setPos] = useState<PopoverPos | null>(null)
+  const linkRef = useRef<HTMLAnchorElement | null>(null)
 
   const clearCloseTimer = () => {
     if (closeTimer.current) {
@@ -95,29 +97,49 @@ export default function CitationChip({ citation }: CitationChipProps) {
   // Clean up a pending close timer on unmount.
   useEffect(() => () => clearCloseTimer(), [])
 
-  // A fixed popover would detach from its chip on scroll/resize → just close it. Scroll doesn't
-  // bubble, so capture to catch scrolling in any ancestor (e.g. the rail's scroll container).
-  // Scrolling the portal itself or its excerpt must keep its content/actions reachable.
+  // A fixed popover would detach from its chip on scroll/resize. A hover popover just closes; one
+  // the keyboard owns (the chip focused, or focus inside the popover) re-anchors instead: focusing
+  // a chip the rail has to scroll into view used to close the popover the focus had just opened, so
+  // Tab could never reach "Open original" (EN-01). Scroll doesn't bubble, so capture to catch
+  // scrolling in any ancestor (e.g. the rail's scroll container). Scrolling the portal itself or its
+  // excerpt must keep its content/actions reachable.
   useEffect(() => {
     if (!pos) return
-    const dismiss = (event: Event) => {
+    const onMove = (event: Event) => {
       if (event.type === 'scroll' && event.target instanceof Node && popoverRef.current?.contains(event.target)) return
-      setPos(null)
+      const active = document.activeElement
+      const keyboardOwned = active === triggerRef.current || !!popoverRef.current?.contains(active)
+      if (keyboardOwned) openPopover()
+      else setPos(null)
     }
-    window.addEventListener('scroll', dismiss, { capture: true, passive: true })
-    window.addEventListener('resize', dismiss, { passive: true })
+    window.addEventListener('scroll', onMove, { capture: true, passive: true })
+    window.addEventListener('resize', onMove, { passive: true })
     return () => {
-      window.removeEventListener('scroll', dismiss, { capture: true })
-      window.removeEventListener('resize', dismiss)
+      window.removeEventListener('scroll', onMove, { capture: true })
+      window.removeEventListener('resize', onMove)
     }
-  }, [pos])
+  }, [pos, openPopover])
+
+  // Keyboard contract shared with SourceTrace (EN-01): Tab from the chip reaches "Open original", Tab
+  // past it resumes the page after the chip, Shift+Tab returns to the chip, Escape closes the card (and
+  // returns focus to the chip when it was inside the card).
+  const closePopover = useCallback(() => setPos(null), [])
+  const keys = useEvidencePopoverKeys({
+    open: pos !== null,
+    triggerRef,
+    popoverRef,
+    actionRef: linkRef,
+    close: closePopover,
+    holdOpen: clearCloseTimer,
+    ownsEscape: true,
+  })
 
   // XBRL figure chips ([F1]) read as hard data, distinct from filing-text excerpt chips ([1]):
   // the same bordered brand-tint chip (the v2.2 marker treatment), with the mono/tabular register
   // marking figures. Inline markers fall under the WCAG 2.5.8 inline-target exception (18px).
   const isFact = isXbrlCitation(citation)
   const chipBase =
-    'inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 font-data text-[10px] font-semibold leading-none align-baseline transition-colors ' +
+    'inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 font-data text-data-xs font-semibold leading-none align-baseline transition-colors ' +
     'border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 ' +
     'dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark ' +
     'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
@@ -136,11 +158,14 @@ export default function CitationChip({ citation }: CitationChipProps) {
     onMouseLeave: scheduleClose,
     onFocus: openPopover,
     onBlur: scheduleClose,
+    onKeyDown: keys.onTriggerKeyDown,
   }
 
   let trigger: React.ReactNode
   if (viewer) {
-    // In-app highlight is the primary action when the filing viewer is mounted.
+    // In-app highlight is the primary action when the filing viewer is mounted. The chip sits inside
+    // the pane it switches to the Filing tab, so it records no opener: closing the pane returns focus
+    // to whatever opened it, and the workspace hands focus to the Filing tab meanwhile.
     trigger = (
       <button type="button" {...triggerHandlers} onClick={() => viewer.requestHighlight(citation)}>
         {marker}
@@ -174,24 +199,25 @@ export default function CitationChip({ citation }: CitationChipProps) {
             onMouseLeave={scheduleClose}
             onFocus={clearCloseTimer}
             onBlur={scheduleClose}
+            onKeyDown={keys.onPopoverKeyDown}
             style={{ position: 'fixed', left: pos.left, top: pos.top, transform: 'translateX(-50%)',
               maxWidth: Math.max(0, window.innerWidth - 16), maxHeight: Math.max(0, window.innerHeight - 16),
               overflowY: 'auto' }}
-            className="z-[60] block w-64 rounded-lg border border-border-light bg-panel-light p-3 text-left shadow-e5 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+            className="z-overlay block w-64 rounded-lg border border-border-light bg-panel-light p-3 text-left shadow-e5 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
           >
-            <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark break-words">
+            <span className="block text-data-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark break-words">
               {header}
             </span>
             <span className="mt-1.5 block max-h-40 overflow-y-auto border-l-2 border-brand-border dark:border-brand-border-dark pl-2 font-data text-xs text-text-secondary-light dark:text-text-secondary-dark break-words">
               {excerpt}
             </span>
             {verified ? (
-              <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-brand-strong dark:text-brand-strong-dark">
+              <span className="mt-2 flex items-center gap-1 text-data-xs font-medium text-brand-strong dark:text-brand-strong-dark">
                 <CheckCircleIcon className="h-3 w-3 shrink-0" />
                 {citationVerificationLabel(citation)}
               </span>
             ) : (
-              <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-secondary-light dark:text-text-secondary-dark">
+              <span className="mt-2 flex items-center gap-1 text-data-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
                 <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
                 Cited
               </span>
@@ -203,10 +229,11 @@ export default function CitationChip({ citation }: CitationChipProps) {
             )}
             {viewer && isHttpUrl(fragment_url) && (
               <a
+                ref={linkRef}
                 href={fragment_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark"
+                className="mt-2 flex items-center gap-1 text-data-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark"
               >
                 <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
                 Open original

@@ -9,7 +9,7 @@ import { acceptLoginAndResetAccount } from '@/features/auth/lib/accountQueryStat
 import { getExplicitSessionGeneration, assertExplicitSessionGeneration } from '@/lib/api/session'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
-import { CircleNotchIcon, EnvelopeSimpleIcon } from '@/lib/icons'
+import { EnvelopeSimpleIcon } from '@/lib/icons'
 import analytics from '@/lib/analytics'
 import AuthShell from '@/features/auth/components/AuthShell'
 import SocialAuthButtons from '@/features/auth/components/SocialAuthButtons'
@@ -30,6 +30,12 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   google_account_conflict: 'An account conflict occurred. Please contact support.',
   apple_denied: 'Apple sign-in was cancelled.',
   apple_invalid: 'Apple sign-in failed. Please try again.',
+  apple_missing_claims: 'Apple did not return an email address. Please try again.',
+  apple_account_conflict: 'An account conflict occurred. Please contact support.',
+  invite_required:
+    'EarningsNerd is in private beta: creating an account needs an invite. Sign in with an existing account, or open your invite link to sign up.',
+  email_unverified:
+    'Your sign-in provider has not verified that email address. Verify it with the provider, or sign up with an email and password.',
 }
 
 function LoginContent() {
@@ -49,6 +55,7 @@ function LoginContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading) return
     setError('')
     setLoading(true)
 
@@ -141,7 +148,7 @@ function LoginContent() {
             Continue with email
           </Button>
         ) : (
-          <form onSubmit={handleSubmit} className="animate-fade-up space-y-4">
+          <form onSubmit={handleSubmit} className="animate-fade-up motion-reduce:animate-none space-y-4">
             <div>
               <label
                 htmlFor="email"
@@ -181,17 +188,12 @@ function LoginContent() {
 
             <Button
               type="submit"
-              disabled={loading || (TURNSTILE_ENABLED && !turnstileToken)}
-              className="w-full py-2.5 font-semibold active:scale-[0.99]"
+              loading={loading}
+              loadingText="Signing in…"
+              disabled={TURNSTILE_ENABLED && !turnstileToken}
+              className="w-full"
             >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <CircleNotchIcon className="h-4 w-4 animate-spin" />
-                  Signing in…
-                </span>
-              ) : (
-                'Sign in'
-              )}
+              Sign in
             </Button>
           </form>
         )}

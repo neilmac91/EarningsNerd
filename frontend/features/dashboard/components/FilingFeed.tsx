@@ -1,11 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useRef } from 'react'
 import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRightIcon, NewspaperIcon } from '@/lib/icons'
 import { getDashboardFeed } from '@/features/dashboard/api/dashboard-api'
-import { Button, GuidanceCard, Skeleton } from '@/components/ui'
+import { GuidanceCard, Skeleton } from '@/components/ui'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import WhatChangedCard from './WhatChangedCard'
 import FeedOnboarding from './FeedOnboarding'
 
@@ -21,12 +23,19 @@ export default function FilingFeed({
   /** Number of companies the user follows — the true overflow count and the empty-state switch. */
   watchlistCount?: number
 }) {
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+  const feedQuery = useQuery({
     queryKey: queryKeys.dashboardFeed(),
     queryFn: () => getDashboardFeed(20),
     retry: false,
     enabled,
   })
+  const { data } = feedQuery
+  // A failure keeps the error card, and a focused Retry in it, through any refetch until data replaces
+  // it. An errored feed has no data, so its refetch goes back to pending, and the skeleton branch would
+  // replace the card. A fetch paused offline is still in flight.
+  const failure = useRetainedFailure(feedQuery, queryKeys.dashboardFeed())
+  const isError = failure.failed
+  const isLoading = feedQuery.isLoading && !failure.failed
 
   const visible = data ? data.slice(0, MAX_CARDS) : []
   // Overflow count comes from the watchlist (companies followed), never data.length — the feed array
@@ -37,12 +46,28 @@ export default function FilingFeed({
   const overflowLabel =
     watchlistCount != null ? `See all ${watchlistCount} companies` : 'See all companies'
 
+  // The onboarding panel leaves once an add succeeds (the watchlist count or the feed changes), taking
+  // the focused chip or search option with it. Hand focus to the section heading, but only when it
+  // fell to <body>.
+  const onboarding = !isLoading && !isError && (!data || data.length === 0) && watchlistCount === 0
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const wasOnboarding = useRef(onboarding)
+  useEffect(() => {
+    const left = wasOnboarding.current && !onboarding
+    wasOnboarding.current = onboarding
+    if (left && document.activeElement === document.body) headingRef.current?.focus({ preventScroll: true })
+  }, [onboarding])
+
   return (
     <section>
       <div className="mb-4">
         <div className="flex items-center gap-2">
           <NewspaperIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+          <h2
+            ref={headingRef}
+            tabIndex={-1}
+            className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+          >
             What&apos;s new
           </h2>
         </div>
@@ -64,9 +89,9 @@ export default function FilingFeed({
           title="Couldn't load your feed"
           description="Please retry in a moment."
           action={
-            <Button variant="secondary" onClick={() => refetch()} loading={isFetching} loadingText="Retrying…">
+            <RetryButton failures={[failure]} focusTarget={headingRef}>
               Retry
-            </Button>
+            </RetryButton>
           }
         />
       ) : !data || data.length === 0 ? (

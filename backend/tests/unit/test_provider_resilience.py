@@ -3,6 +3,7 @@
 import asyncio
 import json
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 
 import httpx
 import httpx2
@@ -98,6 +99,25 @@ async def test_sdk_wire_transient_retry_and_actual_usage(lib, observations):
     assert observations[0]["usage"] is None
     assert observations[1]["actual_model"] == "deepseek-chat"
     assert observations[1]["usage"].prompt_cache_hit_tokens == 7
+
+
+@pytest.mark.asyncio
+async def test_provider_start_signal_fires_once_before_the_first_request(observations):
+    """The armed provider-start signal is the metering signal: it fires exactly once per context,
+    immediately before the first request leaves (never again after a retry or a later call)."""
+    order = []
+
+    def handler(req):
+        order.append("request")
+        if len([o for o in order if o == "request"]) == 1:
+            return httpx2.Response(429, json={"error": {"type": "rate_limit_error", "message": "busy"}})
+        return httpx2.Response(200, json=completion())
+
+    async with service_for(handler) as service:
+        with requests.provider_start_signal(lambda: order.append("signal")):
+            assert await service._request_content(KW) == '{"fresh":true}'
+            assert await service._request_content(KW) == '{"fresh":true}'  # same context: no second signal
+    assert order == ["signal", "request", "request", "request"]
 
 
 @pytest.mark.asyncio
@@ -249,6 +269,13 @@ async def test_timeout_routes_alternate_before_total_budget_expires(monkeypatch,
         assert req.headers["authorization"] == "Bearer offline-alternate"
         return httpx2.Response(200, json=completion())
 
+    deadlines = []
+
+    def recorded_timeout(seconds):
+        deadlines.append(asyncio.timeout(seconds))
+        return deadlines[-1]
+
+    monkeypatch.setattr(requests, "asyncio", SimpleNamespace(**{**vars(asyncio), "timeout": recorded_timeout}))
     async with service_for(primary) as service:
         async with AsyncOpenAI(
             api_key="offline-alternate",
@@ -257,28 +284,55 @@ async def test_timeout_routes_alternate_before_total_budget_expires(monkeypatch,
             http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(fallback)),
         ) as alternate:
             service.fallback_client = alternate
-            budget = requests.RequestBudget(asyncio.get_running_loop().time() + 0.15)
+            # A shared budget the fallback cannot race: 0.15 s left it ~70 ms after the 0.08 s
+            # attempt timeout, which ran out under parallel load. The hanging primary still times
+            # out on its own 0.08 s, which the deadline assertion below pins.
+            budget = requests.RequestBudget(asyncio.get_running_loop().time() + 60)
             token = requests._budget.set(budget)
             try:
                 assert await service._request_content(KW, timeout=0.08) == '{"fresh":true}'
             finally:
                 requests._budget.reset(token)
     assert calls == ["primary", "fallback"] and observations[-1]["provider"] == "fallback"
+    # deadlines[0] is the shared budget's timeout, deadlines[1] the primary attempt's: the attempt is
+    # bounded by its own timeout, far inside the budget, not by what remains of the budget.
+    assert deadlines[1].when() < deadlines[0].when() - 30
 
 
 @pytest.mark.asyncio
 async def test_shared_deadline_recovery_wait_and_concurrent_isolation(monkeypatch, observations):
+    in_flight = asyncio.Event()
+
     async def primary(req):
+        in_flight.set()
         await asyncio.sleep(0.025)
         return httpx2.Response(200, json=completion())
 
+    # The shared deadline passes while the recovery request is in flight, by rescheduling the real
+    # asyncio.timeout the call armed. A 40 ms wall-clock budget raced the SDK's first-request setup
+    # (it detects the platform in a thread) and failed when no earlier test in the process had paid it.
+    deadlines = []
+
+    def recorded_timeout(seconds):
+        deadlines.append(asyncio.timeout(seconds))
+        return deadlines[-1]
+
+    monkeypatch.setattr(requests, "asyncio", SimpleNamespace(**{**vars(asyncio), "timeout": recorded_timeout}))
     async with service_for(primary) as service:
-        budget = requests.RequestBudget(asyncio.get_running_loop().time() + 0.04)
+        budget = requests.RequestBudget(asyncio.get_running_loop().time() + 60)
         token = requests._budget.set(budget)
         try:
             await service._request_content(KW)
+            in_flight.clear()
+            armed = len(deadlines)
+            recovery = asyncio.create_task(service._request_content(KW, operation="section_recovery"))
+            await in_flight.wait()
+            # The recovery waits on the shared budget's deadline, not a fresh budget or attempt cap.
+            assert deadlines[armed].when() == pytest.approx(budget.deadline, abs=1)
+            budget.deadline = asyncio.get_running_loop().time()
+            deadlines[armed].reschedule(budget.deadline)
             with pytest.raises(TimeoutError):
-                await service._request_content(KW, operation="section_recovery")
+                await recovery
             assert len(budget.records) == 2
         finally:
             requests._budget.reset(token)

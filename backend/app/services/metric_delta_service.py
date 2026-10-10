@@ -144,6 +144,31 @@ def strict_xbrl_metric_key(metric_name: Any) -> Optional[str]:
     return _STRICT_XBRL_KEYS.get(" ".join(metric_name.casefold().split()))
 
 
+def _has_unsupported_income_scope(metric_name: Any) -> bool:
+    """Refuse qualified total-income math without source-owned attribution and entity scope.
+
+    This is a withholding boundary, never an alias into ``net_income``. The current exact
+    envelope cannot establish a qualified parent/consolidated claim's native entity ownership.
+    Whole per-share labels remain the separate displayed-EPS policy; a mention of EPS or shares
+    elsewhere in a total-income claim cannot exempt that claim.
+    """
+    if not isinstance(metric_name, str):
+        return False
+    label = " ".join(metric_name.casefold().split())
+    if label == "net income":
+        return False  # Preserve only the original whole-label generic mapping exemption.
+    # Normalize presentation punctuation solely to withhold; never feed this into concept binding.
+    label = " ".join(re.sub(r"[()/]", " ", label).split())
+    income_terms = r"(?:income|earnings|loss)"
+    if not re.search(rf"\bnet {income_terms}\b", label):
+        return False
+    return re.fullmatch(
+        rf"(?:(?:basic|diluted) )?net {income_terms}(?: {income_terms})* per (?:common )?share"
+        r"(?: attributable to [^,;]+)?",
+        label,
+    ) is None
+
+
 def _as_finite_decimal(value: Any) -> Optional[Decimal]:
     if isinstance(value, bool):
         return None
@@ -340,14 +365,17 @@ def delta_for_row(row: dict, *, exact_owned: bool = False) -> Optional[MetricDel
     """
     if not isinstance(row, dict):
         return None
+    cur, cur_pct = _parse_number(row.get("current_period") or row.get("currentPeriod"))
+    prior, prior_pct = _parse_number(row.get("prior_period") or row.get("priorPeriod"))
+    is_parsed_ratio = cur is not None and prior is not None and cur_pct and prior_pct
+    if _has_unsupported_income_scope(row.get("metric")) and not is_parsed_ratio:
+        return None
     if exact_owned and isinstance(row.get("change_display"), str):
         display = row["change_display"]
         direction = row.get("change_direction")
         tone = row.get("change_tone")
         if direction in {"up", "down", "flat"} and tone in {"gain", "loss", "flat"}:
             return MetricDelta(None, None, direction, tone, False, display)
-    cur, cur_pct = _parse_number(row.get("current_period") or row.get("currentPeriod"))
-    prior, prior_pct = _parse_number(row.get("prior_period") or row.get("priorPeriod"))
     if cur is None or prior is None:
         return None
     if cur_pct != prior_pct:

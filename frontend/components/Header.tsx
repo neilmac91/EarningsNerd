@@ -21,7 +21,7 @@ const NAV_LINKS = [
   // entries appear only when the features are live. Search ships hidden (founder decision — see
   // ENABLE_FULLTEXT_SEARCH); flip the flag to reintroduce it.
   ...(ENABLE_FULLTEXT_SEARCH ? [{ href: '/search', label: 'Search' }] : []),
-  ...(ENABLE_ANALYSIS ? [{ href: '/analysis', label: 'Multi-Period Analysis' }] : []),
+  ...(ENABLE_ANALYSIS ? [{ href: '/analysis', label: 'Multi-period analysis' }] : []),
   ...(ENABLE_CALENDAR ? [{ href: '/calendar', label: 'Calendar' }] : []),
   { href: '/pricing', label: 'Pricing' },
   { href: '/contact', label: 'Contact' },
@@ -86,16 +86,14 @@ export default function Header({
           {/* Design sizes: 36px mark, 20px wordmark. Below `sm` the bar also carries the theme
               toggle, the short account CTA and the menu button at 44px each, so the wordmark
               yields to the mark alone (the footer's rendition) rather than overflow the viewport. */}
-          <Link href="/" className="flex items-center gap-2.5" aria-label="EarningsNerd home">
+          <Link href="/" className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark" aria-label="EarningsNerd home">
             <EarningsNerdLogo variant="icon-only" iconClassName="h-9 w-9" mode="auto" />
-            <span className="hidden text-xl font-semibold leading-none tracking-[-0.012em] text-text-primary-light dark:text-text-primary-dark sm:inline">
-              Earnings<em className="italic text-brand-strong dark:text-brand-strong-dark">Nerd</em>
-            </span>
+            <EarningsNerdLogo variant="wordmark" wordmarkClassName="hidden text-xl sm:inline" mode="auto" />
           </Link>
         </div>
 
         {/* Center: Nav links (desktop). Inline nav switches on at `lg` (not `md`): the full product
-            labels — "Multi-Period Analysis" plus flag-gated Calendar — overflow the logo/CTAs in the
+            labels — "Multi-period analysis" plus flag-gated Calendar — overflow the logo/CTAs in the
             768–1023px band, so tablet widths use the hamburger menu below. Keep the desktop nav, the
             desktop CTA block, and the two mobile blocks on the SAME breakpoint. */}
         <nav className="hidden items-center gap-8 lg:flex" aria-label="Main navigation">
@@ -151,7 +149,7 @@ export default function Header({
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileMenuOpen}
           >
@@ -169,7 +167,7 @@ export default function Header({
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="block rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+                className="block rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 {link.label}
               </Link>
@@ -187,7 +185,7 @@ export default function Header({
                     <Link
                       href={`/check-email?email=${encodeURIComponent(user.email)}`}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block rounded-lg bg-warning-light/10 px-3 py-2.5 text-sm font-medium text-warning-light transition-colors hover:bg-warning-light/20 dark:bg-warning-dark/10 dark:text-warning-dark dark:hover:bg-warning-dark/20"
+                      className="block rounded-lg bg-warning-light/10 px-3 py-2.5 text-sm font-medium text-warning-light transition-colors hover:bg-warning-light/20 dark:bg-warning-dark/10 dark:text-warning-dark dark:hover:bg-warning-dark/20 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                     >
                       Verify your email
                     </Link>
@@ -197,7 +195,7 @@ export default function Header({
                       key={link.href}
                       href={link.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+                      className="block rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                     >
                       {link.label}
                     </Link>
@@ -205,7 +203,7 @@ export default function Header({
                   <button
                     type="button"
                     onClick={handleMobileLogout}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                   >
                     <SignOutIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
                     Log out
@@ -216,7 +214,7 @@ export default function Header({
                   <Link
                     href="/login"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block rounded-lg px-3 py-2.5 text-center text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+                    className="block rounded-lg px-3 py-2.5 text-center text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                   >
                     Log in
                   </Link>

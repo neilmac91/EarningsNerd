@@ -24,6 +24,8 @@ PROD_ENV_PINS = {
     # Founder-approved W3-1 observation: keep the live service filter, not the old plan's false.
     "CALENDAR_INDEX_FILTER_ENABLED": "true", "ENABLE_FPI_FILINGS": "true",
     "STREAM_SECTION_REVEAL": "true", "REGISTRATION_MODE": "invite_only",
+    # CODE RED D3 stage 2: the pinned service cannot carry the insider endpoint's cold fetch.
+    "ENABLE_INSIDER_ACTIVITY": "false",
 }
 INTENTIONAL_PROD_OVERRIDES = {
     # Delegated Sep28 rollout: source-faithful labels and seven observed scheduled days.
@@ -98,6 +100,9 @@ def test_production_pins_match_defaults_pregenerate_and_ops_visibility(tmp_path)
 @pytest.mark.parametrize("defect", ["missing", "comment", "duplicate-key", "duplicate-step", "wrong-command", "guard-value"])
 def test_pin_parser_rejects_unusable_service_evidence(monkeypatch, tmp_path, defect):
     source = pin_baseline.CI_PATH.read_text()
+    # Mutate the selected public API step even when a private worker appears earlier in CI.
+    prefix, source = source.split("- name: Deploy Cloud Run service", 1)
+    source = "- name: Deploy Cloud Run service" + source
     if defect == "missing":
         source = source.replace("- name: Deploy Cloud Run service", "- name: Retired service step")
     elif defect == "comment":
@@ -111,7 +116,7 @@ def test_pin_parser_rejects_unusable_service_evidence(monkeypatch, tmp_path, def
     elif defect == "guard-value":
         source = source.replace("AI_EVIDENCE_SNAP=true", "AI_EVIDENCE_SNAP=1", 1)
     path = tmp_path / "ci.yml"
-    path.write_text(source)
+    path.write_text(prefix + source)
     monkeypatch.setattr(pin_baseline, "CI_PATH", path)
     with pytest.raises(ValueError, match="Cannot pin"):
         pin_baseline.production_env()
@@ -164,6 +169,7 @@ def test_ops_renderer_binds_masked_values_to_distinct_resources(resources):
         assert "AI_FIGURE_TRACE_GATE = <secret-ref>" in rendered
         assert "AI_FALLBACK_API_KEY = <set; value withheld>" in rendered
         assert "USE_STATEMENT_FINANCIALS = <NOT SET -> Settings default applies (True)>" in rendered
+        assert "EDGAR_RATE_LIMIT_PER_SEC = <NOT SET -> edgartools default 9>" in rendered
         assert "verify these against the reported image before pinning" in rendered
     assert "hidden-credential" not in output and "hidden-reference" not in output
     assert "stale-template" not in output
@@ -185,6 +191,29 @@ def test_ops_renderer_rejects_unresolved_traffic_before_describing(resources, de
             patch.dict("os.environ", {"REGION": "fixture-region"}), \
             pytest.raises(SystemExit, match="100% traffic"):
         # _render would install a second patch, so execute directly for the no-cloud-call assertion.
+        with patch("builtins.open", return_value=io.StringIO(json.dumps(service))):
+            exec(compile(_ops_code(), "ops-describe", "exec"), {})
+    describe.assert_not_called()
+
+
+@pytest.mark.parametrize("step", ["Deploy Cloud Run service", "Update configured private task worker"])
+def test_deploy_routes_traffic_to_latest_and_clears_revision_tags(step):
+    """A tagged revision stays addressable at its own URL at 0% traffic, so a leftover tag keeps a
+    retired image serving beside the release; every deploy must clear tags when it routes traffic."""
+    job = _workflow("ci.yml")["jobs"]["deploy-backend"]
+    run = _step(job, step)["run"]
+    executable = [line.strip() for line in run.splitlines() if line.strip() and not line.lstrip().startswith("#")]
+    traffic = [line for line in executable if "update-traffic" in line]
+    assert len(traffic) == 1, f"expected exactly one update-traffic command, found {traffic}"
+    assert "--to-latest" in traffic[0] and "--clear-tags" in traffic[0], traffic[0]
+
+
+def test_ops_renderer_rejects_tagged_traffic_targets(resources):
+    service, revision, job = resources
+    service["status"]["traffic"].append({"revisionName": "retired", "percent": 0, "tag": "old"})
+    with patch("subprocess.check_output", side_effect=[json.dumps(revision), json.dumps(job)]) as describe, \
+            patch.dict("os.environ", {"REGION": "fixture-region"}), \
+            pytest.raises(SystemExit, match="tagged traffic targets"):
         with patch("builtins.open", return_value=io.StringIO(json.dumps(service))):
             exec(compile(_ops_code(), "ops-describe", "exec"), {})
     describe.assert_not_called()

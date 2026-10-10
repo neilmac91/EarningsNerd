@@ -49,7 +49,7 @@ function VerifyEmailContent() {
       <div className="text-center">
         {status === 'loading' && (
           <>
-            <CircleNotchIcon className="mx-auto mb-4 h-10 w-10 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+            <CircleNotchIcon className="mx-auto mb-4 h-10 w-10 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
             <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
               Verifying your email…
             </h1>

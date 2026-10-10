@@ -13,6 +13,7 @@ import analytics from '@/lib/analytics'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { PRO_PRICING } from './prices'
 import { billingCycleFromQuery, pricingHref, type BillingCycle } from '@/features/subscriptions/lib/pricingRoute'
 import { registerHrefWithRedirect, stashPostAuthRedirect } from '@/lib/postAuthRedirect'
@@ -68,11 +69,12 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
 
   // The pricing page is publicly reachable; only fetch account-scoped data for
   // signed-in users so guests see the plain guest/free-tier view, not a 401 error card.
-  const { data: currentUser, isError: identityError, error: identityErrorData, refetch: refetchIdentity, isFetching: identityFetching } = useQuery<CurrentUser | null>({
+  const identityQuery = useQuery<CurrentUser | null>({
     queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
   })
+  const { data: currentUser, isError: identityError } = identityQuery
   // `undefined` is an unresolved identity (pending, or failed without data); only `null` is a
   // confirmed guest. Conflating the two labelled Free "Current plan" and armed checkout before
   // anything was known about the account.
@@ -80,19 +82,27 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
   const isGuest = currentUser === null
   const isAuthenticated = Boolean(currentUser)
 
-  const { data: subscription, isError: subscriptionError, error: subscriptionErrorData, refetch: refetchSubscription, isFetching: subscriptionFetching } = useQuery({
+  const subscriptionQuery = useQuery({
     queryKey: queryKeys.subscription.byUser(currentUser?.id),
     queryFn: getSubscriptionStatus,
     retry: false,
     enabled: !!currentUser,
   })
+  const { data: subscription, isError: subscriptionError } = subscriptionQuery
 
-  const { data: usage, isError: usageError, error: usageErrorData, refetch: refetchUsage, isFetching: usageFetching } = useQuery({
+  const usageQuery = useQuery({
     queryKey: queryKeys.usage.byUser(currentUser?.id),
     queryFn: getUsage,
     retry: false,
     enabled: !!currentUser,
   })
+  const { data: usage, isError: usageError } = usageQuery
+
+  // What the error Notices show. A failure keeps its Notice (and a focused Retry in it) through any
+  // refetch until data replaces it.
+  const identityFailure = useRetainedFailure(identityQuery, queryKeys.currentUser())
+  const subscriptionFailure = useRetainedFailure(subscriptionQuery, queryKeys.subscription.byUser(currentUser?.id))
+  const usageFailure = useRetainedFailure(usageQuery, queryKeys.usage.byUser(currentUser?.id))
 
   // Account readiness for plan labels and the buy action. A guest is fully resolved; a known
   // user needs a subscription snapshot. Retained same-account data counts: a failed refresh
@@ -101,8 +111,12 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
   const subscriptionResolved = subscription !== undefined
   const accountResolved = billingResolved && (isGuest || (isAuthenticated && subscriptionResolved))
   const accountFailed = !accountResolved && (identityError || (isAuthenticated && subscriptionError))
-  const identityUnavailable = identityError && !identityResolved
+  const identityUnavailable = identityFailure.failed && !identityResolved
   const subscriptionStale = subscriptionError && subscriptionResolved
+
+  // A Retry that unmounts while it holds focus (its Notice clears) hands focus to the intro line the
+  // Notice sat under (RetryButton).
+  const introRef = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
     if (billingResolved && !hasTrackedPricingView.current) {
@@ -279,46 +293,53 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
           {/* SecondaryHeader already renders the page H1 ("Pricing"); no duplicate heading here. */}
-          <p className="text-lg text-text-secondary-light dark:text-text-secondary-dark max-w-2xl mx-auto">
+          <p ref={introRef} tabIndex={-1} className="text-lg text-text-secondary-light dark:text-text-secondary-dark max-w-2xl mx-auto outline-none">
             Choose the plan that works for you, with monthly or annual Pro billing.
           </p>
 
           {identityUnavailable ? (
-            // Identity failed with nothing retained: an account error, not a guest view.
-            <div className="mt-6 mx-auto max-w-2xl text-left">
+            // Identity failed with nothing retained: an account error, not a guest view. Each Notice is
+            // keyed: unkeyed, React would reuse "Retry account check" as "Retry subscription" when one
+            // Notice replaces the other, and a Retry must never outlive its Notice (RetryButton).
+            <div key="identity" className="mt-6 mx-auto max-w-2xl text-left">
               <Notice
                 variant="error"
                 title="We couldn't check your account"
-                description={identityErrorData instanceof Error ? identityErrorData.message : 'Please retry.'}
+                description={identityFailure.error instanceof Error ? identityFailure.error.message : 'Please retry.'}
                 action={
-                  <Button variant="secondary" size="sm" onClick={() => refetchIdentity()} loading={identityFetching} loadingText="Retrying…">
+                  <RetryButton size="sm" failures={[identityFailure]} focusTarget={introRef}>
                     Retry account check
-                  </Button>
+                  </RetryButton>
                 }
               />
             </div>
-          ) : (subscriptionError || usageError) && (
-            <div className="mt-6 mx-auto max-w-2xl text-left">
+          ) : (subscriptionFailure.failed || usageFailure.failed) && (
+            <div key="details" className="mt-6 mx-auto max-w-2xl text-left">
               <Notice
                 variant="error"
                 title={subscriptionStale ? "We couldn't refresh your plan details" : "We couldn't load all pricing details"}
                 description={
                   subscriptionStale
                     ? 'Showing your last loaded plan. Retry to refresh it.'
-                    : subscriptionErrorData instanceof Error
-                    ? subscriptionErrorData.message
-                    : usageErrorData instanceof Error
-                    ? usageErrorData.message
+                    : subscriptionFailure.error instanceof Error
+                    ? subscriptionFailure.error.message
+                    : usageFailure.error instanceof Error
+                    ? usageFailure.error.message
                     : 'Please retry.'
                 }
                 action={
+                  // Each Retry only for its own failure: a press on a healthy one would do nothing.
                   <>
-                    <Button variant="secondary" size="sm" onClick={() => refetchSubscription()} loading={subscriptionFetching} loadingText="Retrying…">
-                      Retry subscription
-                    </Button>
-                    <Button variant="secondary" size="sm" onClick={() => refetchUsage()} loading={usageFetching} loadingText="Retrying…">
-                      Retry usage
-                    </Button>
+                    {subscriptionFailure.failed && (
+                      <RetryButton size="sm" failures={[subscriptionFailure]} focusTarget={introRef}>
+                        Retry subscription
+                      </RetryButton>
+                    )}
+                    {usageFailure.failed && (
+                      <RetryButton size="sm" failures={[usageFailure]} focusTarget={introRef}>
+                        Retry usage
+                      </RetryButton>
+                    )}
                   </>
                 }
               />
@@ -400,7 +421,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
         )}
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {plans.map((plan) => (
             <Card
               key={plan.name}
@@ -416,7 +437,8 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
               )}
 
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">{plan.name}</h3>
+                {/* h2: each plan is a top-level section of the page, beside the FAQ (no h1 → h3 skip). */}
+                <h2 className="text-2xl font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">{plan.name}</h2>
                 <div className="flex items-baseline justify-center gap-2">
                   <span className="tabular text-5xl font-semibold text-text-primary-light dark:text-text-primary-dark">{plan.price}</span>
                   {plan.betaOriginal ? (

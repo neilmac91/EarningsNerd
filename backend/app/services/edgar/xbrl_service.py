@@ -34,6 +34,7 @@ from edgar import set_identity
 # detector reporting the opposite of the truth. The fetch-shaped calls in edgar/client.py +
 # edgar/compat.py give the breaker its clean SEC-health signal (S4 review, finding #2).
 from .async_executor import run_in_executor_with_timeout
+from app.services.request_work import run_owned_sync
 from .client import resolve_filing_by_accession
 from app.services.sec_rate_limiter import sec_rate_limiter
 from app.utils.sec_urls import companyfacts_url
@@ -676,7 +677,7 @@ class EdgarXBRLService:
 
         # Persisted data is accession-specific and survives process/cache eviction. Release the
         # short read session before touching Redis or SEC; parsing/generation never holds it open.
-        persisted = await asyncio.to_thread(self._persisted_xbrl, accession_number, cik)
+        persisted = await run_owned_sync(self._persisted_xbrl, accession_number, cik)
         if persisted is not None:
             return persisted
 

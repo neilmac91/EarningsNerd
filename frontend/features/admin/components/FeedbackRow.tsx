@@ -6,7 +6,7 @@ import { format } from 'date-fns'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CircleNotchIcon } from '@/lib/icons'
-import { inputClasses } from '@/components/ui/Input'
+import { fieldUnavailableClass, inputClasses } from '@/components/ui/Input'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import {
   updateFeedbackStatus,
@@ -38,7 +38,10 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
     mutationFn: (status: FeedbackStatus) => updateFeedbackStatus(feedback.id, status),
     onSuccess: (updated) => {
       toast.success(`Marked as ${updated.status}`)
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminFeedback.all() })
+      // Returned, so the update stays pending until the list refetch moves the controlled value (or
+      // drops the row from a filtered list): the select keeps focus, and released any sooner a
+      // second keyboard change would send another, possibly conflicting, update.
+      return queryClient.invalidateQueries({ queryKey: queryKeys.adminFeedback.all() })
     },
     onError: (err: unknown) => {
       toast.error(isApiError(err) ? getErrorMessage(err) : 'Could not update that feedback.')
@@ -87,12 +90,22 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
             Set status for feedback {feedback.id}
           </label>
           <div className="relative">
+            {/* aria-disabled + an early return while its own update is in flight, not native
+                `disabled`: Chromium blurs a focused select that turns disabled, dropping the
+                keyboard user to <body>. The early return leaves the controlled value unchanged.
+                fieldUnavailableClass gives the unavailable look by fading the text ink, not the element.
+                autoWidth, not the default w-full: a percentage width zeroes the select's min-content
+                width, so a table wider than its scroller squeezed the select until its label clipped. */}
             <select
               id={`feedback-status-${feedback.id}`}
               value={feedback.status}
-              disabled={statusMutation.isPending}
-              onChange={(e) => statusMutation.mutate(e.target.value as FeedbackStatus)}
-              className={`${inputClasses()} w-auto py-1.5 pr-8 text-xs disabled:cursor-not-allowed disabled:opacity-50`}
+              aria-disabled={statusMutation.isPending || undefined}
+              aria-busy={statusMutation.isPending || undefined}
+              onChange={(e) => {
+                if (statusMutation.isPending) return
+                statusMutation.mutate(e.target.value as FeedbackStatus)
+              }}
+              className={`${inputClasses({ select: true, density: 'compact', autoWidth: true })} ${fieldUnavailableClass}`}
             >
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>
@@ -102,7 +115,7 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
             </select>
             {statusMutation.isPending && (
               <CircleNotchIcon
-                className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-text-secondary-light dark:text-text-secondary-dark"
+                className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin motion-reduce:animate-none text-text-secondary-light dark:text-text-secondary-dark"
                 aria-hidden="true"
               />
             )}

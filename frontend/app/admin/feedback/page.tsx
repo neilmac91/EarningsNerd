@@ -64,7 +64,7 @@ export default function AdminFeedbackPage() {
                 id="filter-status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as 'all' | FeedbackStatus)}
-                className={`${inputClasses()} w-auto`}
+                className={inputClasses({ select: true, autoWidth: true })}
               >
                 <option value="all">All statuses</option>
                 <option value="new">New</option>
@@ -79,7 +79,7 @@ export default function AdminFeedbackPage() {
                 id="filter-type"
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value as 'all' | FeedbackType)}
-                className={`${inputClasses()} w-auto`}
+                className={inputClasses({ select: true, autoWidth: true })}
               >
                 <option value="all">All types</option>
                 <option value="bug">Bug</option>
@@ -121,7 +121,7 @@ export default function AdminFeedbackPage() {
                       <th
                         key={col}
                         scope="col"
-                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark"
+                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
                       >
                         {col}
                       </th>

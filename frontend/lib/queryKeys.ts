@@ -58,6 +58,10 @@ export const queryKeys = {
     list: (filters: unknown) => ['admin-feedback', filters] as const,
   },
   analysisCoverage: (ticker: string | null) => ['analysis-coverage', ticker] as const,
+  // /analysis?ticker= resolves its link under its own key, as TickerFilingsView does with tickerCompany.
+  // On `company` the company page's loading gate would read a query two modules observe
+  // (spinnerGateHoldsFailure.spec.ts), although the two pages never mount together.
+  analysisCompany: (ticker: string) => ['analysis-company', ticker] as const,
   tickerCompany: (ticker: string) => ['ticker-company', ticker] as const,
   tickerFilings: (ticker: string) => ['ticker-filings', ticker] as const,
   filing: (filingId: string | number) => ['filing', filingId] as const,

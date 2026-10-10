@@ -131,7 +131,7 @@ module.exports = {
           // ---- Chart chrome sub-tokens (all derived from surface/text/flat tokens) ----
           grid: { light: 'rgba(229,231,235,0.6)', dark: 'rgba(255,255,255,0.06)' }, // hairline @ 60% — quieter than the axis
           axis: { light: '#E5E7EB', dark: 'rgba(255,255,255,0.10)' },               // = the hairline itself
-          // Axis labels: 11–12px data face + tabular-nums. Light = text.tertiary (4.6:1 on
+          // Axis labels: 11–12px data face + tabular-nums. Light = the flat ink #6B7280 (4.6:1 on
           // the card charts sit on; on bare cream use secondary). Dark = text.SECONDARY
           // (tertiary-dark fails on navy — same rule as muted text).
           label: { light: '#6B7280', dark: '#9CA3AF' },
@@ -147,7 +147,10 @@ module.exports = {
           // from size + weight, never a second color.
           heading: { light: '#1A1A17', dark: '#D7DADC' },
           secondary: { light: '#374151', dark: '#9CA3AF' },
-          tertiary: { light: '#6B7280', dark: '#4B5563' },
+          // tertiary.light #636A77 (P-02, 2026-10 critique; was gray-500 #6B7280 = 4.35:1 on cream, an AA
+          // fail at 12px): 4.9:1 on cream, 5.2:1 on panel, 4.8:1 in the brand-weak tint. Secondary
+          // still carries anything that must be read. tertiary.dark stays banned as text (2.9:1 on navy).
+          tertiary: { light: '#636A77', dark: '#4B5563' },
         },
         // ---- Borders ----
         border: {
@@ -212,6 +215,14 @@ module.exports = {
       // sticky-cell layering is the one documented exemption.)
       zIndex: {
         sticky: '30', // in-page sticky chrome (mobile section nav)
+        // The cookie-consent bar: above in-page sticky chrome, beneath the workspace scrims (z-scrim)
+        // and the z-40 workspace sheets, launcher and coachmark, which add its height
+        // (--consent-inset, lib/consentLayer.ts) to their bottom offsets while it is mounted.
+        // Gate: tests/unit/bottomChromeLadder.spec.ts pins each token to its rung.
+        consent: '32',
+        // The workspace / rail bottom-sheet scrims: above the bar (an open sheet dims and inerts it,
+        // as any modal's backdrop does), beneath the z-40 sheets they belong to.
+        scrim: '35',
         header: '50', // site header
         overlay: '60', // popovers, the selection pill; the skip link rides toast
         modal: '70', // dialogs + sheets — scrim AND panel

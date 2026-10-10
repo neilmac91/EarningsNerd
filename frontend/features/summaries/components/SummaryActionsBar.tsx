@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import analytics from '@/lib/analytics'
 import { Button } from '@/components/ui/Button'
 import { BookmarkSimpleIcon, CheckCircleIcon, CopyIcon, DownloadSimpleIcon, FileArrowDownIcon } from '@/lib/icons'
@@ -39,6 +39,17 @@ export function SummaryActionsBar({
   const filingUrl = `https://www.earningsnerd.io/filing/${filingId}`
   const copying = useRef(false)
   const [copyState, setCopyState] = useState<'idle' | 'pending' | 'copied' | 'failed'>('idle')
+  const savedRef = useRef<HTMLSpanElement>(null)
+  const savePressed = useRef(false)
+
+  // A successful save swaps the focused Save Summary button for the Saved chip, dropping focus to
+  // <body>; hand it to the chip instead (unless focus has already moved elsewhere). Only after
+  // Save's own press, so an already-saved summary never takes focus on load.
+  useEffect(() => {
+    if (!isSaved || !savePressed.current) return
+    savePressed.current = false
+    if (document.activeElement === document.body) savedRef.current?.focus({ preventScroll: true })
+  }, [isSaved])
 
   const copyFilingLink = async () => {
     if (copying.current) return
@@ -63,7 +74,11 @@ export function SummaryActionsBar({
             isSaved ? (
               // Terminal confirmation — a static success chip (no success Badge variant exists;
               // DS §9 reserves success for a genuine done-state, which "Saved" is).
-              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-success-light/10 text-success-light dark:bg-success-dark/10 dark:text-success-dark">
+              <span
+                ref={savedRef}
+                tabIndex={-1}
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold outline-none bg-success-light/10 text-success-light dark:bg-success-dark/10 dark:text-success-dark"
+              >
                 <CheckCircleIcon className="h-4 w-4" aria-hidden="true" />
                 Saved
               </span>
@@ -71,12 +86,19 @@ export function SummaryActionsBar({
               // Primary treatment (was secondary) so the save affordance is discoverable pre-scroll
               // rather than reading as a low-key optional action — it is the main thing a signed-in
               // reader does with a summary they want to keep.
+              // `loading`, never native `disabled`, while the save is in flight: Chromium blurs a
+              // focused button that turns disabled, dropping a keyboard user to <body>. loading =
+              // aria-disabled + aria-busy + a click guard, so a second press cannot re-save. The
+              // icon rides leftIcon so the spinner replaces it instead of widening the button.
               <Button
                 variant="primary"
-                onClick={() => saveMutation.mutate(summaryId)}
-                disabled={saveMutation.isPending}
+                onClick={() => {
+                  savePressed.current = true
+                  saveMutation.mutate(summaryId)
+                }}
+                loading={saveMutation.isPending}
+                leftIcon={<BookmarkSimpleIcon className="h-4 w-4" />}
               >
-                <BookmarkSimpleIcon className="h-4 w-4" />
                 Save Summary
               </Button>
             )

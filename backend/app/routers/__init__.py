@@ -1,16 +1,6 @@
-from . import analysis
-from . import auth
-from . import companies
-from . import contact
-from . import email
-from . import filings
-from . import saved_summaries
-from . import sitemap
-from . import summaries
-from . import subscriptions
-from . import users
-from . import watchlist
-from . import webhooks
+"""Load named API exports lazily so a task-only router stays independent of API startup."""
+from importlib import import_module
+from types import ModuleType
 
 __all__ = [
     'analysis',
@@ -27,3 +17,11 @@ __all__ = [
     'watchlist',
     'webhooks',
 ]
+
+
+def __getattr__(name: str) -> ModuleType:
+    if name not in __all__:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = import_module(f".{name}", __name__)
+    globals()[name] = module
+    return module

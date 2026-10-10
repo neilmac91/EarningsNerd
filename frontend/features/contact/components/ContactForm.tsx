@@ -1,8 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { clsx } from 'clsx'
-import { CircleNotchIcon } from '@/lib/icons'
 import { submitContactForm } from '@/features/contact/api/contact-api'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
@@ -18,9 +17,25 @@ export default function ContactForm() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState('')
+  // Swapping the form for the success panel (and back) unmounts whatever held focus: Send, the
+  // field Enter was pressed in, or 'Send another message'. Hand focus to the panel's heading, or to
+  // the first field, but only when it fell to <body>.
+  const successHeadingRef = useRef<HTMLHeadingElement>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
+  const swapped = useRef(false)
+  useEffect(() => {
+    if (!swapped.current) return
+    swapped.current = false
+    if (document.activeElement !== document.body) return
+    ;(success ? successHeadingRef.current : nameRef.current)?.focus({ preventScroll: true })
+  }, [success])
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    // Send uses `loading` (aria-disabled + click guard, not native disabled) and the fields go
+    // readOnly, so everything stays focusable while the request is in flight — Enter in a field can
+    // still land here, so refuse a second submit explicitly.
+    if (isSubmitting) return
     setError(null)
     setSuccess(false)
 
@@ -55,6 +70,7 @@ export default function ContactForm() {
         turnstileToken,
       )
 
+      swapped.current = true
       setSuccess(true)
       // Reset form
       setName('')
@@ -92,7 +108,11 @@ export default function ContactForm() {
               />
             </svg>
           </div>
-          <h3 className="mb-2 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+          <h3
+            ref={successHeadingRef}
+            tabIndex={-1}
+            className="mb-2 text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+          >
             Message sent
           </h3>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
@@ -100,7 +120,10 @@ export default function ContactForm() {
             days.
           </p>
           <button
-            onClick={() => setSuccess(false)}
+            onClick={() => {
+              swapped.current = true
+              setSuccess(false)
+            }}
             className="mt-6 text-sm font-medium text-brand-strong underline-offset-4 hover:underline dark:text-brand-strong-dark"
           >
             Send another message
@@ -125,13 +148,14 @@ export default function ContactForm() {
             Name <span className="text-error-light dark:text-error-dark">*</span>
           </label>
           <Input
+            ref={nameRef}
             id="name"
             name="name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            disabled={isSubmitting}
+            readOnly={isSubmitting}
             className="mt-2"
             placeholder="Your name"
           />
@@ -152,7 +176,7 @@ export default function ContactForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            disabled={isSubmitting}
+            readOnly={isSubmitting}
             className="mt-2"
             placeholder="you@company.com"
           />
@@ -172,7 +196,7 @@ export default function ContactForm() {
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            disabled={isSubmitting}
+            readOnly={isSubmitting}
             className="mt-2"
             placeholder="How can we help?"
           />
@@ -192,7 +216,7 @@ export default function ContactForm() {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             required
-            disabled={isSubmitting}
+            readOnly={isSubmitting}
             rows={6}
             className={clsx(inputClasses(), 'mt-2')}
             placeholder="Tell us more about your inquiry..."
@@ -211,20 +235,18 @@ export default function ContactForm() {
 
         <TurnstileWidget onToken={setTurnstileToken} />
 
-        {/* Submit Button */}
+        {/* Submit Button — `loading`, never native `disabled`, while sending: Chromium blurs a
+            focused control that turns disabled (focus → <body>), and the fields above are readOnly
+            for the same reason. Native `disabled` stays only for the missing Turnstile token, which
+            the widget sets — never this button's own activation. */}
         <Button
           type="submit"
-          disabled={isSubmitting || (TURNSTILE_ENABLED && !turnstileToken)}
+          loading={isSubmitting}
+          loadingText="Sending..."
+          disabled={TURNSTILE_ENABLED && !turnstileToken}
           className="w-full"
         >
-          {isSubmitting ? (
-            <span className="flex items-center justify-center">
-              <CircleNotchIcon className="mr-2 h-5 w-5 animate-spin" />
-              Sending...
-            </span>
-          ) : (
-            'Send Message'
-          )}
+          Send Message
         </Button>
       </div>
     </form>

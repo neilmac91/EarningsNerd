@@ -1,0 +1,46 @@
+"""Offline probe: FastAPI 0.142's native OpenTelemetry bridge stays inert for the real app.
+
+Imports backend main.app under a hermetic synthetic env with sockets blocked and reports whether
+FastAPI's native telemetry layer is enabled, whether the OTel SDK is installed, and which global
+providers are set. No OTEL_* variables are present (none are configured anywhere in the repo).
+"""
+import json
+import os
+import socket
+
+
+def no_network(*a, **k):
+    raise AssertionError("unexpected network access")
+
+
+socket.socket.connect = no_network
+socket.create_connection = no_network
+
+import fastapi  # noqa: E402
+from opentelemetry import _logs, metrics, trace  # noqa: E402
+from opentelemetry.version import __version__ as otel_api  # noqa: E402
+
+import main  # noqa: E402
+
+app = main.app
+before = app._native_telemetry.enabled()
+report = {
+    "fastapi": fastapi.__version__,
+    "opentelemetry_api": otel_api,
+    "otel_env": sorted(k for k in os.environ if k.startswith("OTEL_")),
+    "telemetry_config_auto_configure": app._telemetry["auto_configure"],
+    "native_telemetry_enabled_at_import": before,
+}
+try:
+    import opentelemetry.sdk  # noqa: F401
+    report["otel_sdk_installed"] = True
+except ImportError:
+    report["otel_sdk_installed"] = False
+report["providers"] = {
+    "trace": type(trace.get_tracer_provider()).__name__,
+    "metrics": type(metrics.get_meter_provider()).__name__,
+    "logs": type(_logs.get_logger_provider()).__name__,
+}
+assert before is False and report["otel_sdk_installed"] is False and not report["otel_env"], report
+print(json.dumps(report, indent=1))
+print("FASTAPI_TELEMETRY_INERT", fastapi.__version__)

@@ -6,7 +6,7 @@ from datetime import timezone
 from typing import Optional, Dict, Any, List, Tuple
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
-from fastapi.concurrency import run_in_threadpool
+from app.services.request_work import run_owned_sync as run_in_threadpool
 from app.models import Filing, Summary, SummaryGenerationProgress, User, FilingContentCache
 from app.services.openai_service import openai_service
 from app.services.subscription_service import increment_user_usage, get_current_month

@@ -141,11 +141,12 @@ def _persist_history_rows(
     rows: list[dict],
     windows: int,
     windows_ok: int,
+    require_complete: bool = False,
 ) -> dict:
     """Persist already-fetched history in one short caller-owned transaction."""
     ticker = company.ticker
     inserted = filing_scan_service.upsert_filings(db, company, rows)
-    if windows_ok:
+    if windows_ok and (not require_complete or windows_ok == windows):
         company.history_backfilled_at = utcnow()
         db.commit()
     stats = {
@@ -153,6 +154,8 @@ def _persist_history_rows(
         "hits": len(rows), "inserted": len(inserted),
     }
     logger.info("History backfill %s", stats)
+    if require_complete and windows_ok != windows:
+        raise RuntimeError("History backfill incomplete; retry missing windows")
     return stats
 
 
@@ -178,6 +181,8 @@ async def backfill_company_by_id(
     *,
     session_factory: Callable[[], Session],
     efts_client=None,
+    require_complete: bool = False,
+    force: bool = False,
 ) -> dict | None:
     """Backfill an on-visit company without retaining a connection during EFTS I/O.
 
@@ -187,7 +192,7 @@ async def backfill_company_by_id(
     """
     with session_factory() as db:
         company = db.get(Company, company_id)
-        if company is None or company.history_backfilled_at is not None:
+        if company is None or (not force and company.history_backfilled_at is not None):
             return None
         cik = company.cik
         ticker = company.ticker
@@ -201,7 +206,8 @@ async def backfill_company_by_id(
         if company is None:
             return None
         return _persist_history_rows(
-            db, company, rows=rows, windows=windows, windows_ok=windows_ok
+            db, company, rows=rows, windows=windows, windows_ok=windows_ok,
+            require_complete=require_complete,
         )
 
 

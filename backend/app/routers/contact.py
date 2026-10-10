@@ -166,7 +166,8 @@ async def send_contact_notifications(
     </html>
     """
 
-    # Email to user (confirmation)
+    # Email to user (confirmation). Deliberately does NOT repeat the submitted message: the
+    # recipient address is caller-supplied, so the confirmation carries only our own copy.
     user_subject = "We received your message - EarningsNerd"
     user_html = f"""
     <html>
@@ -176,7 +177,6 @@ async def send_contact_notifications(
           .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
           .header {{ background-color: #10B981; color: white; padding: 20px; text-align: center; }}
           .content {{ background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; }}
-          .message-box {{ background-color: white; padding: 15px; border-left: 4px solid #10B981; margin: 15px 0; white-space: pre-wrap; }}
           .footer {{ text-align: center; margin-top: 20px; font-size: 0.9em; color: #666; }}
         </style>
       </head>
@@ -188,8 +188,6 @@ async def send_contact_notifications(
           <div class="content">
             <p>Hi {safe_name},</p>
             <p>We&apos;ve received your message and will get back to you as soon as possible, typically within 1-2 business days.</p>
-            <p><strong>Your message:</strong></p>
-            <div class="message-box">{safe_message}</div>
             <p>If you need immediate assistance or have additional information to add, feel free to reply to this email.</p>
             <p>Best regards,<br>The EarningsNerd Team</p>
           </div>

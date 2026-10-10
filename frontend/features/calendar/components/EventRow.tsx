@@ -93,7 +93,7 @@ export function EventRow({
       >
         {roomy ? (
           <>
-            <CompanyLogo ticker={ev.ticker} name={ev.company_name} size={30} />
+            <CompanyLogo decorative ticker={ev.ticker} name={ev.company_name} size={30} />
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-2">
                 <span className="font-data text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
@@ -117,7 +117,7 @@ export function EventRow({
         ) : (
           <>
             <span className="flex items-center gap-1.5">
-              <CompanyLogo ticker={ev.ticker} name={ev.company_name} size={20} />
+              <CompanyLogo decorative ticker={ev.ticker} name={ev.company_name} size={20} />
               <span className="font-data text-xs font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
                 {ev.ticker}
               </span>

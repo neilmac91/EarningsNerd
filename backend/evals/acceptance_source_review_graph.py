@@ -19,6 +19,7 @@ import json
 import re
 from typing import Any
 
+from evals.acceptance_h20_joint_inputs import ValidatedH20JointInputs
 from evals.acceptance_source_units import validate_unit_manifest
 
 
@@ -175,6 +176,7 @@ def validate_review_graph(
     role_contract: Any,
     artifacts: Any,
     foreign_context_ids: Any,
+    joint_inputs: ValidatedH20JointInputs | None = None,
 ) -> dict[str, Any]:
     """Recompute every custody check for one role's review graph; never repair or reorder.
 
@@ -198,10 +200,18 @@ def validate_review_graph(
         if _sha(data) != digest:
             raise ValueError(f"artifact {digest} bytes do not match their SHA-256")
 
-    _object(graph, _GRAPH_KEYS, "source review graph")
-    if type(graph["schema_version"]) is not int or graph["schema_version"] != SCHEMA_VERSION \
+    version = 1 if joint_inputs is None else 2
+    if joint_inputs is not None:
+        if type(joint_inputs) is not ValidatedH20JointInputs:
+            raise ValueError("graph requires mechanically validated joint inputs")
+        joint_inputs.require_review(manifest["manifest_sha256"], expected_packets,
+                                    {role: _sha(data) for role, data in packet_bytes.items()})
+    _object(graph, _GRAPH_KEYS | ({"joint_contract_sha256"} if version == 2 else set()), "source review graph")
+    if type(graph["schema_version"]) is not int or graph["schema_version"] != version \
             or type(graph["kind"]) is not str or graph["kind"] != GRAPH_KIND:
         raise ValueError("unsupported source review graph version or kind")
+    if joint_inputs is not None and graph["joint_contract_sha256"] != joint_inputs.contract_sha256:
+        raise ValueError("graph uses a different frozen joint contract")
     if any(graph[flag] is not False for flag in ATTESTATION_FLAGS):
         raise ValueError("a source review graph cannot attest review, completeness or admission")
     limitations = graph["limitations"]
@@ -259,7 +269,7 @@ def validate_review_graph(
             leaf_units[unit_id] = node_id
             # unit_id binds the accession, packet, coverage and context spans, labels and payload hash,
             # so two units with identical bytes are not interchangeable.
-            expected_input = unit_id
+            expected_input = unit_id if joint_inputs is None else joint_inputs.unit(unit_id).input_sha256
         else:
             if node["unit_id"] is not None:
                 raise ValueError(f"{kind} {node_id} cannot bind a unit directly")
@@ -330,8 +340,10 @@ def validate_review_graph(
 
     counts = {kind: sum(1 for node in nodes if node["kind"] == kind) for kind in NODE_KINDS}
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": version,
         "kind": VALIDATION_KIND,
+        **({"joint_contract_sha256": joint_inputs.contract_sha256} if joint_inputs is not None else {}),
+        **({"unmapped_original_roles_not_credited": list(joint_inputs.unmapped_original_roles)} if joint_inputs is not None else {}),
         "graph_sha256": _sha(_canonical(graph)),
         "accession_number": manifest["accession_number"],
         "role": role_contract["role"],

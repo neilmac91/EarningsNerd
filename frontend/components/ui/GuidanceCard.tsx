@@ -13,7 +13,7 @@
    name; this surface is the empty/error guidance card only.
 ============================================================================= */
 
-import { type ReactNode } from 'react'
+import { useId, type ReactNode, type Ref } from 'react'
 import { cx } from './cx'
 
 export type GuidanceCardVariant = 'empty' | 'error'
@@ -23,6 +23,18 @@ export interface GuidanceCardProps {
   /** Defaults: magnifier (empty) / alert circle (error). */
   icon?: ReactNode
   title: string
+  /**
+   * The title's element, chosen for its place in the page outline (DESIGN_SYSTEM §5): 'h3' (default)
+   * for a card inside an h2 section; 'h2' where the card stands in for a page's content directly under
+   * the page h1 (the filing page's signup gate and failure cards, an empty watchlist). Size is unchanged.
+   */
+  headingLevel?: 'h2' | 'h3'
+  /**
+   * Makes the title a focus target (tabIndex={-1}, no outline), for a card that takes focus when it appears. The
+   * description then describes the title (aria-describedby), so a screen reader that cuts the card's live
+   * announcement short for the focus change still reads why, not only the title.
+   */
+  headingRef?: Ref<HTMLHeadingElement>
   description?: ReactNode
   /** Usually a <Button> — primary for empty, secondary for error retry. */
   action?: ReactNode
@@ -55,7 +67,18 @@ function DefaultIcon({ variant }: { variant: GuidanceCardVariant }) {
   )
 }
 
-export function GuidanceCard({ variant = 'empty', icon, title, description, action, className }: GuidanceCardProps) {
+export function GuidanceCard({
+  variant = 'empty',
+  icon,
+  title,
+  headingLevel: Heading = 'h3',
+  headingRef,
+  description,
+  action,
+  className,
+}: GuidanceCardProps) {
+  const descriptionId = useId()
+  const describes = headingRef && description ? descriptionId : undefined
   return (
     <div
       role={variant === 'error' ? 'alert' : 'status'}
@@ -68,9 +91,16 @@ export function GuidanceCard({ variant = 'empty', icon, title, description, acti
       <span className={cx('flex h-11 w-11 items-center justify-center rounded-full border', ICON_WRAP[variant])}>
         {icon ?? <DefaultIcon variant={variant} />}
       </span>
-      <h3 className="mt-4 text-base font-semibold">{title}</h3>
+      <Heading
+        ref={headingRef}
+        tabIndex={headingRef ? -1 : undefined}
+        aria-describedby={describes}
+        className={cx('mt-4 text-base font-semibold', headingRef ? 'outline-none' : undefined)}
+      >
+        {title}
+      </Heading>
       {description ? (
-        <p className="mt-1.5 max-w-[38ch] text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
+        <p id={describes} className="mt-1.5 max-w-[38ch] text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
           {description}
         </p>
       ) : null}
