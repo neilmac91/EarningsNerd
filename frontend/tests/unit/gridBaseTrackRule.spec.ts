@@ -250,7 +250,10 @@ ruleTester.run('responsive-grid-base-track', responsiveGridBaseTrack, {
   ],
 })
 
-describe('eslint.config.mjs wiring', () => {
+/** Building ESLint from the real config takes about 3.5s here and over 7s cold or on a loaded runner; 5s is too tight. */
+const SLOW = { timeout: 30_000 }
+
+describe('eslint.config.mjs wiring', SLOW, () => {
   it('runs the rule on app code through the real config, including TypeScript syntax', async () => {
     const eslint = new ESLint({ cwd: frontendRoot })
     const [result] = await eslint.lintText(
