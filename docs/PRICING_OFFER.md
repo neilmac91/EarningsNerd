@@ -17,7 +17,8 @@ states the $240 charge directly beneath it.
 
 The plain [price module](../frontend/app/pricing/prices.ts) is shared by the pricing page,
 homepage section and server Product/Offer JSON-LD. Every displayed amount and saving, including
-the "save 20%" toggle badges, is computed from it. The `pricing-experiment`/`price_29` display
+the "save 20%" toggle badges, is computed from it; the percent rounds down, so it never overstates
+the saving. The `pricing-experiment`/`price_29` display
 experiment and its exposure event are retired; existing analytics history and the separate
 landing-headline experiment remain intact. Checkout analytics record the selected cycle's full
 charge (25 or 240), while the server remains authoritative for the actual charge.
@@ -134,9 +135,11 @@ subscriptions and beta entitlements remain untouched during rollback.
 
 `PricingPage.spec.tsx` renders the offer across the pricing page, homepage section and JSON-LD
 with a stale `price_29` flag, both cycles and checkout analytics. `pricingFollowsModule.spec.tsx`
-renders the same surfaces under other amounts, so a typed price or saving claim fails it.
-`pricing-section.spec.tsx` keeps billing-toggle, access-mode, beta and trial-copy coverage, and
-`pricingAgreement.spec.ts` covers the read-only agreement check. The server-render guard and the
+renders the same surfaces, the beta strike-through and checkout analytics under other amounts, and
+fails on any figure of the real offer (read from the unmocked module) or a typed "months free"
+claim. `pricing-section.spec.tsx` keeps billing-toggle, access-mode, beta and trial-copy coverage.
+`pricingAgreement.spec.ts` covers the read-only agreement check and runs `npm run check:pricing`
+itself for exit codes 0, 1 and 2. The server-render guard and the
 full lint, TypeScript, Vitest and Next build gates remain required. Exact gate and mutation-proof
 tails for each reviewed head belong in the PR body (`AGENTS.md` §4, §7), not in this document.
 These checks establish frontend consistency; effective Stripe configuration remains an operator

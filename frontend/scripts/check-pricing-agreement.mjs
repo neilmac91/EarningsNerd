@@ -11,7 +11,7 @@ const idMatches = (value, prefix) => typeof value === 'string' && new RegExp(`^$
 
 export function checkPricingAgreement(snapshot) {
   const errors = []
-  const expected = { monthly: PRO_PRICING.monthly * 100, yearly: PRO_PRICING.yearly * 100 }
+  const expected = { monthly: Math.round(PRO_PRICING.monthly * 100), yearly: Math.round(PRO_PRICING.yearly * 100) }
   const result = () => ({
     ok: errors.length === 0,
     scope: 'Supplied snapshot only; not live checkout verification or activation approval.',

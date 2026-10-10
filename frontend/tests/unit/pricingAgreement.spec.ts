@@ -1,3 +1,7 @@
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { checkPricingAgreement } from '../../scripts/check-pricing-agreement.mjs'
 import { PRO_PRICING } from '../../app/pricing/prices'
@@ -61,5 +65,33 @@ describe('the held offer agrees with supplied effective checkout prices', () => 
     const result = checkPricingAgreement(input)
     expect(result.ok).toBe(false)
     expect(result.errors.length).toBeGreaterThan(0)
+  })
+})
+
+// The runbook's command itself: Node's own type stripping (not Vitest) must load prices.ts, and the
+// exit code must say agreement (0), disagreement (1) or unusable input (2).
+describe('npm run check:pricing', () => {
+  const frontend = join(__dirname, '../..')
+  const higherYearly = () => {
+    const input = snapshot()
+    input.prices.yearly.unit_amount += 100
+    return JSON.stringify(input)
+  }
+  it.each([
+    ['an agreeing snapshot', () => JSON.stringify(snapshot()), 0],
+    ['a higher yearly amount', higherYearly, 1],
+    ['unreadable JSON', () => '{', 2],
+  ] as const)('exits for %s with %i', (_case, contents, status) => {
+    const dir = mkdtempSync(join(tmpdir(), 'check-pricing-'))
+    try {
+      const file = join(dir, 'readback.json')
+      writeFileSync(file, contents())
+      const run = spawnSync('npm', ['run', '-s', 'check:pricing', '--', file], { cwd: frontend, encoding: 'utf8' })
+      expect(run.status).toBe(status)
+      if (status !== 2) expect(JSON.parse(run.stdout)).toMatchObject({ ok: status === 0, expected: { monthly_cents: PRO_PRICING.monthly * 100, yearly_cents: PRO_PRICING.yearly * 100 } })
+      expect(run.stderr).not.toMatch(/Warning/)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

@@ -432,13 +432,17 @@ describe('PricingPage', () => {
     await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_monthly'))
   })
 
-  it.each([true, false])('the actual homepage link preserves its offer at guest pricing (beta=%s)', async (showBeta) => {
+  it.each([
+    ['a beta member', true, false],
+    ['a guest on the default annual plan', false, false],
+    ['a guest choosing the monthly trial', false, true],
+  ] as const)('the actual homepage link preserves its offer at guest pricing for %s', async (_case, showBeta, pickMonthly) => {
     flags.ENABLE_PRO_TRIAL = true
     mockGetCurrentUserSafe.mockResolvedValue(null)
     const landing = render(<PricingSection accessMode={showBeta ? 'invite' : 'public'} showBeta={showBeta} />)
-    // The landing opens on annual; the trial is the monthly plan's offer, so a guest picks monthly.
-    if (!showBeta) fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
-    const label = showBeta ? 'Upgrade to Pro' : 'Start 7-day free trial'
+    // The landing opens on annual; the trial is the monthly plan's offer.
+    if (pickMonthly) fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
+    const label = pickMonthly ? 'Start 7-day free trial' : 'Upgrade to Pro'
     const href = screen.getByRole('link', { name: label }).getAttribute('href')!
     landing.unmount()
 
@@ -448,14 +452,14 @@ describe('PricingPage', () => {
     destination.searchParams.forEach((value, key) => mockSearchParams.set(key, value))
     renderPricing()
     expect(await screen.findByRole('button', { name: label })).toBeEnabled()
-    expect(screen.getByRole('switch', { name: /billing cycle/i })).toHaveAttribute('aria-checked', String(showBeta))
+    expect(screen.getByRole('switch', { name: /billing cycle/i })).toHaveAttribute('aria-checked', String(!pickMonthly))
     const trialNote = 'First 7 days free · cancel anytime, no charge'
-    if (showBeta) {
+    if (pickMonthly) {
+      expect(screen.getByText(trialNote)).toBeInTheDocument()
+    } else {
       expect(screen.queryByRole('button', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
       expect(screen.queryByText(trialNote)).not.toBeInTheDocument()
-    } else {
-      expect(screen.getByText(trialNote)).toBeInTheDocument()
     }
-    expect(mockPricingViewed.mock.calls).toEqual([[showBeta ? 'yearly' : 'monthly']])
+    expect(mockPricingViewed.mock.calls).toEqual([[pickMonthly ? 'monthly' : 'yearly']])
   })
 })

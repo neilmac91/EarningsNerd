@@ -68,6 +68,14 @@ describe('PricingSection', () => {
     expect(annual).toHaveAttribute('aria-checked', 'true')
     expect(annual).toHaveFocus()
 
+    fireEvent.keyDown(group, { key: 'ArrowLeft' })
+    expect(monthly).toHaveAttribute('aria-checked', 'true')
+    expect(monthly).toHaveFocus()
+
+    fireEvent.keyDown(group, { key: 'End' })
+    expect(annual).toHaveAttribute('aria-checked', 'true')
+    expect(annual).toHaveFocus()
+
     fireEvent.keyDown(group, { key: 'Home' })
     expect(monthly).toHaveAttribute('aria-checked', 'true')
     expect(monthly).toHaveFocus()

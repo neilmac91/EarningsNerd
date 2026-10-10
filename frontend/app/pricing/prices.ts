@@ -14,7 +14,8 @@ export function proPricing(monthly: number, yearly: number) {
     yearlyDisplay: usd(yearly),
     yearlyPerMonthDisplay: usd(yearly / 12),
     annualSavingsDisplay: usd(annualSavings),
-    annualSavingsPercent: Math.round((annualSavings / (monthly * 12)) * 100),
+    // Rounded down, so the advertised saving can never exceed the real one.
+    annualSavingsPercent: Math.floor((annualSavings * 100) / (monthly * 12)),
   } as const
 }
 
