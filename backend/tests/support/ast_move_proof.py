@@ -106,24 +106,25 @@ body runs). So does a relative import in its code (a def's body, or the class bo
 resolves to another module; a call of the builtin ``globals()``, or of ``eval`` or ``exec`` with no globals
 of their own (none, or ``None``), which now reads another module's namespace, or another file's (``x.py``
 and ``x/__init__.py`` differ in ``__file__`` and ``__path__``; a builtin is a name the module binds nothing
-under above the calling symbol, an import included, nor, for a call in a class body itself, its class);
-annotations postponed by ``from __future__ import annotations`` in one module and evaluated in the other (a
-def's parameters and return, and an annotated assignment at module level or in a class body, not one in a
-def's body, which Python never evaluates; reported once, on the class, for a class's members), and so the
-code it compiles with the builtin ``exec`` or ``compile``, which inherits the import unless ``compile`` is
-told ``dont_inherit`` (fail closed: a code object compiled elsewhere does not); and a module dunder it
-binds, at module level or through ``global``, which Python reads from the new module (a moved
-``__getattr__`` no longer serves the façade). A block reads its header here, a ``globals()`` there too; its
-statements are symbols of their own. A name that both modules set outright above the reading symbol (outside
-a block, not by a bare annotation or ``:=``, from a value that does not read the name as ``__doc__ +=``
-does; a def above the binding may be called at import before it), or that an earlier member of its class
-sets so for a read in the class body itself, is compared as those symbols; one that only one module sets
-outright, or binds at all, is reported; otherwise the values the import system derives are compared. Names
-are derived from the path relative to ``backend/`` (the CLI normalises how ``--old`` and ``--new`` are
-spelled), every directory a package, and without the old path (``compare()``'s ``old_path``, which the CLI
-always passes) every read but the docstring's and the annotations' is reported, as ``the old path is
-unknown`` or ``was an unknown module``. A RELOCATED symbol still counts as identical, as a REORDERED one
-does, and ``--allow`` takes its key.
+under for certain above the calling symbol, an import included, nor, for a call in a class body itself, its
+class: a binding in a block, by a bare annotation or ``:=``, or deleted, may leave the builtin); annotations
+postponed by ``from __future__ import annotations`` in one module and evaluated in the other (a def's
+parameters and return, and an annotated assignment at module level or in a class body, not one in a def's
+body, which Python never evaluates; reported once, on the class, for a class's members), and so the code it
+compiles with the builtin ``exec`` or ``compile``, which inherits the import unless ``compile`` is told
+``dont_inherit`` (fail closed: a code object compiled elsewhere does not); and a module dunder it binds, at
+module level or through ``global``, which Python reads from the new module (a moved ``__getattr__`` no
+longer serves the façade). A block reads its header here, a ``globals()`` there too; its statements are
+symbols of their own. A name that both modules set outright above the reading symbol (outside a block, not
+by a bare annotation or ``:=``, from a value that does not read the name as ``__doc__ +=`` does; a def above
+the binding may be called at import before it), or that an earlier member of its class sets so for a read in
+the class body itself, is compared as those symbols; one that only one module sets outright, or binds at
+all, is reported; otherwise the values the import system derives are compared. Names are derived from the
+path relative to ``backend/`` (the CLI normalises how ``--old`` and ``--new`` are spelled), every directory
+a package, and without the old path (``compare()``'s ``old_path``, which the CLI always passes) every read
+but the docstring's and the annotations' is reported, as ``the old path is unknown`` or ``was an unknown
+module``. A RELOCATED symbol still counts as identical, as a REORDERED one does, and ``--allow`` takes its
+key.
 
 Limits. Code that a new class runs through a BASE (an inherited metaclass, or the base's
 ``__init_subclass__``) is not visible in the AST, so a new class with bases is ADDED; read every ADDED
@@ -145,14 +146,17 @@ changes those by design, and a façade's re-export keeps the old path importing.
 within each new file only: moved code that runs at import in another file runs when that file is first
 imported, which for a façade's sub-module is before the façade's own statements it followed (a logging level
 or a warnings filter set above it no longer applies), so read the old file's import-time statements that a
-split separates. A globals argument that is a name or another expression, rather than ``None``, is taken as
-a namespace of its own, though it may be ``None`` when the code runs. RELOCATED reads old symbols only, so
-code a PR decomposes into NEW functions is ADDED and not examined for these reads, and ``vars()``, ``dir()``
-or ``locals()`` without arguments at module level is not followed. A new annotated assignment writes its
-namespace's ``__annotations__`` without binding that name, so moved code that reads the dict, at module
-level too, sees one more key. And the names these rules trust (``property``, ``dataclass``,
-``TYPE_CHECKING`` and the like) are taken at their word, so a move that rebinds one where no moved symbol
-reads it, such as an ADDED ``TYPE_CHECKING = True`` above an exempt block, is outside the proof.
+split separates. A moved symbol that reads a name its old module bound and its new module does not raises
+NameError, unless the name is also a builtin (``open``, ``eval``), which it then reaches silently; read the
+names a moved symbol takes from its old module. A globals argument that is a name or another expression,
+rather than ``None``, is taken as a namespace of its own, though it may be ``None`` when the code runs.
+RELOCATED reads old symbols only, so code a PR decomposes into NEW functions is ADDED and not examined for
+these reads, and ``vars()``, ``dir()`` or ``locals()`` without arguments at module level is not followed. A
+new annotated assignment writes its namespace's ``__annotations__`` without binding that name, so moved code
+that reads the dict, at module level too, sees one more key. And the names these rules trust (``property``,
+``dataclass``, ``TYPE_CHECKING`` and the like) are taken at their word, so a move that rebinds one where no
+moved symbol reads it, such as an ADDED ``TYPE_CHECKING = True`` above an exempt block, is outside the
+proof.
 
 The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE, SIDE EFFECT, SHADOWS, REORDERED or
 RELOCATED beyond the symbols passed with ``--allow`` (for SHADOWS, the new symbol's key); each allowed symbol
@@ -200,6 +204,23 @@ def _target_names(target: ast.expr) -> list[str]:
     if isinstance(target, ast.Starred):
         return _target_names(target.value)
     return [ast.unparse(target)]
+
+
+def _certain_bindings(body: list[ast.stmt]) -> dict[str, int]:
+    """The names a body (a module's, or a class's) binds for certain as it runs, each with the line of the
+    first such binding: not in a block or a ``match`` (it may not run), not by a bare annotation or ``:=``,
+    and never deleted in that body."""
+    deleted = {name for statement in _flatten(body) if isinstance(statement, ast.Delete)
+               for target in statement.targets for name in _target_names(target)}
+    first: dict[str, int] = {}
+    for statement in body:
+        if isinstance(statement, (*_COMPOUND, ast.Match)) or (isinstance(statement, ast.AnnAssign)
+                                                              and statement.value is None):
+            continue
+        walrus = {each.target.id for each in ast.walk(statement) if isinstance(each, ast.NamedExpr)}
+        for name in _Scope().read(statement).bound - walrus - deleted:
+            first.setdefault(name, statement.lineno)
+    return first
 
 
 def _is_docstring(node: ast.stmt) -> bool:
@@ -632,12 +653,9 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
     occurrences: list[tuple[int, int, int, str]] = []
     runs: set[str] = set()
     names: dict[str, _Names] = {}
-    # A call by name reaches a builtin unless the module binds that name (an import included) above the symbol
-    # that calls it: code that runs at import above the binding still reaches the builtin.
-    shadowing: dict[str, int] = {}
-    for statement in tree.body:
-        for name in _Scope().read(statement).bound:
-            shadowing.setdefault(name, statement.lineno)
+    # A call by name reaches a builtin unless the module binds that name for certain (an import included) above
+    # the symbol that calls it: code that runs at import above the binding still reaches the builtin.
+    shadowing = _certain_bindings(tree.body)
 
     def put(key: str, text: str, node: ast.AST, inert: bool, owner: str | None = None,
             code: ast.AST | None = None, documented: bool = False, local: dict[str, int] | None = None) -> None:
@@ -711,10 +729,7 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
                 (each.level, each.module or "", alias.name) for each in _flatten(node.body)
                 if isinstance(each, ast.ImportFrom) and each.level for alias in each.names}
             documented = _is_docstring(node.body[0])
-            local: dict[str, int] = {}  # the names the class body binds, each with the line of the first
-            for statement in node.body:
-                for name in _Scope().read(statement).bound:
-                    local.setdefault(name, statement.lineno)
+            local = _certain_bindings(node.body)
             for guard in _guards(node.body):
                 if not _type_checking_imports(guard):
                     put(f"{node.name}.guard:{_guard_header(guard)}", ast.unparse(_without_imports(guard)), guard,

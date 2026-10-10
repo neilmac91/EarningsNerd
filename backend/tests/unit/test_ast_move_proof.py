@@ -879,9 +879,10 @@ def test_eval_and_exec_read_the_callers_namespace_unless_given_globals_of_their_
 
 def test_a_builtin_is_reached_by_a_call_above_any_module_binding_of_its_name():
     """Code that runs at import above ``eval = fake`` still calls the builtin, which reads the new module's
-    namespace once moved; below the first binding, the call is the module's ``eval``. A class body looks the
-    name up in the class first, a block in it too: an ``eval`` its class bound above is the class's, but a
-    method's body, or a call above that binding, reaches the builtin."""
+    namespace once moved; below the first binding, the call is the module's ``eval``. A binding that may not
+    happen (in a block or a ``match``, a bare annotation, a walrus, or one deleted later) leaves the builtin. A
+    class body looks the name up in the class first, a block in it too: an ``eval`` its class bound above for
+    certain is the class's, but a method's body, or a call above that binding, reaches the builtin."""
     above = 'RESULT = eval("__name__")\n\n\ndef fake(src):\n    return "fake"\n\n\neval = fake\n'
     split = compare(above, {"app/x.py": above.replace('RESULT = eval("__name__")\n\n\n', ""),
                             "app/y.py": 'RESULT = eval("__name__")\n'}, old_path="app/x.py")
@@ -892,9 +893,16 @@ def test_a_builtin_is_reached_by_a_call_above_any_module_binding_of_its_name():
                'class D:\n    eval = staticmethod(lambda _: "stable")\n\n    def run(self, src):\n        return eval(src)\n\n\n'
                'class E:\n    result = eval("__name__")\n    eval = staticmethod(lambda _: "late")\n\n\n'
                'class F:\n    eval = staticmethod(lambda _: True)\n    if eval("__name__"):\n        flag = 1\n\n\n'
-               'class G:\n    eval = staticmethod(lambda _: "first")\n    result = eval("__name__")\n    eval = staticmethod(lambda _: "next")\n')
+               'class G:\n    eval = staticmethod(lambda _: "first")\n    result = eval("__name__")\n    eval = staticmethod(lambda _: "next")\n\n\n'
+               'class H:\n    if FLAG:\n        eval = staticmethod(lambda _: "maybe")\n    result = eval("__name__")\n')
     namespace = "reads its module's namespace through eval() (app.y, was app.x)"
-    assert _relocated(classes, "app/y.py", "app/x.py") == {"D.run": namespace, "E.result": namespace}
+    assert _relocated(classes, "app/y.py", "app/x.py") == {"D.run": namespace, "E.result": namespace, "H.result": namespace}
+    for binding in ("if FLAG:\n    eval = fake", "eval = fake\ndel eval", "try:\n    from nowhere import eval\nexcept ImportError:\n    pass",
+                    "eval: object", "[(eval := fake) for _ in ()]", "match FLAG:\n    case True:\n        eval = fake"):
+        uncertain = f'def fake(src):\n    return "fake"\n\n\n{binding}\nRESULT = eval("__name__")\n'
+        moved = compare(uncertain, {"app/x.py": uncertain.replace('RESULT = eval("__name__")\n', ""),
+                                    "app/y.py": 'RESULT = eval("__name__")\n'}, old_path="app/x.py")
+        assert moved.relocated == {"RESULT": f"app/y.py, was app/x.py: {namespace}"}, binding
 
 
 def test_module_is_a_class_bodys_only():
