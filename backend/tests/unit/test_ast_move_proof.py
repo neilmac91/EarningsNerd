@@ -879,8 +879,9 @@ def test_eval_and_exec_read_the_callers_namespace_unless_given_globals_of_their_
 
 def test_a_builtin_is_reached_by_a_call_above_any_module_binding_of_its_name():
     """Code that runs at import above ``eval = fake`` still calls the builtin, which reads the new module's
-    namespace once moved; below the first binding, the call is the module's ``eval``. A binding that may not
-    happen (in a block or a ``match``, a bare annotation, a walrus, or one deleted later) leaves the builtin. A
+    namespace once moved; below the first binding, the call is the module's ``eval`` until a ``del`` of it. A
+    binding that may not happen (in a block or a ``match``, a bare annotation, a walrus) leaves the builtin, and
+    ``from builtins import eval`` is the builtin. A
     class body looks the name up in the class first, a block in it too: an ``eval`` its class bound above for
     certain is the class's, but a method's body, or a call above that binding, reaches the builtin."""
     above = 'RESULT = eval("__name__")\n\n\ndef fake(src):\n    return "fake"\n\n\neval = fake\n'
@@ -898,11 +899,14 @@ def test_a_builtin_is_reached_by_a_call_above_any_module_binding_of_its_name():
     namespace = "reads its module's namespace through eval() (app.y, was app.x)"
     assert _relocated(classes, "app/y.py", "app/x.py") == {"D.run": namespace, "E.result": namespace, "H.result": namespace}
     for binding in ("if FLAG:\n    eval = fake", "eval = fake\ndel eval", "try:\n    from nowhere import eval\nexcept ImportError:\n    pass",
-                    "eval: object", "[(eval := fake) for _ in ()]", "match FLAG:\n    case True:\n        eval = fake"):
+                    "eval: object", "[(eval := fake) for _ in ()]", "match FLAG:\n    case True:\n        eval = fake",
+                    "from builtins import eval"):
         uncertain = f'def fake(src):\n    return "fake"\n\n\n{binding}\nRESULT = eval("__name__")\n'
         moved = compare(uncertain, {"app/x.py": uncertain.replace('RESULT = eval("__name__")\n', ""),
                                     "app/y.py": 'RESULT = eval("__name__")\n'}, old_path="app/x.py")
         assert moved.relocated == {"RESULT": f"app/y.py, was app/x.py: {namespace}"}, binding
+    deleted_after = 'def fake(src):\n    return "fake"\n\n\neval = fake\nRESULT = eval("__name__")\ndel eval\n'
+    assert _relocated(deleted_after, "app/y.py", "app/x.py") == {}
 
 
 def test_module_is_a_class_bodys_only():
