@@ -48,7 +48,7 @@ def _seed_state(client: TestClient, nonce: str = RAW_NONCE, ttl_minutes: int = 5
         db.add(OAuthState(
             state=state,
             nonce=nonce,
-            # Naive UTC to match the OAuthState model + the auth.py comparison.
+            # Naive UTC to match the OAuthState model + the oauth_account_service comparison.
             expires_at=datetime.utcnow() + timedelta(minutes=ttl_minutes),
         ))
         db.commit()

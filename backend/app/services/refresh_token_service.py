@@ -154,3 +154,64 @@ def revoke_all_for_user(db: Session, user_id: int) -> int:
         .update({RefreshToken.revoked_at: now}, synchronize_session=False)
     )
     return count
+
+
+# ─── Committing wrappers for the HTTP layer ────────────────────────────────────
+# The functions above leave the commit to their caller. These own it, so app/routers/auth.py
+# reaches the session only by handing it over.
+
+def mint_refresh_token(
+    db: Session,
+    user: User,
+    *,
+    user_agent: Optional[str] = None,
+    ip: Optional[str] = None,
+    commit: bool = True,
+) -> str:
+    """Mint a refresh token for ``user`` and return its raw value (the cookie).
+
+    Commits by default, together with whatever the caller has pending (a password change, an OAuth
+    link). ``commit=False`` leaves the commit to the caller. An ``IntegrityError`` from the flush or
+    the commit propagates unchanged; the session then needs the caller's rollback.
+    """
+    _, raw_token = create_refresh_token(db, user, user_agent=user_agent, ip=ip)
+    if commit:
+        db.commit()
+    return raw_token
+
+
+def rotate_and_commit(
+    db: Session,
+    raw_token: str,
+    *,
+    user_agent: Optional[str] = None,
+    ip: Optional[str] = None,
+) -> Tuple[User, str]:
+    """Rotate ``raw_token`` and commit; return ``(user, new_raw_token)``.
+
+    A replayed token's chain revocation is committed before the same
+    :class:`RefreshTokenReuseError` propagates. Any other :class:`RefreshTokenError` made no writes
+    and commits nothing.
+    """
+    try:
+        user, new_raw_token = rotate_refresh_token(db, raw_token, user_agent=user_agent, ip=ip)
+        db.commit()
+    except RefreshTokenReuseError:
+        db.commit()
+        raise
+    return user, new_raw_token
+
+
+def revoke_and_commit(db: Session, raw_token: Optional[str]) -> bool:
+    """Revoke one refresh token (logout) and commit when one was revoked. Returns whether it was."""
+    if revoke_refresh_token(db, raw_token):
+        db.commit()
+        return True
+    return False
+
+
+def revoke_all_and_commit(db: Session, user_id: int) -> int:
+    """Revoke all of a user's active refresh tokens (sign out everywhere), commit, return the count."""
+    revoked = revoke_all_for_user(db, user_id)
+    db.commit()
+    return revoked

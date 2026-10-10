@@ -13,8 +13,10 @@ the request-owned session lifecycle. Do not close or detach the user early, or i
 sizes to hide event-loop starvation. The fix allows cleanup to progress; it does not establish
 safe fleet concurrency or guarantee that every busy pool can satisfy its timeout.
 
-**Evidence.** `backend/app/routers/auth.py::_lookup_auth_user`, `get_current_user` and
-`get_current_user_optional`; `backend/tests/unit/test_auth_pool_progress.py` exercises both
+**Evidence.** `backend/app/services/auth_account_service.py::find_user_by_email` (the lookup,
+moved out of the router as `_lookup_auth_user` in 2026-10), awaited through `run_in_threadpool`
+by `backend/app/routers/auth.py::get_current_user` and `get_current_user_optional`;
+`backend/tests/unit/test_auth_pool_progress.py` exercises both
 dependencies with two actual ASGI requests and a one-slot QueuePool. Returning the lookups to
 the event loop makes the gate fail; restoring the thread-pool calls preserves both identities
 and returns the checked-out connection.
