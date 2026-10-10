@@ -1,12 +1,13 @@
-# Decision record 21 — chief succession: the predecessor session blocked by a Claude Code safety check from about 21:40Z and the successor appointed by the founder's handover brief at 22:38Z; PR #1167 (record 20) merged, fourteenth deploy-skip proof; #1169's deploy read back from its log (every process carries both SEC pins, the insider switch is off, the health check passed) and six later main runs classified; the founder's USD 5 balance floor recorded as a stop condition; a duplicate second successor session holds every write; the Monday check-in re-armed; disclosures (chief defect 9, classifier denials 11 and 12, a record-20 wording correction); closure 172 (chief, 2026-10-09)
+# Decision record 21 — chief succession: the predecessor session blocked by a Claude Code safety check from about 21:40Z and the successor appointed by the founder's handover brief at 22:38Z; PR #1167 (record 20) merged, fourteenth deploy-skip proof; #1169's deploy read back from its log (every process carries both SEC pins, the insider switch is off, the health check passed) and twelve later main runs classified, four of them deploys by other writers (#1166, #1123, #1135, #1140), each read back from its log; the founder's USD 5 balance floor recorded as a stop condition; a duplicate second successor session holds every write; the Monday check-in re-armed; disclosures (chief defects 9 and 10, classifier denials 11 and 12, a record-20 wording correction, the account's usage-limit interruption); closure 172 (chief, 2026-10-09)
 
-Recorded 2026-10-09T23:02Z, amended 2026-10-09T23:12Z (the relayed confirmation) and 2026-10-10T04:05Z (the usage-limit
-interruption; the fresh reviewer context), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
-Context: record 20 merged to main as `da8dc998` (PR #1167, 2026-10-09T22:14:52Z); main has since moved to `a572876c` through
-other writers' PRs (#1143, #1142, #1166); this is the first PR from the successor's branch `claude/stoic-wright-6jeujo`, started
-at `a572876c`. Records, one lesson and the lessons index only: no code, workflow, migration, cloud, IAM or production change in
+Recorded 2026-10-09T23:02Z, amended 2026-10-09T23:12Z (the relayed confirmation), 2026-10-10T04:05Z (the usage-limit
+interruption; the fresh reviewer context), 04:09Z (chief defect 10) and 04:30Z (after the record-21 review: the later main runs
+read back, including two deploys by other writers), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
+Context: record 20 merged to main as `da8dc998` (PR #1167, 2026-10-09T22:14:52Z); this is the first PR from the successor's
+branch `claude/stoic-wright-6jeujo`, started at `a572876c`. Records, two lessons and the lessons index only: no code, workflow, migration, cloud, IAM or production change in
 this PR; no provider call; no reservation; nothing opened under `tasks/readiness-2026-09-21/acceptance/` or
-`tasks/review-evidence/`.
+`tasks/review-evidence/`. (The successor's branch started at `a572876c`, main's tip at 22:38Z; main's later merges, by other
+writers, are classified below up to this record's last amendment.)
 
 ## The predecessor's block and the succession
 
@@ -50,7 +51,7 @@ session API, record:
    unreserved 21.605243. No event written in this record.
 4. **APPOINTMENTS updated:** the chief's identity is this session; a `succession` field names the predecessor, the reason and the
    second session (below); classifier denials 11 and 12 and chief defect 9 added.
-5. **Closure 172** (574 → 580) registers this session and the second successor session, resolves `record-20-reviewer-01`, registers
+5. **Closure 172** (574 → 580 at 22:53Z; 582 after the in-place amendments) registers this session and the second successor session, resolves `record-20-reviewer-01`, registers
    the predecessor's design workflow at workflow level and pre-registers `record-21-reviewer-01` and `record-22-reviewer-01`; it is
    committed and pushed before any launch (Registration, below).
 6. **Two classifier denials in this session** (about 22:41Z, both "Irreversible Local Destruction", neither retried): denial 11, a
@@ -79,9 +80,8 @@ no write); session reads through the platform's tools (this session three times,
 sessions; the trigger list once; two pages of this session's event log and seven of the predecessor's); GitHub reads (the
 `deepseek-balance` run list, the open-PR list; no write); one self check-in Routine for 23:44Z into its own session, created and
 then deleted (`trig_01XhF6Jaxm4UwWCqV8tV7RkG`); three cross-session messages to this session; no agent, workflow, push, PR, commit
-or closure. It stands down to read-only for good. It also passed one observation, taken up in the Plan: open PR #1123 would change
-which paths fire `copilot-eval`, so before event 45 the chief re-checks whether a `backend/tests`-only PR still fires the paid
-run. The second session is registered in closure 172 as a read-only context (amended in place before merge with this list).
+or closure. It stands down to read-only for good. It also passed one observation, taken up in the Plan: PR #1123 (then open; merged at 23:18:46Z) changes which paths fire
+`copilot-eval`, so the chief re-checks whether a `backend/tests`-only PR still fires the paid run before event 45. The second session is registered in closure 172 as a read-only context (amended in place before merge with this list).
 
 ## PR #1167 review record closed (decision record 20)
 
@@ -122,19 +122,25 @@ query replaced) and deleted the raw copy. Read from the echoed commands and thei
 - Health at 22:12:17Z: `status healthy`, database latency 7.98 ms, Redis disabled, SEC circuit closed; "Deployed 86ac787 and
   verified healthy."
 
-This is the first read-back of the worker's pins from a deploy log by the chief role since record 19 (which relied on the echoed
-commands alone); the worker's live configuration is still read back only by the read-back PR's `describe-service`.
+Like record 19's reading, this rests on the deploy log's echoed commands and gcloud's result lines; the worker's live configuration
+is still read back only by the read-back PR's `describe-service`.
 
 **Later main runs**, each from its `deploy-backend` job's step list (steps 6 to 17 are the deploy steps):
 
 | Merge | PR | Main CI run | `deploy-backend` job | Outcome |
 |---|---|---|---|---|
-| `8eed19c4` | #1153 (risk headings) | 37997224662 | 114048950234 | every deploy step skipped (22:13:40–22:13:49Z) |
+| `8eed19c4` | #1153 (risk headings) | 37997224662 | 114048950234 | every deploy step skipped (22:13:44–22:13:49Z) |
 | `07bfaa63` | #1156 (size-budget gate) | 37997231285 | 114048947096 | every deploy step skipped (22:13:36–22:13:40Z) |
 | `da8dc998` | #1167 (record 20) | 37998159560 | 114051857861 | every deploy step skipped (fourteenth proof) |
 | `97eea4ca` | #1143 (filing reader) | 37998425708 | 114052833022 | every deploy step skipped (22:26:12–22:26:16Z) |
 | `f8ec0491` | #1142 (a11y) | 37999408483 | 114055797517 | every deploy step skipped (22:36:08–22:36:15Z) |
 | `a572876c` | #1166 (design follow-ups A–E) | 38000074176 | 114057357644 | **deployed** (22:41:34–22:44:23Z; every step success; read back below) |
+| `9e80b31d` | #1170 (triage replay tool) | 38001224982 | 114061786362 | every deploy step skipped (22:57:05–22:57:11Z) |
+| `153ee0e6` | #1134 (Lane B gate) | 38001249490 | 114061568096 | every deploy step skipped (22:56:18–22:56:24Z) |
+| `a3e11995` | #1171 (risk headings) | 38003499338 | 114070361468 | every deploy step skipped (23:28:34–23:28:41Z) |
+| `8c304779` | #1123 (copilot-eval paths) | 38003784423 | 114071113401 | **deployed** (23:31:24–23:33:50Z, during the interruption; every step success; read back below) |
+| `b0cf98cb` | #1135 (parallel-safe suite) | 38023102869 | 114128850894 | **deployed** (04:14:05–04:16:31Z; every step success; read back below) |
+| `b814242b` | #1140 (saved-summaries router) | 38023630189 | 114130592902 | **deployed** (04:23:56–04:26:20Z; every step success; read back below) |
 
 **#1166 (`a572876c`, design critique follow-ups A–E; merged 22:35:48Z by another writer) deployed production** while the successor
 was taking over (`deploy-backend` job 114057357644, 22:41:34–22:44:23Z), read from its log the same way: switches
@@ -142,8 +148,29 @@ was taking over (`deploy-backend` job 114057357644, 22:41:34–22:44:23Z), read 
 `earningsnerd-task-worker-00009-t8x` and the API service `earningsnerd-backend-00456-9xj` each deployed and routed 100% LATEST with
 tags cleared; every echoed `--update-env-vars` (the worker, the service, pregenerate, the six-job loop, backfill-facts) carries
 `SEC_RATE_LIMIT_PER_SECOND=1` and `EDGAR_RATE_LIMIT_PER_SEC=1`, the service's also `ENABLE_INSIDER_ACTIVITY=false`; no job reported
-missing; health at 22:44:18Z `status healthy` (database latency 8.03 ms); "Deployed a572876 and verified healthy." So production as
-this record is written runs #1166's images: the API service `00456-9xj` and the worker `00009-t8x`, every pin in place.
+missing; health at 22:44:18Z `status healthy` (database latency 8.03 ms); "Deployed a572876 and verified healthy." #1166's deploy
+left the API service on `00456-9xj` and the worker on `00009-t8x`; two later deploys by other writers followed.
+
+**#1123 (`8c304779`, the `copilot-eval` trigger paths; merged 23:18:46Z by another writer) deployed production during the
+interruption** (`deploy-backend` job 114071113401, 23:31:24–23:33:50Z), read from its log the same way: switches `true` / `set`;
+`apply_migrations: applied=0 skipped=41`; worker `earningsnerd-task-worker-00010-nz8` and service `earningsnerd-backend-00457-jnc`
+each at 100% LATEST with tags cleared; every echoed `--update-env-vars` carries both SEC pins, the service's also
+`ENABLE_INSIDER_ACTIVITY=false`; no job reported missing; health at 23:33:46Z `status healthy` (database latency 6.75 ms); "Deployed
+8c30477 and verified healthy."
+
+**#1135 (`b0cf98cb`, the parallel-safe backend suite; merged 04:09:58Z by another writer) deployed production** (`deploy-backend`
+job 114128850894, 04:14:05–04:16:31Z), read the same way: switches `true` / `set`; `apply_migrations: applied=0 skipped=41`; worker
+`earningsnerd-task-worker-00011-m2f` and service `earningsnerd-backend-00458-gls` each at 100% LATEST with tags cleared; every
+echoed `--update-env-vars` carries both SEC pins, the service's also `ENABLE_INSIDER_ACTIVITY=false`; no job reported missing;
+health at 04:16:27Z `status healthy` (database latency 6.99 ms); "Deployed b0cf98c and verified healthy."
+
+**#1140 (`b814242b`, the saved-summaries router refactor; merged 04:18:53Z by another writer) deployed production**
+(`deploy-backend` job 114130592902, 04:23:56–04:26:20Z), read the same way: switches `true` / `set`; `apply_migrations: applied=0
+skipped=41`; worker `earningsnerd-task-worker-00012-r2r` and service `earningsnerd-backend-00459-wf9` each at 100% LATEST with
+tags cleared; every echoed `--update-env-vars` carries both SEC pins, the service's also `ENABLE_INSIDER_ACTIVITY=false`; no job
+reported missing; health at 04:26:15Z `status healthy` (database latency 7.84 ms); "Deployed b814242 and verified healthy." So as
+of 04:26Z, this record's last classification, production runs #1140's images: the API service `00459-wf9` and the worker
+`00012-r2r`, every pin in place. Other writers keep merging the backlog; main runs after `b814242b` are classified in record 22.
 
 ## The founder's USD 5 floor (instruction 2026-10-09T21:38:15Z)
 
@@ -155,8 +182,8 @@ to the private ledger first (`copilot-eval` USD 0.060000 per run; `eval-baseline
 the free `deepseek-balance` workflow, taken for that trigger, shows the DeepSeek balance above USD 5.00. A reading at or below USD
 5.00 holds every paid trigger until the founder says otherwise. Latest reading: **USD 24.25 at 21:10:42Z** (run 37991815539, job
 114027646900, read by the predecessor; the successor confirmed the figure from the job's public log). The floor is written into the
-ledger by event 45, the reservation for the read-back PR's `copilot-eval` run, together with the fresh reading taken before it
-(Plan, below); the predecessor's attempt to add it to its ledger script was the first refused command.
+ledger by event 45 together with the fresh reading taken for the read-back PR's leaving draft; a reservation joins it only if a
+paid trigger can still fire (Plan, below); the predecessor's attempt to add it to its ledger script was the first refused command.
 
 ## Disclosures
 
@@ -183,21 +210,22 @@ ledger by event 45, the reservation for the read-back PR's `copilot-eval` run, t
    before running); the session's worker process restarted twice. Work resumed at 04:04Z on 2026-10-10 on the founder's "Try
    again": the design workflow resumed from its journal (the two completed readers replay from cache; the rest run live) and a
    fresh reviewer context `record-21-reviewer-02` was pre-registered (closure 172 amended in place before merge) and launched.
-   Nothing in the repository, the ledger or production changed during the interruption; PR #1172's CI completed green on
-   `72f01ed` at 23:27Z.
+   Nothing in the repository or the ledger was changed by this session during the interruption; other writers kept merging to
+   main, and one of their merges (#1123) redeployed production at 23:31–23:33Z (read back below); PR #1172's CI completed green
+   on `72f01ed` at 23:27Z.
 7. **Chief defect 10 (the successor's):** at 04:05Z on 2026-10-10 a commit chain ran the runtime-records gate through a pipe
    (`pytest … | tail -1`) without `pipefail`, so the gate's failure did not stop the chain and head `7d65c89` was committed and
    pushed to this PR with the gate red. The failure: closure 172 resolved `record-21-reviewer-01` inside the closure that registered
    it, which the chain rule forbids (a label is resolved only in a later closure). Noticed from the printed "1 failed" in the same
-   output; corrected in `351319f` six minutes later (the label annotated as exercised, its launch-time identity registered, the
-   formal resolution left to a later closure; 9 passed). No merge and no production effect; PR #1172's CI on `7d65c89` is expected
+   output; corrected in `351319f` one minute later (committed 04:07:02Z, pushed by 04:07:08Z; the label annotated as exercised,
+   its launch-time identity registered, the formal resolution left to a later closure; 9 passed). No merge and no production effect; PR #1172's CI on `7d65c89` is expected
    red on `backend-tests` for the same reason. Rule: a verification command in a chain is never piped away; its exit status gates
    the commit. Added to `APPOINTMENTS.json`'s `chief_defects`; lesson `lessons/ops-a-piped-gate-does-not-gate.md`.
 8. **The successor's side effects to this record:** read-only GitHub requests (runs, jobs, one PR, the open PR list, the balance
    job's log); two pages of the predecessor's session event log through the platform's session API (its own transcript events,
    summarised through a redacting script; one path fragment of the predecessor's scratchpad seen in its tool calls, written nowhere);
-   two signed job-log downloads (the #1169 and #1166 deploy logs) into the scratchpad, each read through the redacting filter
-   and the raw copies deleted; the private ledger read back once; the two
+   five signed job-log downloads (the #1169, #1166, #1123, #1135 and #1140 deploy logs) into the scratchpad, each read through
+   the redacting filter and the raw copies deleted; the private ledger read back once; the two
    trigger operations; the agent copy and a virtual environment with the pinned backend toolchain in the scratchpad; four cross-session
    messages (three received, one sent). No SEC, production, `run.app` or Google Cloud request; no repository write before this PR.
 
@@ -216,11 +244,13 @@ ledger by event 45, the reservation for the read-back PR's `copilot-eval` run, t
    a denied read as UNVERIFIED; `describe-jobs` prints both SEC pins per job and fails when one is not 1; `capacity-readout` adds the
    worker's request counts and latencies, the Cloud Tasks queue's depth and attempt outcomes and the worker's error-level logs,
    aggregates only; tests and docs in the same PR; it deploys nothing (workflow, `ops/`, `backend/tests/` and docs only). Order:
-   design and review in draft → **ledger event 45** (the founder's floor, a fresh balance reading above USD 5, a reservation of USD
-   0.060000) → ready (one `copilot-eval` run) → Codex → explicit squash merge → **event 46** settles the run. Any later push while
-   ready is reserved first the same way. Before event 45 the chief re-reads `copilot-eval.yml`'s trigger paths on main (open PR
-   #1123 proposes narrowing them): if a `backend/tests`-only PR no longer fires the paid run, no reservation is needed and the
-   floor reading is still taken and recorded.
+   design and review in draft → **ledger event 45** (the founder's floor and a fresh balance reading above USD 5; a reservation of
+   USD 0.060000 only if a paid trigger can fire) → ready → Codex → explicit squash merge (→ **event 46** only if a run fired).
+   PR #1123 merged at 23:18:46Z as `8c304779` and narrowed `copilot-eval.yml`'s trigger paths to the eval's own import closure
+   and data: a PR confined to `.github/workflows/ops.yml`, `ops/`, `backend/tests/` and docs no longer fires the paid run, and it
+   never fired `eval-baseline`. So event 45 records the floor and the fresh reading with no reservation, unless the PR's files
+   come to match a filter before it leaves draft, in which case a reservation is written first and any later push while ready
+   is reserved the same way.
 3. **The checks:** after it merges, `describe-service`, `describe-jobs` and a `capacity-readout` over a past window of at most two
    hours; the `docs/DEPLOYMENT.md` durable-tasks checklist completed from them; one read-only context (`durable-tasks-check-01`)
    checks the reading independently; record 22 (`record-22-reviewer-01`).
@@ -231,8 +261,8 @@ ledger by event 45, the reservation for the read-back PR's `copilot-eval` run, t
 
 ## Registration (closure 172)
 
-Closure 172 (574 → 582; recorded 22:53:10Z; amended in place before merge twice, 23:12Z and 2026-10-10 about 04:10Z, its scope
-saying so) registers as actual: this session; the second successor session (reads only, every write held); `record-20-reviewer-01`
+Closure 172 (574 → 582; recorded 22:53:10Z; amended in place before merge at 23:12Z and at 04:06–04:07Z on 2026-10-10, two
+commits, its scope saying so) registers as actual: this session; the second successor session (reads only, every write held); `record-20-reviewer-01`
 resolved to its launch-time identity (`launched-2026-10-09T1958Z`; five checks, the last bound to `86334d59`; the final head not
 re-bound); the predecessor's read-back design workflow `wf_11203ef3-3cf` at workflow level (its agent identities are not recoverable
 here; nothing from it enters the repository); and the first record-21 reviewer context (`launched-2026-10-09T2305Z`, ended by the

@@ -6,7 +6,7 @@ Date: 2026-10-10 · Area: ops / verification
 `pytest … | tail -1 && git commit … && git push`. The gate failed (closure 172 resolved a label inside
 the closure that registered it), but `tail` returned 0, so the chain committed and pushed head
 `7d65c89` of PR neilmac91/EarningsNerd#1172 with the gate red. The "1 failed" line was printed and
-read seconds later; the correction landed six minutes after (chief defect 10,
+read seconds later; the correction landed one minute after (chief defect 10,
 `tasks/code-red-20261004/runtime/control/DECISIONS-21.md`). CI caught it too, but a push that
 reaches CI red costs a cycle and the reviewers' trust.
 
