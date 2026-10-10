@@ -55,6 +55,29 @@ export const EXPECTED_TABLE_REVIEWS = {
   discrepancy: { all: 3, newest: 3, earliest: 0 },
 } as const
 
+// Independently counted from the archived fixture, not the production grouping code.
+// KPI order is Revenue, Net income, Free cash flow, Net margin. Only the last two
+// values are calculated; a reviewed latest value and its YoY each need their own mark.
+export const EXPECTED_KPI_VALUES = [
+  { label: 'Revenue', daggers: 0 },
+  { label: 'Net income', daggers: 0 },
+  { label: 'Free cash flow', daggers: 1 },
+  { label: 'Net margin', daggers: 1 },
+] as const
+export const EXPECTED_KPI_REVIEWS = {
+  clean: [0, 0, 0, 0],
+  legacy: [0, 0, 0, 1],
+  discrepancy: [1, 0, 0, 1],
+} as const
+export const EXPECTED_TABLE_VALUE_DAGGERS = { all: 101, earliest: 52, newest: 49 } as const
+// Only the displayed comparison counts here (QoQ, or YoY when QoQ is absent),
+// unlike the Data notes summary which counts both comparison populations.
+export const EXPECTED_TABLE_COMPARISON_REVIEWS = {
+  clean: { all: 0, earliest: 0, newest: 0 },
+  legacy: { all: 14, earliest: 6, newest: 8 },
+  discrepancy: { all: 3, earliest: 0, newest: 3 },
+} as const
+
 export async function openAnalysis(page: Page, baseURL: string, state: AnalysisState, theme: AnalysisTheme, textScale = 1) {
   const origin = new URL(baseURL).origin
   const fixture = fixtureFor(state)

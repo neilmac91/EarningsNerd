@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { EXPECTED_NOTES, EXPECTED_TABLE_REVIEWS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme } from './fixtures/analysisLayoutApi'
+import { EXPECTED_KPI_REVIEWS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, EXPECTED_TABLE_VALUE_DAGGERS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme } from './fixtures/analysisLayoutApi'
 
 /**
  * The one browser geometry gate for the analysis redesign (proposal Phase 1, item 10).
@@ -70,8 +70,18 @@ async function pageAndCardGeometry(page: Page) {
   })
 }
 
-async function assertPageAndCards(page: Page, width: number, textScale: number) {
+async function assertPageAndCards(page: Page, width: number, textScale: number, state: AnalysisState) {
   const geometry = await pageAndCardGeometry(page)
+  // Presence is independent of painting: omitted marks must not pass an empty loop.
+  for (const [index, expected] of EXPECTED_KPI_VALUES.entries()) {
+    const card = page.locator('[data-analysis-kpi]').nth(index)
+    await expect(card.locator('dt')).toHaveText(expected.label)
+    const source = card.locator('button[aria-label$="View source and calculation"]')
+    await expect(source.locator('span').filter({ hasText: /^†$/ })).toHaveCount(expected.daggers)
+    const reviews = EXPECTED_KPI_REVIEWS[state][index]
+    await expect(source.locator('[data-note-kind="review"]')).toHaveCount(reviews)
+    await expect(card.locator('dd').last().locator('[data-note-kind="review"]')).toHaveCount(reviews)
+  }
   await assertPaintedMarks(page, '[data-analysis-kpi]')
   await assertSourceControls(page, '[data-analysis-kpi]', 4)
   expect(geometry.scrollWidth, 'document must fit its layout viewport (including invisible positioned boxes)').toBeLessThanOrEqual(geometry.clientWidth + EPSILON)
@@ -255,6 +265,9 @@ async function assertTable(page: Page, expectedPeriods: string[], state: Analysi
   const window = expectedPeriods.length === 12 ? 'all' : expectedPeriods[0] === PERIODS[0] ? 'earliest' : 'newest'
   // Count value marks inside source controls separately from comparison marks below them.
   await expect(sourceControls.locator('[data-note-kind="review"]')).toHaveCount(EXPECTED_TABLE_REVIEWS[state][window])
+  // Q4 header daggers cannot satisfy value-mark presence; count inside source buttons.
+  await expect(sourceControls.locator('span').filter({ hasText: /^†$/ })).toHaveCount(EXPECTED_TABLE_VALUE_DAGGERS[window])
+  await expect(table.locator('tbody [data-note-kind="review"]:not(button *)')).toHaveCount(EXPECTED_TABLE_COMPARISON_REVIEWS[state][window])
   await assertPaintedMarks(page, TABLE)
   const geometry = await tableGeometry(page)
   await assertSourceControls(page, `${TABLE} tbody`, METRICS * expectedPeriods.length)
@@ -335,7 +348,7 @@ for (const theme of THEMES) for (const profile of PROFILES) {
       test.setTimeout(60_000)
       const traffic = await openAnalysis(page, baseURL!, state, theme, profile.textScale ?? 1)
       await assertNotes(page, state)
-      await assertPageAndCards(page, profile.width, profile.textScale ?? 1)
+      await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
       await expect(page.locator('[data-analysis-chart]')).toHaveCount(4)
       const baseline = await stableAnalysisOutsideTable(page)
       for (const chart of baseline.charts) {
@@ -356,13 +369,13 @@ for (const theme of THEMES) for (const profile of PROFILES) {
         await expect(window.getByRole('button', { name: selection.label, exact: true })).toHaveAttribute('aria-pressed', 'true')
         await expect(section.getByText(`Showing ${selection.periods.length} of 12 quarters`, { exact: true })).toBeVisible()
         await assertTable(page, selection.periods, state)
-        await assertPageAndCards(page, profile.width, profile.textScale ?? 1)
+        await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
         expect(await stableAnalysisOutsideTable(page), 'table windows do not change KPI, note totals, or chart data').toEqual(baseline)
       }
       // Disclosure content is also part of the responsive page, not an overflow escape hatch.
       await page.locator(`${NOTES} > details > summary`).click()
       await expect(page.locator(`${NOTES} > details`)).toHaveAttribute('open', '')
-      await assertPageAndCards(page, profile.width, profile.textScale ?? 1)
+      await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
       expect(traffic.dataset, 'table windows reuse the selected dataset').toBe(1)
       expect(traffic.stream, 'table windows never regenerate analysis').toBe(1)
       expect(traffic.unexpectedApi).toEqual([])
