@@ -71,7 +71,7 @@ ROUTER_ORM_CEILINGS: dict[str, int] = {
 
     "app/routers/internal.py": 18,
 
-    "app/routers/saved_summaries.py": 21,
+    "app/routers/saved_summaries.py": 0,
 
     "app/routers/sitemap.py": 8,  # was 7; #1147 (29493b53) added the func.lower readiness filter
 
