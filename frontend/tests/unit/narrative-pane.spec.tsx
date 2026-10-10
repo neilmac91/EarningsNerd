@@ -49,7 +49,7 @@ describe('NarrativePane readable evidence', () => {
   const renderText = (text: string) => render(<NarrativePane state={doneState({ text, completion: doneCompletion({ narrative: text, citations: operands, grounded: 2 }) })} />)
 
   it('pins the evidence prefix to the backend code-owned renderer', () => {
-    const renderer = readFileSync(resolve(process.cwd(), '../backend/app/services/trend_analysis_service.py'), 'utf8')
+    const renderer = readFileSync(resolve(process.cwd(), '../backend/app/services/trend_analysis/observations.py'), 'utf8')
     expect(renderer).toContain(`f"${SOURCE_OPERANDS_PREFIX}{operands}."`)
   })
 

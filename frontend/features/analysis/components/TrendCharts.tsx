@@ -117,17 +117,23 @@ function NoteDot({ cx, cy, value, color, dark, note, position }: NoteDotProps & 
   )
 }
 
-interface SameAxisNoteDatum { key: string; period: string; value: number; letter: string | null }
+interface LineNoteDatum { key: string; period: string; value: number; letter: string | null; axis: 'left' | 'right' }
 
-function SameAxisNoteDot({ anchors, anchorKey, ...props }: NoteDotProps & {
-  color: string; dark: boolean; note: DataNote; anchors: SameAxisNoteDatum[]; anchorKey: string
+function PositionedLineNoteDot({ anchors, anchorKey, ...props }: NoteDotProps & {
+  color: string; dark: boolean; note: DataNote; anchors: LineNoteDatum[]; anchorKey: string
 }) {
   const plot = usePlotArea()
   const xScale = useXAxisScale()
-  const yScale = useYAxisScale('left')
-  const position = plot && xScale && yScale ? layoutChartNotes(anchors.map((anchor) => ({
-    key: anchor.key, letter: anchor.letter, x: xScale(anchor.period, { position: 'middle' }) ?? Number.NaN, y: yScale(anchor.value) ?? Number.NaN,
-  })), plot).get(anchorKey) : undefined
+  const leftScale = useYAxisScale('left')
+  const rightScale = useYAxisScale('right')
+  // Each line keeps its own axis; only projected pixels share the collision calculation.
+  // This includes cross-axis obstacles without comparing dollars on incompatible scales.
+  const position = plot && xScale ? layoutChartNotes(anchors.map((anchor) => {
+    const yScale = anchor.axis === 'right' ? rightScale : leftScale
+    return {
+      key: anchor.key, letter: anchor.letter, x: xScale(anchor.period, { position: 'middle' }) ?? Number.NaN, y: yScale?.(anchor.value) ?? Number.NaN,
+    }
+  }), plot).get(anchorKey) : undefined
   return <NoteDot {...props} position={position} />
 }
 
@@ -244,8 +250,8 @@ function PanelCard({
   const renderDot = (concept: string, color: string, growth = false) => function ChartNoteDot(props: NoteDotProps) {
     const period = props.payload?.period ?? ''
     const note = noteAt(concept, period, growth)
-    return note && !dualAxis && !barSeries
-      ? <SameAxisNoteDot {...props} color={color} dark={dark} note={note} anchors={sameAxisNotes} anchorKey={`${concept}:${period}`} />
+    return note && !barSeries
+      ? <PositionedLineNoteDot {...props} color={color} dark={dark} note={note} anchors={lineNotes} anchorKey={`${concept}:${period}`} />
       : <NoteDot {...props} color={color} dark={dark} note={note} />
   }
 
@@ -266,10 +272,10 @@ function PanelCard({
     }
     return row
   })
-  const sameAxisNotes = data.flatMap((row) => lineEntries.flatMap(({ concept }) => {
+  const lineNotes: LineNoteDatum[] = data.flatMap((row) => lineEntries.flatMap(({ concept, right }) => {
     const value = row[concept]
     const period = String(row.period)
-    return typeof value === 'number' ? [{ key: `${concept}:${period}`, period, value, letter: noteAt(concept, period)?.letter ?? null }] : []
+    return typeof value === 'number' ? [{ key: `${concept}:${period}`, period, value, letter: noteAt(concept, period)?.letter ?? null, axis: dualAxis && right ? 'right' : 'left' }] : []
   }))
 
   // Route by SERIES, not by value magnitude: the growth line always formats as a percent and
