@@ -18,6 +18,9 @@ what its new module changes (its name, package, file or docstring, a relative im
 namespace, whether its annotations are postponed, or a module dunder it binds) each fail; a disclosed delta
 passes with its diff shown.
 """
+import pytest
+
+from tests.support import ast_move_proof
 from tests.support.ast_move_proof import Report, compare, render
 
 OLD = '''"""Old module docstring."""
@@ -658,17 +661,20 @@ def test_each_name_is_relocated_only_when_its_value_differs():
     it a package, which moves the package, the file and the relative imports; a class body's ``__module__``
     is the module's name; ``__path__`` exists only in a package; and a relative import that went beyond the
     top-level package is its own target."""
-    reads = ("A = __name__\nB = __package__\nC = __file__\nD = __spec__\nE = __path__\n\n\n"
+    reads = ("A = __name__\nB = __package__\nC = __file__\nD = __spec__\nE = __path__\nF = __loader__\nG = __cached__\n\n\n"
              "def load():\n    from .h import x\n    return x\n\n\nclass Box:\n    origin = __module__\n")
     assert _relocated(reads, "app/services/y.py") == {
         "A": "reads __name__ (app.services.y, was app.services.x)",
         "C": "reads __file__ (another file in the same directory)",
         "D": "reads __spec__ (another file in the same directory)",
+        "F": "reads __loader__ (another file in the same directory)",
+        "G": "reads __cached__ (another file in the same directory)",
         "Box.origin": "reads __module__ (app.services.y, was app.services.x)"}
     assert _relocated(reads, "app/services/x/__init__.py") == {
         "A": "reads __name__ (app.services.x, now a package)",
         "B": "reads __package__ ('app.services.x', was 'app.services')",
         "C": "reads __file__ (another file)", "D": "reads __spec__ (another file)", "E": "reads __path__ (another file)",
+        "F": "reads __loader__ (another file)", "G": "reads __cached__ (another file)",
         "load": "imports x from .h (app.services.x.h, was app.services.h)"}
     beyond = "def load():\n    from ... import x\n    return x\n"
     assert _relocated(beyond, "app/services/sub/y.py") == {"load": "imports x from ... (app, was an ImportError)"}
@@ -704,6 +710,40 @@ def test_a_name_a_module_binds_itself_is_compared_as_that_binding():
     assert twice.duplicate == {"NAME": ["app/y.py", "app/z.py"]} and twice.relocated == {}
 
 
+def test_a_binding_settles_a_name_only_when_it_sets_it_outright_above_the_read():
+    """``__doc__ +=`` and ``__doc__.format()`` keep the docstring they read, the ``__package__`` shim binds
+    only when the package is empty, and a read at import above ``__doc__ = ...`` took the docstring: each still
+    reads what the new module derives. Below that binding, and from a def's body, the binding is the value,
+    and a ``global`` store sets it outright too (its def is compared as a symbol)."""
+    cli = '"""Filing CLI."""\n__doc__ += "\\n\\nUsage: run"\n\n\ndef usage():\n    return __doc__\n'
+    assert _relocated(cli, "app/cli.py", "app/cli.py", cli.replace("Filing CLI.", "Facade.")) == {
+        "__doc__": "reads __doc__ (the module docstring differs)", "usage": "reads __doc__ (the module docstring differs)"}
+    formatted = cli.replace('__doc__ += "\\n\\nUsage: run"', "__doc__ = __doc__.format()")
+    assert set(_relocated(formatted, "app/cli.py", "app/cli.py", formatted.replace("Filing CLI.", "Facade."))) == {
+        "__doc__", "usage"}
+    shim = "if not __package__:\n    __package__ = 'app.tools'\n\n\ndef where():\n    return __package__\n"
+    assert _relocated(shim, "app/tools/runner/__init__.py", "app/tools/runner.py") == {
+        "guard:if not __package__": "reads __package__ ('app.tools.runner', was 'app.tools')",
+        "where": "reads __package__ ('app.tools.runner', was 'app.tools')"}
+    above = ('"""Old."""\nDESCRIPTION = __doc__\n\n\ndef early():\n    return __doc__\n\n\n__doc__ = "Fixed."\nTITLE = __doc__\n\n\n'
+             "def reset():\n    global __doc__\n    __doc__ = None\n\n\ndef usage():\n    return __doc__\n")
+    assert _relocated(above, "app/x.py", "app/x.py", above.replace("Old.", "New.")) == {
+        "DESCRIPTION": "reads __doc__ (the module docstring differs)"}
+
+
+def test_a_name_one_module_sets_outright_and_the_other_does_not_is_relocated():
+    """One module's own binding against the other's derived value, whichever side holds it: a binding moved
+    into a block may never run, and a def that binds through ``global`` binds the module's name."""
+    plain = '__doc__ = "Fixed."\nTEXT = __doc__\n'
+    guarded = 'if READY:\n    __doc__ = "Fixed."\nTEXT = __doc__\n'
+    assert _relocated(plain, "app/x.py", "app/x.py", guarded) == {"TEXT": "reads __doc__ (the old module bound it)"}
+    assert _relocated(guarded, "app/x.py", "app/x.py", plain) == {"TEXT": "reads __doc__ (the new module binds it)"}
+    setup = "def setup():\n    global __doc__\n    __doc__ = 'Ready.'\n\n\ndef usage():\n    return __doc__\n"
+    split = compare(setup, {"app/x.py": setup.split("\n\n\n")[0] + "\n", "app/y.py": "def usage():\n    return __doc__\n"},
+                    old_path="app/x.py")
+    assert split.relocated == {"usage": "app/y.py, was app/x.py: reads __doc__ (the old module bound it)"}
+
+
 def test_moved_code_that_reads_the_module_docstring_is_relocated_when_it_differs():
     """A façade rewrites the module docstring on the old path, so code that stays there and reads ``__doc__``
     (``argparse``'s description) is RELOCATED; the same docstring is OK. In a class body a documented class
@@ -713,12 +753,31 @@ def test_moved_code_that_reads_the_module_docstring_is_relocated_when_it_differs
         "DESCRIPTION": "reads __doc__ (the module docstring differs)",
         "Cli.help": "reads __doc__ (the module docstring differs)"}
     assert _relocated(old, "app/x.py", "app/x.py") == {}
+    member = '"""Old."""\nDESCRIPTION = __doc__\n\n\nclass Cli:\n    __doc__ = "Cli usage."\n'
+    assert _relocated(member, "app/x.py", "app/x.py", member.replace("Old.", "New.")) == {
+        "DESCRIPTION": "reads __doc__ (the module docstring differs)"}
+    indented = '"""Title.\n\n    Body.\n"""\nDESCRIPTION = __doc__\n'
+    assert _relocated(indented, "app/x.py", "app/x.py", indented.replace("    Body.", "        Body.")) == {
+        "DESCRIPTION": "reads __doc__ (the module docstring differs)"}
+
+
+def test_a_documented_class_binds_its_own_docstring_wherever_it_stands():
+    """Nested in a class or built in a def, a documented class reads its own ``__doc__``, and so does a
+    block in its body; an undocumented class body falls through to the module's, past any enclosing class."""
+    old = ('"""Old."""\n\n\nclass Plain:\n    usage = __doc__\n\n\nclass Cli:\n    """Cli."""\n    if __doc__:\n        usage = 1\n\n\n'
+           'class Job:\n    class Options:\n        """Scan."""\n        help = __doc__\n\n\n'
+           'def build():\n    class Command:\n        """Backfill."""\n        help = __doc__\n    return Command\n\n\n'
+           "class Outer:\n    class Inner:\n        help = __doc__\n")
+    assert _relocated(old, "app/x.py", "app/x.py", old.replace("Old.", "New.")) == {
+        "Plain.usage": "reads __doc__ (the module docstring differs)",
+        "Outer.Inner": "reads __doc__ (the module docstring differs)"}
 
 
 def test_a_block_reads_its_header_and_a_class_its_body_imports():
     """A block reads where its module lives through its header only (a ``__main__`` guard moved away no longer
-    runs under ``python -m``); its statements are symbols of their own, a def in it included. A relative
-    import directly in a class body is in no member's text, so the class reports it."""
+    runs under ``python -m``), whichever header it is (a test, a context, an iterable or target, a handled
+    exception) and a namespace call there too; its statements are symbols of their own, a def in it included.
+    A relative import directly in a class body is in no member's text, so the class reports it."""
     old = ("if __name__ == '__main__':\n    main()\n\nif READY:\n    PATH = __file__\n\n    def load():\n"
            "        from . import h\n        return h\n\n\nclass Loader:\n    from . import h\n")
     assert _relocated(old, "app/services/sub/y.py") == {
@@ -726,6 +785,20 @@ def test_a_block_reads_its_header_and_a_class_its_body_imports():
         "PATH": "reads __file__ (another file)",
         "load": "imports h from . (app.services.sub, was app.services)",
         "Loader": "imports h from . (app.services.sub, was app.services)"}
+    headers = ("if 'LIMIT' in globals():\n    READY = True\n\nwith open(Path(__file__).with_name('a.txt')) as _fh:\n"
+               "    DATA = _fh.read()\n\nfor _word in Path(__file__).read_text().split():\n    NAMES.append(_word)\n\n"
+               "for SEEN[__name__] in ['v']:\n    pass\n\ntry:\n    import fast\n"
+               "except getattr(sys.modules[__name__], 'Handled', ImportError):\n    fast = None\n\n\n"
+               "class Config:\n    if eval('DEBUG'):\n        level = 10\n")
+    namespace = "reads its module's namespace through {} (app.services.sub.y, was app.services.x)"
+    assert _relocated(headers, "app/services/sub/y.py") == {
+        "guard:if 'LIMIT' in globals()": namespace.format("globals()"),
+        "guard:with open(Path(__file__).with_name('a.txt')) as _fh": "reads __file__ (another file)",
+        "guard:for _word in Path(__file__).read_text().split()": "reads __file__ (another file)",
+        "guard:for SEEN[__name__] in ['v']": "reads __name__ (app.services.sub.y, was app.services.x)",
+        "guard:try except getattr(sys.modules[__name__], 'Handled', ImportError)":
+            "reads __name__ (app.services.sub.y, was app.services.x)",
+        "Config.guard:if eval('DEBUG')": namespace.format("eval()")}
 
 
 def test_namespace_reads_postponed_annotations_and_moved_module_dunders_are_relocated():
@@ -748,17 +821,88 @@ def test_namespace_reads_postponed_annotations_and_moved_module_dunders_are_relo
     assert _relocated(old, "app/x/__init__.py", "app/x.py") == {}
 
 
+def test_eval_and_exec_read_the_callers_namespace_unless_given_globals_of_their_own():
+    """CPython runs ``eval`` and ``exec`` in the caller's globals when none are given or the given ones are
+    ``None`` (by position or by keyword, with only ``locals=`` or ``closure=``, or unpacked from a sequence the
+    proof cannot see into); a mapping of their own, or a parameter named ``eval``, reads nothing of the module."""
+    old = ("def run(src):\n    exec(src)\n\n\ndef evaluate(expr, row):\n    return eval(expr, None, row)\n\n\n"
+           "def closure(src):\n    exec(src, closure=None)\n\n\ndef unpacked(src, rest):\n    return eval(src, *rest)\n\n\n"
+           "def keyword(src):\n    return eval(src, globals=None)\n\n\ndef only_locals(src, ns):\n    return eval(src, locals=ns)\n\n\n"
+           "def scoped(src, ns):\n    return eval(src, {}, ns)\n\n\n"
+           "def given(src):\n    return eval(src, globals={})\n\n\ndef local(expr, eval):\n    return eval(expr)\n")
+    namespace = "reads its module's namespace through {} (app.y, was app.x)"
+    assert _relocated(old, "app/y.py", "app/x.py") == {
+        "run": namespace.format("exec()"), "evaluate": namespace.format("eval()"), "closure": namespace.format("exec()"),
+        "unpacked": namespace.format("eval()"), "keyword": namespace.format("eval()"),
+        "only_locals": namespace.format("eval()")}
+
+
+def test_only_annotations_python_evaluates_and_code_compiled_under_the_future_import_count():
+    """Each form alone, moved into a module that postpones annotations: a parameter, a return, a class field,
+    a class built in a def, a nested def's parameter, and code handed to ``exec`` or ``compile``, which inherits
+    the caller's ``from __future__`` imports unless told ``dont_inherit``. An annotation in a def's body,
+    ``self.calls: list[str] = []`` included, is never evaluated."""
+    old = ("def param(rows: list):\n    return rows\n\n\ndef ret(rows) -> list:\n    return rows\n\n\n"
+           "class Field:\n    key: str\n\n\ndef local(rows):\n    count: Undefined = len(rows)\n    return count\n\n\n"
+           "class Fake:\n    def __init__(self):\n        self.calls: list[str] = []\n\n\n"
+           "def factory():\n    class Row:\n        key: Later\n    return Row\n\n\n"
+           "def nested():\n    def inner(x: Later):\n        return x\n    return inner\n\n\n"
+           "def make(src, ns):\n    exec(src, {}, ns)\n\n\ndef build(src):\n    return compile(src, '<generated>', 'exec')\n\n\n"
+           "def isolated(src):\n    return compile(src, '<generated>', 'exec', dont_inherit=True)\n\n\n"
+           "def apart(src):\n    return compile(src, '<generated>', 'exec', 0, True)\n")
+    postponed = "its annotations are postponed now (from __future__ import annotations), evaluated before"
+    assert _relocated(old, "app/x/impl.py", "app/x.py", "from __future__ import annotations\n\n" + old) == dict.fromkeys(
+        ("param", "ret", "Field", "factory", "nested", "make", "build"), postponed)
+
+
+def test_a_module_dunder_bound_through_global_is_relocated_and_a_class_dunder_or_private_name_is_not():
+    """A def or a method that binds a module dunder through ``global`` installs it on the module it now lives
+    in, and a moved ``__all__`` no longer lists the façade's exports; a block reports a dunder defined in it as
+    that def. A class's ``__init__`` and ``__eq__`` move with their class, and ``__registry`` is a private
+    name, not a dunder."""
+    old = ("def enable():\n    global __getattr__\n\n    def __getattr__(name):\n        return name\n\n\n"
+           "class Exports:\n    @staticmethod\n    def install():\n        global __dir__\n        __dir__ = lambda: ['x']\n\n\n"
+           "class Box:\n    def __init__(self):\n        self.n = 1\n\n    def __eq__(self, other):\n        return True\n\n\n"
+           "__registry = {}\n__all__ = ['enable']\n\nif LAZY:\n\n    def __dir__():\n        return []\n")
+    assert _relocated(old, "app/x/install.py", "app/x.py") == {
+        "__dir__": "binds __dir__, which Python reads from app.x.install, was app.x",
+        "enable": "binds __getattr__, which Python reads from app.x.install, was app.x",
+        "Exports.install": "binds __dir__, which Python reads from app.x.install, was app.x",
+        "__all__": "binds __all__, which Python reads from app.x.install, was app.x"}
+
+
 def test_without_the_old_path_every_read_but_the_docstrings_fails_closed():
     """``old_path`` places the old module; the CLI always passes ``--old``. Without it, a read of where the
     module lives cannot be cleared, so it is reported; the module docstring can still be compared."""
-    report = compare('"""Doc."""\n' + INDEX + "DESCRIPTION = __doc__\n",
-                     {"app/services/index_service.py": '"""Doc."""\n' + INDEX + "DESCRIPTION = __doc__\n"})
+    source = ('"""Doc."""\n' + INDEX + "DESCRIPTION = __doc__\n\n\ndef lookup(name):\n    return globals()[name]\n\n\n"
+              "def __getattr__(name):\n    return name\n")
+    report = compare(source, {"app/services/index_service.py": source})
     assert {key: where.split(": ", 1)[1] for key, where in report.relocated.items()} == {
         "DATA_PATH": "reads __file__ (the old path is unknown)",
         "load_helper": "imports helpers from . (app.services, was an unknown module)",
-        "logger": "reads __name__ (the old path is unknown)"}
+        "logger": "reads __name__ (the old path is unknown)",
+        "lookup": "reads its module's namespace through globals() (app.services.index_service, was an unknown module)",
+        "__getattr__": "binds __getattr__, which Python reads from app.services.index_service, was an unknown module"}
     assert all(where.startswith("app/services/index_service.py, was an unknown path: ")
                for where in report.relocated.values())
+
+
+def test_the_cli_derives_a_modules_identity_from_its_path_however_it_is_spelled(monkeypatch, capsys):
+    """``./``, ``..`` and an absolute path name the same file, so a file compared with itself is one module,
+    and the file read is the one named; a path outside ``backend/`` names no module of it."""
+    read = []
+
+    def show(ref: str, path: str) -> str:
+        read.append(path)
+        return INDEX
+
+    monkeypatch.setattr(ast_move_proof, "_git_show", show)
+    spelled = str(ast_move_proof.BACKEND_DIR / "app/services/index_service.py")
+    assert ast_move_proof.main(["--base", "B", "--old", "app/services/../services/index_service.py", "--new", spelled]) == 0
+    assert read == ["app/services/index_service.py", "app/services/index_service.py"]
+    assert "pure move: OK (3 symbols identical" in capsys.readouterr().out
+    with pytest.raises(SystemExit, match="is not under backend/"):
+        ast_move_proof.main(["--base", "B", "--old", "../frontend/x.py", "--new", "app/x.py"])
 
 
 def test_an_honest_split_that_keeps_what_reads_its_module_in_place_is_not_relocated():
