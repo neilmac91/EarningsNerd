@@ -206,8 +206,10 @@ function PreferenceRows({
           </p>
         </div>
         {/* aria-disabled while saving, not `disabled`: the select that just changed holds focus. A
-            controlled select whose handler returns early keeps its value. */}
+            controlled select whose handler returns early keeps its value. Named like the switches
+            above, by aria-label: the row's text is a span, not a <label>. */}
         <select
+          aria-label="Digest frequency"
           value={prefs.digest}
           aria-disabled={busy || undefined}
           aria-busy={busy || undefined}
@@ -215,7 +217,7 @@ function PreferenceRows({
             if (busy) return
             save({ digest: e.target.value })
           }}
-          className={clsx(inputClasses(), 'w-auto py-1.5 text-sm', fieldUnavailableClass)}
+          className={clsx(inputClasses({ select: true, autoWidth: true }), fieldUnavailableClass)}
         >
           <option value="immediate">Immediate</option>
           <option value="daily">Daily</option>

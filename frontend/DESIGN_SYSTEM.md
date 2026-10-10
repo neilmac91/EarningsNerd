@@ -183,10 +183,17 @@ Ghost button     <Button variant="ghost">  — brand.strong text on transparent,
 
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
-                 <Input> component can't wrap use inputClasses({ invalid, density }).
+                 <Input> component can't wrap use inputClasses({ invalid, density, select, autoWidth }).
                  Toolbar fields (v3.1): density="compact" on <Select>/inputClasses = 36px from sm
-                 up, phones keep the standard 42px field height. `density`, not `size` (a native attribute);
-                 each density has its own EXPLICIT padding sides (never an override on top).
+                 up, phones keep the standard 42px field height; a field inside a table row is compact too.
+                 `density`, not `size` (a native attribute); each density has its own EXPLICIT padding sides
+                 (never an override on top). A select stays raw when it needs a class on the element itself
+                 (fieldUnavailableClass) or has no Shell; it takes `select: true` (the Select component's
+                 padding: pr-9 clears the chevron). `autoWidth: true` sizes a field to its content (beside its
+                 label in a flex row, a toolbar filter, a table cell), capped at its container. Never a class on
+                 top that sets what the field sets (`w-auto` over its `w-full`, `py-1.5`, `text-xs`): cx and clsx
+                 do no tailwind-merge, so stylesheet order decides, and `.w-full` follows `.w-auto`. Gate:
+                 tests/unit/inputClassesNoOverrides.spec.tsx.
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;

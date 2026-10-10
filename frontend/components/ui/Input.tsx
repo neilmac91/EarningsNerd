@@ -12,6 +12,12 @@
    conflict-order reliance; also inputClasses({ leadingIcon }) for raw fields),
    and Textarea grows variant="composer" (transparent auto-growing field for a
    focus-within shell — the chat composer, no double chrome).
+   v3.2: inputClasses() grows `select` (a raw <select> takes the Select
+   component's padding, so its chevron has room) and `autoWidth` (the field sizes
+   to its content instead of filling its container). A raw field never takes a
+   class on top that sets what the field already sets: cx does no tailwind-merge,
+   so stylesheet order, not class order, decides (gate:
+   tests/unit/inputClassesNoOverrides.spec.tsx).
    Assumes @tailwindcss/forms (already in the config plugins).
 ============================================================================= */
 
@@ -32,8 +38,9 @@ import { cx } from './cx'
     the client so composer auto-grow never flashes; plain effect on the server. */
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
-const FIELD = cx(
-  'w-full rounded-lg border text-sm transition-[border-color,box-shadow] duration-fast',
+/** The field's look without a width: inputClasses({ autoWidth }) picks the width explicitly. */
+const FIELD_BASE = cx(
+  'rounded-lg border text-sm transition-[border-color,box-shadow] duration-fast',
   'border-border-light bg-white text-text-primary-light placeholder:text-text-tertiary-light',
   'hover:border-flat-light',
   'focus:border-brand focus:shadow-ring-brand focus:outline-none',
@@ -43,6 +50,7 @@ const FIELD = cx(
   'dark:hover:border-flat-dark dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark',
   'dark:disabled:bg-white/5 dark:disabled:hover:border-border-dark',
 )
+const FIELD = cx('w-full', FIELD_BASE)
 
 const INVALID = cx(
   'border-error-light focus:border-error-light focus:shadow-ring-error',
@@ -57,7 +65,8 @@ const PAD_ICON = 'py-2.5 pl-11 pr-3.5'
 
 /** v3.1 — field density. `comfortable` (default) is the form field (42px: 10px padding, a 20px line,
     1px borders). `compact` is the TOOLBAR field (the filings index's year filter, beside a
-    SegmentedControl): 36px from sm up, while phones keep the standard 42px. Named `density`
+    SegmentedControl) and the field inside a table row (the admin feedback status): 36px from sm
+    up, while phones keep the standard 42px. Named `density`
     (DataTable's vocabulary), not `size` — `size` is a native <input>/<select> attribute. EXPLICIT
     sides per density, never an override on top of PAD: cx does no tailwind-merge, so two padding
     utilities resolve by stylesheet order, not class order. */
@@ -66,25 +75,54 @@ const PAD_COMPACT = 'px-3.5 py-2.5 sm:h-9 sm:px-3 sm:py-1.5'
 const PAD_ICON_COMPACT = 'py-2.5 pl-11 pr-3.5 sm:h-9 sm:py-1.5 sm:pl-10 sm:pr-3'
 const SELECT_PAD = { comfortable: 'py-2.5 pl-3.5 pr-9', compact: 'py-2.5 pl-3.5 pr-9 sm:h-9 sm:py-1.5 sm:pl-3' } as const
 
-export interface InputClassesOptions {
+interface InputClassesBase {
   /** Renders the error-ring treatment (mirrors what the `error` prop wires). */
   invalid?: boolean
-  /** Reserve the pl-11 leading-icon inset (you render the icon — absolute,
-      left-3.5, centered, pointer-events-none, muted tone). */
-  leadingIcon?: boolean
   /** v3.1: `compact` = the 36px toolbar field from sm up (phones keep the standard 42px). */
   density?: FieldDensity
+  /** v3.2: the field sizes to its content instead of filling its container: a select beside its
+      label in a flex row, a toolbar filter, a table cell. Capped at its container (`max-w-full`)
+      for options that come from data. Never `w-auto` on top of the default: the stylesheet emits
+      `.w-full` after `.w-auto`, so that override loses. */
+  autoWidth?: boolean
   className?: string
 }
+
+/** `leadingIcon` and `select` each set the field's padding, so a field takes one or neither. */
+export type InputClassesOptions = InputClassesBase &
+  (
+    | {
+        /** Reserve the pl-11 leading-icon inset (you render the icon — absolute,
+            left-3.5, centered, pointer-events-none, muted tone). */
+        leadingIcon?: boolean
+        select?: false
+      }
+    | {
+        /** v3.2: a raw <select> takes the Select component's padding (SELECT_PAD, per density):
+            its pr-9 clears the forms plugin's chevron, where PAD's 14px right inset lets a
+            content-width select's text run under it. */
+        select: true
+        leadingIcon?: never
+      }
+  )
 
 /** Class-string factory — the full field treatment for raw <input>/<select>
     elements the component can't wrap (third-party pickers, combobox libs).
     Mirrors the kept repo Input's inputClasses export (7 importers), so the
     port is mechanical: `inputClasses` → `inputClasses()`. The components
     below compose the same pieces — one source of truth. */
-export function inputClasses({ invalid = false, leadingIcon = false, density = 'comfortable', className }: InputClassesOptions = {}): string {
-  const pad = density === 'compact' ? (leadingIcon ? PAD_ICON_COMPACT : PAD_COMPACT) : leadingIcon ? PAD_ICON : PAD
-  return cx(FIELD, pad, invalid && INVALID, className)
+export function inputClasses({
+  invalid = false,
+  leadingIcon = false,
+  select = false,
+  density = 'comfortable',
+  autoWidth = false,
+  className,
+}: InputClassesOptions = {}): string {
+  const pad = select
+    ? SELECT_PAD[density]
+    : density === 'compact' ? (leadingIcon ? PAD_ICON_COMPACT : PAD_COMPACT) : leadingIcon ? PAD_ICON : PAD
+  return cx(autoWidth ? cx('max-w-full', FIELD_BASE) : FIELD, pad, invalid && INVALID, className)
 }
 
 /** The field's `disabled:` look keyed to `aria-disabled`, for a field (a <select> here) that is
