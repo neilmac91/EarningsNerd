@@ -48,8 +48,8 @@ import { bindingResolver } from './astBindings'
  *  (c) `!important`, an arbitrary variant (`[&>option]:`) the gate cannot place, or a token Tailwind does not
  *      generate. A marker (`group`, `peer`) or a utility that styles only other elements (`space-x-2`) passes.
  *  (d) a <select> without `select` (PAD's 14px right inset leaves the forms plugin's chevron no room, and a
- *      select that sizes to its content puts its text under it; a list box, `multiple` or `size`, draws no
- *      chevron and is exempt), or `select` on anything but a <select>.
+ *      select that sizes to its content puts its text under it; a list box, `multiple` or a literal `size` over
+ *      1, draws no chevron and is exempt), or `select` on anything but a <select>.
  *
  * A state layer passes: `aria-disabled:bg-background-light` over the field's `bg-white` (with its
  * `dark:aria-disabled:` twin), `focus-within:border-brand` on the composer shell. A position the scan cannot
@@ -120,7 +120,7 @@ const DEFAULTS: Options = { invalid: false, leadingIcon: false, select: false, d
 const BOOLEAN_OPTIONS = ['invalid', 'leadingIcon', 'select', 'autoWidth'] as const
 const DENSITIES: FieldDensity[] = ['comfortable', 'compact']
 
-interface Site { file: string; line: number; tag: string; attrs: string[]; combos: Options[]; added: string[] }
+interface Site { file: string; line: number; tag: string; listBox: boolean; combos: Options[]; added: string[] }
 interface Scan { calls: number; sites: Site[]; unreadable: string[] }
 
 class Unreadable extends Error {}
@@ -227,6 +227,27 @@ function scanSource(file: string, text: string): Scan {
     return out
   }
 
+  /** An attribute's literal value: true when it has none, null when it is not a literal, undefined when absent. */
+  const attrValue = (element: ts.JsxOpeningLikeElement, name: string): string | boolean | null | undefined => {
+    const a = element.attributes.properties.find((x): x is ts.JsxAttribute => ts.isJsxAttribute(x) && x.name.getText(sf) === name)
+    if (!a) return undefined
+    const init = a.initializer
+    if (!init) return true
+    if (ts.isStringLiteral(init)) return init.text
+    const e = ts.isJsxExpression(init) ? init.expression : undefined
+    if (e?.kind === ts.SyntaxKind.TrueKeyword) return true
+    if (e?.kind === ts.SyntaxKind.FalseKeyword) return false
+    if (e && (ts.isNumericLiteral(e) || ts.isStringLiteral(e))) return e.text
+    return null
+  }
+  /** The forms plugin draws no chevron on `select[multiple]` or `select[size]:not([size="1"])`. A value the gate
+      cannot read is not a list box, so such a select is held to `select: true`. */
+  const isListBox = (element: ts.JsxOpeningLikeElement): boolean => {
+    const multiple = attrValue(element, 'multiple')
+    const size = attrValue(element, 'size')
+    return multiple === true || (typeof size === 'string' && Number(size) > 1)
+  }
+
   const readOptions = (call: ts.CallExpression): { combos: Options[]; className: string[] } => {
     if (call.arguments.length > 1) throw new Unreadable('inputClasses() given more than one argument')
     const arg = call.arguments[0]
@@ -278,8 +299,7 @@ function scanSource(file: string, text: string): Scan {
         node = p
       } else if (ts.isJsxExpression(p) && ts.isJsxAttribute(p.parent) && p.parent.name.getText(sf) === 'className') {
         const element = p.parent.parent.parent
-        const attrs = element.attributes.properties.flatMap((a) => (ts.isJsxAttribute(a) ? [a.name.getText(sf)] : []))
-        return { file, line: lineOf(call), tag: element.tagName.getText(sf), attrs, combos, added }
+        return { file, line: lineOf(call), tag: element.tagName.getText(sf), listBox: isListBox(element), combos, added }
       } else throw new Unreadable(`inputClasses() inside a ${ts.SyntaxKind[p.kind]}, which the gate cannot follow to a className`)
     }
   }
@@ -478,9 +498,8 @@ async function check(scan: Scan): Promise<{ file: string; line: number; finding:
     const found = new Set<string>()
     for (const combo of site.combos) {
       for (const f of competing(fieldOf(combo), site.added)) found.add(f)
-      // The forms plugin draws no chevron on a list box (`multiple`, or `size` over 1), so neither rule holds there.
-      const listBox = site.attrs.includes('multiple') || site.attrs.includes('size')
-      if (site.tag === 'select' && !listBox && !combo.select) {
+      // The forms plugin draws no chevron on a list box (`multiple`, or `size` over 1), so the rule skips it.
+      if (site.tag === 'select' && !site.listBox && !combo.select) {
         found.add("a <select> without select: true (PAD's 14px right inset leaves the chevron no room)")
       }
       if (site.tag !== 'select' && combo.select) found.add(`select: true on a <${site.tag}>`)
@@ -508,7 +527,11 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
   return out
 }
 
+let appScan: (Scan & { files: number }) | undefined
+
+/** The app's scan, read once for both tests. */
 function scanApp(): Scan & { files: number } {
+  if (appScan) return appScan
   const total: Scan & { files: number } = { calls: 0, sites: [], unreadable: [], files: 0 }
   for (const root of ROOTS) {
     // A missing root throws: a rename must update the gate, not shrink what it covers.
@@ -522,10 +545,14 @@ function scanApp(): Scan & { files: number } {
       total.unreadable.push(...scan.unreadable)
     }
   }
+  appScan = total
   return total
 }
 
-describe('a raw field takes inputClasses() options, never a competing class on top', () => {
+/** A first Tailwind compile plus the tree scan takes 1-2s here and longer on a loaded runner; 5s is too tight. */
+const SLOW = { timeout: 30_000 }
+
+describe('a raw field takes inputClasses() options, never a competing class on top', SLOW, () => {
   it('no class combined with inputClasses() competes with the field’s own', async () => {
     const scan = scanApp()
     expect(scan.unreadable, 'inputClasses() where the gate cannot read what it is combined with').toEqual([])
@@ -553,7 +580,7 @@ describe('a raw field takes inputClasses() options, never a competing class on t
 const IMPORTS = `import { clsx } from 'clsx'\nimport { fieldUnavailableClass, inputClasses } from '@/components/ui/Input'\n`
 const NO_CHEVRON_ROOM = "a <select> without select: true (PAD's 14px right inset leaves the chevron no room)"
 
-describe('the scanner', () => {
+describe('the scanner', SLOW, () => {
   it('fails each override main abda78ce shipped, verbatim', async () => {
     expect(await findingsOf(`${IMPORTS}export const D = () => <select className={clsx(inputClasses(), 'w-auto py-1.5 text-sm', fieldUnavailableClass)} />`)).toEqual([
       NO_CHEVRON_ROOM,
@@ -648,8 +675,14 @@ export const S = () => <div className={cx(inputClasses({ className: 'flex items-
     expect(await findingsOf(`${IMPORTS}export const S = () => <select className={inputClasses()} />`)).toEqual([NO_CHEVRON_ROOM])
     expect(await findingsOf(`${IMPORTS}export const S = () => <select className={inputClasses({ autoWidth: true })} />`)).toEqual([NO_CHEVRON_ROOM])
     expect(await findingsOf(`${IMPORTS}export const S = () => <select className={inputClasses({ select: true })} />`)).toEqual([])
-    // A list box draws no chevron, so it is held to neither rule.
+    // A list box draws no chevron, so it is held to neither rule; `size={1}` and `multiple={false}` are dropdowns.
     expect(await findingsOf(`${IMPORTS}export const M = () => <select multiple className={inputClasses()} />`)).toEqual([])
+    expect(await findingsOf(`${IMPORTS}export const M = () => <select size={4} className={inputClasses()} />`)).toEqual([])
+    expect(await findingsOf(`${IMPORTS}export const M = () => <select size={1} className={inputClasses()} />`)).toEqual([NO_CHEVRON_ROOM])
+    expect(await findingsOf(`${IMPORTS}export const M = () => <select multiple={false} className={inputClasses()} />`)).toEqual([NO_CHEVRON_ROOM])
+    expect(await findingsOf(`${IMPORTS}export const M = ({ n }: { n: number }) => <select size={n} className={inputClasses()} />`)).toEqual([
+      NO_CHEVRON_ROOM,
+    ])
     expect(await findingsOf(`${IMPORTS}export const I = () => <input className={inputClasses({ select: true })} />`)).toEqual([
       'select: true on a <input>',
     ])
