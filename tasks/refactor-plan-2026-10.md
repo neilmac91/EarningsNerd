@@ -158,20 +158,21 @@ original proposal; these notes are authoritative for what actually shipped.
        - the complete-event docstring at T:1718-1719 omits `unverified`, `mismatched` and `invalidated`.
     6. Dead code: the writer keys and the two unreachable dedups. The Dead PR's scope stays as decision 4
        set it unless a review reopens it.
+- **Wave 0 closed (2026-10-10).** W0.G and all six anchor PRs are merged. The
+  [closeout evidence](refactor-wave0-closeout-2026-10.md) links each mutation record, the proof
+  hardening in #1174/#1177, the current full-suite baseline and every retained paid run.
+  Dead is the next PR; I1 starts after Dead's gates, review and verified deployment.
 - **Spend log** (decision 1). Rows land in tasks-only PRs, batched once per wave and never in a
   refactor PR, because a push to a code-bearing PR re-fires `eval-baseline` and parallel PRs would
   collide on the running total. Each balance reading gets its own row. A second `copilot-eval` run on
-  one PR needs a reason (`lessons/ops-keep-moving-under-standing-authorization.md`). The floor: when a
-  balance reading is under USD 25, paid runs stop until the founder answers, because production calls
-  the same provider.
-  The first reading, USD 28.38 on 2026-10-09, leaves USD 3.38 above that floor. That covers Wave 0's
-  `copilot-eval` runs (about USD 0.10), but not Waves 1–3 (USD 13.8–16.4 estimated). Before Wave 1's
-  first paid run, the founder tops up the balance or lowers the floor. This is the plan's one open
-  founder action.
-
-| Date | PR | Head | Run or balance read | Job | Reason | Reserved (USD) | Cost (USD) | Running total |
-|---|---|---|---|---|---|---:|---:|---:|
-| 2026-10-09 12:49Z | — | main `8ff4c532` | balance read: USD 28.38 available, all topped up ([run 37932600962](https://github.com/neilmac91/EarningsNerd/actions/runs/37932600962)) | `deepseek-balance` | before the Wave 0 un-drafts; no inference call | — | 0.00 | 0.00 |
+  one PR needs a reason (`lessons/ops-keep-moving-under-standing-authorization.md`).
+  On 2026-10-10 the founder confirmed: “The $5 balance floor applies to this refactor programme too.”
+  This supersedes the original USD 25 floor. Stop paid triggers at or below USD 5, or if their
+  reservation would cross that floor; the USD 18 programme ceiling and per-trigger reservations
+  are unchanged. There is no outstanding top-up/lower-floor decision for Wave 1.
+  The [Wave 0 spend table](refactor-wave0-closeout-2026-10.md#wave-0-spend) records USD 0.133491
+  in estimated inference cost from job telemetry, including the cancelled run that completed its
+  paid calls. Provider balance changes also include other programmes and production traffic.
 
 ---
 
@@ -1337,8 +1338,9 @@ main at `76d45732`), the decision and what it changes. Nothing in this plan now 
      ledger's hash chain; for about USD 14–16.4 in total a plain per-run log is proportionate.
    - **Decision: (c).** The ceiling is USD 18 for every paid run this plan's PRs fire. Before each wave,
      and before un-drafting a PR whose un-draft is paid, dispatch `.github/workflows/deepseek-balance.yml`
-     (it makes no inference call) and note the balance; under USD 25, stop and ask, because production
-     calls the same provider. Before each paid trigger, the PR body states a reservation at the dearest
+     (it makes no inference call) and note the balance. The founder lowered this programme’s floor
+     to USD 5 on 2026-10-10: stop at or below USD 5, or if the reservation would cross it, because
+     production calls the same provider. Before each paid trigger, the PR body states a reservation at the dearest
      measured run × 2 (USD 0.06 a `copilot-eval` run, USD 0.73 an `eval-baseline` push: the
      reservation rule of `tasks/code-red-20261004/runtime/control/DECISIONS-09.md:147-150`). That
      meets the "reserve the spend first" sentence #1118 and #1126 bring to AGENTS.md §6 without the
@@ -1485,10 +1487,9 @@ main at `76d45732`), the decision and what it changes. Nothing in this plan now 
      files it edits. Whichever of F1 and #1118/#1126 lands second resolves the CLAUDE.md conflict: those
      PRs move rule 5's text, and the path edit is one line either way.
 
-One founder item outside this plan still touches it: #1118's decision 5, whether #1123 merges, which
-changes only what Wave 0's un-drafts cost. One founder action inside it surfaced on 2026-10-09 (Implementation Notes,
-Spend log). The provider balance read USD 28.38 against decision 1's USD 25 floor, so Waves 1–3 need a
-top-up, or a lower floor, before Wave 1's first paid run.
+#1123 merged on 2026-10-09, narrowing `copilot-eval` to its inputs. The founder’s 2026-10-10
+USD 5 floor supersedes the original USD 25 floor and closes the Wave 1 funding hold. Read the
+current balance and reserve each paid trigger within the unchanged USD 18 programme ceiling.
 
 ---
 
