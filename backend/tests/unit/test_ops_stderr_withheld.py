@@ -16,9 +16,10 @@ python3, 3.12 today, while CI tests on 3.11) and linted with the backend rule se
 (run inside backend/) does not reach.
 
 Not covered (review concerns): gcloud run through a variable, a function, its full path, a script a step calls
-or pipes into a shell, or a `python3 -c` helper; `|&` after a gcloud call; a capture file named without its
-literal path (a relative path, a brace or variable expansion); a step in a job other than `ops` (only its steps
-are read); and a dynamic import or lookup (importlib, __import__, sys.modules) in an ops/ module.
+or pipes into a shell, or a `python3 -c` helper; a file a step writes and then runs by path; `|&` after a gcloud
+call; a capture file named without its literal path (a relative path, a brace or variable expansion); a step in a
+job other than `ops` (only its steps are read); and a dynamic import or lookup (importlib, __import__,
+sys.modules) in an ops/ module.
 """
 import ast
 import importlib.util
@@ -97,16 +98,16 @@ OS_SPAWNERS = re.compile(r"system|popen|spawn\w*|exec\w*|posix_spawn\w*|fork\w*"
 SEAM = ("ops/describe/service.py", "gcloud_json")
 # Modules that start child processes outside the subprocess/os calls this gate inspects.
 CHILD_MODULES = {"pty", "asyncio", "multiprocessing"}
-# Public modules in 3.11's sys.stdlib_module_names that 3.12 or 3.13 removed: CI's interpreter still lists them,
-# the runner's python3 has none of them.
+# Public modules in 3.11's sys.stdlib_module_names that 3.12 or 3.13 removed: CI's interpreter still lists them; the
+# runner's python3 (3.12 today) lacks the first five, and a 3.13 runner would lack the rest too.
 REMOVED_AFTER_311 = {
     "asynchat", "asyncore", "distutils", "imp", "smtpd",  # removed in 3.12
     "aifc", "audioop", "cgi", "cgitb", "chunk", "crypt", "imghdr", "lib2to3", "mailcap", "msilib", "nis", "nntplib",
     "ossaudiodev", "pipes", "sndhdr", "spwd", "sunau", "telnetlib", "uu", "xdrlib",  # removed in 3.13
 }
-# A python command (behind an assignment or env/exec-style prefix, by any path or version), and the forms a step may
-# run: a file by path from ops/ or scripts/, or a one-line -c program quoted whole with nothing to expand.
-PYTHON = re.compile(r"(?:(?:\w+=\S*|env|exec|command|nohup|sudo|time|\{)\s+)*(?:\S*/)?python[0-9.]*(?=\s|$)")
+# A python word anywhere in a command (behind any prefix, by any path or version), and the forms a step may run as
+# the whole command: a file by path from ops/ or scripts/, or a one-line -c program quoted whole with nothing to expand.
+PYTHON = re.compile(r"(?:^|[\s/\"'{])python[0-9.]*(?=[\s\"']|$)")
 ALLOWED_PYTHON = re.compile(r"""python3?\s+(?:(?:ops|scripts)/\S+\.py|-c\s+(?:'[^']*'|"(?:[^"\\$`]|\\.)*"))(?=\s|$)""")
 FAKE_GCLOUD = '''import json, os, sys
 argv = sys.argv[1:]
@@ -365,10 +366,35 @@ def _gcloud_calls():
                     yield name, group, command
 
 
+def _stderr_class(command):
+    """Where a command's stderr goes: "inherited" (the job log), "discarded", or the file that captures it. The last
+    stderr redirect wins, so `2>/dev/null 2>&1` inherits."""
+    targets = re.findall(r"(?<![0-9&>])2>\s*(&?[^\s;|&)]+)", command)
+    if not targets or targets[-1].startswith("&"):
+        return "inherited"
+    return "discarded" if targets[-1] == "/dev/null" else targets[-1]
+
+
+@pytest.mark.parametrize("command,where", [
+    ("gcloud x", "inherited"),
+    ("gcloud x 2>&1", "inherited"),
+    ("gcloud x 2>/dev/null", "discarded"),
+    ("gcloud x 2>/dev/null 2>&1", "inherited"),
+    ("gcloud x 2>&1 2>/dev/null", "discarded"),
+    ("gcloud x >/tmp/o 2>/tmp/e", "/tmp/e"),
+])
+def test_stderr_class_takes_the_last_redirect(command, where):
+    assert _stderr_class(command) == where
+
+
 def test_ops_workflow_gcloud_stderr_is_discarded_or_captured_except_listed_actions():
     inherited, captured = {}, []
     calls = list(_gcloud_calls())
-    _, steps = _steps()
+    workflow, steps = _steps()
+    # The name-keyed map drops a step whose name repeats (or a second unnamed one): every run step must stay visible.
+    listed = workflow["jobs"]["ops"]["steps"]
+    assert len(steps) == len(listed) and all(step.get("name") for step in listed if "run" in step), (
+        "every ops.yml run step needs its own name, or the step map hides it from these scans")
     words = sum(len(re.findall(r"(?:^|[\s;|&!]|\$\()gcloud\s+[a-z]", "\n".join(_executable_lines(step.get("run") or "")),
                                re.M)) for step in steps.values())
     assert len(calls) == words >= 14, "the scanner must see every gcloud call in ops.yml"
@@ -377,13 +403,15 @@ def test_ops_workflow_gcloud_stderr_is_discarded_or_captured_except_listed_actio
     opaque = [(name, line) for name, step in steps.items() for line in _executable_lines(step.get("run") or "")
               if re.search(r"`|\beval\b|\b(?:ba|da|k|z)?sh\s+-|/tmp/\S*[*?\[]", line)]
     assert not opaque, f"the scanner cannot see into backticks, eval, sh -c or a /tmp/ glob: {opaque}"
+    disguised = [(name, command) for name, step in steps.items() for line in _executable_lines(step.get("run") or "")
+                 for command in _commands(line) if re.match(r'[\\"\']+gcloud\b', command)]
+    assert not disguised, f"the scanner cannot see a quoted or escaped gcloud: {disguised}"
     for name, group, command in calls:
-        # The last stderr redirect of the command wins (`2>/dev/null 2>&1` inherits).
-        targets = re.findall(r"(?<![0-9&>])2>\s*(&?[^\s;|&)]+)", command)
-        if not targets or targets[-1].startswith("&"):
+        where = _stderr_class(command)
+        if where == "inherited":
             inherited[(name, group)] = inherited.get((name, group), 0) + 1
-        elif targets[-1] != "/dev/null":
-            captured.append((name, targets[-1]))
+        elif where != "discarded":
+            captured.append((name, where))
     assert inherited == INHERITED, "a gcloud call lets its stderr reach the job log; discard or classify it"
     assert captured == [(PROBE_STEP, "/tmp/probe.err")]
     # A file that captured stderr is only tested, never printed: every other command naming it, in any step, is
@@ -397,10 +425,11 @@ def test_ops_workflow_gcloud_stderr_is_discarded_or_captured_except_listed_actio
 def _inline_python(run, shell=None):
     """Whether a step's script runs a Python program no committed file holds: any heredoc (ops.yml has none), a
     step shell other than bash, or a python command other than a file run by path from ops/ or scripts/ or a
-    one-line `-c` program (so `python3 <<'PY'`, `python3 -I - <<`, `cat <<'PY' | python3 -`, `printf ... | python3`)."""
+    one-line `-c` program (so `python3 <<'PY'`, `python3 -I - <<`, `cat <<'PY' | python3 -`, `printf ... | python3`,
+    `printf ... | timeout 60 python3 -`)."""
     if "<<" in run or shell not in (None, "bash"):
         return True
-    return any(PYTHON.match(command) and not ALLOWED_PYTHON.match(command)
+    return any(PYTHON.search(command) and not ALLOWED_PYTHON.match(command)
                for line in _executable_lines(run) for command in _commands(line))
 
 
@@ -418,6 +447,10 @@ def _inline_python(run, shell=None):
     ("python3 -c '\nprint(1)\n'\n", None, True),  # a -c program over several lines
     ('python3 -c "$PROGRAM"\n', None, True),
     ("print(1)\n", "python", True),
+    ("printf 'print(1)\\n' | timeout 60 python3 -\n", None, True),
+    ("printf 'print(1)\\n' | /usr/bin/env python3 -\n", None, True),
+    ("printf 'print(1)\\n' | sudo -E python3\n", None, True),
+    ('timeout 60 python3 -c "$PROGRAM"\n', None, True),
     ("python3 ops/describe/service.py", None, False),
     ("python3 ops/describe/service.py", "bash", False),
     ('python3 ops/capacity/readout.py --start "$S" --end "$E" \\\n  --region "$REGION" --output receipt/cloud.json\n',
@@ -484,6 +517,12 @@ def test_ops_modules_never_let_a_child_process_inherit_stderr():
             # So would the module bound to another name (`sp = subprocess`) or handed to a call (getattr(os, ...)).
             if isinstance(node, ast.Name) and node.id in ("os", "subprocess"):
                 assert isinstance(parents.get(node), ast.Attribute), f"{path}:{node.lineno}: bare {node.id}"
+            # So would a spawner bound to another name (`run = subprocess.run`, functools.partial(subprocess.run)).
+            if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
+                    and (node.value.id == "subprocess" and node.attr in SPAWNERS
+                         or node.value.id == "os" and OS_SPAWNERS.fullmatch(node.attr))):
+                assert isinstance(parents.get(node), ast.Call) and parents[node].func is node, (
+                    f"{path}:{node.lineno}: {node.value.id}.{node.attr} must be called where it is named")
             if (isinstance(node, ast.Attribute) and node.attr == "stderr"
                     and not (isinstance(node.value, ast.Name) and node.value.id in ("sys", "subprocess"))):
                 stderr_reads.append((module, owner.get(node)))
@@ -522,7 +561,7 @@ def test_ops_modules_import_only_the_standard_library():
                 continue
             for name in names:
                 assert name.split(".")[0] in sys.stdlib_module_names, f"{path}: {name} is not in the standard library"
-                assert name.split(".")[0] not in REMOVED_AFTER_311, f"{path}: {name} is gone from the runner's python3"
+                assert name.split(".")[0] not in REMOVED_AFTER_311, f"{path}: {name} is gone from Python 3.12 or 3.13"
 
 
 def test_ops_python_passes_the_backend_lint_rule_set():

@@ -222,8 +222,10 @@ and IP addresses have first been replaced by `<url>`, `<email>` or `<host>`; fro
 be read or parsed, only `body` (`non_json_or_unreadable` or `truncated_or_non_json`); other JSON
 leaves none. The redaction is shape-based: a dotted name is withheld whenever its last label could
 end a host name, except an IAM permission name ending in `.get`, `.list` or `.use`; a single-label
-host name, an IPv4 address glued to a letter, digit, `_` or `-` and an IPv6 address after a `label:`
-prefix are kept, and a host name in a script written with combining marks (Indic) is not covered.
+host name, a host name followed by a label that cannot end one (`.1`, `_1`), a name dotted with a
+non-ASCII dot (U+3002, U+FF0E), an IPv4 address glued to a letter, digit, `_` or `-` and an IPv6
+address after a `label:` prefix are kept, and a host name in a script written with combining marks
+(Indic) is not covered.
 The response body itself is never kept.
 The receipt is retained as the `capacity-readout-<run id>` Actions artifact for 14 days.
 

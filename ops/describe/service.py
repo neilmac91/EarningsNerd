@@ -5,7 +5,8 @@ Run by ops.yml's describe-service step as `python3 ops/describe/service.py` (REG
 the workflow env); stdlib only. Every gcloud read, the API service describe included, goes through
 gcloud_json(), which captures stderr and reduces a failure to a closed class. Env values print only through
 the allow-list (allow-listed values such as OPENAI_BASE_URL and AI_FALLBACK_BASE_URL print by design), the SEC
-pins only as a bounded digit string; the service, traffic and worker URLs and command and argument values never
+pins only as a bounded digit string, and WEB_CONCURRENCY and UVICORN_WORKERS only as an integer from 1 to 999 in
+the capacity line; the service, traffic and worker URLs and command and argument values never
 print (lessons/ops-capacity-projection-withholds-command-values.md). Gates: backend/tests/unit/
 test_capacity_projection_privacy.py, test_prod_flag_visibility.py and test_ops_stderr_withheld.py.
 """

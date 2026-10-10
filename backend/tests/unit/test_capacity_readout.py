@@ -400,6 +400,8 @@ REDACTION_VECTORS = [
      "PRIVATE_POOL_SENTINEL/subject/PRIVATE_SUBJECT_SENTINEL is unknown.", "Subject <url> is unknown."),
     ("Set principalSet://PRIVATE_SET_SENTINEL.example.invalid/x and "
      "HTTPS://PRIVATE_UPPER_SENTINEL.example.invalid/y.", "Set <url> and <url>"),
+    ("Visit 'https://PRIVATE_QUOTED_SENTINEL.example.invalid/PRIVATE_PATH_SENTINEL' or "
+     "(https://PRIVATE_PAREN_SENTINEL.example.invalid/x).", "Visit <url> or <url>"),
     # An email address or principal, the whole token, also percent-encoded.
     ("Permission denied for all log views. This command is authenticated as PRIVATE_USER_SENTINEL@example.invalid.",
      "Permission denied for all log views. This command is authenticated as <email>"),
