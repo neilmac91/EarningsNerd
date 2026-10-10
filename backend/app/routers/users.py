@@ -33,6 +33,10 @@ except ImportError:
     STRIPE_AVAILABLE = False
     logger.warning("Stripe not available - install stripe package for subscription cancellation")
 
+# Provider wire statuses, not entitlement rules (those remain in entitlements.py). A subscription in
+# one of these can never bill again; account deletion cancels a subscription in any other status.
+_ENDED_STRIPE_SUBSCRIPTION_STATUSES = frozenset({"canceled", "incomplete_expired"})
+
 try:
     from posthog import Posthog
     posthog_client = Posthog(
@@ -326,12 +330,20 @@ async def delete_user_account(
             "sentry": "skipped"
         }
 
-        # 1. Cancel Stripe subscription if active
+        # 1. Cancel every Stripe subscription that can still bill
         if STRIPE_AVAILABLE and stripe_customer_id:
             try:
-                # List all active subscriptions for this customer
-                subscriptions = stripe.Subscription.list(customer=stripe_customer_id, status='active')
-                for subscription in subscriptions.data:
+                # status='all', not 'active': a trialing subscription converts to paid at trial end
+                # and a past_due one keeps retrying the card. 'all' also returns ended history, so
+                # the live ones can sit behind the first page: walk every page.
+                subscriptions = stripe.Subscription.list(customer=stripe_customer_id, status='all', limit=100)
+                for subscription in subscriptions.auto_paging_iter():
+                    if subscription.status in _ENDED_STRIPE_SUBSCRIPTION_STATUSES:
+                        continue
+                    if subscription.customer != stripe_customer_id:
+                        # The list is external data: never cancel a subscription this customer does not own.
+                        logger.warning(f"Skipped Stripe subscription {subscription.id} of another customer for user {user_id}")
+                        continue
                     stripe.Subscription.delete(subscription.id)
                     logger.info(f"Cancelled Stripe subscription {subscription.id} for user {user_id}")
 

@@ -146,7 +146,7 @@ account deletion needs the warning emails below first and is a founder decision.
    - Deletes from `saved_summaries` table
    - Deletes from `watchlist` table
    - Deletes from `user_usage` table
-   - Notifies Stripe to delete customer (or mark as deleted)
+   - Cancels every live Stripe subscription (any status but `canceled` or `incomplete_expired`); the Stripe customer record is kept for the 7-year tax retention in §2.7
    - Notifies PostHog to delete user profile
    - Anonymizes user in Sentry error logs
 5. System logs deletion in audit trail (anonymized)
