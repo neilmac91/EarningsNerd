@@ -340,6 +340,10 @@ async def delete_user_account(
                 for subscription in subscriptions.auto_paging_iter():
                     if subscription.status in _ENDED_STRIPE_SUBSCRIPTION_STATUSES:
                         continue
+                    if subscription.customer != stripe_customer_id:
+                        # The list is external data: never cancel a subscription this customer does not own.
+                        logger.warning(f"Skipped Stripe subscription {subscription.id} of another customer for user {user_id}")
+                        continue
                     stripe.Subscription.delete(subscription.id)
                     logger.info(f"Cancelled Stripe subscription {subscription.id} for user {user_id}")
 

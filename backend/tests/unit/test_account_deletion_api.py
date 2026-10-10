@@ -119,12 +119,13 @@ class _FakeStripe:
     session the SDK talks through. Rows are newest first, as Stripe lists them; pages are
     cursor-based and hold at most 100 rows; a ``status`` filter behaves as Stripe documents it."""
 
-    def __init__(self, statuses, refuse_later_pages=False):
+    def __init__(self, statuses, refuse_later_pages=False, honour_customer_filter=True):
         self.subscriptions = [
             {"id": f"sub_{position}_{status}", "object": "subscription", "customer": STRIPE_CUSTOMER, "status": status}
             for position, status in enumerate(statuses)
         ] + [{"id": "sub_another_customer", "object": "subscription", "customer": "cus_another", "status": "active"}]
         self.refuse_later_pages = refuse_later_pages
+        self.honour_customer_filter = honour_customer_filter
         self.list_queries: list[dict[str, str]] = []
         self.cancelled: list[str] = []
         self.other_requests: list[tuple[str, str]] = []
@@ -148,7 +149,7 @@ class _FakeStripe:
         rows = self.subscriptions
         if "starting_after" in query:
             rows = rows[[row["id"] for row in rows].index(query["starting_after"]) + 1:]
-        if "customer" in query:
+        if "customer" in query and self.honour_customer_filter:
             rows = [row for row in rows if row["customer"] == query["customer"]]
         status = query.get("status")
         if status is None:
@@ -277,5 +278,14 @@ def test_a_stripe_failure_is_reported_and_the_deletion_still_proceeds(client, mo
     # failure is reported, and the walk stops where it failed, here on the second page.
     statuses = ["trialing"] + ["canceled"] * 100 + ["past_due"]
     stripe_api = _delete_account_of_customer(client, monkeypatch, statuses, r"error: .+", refuse_later_pages=True)
+
+    assert stripe_api.cancelled == ["sub_0_trialing"]
+
+
+@pytest.mark.requires_db
+def test_a_listed_subscription_of_another_customer_is_never_cancelled(client, monkeypatch):
+    # The list is external data: if a response ever ignored the customer filter, another customer's live
+    # subscription would be listed beside this one, and deleting this account must not cancel it.
+    stripe_api = _delete_account_of_customer(client, monkeypatch, ["trialing"], honour_customer_filter=False)
 
     assert stripe_api.cancelled == ["sub_0_trialing"]
