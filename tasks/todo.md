@@ -6626,7 +6626,7 @@ Full local and hosted verification plus independent exact-head review precede re
   back from its log, and so were #1166's, #1123's, #1135's and #1140's: every process carries both SEC pins, the insider switch off,
   healthy; eight later main runs skipped every deploy step. The founder's USD 5 DeepSeek-balance floor recorded as a stop
   condition beside the reservation rule. A duplicate second successor session holds every write; the founder's confirmation
-  received as relayed. The account's usage limit interrupted the first launches (23:25Z to 04:04Z). Chief defects 9 and 10;
+  received as relayed. The account's usage limit interrupted the first launches (23:25Z to 04:04Z). Chief defects 9, 10 and 11;
   classifier denials 11–12. Lessons `lessons/ops-hand-over-when-the-harness-refuses-the-conversation.md` and
   `lessons/ops-a-piped-gate-does-not-gate.md`.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
