@@ -267,10 +267,11 @@ function expressionTokens(expr: ts.Expression): string[] | 'factory' | null {
  * write it: `function ModalBody({ className, ...rest }) { return <div className={cx('px-6', className)}
  * {...rest} /> }`. The pattern takes className out of `rest`, and everything else in it, a tabIndex
  * included, is written at the component's call sites, where the scan reads it with the className that
- * reaches this element. A function not named as a component is called (`renderRow({ tabIndex: 0 })`),
- * not rendered, so nothing reads what it is given: its spread stays unread. So does one onto an element
- * whose focus a prop no call site is read for decides: media (`controls`), an <iframe> or a <details>
- * (see unstylableStop), and an element the caller chooses (`{ as: Tag = 'div' }` rendered `as="a"`).
+ * reaches this element, which must always include it (see carries). A function not named as a
+ * component is called (`renderRow({ tabIndex: 0 })`), not rendered, so nothing reads what it is given:
+ * its spread stays unread. So does one onto an element whose focus a prop no call site is read for
+ * decides: media (`controls`), an <iframe> or a <details> (see unstylableStop), and an element the
+ * caller chooses (`{ as: Tag = 'div' }` rendered `as="a"`).
  */
 function ownRestProps(spread: ts.JsxSpreadAttribute, element: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.SourceFile): boolean {
   if (!ts.isIdentifier(spread.expression)) return false
@@ -287,8 +288,22 @@ function ownRestProps(spread: ts.JsxSpreadAttribute, element: ts.JsxOpeningEleme
     if (pattern.elements.some((el) => !el.dotDotDotToken && ts.isIdentifier(el.name) && el.name.text === tag)) return false
     const className = pattern.elements.find((el) => !el.dotDotDotToken && (el.propertyName ?? el.name).getText(sf) === 'className')
     const attr = element.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText(sf) === 'className')
-    return !!className && ts.isIdentifier(className.name) && !!attr?.initializer && mentions(attr.initializer, className.name.text)
+    const classes = attr?.initializer && ts.isJsxExpression(attr.initializer) ? attr.initializer.expression : undefined
+    return !!className && ts.isIdentifier(className.name) && carries(classes, className.name.text)
   }
+  return false
+}
+
+/**
+ * Whether a class expression always includes the binding `name`: the binding itself, a template's
+ * `${name}`, or an argument of `cx(…)` that is one of these. A conditional (`open && className`) can
+ * drop the caller's classes, ring included, so it does not count.
+ */
+function carries(expr: ts.Expression | undefined, name: string): boolean {
+  if (!expr) return false
+  if (ts.isIdentifier(expr)) return expr.text === name
+  if (ts.isTemplateExpression(expr)) return expr.templateSpans.some((span) => carries(span.expression, name))
+  if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression) && expr.expression.text === 'cx') return expr.arguments.some((arg) => carries(arg, name))
   return false
 }
 
@@ -298,9 +313,6 @@ function functionName(fn: ts.FunctionDeclaration | ts.FunctionExpression | ts.Ar
   const holder = ts.isCallExpression(fn.parent) ? fn.parent.parent : fn.parent
   return ts.isVariableDeclaration(holder) && ts.isIdentifier(holder.name) ? holder.name.text : undefined
 }
-
-const mentions = (node: ts.Node, name: string): boolean =>
-  (ts.isIdentifier(node) && node.text === name) || !!ts.forEachChild(node, (child) => mentions(child, name) || undefined)
 
 /** A module's default export under whatever names the file imports it as. */
 function defaultImportNames(sf: ts.SourceFile, matches: (module: string) => boolean): Set<string> {
@@ -726,6 +738,7 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       })
       export function Body({ ...rest }: Props) { return <div className="p-4" {...rest} /> }
       export function Footer({ className, ...rest }: Props) { return <div className="p-4" {...rest} /> }
+      export function Drop({ className, open, ...rest }: Props) { return <div className={cx('p-2', open && className)} {...rest} /> }
       function row({ className, ...rest }: Props) { return <div className={cx('p-1', className)} {...rest} /> }
       export function Player({ className, ...rest }: Props) { return <video className={cx('w-full', className)} {...rest} /> }
       export function Card({ as: Tag = 'div', className, ...rest }: Props) { return <Tag className={cx('border', className)} {...rest} /> }
@@ -735,24 +748,26 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
         return <><ModalHeader {...headerProps} /><Body tabIndex={0} className="p-2" /></>
       }`
     const { stops, findings } = missingRings(src)
-    expect(stops).toBe(12)
+    expect(stops).toBe(13)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       '8 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       '9 <button> missing focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
-      // Rest props that may still hold a className, that never reach the element's className, or that a
-      // function is called with rather than rendered with, are read nowhere.
+      // Rest props that may still hold a className, whose element never takes the caller's className or
+      // takes it only on a condition, or that a function is called with rather than rendered with, are
+      // read nowhere.
       '16 <div> a props spread the scan cannot read',
       '17 <div> a props spread the scan cannot read',
       '18 <div> a props spread the scan cannot read',
+      '19 <div> a props spread the scan cannot read',
       // Nor are the props that decide these elements' focus: a caller's `controls`, a caller's `as="a"`.
-      '19 <video> a props spread the scan cannot read',
-      '20 <Tag> a props spread the scan cannot read',
+      '20 <video> a props spread the scan cannot read',
+      '21 <Tag> a props spread the scan cannot read',
       // A `disabled` the rest props can override takes nothing out of the order; a tabIndex written after
-      // them does (Scrim, line 22, is no stop).
-      '21 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      // them does (Scrim, line 23, is no stop).
+      '22 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       // What a call site gives a component is read at the call site.
-      '24 <ModalHeader> a props spread the scan cannot read',
-      '24 <Body> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      '25 <ModalHeader> a props spread the scan cannot read',
+      '25 <Body> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
     ])
   })
 
