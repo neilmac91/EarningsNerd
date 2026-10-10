@@ -4,7 +4,7 @@ Recorded 2026-10-09T23:02Z, amended 2026-10-09T23:12Z (the relayed confirmation)
 interruption; the fresh reviewer context), 04:09Z (chief defect 10), 04:30Z (after the record-21 review: the later main runs
 read back, including two deploys by other writers), 05:03Z (chief defect 11), 05:11Z (the records gate extended to every verification step; the title; the
 interval of chief defect 11 corrected) and 05:21Z (the wrapper's `backend` scope carries the full backend gate; chief
-defect 12), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
+defect 12) and 05:50Z (`auto` also reads the commits since main), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
 Context: record 20 merged to main as `da8dc998` (PR #1167, 2026-10-09T22:14:52Z); this is the first PR from the successor's
 branch `claude/stoic-wright-6jeujo`, started at `a572876c`. Records, two lessons, the lessons index, one records-tree tool
 (`tools/records-gate.sh`) and its test under `backend/tests/unit/`: no application code, workflow, migration, cloud, IAM or
@@ -227,13 +227,15 @@ paid trigger can still fire (Plan, below); the predecessor's attempt to add it t
    (rule 12; Codex's P1 on this PR, extended after chief defect 11 by Codex's P1 on `61ed80e` and after chief defect 12 by Codex's
    P1 on `8a3fd35`): `tools/records-gate.sh` is the supported way to verify a records commit. In its `records` scope it runs the
    runtime-records gate, `ruff check` and `ruff format --check` on the backend test files the records tree owns; in its `backend`
-   scope, chosen automatically when the working tree has a staged or unstaged change under `backend/`, it adds the repository's
+   scope, chosen automatically when the working tree or the commits since main change anything under `backend/`
+   (failing closed when no base exists to compare with), it adds the repository's
    full backend gate (`ruff check .`, `bandit -r app -ll`, `python -m pytest`). Every step runs unpiped, each exit status is captured
    explicitly (`|| status=$?`, never `set -e`, which the tool shell suppresses), one line per step is printed, and the exit status is
    0 only when every step passed. `backend/tests/unit/test_records_gate_wrapper.py` pins that form and proves it by mutation in
    temporary repositories: a failing pytest step, a failing non-pytest step (an unformatted file) and a failing full-gate step (a
    planted Bandit finding) each fail the wrapper; clean trees pass it in both scopes; `auto` picks `backend` in a repository with a
-   change under `backend/` and `records` otherwise. The repository still cannot see the chief's shell, so the gate is the wrapper plus
+   change under `backend/` in the working tree or in the commits since main, `records` otherwise, and fails closed without a base
+   (Codex's P1 on `8f64ee6`: the first `auto` read the working tree only, so a clean tree after a commit chose `records`). The repository still cannot see the chief's shell, so the gate is the wrapper plus
    CI's own run of the records gate, which is what caught `7d65c89`.
 8. **The successor's side effects to this record:** read-only GitHub requests (runs, jobs, one PR, the open PR list, the balance
    job's log); two pages of the predecessor's session event log through the platform's session API (its own transcript events,
@@ -256,7 +258,7 @@ paid trigger can still fire (Plan, below); the predecessor's attempt to add it t
    `ruff format --check` on the two backend test files the records tree owns), each with its exit status captured explicitly, and
    exits 0 only when every step passed; its test proves by mutation that a failing non-pytest step (an unformatted file) fails the
    gate as a failing pytest step does (disclosure 7). Codex's P1 on `8a3fd35`: the wrapper's `backend` scope, chosen automatically
-   when the working tree has a change under `backend/`, adds the repository's full backend gate (`ruff check .`, `bandit -r app -ll`,
+   when the working tree or the commits since main change `backend/`, adds the repository's full backend gate (`ruff check .`, `bandit -r app -ll`,
    `python -m pytest`) as three more steps, and the test proves a planted Bandit finding fails it (disclosure 10).
 
 10. **Chief defect 12 (the successor's):** the pushes of this PR that changed `backend/tests/` (`0fc248f`, `577edeb`, `2dc7a3b`,
@@ -264,7 +266,7 @@ paid trigger can still fire (Plan, below); the predecessor's attempt to add it t
     themselves, not by the full backend gate the repository requires before every push that changes `backend/` (`ruff check . &&
     bandit -r app -ll && python -m pytest`, AGENTS.md). CI's backend-tests job ran the full gate green on each of those heads, so
     nothing red reached CI or main; the gap is procedural. Found by Codex (P1 on `8a3fd35`). From this head the wrapper's `backend`
-    scope runs the full gate automatically whenever the working tree changes anything under `backend/` (its test proves a planted
+    scope runs the full gate automatically whenever the working tree or the commits since main change anything under `backend/` (its test proves a planted
     Bandit finding fails it), and this head was pushed only after that scope passed on it under a Python 3.11 environment matching CI's
     (`RECORDS_GATE_PYTHON`): a first run under this container's default Python 3.13 failed 11 tests in two files this PR does not
     touch (`test_copilot_prose_quotations.py`, whose unassigned-character cases use U+2FFC and U+31EF, assigned in the Unicode 15.1

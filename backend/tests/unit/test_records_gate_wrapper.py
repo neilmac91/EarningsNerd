@@ -6,7 +6,8 @@ status decided; chief defect 10) and one relied on ``set -e``, which the chief's
 pushes that changed ``backend/tests/`` were not preceded by the repository's full backend gate. The wrapper is the supported way
 to verify a records commit: every step runs unpiped with its exit status captured explicitly, the ``backend`` scope adds the full
 backend gate (``ruff check .``, ``bandit -r app -ll``, ``python -m pytest``) and is chosen automatically when the working tree
-changes anything under ``backend/``, and the wrapper exits 0 only when every step passed. This test pins that form and proves
+or the commits since main change anything under ``backend/`` (failing closed when no base exists to compare with), and the
+wrapper exits 0 only when every step passed. This test pins that form and proves
 it by mutation in temporary repositories shaped like this one: a failing pytest step, a failing non-pytest step (an unformatted
 file) and a failing full-gate step (a planted Bandit finding) each fail the wrapper; clean trees pass it in both scopes. Each
 proof runs the wrapper in a subprocess with the running interpreter; nothing in the real tree is touched.
@@ -79,9 +80,28 @@ def test_wrapper_form_every_step_unpiped_with_its_status_captured() -> None:
     assert re.search(r'^exit "\$failed"\s*$', text, re.MULTILINE), "the wrapper must exit non-zero when any step failed"
 
 
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(  # noqa: S603, S607 - git on a throwaway repository under tmp_path
+        ["git", "-C", str(repo), "-c", "user.name=probe", "-c", "user.email=probe@example.invalid", *args],
+        check=True,
+        capture_output=True,
+    )
+
+
 def _run_wrapper(
-    tmp_path: Path, probe_body: str, *, scope: str | None = "records", app_body: str | None = None, git: bool = False
+    tmp_path: Path,
+    probe_body: str,
+    *,
+    scope: str | None = "records",
+    app_body: str | None = None,
+    git: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    """Run the wrapper on a temporary repository.
+
+    ``git`` lays the repository out for the auto-scope proofs: ``"untracked-change"`` (initialised, nothing committed, so the
+    backend files are an unstaged change), ``"committed-change"`` (a ``main`` with the test only, then a branch whose commit
+    adds ``backend/app``; the working tree is clean), ``"no-base"`` (one branch named ``work`` holding everything; no ``main``).
+    """
     repo = tmp_path / "repo"
     tests = repo / "backend" / "tests" / "unit"
     tests.mkdir(parents=True)
@@ -93,8 +113,23 @@ def _run_wrapper(
         app.mkdir()
         (app / "__init__.py").write_text("", encoding="utf-8")
         (app / "planted.py").write_text(app_body, encoding="utf-8")
-    if git:
-        subprocess.run(["git", "init", "-q", str(repo)], check=True, capture_output=True)  # noqa: S603, S607 - a throwaway repository
+    if git == "untracked-change":
+        _git(repo, "init", "-q")
+    elif git == "committed-change":
+        _git(repo, "init", "-q")
+        _git(repo, "symbolic-ref", "HEAD", "refs/heads/main")
+        _git(repo, "add", "backend/tests", "backend/ruff.toml")
+        _git(repo, "commit", "-q", "-m", "base")
+        _git(repo, "checkout", "-q", "-b", "feature")
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "a backend change")
+    elif git == "no-base":
+        _git(repo, "init", "-q")
+        _git(repo, "symbolic-ref", "HEAD", "refs/heads/work")
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "everything")
+    else:
+        assert git is None, git
     env = {
         **os.environ,
         "RECORDS_GATE_PYTHON": sys.executable,
@@ -164,10 +199,26 @@ def test_backend_scope_passes_when_every_step_passes(tmp_path: Path) -> None:
 
 def test_auto_scope_is_backend_when_the_working_tree_changes_backend(tmp_path: Path) -> None:
     """In a git repository whose working tree has an (untracked) change under backend/, auto picks the full gate."""
-    result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git=True)
+    result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="untracked-change")
     assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"
     assert result.stdout.startswith("records-gate: scope backend\n"), result.stdout
     assert _ok_steps(result.stdout) == BACKEND_STEPS, result.stdout
+
+
+def test_auto_scope_is_backend_when_a_commit_since_main_changes_backend(tmp_path: Path) -> None:
+    """After the commit the working tree is clean; the commits since main still change backend/, so auto picks the full gate."""
+    result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="committed-change")
+    assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert result.stdout.startswith("records-gate: scope backend\n"), result.stdout
+    assert _ok_steps(result.stdout) == BACKEND_STEPS, result.stdout
+
+
+def test_auto_scope_fails_closed_without_a_base_to_compare_with(tmp_path: Path) -> None:
+    """A clean tree in a repository with neither origin/main nor main: auto cannot tell and refuses to guess."""
+    result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="no-base")
+    assert result.returncode == 2, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert "cannot determine the scope" in result.stderr, result.stderr
+    assert "records-gate: ok" not in result.stdout, result.stdout
 
 
 def test_auto_scope_is_records_outside_a_repository(tmp_path: Path) -> None:

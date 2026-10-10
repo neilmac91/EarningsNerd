@@ -13,7 +13,10 @@
 #            test files the records tree owns;
 #   backend  the records steps plus the repository's full backend gate, required before every push
 #            that changes backend/ (AGENTS.md): ruff check ., bandit -r app -ll, python -m pytest;
-#   auto     backend when the working tree has a staged or unstaged change under backend/, else records.
+#   auto     in a git repository: backend when the working tree has a staged or unstaged change under
+#            backend/ or when the commits since the merge-base with origin/main (fallback main) change
+#            backend/; fails closed (exit 2) when neither base exists; records otherwise. Outside a
+#            repository: records (nothing is being committed or pushed there).
 #
 # Usage: tools/records-gate.sh [repo-root]
 # Environment overrides for the test: RECORDS_GATE_PYTHON, RECORDS_GATE_TEST, RECORDS_GATE_LINT_PATHS, RECORDS_GATE_SCOPE.
@@ -25,8 +28,24 @@ test_path="${RECORDS_GATE_TEST:-tests/unit/test_code_red_runtime_records.py}"
 lint_paths="${RECORDS_GATE_LINT_PATHS:-tests/unit/test_code_red_runtime_records.py tests/unit/test_records_gate_wrapper.py}"
 scope="${RECORDS_GATE_SCOPE:-auto}"
 if [ "$scope" = "auto" ]; then
-  changed="$(git -C "$repo" status --porcelain -- backend 2>/dev/null || true)"
-  if [ -n "$changed" ]; then scope=backend; else scope=records; fi
+  if git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    changed="$(git -C "$repo" status --porcelain -- backend 2>/dev/null || true)"
+    if [ -z "$changed" ]; then
+      base=""
+      for ref in origin/main main; do
+        if base="$(git -C "$repo" merge-base HEAD "$ref" 2>/dev/null)"; then break; fi
+        base=""
+      done
+      if [ -z "$base" ]; then
+        echo "records-gate: cannot determine the scope: no working-tree change under backend/ and no origin/main or main to compare the commits with; set RECORDS_GATE_SCOPE=records or backend" >&2
+        exit 2
+      fi
+      changed="$(git -C "$repo" diff --name-only "$base" HEAD -- backend 2>/dev/null || true)"
+    fi
+    if [ -n "$changed" ]; then scope=backend; else scope=records; fi
+  else
+    scope=records
+  fi
 fi
 case "$scope" in
   records | backend) ;;

@@ -16,7 +16,7 @@ after the status has been checked. Prefer `set -euo pipefail` at the top of any 
 commit or push, and never follow a test run with `| tail`, `| grep` or `| head` on the same line as
 the `&&` that commits. For the CODE RED records, run every verification step of a records commit only through
 `tasks/code-red-20261004/runtime/tools/records-gate.sh`, which runs the records gate, `ruff check` and
-`ruff format --check` unpiped and, when the working tree changes anything under `backend/`, the repository's
+`ruff format --check` unpiped and, when the working tree or the commits since main change anything under `backend/`, the repository's
 full backend gate (`ruff check .`, `bandit -r app -ll`, `python -m pytest`; chief defect 12), captures each exit
 status explicitly and exits 0 only when every step passed; `backend/tests/unit/test_records_gate_wrapper.py` pins that form and proves by mutation that a
 failing pytest step and a failing non-pytest step each fail the wrapper (rule 12: the gate behind
