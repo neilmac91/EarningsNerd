@@ -12,6 +12,7 @@ from app import database
 from app.models import Company, Filing, FinancialFact
 from app.routers import analysis
 from app.services import facts_service
+from app.services.facts import ingest
 
 
 def _companyfacts_payload():
@@ -75,7 +76,7 @@ async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
         return _companyfacts_payload() if successful_fetch else None
 
     monkeypatch.setattr(database, "SessionLocal", sessions)
-    monkeypatch.setattr(facts_service, "_fetch_companyfacts_async", stalled_fetch)
+    monkeypatch.setattr(ingest, "_fetch_companyfacts_async", stalled_fetch)
     monkeypatch.setattr(analysis, "enforce_rate_limit", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(analysis, "COVERAGE_SYNC_WAIT_SECONDS", 1.0)
     facts_service._inflight_syncs.clear()
