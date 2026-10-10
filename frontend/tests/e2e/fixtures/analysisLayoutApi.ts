@@ -64,10 +64,21 @@ export const EXPECTED_KPI_VALUES = [
   { label: 'Free cash flow', daggers: 1 },
   { label: 'Net margin', daggers: 1 },
 ] as const
-export const EXPECTED_KPI_REVIEWS = {
-  clean: [0, 0, 0, 0],
-  legacy: [0, 0, 0, 1],
-  discrepancy: [1, 0, 0, 1],
+// Each nonclean fixture has one review-reason group, ordered before unavailable
+// figures, so its affected value and YoY both carry a. Keep their expectations separate.
+export const EXPECTED_KPI_LETTERS = {
+  clean: [
+    { value: [], growth: [] }, { value: [], growth: [] },
+    { value: [], growth: [] }, { value: [], growth: [] },
+  ],
+  legacy: [
+    { value: [], growth: [] }, { value: [], growth: [] },
+    { value: [], growth: [] }, { value: ['a'], growth: ['a'] },
+  ],
+  discrepancy: [
+    { value: ['a'], growth: ['a'] }, { value: [], growth: [] },
+    { value: [], growth: [] }, { value: ['a'], growth: ['a'] },
+  ],
 } as const
 export const EXPECTED_TABLE_VALUE_DAGGERS = { all: 101, earliest: 52, newest: 49 } as const
 // Only the displayed comparison counts here (QoQ, or YoY when QoQ is absent),

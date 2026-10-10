@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { EXPECTED_KPI_REVIEWS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, EXPECTED_TABLE_VALUE_DAGGERS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme } from './fixtures/analysisLayoutApi'
+import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, EXPECTED_TABLE_VALUE_DAGGERS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme } from './fixtures/analysisLayoutApi'
 
 /**
  * The one browser geometry gate for the analysis redesign (proposal Phase 1, item 10).
@@ -78,9 +78,19 @@ async function assertPageAndCards(page: Page, width: number, textScale: number, 
     await expect(card.locator('dt')).toHaveText(expected.label)
     const source = card.locator('button[aria-label$="View source and calculation"]')
     await expect(source.locator('span').filter({ hasText: /^†$/ })).toHaveCount(expected.daggers)
-    const reviews = EXPECTED_KPI_REVIEWS[state][index]
-    await expect(source.locator('[data-note-kind="review"]')).toHaveCount(reviews)
-    await expect(card.locator('dd').last().locator('[data-note-kind="review"]')).toHaveCount(reviews)
+    const letters = EXPECTED_KPI_LETTERS[state][index]
+    for (const { scope, expectedLetters } of [
+      { scope: source, expectedLetters: letters.value },
+      { scope: card.locator('dd').last(), expectedLetters: letters.growth },
+    ]) {
+      const marks = scope.locator('[data-note-letter]')
+      // Exact arrays enforce presence and identity, including no unexpected note kind.
+      await expect(marks).toHaveText([...expectedLetters], { useInnerText: true })
+      for (const [markIndex, letter] of expectedLetters.entries()) {
+        await expect(marks.nth(markIndex)).toHaveAttribute('data-note-letter', letter)
+        await expect(marks.nth(markIndex)).toHaveAttribute('data-note-kind', 'review')
+      }
+    }
   }
   await assertPaintedMarks(page, '[data-analysis-kpi]')
   await assertSourceControls(page, '[data-analysis-kpi]', 4)
