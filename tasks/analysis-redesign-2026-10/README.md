@@ -44,11 +44,13 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
 
 1. Fetch `https://data.sec.gov/api/xbrl/companyfacts/CIK0001326801.json` (one request, descriptive
    User-Agent) to a scratch directory.
-2. From `backend/` with its requirements installed:
-   `python harness/build_states.py <dir>/CIK0001326801.json <out>` runs `normalize_companyfacts` →
-   `upsert_facts_bulk` → `build_dataset(quarterly, 2023Q3..2026Q2)` → `build_observation_catalogue` →
-   `render_observation_selection` → `resolve_narrative_citations` → `scan_numeric_fidelity` inside a
-   private SQLite database (the hermetic test environment's variables). It writes three states:
+2. From the repository root, with `backend/`'s requirements installed (the script puts `backend/` on
+   `sys.path` itself, so it runs from any directory):
+   `python tasks/analysis-redesign-2026-10/harness/build_states.py <dir>/CIK0001326801.json <out>`
+   runs `normalize_companyfacts` → `upsert_facts_bulk` → `build_dataset(quarterly, 2023Q3..2026Q2)` →
+   `build_observation_catalogue` → `render_observation_selection` → `resolve_narrative_citations` →
+   `scan_numeric_fidelity` inside a private SQLite database (the hermetic test environment's
+   variables). It writes three states:
    - `clean`: the engine's own output on a fresh ingest (every calculation carries its lineage).
    - `legacy`: ten computed rows have their stored provenance removed, as rows written before #1191 are
      (the `legacy_calculation` path of `fact_provenance.provenance_for_fact`), modelled on the cells the
@@ -57,7 +59,9 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
    - `discrepancy`: the latest reported revenue carries `source_conflict`; the two margins calculated from
      it carry the same reason on that operand. This is a simulation of the state the engine produces when
      sources disagree; it does not claim Meta's filings disagree.
-3. `python harness/prune_states.py <out> prototype/data` keeps every displayed figure, comparison,
+3. `python tasks/analysis-redesign-2026-10/harness/prune_states.py <out> tasks/analysis-redesign-2026-10/prototype/data`
+   (a re-run from the repository root on 2026-10-10 reproduced the committed files exactly, apart from
+   the `data_as_of` / `synced_at` run timestamps) keeps every displayed figure, comparison,
    validation state, reason, formula and first-level operand with its own lineage, and drops deeper
    nesting. The result is a visual reference, not the API schema: the provenance `version` is dropped
    and a comparison's operands are flattened to concept, value, period and validation.
