@@ -55,7 +55,7 @@ import traceback
 import urllib.request
 from collections.abc import Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from urllib.parse import urlsplit
 
 import pytest
@@ -406,6 +406,24 @@ def pytest_sessionfinish(session: pytest.Session) -> None:
     with _LOCK:
         if _strays and session.exitstatus == pytest.ExitCode.OK:
             session.exitstatus = pytest.ExitCode.TESTS_FAILED
+        # Under pytest-xdist the controller ignores a worker's exit status and never prints its
+        # terminal summary, so a worker hands its strays over in ``workeroutput`` (xdist sends it
+        # after this hook) and the controller takes them over in pytest_testnodedown below.
+        output = getattr(session.config, "workeroutput", None)
+        if output is not None:
+            worker = session.config.workerinput.get("workerid", "worker")
+            output["network_gate_strays"] = [
+                {**asdict(a), "thread": f"{worker}:{a.thread}", "where": list(a.where)} for a in _strays.values()
+            ]
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_testnodedown(node, error) -> None:
+    """xdist controller: take over each worker's strays, so this session fails and lists them."""
+    with _LOCK:
+        for raw in (getattr(node, "workeroutput", None) or {}).get("network_gate_strays", ()):
+            attempt = Attempt(**{**raw, "where": tuple(raw["where"])})
+            _strays[(attempt.kind, attempt.target, attempt.thread, attempt.owner, attempt.during)] = attempt
 
 
 def pytest_terminal_summary(terminalreporter) -> None:

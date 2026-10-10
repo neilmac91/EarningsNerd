@@ -2,7 +2,8 @@
 
 How to run `backend/evals/` for adoption decisions and ongoing regression measurement.
 Live runs need SEC EDGAR network access and provider API keys; CI uses its existing Actions
-secret. Offline scorer/parity tests need neither: `pytest tests/unit/test_eval_*`.
+secret. Offline scorer/parity tests need neither, only `requirements-dev.txt` (pytest.ini runs every
+pytest under pytest-xdist): `pytest tests/unit/test_eval_*`.
 
 The original adoption steps below remain a procedure for future comparisons. Current code
 defaults and deployment overrides are documented in `docs/CONFIGURATION.md`: the quality gate
@@ -44,6 +45,7 @@ normal env loaded.
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+pip install -r requirements-dev.txt   # pytest-xdist: pytest.ini runs every pytest with `-n auto`
 pip install anthropic          # only for Claude candidates + the LLM judge
 
 # Load your normal backend .env, then add provider keys:

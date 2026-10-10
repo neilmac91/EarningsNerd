@@ -270,6 +270,7 @@ def test_isolation_probe_leaves_the_trigger_set_like_a_script_entrypoint():
 
 
 def test_isolation_next_test_starts_from_the_default_trigger():
-    # Runs after the probe above (definition order). conftest's autouse isolation must undo the
-    # probe, or tests asserting the default trigger pass or fail by collection order.
+    # Runs after the probe above in definition order, and test_suite_isolation.py runs the pair in
+    # that order in a fresh process (-n auto can split it). conftest's autouse isolation must undo
+    # the probe, or tests asserting the default trigger pass or fail by collection order.
     assert ai_metrics._trigger.get() == "user"
