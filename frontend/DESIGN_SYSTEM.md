@@ -247,10 +247,31 @@ Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated orig
                  a missing validation record is never counted as a passed check. Preserve every
                  reason, including comparison-only concerns. Full-width status Badges and nowrap
                  labels do not belong in an analysis KPI or metrics cell.
-                 Analysis table redesign contract: equal rem period columns, sticky row headers,
-                 a named keyboard scroll region, mandatory column snapping and inline-end space
-                 that makes the entire scroll range a multiple of the column width. A table window
-                 changes the table only. This geometry follows the note-model release separately.
+                 MetricsTable opts into compact mark spacing so an amount and its affixes stay
+                 together in a fixed period column; the other surfaces retain standard spacing.
+
+Analysis table   <MetricsTable> — equal rem period columns with a semantic sticky row-header column.
+                 The named scroll region supports Left/Right by one measured column, Home/End,
+                 and mandatory snapping. Inline-end padding makes the entire scroll range a whole
+                 number of columns; resize and enlarged text recompute the actual rendered widths.
+                 Focused figure controls are scrolled clear of the sticky labels. Phones start at
+                 the newest period, with a visible scrolling hint when columns are off-screen.
+                 A table-only segmented window defaults to All, with Newest 6 and Earliest 6 when
+                 more than six periods exist. Charts, KPI cards, data-note totals and full exports
+                 retain the complete selected dataset. A new report resets the table window.
+                 Headers show quarter/year on two lines. The change basis is stated once, while
+                 a fallback YoY comparison retains its explicit prefix. Only a period-derived Q4
+                 receives a column dagger; ordinary arithmetic ratios do not create one.
+                 Table-only formatting keeps complete amounts and affixes together: normal precision
+                 first, then fewer decimals, compact scale or scientific notation for large tokens.
+                 Signs and percent/ratio units remain. USD keeps its dollar symbol; other currency
+                 codes appear in the metric row heading (including per-share units), with signed
+                 numeric amounts in its cells so long currency prefixes cannot widen the table.
+                 Source evidence retains every original currency and value. The visible rounding note
+                 directs readers to full-precision evidence; the dialog keeps the original value
+                 and ordinary comparison display. Shared financial formatters remain unchanged.
+                 DataTable's layout, colWidths, compact cellPadding, named scrollRegion, snapColumns
+                 and Column.rowHeader options are opt-in; other consumers retain their geometry.
 
 Analysis KPI     <KpiStrip> — a definition list, two cards across at phone widths and four from lg.
                  Each Card groups a metric-only dt and two dd rows: the 24px data-face value/source

@@ -31,13 +31,14 @@ export interface SourceComparison extends QualityValue {
   note?: DataNote | null
 }
 
-export default function SourceValue({ point, label, concept, children, note, comparison }: {
+export default function SourceValue({ point, label, concept, children, note, comparison, compactMarks = false }: {
   point: Pick<AnalysisPoint, 'provenance' | 'reconciled' | 'source_url' | 'derived' | 'period' | 'period_end' | 'accession' | 'unit' | 'value'>
   label: string
   concept?: string
   children: ReactNode
   note?: DataNote | null
   comparison?: SourceComparison
+  compactMarks?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const id = useId()
@@ -54,7 +55,7 @@ export default function SourceValue({ point, label, concept, children, note, com
         aria-label={`${label}, ${point.period}: ${point.value == null ? 'unavailable' : point.value}${description ? `, ${description}` : ''}. View source and calculation`}
         className="rounded text-inherit underline decoration-border-light decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:decoration-border-dark dark:focus-visible:shadow-ring-brand-dark"
       >
-        {children}<DataNoteMark calculated={calculated} note={note} />
+        {children}<DataNoteMark calculated={calculated} note={note} compact={compactMarks} />
       </button>
       <Modal open={open} onClose={() => setOpen(false)} labelledBy={id} size="lg">
         <ModalHeader id={id} onClose={() => setOpen(false)}>{label} · {point.period}</ModalHeader>
