@@ -100,7 +100,8 @@ def _run_wrapper(
 
     ``git`` lays the repository out for the auto-scope proofs: ``"untracked-change"`` (initialised, nothing committed, so the
     backend files are an unstaged change), ``"committed-change"`` (a ``main`` with the test only, then a branch whose commit
-    adds ``backend/app``; the working tree is clean), ``"no-base"`` (one branch named ``work`` holding everything; no ``main``).
+    adds ``backend/app``; the working tree is clean), ``"no-base"`` (one branch named ``work`` holding everything; no ``main``),
+    ``"on-local-main"`` (``main`` itself holds everything, no ``origin/main``; the working tree is clean).
     """
     repo = tmp_path / "repo"
     tests = repo / "backend" / "tests" / "unit"
@@ -128,6 +129,11 @@ def _run_wrapper(
         _git(repo, "symbolic-ref", "HEAD", "refs/heads/work")
         _git(repo, "add", "-A")
         _git(repo, "commit", "-q", "-m", "everything")
+    elif git == "on-local-main":
+        _git(repo, "init", "-q")
+        _git(repo, "symbolic-ref", "HEAD", "refs/heads/main")
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "a backend change committed on main")
     else:
         assert git is None, git
     env = {
@@ -218,6 +224,14 @@ def test_auto_scope_fails_closed_without_a_base_to_compare_with(tmp_path: Path) 
     result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="no-base")
     assert result.returncode == 2, f"stdout={result.stdout!r} stderr={result.stderr!r}"
     assert "cannot determine the scope" in result.stderr, result.stderr
+    assert "records-gate: ok" not in result.stdout, result.stdout
+
+
+def test_auto_scope_fails_closed_when_head_sits_on_the_local_main(tmp_path: Path) -> None:
+    """No origin/main and HEAD is the local main: comparing HEAD with itself would hide the committed backend change."""
+    result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="on-local-main")
+    assert result.returncode == 2, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert "HEAD is on the local main itself" in result.stderr, result.stderr
     assert "records-gate: ok" not in result.stdout, result.stdout
 
 

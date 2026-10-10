@@ -15,8 +15,10 @@
 #            that changes backend/ (AGENTS.md): ruff check ., bandit -r app -ll, python -m pytest;
 #   auto     in a git repository: backend when the working tree has a staged or unstaged change under
 #            backend/ or when the commits since the merge-base with origin/main (fallback main) change
-#            backend/; fails closed (exit 2) when neither base exists; records otherwise. Outside a
-#            repository: records (nothing is being committed or pushed there).
+#            backend/; fails closed (exit 2) when neither base exists, or when the only base is the local
+#            main that HEAD itself sits on (the commits to be pushed are then unknown); records otherwise.
+#            HEAD at origin/main means nothing beyond the remote, so records stands. Outside a repository:
+#            records (nothing is being committed or pushed there).
 #
 # Usage: tools/records-gate.sh [repo-root]
 # Environment overrides for the test: RECORDS_GATE_PYTHON, RECORDS_GATE_TEST, RECORDS_GATE_LINT_PATHS, RECORDS_GATE_SCOPE.
@@ -32,12 +34,20 @@ if [ "$scope" = "auto" ]; then
     changed="$(git -C "$repo" status --porcelain -- backend 2>/dev/null || true)"
     if [ -z "$changed" ]; then
       base=""
+      base_ref=""
       for ref in origin/main main; do
-        if base="$(git -C "$repo" merge-base HEAD "$ref" 2>/dev/null)"; then break; fi
+        if base="$(git -C "$repo" merge-base HEAD "$ref" 2>/dev/null)"; then
+          base_ref="$ref"
+          break
+        fi
         base=""
       done
       if [ -z "$base" ]; then
         echo "records-gate: cannot determine the scope: no working-tree change under backend/ and no origin/main or main to compare the commits with; set RECORDS_GATE_SCOPE=records or backend" >&2
+        exit 2
+      fi
+      if [ "$base_ref" = "main" ] && [ "$base" = "$(git -C "$repo" rev-parse HEAD)" ]; then
+        echo "records-gate: cannot determine the scope: HEAD is on the local main itself and there is no origin/main, so the commits to be pushed are unknown; set RECORDS_GATE_SCOPE=records or backend" >&2
         exit 2
       fi
       changed="$(git -C "$repo" diff --name-only "$base" HEAD -- backend 2>/dev/null || true)"
