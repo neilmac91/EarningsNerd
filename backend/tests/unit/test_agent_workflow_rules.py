@@ -340,19 +340,61 @@ def test_workflow_scripts_validate_before_pipeline_and_count_every_vote():
     assert not problems, "\n".join(problems)
 
 
+READ_CALL = re.compile(r"\breadFile(?:Sync)?\s*\(")
+
+
+def _first_argument(code: str, start: int) -> str:
+    """The first argument of the call whose `(` ends at `start`: up to a top-level comma or the
+    closing parenthesis, skipping nested brackets and string or template literals."""
+    depth, quote, i = 0, None, start
+    while i < len(code):
+        ch = code[i]
+        if quote:
+            if ch == "\\":
+                i += 1
+            elif ch == quote:
+                quote = None
+        elif ch in "'\"`":
+            quote = ch
+        elif ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            if depth == 0:
+                break
+            depth -= 1
+        elif ch == "," and depth == 0:
+            break
+        i += 1
+    return code[start:i].strip()
+
+
 def _spec_reads(spec_source: str, script_name: str) -> bool:
-    """True when the spec names the script's path in code (not a comment) and reads a file."""
+    """True when the spec reads the script itself: a readFile/readFileSync call whose first argument
+    holds the script's path literal, or is a name a one-line const/let/var binds to an expression
+    holding it. Comments are stripped first, so a path in prose does not count."""
     code = _strip_comments(spec_source)
-    return bool(re.search(rf"['\"`][^'\"`\n]*\.claude/workflows/{re.escape(script_name)}['\"`]", code)) and bool(
-        re.search(r"\breadFile(?:Sync)?\s*\(", code)
-    )
+    path_literal = rf"['\"`][^'\"`\n]*\.claude/workflows/{re.escape(script_name)}['\"`]"
+    bound = set(re.findall(rf"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=[^\n;]*{path_literal}", code))
+    for call in READ_CALL.finditer(code):
+        argument = _first_argument(code, call.end())
+        if re.search(path_literal, argument) or argument in bound:
+            return True
+    return False
 
 
 def test_every_workflow_script_has_a_behavioural_spec():
     # The same files vitest runs: tests/unit/**/*.spec.ts?(x).
     specs = [p.read_text(encoding="utf-8") for ext in ("*.spec.ts", "*.spec.tsx") for p in SPECS.rglob(ext)]
-    assert not _spec_reads(" * see .claude/workflows/premerge-review.js\nreadFileSync(x)", "premerge-review.js")
-    assert _spec_reads("const S = path.join(root, '.claude/workflows/premerge-review.js')\nreadFileSync(S)", "premerge-review.js")
+    # The read must load the script itself: its path literal, or a name bound to one (and not a
+    # path in prose, or a path named beside a read of another file).
+    name = "premerge-review.js"
+    assert not _spec_reads(" * see .claude/workflows/premerge-review.js\nreadFileSync(x)", name)
+    assert not _spec_reads("const S = path.join(root, '.claude/workflows/premerge-review.js')\nreadFileSync(OTHER)", name)
+    assert not _spec_reads("const p = '.claude/workflows/premerge-review.js'\nreadFileSync('other.js', 'utf8')", name)
+    assert not _spec_reads("const S = 'a.js'; const T = '.claude/workflows/premerge-review.js'\nreadFileSync(S)", name)
+    assert _spec_reads("const S = path.join(root, '.claude/workflows/premerge-review.js')\nreadFileSync(S)", name)
+    assert _spec_reads("readFileSync(path.join(root, '.claude/workflows/premerge-review.js'), 'utf8')", name)
+    assert _spec_reads("let S = `${root}/.claude/workflows/premerge-review.js`\nawait readFile(S, 'utf8')", name)
     missing = [s.name for s in sorted(WORKFLOWS.glob("*.js")) if not any(_spec_reads(text, s.name) for text in specs)]
     assert not missing, (
         "every workflow script needs a spec under frontend/tests/unit/ that loads it and runs it with "
