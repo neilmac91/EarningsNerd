@@ -39,7 +39,8 @@ import { bindingResolver, type Binding } from './astBindings'
  *     forwards to a shared control is one too, and a use under an alias (`const BusyButton = Button`,
  *     `memo(Button)`) is a use of it.
  *     The scan reads every string and template chunk of the control's className and of what its
- *     identifiers name: a const's initializer or a function declaration's body, resolved in lexical
+ *     identifiers name: a const's initializer (one property of a class map, for `LOOKS.busy` or a name
+ *     destructured from it) or a function declaration's body, resolved in lexical
  *     scope, followed transitively and across modules, through an import (`@/…` or relative, named or
  *     default) and a barrel's re-exports (`export { a as b } from`, `export * from`). So a shared class
  *     list such as `fieldUnavailableClass` is read at each control that takes it, whatever variant it is
@@ -227,17 +228,53 @@ function fadeScanner(read: Read, root: string): (file: string) => { offenders: O
     const binding = mod.visible(ref)
     if (binding) {
       let node = binding.init ?? (ts.isFunctionDeclaration(binding.decl) ? binding.alias : undefined)
-      // `const { busy: busyClass } = LOOKS`: a name destructured from a const holds part of what that const holds.
+      // `const { busy: busyClass } = LOOKS`: a name destructured from a const holds that const's `busy`, or all
+      // the const holds when its one property cannot be told apart (a nested pattern, an object built at runtime).
       if (!node && ts.isBindingElement(binding.decl)) {
-        let from: ts.Node = binding.decl
+        const { decl } = binding
+        let from: ts.Node = decl
         while (ts.isBindingElement(from) || ts.isObjectBindingPattern(from) || ts.isArrayBindingPattern(from)) from = from.parent
-        if (ts.isVariableDeclaration(from)) node = from.initializer
+        if (ts.isVariableDeclaration(from) && from.initializer) {
+          const key = decl.propertyName ?? decl.name
+          const direct = ts.isObjectBindingPattern(decl.parent) && decl.parent.parent === from && !decl.dotDotDotToken
+          const picked = direct && (ts.isIdentifier(key) || ts.isStringLiteral(key)) ? member(from.initializer, mod, key.text) : 'whole'
+          if (picked !== 'whole') return picked
+          node = from.initializer
+        }
       }
       return node ? { node, mod } : undefined
     }
     const imported = mod.imports.get(ref.text)
     const from = imported && load(imported.file)
     return from ? exported(from, imported.name, new Set()) : undefined
+  }
+
+  const bare = (n: ts.Node): ts.Node =>
+    ts.isParenthesizedExpression(n) || ts.isAsExpression(n) || ts.isSatisfiesExpression(n) ? bare(n.expression) : n
+
+  /**
+   * What the property `key` of an object holds, when the object is a literal or a name that holds one: the
+   * property's value, nothing when the literal has no such key or the name holds nothing this scan can read, or
+   * 'whole' when one property cannot be told apart (a spread, a computed key, an object built at runtime).
+   */
+  const member = (object: ts.Node, mod: Module, key: string): Held | undefined | 'whole' => {
+    let target: Held | undefined = { node: bare(object), mod }
+    if (ts.isIdentifier(target.node)) {
+      target = held(target.node, mod)
+      if (!target) return undefined
+      target = { node: bare(target.node), mod: target.mod }
+    }
+    if (!ts.isObjectLiteralExpression(target.node)) return 'whole'
+    let unknown = false
+    for (const property of target.node.properties) {
+      const name = property.name
+      if (!name || ts.isComputedPropertyName(name)) unknown = true
+      else if (name.text !== key) continue
+      else if (ts.isPropertyAssignment(property)) return { node: property.initializer, mod: target.mod }
+      else if (ts.isShorthandPropertyAssignment(property)) return { node: property.name, mod: target.mod }
+      else unknown = true
+    }
+    return unknown ? 'whole' : undefined
   }
 
   /**
@@ -256,6 +293,17 @@ function fadeScanner(read: Read, root: string): (file: string) => { offenders: O
       if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
         visit(n.right)
         return
+      }
+      // `LOOKS.busy` holds that one property of a class map, not its siblings.
+      if (ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression)) {
+        const picked = member(n.expression, mod, n.name.text)
+        if (picked !== 'whole') {
+          if (picked && !seen.has(picked.node)) {
+            seen.add(picked.node)
+            classChunks(picked.node, picked.mod, seen, out)
+          }
+          return
+        }
       }
       if (isChunk(n)) out.push({ text: n.text, node: n, mod })
       else if (ts.isIdentifier(n)) {
@@ -526,11 +574,13 @@ describe('no element opacity on an aria-disabled control (rule-12 gate)', () => 
               <button aria-disabled={busy || undefined} className={look(busy)} />
               <Button aria-disabled={busy || undefined} className={faded} />
               <a aria-disabled={busy || undefined} className={busyLook} />
+              <b aria-disabled={busy || undefined} className={LOOKS.busy} />
+              <i aria-disabled={busy || undefined} className={LOOKS[kind]} />
             </>
           )
         }
       `),
-    ).toEqual(['element hover:opacity-80', 'element opacity-50', 'element opacity-40', 'element opacity-35'])
+    ).toEqual(['element hover:opacity-80', 'element opacity-50', 'element opacity-40', 'element opacity-35', 'element opacity-35', 'element opacity-35'])
     expect(
       tokensIn(`
         const dim = 'opacity-50'
@@ -542,6 +592,10 @@ describe('no element opacity on an aria-disabled control (rule-12 gate)', () => 
             </button>
           </li>
         )
+        // One property of a class map is not its siblings.
+        const SHADES = { calm: 'text-sm', decorative: 'opacity-50' }
+        const { calm } = SHADES
+        export const Calm = ({ busy }) => <button aria-disabled={busy || undefined} className={cx(calm, SHADES.calm, SHADES.missing)} />
         // A condition picks a class without being one, and another element's classes are not this control's.
         const Icon = () => <svg className="opacity-60" />
         export const Save = () => {
