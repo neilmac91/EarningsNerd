@@ -23,11 +23,10 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   with `page.route`, as `tests/e2e` does): page overflow, KPI card-child containment and value alignment,
   table and column widths, far-right sticky-column occlusion, label counts. Output: `measurements/current.json`.
   The recorded run measured `main` at `97293e7`, before #1199–#1203 replaced the labels, the cards, the
-  table, the dialog, the narrative and the picker; it was taken with the first probes (element boxes,
-  `scrollWidth`, one row at the far right), with the page left in annual mode beside a quarterly dataset
-  and with the consent bar showing, none of which changes the component widths it reports. The script
-  now selects Quarterly, mocks the API's field names, stores the app's consent key, waits for fonts, finds
-  the shipped markup by data attribute (`[data-analysis-kpi]`, `[data-kpi-value]`,
+  table, the dialog, the narrative and the picker; it was retaken with the widened probes (text-node
+  rectangles, both sides of each cell's content box, every scroll rest position) on that same build. The
+  script selects Quarterly, mocks the API's field names, stores the app's consent key, waits for fonts,
+  finds the shipped markup by data attribute (`[data-analysis-kpi]`, `[data-kpi-value]`,
   `[data-analysis-data-notes]`) with a fallback to the `97293e7` markup, and fails the run when a probe
   does not find what it expects (4 cards, 13 header cells, the metric rows).
 - `harness/measure-proto.mjs` — the same probes on the prototype, in every state and both views, at

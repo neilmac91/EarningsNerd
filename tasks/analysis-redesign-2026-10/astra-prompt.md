@@ -70,13 +70,21 @@ frontend, never hide a note, never show the word "verified".
 
 <founder_decisions>
 Taken on 2026-10-10 (the founder: "regarding decisions for founder - i'm aligned with your
-recommendations"), so Track B is unblocked:
+recommendations"); these five are confirmed and Track B is unblocked on them:
 1. Note mark: letters a, b, c.
 2. Column snapping: mandatory, with the whole-column scroll-range rule.
 3. Period vocabulary: "Q2 2026" in prose, labels and dialogs, "Q2 ’26" where space is short, on the
    analysis surfaces and their exports; the filing and company pages keep their own vocabulary.
 4. KPI strip stays two-up at 320 px.
 5. The table window does not drive the charts.
+
+NOT yet confirmed (proposal §9, "Amended and added by the comprehensive review"): the amendment to
+decision 4 (cards one-up when the page is narrower than 17 em of its own text size, which is 200% text
+on a phone) and the added decisions 6–9 (the table's glyph budget that #1202 shipped; filled bars;
+presets as plain buttons; "Unavailable" and "No figures need review"). They are recommended and
+implemented in the prototype only. Treat each as a founder pause (`AGENTS.md` §3): do not implement
+it on `main` until the founder confirms it in writing, and say in the PR body which of them a PR
+relies on. Decision 6 is already on `main` (#1202); if the founder overrules it, that is a follow-up.
 </founder_decisions>
 
 <task>

@@ -242,11 +242,13 @@
     const unknownGroups = notes.list.filter((g) => g.kind === 'unknown')
     const unavailableGroups = notes.list.filter((g) => g.kind === 'unavailable')
     const counts = el('span', { class: 'counts' })
-    if (reviewGroups.length) counts.append(el('b', null, `${notes.reviewValues} value${notes.reviewValues === 1 ? '' : 's'}`), ` need${notes.reviewValues === 1 ? 's' : ''} review · `, el('b', null, `${notes.reviewComparisons} comparison${notes.reviewComparisons === 1 ? '' : 's'}`), ' built on them')
-    if (notes.unknownValues) counts.append(`${reviewGroups.length ? ' · ' : ''}${notes.unknownValues} figure${notes.unknownValues === 1 ? ' has' : 's have'} no validation record`)
+    const lettersOf = (groups) => groups.map((g) => g.letter).join(', ')
+    const noteWord = (groups) => (groups.length === 1 ? 'note' : 'notes')
+    if (reviewGroups.length) counts.append(el('b', null, `${notes.reviewValues} figure${notes.reviewValues === 1 ? '' : 's'}`), ` need${notes.reviewValues === 1 ? 's' : ''} review (${lettersOf(reviewGroups)})`, notes.reviewComparisons ? ` · ${notes.reviewComparisons} comparison${notes.reviewComparisons === 1 ? '' : 's'} carry ${noteWord(reviewGroups)} ${lettersOf(reviewGroups)}` : '')
+    if (notes.unknownValues) counts.append(`${reviewGroups.length ? ' · ' : ''}${notes.unknownValues} figure${notes.unknownValues === 1 ? ' has' : 's have'} no validation record (${lettersOf(unknownGroups)})`)
     if (notes.unknownComparisons) counts.append(` · ${notes.unknownComparisons} comparison${notes.unknownComparisons === 1 ? ' has' : 's have'} no validation record`)
     if (!reviewGroups.length && !unknownGroups.length) counts.append(el('b', { class: 'ok' }, 'No figures need review'), ` · ${notes.passed} checked`)
-    if (notes.unavailable) counts.append(` · ${notes.unavailable} unavailable`)
+    if (notes.unavailable) counts.append(` · ${notes.unavailable} unavailable (${lettersOf(unavailableGroups)})`)
     counts.append(` · ${notes.calculated} calculated †`)
     details.append(el('summary', null, el('span', { class: 'caret', 'aria-hidden': 'true' }), el('span', { class: 'title' }, 'Data notes'), counts))
     const body = el('div', { class: 'body' })
@@ -260,13 +262,16 @@
       const c = el('div', { class: 'counts' })
       if (g.kind === 'review') {
         const qoq = g.comparisons.filter((x) => x.basis === 'qoq').length, yoy = g.comparisons.filter((x) => x.basis === 'yoy').length
-        c.append(`${g.values.length} value${g.values.length === 1 ? '' : 's'}`, g.comparisons.length ? ` · ${g.comparisons.length} comparison${g.comparisons.length === 1 ? '' : 's'} inherit this note (${qoq} quarter-over-quarter in the table, ${yoy} year-over-year in the headline figures and charts)` : '')
+        // YoY changes are displayed only on the headline cards (their latest populated point); the table shows
+        // QoQ (or the labelled YoY fallback) and the exports carry every comparison.
+        const onCards = g.comparisons.filter((x) => x.basis === 'yoy' && ['revenue', 'net_income', 'free_cash_flow', 'net_margin'].includes(x.series.concept) && latestPoint(x.series) === x.point).length
+        c.append(`${g.values.length} figure${g.values.length === 1 ? '' : 's'}`, g.comparisons.length ? ` · ${g.comparisons.length} comparison${g.comparisons.length === 1 ? '' : 's'} carry this note: ${qoq} quarter-over-quarter change${qoq === 1 ? '' : 's'} in the table and ${yoy} year-over-year change${yoy === 1 ? '' : 's'}, of which the headline cards show ${['none', 'one', 'two', 'three', 'four'][onCards] || onCards} and the exports carry all` : '')
         if (g.reasons.includes('legacy_calculation')) c.append(' · figures are shown as stored; their source lineage is not recorded')
         if (g.reasons.includes('source_conflict')) c.append(' · review the original filing before relying on these figures')
       } else if (g.kind === 'unknown') {
-        c.append(`${g.values.length} value${g.values.length === 1 ? '' : 's'} shown as stored`, g.comparisons.length ? ` · ${g.comparisons.length} comparison${g.comparisons.length === 1 ? '' : 's'} carry this note` : '', ' · no verification claim is made')
+        c.append(`${g.values.length} figure${g.values.length === 1 ? '' : 's'} shown as stored`, g.comparisons.length ? ` · ${g.comparisons.length} comparison${g.comparisons.length === 1 ? '' : 's'} carry this note` : '', ' · no verification claim is made')
       } else {
-        c.append(`${g.values.length} value${g.values.length === 1 ? '' : 's'} shown as — · growth is not computed across a gap`)
+        c.append(`${g.values.length} figure${g.values.length === 1 ? '' : 's'} shown as — · growth is not computed across a gap`)
       }
       box.append(c)
       li.append(box)

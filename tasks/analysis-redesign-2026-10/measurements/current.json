@@ -1,7 +1,12 @@
 {
  "base": "http://localhost:3000",
  "state": "legacy",
- "generatedAt": "2026-10-10T20:15:16.540Z",
+ "generatedAt": "2026-10-10T23:41:31.310Z",
+ "environment": {
+  "chromium": "141.0.7390.37",
+  "platform": "linux x64",
+  "node": "v22.22.0"
+ },
  "configs": [
   {
    "theme": "light",
@@ -10,6 +15,16 @@
    "height": 1000,
    "viewport": 1480,
    "layoutViewport": 1480,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "sourceCheckLabels": 33,
@@ -140,7 +155,73 @@
      105,
      77
     ],
-    "occludedAtFarRight": []
+    "restPositions": 11,
+    "occludedPositions": [
+     {
+      "scrollLeft": 209,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 314,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 523,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 732,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 941,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1022,
+      "columns": [
+       "2025Q1"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 1022,
+      "columns": [
+       "2025Q1"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   },
   {
@@ -150,6 +231,16 @@
    "height": 1000,
    "viewport": 1054,
    "layoutViewport": 1054,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 1054,
    "pageOverflowPx": 0,
    "sourceCheckLabels": 33,
@@ -280,7 +371,79 @@
      105,
      77
     ],
-    "occludedAtFarRight": []
+    "restPositions": 12,
+    "occludedPositions": [
+     {
+      "scrollLeft": 209,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 314,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 523,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 732,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 941,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1045,
+      "columns": [
+       "2025Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1120,
+      "columns": [
+       "2025Q2"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 1120,
+      "columns": [
+       "2025Q2"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   },
   {
@@ -290,6 +453,16 @@
    "height": 1000,
    "viewport": 1024,
    "layoutViewport": 1024,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 1024,
    "pageOverflowPx": 0,
    "sourceCheckLabels": 33,
@@ -420,7 +593,79 @@
      105,
      77
     ],
-    "occludedAtFarRight": []
+    "restPositions": 12,
+    "occludedPositions": [
+     {
+      "scrollLeft": 209,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 314,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 523,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 732,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 941,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1045,
+      "columns": [
+       "2025Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1150,
+      "columns": [
+       "2025Q2"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 1150,
+      "columns": [
+       "2025Q2"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   },
   {
@@ -430,6 +675,16 @@
    "height": 1024,
    "viewport": 768,
    "layoutViewport": 768,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 768,
    "pageOverflowPx": 0,
    "sourceCheckLabels": 33,
@@ -560,7 +815,97 @@
      105,
      77
     ],
-    "occludedAtFarRight": []
+    "restPositions": 15,
+    "occludedPositions": [
+     {
+      "scrollLeft": 209,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 314,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 523,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 732,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 941,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1045,
+      "columns": [
+       "2025Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1150,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1254,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1359,
+      "columns": [
+       "2025Q3"
+      ]
+     },
+     {
+      "scrollLeft": 1406,
+      "columns": [
+       "2025Q3"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 1406,
+      "columns": [
+       "2025Q3"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   },
   {
@@ -571,6 +916,16 @@
    "mobile": true,
    "viewport": 390,
    "layoutViewport": 429,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 429,
    "pageOverflowPx": 39,
    "sourceCheckLabels": 33,
@@ -701,7 +1056,115 @@
      105,
      77
     ],
-    "occludedAtFarRight": []
+    "restPositions": 18,
+    "occludedPositions": [
+     {
+      "scrollLeft": 209,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 314,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 523,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 732,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 941,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1045,
+      "columns": [
+       "2025Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1150,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1254,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1359,
+      "columns": [
+       "2025Q3"
+      ]
+     },
+     {
+      "scrollLeft": 1463,
+      "columns": [
+       "2025Q3"
+      ]
+     },
+     {
+      "scrollLeft": 1568,
+      "columns": [
+       "2025Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1673,
+      "columns": [
+       "2026Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1768,
+      "columns": [
+       "2026Q2"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 1768,
+      "columns": [
+       "2026Q2"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   },
   {
@@ -712,6 +1175,16 @@
    "mobile": true,
    "viewport": 320,
    "layoutViewport": 413,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 413,
    "pageOverflowPx": 93,
    "sourceCheckLabels": 33,
@@ -842,7 +1315,121 @@
      105,
      77
     ],
-    "occludedAtFarRight": []
+    "restPositions": 19,
+    "occludedPositions": [
+     {
+      "scrollLeft": 209,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 314,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 523,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 732,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 941,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1045,
+      "columns": [
+       "2025Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1150,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1254,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1359,
+      "columns": [
+       "2025Q3"
+      ]
+     },
+     {
+      "scrollLeft": 1463,
+      "columns": [
+       "2025Q3"
+      ]
+     },
+     {
+      "scrollLeft": 1568,
+      "columns": [
+       "2025Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1673,
+      "columns": [
+       "2026Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1777,
+      "columns": [
+       "2026Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1838,
+      "columns": [
+       "2026Q2"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 1838,
+      "columns": [
+       "2026Q2"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   },
   {
@@ -853,6 +1440,16 @@
    "dsf": 2,
    "viewport": 740,
    "layoutViewport": 740,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 740,
    "pageOverflowPx": 0,
    "sourceCheckLabels": 33,
@@ -983,7 +1580,97 @@
      105,
      77
     ],
-    "occludedAtFarRight": []
+    "restPositions": 15,
+    "occludedPositions": [
+     {
+      "scrollLeft": 209,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 314,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 523,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 732,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 941,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1045,
+      "columns": [
+       "2025Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1150,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1254,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1359,
+      "columns": [
+       "2025Q3"
+      ]
+     },
+     {
+      "scrollLeft": 1434,
+      "columns": [
+       "2025Q3"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 1434,
+      "columns": [
+       "2025Q3"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   },
   {
@@ -994,6 +1681,16 @@
    "textZoom": 2,
    "viewport": 1480,
    "layoutViewport": 1480,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 1558,
    "pageOverflowPx": 78,
    "sourceCheckLabels": 33,
@@ -1124,7 +1821,97 @@
      209,
      154
     ],
-    "occludedAtFarRight": []
+    "restPositions": 15,
+    "occludedPositions": [
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1045,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1254,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1463,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1672,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 1881,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 2090,
+      "columns": [
+       "2025Q1"
+      ]
+     },
+     {
+      "scrollLeft": 2300,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 2509,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 2718,
+      "columns": [
+       "2025Q3"
+      ]
+     },
+     {
+      "scrollLeft": 2865,
+      "columns": [
+       "2025Q3"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 2865,
+      "columns": [
+       "2025Q3"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   },
   {
@@ -1134,6 +1921,16 @@
    "height": 1000,
    "viewport": 1480,
    "layoutViewport": 1480,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 1480,
    "pageOverflowPx": 0,
    "sourceCheckLabels": 33,
@@ -1264,7 +2061,73 @@
      105,
      77
     ],
-    "occludedAtFarRight": []
+    "restPositions": 11,
+    "occludedPositions": [
+     {
+      "scrollLeft": 209,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 314,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 523,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 732,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 941,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1022,
+      "columns": [
+       "2025Q1"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 1022,
+      "columns": [
+       "2025Q1"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   },
   {
@@ -1274,6 +2137,16 @@
    "height": 1000,
    "viewport": 1054,
    "layoutViewport": 1054,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 1054,
    "pageOverflowPx": 0,
    "sourceCheckLabels": 33,
@@ -1404,7 +2277,79 @@
      105,
      77
     ],
-    "occludedAtFarRight": []
+    "restPositions": 12,
+    "occludedPositions": [
+     {
+      "scrollLeft": 209,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 314,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 523,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 732,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 941,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1045,
+      "columns": [
+       "2025Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1120,
+      "columns": [
+       "2025Q2"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 1120,
+      "columns": [
+       "2025Q2"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   },
   {
@@ -1414,6 +2359,16 @@
    "height": 1000,
    "viewport": 1024,
    "layoutViewport": 1024,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 1024,
    "pageOverflowPx": 0,
    "sourceCheckLabels": 33,
@@ -1544,7 +2499,79 @@
      105,
      77
     ],
-    "occludedAtFarRight": []
+    "restPositions": 12,
+    "occludedPositions": [
+     {
+      "scrollLeft": 209,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 314,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 523,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 732,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 941,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1045,
+      "columns": [
+       "2025Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1150,
+      "columns": [
+       "2025Q2"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 1150,
+      "columns": [
+       "2025Q2"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   },
   {
@@ -1554,6 +2581,16 @@
    "height": 1024,
    "viewport": 768,
    "layoutViewport": 768,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 768,
    "pageOverflowPx": 0,
    "sourceCheckLabels": 33,
@@ -1684,7 +2721,97 @@
      105,
      77
     ],
-    "occludedAtFarRight": []
+    "restPositions": 15,
+    "occludedPositions": [
+     {
+      "scrollLeft": 209,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 314,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 523,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 732,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 941,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1045,
+      "columns": [
+       "2025Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1150,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1254,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1359,
+      "columns": [
+       "2025Q3"
+      ]
+     },
+     {
+      "scrollLeft": 1406,
+      "columns": [
+       "2025Q3"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 1406,
+      "columns": [
+       "2025Q3"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   },
   {
@@ -1695,6 +2822,16 @@
    "mobile": true,
    "viewport": 390,
    "layoutViewport": 429,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 429,
    "pageOverflowPx": 39,
    "sourceCheckLabels": 33,
@@ -1825,7 +2962,115 @@
      105,
      77
     ],
-    "occludedAtFarRight": []
+    "restPositions": 18,
+    "occludedPositions": [
+     {
+      "scrollLeft": 209,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 314,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 523,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 732,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 941,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1045,
+      "columns": [
+       "2025Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1150,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1254,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1359,
+      "columns": [
+       "2025Q3"
+      ]
+     },
+     {
+      "scrollLeft": 1463,
+      "columns": [
+       "2025Q3"
+      ]
+     },
+     {
+      "scrollLeft": 1568,
+      "columns": [
+       "2025Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1673,
+      "columns": [
+       "2026Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1768,
+      "columns": [
+       "2026Q2"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 1768,
+      "columns": [
+       "2026Q2"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   },
   {
@@ -1836,6 +3081,16 @@
    "mobile": true,
    "viewport": 320,
    "layoutViewport": 413,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 413,
    "pageOverflowPx": 93,
    "sourceCheckLabels": 33,
@@ -1966,7 +3221,121 @@
      105,
      77
     ],
-    "occludedAtFarRight": []
+    "restPositions": 19,
+    "occludedPositions": [
+     {
+      "scrollLeft": 209,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 314,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 523,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 732,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 941,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1045,
+      "columns": [
+       "2025Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1150,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1254,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1359,
+      "columns": [
+       "2025Q3"
+      ]
+     },
+     {
+      "scrollLeft": 1463,
+      "columns": [
+       "2025Q3"
+      ]
+     },
+     {
+      "scrollLeft": 1568,
+      "columns": [
+       "2025Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1673,
+      "columns": [
+       "2026Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1777,
+      "columns": [
+       "2026Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1838,
+      "columns": [
+       "2026Q2"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 1838,
+      "columns": [
+       "2026Q2"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   },
   {
@@ -1977,6 +3346,16 @@
    "dsf": 2,
    "viewport": 740,
    "layoutViewport": 740,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 740,
    "pageOverflowPx": 0,
    "sourceCheckLabels": 33,
@@ -2107,7 +3486,97 @@
      105,
      77
     ],
-    "occludedAtFarRight": []
+    "restPositions": 15,
+    "occludedPositions": [
+     {
+      "scrollLeft": 209,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 314,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 523,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 732,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 941,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 1045,
+      "columns": [
+       "2025Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1150,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1254,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1359,
+      "columns": [
+       "2025Q3"
+      ]
+     },
+     {
+      "scrollLeft": 1434,
+      "columns": [
+       "2025Q3"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 1434,
+      "columns": [
+       "2025Q3"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   },
   {
@@ -2118,6 +3587,16 @@
    "textZoom": 2,
    "viewport": 1480,
    "layoutViewport": 1480,
+   "counts": {
+    "kpiCards": 4,
+    "tableHeaders": 13,
+    "tableRows": 20
+   },
+   "probeErrors": [],
+   "fonts": [
+    "Inter:true",
+    "Geist Mono:true"
+   ],
    "documentWidth": 1558,
    "pageOverflowPx": 78,
    "sourceCheckLabels": 33,
@@ -2248,7 +3727,97 @@
      209,
      154
     ],
-    "occludedAtFarRight": []
+    "restPositions": 15,
+    "occludedPositions": [
+     {
+      "scrollLeft": 418,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 627,
+      "columns": [
+       "2023Q4"
+      ]
+     },
+     {
+      "scrollLeft": 836,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1045,
+      "columns": [
+       "2024Q1"
+      ]
+     },
+     {
+      "scrollLeft": 1254,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1463,
+      "columns": [
+       "2024Q2"
+      ]
+     },
+     {
+      "scrollLeft": 1672,
+      "columns": [
+       "2024Q3"
+      ]
+     },
+     {
+      "scrollLeft": 1881,
+      "columns": [
+       "2024Q4"
+      ]
+     },
+     {
+      "scrollLeft": 2090,
+      "columns": [
+       "2025Q1"
+      ]
+     },
+     {
+      "scrollLeft": 2300,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 2509,
+      "columns": [
+       "2025Q2"
+      ]
+     },
+     {
+      "scrollLeft": 2718,
+      "columns": [
+       "2025Q3"
+      ]
+     },
+     {
+      "scrollLeft": 2865,
+      "columns": [
+       "2025Q3"
+      ]
+     }
+    ],
+    "occludedAtFarRight": [
+     {
+      "scrollLeft": 2865,
+      "columns": [
+       "2025Q3"
+      ]
+     }
+    ],
+    "clippedCount": 0,
+    "clippedCells": []
    }
   }
  ]

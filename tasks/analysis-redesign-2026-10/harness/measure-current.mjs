@@ -73,32 +73,44 @@ async function mockApi(context) {
 
 async function measure(page, configuredWidth) {
   // Mobile Chromium widens the layout viewport to overflowing content, so innerWidth cannot detect
-  // overflow: compare the document with the configured viewport width instead.
-  return page.evaluate((vw) => {
+  // overflow: compare the document with the configured viewport width instead. The probes read the
+  // rendered text (text-node rectangles and scrollWidth per block, `.sr-only` excluded), test both
+  // sides of each cell's content box, and visit every scroll rest position, as the prototype's do.
+  return page.evaluate(async (vw) => {
     const doc = document.documentElement
     const r = (el) => el.getBoundingClientRect()
+    const EPS = 0.5
+    const settle = () => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)))
+    const textRects = (root) => {
+      const out = []
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.nodeValue.trim() || node.parentElement.closest('.sr-only')) continue
+        const range = document.createRange(); range.selectNodeContents(node)
+        for (const b of range.getClientRects()) if (b.width) out.push({ b, text: node.nodeValue.trim().slice(0, 40) })
+      }
+      return out
+    }
+    const worstOutside = (root, box) => {
+      let worst = 0, text = ''
+      for (const c of root.querySelectorAll('*')) { if (c.closest('.sr-only')) continue; const b = r(c); if (!b.width) continue; const o = Math.max(b.right - box.right, box.left - b.left); if (o > worst) { worst = o; text = (c.textContent || '').trim().slice(0, 40) } }
+      for (const { b, text: t } of textRects(root)) { const o = Math.max(b.right - box.right, box.left - b.left); if (o > worst) { worst = o; text = t } }
+      for (const c of root.querySelectorAll('*')) { if (c.closest('.sr-only')) continue; const cs = getComputedStyle(c); if (cs.overflow !== 'visible' && (c.scrollWidth > c.clientWidth + 1 || c.scrollHeight > c.clientHeight + 1)) { worst = Math.max(worst, c.scrollWidth - c.clientWidth, c.scrollHeight - c.clientHeight); text = (c.textContent || '').trim().slice(0, 40) } }
+      return { worst: Math.round(worst * 10) / 10, text }
+    }
     const badges = [...document.querySelectorAll('span.rounded-full')].filter((el) => /source check/i.test(el.textContent || ''))
-    // KPI strip: the first grid with four Card children after the picker.
-    // main after #1200: a <dl data-analysis-kpi> of cards; main at 97293e7: a div.grid of four Cards.
+    // main after #1200: cards marked data-analysis-kpi; main at 97293e7: a div.grid of four Cards.
     const markedCards = [...document.querySelectorAll('[data-analysis-kpi]')]
     const legacyGrid = [...document.querySelectorAll('main div.grid')].find((g) => g.className.includes('lg:grid-cols-4'))
     const cards = markedCards.length ? markedCards : legacyGrid ? [...legacyGrid.children] : []
     const kpi = cards.map((card) => {
       const cr = r(card)
-      const children = [...card.querySelectorAll('*')]
-      let worst = 0
-      let worstText = ''
-      for (const child of children) {
-        const b = r(child)
-        if (b.width === 0) continue
-        const over = Math.max(b.right - cr.right, cr.left - b.left)
-        if (over > worst) { worst = over; worstText = (child.textContent || '').trim().slice(0, 40) }
-      }
+      const w = worstOutside(card, cr)
       const value = card.querySelector('[data-kpi-value], .text-2xl')
-      return { label: (card.querySelector('.uppercase')?.textContent || '').trim(), width: Math.round(cr.width), height: Math.round(cr.height), valueTop: value ? Math.round(r(value).top - cr.top) : null, worstOverflowPx: Math.round(worst * 10) / 10, worstOverflowText: worstText }
+      return { label: (card.querySelector('dt, .uppercase')?.textContent || '').trim(), width: Math.round(cr.width), height: Math.round(cr.height), valueTop: value ? Math.round(r(value).top - cr.top) : null, worstOverflowPx: w.worst, worstOverflowText: w.text }
     })
     // Metrics table.
-    const heading = [...document.querySelectorAll('h2')].find((h) => /Metrics by period/.test(h.textContent || ''))
+    const heading = [...document.querySelectorAll('h2, h3')].find((h) => /Metrics by period/.test(h.textContent || ''))
     const section = heading?.closest('section')
     const table = section?.querySelector('table')
     const scroller = table?.parentElement
@@ -110,18 +122,35 @@ async function measure(page, configuredWidth) {
         const warned = cells.some((c) => /source check/i.test(c.textContent || ''))
         return { header: (th.textContent || '').trim(), width: Math.round(r(th).width), warned }
       })
-      scroller.scrollLeft = scroller.scrollWidth
-      const stickyRight = r(ths[0]).right
-      // The first body row's cells partially hidden under the sticky column at the far right.
-      const firstRow = table.querySelector('tbody tr')
-      const occluded = [...firstRow.children].slice(1).map((td) => {
-        const b = r(td)
-        const value = td.querySelector('button') || td
-        const vb = r(value)
-        return { col: cols[[...firstRow.children].indexOf(td)].header, cellLeft: Math.round(b.left - stickyRight), valueLeft: Math.round(vb.left - stickyRight), valueWidth: Math.round(vb.width) }
-      }).filter((c) => c.valueLeft < 0 && c.valueLeft + c.valueWidth > 0)
-      scroller.scrollLeft = 0
-      tableInfo = { tableWidth: Math.round(table.scrollWidth), containerWidth: Math.round(scroller.clientWidth), columns: cols, warnedWidths: cols.filter((c) => c.warned).map((c) => c.width), cleanWidths: cols.slice(1).filter((c) => !c.warned).map((c) => c.width), occludedAtFarRight: occluded }
+      // Both-sided cell clipping of the rendered text.
+      const clipped = []
+      for (const td of table.querySelectorAll('tbody td, tbody th')) {
+        const cs = getComputedStyle(td); const b = r(td)
+        const box = { left: b.left + parseFloat(cs.paddingLeft), right: b.right - parseFloat(cs.paddingRight) }
+        const w = worstOutside(td, box)
+        if (w.worst > EPS) clipped.push({ text: w.text, by: w.worst })
+      }
+      // Every rest position: a period header straddling the sticky column's right edge is an occluded column.
+      const colWidth = ths.length > 1 ? r(ths[1]).width : 0
+      const occluded = []
+      let restPositions = 0
+      if (colWidth && table.scrollWidth > scroller.clientWidth + 1) {
+        const range = scroller.scrollWidth - scroller.clientWidth
+        const stops = []
+        for (let k = 0; k * colWidth <= range + EPS; k++) stops.push(Math.min(k * colWidth, range))
+        if (stops[stops.length - 1] < range - EPS) stops.push(range)
+        for (const stop of stops) {
+          scroller.scrollLeft = stop
+          await settle()
+          restPositions++
+          const stickyRight = r(ths[0]).right
+          const straddling = ths.slice(1).filter((th) => { const hb = r(th); return hb.left < stickyRight - EPS && hb.right > stickyRight + EPS })
+          if (straddling.length) occluded.push({ scrollLeft: Math.round(scroller.scrollLeft), columns: straddling.map((th) => (th.textContent || '').replace(/\s+/g, ' ').trim()) })
+        }
+        scroller.scrollLeft = 0
+        await settle()
+      }
+      tableInfo = { tableWidth: Math.round(table.scrollWidth), containerWidth: Math.round(scroller.clientWidth), columns: cols, warnedWidths: cols.filter((c) => c.warned).map((c) => c.width), cleanWidths: cols.slice(1).filter((c) => !c.warned).map((c) => c.width), restPositions, occludedPositions: occluded, occludedAtFarRight: occluded.filter((o) => o.scrollLeft >= (scroller.scrollWidth - scroller.clientWidth) - 1), clippedCount: clipped.length, clippedCells: clipped.slice(0, 8) }
     }
     // The report-level summary line: the Data notes strip after #1200, the Sources & methods summary before it.
     const sm = document.querySelector('[data-analysis-data-notes] > details > summary') || [...document.querySelectorAll('summary')].find((s) => /Sources/.test(s.textContent || ''))
@@ -175,7 +204,7 @@ async function run() {
         mkdirSync(SHOTS, { recursive: true })
         await page.screenshot({ path: path.join(SHOTS, `current-${theme}-${cfg.name.replace(/[@%]/g, '')}.png`), fullPage: true })
       }
-      console.log(theme, cfg.name, 'overflow', m.pageOverflowPx, 'labels', m.sourceCheckLabels, 'table', m.table?.tableWidth, '/', m.table?.containerWidth, 'kpi worst', m.kpi.map((k) => k.worstOverflowPx).join(','))
+      console.log(theme, cfg.name, 'overflow', m.pageOverflowPx, 'labels', m.sourceCheckLabels, 'table', m.table?.tableWidth, '/', m.table?.containerWidth, 'clipped', m.table?.clippedCount, 'occludedPositions', m.table?.occludedPositions.length, 'kpi worst', m.kpi.map((k) => k.worstOverflowPx).join(','))
       await context.close()
     }
   }

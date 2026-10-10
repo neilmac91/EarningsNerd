@@ -126,10 +126,13 @@ configured viewport; KPI containment from the rendered text (text-node rectangle
 against `clientWidth` of every block, `.sr-only` excluded), not from element boxes alone; cell text
 against the cell's content box on both sides; sticky-column occlusion at every scroll rest position
 (a header straddling the sticky edge), not only at the far right; every probe asserts how many
-elements it found. The recorded run of the current build (`measurements/current.json`) predates the
-widening: its KPI and clipping numbers are element-box numbers, which understate the defect, and its
-far-right occlusion probe never fired on any build, so the "column half-hidden" row of §6 rests on
-the production screenshots for the current build and on the every-position probe for the prototype.
+elements it found. The recorded run of the current build (`measurements/current.json`) was retaken
+with the widened probes on the same `97293e7` build: every earlier number reproduced exactly (the
+labels, the table and column widths, the 54 / 89 / 126 px card overflow, the 39 / 93 / 78 px page
+overflow), no cell text is clipped (its columns size to their content, which is the defect), and the
+every-position probe now measures the half-hidden column that only the production screenshots had
+shown: 9 of the 11 rest positions at 1480 have a period column straddling the sticky edge, 16 of 18
+at 390 and 17 of 19 at 320 (the first and the last rest positions are the clean ones).
 
 Taken on the repository's frontend (`next build` + `next start`, `NEXT_PUBLIC_ENABLE_ANALYSIS=true`)
 with every API answered in the browser, state 2, light theme (dark theme measured identical):
@@ -238,8 +241,9 @@ What a reader sees in the three states (the strip's summary line; state 2 is the
   lineage is not recorded"; note b as in state 1.
 - State 3: "Data notes · 3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) ·
   101 calculated †". Open: note a "Available sources disagree on this figure. Revenue (Q2 2026);
-  Operating margin (Q2 2026); Net margin (Q2 2026) · 3 figures · 6 comparisons carry this note (3 in
-  the table, 3 in the headline cards) · check the original filing before relying on these figures";
+  Operating margin (Q2 2026); Net margin (Q2 2026) · 3 figures · 6 comparisons carry this note: 3
+  quarter-over-quarter changes in the table and 3 year-over-year changes, of which the headline cards
+  show two and the exports carry all · check the original filing before relying on these figures";
   note b as above.
 
 The summary names each note's letter beside its count, so the resting line is the key to the marks on
@@ -585,7 +589,7 @@ the dataset they render, never from a stored list.
 | Period column widths at 1480 | 77–105 clean, 234–240 warned | 77 all |
 | Table at 1024 / 768 / 390 | 2,076 at every width | 1,044 / 1,044 / 920; Newest 6 fits ≥ 768 |
 | Cell text outside its content box (both sides) | not measured | 0 at every width, 200% text included |
-| Column straddling the sticky edge at any rest position | observed in production | 0 at every rest position, every width |
+| Rest positions with a column straddling the sticky edge | 9 of 11 at 1480, 16 of 18 at 390, 17 of 19 at 320 | 0 at every rest position, every width |
 | Count the reader sees | "24 source checks needed" (26 in production) | "10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b)" |
 | Evidence for a legacy margin | "26.06536077 pure", no inputs | "26.1% · As stored: 26.0653607671% · Needs review · note a · lineage not recorded" |
 | Red flags, FCF finding | 1 sentence + 20 inline operands | 1 sentence + "Show the 20 source figures behind this · figures carry note a" |
@@ -642,18 +646,25 @@ operational action and is not part of this brief.
    `<th scope="row">`). **`MetricsTable.tsx`** (M): column widths, header basis line, change line without
    prefix, "—ᵇ", window control (`SegmentedControl`), start-at-newest on phones with the hint, 12-of-12
    caption. Update `metrics-table.spec.tsx`.
-6. **`SourceValue.tsx`** (S): display form + exact value, substituted formula, checks block, lineage
-   block with the absent-lineage copy; never a storage unit.
-7. **`NarrativePane.tsx`** (M): compact amounts and periods at render time until Phase 2 renders them
-   server-side (a display transform over the code-generated text; the fidelity scan already licenses the
-   compact forms); fold "Source operands: …" into an evidence disclosure (the prefix is a code constant;
-   export and pin it); header chips; Sources list lines. Update `narrative-pane.spec.tsx`.
-8. **`TrendCharts.tsx`** (S): `dot` render for hollow markers with the letter, dashed outline for a bar
-   with a note, "Notes a" chip, PNG note sentences from `groupDataNotes`. Update
+6. **`SourceValue.tsx`** (M; landed in #1203): display form, the stored value, the formula with its
+   operands bound by concept, the status vocabulary, the comparison block, the lineage block with the
+   absent-lineage copy; never a storage unit (§4.6). Leftovers on `main`: `review-2026-10-10.md` items 1,
+   13, 16 and 28.
+7. **`NarrativePane.tsx`** (M; landed in #1203): compact amounts and periods at render time until Phase 2
+   renders them server-side, under the relation-safe rule of §4.8; the evidence disclosure for lists of
+   more than three figures, shorter lists inline, letters on the fold's summary, rows from the citations
+   the markers name; header chips; Sources list lines. Update `narrative-pane.spec.tsx`. Leftovers on
+   `main`: `review-2026-10-10.md` items 2 and 11.
+8. **`TrendCharts.tsx`** (S; landed in #1203): `dot` render for hollow markers with the letter above,
+   affected bars keeping their fill with the letter above (never a dashed outline: §4.7, decision 7),
+   letters in the chart label ink as SVG attributes from the chart theme, "Notes a" chip, PNG note
+   sentences from `groupDataNotes`. Leftovers on `main`: `review-2026-10-10.md` items 22, 25 and 29. Update
    `trend-charts-annotation.spec.tsx`, `trend-charts-legend.spec.tsx` (it owns the warning and PNG
    metadata assertions) and `chart-export.spec.ts`.
-9. **`PeriodPicker.tsx`** (M): `SegmentedControl`, presets, From/To `Select`s with the cap clamp,
-   summary line; `chipsFor`/`nextRange` become option builders. Update `period-picker-helpers.spec.ts`.
+9. **`PeriodPicker.tsx`** (M; landed in #1203 as a rule-6 contract change): `SegmentedControl`, presets as
+   plain buttons, From/To selects with the announced clamp, summary line (§4.9); `chipsFor`/`nextRange`
+   become option builders. Update `period-picker-helpers.spec.ts`. Leftovers on `main`:
+   `review-2026-10-10.md` item 19.
    `SegmentedControl` has no unavailable-option API today and the picker disables Quarterly when a
    company has no quarterly coverage: add an `aria-disabled` option (early return in the handler, the
    DS unavailable recipe, never native `disabled`) so that state survives the migration. Note the Run
@@ -877,8 +888,9 @@ changed and what remains open, is `tasks/analysis-redesign-2026-10/review-2026-1
 correction landed in this document:
 
 - **The probes were blind** (element boxes, `scrollWidth` only, one row at the far right, 200% text at
-  1480 only): widened in both harnesses and the prototype's `measure`; the recorded prototype run was
-  regenerated; §1, §2.3, §4.5, §6 state what is measured now. The widened probes found four clipped
+  1480 only): widened in both harnesses and the prototype's `measure`; both recorded runs were
+  regenerated (the current build's on the same `97293e7` build, reproducing every earlier number and
+  adding the every-position occlusion count); §1, §2.3, §4.5, §6 state what is measured now. The widened probes found four clipped
   change-line cells at every width (the YoY fallback) and seventeen at phone widths, 55 / 90 px of card
   overflow and a swallowed scroll area at 200% text on phones: fixed by the two-line fallback, the phone
   cell padding, the one-up rule (§4.4) and the un-sticking rule (§4.5), all measured at 0 afterwards.
