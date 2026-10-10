@@ -11,10 +11,11 @@ every docstring still counts), and diff per symbol name. Run it from ``backend/`
 
 The old file is read from ``--base`` (a git ref) and the new files from ``--head`` (default ``HEAD``),
 or from the working tree with ``--worktree``. A symbol is a module-level function, class (its header:
-decorators, bases and keywords), class member (method or class attribute, keyed ``Class.member``),
-assignment (keyed by its target names; one that sets an attribute or item, such as
-``settings.FLAG = False``, keys as ``effect:<target>``) or other module-level expression statement
-(``expr:<text>``). Statements inside module-level ``if``/``try``/``with``/``for``/``while`` blocks are
+decorators, bases, keywords and docstring, which Python takes as ``__doc__`` only from the first statement
+of the body, so a member or an import placed above it changes the header), class member (method or class
+attribute, keyed ``Class.member``), assignment (keyed by its target names; one that sets an attribute or
+item, such as ``settings.FLAG = False``, keys as ``effect:<target>``) or other module-level expression
+statement (``expr:<text>``). Statements inside module-level ``if``/``try``/``with``/``for``/``while`` blocks are
 read as module-level, and each such block is a symbol of its own as well, whatever its body holds (its
 header runs at import: ``if register(): import plugin`` calls, and ``while True: pass`` never finishes):
 keyed by the condition it runs under (``guard:<test, iterable, context or handled exceptions>``, or
@@ -40,12 +41,11 @@ or lambda's body runs later and is not read. ``property``, ``staticmethod``, ``c
 name that an inert property def above them in the same class body binds, with no statement that runs code
 in between; a class keyword such as ``metaclass=`` is not; a call, subscript, attribute read, operator or
 unpacking in a value is not), SHADOWS (a NEW symbol that binds a name the OLD symbols of its own new file
-use; the next paragraph), REORDERED (an old binding that now sits above one it followed in the same
-new file, every binding of a rebound name counted: module-level code runs top to bottom, so ``B = A``
-above ``A = 1`` raises at import, and ``A = 1; A = 2; B = A`` binds ``B`` to 2 where
-``A = 1; B = A; A = 2`` bound it to 1) and
-ADDED (other new symbols, which no moved code uses, such as the helpers a split introduces, or a façade's
-``__all__``).
+use, or a dunder that Python reads itself where they live; the next two paragraphs), REORDERED (an old
+binding that now sits above one it followed in the same new file, every binding of a rebound name
+counted: module-level code runs top to bottom, so ``B = A`` above ``A = 1`` raises at import, and
+``A = 1; A = 2; B = A`` binds ``B`` to 2 where ``A = 1; B = A; A = 2`` bound it to 1) and ADDED (other
+new symbols, which no moved code uses, such as the helpers a split introduces, or a façade's ``__all__``).
 
 SHADOWS: the old file had no symbol of that key, so the moved code took the name from an import, a builtin
 or another binding, and after the move it gets the new one, although the new symbol is inert by itself
@@ -71,21 +71,35 @@ existing module risks. One case is settled from the old file's own imports: when
 single plain module-level ``from M import name`` and the new file is M itself, the moved code keeps the
 binding it always had, and nothing is reported.
 
+Python itself reads a dunder name (``__x__``) of a namespace, with no load of it in the code there: a def
+or class body created below a module's ``__builtins__`` resolves every builtin through it, a relative
+import inside a def goes through ``__package__``, an attribute missing from the module through
+``__getattr__``, and creating, comparing or hashing an instance through its class's ``__slots__``,
+``__init__``, ``__eq__`` or ``__hash__``. So a new symbol that binds a dunder where moved code lives
+shadows it, ``read by Python itself``: at module level when its file holds an old symbol, and in a class
+body when the class is an old symbol. Every dunder counts, the ones libraries read included (pydantic's
+``__get_validators__``, SQLAlchemy's ``__tablename__``), with one exemption: a module's ``__all__``, which
+every façade declares and Python reads only for ``from module import *``. (A name the old file imported
+from the target file itself is settled as above, a dunder too.) A new class's own dunders are ADDED: moved
+code reaches them only through the class's name, which SHADOWS reports when the moved code reads it, or a
+disclosed change shows when it starts to (a new base on a moved class).
+
 Limits. Code that a new class runs through a BASE (an inherited metaclass, or the base's
 ``__init_subclass__``) is not visible in the AST, so a new class with bases is ADDED; read every ADDED
 class's bases. Names are followed only as written. A new symbol that loads an unbound name raises
 NameError at import, which every test that imports the module, and the app's own startup, fails on loudly.
 A name reached through an attribute is not followed: an ADDED ``Class.member`` of a moved class overrides
-whatever the class inherited under that name, for ``self.name`` and for the names Python looks up itself
-(``__init__``, ``__eq__``, ``__slots__``), so read every one; Python reads a module's ``__builtins__``,
-``__package__`` and ``__getattr__`` itself as well, so read every ADDED dunder (a façade's ``__all__`` is
-the expected one). Neither is a name reached through a string (a quoted annotation,
+whatever the class inherited under that name for ``self.name`` and for the non-dunder names a class's
+machinery reads (an Enum's ``_missing_``), and an annotated one is a new field of a dataclass or a
+pydantic model, so read every one. Neither is a name reached through a string (a quoted annotation,
 ``globals()['name']``), a class-private ``__name`` (compared as written, not mangled), or an import:
-imports are not symbols, so one that binds a name the moved code reads to something else, a new symbol
-of another new file included, is outside the proof; read the import diff. And the names these
-rules trust (``property``, ``dataclass``, ``TYPE_CHECKING`` and the like) are taken at their word, so a
-move that rebinds one where no moved symbol reads it, such as an ADDED ``TYPE_CHECKING = True`` above an
-exempt block, is outside the proof.
+imports are not symbols, so one that binds a name the moved code reads, or a dunder, to something else, a
+new symbol of another new file included, is outside the proof, and so is a new ``from __future__``
+import, which changes how the moved code compiles; read the import diff. A new annotated assignment
+writes its namespace's ``__annotations__`` without binding that name, so moved code that reads the dict,
+at module level too, sees one more key. And the names these rules trust (``property``, ``dataclass``,
+``TYPE_CHECKING`` and the like) are taken at their word, so a move that rebinds one where no moved symbol
+reads it, such as an ADDED ``TYPE_CHECKING = True`` above an exempt block, is outside the proof.
 
 The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE, SIDE EFFECT, SHADOWS or REORDERED
 beyond the symbols passed with ``--allow`` (for SHADOWS, the new symbol's key); each allowed symbol is a
@@ -484,9 +498,12 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
             put(node.name, ast.unparse(node), node, _inert(node, postponed))
         elif isinstance(node, ast.ClassDef):
             members = [m for m in _flatten(node.body) if not isinstance(m, (ast.Import, ast.ImportFrom))]
+            # Python takes a class's ``__doc__`` from the first statement of its body only, so the header
+            # carries it: a docstring that anything now precedes is gone from the header, as from ``__doc__``.
             header = ast.ClassDef(
                 name=node.name, bases=node.bases, keywords=node.keywords,
-                body=[ast.Pass()], decorator_list=node.decorator_list,
+                body=node.body[:1] if _is_docstring(node.body[0]) else [ast.Pass()],
+                decorator_list=node.decorator_list,
                 **({"type_params": node.type_params} if hasattr(node, "type_params") else {}),
             )
             put(node.name, ast.unparse(ast.fix_missing_locations(header)), node, _inert(header, postponed),
@@ -577,21 +594,37 @@ def _imported_from(old_source: str, old_path: str) -> dict[str, frozenset[str]]:
     return {name: files for name, files in origins.items() if imported.count(name) == 1}
 
 
+def _dunder(name: str) -> bool:
+    """``__name__``: a name between two pairs of underscores, which Python looks up itself. A name of
+    underscores alone, such as ``__``, is a throwaway name, as ``_`` is."""
+    return name.startswith("__") and name.endswith("__") and bool(name.strip("_"))
+
+
+# Every façade declares ``__all__`` (``tasks/refactor-plan-2026-10.md``), which Python reads only for a
+# star import of the module, so a module's new ``__all__`` is ADDED.
+_DECLARED_DUNDERS = frozenset({"__all__"})
+
+
 def _shadows(key: str, names: dict[str, _Names], old_names: dict[str, _Names],
              own: frozenset[str] = frozenset()) -> str:
     """The names the NEW symbol ``key`` binds that OLD symbols of its file read or bind in the same
-    namespace, before the move and after it, as ``binds make, read by X, build``. Empty when there are none,
-    and for a new block: it is a SIDE EFFECT already, and each statement in it is a symbol of its own.
+    namespace, before the move and after it, as ``binds make, read by X, build``. A dunder of a namespace
+    that holds moved code (a module with an old symbol, or a class that is one) is read by Python itself,
+    named in the moved code or not, except a module's ``__all__``. Empty when there are none, and for a new
+    block: it is a SIDE EFFECT already, and each statement in it is a symbol of its own.
     ``own``: the module-level names the old file imported from this very file (``_imported_from``)."""
     new, found = names[key], []
+    moved_here = new.owner in old_names if new.owner else any(other in old_names for other in names)
     for name in sorted(() if new.block else new.binds if new.owner else new.binds - own):
         uses = []
+        itself = moved_here and _dunder(name) and not (new.owner is None and name in _DECLARED_DUNDERS)
         for verb, used in (("read", _Names.reads), ("bound", _Names.bound)):
             users = [other for other in sorted(names) if other in old_names
                      and name in used(names[other], new.owner) & used(old_names[other], new.owner)]
-            if users:
+            python = ["Python itself"] if verb == "read" and itself else []
+            if python or users:
                 more = f" and {len(users) - 3} more" if len(users) > 3 else ""
-                uses.append(f"{verb} by {', '.join(users[:3])}{more}")
+                uses.append(f"{verb} by {', '.join(python + users[:3])}{more}")
         if uses:
             found.append(f"binds {name}, {' and '.join(uses)}")
     return "; ".join(found)

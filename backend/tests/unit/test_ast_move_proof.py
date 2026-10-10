@@ -11,8 +11,9 @@ whose body holds only imports or ``pass``, outside the ``if TYPE_CHECKING:`` exe
 name that no inert property def above it in its class binds, or with code that runs in between; a class
 attribute bound to a bare name, whose ``__set_name__`` runs; and an unpacking of anything but a display, which
 iterates it), a new symbol that binds a name the moved code of its file reads or binds (at module level, or
-in the class body for a new class member) and a reordered symbol each fail; a disclosed delta passes with
-its diff shown.
+in the class body for a new class member) or a dunder that Python reads itself where moved code lives (a
+module's ``__all__`` aside), a class docstring that no longer opens its body, and a reordered symbol each
+fail; a disclosed delta passes with its diff shown.
 """
 from tests.support.ast_move_proof import compare, render
 
@@ -452,6 +453,107 @@ def test_a_symbol_of_the_target_file_is_no_shadow_when_the_old_file_imported_it_
                      "if FAST:\n    " + old):  # imported only when FAST
         assert compare(unplaced, files, old_path="app/a.py").shadows == shadowed, unplaced
     assert compare(old, files).shadows == shadowed  # no path for the old file
+
+
+def test_a_new_module_dunder_beside_moved_code_is_read_by_python_itself():
+    """No moved code loads ``__builtins__``, yet ``size`` below it resolves ``len`` through it. It runs
+    nothing at import, and it printed ``pure move: OK`` before the rule."""
+    size = "def size(rows):\n    return len(rows)\n"
+    builtins = {"app/x.py": "__builtins__ = {'len': 0}\n\n" + size}
+    report = compare(size, builtins)
+    assert not report.ok
+    assert report.shadows == {"__builtins__": "app/x.py: binds __builtins__, read by Python itself"}
+    assert report.added == {}
+    assert "SHADOWS    __builtins__ (app/x.py: binds __builtins__, read by Python itself)" in render(report)
+    disclosed = compare(size, builtins, frozenset({"__builtins__"}))
+    assert disclosed.ok
+    assert disclosed.allowed == {
+        "__builtins__": "added in app/x.py\nshadows app/x.py: binds __builtins__, read by Python itself"}
+
+
+def test_a_new_dunder_member_of_a_moved_class_is_read_by_python_itself():
+    """No moved code loads ``__slots__``, yet creating the class reads it: the moved class's instances lose
+    their ``__dict__``. It runs nothing at import, and it printed ``pure move: OK`` before the rule."""
+    moved = "class Moved:\n    x = 1\n"
+    slots = compare(moved, {"app/x.py": moved.replace("    x = 1", "    __slots__ = ()\n    x = 1")})
+    assert not slots.ok
+    assert slots.shadows == {"Moved.__slots__": "app/x.py: binds __slots__, read by Python itself"}
+
+
+def test_a_class_docstring_counts_only_as_the_first_statement_of_its_body():
+    """Python takes a class's ``__doc__`` from the first statement of its body only, and FastAPI and pydantic
+    read it: a new member placed above an old class's docstring takes it out of ``__doc__``, with every
+    member's text unchanged. The header carries the docstring, so whatever now precedes it (a new member, an
+    import, an old member, a block around it) changes the header, in a class that holds nothing else too, and
+    so does a docstring added to a class that had none. A first statement that is no string is no docstring."""
+    old = 'class Moved:\n    """Doc."""\n    x = 1\n'
+    report = compare(old, {"app/x.py": old.replace('    """Doc."""', '    y = 0\n    """Doc."""')})
+    assert not report.ok
+    assert list(report.changed) == ["Moved"]
+    assert '-    """Doc."""\n+    pass' in report.changed["Moved"]
+    assert report.moved == 2 and report.added == {"Moved.y": "app/x.py"}  # the docstring and x, unchanged
+    for above in ("    import os\n", "    x = 1\n"):
+        displaced = old.replace("    x = 1\n", "").replace('    """Doc."""', above + '    """Doc."""')
+        assert "Moved" in compare(old, {"app/x.py": displaced}).changed, above
+    assert "Moved" in compare(old, {"app/x.py": old.replace('    """Doc."""', '    if FLAG:\n        """Doc."""')}).changed
+    only = 'class NotFound(Exception):\n    """Raised."""\n'
+    assert list(compare(only, {"app/x.py": only.replace("    ", "    status = 404\n    ", 1)}).changed) == ["NotFound"]
+    ellipsis = "class Proto:\n    ...\n    x = 1\n"
+    assert compare(ellipsis, {"app/x.py": ellipsis.replace("    ...", "    y = 0\n    ...")}).ok
+    bare = "class Moved:\n    x = 1\n"
+    documented = compare(bare, {"app/x.py": old})
+    assert list(documented.changed) == ["Moved"]
+    assert documented.added == {"Moved.expr:'Doc.'": "app/x.py"}
+
+
+def test_a_facades_all_and_a_new_classs_own_dunders_and_docstring_are_added():
+    """The control. A façade declares ``__all__`` beside the old ``logger`` it keeps, and a split adds a class
+    of its own, with a docstring and dunders, beside moved code: no moved code reaches them except through
+    the class's name, so every one is ADDED."""
+    cache = ('\nclass _Cache:\n    """Docstring."""\n\n    __slots__ = ("rows",)\n\n'
+             "    def __init__(self):\n        self.rows = {}\n\n"
+             "    def __eq__(self, other):\n        return self is other\n")
+    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + cache}))
+    assert report.ok, render(report)
+    members = ("_Cache", "_Cache.expr:'Docstring.'", "_Cache.__slots__", "_Cache.__init__", "_Cache.__eq__")
+    assert report.added == {"__all__": "app/x.py", **dict.fromkeys(members, "app/x/helpers.py")}
+
+
+def test_every_dunder_counts_where_moved_code_lives_and_only_there():
+    """One case per rule. Every dunder counts, a def or one that a library reads, at module level and in an
+    old class, ``__all__`` and ``__doc__`` included in a class, and in a class or a file whose only old
+    symbol is its header or a block; a dunder the moved code also names lists both readers. A module's
+    ``__all__`` is exempt from Python's read only, a file with no old symbol holds no moved code, and a
+    class-private ``__name``, a name with underscores on one side only and the throwaway ``__`` are no
+    dunders."""
+    size = "def size(rows):\n    return len(rows)\n"
+    for new, key in (("def __getattr__(name):\n    return name\n", "__getattr__"),
+                     ("__package__ = 'app'\n", "__package__")):
+        assert compare(size, {"app/x.py": size + new}).shadows == {
+            key: f"app/x.py: binds {key}, read by Python itself"}, new
+    fallback = "try:\n    import fast\nexcept ImportError:\n    pass\n"
+    assert compare(fallback, {"app/x.py": fallback + "\n__package__ = 'app'\n"}).shadows == {
+        "__package__": "app/x.py: binds __package__, read by Python itself"}
+    moved = "class Moved:\n    x = 1\n"
+    for new, name in (("def __init__(self):\n        pass", "__init__"), ("__tablename__ = 'rows'", "__tablename__"),
+                      ("def __init_subclass__(cls):\n        pass", "__init_subclass__"), ("__all__ = ()", "__all__"),
+                      ("def __eq__(self, other):\n        return True", "__eq__"), ("__doc__ = 'Other.'", "__doc__")):
+        report = compare(moved, {"app/x.py": moved + f"\n    {new}\n"})
+        assert report.shadows == {f"Moved.{name}": f"app/x.py: binds {name}, read by Python itself"}, new
+    empty = "class NotFound(Exception):\n    pass\n"
+    assert compare(empty, {"app/x.py": empty + "\n    def __str__(self):\n        return 'x'\n"}).shadows == {
+        "NotFound.__str__": "app/x.py: binds __str__, read by Python itself"}
+    readers = "A = __name__\nB = __name__\nC = __name__\nD = __name__\n"
+    named = compare(readers, {"app/x.py": "__name__ = 'app'\n" + readers})
+    assert named.shadows == {"__name__": "app/x.py: binds __name__, read by Python itself, A, B, C and 1 more"}
+    assert compare(size, {"app/x.py": "__all__ = ['size']\n\n" + size}).added == {"__all__": "app/x.py"}
+    listed = "def names():\n    return __all__\n"
+    assert compare(listed, {"app/x.py": "__all__ = []\n\n" + listed}).shadows == {
+        "__all__": "app/x.py: binds __all__, read by names"}
+    lazy = compare(size, {"app/x.py": size, "app/x/lazy.py": "def __getattr__(name):\n    return name\n"})
+    assert lazy.ok and lazy.added == {"__getattr__": "app/x/lazy.py"}
+    plain = compare(size, {"app/x.py": size + "\n__cache = {}\ncache__ = {}\n_cache__ = {}\n__cache_ = {}\n__ = 0\n"})
+    assert plain.ok and set(plain.added) == {"__cache", "cache__", "_cache__", "__cache_", "__"}
 
 
 def test_an_added_import_time_side_effect_fails_until_disclosed():
