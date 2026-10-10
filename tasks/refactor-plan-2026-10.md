@@ -1172,7 +1172,10 @@ package and the module; an absolute-prefix match alone would leave the three row
 proof as `backend/tests/support/ast_move_proof.py` (tests-only, so it does not deploy), which every
 pure-move PR and its reviewers run. `backend/tests/unit/test_ast_move_proof.py` self-tests each verdict.
 The proof reports MISSING, CHANGED and DUPLICATE. It also reports SIDE EFFECT: a new
-attribute or item assignment, or a new module-level call, which a move never adds. A name bound
+attribute or item assignment, or a new module-level call, which a move never adds; SHADOWS: a new
+symbol that binds a name the moved code uses, or a dunder that Python reads itself where moved code
+lives; and REORDERED: an old binding that now sits above one it followed. The proof's module
+docstring holds the full list. A name bound
 twice in one file, such as a `try`/`except` fallback, keeps every definition. Each `--allow`ed delta
 prints its diff for the PR body. Mutation proof for the PR body (one, per AGENTS.md §4): pad one
 budgeted function by one line on committed state, show the row fail, restore
