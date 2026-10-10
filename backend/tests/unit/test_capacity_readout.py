@@ -378,3 +378,97 @@ def test_capacity_readout_error_detail_never_aborts_the_receipt(monkeypatch):
                         lambda request, timeout: (_ for _ in ()).throw(HTTPError(URL, 403, "Forbidden", {}, None)))
     assert api.request(URL, {"pageSize": 1}) == (None, "http_403")
     assert api.last_error_detail == {"body": "non_json_or_unreadable"}
+
+
+# (Google API error.message, the message the receipt keeps). Fixture addresses use example.invalid and the
+# documentation IP ranges; every private one carries a PRIVATE_ token.
+REDACTION_VECTORS = [
+    # What names no address stays readable: an IAM permission of the receipt's own get/list/use reads, a resource
+    # path, a version, a time, a decimal and a field path.
+    ("Permission 'run.executions.list' denied on resource 'projects/test-project/locations/us-west1/jobs/x' "
+     "(or it may not exist).",
+     "Permission 'run.executions.list' denied on resource 'projects/test-project/locations/us-west1/jobs/x' "
+     "(or it may not exist)."),
+    ("Grant a role with the serviceusage.services.use permission to consumer 'project_number:123456' "
+     "(v2.14.0 at 06:00:00Z, 1.5 s, field resource.labels.service_name).",
+     "Grant a role with the serviceusage.services.use permission to consumer 'project_number:123456' "
+     "(v2.14.0 at 06:00:00Z, 1.5 s, field resource.labels.service_name)."),
+    # A URL, the whole token, whatever its scheme (principal:// included).
+    ("Enable it by visiting https://PRIVATE_URL_SENTINEL.example.invalid/apis?project=1 then retry.",
+     "Enable it by visiting <url> then retry."),
+    ("Subject principal://PRIVATE_POOL_SENTINEL.example.invalid/projects/1/locations/global/workloadIdentityPools/"
+     "PRIVATE_POOL_SENTINEL/subject/PRIVATE_SUBJECT_SENTINEL is unknown.", "Subject <url> is unknown."),
+    # An email address or principal, the whole token, also percent-encoded.
+    ("Permission denied for all log views. This command is authenticated as PRIVATE_USER_SENTINEL@example.invalid.",
+     "Permission denied for all log views. This command is authenticated as <email>"),
+    ("Members serviceAccount:PRIVATE_SA_SENTINEL@example.invalid, user:PRIVATE_USER_SENTINEL+x@example.invalid "
+     "and o'PRIVATE_NAME_SENTINEL%40example.invalid lack it.", "Members <email> <email> and <email> lack it."),
+    # A host name in any case and a domain: principal; its port and path are not addresses and stay.
+    ("Upstream PRIVATE_HOST_SENTINEL.example.invalid refused; retry PRIVATE_HOST_SENTINEL.example.invalid:8443/internal.",
+     "Upstream <host> refused; retry <host>:8443/internal."),
+    ("Member domain:PRIVATE_DOMAIN_SENTINEL.EXAMPLE.INVALID is not allowed.", "Member domain:<host> is not allowed."),
+    # An IP address, with any port.
+    ("Request from 192.0.2.7, 198.51.100.4:443, [2001:db8::7]:443 and 2001:db8:0:0:0:0:0:7 refused.",
+     "Request from <host>, <host>:443, [<host>]:443 and <host> refused."),
+    # Fail closed: any other dotted name with a letters-only last label is withheld, permission and role names
+    # included (the receipt keeps status, reason and domain beside it).
+    ("Permission 'run.services.getIamPolicy' denied; grant roles/run.invoker.",
+     "Permission '<host>' denied; grant roles/<host>."),
+]
+LEAKS = ("PRIVATE_", "example.invalid", "192.0.2.7", "198.51.100.4", "2001:db8")
+
+
+def _recorded_message(module, monkeypatch, message):
+    """The error_detail a 403 with this error.message leaves in the receipt, through the real HTTPError path."""
+    body = json.dumps({"error": {"code": 403, "status": "PERMISSION_DENIED", "message": message}}).encode()
+    fail_with_http_error(module, monkeypatch, body)
+    api = module.Api("unused-private-token")
+    assert api.request(URL, {"pageSize": 1}) == (None, "http_403")
+    return api.last_error_detail
+
+
+@pytest.mark.parametrize("message,recorded", REDACTION_VECTORS)
+def test_capacity_readout_redacts_addresses_from_error_messages(monkeypatch, message, recorded):
+    module = load_readout()
+    detail = _recorded_message(module, monkeypatch, message)
+    assert detail == {"status": "PERMISSION_DENIED", "code": 403, "message": recorded}
+    assert module.redact_addresses(recorded) == recorded  # placeholders are never re-read
+    assert not any(leak.lower() in json.dumps(detail, ensure_ascii=False).lower() for leak in LEAKS)
+
+
+def test_capacity_readout_host_rule_fails_closed_on_any_suffix():
+    """There is no suffix list: any letters-only last label (any script) or IDN label ends a host name, so a suffix
+    the rule has never seen is still withheld; a digit, an underscore or a single letter ends none."""
+    module = load_readout()
+    for label in ("invalid", "INVALID", "run", "online", "xn--p1ai", "XN--P1AI", "пример"):
+        assert module._HOST_LABEL.fullmatch(label), label
+    for label in ("0", "14", "1a", "service_name", "x", "type1"):
+        assert not module._HOST_LABEL.fullmatch(label), label
+
+
+def test_capacity_readout_keeps_only_the_listed_permission_verbs(monkeypatch):
+    """The one exemption is narrow: three ASCII letter labels ending in a listed verb. A fourth label, another
+    verb or a non-letter label is a host-shaped name and is withheld."""
+    module = load_readout()
+    assert module.PERMISSION_VERBS == ("get", "list", "use")
+    for kept in ("monitoring.timeSeries.list", "cloudtasks.queues.get", "serviceusage.services.use"):
+        assert module.redact_addresses(f"'{kept}'") == f"'{kept}'"
+    for withheld in ("PRIVATE_X.example.list", "a.PRIVATE.example.get", "PRIVATE.example.invoke", "pr1vate.example.use"):
+        assert module.redact_addresses(f"via {withheld} now") == "via <host> now", withheld
+
+
+def test_capacity_readout_redacts_before_cutting_the_message(monkeypatch):
+    """Redact, then cut: a cut first could leave part of an address its pattern no longer matches, and the
+    truncation flag describes the redacted message."""
+    module = load_readout()
+    straddling = "x" * 230 + " PRIVATE_LOCAL_SENTINEL@example.invalid denied"  # the address spans the cut
+    detail = _recorded_message(module, monkeypatch, straddling)
+    assert detail["message"] == ("x" * 230 + " <email> denied")[:240] and detail["message_truncated"] is True
+    dangling = "x" * 217 + " PRIVATE_HOST_SENTINEL.example.invalid"  # cut first, "PRIVATE_HOST_SENTINEL." would stay
+    detail = _recorded_message(module, monkeypatch, dangling)
+    assert detail["message"] == "x" * 217 + " <host>" and "message_truncated" not in detail
+    shrinking = "see " + " ".join(f"https://PRIVATE-{n}.example.invalid/{'p' * 40}" for n in range(6))
+    assert len(shrinking) > module.MAX_ERROR_MESSAGE
+    detail = _recorded_message(module, monkeypatch, shrinking)
+    assert detail["message"] == "see " + " ".join(["<url>"] * 6) and "message_truncated" not in detail
+    assert "PRIVATE" not in json.dumps(detail)

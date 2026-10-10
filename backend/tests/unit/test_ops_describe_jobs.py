@@ -13,6 +13,29 @@ from tests.unit.test_sec_process_budgets import EXPECTED_JOBS
 
 ROOT = Path(__file__).resolve().parents[3]
 STEP = "Describe expected job release configuration"
+MODULE = ROOT / "ops/describe/jobs.py"  # the readback the step runs after its shell loop
+# The step's whole run: block, byte for byte: the shell reads each job with stderr discarded, then runs the module.
+RUN = """set -euo pipefail
+JOB_DIR="$(mktemp -d /tmp/earningsnerd-expected-jobs.XXXXXX)"
+jobs=(
+  earningsnerd-pregenerate
+  earningsnerd-filing-scan
+  earningsnerd-filing-digest
+  earningsnerd-backfill-facts
+  earningsnerd-earnings-calendar-refresh
+  earningsnerd-earnings-day-alerts
+  earningsnerd-notable-filings
+  earningsnerd-retention-purge
+)
+for job in "${jobs[@]}"; do
+  if ! gcloud run jobs describe "$job" --region="$REGION" --format=json > "$JOB_DIR/$job.json" 2>/dev/null; then
+    echo "::error::expected Cloud Run job '$job' is missing or unreadable"
+    exit 1
+  fi
+done
+export JOB_DIR
+python3 ops/describe/jobs.py
+"""
 BACKFILL = "earningsnerd-backfill-facts"
 # Fixture command/argument tokens; the readback prints verdicts, never these.
 WITHHELD_TOKENS = ("python", "scripts/backfill_facts.py", "--only-new", "41")
@@ -25,10 +48,9 @@ def _step():
 
 
 def _split(step):
-    shell, code = step["run"].split("python3 - <<'PY'\n", 1)
-    code, suffix = code.split("\nPY", 1)
-    assert not suffix.strip()
-    return shell, code
+    shell, suffix = step["run"].split("python3 ops/describe/jobs.py\n", 1)
+    assert not suffix.strip()  # the module invocation is the step's last line
+    return shell, MODULE.read_text()
 
 
 def _literals(code):
@@ -75,16 +97,18 @@ def fixtures():
 
 
 def _run(tmp_path, monkeypatch, capfd, fixtures, *, files=None):
-    """Write each fixture to <JOB_DIR>/<name>.json, execute the heredoc body, return (output, SystemExit or None)."""
+    """Write each fixture to <JOB_DIR>/<name>.json, load the module by path, return (output, SystemExit or None)."""
     for name, job in fixtures.items():
         (tmp_path / f"{name}.json").write_text(json.dumps(job))
     for name, text in (files or {}).items():
         (tmp_path / f"{name}.json").write_text(text)
     monkeypatch.setenv("JOB_DIR", str(tmp_path))
-    code = compile(_split(_step())[1], "ops-describe-jobs", "exec")
+    _split(_step())  # the step runs this module as its last line
+    spec = importlib.util.spec_from_file_location("ops_describe_jobs", MODULE)
+    module = importlib.util.module_from_spec(spec)
     exit_ = None
     try:
-        exec(code, {})
+        spec.loader.exec_module(module)
     except SystemExit as exc:
         exit_ = exc
     captured = capfd.readouterr()
@@ -100,6 +124,7 @@ def test_describe_jobs_shell_reads_each_job_into_job_dir():
     step = _step()
     shell, code = _split(step)
     assert step["timeout-minutes"] == 10
+    assert step["run"] == RUN
     assert "set -euo pipefail" in shell and "export JOB_DIR" in shell
     assert 'if ! gcloud run jobs describe "$job" --region="$REGION" --format=json > "$JOB_DIR/$job.json" 2>/dev/null; then' in shell
     assert "::error::expected Cloud Run job '$job' is missing or unreadable" in shell and "exit 1" in shell

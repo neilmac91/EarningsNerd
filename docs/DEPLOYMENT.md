@@ -147,7 +147,12 @@ Ops operation at a time and wait for it to finish: GitHub keeps one pending run 
 group, so a second pending dispatch in the `ops` group replaces the first. Dispatch after the
 merge's `deploy-backend` job has concluded: a describe during a deploy can fail transiently
 (`latest created revision … is not ready`) or show the worker and the API on different images. Both
-describe operations carry a ten-minute step timeout.
+describe operations carry a ten-minute step timeout and run committed stdlib-only modules,
+`ops/describe/service.py` and `ops/describe/jobs.py`. In `describe-service` a failed gcloud read, the
+API service's own describe included, prints only its closed class (`permission_denied`, `not_found`,
+`unavailable`, `timeout` after 100 s, `unreadable_response`, `error (gcloud exit N)` or
+`error (gcloud not executable)`), never gcloud's error text, which can name the acting principal, a
+host or a URL; `describe-jobs`' shell loop discards gcloud's stderr and prints its own closed line.
 
 `describe-service` reports, for the API service, traffic (100 % on the latest ready revision, no
 tags, revision names and percentages only), the serving revision image, `SENTRY_RELEASE`, pool
@@ -210,7 +215,20 @@ URLs), together with a read-only database snapshot. Each source carries its own 
 (`complete`, `partial`, `unavailable`): a missing permission, an empty series or an unrecognised
 response shape is recorded as such, never as zero (a job execution that cannot be placed counts in
 that channel's `unplaced_count`), and counts on a `partial` channel are a floor.
+A channel whose API call failed with an HTTP error also carries `error_detail`: the error's status,
+code, reason and domain and at most 240 characters of its message, in which every URL, email address
+or principal, host name and IP address has first been replaced by `<url>`, `<email>` or `<host>` (a
+dotted name is withheld whenever its last label could end a host name, except an IAM permission name
+ending in `.get`, `.list` or `.use`); the response body itself is never kept.
 The receipt is retained as the `capacity-readout-<run id>` Actions artifact for 14 days.
+
+`logs-probe` reports whether the Ops identity can read the API service's logs:
+`logs-probe: logging.read PERMITTED (N recent entries visible)`, or
+`logs-probe: logging.read DENIED (rc=N)` followed by
+`logs-probe: failure class <class> (gcloud's error text withheld)` (`permission_denied`, `not_found`,
+`unavailable` or `error (gcloud exit N)`, classified as `describe-service` classifies), then the number
+of `company_upsert_conflict` entries in the last seven days when that read succeeds. It never prints
+gcloud's own error text, which names the acting principal, and never fails the step.
 
 ### Rollback (when a bad revision is live)
 
@@ -841,8 +859,8 @@ script location. Do not run it in CI or as part of the backend gate.
 ### WS-7 SIC backfill prerequisite (founder executes)
 
 `USE_STATEMENT_FINANCIALS` now defaults to true in code; an explicit deployment override still
-wins. Confirm the effective value with the existing `ops.yml` describe-service allow-list before
-claiming production parity. This change neither rewrites old filing facts nor fills missing SIC.
+wins. Confirm the effective value with the `describe-service` allow-list (`ops/describe/service.py`)
+before claiming production parity. This change neither rewrites old filing facts nor fills missing SIC.
 The SIC command goes through the EDGAR service limiter/circuit breaker and is resumable: by
 default it selects only companies with missing SIC and commits batches of 100.
 
