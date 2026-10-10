@@ -1,8 +1,9 @@
 # Multi-Period Analysis: data notes, aligned figures, a compact table — design proposal and implementation brief
 
 Date: 2026-10-10 · Scope: `/analysis` results surface (KPI strip, Sources & methods, charts, narrative,
-metrics table, period picker) and the PDF, Excel and PNG exports that mirror it · Status: proposal for
-the founder's decision; nothing here is implemented, merged or deployed · Support material:
+metrics table, period picker) and the PDF, Excel and PNG exports that mirror it · Status: the §9
+decisions are taken (2026-10-10); implementation follows §7 and has not started; nothing here is
+merged or deployed · Support material:
 [`tasks/analysis-redesign-2026-10/`](../../tasks/analysis-redesign-2026-10/README.md) (runnable
 prototype, measurement harnesses, recorded measurements).
 
@@ -512,6 +513,10 @@ operational action and is not part of this brief.
   years without core data) inside the select options; a compact control must not drop it.
 
 ## 9. Decisions for the founder
+
+Taken on 2026-10-10: the founder aligned with all five recommendations below ("regarding decisions for
+founder - i'm aligned with your recommendations"). They are recorded here and in
+`tasks/analysis-redesign-2026-10/astra-prompt.md`, the hand-over prompt for the implementing agent.
 
 1. Letters (a, b, c) as the note mark, or one warning glyph for all notes. Recommended: letters.
 2. `scroll-snap-type: x mandatory` (every rest position whole columns) or `proximity` (gentler

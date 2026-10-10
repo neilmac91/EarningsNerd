@@ -28,6 +28,8 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
 - `harness/build_states.py`, `harness/prune_states.py` — reproduce `prototype/data/` from a saved
   companyfacts payload.
 - `measurements/` — the two recorded runs the proposal cites.
+- `astra-prompt.md` — the hand-over prompt for the implementing agent (GPT-6 Astra / Codex), with the
+  founder's §9 decisions recorded.
 
 Screenshots are not committed (binary bloat; the critique environment kept its evidence out of the
 repository too). Both harnesses take `--shots <dir>` to regenerate them.
