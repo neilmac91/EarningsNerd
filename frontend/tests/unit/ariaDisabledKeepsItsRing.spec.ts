@@ -40,7 +40,8 @@ import { bindingResolver, type Binding } from './astBindings'
  *     `memo(Button)`) is a use of it.
  *     The scan reads every string and template chunk of the control's className and of what its
  *     identifiers name: a const's initializer (one property of a class map, for `LOOKS.busy` or a name
- *     destructured from it) or a function declaration's body, resolved in lexical
+ *     destructured from it), a destructuring default (`{ className = 'h-8 w-8' }`, a prop's included) or
+ *     a function declaration's body, resolved in lexical
  *     scope, followed transitively and across modules, through an import (`@/…` or relative, named or
  *     default) and a barrel's re-exports (`export { a as b } from`, `export * from`). So a shared class
  *     list such as `fieldUnavailableClass` is read at each control that takes it, whatever variant it is
@@ -308,6 +309,12 @@ function fadeScanner(read: Read, root: string): (file: string) => { offenders: O
       if (isChunk(n)) out.push({ text: n.text, node: n, mod })
       else if (ts.isIdentifier(n)) {
         if (isMemberName(n)) return
+        // A destructuring default is what the name holds when nothing is passed or picked: `{ className = 'h-8 w-8' }`.
+        const decl = mod.visible(n)?.decl
+        if (decl && ts.isBindingElement(decl) && decl.initializer && !seen.has(decl.initializer)) {
+          seen.add(decl.initializer)
+          classChunks(decl.initializer, mod, seen, out)
+        }
         const target = held(n, mod)
         if (!target || seen.has(target.node)) return
         seen.add(target.node)
@@ -563,10 +570,12 @@ describe('no element opacity on an aria-disabled control (rule-12 gate)', () => 
         const CHIP = ['rounded-full', 'hover:opacity-80'].join(' ')
         const LOOKS = { busy: 'opacity-35', idle: 'px-2' }
         const { busy: busyLook } = LOOKS
+        const { faint = 'opacity-45' } = {}
         const dim = (busy) => (busy ? 'opacity-50' : '')
         function look(busy) {
           return cx(CHIP, dim(busy))
         }
+        const Dim = ({ busy, className = 'opacity-55' }) => <button aria-disabled={busy || undefined} className={className} />
         export const Chip = ({ busy }) => {
           const faded = \`\${busy ? 'opacity-40' : ''} px-3\`
           return (
@@ -576,11 +585,22 @@ describe('no element opacity on an aria-disabled control (rule-12 gate)', () => 
               <a aria-disabled={busy || undefined} className={busyLook} />
               <b aria-disabled={busy || undefined} className={LOOKS.busy} />
               <i aria-disabled={busy || undefined} className={LOOKS[kind]} />
+              <s aria-disabled={busy || undefined} className={faint} />
+              <Dim busy={busy} />
             </>
           )
         }
       `),
-    ).toEqual(['element hover:opacity-80', 'element opacity-50', 'element opacity-40', 'element opacity-35', 'element opacity-35', 'element opacity-35'])
+    ).toEqual([
+      'element opacity-55',
+      'element hover:opacity-80',
+      'element opacity-50',
+      'element opacity-40',
+      'element opacity-35',
+      'element opacity-35',
+      'element opacity-35',
+      'element opacity-45',
+    ])
     expect(
       tokensIn(`
         const dim = 'opacity-50'
