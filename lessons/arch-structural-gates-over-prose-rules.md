@@ -31,9 +31,10 @@ a helper or a service therefore stays in view and moves its pin; a write in a ne
 reached from an exempt GET fails, and so does one more or one fewer inside a pinned function; and the
 stale-entry check fires only once no reachable write remains, so a refactor cannot hide a surviving
 OAuth state write and then remove its exception. The writes counted include `execute`, `begin`, the
-`bulk_*` methods and a `db.query(...)` chain's `.update()`/`.delete()`; `execute` also runs reads, so
-every one counts unless its function is pinned read-only with its exact count. A count cannot tell
-two writes of one kind apart, and methods on objects the walk cannot name (parameters, `self`
-attributes, return values) and calls through an unaliased `import app.x` are still not followed. For
-the Apple OAuth start, the database state row is single-use and the signed browser cookie supplies
-the separate browser binding.
+`bulk_*` methods and `.update()`/`.delete()` on a `db.query(...)` chain or a local bound to one;
+`execute` also runs reads, so every one counts unless its function is pinned read-only with its exact
+count. A count is of the writes a function's source contains, not of how often they run (a loop, a
+second call to a pinned function), and it cannot tell two writes of one kind apart. Methods on
+objects the walk cannot name (parameters, `self` attributes, return values) and calls through an
+unaliased `import app.x` are still not followed. For the Apple OAuth start, the database state row is
+single-use and the signed browser cookie supplies the separate browser binding.

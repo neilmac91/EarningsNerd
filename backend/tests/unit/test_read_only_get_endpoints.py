@@ -12,11 +12,12 @@ every hit). Two AST checks over every ``@<router>.get`` handler in ``app/routers
 2. **Body check** — the handler body (nested defs included) must not contain a session write
    (``add``, ``add_all``, ``delete``, ``merge``, ``flush``, ``commit``, ``begin``, ``execute``,
    ``bulk_save_objects``, ``bulk_insert_mappings`` or ``bulk_update_mappings`` on a name called
-   ``db``/``session``, or ``.update()``/``.delete()`` on a ``db.query(...)`` chain), a
-   ``BackgroundTasks`` parameter or ``.add_task(`` call, or ``asyncio.create_task(``. ``execute``
-   runs reads as well as writes and the check does not look at the statement, so every ``execute``
-   counts unless its function is pinned in ``READ_ONLY_EXECUTE_SITES`` and makes exactly the pinned
-   number of them; a different number there counts every one. This catches
+   ``db``/``session``, or ``.update()``/``.delete()`` on a ``db.query(...)`` chain or on a local the
+   function binds to one), a ``BackgroundTasks`` parameter or ``.add_task(`` call, or
+   ``asyncio.create_task(``. ``execute`` runs reads as well as writes and the check does not look
+   at the statement, so every ``execute`` counts unless its function is pinned in
+   ``READ_ONLY_EXECUTE_SITES`` and makes exactly the pinned number of them; a different number
+   there counts every one. This catches
    the ``get_*``/``search_*`` handlers the name check cannot. The check follows the handler into
    every module-level function it reaches under ``app/`` (same module, ``from app.x import f``,
    ``x_service.f`` on an imported module, relative imports, re-exports, function-local imports, a
@@ -28,7 +29,8 @@ every hit). Two AST checks over every ``@<router>.get`` handler in ``app/routers
    counts. ``api_route(methods=["GET"])`` handlers are GET handlers too. Limitation: the walk
    resolves names, not types, so a method on an object it cannot name (a parameter, an attribute
    of ``self``, a function's return value) is not followed, nor is a function called through an
-   unaliased ``import app.x``; that remains a review concern.
+   unaliased ``import app.x``, and a Query is traced only inside the function that builds it (not
+   as a parameter or a helper's return value); that remains a review concern.
    ``test_walk_follows_every_documented_form`` pins each form on a synthetic tree, and
    ``test_every_session_write_kind_is_flagged`` each write kind.
 
@@ -41,8 +43,10 @@ happen, with the kind and count of each one there (``{"add": 1, "commit": 1}``).
 unpinned function reached from an exempt handler fails, and so does one more or one fewer inside a
 pinned function; a moved write moves its pin. A ``READ_ONLY_EXECUTE_SITES`` pin is exact the same
 way: its function must be reached from a GET and make exactly the pinned number of executes. A
-count cannot tell two calls of one kind apart, so swapping a pinned call for another of the same
-kind (a read-only ``execute`` for a writing one) remains a review concern.
+count is of the calls written in a function, not of how often they run: a loop, or a second call
+to a pinned function, repeats its writes without changing any count. Nor can a count tell two
+calls of one kind apart, so swapping a pinned call for another of the same kind (a read-only
+``execute`` for a writing one) passes. Both remain review concerns.
 """
 import ast
 import sys
@@ -182,6 +186,7 @@ _SESSION_WRITES = {
     "bulk_save_objects", "bulk_insert_mappings", "bulk_update_mappings",
 }
 _QUERY_WRITES = {"update", "delete"}  # db.query(...)...update()/.delete(): a bulk write by criteria
+_QUERY_FETCHES = {"all", "first", "one", "one_or_none", "scalar", "count", "get"}  # rows, not a Query
 
 
 def _scanned_files() -> list[Path]:
@@ -246,18 +251,38 @@ def _session_names_in(fn: ast.AST) -> set[str]:
     return names
 
 
-def _query_session(expr: ast.AST, sessions: set[str]) -> str | None:
-    """The session ``expr`` chains from when it is ``<session>.query(...)...``, else None."""
+def _query_root(expr: ast.AST, sessions: set[str], queries: set[str]) -> str | None:
+    """What a Query chain hangs from: ``db.query(...)`` for ``db.query(X).filter(...)``, or ``q`` for
+    ``q.filter(...)`` when the local ``q`` holds a Query; None for anything else."""
     while isinstance(expr, (ast.Call, ast.Attribute)):
         if isinstance(expr, ast.Call):
             func = expr.func
             if isinstance(func, ast.Attribute) and func.attr == "query" \
                     and isinstance(func.value, ast.Name) and func.value.id in sessions:
-                return func.value.id
+                return f"{func.value.id}.query(...)"
             expr = func
         else:
             expr = expr.value
-    return None
+    return expr.id if isinstance(expr, ast.Name) and expr.id in queries else None
+
+
+def _query_names_in(fn: ast.AST, sessions: set[str]) -> set[str]:
+    """Locals ``fn`` binds to a Query: ``q = db.query(X)``, then ``narrowed = q.filter(...)``. A chain
+    that ends by fetching (``.first()``, ``.all()`` …) binds its rows, not a Query."""
+    names: set[str] = set()
+    while True:
+        bound: set[str] = set()
+        for node in ast.walk(fn):
+            if not isinstance(node, ast.Assign) or not _query_root(node.value, sessions, names):
+                continue
+            value = node.value
+            if isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute) \
+                    and value.func.attr in _QUERY_FETCHES:
+                continue
+            bound.update(target.id for target in node.targets if isinstance(target, ast.Name))
+        if bound <= names:
+            return names
+        names |= bound
 
 
 def _side_effect_markers(fn: ast.AST) -> list[tuple[str, str]]:
@@ -265,6 +290,7 @@ def _side_effect_markers(fn: ast.AST) -> list[tuple[str, str]]:
     ``query.delete``, ``add_task``, ``BackgroundTasks`` …) is what a write-site pin counts."""
     markers: list[tuple[str, str]] = []
     sessions = _session_names_in(fn)
+    queries = _query_names_in(fn, sessions)
     args = fn.args
     for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs]:
         if arg.annotation is not None and "BackgroundTasks" in ast.unparse(arg.annotation):
@@ -281,8 +307,8 @@ def _side_effect_markers(fn: ast.AST) -> list[tuple[str, str]]:
             continue
         if isinstance(func.value, ast.Name) and func.value.id in sessions and func.attr in _SESSION_WRITES:
             markers.append((func.attr, f"{func.value.id}.{func.attr}()@{node.lineno}"))
-        elif func.attr in _QUERY_WRITES and (name := _query_session(func.value, sessions)):
-            markers.append((f"query.{func.attr}", f"{name}.query(...).{func.attr}()@{node.lineno}"))
+        elif func.attr in _QUERY_WRITES and (root := _query_root(func.value, sessions, queries)):
+            markers.append((f"query.{func.attr}", f"{root}.{func.attr}()@{node.lineno}"))
         elif func.attr == "add_task":
             markers.append(("add_task", f".add_task()@{node.lineno}"))
         elif func.attr == "create_task" and isinstance(func.value, ast.Name) and func.value.id == "asyncio":
@@ -779,16 +805,26 @@ def pinned_read_and_a_write(db):
 
 
 @router.get("/k")
-def reads_and_merges_dicts(db):
+def assigned_query_updates(db):
+    current = db.query(T).filter(T.x < 1)
+    narrowed = current.filter(T.y < 1)
+    narrowed.update({"x": 1})
+
+
+@router.get("/l")
+def reads_rows_and_merges_dicts(db):
     db.query(T).filter(T.x < 1).all()
+    row = db.query(T).filter(T.x < 1).first()
+    row.update({})
     {}.update({})
 """
 
 
 def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
     """Self-check for the session writes the gate used to miss: ``execute``, ``begin``, ``bulk_*``
-    and a ``db.query(...)`` chain's ``.update()``/``.delete()``. Every ``execute`` counts unless its
-    function is pinned read-only with exactly its count; with these kinds dropped, this fails."""
+    and ``.update()``/``.delete()`` on a ``db.query(...)`` chain or a local bound to one. Every
+    ``execute`` counts unless its function is pinned read-only with exactly its count; with any of
+    these dropped, this fails."""
     _use_tree(tmp_path, monkeypatch, {
         "app/__init__.py": "", "app/routers/__init__.py": "", "app/routers/w.py": _WRITE_KINDS_ROUTER,
     })
@@ -800,7 +836,7 @@ def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
     flagged = {name for (_, name) in _side_effecting_handlers([tmp_path / "app/routers/w.py"])}
     expected = {
         "executes", "begins", "bulk_saves", "bulk_inserts", "bulk_updates", "query_deletes",
-        "query_updates", "unpinned_read", "pinned_read_and_a_write",
+        "query_updates", "assigned_query_updates", "unpinned_read", "pinned_read_and_a_write",
     }
     assert flagged == expected, f"missed: {sorted(expected - flagged)}; unexpected: {sorted(flagged - expected)}"
 
