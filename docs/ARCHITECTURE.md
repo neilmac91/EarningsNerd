@@ -172,7 +172,7 @@ frontend/
 | `copilot_service.py` / `copilot_tools.py` | "Ask this Filing" Pro Q&A with verifiable deep-linked citations; numeric tool-use from `financial_fact` |
 | `provenance_service.py` | Trace-to-Source: verifies AI excerpts, builds deep-link citations |
 | `facts_service.py` | Normalized XBRL metrics (`financial_fact`) + SEC **companyfacts** multi-period ingest (duration-window Q1–Q4 labelling, derived Q4, latest-filed-wins) |
-| `trend_analysis_service.py` | Multi-Period Analysis engine: deterministic YoY/QoQ/CAGR grid, `F#` citation markers, cached streamed narrative |
+| `trend_analysis_service.py` + `trend_analysis/` | Compatibility façade over domain modules: deterministic YoY/QoQ/CAGR datasets and `F#` markers, code-owned observations, validated selection and cached narrative streaming |
 | `precompute_service.py` | Idempotent per-ticker filing resolution + summary precompute (cron + internal job) |
 | `change_report_service.py` | Period-over-period change report (financial deltas + risk diffs) |
 | `peers_service.py` / `insider_service.py` | Peer comparison by SIC; Form 4 insider activity (`ownership_extractor.py` parses the Form 4 tables DEFENSIVELY — EdgarTools' DataFrame column casing varies across versions; don't "simplify" the guards) |
@@ -184,6 +184,12 @@ frontend/
 | `export_service.py` | PDF/HTML export (summaries + analysis) |
 | `content_cache.py` / `summary_placeholders.py` | Shared FilingContentCache upsert; the summary-not-ready detector |
 | `redis_service.py` / `logging_service.py` / `metrics_service.py` / `audit_service.py` | Cache helpers + event-loop safety; correlation-ID logging; app metrics; GDPR audit trail |
+
+The `trend_analysis/` package separates period coverage, formatting, series helpers, inflection
+detectors, dataset construction, observation selection, citation resolution, numeric fidelity, cache
+persistence and narrative streaming. `narrative.py` keeps database sessions and the provider singleton
+lazily imported at call time. `trend_analysis_service.py` re-exports the original public and private
+names, so the analysis router continues to resolve them through the same module.
 
 ### The `ai/` package (behind the `openai_service` façade)
 
