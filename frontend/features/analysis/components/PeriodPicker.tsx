@@ -73,7 +73,10 @@ export default function PeriodPicker({ coverage, mode, range, onModeChange, onRa
   const derivedCount = selected.filter((option) => option.derived).length
   const noun = mode === 'quarterly' ? selected.length === 1 ? 'quarter' : 'quarters' : selected.length === 1 ? 'year' : 'years'
   const presets = [...new Set((mode === 'quarterly' ? [4, 8, 12] : [5, 10]).map((count) => Math.min(count, cap)))].filter((count) => count > 0)
-    .map((count) => ({ count, range: latestRange(options, count) }))
+    .map((count) => {
+      const preset = latestRange(options, count)
+      return { count: preset ? options.filter((option) => option.key >= preset.start && option.key <= preset.end).length : 0, range: preset }
+    })
     .filter((preset, index, all) => all.findIndex((item) => item.range?.start === preset.range?.start && item.range?.end === preset.range?.end) === index)
   const updateEndpoint = (endpoint: keyof PeriodRange, key: string) => {
     const next = nextRange(options, range, endpoint, key, cap)

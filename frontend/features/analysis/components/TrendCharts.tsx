@@ -12,6 +12,9 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  usePlotArea,
+  useXAxisScale,
+  useYAxisScale,
   type TooltipContentProps,
 } from 'recharts'
 
@@ -48,6 +51,7 @@ import DataNotesLink from './DataNotesLink'
 import { useDataNotes } from './DataNotesContext'
 import type { DataNote, DataNotesModel } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
+import { layoutChartNotes, type ChartNotePosition } from '@/features/analysis/lib/chartNoteLayout'
 
 const bySeries = (dataset: AnalysisDataset): Record<string, AnalysisSeries> =>
   Object.fromEntries(dataset.series.map((s) => [s.concept, s]))
@@ -103,14 +107,28 @@ interface NoteDotProps {
 }
 
 /** A concern is visible at its own plotted point; the legend link opens its full note. */
-function NoteDot({ cx, cy, value, color, dark, note }: NoteDotProps & { color: string; dark: boolean; note: DataNote | null }) {
+function NoteDot({ cx, cy, value, color, dark, note, position }: NoteDotProps & { color: string; dark: boolean; note: DataNote | null; position?: ChartNotePosition }) {
   if (!note || value == null || !Number.isFinite(cx) || !Number.isFinite(cy)) return <g />
   return (
     <g aria-label={`Data note ${note.letter}`}>
       <circle cx={cx} cy={cy} r={4} fill={chartTheme(dark).tipBg} stroke={color} strokeWidth={2} />
-      <text x={cx} y={cy! - 9} textAnchor="middle" fill={chartTheme(dark).label} fontFamily={CHART_FONT} fontSize={11}>{note.letter}</text>
+      <text x={position?.x ?? cx} y={position?.y ?? cy! - 9} textAnchor="middle" fill={chartTheme(dark).label} fontFamily={CHART_FONT} fontSize={11}>{note.letter}</text>
     </g>
   )
+}
+
+interface SameAxisNoteDatum { key: string; period: string; value: number; letter: string | null }
+
+function SameAxisNoteDot({ anchors, anchorKey, ...props }: NoteDotProps & {
+  color: string; dark: boolean; note: DataNote; anchors: SameAxisNoteDatum[]; anchorKey: string
+}) {
+  const plot = usePlotArea()
+  const xScale = useXAxisScale()
+  const yScale = useYAxisScale('left')
+  const position = plot && xScale && yScale ? layoutChartNotes(anchors.map((anchor) => ({
+    key: anchor.key, letter: anchor.letter, x: xScale(anchor.period, { position: 'middle' }) ?? Number.NaN, y: yScale(anchor.value) ?? Number.NaN,
+  })), plot).get(anchorKey) : undefined
+  return <NoteDot {...props} position={position} />
 }
 
 interface NoteBarProps {
@@ -224,7 +242,11 @@ function PanelCard({
     return point ? growth ? notes.noteForComparison(point, 'yoy') : notes.noteFor(point) : null
   }
   const renderDot = (concept: string, color: string, growth = false) => function ChartNoteDot(props: NoteDotProps) {
-    return <NoteDot {...props} color={color} dark={dark} note={noteAt(concept, props.payload?.period ?? '', growth)} />
+    const period = props.payload?.period ?? ''
+    const note = noteAt(concept, period, growth)
+    return note && !dualAxis && !barSeries
+      ? <SameAxisNoteDot {...props} color={color} dark={dark} note={note} anchors={sameAxisNotes} anchorKey={`${concept}:${period}`} />
+      : <NoteDot {...props} color={color} dark={dark} note={note} />
   }
 
   // One row per period; keys are concept names (+ `growth` for the yoy line).
@@ -244,6 +266,11 @@ function PanelCard({
     }
     return row
   })
+  const sameAxisNotes = data.flatMap((row) => lineEntries.flatMap(({ concept }) => {
+    const value = row[concept]
+    const period = String(row.period)
+    return typeof value === 'number' ? [{ key: `${concept}:${period}`, period, value, letter: noteAt(concept, period)?.letter ?? null }] : []
+  }))
 
   // Route by SERIES, not by value magnitude: the growth line always formats as a percent and
   // everything else with the panel's formatter — a micro-cap's $850 bar or a +1,400% growth

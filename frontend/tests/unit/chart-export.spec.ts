@@ -198,12 +198,14 @@ const HEADER = {
 }
 
 describe('exportPanelPng header', () => {
+  let imageSources: string[]
   // A fake <img> whose src setter resolves the decode (jsdom never fires onload).
   class FakeImage {
     onload: (() => void) | null = null
     onerror: (() => void) | null = null
     decoding = 'auto'
-    set src(_value: string) {
+    set src(value: string) {
+      imageSources.push(value)
       Promise.resolve().then(() => this.onload?.())
     }
   }
@@ -213,6 +215,7 @@ describe('exportPanelPng header', () => {
   let ctx: Record<string, unknown>
 
   beforeEach(() => {
+    imageSources = []
     vi.stubGlobal('Image', FakeImage)
     fillTexts = []
     fillArgs = []
@@ -280,6 +283,34 @@ describe('exportPanelPng header', () => {
     // Two-tone wordmark: "Earnings" (ink) + "Nerd" (sage), so the source is obvious.
     expect(fillTexts).toContain('Earnings')
     expect(fillTexts).toContain('Nerd')
+  })
+
+  it('carries resolved text and tspan font stacks into the isolated SVG image', async () => {
+    const container = makeContainer()
+    const svg = container.querySelector('svg')!
+    svg.setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns', 'http://www.w3.org/2000/svg')
+    svg.innerHTML = '<text font-family="var(--font-geist-mono), ui-monospace, monospace" style="font-family: var(--font-geist-mono), ui-monospace, monospace">$10B<tspan style="font-family: var(--font-geist-mono), Menlo, monospace">a</tspan></text>'
+    const sourceMarkup = svg.outerHTML
+    const originalComputedStyle = window.getComputedStyle.bind(window)
+    const families = ['"Geist Mono", ui-monospace, monospace', '"Geist Mono", Menlo, monospace']
+    const sourceText = [...svg.querySelectorAll('text, tspan')]
+    // jsdom does not resolve custom-property inheritance. Supply the browser's computed
+    // result, then inspect what the real export passes across the isolated-image boundary.
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const style = originalComputedStyle(element, pseudo)
+      const index = sourceText.indexOf(element)
+      if (index >= 0) Object.defineProperty(style, 'fontFamily', { value: families[index] })
+      return style
+    })
+    expect(await exportPanelPng(container, 'font.png')).toBe(true)
+    const markup = decodeURIComponent(imageSources[0].split(',').slice(1).join(','))
+    const isolated = new DOMParser().parseFromString(markup, 'image/svg+xml')
+    expect(isolated.querySelector('parsererror')?.textContent).toBeUndefined()
+    expect([...isolated.querySelectorAll('text, tspan')].map(text => (text as SVGTextContentElement).style.fontFamily)).toEqual(families)
+    expect([...isolated.querySelectorAll('text, tspan')].map(text => text.getAttribute('font-family'))).toEqual(families)
+    expect(markup).not.toContain('var(')
+    expect(isolated.documentElement.textContent).toBe('$10Ba')
+    expect(svg.outerHTML).toBe(sourceMarkup)
   })
 
   it('renders source, missing periods and disclaimer into the downloaded image', async () => {
