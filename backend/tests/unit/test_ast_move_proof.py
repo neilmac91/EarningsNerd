@@ -8,9 +8,9 @@ an added import-time side effect (an assignment whose value calls; a call in a n
 decorator or lambda default; a class keyword such as ``metaclass=``; ``raise``, ``assert`` or ``del``; a
 value that subscripts, unpacks, reads an attribute or applies an operator; an evaluated annotation; a block
 whose body holds only imports or ``pass``, outside the ``if TYPE_CHECKING:`` exemption; a ``.setter`` on a
-name that no inert property def above it in its class binds, or with code that runs in between; and a class
-attribute bound to a bare name, whose ``__set_name__`` runs) and a reordered symbol each fail; a disclosed
-delta passes with its diff shown.
+name that no inert property def above it in its class binds, or with code that runs in between; a class
+attribute bound to a bare name, whose ``__set_name__`` runs; and an unpacking of anything but a display, which
+iterates it) and a reordered symbol each fail; a disclosed delta passes with its diff shown.
 """
 from tests.support.ast_move_proof import compare, render
 
@@ -204,10 +204,12 @@ def test_definition_time_calls_in_new_classes_defs_and_lambdas_run_at_import():
 def test_a_property_accessor_is_inert_only_on_a_property_bound_above_it_in_its_class():
     """``@size.setter`` calls ``size.setter`` at class creation, which copies the property when ``size`` is
     one of the class's own. ``@registry.setter`` calls whatever ``registry`` is, on a method or at module
-    level, and ``@width.setter`` reads whatever ``width`` was rebound to between the property and it."""
+    level, and ``@width.setter`` reads whatever ``width`` was rebound to between the property and it. A bare
+    annotation (``size: int``) assigns nothing, so the property stands."""
     added = ("\nclass Box:\n"
              "    @property\n    def size(self):\n        return 1\n\n"
              "    def other(self):\n        return 2\n\n"
+             "    size: int\n\n"
              "    @size.setter\n    def size(self, value):\n        pass\n\n"
              "    @size.deleter\n    def size(self):\n        pass\n\n"
              "    @registry.setter\n    def hook(self, value):\n        pass\n\n"
@@ -217,7 +219,7 @@ def test_a_property_accessor_is_inert_only_on_a_property_bound_above_it_in_its_c
              "\n@registry.setter\ndef handler(value):\n    pass\n")
     report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
     assert set(report.side_effects) == {"Box.hook", "Box.width", "handler"}
-    assert {"Box", "Box.size", "Box.other"} <= set(report.added)  # an inert method in between is fine
+    assert {"Box", "Box.size", "Box.other"} <= set(report.added)  # an inert method or annotation between is fine
 
 
 def test_a_property_accessor_needs_an_inert_getter_and_nothing_that_runs_code_in_between():
@@ -234,11 +236,22 @@ def test_a_property_accessor_needs_an_inert_getter_and_nothing_that_runs_code_in
 
 def test_a_class_attribute_bound_to_a_name_runs_its_set_name_at_import():
     """Creating a class calls ``__set_name__`` on each attribute value whose type has one, so in a class body
-    a bare name is not an inert value; a literal still is, and so is a bare name at module level."""
-    added = "\nclass Box:\n    LIMIT = 3\n    hook = registry\n    label: str = DEFAULT\n\nALIAS = registry\n"
+    a bare name is not an inert value, paired through an unpacking included; a literal still is, and so is a
+    bare name at module level."""
+    added = ("\nclass Box:\n    LIMIT = 3\n    hook = registry\n    label: str = DEFAULT\n"
+             "    left, right = registry, 1\n    low, high = 0, 9\n\nALIAS = registry\n")
     report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
-    assert set(report.side_effects) == {"Box.hook", "Box.label"}
-    assert {"Box", "Box.LIMIT", "ALIAS"} <= set(report.added)
+    assert set(report.side_effects) == {"Box.hook", "Box.label", "Box.left,right"}
+    assert {"Box", "Box.LIMIT", "Box.low,high", "ALIAS"} <= set(report.added)
+
+
+def test_unpacking_anything_but_a_display_of_as_many_values_runs_at_import():
+    """``LEFT, RIGHT = PAIR`` iterates ``PAIR``, whose ``__iter__`` runs at import. A display of as many
+    values is paired with the names, nested displays included, and iterates nothing."""
+    added = "\nLEFT, RIGHT = PAIR\n\n(FIRST, SECOND), THIRD = (1, 2), clip\n"
+    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
+    assert set(report.side_effects) == {"LEFT,RIGHT"}
+    assert "FIRST,SECOND,THIRD" in report.added
 
 
 def test_only_inert_definitions_are_added_and_everything_else_runs_at_import():

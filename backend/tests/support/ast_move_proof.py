@@ -32,15 +32,17 @@ module), SIDE EFFECT (a NEW symbol that runs code at import, which a move never 
 statement and the expression level: only a docstring or literal, an assignment of a literal, a name, or a
 display of those to plain names, and a def or class whose decorators, defaults and annotations are inert,
 is inert. Defaults must be such values; annotations must be bare names or literals unless the module has
-``from __future__ import annotations``; class bases must be plain names; in a class body a value must not
-be a bare name either, because creating the class calls its ``__set_name__``; a def's or lambda's body runs
-later and is not read. ``property``, ``staticmethod``, ``classmethod``, ``dataclass`` and the like are
-inert decorators, and so are ``.setter``, ``.getter`` and ``.deleter`` on a name that an inert property
-def above them in the same class body binds, with no statement that runs code in between; a class keyword
-such as ``metaclass=`` is not; a call, subscript, attribute read, operator or unpacking in a value is not),
-REORDERED (an old binding that now sits above one it followed in the same new file, every binding of a
-rebound name counted: module-level code runs top to bottom, so ``B = A`` above ``A = 1`` raises at
-import, and ``A = 1; A = 2; B = A`` binds ``B`` to 2 where ``A = 1; B = A; A = 2`` bound it to 1) and
+``from __future__ import annotations``; class bases must be plain names; a tuple or list of names takes
+only a display of as many values, pair by pair, because unpacking anything else iterates it; in a class
+body no name may take a bare name, because creating the class calls that value's ``__set_name__``; a def's
+or lambda's body runs later and is not read. ``property``, ``staticmethod``, ``classmethod``,
+``dataclass`` and the like are inert decorators, and so are ``.setter``, ``.getter`` and ``.deleter`` on a
+name that an inert property def above them in the same class body binds, with no statement that runs code
+in between; a class keyword such as ``metaclass=`` is not; a call, subscript, attribute read, operator or
+unpacking in a value is not), REORDERED (an old binding that now sits above one it followed in the same
+new file, every binding of a rebound name counted: module-level code runs top to bottom, so ``B = A``
+above ``A = 1`` raises at import, and ``A = 1; A = 2; B = A`` binds ``B`` to 2 where
+``A = 1; B = A; A = 2`` bound it to 1) and
 ADDED (other new symbols, such as the helpers a split introduces, or a façade's ``__all__``). Limit: code
 that a new class runs through a BASE (an inherited metaclass, or the base's ``__init_subclass__``) is not
 visible in the AST, so a new class with bases is ADDED; read every ADDED class's bases. Names are not
@@ -192,20 +194,28 @@ def _class_body(body: list[ast.stmt], postponed: bool) -> list[tuple[ast.stmt, b
 
 
 def _bound_names(stmt: ast.stmt) -> frozenset[str]:
-    """The names an inert statement binds: a def's or class's name, or an assignment's targets."""
+    """The names an inert statement binds: a def's or class's name, or an assignment's targets (a bare
+    annotation such as ``size: int`` assigns nothing)."""
     if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
         return frozenset({stmt.name})
     if isinstance(stmt, ast.Assign):
         return frozenset(name for target in stmt.targets for name in _target_names(target))
-    if isinstance(stmt, ast.AnnAssign):
+    if isinstance(stmt, ast.AnnAssign) and stmt.value is not None:
         return frozenset(_target_names(stmt.target))
     return frozenset()
 
 
-def _plain_target(target: ast.expr) -> bool:
-    if isinstance(target, (ast.Tuple, ast.List)):
-        return all(_plain_target(elt) for elt in target.elts)
-    return isinstance(target, ast.Name)
+def _inert_binding(target: ast.expr, value: ast.expr | None, in_class: bool) -> bool:
+    """Whether binding ``value`` to ``target`` runs no code. A plain name takes any inert value, except, in
+    a class body, a bare name: creating the class calls that value's ``__set_name__``. A tuple or list of
+    targets takes a tuple or list display of as many values, pair by pair; unpacking anything else
+    iterates it (``a, b = pair`` runs ``pair.__iter__``). An attribute or item target is a side effect."""
+    if isinstance(target, ast.Name):
+        return _inert_value(value) and not (in_class and isinstance(value, ast.Name))
+    if isinstance(target, (ast.Tuple, ast.List)) and isinstance(value, (ast.Tuple, ast.List)):
+        return len(target.elts) == len(value.elts) and all(
+            _inert_binding(elt, item, in_class) for elt, item in zip(target.elts, value.elts))
+    return False
 
 
 def _inert(stmt: ast.stmt, postponed: bool, properties: frozenset[str] | None = None) -> bool:
@@ -219,13 +229,11 @@ def _inert(stmt: ast.stmt, postponed: bool, properties: frozenset[str] | None = 
         return True
     if isinstance(stmt, ast.Expr):
         return isinstance(stmt.value, ast.Constant)
-    if properties is not None and isinstance(stmt, (ast.Assign, ast.AnnAssign)) and isinstance(stmt.value, ast.Name):
-        return False  # creating the class calls the value's __set_name__, when its type has one
     if isinstance(stmt, ast.Assign):
-        return all(map(_plain_target, stmt.targets)) and _inert_value(stmt.value)
+        return all(_inert_binding(target, stmt.value, properties is not None) for target in stmt.targets)
     if isinstance(stmt, ast.AnnAssign):
-        return (isinstance(stmt.target, ast.Name) and _annotation(stmt.annotation, postponed)
-                and _inert_value(stmt.value))
+        return (_annotation(stmt.annotation, postponed)
+                and _inert_binding(stmt.target, stmt.value, properties is not None))
     if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
         return (all(_inert_decorator(decorator, properties) for decorator in stmt.decorator_list)
                 and _inert_arguments(stmt.args, postponed) and _annotation(stmt.returns, postponed))
