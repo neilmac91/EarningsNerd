@@ -25,10 +25,15 @@ ui/ + chrome allowlist); `backend/tests/unit/test_naive_utcnow_allowlist.py` (AS
 The read-only GET gate follows each handler into the app code it reaches, transitively: module-level
 functions, and every method of a class or module-level instance it names (2026-10-08, when the
 router ORM ratchet began moving writes into `app/services/`). Each exemption also pins the functions
-where its writes may happen. A write moved into a helper or a service therefore stays in view and
-moves its pin; a write in a new, unpinned function reached from an exempt GET fails (pins are per
-function, so a further write inside a pinned function stays a review concern); and the stale-entry check fires only
-once no reachable write remains, so a refactor cannot hide a surviving OAuth state write and then
-remove its exception. Methods on objects the walk cannot name (parameters, `self` attributes, return
-values) are still not followed. For the Apple OAuth start, the database state row is single-use and
-the signed browser cookie supplies the separate browser binding.
+where its writes may happen, with the kind and count of each write there (`{"add": 1, "commit": 1}`;
+2026-10-10, after a further write inside a function pinned by name alone passed). A write moved into
+a helper or a service therefore stays in view and moves its pin; a write in a new, unpinned function
+reached from an exempt GET fails, and so does one more or one fewer inside a pinned function; and the
+stale-entry check fires only once no reachable write remains, so a refactor cannot hide a surviving
+OAuth state write and then remove its exception. The writes counted include `execute`, `begin`, the
+`bulk_*` methods and a `db.query(...)` chain's `.update()`/`.delete()`; `execute` also runs reads, so
+every one counts unless its function is pinned read-only with its exact count. A count cannot tell
+two writes of one kind apart, and methods on objects the walk cannot name (parameters, `self`
+attributes, return values) and calls through an unaliased `import app.x` are still not followed. For
+the Apple OAuth start, the database state row is single-use and the signed browser cookie supplies
+the separate browser binding.

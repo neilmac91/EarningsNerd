@@ -10,8 +10,13 @@ every hit). Two AST checks over every ``@<router>.get`` handler in ``app/routers
    ``refresh_``, ``sync_`` …). Read-only verbs that merely sound active (``generate_sitemap``
    renders XML, ``export_*`` streams a download) are deliberately not in the list.
 2. **Body check** — the handler body (nested defs included) must not contain a session write
-   (``db.add/add_all/delete/commit/flush/merge`` on a name called ``db``/``session``), a
-   ``BackgroundTasks`` parameter or ``.add_task(`` call, or ``asyncio.create_task(``. This catches
+   (``add``, ``add_all``, ``delete``, ``merge``, ``flush``, ``commit``, ``begin``, ``execute``,
+   ``bulk_save_objects``, ``bulk_insert_mappings`` or ``bulk_update_mappings`` on a name called
+   ``db``/``session``, or ``.update()``/``.delete()`` on a ``db.query(...)`` chain), a
+   ``BackgroundTasks`` parameter or ``.add_task(`` call, or ``asyncio.create_task(``. ``execute``
+   runs reads as well as writes and the check does not look at the statement, so every ``execute``
+   counts unless its function is pinned in ``READ_ONLY_EXECUTE_SITES`` and makes exactly the pinned
+   number of them; a different number there counts every one. This catches
    the ``get_*``/``search_*`` handlers the name check cannot. The check follows the handler into
    every module-level function it reaches under ``app/`` (same module, ``from app.x import f``,
    ``x_service.f`` on an imported module, relative imports, re-exports, function-local imports, a
@@ -22,20 +27,29 @@ every hit). Two AST checks over every ``@<router>.get`` handler in ``app/routers
    ``SessionLocal()``/``next(get_db())``; a write handed uncalled (``run_in_threadpool(db.commit)``)
    counts. ``api_route(methods=["GET"])`` handlers are GET handlers too. Limitation: the walk
    resolves names, not types, so a method on an object it cannot name (a parameter, an attribute
-   of ``self``, a function's return value) is not followed; that remains a review concern.
-   ``test_walk_follows_every_documented_form`` pins each form on a synthetic tree.
+   of ``self``, a function's return value) is not followed, nor is a function called through an
+   unaliased ``import app.x``; that remains a review concern.
+   ``test_walk_follows_every_documented_form`` pins each form on a synthetic tree, and
+   ``test_every_session_write_kind_is_flagged`` each write kind.
 
 Both allow-lists are shrink-only: a NEW hit fails with file:line and the remedy; an allow-listed
 handler that no longer trips the check fails too (prune the entry — the fix is done); an entry
 whose file has been deleted is tolerated so a teardown PR and this gate merge in either order.
 Every entry carries its one-line justification. An exemption is a shape, not a name: each
-side-effecting GET also pins the functions (``file::qualname``) where its writes may happen, so a
-write in a new, unpinned function reached from an exempt handler fails, and a moved write updates its
-pin. Pins are per function: a further write inside an already-pinned function is a review concern.
+side-effecting GET also pins every function (``file::qualname``) where its side effects may
+happen, with the kind and count of each one there (``{"add": 1, "commit": 1}``). A write in a new,
+unpinned function reached from an exempt handler fails, and so does one more or one fewer inside a
+pinned function; a moved write moves its pin. A ``READ_ONLY_EXECUTE_SITES`` pin is exact the same
+way: its function must be reached from a GET and make exactly the pinned number of executes. A
+count cannot tell two calls of one kind apart, so swapping a pinned call for another of the same
+kind (a read-only ``execute`` for a writing one) remains a review concern.
 """
 import ast
 import sys
+from collections import Counter
 from pathlib import Path
+
+import pytest
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
@@ -97,59 +111,77 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
     ),
 }
 
-# (file, handler) -> every function (``file::qualname``) where that GET's side effects may happen.
-# A write that moves (a router helper into a service) moves its pin in the same PR.
-ALLOWED_WRITE_SITES: dict[tuple[str, str], frozenset[str]] = {
-    ("app/routers/analysis.py", "get_coverage"): frozenset({
-        "app/routers/analysis.py::get_coverage",
-        "app/services/facts_service.py::_persist_companyfacts_payload",
-        "app/services/facts_service.py::upsert_facts_bulk",
-    }),
-    ("app/routers/auth.py", "apple_login"): frozenset({
-        "app/routers/auth.py::apple_login",
-        "app/routers/auth.py::_store_oauth_state",
-    }),
-    ("app/routers/auth.py", "google_login"): frozenset({
-        "app/routers/auth.py::_start_google",
-        "app/routers/auth.py::_store_oauth_state",
-    }),
-    ("app/routers/auth.py", "google_callback"): frozenset({
-        "app/routers/auth.py::google_callback",
-        "app/routers/auth.py::_consume_oauth_state",
-        "app/routers/auth.py::_oauth_create_account",
-        "app/routers/auth.py::issue_session",
-        "app/services/audit_service.py::create_audit_log",
-        "app/services/invite_service.py::redeem_invite",
-        "app/services/refresh_token_service.py::create_refresh_token",
-    }),
-    ("app/routers/companies.py", "search_companies"): frozenset({
-        "app/routers/companies.py::search_companies",
-        "app/services/company_resolution.py::resolve_or_create_company_by_cik",
-    }),
-    ("app/routers/companies.py", "get_company"): frozenset({
-        "app/routers/companies.py::get_company",
-        "app/services/company_resolution.py::resolve_or_create_company_by_cik",
-    }),
-    ("app/routers/filings.py", "get_company_filings"): frozenset({
-        "app/routers/filings.py::get_company_filings",
-        "app/services/company_resolution.py::resolve_or_create_company_by_cik",
-        "app/services/filing_amendment_service.py::mark_superseded_filings",
-        "app/services/filing_history_service.py::_persist_history_rows",
-        "app/services/filing_scan_service.py::upsert_filings",
-    }),
-    ("app/routers/summaries.py", "get_summary_progress"): frozenset({
-        "app/routers/summaries.py::get_summary_progress",
-    }),
-    ("app/routers/users.py", "get_notification_preferences"): frozenset({
-        "app/services/notification_service.py::get_or_create_preferences",
-    }),
-    ("app/routers/users.py", "export_user_data"): frozenset({
-        "app/services/audit_service.py::create_audit_log",
-    }),
+# (file, handler) -> every function (``file::qualname``) where that GET's side effects may happen,
+# with the kind and count of each one there. A write that moves (a router helper into a service)
+# moves its pin in the same PR; one more or one fewer changes its count.
+ALLOWED_WRITE_SITES: dict[tuple[str, str], dict[str, dict[str, int]]] = {
+    ("app/routers/analysis.py", "get_coverage"): {
+        "app/routers/analysis.py::get_coverage": {"create_task": 1},
+        "app/services/facts_service.py::_persist_companyfacts_payload": {"commit": 1},
+        "app/services/facts_service.py::upsert_facts_bulk": {"add": 1, "commit": 1},
+    },
+    ("app/routers/auth.py", "apple_login"): {
+        "app/routers/auth.py::apple_login": {"commit": 1},
+        "app/routers/auth.py::_store_oauth_state": {"add": 1, "query.delete": 1},
+    },
+    ("app/routers/auth.py", "google_login"): {
+        "app/routers/auth.py::_start_google": {"commit": 1},
+        "app/routers/auth.py::_store_oauth_state": {"add": 1, "query.delete": 1},
+    },
+    ("app/routers/auth.py", "google_callback"): {
+        "app/routers/auth.py::google_callback": {"add": 1},
+        "app/routers/auth.py::_consume_oauth_state": {"commit": 1, "delete": 1},
+        "app/routers/auth.py::_oauth_create_account": {"add": 1, "flush": 1},
+        "app/routers/auth.py::issue_session": {"commit": 1},
+        "app/services/audit_service.py::create_audit_log": {"add": 1, "commit": 1},
+        "app/services/invite_service.py::redeem_invite": {"commit": 1, "execute": 1},
+        "app/services/refresh_token_service.py::create_refresh_token": {"add": 1, "flush": 1},
+    },
+    ("app/routers/companies.py", "search_companies"): {
+        "app/routers/companies.py::search_companies": {"add": 1, "commit": 2, "flush": 1},
+        "app/services/company_resolution.py::resolve_or_create_company_by_cik": {"add": 1, "flush": 1},
+    },
+    ("app/routers/companies.py", "get_company"): {
+        "app/routers/companies.py::get_company": {"commit": 1},
+        "app/services/company_resolution.py::resolve_or_create_company_by_cik": {"add": 1, "flush": 1},
+    },
+    ("app/routers/filings.py", "get_company_filings"): {
+        "app/routers/filings.py::get_company_filings": {
+            "BackgroundTasks": 1, "add": 1, "add_task": 2, "commit": 2, "flush": 1,
+        },
+        "app/services/company_resolution.py::resolve_or_create_company_by_cik": {"add": 1, "flush": 1},
+        "app/services/filing_amendment_service.py::mark_superseded_filings": {
+            "bulk_update_mappings": 1, "flush": 1,
+        },
+        "app/services/filing_history_service.py::_persist_history_rows": {"commit": 1},
+        "app/services/filing_scan_service.py::upsert_filings": {"add": 1, "commit": 1},
+    },
+    ("app/routers/summaries.py", "get_summary_progress"): {
+        "app/routers/summaries.py::get_summary_progress": {"commit": 1},
+    },
+    ("app/routers/users.py", "get_notification_preferences"): {
+        "app/services/notification_service.py::get_or_create_preferences": {"add": 1, "commit": 1},
+    },
+    ("app/routers/users.py", "export_user_data"): {
+        "app/services/audit_service.py::create_audit_log": {"add": 1, "commit": 1},
+    },
+}
+
+# file::qualname -> (how many ``execute`` calls there only read, why). ``execute`` runs reads as well
+# as writes and the walk cannot tell them apart, so every one counts as a write unless its function is
+# pinned here; a pinned function that makes any other number of executes has every one counted.
+READ_ONLY_EXECUTE_SITES: dict[str, tuple[int, str]] = {
+    "main.py::health_check_detailed": (
+        1, "the database health probe runs SELECT 1 in a session of its own and writes nothing"
+    ),
 }
 
 _SESSION_NAMES = {"db", "session"}
-_SESSION_WRITES = {"add", "add_all", "delete", "commit", "flush", "merge"}
+_SESSION_WRITES = {
+    "add", "add_all", "delete", "merge", "flush", "commit", "begin", "execute",
+    "bulk_save_objects", "bulk_insert_mappings", "bulk_update_mappings",
+}
+_QUERY_WRITES = {"update", "delete"}  # db.query(...)...update()/.delete(): a bulk write by criteria
 
 
 def _scanned_files() -> list[Path]:
@@ -214,30 +246,47 @@ def _session_names_in(fn: ast.AST) -> set[str]:
     return names
 
 
-def _side_effect_markers(fn: ast.AST) -> list[str]:
-    """Human-readable markers (``kind@line``) for every side-effect construct in ``fn``."""
-    markers: list[str] = []
+def _query_session(expr: ast.AST, sessions: set[str]) -> str | None:
+    """The session ``expr`` chains from when it is ``<session>.query(...)...``, else None."""
+    while isinstance(expr, (ast.Call, ast.Attribute)):
+        if isinstance(expr, ast.Call):
+            func = expr.func
+            if isinstance(func, ast.Attribute) and func.attr == "query" \
+                    and isinstance(func.value, ast.Name) and func.value.id in sessions:
+                return func.value.id
+            expr = func
+        else:
+            expr = expr.value
+    return None
+
+
+def _side_effect_markers(fn: ast.AST) -> list[tuple[str, str]]:
+    """(kind, ``label@line``) for every side-effect construct in ``fn``. The kind (``commit``,
+    ``query.delete``, ``add_task``, ``BackgroundTasks`` …) is what a write-site pin counts."""
+    markers: list[tuple[str, str]] = []
     sessions = _session_names_in(fn)
     args = fn.args
     for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs]:
         if arg.annotation is not None and "BackgroundTasks" in ast.unparse(arg.annotation):
-            markers.append(f"param {arg.arg}: BackgroundTasks")
+            markers.append(("BackgroundTasks", f"param {arg.arg}: BackgroundTasks"))
     for node in ast.walk(fn):
         if not isinstance(node, ast.Call):
             continue
         for arg in [*node.args, *(kw.value for kw in node.keywords)]:  # run_in_threadpool(db.commit)
             if isinstance(arg, ast.Attribute) and isinstance(arg.value, ast.Name) \
                     and arg.value.id in sessions and arg.attr in _SESSION_WRITES:
-                markers.append(f"{arg.value.id}.{arg.attr} (passed)@{node.lineno}")
+                markers.append((arg.attr, f"{arg.value.id}.{arg.attr} (passed)@{node.lineno}"))
         func = node.func
         if not isinstance(func, ast.Attribute):
             continue
         if isinstance(func.value, ast.Name) and func.value.id in sessions and func.attr in _SESSION_WRITES:
-            markers.append(f"{func.value.id}.{func.attr}()@{node.lineno}")
+            markers.append((func.attr, f"{func.value.id}.{func.attr}()@{node.lineno}"))
+        elif func.attr in _QUERY_WRITES and (name := _query_session(func.value, sessions)):
+            markers.append((f"query.{func.attr}", f"{name}.query(...).{func.attr}()@{node.lineno}"))
         elif func.attr == "add_task":
-            markers.append(f".add_task()@{node.lineno}")
+            markers.append(("add_task", f".add_task()@{node.lineno}"))
         elif func.attr == "create_task" and isinstance(func.value, ast.Name) and func.value.id == "asyncio":
-            markers.append(f"asyncio.create_task()@{node.lineno}")
+            markers.append(("create_task", f"asyncio.create_task()@{node.lineno}"))
     return markers
 
 
@@ -347,9 +396,12 @@ def _site(path: Path, qualname: str) -> str:
     return f"{path.relative_to(BACKEND_DIR).as_posix()}::{qualname}"
 
 
-def _handler_markers(path: Path, handler: ast.AST) -> list[tuple[str, str]]:
-    """(site, marker) for the handler body and every app function it reaches, transitively."""
-    found = [(_site(path, handler.name), marker) for marker in _side_effect_markers(handler)]
+_Marker = tuple[str, str, str]  # (site ``file::qualname``, kind, ``label@line``)
+
+
+def _handler_markers(path: Path, handler: ast.AST) -> list[_Marker]:
+    """(site, kind, label) for the handler body and every app function it reaches, transitively."""
+    found = [(_site(path, handler.name), kind, label) for kind, label in _side_effect_markers(handler)]
     seen = {(path, handler.lineno)}
     stack = _referenced_functions(path, handler)
     while stack:
@@ -357,17 +409,26 @@ def _handler_markers(path: Path, handler: ast.AST) -> list[tuple[str, str]]:
         if (fn_path, fn.lineno) in seen:
             continue
         seen.add((fn_path, fn.lineno))
-        found.extend((_site(fn_path, qualname), marker) for marker in _side_effect_markers(fn))
+        found.extend((_site(fn_path, qualname), kind, label) for kind, label in _side_effect_markers(fn))
         stack.extend(_referenced_functions(fn_path, fn))
     return sorted(found)
 
 
-def _side_effecting_handlers(files: list[Path]) -> dict[tuple[str, str], list[tuple[str, str]]]:
-    found: dict[tuple[str, str], list[tuple[str, str]]] = {}
+def _without_pinned_reads(markers: list[_Marker]) -> list[_Marker]:
+    """Drop the ``execute`` markers of each READ_ONLY_EXECUTE_SITES function that makes exactly its
+    pinned count; any other count leaves every one of them in place."""
+    executes = Counter(site for site, kind, _ in markers if kind == "execute")
+    reads = {site for site, count in executes.items() if site in READ_ONLY_EXECUTE_SITES
+             and READ_ONLY_EXECUTE_SITES[site][0] == count}
+    return [(site, kind, label) for site, kind, label in markers if not (kind == "execute" and site in reads)]
+
+
+def _side_effecting_handlers(files: list[Path]) -> dict[tuple[str, str], list[_Marker]]:
+    found: dict[tuple[str, str], list[_Marker]] = {}
     for py in files:
         rel = py.relative_to(BACKEND_DIR).as_posix()
         for fn in _get_handlers(py):
-            markers = _handler_markers(py, fn)
+            markers = _without_pinned_reads(_handler_markers(py, fn))
             if markers:
                 found[(rel, fn.name)] = markers
     return found
@@ -407,7 +468,7 @@ def test_get_handlers_are_not_named_as_mutations():
 
 def test_get_handler_bodies_have_no_side_effects():
     found = {
-        key: ", ".join(f"{marker} in {site}" for site, marker in markers)
+        key: ", ".join(f"{label} in {site}" for site, _, label in markers)
         for key, markers in _side_effecting_handlers(_scanned_files()).items()
     }
     _check(
@@ -417,37 +478,74 @@ def test_get_handler_bodies_have_no_side_effects():
         "A GET must not write to the session or spawn background work. Move the mutation to a "
         "POST/PUT/DELETE endpoint; if this is genuinely a read-through cache, an OAuth GET-by-protocol "
         "callback, or a self-healing read, add the (file, handler) to ALLOWED_SIDE_EFFECTING_GETS "
-        "with a one-line reason, and its write sites to ALLOWED_WRITE_SITES, in the same PR.",
+        "with a one-line reason, and its write sites to ALLOWED_WRITE_SITES, in the same PR. An "
+        "execute that only reads is pinned, with its function's execute count, in "
+        "READ_ONLY_EXECUTE_SITES instead.",
     )
 
 
-def test_exempt_gets_write_only_at_their_pinned_sites():
-    found = _side_effecting_handlers(_scanned_files())
+def _pin_drift(
+    found: dict[tuple[str, str], list[_Marker]], pins: dict[tuple[str, str], dict[str, dict[str, int]]],
+) -> list[str]:
+    """Every way an exempt handler's reached side effects differ from its pins, by site and kind."""
     problems: list[str] = []
-    for key, pinned in sorted(ALLOWED_WRITE_SITES.items()):
+    for key, pinned in sorted(pins.items()):
         if key not in found:
             continue  # a handler that writes nowhere is reported stale by the body check
-        reached = {site for site, _ in found[key]}
-        problems.extend(
-            f"  {key[0]}::{key[1]} reaches a write outside its pins: {site} "
-            f"({', '.join(m for s, m in found[key] if s == site)})"
-            for site in sorted(reached - pinned)
-        )
-        problems.extend(
-            f"  {key[0]}::{key[1]} no longer writes at pinned {site} (moved or fixed: update the pin)"
-            for site in sorted(pinned - reached)
-        )
+        handler = f"{key[0]}::{key[1]}"
+        reached: dict[str, Counter] = {}
+        for site, kind, _ in found[key]:
+            reached.setdefault(site, Counter())[kind] += 1
+        for site in sorted(reached.keys() | pinned.keys()):
+            labels = ", ".join(label for s, _, label in found[key] if s == site)
+            if site not in pinned:
+                problems.append(f"  {handler} reaches a write outside its pins: {site} ({labels})")
+            elif site not in reached:
+                problems.append(f"  {handler} no longer writes at pinned {site} (moved or fixed: update the pin)")
+            elif reached[site] != Counter(pinned[site]):
+                problems.append(
+                    f"  {handler} makes {dict(sorted(reached[site].items()))} at {site}, "
+                    f"pinned {dict(sorted(pinned[site].items()))} ({labels})"
+                )
+    return problems
+
+
+def test_exempt_gets_write_only_at_their_pinned_sites():
+    problems = _pin_drift(_side_effecting_handlers(_scanned_files()), ALLOWED_WRITE_SITES)
     assert not problems, (
         "Side-effecting GET exemptions drifted from their pinned write sites:\n" + "\n".join(problems)
-        + "\nAn exemption covers the writes it was granted for. A new write reached from an exempt GET "
-        "belongs on POST/PUT/DELETE; a write that moved (router helper -> service) moves its pin in "
-        "ALLOWED_WRITE_SITES in the same PR."
+        + "\nAn exemption covers the writes it was granted for, by kind and count. A new write reached "
+        "from an exempt GET belongs on POST/PUT/DELETE; a write that moved (router helper -> service) "
+        "moves its pin in ALLOWED_WRITE_SITES in the same PR, and a removed one leaves it."
     )
 
 
 def test_write_site_pins_match_the_exemptions():
     assert set(ALLOWED_WRITE_SITES) == set(ALLOWED_SIDE_EFFECTING_GETS)
     assert all(ALLOWED_WRITE_SITES.values()), "an exemption pins at least one write site"
+    assert all(
+        kinds and all(count > 0 for count in kinds.values())
+        for sites in ALLOWED_WRITE_SITES.values() for kinds in sites.values()
+    ), "a pinned site names each kind it may write with a positive count"
+
+
+def test_read_only_execute_pins_match_their_sites():
+    """Each READ_ONLY_EXECUTE_SITES function is reached by a GET and makes exactly its pinned count."""
+    reached: dict[str, int] = {}
+    for py in _scanned_files():
+        for fn in _get_handlers(py):
+            # A function's count is the same from every handler that reaches it.
+            reached.update(Counter(site for site, kind, _ in _handler_markers(py, fn) if kind == "execute"))
+    drifted = [
+        f"  {site}: pinned {count}, a GET reaches {reached.get(site, 0)} there"
+        for site, (count, _) in sorted(READ_ONLY_EXECUTE_SITES.items())
+        if reached.get(site, 0) != count
+    ]
+    assert not drifted, (
+        "Read-only execute pins drifted from their functions:\n" + "\n".join(drifted)
+        + "\nA pin covers the reads it was granted for. An execute added beside them may write: put it "
+        "behind POST/PUT/DELETE, or raise the count if it only reads. None left: prune the pin."
+    )
 
 
 _SYNTHETIC_TREE = {
@@ -593,16 +691,21 @@ def reads_only(db):
 }
 
 
-def test_walk_follows_every_documented_form(tmp_path, monkeypatch):
-    """Each documented resolution form, on a synthetic app tree: dropping any branch of the walk
-    leaves its handler unflagged and fails this test (the real tree alone would not notice)."""
-    for rel, source in _SYNTHETIC_TREE.items():
+def _use_tree(tmp_path: Path, monkeypatch, tree: dict[str, str]) -> None:
+    """Point the walk at a synthetic app tree written under ``tmp_path``."""
+    for rel, source in tree.items():
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / rel).write_text(source, encoding="utf-8")
     module = sys.modules[__name__]
     monkeypatch.setattr(module, "BACKEND_DIR", tmp_path)
     monkeypatch.setattr(module, "_PARSED", {})
     monkeypatch.setattr(module, "_BINDINGS", {})
+
+
+def test_walk_follows_every_documented_form(tmp_path, monkeypatch):
+    """Each documented resolution form, on a synthetic app tree: dropping any branch of the walk
+    leaves its handler unflagged and fails this test (the real tree alone would not notice)."""
+    _use_tree(tmp_path, monkeypatch, _SYNTHETIC_TREE)
 
     found = _side_effecting_handlers([tmp_path / "app/routers/r.py"])
     flagged = {name for (_, name) in found}
@@ -613,7 +716,128 @@ def test_walk_follows_every_documented_form(tmp_path, monkeypatch):
         "passed_uncalled", "spawns_task", "api_route_get",
     }
     assert flagged == expected, f"missed: {sorted(expected - flagged)}; unexpected: {sorted(flagged - expected)}"
-    assert {site for site, _ in found[("app/routers/r.py", "singleton")]} == {"app/services/svc.py::Svc._go"}
+    assert {site for site, _, _ in found[("app/routers/r.py", "singleton")]} == {"app/services/svc.py::Svc._go"}
+
+
+_WRITE_KINDS_ROUTER = """\
+from fastapi import APIRouter
+from sqlalchemy import delete, select, update
+
+router = APIRouter()
+
+
+@router.get("/a")
+def executes(db):
+    db.execute(update(T).values(x=1))
+
+
+@router.get("/b")
+def begins(db):
+    with db.begin():
+        pass
+
+
+@router.get("/c")
+def bulk_saves(db):
+    db.bulk_save_objects([])
+
+
+@router.get("/d")
+def bulk_inserts(db):
+    db.bulk_insert_mappings(T, [])
+
+
+@router.get("/e")
+def bulk_updates(db):
+    db.bulk_update_mappings(T, [])
+
+
+@router.get("/f")
+def query_deletes(db):
+    db.query(T).filter(T.x < 1).delete(synchronize_session=False)
+
+
+@router.get("/g")
+def query_updates(db):
+    db.query(T).filter(T.x < 1).update({"x": 1})
+
+
+@router.get("/h")
+def unpinned_read(db):
+    return db.execute(select(T)).all()
+
+
+@router.get("/i")
+def pinned_read(db):
+    return db.execute(select(T)).all()
+
+
+@router.get("/j")
+def pinned_read_and_a_write(db):
+    db.execute(select(T))
+    db.execute(delete(T))
+
+
+@router.get("/k")
+def reads_and_merges_dicts(db):
+    db.query(T).filter(T.x < 1).all()
+    {}.update({})
+"""
+
+
+def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
+    """Self-check for the session writes the gate used to miss: ``execute``, ``begin``, ``bulk_*``
+    and a ``db.query(...)`` chain's ``.update()``/``.delete()``. Every ``execute`` counts unless its
+    function is pinned read-only with exactly its count; with these kinds dropped, this fails."""
+    _use_tree(tmp_path, monkeypatch, {
+        "app/__init__.py": "", "app/routers/__init__.py": "", "app/routers/w.py": _WRITE_KINDS_ROUTER,
+    })
+    monkeypatch.setattr(sys.modules[__name__], "READ_ONLY_EXECUTE_SITES", {
+        "app/routers/w.py::pinned_read": (1, "fixture: its one execute is a SELECT"),
+        "app/routers/w.py::pinned_read_and_a_write": (1, "fixture: pinned for one execute, makes two"),
+    })
+
+    flagged = {name for (_, name) in _side_effecting_handlers([tmp_path / "app/routers/w.py"])}
+    expected = {
+        "executes", "begins", "bulk_saves", "bulk_inserts", "bulk_updates", "query_deletes",
+        "query_updates", "unpinned_read", "pinned_read_and_a_write",
+    }
+    assert flagged == expected, f"missed: {sorted(expected - flagged)}; unexpected: {sorted(flagged - expected)}"
+
+
+_AUDIT_PINS = {
+    ("app/routers/users.py", "export_user_data"): {
+        "app/services/audit_service.py::create_audit_log": {"add": 1, "commit": 1},
+    },
+}
+
+
+@pytest.mark.parametrize("body, drifts", [
+    pytest.param("db.add(entry)\n    db.commit()", False, id="matches-its-pin"),
+    pytest.param("db.add(entry)\n    db.delete(entry)\n    db.commit()", True, id="a-further-write-of-a-new-kind"),
+    pytest.param("db.add(entry)\n    db.commit()\n    db.commit()", True, id="a-further-write-of-a-pinned-kind"),
+    pytest.param("db.add(entry)", True, id="a-pinned-write-removed"),
+])
+def test_a_pinned_function_pins_each_write_kind_and_count(tmp_path, monkeypatch, body, drifts):
+    """Self-check for per-site counts: #1134's pins named functions only, so a further write inside
+    a pinned function passed. Compared by function name alone, every drifting case here fails."""
+    _use_tree(tmp_path, monkeypatch, {
+        "app/__init__.py": "",
+        "app/routers/__init__.py": "",
+        "app/services/__init__.py": "",
+        "app/services/audit_service.py": f"def create_audit_log(db, entry):\n    {body}\n",
+        "app/routers/users.py": (
+            "from fastapi import APIRouter\n"
+            "from app.services.audit_service import create_audit_log\n\n"
+            "router = APIRouter()\n\n\n"
+            "@router.get('/export')\n"
+            "def export_user_data(db):\n"
+            "    create_audit_log(db, None)\n"
+        ),
+    })
+
+    problems = _pin_drift(_side_effecting_handlers([tmp_path / "app/routers/users.py"]), _AUDIT_PINS)
+    assert bool(problems) is drifts, problems
 
 
 def test_allowlist_entries_are_actually_mutating_names():
@@ -626,3 +850,5 @@ def test_every_allowlist_entry_carries_a_reason():
     for allowed in (ALLOWED_MUTATING_GETS, ALLOWED_SIDE_EFFECTING_GETS):
         for key, reason in allowed.items():
             assert isinstance(reason, str) and len(reason.strip()) > 20, f"{key} needs a real reason"
+    for site, (count, reason) in READ_ONLY_EXECUTE_SITES.items():
+        assert count > 0 and len(reason.strip()) > 20, f"{site} needs a positive count and a real reason"
