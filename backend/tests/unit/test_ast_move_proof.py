@@ -944,8 +944,10 @@ def test_namespace_reads_postponed_annotations_and_moved_module_dunders_are_relo
     """``globals()``, and ``eval`` without a namespace, read another module's namespace from a new file;
     ``from __future__ import annotations`` in one module only changes how annotated code compiles (once on a
     class, for its members); and a module-level dunder, moved, is read from the new module. A file that keeps
-    its module keeps all three. ``x.py`` to ``x/__init__.py`` keeps the name a module dunder is read under, but
-    not the namespace, which gains ``__path__`` and another ``__file__``, either way."""
+    its module keeps all three, but its namespace only while it binds the same names: a split that moves one out
+    without a re-export, or drops an import, changes what ``globals()`` holds there. ``x.py`` to ``x/__init__.py``
+    keeps the name a module dunder is read under, but not the namespace, which gains ``__path__`` and another
+    ``__file__``, either way."""
     old = ("def lookup(name):\n    return globals()[name]\n\n\ndef run(src):\n    return eval(src)\n\n\n"
            "def scoped(src, ns):\n    return eval(src, ns)\n\n\ndef total(rows: list) -> int:\n    return len(rows)\n\n\n"
            "def plain(rows):\n    return rows\n\n\nclass Row:\n    key: str\n\n    def size(self) -> int:\n        return 0\n\n\n"
@@ -960,6 +962,22 @@ def test_namespace_reads_postponed_annotations_and_moved_module_dunders_are_relo
         "Row": "its annotations are postponed now (from __future__ import annotations), evaluated before",
         "__getattr__": "binds __getattr__, which Python reads from app.x.impl, was app.x"}
     assert _relocated(old, "app/x.py", "app/x.py") == {}
+    split = "A = 1\n\n\ndef keys():\n    return sorted(globals())\n\n\ndef value():\n    return eval('A')\n"
+    kept = split.split("\n\n\n", 1)[1]
+    gone = "app/x.py, was app/x.py: reads its module's namespace through {} (app.x, which binds other names: A gone)"
+    assert compare(split, {"app/x.py": kept, "app/a.py": "A = 1\n"}, old_path="app/x.py").relocated == {
+        "keys": gone.format("globals()"), "value": gone.format("eval()")}
+    assert compare(split, {"app/x.py": "from app.a import A\n\n\n" + kept, "app/a.py": "A = 1\n"},
+                   old_path="app/x.py").relocated == {}
+    # A def that binds through ``global`` binds in its module's namespace; a star import binds what its source holds.
+    setup = "def setup():\n    global READY\n    READY = True\n\n\ndef keys():\n    return sorted(globals())\n"
+    moved = compare(setup, {"app/x.py": "from app.a import setup\n\n\n" + setup.split("\n\n\n", 1)[1],
+                            "app/a.py": setup.split("\n\n\n", 1)[0] + "\n"}, old_path="app/x.py")
+    assert moved.relocated["keys"].endswith("(app.x, which binds other names: READY gone)")
+    star = "from app.c import *\n\n\ndef keys():\n    return sorted(globals())\n"
+    assert _relocated(star, "app/x.py", "app/x.py", star.replace("app.c", "app.d")) == {
+        "keys": "reads its module's namespace through globals() (app.x, which binds other names: * from app.c gone; "
+                "* from app.d new)"}
     package = "reads its module's namespace through {} (app.x, {} a package)"
     assert _relocated(old, "app/x/__init__.py", "app/x.py") == {
         "lookup": package.format("globals()", "now"), "run": package.format("eval()", "now")}

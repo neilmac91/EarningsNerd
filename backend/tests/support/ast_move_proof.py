@@ -132,18 +132,19 @@ holds no annotation, but passes ``annotations`` on to the code it compiles and t
 closed: a code object compiled elsewhere, an AST, inherits nothing); and a module dunder it binds, at module
 level or through ``global``, which Python reads from the new module (a moved ``__getattr__`` no longer serves
 the façade). A block reads its header here, a ``globals()`` there too, and its own relative imports; its
-statements are symbols of their own. A name that both modules set outright above the reading symbol, at each
-of its definitions that reads it, and not deleted since (outside a block or a ``match`` case, not by a bare
-annotation or ``:=``, from a value that does not read the name as ``__doc__ +=`` does; a def above the binding
-may be called at import before it), or that an earlier member of its class sets so for a read in the class
-body itself (not a class defined twice, whose bodies each run in a namespace of their own), is compared as
-those symbols; one that only one module sets outright, or binds at all, is reported; otherwise the values the
-import system derives are compared. Names are derived from the path relative to ``backend/`` (the CLI
-normalises how ``--old`` and ``--new`` are spelled), every directory a package, and without the old path
-(``compare()``'s ``old_path``, which the CLI always passes) every read but the docstring's, the annotations'
-and the ``__future__`` imports compiled code inherits (all three read from the source) is reported, as
-``the old path is unknown`` or ``was an unknown module``. A RELOCATED symbol still counts as identical, as a
-REORDERED one does, and ``--allow`` takes its key.
+statements are symbols of their own. A namespace read that stays on its path is reported too when its module
+binds other names, imports included (a name moved out without a re-export, a dropped import). A name that both
+modules set outright above the reading symbol, at each of its definitions that reads it, and not deleted since
+(outside a block or a ``match`` case, not by a bare annotation or ``:=``, from a value that does not read the
+name as ``__doc__ +=`` does; a def above the binding may be called at import before it), or that an earlier
+member of its class sets so for a read in the class body itself (not a class defined twice, whose bodies each
+run in a namespace of their own), is compared as those symbols; one that only one module sets outright, or
+binds at all, is reported; otherwise the values the import system derives are compared. Names are derived from
+the path relative to ``backend/`` (the CLI normalises how ``--old`` and ``--new`` are spelled), every
+directory a package, and without the old path (``compare()``'s ``old_path``, which the CLI always passes)
+every read but the docstring's, the annotations' and the ``__future__`` imports compiled code inherits (all
+three read from the source) is reported, as ``the old path is unknown`` or ``was an unknown module``. A
+RELOCATED symbol still counts as identical, as a REORDERED one does, and ``--allow`` takes its key.
 
 Limits. Code that a new class runs through a BASE (an inherited metaclass, or the base's
 ``__init_subclass__``) is not visible in the AST, so a new class with bases is ADDED; read every ADDED class's
@@ -1114,6 +1115,7 @@ class _Module:
     futures: frozenset[str]  # its ``from __future__`` imports that code it compiles inherits
     binds: frozenset[str]
     pins_package: bool  # every binding of its ``__package__`` sets a string, never deleted nor bound through global
+    bound: frozenset[str]  # every name its namespace binds, imports included (a star import as its source)
     outright: dict[str | None, dict[str, list[tuple[int, int | None]]]] = field(hash=False)
 
     def settles(self, name: str, used: _Names) -> bool:
@@ -1188,7 +1190,12 @@ def _module(path: str | None, source: str, names: dict[str, _Names]) -> _Module:
                    frozenset(alias.name for node in tree.body if isinstance(node, ast.ImportFrom)
                              and node.module == "__future__" for alias in node.names) & _INHERITED_FUTURES,
                    frozenset(name for used in names.values() for name in used.rebinds()),
-                   pins_package, outright)
+                   pins_package,
+                   frozenset(_Scope().read(*tree.body).bound - {"*"}
+                             | {name for used in names.values() for name in used.declared}
+                             | {f"* from {'.' * each.level}{each.module or ''}" for each in module_nodes
+                                if isinstance(each, ast.ImportFrom) and any(alias.name == "*" for alias in each.names)}),
+                   outright)
 
 
 def _resolve(level: int, module: str, package: str) -> str:
@@ -1258,9 +1265,15 @@ def _relocated(old: _Names, new: _Names, before: _Module, after: _Module, same: 
     # Unchanged text reads what either module's bindings make of it; a changed symbol fails anyway.
     calls, compilers = ((old.namespace | new.namespace, old.compiles | new.compiles) if same
                         else (old.namespace & new.namespace, old.compiles & new.compiles))
-    if calls and before.path != after.path:  # x/__init__.py has __path__
+    # Another file holds another namespace (x/__init__.py has __path__); the same file, one that binds other names.
+    if calls and (before.path != after.path or before.bound != after.bound):
         called = ", ".join(f"{call}()" for call in sorted(calls))
-        where = f"was {before.name}" if moved else ("now" if after.is_package else "no longer") + " a package"
+        if before.path != after.path:
+            where = f"was {before.name}" if moved else ("now" if after.is_package else "no longer") + " a package"
+        else:
+            where = "which binds other names: " + "; ".join(
+                f"{', '.join(sorted(names))} {change}" for names, change in
+                ((before.bound - after.bound, "gone"), (after.bound - before.bound, "new")) if names)
         reasons.append(f"reads its module's namespace through {called} ({after.name}, {where})")
     if old.annotated and new.annotated and before.postponed != after.postponed:
         reasons.append("its annotations are " + ("postponed now (from __future__ import annotations), evaluated"
