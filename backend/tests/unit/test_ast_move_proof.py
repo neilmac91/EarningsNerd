@@ -712,9 +712,11 @@ def test_a_name_a_module_binds_itself_is_compared_as_that_binding():
 
 def test_a_binding_settles_a_name_only_when_it_sets_it_outright_above_the_read():
     """``__doc__ +=`` and ``__doc__.format()`` keep the docstring they read, the ``__package__`` shim binds
-    only when the package is empty, and a read at import above ``__doc__ = ...`` took the docstring: each still
-    reads what the new module derives. Below that binding, and from a def's body, the binding is the value,
-    and a ``global`` store sets it outright too (its def is compared as a symbol)."""
+    only when the package is empty, a bare annotation binds nothing and a walrus in an empty comprehension never
+    runs, and code above ``__doc__ = ...`` may read the docstring: a statement at import, or a def called
+    there before the binding runs, a symbol's first definition included. Each still reads what the new module
+    derives. Below the first binding the binding is the value, and a ``global`` store sets it outright too (its
+    def is compared as a symbol)."""
     cli = '"""Filing CLI."""\n__doc__ += "\\n\\nUsage: run"\n\n\ndef usage():\n    return __doc__\n'
     assert _relocated(cli, "app/cli.py", "app/cli.py", cli.replace("Filing CLI.", "Facade.")) == {
         "__doc__": "reads __doc__ (the module docstring differs)", "usage": "reads __doc__ (the module docstring differs)"}
@@ -728,7 +730,35 @@ def test_a_binding_settles_a_name_only_when_it_sets_it_outright_above_the_read()
     above = ('"""Old."""\nDESCRIPTION = __doc__\n\n\ndef early():\n    return __doc__\n\n\n__doc__ = "Fixed."\nTITLE = __doc__\n\n\n'
              "def reset():\n    global __doc__\n    __doc__ = None\n\n\ndef usage():\n    return __doc__\n")
     assert _relocated(above, "app/x.py", "app/x.py", above.replace("Old.", "New.")) == {
-        "DESCRIPTION": "reads __doc__ (the module docstring differs)"}
+        "DESCRIPTION": "reads __doc__ (the module docstring differs)", "early": "reads __doc__ (the module docstring differs)"}
+    called = "def where():\n    return __package__\n\n\nANCHOR = where()\n__package__ = 'app.tools'\n"
+    assert _relocated(called, "app/tools/runner/__init__.py", "app/tools/runner.py") == {
+        "where": "reads __package__ ('app.tools.runner', was 'app.tools')"}
+    twice = '"""Old."""\n__doc__ = "A"\nTEXT = __doc__\n__doc__ = "B"\n'
+    assert _relocated(twice, "app/x.py", "app/x.py", twice.replace("Old.", "New.")) == {}
+    reread = '"""Old."""\nTEXT = __doc__\n__doc__ = "Fixed."\nTEXT = __doc__\n'
+    assert _relocated(reread, "app/x.py", "app/x.py", reread.replace("Old.", "New.")) == {
+        "TEXT": "reads __doc__ (the module docstring differs)"}
+    for binding in ("__doc__: str", '[(__doc__ := "x") for _ in ()]'):
+        tentative = f'"""Old."""\n{binding}\nTEXT = __doc__\n'
+        assert _relocated(tentative, "app/x.py", "app/x.py", tentative.replace("Old.", "New.")) == {
+            "TEXT": "reads __doc__ (the module docstring differs)"}, binding
+
+
+def test_a_class_body_read_is_settled_by_an_earlier_member_that_sets_the_name_outright():
+    """A class body looks a name up in the class first, so a member that reads ``__module__`` or ``__doc__``
+    after a member set it outright reads that value wherever the class moves. A read above it, a binding in
+    a block, one derived from the module's value, and a lambda's read (a nested scope reads the module's) still
+    take what the new module derives."""
+    old = ('"""Old."""\n\n\nclass C:\n    __module__ = "stable"\n    origin = __module__\n\n\n'
+           'class D:\n    origin = __module__\n    __module__ = "stable"\n\n\n'
+           'class E:\n    if READY:\n        __module__ = "stable"\n    origin = __module__\n\n\n'
+           'class F:\n    __doc__ = "Fixed."\n    usage = __doc__\n    both = (__doc__, (lambda: __doc__)())\n\n\n'
+           'class K:\n    __doc__ = __doc__ + "!"\n    usage = __doc__\n')
+    assert _relocated(old, "app/y.py", "app/x.py", old.replace("Old.", "New.")) == {
+        "D.origin": "reads __module__ (app.y, was app.x)", "E.origin": "reads __module__ (app.y, was app.x)",
+        "F.both": "reads __doc__ (the module docstring differs)", "K.__doc__": "reads __doc__ (the module docstring differs)",
+        "K.usage": "reads __doc__ (the module docstring differs)"}
 
 
 def test_a_name_one_module_sets_outright_and_the_other_does_not_is_relocated():
@@ -838,10 +868,11 @@ def test_eval_and_exec_read_the_callers_namespace_unless_given_globals_of_their_
 
 
 def test_only_annotations_python_evaluates_and_code_compiled_under_the_future_import_count():
-    """Each form alone, moved into a module that postpones annotations: a parameter, a return, a class field,
-    a class built in a def, a nested def's parameter, and code handed to ``exec`` or ``compile``, which inherits
-    the caller's ``from __future__`` imports unless told ``dont_inherit``. An annotation in a def's body,
-    ``self.calls: list[str] = []`` included, is never evaluated."""
+    """Each form alone, moved into a module that postpones annotations: a parameter (``*args`` and ``**kwargs``
+    too), a return, an async def's, a class field, a class built in a def and a nested def's parameter. Code
+    handed to the builtin ``exec`` or ``compile`` inherits the caller's ``from __future__`` imports unless told
+    ``dont_inherit``, with a reason of its own, both ways; an imported ``compile`` is not the builtin. An
+    annotation in a def's body, ``self.calls: list[str] = []`` included, is never evaluated."""
     old = ("def param(rows: list):\n    return rows\n\n\ndef ret(rows) -> list:\n    return rows\n\n\n"
            "class Field:\n    key: str\n\n\ndef local(rows):\n    count: Undefined = len(rows)\n    return count\n\n\n"
            "class Fake:\n    def __init__(self):\n        self.calls: list[str] = []\n\n\n"
@@ -849,10 +880,20 @@ def test_only_annotations_python_evaluates_and_code_compiled_under_the_future_im
            "def nested():\n    def inner(x: Later):\n        return x\n    return inner\n\n\n"
            "def make(src, ns):\n    exec(src, {}, ns)\n\n\ndef build(src):\n    return compile(src, '<generated>', 'exec')\n\n\n"
            "def isolated(src):\n    return compile(src, '<generated>', 'exec', dont_inherit=True)\n\n\n"
-           "def apart(src):\n    return compile(src, '<generated>', 'exec', 0, True)\n")
+           "def apart(src):\n    return compile(src, '<generated>', 'exec', 0, True)\n\n\n"
+           "async def fetch(row: Row) -> Row:\n    return row\n\n\ndef merge(*rows: Row):\n    return rows\n\n\n"
+           "def extra(**rows: Row):\n    return rows\n")
+    future = "from __future__ import annotations\n\n"
     postponed = "its annotations are postponed now (from __future__ import annotations), evaluated before"
-    assert _relocated(old, "app/x/impl.py", "app/x.py", "from __future__ import annotations\n\n" + old) == dict.fromkeys(
-        ("param", "ret", "Field", "factory", "nested", "make", "build"), postponed)
+    compiled = "the code it compiles (exec, compile) inherits from __future__ import annotations now, not before"
+    assert _relocated(old, "app/x/impl.py", "app/x.py", future + old) == {
+        **dict.fromkeys(("param", "ret", "Field", "factory", "nested", "fetch", "merge", "extra"), postponed),
+        **dict.fromkeys(("make", "build"), compiled)}
+    back = _relocated(future + old, "app/x/impl.py", "app/x.py", old)
+    assert back["param"] == "its annotations are evaluated now, postponed before"
+    assert back["make"] == "the code it compiles (exec, compile) no longer inherits from __future__ import annotations"
+    imported = 'from re import compile\n\n\ndef pattern():\n    return compile(r"\\d+")\n'
+    assert _relocated(imported, "app/x/impl.py", "app/x.py", future + imported) == {}
 
 
 def test_a_module_dunder_bound_through_global_is_relocated_and_a_class_dunder_or_private_name_is_not():
