@@ -128,7 +128,8 @@ class OAuthState(Base):
     nonce = Column(String(64), nullable=False)
     expires_at = Column(DateTime, nullable=False)
     # SHA-256 hash of a closed-beta invite carried through a social sign-in (auth.google_login /
-    # apple_login store it; the callback validates and redeems it when it creates the account).
+    # apple_login store it through services/oauth_account_service.py; the callback validates and
+    # redeems it when it creates the account).
     # NULL for a plain sign-in. Additive: self-healed by database.ensure_additive_columns.
     invite_code_hash = Column(String(64), nullable=True)
 

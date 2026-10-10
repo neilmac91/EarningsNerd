@@ -65,8 +65,8 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
         "the signed SameSite=None, Secure cookie separately binds it to the initiating browser"
     ),
     ("app/routers/auth.py", "google_login"): (
-        "shares _start_google with POST /google/start, which stores the OAuth state row only for a "
-        "live invite; the GET passes invite=None, so the reachable write never runs on this route"
+        "shares _start_google with POST /google/start, whose save_google_state stores the OAuth state "
+        "row only for a live invite; the GET passes invite=None, so the reachable write never runs here"
     ),
     ("app/routers/auth.py", "google_callback"): (
         "OAuth redirect callback — the provider returns the user via GET by protocol; creates or "
@@ -106,28 +106,29 @@ ALLOWED_WRITE_SITES: dict[tuple[str, str], frozenset[str]] = {
         "app/services/facts_service.py::upsert_facts_bulk",
     }),
     ("app/routers/auth.py", "apple_login"): frozenset({
-        "app/routers/auth.py::apple_login",
-        "app/routers/auth.py::_store_oauth_state",
+        "app/services/oauth_account_service.py::save_apple_state",
+        "app/services/oauth_account_service.py::store_oauth_state",
     }),
     ("app/routers/auth.py", "google_login"): frozenset({
-        "app/routers/auth.py::_start_google",
-        "app/routers/auth.py::_store_oauth_state",
+        "app/services/oauth_account_service.py::save_google_state",
+        "app/services/oauth_account_service.py::store_oauth_state",
     }),
     ("app/routers/auth.py", "google_callback"): frozenset({
-        "app/routers/auth.py::google_callback",
-        "app/routers/auth.py::_consume_oauth_state",
-        "app/routers/auth.py::_oauth_create_account",
-        "app/routers/auth.py::issue_session",
+        "app/services/oauth_account_service.py::consume_oauth_state",
+        "app/services/oauth_account_service.py::oauth_create_account",
+        "app/services/oauth_account_service.py::resolve_google_user",
         "app/services/audit_service.py::create_audit_log",
         "app/services/invite_service.py::redeem_invite",
         "app/services/refresh_token_service.py::create_refresh_token",
+        "app/services/refresh_token_service.py::mint_refresh_token",
     }),
     ("app/routers/companies.py", "search_companies"): frozenset({
-        "app/routers/companies.py::search_companies",
+        "app/services/company_lookup_service.py::resolve_search_conflict",
+        "app/services/company_lookup_service.py::upsert_search_results",
         "app/services/company_resolution.py::resolve_or_create_company_by_cik",
     }),
     ("app/routers/companies.py", "get_company"): frozenset({
-        "app/routers/companies.py::get_company",
+        "app/services/company_lookup_service.py::persist_sec_company",
         "app/services/company_resolution.py::resolve_or_create_company_by_cik",
     }),
     ("app/routers/filings.py", "get_company_filings"): frozenset({
@@ -135,6 +136,8 @@ ALLOWED_WRITE_SITES: dict[tuple[str, str], frozenset[str]] = {
         "app/services/company_resolution.py::resolve_or_create_company_by_cik",
         "app/services/filing_amendment_service.py::mark_superseded_filings",
         "app/services/filing_history_service.py::_persist_history_rows",
+        "app/services/filing_list_service.py::persist_live_filings",
+        "app/services/filing_list_service.py::persist_sec_company",
         "app/services/filing_scan_service.py::upsert_filings",
     }),
     ("app/routers/summaries.py", "get_summary_progress"): frozenset({

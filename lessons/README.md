@@ -120,6 +120,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - test-pure-move-ast-proof.md — Verify "pure move" refactors with an AST-normalized per-symbol diff, not by eyeballing the diff
 - test-smoke-model-runs-before-sweeps.md — Smoke one or two items and inspect raw output before any long or expensive model run
 - test-smoke-targets-feature-semantics.md — Distinguish the actual smoke target from similarly named calls to action
+- test-sqlite-savepoint-release-hides-a-dropped-commit.md — Pin a commit that follows a SAVEPOINT with a commit spy; under SQLite the RELEASE already committed the row
 - test-tracked-file-gates-run-after-staging.md — Run a `git ls-files` gate after staging its own module, and select targets by name pattern
 - test-verbatim-fixtures-keep-the-source-bytes.md — Copy verbatim fixtures from the source payload and assert them on textContent
 - test-verify-orphaned-tests-before-adopting.md — Verify orphaned or uncollected tests before adopting them
