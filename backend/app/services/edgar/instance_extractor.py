@@ -41,7 +41,7 @@ DURATION_WINDOWS: Dict[str, Tuple[int, int]] = {
 # statement's total top line (e.g. WMT/XOM include membership/other income
 # there) — the figure a summary will quote.
 # Each metric lists US-GAAP concept candidates first, then IFRS (ifrs-full) candidates for
-# foreign private issuers that report under IFRS (e.g. ASML, Novo Nordisk). `_fact_records` tries
+# foreign private issuers that report under IFRS (e.g. ASML, Novo Nordisk). `_fact_records_with_concept` tries
 # both the us-gaap and ifrs-full namespaces per name, so the first candidate that resolves in
 # either taxonomy wins. (Alibaba files under US-GAAP, so its blocker is currency, not IFRS.)
 DURATION_CONCEPTS: Dict[str, List[str]] = {
@@ -235,12 +235,6 @@ def _fact_records_with_concept(
         if df is not None and not getattr(df, "empty", True):
             return df.to_dict("records"), f"{namespace}:{concept}"
     return [], None
-
-
-def _fact_records(xb: Any, concept: str) -> List[Dict[str, Any]]:
-    """Compatibility view of the same first successful namespace query."""
-    records, _qualified_concept = _fact_records_with_concept(xb, concept)
-    return records
 
 
 def _currency(row: Dict[str, Any]) -> Optional[str]:
