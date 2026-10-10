@@ -104,14 +104,22 @@ describe('NarrativePane readable evidence', () => {
     expect(screen.queryByText(/figures behind this/)).not.toBeInTheDocument()
   })
 
-  it('retains full precision for margin and ratio source entries', () => {
+  it('retains exact citation precision and describes a legacy calculation without implying recorded inputs', () => {
     const citations = [
-      { ...citation, value: 26.065360767092647, excerpt: 'Net margin = 26.1% (2026Q2)' },
+      { ...citation, value: 26.065360767092647, excerpt: 'Net margin = 26.1% (2026Q2)', section_ref: 'XBRL · net_margin', provenance: { version: 1 as const, method: 'calculated' as const, validation: 'needs_review' as const, reasons: ['legacy_calculation'], formula: null, inputs: [] } },
       { ...citation, n: 2, value: 1.00004, excerpt: 'Current ratio = 1.00004x (2026Q2)' },
     ]
     render(<NarrativePane state={doneState({ completion: doneCompletion({ citations }) })} />)
     expect(document.getElementById('analysis-source-1')).toHaveTextContent('26.1% (26.065360767092645%)')
     expect(document.getElementById('analysis-source-2')).toHaveTextContent('1.00004× (1.00004 ratio)')
+    const chip = screen.getByRole('button', { name: 'Citation 1: XBRL · net_margin. Net margin · Q2 2026 · 26.1% (26.065360767092645%), data note a' })
+    expect(chip).toHaveAttribute('title', 'Net margin · Q2 2026 · 26.1% (26.065360767092645%) · XBRL · net_margin')
+    expect(chip.querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
+    const source = document.getElementById('analysis-source-1')!
+    expect(source).toHaveTextContent('Calculated figure')
+    expect(source).not.toHaveTextContent('Calculated from filing figures')
+    expect(source).not.toHaveTextContent('Calculated from recorded inputs')
+    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('This saved calculation predates the current source checks. Its inputs need review.')
   })
 })
 

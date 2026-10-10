@@ -108,7 +108,7 @@ export default function PeriodPicker({ coverage, mode, range, onModeChange, onRa
                 {!range && <option value="" disabled>Select a period</option>}
                 {options.map((option) => (
                   <option key={option.key} value={option.key} disabled={option.disabled}>
-                    {option.label}{option.derived ? ' †' : ''}{option.disabled ? ' — insufficient data' : ''}
+                    {option.label}{option.derived ? ' †' : ''}{option.disabled ? ' (insufficient data)' : ''}
                   </option>
                 ))}
               </Select>
