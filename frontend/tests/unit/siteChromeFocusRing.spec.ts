@@ -37,8 +37,9 @@ import { bindingResolver } from './astBindings'
  * the plugin's base style draws a blue (#2563eb) ring with a white offset on any focus, and the shadow
  * utilities compose with it, so the triple alone shows the brand ring inside a blue one. A control that
  * is statically `disabled` is not a Tab stop. That field clause also runs app-wide, beyond the chrome (the
- * last describe): every field the plugin styles that a page styles itself takes the plugin's ring off and
- * draws a DS ring with its dark twin. Fields built with `inputClasses(…)` and the DS components are held by
+ * last describe): every field the plugin styles that a page styles itself, and that can take focus (a
+ * `tabIndex={-1}` field still takes a click's), takes the plugin's ring off and draws a DS ring with its dark
+ * twin. Fields built with `inputClasses(…)` and the DS components are held by
  * tests/unit/inputClassesNoOverrides.spec.tsx instead.
  *
  * Scope: the chrome a keyboard user tabs through on every route, discovered rather than listed (see
@@ -407,8 +408,10 @@ function unstylableStop(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, s
   return null
 }
 
-/** What both scans need to know about one JSX element: whether a user can Tab to it, and whether @tailwindcss/forms
-    styles it. `linkNames` are next/link's default export under the names the file imports it as. */
+/** The display utilities that show an element a `hidden` class hides. */
+const DISPLAY = /^(block|inline-block|inline|flex|inline-flex|grid|inline-grid|table|inline-table|table-\S+|flow-root|contents|list-item)$/
+/** What both scans need to know about one JSX element: whether a user can Tab to it, whether it can take focus at
+    all (a `tabIndex={-1}` element still takes a click's or a script's), and whether @tailwindcss/forms styles it. `linkNames` are next/link's default export under the names the file imports it as. */
 function classify(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.SourceFile, linkNames: Set<string>) {
   const tag = node.tagName.getText(sf)
   const attrs = node.attributes.properties.filter(ts.isJsxAttribute)
@@ -449,6 +452,15 @@ function classify(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.
     unstylable !== null ||
     spread ||
     ((INTRINSIC.has(tag) || linkNames.has(tag) || indexed || editableStop) && !removed && !staticallyDisabled)
+  // Out of the Tab order, an element still takes a click's focus, unless it is display:none: a static `hidden`
+  // attribute, or the `hidden` class with no variant that shows it again (`md:block`), as the waitlist honeypot is.
+  const hiddenAttr = attr('hidden')
+  const read = classTokens(attr('className')?.initializer)
+  const classes = Array.isArray(read) ? read : []
+  const displayNone =
+    (!!hiddenAttr && settled(hiddenAttr) && !hiddenAttr.initializer) ||
+    (classes.includes('hidden') && !classes.some((t) => t.includes(':') && DISPLAY.test(t.slice(t.lastIndexOf(':') + 1))))
+  const focusable = tabbable || (removed && !staticallyDisabled && !displayNone)
   const typeAttr = attr('type')?.initializer
   // Every field @tailwindcss/forms styles: a textarea, a select, and an input that is not a button or
   // a hidden, file, range or colour control (a missing or dynamic type counts as a field).
@@ -456,7 +468,7 @@ function classify(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.
     tag === 'textarea' ||
     tag === 'select' ||
     (tag === 'input' && !(typeAttr && ts.isStringLiteral(typeAttr) && NOT_FORMS_STYLED.includes(typeAttr.text)))
-  return { tag, attr, tabbable, field, spread, unstylable }
+  return { tag, attr, tabbable, focusable, field, spread, unstylable }
 }
 
 function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Finding[] } {
@@ -575,8 +587,9 @@ function splitClass(token: string): { variants: string[]; utility: string } {
 function competingRings(tokens: string[]): string[] {
   return tokens.filter((t) => {
     const { variants, utility } = splitClass(t)
-    // The reset, and a pinned DS ring token in any theme (one in the wrong theme is the ring and twin check's finding).
-    if (FORMS_RING_OFF.includes(t) || RING_TOKENS.has(utility.replace(/^!?shadow-/, ''))) return false
+    // The reset, and a DS ring rings() counts: a pinned token in its own theme. One in the other theme
+    // (`focus:shadow-ring-brand-dark`, a dropped `dark:`) draws over the ring like any other shadow.
+    if (FORMS_RING_OFF.includes(t) || rings([t], false).length || rings([t], true).length) return false
     const stated = variants.length > 0 || utility.startsWith('!')
     return stated && [...(declared.get(t) ?? [])].some((prop) => SHADOW_PROPS.has(prop))
   })
@@ -647,8 +660,8 @@ function factoryBuilt(init: ts.JsxAttributeValue, isFactory: (callee: ts.Express
 }
 
 /**
- * Every field @tailwindcss/forms styles, anywhere in a page, that a user can Tab to and that its own className
- * styles (not one built with `inputClasses(…)`, which the DS factory's gate holds): it takes the plugin's ring off
+ * Every field @tailwindcss/forms styles, anywhere in a page, that can take focus (the plugin rings a field focused by a
+ * click as much as by Tab, so `tabIndex={-1}` does not exempt one) and that its own className styles (not one built with `inputClasses(…)`, which the DS factory's gate holds): it takes the plugin's ring off
  * (FORMS_RING_OFF) and draws a DS ring in both themes. The reset without a ring would leave no focus indicator: the
  * full-text search's date inputs had no DS ring, so the plugin's blue ring was their only one in dark.
  */
@@ -663,11 +676,11 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
   let factory = 0
   const visit = (node: ts.Node): void => {
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
-      const { tag, attr, tabbable, field, spread } = classify(node, sf, linkNames)
+      const { tag, attr, focusable, field, spread } = classify(node, sf, linkNames)
       const className = attr('className')
       // A spread may replace the className, the factory's included, so it is read before the factory exemption.
-      if (field && tabbable && !spread && className?.initializer && factoryBuilt(className.initializer, isFactory, isJoiner)) factory += 1
-      else if (field && tabbable) {
+      if (field && focusable && !spread && className?.initializer && factoryBuilt(className.initializer, isFactory, isJoiner)) factory += 1
+      else if (field && focusable) {
         fields += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
         const tokens = strictTokens(className?.initializer, isJoiner)
@@ -1150,6 +1163,10 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <input type="date" className="border ${field} hover:shadow-md" />
             <input type="date" className="border ${field} [box-shadow:0_0_0_1px_rgba(0,0,0,0.1)]" />
             <input type="date" className="border ${field} focus:shadow-ring-error" />
+            <input type="date" className="border ${field} focus:shadow-ring-brand-dark" />
+            <input type="date" className="border ${field} dark:focus:shadow-ring-brand" />
+            <input type="date" tabIndex={-1} className="border focus:border-brand" />
+            <input type="date" tabIndex={-1} className="hidden md:block" />
           </>
         )
       }`
@@ -1158,7 +1175,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     const competing = 'sets the box-shadow or a ring in a state, beside the reset and the DS ring'
     const ring = 'a focus:shadow-ring-* or focus-visible:shadow-ring-*'
     expect(factory).toBe(2)
-    expect(fields).toBe(30)
+    expect(fields).toBe(34)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       `7 <input> missing focus:ring-0, focus:ring-offset-0, ${twin}`,
       `9 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
@@ -1173,6 +1190,8 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       // A dark ring in another focus state than the light one, and a dark token standing in for the light ring.
       `23 <input> missing ${twin}`,
       `24 <input> missing ${ring}, ${twin}`,
+      // ...and the dark token in light draws over whatever ring the field does have.
+      `24 <input> focus:shadow-ring-brand-dark ${competing}`,
       // A misspelt token generates no CSS, so it is no ring, in either theme.
       `25 <input> missing ${twin}`,
       `26 <input> missing ${ring}, ${twin}`,
@@ -1182,6 +1201,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       `28 <input> missing ${ring}, ${twin}`,
       // The light ring repeated under `dark:` is no dark twin; ring-error is its own until a dark token exists (line 30).
       `29 <input> missing ${twin}`,
+      `29 <input> dark:focus:shadow-ring-brand ${competing}`,
       // A ring width or offset beside the reset draws the plugin's ring again; a ring colour does not.
       // Any focus-state or !important class whose rule sets the box-shadow or a ring variable, read off Tailwind's compile:
       // a ring width or offset, an arbitrary box-shadow, a shadow utility. A ring colour and a resting shadow do not.
@@ -1198,6 +1218,13 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       // A resting arbitrary box-shadow (line 40) has no variant: the colon inside its brackets is not one.
       // Two DS rings in one focus state: the later in the stylesheet shows.
       '41 <input> more than one DS ring in a focus state (focus: ring-brand, ring-error)',
+      // A pinned token in the other theme (a dropped or a stray `dark:`) is a shadow like any other.
+      `42 <input> focus:shadow-ring-brand-dark ${competing}`,
+      `43 <input> dark:focus:shadow-ring-brand ${competing}`,
+      // Out of the Tab order, but a click still focuses it, and the plugin rings it blue.
+      `44 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
+      // `hidden` shows again from md, so it can take focus there; the honeypot's bare `hidden` (line 24) never can.
+      `45 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
     ])
   })
 })
