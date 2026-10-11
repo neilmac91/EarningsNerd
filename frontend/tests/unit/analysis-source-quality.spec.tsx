@@ -9,6 +9,7 @@ import type { FactProvenance } from '@/features/analysis/lib/provenance'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import DataNotesLink from '@/features/analysis/components/DataNotesLink'
 import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
+import { decodeDataNotes } from '@/features/analysis/lib/dataNotesContract'
 
 const calculated: FactProvenance = {
   version: 1, method: 'calculated', validation: 'passed', reasons: [],
@@ -26,6 +27,20 @@ const dataset: AnalysisDataset = {
 }
 
 describe('Financial origin and source checks', () => {
+  it.each([true, false])('uses admitted server letters and explanations with report context: %s', (withProvider) => {
+    const flagged = structuredClone(dataset)
+    flagged.series[0].points[1].qoq_provenance = { ...calculated, validation: 'needs_review', reasons: ['unit_mismatch'] }
+    const grouped = groupDataNotes(flagged)
+    grouped.notes[0] = { ...grouped.notes[0], letter: 'z', id: 'analysis-data-note-z', message: 'The server retained the original currency concern.' }
+    const admitted = Object.assign(flagged, { data_notes: decodeDataNotes({ version: 1, notes: grouped.notes, totals: grouped.totals }, flagged) })
+    const children = <><DataNotes dataset={admitted} /><MetricsTable dataset={admitted} /></>
+    render(withProvider ? <DataNotesProvider dataset={admitted}>{children}</DataNotesProvider> : children)
+    expect(screen.getByRole('button', { name: /Revenue, Q4 2023:.*comparison carries data note z/ })).toBeInTheDocument()
+    expect(document.getElementById('analysis-data-note-z')).toHaveTextContent('The server retained the original currency concern.')
+    expect(screen.getByText(/1 comparison needs review/)).toBeInTheDocument()
+    expect(document.getElementById('analysis-data-note-a')).not.toBeInTheDocument()
+  })
+
   it('presents a validated Q4 calculation and its growth without false warnings, with inspectable operands', async () => {
     const user = userEvent.setup()
     render(<><DataNotes dataset={dataset} /><MetricsTable dataset={dataset} /></>)

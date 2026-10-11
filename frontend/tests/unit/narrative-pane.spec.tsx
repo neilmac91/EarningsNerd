@@ -1,13 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { compactNarrativeText, SOURCE_OPERANDS_PREFIX } from '@/features/analysis/lib/narrativeDisplay'
+import { citationDisplay, compactNarrativeText, splitNarrativeEvidence, SOURCE_OPERANDS_PREFIX, type NarrativeOperand } from '@/features/analysis/lib/narrativeDisplay'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 
 import NarrativePane, { type NarrativeState } from '@/features/analysis/components/NarrativePane'
 import type { AnalysisCitation, AnalysisCompletion, AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import DataNotes from '@/features/analysis/components/DataNotes'
+import type { NarrativePresentation } from '@/features/analysis/lib/narrativePresentation'
 
 const citation: AnalysisCitation = {
   n: 1,
@@ -102,6 +103,70 @@ describe('NarrativePane readable evidence', () => {
     expect(container.querySelector('.markdown-body')).toHaveTextContent('[99]')
     expect(container.querySelector('.markdown-body')).toHaveTextContent('malformed source text')
     expect(screen.queryByText(/figures behind this/)).not.toBeInTheDocument()
+  })
+
+  it('uses structured evidence with server-formatted values and keeps following prose visible', () => {
+    const lead = 'Cash conversion fell. Revenue was EUR 1.6B and cash was GBP 23.4M.'
+    const tail = ' Source operands: Free cash flow $1.746B in Q2 2026 [1].'
+    const text = `${lead}${tail} Watch the next filing.`
+    const presentation: NarrativePresentation = {
+      format_version: 'analysis-narrative-v1', snapshot_id: 'snapshot-1', data_notes_version: 1,
+      offset_encoding: 'utf-16',
+      notes: { version: 1, notes: [], totals: { reviewValues: 0, reviewComparisons: 0, unavailable: 0, passed: 1, unknown: 0, calculated: 0, total: 1 } },
+      evidence: [{ observation_id: 'cash_conversion', section: 'red_flags',
+        tail: { start: lead.length, end: lead.length + tail.length, text: tail },
+        operands: [{ marker: 'F1', concept: 'free_cash_flow', label: 'Free cash flow', value: 1746000000,
+          unit: 'USD', percent: false, period: '2026Q2', citation_id: 1, derived: false, display_value: '$1.746B' }],
+      }],
+    }
+    const completion = doneCompletion({ narrative: text, citations: [operands[0]], narrative_presentation: presentation })
+    const { container } = render(<NarrativePane state={doneState({ text, completion })} />)
+    expect(screen.getByText(lead)).toBeInTheDocument()
+    expect(container.querySelector('.markdown-body')).not.toHaveTextContent('€1.0.6B')
+    expect(container.querySelector('.markdown-body')).not.toHaveTextContent('£23.0.4M')
+    expect(screen.getByText('Watch the next filing.')).toBeInTheDocument()
+    expect(container.querySelector('.markdown-body')).not.toHaveTextContent('Source operands:')
+    const evidence = screen.getByRole('list', { name: 'Figures behind this finding', hidden: true })
+    expect(evidence).toHaveTextContent('$1.746B')
+    expect(evidence).toHaveTextContent('Q2 2026')
+    expect(within(evidence).getByRole('button', { hidden: true })).toHaveAccessibleName(/Citation 1:/)
+  })
+
+  it.each(['legacy', 'structured'] as const)('folds the backend-produced compatibility fixture in %s tabs', (mode) => {
+    const fixture = JSON.parse(readFileSync(resolve(process.cwd(), '../backend/tests/fixtures/analysis_legacy_evidence.json'), 'utf8')) as {
+      expected: { narrative: string; citations: AnalysisCitation[]; narrative_presentation: NarrativePresentation }
+      legacy_operands: NarrativeOperand[][]
+    }
+    const { narrative, citations, narrative_presentation: presentation } = fixture.expected
+    // The backend test pins these bytes to the real producer. Keep this parser unchanged:
+    // an already-open Phase 1 tab drops the new envelope and takes exactly this path.
+    const parts = splitNarrativeEvidence(narrative, citations)
+    expect(parts.filter((part) => part.kind === 'evidence').map((part) => part.operands)).toEqual(fixture.legacy_operands)
+    const completion = doneCompletion({ narrative, citations,
+      ...(mode === 'structured' ? { narrative_presentation: presentation } : {}),
+    })
+    const { container } = render(<NarrativePane state={doneState({ text: narrative, completion })} />)
+    expect(container.querySelector('.markdown-body')).not.toHaveTextContent('Source operands:')
+    expect(screen.getByText(/Watch how revenue in the next reporting update/)).toBeInTheDocument()
+    const blocks = screen.getAllByRole('list', { name: 'Figures behind this finding', hidden: true })
+    expect(blocks).toHaveLength(fixture.legacy_operands.length)
+    blocks.forEach((block, index) => {
+      expect(within(block).getAllByRole('button', { hidden: true })).toHaveLength(fixture.legacy_operands[index].length)
+      expect(block).toHaveTextContent('Q4 2025')
+      expect(block).toHaveTextContent('1.00004×')
+      if (mode === 'structured') {
+        presentation.evidence[index].operands.forEach((operand) => expect(block.textContent).toContain(operand.display_value))
+      }
+    })
+  })
+
+  it('uses explicit wire units for non-dollar and computed-window citation figures', () => {
+    expect(citationDisplay({ ...citation, value: 1250000000, unit: 'EUR', period: '2026Q2', excerpt: 'Revenue = 1,250,000,000 (2026Q2)' }))
+      .toBe('Revenue · Q2 2026 · €1.3B (1,250,000,000 EUR)')
+    expect(citationDisplay({ ...citation, concept: 'revenue', value: 0.125, unit: 'growth fraction', period: 'FY2021..FY2024', excerpt: 'Revenue CAGR = 12.5% (FY2021..FY2024)' }))
+      .toContain('12.5% (0.125 (growth fraction))')
+    expect(citationDisplay({ ...citation, concept: 'net_margin', value: -3.25, unit: 'percentage points', period: 'FY2021..FY2024', excerpt: 'Net margin change = -3.25pp (FY2021..FY2024)' }))
+      .toContain('-3.3pp (-3.25 percentage points)')
   })
 
   it('retains exact citation precision and describes a legacy calculation without implying recorded inputs', () => {

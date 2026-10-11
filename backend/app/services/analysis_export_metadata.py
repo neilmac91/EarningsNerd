@@ -6,6 +6,7 @@ provenance; they never recalculate or promote a legacy record to validated statu
 from __future__ import annotations
 
 from collections.abc import Iterator
+import re
 from typing import Any
 
 ANALYSIS_DISCLAIMER = (
@@ -21,13 +22,6 @@ FCF_DEFINITION = (
     "This definition excludes finance-lease principal payments and may differ from the "
     "company's own free cash flow measure."
 )
-_REASON_LABELS = {
-    "unsupported_eps_calculation": "Quarterly EPS is unavailable because a reported figure has not been located; reconstructing annual diluted shares is unsupported.",
-    "legacy_calculation": "This calculation predates the current source checks and needs rebuilding.",
-    "source_check_needed": "The source figure has not passed the required checks.",
-    "incompatible_periods": "The source periods or accounting bases do not match.",
-    "missing_comparator": "The required comparison period is unavailable.",
-}
 _FORMULA_LABELS = {
     "year_over_year_growth": "(current - same period last year) / abs(same period last year)",
     "quarter_over_quarter_growth": "(current quarter - previous fiscal quarter) / abs(previous fiscal quarter)",
@@ -49,34 +43,55 @@ def point_method(point: dict[str, Any]) -> str:
     return "calculated" if point.get("derived") else "unknown"
 
 
-def point_limitations(point: dict[str, Any]) -> list[str]:
+def point_notes(point: dict[str, Any], note: dict[str, Any] | None = None) -> list[str]:
+    """A workbook comment references the canonical note before neutral method details."""
     provenance = point.get("provenance") or {}
-    reasons = [_REASON_LABELS.get(str(reason), str(reason).replace("_", " "))
-               for reason in provenance.get("reasons", []) if reason]
-    if reasons:
-        return reasons
-    validation = provenance.get("validation")
-    if validation == "needs_review":
-        return ["Source checks are incomplete; review the original filing."]
-    if validation == "unavailable":
-        return ["Unavailable in this analysis."]
-    if not provenance and point.get("reconciled") is False:
-        return ["Unreconciled value: check the source filing before relying on this figure."]
-    return []
-
-
-def point_notes(point: dict[str, Any]) -> list[str]:
-    provenance = point.get("provenance") or {}
-    notes: list[str] = []
+    notes = [f"Data note {note['letter']}: {note['message']}"] if note else []
     if point_method(point) == "calculated":
         notes.append(
-            "Calculated from reported inputs. See Sources & Methods for the formula and operands."
-            if provenance else "Computed Q4 — calculated from reported inputs; calculation details are unavailable in this older snapshot."
+            "Calculated figure. See Sources & Methods for the available formula and operands."
+            if provenance else "Computed Q4 — calculation details are unavailable in this older snapshot."
         )
     if provenance.get("formula"):
         notes.append(formula_text(provenance["formula"]))
-    notes.extend(point_limitations(point))
     return notes
+
+
+def period_label(period: Any) -> str:
+    """Display-only vocabulary; internal lookup and snapshot keys stay unchanged."""
+    return re.sub(r"\b(\d{4})Q([1-4])\b", r"Q\2 \1", str(period or ""))
+
+
+def raw_value_text(value: Any) -> str:
+    """Preserve the supplied numeric representation, including zero and ratio precision."""
+    return "Unavailable" if value is None else "n/m" if value == "nm" else str(value)
+
+
+def note_index(envelope: dict[str, Any]) -> dict[tuple[str, str, str], dict[str, Any]]:
+    """Index admitted server memberships without reclassifying financial quality."""
+    indexed = {}
+    for note in envelope["notes"]:
+        for ref in note["values"]:
+            indexed[(ref["concept"], ref["period"], "value")] = note
+        for ref in note["comparisons"]:
+            indexed[(ref["concept"], ref["period"], ref["basis"])] = note
+    return indexed
+
+
+def notes_summary(envelope: dict[str, Any]) -> str:
+    totals = envelope["totals"]
+    unknown_comparisons = sum(
+        len(note["comparisons"]) for note in envelope["notes"] if note["kind"] == "unknown"
+    )
+    return " · ".join([
+        f"{totals['reviewValues']} figures need review",
+        f"{totals['reviewComparisons']} comparisons need review",
+        f"{totals['unavailable']} unavailable",
+        f"{totals['unknown']} {'figure' if totals['unknown'] == 1 else 'figures'} with no validation record",
+        f"{unknown_comparisons} {'comparison' if unknown_comparisons == 1 else 'comparisons'} with no validation record",
+        f"{totals['passed']} passed automated checks",
+        f"{totals['calculated']} calculated †",
+    ])
 
 
 def source_urls(provenance: dict[str, Any]) -> list[str]:
@@ -94,9 +109,14 @@ def operand_records(provenance: dict[str, Any], prefix: str = "Input ") -> Itera
         yield from operand_records(operand.get("provenance") or {}, prefix=label + ".")
 
 
-def export_points(series: dict[str, Any]) -> Iterator[tuple[str, dict[str, Any], str]]:
+def export_points(
+    series: dict[str, Any], periods: list[str] | None = None,
+    period_key: str = "",
+) -> Iterator[tuple[str, dict[str, Any], str]]:
     """Output rows and their derived comparisons share the same provenance presentation."""
-    for point in series.get("points", []):
+    by_period = {point.get("period"): point for point in series.get("points", [])}
+    for period in periods if periods is not None else by_period:
+        point = by_period.get(period) or {"period": period, "value": None}
         yield "Value", point, "percent" if series.get("percent") else series.get("unit", "")
         for growth in ("yoy", "qoq"):
             provenance = point.get(f"{growth}_provenance")
@@ -109,7 +129,7 @@ def export_points(series: dict[str, Any]) -> Iterator[tuple[str, dict[str, Any],
         provenance = series.get(f"{growth}_provenance")
         if series.get(growth) is not None or provenance:
             yield label, {
-                "period": series.get("cagr_window" if growth == "cagr" else "window_pp_range"),
+                "period": series.get("cagr_window" if growth == "cagr" else "window_pp_range") or period_key,
                 "value": series.get(growth), "provenance": provenance,
                 "reconciled": series.get(f"{growth}_reconciled"),
             }, unit

@@ -11,15 +11,15 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger("app.services.trend_analysis_service")
 
 
-# Bump on changes to the live selector prompt or observation rendering. Dataset changes also
-# invalidate caches through dataset_fingerprint. The active model selects code-owned observations;
-# financial values and comparisons are rendered deterministically.
+# Bump for changes to selector inputs, independently of post-selection presentation.
+# Financial dataset changes also invalidate caches through dataset_fingerprint.
 # v2: derived flag narrowed to true computed-Q4 points, CAGR markers, per-marker signal brackets,
 # multi-reference resolver, pp-vs-relative guardrail.
 # v3: percent-unit series (margins) report YoY/QoQ as percentage-point deltas (not relative %);
 # sign-flip growth renders "n/m" instead of a nonsensical percentage.
 # v4: a/an-with-numerals voice guard; rule 5 reworded for the YTD9/shares-based Q4 derivations.
 PROMPT_VERSION = "trends-v7-observations"
+NARRATIVE_FORMAT_VERSION = "analysis-narrative-v1"
 
 
 def _load_cached_analysis(db: Session, company_id: int, mode: str, key: str):

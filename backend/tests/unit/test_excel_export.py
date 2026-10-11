@@ -197,7 +197,7 @@ class TestMetricsSheet:
         derived = ws["F2"]  # revenue FY2024
         assert derived.comment is not None and "Computed Q4" in derived.comment.text
         assert derived.fill.patternType is None  # no fill — comments only
-        assert ws["D2"].comment is None  # non-derived neighbour carries none
+        assert ws["D2"].comment.text.startswith("Data note a:")  # legacy validation remains unknown
 
     def test_annual_window_figures(self, workbook):
         ws = workbook["Metrics"]
@@ -206,6 +206,16 @@ class TestMetricsSheet:
         assert ws["H2"].value == "FY2022..FY2024"
         # Percent series get the pp window figure instead of CAGR.
         assert ws["G3"].value == pytest.approx(4.3) and ws["G3"].number_format == '0.0" pp"'
+        # When only CAGR exists, its comment must follow the displayed comparison's basis.
+        dataset = _dataset()
+        margin = dataset["series"][1]
+        margin.pop("window_pp")
+        margin.update(cagr=0.5, cagr_window="FY2022..FY2024", cagr_provenance={
+            "method": "calculated", "validation": "needs_review", "reasons": ["source_conflict"],
+        })
+        alternative = load_workbook(io.BytesIO(build_analysis_workbook(dataset)))["Metrics"]["G3"]
+        assert alternative.value == 0.5 and alternative.number_format == "0.0%"
+        assert alternative.comment.text.startswith("Data note a: Available sources disagree on this figure.")
 
     def test_quarterly_dataset_omits_window_columns(self):
         quarterly = _dataset()
@@ -244,6 +254,7 @@ class TestPanelSheets:
         hostile = _dataset()
         hostile["company_name"] = '=HYPERLINK("http://evil.example","x")'
         hostile["ticker"] = "=T"
+        hostile["series"][0]["cagr_window"] = "=window"
         hostile["series"][2]["unit"] = "=cmd/shares"  # eps_diluted row
         hostile["series"][0]["points"][0]["provenance"] = {
             "method": "calculated", "validation": "passed", "formula": "=1+1",
@@ -301,7 +312,7 @@ class TestPanelSheets:
         assert "Unreconciled" not in workbook["Metrics"]["F2"].comment.text
         assert "annual_minus_ytd" in workbook["Metrics"]["F2"].comment.text
         assert workbook["Metrics"]["F4"].value is None
-        assert "reported figure has not been located" in workbook["Metrics"]["F4"].comment.text
+        assert "Use a reported quarterly EPS figure." in workbook["Metrics"]["F4"].comment.text
         source_sheet = workbook["Sources & Methods"]
         input_row = next(row for row in source_sheet.iter_rows() if row[2].value == "Input 1")
         assert input_row[4].value == 2500 and input_row[4].data_type == "n"
@@ -309,7 +320,8 @@ class TestPanelSheets:
         assert input_row[12].value == "0000123456-25-000001"
         assert input_row[15].hyperlink.target == "https://example.com/filing"
         texts = [str(cell.value) for row in source_sheet for cell in row if cell.value is not None]
-        assert any("reported figure has not been located" in text for text in texts)
+        assert "unsupported_eps_calculation" in texts
+        assert "Note" in texts and any(text.startswith("Data note ") for text in texts)
         overview = [cell.value for row in workbook["Overview"] for cell in row]
         assert "a" * 64 in overview and "quarterly-v2" in overview
         assert "2026-07-01T09:00:00Z" in overview

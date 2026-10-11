@@ -1,6 +1,9 @@
 import api, { getApiUrl } from '@/lib/api/client'
 import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
 import type { FactProvenance } from '@/features/analysis/lib/provenance'
+import type { DataNotesWire } from '@/features/analysis/lib/dataNotes'
+import { decodeDataNotes } from '@/features/analysis/lib/dataNotesContract'
+import { decodeNarrativePresentation, type NarrativePresentation } from '@/features/analysis/lib/narrativePresentation'
 
 // Idle timeout for the SSE stream — mirrors copilot-api.ts: any activity resets the clock.
 const STREAM_TIMEOUT_MS = 120000
@@ -106,6 +109,7 @@ export interface AnalysisInflection {
 }
 
 export interface AnalysisDataset {
+  data_notes?: DataNotesWire
   dataset_version?: string
   snapshot_id?: string
   data_as_of?: string | null
@@ -120,6 +124,9 @@ export interface AnalysisDataset {
 
 /** Same shape as CopilotCitation — the citation chips/Sources UI renders both. */
 export interface AnalysisCitation {
+  marker?: string
+  unit?: string | null
+  percent?: boolean
   n: number
   excerpt: string
   section_ref: string | null
@@ -135,6 +142,7 @@ export interface AnalysisCitation {
 }
 
 export interface AnalysisCompletion {
+  narrative_presentation?: NarrativePresentation
   snapshot_id?: string | null
   kind: 'analysis' | 'not_enough_data'
   analysis_id: number | null
@@ -184,7 +192,10 @@ export const getAnalysisDataset = async (
   signal?: AbortSignal,
 ): Promise<AnalysisDataset> => {
   const response = await api.post(`/api/analysis/${encodeURIComponent(ticker)}/dataset`, range, { signal })
-  return response.data
+  const dataset = response.data as AnalysisDataset
+  return Object.hasOwn(dataset, 'data_notes')
+    ? { ...dataset, data_notes: decodeDataNotes(dataset.data_notes, dataset) }
+    : dataset
 }
 
 /** Pro PDF export of a completed analysis. Routed through the shared axios client so it inherits
@@ -231,7 +242,8 @@ export const streamAnalysis = async (
   ticker: string,
   range: AnalysisRange & { force?: boolean },
   handlers: AnalysisStreamHandlers,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  dataset?: AnalysisDataset,
 ): Promise<void> => {
   const url = `${getApiUrl()}/api/analysis/${encodeURIComponent(ticker)}/stream`
 
@@ -390,12 +402,11 @@ export const streamAnalysis = async (
           case 'token':
             if (typeof data.text === 'string') enqueueToken(data.text)
             break
-          case 'complete':
+          case 'complete': {
             // The completion carries the authoritative (renumbered) narrative — buffered raw
             // tokens are superseded.
             discardBufferedTokens()
-            terminal = true
-            handlers.onComplete({
+            const completion: AnalysisCompletion = {
               ...(typeof data.snapshot_id === 'string' ? { snapshot_id: data.snapshot_id } : {}),
               kind: data.kind === 'not_enough_data' ? 'not_enough_data' : 'analysis',
               analysis_id: typeof data.analysis_id === 'number' ? data.analysis_id : null,
@@ -406,8 +417,14 @@ export const streamAnalysis = async (
               mismatched: typeof data.mismatched === 'number' ? data.mismatched : null,
               cached: data.cached === true,
               n_periods: typeof data.n_periods === 'number' ? data.n_periods : 0,
-            })
+            }
+            if (Object.hasOwn(data, 'narrative_presentation')) {
+              completion.narrative_presentation = decodeNarrativePresentation(data.narrative_presentation, completion, dataset)
+            }
+            terminal = true
+            handlers.onComplete(completion)
             return
+          }
           case 'error':
             fail(typeof data.message === 'string' ? data.message : 'Something went wrong.')
             return

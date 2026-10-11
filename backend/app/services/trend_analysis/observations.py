@@ -15,8 +15,6 @@ from app.services.trend_analysis.series import (
 )
 
 
-# --- code-owned narrative observations ---------------------------------------------------------
-
 ANALYSIS_SECTIONS: tuple[tuple[str, str], ...] = (
     ("trajectory", "The trajectory"),
     ("growth_quality", "Growth quality"),
@@ -530,7 +528,8 @@ def parse_observation_selection(
 
 
 def render_observation_selection(
-    catalogue: list[TrendObservation], selection: dict[str, list[str]]
+    catalogue: list[TrendObservation], selection: dict[str, list[str]],
+    *, render_item: Optional[Callable[[TrendObservation], str]] = None,
 ) -> str:
     by_id = {item.id: item for item in catalogue}
     required = {
@@ -549,7 +548,7 @@ def render_observation_selection(
             # order is deterministic and starts with the section's most useful observation.
             chosen.append(section_items[0])
         if chosen:
-            rendered.extend(item.markdown for item in chosen)
+            rendered.extend(render_item(item) if render_item else item.markdown for item in chosen)
         else:
             rendered.append("Not enough data is available for this section in the selected periods.")
         rendered.append("")

@@ -213,9 +213,9 @@ def test_growth_citations_and_excel_keep_input_reconciliation(sessions):
     citations = analysis.resolve_narrative_citations("Revenue [F1]. Growth [F3].", index)[1]
     assert all(c["reconciled"] is False and c["verified"] for c in citations)
     wb = load_workbook(BytesIO(build_analysis_workbook(dataset)))
-    assert "has not passed the required checks" in wb["Metrics"]["D2"].comment.text
-    assert "has not passed the required checks" in wb["Metrics"]["F2"].comment.text
-    assert "has not passed the required checks" in wb["Revenue & growth"]["C3"].comment.text
+    assert wb["Metrics"]["D2"].comment.text.startswith("Data note a: A source check remains unresolved.")
+    assert wb["Metrics"]["F2"].comment.text.startswith("Data note a: A source check remains unresolved.")
+    assert wb["Revenue & growth"]["C3"].comment.text.startswith("Data note a: A source check remains unresolved.")
 
 
 def test_universe_seed_previews_then_is_idempotent_without_generation(sessions, monkeypatch):
@@ -370,12 +370,13 @@ def test_refresh_existing_amendments_repairs_links_and_locks_company(sessions):
 def test_pdf_retains_value_and_citation_quality():
     from app.services.export_service import export_service
     record = SimpleNamespace(mode="annual", period_key="FY2025", narrative_md="Revenue grew [1].",
-        dataset_json={"periods": [{"key": "FY2025"}], "series": [{"concept": "revenue", "label": "Revenue",
+        dataset_json={"mode": "annual", "period_key": "FY2025", "periods": [{"key": "FY2025"}], "series": [{"concept": "revenue", "label": "Revenue",
         "unit": "USD", "points": [{"period": "FY2025", "value": 123, "reconciled": False}]}]},
         citations_json=[{"n": 1, "excerpt": "Revenue = 123", "verified": True, "reconciled": False}])
     html = export_service.generate_analysis_pdf_html(record, SimpleNamespace(name="A", ticker="A"))
-    assert "$123 [unreconciled]" in html
-    assert "Unreconciled value — check source filing." in html
+    assert '$123<sup class="data-note"><a href="#analysis-data-note-a">a</a></sup>' in html
+    assert 'Revenue grew [1]<sup class="data-note"><a href="#analysis-data-note-a">a</a></sup>' in html
+    assert html.count("A source check remains unresolved. Review the original filing before use.") == 1
     assert "Citation verification confirms traceability, not financial reconciliation." in html
 
 
