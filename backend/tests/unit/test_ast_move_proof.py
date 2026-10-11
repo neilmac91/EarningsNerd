@@ -638,6 +638,25 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
         old = "from app.b import normalize\n\n\n" + reader
         report = compare(old, {"app/a.py": "", "app/b.py": reader + "\n\n" + target}, old_path="app/a.py")
         assert report.ok, render(report)
+    # A ``match`` case creates its defs and classes where the match runs, at import: in a member class's body,
+    # at module level, or in a module-level class's body. An undecorated def there is settled.
+    hooking = ("class Base:\n    def __init_subclass__(cls, **kwargs):\n        super().__init_subclass__(**kwargs)\n"
+               "        cls.hook()\n\n\n")
+    for reader in ("class Outer:\n    class Inner:\n        match 1:\n            case _:\n                @register\n"
+                   "                def hook():\n                    return normalize(' x ')\n",
+                   "match 1:\n    case _:\n        @register\n        def hook():\n            return normalize(' x ')\n",
+                   "class Box:\n    match 1:\n        case _:\n            @register\n            def hook():\n"
+                   "                return normalize(' x ')\n",
+                   hooking + "match 1:\n    case _:\n        class Deep(Base):\n            @classmethod\n"
+                   "            def hook(cls):\n                return normalize(' x ')\n"):
+        old = "from app.b import normalize\n\n\n" + reader
+        above = compare(old, {"app/a.py": "", "app/b.py": reader + "\n\n" + target}, old_path="app/a.py")
+        assert above.shadows.get("normalize", "").startswith(
+            "app/b.py: binds normalize, read above it at import by "), reader
+        assert compare(old, {"app/a.py": "", "app/b.py": target + "\n\n" + reader}, old_path="app/a.py").ok, reader
+    reader = "match 1:\n    case _:\n        def hook():\n            return normalize(' x ')\n"
+    old = "from app.b import normalize\n\n\n" + reader
+    assert compare(old, {"app/a.py": "", "app/b.py": reader + "\n\n" + target}, old_path="app/a.py").ok
     # A postponed annotation is not evaluated: neither one that names the binding nor one that reaches it, nor
     # one that would call or subscript a reaching class.
     future = "from __future__ import annotations\n"
