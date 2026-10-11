@@ -99,7 +99,7 @@ email footer uses the app's own sentence form of the disclaimer (D-017).
 `null` today, and `FounderNote.tsx` renders nothing until it holds a sentence and a name. The
 slot is a figure with a blockquote and a caption, placed under the hero example, in the first
 person: the one place on the site where the founder speaks as a person. The brief's reader-quote
-slot stays unrendered; nothing is invented to fill either ([01-interview.md](01-interview.md) Q5).
+slot stays unrendered; nothing is invented to fill either ([01-interview.md](01-interview.md) A5).
 
 ## 7. Notable filings
 

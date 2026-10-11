@@ -62,7 +62,7 @@ the verified set; every colour is a token; the mark's paths are byte-identical t
 | Phase | File | Outcome |
 |---|---|---|
 | 0 | [00-audit.md](00-audit.md), [audit/](audit/) | Twenty touchpoints; sameness score 36 of 42 |
-| 1 | [01-interview.md](01-interview.md) | Cited answers; eight founder questions with recommendations; assumptions A1 to A9 |
+| 1 | [01-interview.md](01-interview.md) | Cited answers; the founder's decisions, labelled A1 to A9 (the questions and recommendations are in the founder's private notes) |
 | 2 | [02-battlefield.md](02-battlefield.md), [battlefield/](battlefield/) | Eight competitors, seven captured; the empty space is the act of checking |
 | 3 | [03-strategy.md](03-strategy.md) | Positioning, three behaviours, the spectrum, the promise, the never list (S1 to S5) |
 | 4 | [04-directions.md](04-directions.md), [directions/](directions/) | Three rendered directions; B, the Marked Copy, chosen by the founder with the mark untouched |

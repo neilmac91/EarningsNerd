@@ -1,5 +1,5 @@
 /**
- * The founder's sentence on the landing page (docs/brand/01-interview.md, question 5): one true
+ * The founder's sentence on the landing page (docs/brand/01-interview.md, A5): one true
  * first-person line and a first name, under the hero example. Like the reader-quote slot, the
  * surface exists and renders nothing until the founder approves the exact words; no placeholder
  * ever ships. Set both fields to render it.

@@ -1,13 +1,13 @@
 # Interviewing the brand (2026-10-11)
 
 Phase 1 of the brand studio brief. The record already answers most of the interview; those
-answers are extracted first, with their citations. The founder is asked only what blocks the work,
-and each question carries the studio's recommended answer so that a one-word reply suffices. Until
-the answers arrive, the labelled assumptions in §3 are in force; every later phase cites them.
+answers are extracted first, with their citations. The founder was asked only what blocked the
+work and answered on 2026-10-11 (§2); the answers in force are labelled A1 to A9 (§3), and every
+later phase cites them by label.
 
-Founder deliberations behind these questions are not in this repository
-([AGENTS.md §7](../../AGENTS.md#7-pr-body-handover-and-open-items-formats)); the founder was told
-where they are.
+The questions as asked, the studio's recommendations and the deliberation behind them are in the
+founder's private notes, not in this repository
+([AGENTS.md §7](../../AGENTS.md#7-pr-body-handover-and-open-items-formats)).
 
 ## 1. What the record already answers
 
@@ -28,67 +28,19 @@ where they are.
 | What has the founder already decided about the hero? | Headline A ships in the HTML; B and C are a PostHog copy test, not a brand decision. "See a live example" stays the primary action while access is invite-only (decision B). | `frontend/features/marketing/lib/headline.ts`; `tasks/decisions-2026-10-09-design-followups.md` |
 | What must stay honest? | Every price, limit, coverage, response-time and security claim stays as it is; no invented metrics, testimonials, logos or press; the reader-quote slot stays unrendered. | `docs/voice-and-style.md` "Claims"; `frontend/app/page.tsx` (`SHOW_QUOTE_SLOT`) |
 
-## 2. Questions for the founder, with the recommended answer beside each
+## 2. What the founder decided
 
-One message, eight questions. The first six are the brief's; the last two surfaced in the audit.
+Eight questions went to the founder in one message on 2026-10-11: the voice's humour, the primary
+face, whether the mark could change, naming a competitor in a side-by-side, the founder's presence
+on the page, whether the page sells or qualifies while access is invite-only, the price, and
+Notable filings. The founder answered "proceed", with one instruction: the logo and monogram do
+not change. The answers are A1 to A9 below.
 
-1. **Is the voice allowed to be dry and occasionally funny, within "no exclamation marks, no emoji"? Where is the humour floor?**
-   Recommended: yes, dry. The humour is the footnote reader's: understatement, precision, the
-   pleasure of having checked. One wry line per surface at most. Never a joke about money, a
-   company or a loss; never in a state that costs the reader something (the monthly-limit card, a
-   failed generation, a billing error); never inside a summary, a chip, a tally or an export. The
-   loading quips remain the one sanctioned playful surface, rewritten drier.
+## 3. The answers in force
 
-2. **Which face is primary: cream light (the code's default) or navy dark (the June strategy document)?**
-   Recommended: cream light. The filing is a paper document; the OG card, the emails and the PDF
-   are already light; the product's default is light. Dark stays a full peer for the reading
-   session, with the same one accent, and the identity must work in both. The June document's
-   "dark-first, mint accent" lines are superseded; this PR marks them so in
-   `docs/competitive-strategy-roadmap-2026.md` (AGENTS.md §2).
-
-3. **Is the EN monogram protected, or on the table if a direction proves it must change?**
-   Recommended: the letters are protected; the execution is not. Keep E + N and the rising stroke's
-   energy, refine the drawing so that 16px, one colour and embroidery survive (the audit's icon
-   board shows the E and N fusing at 16px and 24px). One honest tension to decide: the N's arrow is
-   the universal "price went up" glyph on a brand whose first rule is that sage never colours a
-   number. The recommendation is to keep the stroke but let Phase 5 test whether its head can read
-   as a pen stroke or a mark of checking rather than a chart arrow. If the letters themselves are
-   also open, say so; the studio will not assume it.
-
-4. **May the brand name ChatGPT in a side-by-side ("ChatGPT says X, the filing says Y")? If not, how do we show the catch without naming anyone?**
-   Recommended: not on the brand surfaces. Naming a competitor makes it the subject, dates the page,
-   and invites a rebuttal over a screenshot. Show the catch as the reader's own experience: "From
-   memory: $391.0B. In the filing: $416.2B. The first is last year's." (both figures are Apple's
-   real XBRL totals for FY2024 and FY2025). A dated, reproducible side-by-side that names the tool
-   belongs in a content piece (the council's teardown), where the specificity is the point.
-
-5. **Does the founder want to appear (name, a sentence, a signature) on the page?**
-   Recommended: yes, one true sentence in the first person and a first name, placed under the hero
-   example or beside the primary action, never a photo requirement. The Nerd is a person; the
-   sentence is where the person is. The studio can draft three candidates for approval; the
-   founder's own words are better. Nothing ships until the founder approves the exact sentence.
-
-6. **While access is invite-only, is the landing page's job to sell or to qualify?**
-   Recommended: qualify. The page should make the right reader recognise themselves ("for investors
-   who still check the source") and request an invite, and let the wrong reader leave without a
-   fight. That means the copy states plainly who it is for and what it will not do, and the
-   primary action stays "See a live example" (decision B). When access opens, the same page sells
-   without rewriting, because the qualification is the pitch.
-
-7. **Price.** Settled: the price is what the code states (`frontend/app/pricing/prices.ts`; main's
-   #1009 set Pro at $25 a month or $240 a year), and the brand work authors no price copy. Any
-   pricing line it touches reads its figures from `prices.ts`, as the landing section does.
-
-8. **"Notable filings": curate, retitle or omit?** The audit found Delta Air Lines beside seven
-   microcap 8-Ks under "High-signal SEC filings … across the whole market."
-   Recommended: self-omit under the brand until a curation rule exists (a known-good set, a size
-   floor, or 10-K / 10-Q only), then return as "Filed this week" with the filing identity
-   vocabulary. The council hid breadth on purpose (verdict #1); a firehose section undoes that.
-
-## 3. Working assumptions until the founder answers
-
-Each is labelled where it is used in later phases. The founder answered on 2026-10-11 with "proceed"
-and one instruction (the mark does not change), so A1, A2 and A4 to A9 stand as the working answers.
+Each is labelled where it is used in later phases. They began as working assumptions while the
+questions were open (D-006). The founder's "proceed" of 2026-10-11 put them in force as written,
+with A3 tightened by the instruction about the mark; any of them changes on the founder's word.
 
 - **A1 (humour).** Dry, one line per surface, never where it costs the reader, never in evidence.
 - **A2 (face).** Cream light is primary; dark is a peer; every colour is a pair.

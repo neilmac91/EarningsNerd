@@ -18,7 +18,7 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
 ## Open items
 
 Founder:
-- [ ] Brand studio (PR #1226), founder sentence: write the first-person line for the landing page's founder slot (`frontend/features/marketing/lib/founderNote.ts`; `docs/brand/01-interview.md` Q5); it renders nothing until written. Handoff: `docs/brand/README.md`.
+- [ ] Brand studio (PR #1226), founder sentence: write the first-person line for the landing page's founder slot (`frontend/features/marketing/lib/founderNote.ts`; `docs/brand/01-interview.md` A5); it renders nothing until written. Handoff: `docs/brand/README.md`.
 - [ ] Brand studio (PR #1226), Multi-Period sample: regenerate the landing demo through the pipeline to end at FY2025 (`frontend/features/analysis/demo/demo-analysis.json`); it is the one demo still showing FY2019 to FY2024.
 - [ ] Brand studio (PR #1226), Notable filings: decide a curation rule (a known-good set, a size floor, or 10-K and 10-Q only) before the section returns to the homepage (`frontend/features/filings/components/NotableFilings.tsx`, dormant).
 - [ ] Privacy and analytics (PR #1226 review): `/privacy` names PostHog and Sentry but not Vercel Web Analytics, which `app/layout.tsx` mounts for every visitor (cookieless, no consent check); add it to the legal page (and `lib/legalDates.ts`), or gate `PrivateAnalytics` on the analytics consent. The consent bar now says "analytics cookies", which is true either way.
