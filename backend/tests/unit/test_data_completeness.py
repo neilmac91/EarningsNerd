@@ -19,6 +19,7 @@ from app import database
 from app.models import Base, Company, Filing, FinancialFact
 from app.services import facts_service, filing_amendment_service as amendments
 from app.services import trend_analysis_service as analysis
+from app.services.edgar import xbrl_instance
 from app.services.edgar import xbrl_service as xbrl
 from app.services.edgar.fiscal_periods import fiscal_label
 
@@ -82,7 +83,7 @@ def test_instance_to_facts_keeps_quarters_currency_and_raw_precision(monkeypatch
         "EarningsPerShareBasic": pd.DataFrame([{**r, "numeric_value": 1.2345, "currency": None, "decimals": 4} for r in rows])}),
                          entity_info={"fiscal_year": 2026, "fiscal_period": "Q3"})
     sec_filing = SimpleNamespace(form="10-Q", period_of_report="2025-10-31", xbrl=lambda: xb)
-    monkeypatch.setattr(xbrl, "resolve_filing_by_accession", lambda *args: (SimpleNamespace(sic=None), [sec_filing]))
+    monkeypatch.setattr(xbrl_instance, "resolve_filing_by_accession", lambda *args: (SimpleNamespace(sic=None), [sec_filing]))
     raw = xbrl._extract_from_filing_instance_sync("0000000001", "acc")
     standardized = xbrl.edgar_xbrl_service.extract_standardized_metrics(raw)
     facts = facts_service.normalize_standardized_to_facts(1, 1, "acc", "10-Q", standardized)

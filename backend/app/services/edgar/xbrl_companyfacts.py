@@ -1,7 +1,7 @@
 """SEC companyfacts fallback transport and parsing behind the XBRL service facade.
 
 The existing user-facing fallback uses one limiter token wait and no circuit breaker.
-Local XBRL parsing stays in xbrl_service under plain timeouts: parse cost is not SEC health.
+Local XBRL instance parsing lives in xbrl_instance under the service's plain timeouts: parse cost is not SEC health.
 """
 
 from datetime import date

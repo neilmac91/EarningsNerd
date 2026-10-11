@@ -10,7 +10,7 @@ See tasks/fpi-support-roadmap.md (Phase 3).
 import pandas as pd
 import pytest
 
-from app.services.edgar import xbrl_service as xbrl_module
+from app.services.edgar import xbrl_instance as xbrl_module
 from app.services.edgar.instance_extractor import (
     _currency,
     _reporting_currency,
