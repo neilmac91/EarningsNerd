@@ -348,15 +348,26 @@ describe('Verification banner: Resend link stays focusable', () => {
   it('announces the server cap and keeps Resend focused but unavailable after a 429', async () => {
     vi.mocked(resendVerification).mockRejectedValue(new ApiError(429, 'Too many resend requests'))
     const user = userEvent.setup()
-    withQueryClient(<VerificationBanner />)
+    const view = withQueryClient(<VerificationBanner />)
     const resend = await screen.findByRole('button', { name: 'Resend link' })
     resend.focus()
     await user.keyboard('{Enter}')
     expect(await screen.findByRole('alert')).toHaveTextContent("We can't send another link right now.")
+    expect(screen.getByRole('alert')).toHaveTextContent('reload this page to try again later')
     expectInertButFocused(resend)
     await user.keyboard('{Enter}')
     await user.click(resend)
     expect(resendVerification).toHaveBeenCalledTimes(1)
+    // A document reload remounts the layout. The stated boundary offers one fresh attempt;
+    // route navigation alone leaves the current document's rate-cap guard in place.
+    view.unmount()
+    vi.mocked(resendVerification).mockResolvedValue({})
+    withQueryClient(<VerificationBanner />)
+    const reopened = await screen.findByRole('button', { name: 'Resend link' })
+    expect(reopened).not.toHaveAttribute('aria-disabled')
+    await user.click(reopened)
+    expect(resendVerification).toHaveBeenCalledTimes(2)
+    expect(await screen.findByText('Verification email sent. Check your inbox.')).toBeInTheDocument()
   })
 
   it('hands focus to the sent line when a successful resend removes the button', async () => {
