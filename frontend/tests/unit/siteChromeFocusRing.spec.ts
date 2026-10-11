@@ -487,15 +487,23 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
 /** The DS field module: its fields are held by tests/unit/inputClassesNoOverrides.spec.tsx (each `inputClasses()`
     combination and the Input, Textarea and Select components take the forms ring off and draw the DS ring). */
 const FIELD_FACTORY = 'components/ui/Input.tsx'
-/** A DS ring in some focus state, and its dark twin: `focus:shadow-ring-brand` with `dark:focus:shadow-ring-brand-dark`,
-    or the `focus-visible:` triple a checkbox takes. */
-const DS_RING = /^(focus|focus-visible):!?shadow-ring-/
+/** A DS ring in some focus state (`focus:shadow-ring-brand`, or the `focus-visible:` one a checkbox takes), not a dark
+    token, and a dark twin in that same state (`dark:focus:shadow-ring-brand-dark`): the focus state each ring is in. */
+const DS_RING = /^(focus|focus-visible):!?shadow-ring-(?!\S*-dark$)/
 const DS_RING_DARK = /^dark:(focus|focus-visible):!?shadow-ring-/
+const ringStates = (tokens: string[], pattern: RegExp) => tokens.flatMap((t) => t.match(pattern)?.[1] ?? [])
 
-/** Whether a className expression calls `inputClasses(…)` anywhere: the field is then built by the DS factory. */
-function callsInputClasses(node: ts.Node): boolean {
-  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'inputClasses') return true
-  return ts.forEachChild(node, callsInputClasses) ?? false
+/** Whether a className is built by the DS factory: `inputClasses(…)` itself, a direct argument of `cx`/`clsx`, or a
+    template's `${…}`. A call nested anywhere else (a branch of a condition) leaves the other branch a field that styles
+    itself, so that className is read like any other (and a condition is unreadable). */
+function factoryBuilt(init: ts.JsxAttributeValue): boolean {
+  const expr = ts.isJsxExpression(init) ? init.expression : init
+  const isFactory = (e: ts.Node) => ts.isCallExpression(e) && ts.isIdentifier(e.expression) && e.expression.text === 'inputClasses'
+  if (!expr) return false
+  if (isFactory(expr)) return true
+  if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression) && ['cx', 'clsx'].includes(expr.expression.text)) return expr.arguments.some(isFactory)
+  if (ts.isTemplateExpression(expr)) return expr.templateSpans.some((span) => isFactory(span.expression))
+  return false
 }
 
 /**
@@ -514,16 +522,18 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       const { tag, attr, tabbable, field, spread } = classify(node, sf, linkNames)
       const className = attr('className')
-      if (field && tabbable && className?.initializer && callsInputClasses(className.initializer)) factory += 1
+      if (field && tabbable && className?.initializer && factoryBuilt(className.initializer)) factory += 1
       else if (field && tabbable) {
         fields += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
         const tokens = classTokens(className?.initializer)
+        const light = Array.isArray(tokens) ? ringStates(tokens, DS_RING) : []
+        const dark = Array.isArray(tokens) ? ringStates(tokens, DS_RING_DARK) : []
         const missing = Array.isArray(tokens)
           ? [
               ...FORMS_RING_OFF.filter((t) => !tokens.includes(t)),
-              ...(tokens.some((t) => DS_RING.test(t)) ? [] : ['a focus:shadow-ring-* or focus-visible:shadow-ring-*']),
-              ...(tokens.some((t) => DS_RING_DARK.test(t)) ? [] : ['its dark: twin']),
+              ...(light.length ? [] : ['a focus:shadow-ring-* or focus-visible:shadow-ring-*']),
+              ...(light.some((state) => dark.includes(state)) ? [] : ['its dark: twin in the same focus state']),
             ]
           : []
         if (spread) findings.push({ line, tag, problem: 'a props spread the scan cannot read' })
@@ -915,21 +925,31 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <input type="checkbox" disabled className="h-4 w-4" />
             <input type="text" tabIndex={-1} className="hidden" />
             <input type="radio" disabled={busy} className="h-4 w-4" />
+            <input type="date" className={busy ? inputClasses() : 'border px-2'} />
+            <input type="date" className="border focus-visible:shadow-ring-brand dark:focus:shadow-ring-brand-dark ${reset}" />
+            <input type="date" className="border focus:shadow-ring-brand-dark dark:focus:shadow-ring-brand-dark ${reset}" />
           </>
         )
       }`
     const { fields, factory, findings } = unringedFields(src, 'page.tsx')
+    const twin = 'its dark: twin in the same focus state'
+    const ring = 'a focus:shadow-ring-* or focus-visible:shadow-ring-*'
     expect(factory).toBe(2)
-    expect(fields).toBe(10)
+    expect(fields).toBe(13)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
-      '7 <input> missing focus:ring-0, focus:ring-offset-0, its dark: twin',
-      '9 <input> missing focus:ring-0, focus:ring-offset-0, a focus:shadow-ring-* or focus-visible:shadow-ring-*, its dark: twin',
-      '11 <input> missing a focus:shadow-ring-* or focus-visible:shadow-ring-*, its dark: twin',
-      '12 <textarea> missing its dark: twin',
+      `7 <input> missing focus:ring-0, focus:ring-offset-0, ${twin}`,
+      `9 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
+      `11 <input> missing ${ring}, ${twin}`,
+      `12 <textarea> missing ${twin}`,
       '15 <input> a className the scan cannot read',
       "16 <input> no className, so the forms plugin's blue ring is its focus ring",
       '17 <input> a props spread the scan cannot read',
-      '21 <input> missing focus:ring-0, focus:ring-offset-0, a focus:shadow-ring-* or focus-visible:shadow-ring-*, its dark: twin',
+      `21 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
+      // An inputClasses() call in one branch of a condition leaves the other branch styling the field itself.
+      '22 <input> a className the scan cannot read',
+      // A dark ring in another focus state than the light one, and a dark token standing in for the light ring.
+      `23 <input> missing ${twin}`,
+      `24 <input> missing ${ring}, ${twin}`,
     ])
   })
 })

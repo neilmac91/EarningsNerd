@@ -310,7 +310,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 const COMPOSER = cx(
   'w-full resize-none border-0 bg-transparent p-0 text-sm',
   'text-text-primary-light placeholder:text-text-tertiary-light',
-  'focus:outline-none focus:ring-0 focus:shadow-none',
+  'focus:outline-none focus:ring-0 focus:ring-offset-0 focus:shadow-none',
   'disabled:cursor-not-allowed disabled:opacity-60',
   'dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark',
 )

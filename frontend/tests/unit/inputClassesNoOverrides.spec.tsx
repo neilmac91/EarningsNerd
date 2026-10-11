@@ -1107,7 +1107,9 @@ describe("the field's tone is one class per state", SLOW, () => {
       the mouse focus the DS ring shows on. Measured on production builds: `rgb(37, 99, 235) 0px 0px 0px 1px` before
       the DS ring on main, `0px` with the reset. */
   it('every field takes off the forms plugin’s own focus ring', async () => {
-    const all = fields()
+    // The composer Textarea has no tone (its shell draws the ring), so it is checked here and not in fields().
+    const composer = render(<Textarea aria-label="Composer" variant="composer" />).container.querySelector('textarea')!
+    const all = [...fields(), { name: 'Textarea composer', invalid: false, classes: [...composer.classList] }]
     await loadDeclarations(all.flatMap((f) => f.classes).map((t) => parseClass(t).utility))
     for (const f of all) {
       expect({ ring: setters(f.classes, '--tw-ring-shadow'), offset: setters(f.classes, '--tw-ring-offset-width') }, f.name).toEqual({
