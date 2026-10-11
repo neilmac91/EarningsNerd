@@ -44,8 +44,9 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   dataset's 20 metric rows) so
   a probe that finds nothing fails the run, and record the Chromium, platform, commit and prototype tree
   hash of the run, refusing uncommitted prototype or harness files unless `--allow-dirty` records them, and
-  writing the committed recording only from a committed tree (a dirty run needs `--out` naming another file; a
-  symbolic or hard link to the recording counts as it, and any other multiply linked output is refused). `EN_PROTO.state.noPad = true` removes the whole-column pad for
+  writing the committed recording only from a committed tree and the pinned fonts (a dirty run, an online run or a
+  run with other fonts needs `--out` naming another file; a symbolic or hard link to the recording counts as it, and
+  any other multiply linked output is refused). `EN_PROTO.state.noPad = true` removes the whole-column pad for
   the occlusion mutation proof (at 1024 the probe then reports the Q4 ’23 column straddling the edge).
 - `harness/build_states.py`, `harness/prune_states.py` — reproduce `prototype/data/` from a saved
   companyfacts payload.
@@ -123,8 +124,16 @@ NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harn
 # from a stamped build: a fresh measurement of any other build, state or data (--build defaults to this
 # repository) needs --out naming another file, and an --out that holds a recording of another commit is refused.
 
-# prototype (no server needed; --fonts answers Google Fonts from a local directory when offline)
-NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-proto.mjs --shots /tmp/shots
+# prototype (no server needed). --fonts answers Google Fonts from a local directory: fonts.css is the CSS the page
+# links to (prototype/index.html), fetched with a Chromium user agent so it names woff2 subsets, plus the 13 woff2
+# files it names; the run records those inputs by content hash, and measurements/prototype.json is written only from
+# the pinned ones (14 inputs, sha256 4bf26761317d…, fetched 2026-10-10 and reproduced byte for byte on 2026-10-11;
+# should Google serve other bytes one day, a run with them needs --out). Without --fonts the page loads Google's
+# live bytes, which no hash pins, so such a run needs --out too.
+UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
+mkdir -p /tmp/fonts && curl -sS -A "$UA" -o /tmp/fonts/fonts.css "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap"
+for u in $(grep -o 'https://fonts.gstatic.com[^)]*' /tmp/fonts/fonts.css | sort -u); do curl -sS -A "$UA" -o "/tmp/fonts/$(basename "$u")" "$u"; done
+NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-proto.mjs --fonts /tmp/fonts --shots /tmp/shots
 ```
 
 Both scripts resolve Playwright through `createRequire`, so the cloud image's global install

@@ -1073,7 +1073,11 @@ correction landed in this document:
   button fills do not transition under `prefers-reduced-motion`. The chart regions are Tab stops only while
   they overflow their panels, measured after paint and on every resize as the table's region is, and their
   names carry the scroll hint only then (§4.7, §5; they had been unconditional Tab stops, four inert ones at
-  1480 px). `measure-current.mjs` refuses to write
+  1480 px). Each "Original filing" link in the narrative's Sources list is named by its source number, figure
+  and period ("Original filing for source 3: Revenue, Q2 2026"), so a screen reader's link list tells them
+  apart (§5). The prototype harness records the fonts a `--fonts` run serves by content hash and writes the
+  committed recording only from the pinned ones (the README gives the fetch and the hash), since the font
+  bytes set every measured width. `measure-current.mjs` refuses to write
   `measurements/current.json`, the recording of `97293e7`, for any other served build (a fresh measurement
   needs `--out`, and an `--out` holding a recording of another commit is refused too). The served build is
   the checkout `--build` names (default: the harness's own repository): the harness reads its commit, its

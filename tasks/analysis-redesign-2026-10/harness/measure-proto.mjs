@@ -19,8 +19,10 @@
 // nothing fails the run instead of recording a clean result.
 //
 // Run from tasks/analysis-redesign-2026-10/. With --fonts, Google Fonts requests are answered from a
-// local directory holding the CSS as fonts.css plus the .woff2 files it names (no network needed).
+// local directory holding the CSS as fonts.css plus the .woff2 files it names (no network needed); the run
+// records those inputs by content hash, and the committed recording is written only from the pinned ones.
 import { readFileSync, existsSync, lstatSync, mkdirSync, realpathSync, statSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
@@ -53,7 +55,22 @@ if (!WRITING_BASELINE && existsSync(OUT) && statSync(OUT).nlink > 1) throw new E
 const dirty = (git('git status --porcelain -- prototype harness') || '').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => l.replace(/^\S+\s+/, ''))
 if (dirty.length && !('allow-dirty' in args)) throw new Error(`uncommitted prototype or harness files; commit them first, or pass --allow-dirty (with --out naming another file) to record them: ${dirty.join(', ')}`)
 if (dirty.length && WRITING_BASELINE) throw new Error(`measurements/prototype.json is written only from a committed tree (uncommitted: ${dirty.join(', ')}): commit them, or pass --out <another file> for this dirty run`)
-const FONTS = args.fonts || null
+const FONTS = args.fonts ? canonical(path.resolve(process.cwd(), args.fonts)) : null
+// The fonts the page renders with set every measured width, so the run records them: with --fonts, a content hash
+// of the inputs the harness serves (fonts.css and the .woff2 files it names, by name and bytes); without it the page
+// loads Google's live bytes, which no hash pins. The committed recording is written only from the pinned fonts
+// below (the README says how that directory was fetched and how to check a fetch against the pin).
+const fontsInputs = (dir) => {
+  const css = readFileSync(path.join(dir, 'fonts.css'))
+  const names = [...new Set([...css.toString('utf8').matchAll(/https:\/\/fonts\.gstatic\.com\/[^)\s'"]+/g)].map((m) => path.basename(new URL(m[0]).pathname)))].sort()
+  const h = createHash('sha256'); h.update('fonts.css\0'); h.update(css); h.update('\0')
+  for (const n of names) { h.update(`${n}\0`); h.update(readFileSync(path.join(dir, n))); h.update('\0') }
+  return { dir, files: names.length + 1, hash: h.digest('hex') }
+}
+const FONT_INPUTS = FONTS ? fontsInputs(FONTS) : null
+const BASELINE_FONTS = { files: 14, hash: '4bf26761317d2d6a0e324cf36e0ba1ce88612d4cabe4844088e125ccedb13903' }
+if (WRITING_BASELINE && !FONT_INPUTS) throw new Error(`measurements/prototype.json is written only with --fonts <dir> holding the pinned fonts (${BASELINE_FONTS.files} inputs, hash ${BASELINE_FONTS.hash.slice(0, 12)}…): live Google Fonts bytes cannot be pinned; pass --out <another file> for an online run`)
+if (WRITING_BASELINE && FONT_INPUTS.hash !== BASELINE_FONTS.hash) throw new Error(`the fonts in ${FONTS} (${FONT_INPUTS.files} inputs, hash ${FONT_INPUTS.hash.slice(0, 12)}…) are not the recording's (${BASELINE_FONTS.files} inputs, hash ${BASELINE_FONTS.hash.slice(0, 12)}…): measurements/prototype.json is written only from the pinned fonts (the README says how they were fetched); pass --out <another file> for a run with these`)
 const SHOTS = args.shots || null
 const PROTO_URL = pathToFileURL(path.join(ROOT, 'prototype/index.html')).href
 
@@ -96,7 +113,7 @@ function expectCounts(m, headers, rows, key) {
 
 async function run() {
   const browser = await chromium.launch()
-  const results = { generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: git('git rev-parse --short HEAD'), prototypeTree: git('git rev-parse HEAD:./prototype'), dirty }, configs: [] }
+  const results = { generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, fonts: FONT_INPUTS, commit: git('git rev-parse --short HEAD'), prototypeTree: git('git rev-parse HEAD:./prototype'), dirty }, configs: [] }
   for (const theme of ['light', 'dark']) {
     for (const cfg of CONFIGS) {
       const context = await browser.newContext({ viewport: { width: cfg.width, height: cfg.height }, deviceScaleFactor: cfg.dsf || 1, isMobile: !!cfg.mobile, hasTouch: !!cfg.mobile, reducedMotion: 'reduce' })
