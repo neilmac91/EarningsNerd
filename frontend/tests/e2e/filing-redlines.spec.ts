@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
 
 // Match this setting to the local server's build/dev process. As in CI, run with
 // WAITLIST_MODE=false so the existing global waitlist redirect does not intercept the lab.
@@ -104,14 +105,40 @@ for (const theme of ['light', 'dark'] as const) {
       expect(await page.evaluate(() => 'redlineInjected' in window)).toBe(false)
       const geometry = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }))
       expect(geometry.scroll).toBeLessThanOrEqual(Math.min(width, geometry.width) + 1)
+      await page.getByLabel('Removed paragraph 1 review status').selectOption('reviewed')
+      await page.getByLabel('Added paragraph 1 review status').selectOption('needs-follow-up')
+      await expect(page.getByText('1 of 2 reviewed · 1 remaining · 1 needs follow-up')).toBeVisible()
+      await page.getByLabel('Find in changed paragraphs').fill('.*')
+      await expect(page.getByText('No paragraphs match this search. Clear it to see the changes.')).toHaveCount(2)
+      const downloading = page.waitForEvent('download')
+      await page.getByRole('button', { name: 'Download all changes (JSON)' }).click()
+      const download = await downloading
+      expect(download.suggestedFilename()).toBe('filing-redlines-review.json')
+      const receipt = JSON.parse(await readFile((await download.path())!, 'utf8'))
+      expect(receipt.sources.earlier.filingId).toBe(101)
+      expect(receipt.sources.later.filingId).toBe(102)
+      expect(receipt.changes.map((change: { text: string; reviewStatus: string }) => [change.text, change.reviewStatus])).toEqual([
+        ['Revenue was $10 million.', 'reviewed'], [literal, 'needs-follow-up'],
+      ])
+      const clear = page.getByRole('button', { name: 'Clear search' })
+      await clear.focus()
+      await clear.press('Enter')
+      await expect(clear).toBeFocused()
+      await expect(page.getByLabel('Find in changed paragraphs')).toHaveValue('')
       await page.screenshot({ path: testInfo.outputPath(`cached-${theme}-${width}.png`), fullPage: true })
 
       missing = true
+      await compare.focus()
       await compare.press('Enter')
       await expect(page.getByText('Comparison unavailable', { exact: true })).toBeVisible()
       await expect(page.getByText(literal, { exact: true })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Download all changes (JSON)' })).toHaveCount(0)
       await expect(page.getByRole('link', { name: 'Open earlier original' })).toBeVisible()
       await page.screenshot({ path: testInfo.outputPath(`unavailable-${theme}-${width}.png`), fullPage: true })
+      missing = false
+      await compare.press('Enter')
+      await expect(page.getByLabel('Added paragraph 1 review status')).toHaveValue('unreviewed')
+      await expect(page.getByLabel('Find in changed paragraphs')).toHaveValue('')
     })
   }
 }

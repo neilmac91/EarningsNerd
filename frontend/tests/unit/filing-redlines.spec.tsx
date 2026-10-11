@@ -7,6 +7,8 @@ import type { FilingContent } from '@/features/filings/api/filing-content-api'
 const api = vi.hoisted(() => ({
   filings: [] as number[],
   contents: [] as number[],
+  strictReads: [] as boolean[],
+  downloads: [] as Blob[],
   filing: (_id: number): Promise<Filing> => Promise.reject(new Error('Unexpected filing request')),
   content: (_id: number): Promise<FilingContent> => Promise.reject(new Error('Unexpected content request')),
 }))
@@ -14,8 +16,9 @@ vi.mock('@/features/filings/api/filings-api', () => ({
   getFiling: (id: number) => { api.filings.push(id); return api.filing(id) },
 }))
 vi.mock('@/features/filings/api/filing-content-api', () => ({
-  fetchFilingContent: (id: number) => { api.contents.push(id); return api.content(id) },
+  fetchFilingContent: (id: number, strict = false) => { api.contents.push(id); api.strictReads.push(strict); return api.content(id) },
 }))
+vi.mock('@/lib/downloadBlob', () => ({ downloadBlob: (blob: Blob) => { api.downloads.push(blob) } }))
 
 import FilingRedlines from '@/features/filing-redlines/components/FilingRedlines'
 
@@ -51,9 +54,23 @@ function submit() {
   fireEvent.submit(screen.getByRole('button', { name: 'Compare cached text' }).closest('form')!)
 }
 
+async function downloadReceipt() {
+  fireEvent.click(screen.getByRole('button', { name: 'Download all changes (JSON)' }))
+  const blob = api.downloads.at(-1)!
+  expect(blob.type).toBe('application/json')
+  const text = await new Promise<string>((resolve) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.readAsText(blob)
+  })
+  return JSON.parse(text)
+}
+
 beforeEach(() => {
   api.filings = []
   api.contents = []
+  api.strictReads = []
+  api.downloads = []
   api.filing = async (id) => filing(id)
   api.content = async (id) => content(id)
 })
@@ -80,6 +97,7 @@ describe('filing redlines prototype', () => {
     expect(screen.getByText(filing(2).accession_number)).toBeInTheDocument()
     expect(screen.getByText(/full-filing coverage has not been verified/)).toBeInTheDocument()
     expect(api.contents).toEqual([1, 2])
+    expect(api.strictReads).toEqual([true, true])
   })
 
   it.each(['', '0', '-1', '1.5', '2e1', '9007199254740992', '2'])('rejects invalid or duplicate earlier ID %j before reading the API', (value) => {
@@ -229,5 +247,97 @@ describe('filing redlines prototype', () => {
     fireEvent.change(screen.getByLabelText('Earlier filing ID'), { target: { value: '4' } })
     expect(screen.queryByText('Later disclosure.')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /original/ })).not.toBeInTheDocument()
+  })
+
+  it('tracks duplicate occurrences independently and keeps follow-up in the remaining count', async () => {
+    api.content = async (id) => content(id, id === 1 ? 'Old.\n\nOld.' : 'Repeated.\n\nRepeated.\n\nOther.')
+    render(<FilingRedlines />)
+    selectCached()
+    submit()
+    const first = await screen.findByLabelText('Added paragraph 1 review status')
+    const second = screen.getByLabelText('Added paragraph 2 review status')
+    fireEvent.change(first, { target: { value: 'reviewed' } })
+    expect(second).toHaveValue('unreviewed')
+    fireEvent.change(second, { target: { value: 'needs-follow-up' } })
+    expect(first).toHaveValue('reviewed')
+    expect(screen.getByText('1 of 5 reviewed · 4 remaining · 1 needs follow-up')).toBeInTheDocument()
+    const receipt = await downloadReceipt()
+    expect(receipt.review).toMatchObject({ total: 5, reviewed: 1, remaining: 4, needsFollowUp: 1 })
+    expect(receipt.changes.filter((change: { kind: string }) => change.kind === 'added')).toEqual([
+      { id: 'added-1', kind: 'added', occurrence: 1, text: 'Repeated.', reviewStatus: 'reviewed' },
+      { id: 'added-2', kind: 'added', occurrence: 2, text: 'Repeated.', reviewStatus: 'needs-follow-up' },
+      { id: 'added-3', kind: 'added', occurrence: 3, text: 'Other.', reviewStatus: 'unreviewed' },
+    ])
+  })
+
+  it('searches literal text without dropping hidden evidence or labels from its complete receipt', async () => {
+    api.content = async (id) => content(id, id === 1 ? 'Old  disclosure.' : 'New [item].\n\nNew\tremainder.')
+    render(<FilingRedlines />)
+    selectCached()
+    submit()
+    fireEvent.change(await screen.findByLabelText('Removed paragraph 1 review status'), { target: { value: 'reviewed' } })
+    fireEvent.change(screen.getByLabelText('Added paragraph 2 review status'), { target: { value: 'needs-follow-up' } })
+    const search = screen.getByLabelText('Find in changed paragraphs')
+    fireEvent.change(search, { target: { value: '[ITEM]' } })
+    expect(screen.getByText('New [item].')).toBeInTheDocument()
+    expect(screen.queryByText('New remainder.')).not.toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Removed from the later text' })).getByText('0 of 1 shown')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Added in the later text' })).getByText('1 of 2 shown')).toBeInTheDocument()
+    fireEvent.change(search, { target: { value: '.*' } })
+    expect(screen.getAllByText('No paragraphs match this search. Clear it to see the changes.')).toHaveLength(2)
+    expect(screen.queryByText(/No paragraph changes in the supplied text/)).not.toBeInTheDocument()
+    const receipt = await downloadReceipt()
+    expect(receipt.fictional).toBe(false)
+    expect(receipt.sources.earlier).toMatchObject({ filingId: 1, accession: filing(1).accession_number, reportDate: '2024-12-31', filingDate: '2025-02-10', originalUrl: filing(1).document_url, form: '10-K' })
+    expect(receipt.sources.later).toMatchObject({ filingId: 2, accession: filing(2).accession_number, originalUrl: filing(2).document_url })
+    expect(receipt.changes.map((change: { text: string; reviewStatus: string }) => [change.text, change.reviewStatus])).toEqual([
+      ['Old  disclosure.', 'reviewed'], ['New [item].', 'unreviewed'], ['New\tremainder.', 'needs-follow-up'],
+    ])
+    expect(receipt.scope.fullFilingCoverageVerified).toBe(false)
+    expect(receipt.scope.included).toContain('All added and removed')
+    expect(receipt.method.name).toBe('exact-paragraph-multiset-v1')
+    expect(receipt.review.meaning).toContain('User tracking only')
+    expect(new Date(receipt.exportedAt).toISOString()).toBe(receipt.exportedAt)
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    expect(search).toHaveValue('')
+    expect(screen.getByLabelText('Added paragraph 2 review status')).toHaveValue('needs-follow-up')
+  })
+
+  it('exports the invented example as fictional with no fabricated source IDs or URLs', async () => {
+    render(<FilingRedlines />)
+    const receipt = await downloadReceipt()
+    expect(receipt.fictional).toBe(true)
+    expect(receipt.sources.earlier).toMatchObject({ filingId: null, originalUrl: null })
+    expect(receipt.sources.later).toMatchObject({ filingId: null, originalUrl: null })
+    expect(receipt.scope.text).toContain('Invented excerpts')
+    expect(receipt.changes).toHaveLength(5)
+  })
+
+  it.each(['mode', 'selection', 'reload', 'failed reload'])('resets search and review labels after %s', async (boundary) => {
+    render(<FilingRedlines />)
+    selectCached()
+    submit()
+    fireEvent.change(await screen.findByLabelText('Added paragraph 1 review status'), { target: { value: 'reviewed' } })
+    fireEvent.change(screen.getByLabelText('Find in changed paragraphs'), { target: { value: 'Later' } })
+    if (boundary === 'mode') {
+      fireEvent.click(screen.getByRole('button', { name: 'Fictional example' }))
+      expect(screen.getByLabelText('Find in changed paragraphs')).toHaveValue('')
+      expect(screen.getByLabelText('Added paragraph 1 review status')).toHaveValue('unreviewed')
+      fireEvent.click(screen.getByRole('button', { name: 'Cached filings' }))
+    } else if (boundary === 'selection') {
+      fireEvent.change(screen.getByLabelText('Later filing ID'), { target: { value: '3' } })
+      expect(screen.queryByLabelText('Find in changed paragraphs')).not.toBeInTheDocument()
+    } else if (boundary === 'failed reload') {
+      api.content = () => Promise.reject(new Error('Local cache unavailable'))
+      submit()
+      await screen.findByRole('alert')
+      expect(screen.queryByRole('button', { name: 'Download all changes (JSON)' })).not.toBeInTheDocument()
+    }
+    api.content = async (id) => content(id, id === 1 ? 'Earlier replacement.' : 'New replacement.')
+    submit()
+    await screen.findByText('New replacement.')
+    expect(screen.getByLabelText('Find in changed paragraphs')).toHaveValue('')
+    expect(screen.getByLabelText('Added paragraph 1 review status')).toHaveValue('unreviewed')
+    expect(screen.getByText('0 of 2 reviewed · 2 remaining · 0 needs follow-up')).toBeInTheDocument()
   })
 })

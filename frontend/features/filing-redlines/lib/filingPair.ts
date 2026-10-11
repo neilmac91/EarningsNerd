@@ -2,6 +2,7 @@ import type { Filing } from '@/features/filings/api/filings-api'
 import { originalDocumentUrl } from '@/features/filings/lib/originalDocumentUrl'
 
 export interface RedlineSource {
+  filingId: number | null
   companyName: string
   ticker: string
   reportDate: string
@@ -59,6 +60,7 @@ export function validateFilingPair(earlier: Filing, current: Filing, earlierId: 
     throw new Error('Choose an earlier and a later reporting period, with the earlier filing filed first.')
   }
   const source = (filing: Filing, reportDate: string, filingDate: string): RedlineSource => ({
+    filingId: filing.id,
     companyName: filing.company!.name,
     ticker: filing.company!.ticker,
     reportDate,

@@ -7,6 +7,7 @@ import { fetchFilingContent } from '@/features/filings/api/filing-content-api'
 import { compareParagraphs } from '../lib/compareParagraphs'
 import { parseFilingId, validateFilingPair, type RedlinePair, type RedlineSource } from '../lib/filingPair'
 import { fictionalPair, fictionalEarlierText, fictionalCurrentText } from '../data/fictionalExample'
+import ComparisonReview from './ComparisonReview'
 
 type Comparison = ReturnType<typeof compareParagraphs>
 type View =
@@ -40,28 +41,6 @@ function SourceIdentity({ label, source, fictional }: { label: string; source: R
         </p>
       )}
     </div>
-  )
-}
-
-function ParagraphList({ title, paragraphs, empty }: { title: string; paragraphs: string[]; empty: string }) {
-  return (
-    <section className="min-w-0" aria-label={title}>
-      <div className="mb-4 flex items-baseline justify-between gap-4">
-        <h3 className="text-base font-semibold">{title}</h3>
-        <span className="font-data text-sm text-text-secondary-light dark:text-text-secondary-dark">{paragraphs.length}</span>
-      </div>
-      {paragraphs.length ? (
-        <ol className="divide-y divide-border-light border-y border-border-light dark:divide-border-dark dark:border-border-dark" aria-label={`${title} paragraphs`}>
-          {paragraphs.map((paragraph, index) => (
-            <li key={index} className="py-4">
-              <blockquote className="whitespace-pre-wrap font-data text-sm leading-relaxed text-text-primary-light [overflow-wrap:anywhere] dark:text-text-primary-dark">
-                {paragraph}
-              </blockquote>
-            </li>
-          ))}
-        </ol>
-      ) : <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{empty}</p>}
-    </section>
   )
 }
 
@@ -110,7 +89,7 @@ export default function FilingRedlines() {
       const filings = await Promise.all([getFiling(earlier), getFiling(current)])
       if (generation.current !== request) return
       pair = validateFilingPair(filings[0], filings[1], earlier, current)
-      const content = await Promise.all([fetchFilingContent(earlier), fetchFilingContent(current)])
+      const content = await Promise.all([fetchFilingContent(earlier, true), fetchFilingContent(current, true)])
       if (generation.current !== request) return
       if (content[0].filingId !== earlier || content[1].filingId !== current) {
         throw new Error('The returned text does not match the selected filings. No comparison was made.')
@@ -186,18 +165,7 @@ export default function FilingRedlines() {
               <SourceIdentity label="Later" source={pair.current} fictional={pair.fictional} />
             </div>
             {view.kind === 'ready' && (
-              <>
-                <p role="status" className="py-5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  <span className="font-data">{view.comparison.added.length}</span> added · <span className="font-data">{view.comparison.removed.length}</span> removed · <span className="font-data">{view.comparison.unchangedCount}</span> matched paragraphs
-                </p>
-                {view.comparison.added.length === 0 && view.comparison.removed.length === 0 && (
-                  <p className="mb-5 text-sm text-text-secondary-light dark:text-text-secondary-dark">No paragraph changes in the supplied text. This does not establish that the full filings are unchanged.</p>
-                )}
-                <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-                  <ParagraphList title="Removed from the later text" paragraphs={view.comparison.removed} empty="No removed paragraphs in the supplied text." />
-                  <ParagraphList title="Added in the later text" paragraphs={view.comparison.added} empty="No added paragraphs in the supplied text." />
-                </div>
-              </>
+              <ComparisonReview key={mode} pair={view.pair} comparison={view.comparison} />
             )}
           </Card>
         )}
