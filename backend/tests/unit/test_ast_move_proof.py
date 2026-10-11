@@ -73,16 +73,17 @@ SERVICE = '''class Service:
 
 
 def _move(**overrides: str) -> dict[str, str]:
-    files = {"app/x.py": FACADE + "\nimport logging\n\nlogger = logging.getLogger(__name__)\n",
+    files = {"app/x/__init__.py": FACADE + "\nimport logging\n\nlogger = logging.getLogger(__name__)\n",
              "app/x/helpers.py": HELPERS, "app/x/service.py": SERVICE}
     files.update(overrides)
     return files
 
 
 def _facade(new: dict[str, str], allow: frozenset[str] = frozenset()) -> Report:
-    """``compare`` for OLD, which lived where the façade now does: its ``logger`` stays in ``app/x.py``, so
-    the logger keeps its name, and a moved symbol that read where its module lives would be RELOCATED."""
-    return compare(OLD, new, allow, old_path="app/x.py")
+    """``compare`` for OLD, the package ``app/x/__init__.py`` split into the sub-modules beside it (the layout
+    Python imports: ``from .helpers import`` there names ``app.x.helpers``). Its ``logger`` stays in the façade,
+    so the logger keeps its name, and a moved symbol that read where its module lives would be RELOCATED."""
+    return compare(OLD, new, allow, old_path="app/x/__init__.py")
 
 
 def test_an_honest_move_passes_and_ignores_formatting_comments_and_imports():
@@ -90,7 +91,7 @@ def test_an_honest_move_passes_and_ignores_formatting_comments_and_imports():
     assert report.ok, render(report)
     # logger, LIMIT, clip, Service (its header), and its docstring, retries and run members
     assert report.moved == 7
-    assert report.added == {"__all__": "app/x.py"}
+    assert report.added == {"__all__": "app/x/__init__.py"}
 
 
 def test_one_changed_token_fails_as_changed():
@@ -110,7 +111,7 @@ def test_a_symbol_defined_twice_fails_until_disclosed():
     files = _move(**{"app/x/service.py": SERVICE + "\nimport logging\nlogger = logging.getLogger(__name__)\n"})
     report = _facade(files)
     assert not report.ok
-    assert report.duplicate == {"logger": ["app/x.py", "app/x/service.py"]}
+    assert report.duplicate == {"logger": ["app/x/__init__.py", "app/x/service.py"]}
     assert _facade(files, frozenset({"logger"})).ok
 
 
@@ -197,7 +198,7 @@ def test_a_new_assignment_that_calls_runs_at_import():
     files = _move(**{"app/x/helpers.py": HELPERS + "\nREGISTERED = register(clip)\nKEY = lambda row: row.get('k')\n"})
     report = _facade(files)
     assert report.side_effects == {"REGISTERED": "app/x/helpers.py"}
-    assert report.added == {"__all__": "app/x.py", "KEY": "app/x/helpers.py"}  # a lambda's call runs later
+    assert report.added == {"__all__": "app/x/__init__.py", "KEY": "app/x/helpers.py"}  # a lambda's call runs later
 
 
 
@@ -357,7 +358,7 @@ def test_a_new_class_member_shadows_a_name_its_class_body_reads():
     member = old.replace("    x = ", "    def make():\n        return register()\n\n    x = ")
     report = compare(old, {"app/x.py": member})
     assert not report.ok
-    assert report.shadows == {"Box.make": "app/x.py: binds make, read by Box.x"}
+    assert report.shadows == {"Box.make": "app/x.py: binds make, read by attribute lookups on Box, Box.x"}
     module = compare(old, {"app/x.py": "make = Base = registry\n\n" + old})
     assert module.shadows == {"make,Base": "app/x.py: binds Base, read by Box; binds make, read by Box.run, Box.x"}
 
@@ -365,8 +366,8 @@ def test_a_new_class_member_shadows_a_name_its_class_body_reads():
 def test_an_honest_split_adds_names_without_shadowing_any():
     """The control. A new name shadows only what the OLD symbols of its own file take from its own
     namespace: a parameter, a local or a comprehension variable is not the module's name, an attribute is
-    not a name, a method body does not see a class member, and another file has its own namespace. New
-    code may read new names, and a disclosed change that starts calling a new helper never read it before."""
+    not a name, and another file has its own namespace. New code may read new names, and a disclosed change
+    that starts calling a new helper never read it before."""
     box = "class Box:\n    def run(self):\n        return self.make() + rows\n"
     scoped = ("def local(make):\n    return make()\n\n\n"
               "def bound():\n    make = rows[0]\n    return [make for make in rows]\n\n\n")
@@ -375,14 +376,14 @@ def test_an_honest_split_adds_names_without_shadowing_any():
              "\ndef _trim(value):\n    return value.strip()\n"
              "\ndef _clean(value):\n    return _trim(value)\n")
     report = compare("from helpers import make, rows\n\n\n" + scoped + box + reader,
-                     {"app/x/a.py": "from helpers import rows\n\n\n" + scoped + box + "    rows = ()\n" + added,
+                     {"app/x/a.py": "from helpers import rows\n\n\n" + scoped + box + added,
                       "app/x/b.py": "from helpers import make\n\n" + reader})
     assert report.ok, render(report)
-    assert report.added == dict.fromkeys(("make", "_trim", "_clean", "Box.rows"), "app/x/a.py")
+    assert report.added == dict.fromkeys(("make", "_trim", "_clean"), "app/x/a.py")
     helpers = HELPERS.replace("return text[:LIMIT]", "return _trim(text)[:LIMIT]") + "\ndef _trim(value):\n    return value\n"
     calling = _facade(_move(**{"app/x/helpers.py": helpers}), frozenset({"clip"}))
     assert calling.ok, render(calling)  # clip's printed diff is the disclosure
-    assert calling.added == {"__all__": "app/x.py", "_trim": "app/x/helpers.py"}
+    assert calling.added == {"__all__": "app/x/__init__.py", "_trim": "app/x/helpers.py"}
 
 
 def _added_at_module_level(old: str) -> str:
@@ -393,11 +394,20 @@ def _added_at_module_level(old: str) -> str:
 
 
 def _added_to_box(old: str, *names: str) -> str:
-    """What the proof says of a new first member of ``class Box`` that binds ``names``: its SHADOWS reason."""
+    """What the proof says of a new first member of ``class Box`` that binds ``names``: its SHADOWS reason,
+    without the attribute lookups that read every new member of a moved class (pinned on their own in
+    ``test_a_new_member_of_a_moved_class_is_read_through_its_attributes``), "" when nothing else reads it."""
     assert old.startswith("class Box:\n")
     member = " = ".join(names) + " = 0"
     report = compare(old, {"app/x.py": old.replace("class Box:\n", f"class Box:\n    {member}\n", 1)})
-    return report.shadows.get("Box." + ",".join(names), "").removeprefix("app/x.py: ")
+    reasons = []
+    for reason in filter(None, report.shadows.get("Box." + ",".join(names), "").removeprefix("app/x.py: ").split("; ")):
+        binds, _, uses = reason.partition(", ")
+        uses = uses.replace("read by attribute lookups on Box, ", "read by ").replace("read by attribute lookups on Box", "")
+        uses = uses.removeprefix(" and ")
+        if uses:
+            reasons.append(f"{binds}, {uses}")
+    return "; ".join(reasons)
 
 
 def test_every_place_the_moved_code_takes_a_module_name_from_is_a_reader():
@@ -504,21 +514,111 @@ def test_moved_code_that_rebinds_a_name_imported_from_the_target_file_shadows_it
     """The exemption covers reads only. Before the move ``reset`` rebound the old file's own copy of
     ``cache``; in the target file it rebinds the target's binding, for every importer. A module-level loop
     or ``except ... as`` target rebinds it as well, and so does a ``global`` declared in a method or a class
-    body."""
+    body. A class body is one namespace for the compiler, though the proof reads its members one by one: the
+    member that stores or deletes the name rebinds the module's, wherever in the body the declaration stands."""
     target = "cache = {}\n"
     for reader, key in (("def reset():\n    global cache\n    cache = {}\n", "reset"),
                         ("for cache in ROWS:\n    pass\n", "guard:for cache in ROWS"),
                         ("class Box:\n    def reset(self):\n        global cache\n        cache = {}\n", "Box.reset"),
-                        # A class body's ``global`` and its store are two members: the declaration counts.
-                        ("class Box:\n    global cache\n    cache = {}\n", "Box.expr:global cache")):
+                        ("class Box:\n    global cache\n    cache = {}\n", "Box.cache"),
+                        ("class Box:\n    if FLAG:\n        global cache\n    cache = {}\n", "Box.cache"),
+                        ("class Box:\n    global cache\n    del cache\n", "Box.expr:del cache")):
         old = "from app.b import cache\n\n" + reader
         report = compare(old, {"app/a.py": "", "app/b.py": target + "\n\n" + reader}, old_path="app/a.py")
         assert report.shadows == {"cache": f"app/b.py: binds cache, bound by {key}"}, reader
     # A read below the binding stays exempt, a ``global`` that is only read included: it binds nothing.
-    for reads in ("def size():\n    return len(cache)\n", "def size():\n    global cache\n    return len(cache)\n"):
+    for reads in ("def size():\n    return len(cache)\n", "def size():\n    global cache\n    return len(cache)\n",
+                  "class Box:\n    global cache\n    size = len(cache)\n"):
         report = compare("from app.b import cache\n\n" + reads, {"app/a.py": "", "app/b.py": target + "\n\n" + reads},
                          old_path="app/a.py")
         assert report.ok, render(report)
+
+
+def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_that_reads_it_reads_it_there():
+    """A def's or lambda's body reads the name when it runs, so its place alone does not matter. Code that runs
+    at import above the target's binding and reaches such a body runs it before the binding exists, where the
+    old file's import had run first: a call, a reference (what is done with it is not followed), through any
+    chain of defs or a class's methods, a decorator that is handed the def, a class whose bases may call its
+    methods when it is created, and a method's decorator in the class body. Below the binding each is settled,
+    and so is a reaching def or class that nothing above the binding names, or that an inert decorator wraps."""
+    target = "def normalize(value):\n    return value.strip()\n"
+    for reader, key in (
+            ("def describe():\n    return normalize(' x ')\n\n\nDESCRIPTION = describe()\n", "DESCRIPTION"),
+            ("RUN = lambda: normalize(' x ')\nDESCRIPTION = RUN()\n", "DESCRIPTION"),
+            ("def inner():\n    return normalize(' x ')\n\n\ndef outer():\n    return inner()\n\n\nDESCRIPTION = outer()\n",
+             "DESCRIPTION"),
+            ("def describe():\n    return normalize(' x ')\n\n\nHANDLERS = [describe]\n", "HANDLERS"),
+            ("class Box:\n    def clean(self):\n        return normalize(' x ')\n\n\nCLEAN = Box().clean()\n", "CLEAN"),
+            ("@register\ndef hook():\n    return normalize(' x ')\n", "hook"),
+            ("class Box(Base):\n    def clean(self):\n        return normalize(' x ')\n", "Box"),
+            ("class Box:\n    @register\n    def clean(self):\n        return normalize(' x ')\n", "Box.clean")):
+        old = "from app.b import normalize\n\n\n" + reader
+        above = compare(old, {"app/a.py": "", "app/b.py": reader + "\n\n" + target}, old_path="app/a.py")
+        assert above.shadows == {"normalize": f"app/b.py: binds normalize, read above it at import by {key}"}, reader
+        assert compare(old, {"app/a.py": "", "app/b.py": target + "\n\n" + reader}, old_path="app/a.py").ok, reader
+    for reader in ("def describe():\n    return normalize(' x ')\n\n\nVALUE = other()\n",
+                   "class Box(Base):\n    LIMIT = 3\n",
+                   "class Box:\n    @property\n    def clean(self):\n        return normalize(' x ')\n"):
+        old = "from app.b import normalize\n\n\n" + reader
+        report = compare(old, {"app/a.py": "", "app/b.py": reader + "\n\n" + target}, old_path="app/a.py")
+        assert report.ok, render(report)
+
+
+def test_python_reads_a_dunder_the_old_file_imported_from_the_target_where_moved_code_stands():
+    """A dunder the old file imported from the target file is settled for moved code below the target's
+    binding only. Python reads a module's ``__name__`` (as a class's or def's ``__module__``) and its
+    ``__builtins__`` (a def's builtins) itself, where it creates moved code, with no load of either in the code,
+    so moved code above the binding gets the target's value there: ``'app.b'``, or the real builtins. Every
+    dunder counts, as everywhere else, but a module's ``__all__``; a read of it above the binding is listed
+    after Python's own."""
+    for name, binding, moved in (("__name__", "__name__ = 'custom'\n", "class Moved:\n    pass\n"),
+                                 ("__builtins__", "__builtins__ = {'len': max}\n", "def size(rows):\n    return len(rows)\n")):
+        old = f"from app.b import {name}\n\n\n{moved}"
+        report = compare(old, {"app/a.py": "", "app/b.py": f"{moved}\n\n{binding}"}, old_path="app/a.py")
+        assert report.shadows == {name: f"app/b.py: binds {name}, read above it at import by Python itself"}, name
+        assert compare(old, {"app/a.py": "", "app/b.py": f"{binding}\n\n{moved}"}, old_path="app/a.py").ok, name
+    named = compare("from app.b import __version__\n\nVERSION = __version__\n",
+                    {"app/a.py": "", "app/b.py": "VERSION = __version__\n__version__ = '1.0'\n"}, old_path="app/a.py")
+    assert named.shadows == {
+        "__version__": "app/b.py: binds __version__, read above it at import by Python itself, VERSION"}
+    listed = compare("from app.b import __all__\n\n\ndef names():\n    return 1\n",
+                     {"app/a.py": "", "app/b.py": "def names():\n    return 1\n\n\n__all__ = ['names']\n"},
+                     old_path="app/a.py")
+    assert listed.ok, render(listed)
+
+
+def test_the_target_file_settlement_weighs_old_module_level_code_by_what_it_did_before_and_after_the_move():
+    """The settlement rests on the old file's own module-level imports, so it holds for a module-level binding
+    only: a new member of a moved class binds in the class namespace, which no import placed. It weighs OLD
+    symbols only, each by what it did both before the move and after it: a disclosed change that starts or
+    stops reading or rebinding the name above the binding is CHANGED, its diff the disclosure, and a new symbol
+    that reads it there is ADDED (NameError at import fails loudly)."""
+    target = "def normalize(value):\n    return value.strip()\n"
+    old = "from app.b import normalize\n\n\nclass Box:\n    clean = normalize\n"
+    member = compare(old, {"app/a.py": "", "app/b.py": target + "\n\nclass Box:\n    normalize = None\n    clean = normalize\n"},
+                     old_path="app/a.py")
+    assert member.shadows == {"Box.normalize": "app/b.py: binds normalize, read by attribute lookups on Box, Box.clean"}
+    for before, after in (("X = 1\n", "X = normalize\n"), ("X = normalize\n", "X = 1\n")):
+        report = compare("from app.b import normalize\n\n" + before, {"app/a.py": "", "app/b.py": after + "\n\n" + target},
+                         old_path="app/a.py")
+        assert list(report.changed) == ["X"] and report.shadows == {}, before
+    reset = "def reset():\n    global normalize\n    normalize = None\n"
+    for before, after in (("def reset():\n    pass\n", reset), (reset, "def reset():\n    pass\n")):
+        report = compare("from app.b import normalize\n\n" + before, {"app/a.py": "", "app/b.py": target + "\n\n" + after},
+                         old_path="app/a.py")
+        assert list(report.changed) == ["reset"] and report.shadows == {}, before
+    added = compare("from app.b import normalize\n\nX = 1\n",
+                    {"app/a.py": "", "app/b.py": "ALIAS = normalize\nX = 1\n\n\n" + target}, old_path="app/a.py")
+    assert added.added == {"ALIAS": "app/b.py"} and added.shadows == {}
+
+
+def test_a_relative_import_beyond_the_top_level_package_places_no_name():
+    """``from ..app import normalize`` in ``app/a.py`` climbs past the top-level package, so the old file cannot
+    import at all and the name has no origin to settle; ``from . import`` there names the package ``app``."""
+    old = "from ..app import normalize\n\n\ndef run(value):\n    return normalize(value)\n"
+    files = {"app/a.py": "", "app/__init__.py": "def normalize(value):\n    return value\n\n\ndef run(value):\n    return normalize(value)\n"}
+    assert compare(old, files, old_path="app/a.py").shadows == {"normalize": "app/__init__.py: binds normalize, read by run"}
+    assert compare(old.replace("from ..app import", "from . import"), files, old_path="app/a.py").ok
 
 def test_a_new_module_dunder_beside_moved_code_is_read_by_python_itself():
     """No moved code loads ``__builtins__``, yet ``size`` below it resolves ``len`` through it. It runs
@@ -545,6 +645,42 @@ def test_a_new_dunder_member_of_a_moved_class_is_read_by_python_itself():
     assert slots.shadows == {"Moved.__slots__": "app/x.py: binds __slots__, read by Python itself"}
 
 
+def test_a_new_member_of_a_moved_class_is_read_through_its_attributes():
+    """A pure move never adds a member to a moved class, and the proof cannot follow an attribute read, so every
+    new member of an OLD class is SHADOWS, read by attribute lookups on the class: one that overrides what the
+    class inherited (``Moved().close()``), a non-dunder hook a library reads (an Enum's ``_missing_``), a new
+    field of a dataclass (its ``__init__`` takes one more argument), and a constant. A method body never reads
+    the class namespace, so ``Box.run`` is not named. A dunder keeps Python's own read as its reason; a new
+    class's members stay ADDED, and a name the class body declares ``global`` binds the module's, not a member."""
+    for old, member, cls, name in (
+            ("class Moved(Base):\n    x = 1\n", "    def close(self):\n        return 'new'\n", "Moved", "close"),
+            ("class Form(Enum):\n    A = 'a'\n", "    @classmethod\n    def _missing_(cls, value):\n        return cls.A\n",
+             "Form", "_missing_"),
+            ("@dataclass\nclass Row:\n    key: str\n", "    extra: int = 0\n", "Row", "extra"),
+            ("class Box:\n    def run(self):\n        return self.make() + rows\n", "    rows = ()\n", "Box", "rows")):
+        report = compare(old, {"app/x.py": old + member})
+        assert report.shadows == {f"{cls}.{name}": f"app/x.py: binds {name}, read by attribute lookups on {cls}"}, name
+        assert report.added == {} and not report.ok, name
+        allowed = compare(old, {"app/x.py": old + member}, frozenset({f"{cls}.{name}"}))
+        assert allowed.ok and allowed.allowed[f"{cls}.{name}"].endswith(f"read by attribute lookups on {cls}"), name
+    dunder = compare("class Moved:\n    x = 1\n", {"app/x.py": "class Moved:\n    x = 1\n    __slots__ = ()\n"})
+    assert dunder.shadows == {"Moved.__slots__": "app/x.py: binds __slots__, read by Python itself"}
+    new_class = compare("A = 1\n", {"app/x.py": "A = 1\n\n\nclass Helper:\n    LIMIT = 3\n"})
+    assert new_class.ok and new_class.added == dict.fromkeys(("Helper", "Helper.LIMIT"), "app/x.py")
+    module = compare("X = make\n\n\nclass Box:\n    global make\n",
+                     {"app/x.py": "X = make\n\n\nclass Box:\n    global make\n    make = registry\n"})
+    assert module.shadows == {"Box.make": "app/x.py: binds make, read by Box.expr:global make, X"}
+
+
+def test_a_class_body_global_that_is_only_read_installs_no_module_dunder():
+    """``global __doc__`` in a class body makes the body read the module's docstring and binds nothing, so the
+    class moved elsewhere installs no module dunder there; a member that stores the name binds the module's."""
+    doc = '"""Doc."""\n\n\nclass Box:\n    global __doc__\n    text = __doc__\n'
+    assert _relocated(doc, "app/y.py", "app/x.py") == {}
+    stored = doc.replace("    text = __doc__\n", "    __doc__ = 'Box.'\n")
+    assert _relocated(stored, "app/y.py", "app/x.py") == {"Box.__doc__": "binds __doc__, which Python reads from app.y, was app.x"}
+
+
 def test_a_class_docstring_counts_only_as_the_first_statement_of_its_body():
     """Python takes a class's ``__doc__`` from the first statement of its body only, and FastAPI and pydantic
     read it: a new member placed above an old class's docstring takes it out of ``__doc__``, with every
@@ -556,7 +692,8 @@ def test_a_class_docstring_counts_only_as_the_first_statement_of_its_body():
     assert not report.ok
     assert list(report.changed) == ["Moved"]
     assert '-    """Doc."""\n+    pass' in report.changed["Moved"]
-    assert report.moved == 2 and report.added == {"Moved.y": "app/x.py"}  # the docstring and x, unchanged
+    assert report.moved == 2 and report.added == {}  # the docstring and x, unchanged; the new y is SHADOWS
+    assert report.shadows == {"Moved.y": "app/x.py: binds y, read by attribute lookups on Moved"}
     for above in ("    import os\n", "    x = 1\n"):
         displaced = old.replace("    x = 1\n", "").replace('    """Doc."""', above + '    """Doc."""')
         assert "Moved" in compare(old, {"app/x.py": displaced}).changed, above
@@ -564,7 +701,8 @@ def test_a_class_docstring_counts_only_as_the_first_statement_of_its_body():
     only = 'class NotFound(Exception):\n    """Raised."""\n'
     assert list(compare(only, {"app/x.py": only.replace("    ", "    status = 404\n    ", 1)}).changed) == ["NotFound"]
     ellipsis = "class Proto:\n    ...\n    x = 1\n"
-    assert compare(ellipsis, {"app/x.py": ellipsis.replace("    ...", "    y = 0\n    ...")}).ok
+    displaced = compare(ellipsis, {"app/x.py": ellipsis.replace("    ...", "    y = 0\n    ...")})
+    assert displaced.changed == {} and set(displaced.shadows) == {"Proto.y"}
     bare = "class Moved:\n    x = 1\n"
     documented = compare(bare, {"app/x.py": old})
     assert list(documented.changed) == ["Moved"]
@@ -581,7 +719,7 @@ def test_a_facades_all_and_a_new_classs_own_dunders_and_docstring_are_added():
     report = _facade(_move(**{"app/x/helpers.py": HELPERS + cache}))
     assert report.ok, render(report)
     members = ("_Cache", "_Cache.expr:'Docstring.'", "_Cache.__slots__", "_Cache.__init__", "_Cache.__eq__")
-    assert report.added == {"__all__": "app/x.py", **dict.fromkeys(members, "app/x/helpers.py")}
+    assert report.added == {"__all__": "app/x/__init__.py", **dict.fromkeys(members, "app/x/helpers.py")}
 
 
 def test_every_dunder_counts_where_moved_code_lives_and_only_there():
@@ -615,7 +753,7 @@ def test_every_dunder_counts_where_moved_code_lives_and_only_there():
     listed = "def names():\n    return __all__\n"
     assert compare(listed, {"app/x.py": "__all__ = []\n\n" + listed}).shadows == {
         "__all__": "app/x.py: binds __all__, read by names"}
-    lazy = compare(size, {"app/x.py": size, "app/x/lazy.py": "def __getattr__(name):\n    return name\n"})
+    lazy = compare(size, {"app/x/__init__.py": size, "app/x/lazy.py": "def __getattr__(name):\n    return name\n"})
     assert lazy.ok and lazy.added == {"__getattr__": "app/x/lazy.py"}
     plain = compare(size, {"app/x.py": size + "\n__cache = {}\ncache__ = {}\n_cache__ = {}\n__cache_ = {}\n__ = 0\n"})
     assert plain.ok and set(plain.added) == {"__cache", "cache__", "_cache__", "__cache_", "__"}
@@ -1238,6 +1376,21 @@ def test_the_cli_derives_a_modules_identity_from_its_path_however_it_is_spelled(
     assert "pure move: OK (3 symbols identical" in capsys.readouterr().out
     with pytest.raises(SystemExit, match="is not under backend/"):
         ast_move_proof.main(["--base", "B", "--old", "../frontend/x.py", "--new", "app/x.py"])
+
+
+def test_the_cli_refuses_a_path_it_cannot_read_as_one_python_file(monkeypatch):
+    """A missing or directory ``--new`` under ``--worktree``, a directory read from a ref and a file that does
+    not parse each stop the CLI with a message naming the path (exit status 1), never a traceback or an OK."""
+    monkeypatch.setattr(ast_move_proof, "_git_show", lambda ref, path: INDEX)
+    for new in ("app/no_such_module.py", "app/services"):
+        with pytest.raises(SystemExit, match=f"cannot read {new} in the working tree: not a file"):
+            ast_move_proof.main(["--base", "B", "--old", "app/services/index_service.py", "--new", new, "--worktree"])
+    monkeypatch.setattr(ast_move_proof, "_git_show", lambda ref, path: "def broken(:\n")
+    with pytest.raises(SystemExit, match="cannot parse app/services/index_service.py: "):
+        ast_move_proof.main(["--base", "B", "--old", "app/services/index_service.py", "--new", "app/services/index_service.py"])
+    monkeypatch.undo()
+    with pytest.raises(SystemExit, match="cannot read backend/app/services at HEAD: a tree, not a file"):
+        ast_move_proof._git_show("HEAD", "app/services")
 
 
 def test_an_honest_split_that_keeps_what_reads_its_module_in_place_is_not_relocated():
