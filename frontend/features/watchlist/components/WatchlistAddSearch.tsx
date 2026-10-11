@@ -94,10 +94,11 @@ export default function WatchlistAddSearch() {
           onFocus={() => setOpen(true)}
           placeholder="Add a company to your watchlist (e.g., AAPL, Apple)…"
           aria-label="Search for a company to add to your watchlist"
-          aria-busy={isLoading || addMutation.isPending || undefined}
+          aria-busy={isLoading || undefined}
           className={inputClasses({ leadingIcon: true, trailingIcon: true })}
         />
-        {/* Inset always reserved, not only while busy: see CompanySearch. */}
+        {/* Inset always reserved, not only while busy: see CompanySearch. The input is busy only for its own
+            search; during an add the picked option carries aria-busy, and the spinner still shows here. */}
         {(isLoading || addMutation.isPending) && <FieldSpinner />}
       </div>
 
