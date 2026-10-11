@@ -40,8 +40,11 @@ every hit). Two AST checks over every ``@<router>.get`` handler in ``app/routers
    db.query(X), 0``) and a ``for`` target over a literal tuple, list or set (``for q in
    (db.query(X), db.query(Y))``), and so is a copy of a known session, Connection or Query (``conn =
    original``) by any of these. A comprehension's ``for`` target binds only inside that
-   comprehension, as Python scopes it: in order, shadowing what its name means outside, with the
-   first iterable read outside it.
+   comprehension, in order, with the first iterable read outside it, as Python scopes it. A name it
+   takes from a literal tuple, list or set means what the items give it there; any other name keeps
+   its meaning, and so do ``db``, ``session``, ``engine``, the file's engine names and a
+   ``Session``-annotated parameter (fail closed). A lambda's or nested def's parameter keeps the
+   meaning its name has outside too: the gate cannot see what it receives.
    ``api_route(methods=["GET"])`` handlers are GET handlers too. Limitation: the walk
    resolves names, not types, so a method on an object it cannot name (a parameter, an attribute
    of ``self``, a function's return value) is not followed, and a Query, a Connection or an engine
@@ -298,32 +301,36 @@ def _local_bindings(fn: ast.AST):
             yield from _literal_items(node.target, node.iter)
 
 
-def _session_names_in(fn: ast.AST, engines: frozenset[str] = frozenset()) -> set[str]:
+def _kept_sessions(fn: ast.AST, engines: frozenset[str]) -> set[str]:
+    """The sessions ``fn`` has by convention or declaration: ``db``, ``session``, ``engine``, the names
+    its file gives ``app.database``'s engine (``engines``, from ``_engine_names``) and every
+    ``Session``-annotated parameter of ``fn`` or of a def nested in it. A comprehension never
+    rebinds them (fail closed)."""
+    # An engine and a Connection write as a session does (``engine.begin()``, ``conn.execute(...)``).
+    return set(_SESSION_NAMES) | _ENGINE_NAMES | set(engines) | {
+        arg.arg for node in ast.walk(fn) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda))
+        for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+        if arg.annotation is not None and "Session" in ast.unparse(arg.annotation)
+    }
+
+
+def _session_names_in(fn: ast.AST, engines: frozenset[str] = frozenset(),
+                      kept: set[str] | None = None) -> set[str]:
     """``db``/``session``, plus every ``Session``-annotated parameter of ``fn`` or a def nested in
     it, and every name bound from a session factory (``s = SessionLocal()``, annotated or ``:=``
     alike, and ``with ... as s``). An engine and a Connection write as a session does, so they are
     in the set too: ``engine``, a name bound from ``create_engine()``, and one bound (``=`` or
     ``with``/``async with ... as``) from ``engine.connect()``, ``engine.begin()`` or
     ``db.connection()``. A copy of any of them (``conn = original``) is one as well. ``engines``: the
-    names the function's file gives ``app.database``'s engine (``_engine_names``)."""
-    # An engine and a Connection write as a session does (``engine.begin()``, ``conn.execute(...)``).
-    names = set(_SESSION_NAMES) | _ENGINE_NAMES | set(engines)
-    for node in ast.walk(fn):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
-            args = node.args
-            for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs]:
-                if arg.annotation is not None and "Session" in ast.unparse(arg.annotation):
-                    names.add(arg.arg)
-        elif isinstance(node, (ast.With, ast.AsyncWith)):
-            for item in node.items:
-                if isinstance(item.optional_vars, ast.Name) and _opens_session(item.context_expr):
-                    names.add(item.optional_vars.id)
+    names the function's file gives ``app.database``'s engine (``_engine_names``); ``kept``:
+    ``_kept_sessions(fn, engines)``, when the caller has it already."""
+    names = set(_kept_sessions(fn, engines) if kept is None else kept)
     bindings = list(_local_bindings(fn))
     opened = [(item.optional_vars.id, item.context_expr) for node in ast.walk(fn)
               if isinstance(node, (ast.With, ast.AsyncWith)) for item in node.items
               if isinstance(item.optional_vars, ast.Name)]
     while True:  # a Connection opened on a copy, and a copy of a copy, need another round
-        bound = {name for name, value in opened if _opens_connection(value, names)} | {
+        bound = {name for name, value in opened if _opens_session(value) or _opens_connection(value, names)} | {
             name for name, value in bindings if _binds_session(value, names)
         }
         if bound <= names:
@@ -383,19 +390,19 @@ def _binds_query(value: ast.AST, sessions: set[str], queries: set[str]) -> bool:
     )
 
 
-def _comprehension_target(generator: ast.comprehension, sessions: set[str],
-                          queries: set[str]) -> tuple[set[str], set[str]]:
+def _comprehension_target(generator: ast.comprehension, sessions: set[str], queries: set[str],
+                          kept: set[str]) -> tuple[set[str], set[str]]:
     """The sessions (engines and Connections included) and Queries in scope after one ``for`` of a
-    comprehension: its target's names shadow what they meant before, then take what a literal tuple,
-    list or set gives them (``_binds_session``, ``_binds_query``), read with the names in scope
-    before the ``for``. Python keeps a comprehension's targets in its own scope, so these names
-    count only inside it."""
+    comprehension. A name the target takes from a literal tuple, list or set means what the items
+    give it (``_binds_session``, ``_binds_query``), read with the names in scope before the ``for``,
+    and no longer what it meant outside. A name whose values the gate cannot see, and every name in
+    ``kept``, keeps its meaning (fail closed). Python keeps a comprehension's targets in its own
+    scope, so these names count only inside it."""
     pairs = list(_literal_items(generator.target, generator.iter))
     bound_sessions = {name for name, value in pairs if _binds_session(value, sessions)}
     bound_queries = {name for name, value in pairs if _binds_query(value, sessions, queries)}
-    shadowed = {node.id for node in ast.walk(generator.target)
-                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)}  # not ``q`` in ``for q.x in``
-    return (sessions - shadowed) | bound_sessions, (queries - shadowed) | bound_queries
+    seen = {name for name, _ in pairs} - kept
+    return (sessions - seen) | bound_sessions, (queries - seen) | bound_queries
 
 
 def _side_effect_markers(fn: ast.AST, engines: frozenset[str] = frozenset()) -> list[tuple[str, str]]:
@@ -404,7 +411,8 @@ def _side_effect_markers(fn: ast.AST, engines: frozenset[str] = frozenset()) -> 
     or spawn counts wherever it is named, called or not: ``db.commit()``,
     ``run_in_threadpool(db.commit)`` and ``commit = db.commit`` are one marker each."""
     markers: list[tuple[str, str]] = []
-    sessions = _session_names_in(fn, engines)
+    kept = _kept_sessions(fn, engines)  # stays a session wherever a comprehension rebinds its name
+    sessions = _session_names_in(fn, engines, kept)
     queries = _query_names_in(fn, sessions)
     args = fn.args
     for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs]:
@@ -437,7 +445,7 @@ def _side_effect_markers(fn: ast.AST, engines: frozenset[str] = frozenset()) -> 
         if isinstance(node, _COMPREHENSIONS):
             for generator in node.generators:
                 scoped(generator.iter, sessions, queries)
-                sessions, queries = _comprehension_target(generator, sessions, queries)
+                sessions, queries = _comprehension_target(generator, sessions, queries, kept)
                 for part in (generator.target, *generator.ifs):
                     scoped(part, sessions, queries)
             for part in (node.key, node.value) if isinstance(node, ast.DictComp) else (node.elt,):
@@ -1231,8 +1239,33 @@ def comprehension_targets_shadow_outer_names(db):
     rebound = [q.update({}) for q in [{}]]
     nested = [[q.update({"read": True}) for q in [{}]] for q in [db.query(T)]]
     in_order = [q.update({}) for q in [db.query(T)] for q in [{}]]
-    unknown = [q.update({}) for q in rows]
-    return rebound, nested, in_order, unknown
+    return rebound, nested, in_order
+
+
+@router.get("/ax")
+def comprehension_over_unknown_keeps_the_query(db):
+    q = db.query(T)
+    return [q.update({}) for q in rows]
+
+
+@router.get("/ay")
+def comprehension_target_named_db_commits():
+    return [db.commit() for db in [pool]]
+
+
+@router.get("/ba")
+def comprehension_target_named_db_engine_begins():
+    return [db_engine.begin() for db_engine in [pool]]
+
+
+@router.get("/bb")
+def comprehension_target_annotated_commits(s: Session):
+    return [s.commit() for s in [pool]]
+
+
+@router.get("/bc")
+def lambda_parameter_keeps_the_query(db):
+    return [(lambda q: q.delete())(q) for q in [db.query(T)]]
 
 
 @router.get("/av")
@@ -1296,28 +1329,44 @@ def connects_iterates_and_unpacks_rows(db):
 """
 
 
+# A router that imports no engine, so ``engine`` there is an engine by its name alone.
+_PLAIN_ROUTER = """\
+from fastapi import APIRouter
+
+router = APIRouter()
+
+
+@router.get("/a")
+def comprehension_target_named_engine_begins():
+    return [engine.begin() for engine in [pool]]
+"""
+
+
 def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
     """Self-check for the session writes the gate used to miss: ``execute``, ``exec_driver_sql``,
     ``begin``, ``bulk_*`` and ``.update()``/``.delete()`` on a ``db.query(...)`` chain or a local
     bound to one. A local is bound by ``=``, an annotated ``=``, ``:=``, a tuple unpacking a literal
     or a ``for`` target over one, and so is a copy of a known name, for a Query, a session and a
-    Connection alike; a comprehension's target only inside it, in order and shadowing the name
-    outside, a nested comprehension's on top of its enclosing one's. A write or spawn counts where it
-    is named, called or not. An engine and a Connection write as a session does, under any name the
-    file imports it as; opening one, iterating a Query's rows, unpacking a fetched row, or reusing a
-    comprehension's name outside it or rebinding it inside, writes nothing. Every ``execute`` counts
+    Connection alike; a comprehension's target only inside it and in order, a nested comprehension's
+    on top of its enclosing one's. A comprehension rebinds a name only where a literal shows its
+    values, and never a session by convention or declaration; a lambda's parameter rebinds nothing.
+    A write or spawn counts where it is named, called or not. An engine and a Connection write as a
+    session does, under any name the file imports it as; opening one, iterating a Query's rows,
+    unpacking a fetched row, or reusing a comprehension's name outside it or rebinding it inside to
+    a literal's other value, writes nothing. Every ``execute`` counts
     unless its function is pinned read-only with exactly its count; with any of these dropped, this
     fails."""
     _use_tree(tmp_path, monkeypatch, {
         "app/__init__.py": "", "app/database.py": "engine = SessionLocal = None\n",
         "app/routers/__init__.py": "", "app/routers/w.py": _WRITE_KINDS_ROUTER,
+        "app/routers/plain.py": _PLAIN_ROUTER,
     })
     monkeypatch.setattr(sys.modules[__name__], "READ_ONLY_EXECUTE_SITES", {
         "app/routers/w.py::pinned_read": (1, "fixture: its one execute is a SELECT"),
         "app/routers/w.py::pinned_read_and_a_write": (1, "fixture: pinned for one execute, makes two"),
     })
 
-    found = _side_effecting_handlers([tmp_path / "app/routers/w.py"])
+    found = _side_effecting_handlers([tmp_path / "app/routers/w.py", tmp_path / "app/routers/plain.py"])
     flagged = {name for (_, name) in found}
     expected = {
         "executes", "begins", "bulk_saves", "bulk_inserts", "bulk_updates", "query_deletes",
@@ -1332,6 +1381,9 @@ def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
         "tuple_connection_executes", "comprehension_session_commits", "aliased_engine_runs_driver_sql",
         "module_engine_begins", "nested_comprehension_query_deletes", "engine_imported_under_a_reused_name",
         "later_for_copies_a_query", "attribute_target_keeps_the_query", "comprehension_engine_begins",
+        "comprehension_over_unknown_keeps_the_query", "comprehension_target_named_db_commits",
+        "comprehension_target_named_engine_begins", "comprehension_target_named_db_engine_begins",
+        "comprehension_target_annotated_commits", "lambda_parameter_keeps_the_query",
     }
     assert flagged == expected, f"missed: {sorted(expected - flagged)}; unexpected: {sorted(flagged - expected)}"
     # The Connection that engine.begin() opens counts its own writes, as a pin's per-kind count needs;
