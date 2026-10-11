@@ -26,8 +26,9 @@ every hit). Two AST checks over every ``@<router>.get`` handler in ``app/routers
    different number there counts every one. This catches
    the ``get_*``/``search_*`` handlers the name check cannot. The check follows the handler into
    every module-level function it reaches under ``app/`` (same module, ``from app.x import f``,
-   ``x_service.f`` on an imported module, relative imports, re-exports, function-local imports, a
-   function handed to ``run_in_threadpool``, a ``Depends(...)`` dependency, a dotted name through an
+   ``x_service.f`` on an imported module, relative imports, re-exports, function-local imports (a
+   name imported in two places is followed through both), a function handed to
+   ``run_in_threadpool``, a ``Depends(...)`` dependency, a dotted name through an
    unaliased ``import app.x`` (``app.x.f(db)``, followed beside any alias the file gives ``app``),
    and every method of a class or module-level instance it names: ``x_service = XService()``,
    ``Svc().run(db)``),
@@ -36,16 +37,20 @@ every hit). Two AST checks over every ``@<router>.get`` handler in ``app/routers
    ``SessionLocal()``/``next(get_db())``; a write or spawn counts wherever it is named, called or
    not (``run_in_threadpool(db.commit)``, ``commit = db.commit``). A local is bound by ``=``, an
    annotated ``=``, ``:=``, a tuple that unpacks a literal of the same length (``q, n =
-   db.query(X), 0``) and a ``for`` target over a literal container (``for q in (db.query(X),
-   db.query(Y))``), and so is a copy of a known session, Connection or Query (``conn = original``)
-   by any of these. A comprehension's ``for`` target binds only inside that comprehension, as
-   Python scopes it.
+   db.query(X), 0``) and a ``for`` target over a literal tuple, list or set (``for q in
+   (db.query(X), db.query(Y))``), and so is a copy of a known session, Connection or Query (``conn =
+   original``) by any of these. A comprehension's ``for`` target binds only inside that
+   comprehension, as Python scopes it: in order, shadowing what its name means outside, with the
+   first iterable read outside it.
    ``api_route(methods=["GET"])`` handlers are GET handlers too. Limitation: the walk
    resolves names, not types, so a method on an object it cannot name (a parameter, an attribute
    of ``self``, a function's return value) is not followed, and a Query, a Connection or an engine
    is traced only inside the function that builds it and only through the bindings above (not as a
    parameter, a helper's return value or an item of a container bound to a name); that remains a
-   review concern.
+   review concern. Nor does it follow a module re-exported as a package's attribute
+   (``app.services.writer.f`` through ``from . import w as writer``), a re-export chain more than
+   eight deep, or a Connection through ``execution_options(...)`` or ``await engine.connect()``;
+   app code has none of these today, and ``tasks/todo.md`` keeps them as follow-ups.
    ``test_walk_follows_every_documented_form`` pins each form on a synthetic tree, and
    ``test_every_session_write_kind_is_flagged`` each write kind.
 
@@ -282,7 +287,7 @@ def _literal_items(target: ast.AST, iterable: ast.AST):
 def _local_bindings(fn: ast.AST):
     """(name, value) for every ``name = value``, ``name: T = value`` and ``(name := value)`` in ``fn``,
     a tuple that unpacks a literal included, and for every ``for`` statement's target over a literal
-    container. A comprehension's targets stay in the comprehension (``_comprehension_names``)."""
+    tuple, list or set. A comprehension's targets stay in the comprehension (``_comprehension_target``)."""
     for node in ast.walk(fn):
         if isinstance(node, ast.Assign):
             for target in node.targets:
@@ -375,22 +380,19 @@ def _binds_query(value: ast.AST, sessions: set[str], queries: set[str]) -> bool:
     )
 
 
-def _comprehension_names(comp: ast.AST, sessions: set[str], queries: set[str]) -> tuple[set[str], set[str]]:
-    """The sessions (Connections included) and Queries a comprehension's own ``for`` targets bind
-    over a literal container. Python keeps a comprehension's targets in its own scope, so these
-    names count only inside it."""
-    pairs = [pair for generator in comp.generators for pair in _literal_items(generator.target, generator.iter)]
-    local_sessions: set[str] = set()
-    local_queries: set[str] = set()
-    while True:
-        known = sessions | local_sessions
-        new_sessions = {name for name, value in pairs if _opens_session(value) or _opens_connection(value, known)
-                        or _dotted(value) in known}
-        new_queries = {name for name, value in pairs if _binds_query(value, known, queries | local_queries)}
-        if new_sessions <= local_sessions and new_queries <= local_queries:
-            return local_sessions, local_queries
-        local_sessions |= new_sessions
-        local_queries |= new_queries
+def _comprehension_target(generator: ast.comprehension, sessions: set[str],
+                          queries: set[str]) -> tuple[set[str], set[str]]:
+    """The sessions (Connections included) and Queries in scope after one ``for`` of a comprehension:
+    its target's names shadow what they meant before, then take what a literal tuple, list or set
+    gives them, read with the names in scope before the ``for``. Python keeps a comprehension's
+    targets in its own scope, so these names count only inside it."""
+    pairs = list(_literal_items(generator.target, generator.iter))
+    bound_sessions = {name for name, value in pairs
+                      if _opens_session(value) or _opens_connection(value, sessions) or _dotted(value) in sessions}
+    bound_queries = {name for name, value in pairs if _binds_query(value, sessions, queries)}
+    shadowed = {node.id for node in ast.walk(generator.target)
+                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)}  # not ``q`` in ``for q.x in``
+    return (sessions - shadowed) | bound_sessions, (queries - shadowed) | bound_queries
 
 
 def _side_effect_markers(fn: ast.AST, engines: frozenset[str] = frozenset()) -> list[tuple[str, str]]:
@@ -425,11 +427,19 @@ def _side_effect_markers(fn: ast.AST, engines: frozenset[str] = frozenset()) -> 
     found: list[tuple[str, str]] = []
 
     def scoped(node: ast.AST, sessions: set[str], queries: set[str]) -> None:
-        """Check every attribute with the names in scope where it stands: a comprehension adds what its
-        own targets bind for its subtree only, a nested one on top of its enclosing one's."""
+        """Check every attribute with the names in scope where it stands. A comprehension's ``for``s
+        bind in order, for the rest of that comprehension only (a nested one's on top of its
+        enclosing one's); its first iterable is read before any of them, outside it, as Python
+        evaluates it."""
         if isinstance(node, _COMPREHENSIONS):
-            local_sessions, local_queries = _comprehension_names(node, sessions, queries)
-            sessions, queries = sessions | local_sessions, queries | local_queries
+            for generator in node.generators:
+                scoped(generator.iter, sessions, queries)
+                sessions, queries = _comprehension_target(generator, sessions, queries)
+                for part in (generator.target, *generator.ifs):
+                    scoped(part, sessions, queries)
+            for part in (node.key, node.value) if isinstance(node, ast.DictComp) else (node.elt,):
+                scoped(part, sessions, queries)
+            return
         if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load) \
                 and (hit := marker(node, sessions, queries)):
             found.append(hit)
@@ -441,7 +451,7 @@ def _side_effect_markers(fn: ast.AST, engines: frozenset[str] = frozenset()) -> 
 
 
 _PARSED: dict[Path, ast.Module] = {}
-_BINDINGS: dict[Path, dict[str, tuple[str, str | None]]] = {}
+_BINDINGS: dict[Path, dict[str, list[tuple[str, str | None]]]] = {}
 _IMPORTS_APP: dict[Path, bool] = {}
 _Target = tuple[Path, ast.AST, str]  # (file, function node, qualified name in that file)
 
@@ -463,12 +473,18 @@ def _module_path(dotted: str) -> Path | None:
     return None
 
 
-def _bindings(path: Path) -> dict[str, tuple[str, str | None]]:
-    """Local name -> (app module, symbol) for every app import in ``path`` (function-local ones
-    included); the symbol is None when the name is bound to the module itself."""
+def _bindings(path: Path) -> dict[str, list[tuple[str, str | None]]]:
+    """Local name -> every (app module, symbol) an app import in ``path`` binds it to (function-local
+    ones included); the symbol is None when the name is bound to the module itself. The table is
+    file-wide, so a name imported in two places keeps both, and each is followed (fail closed)."""
     if path not in _BINDINGS:
         package = list(path.relative_to(BACKEND_DIR).with_suffix("").parts)[:-1]
-        table: dict[str, tuple[str, str | None]] = {}
+        table: dict[str, list[tuple[str, str | None]]] = {}
+
+        def bind(local: str, entry: tuple[str, str | None]) -> None:
+            if entry not in table.setdefault(local, []):
+                table[local].append(entry)
+
         for node in ast.walk(_module(path)):
             if isinstance(node, ast.ImportFrom):
                 base = package[: len(package) - node.level + 1] if node.level else []
@@ -476,13 +492,13 @@ def _bindings(path: Path) -> dict[str, tuple[str, str | None]]:
                 for alias in node.names:
                     local = alias.asname or alias.name
                     if _module_path(f"{module}.{alias.name}"):
-                        table[local] = (f"{module}.{alias.name}", None)
+                        bind(local, (f"{module}.{alias.name}", None))
                     elif _module_path(module):
-                        table[local] = (module, alias.name)
+                        bind(local, (module, alias.name))
             elif isinstance(node, ast.Import):
                 for alias in node.names:
                     if alias.asname and _module_path(alias.name):
-                        table[alias.asname] = (alias.name, None)
+                        bind(alias.asname, (alias.name, None))
         _BINDINGS[path] = table
     return _BINDINGS[path]
 
@@ -510,10 +526,8 @@ def _targets(path: Path | None, name: str, depth: int = 0) -> list[_Target]:
         if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call) \
                 and any(isinstance(t, ast.Name) and t.id == name for t in node.targets):
             return [t for t in _callee_targets(path, node.value.func, depth + 1) if "." in t[2]]  # class methods only
-    bound = _bindings(path).get(name)
-    if bound is not None and bound[1] is not None:
-        return _targets(_module_path(bound[0]), bound[1], depth + 1)
-    return []
+    return [target for module, symbol in _bindings(path).get(name, []) if symbol is not None
+            for target in _targets(_module_path(module), symbol, depth + 1)]
 
 
 def _engine_names(path: Path) -> frozenset[str]:
@@ -521,7 +535,7 @@ def _engine_names(path: Path) -> frozenset[str]:
     app.database import engine as db_engine``) or an attribute of the module (``database.engine``,
     and ``app.database.engine`` after an unaliased ``import app.database``)."""
     names = {local if symbol == "engine" else f"{local}.engine"
-             for local, (module, symbol) in _bindings(path).items()
+             for local, entries in _bindings(path).items() for module, symbol in entries
              if module == "app.database" and symbol in ("engine", None)}
     return frozenset(names | ({"app.database.engine"} if _imports_app(path) else set()))
 
@@ -549,10 +563,7 @@ def _named_modules(path: Path, expr: ast.AST) -> list[Path]:
         expr = expr.value
     if not isinstance(expr, ast.Name):
         return []
-    dotted = []
-    bound = _bindings(path).get(expr.id)
-    if bound is not None and bound[1] is None:
-        dotted.append(".".join([bound[0], *parts]))
+    dotted = [".".join([module, *parts]) for module, symbol in _bindings(path).get(expr.id, []) if symbol is None]
     if expr.id == "app" and _imports_app(path):
         dotted.append(".".join(["app", *parts]))
     return [module for name in dotted if (module := _module_path(name))]
@@ -573,8 +584,9 @@ def _referenced_functions(path: Path, fn: ast.AST) -> list[_Target]:
     out: list[_Target] = []
     for node in ast.walk(fn):
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
-            bound = bindings.get(node.id)
-            if bound is None or bound[1] is not None:  # a module alias is followed through its attribute
+            entries = bindings.get(node.id, [])
+            # A name bound only to modules is followed through its attribute.
+            if not entries or any(symbol is not None for _, symbol in entries):
                 out.extend(_targets(path, node.id))
         elif isinstance(node, ast.Attribute):
             for module in _named_modules(path, node.value):
@@ -771,7 +783,13 @@ _SYNTHETIC_TREE = {
     "app/routers/alias.py": (
         "from fastapi import APIRouter\nfrom app.services import w as app\n\nrouter = APIRouter()\n\n\n"
         "@router.get('/v')\ndef module_alias_named_app(db):\n    app.write(db)\n\n\n"
-        "def unrelated():\n    import app.services.reader\n"
+        "def unrelated():\n    import app.services.reader\n\n\n"
+        "@router.get('/x')\ndef module_imported_twice(db):\n    from app.services import w as shared\n"
+        "    shared.write(db)\n\n\n"
+        "@router.get('/y')\ndef function_imported_twice(db):\n    from app.services.w import write as save\n"
+        "    save(db)\n\n\n"
+        "def imports_both_names_again():\n    from app.services import reader as shared\n"
+        "    from app.services.reader import read as save\n    return shared, save\n"
     ),
     "app/routers/r.py": """\
 from fastapi import APIRouter, Depends
@@ -934,8 +952,8 @@ def test_walk_follows_every_documented_form(tmp_path, monkeypatch):
     leaves its handler unflagged and fails this test (the real tree alone would not notice)."""
     _use_tree(tmp_path, monkeypatch, _SYNTHETIC_TREE)
 
-    # An unaliased import in an unrelated function does not replace the alias a GET names
-    # (alias.py's ``from app.services import w as app``): both are followed.
+    # An import in an unrelated function does not replace the binding a GET names (alias.py: an
+    # unaliased ``import app.x`` beside ``w as app``; ``shared`` and ``save`` imported twice): each is followed.
     found = _side_effecting_handlers([tmp_path / "app/routers/r.py", tmp_path / "app/routers/alias.py"])
     flagged = {name for (_, name) in found}
     expected = {
@@ -943,7 +961,8 @@ def test_walk_follows_every_documented_form(tmp_path, monkeypatch):
         "relative_module", "package_reexport", "function_local_import", "factory_assignment",
         "threadpool", "dependency", "singleton", "class_instance", "nested_annotated",
         "passed_uncalled", "spawns_task", "api_route_get", "unaliased_import", "unaliased_instance",
-        "unaliased_factory", "module_alias_named_app", "reaches_aliased_engine",
+        "unaliased_factory", "module_alias_named_app", "reaches_aliased_engine", "module_imported_twice",
+        "function_imported_twice",
     }
     assert flagged == expected, f"missed: {sorted(expected - flagged)}; unexpected: {sorted(flagged - expected)}"
     assert {site for site, _, _ in found[("app/routers/r.py", "singleton")]} == {"app/services/svc.py::Svc._go"}
@@ -1193,6 +1212,33 @@ def nested_comprehension_query_deletes(db):
     return [[inner.delete() for inner in [outer]] for outer in [db.query(T)]]
 
 
+@router.get("/as")
+def later_for_copies_a_query(db):
+    return [copy.delete() for stale in [db.query(T)] for copy in [stale]]
+
+
+@router.get("/at")
+def comprehension_targets_shadow_outer_names(db):
+    q = db.query(T)
+    rebound = [q.update({}) for q in [{}]]
+    nested = [[q.update({"read": True}) for q in [{}]] for q in [db.query(T)]]
+    in_order = [q.update({}) for q in [db.query(T)] for q in [{}]]
+    unknown = [q.update({}) for q in rows]
+    return rebound, nested, in_order, unknown
+
+
+@router.get("/av")
+def attribute_target_keeps_the_query(db):
+    q = db.query(T)
+    return [q.delete() for q.attr in [0]]
+
+
+@router.get("/au")
+def first_iterable_is_read_outside(db):
+    q = {}
+    return [str(q) for q in [db.query(T), q.update({})]]
+
+
 @router.get("/ad")
 async def async_connection_executes():
     async with engine.connect() as conn:
@@ -1217,6 +1263,18 @@ def module_engine_begins():
         conn.execute(delete(T))
 
 
+@router.get("/ar")
+def engine_imported_under_a_reused_name():
+    from app.database import engine as shared
+    with shared.begin() as conn:
+        conn.execute(delete(T))
+
+
+def reuses_the_name():
+    import app.routers as shared
+    return shared
+
+
 @router.get("/ab")
 def connects_iterates_and_unpacks_rows(db):
     with engine.connect() as conn:
@@ -1235,12 +1293,13 @@ def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
     ``begin``, ``bulk_*`` and ``.update()``/``.delete()`` on a ``db.query(...)`` chain or a local
     bound to one. A local is bound by ``=``, an annotated ``=``, ``:=``, a tuple unpacking a literal
     or a ``for`` target over one, and so is a copy of a known name, for a Query, a session and a
-    Connection alike; a comprehension's target only inside it, a nested comprehension's on top of
-    its enclosing one's. A write or spawn counts where it is
-    named, called or not. An engine and a Connection write as a session does; opening one,
-    iterating a Query's rows, unpacking a fetched row or reusing a comprehension's name outside it
-    writes nothing. Every ``execute`` counts unless its function is pinned read-only with exactly
-    its count; with any of these dropped, this fails."""
+    Connection alike; a comprehension's target only inside it, in order and shadowing the name
+    outside, a nested comprehension's on top of its enclosing one's. A write or spawn counts where it
+    is named, called or not. An engine and a Connection write as a session does, under any name the
+    file imports it as; opening one, iterating a Query's rows, unpacking a fetched row, or reusing a
+    comprehension's name outside it or rebinding it inside, writes nothing. Every ``execute`` counts
+    unless its function is pinned read-only with exactly its count; with any of these dropped, this
+    fails."""
     _use_tree(tmp_path, monkeypatch, {
         "app/__init__.py": "", "app/database.py": "engine = SessionLocal = None\n",
         "app/routers/__init__.py": "", "app/routers/w.py": _WRITE_KINDS_ROUTER,
@@ -1263,7 +1322,8 @@ def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
         "driver_sql_executes", "copied_connection_commits", "tuple_copied_connection_executes",
         "loop_copied_connection_executes", "tuple_session_commits", "loop_session_commits",
         "tuple_connection_executes", "comprehension_session_commits", "aliased_engine_runs_driver_sql",
-        "module_engine_begins", "nested_comprehension_query_deletes",
+        "module_engine_begins", "nested_comprehension_query_deletes", "engine_imported_under_a_reused_name",
+        "later_for_copies_a_query", "attribute_target_keeps_the_query",
     }
     assert flagged == expected, f"missed: {sorted(expected - flagged)}; unexpected: {sorted(flagged - expected)}"
     # The Connection that engine.begin() opens counts its own writes, as a pin's per-kind count needs;
