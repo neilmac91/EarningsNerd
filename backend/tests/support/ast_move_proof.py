@@ -74,20 +74,25 @@ and one the moved code reads is reported: a same-named helper of the target modu
 existing module risks. One case is settled from the old file's own imports: when it took the name with a
 single plain module-level ``from M import name`` and the new file is M itself, the moved code keeps the
 binding it always had, and nothing is reported unless moved code reads the name at import above that
-binding (in a statement, a class body, a decorator or a comprehension, which runs where it stands; a
-generator expression counts too, though it may run later): the import ran before the read, and now the
-binding runs after it, so the read raises NameError or takes an earlier binding of the name, ``read above
-it at import``. A def's or lambda's body reads it when it runs, so its place alone does not matter, but code
-that runs at import above the binding and reaches such a body runs it there: one that loads a name which
-may hold code reading it (a def, a lambda, a class whose member does, a name bound from one, through any
-chain; a reference counts as a call, since what is done with it is not followed), or a def or class created
-there by a decorator that is not inert or, for a class, with bases or keywords, whose class-creation code
-may run its methods. A dunder there is read by Python itself as well, wherever an old symbol stands above
-the binding (the next paragraph). The settlement covers reads only: moved code that rebinds the name, at
-module level or through ``global``, rebound the old file's copy and now rebinds the target's, for every
-importer, and is reported. A class body is one namespace for ``global``, which the proof reads member by
-member: the member that stores or deletes a name its class body declares ``global`` binds the module's
-name, wherever in the body the declaration stands, and a declaration alone binds nothing.
+binding (in a statement, a class body, a decorator, an annotation Python evaluates, which is not one its
+module postpones, or a comprehension, which runs where it stands; a generator expression counts too, though
+it may run later, and so does a lambda handed to a call, ``sorted(rows, key=lambda row: ...)``, which may
+call it there): the import ran before the read, and now the binding runs after it, so the read raises
+NameError or takes an earlier binding of the name, or the builtin of that name, ``read above it at import``.
+A def's or lambda's body reads it when it runs, so its place alone does not matter, but code that runs at
+import above the binding and reaches such a body runs it there: one that loads a name which may hold code
+reading it (a def, a lambda, a class whose member does and that member's own name, which the class body may
+call where it stands, a name bound from one, through any chain; a reference counts as a call, since what is
+done with it is not followed, but an annotation, which Python stores and never calls, does not, nor does a
+property's own accessor, which copies the property), or a def or class created there by a decorator that is
+not inert or, for a class, with keywords or a base that is not a builtin class, whose class-creation code may
+run its methods. A dunder there is read by Python itself as well, wherever an old symbol stands above the
+binding (the next paragraph). The settlement covers reads only: moved code that rebinds the name, at module
+level or through ``global``, rebound the old file's copy and now rebinds the target's, for every importer,
+and is reported. A class body is one namespace for ``global``, which the proof reads member by member: the
+member that stores or deletes a name its class body declares ``global`` binds the module's name, wherever in
+the body the declaration stands, and a declaration alone neither binds nor reads it; a method's own
+``global`` of its name leaves the method a member of the class.
 
 Python itself reads a dunder name (``__x__``) of a namespace, with no load of it in the code there: a def
 or class body created below a module's ``__builtins__`` resolves every builtin through it, a relative
@@ -104,7 +109,8 @@ binding gets the target's value there, ``read above it at import by Python itsel
 of a class that is an old symbol is SHADOWS as well, ``read by attribute lookups on`` the class: the proof
 does not follow an attribute read, so a new member may override what the class inherited (``self.close()``),
 be a hook a library reads (an Enum's ``_missing_``) or a new field of a dataclass or a pydantic model, and a
-pure move never adds one. A new class's own members, its dunders included, are ADDED: moved code reaches
+pure move never adds one. An import in a class body is not a symbol, so a member it binds is outside this
+rule (``from os.path import basename as close``); read the import diff. A new class's own members, its dunders included, are ADDED: moved code reaches
 them only through the class's name, which SHADOWS reports when the moved code reads it, or a disclosed
 change shows when it starts to (a new base on a moved class).
 
@@ -171,7 +177,12 @@ unbound name raises NameError at import, which every test that imports the modul
 fails on loudly. A name reached through an attribute is not followed, which is why every new member of a
 moved class is reported. Code that the target-file settlement finds running at import is followed by name,
 so a def reached through a string, a container's item, a hook another module calls (``atexit``, a registry
-outside the file) or a module that imports this one while it is still importing is not. Nor is a name
+outside the file) or a module that imports this one while it is still importing is not. Its reach errs toward
+a report (fail closed): names are matched across namespaces, a block joins every name it binds when one of
+its statements reaches the name (a ``try`` that binds both ``dumps`` and ``BACKEND``), and a decorator that is
+not inert, or a class base that is not a builtin class, is taken to run what it is handed (a FastAPI route's
+decorator does not). ``--allow`` takes the target's binding, which allows every report on it: list each user
+in the PR body. Nor is a name
 reached through a string (a quoted annotation,
 ``globals()['name']``, a deletion by ``locals().pop('name')``), a class body's namespace that a metaclass's
 ``__prepare__`` makes keep other values than the body binds, code Python 3.12 evaluates lazily (a ``type``
@@ -213,8 +224,9 @@ are taken at their word, so a move that rebinds one where no moved symbol reads 
 
 The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE, SIDE EFFECT, SHADOWS, REORDERED or
 RELOCATED beyond the symbols passed with ``--allow`` (for SHADOWS, the new symbol's key). A path that is no
-file (missing, or a directory, at a ref or in the working tree) and a file that does not parse stop the CLI
-with a message naming it, exit status 1. Each allowed symbol
+file (missing, or a directory, at a ref or in the working tree), bytes that are no source text in the file's
+encoding (its coding declaration, or UTF-8) and a file that does not parse stop the CLI with a message naming
+it, exit status 1. Each allowed symbol
 is a disclosed delta the PR body must list, and what changed is printed with it: its diff (its homes, for a
 DUPLICATE), the names it shadows and, for an old symbol with one home, what its new module changes.
 """
@@ -222,8 +234,10 @@ from __future__ import annotations
 
 import argparse
 import ast
+import builtins
 import copy
 import difflib
+import importlib.util
 import subprocess
 import sys
 from collections.abc import Callable, Iterable, Set
@@ -353,6 +367,7 @@ _INERT_DECORATORS = frozenset({"property", "staticmethod", "classmethod", "cache
                                "functools.cached_property", "abc.abstractmethod", "dataclass",
                                "dataclasses.dataclass"})
 _ACCESSORS = frozenset({"setter", "getter", "deleter"})
+_BUILTIN_CLASSES = frozenset(name for name, value in vars(builtins).items() if isinstance(value, type))
 
 
 def _inert_value(node: ast.expr | None) -> bool:
@@ -409,17 +424,17 @@ def _inert_decorator(decorator: ast.expr, properties: frozenset[str] | None = No
     return call is None or all(_inert_value(arg) for arg in (*call.args, *(kw.value for kw in call.keywords)))
 
 
-def _class_body(body: list[ast.stmt], postponed: bool) -> list[tuple[ast.stmt, bool]]:
-    """Each statement of a class body, and whether it is ``_inert`` where it stands, which an accessor needs:
-    the names bound to a property above it. A def binds its name to one when its outermost decorator is
+def _class_body(body: list[ast.stmt], postponed: bool) -> list[tuple[ast.stmt, bool, frozenset[str]]]:
+    """Each statement of a class body, whether it is ``_inert`` where it stands, and the names bound to a
+    property above it, which an accessor needs. A def binds its name to one when its outermost decorator is
     ``property`` or such an accessor and every decorator is inert (``property.setter`` reads the getter's
     ``__doc__`` again). Any other inert statement unbinds the names it binds, and one that runs code may
     rebind any name (``locals()``, ``exec``, a frame), so it unbinds them all."""
-    judged: list[tuple[ast.stmt, bool]] = []
+    judged: list[tuple[ast.stmt, bool, frozenset[str]]] = []
     properties: frozenset[str] = frozenset()
     for stmt in body:
         inert = _inert(stmt, postponed, properties)
-        judged.append((stmt, inert))
+        judged.append((stmt, inert, properties))
         decorators = stmt.decorator_list if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)) else []
         makes_property = bool(decorators) and (
             (ast.unparse(decorators[0]) == "property" or _accessor_receiver(decorators[0]) is not None)
@@ -477,8 +492,27 @@ def _inert(stmt: ast.stmt, postponed: bool, properties: frozenset[str] | None = 
     if isinstance(stmt, ast.ClassDef):
         return (not stmt.keywords and all(_inert_decorator(decorator, properties) for decorator in stmt.decorator_list)
                 and all(isinstance(base, ast.Name) for base in stmt.bases)
-                and all(inert for _, inert in _class_body(stmt.body, postponed)))
+                and all(inert for _, inert, _ in _class_body(stmt.body, postponed)))
     return False
+
+
+def _bound_anywhere(tree: ast.Module) -> set[str]:
+    """Every name the file binds anywhere, in any scope: a store or delete, an import, a def or class, an
+    ``except ... as`` or ``match`` capture. A star import may bind any name, so it stands for every builtin."""
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Load):
+            found.add(node.id)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                found |= set(dir(builtins)) if alias.name == "*" else {(alias.asname or alias.name).split(".")[0]}
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            found.add(node.name)
+        elif isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)) and node.name:
+            found.add(node.name)
+        elif isinstance(node, ast.MatchMapping) and node.rest:
+            found.add(node.rest)
+    return found
 
 
 def _postpones_annotations(tree: ast.Module) -> bool:
@@ -675,13 +709,21 @@ class _Scope:
     declares ``global``, and the scopes nested in it. A def's decorators, defaults and annotations, a
     class's bases and keywords and a comprehension's first iterable are evaluated in the scope around
     them, and ``:=`` inside a comprehension binds in the scope around it. (``nonlocal`` needs no rule: the
-    name belongs to an enclosing def whether or not this scope rebinds it.)"""
+    name belongs to an enclosing def whether or not this scope rebinds it.) A load in an annotation is also
+    ``typed`` (any other, ``untyped``), and a lambda in a call's callee or arguments is a body that runs where
+    the call does, not ``deferred``."""
 
     def __init__(self, in_class: bool = False, walrus: _Scope | None = None, deferred: bool = False) -> None:
         self.in_class = in_class
         self.deferred = deferred  # a def's or lambda's body, which runs when it is called
         self.bound: set[str] = set()
         self.loaded: set[str] = set()
+        self.typed: set[str] = set()  # loaded in an annotation
+        # Loaded anywhere else, but as a def's ``@name.setter``-shaped decorator: a property's own accessor copies
+        # the property and calls none of its code, and any other such decorator makes the def ``decorated``.
+        self.untyped: set[str] = set()
+        self.calling = 0  # inside a call's callee or arguments, which may call a lambda there
+        self.annotating = 0  # inside an annotation
         self.module: set[str] = set()  # declared ``global``
         self.first: set[str] = set()  # bound before a class body runs: a documented class's ``__doc__``
         self.nested: list[_Scope] = []
@@ -694,19 +736,36 @@ class _Scope:
     def read(self, *nodes: ast.AST | None) -> _Scope:
         for node in nodes:
             if isinstance(node, ast.Name):
-                (self.loaded if isinstance(node.ctx, ast.Load) else self.bound).add(node.id)
+                if isinstance(node.ctx, ast.Load):
+                    self.loaded.add(node.id)
+                    (self.typed if self.annotating else self.untyped).add(node.id)
+                else:
+                    self.bound.add(node.id)
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
                 args = node.args
                 params = _parameters(args)
-                self.read(*args.defaults, *args.kw_defaults, *(param.annotation for param in params))
-                body = self._open(deferred=True)
+                self.read(*args.defaults, *args.kw_defaults)
+                self.annotate(*(param.annotation for param in params))
+                # A lambda in a call's callee or arguments may be called there, where the call runs.
+                body = self._open(deferred=not (isinstance(node, ast.Lambda) and self.calling))
                 body.bound.update(param.arg for param in params)
                 if isinstance(node, ast.Lambda):
                     body.read(node.body)
                 else:
                     self.bound.add(node.name)
-                    self.read(*node.decorator_list, node.returns, *getattr(node, "type_params", ()))
+                    for decorator in node.decorator_list:
+                        receiver = _accessor_receiver(decorator)
+                        if receiver is None:
+                            self.read(decorator)
+                        else:
+                            self.loaded.add(receiver)
+                    self.read(*getattr(node, "type_params", ()))
+                    self.annotate(node.returns)
                     body.read(*node.body)
+            elif isinstance(node, ast.Call):
+                self.calling += 1
+                self.read(node.func, *node.args, *node.keywords)
+                self.calling -= 1
             elif isinstance(node, ast.ClassDef):
                 self.bound.add(node.name)
                 self.read(*node.decorator_list, *node.bases, *(keyword.value for keyword in node.keywords),
@@ -727,7 +786,10 @@ class _Scope:
                 self.module.update(node.names)
             elif (isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and not node.simple
                   and node.value is None):
-                self.read(node.annotation)  # ``(x): int`` neither binds x nor reads it
+                self.annotate(node.annotation)  # ``(x): int`` neither binds x nor reads it
+            elif isinstance(node, ast.AnnAssign):
+                self.annotate(node.annotation)
+                self.read(node.target, node.value)
             elif node is not None:
                 if isinstance(node, ast.alias):
                     self.bound.add((node.asname or node.name).split(".")[0])
@@ -738,6 +800,14 @@ class _Scope:
                 elif isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Name):
                     self.loaded.add(node.target.id)  # ``x += 1`` reads x before it binds it
                 self.read(*ast.iter_child_nodes(node))
+        return self
+
+    def annotate(self, *nodes: ast.AST | None) -> _Scope:
+        """Read annotations: their loads are ``typed``, which Python evaluates where the code stands unless the
+        module postpones annotations, and never calls."""
+        self.annotating += 1
+        self.read(*nodes)
+        self.annotating -= 1
         return self
 
     def taken(self, enclosing: frozenset[str] = frozenset(), now: bool = False) -> set[str]:
@@ -783,8 +853,11 @@ class _Names:
     the builtins it calls that compile code under its module's ``from __future__`` imports; ``tentative``,
     the names it binds only possibly (a bare annotation binds nothing at run time, and ``:=`` may not run);
     ``deletes``, the names it is a ``del`` of; ``decorated``, whether creating it may call its own code: a
-    decorator that is not inert is handed the def or class, and a class's bases or keywords run class-creation
-    code (``__init_subclass__``, a metaclass)."""
+    decorator that is not inert is handed the def or class, and a class's keywords or a base that is not a
+    builtin class run class-creation code (``__init_subclass__``, a metaclass). For the target-file settlement:
+    ``plain`` and ``typed``, the names it loads where it stands outside annotations and in them (a ``global``
+    declaration loads nothing); ``postponed``, whether its module postpones annotations; ``class_global``, the
+    names it binds that its class body declares ``global``, which are the module's."""
     owner: str | None
     block: bool = False
     binds: set[str] = field(default_factory=set)
@@ -802,6 +875,10 @@ class _Names:
     tentative: set[str] = field(default_factory=set)
     deletes: set[str] = field(default_factory=set)
     decorated: bool = False
+    plain: set[str] = field(default_factory=set)
+    typed: set[str] = field(default_factory=set)
+    postponed: bool = False
+    class_global: set[str] = field(default_factory=set)
 
     def reads(self, owner: str | None) -> set[str]:
         """The names of one namespace (a class body, or the module for None) that this symbol reads. What
@@ -815,9 +892,16 @@ class _Names:
         """The names of that namespace this symbol binds."""
         return self.binds if owner == self.owner else set()
 
-    def at_import(self) -> set[str]:
-        """The names it reads from the module while the module runs, not later from a def's body."""
-        return self.here | self.soon
+    def evaluated(self) -> set[str]:
+        """The names it reads from the module while the module runs, where it stands or in a nested scope that
+        runs there, not later from a def's body: no ``global`` declaration, which reads nothing, and no
+        annotation of a module that postpones them, which is never evaluated."""
+        return self.plain | (set() if self.postponed else self.typed) | self.soon
+
+    def calls(self) -> set[str]:
+        """Of those, the names whose code it may run there: not an annotation, which Python stores and never
+        calls (code that reads one through ``__annotations__`` reads this symbol's own name first)."""
+        return self.plain | self.soon
 
     def rebinds(self) -> set[str]:
         """The module's names it binds: at module level, or anywhere through ``global``."""
@@ -850,6 +934,7 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
               for name in {name for inner in ast.walk(each) if isinstance(inner, ast.Global) for name in inner.names}
               & set(_deletions(each.body))}
     shadowing = {name: spans for name, spans in _certain_bindings(tree.body).items() if name not in undone}
+    builtin_classes = _BUILTIN_CLASSES - _bound_anywhere(tree)
     aliases, modules = _builtin_names(_scope_nodes(tree.body),
                                       lambda name, at: not _bound_at(shadowing, name, at.lineno))
 
@@ -857,7 +942,7 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
             code: ast.AST | None = None, implicit: Set[str] = frozenset(),
             local: dict[str, list[tuple[int, int | None]]] | None = None,
             in_body: tuple[dict[str, set[str]], set[str]] = ({}, set()),
-            class_globals: Set[str] = frozenset()) -> None:
+            class_globals: Set[str] = frozenset(), properties: frozenset[str] | None = None) -> None:
         found[key] = f"{found[key]}\n{text}" if key in found else text  # every definition, in source order
         occurrences.append((node.lineno, node.col_offset, len(occurrences), key))
         if not inert:
@@ -867,15 +952,22 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
         used.binds |= scope.bound
         # ``global x`` in a class body makes x the module's there, so the statement counts as a user of x.
         used.here |= scope.loaded | scope.module
+        used.plain |= scope.untyped
+        used.typed |= scope.typed
+        used.postponed = postponed
         used.later |= set().union(*(nested.taken() for nested in scope.nested))
         used.soon |= set().union(*(nested.taken(now=True) for nested in scope.nested))
         # A ``global`` in a class body holds for the whole body, which the compiler scopes as one namespace and
         # the proof reads member by member: the member that stores or deletes a name the body declares global
         # binds the module's, and a declaration that is only read binds nothing (``class_globals``).
         used.declared |= scope.declared() | (scope.bound & class_globals)
+        used.class_global |= scope.bound & class_globals
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            used.decorated |= (not all(map(_inert_decorator, node.decorator_list))
-                               or (isinstance(node, ast.ClassDef) and bool(node.bases or node.keywords)))
+            # A builtin class base (``Exception``) runs no class-creation code of the module's: its metaclass is
+            # ``type`` and its ``__init_subclass__`` object's. A property's accessor on a property above it copies it.
+            used.decorated |= (not all(_inert_decorator(decorator, properties) for decorator in node.decorator_list)
+                               or (isinstance(node, ast.ClassDef) and (bool(node.keywords) or not all(
+                                   isinstance(base, ast.Name) and base.id in builtin_classes for base in node.bases))))
         used.lines.append(node.lineno)
         # What it reads that its module gets from where it lives. A block reads its header; its body's
         # statements are symbols of their own, and its text drops its imports. In a class body, the names the
@@ -1007,7 +1099,7 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
                         inert=False, owner=node.name, implicit=implicit(guard), local=local, in_body=in_body,
                         class_globals=class_globals)
             # Each member is judged where it stands in the class body; inside a block, no property above it counts.
-            judged = {id(stmt): inert for stmt, inert in _class_body(node.body, postponed)}
+            judged = {id(stmt): (inert, properties) for stmt, inert, properties in _class_body(node.body, postponed)}
             for member in members:
                 if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                     key = member.name
@@ -1019,9 +1111,12 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
                     continue
                 else:
                     key = "expr:" + ast.unparse(member)
-                inert = judged[id(member)] if id(member) in judged else _inert(member, postponed, frozenset())
+                inert, properties = judged.get(id(member), (None, frozenset()))
+                if inert is None:
+                    inert = _inert(member, postponed, frozenset())
                 put(f"{node.name}.{key}", ast.unparse(member), member, inert, owner=node.name,
-                    implicit=implicit(member), local=local, in_body=in_body, class_globals=class_globals)
+                    implicit=implicit(member), local=local, in_body=in_body, class_globals=class_globals,
+                    properties=properties)
         elif isinstance(node, ast.Assign):
             put(_assignment_key(node.targets), ast.unparse(node), node, _inert(node, postponed))
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
@@ -1104,14 +1199,15 @@ _DECLARED_DUNDERS = frozenset({"__all__"})
 
 
 def _reaching(name: str, names: dict[str, _Names]) -> set[str]:
-    """The module's names that may hold code which reads ``name`` when it runs, ``name`` among them: a def,
-    lambda or class whose code (a body, a method, any nested scope) loads one of them, a class one of whose
-    members does, and a name bound at import from one of them (``HANDLERS = [describe]``) or through
-    ``global``, closed under those steps. What code does with a name is not followed: a reference counts as
-    much as a call."""
+    """The names that may hold code which reads ``name`` when it runs, ``name`` among them: a def, lambda or
+    class whose code (a body, a method, any nested scope) loads one of them, a class one of whose members
+    does, and that member's own name, which its class body may call where it stands; and a name bound at
+    import from one of them (``HANDLERS = [describe]``) or through ``global``, closed under those steps. What
+    code does with a name is not followed: a reference counts as much as a call. Names are matched across
+    namespaces (a member's name also stands for a module name it equals), which errs toward reporting."""
     reach = {name}
     while True:
-        grown = reach.union(*((used.binds if used.owner is None else {used.owner}) | used.declared
+        grown = reach.union(*(used.binds | ({used.owner} if used.owner else set()) | used.declared
                               for used in names.values() if (used.here | used.later) & reach))
         if grown == reach:
             return reach
@@ -1130,21 +1226,23 @@ def _shadows(key: str, names: dict[str, _Names], old_names: dict[str, _Names],
     ``own``: the module-level names the old file imported from this very file (``_imported_from``). Such a
     binding is the one the moved code always had, so it shadows only the moved code that reads it at import
     above it (``read above it at import by X``): there the import ran first, and now the read does. That is
-    code that loads it at import, or a name that may hold code reading it (``_reaching``: a def called there,
-    a reference to it), or is created there by a decorator or a class's bases that may run that code; and
+    code that evaluates it at import (``_Names.evaluated``), or may call a name that may hold code reading it
+    (``_reaching``: a def called there, a reference to it; ``_Names.calls``, an annotation not), or is created
+    there by a decorator, a class keyword or a base that is not a builtin class, which may run that code; and
     for a dunder, Python itself wherever an old symbol stands above it. Code that rebinds the name, at module
     level or through ``global``, rebound the old file's copy and now rebinds this file's, for every importer,
     so it is ``bound by`` as for any other name."""
     new, found = names[key], []
     for name in sorted(() if new.block else new.binds):
-        owner = None if name in new.declared else new.owner  # a class body's ``global`` binds the module's
+        owner = None if name in new.class_global else new.owner  # a class body's ``global`` binds the module's
         moved_here = owner in old_names if owner else any(other in old_names for other in names)
         uses = []
         if owner is None and name in own:
             reach = _reaching(name, names)
             above = [other for other in sorted(names) if other in old_names
                      and min(names[other].lines) < max(new.lines)]
-            early = [other for other in above if reach & names[other].at_import() & old_names[other].at_import()
+            early = [other for other in above if name in names[other].evaluated() & old_names[other].evaluated()
+                     or reach & names[other].calls() & old_names[other].calls()
                      or (names[other].decorated and old_names[other].decorated
                          and reach & (names[other].later | names[other].binds))]
             rebinding = [other for other in sorted(names) if other in old_names
@@ -1455,11 +1553,11 @@ def _git_show(ref: str, rel_path: str) -> str:
         raise SystemExit(f"cannot read {repo_path} at {ref}: a {kind.stdout.strip()}, not a file")
     result = subprocess.run(  # nosec B603 B607 - fixed git argv, read-only, developer tool
         ["git", "-C", str(REPO_ROOT), "show", f"{ref}:{repo_path}"],
-        capture_output=True, text=True, check=False,
+        capture_output=True, check=False,
     )
     if result.returncode != 0:
-        raise SystemExit(f"cannot read {repo_path} at {ref}: {result.stderr.strip()}")
-    return result.stdout
+        raise SystemExit(f"cannot read {repo_path} at {ref}: {result.stderr.decode(errors='replace').strip()}")
+    return _source(result.stdout, f"{repo_path} at {ref}")
 
 
 def _worktree(rel_path: str) -> str:
@@ -1467,7 +1565,16 @@ def _worktree(rel_path: str) -> str:
     path = BACKEND_DIR / rel_path
     if not path.is_file():
         raise SystemExit(f"cannot read {rel_path} in the working tree: not a file")
-    return path.read_text()
+    return _source(path.read_bytes(), f"{rel_path} in the working tree")
+
+
+def _source(data: bytes, where: str) -> str:
+    """The text Python reads from a source file's bytes (its coding declaration or UTF-8, with universal
+    newlines); bytes it cannot decode stop the CLI with a message."""
+    try:
+        return importlib.util.decode_source(data)
+    except (SyntaxError, UnicodeDecodeError) as exc:
+        raise SystemExit(f"cannot read {where}: not Python source text ({exc})") from None
 
 
 def _canonical(path: str) -> str:
@@ -1529,8 +1636,9 @@ def main(argv: list[str] | None = None) -> int:
     for path, source in ((old_path, old_source), *new_sources.items()):
         try:
             ast.parse(source, filename=path)
-        except SyntaxError as exc:
-            raise SystemExit(f"cannot parse {path}: {exc.msg} (line {exc.lineno})") from None
+        except (SyntaxError, ValueError) as exc:  # a NUL byte is a ValueError before Python 3.11.4, with no line
+            line = f" (line {exc.lineno})" if getattr(exc, "lineno", None) else ""
+            raise SystemExit(f"cannot parse {path}: {getattr(exc, 'msg', exc)}{line}") from None
     report = compare(old_source, new_sources, frozenset(args.allow), old_path)
     print(render(report))
     return 0 if report.ok else 1
