@@ -82,7 +82,8 @@ NameError or takes an earlier binding of the name, or the builtin of that name, 
 A def's or lambda's body reads it when it runs, so its place alone does not matter, but code that runs at
 import above the binding and reaches such a body runs it there: one that loads a name which may hold code
 reading it (a def, a lambda, a class whose member does and that member's own name, which the class body may
-call where it stands, a def whose decorator, default or annotation names one, since what reads its
+call where it stands, and so for a def or class that a member class's body binds, or the body of a class that a
+``match`` case creates, a def whose decorator, default or annotation names one, since what reads its
 ``__annotations__`` may call it, a name bound from one, through any chain; a reference counts as a call, since
 what is done with it is not followed, and so does every name of an annotation Python evaluates that is no lone
 name or literal, whose evaluation may run code (a call, a subscript's ``__class_getitem__``, an attribute's
@@ -770,6 +771,7 @@ class _Scope:
         self.first: set[str] = set()  # bound before a class body runs: a documented class's ``__doc__``
         self.nested: list[_Scope] = []
         self.walrus = walrus or self
+        self.name: str | None = None  # the def or class this is the body of
 
     def _open(self, in_class: bool = False, walrus: _Scope | None = None, deferred: bool = False) -> _Scope:
         self.nested.append(_Scope(in_class, walrus, deferred))
@@ -797,6 +799,7 @@ class _Scope:
                     body.read(node.body)
                 else:
                     self.bound.add(node.name)
+                    body.name = node.name
                     for decorator in node.decorator_list:
                         receiver = _accessor_receiver(decorator)
                         if receiver is None:
@@ -815,6 +818,7 @@ class _Scope:
                 self.read(*node.decorator_list, *node.bases, *(keyword.value for keyword in node.keywords),
                           *getattr(node, "type_params", ()))
                 body = self._open(in_class=True)
+                body.name = node.name
                 if _is_docstring(node.body[0]) and "__doc__" not in _deletions(node.body):  # fail closed
                     body.first.add("__doc__")
                 body.read(*node.body)
@@ -842,7 +846,8 @@ class _Scope:
                 elif isinstance(node, ast.MatchMapping) and node.rest:
                     self.bound.add(node.rest)
                 elif isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Name):
-                    self.loaded.add(node.target.id)  # ``x += 1`` reads x before it binds it
+                    self.loaded.add(node.target.id)  # ``x += 1`` reads x before it binds it, and calls its ``__iadd__``
+                    self.untyped.add(node.target.id)
                 self.read(*ast.iter_child_nodes(node))
         return self
 
@@ -860,20 +865,49 @@ class _Scope:
             self.annotating -= 1
         return self
 
-    def taken(self, enclosing: frozenset[str] = frozenset(), now: bool = False) -> set[str]:
+    def taken(self, enclosing: frozenset[str] = frozenset()) -> set[str]:
         """The names this scope and the scopes nested in it take from the module. A def, lambda or
         comprehension takes each name it loads that neither it nor an enclosing def binds, and each name it
         declares ``global``. A class body also takes the loaded names it binds itself: the lookup falls
         through to the module until the class has bound the name (a documented class binds ``__doc__`` before
-        its body runs), and never stops at an enclosing def. ``now``: only the scopes that run where they stand, a comprehension's or a class's body, not a def's."""
-        if now and self.deferred:
-            return set()
+        its body runs), and never stops at an enclosing def."""
         if self.in_class:
             taken = {name for name in self.loaded - self.first if name in self.bound or name not in enclosing}
         else:
             taken = self.loaded - self.bound - enclosing
             enclosing = enclosing | self.bound
-        return taken.union(self.module, *(scope.taken(enclosing, now) for scope in self.nested))
+        return taken.union(self.module, *(scope.taken(enclosing) for scope in self.nested))
+
+    def taken_now(self, postponed: bool, calls: bool = False, enclosing: frozenset[str] = frozenset()) -> set[str]:
+        """Of what ``taken`` gives, the names read where they stand, at import, by this scope and the scopes
+        nested in it that run there (a comprehension's or a class's body, not a def's), each read as
+        ``_Names.evaluated`` reads a symbol's own: no ``global`` declaration, no ``@name.setter``-shaped
+        decorator's receiver, and no annotation when the module postpones them. ``calls``: only the names whose
+        code may run there, as ``_Names.calls`` reads them, so no lone name an annotation evaluates either."""
+        if self.deferred:
+            return set()
+        loads = self.untyped | (set() if postponed else self.active if calls else self.typed)
+        if self.in_class:
+            taken = {name for name in loads - self.first if name in self.bound or name not in enclosing}
+        else:
+            taken = loads - self.bound - enclosing
+            enclosing = enclosing | self.bound
+        return taken.union(*(scope.taken_now(postponed, calls, enclosing) for scope in self.nested))
+
+    def held(self) -> dict[str, set[str]]:
+        """The defs and classes that a class body nested in this scope binds, through class bodies only (a
+        member class's own members, and theirs), each with the names its code takes from the module. No symbol
+        of the proof's holds them, and the class body that binds one may call it where it runs."""
+        found: dict[str, set[str]] = {}
+        for scope in self.nested:
+            if not scope.in_class:
+                continue
+            for inner in scope.nested:
+                if inner.name is not None:
+                    found.setdefault(inner.name, set()).update(inner.taken())
+            for name, takes in scope.held().items():
+                found.setdefault(name, set()).update(takes)
+        return found
 
     def class_loads(self) -> set[str]:
         """The names the class bodies nested in this scope load where they stand."""
@@ -889,8 +923,9 @@ class _Scope:
 class _Names:
     """What one symbol does with names. ``owner`` is the class whose body holds it (None at module level);
     ``binds`` and ``here`` are the names it binds and loads in that scope; ``later`` are the names its nested
-    scopes (the body of a def, lambda, comprehension or nested class) take from the module, and ``soon`` the
-    ones of those that a comprehension or class body takes where it stands, at import; ``declared`` the
+    scopes (the body of a def, lambda, comprehension or nested class) take from the module, ``soon`` the ones
+    of those that a comprehension or class body reads where it stands, at import, and ``soon_calls`` the ones
+    whose code it may run there, each read as the symbol's own (``_Scope.taken_now``); ``declared`` the
     module's names it or a nested scope binds through ``global``. A ``block`` (a guard) binds whatever is
     bound in it: its header's targets, its imports and its statements' names. ``lines``: where each of its
     definitions starts. For RELOCATED: ``identity``, the names it reads that its module gets from where it
@@ -909,13 +944,15 @@ class _Names:
     ``plain`` and ``typed``, the names it loads where it stands outside annotations and in them (a ``global``
     declaration loads nothing), and ``active``, those of ``typed`` in an annotation that may run code where it is
     evaluated; ``postponed``, whether its module postpones annotations; ``class_global``, the names it binds that
-    its class body declares ``global``, which are the module's."""
+    its class body declares ``global``, which are the module's; ``holders``, the defs and classes that the class
+    bodies nested in it bind (``_Scope.held``), each with the names its code takes from the module."""
     owner: str | None
     block: bool = False
     binds: set[str] = field(default_factory=set)
     here: set[str] = field(default_factory=set)
     later: set[str] = field(default_factory=set)
     soon: set[str] = field(default_factory=set)
+    soon_calls: set[str] = field(default_factory=set)
     declared: set[str] = field(default_factory=set)
     lines: list[int] = field(default_factory=list)
     identity: set[str] = field(default_factory=set)
@@ -932,6 +969,7 @@ class _Names:
     active: set[str] = field(default_factory=set)
     postponed: bool = False
     class_global: set[str] = field(default_factory=set)
+    holders: dict[str, set[str]] = field(default_factory=dict)
 
     def reads(self, owner: str | None) -> set[str]:
         """The names of one namespace (a class body, or the module for None) that this symbol reads. What
@@ -947,15 +985,16 @@ class _Names:
 
     def evaluated(self) -> set[str]:
         """The names it reads from the module while the module runs, where it stands or in a nested scope that
-        runs there, not later from a def's body: no ``global`` declaration, which reads nothing, and no
-        annotation of a module that postpones them, which is never evaluated."""
+        runs there, not later from a def's body: no ``global`` declaration, which reads nothing, no annotation of
+        a module that postpones them, which is never evaluated, and no ``@name.setter``-shaped decorator's
+        receiver (a property's own accessor reads its class's property; any other makes the def ``decorated``)."""
         return self.plain | (set() if self.postponed else self.typed) | self.soon
 
     def calls(self) -> set[str]:
         """Of those, the names whose code it may run there: not a lone name an annotation evaluates, which Python
         stores and never calls (code that reads one through ``__annotations__`` reads this symbol's own name
         first), but every name of an annotation that may run code, unless the module postpones annotations."""
-        return self.plain | self.soon | (set() if self.postponed else self.active)
+        return self.plain | self.soon_calls | (set() if self.postponed else self.active)
 
     def rebinds(self) -> set[str]:
         """The module's names it binds: at module level, or anywhere through ``global``."""
@@ -1012,12 +1051,15 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
         used.active |= scope.active
         used.postponed = postponed
         used.later |= set().union(*(nested.taken() for nested in scope.nested))
-        used.soon |= set().union(*(nested.taken(now=True) for nested in scope.nested))
+        used.soon |= set().union(*(nested.taken_now(postponed) for nested in scope.nested))
+        used.soon_calls |= set().union(*(nested.taken_now(postponed, calls=True) for nested in scope.nested))
         # A ``global`` in a class body holds for the whole body, which the compiler scopes as one namespace and
         # the proof reads member by member: the member that stores or deletes a name the body declares global
         # binds the module's, and a declaration that is only read binds nothing (``class_globals``).
         used.declared |= scope.declared() | (scope.bound & class_globals)
         used.class_global |= scope.bound & class_globals
+        for held, takes in scope.held().items():
+            used.holders.setdefault(held, set()).update(takes)
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             # A builtin class base (``Exception``) runs no class-creation code of the module's: its metaclass is
             # ``type`` and its ``__init_subclass__`` object's. A property's accessor on a property above it copies it.
@@ -1261,14 +1303,16 @@ def _reaching(name: str, names: dict[str, _Names]) -> set[str]:
     """The names that may hold code which reads ``name`` when it runs, ``name`` among them: a def, lambda or
     class whose code (a body, a method, any nested scope) or header (a decorator, a default, an annotation,
     since what reads ``__annotations__`` may call it) loads one of them, a class one of whose members does, and
-    that member's own name, which its class body may call where it stands; and a name bound at
+    that member's own name, which its class body may call where it stands, and so for a def or class that a
+    class body nested in a symbol binds (``_Names.holders``: a member class's own members); and a name bound at
     import from one of them (``HANDLERS = [describe]``) or through ``global``, closed under those steps. What
     code does with a name is not followed: a reference counts as much as a call. Names are matched across
     namespaces (a member's name also stands for a module name it equals), which errs toward reporting."""
     reach = {name}
     while True:
         grown = reach.union(*(used.binds | ({used.owner} if used.owner else set()) | used.declared
-                              for used in names.values() if (used.here | used.later) & reach))
+                              for used in names.values() if (used.here | used.later) & reach),
+                            {held for used in names.values() for held, takes in used.holders.items() if takes & reach})
         if grown == reach:
             return reach
         reach = grown
