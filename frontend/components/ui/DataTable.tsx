@@ -128,6 +128,8 @@ const STICKY_COL_BASE =
 const headerZIndex = (isFirstCol: boolean, stickyHeader: boolean): string | undefined =>
   isFirstCol && stickyHeader ? 'z-20' : isFirstCol || stickyHeader ? 'z-10' : undefined
 const bodyZIndex = (isFirstCol: boolean): string | undefined => (isFirstCol ? 'z-[5]' : undefined)
+const nearestColumn = (stops: number[], position: number) => stops.reduce((best, stop, index) =>
+  Math.abs(stop - position) < Math.abs(stops[best] - position) ? index : best, 0)
 
 export function DataTable<T extends Record<string, unknown>>({
   columns,
@@ -197,14 +199,12 @@ export function DataTable<T extends Record<string, unknown>>({
       setOverflows(range > 0)
       const newest = !initialized.current && startAtEndOnMobile && window.matchMedia('(max-width: 639px)').matches
       if (snapColumns) scroll.scrollLeft = newest ? wholeRange : stops[Math.min(previous.column, stops.length - 1)] ?? 0
-      geometry.current.column = stops.findIndex(stop => Math.abs(stop - scroll.scrollLeft) < 1)
+      geometry.current.column = nearestColumn(stops, scroll.scrollLeft)
       initialized.current = true
     }
     const rememberColumn = () => {
       const current = geometry.current
-      const closest = current.stops.reduce((best, stop, index) =>
-        Math.abs(stop - scroll.scrollLeft) < Math.abs(current.stops[best] - scroll.scrollLeft) ? index : best, 0)
-      current.column = closest
+      current.column = nearestColumn(current.stops, scroll.scrollLeft)
     }
     measure()
     const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
@@ -263,7 +263,7 @@ export function DataTable<T extends Record<string, unknown>>({
         if (target == null) return
         event.preventDefault()
         scroll.scrollLeft = Math.max(0, Math.min(target, range))
-        geometry.current.column = geometry.current.stops.indexOf(scroll.scrollLeft)
+        geometry.current.column = nearestColumn(geometry.current.stops, scroll.scrollLeft)
       } : undefined}
       onFocusCapture={snapColumns ? (event) => {
         if (event.target === event.currentTarget) return
