@@ -12,12 +12,14 @@
 //   node harness/measure-current.mjs --base http://localhost:3000 --data prototype/data --out measurements/current.json [--shots dir]
 //
 // Run from tasks/analysis-redesign-2026-10/. Needs the global Playwright (NODE_PATH) or the frontend's.
-// measurements/current.json is the recording of main at 97293e7 and is written only from a checkout of that
-// revision: on any other checkout the run needs --out naming another file (a fresh measurement of the shipped
-// components, never a comparison with the recording), and it refuses an --out that holds a recording of another
-// commit. Every run records the checkout's commit, the frontend/ tree hash and the uncommitted files under
-// frontend/ and this directory; the served build must come from that checkout.
-import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs'
+// measurements/current.json is the recording of main at 97293e7 and is written only for a served build of that
+// revision. --build names the checkout whose frontend/ build the server serves (default: this harness's own
+// repository); the run reads its commit, its frontend/ tree hash, its uncommitted files under frontend/ and its
+// .next/BUILD_ID, and verifies before measuring that the server serves that build id. On any other build the run
+// needs --out naming another file (a fresh measurement of the shipped components, never a comparison with the
+// recording), and it refuses an --out that holds a recording of another commit. 97293e7 has no harness, so the
+// baseline is retaken by running this tree's harness with --build pointing at a worktree of that revision.
+import { readFileSync, mkdirSync, writeFileSync, existsSync, statSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import path from 'node:path'
 import { createRequire } from 'node:module'
@@ -31,17 +33,32 @@ const BASE = args.base || 'http://localhost:3000'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DATA = path.resolve(ROOT, args.data || 'prototype/data')
 const BASELINE = { file: 'measurements/current.json', revision: '97293e76fe71ff6b7e1848d57f00e808866e8c1c' }
-const git = (cmd) => { try { return execSync(cmd, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { return null } }
-const COMMIT = git('git rev-parse HEAD') || ''
+const git = (cwd, cmd) => { try { return execSync(`git ${cmd}`, { cwd, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { return null } }
+// The served build: the checkout whose frontend/ was built and is served at --base (default: this repository).
+const BUILD = path.resolve(args.build || path.join(ROOT, '..', '..'))
+const buildIdFile = path.join(BUILD, 'frontend', '.next', 'BUILD_ID')
+if (!existsSync(buildIdFile)) throw new Error(`no frontend build at ${BUILD} (${path.relative(process.cwd(), buildIdFile) || buildIdFile} is missing): build it there first, or pass --build <the checkout whose build the server serves>`)
+const SERVED = {
+  commit: git(BUILD, 'rev-parse HEAD') || '',
+  frontendTree: git(BUILD, 'rev-parse HEAD:frontend'),
+  dirty: (git(BUILD, 'status --porcelain -- frontend') || '').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => l.replace(/^\S+\s+/, '')),
+  buildId: readFileSync(buildIdFile, 'utf8').trim(),
+  builtAt: statSync(buildIdFile).mtime.toISOString(),
+}
+if (!SERVED.commit) throw new Error(`${BUILD} is not a git checkout: pass --build <the checkout whose build the server serves>`)
+// A build older than the checkout's last commit touching frontend/ cannot be that checkout's build (the harness
+// cannot see which tree a build came from, so build from the checkout right before measuring).
+const lastFrontendCommit = git(BUILD, 'log -1 --format=%h%x20%ct -- frontend')
+if (lastFrontendCommit) { const [hash, ct] = lastFrontendCommit.split(' '); const committedAt = new Date(Number(ct) * 1000); if (new Date(SERVED.builtAt) < committedAt) throw new Error(`the build at ${BUILD} (${SERVED.builtAt}) predates its checkout's last frontend commit (${hash} at ${committedAt.toISOString()}): rebuild from that checkout before measuring`) }
 const sameCommit = (a, b) => !!a && !!b && (a.startsWith(b) || b.startsWith(a))
-if (!args.out && !sameCommit(COMMIT, BASELINE.revision)) throw new Error(`${BASELINE.file} is the recording of main at ${BASELINE.revision.slice(0, 7)}; this checkout is ${COMMIT.slice(0, 7) || 'unknown'}: pass --out <another file> for a fresh measurement of this build (it does not compare with the recording), or run from a worktree of ${BASELINE.revision.slice(0, 7)} to retake the baseline`)
+if (!args.out && !sameCommit(SERVED.commit, BASELINE.revision)) throw new Error(`${BASELINE.file} is the recording of main at ${BASELINE.revision.slice(0, 7)}; the served build (${BUILD}) is ${SERVED.commit.slice(0, 7)}: pass --out <another file> for a fresh measurement of this build (it does not compare with the recording), or --build <a worktree of ${BASELINE.revision.slice(0, 7)} whose build the server serves> to retake the baseline`)
 const OUT = path.resolve(ROOT, args.out || BASELINE.file)
 if (existsSync(OUT)) {
   let recorded = null
   try { recorded = (JSON.parse(readFileSync(OUT, 'utf8')).environment || {}).commit || null } catch {}
-  if (recorded && !sameCommit(COMMIT, recorded)) throw new Error(`${path.relative(ROOT, OUT)} records a run of ${recorded}; this checkout is ${COMMIT.slice(0, 7) || 'unknown'}: pass a different --out`)
+  if (recorded && !sameCommit(SERVED.commit, recorded)) throw new Error(`${path.relative(ROOT, OUT)} records a run of ${recorded}; the served build is ${SERVED.commit.slice(0, 7)}: pass a different --out`)
 }
-const DIRTY = (git('git status --porcelain -- :/frontend :/tasks/analysis-redesign-2026-10/harness') || '').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => l.replace(/^\S+\s+/, ''))
+const HARNESS_COMMIT = (git(ROOT, 'rev-parse HEAD') || '').slice(0, 7)
 const SHOTS = args.shots || null
 const STATE = args.state || 'legacy'
 const API = 'http://localhost:8010'
@@ -199,7 +216,10 @@ async function measure(page, configuredWidth, expectedRows) {
 
 async function run() {
   const browser = await chromium.launch()
-  const results = { base: BASE, state: STATE, generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: COMMIT.slice(0, 7), frontendTree: git('git rev-parse HEAD:frontend'), dirty: DIRTY }, configs: [] }
+  const results = { base: BASE, state: STATE, generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: SERVED.commit.slice(0, 7), frontendTree: SERVED.frontendTree, dirty: SERVED.dirty, buildId: SERVED.buildId, builtAt: SERVED.builtAt, harnessCommit: HARNESS_COMMIT }, configs: [] }
+  // The server must serve the build of --build: its build manifest lives under the build id.
+  const manifest = await (await browser.newContext()).request.get(`${BASE}/_next/static/${SERVED.buildId}/_buildManifest.js`)
+  if (manifest.status() !== 200) { await browser.close(); throw new Error(`${BASE} does not serve the build of ${BUILD} (build id ${SERVED.buildId}: ${manifest.status()} for its build manifest): start the server from that checkout's build, or pass --build <the checkout it serves>`) }
   for (const theme of ['light', 'dark']) {
     for (const cfg of CONFIGS) {
       const context = await browser.newContext({ viewport: { width: cfg.width, height: cfg.height }, deviceScaleFactor: cfg.dsf || 1, isMobile: !!cfg.mobile, hasTouch: !!cfg.mobile, reducedMotion: 'reduce' })

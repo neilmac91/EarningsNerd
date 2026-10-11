@@ -1041,10 +1041,16 @@ correction landed in this document:
   table's "← Earlier quarters" hint hides at the scroll start and shows only while the table is scrolled
   away from it, as §4.5 says (it had shown whenever the table overflowed); the disclosure caret and the
   button fills do not transition under `prefers-reduced-motion`. `measure-current.mjs` refuses to write
-  `measurements/current.json`, the recording of `97293e7`, from any other checkout (a fresh measurement needs
-  `--out`, and an `--out` holding a recording of another commit is refused too) and records the checkout's
-  commit, its `frontend/` tree hash and the uncommitted files, as the prototype harness does; the committed
-  recording's environment block is annotated with its revision after the fact, its measurements untouched.
+  `measurements/current.json`, the recording of `97293e7`, for any other served build (a fresh measurement
+  needs `--out`, and an `--out` holding a recording of another commit is refused too). The served build is
+  the checkout `--build` names (default: the harness's own repository): the harness reads its commit, its
+  `frontend/` tree hash, its uncommitted files, its `.next/BUILD_ID` and the build's time, refuses a build
+  older than that checkout's last commit touching `frontend/` (it cannot see which tree a build came from),
+  verifies before measuring that the server serves that build id, and records them with its own commit;
+  `97293e7` has no harness, so the
+  baseline is retaken by this tree's harness with `--build` pointing at a worktree of that revision. The
+  committed recording's environment block is annotated with its revision after the fact, its measurements
+  untouched.
 - **Moved modules**, checked against `main` at `dd7b9ce` (#1222) on 2026-10-11: `normalize_companyfacts`
   lives in `facts/companyfacts.py` (#1210) behind the `facts_service.py` facade; `build_observation_catalogue`
   and `_point_value` in `trend_analysis/observations.py`, `_ratio_threshold_value` and

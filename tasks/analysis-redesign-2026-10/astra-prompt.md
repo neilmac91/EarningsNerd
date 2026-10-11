@@ -97,13 +97,14 @@ moved, and every test the brief names that pins text the change will alter (`kpi
 is a locked contract test (CLAUDE.md rule 6 lists those); say so explicitly in your notes. Run the
 prototype harness once to confirm `measurements/prototype.json` reproduces on your machine (the README has
 the commands). `measurements/current.json` is a recording of `main` at `97293e7`, before Phase 1 landed, so
-it reproduces only on a checkout of that revision: `git worktree add ../en-97293e7 97293e7`, then the
+it reproduces only against a build of that revision: `git worktree add ../en-97293e7 97293e7`, then the
 README's build and start commands in that worktree (`next build` with `NEXT_PUBLIC_ENABLE_ANALYSIS=true`,
-`next start` with `WAITLIST_MODE=false`, no backend). Run `measure-current.mjs` on current `main` only as a
-fresh measurement of the shipped components (its probes find that markup by data attribute), never as a
-comparison with the recording: the counts and geometry differ by design, and the harness refuses to write
-`measurements/current.json` from any other checkout, so pass `--out` naming another file (the run records the
-checkout's commit and the uncommitted files under `frontend/`).
+`next start` with `WAITLIST_MODE=false`, no backend) and this tree's harness with `--build ../en-97293e7`
+(`97293e7` has no harness; the harness verifies the server serves that worktree's build id and records that
+checkout's commit). Run `measure-current.mjs` on current `main` only as a fresh measurement of the shipped
+components (its probes find that markup by data attribute), never as a comparison with the recording: the
+counts and geometry differ by design, and the harness refuses to write `measurements/current.json` for any
+other served build, so pass `--out` naming another file.
 
 Track B, after Track A: implement what is open in proposal §7 (the P1 follow-ups of the review file, the
 gate's leftovers among them, then Phase 2), one PR per numbered item or grouped as the brief allows, each as a draft, each verified with

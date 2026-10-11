@@ -97,17 +97,21 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
 
 ```bash
 # current components: build and serve the frontend from frontend/ (the critique environment's flags; no backend).
-# measurements/current.json records main at 97293e7, before Phase 1 landed: to reproduce it, run these
-# commands in a worktree of that revision (git worktree add ../en-97293e7 97293e7); on current main the
-# harness measures the shipped components instead, and the counts and geometry differ by design.
-(cd frontend && NEXT_PUBLIC_ENABLE_ANALYSIS=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8010 npm run build)
-(cd frontend && WAITLIST_MODE=false npx next start -p 3000 &)
-# then, from the repository root, with Playwright resolvable (the frontend's install, or the cloud image's global one)
-NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-current.mjs --base http://localhost:3000 --shots /tmp/shots
-# A fresh measurement of any other checkout needs --out naming another file: the harness refuses to write
-# measurements/current.json from a checkout other than 97293e7, and refuses an --out that holds a recording of
-# another commit. Every run records the checkout's commit, its frontend/ tree hash and the uncommitted files
-# under frontend/ and the harness; the served build must come from that checkout.
+# measurements/current.json records main at 97293e7, before Phase 1 landed. To reproduce it, build and start
+# the frontend in a worktree of that revision (97293e7 has no harness, so the harness runs from this tree and
+# --build names the worktree whose build the server serves); on current main the harness measures the shipped
+# components instead, and the counts and geometry differ by design.
+git worktree add ../en-97293e7 97293e7
+(cd ../en-97293e7/frontend && npm ci && NEXT_PUBLIC_ENABLE_ANALYSIS=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8010 npm run build)
+(cd ../en-97293e7/frontend && WAITLIST_MODE=false npx next start -p 3000 &)
+# then, from this repository's root, with Playwright resolvable (the frontend's install, or the cloud image's global one)
+NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-current.mjs --base http://localhost:3000 --build ../en-97293e7 --shots /tmp/shots
+# The harness reads the served checkout's commit, frontend/ tree hash, uncommitted files under frontend/,
+# .next/BUILD_ID and the build's time, refuses a build older than that checkout's last commit touching frontend/
+# (it cannot see which tree a build came from, so build right before measuring), verifies before measuring that
+# the server serves that build id, and records them with its own commit. It writes measurements/current.json
+# only for a served build of 97293e7: a fresh measurement of any other build (--build defaults to this
+# repository) needs --out naming another file, and an --out that holds a recording of another commit is refused.
 
 # prototype (no server needed; --fonts answers Google Fonts from a local directory when offline)
 NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-proto.mjs --shots /tmp/shots
