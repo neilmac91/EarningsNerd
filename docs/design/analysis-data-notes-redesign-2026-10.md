@@ -638,7 +638,8 @@ stored value, bound arithmetic, checks and the comparison block; `lib/narrativeD
 `lib/figureDisplay.ts` with the evidence fold; chart notes with `lib/chartNoteLayout.ts` and PNG
 notes; `PeriodPicker` with presets and From/To selects; the one-line `analysis-api.spec.ts` change as
 the pre-approved rule-6 contract change, each item except the parts that wait on decisions 7–9, named
-under items 6, 8 and 9); item 10 and the dark sticky-hover fix are on `main` (#1206:
+under items 6, 8 and 9, and item 7's three-figure rule and summary letters, open under item 7); item 10 and
+the dark sticky-hover fix are on `main` (#1206:
 `tests/e2e/analysis-layout.spec.ts` with its fixtures, the `ci.yml` flag, the `DataTable` hover fill; the
 status note under item 10 says what that gate still owes). Open: the follow-ups the comprehensive review
 lists in `tasks/analysis-redesign-2026-10/review-2026-10-10.md`, and Phase 2. Each landed PR recorded its
@@ -681,7 +682,9 @@ operational action and is not part of this brief.
    its operands bound by concept, the status vocabulary, the comparison block, the lineage block with the
    absent-lineage copy; never a storage unit (§4.6). Leftovers on `main`: `review-2026-10-10.md` items 1,
    13, 16 and 28, and the paused vocabulary.
-7. **`NarrativePane.tsx`** (M; landed in #1203): compact amounts and periods at render time until Phase 2
+7. **`NarrativePane.tsx`** (M; partly landed in #1203: the render-time compaction, the evidence fold, the
+   header chips and the Sources lines; `main` folds every operand list and its summary names only the count,
+   so the three-figure rule and the letters on the fold's summary are open): compact amounts and periods at render time until Phase 2
    renders them server-side, under the relation-safe rule of §4.8; the evidence disclosure for lists of
    more than three figures, shorter lists inline, letters on the fold's summary, rows from the citations
    the markers name; header chips; Sources list lines. Update `narrative-pane.spec.tsx`. Leftovers on
@@ -1003,7 +1006,9 @@ correction landed in this document:
   `lib/dataNotes.ts` does); an open note lists where its comparisons are; the dialog explains the
   displayed change (§4.6 item 5) with its status, the operand that carries the note, its formula and its
   inputs; the open note's locator counts the revenue growth chart, which plots revenue's YoY comparisons
-  with their letters.
+  with their letters; the sticky row header keeps an opaque fill on dark hover (the prototype had carried
+  the same translucent wash #1206 removed from `DataTable`; its harness now hovers a row in every proposed
+  configuration and fails on a translucent fill).
 - **Moved modules**, checked against `main` at `dd7b9ce` (#1222) on 2026-10-11: `normalize_companyfacts`
   lives in `facts/companyfacts.py` (#1210) behind the `facts_service.py` facade; `build_observation_catalogue`
   and `_point_value` in `trend_analysis/observations.py`, `_ratio_threshold_value` and

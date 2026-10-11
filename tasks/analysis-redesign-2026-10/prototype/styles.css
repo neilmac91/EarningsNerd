@@ -233,6 +233,9 @@ table.metrics tbody th { border-top: 1px solid var(--hair); text-align: left; fo
 table.metrics .sticky { position: sticky; left: 0; z-index: 5; background: var(--panel); border-right: 1px solid var(--hair); }
 table.metrics tbody tr:hover td, table.metrics tbody tr:hover th { background: var(--white); }
 html.dark table.metrics tbody tr:hover td, html.dark table.metrics tbody tr:hover th { background: rgba(255,255,255,0.03); }
+/* The sticky row header keeps an OPAQUE fill on hover (#1206's rule): a translucent wash would let the period values scrolling beneath it show through, the hidden-column defect the table removes. */
+table.metrics tbody tr:hover th.sticky { background: var(--white); }
+html.dark table.metrics tbody tr:hover th.sticky { background: var(--panel); }
 table.metrics .cell { display: flex; flex-direction: column; align-items: flex-end; gap: 0.0625rem; line-height: 1rem; }
 table.metrics .cell .v { white-space: nowrap; }
 table.metrics .cell .d { white-space: nowrap; font-size: 0.75rem; }

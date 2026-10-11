@@ -38,7 +38,8 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   comprehensive review of 2026-10-10 the probes read the rendered text (text-node rectangles and
   `scrollWidth` against `clientWidth` of every block, `.sr-only` excluded), test cell text against the
   cell's content box on both sides (a right-aligned overflow runs to the inline start, which `scrollWidth`
-  never counts), visit every scroll rest position for a header straddling the sticky edge, assert their
+  never counts), visit every scroll rest position for a header straddling the sticky edge, hover a metrics
+  row and fail on a translucent fill behind the sticky row header (the values beneath it would show through), assert their
   element counts (4 cards; 13 header cells in the 12-quarter window and 7 in Newest 6; exactly the
   dataset's 20 metric rows) so
   a probe that finds nothing fails the run, and record the Chromium, platform, commit and prototype tree

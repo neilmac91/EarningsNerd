@@ -2,7 +2,9 @@
 // reproduction of today's markup, at the brief's widths, both themes, 200% browser zoom and 200%
 // text size: page overflow, KPI card-child containment and value alignment, table width and
 // column widths, sticky-column occlusion at EVERY rest position, both-sided cell clipping of the rendered
-// text, text-aware KPI containment, and the count of repeated labels; 200% text at 1480, 390 and 320.
+// text, text-aware KPI containment, the painted fill of a hovered sticky row header (it must be opaque,
+// or the values scrolling beneath it show through), and the count of repeated labels; 200% text at 1480,
+// 390 and 320.
 //
 //   node harness/measure-proto.mjs --out measurements/prototype.json [--fonts dir] [--shots dir] [--allow-dirty]
 //
@@ -94,6 +96,20 @@ async function run() {
           await page.waitForTimeout(120)
           const m = await page.evaluate((w) => window.EN_PROTO.measure(w), cfg.width)
           expectCounts(m, 13, rows, `${stateName}/${mode}/${theme}/${cfg.name}`)
+          // A hovered sticky row header must paint an opaque fill (review item 17, #1206's rule): a translucent
+          // wash lets the values scrolling beneath it show through, a state the rest-position probe cannot see.
+          if (mode === 'proposed') {
+            const header = page.locator('table.metrics tbody tr th.sticky').first()
+            await header.hover()
+            m.stickyHover = await header.evaluate((el) => {
+              const fill = getComputedStyle(el).backgroundColor
+              const channels = (fill.match(/^rgba?\(([^)]+)\)$/) || [, ''])[1].split(/[\s,/]+/).filter(Boolean)
+              return { fill, opaque: channels.length === 3 || (channels.length === 4 && parseFloat(channels[3]) >= 1) }
+            })
+            await page.mouse.move(0, 0)
+            await page.evaluate(() => window.scrollTo(0, 0))
+            if (!m.stickyHover.opaque) throw new Error(`${stateName}/${mode}/${theme}/${cfg.name}: the hovered sticky row header paints ${m.stickyHover.fill}, not an opaque fill`)
+          }
           // Does the proposed table fit without scrolling in the "Newest 6" window?
           let window6 = null
           if (mode === 'proposed') {
@@ -111,7 +127,7 @@ async function run() {
             mkdirSync(SHOTS, { recursive: true })
             await page.screenshot({ path: path.join(SHOTS, `proto-${key.replace(/[/@%]/g, '-')}.png`), fullPage: true })
           }
-          if (mode === 'proposed' && stateName === 'legacy') console.log(theme, cfg.name, 'overflow', m.pageOverflowPx, 'kpi worst', m.kpi.map((k) => k.worstOverflowPx).join(','), 'clippedCells', m.table && m.table.clippedCount, 'occludedPositions', m.table && m.table.occludedPositions.length, 'readableCols', m.table && m.table.readableColumns, 'valueTop', [...new Set(m.kpi.map((k) => k.valueTop))].join('/'), 'table', m.table && `${m.table.tableWidth}/${m.table.containerWidth} cols ${m.table.minColumn}-${m.table.maxColumn} scrolls=${m.table.scrolls} clipped=${m.table.cellTextClipped} occluded=${m.table.occludedAtFarRight.length}`, 'win6', window6 && `${window6.tableWidth}/${window6.containerWidth} scrolls=${window6.scrolls}`)
+          if (mode === 'proposed' && stateName === 'legacy') console.log(theme, cfg.name, 'overflow', m.pageOverflowPx, 'kpi worst', m.kpi.map((k) => k.worstOverflowPx).join(','), 'clippedCells', m.table && m.table.clippedCount, 'occludedPositions', m.table && m.table.occludedPositions.length, 'readableCols', m.table && m.table.readableColumns, 'stickyHover', m.stickyHover && m.stickyHover.fill, 'valueTop', [...new Set(m.kpi.map((k) => k.valueTop))].join('/'), 'table', m.table && `${m.table.tableWidth}/${m.table.containerWidth} cols ${m.table.minColumn}-${m.table.maxColumn} scrolls=${m.table.scrolls} clipped=${m.table.cellTextClipped} occluded=${m.table.occludedAtFarRight.length}`, 'win6', window6 && `${window6.tableWidth}/${window6.containerWidth} scrolls=${window6.scrolls}`)
         }
       }
       await context.close()
