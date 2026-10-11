@@ -1047,12 +1047,15 @@ correction landed in this document:
   `frontend/` tree hash, its uncommitted files, its `.next/BUILD_ID` and the build's time, refuses a build
   older than that checkout's last commit touching `frontend/` (it cannot see which tree a build came from),
   verifies before measuring that the server serves that build id, and records them with its own commit and
-  uncommitted files, and the fixtures' tree hash with theirs; the baseline is written only for the legacy
-  state from the committed fixtures and only from clean trees, so its recorded state, commit and tree hashes
-  identify the measured code and data; `97293e7` has no harness, so the
-  baseline is retaken by this tree's harness with `--build` pointing at a worktree of that revision. The
-  committed recording's environment block is annotated with its revision after the fact, its measurements
-  untouched.
+  uncommitted files, and the fixtures `--data` names by a content hash of their files and, inside the
+  repository, by their tree hash with their uncommitted files (a run of another directory had recorded the
+  committed fixtures' tree); the baseline is written only for the legacy state from the committed fixtures
+  and only from clean trees, so its recorded state, commit and hashes identify the measured code and data,
+  and its revision is enforced whether `--out` names that file or it is the default (a missing or malformed
+  recording had let an explicit `--out` through); `97293e7` has no harness, so the baseline is retaken by
+  this tree's harness with `--build` pointing at a worktree of that revision. The committed recording's
+  environment block is annotated with its revision and its fixtures' hashes after the fact, its
+  measurements untouched.
 - **Moved modules**, checked against `main` at `dd7b9ce` (#1222) on 2026-10-11: `normalize_companyfacts`
   lives in `facts/companyfacts.py` (#1210) behind the `facts_service.py` facade; `build_observation_catalogue`
   and `_point_value` in `trend_analysis/observations.py`, `_ratio_threshold_value` and
