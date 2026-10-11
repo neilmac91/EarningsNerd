@@ -21,7 +21,7 @@ def _company(db, *, sic):
     from app.models import Company
 
     suffix = uuid.uuid4().hex[:8]
-    company = Company(cik=suffix, ticker=("T" + suffix[:5]).upper(), name=f"Co {suffix}", sic=sic)
+    company = Company(cik=suffix, ticker=("T" + suffix).upper(), name=f"Co {suffix}", sic=sic)
     db.add(company)
     db.commit()
     db.refresh(company)
@@ -55,7 +55,7 @@ class TestGetPeers:
         from app.database import SessionLocal
 
         db = SessionLocal()
-        sic = f"SIC{uuid.uuid4().hex[:6]}"
+        sic = f"SIC{uuid.uuid4().hex[:8]}"
         a = _company(db, sic=sic)  # subject
         b = _company(db, sic=sic)
         c = _company(db, sic=sic)
@@ -84,7 +84,7 @@ class TestGetPeers:
         from app.database import SessionLocal
 
         db = SessionLocal()
-        sic = f"SIC{uuid.uuid4().hex[:6]}"
+        sic = f"SIC{uuid.uuid4().hex[:8]}"
         a = _company(db, sic=sic)
         _fact(db, a.id, concept="revenue", value=50.0, period_end=date(2021, 12, 31), fy=2021)
         _fact(db, a.id, concept="revenue", value=80.0, period_end=date(2023, 12, 31), fy=2023)
@@ -98,8 +98,8 @@ class TestGetPeers:
         from app.database import SessionLocal
 
         db = SessionLocal()
-        sic_a = f"SIC{uuid.uuid4().hex[:6]}"
-        sic_b = f"SIC{uuid.uuid4().hex[:6]}"
+        sic_a = f"SIC{uuid.uuid4().hex[:8]}"
+        sic_b = f"SIC{uuid.uuid4().hex[:8]}"
         a = _company(db, sic=sic_a)
         other = _company(db, sic=sic_b)
         _fact(db, a.id, concept="revenue", value=100.0, period_end=date(2023, 12, 31), fy=2023)
@@ -116,7 +116,7 @@ class TestGetPeers:
         from app.database import SessionLocal
 
         db = SessionLocal()
-        sic = f"SIC{uuid.uuid4().hex[:6]}"
+        sic = f"SIC{uuid.uuid4().hex[:8]}"
         a = _company(db, sic=sic)  # no facts for the requested concept
         result = svc.get_peers(db, a.ticker, "net_margin")
         assert result["subject"]["is_subject"] is True
@@ -131,7 +131,7 @@ class TestGetPeers:
         from app.models import FinancialFact
 
         db = SessionLocal()
-        sic = f"SIC{uuid.uuid4().hex[:6]}"
+        sic = f"SIC{uuid.uuid4().hex[:8]}"
         a = _company(db, sic=sic)
         # Annual FY2023 — the value peers should rank on ...
         _fact(db, a.id, concept="revenue", value=100.0, period_end=date(2023, 12, 31), fy=2023)
@@ -159,7 +159,7 @@ class TestGetPeers:
         from app.database import SessionLocal
 
         db = SessionLocal()
-        sic = f"SIC{uuid.uuid4().hex[:6]}"
+        sic = f"SIC{uuid.uuid4().hex[:8]}"
         top = _company(db, sic=sic)
         tie_a = _company(db, sic=sic)
         tie_b = _company(db, sic=sic)
@@ -181,7 +181,7 @@ class TestGetPeers:
         from app.database import SessionLocal
 
         db = SessionLocal()
-        sic = f"SIC{uuid.uuid4().hex[:6]}"
+        sic = f"SIC{uuid.uuid4().hex[:8]}"
         usd_subject = _company(db, sic=sic)
         usd_peer = _company(db, sic=sic)
         cny_fpi = _company(db, sic=sic)
@@ -204,7 +204,7 @@ class TestGetPeers:
         from app.database import SessionLocal
 
         db = SessionLocal()
-        sic = f"SIC{uuid.uuid4().hex[:6]}"
+        sic = f"SIC{uuid.uuid4().hex[:8]}"
         cny_subject = _company(db, sic=sic)
         cny_peer = _company(db, sic=sic)
         usd_peer = _company(db, sic=sic)
