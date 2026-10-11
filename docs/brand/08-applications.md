@@ -115,7 +115,8 @@ Specs updated with the copy they pin: `pro-depth.spec.tsx`, `hero-example-surfac
 `waitlist-example.spec.tsx`, `landing-tweaks.spec.tsx`, `landing-sections-mounted.spec.ts`,
 `PricingPage.spec.tsx` (new case: the invite gate's call to action), `busyControls.forms.spec.tsx`,
 `CookieConsent.spec.tsx`, `FinancialMetricsCards.spec.tsx` (new case: a per-share figure keeps its
-cents in both layouts) and `backend/tests/unit/test_export_service.py`. The design gates
+cents in both layouts), `tests/e2e/not-found-page.spec.ts` (the 404 body's contrast check reads the
+new sentence) and `backend/tests/unit/test_export_service.py`. The design gates
 (`designSnapshotParity.spec.ts`, the ESLint design rules, `no-em-dash-copy.spec.ts`,
 `wordmarkSingleSource.spec.ts`) run unchanged against the new surfaces; their tails are in the
 handoff ([README.md](README.md)).
