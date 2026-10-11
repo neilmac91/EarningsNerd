@@ -41,7 +41,7 @@ function Table({ snap = true, newest = false }: { snap?: boolean; newest?: boole
 }
 
 describe('DataTable opt-in column scrolling', () => {
-  it('pads the far end to a whole measured column and recalculates after text resize', () => {
+  it('pads whole-column stops, unsticks narrow labels, and preserves a period after text resize', () => {
     render(<Table />)
     const region = screen.getByRole('region', { name: 'Quarterly metrics' })
     expect(region).toHaveAttribute('tabindex', '0')
@@ -49,13 +49,24 @@ describe('DataTable opt-in column scrolling', () => {
     expect(region.style.paddingInlineEnd).toBe('8px')
     expect(region.style.scrollPaddingInlineStart).toBe('104px')
     expect((region.scrollWidth - region.clientWidth) % periodWidth).toBe(0)
+    fireEvent.keyDown(region, { key: 'ArrowRight' })
+    expect(region.scrollLeft).toBe(68)
     periodWidth = 136
     metricWidth = 208
     act(() => resize())
-    expect(region.style.scrollPaddingInlineStart).toBe('208px')
-    expect((region.scrollWidth - region.clientWidth) % periodWidth).toBe(0)
+    expect(region.style.scrollPaddingInlineStart).toBe('0px')
+    expect(screen.getByRole('rowheader')).not.toHaveClass('sticky')
+    expect(screen.getByRole('columnheader', { name: 'Metric' })).toHaveClass('snap-start')
+    expect((region.scrollWidth - region.clientWidth - metricWidth) % periodWidth).toBe(0)
+    expect(region.scrollLeft).toBe(344)
+    const padding = region.style.paddingInlineEnd
+    act(() => resize())
+    expect(region.style.paddingInlineEnd).toBe(padding)
+    expect(region.scrollLeft).toBe(344)
+    fireEvent.keyDown(region, { key: 'Home' })
+    expect(region.scrollLeft).toBe(0)
     fireEvent.keyDown(region, { key: 'ArrowRight' })
-    expect(region.scrollLeft).toBe(136)
+    expect(region.scrollLeft).toBe(metricWidth)
   })
 
   it('moves by measured columns with arrows/Home/End without stealing child keys', () => {
@@ -63,13 +74,23 @@ describe('DataTable opt-in column scrolling', () => {
     const region = screen.getByRole('region')
     fireEvent.keyDown(region, { key: 'ArrowRight' })
     expect(region.scrollLeft).toBe(68)
-    fireEvent.keyDown(screen.getByRole('button', { name: 'Source 1' }), { key: 'Home' })
-    expect(region.scrollLeft).toBe(68)
+    for (const key of ['ArrowLeft', 'Home', 'End', 'PageUp', 'PageDown']) {
+      expect(fireEvent.keyDown(screen.getByRole('button', { name: 'Source 1' }), { key })).toBe(true)
+      expect(region.scrollLeft).toBe(68)
+    }
+    for (const modifier of ['altKey', 'ctrlKey', 'metaKey']) {
+      expect(fireEvent.keyDown(region, { key: 'Home', [modifier]: true })).toBe(true)
+      expect(region.scrollLeft).toBe(68)
+    }
     fireEvent.keyDown(region, { key: 'End' })
     expect(region.scrollLeft).toBe(612)
     fireEvent.keyDown(region, { key: 'ArrowLeft' })
     expect(region.scrollLeft).toBe(544)
     fireEvent.keyDown(region, { key: 'Home' })
+    expect(region.scrollLeft).toBe(0)
+    expect(fireEvent.keyDown(region, { key: 'PageDown' })).toBe(false)
+    expect(region.scrollLeft).toBe(272)
+    expect(fireEvent.keyDown(region, { key: 'PageUp' })).toBe(false)
     expect(region.scrollLeft).toBe(0)
   })
 
@@ -79,6 +100,11 @@ describe('DataTable opt-in column scrolling', () => {
     const region = screen.getByRole('region')
     expect(region.style.paddingInlineEnd).toBe('')
     expect(region.style.scrollPaddingInlineStart).toBe('')
+    viewport = 2000
+    act(() => resize())
+    expect(screen.queryByRole('region')).not.toBeInTheDocument()
+    expect(region).not.toHaveAttribute('aria-label')
+    expect(region).not.toHaveAttribute('tabindex')
     rerender(<DataTable columns={[{ key: 'id', header: 'ID' }]} rows={rows} rowKey={(row) => row.id} />)
     expect(screen.queryByRole('region')).not.toBeInTheDocument()
     expect(screen.queryByRole('rowheader')).not.toBeInTheDocument()
@@ -93,6 +119,7 @@ describe('DataTable opt-in column scrolling', () => {
     const region = screen.getByRole('region')
     expect(region.scrollLeft).toBe(612)
     region.scrollLeft = 68
+    fireEvent.scroll(region)
     act(() => resize())
     expect(region.scrollLeft).toBe(68)
   })

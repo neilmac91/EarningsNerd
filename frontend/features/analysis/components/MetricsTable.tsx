@@ -79,9 +79,12 @@ export default function MetricsTable({
               <SourceValue compactMarks point={{ ...point, unit: point.unit ?? row.series.unit }} label={sourceLabel} concept={row.series.concept} note={note} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote } : undefined}><span className="inline-block">{formatTableValue(point.value, row.series, tableTokenBudget(calculated, note?.letter))}</span></SourceValue>
             </span>
             {growthText && (
-              <span className={`text-xs ${directionText[tone]}`}>
-                {dataset.mode === 'quarterly' && growthLabel === 'YoY' ? 'YoY ' : <span className="sr-only">Change vs {basis} </span>}<span className="inline-block">{compactGrowth}</span>
-                <DataNoteMark compact note={growthNote} announce />
+              <span className={`flex flex-col items-end text-xs ${directionText[tone]}`}>
+                {dataset.mode === 'quarterly' && growthLabel === 'YoY' && <span>YoY </span>}
+                <span className="inline-flex items-baseline">
+                  <span className="sr-only">Change vs {dataset.mode === 'quarterly' && growthLabel === 'YoY' ? 'same quarter last year' : basis} </span>
+                  {compactGrowth}<DataNoteMark compact note={growthNote} announce />
+                </span>
               </span>
             )}
           </div>

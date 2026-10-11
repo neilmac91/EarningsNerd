@@ -266,17 +266,22 @@ Data table hover <DataTable> — ordinary rows use hover:bg-white dark:hover:bg-
                  group-hover:bg-white; dark hover retains dark:group-hover:bg-panel-dark. The
                  ordinary row tint must not replace that opaque fill and reveal scrolled values.
 
-Analysis table   <MetricsTable> — equal rem period columns with a semantic sticky row-header column.
-                 The named scroll region supports Left/Right by one measured column, Home/End,
-                 and mandatory snapping. Inline-end padding makes the entire scroll range a whole
-                 number of columns; resize and enlarged text recompute the actual rendered widths.
-                 Focused figure controls are scrolled clear of the sticky labels. Phones start at
+Analysis table   <MetricsTable> — equal rem period columns with semantic row headers. The label
+                 column sticks only when the scrollport can also show one whole period; otherwise
+                 it scrolls with the table and has its own snap stop. While actually overflowing,
+                 the named region is a Tab stop supporting Left/Right by one measured column,
+                 Home/End, PageUp/PageDown and mandatory snapping. Child controls retain their keys. Inline-end padding makes the entire scroll range a whole
+                 number of columns. A layout effect measures before paint; resize and enlarged text
+                 recompute rendered widths without accumulating padding or losing the prior column.
+                 Focused figure controls are scrolled wholly into view using the active sticky inset.
+                 Phones below 640px start at
                  the newest period, with a visible scrolling hint when columns are off-screen.
                  A table-only segmented window defaults to All, with Newest 6 and Earliest 6 when
                  more than six periods exist. Charts, KPI cards, data-note totals and full exports
                  retain the complete selected dataset. A new report resets the table window.
                  Headers show quarter/year on two lines. The change basis is stated once, while
-                 a fallback YoY comparison retains its explicit prefix. Only a period-derived Q4
+                 a fallback YoY label sits on its own line above the complete change and note.
+                 Data cells align at the top so missing values and mixed growth heights stay aligned. Only a period-derived Q4
                  receives a column dagger; ordinary arithmetic ratios do not create one.
                  Table-only formatting keeps complete amounts and affixes together: normal precision
                  first, then fewer decimals, compact scale or scientific notation for large tokens.
@@ -317,6 +322,8 @@ Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly
                  there are no quarterly options. Table windows never alter this report selection.
 
 Analysis KPI     <KpiStrip> — a definition list, two cards across at phone widths and four from lg.
+                 An inline-size container query collapses it to one card below 17em of the
+                 component’s actual text size; 320px at ordinary text still has two cards.
                  Each Card groups a metric-only dt and two dd rows: the 24px data-face value/source
                  button, then the actual reporting period and delta. Cards span three subgrid rows,
                  so wrapped labels do not move neighbouring values. The period and delta wrap as

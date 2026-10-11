@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { expect, type Page } from '@playwright/test'
 import type { AnalysisCompletion, AnalysisCoverage, AnalysisDataset } from '../../../features/analysis/api/analysis-api'
@@ -12,6 +13,7 @@ import type { AnalysisCompletion, AnalysisCoverage, AnalysisDataset } from '../.
  * CI boots next start only: all API paths are answered here, with no backend or AI.
  */
 export type AnalysisState = 'clean' | 'legacy' | 'discrepancy'
+export type AnalysisGeometryState = 'captured' | 'edge' | 'annual'
 export type AnalysisTheme = 'light' | 'dark'
 type Fixture = { dataset: AnalysisDataset; completion: AnalysisCompletion & { type: 'complete' } }
 type Replacement = { path: Array<string | number>; value?: unknown; remove?: boolean }
@@ -30,6 +32,63 @@ function fixtureFor(state: AnalysisState): Fixture {
     if (replacement.remove) delete parent[key]
     else parent[key] = structuredClone(replacement.value)
   }
+  return fixture
+}
+
+// The captured projection remains separate from the historical prototype fixtures above.
+// Only display metadata (unit, tone and period fields) is filled from the archived map.
+const captureBytes = readFileSync(path.join(__dirname, '../../unit/fixtures/meta-data-notes.json'))
+const capture = JSON.parse(captureBytes.toString()) as { dataset: AnalysisDataset }
+
+function geometryFixture(state: AnalysisGeometryState): Fixture {
+  expect(createHash('sha256').update(captureBytes).digest('hex')).toBe('67c83050dfd78bab0dd379f3e98806e429dbde024f412574091d595b85e33cad')
+  const fixture = fixtureFor('legacy')
+  fixture.dataset = {
+    ...fixture.dataset, ...structuredClone(capture.dataset),
+    series: capture.dataset.series.map(series => ({
+      ...structuredClone(archive.legacy.dataset.series.find(item => item.concept === series.concept)!),
+      ...structuredClone(series),
+    })),
+    periods: structuredClone(archive.legacy.dataset.periods),
+    inflections: [],
+  }
+  // These cases test presentation only; no prose from another state claims these values.
+  fixture.completion = { ...fixture.completion, narrative: '## The trajectory\nSynthetic geometry fixture.', citations: [], grounded: 0 }
+  const dataset = fixture.dataset
+  const review = (reasons: string[]) => ({ version: 1, method: 'calculated' as const, validation: 'needs_review' as const, reasons, formula: null, inputs: [] })
+  if (state === 'edge') {
+    // More than 26 reason groups force actual multi-letter affixes through table formatting.
+    dataset.series.slice(0, 3).forEach((series, row) => series.points.forEach((point, column) => {
+      point.provenance = review([`layout_reason_${row * 12 + column}`])
+    }))
+    const revenue = dataset.series.find(series => series.concept === 'revenue')!
+    Object.assign(revenue.points.at(-1)!, { value: 0, qoq: 0, yoy: 0 })
+    const cash = dataset.series.find(series => series.concept === 'free_cash_flow')!
+    Object.assign(cash.points.at(-1)!, { value: null, qoq: null, yoy: null })
+    const margin = dataset.series.find(series => series.concept === 'operating_margin')!
+    Object.assign(margin.points[0], { value: -12345.678, qoq: 12345.678 })
+    const eps = dataset.series.find(series => series.concept === 'eps_diluted')!
+    eps.unit = 'CAD/shares'
+    Object.assign(eps.points[0], { value: -15154, qoq: null, yoy: 1234.567, yoy_provenance: review(['source_check_needed']) })
+    Object.assign(eps.points[2], { value: 0, qoq: 'nm' })
+    Object.assign(eps.points[3], { provenance: review(['unit_mismatch', 'source_check_needed']) })
+    Object.assign(eps.points[4], { provenance: review(['source_check_needed', 'unit_mismatch']) })
+    delete eps.points[5].provenance
+    delete eps.points[5].reconciled
+    delete eps.points[6].provenance
+    eps.points[6].reconciled = false
+  }
+  if (state === 'annual') {
+    dataset.mode = 'annual'
+    dataset.periods = Array.from({ length: 10 }, (_, index) => ({ key: `FY${2016 + index}`, fiscal_year: 2016 + index, fiscal_period: 'FY', period_end: `${2016 + index}-12-31` }))
+    dataset.period_key = 'FY2016..FY2025'
+    for (const series of dataset.series) {
+      series.points = series.points.slice(0, 10).map((point, index) => ({ ...point, period: dataset.periods[index].key, qoq: null, qoq_provenance: null }))
+      if (series.percent) Object.assign(series, { cagr: null, window_pp: -12.345, window_pp_range: dataset.period_key, window_pp_provenance: review(['source_check_needed']) })
+      else Object.assign(series, { cagr: 0.1234, cagr_window: dataset.period_key, cagr_provenance: review(['source_check_needed']) })
+    }
+  }
+  fixture.completion.n_periods = dataset.periods.length
   return fixture
 }
 
@@ -114,9 +173,9 @@ export const EXPECTED_TABLE_COMPARISON_REVIEWS = {
   discrepancy: { all: 3, earliest: 0, newest: 3 },
 } as const
 
-export async function openAnalysis(page: Page, baseURL: string, state: AnalysisState, theme: AnalysisTheme, textScale = 1, legacyEvidenceNote = false) {
+export async function openAnalysis(page: Page, baseURL: string, state: AnalysisState | AnalysisGeometryState, theme: AnalysisTheme, textScale = 1, legacyEvidenceNote = false) {
   const origin = new URL(baseURL).origin
-  const fixture = fixtureFor(state)
+  const fixture = state === 'captured' || state === 'edge' || state === 'annual' ? geometryFixture(state) : fixtureFor(state)
   if (legacyEvidenceNote) {
     expect(state).toBe('legacy')
     // The archived long FCF/net-income group has only passed citations. Give one
@@ -169,7 +228,7 @@ export async function openAnalysis(page: Page, baseURL: string, state: AnalysisS
     return route.abort()
   })
   await page.goto('/analysis?ticker=META')
-  await page.getByRole('button', { name: 'Quarterly', exact: true }).click()
+  await page.getByRole('button', { name: fixture.dataset.mode === 'annual' ? 'Annual' : 'Quarterly', exact: true }).click()
   await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
   await expect(page.locator('[data-analysis-kpi]')).toHaveCount(4)
   await expect(page.getByRole('heading', { name: 'Metrics by period', exact: true })).toBeVisible()
@@ -178,7 +237,7 @@ export async function openAnalysis(page: Page, baseURL: string, state: AnalysisS
   await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /\bdark\b/ : /^(?!.*\bdark\b)/)
   expect(traffic.dataset).toBe(1)
   expect(traffic.stream).toBe(1)
-  expect(traffic.submittedRanges).toEqual([{ mode: 'quarterly', start_period: PERIODS[0], end_period: PERIODS.at(-1) }])
+  expect(traffic.submittedRanges).toEqual([{ mode: fixture.dataset.mode, start_period: fixture.dataset.periods[0].key, end_period: fixture.dataset.periods.at(-1)!.key }])
   expect(traffic.unexpectedApi).toEqual([])
   return traffic
 }

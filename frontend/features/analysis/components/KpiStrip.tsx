@@ -124,10 +124,12 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
   if (kpis.length === 0) return null
 
   return (
-    <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {kpis.map((kpi) => (
-        <KpiTile key={kpi.label} kpi={kpi} />
-      ))}
-    </dl>
+    <div className="[container-type:inline-size]">
+      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4 [@container(width<17em)]:grid-cols-1">
+        {kpis.map((kpi) => (
+          <KpiTile key={kpi.label} kpi={kpi} />
+        ))}
+      </dl>
+    </div>
   )
 }
