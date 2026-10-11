@@ -91,7 +91,8 @@ what is done with it is not followed, and so does every name of an annotation Py
 name or literal, whose evaluation may run code (a call, a subscript's ``__class_getitem__``, an attribute's
 descriptor), but a lone name an annotation evaluates (``-> Report``), which Python stores and never calls,
 does not, nor does a property's own accessor, which copies the property), or a def or class created there by
-a decorator that is not inert or, for a class, with keywords or a base that is not a builtin class (a name
+a decorator that is not inert (nor is one whose name the class body around binds, or the module otherwise
+than by its standard import) or, for a class, with keywords or a base that is not a builtin class (a name
 bound around the class statement, in its class body or the module, or through ``global``, is none), whose
 class-creation code may run its methods; a member class's body runs there too, and so is read for what it
 creates in turn, as are a ``match`` statement's cases, which are no symbols of their own (``_definitions``).
@@ -231,8 +232,9 @@ module-level ``del`` of one of the names a module gets from where it lives falls
 same in every module, yet is reported (fail closed). A new annotated assignment writes its namespace's
 ``__annotations__`` without binding that name, so moved code that reads the dict, at module level too, sees
 one more key. And the names these rules trust (``property``, ``dataclass``, ``TYPE_CHECKING`` and the like)
-are taken at their word, so a move that rebinds one where no moved symbol reads it, such as an ADDED
-``TYPE_CHECKING = True`` above an exempt block, is outside the proof.
+are taken at their word by SIDE EFFECT and the exemptions, so a move that rebinds one where no moved symbol
+reads it, such as an ADDED ``TYPE_CHECKING = True`` above an exempt block, is outside the proof; the
+settlement trusts a decorator's name only as the standard library binds it (``_rebound_decorators``).
 
 The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE, SIDE EFFECT, SHADOWS, REORDERED or
 RELOCATED beyond the symbols passed with ``--allow`` (for SHADOWS, the new symbol's key). A path that is no
@@ -378,6 +380,10 @@ def _assignment_key(targets: list[ast.expr]) -> str:
 _INERT_DECORATORS = frozenset({"property", "staticmethod", "classmethod", "cached_property", "abstractmethod",
                                "functools.cached_property", "abc.abstractmethod", "dataclass",
                                "dataclasses.dataclass"})
+# The first names those decorators are spelled with, and the module each standard import of one takes it from: a
+# builtin's (``property``) is bound by nothing (``_rebound_decorators``).
+_TRUSTED_NAMES = frozenset(spelled.split(".")[0] for spelled in _INERT_DECORATORS)
+_STANDARD_DECORATORS = {"cached_property": "functools", "abstractmethod": "abc", "dataclass": "dataclasses"}
 _ACCESSORS = frozenset({"setter", "getter", "deleter"})
 _BUILTIN_CLASSES = frozenset(name for name, value in vars(builtins).items() if isinstance(value, type))
 
@@ -517,16 +523,46 @@ def _bound_in(body: list[ast.stmt]) -> set[str]:
     return scope.bound | scope.declared()
 
 
+def _first_name(node: ast.expr) -> str | None:
+    """The name an expression starts from: ``dataclasses`` for ``dataclasses.dataclass(frozen=True)``."""
+    while isinstance(node, (ast.Call, ast.Attribute)):
+        node = node.func if isinstance(node, ast.Call) else node.value
+    return node.id if isinstance(node, ast.Name) else None
+
+
+def _rebound_decorators(body: list[ast.stmt]) -> frozenset[str]:
+    """The first names of ``_INERT_DECORATORS`` that a module's body binds otherwise than the standard library
+    does at its top (``from dataclasses import dataclass``, ``import functools``): by a def, a class, an
+    assignment, another import or one in a block, a star import, or ``global``. A builtin's (``property``) is
+    bound by nothing. A decorator by such a name is whatever its binding makes it, so it is not inert."""
+    rebound = _bound_in([stmt for stmt in body if not isinstance(stmt, (ast.Import, ast.ImportFrom))])
+    for stmt in body:
+        if not isinstance(stmt, (ast.Import, ast.ImportFrom)):
+            continue
+        origin = stmt.module if isinstance(stmt, ast.ImportFrom) and not stmt.level else None
+        for alias in stmt.names:
+            standard = alias.asname in (None, alias.name) and (
+                origin is not None and _STANDARD_DECORATORS.get(alias.name) == origin
+                if isinstance(stmt, ast.ImportFrom) else alias.name in _STANDARD_DECORATORS.values())
+            if not standard:
+                rebound.add((alias.asname or alias.name).split(".")[0])
+    return _TRUSTED_NAMES if "*" in rebound else frozenset(rebound & _TRUSTED_NAMES)
+
+
 def _creates_code(node: ast.stmt, properties: frozenset[str] | None, module_names: Set[str], around: Set[str],
-                  nested: bool, postponed: bool) -> bool:
+                  nested: bool, postponed: bool, rebound: Set[str]) -> bool:
     """Whether creating a def or class where it stands may call the module's code: a decorator that is not inert
     (a property's own accessor is, on a name in ``properties``), or a class's keywords or a base that is not a
     builtin class, which run class-creation code (``__init_subclass__``, a metaclass). A base is looked up in the
     namespace around the class statement (``around``, a class body's) and then the module's, so a name either
-    binds (``_bound_in``) is not the builtin. A ``nested`` class is one whose body the proof does not split into
-    symbols (a member class, and each class inside one): its body runs where it stands, so what it creates
-    there counts as well, its own bases looked up around it."""
-    if not all(_inert_decorator(decorator, properties) for decorator in node.decorator_list):
+    binds (``_bound_in``) is not the builtin, and so is a decorator's: one of the names the inert ones are spelled
+    with is no longer inert when the class body around binds it, or the module binds it otherwise than the
+    standard library does (``rebound``: ``_rebound_decorators``). A ``nested`` class is one whose body the proof
+    does not split into symbols (a member class, and each class inside one): its body runs where it stands, so
+    what it creates there counts as well, its own bases and decorators looked up around it."""
+    untrusted = set(rebound) | (set(around) & _TRUSTED_NAMES)
+    if not all(_inert_decorator(decorator, properties) and _first_name(decorator) not in untrusted
+               for decorator in node.decorator_list):
         return True
     if not isinstance(node, ast.ClassDef):
         return False
@@ -537,7 +573,7 @@ def _creates_code(node: ast.stmt, properties: frozenset[str] | None, module_name
         return False
     inside = _bound_in(node.body)
     judged = {id(stmt): accessors for stmt, _, accessors in _class_body(node.body, postponed)}
-    return any(_creates_code(stmt, judged.get(id(stmt), frozenset()), module_names, inside, True, postponed)
+    return any(_creates_code(stmt, judged.get(id(stmt), frozenset()), module_names, inside, True, postponed, rebound)
                for stmt in _definitions(node.body))
 
 
@@ -1035,6 +1071,7 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
               & set(_deletions(each.body))}
     shadowing = {name: spans for name, spans in _certain_bindings(tree.body).items() if name not in undone}
     module_names = _bound_in(tree.body)
+    rebound = _rebound_decorators(tree.body)
     aliases, modules = _builtin_names(_scope_nodes(tree.body),
                                       lambda name, at: not _bound_at(shadowing, name, at.lineno))
 
@@ -1071,9 +1108,10 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
             # A builtin class base (``Exception``) runs no class-creation code of the module's: its metaclass is
             # ``type`` and its ``__init_subclass__`` object's. A property's accessor on a property above it copies it.
             # A member class's body is no symbol of its own, so what it creates is judged with it.
-            used.decorated |= _creates_code(node, properties, module_names, around, owner is not None, postponed)
+            used.decorated |= _creates_code(node, properties, module_names, around, owner is not None, postponed,
+                                            rebound)
         elif isinstance(node, ast.Match):  # one symbol, whole: what its cases create is judged with it
-            used.decorated |= any(_creates_code(stmt, frozenset(), module_names, around, True, postponed)
+            used.decorated |= any(_creates_code(stmt, frozenset(), module_names, around, True, postponed, rebound)
                                   for stmt in _definitions([node]))
         used.lines.append(node.lineno)
         # What it reads that its module gets from where it lives. A block reads its header; its body's
