@@ -487,6 +487,18 @@ _A5_CASES = [
      "Anchor Co 10-Q Filing Summary (Q4 2025)"),
     ("unparseable-date-keeps-period", "10-Q", {"reporting_period": "Q3 2025", "filing_date": "September 2025"},
      "Anchor Co 10-Q Filing Summary (Q3 2025)"),
+    *[
+        (f"{case}-date-keeps-period", "10-Q", {"reporting_period": "Q3 2025", "filing_date": value},
+         "Anchor Co 10-Q Filing Summary (Q3 2025)")
+        for case, value in [
+            ("invalid-calendar", "2025-02-30"), ("empty-string", ""),
+            ("integer", 20250930), ("float", 2025.0930), ("zero", 0),
+            ("true", True), ("false", False),
+            ("list", ["2025-09-30"]), ("object", {"date": "2025-09-30"}),
+            ("empty-list", []), ("empty-object", {}), ("null", None),
+        ]
+    ],
+    ("integer-date-without-period", "10-K", {"filing_date": 20250930}, "Anchor Co 10-K Filing Summary"),
     ("6-K-keeps-period", "6-K", {"reporting_period": "H1 2025", "filing_date": "2025-09-30"},
      "Anchor Co 6-K Filing Summary (H1 2025)"),
     ("amendment-keeps-period", "10-K/A", {"reporting_period": "FY2025", "filing_date": "2026-03-01"},
@@ -500,9 +512,9 @@ _A5_CASES = [
 @pytest.mark.parametrize(("filing_type", "metadata", "title"), [case[1:] for case in _A5_CASES],
                          ids=[case[0] for case in _A5_CASES])
 async def test_a5_summary_title_derivation(monkeypatch, filing_type, metadata, title):
-    """A5 — pins backend/app/services/openai_service.py:1039-1061: metadata company/label override the
+    """A5 — pins summary_finalize.derive_title: metadata company/label override the
     arguments, a parsed filing_date replaces the reporting period with FY<year> (10-K, 20-F only) or
-    Q<n> <year> (10-Q, quarter boundaries and a trailing Z), an unparseable date keeps the period, and
+    Q<n> <year> (10-Q, quarter boundaries and a trailing Z), a malformed/non-string date keeps the period, and
     other forms (6-K, 10-K/A) keep the period."""
     service = _injected_service(monkeypatch, {"metadata": metadata, "sections": {"the_print": _PRINT}})
     result = await service.summarize_filing("Selected filing text.", "Anchor Co", filing_type)
