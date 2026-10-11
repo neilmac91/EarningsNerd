@@ -764,16 +764,17 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
         assert above.shadows == {"COUNT": f"app/b.py: binds COUNT, read above it at import by {key}"}, reader
         assert compare(old, {"app/a.py": "", "app/b.py": count + "\n\n" + reader}, old_path="app/a.py").ok, reader
     # The settlement rests on the target's binding being the one the old file imported, the target's last. An
-    # import, a star import or a new symbol's ``global`` binds the name where no symbol's place shows it, so
-    # moved code below the def may read it before that binding: it is not settled. A def in a new block is a
-    # symbol of its own, whose place shows.
+    # import, a star import or a new symbol's ``global`` (a class body's import too) binds the name where no
+    # symbol's place shows it, so moved code below the def may read it before that binding: it is not settled.
+    # A def in a new block is a symbol of its own, whose place shows.
     fast = "def normalize(value):\n    return value.strip()\n\n\n"
     reader = "X = normalize(' a ')\n"
     old = "from app.b import normalize\n\n\n" + reader
     for rebinding in ("try:\n    from fastnorm import normalize\nexcept ImportError:\n    pass\n",
                       "from fastnorm import normalize\n",
                       "from fastnorm import *\n",
-                      "def install():\n    global normalize\n    normalize = str.upper\n\n\ninstall()\n"):
+                      "def install():\n    global normalize\n    normalize = str.upper\n\n\ninstall()\n",
+                      "class Patch:\n    global normalize\n    from fastnorm import normalize\n"):
         report = compare(old, {"app/a.py": "", "app/b.py": fast + reader + "\n\n" + rebinding}, old_path="app/a.py")
         assert report.shadows == {"normalize": "app/b.py: binds normalize, read by X"}, rebinding
     blocked = compare(old, {"app/a.py": "", "app/b.py": fast + reader + "\n\nif FAST:\n    def normalize(value):\n"
