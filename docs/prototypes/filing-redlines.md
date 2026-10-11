@@ -9,14 +9,14 @@ Use the repository's pinned Node version (`frontend/.nvmrc`) and existing depend
 From `frontend/`, enable the flag for the local process only:
 
 ```sh
-NEXT_PUBLIC_ENABLE_FILING_REDLINES=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
+WAITLIST_MODE=false NEXT_PUBLIC_ENABLE_FILING_REDLINES=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
 ```
 
-Open `http://localhost:3000/labs/filing-redlines`. The initial fictional example needs no backend. The standard app shell may perform its existing local API reads. Do not enable this flag in production for the prototype.
+Open `http://localhost:3000/labs/filing-redlines`. The existing global waitlist gate must be disabled for this local process; otherwise it redirects `/labs` to the waitlist before the feature layout runs. The initial fictional example needs no backend. The standard app shell may perform its existing local API reads. Do not enable this flag or change the waitlist setting in production for the prototype.
 
 For **Cached filings**, run the backend with the repository's existing local development setup. Enter the numeric IDs from two local `/filing/<id>` URLs. They must identify distinct original 10-Ks from the same company, with increasing report and filing dates. Both need existing `markdown_content` in the local database. This prototype does not generate missing content or fetch from SEC. Newer cached filings may have no legacy markdown and will report unavailable.
 
-To check the feature is dark, restart without `NEXT_PUBLIC_ENABLE_FILING_REDLINES`; direct navigation should return the application's not-found page. For a production-mode local build, the flag must be set when building, because Next.js inlines `NEXT_PUBLIC_*` flags.
+To check the feature is dark, keep `WAITLIST_MODE=false` locally and restart without `NEXT_PUBLIC_ENABLE_FILING_REDLINES`; direct navigation should return the application's not-found page. The global waitlist gate may otherwise redirect first. For a production-mode local build, supply both settings when building and starting, because Next.js inlines `NEXT_PUBLIC_*` flags.
 
 Focused checks from `frontend/`:
 

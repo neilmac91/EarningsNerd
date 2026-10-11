@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
-// Match this setting to the local server's build/dev process; see the prototype guide.
+// Match this setting to the local server's build/dev process. As in CI, run with
+// WAITLIST_MODE=false so the existing global waitlist redirect does not intercept the lab.
 const enabled = process.env.NEXT_PUBLIC_ENABLE_FILING_REDLINES === 'true'
 const route = '/labs/filing-redlines'
 
@@ -13,7 +14,7 @@ test('redlines direct URL returns 404 with the flag off', async ({ page }) => {
 
 for (const theme of ['light', 'dark'] as const) {
   for (const width of [390, 1440]) {
-    test(`redlines example, cached reads and missing text: ${theme} ${width}px`, async ({ page }, testInfo) => {
+    test(`redlines example, cached reads and missing text: ${theme} ${width}px`, async ({ page, baseURL }, testInfo) => {
       test.skip(!enabled, 'Enable the flag in both the local server and this test process.')
       await page.setViewportSize({ width, height: 1000 })
       await page.addInitScript((mode) => {
@@ -25,12 +26,31 @@ for (const theme of ['light', 'dark'] as const) {
       const pending = new Promise<void>((resolve) => { release = resolve })
       let missing = false
       const literal = '<img src=x onerror="window.redlineInjected=true"> Revenue was $11 million.'
+      const headers = {
+        'access-control-allow-origin': new URL(baseURL!).origin,
+        'access-control-allow-credentials': 'true',
+        'access-control-allow-headers': '*',
+        'access-control-allow-methods': 'GET,OPTIONS',
+      }
 
-      await page.route('**/api/**', async (request) => {
-        const path = new URL(request.request().url()).pathname
+      await page.route('**/*', async (request) => {
+        const url = new URL(request.request().url())
+        if (!url.pathname.startsWith('/api/')) {
+          if (url.origin === new URL(baseURL!).origin && ['GET', 'HEAD'].includes(request.request().method())) {
+            await request.continue()
+          } else {
+            await request.abort()
+          }
+          return
+        }
+        if (request.request().method() === 'OPTIONS') {
+          await request.fulfill({ status: 204, headers })
+          return
+        }
+        const path = url.pathname
         const match = path.match(/^\/api\/filings\/(101|102)(\/content)?$/)
         if (!match) {
-          await request.fulfill({ status: 200, json: path.endsWith('/auth/signup-config') ? { registration_enabled: false } : {} })
+          await request.fulfill({ status: 200, headers, json: path.endsWith('/auth/signup-config') ? { registration_enabled: false } : {} })
           return
         }
         calls.push(path)
@@ -38,7 +58,7 @@ for (const theme of ['light', 'dark'] as const) {
         const earlier = id === 101
         if (match[2]) {
           await pending
-          await request.fulfill({ json: {
+          await request.fulfill({ headers, json: {
             filing_id: id,
             has_content: !missing,
             markdown_content: missing ? null : earlier ? 'Revenue was $10 million.\n\nStable text.' : `${literal}\n\nStable text.`,
@@ -46,7 +66,7 @@ for (const theme of ['light', 'dark'] as const) {
           return
         }
         const accession = earlier ? '0000000123-25-000001' : '0000000123-26-000001'
-        await request.fulfill({ json: {
+        await request.fulfill({ headers, json: {
           id, filing_type: '10-K',
           filing_date: earlier ? '2025-02-10T00:00:00+00:00' : '2026-02-10T00:00:00+00:00',
           report_date: earlier ? '2024-12-31T00:00:00' : '2025-12-31T00:00:00',
