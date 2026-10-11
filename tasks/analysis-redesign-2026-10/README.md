@@ -102,20 +102,25 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
 # --build names the worktree whose build the server serves); on current main the harness measures the shipped
 # components instead, and the counts and geometry differ by design.
 git worktree add ../en-97293e7 97293e7
-(cd ../en-97293e7/frontend && npm ci && NEXT_PUBLIC_ENABLE_ANALYSIS=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8010 npm run build)
+(cd ../en-97293e7/frontend && npm ci)
+# build-stamped.mjs runs `npm run build` from the clean checkout and stamps frontend/.next/SOURCE_TREE.json with its
+# commit, frontend/ tree and build id; the harness requires that stamp for the baseline (.next is ignored by git)
+NEXT_PUBLIC_ENABLE_ANALYSIS=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8010 node tasks/analysis-redesign-2026-10/harness/build-stamped.mjs ../en-97293e7
 (cd ../en-97293e7/frontend && WAITLIST_MODE=false npx next start -p 3000 &)
 # then, from this repository's root, with Playwright resolvable (the frontend's install, or the cloud image's global one)
 NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-current.mjs --base http://localhost:3000 --build ../en-97293e7 --shots /tmp/shots
 # The harness reads the served checkout's commit, frontend/ tree hash, uncommitted files under frontend/,
 # .next/BUILD_ID and the build's time, refuses a build older than that checkout's last commit touching frontend/
 # (it cannot see which tree a build came from, so build right before measuring), verifies before measuring that
-# the server serves that build id, and records them with its own commit. The fixtures --data names (default:
-# prototype/data) are recorded by a content hash of their .js files and, inside this repository, by their tree
-# hash with their uncommitted files. It writes measurements/current.json only for a served build of 97293e7
-# (enforced whether --out names that file or it is the default), for the legacy state from the committed
-# fixtures, from clean trees (no uncommitted frontend, harness or fixture files): a fresh measurement of any
-# other build, state or data (--build defaults to this repository) needs --out naming another file, and an --out
-# that holds a recording of another commit is refused.
+# the server serves that build id, and records them with its own commit. A stamp (SOURCE_TREE.json, written by
+# build-stamped.mjs) must name the served build id and the checkout's frontend/ tree whenever one is present, and
+# is recorded. The fixtures --data names (default: prototype/data) are recorded by a content hash of their .js
+# files and, inside this repository, by their tree hash with their uncommitted files. It writes
+# measurements/current.json only for a served build of 97293e7 (enforced whether --out names that file or it is
+# the default), for the legacy state from the committed fixtures at the content hash the harness pins (retaking
+# from other fixtures needs a new pin), from clean trees (no uncommitted frontend, harness or fixture files) and
+# from a stamped build: a fresh measurement of any other build, state or data (--build defaults to this
+# repository) needs --out naming another file, and an --out that holds a recording of another commit is refused.
 
 # prototype (no server needed; --fonts answers Google Fonts from a local directory when offline)
 NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-proto.mjs --shots /tmp/shots

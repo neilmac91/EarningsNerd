@@ -20,9 +20,12 @@
 // recording), and it refuses an --out that holds a recording of another commit; the revision is enforced whenever
 // the output is the baseline file, named by --out or defaulted. The fixtures --data names (default: prototype/data)
 // are recorded by a content hash of their .js files and, inside this repository, by their tree hash with their
-// uncommitted files; the baseline is written only for the legacy state from the committed fixtures and from clean
-// trees (no uncommitted frontend, harness or fixture files). 97293e7 has no harness, so the baseline is retaken by
-// running this tree's harness with --build pointing at a worktree of that revision.
+// uncommitted files; the baseline is written only for the legacy state from the committed fixtures whose content
+// hash BASELINE pins, from clean trees (no uncommitted frontend, harness or fixture files) and from a build that
+// build-stamped.mjs stamped with its source tree (frontend/.next/SOURCE_TREE.json; .next is ignored by git, so the
+// stamp is the only link between a build and a tree; when present it must name the served build id and the
+// checkout's frontend/ tree). 97293e7 has no harness, so the baseline is retaken by running this tree's harness
+// with --build pointing at a worktree of that revision, built there with build-stamped.mjs.
 import { readFileSync, readdirSync, mkdirSync, writeFileSync, existsSync, statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { execSync } from 'node:child_process'
@@ -38,7 +41,14 @@ const BASE = args.base || 'http://localhost:3000'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DATA = path.resolve(ROOT, args.data || 'prototype/data')
 const STATE = args.state || 'legacy'
-const BASELINE = { file: 'measurements/current.json', revision: '97293e76fe71ff6b7e1848d57f00e808866e8c1c' }
+// The baseline's inputs: the revision whose build it measures and the fixtures it was fed (prototype/data at the
+// tree below, pinned by the content hash of its .js files); retaking it from other fixtures needs a new pin here.
+const BASELINE = {
+  file: 'measurements/current.json',
+  revision: '97293e76fe71ff6b7e1848d57f00e808866e8c1c',
+  fixtureTree: '50e1c7d92925eaba6503a21979b556679f25760d',
+  fixtureHash: '001717037fc42562f06978020451d4e355d99ad5656aa6f478b1f20cb0b17180',
+}
 const git = (cwd, cmd) => { try { return execSync(`git ${cmd}`, { cwd, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { return null } }
 // The served build: the checkout whose frontend/ was built and is served at --base (default: this repository).
 const BUILD = path.resolve(args.build || path.join(ROOT, '..', '..'))
@@ -52,6 +62,16 @@ const SERVED = {
   builtAt: statSync(buildIdFile).mtime.toISOString(),
 }
 if (!SERVED.commit) throw new Error(`${BUILD} is not a git checkout: pass --build <the checkout whose build the server serves>`)
+// The build's stamp, written by build-stamped.mjs right after `npm run build` from a clean frontend tree. The
+// harness cannot see which tree a build came from (.next is ignored by git), so a stamped build is required for
+// the baseline and, whenever a stamp is present, it must name this build id and the checkout's frontend/ tree.
+const stampFile = path.join(BUILD, 'frontend', '.next', 'SOURCE_TREE.json')
+let STAMP = null
+if (existsSync(stampFile)) {
+  try { STAMP = JSON.parse(readFileSync(stampFile, 'utf8')) } catch { throw new Error(`${stampFile} is not JSON: rebuild with harness/build-stamped.mjs`) }
+  if (!STAMP || STAMP.buildId !== SERVED.buildId) throw new Error(`the stamp at ${stampFile} names build ${STAMP && STAMP.buildId}, but the build there is ${SERVED.buildId}: rebuild with harness/build-stamped.mjs`)
+  if (STAMP.frontendTree !== SERVED.frontendTree) throw new Error(`the build at ${BUILD} was stamped from frontend tree ${String(STAMP.frontendTree).slice(0, 7)}, but the checkout's frontend/ is ${String(SERVED.frontendTree).slice(0, 7)}: rebuild with harness/build-stamped.mjs from the checkout the server should serve`)
+}
 // A build older than the checkout's last commit touching frontend/ cannot be that checkout's build (the harness
 // cannot see which tree a build came from, so build from the checkout right before measuring).
 const lastFrontendCommit = git(BUILD, 'log -1 --format=%h%x20%ct -- frontend')
@@ -85,8 +105,10 @@ const FIXTURES = {
 if (WRITING_BASELINE) {
   if (STATE !== 'legacy') throw new Error(`${BASELINE.file} records the legacy state (the production-like dataset); --state ${STATE} needs --out <another file>`)
   if (DATA !== CANONICAL_DATA) throw new Error(`${BASELINE.file} records the committed fixtures in prototype/data; --data ${DATA} needs --out <another file>`)
+  if (FIXTURES.hash !== BASELINE.fixtureHash) throw new Error(`${BASELINE.file} records the fixtures at tree ${BASELINE.fixtureTree.slice(0, 7)} (content hash ${BASELINE.fixtureHash.slice(0, 12)}…); prototype/data now hashes ${FIXTURES.hash.slice(0, 12)}… (tree ${String(FIXTURES.tree).slice(0, 7)}): retaking the baseline from other fixtures needs a new pin in BASELINE and a note in the README, or pass --out <another file>`)
   const what = [SERVED.dirty.length ? `uncommitted frontend files in ${BUILD} (${SERVED.dirty.join(', ')})` : null, HARNESS_DIRTY.length ? `uncommitted harness files (${HARNESS_DIRTY.join(', ')})` : null, FIXTURES.dirty && FIXTURES.dirty.length ? `uncommitted fixture files (${FIXTURES.dirty.join(', ')})` : null].filter(Boolean).join(' and ')
   if (what) throw new Error(`${BASELINE.file} is written only from clean trees: ${what}; commit or stash them, or pass --out <another file>`)
+  if (!STAMP) throw new Error(`${BASELINE.file} is written only from a stamped build: build ${BUILD} with harness/build-stamped.mjs (it writes frontend/.next/SOURCE_TREE.json from the clean checkout right after the build) and serve that build`)
 }
 const SHOTS = args.shots || null
 const API = 'http://localhost:8010'
@@ -244,7 +266,7 @@ async function measure(page, configuredWidth, expectedRows) {
 
 async function run() {
   const browser = await chromium.launch()
-  const results = { base: BASE, state: STATE, data: path.relative(ROOT, DATA), generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: SERVED.commit.slice(0, 7), frontendTree: SERVED.frontendTree, dirty: SERVED.dirty, buildId: SERVED.buildId, builtAt: SERVED.builtAt, harnessCommit: HARNESS_COMMIT, harnessDirty: HARNESS_DIRTY, fixtureHash: FIXTURES.hash, fixtureTree: FIXTURES.tree, fixtureDirty: FIXTURES.dirty }, configs: [] }
+  const results = { base: BASE, state: STATE, data: path.relative(ROOT, DATA), generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: SERVED.commit.slice(0, 7), frontendTree: SERVED.frontendTree, dirty: SERVED.dirty, buildId: SERVED.buildId, builtAt: SERVED.builtAt, buildStamp: STAMP, harnessCommit: HARNESS_COMMIT, harnessDirty: HARNESS_DIRTY, fixtureHash: FIXTURES.hash, fixtureTree: FIXTURES.tree, fixtureDirty: FIXTURES.dirty }, configs: [] }
   // The server must serve the build of --build: its build manifest lives under the build id.
   const manifest = await (await browser.newContext()).request.get(`${BASE}/_next/static/${SERVED.buildId}/_buildManifest.js`)
   if (manifest.status() !== 200) { await browser.close(); throw new Error(`${BASE} does not serve the build of ${BUILD} (build id ${SERVED.buildId}: ${manifest.status()} for its build manifest): start the server from that checkout's build, or pass --build <the checkout it serves>`) }

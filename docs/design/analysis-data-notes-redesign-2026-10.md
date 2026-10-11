@@ -1082,10 +1082,14 @@ correction landed in this document:
   committed fixtures' tree); the baseline is written only for the legacy state from the committed fixtures
   and only from clean trees, so its recorded state, commit and hashes identify the measured code and data,
   and its revision is enforced whether `--out` names that file or it is the default (a missing or malformed
-  recording had let an explicit `--out` through); `97293e7` has no harness, so the baseline is retaken by
-  this tree's harness with `--build` pointing at a worktree of that revision. The committed recording's
-  environment block is annotated with its revision and its fixtures' hashes after the fact, its
-  measurements untouched.
+  recording had let an explicit `--out` through); the fixtures' content hash is pinned in the harness, so a
+  later committed fixture edit cannot retake the baseline without a new pin; and the baseline needs a build
+  that `build-stamped.mjs` stamped with its source tree right after `npm run build` from the clean checkout
+  (`frontend/.next/SOURCE_TREE.json`; `.next` is ignored by git, so the build-time check alone could not tell
+  which tree a build came from), a stamp the harness validates against the served build id and the
+  checkout's `frontend/` tree whenever one is present and records; `97293e7` has no harness, so the baseline
+  is retaken by this tree's harness with `--build` pointing at a worktree of that revision, built there with
+  `build-stamped.mjs`.
 - **Moved modules**, checked against `main` at `dd7b9ce` (#1222) on 2026-10-11: `normalize_companyfacts`
   lives in `facts/companyfacts.py` (#1210) behind the `facts_service.py` facade; `build_observation_catalogue`
   and `_point_value` in `trend_analysis/observations.py`, `_ratio_threshold_value` and
