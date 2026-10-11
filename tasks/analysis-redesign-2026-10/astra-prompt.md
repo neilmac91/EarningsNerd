@@ -118,7 +118,8 @@ offline fidelity test and observation-selector gate §7 Phase 2 names. Order: it
 in the same PR; done in #1199), then 3–4 (KPI strip, Data notes strip; done in #1200), then 5 (DataTable
 options + MetricsTable; done in #1202), then 6–9 (done in #1203), then 10 (done in #1206), then the review file's follow-ups. Phase 2 (backend `data_notes`, exports, narrative rendering)
 follows after Phase 1 is on production; it changes `trend_analysis/*` and the export services only, never
-`facts_service.py`, prompts or evals, so no eval re-pin.
+the facts service (`facts_service.py` and the `facts/` package behind it since #1210), prompts or evals, so
+no eval re-pin.
 
 Use the prototype as the reference for geometry, copy and behaviour (`prototype/app.js` is plain DOM; map
 each block to the React component the brief names), not as code to port. Do not port: its global
@@ -138,8 +139,8 @@ both themes, reduced motion respected.
   PR). The allowlist gate of item 2 (#1199) and the e2e gate of item 10 (#1206) are those gates; a PR that
   extends either carries one mutation proof in its body.
 - Review by risk tier (`AGENTS.md` §5): Phase 1 PRs are routine (one Opus lens, Sonnet refuters for
-  blockers); Phase 2 PRs are routine too; a PR that touches `backend/app/services/facts_service.py`,
-  prompts or evals is high and is outside this brief. `review-gate.yml` needs `@codex review` after each
+  blockers); Phase 2 PRs are routine too; a PR that touches the facts service (`backend/app/services/facts_service.py` or
+  `backend/app/services/facts/`), prompts or evals is high and is outside this brief. `review-gate.yml` needs `@codex review` after each
   push. Record `Review tier: … — …` in the PR body.
 - PR body format (`AGENTS.md` §7): What / Why / Verification (exact gate tails) / Mutation proofs / Founder
   actions / Not in this PR / Review. Open every PR as a draft. `git status` empty after each commit.

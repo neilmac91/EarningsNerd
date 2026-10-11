@@ -92,7 +92,7 @@ redesign answers.
 - `SourceValue.tsx` prints `value.toLocaleString(maximumFractionDigits: 8)` followed by `point.unit`,
   which for a margin is the stored unit `pure`: "26.06536077 pure". A legacy record has
   `provenance.inputs == []`, so the dialog shows neither operands nor links.
-- `trend_analysis_service.build_observation_catalogue` renders each red flag as the detector's sentence
+- `build_observation_catalogue` (`trend_analysis/observations.py`, re-exported by `trend_analysis_service.py`) renders each red flag as the detector's sentence
   plus `" Source operands: " + "; ".join(...)` over every marker the detector cites;
   `detect_fcf_ni_divergence` cites every historical FCF/net-income pair, twenty operands on the Meta run.
 - `PeriodPicker.tsx` renders one chip per coverage period (61 quarters for Meta) with a hand-rolled
@@ -480,7 +480,7 @@ amounts kept precise; the evidence fold; `lib/figureDisplay.ts`). The rules, wit
 - Amounts in the compact display form the rest of the page uses ($60.8B, $1.7B, 26.1%, 2.23×,
   −12.1pp); periods as "Q2 2026"; citation chips unchanged, with the note letter inside the chip of a
   cited figure that carries one. **Relation-safe compaction is a rule of this design, not the engine's**
-  (`_ratio_threshold_value` prints four or more decimals and never two): a figure is shortened only
+  (`_ratio_threshold_value` in `trend_analysis/formatting.py` prints four or more decimals and never two): a figure is shortened only
   while every relation the sentence states stays visibly true, against 1.00× and against the other
   operand of a comparison; otherwise decimals are added until the figures differ (as the engine's
   `_ordered_percentage_values` does for percentages). 2.2256x prints as 2.23×; 1.0033x, above 1.00×,
@@ -645,7 +645,8 @@ own gate tail and browser measurements in its body.
 
 Risk tier per `AGENTS.md` §5: Phase 1 is frontend-only (routine); Phase 2 touches
 `trend_analysis/*`, `trend_analysis_service.py`, the export services and `fact_provenance.py`
-consumers (routine), never `facts_service.py`, prompts or evals. The quarterly data repair is a separate
+consumers (routine), never the facts service (`facts_service.py`, a facade since #1210, and the `facts/`
+package behind it), prompts or evals. The quarterly data repair is a separate
 operational action and is not part of this brief.
 
 ### Phase 1 — frontend, no backend change, works on today's payload (one PR per item or two PRs)
@@ -656,7 +657,8 @@ operational action and is not part of this brief.
    `REASONS` as the one copy source; rewrite sentences there.
 2. **`DataNoteMark.tsx`** (S) replaces `ReconciliationBadge.tsx` at every analysis site (`KpiStrip`,
    `MetricsTable`, `TrendCharts`, `NarrativePane` and its citation list; `SourceValue` does not use
-   it). `ReconciliationBadge` stays for its fundamentals and peers consumers
+   it). `ReconciliationBadge` stays for its fundamentals and peers consumers (#1199 moved it to
+   `features/fundamentals/components/SourceCheckBadge.tsx` for them)
    (`FundamentalsTrendChart`, `PeerComparisonPanel`) until those surfaces adopt the mark;
    `Badge variant="warning"` stays for its other uses. Gate: an allowlist spec
    that fails on `Badge` or `whitespace-nowrap` inside `features/analysis/components/{KpiStrip,MetricsTable}.tsx`
@@ -912,7 +914,8 @@ The implementing agent verified the proposal against `main` and ran both harness
 - **YoY fallback in the table** keeps an explicit label (§4.5).
 - **Grouping edge cases**: legacy `reconciled: false`, populated values without a validation record,
   annual CAGR / window changes, comparison-only and mixed reason sets (§4.1).
-- **`ReconciliationBadge` consumers** outside analysis stay; `SourceValue` is not a site (§7, item 2).
+- **`ReconciliationBadge` consumers** outside analysis stay (#1199 moved the badge to
+  `features/fundamentals/components/SourceCheckBadge.tsx` for them); `SourceValue` is not a site (§7, item 2).
 - **A record's own source link** is shown whether or not it has inputs (§4.6).
 - **Narrative header chips** do not wrap today; only the outer group does (§2.4).
 - **`SegmentedControl`** needs an unavailable-option API for the picker's Quarterly state (§7, item 9).
@@ -988,4 +991,10 @@ correction landed in this document:
   displayed change (§4.6 item 5) with its status, the operand that carries the note, its formula and its
   inputs; the open note's locator counts the revenue growth chart, which plots revenue's YoY comparisons
   with their letters.
-
+- **Moved modules**, checked against `main` at `dd7b9ce` (#1222) on 2026-10-11: `normalize_companyfacts`
+  lives in `facts/companyfacts.py` (#1210) behind the `facts_service.py` facade; `build_observation_catalogue`
+  and `_point_value` in `trend_analysis/observations.py`, `_ratio_threshold_value` and
+  `_ordered_percentage_values` in `trend_analysis/formatting.py`, `analysis_completion` in
+  `trend_analysis/stream_events.py` (#1204, #1205, #1209), all re-exported by `trend_analysis_service.py`;
+  `ReconciliationBadge.tsx` became `features/fundamentals/components/SourceCheckBadge.tsx` (#1199). Every
+  other path and symbol this document names resolves on that `main`.
