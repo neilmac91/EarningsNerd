@@ -314,8 +314,9 @@
     if (!bar && !entries.length) return null
     const plotted = bar ? [bar] : entries.map((e) => by[e.concept])
     const noteLetters = new Set()
-    for (const s of plotted) for (const p of s.points) { const nt = notes.noteFor(p); if (nt && p.value != null) noteLetters.add(nt.letter); if (spec.growthLine && typeof p.yoy === 'number') { const cn = notes.noteForComparison(p, 'yoy'); if (cn) noteLetters.add(cn.letter) } }
-    const unavailableNotes = plotted.flatMap((s) => { const miss = periods.filter((k) => (s.points.find((p) => p.period === k) || {}).value == null); return miss.length ? [`${s.label}: unavailable for ${miss.map(periodLong).join(', ')}.`] : [] })
+    // Every note the panel's values carry, unavailable ones included (a gap draws no marker, but its note is still this panel's).
+    for (const s of plotted) for (const p of s.points) { const nt = notes.noteFor(p); if (nt) noteLetters.add(nt.letter); if (spec.growthLine && typeof p.yoy === 'number') { const cn = notes.noteForComparison(p, 'yoy'); if (cn) noteLetters.add(cn.letter) } }
+    const unavailableNotes = plotted.flatMap((s) => { const miss = periods.filter((k) => (s.points.find((p) => p.period === k) || {}).value == null); if (!miss.length) return []; const letters = [...new Set(miss.map((k) => { const nt = notes.noteFor(s.points.find((p) => p.period === k) || {}); return nt && nt.letter }).filter(Boolean))]; return [`${s.label}: unavailable for ${miss.map(periodLong).join(', ')}${letters.length ? ` (note${letters.length > 1 ? 's' : ''} ${letters.join(', ')})` : ''}.`] })
 
     const W = Math.max(420, n * 28 + 144), H = 224, padL = 56, padR = (bar && spec.growthLine) || spec.rightAxis ? 56 : 16, padT = 14, padB = 46
     const x = (i) => padL + ((i + 0.5) / n) * (W - padL - padR)
@@ -418,7 +419,7 @@
     const c = citations.find((x) => x.n === n)
     let note = null
     if (c) { const s = dataset.series.find((x) => x.concept === c.concept); const p = s && s.points.find((x) => x.period === c.period); note = p ? notes.noteFor(p) : null }
-    const chip = el('button', { type: 'button', class: 'cite' + (note ? ' flag' : ''), 'aria-label': `Citation ${n}${c ? `: ${c.excerpt}` : ''}${note ? `, data note ${note.letter}` : ''}`, onclick: () => { const row = $(`#src-${n}`); if (row) { row.scrollIntoView({ block: 'center', behavior: 'smooth' }); row.style.transition = 'background 200ms'; row.style.background = 'var(--brand-weak)'; setTimeout(() => { row.style.background = '' }, 1800) } } }, `[${n}]`)
+    const chip = el('button', { type: 'button', class: 'cite' + (note ? ' flag' : ''), 'aria-label': `Citation ${n}${c ? `: ${c.excerpt}` : ''}${note ? `, data note ${note.letter}` : ''}`, onclick: () => { const row = $(`#src-${n}`); if (row) { const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches; row.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' }); row.style.transition = still ? 'none' : 'background 200ms'; row.style.background = 'var(--brand-weak)'; setTimeout(() => { row.style.background = '' }, 1800) } } }, `[${n}]`)
     if (note) chip.append(el('span', { class: 'n-note' }, note.letter))
     return chip
   }
@@ -507,6 +508,7 @@
     const thead = el('thead', null, el('tr', null, el('th', { scope: 'col', class: 'sticky' }, 'Metric', el('span', { class: 'basis' }, 'value · Δ vs prior quarter')), ...periods.map((p) => { const [q, y] = periodShort(p.key); return el('th', { scope: 'col' }, q, el('span', { class: 'yr' }, y, p.fiscal_period === 'Q4' ? ' †' : '')) })))
     table.append(thead)
     const tbody = el('tbody')
+    const tableLetters = new Set() // every note a rendered cell or change line carries, whatever its kind
     for (const s of dataset.series) {
       const tr = el('tr')
       tr.append(el('th', { scope: 'row', class: 'sticky' }, s.label))
@@ -515,6 +517,7 @@
         const td = el('td')
         if (!p) { td.append(el('span', { class: 'empty' }, '—')); tr.append(td); continue }
         const note = notes.noteFor(p)
+        if (note) tableLetters.add(note.letter)
         if (p.value == null) {
           td.append(el('div', { class: 'cell' }, el('span', { class: 'v' }, note ? el('button', { type: 'button', class: 'gap', 'aria-label': nameFor(s, p, note), onclick: () => openEvidence(s, p, notes) }, el('span', { class: 'empty' }, '—'), affix(p, note, { noDagger: true })) : el('span', { class: 'empty' }, '—'))))
           tr.append(td); continue
@@ -523,6 +526,7 @@
         const basis = p.qoq != null ? 'qoq' : p.yoy != null ? 'yoy' : null
         const d = fmtDelta(basis ? p[basis] : null, s.percent)
         const cmpNote = basis ? notes.noteForComparison(p, basis) : null
+        if (cmpNote) tableLetters.add(cmpNote.letter)
         const t = tone(s.tone, d.dir)
         const cell = el('div', { class: 'cell' },
           el('span', { class: 'v' }, el('button', { type: 'button', 'aria-label': nameFor(s, p, note, cmpNote), onclick: () => openEvidence(s, p, notes, basis) }, fmtValue(p.value, s), affix(p, note))),
@@ -538,7 +542,7 @@
     const scroll = el('div', { class: 'metrics-scroll', role: 'region', 'aria-label': `Metrics by period, table of ${periods.length} quarters` }, phone ? el('div', { class: 'hint', 'aria-hidden': 'true' }, '← Earlier quarters') : null, table)
     // Home/End move the table, never the page; arrows step one column through the mandatory snap.
     scroll.addEventListener('keydown', (e) => { if (e.target !== scroll) return; const range = scroll.scrollWidth - scroll.clientWidth; const col = table.querySelector('tbody td'); const step = col ? col.getBoundingClientRect().width : scroll.clientWidth; const to = e.key === 'Home' ? 0 : e.key === 'End' ? range : e.key === 'ArrowRight' ? scroll.scrollLeft + step : e.key === 'ArrowLeft' ? scroll.scrollLeft - step : null; if (to == null) return; e.preventDefault(); scroll.scrollLeft = Math.max(0, Math.min(to, range)) })
-    const legend = el('div', { class: 'legend' }, hasDerived ? el('span', null, el('span', { class: 'affix' }, el('span', { class: 'dag' }, '†')), ' calculated') : null, notes.list.some((g) => g.kind === 'review') ? el('span', null, el('span', { class: 'affix' }, el('sup', { class: 'note' }, 'a')), ' data note (see Data notes)') : null)
+    const legend = el('div', { class: 'legend' }, hasDerived ? el('span', null, el('span', { class: 'affix' }, el('span', { class: 'dag' }, '†')), ' calculated') : null, ...(() => { const letters = notes.list.map((g) => g.letter).filter((l) => tableLetters.has(l)); return letters.length ? [el('button', { type: 'button', class: 'pchip note notes-ref', onclick: () => openNote(letters[0]) }, `Notes ${letters.join(', ')}`)] : [] })())
     const windowCtl = el('div', { class: 'window' }, el('span', { role: 'status' }, periods.length === dataset.periods.length ? `All ${dataset.periods.length} quarters` : `Showing ${periods.length} of ${dataset.periods.length} quarters`), el('div', { class: 'seg', role: 'group', 'aria-label': 'Table window' }, ...[['12', 'All 12'], ['6n', 'Newest 6'], ['6e', 'Earliest 6']].map(([v, l]) => el('button', { type: 'button', 'data-window': v, 'aria-pressed': String(state.window === v), onclick: () => { state.window = v; $('#ctl-window').value = v; render(); const again = document.querySelector(`.window button[data-window="${v}"]`); if (again) again.focus() } }, l))))
     const head = el('div', { class: 'head' }, el('div', { class: 'left' }, el('h2', { id: 'metrics-h' }, 'Metrics by period'), legend), el('div', { style: 'display:flex;gap:.75rem;align-items:center;flex-wrap:wrap' }, windowCtl, el('button', { type: 'button', class: 'btn secondary sm' }, '⬇ Export Excel')))
     const section = el('section', { class: 'card card-body metrics', 'aria-labelledby': 'metrics-h' }, head, scroll)
@@ -609,7 +613,7 @@
       if (prov.formula) meta.append(el('span', null, `= ${formulaText(prov.formula)}`))
       const validation = prov.validation || op.validation
       if (validation) meta.append(el('span', null, validation === 'passed' ? 'checks passed' : validation === 'needs_review' ? 'needs review' : validation === 'unavailable' ? 'unavailable' : 'no validation record'))
-      if (op.source_url) meta.append(el('a', { href: op.source_url, target: '_blank', rel: 'noopener noreferrer' }, 'Open filing ↗'))
+      if (op.source_url) meta.append(el('a', { href: op.source_url, target: '_blank', rel: 'noopener noreferrer', 'aria-label': `Open filing for ${conceptLabel(op.concept)}, ${periodOfInput(op)}` }, 'Open filing ↗'))
       if (op.accession) meta.append(el('span', { class: 'data' }, op.accession))
       if (op.raw_tag) meta.append(el('span', { class: 'data' }, op.raw_tag))
       li.append(meta)

@@ -1008,7 +1008,13 @@ correction landed in this document:
   inputs; the open note's locator counts the revenue growth chart, which plots revenue's YoY comparisons
   with their letters; the sticky row header keeps an opaque fill on dark hover (the prototype had carried
   the same translucent wash #1206 removed from `DataTable`; its harness now hovers a row in every proposed
-  configuration and fails on a translucent fill).
+  configuration and fails on a translucent fill); the table's legend carries a clickable Notes chip naming
+  every letter its cells and change lines show, in the strip's order (it had shown a hard-coded "a" only
+  when a review note existed, so a table whose only notes were unavailable values had no key); a chart
+  panel's Notes chip includes the letters of its unavailable values and the unavailable-periods line names
+  them, while a gap still draws no marker; each operand's "Open filing ↗" link is named by its concept
+  and period; a citation chip scrolls instantly and tints its source row without a transition under
+  `prefers-reduced-motion`, as `main`'s `flashAndScrollToSource` does.
 - **Moved modules**, checked against `main` at `dd7b9ce` (#1222) on 2026-10-11: `normalize_companyfacts`
   lives in `facts/companyfacts.py` (#1210) behind the `facts_service.py` facade; `build_observation_catalogue`
   and `_point_value` in `trend_analysis/observations.py`, `_ratio_threshold_value` and
