@@ -26,6 +26,7 @@ from datetime import date, datetime, timedelta  # noqa: F401 - preserve the faca
 from typing import Any, Dict, List, Optional, Tuple  # noqa: F401 - preserve the facade import surface
 
 from edgar import set_identity
+from app.utils.datetimes import utcnow
 
 # The XBRL primary-path calls use a plain timeout, NOT run_with_circuit_breaker: large filings
 # legitimately parse for 20-40s (BAC/JPM/BABA 20-F), so their dominant failure mode is local parse
@@ -59,7 +60,6 @@ from .instance.series import (  # noqa: F401 - preserve the facade import surfac
 from .instance.statements import extract_financial_statement_metrics  # noqa: F401 - preserve the facade import surface
 from .financing_source import financing_comparison_source  # noqa: F401 - preserve the facade import surface
 from .models import MetricChange  # noqa: F401 - preserve the facade import surface
-
 from . import xbrl_companyfacts as _companyfacts
 from . import xbrl_standardized as _standardize
 from .xbrl_companyfacts import CASH_TAG_CANDIDATES
@@ -147,7 +147,7 @@ class EdgarXBRLService:
         async with _get_cache_lock():
             if memory_key in _xbrl_cache:
                 cached_time, cached_data = _xbrl_cache[memory_key]
-                if datetime.now() - cached_time < _cache_ttl:
+                if utcnow() - cached_time < _cache_ttl:
                     # Move to end for LRU ordering (most recently used)
                     _xbrl_cache.move_to_end(memory_key)
                     record_hit()
@@ -168,7 +168,7 @@ class EdgarXBRLService:
             logger.debug(f"XBRL L2 cache hit for {redis_key}")
             # Populate L1 cache from L2 with LRU eviction
             async with _get_cache_lock():
-                _cache_set_sync(memory_key, (datetime.now(), redis_data))
+                _cache_set_sync(memory_key, (utcnow(), redis_data))
             return redis_data
 
         # Cache miss - fetch from EdgarTools
@@ -177,7 +177,7 @@ class EdgarXBRLService:
         # Cache successful results in both tiers
         if result is not None:
             async with _get_cache_lock():
-                _cache_set_sync(memory_key, (datetime.now(), result))
+                _cache_set_sync(memory_key, (utcnow(), result))
             await self._set_to_redis(redis_key, result)
             logger.debug(f"XBRL cached (L1+L2) for {memory_key}")
         else:

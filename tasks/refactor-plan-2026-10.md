@@ -45,7 +45,7 @@ folded in (see [Verification](#verification-how-the-plans-claims-were-checked-an
 I2's reader repoints were included in X4; optional X5 was taken. The
 [execution and spend ledger](refactor-closeout-2026-10.md) retains each reviewed head,
 AST/phase proof, gate provenance, evaluation verdict and verified serial release.
-The separate timestamp/behavior follow-ups and founder prompt-byte decision remain open.
+The behavior follow-ups and founder prompt-byte decision remain open.
 
 **Measured target correction, 2026-10-11.** Original forecasts below remain historical:
 
@@ -1516,6 +1516,11 @@ main at `76d45732`), the decision and what it changes. Nothing in this plan now 
      `backend/app/services/edgar/xbrl_service.py:180,207,692,713,722` and the
      `datetime.now(timezone.utc)` calls at `backend/app/services/facts_service.py:715,1954,1983` are a
      rule-7 follow-up outside this plan; the moves leave them as they are.
+     **2026-10-11 follow-up:** the eight relocated sites now use the shared aware-UTC
+     helpers in `edgar/xbrl_cache.py`, `edgar/xbrl_service.py`, `facts/upsert.py` and
+     `facts/ingest.py`. X0.5 and cache fixtures now carry aware timestamps; the existing
+     Rule-7 gate rejects direct clocks in these modules. SQLite freshness still normalizes
+     naive stored UTC. Process-local L1 entries start empty on deployment.
 8. **#1123: Wave 0 does not wait for it.**
    - Options. (a) Merge #1123 first, as first proposed. (b) Proceed, and un-draft Wave 0 under decision
      1. (c) Decline #1123 here.

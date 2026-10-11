@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Any, Callable, Optional
 
 from sqlalchemy.orm import Session
@@ -12,6 +12,7 @@ from app.services.facts.companyfacts import normalize_companyfacts
 from app.services.facts.concepts import COMPANYFACTS_INFLIGHT_WAIT_SECONDS, _is_financial_sic
 from app.services.facts.transport import _fetch_companyfacts_async, logger
 from app.services.facts.upsert import upsert_facts_bulk
+from app.utils.datetimes import ensure_utc, utcnow
 
 
 # Per-company in-flight sync dedup (the summary_pipeline._claim_inflight pattern): concurrent
@@ -24,15 +25,13 @@ def _companyfacts_fresh_result(
     db: Session, company: Company, *, force: bool
 ) -> Optional[dict[str, Any]]:
     """Return the unchanged TTL result, or ``None`` when this company needs a fetch."""
-    synced_at = company.facts_synced_at
-    if synced_at is not None and synced_at.tzinfo is None:
-        synced_at = synced_at.replace(tzinfo=timezone.utc)  # SQLite returns naive datetimes
+    synced_at = ensure_utc(company.facts_synced_at) if company.facts_synced_at is not None else None
     if force or synced_at is None:
         return None
 
     from app.config import settings
 
-    if datetime.now(timezone.utc) - synced_at >= timedelta(
+    if utcnow() - synced_at >= timedelta(
         hours=settings.COMPANYFACTS_SYNC_TTL_HOURS
     ):
         return None
@@ -61,7 +60,7 @@ def _persist_companyfacts_payload(
         if facts
         else {"inserted": 0, "skipped": 0, "demoted": 0}
     )
-    company.facts_synced_at = datetime.now(timezone.utc)
+    company.facts_synced_at = utcnow()
     db.commit()
     logger.info(
         "companyfacts_sync company=%s inserted=%s skipped=%s demoted=%s ifrs=%s",

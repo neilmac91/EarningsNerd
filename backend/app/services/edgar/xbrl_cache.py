@@ -1,11 +1,11 @@
 """XBRL L1 cache state, eviction and counters shared by the service facade."""
-
 import asyncio
 import logging
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Tuple
 
+from app.utils.datetimes import utcnow
 # Preserve the logger name used before this module was extracted.
 logger = logging.getLogger("app.services.edgar.xbrl_service")
 
@@ -23,7 +23,7 @@ _XBRL_CACHE_VERSION = "v6"
 
 # Module-level cache for XBRL data (L1 - in-memory with LRU eviction)
 # Key: "{cik}:{accession_number}"
-# Value: (cached_datetime, data_dict)
+# Value: (aware UTC cached_datetime, data_dict)
 # Using OrderedDict for LRU eviction - most recently accessed items at end
 _xbrl_cache: OrderedDict[str, Tuple[datetime, Optional[Dict]]] = OrderedDict()
 _cache_ttl = timedelta(hours=24)
@@ -109,7 +109,7 @@ def _cache_set_sync(key: str, value: Tuple[datetime, Optional[Dict]]) -> None:
                 "event": "cache_eviction",
                 "cache_type": "xbrl_l1",
                 "evicted_key": oldest_key,
-                "entry_age_hours": round((datetime.now() - cached_time).total_seconds() / 3600, 2),
+                "entry_age_hours": round((utcnow() - cached_time).total_seconds() / 3600, 2),
                 "cache_size": len(_xbrl_cache),
                 "total_evictions": _cache_evictions,
             }
@@ -136,7 +136,7 @@ def get_xbrl_cache_stats() -> Dict[str, Any]:
     Returns dict with both new (l1_*) and legacy (total_entries, valid_entries)
     keys for backward compatibility.
     """
-    now = datetime.now()
+    now = utcnow()
     total = len(_xbrl_cache)
     valid_count = sum(
         1 for cached_time, _ in _xbrl_cache.values()

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import math
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from typing import Any, Optional
 
 from sqlalchemy import and_, or_
@@ -14,6 +14,7 @@ from app.services.facts.concepts import (
 )
 from app.services.facts.lineage import annotate_filing_calculations
 from app.services.facts.reconcile import _prior_values, cross_check_facts, reconcile_facts
+from app.utils.datetimes import utcnow
 
 
 def normalize_standardized_to_facts(
@@ -205,8 +206,7 @@ def process_filing_facts(
     # upsert never commits here — this function owns the single commit so the fact rows and the
     # ``processed_facts_at`` stamp land together (and a caller can defer it with commit=False for a
     # larger per-filing transaction, e.g. remediation's xbrl_data write + delete + re-insert).
-    # Reporting periods are calendar dates, not instants to shift into another timezone.
-    report_date = getattr(filing, "period_end_date", None)
+    report_date = getattr(filing, "period_end_date", None)  # Calendar date, not a timestamp.
     if isinstance(report_date, datetime):
         report_date = report_date.date()
     result = upsert_facts(
@@ -219,7 +219,7 @@ def process_filing_facts(
         flags_only=flags_only,
     )
     if not flags_only:
-        filing.processed_facts_at = datetime.now(timezone.utc)
+        filing.processed_facts_at = utcnow()
     if commit:
         db.commit()
     return result

@@ -7,10 +7,11 @@ Covers stress testing, concurrent access, and LRU eviction.
 
 import asyncio
 import pytest
-from datetime import datetime, timedelta
+from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
 # Import cache components
+from app.utils.datetimes import utcnow
 from app.services.edgar import xbrl_cache
 from app.services.edgar.xbrl_service import (
     _xbrl_cache,
@@ -36,16 +37,16 @@ class TestLRUCacheEviction:
 
     def test_cache_set_sync_adds_entry(self):
         """_cache_set_sync should add entries to the cache."""
-        _cache_set_sync("test:key1", (datetime.now(), {"data": "value1"}))
+        _cache_set_sync("test:key1", (utcnow(), {"data": "value1"}))
 
         assert "test:key1" in _xbrl_cache
         assert _xbrl_cache["test:key1"][1] == {"data": "value1"}
 
     def test_cache_set_sync_updates_existing_entry(self):
         """_cache_set_sync should update existing entries and move to end."""
-        _cache_set_sync("test:key1", (datetime.now(), {"data": "old"}))
-        _cache_set_sync("test:key2", (datetime.now(), {"data": "newer"}))
-        _cache_set_sync("test:key1", (datetime.now(), {"data": "updated"}))
+        _cache_set_sync("test:key1", (utcnow(), {"data": "old"}))
+        _cache_set_sync("test:key2", (utcnow(), {"data": "newer"}))
+        _cache_set_sync("test:key1", (utcnow(), {"data": "updated"}))
 
         # key1 should be at the end (most recently used)
         keys = list(_xbrl_cache.keys())
@@ -64,7 +65,7 @@ class TestLRUCacheEviction:
         try:
             # Add 7 entries (should evict 2 oldest)
             for i in range(7):
-                _cache_set_sync(f"test:key{i}", (datetime.now(), {"index": i}))
+                _cache_set_sync(f"test:key{i}", (utcnow(), {"index": i}))
 
             # Should have only 5 entries
             assert len(_xbrl_cache) == 5
@@ -81,12 +82,12 @@ class TestLRUCacheEviction:
 
     def test_access_updates_lru_order(self):
         """Accessing an entry should move it to end of LRU queue."""
-        _cache_set_sync("test:key1", (datetime.now(), {"data": 1}))
-        _cache_set_sync("test:key2", (datetime.now(), {"data": 2}))
-        _cache_set_sync("test:key3", (datetime.now(), {"data": 3}))
+        _cache_set_sync("test:key1", (utcnow(), {"data": 1}))
+        _cache_set_sync("test:key2", (utcnow(), {"data": 2}))
+        _cache_set_sync("test:key3", (utcnow(), {"data": 3}))
 
         # Access key1 (oldest) - should move it to end
-        _cache_set_sync("test:key1", (datetime.now(), {"data": 1}))
+        _cache_set_sync("test:key1", (utcnow(), {"data": 1}))
 
         keys = list(_xbrl_cache.keys())
         assert keys == ["test:key2", "test:key3", "test:key1"]
@@ -120,8 +121,8 @@ class TestCacheStats:
 
     def test_cache_stats_counts_entries(self):
         """Cache stats should accurately count entries."""
-        _cache_set_sync("test:key1", (datetime.now(), {"data": 1}))
-        _cache_set_sync("test:key2", (datetime.now(), {"data": 2}))
+        _cache_set_sync("test:key1", (utcnow(), {"data": 1}))
+        _cache_set_sync("test:key2", (utcnow(), {"data": 2}))
 
         stats = get_xbrl_cache_stats()
 
@@ -131,10 +132,10 @@ class TestCacheStats:
     def test_cache_stats_identifies_expired_entries(self):
         """Cache stats should correctly identify expired entries."""
         # Add a fresh entry
-        _cache_set_sync("test:fresh", (datetime.now(), {"data": "fresh"}))
+        _cache_set_sync("test:fresh", (utcnow(), {"data": "fresh"}))
 
         # Add an expired entry (25 hours ago)
-        expired_time = datetime.now() - timedelta(hours=25)
+        expired_time = utcnow() - timedelta(hours=25)
         _cache_set_sync("test:expired", (expired_time, {"data": "expired"}))
 
         stats = get_xbrl_cache_stats()
@@ -151,7 +152,7 @@ class TestCacheStats:
 
         try:
             for i in range(25):
-                _cache_set_sync(f"test:key{i}", (datetime.now(), {"data": i}))
+                _cache_set_sync(f"test:key{i}", (utcnow(), {"data": i}))
 
             stats = get_xbrl_cache_stats()
             assert stats["l1_utilization_percent"] == 25.0
@@ -184,7 +185,7 @@ class TestAsyncCacheLock:
     @pytest.mark.asyncio
     async def test_async_clear_acquires_lock(self):
         """async_clear_xbrl_cache should acquire the cache lock."""
-        _cache_set_sync("test:key1", (datetime.now(), {"data": 1}))
+        _cache_set_sync("test:key1", (utcnow(), {"data": 1}))
 
         # Clear should work and acquire the lock
         count = await async_clear_xbrl_cache()
@@ -235,7 +236,7 @@ class TestConcurrentAccess:
     async def test_concurrent_reads_same_key(self):
         """Multiple concurrent reads of the same key should be safe."""
         # Pre-populate cache
-        _cache_set_sync("test:shared", (datetime.now(), {"data": "shared_value"}))
+        _cache_set_sync("test:shared", (utcnow(), {"data": "shared_value"}))
 
         lock = _get_cache_lock()
         results = []
@@ -261,7 +262,7 @@ class TestConcurrentAccess:
 
         async def write_cache(key: str, value: dict):
             async with lock:
-                _cache_set_sync(key, (datetime.now(), value))
+                _cache_set_sync(key, (utcnow(), value))
 
         # Run 20 concurrent writes to different keys
         tasks = [write_cache(f"test:key{i}", {"index": i}) for i in range(20)]
@@ -279,7 +280,7 @@ class TestConcurrentAccess:
 
         # Pre-populate some entries
         for i in range(5):
-            _cache_set_sync(f"test:existing{i}", (datetime.now(), {"index": i}))
+            _cache_set_sync(f"test:existing{i}", (utcnow(), {"index": i}))
 
 
         async def read_op(key: str):
@@ -291,7 +292,7 @@ class TestConcurrentAccess:
 
         async def write_op(key: str, value: dict):
             async with lock:
-                _cache_set_sync(key, (datetime.now(), value))
+                _cache_set_sync(key, (utcnow(), value))
 
         # Mix reads and writes
         tasks = []
@@ -325,7 +326,7 @@ class TestStressConditions:
         async def rapid_ops():
             for i in range(100):
                 async with lock:
-                    _cache_set_sync(f"test:rapid{i}", (datetime.now(), {"i": i}))
+                    _cache_set_sync(f"test:rapid{i}", (utcnow(), {"i": i}))
                     if f"test:rapid{i}" in _xbrl_cache:
                         _ = _xbrl_cache[f"test:rapid{i}"]
 
@@ -348,7 +349,7 @@ class TestStressConditions:
             # Add 100 entries (should evict 50)
             for i in range(100):
                 async with lock:
-                    _cache_set_sync(f"test:pressure{i}", (datetime.now(), {"i": i}))
+                    _cache_set_sync(f"test:pressure{i}", (utcnow(), {"i": i}))
 
             # Should have exactly max_size entries
             assert len(_xbrl_cache) == 50
@@ -372,7 +373,7 @@ class TestStressConditions:
         async def add_entries():
             for i in range(20):
                 async with lock:
-                    _cache_set_sync(f"test:load{i}", (datetime.now(), {"i": i}))
+                    _cache_set_sync(f"test:load{i}", (utcnow(), {"i": i}))
                 await asyncio.sleep(0.001)
 
         async def clear_periodically():
