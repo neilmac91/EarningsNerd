@@ -111,16 +111,17 @@ def test_an_exited_child_leaves_its_group_to_be_ended(runner, group) -> None:
 
 
 def test_a_zombie_is_no_live_member(tmp_path: Path) -> None:
-    """``/proc`` is read where it exists, and a zombie (state Z) does not keep its group alive; elsewhere signal 0
-    answers. The process name may hold ") " itself."""
-    def stat(pid: int, name: str, state: str, pgid: int) -> None:
+    """``/proc`` is read where it exists: a member counts by its process group (not its session) unless it is a
+    zombie (state Z), and any process's name may hold ")" or bytes that are not UTF-8. Elsewhere signal 0 answers."""
+    def stat(pid: int, name: bytes, state: str, pgid: int, session: int = 9999) -> None:
         (tmp_path / str(pid)).mkdir()
-        (tmp_path / str(pid) / "stat").write_text(f"{pid} ({name}) {state} 1 {pgid} {pgid} 0 -1\n")
+        (tmp_path / str(pid) / "stat").write_bytes(b"%d (%s) %s 1 %d %d 0 -1\n" % (pid, name, state.encode(), pgid, session))
 
-    stat(100, "sh", "Z", 4242)
-    stat(101, "odd) S 1 4242 x", "Z", 4242)
+    stat(100, b"sh", "Z", 4242)
+    stat(101, b"odd) S 1 4242 x", "Z", 4242)
+    stat(102, b"app-\xd0", "S", 7, session=4242)  # not UTF-8, and its session (not its group) is 4242
     assert not delivery._group_alive(4242, tmp_path)
-    stat(102, "sleep", "S", 4242)
+    stat(103, b"sleep", "S", 4242)
     assert delivery._group_alive(4242, tmp_path)
     assert not delivery._group_alive(4243, tmp_path)
 
@@ -140,24 +141,68 @@ def test_both_runners_hold_the_same_group_termination() -> None:
         assert getattr(delivery, name) == getattr(judge_runner, name), name
 
 
-def test_nothing_writes_to_the_delivery_streams_once_the_runner_returns(tmp_path: Path, monkeypatch) -> None:
-    """A grandchild that ignores SIGTERM and keeps writing to the inherited stdout is killed before the runner
-    fsyncs its streams, so the stdout the receipt hashes is final."""
-    monkeypatch.setattr(delivery, "_GROUP_GRACE_SECONDS", 0.5)
-    writer = (
-        "import signal, sys, time\n"
-        "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+def _route(tmp_path: Path, leader: str, timeout_seconds: int):
+    return run_route_process(RouteInvocation(
+        argv=(sys.executable, "-c", leader), stdin_bytes=b"", env=dict(os.environ), cwd=tmp_path,
+        timeout_seconds=timeout_seconds, stdout_path=tmp_path / "stdout.raw", stderr_path=tmp_path / "stderr.txt",
+    ))
+
+
+def _writer(ignore_sigterm: bool) -> str:
+    """A grandchild that records its pid once its SIGTERM handling is set, then writes to the inherited stdout."""
+    return (
+        "import os, pathlib, signal, sys, time\n"
+        + ("signal.signal(signal.SIGTERM, signal.SIG_IGN)\n" if ignore_sigterm else "")
+        + "pathlib.Path('writer.pid').write_text(str(os.getpid()))\n"
         "while True:\n"
         "    sys.stdout.write('x'); sys.stdout.flush(); time.sleep(0.02)\n"
     )
-    leader = f"import subprocess, sys, time\nsubprocess.Popen([sys.executable, '-c', {writer!r}])\ntime.sleep(60)\n"
-    stdout_path, stderr_path = tmp_path / "stdout.raw", tmp_path / "stderr.txt"
-    result = run_route_process(RouteInvocation(
-        argv=(sys.executable, "-c", leader), stdin_bytes=b"", env=dict(os.environ), cwd=tmp_path,
-        timeout_seconds=1, stdout_path=stdout_path, stderr_path=stderr_path,
-    ))
-    assert result.timed_out and result.kill_signal == "SIGKILL"
-    written = stdout_path.stat().st_size
-    assert written > 0  # the grandchild did write while the child ran
+
+
+def _assert_stream_final(tmp_path: Path) -> None:
+    written = (tmp_path / "stdout.raw").stat().st_size
+    assert written > 0  # the grandchild did write while it ran
     time.sleep(0.3)
-    assert stdout_path.stat().st_size == written
+    assert (tmp_path / "stdout.raw").stat().st_size == written
+
+
+@pytest.fixture
+def writer_cleanup(tmp_path: Path):
+    yield
+    try:
+        os.kill(int((tmp_path / "writer.pid").read_text()), signal.SIGKILL)
+    except (FileNotFoundError, ValueError, ProcessLookupError):
+        pass
+
+
+def test_nothing_writes_to_the_delivery_streams_after_a_timeout(tmp_path: Path, monkeypatch, writer_cleanup) -> None:
+    """A grandchild that ignores SIGTERM and keeps writing to the inherited stdout is killed before the runner
+    fsyncs its streams, so the stdout the receipt hashes is final."""
+    monkeypatch.setattr(delivery, "_GROUP_GRACE_SECONDS", 0.5)
+    leader = (
+        "import os, subprocess, sys, time\n"
+        f"subprocess.Popen([sys.executable, '-c', {_writer(ignore_sigterm=True)!r}])\n"
+        "while not os.path.exists('writer.pid'):\n"
+        "    time.sleep(0.01)\n"
+        "time.sleep(60)\n"
+    )
+    result = _route(tmp_path, leader, timeout_seconds=2)  # ample time for the writer to set SIGTERM aside
+    assert result.timed_out and result.kill_signal == "SIGKILL"
+    assert not _running(int((tmp_path / "writer.pid").read_text()))
+    _assert_stream_final(tmp_path)
+
+
+def test_nothing_writes_to_the_delivery_streams_after_the_child_exits(tmp_path: Path, writer_cleanup) -> None:
+    """The child exits on its own and leaves a grandchild writing: the runner ends the group before the fsync too,
+    and the receipt's kill_signal says it did."""
+    leader = (
+        "import os, subprocess, sys, time\n"
+        f"subprocess.Popen([sys.executable, '-c', {_writer(ignore_sigterm=False)!r}])\n"
+        "while not os.path.exists('writer.pid'):\n"
+        "    time.sleep(0.01)\n"
+        "time.sleep(0.1)\n"
+    )
+    result = _route(tmp_path, leader, timeout_seconds=30)
+    assert (result.exit_code, result.timed_out, result.kill_signal) == (0, False, "SIGTERM")
+    assert not _running(int((tmp_path / "writer.pid").read_text()))
+    _assert_stream_final(tmp_path)

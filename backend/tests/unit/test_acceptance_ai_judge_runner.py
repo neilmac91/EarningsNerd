@@ -53,6 +53,12 @@ def _fake_cli(path: Path) -> None:
         "    pathlib.Path(__file__).with_suffix('.pid').write_text(str(os.getpid()))\n"
         "    print('partial raw stdout', flush=True)\n"
         "    time.sleep(30)\n"
+        "if text.startswith('STRAGGLER'):\n"
+        "    import subprocess\n"
+        "    writer = subprocess.Popen([sys.executable, '-c', 'import sys, time\\nwhile True:\\n'\n"
+        "                               '    sys.stderr.write(\"x\"); sys.stderr.flush(); time.sleep(0.001)'])\n"
+        "    pathlib.Path(__file__).with_suffix('.writer').write_text(str(writer.pid))\n"
+        "    time.sleep(0.2)\n"
         "if text.startswith('RETRY') and n == 0:\n"
         "    print(json.dumps({'is_error': True, 'subtype': 'error', 'result': 'temporary'}))\n"
         "else:\n"
@@ -191,6 +197,22 @@ def test_owner_death_guardian_terminates_child_and_preserves_partial_raw(tmp_pat
             controller.kill()
             controller.wait(timeout=5)
         _cleanup_recorded_fake_cli(root, fake)
+
+
+def test_a_cli_grandchild_is_ended_before_the_guardian_hashes_the_streams(tmp_path: Path) -> None:
+    """The CLI exits with its verdict and leaves a grandchild writing to its stderr. The guardian ends the group
+    before it fsyncs and hashes the streams, so the owner's re-hash agrees and the call keeps its verdict."""
+    root, fake = _programme(tmp_path, input_text="STRAGGLER")
+    writer = fake.with_suffix(".writer")
+    try:
+        assert run_one(root, "H01-candidate-1", cli=fake)["status"] == "verdict"
+        assert _process_is_terminated(int(writer.read_text()))
+        assert inspect(root)["stop_reason"] is None
+    finally:
+        try:
+            os.kill(int(writer.read_text()), signal.SIGKILL)
+        except (OSError, ValueError):
+            pass
 
 
 def test_version_and_prompt_are_checked_before_judge_reservation(tmp_path: Path) -> None:

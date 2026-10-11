@@ -171,10 +171,10 @@ def _group_alive(pgid: int, proc_root: Path = Path("/proc")) -> bool:
         if not entry.name.isdigit():
             continue
         try:
-            fields = (entry / "stat").read_text().rpartition(")")[2].split()  # the name may hold ")"
+            fields = (entry / "stat").read_bytes().rpartition(b")")[2].split()  # the name may hold ")" or any byte
         except OSError:
             continue  # it exited while the scan ran
-        if len(fields) > 2 and fields[2] == str(pgid) and fields[0] not in ("Z", "X"):  # state, ppid, pgrp
+        if len(fields) > 2 and fields[2] == str(pgid).encode() and fields[0] not in (b"Z", b"X"):  # state, ppid, pgrp
             return True
     return False
 
@@ -188,10 +188,11 @@ def _drain_group(proc: subprocess.Popen[bytes], seconds: float) -> None:
 
 def _terminate_group(proc: subprocess.Popen[bytes]) -> str | None:
     """SIGTERM the CLI's process group (``start_new_session=True``: the child leads it), give the whole group the
-    grace period, SIGKILL whatever of it can still run, and reap the child. A grandchild that outlives the child is
-    killed too, so nothing still writes to the streams once they are fsynced. Returns the strongest signal sent, or
-    None when nothing of the group was left to signal. Both acceptance runners hold this code, identically (the judge
-    runner's guardian imports no repository module); test_acceptance_process_groups.py keeps the copies equal."""
+    grace period, SIGKILL whatever of it can still run, and reap the child. The runners call it once the child has
+    exited or timed out, before they fsync its streams, so a grandchild that outlives the child is ended and nothing
+    still writes to them. Returns the strongest signal sent, or None when nothing of the group was left to signal.
+    Both acceptance runners hold this code, identically (the judge runner's guardian imports no repository module);
+    test_acceptance_process_groups.py keeps the copies equal."""
     if proc.poll() is not None and not _group_alive(proc.pid):
         return None
     try:
@@ -199,11 +200,13 @@ def _terminate_group(proc: subprocess.Popen[bytes]) -> str | None:
     except ProcessLookupError:
         proc.wait()
         return None
+    except PermissionError:
+        pass  # no member could be signalled (another user's); the grace period and SIGKILL still decide
     _drain_group(proc, _GROUP_GRACE_SECONDS)
     if proc.poll() is None or _group_alive(proc.pid):
         try:
             os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
+        except (ProcessLookupError, PermissionError):
             pass
         proc.wait()
         _drain_group(proc, _GROUP_GRACE_SECONDS)  # SIGKILL cannot be caught, but each member still has to die
@@ -212,7 +215,9 @@ def _terminate_group(proc: subprocess.Popen[bytes]) -> str | None:
 
 
 def run_route_process(invocation: RouteInvocation) -> RouteProcessResult:
-    """Default runner: file-backed streams opened create-once, own session, group kill on timeout.
+    """Default runner: file-backed streams opened create-once, own session, group kill on timeout and after an
+    exit (a grandchild that outlives the child would write after the streams are fsynced; ``kill_signal`` records
+    the strongest signal the group received, on a normal exit too).
 
     Partial stdout/stderr survive a timeout because the child writes straight into the ledger
     files; nothing is buffered in this process. There is no retry.
@@ -233,7 +238,7 @@ def run_route_process(invocation: RouteInvocation) -> RouteProcessResult:
                 proc.communicate(invocation.stdin_bytes, timeout=invocation.timeout_seconds)
             except subprocess.TimeoutExpired:
                 timed_out = True
-                kill_signal = _terminate_group(proc)
+            kill_signal = _terminate_group(proc)  # the timed-out child, or a member that outlived the child
         except BaseException:
             _terminate_group(proc)
             raise
