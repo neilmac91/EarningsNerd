@@ -48,6 +48,13 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   run with other fonts needs `--out` naming another file; a symbolic or hard link to the recording counts as it, and
   any other multiply linked output is refused). `EN_PROTO.state.noPad = true` removes the whole-column pad for
   the occlusion mutation proof (at 1024 the probe then reports the Q4 ’23 column straddling the edge).
+- `harness/build-stamped.mjs` — builds a checkout's frontend for `measure-current.mjs` and stamps the build
+  with its inputs (`frontend/.next/SOURCE_TREE.json`): it refuses uncommitted frontend files and the untracked
+  env files `next build` loads (git ignores all four, so `git status` never shows them), runs the build with an
+  allowlisted environment (what the toolchain needs to run and reach the network, plus the caller's
+  `NEXT_PUBLIC_*` variables; credentials, Sentry and Vercel variables are dropped), and records the commit, the
+  `frontend/` tree, the build id, Node, the public variables and a content hash of `.next/static/media`, where
+  the fonts `next/font` downloads at build time sit.
 - `harness/build_states.py`, `harness/prune_states.py` — reproduce `prototype/data/` from a saved
   companyfacts payload.
 - `measurements/` — the two recorded runs the proposal cites.
@@ -105,8 +112,9 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
 # components instead, and the counts and geometry differ by design.
 git worktree add ../en-97293e7 97293e7
 (cd ../en-97293e7/frontend && npm ci)
-# build-stamped.mjs runs `npm run build` from the clean checkout and stamps frontend/.next/SOURCE_TREE.json with its
-# commit, frontend/ tree and build id; the harness requires that stamp for the baseline (.next is ignored by git)
+# build-stamped.mjs runs `npm run build` from the clean checkout with an allowlisted environment and stamps
+# frontend/.next/SOURCE_TREE.json with its commit, frontend/ tree, build id, public variables and downloaded fonts;
+# the harness requires that stamp for the baseline, with exactly these two variables (.next is ignored by git)
 NEXT_PUBLIC_ENABLE_ANALYSIS=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8010 node tasks/analysis-redesign-2026-10/harness/build-stamped.mjs ../en-97293e7
 (cd ../en-97293e7/frontend && WAITLIST_MODE=false npx next start -p 3000 &)
 # then, from this repository's root, with Playwright resolvable (the frontend's install, or the cloud image's global one)
@@ -115,13 +123,14 @@ NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harn
 # .next/BUILD_ID and the build's time, refuses a build older than that checkout's last commit touching frontend/
 # (it cannot see which tree a build came from, so build right before measuring), verifies before measuring that
 # the server serves that build id, and records them with its own commit. A stamp (SOURCE_TREE.json, written by
-# build-stamped.mjs) must name the served build id and the checkout's frontend/ tree whenever one is present, and
-# is recorded. The fixtures --data names (default: prototype/data) are recorded by a content hash of their .js
+# build-stamped.mjs) must name the served build id and the checkout's frontend/ tree, and its media hash must match
+# the build's .next/static/media, whenever one is present, and is recorded. The fixtures --data names (default: prototype/data) are recorded by a content hash of their .js
 # files and, inside this repository, by their tree hash with their uncommitted files. It writes
 # measurements/current.json only for a served build of 97293e7 (enforced whether --out names that file, an alias
 # of it through symbolic or hard links, or it is the default; any other multiply linked output is refused), for the legacy state from the committed fixtures at the content hash the harness pins (retaking
 # from other fixtures needs a new pin), from clean trees (no uncommitted frontend, harness or fixture files) and
-# from a stamped build: a fresh measurement of any other build, state or data (--build defaults to this
+# from a stamped build whose public variables and downloaded fonts match the pins (26 files, sha256 d7c8317fed90…;
+# two builds of 97293e7 on 2026-10-11 hashed alike, and other fonts need a new pin): a fresh measurement of any other build, state or data (--build defaults to this
 # repository) needs --out naming another file, and an --out that holds a recording of another commit is refused.
 
 # prototype (no server needed). --fonts answers Google Fonts from a local directory: fonts.css is the CSS the page

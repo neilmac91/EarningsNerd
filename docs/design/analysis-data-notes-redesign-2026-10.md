@@ -1094,7 +1094,12 @@ correction landed in this document:
   that `build-stamped.mjs` stamped with its source tree right after `npm run build` from the clean checkout
   (`frontend/.next/SOURCE_TREE.json`; `.next` is ignored by git, so the build-time check alone could not tell
   which tree a build came from), a stamp the harness validates against the served build id and the
-  checkout's `frontend/` tree whenever one is present and records; `97293e7` has no harness, so the baseline
+  checkout's `frontend/` tree whenever one is present and records; the build's inputs outside the tree are
+  pinned too, since `next build` reads git-ignored env files and the caller's environment (twenty-one
+  `NEXT_PUBLIC_*` variables at `97293e7`, the API base URL and the analysis flag among them) and `next/font` downloads fonts
+  from Google: `build-stamped.mjs` refuses untracked env files, builds with an allowlisted environment and
+  records the public variables and a content hash of `.next/static/media`, which the harness checks against
+  the served build and, for the baseline, against the pinned pair of variables and the pinned font hash; `97293e7` has no harness, so the baseline
   is retaken by this tree's harness with `--build` pointing at a worktree of that revision, built there with
   `build-stamped.mjs`. The harness compares its output and data paths as canonical paths, so a symbolic link
   to the baseline, a path through a linked directory, or a hard link on the baseline's inode (compared by device

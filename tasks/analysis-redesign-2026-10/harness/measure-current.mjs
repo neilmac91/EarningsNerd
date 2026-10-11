@@ -24,10 +24,12 @@
 // are recorded by a content hash of their .js files and, inside this repository, by their tree hash with their
 // uncommitted files; the baseline is written only for the legacy state from the committed fixtures whose content
 // hash BASELINE pins, from clean trees (no uncommitted frontend, harness or fixture files) and from a build that
-// build-stamped.mjs stamped with its source tree (frontend/.next/SOURCE_TREE.json; .next is ignored by git, so the
-// stamp is the only link between a build and a tree; when present it must name the served build id and the
-// checkout's frontend/ tree). 97293e7 has no harness, so the baseline is retaken by running this tree's harness
-// with --build pointing at a worktree of that revision, built there with build-stamped.mjs.
+// build-stamped.mjs stamped with its source tree and build inputs (frontend/.next/SOURCE_TREE.json; .next is ignored
+// by git, so the stamp is the only link between a build and its inputs; when present it must name the served build
+// id and the checkout's frontend/ tree, and its media hash must match the build's .next/static/media, where the fonts
+// next/font downloaded sit); for the baseline the stamp's public build variables and media hash must equal the pins in
+// BASELINE. 97293e7 has no harness, so the baseline is retaken by running this tree's harness with --build pointing
+// at a worktree of that revision, built there with build-stamped.mjs.
 import { readFileSync, readdirSync, mkdirSync, writeFileSync, existsSync, lstatSync, realpathSync, statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { execSync } from 'node:child_process'
@@ -54,13 +56,28 @@ const canonical = (p) => {
 }
 const DATA = canonical(path.resolve(ROOT, args.data || 'prototype/data'))
 const STATE = args.state || 'legacy'
-// The baseline's inputs: the revision whose build it measures and the fixtures it was fed (prototype/data at the
-// tree below, pinned by the content hash of its .js files); retaking it from other fixtures needs a new pin here.
+// The baseline's inputs: the revision whose build it measures, the fixtures it was fed (prototype/data at the tree
+// below, pinned by the content hash of its .js files), and the build's inputs outside the tree: the public variables
+// the build inlined (the README's command passes exactly these) and the fonts and assets next/font and the build put
+// in .next/static/media (two builds of 97293e7 on 2026-10-11 hashed alike). Retaking it with other inputs needs a new
+// pin here and a README note.
 const BASELINE = {
   file: 'measurements/current.json',
   revision: '97293e76fe71ff6b7e1848d57f00e808866e8c1c',
   fixtureTree: '50e1c7d92925eaba6503a21979b556679f25760d',
   fixtureHash: '001717037fc42562f06978020451d4e355d99ad5656aa6f478b1f20cb0b17180',
+  buildEnv: { NEXT_PUBLIC_API_BASE_URL: 'http://localhost:8010', NEXT_PUBLIC_ENABLE_ANALYSIS: 'true' },
+  media: { files: 26, hash: 'd7c8317fed90f1bd87eff175eed351ef4715eb870551ea3f11d478ff79c2030c' },
+}
+// A directory's files, recursively, by relative path and bytes (build-stamped.mjs hashes the same way).
+const hashDir = (dir) => {
+  const files = []
+  const walk = (d) => { for (const e of readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (e.isFile()) files.push(p) } }
+  if (existsSync(dir)) walk(dir)
+  files.sort()
+  const h = createHash('sha256')
+  for (const f of files) { h.update(`${path.relative(dir, f)}\0`); h.update(readFileSync(f)); h.update('\0') }
+  return { files: files.length, hash: h.digest('hex') }
 }
 const git = (cwd, cmd) => { try { return execSync(`git ${cmd}`, { cwd, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { return null } }
 // The served build: the checkout whose frontend/ was built and is served at --base (default: this repository).
@@ -83,6 +100,7 @@ let STAMP = null
 if (existsSync(stampFile)) {
   try { STAMP = JSON.parse(readFileSync(stampFile, 'utf8')) } catch { throw new Error(`${stampFile} is not JSON: rebuild with harness/build-stamped.mjs`) }
   if (!STAMP || STAMP.buildId !== SERVED.buildId) throw new Error(`the stamp at ${stampFile} names build ${STAMP && STAMP.buildId}, but the build there is ${SERVED.buildId}: rebuild with harness/build-stamped.mjs`)
+  if (STAMP.media) { const media = hashDir(path.join(BUILD, 'frontend', '.next', 'static', 'media')); if (media.hash !== STAMP.media.hash) throw new Error(`the build at ${BUILD} holds other fonts and assets in .next/static/media (${media.files} files, ${media.hash.slice(0, 12)}…) than its stamp records (${STAMP.media.files} files, ${String(STAMP.media.hash).slice(0, 12)}…): rebuild with harness/build-stamped.mjs`) }
   if (STAMP.frontendTree !== SERVED.frontendTree) throw new Error(`the build at ${BUILD} was stamped from frontend tree ${String(STAMP.frontendTree).slice(0, 7)}, but the checkout's frontend/ is ${String(SERVED.frontendTree).slice(0, 7)}: rebuild with harness/build-stamped.mjs from the checkout the server should serve`)
 }
 // A build older than the checkout's last commit touching frontend/ cannot be that checkout's build (the harness
@@ -130,6 +148,9 @@ if (WRITING_BASELINE) {
   const what = [SERVED.dirty.length ? `uncommitted frontend files in ${BUILD} (${SERVED.dirty.join(', ')})` : null, HARNESS_DIRTY.length ? `uncommitted harness files (${HARNESS_DIRTY.join(', ')})` : null, FIXTURES.dirty && FIXTURES.dirty.length ? `uncommitted fixture files (${FIXTURES.dirty.join(', ')})` : null].filter(Boolean).join(' and ')
   if (what) throw new Error(`${BASELINE.file} is written only from clean trees: ${what}; commit or stash them, or pass --out <another file>`)
   if (!STAMP) throw new Error(`${BASELINE.file} is written only from a stamped build: build ${BUILD} with harness/build-stamped.mjs (it writes frontend/.next/SOURCE_TREE.json from the clean checkout right after the build) and serve that build`)
+  const env = STAMP.env ? JSON.stringify(STAMP.env) : null
+  if (env !== JSON.stringify(BASELINE.buildEnv)) throw new Error(`${BASELINE.file} records a build whose public build variables were exactly ${JSON.stringify(BASELINE.buildEnv)}; the stamp at ${stampFile} records ${env || 'none (it predates recorded build inputs)'}: rebuild with harness/build-stamped.mjs and exactly those variables (the README's command)`)
+  if (!STAMP.media || STAMP.media.hash !== BASELINE.media.hash) throw new Error(`${BASELINE.file} records a build whose downloaded fonts and assets hash ${BASELINE.media.hash.slice(0, 12)}… (${BASELINE.media.files} files in .next/static/media); the build at ${BUILD} has ${STAMP.media ? `${STAMP.media.hash.slice(0, 12)}… (${STAMP.media.files} files)` : 'none recorded'}: retaking the baseline with other fonts needs a new pin here and a README note`)
 }
 const SHOTS = args.shots || null
 const API = 'http://localhost:8010'

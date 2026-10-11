@@ -103,10 +103,11 @@ prototype harness once to confirm `measurements/prototype.json` reproduces on yo
 the commands). `measurements/current.json` is a recording of `main` at `97293e7`, before Phase 1 landed, so
 it reproduces only against a build of that revision: `git worktree add ../en-97293e7 97293e7`, then the
 README's commands in that worktree (`npm ci`; `harness/build-stamped.mjs` with `NEXT_PUBLIC_ENABLE_ANALYSIS=true`,
-which runs `next build` and stamps the build with its source tree; `next start` with `WAITLIST_MODE=false`, no
-backend) and this tree's harness with `--build ../en-97293e7` (`97293e7` has no harness; the harness verifies
-that the server serves that worktree's build id, that the stamp names it and that checkout's `frontend/` tree
-and that the fixtures match its pin, and records them). Run `measure-current.mjs` on current `main` only as a fresh measurement of the shipped
+which runs `next build` with an allowlisted environment and stamps the build with its source tree, public
+variables and downloaded fonts; `next start` with `WAITLIST_MODE=false`, no backend) and this tree's harness
+with `--build ../en-97293e7` (`97293e7` has no harness; the harness verifies that the server serves that
+worktree's build id, that the stamp names it, that checkout's `frontend/` tree and the build's fonts, and that
+the build's variables, fonts and fixtures match its pins, and records them). Run `measure-current.mjs` on current `main` only as a fresh measurement of the shipped
 components (its probes find that markup by data attribute), never as a comparison with the recording: the
 counts and geometry differ by design, and the harness refuses to write `measurements/current.json` for any
 other served build, so pass `--out` naming another file.
