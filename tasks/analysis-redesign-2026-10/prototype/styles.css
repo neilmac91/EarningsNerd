@@ -220,6 +220,7 @@ sup.affix, .affix sup { line-height: 0; vertical-align: baseline; position: rela
 .metrics-scroll:focus-visible { box-shadow: var(--ring); }
 .metrics-scroll .hint { position: sticky; left: 0; font-size: 0.75rem; color: var(--ink-3); padding: 0.25rem 0 0.5rem; display: none; }
 .metrics-scroll.scrolls .hint { display: block; }
+.metrics-scroll.scrolls.at-start .hint { display: none; } /* shown only while the table is scrolled away from its start (§4.5) */
 table.metrics { table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 0.75rem; }
 table.metrics col.period { width: var(--period-col); }
 table.metrics th, table.metrics td { padding: 0.25rem 0.5rem; vertical-align: top; }
@@ -300,3 +301,6 @@ table.metrics .cell .empty { color: var(--ink-3); }
 .cur table.auto .cell .v { display: inline-flex; align-items: center; gap: 0.25rem; }
 .cur table.auto .cell button { all: unset; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 4px; cursor: pointer; }
 .cur .scroll { overflow-x: auto; }
+
+/* Reduced motion: every transition stops (the citation tint is already static in app.js). */
+@media (prefers-reduced-motion: reduce) { .btn, .notes summary .caret { transition: none; } }

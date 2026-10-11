@@ -1037,7 +1037,10 @@ correction landed in this document:
   shown when the table window is narrower than the report, and counts the year-over-year changes the
   table shows as its labelled fallback (§4.1); the evidence dialog's status follows the notes model's own
   resolution, so a stored figure without a provenance record whose reconciled flag is false reads "Needs
-  review" with its reason, as its affix and its note do, instead of "No validation record".
+  review" with its reason, as its affix and its note do, instead of "No validation record". The phone
+  table's "← Earlier quarters" hint hides at the scroll start and shows only while the table is scrolled
+  away from it, as §4.5 says (it had shown whenever the table overflowed); the disclosure caret and the
+  button fills do not transition under `prefers-reduced-motion`.
 - **Moved modules**, checked against `main` at `dd7b9ce` (#1222) on 2026-10-11: `normalize_companyfacts`
   lives in `facts/companyfacts.py` (#1210) behind the `facts_service.py` facade; `build_observation_catalogue`
   and `_point_value` in `trend_analysis/observations.py`, `_ratio_threshold_value` and

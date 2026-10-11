@@ -547,6 +547,9 @@
     table.append(tbody)
     const phone = window.matchMedia('(max-width: 639px)').matches
     const scroll = el('div', { class: 'metrics-scroll', role: 'region', 'aria-label': `Metrics by period, table of ${periods.length} quarters` }, phone ? el('div', { class: 'hint', 'aria-hidden': 'true' }, '← Earlier quarters') : null, table)
+    // The hint says what is off-screen, so it shows only while the table is scrolled away from its start (§4.5).
+    const atStart = () => scroll.classList.toggle('at-start', scroll.scrollLeft <= 0)
+    scroll.addEventListener('scroll', atStart, { passive: true })
     // Home/End move the table, never the page; arrows step one column through the mandatory snap.
     scroll.addEventListener('keydown', (e) => { if (e.target !== scroll) return; const range = scroll.scrollWidth - scroll.clientWidth; const col = table.querySelector('tbody td'); const step = col ? col.getBoundingClientRect().width : scroll.clientWidth; const to = e.key === 'Home' ? 0 : e.key === 'End' ? range : e.key === 'ArrowRight' ? scroll.scrollLeft + step : e.key === 'ArrowLeft' ? scroll.scrollLeft - step : null; if (to == null) return; e.preventDefault(); scroll.scrollLeft = Math.max(0, Math.min(to, range)) })
     const legend = el('div', { class: 'legend' }, hasDerived ? el('span', null, el('span', { class: 'affix' }, el('span', { class: 'dag' }, '†')), ' calculated') : null, ...(() => { const letters = notes.list.map((g) => g.letter).filter((l) => tableLetters.has(l)); return letters.length ? [el('button', { type: 'button', class: 'pchip note notes-ref', onclick: () => openNote(letters[0]) }, `Notes ${letters.join(', ')}`)] : [] })())
@@ -573,7 +576,7 @@
       scroll.style.paddingInlineEnd = `${Math.round(pad)}px`
       scroll.classList.add('scrolls')
     }
-    requestAnimationFrame(() => { alignScrollRange(); if (phone && scroll.classList.contains('scrolls')) scroll.scrollLeft = scroll.scrollWidth })
+    requestAnimationFrame(() => { alignScrollRange(); if (phone && scroll.classList.contains('scrolls')) scroll.scrollLeft = scroll.scrollWidth; atStart() })
     if (window.ResizeObserver) new ResizeObserver(alignScrollRange).observe(scroll)
     return section
   }
