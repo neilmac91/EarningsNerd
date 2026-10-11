@@ -118,6 +118,7 @@ def test_export_timestamps_preserve_instants_as_utc_z_and_keep_nulls(client, dat
                             filing_date=stamp, document_url="https://example.test/filing", sec_url="https://example.test/filing")
             db.add(filing)
             db.flush()
+            filing_id = filing.id
             summary = Summary(filing_id=filing.id)
             db.add(summary)
             db.flush()
@@ -159,7 +160,10 @@ def test_export_timestamps_preserve_instants_as_utc_z_and_keep_nulls(client, dat
         finally:
             with SessionLocal() as db:
                 db.delete(db.get(User, uid))
-                db.delete(db.get(Company, company_id))
+                db.flush()
+                db.query(Summary).filter(Summary.filing_id == filing_id).delete()
+                db.query(Filing).filter(Filing.id == filing_id).delete()
+                db.query(Company).filter(Company.id == company_id).delete()
                 db.commit()
 
 
