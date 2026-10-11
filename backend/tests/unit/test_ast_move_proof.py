@@ -620,6 +620,21 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
             (descriptor + "class Consumer:\n" + consumer, "Consumer.field"),
             ("class Outer:\n    class Inner:\n        def other():\n            return 1\n\n        def hook():\n"
              "            return normalize(' x ')\n\n        VALUE = other()\n", "Outer.Inner"),
+            (descriptor + "class Consumer:\n    for field in (descriptor,):\n        pass\n\n    def __init__(self):\n"
+             "        self.value = normalize(' x ')\n", "Consumer.guard:for field in (descriptor,)"),
+            # Calling without binding a result, which may be a descriptor, isolates the holders and the lookups.
+            ("class Outer:\n    class Inner:\n        def hook():\n            return normalize(' x ')\n\n"
+             "        hook()\n", "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        class Deeper:\n            def hook():\n"
+             "                return normalize(' x ')\n\n            hook()\n", "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        hook = lambda: normalize(' x ')\n        hook()\n",
+             "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        class Report:\n            def __init__(self):\n"
+             "                normalize(' x ')\n\n        def build(value: Report):\n            return value\n\n"
+             "        build.__annotations__['value']()\n", "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        class Exception:\n            pass\n\n"
+             "        class Deep(Exception):\n            def __str__(self):\n                return normalize(' boom ')\n",
+             "Outer.Inner"),
             (descriptor + "class Outer:\n    class Consumer:\n        def __init__(self):\n"
              "            self.value = normalize(' x ')\n\n        field = descriptor\n", "Outer.Consumer"),
             ("def f(x: (lambda: normalize(' x '))()):\n    return x\n", "f"),
@@ -724,7 +739,9 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    "match 1:\n    case _:\n        class Box:\n            clean = lambda value: normalize(value)\n"
                    "            VALUE = clean(' x ')\n",
                    calling + "match 1:\n    case _:\n        @dataclass\n        class Box:\n            @classmethod\n"
-                   "            def hook(cls):\n                return normalize(' x ')\n"):
+                   "            def hook(cls):\n                return normalize(' x ')\n",
+                   "match 1:\n    case _:\n        if True:\n            @register\n            def hook():\n"
+                   "                return normalize(' x ')\n"):
         old = "from app.b import normalize\n\n\n" + reader
         above = compare(old, {"app/a.py": "", "app/b.py": reader + "\n\n" + target}, old_path="app/a.py")
         assert above.shadows.get("normalize", "").startswith(
@@ -744,7 +761,8 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    "def build(value: Report[int]):\n    return value\n",
                    nested + "        value: hook()\n",
                    "class Outer:\n    class Inner:\n        value: normalize\n",
-                   "def f(x: (lambda: normalize(' x '))()):\n    return x\n"):
+                   "def f(x: (lambda: normalize(' x '))()):\n    return x\n",
+                   "def f(x: (lambda: [normalize(v) for v in 'ab'])()):\n    return x\n"):
         old = future + "from app.b import normalize\n\n\n" + reader
         report = compare(old, {"app/a.py": "", "app/b.py": future + reader + "\n\n" + target}, old_path="app/a.py")
         assert report.ok, render(report)
@@ -755,10 +773,11 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                      old_path="app/a.py")
     assert report.shadows == {"format": "app/b.py: binds format, read above it at import by VALUE"}
     # An augmented assignment reads its target before it binds it, and a class body's lookup falls through to the
-    # module until the class has bound the name.
+    # module until the class has bound the name; a block reads it too where the class body it runs does.
     count = "COUNT = 0\n"
     for reader, key in (("class Box:\n    COUNT += 1\n", "Box.COUNT"),
-                        ("class Outer:\n    class Inner:\n        COUNT += 1\n", "Outer.Inner")):
+                        ("class Outer:\n    class Inner:\n        COUNT += 1\n", "Outer.Inner"),
+                        ("if True:\n    class Box:\n        COUNT += 1\n", "Box.COUNT, guard:if True")):
         old = "from app.b import COUNT\n\n\n" + reader
         above = compare(old, {"app/a.py": "", "app/b.py": reader + "\n\n" + count}, old_path="app/a.py")
         assert above.shadows == {"COUNT": f"app/b.py: binds COUNT, read above it at import by {key}"}, reader

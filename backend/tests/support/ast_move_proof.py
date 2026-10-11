@@ -850,11 +850,11 @@ class _Scope:
         self.nested: list[_Scope] = []
         self.walrus = walrus or self
         self.statements: list[ast.stmt] = []  # a class body's own, read one by one for ``held``
-        self.annotated = False  # inside an annotation (a lambda's or comprehension's), which postponing skips
+        self.annotated = False  # opened inside an annotation (a lambda, a comprehension), which postponing skips
 
     def _open(self, in_class: bool = False, walrus: _Scope | None = None, deferred: bool = False) -> _Scope:
         self.nested.append(_Scope(in_class, walrus, deferred))
-        self.nested[-1].annotated = self.annotated or self.annotating > 0
+        self.nested[-1].annotated = self.annotating > 0  # ``taken_now`` skips what is nested in it too
         return self.nested[-1]
 
     def read(self, *nodes: ast.AST | None) -> _Scope:
@@ -963,8 +963,8 @@ class _Scope:
         nested in it that run there (a comprehension's or a class's body, not a def's), each read as
         ``_Names.evaluated`` reads a symbol's own: no ``global`` declaration, no ``@name.setter``-shaped
         decorator's receiver, and no annotation when the module postpones them, nor a lambda or comprehension in
-        one (``annotated``). ``calls``: only the names whose
-        code may run there, as ``_Names.calls`` reads them, so no lone name an annotation evaluates either."""
+        one (``annotated``), with what is nested in it. ``calls``: only the names whose code may run there, as
+        ``_Names.calls`` reads them, so no lone name an annotation evaluates either."""
         if self.deferred or (postponed and self.annotated):
             return set()
         loads = self.untyped | (set() if postponed else self.active if calls else self.typed)
