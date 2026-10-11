@@ -14,3 +14,12 @@ chart exports and workbooks. Show quality independently of citation traceability
 **Evidence**: PR #697; backend `tests/unit/test_data_completeness.py` pins earlier-input growth,
 citations, exported cell comments and PDF value/source warnings. Frontend metric/KPI/trend/narrative regression cases pin
 the corresponding visible warnings; mutations removing these paths must fail those tests.
+
+**Additional evidence (2026-10-11, analysis data notes)**: Repeated warnings made the same concern
+look like many unrelated errors and widened metric columns. Group explanations once and carry the
+same letters, reason identities and counts across the report and exports; keep a mark at each
+affected figure. Shared `backend/tests/fixtures/analysis_data_notes.json` cases are exercised by
+Python and TypeScript. `test_analysis_data_notes.py`, `data-notes.spec.ts` and export tests pin the
+shared groups and numeric-cell preservation. `analysis-presentation-api.spec.ts` rejects supplied
+metadata that omits concerns or belongs to another snapshot before the stream becomes terminal;
+an absent legacy field alone permits the older presentation fallback.

@@ -34,6 +34,7 @@ export interface DataNotesSeries extends Pick<AnalysisSeries, 'concept' | 'label
 export interface DataNotesDataset extends Pick<AnalysisDataset, 'mode' | 'period_key'> {
   periods: readonly { key: string }[]
   series: readonly DataNotesSeries[]
+  data_notes?: DataNotesWire
 }
 
 export interface DataNoteValueRef {
@@ -69,6 +70,13 @@ export interface DataNotesTotals {
   total: number
 }
 
+/** Versioned server metadata, admitted once at the API boundary. */
+export interface DataNotesWire {
+  version: 1
+  notes: DataNote[]
+  totals: DataNotesTotals
+}
+
 export interface QualityNotesModel {
   notes: DataNote[]
   noteForQuality(value: DataNoteQuality): DataNote | null
@@ -83,7 +91,14 @@ export interface DataNotesModel extends QualityNotesModel {
 
 type Issue = Pick<DataNote, 'key' | 'kind' | 'reasons'>
 
-function issueFor(value: DataNoteQuality): Issue | null {
+/** Compact ASCII JSON and UTF-16 reason ordering are shared with the Python producer. */
+export function dataNoteKey(kind: DataNoteKind, reasons: readonly string[]): string {
+  return JSON.stringify([kind, [...new Set(reasons)].sort()]).replace(/[\u007f-\uffff]/g,
+    (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`)
+}
+
+/** Quality identity only: this never infers validation from calculation or citation status. */
+export function dataNoteIssue(value: DataNoteQuality): Issue | null {
   const validation = value.provenance?.validation
   const kind: DataNoteKind | null = value.value === null ? 'unavailable'
     : (value.provenance ? validation === 'needs_review' : value.reconciled === false) ? 'review'
@@ -93,7 +108,7 @@ function issueFor(value: DataNoteQuality): Issue | null {
   const fallback = kind === 'unavailable' ? 'not_in_dataset'
     : kind === 'unknown' ? 'legacy_unknown' : 'source_check_needed'
   const reasons = [...new Set(supplied.length ? supplied : [fallback])].sort()
-  return { kind, reasons, key: JSON.stringify([kind, reasons]) }
+  return { kind, reasons, key: dataNoteKey(kind, reasons) }
 }
 
 function letterFor(index: number): string {
@@ -107,7 +122,7 @@ function letterFor(index: number): string {
 function createGroups() {
   const groups = new Map<string, DataNote>()
   function add(value: DataNoteQuality): DataNote | null {
-    const issue = issueFor(value)
+    const issue = dataNoteIssue(value)
     if (!issue) return null
     let note = groups.get(issue.key)
     if (!note) {
@@ -129,7 +144,7 @@ function createGroups() {
     return {
       notes,
       noteForQuality(value) {
-        const issue = issueFor(value)
+        const issue = dataNoteIssue(value)
         return issue ? groups.get(issue.key) ?? null : null
       },
     }
@@ -159,7 +174,7 @@ export function groupQualityNotes(values: readonly DataNoteQuality[], existing?:
   return {
     notes,
     noteForQuality(value) {
-      const issue = issueFor(value)
+      const issue = dataNoteIssue(value)
       return issue ? byKey.get(issue.key) ?? null : null
     },
   }
@@ -171,6 +186,41 @@ function pointComparison(point: DataNotesPoint, basis: PointBasis): DataNoteQual
 
 function windowComparison(series: DataNotesSeries, basis: 'cagr' | 'window_pp'): DataNoteQuality {
   return { value: series[basis], provenance: series[`${basis}_provenance`], reconciled: series[`${basis}_reconciled`] }
+}
+
+/** Consumers retain the server's copy, ordering and letters without regrouping admitted notes. */
+export function qualityNotesModelFromWire(notes: DataNote[]): QualityNotesModel {
+  const byKey = new Map(notes.map((note) => [note.key, note]))
+  return {
+    notes,
+    noteForQuality(value) {
+      const issue = dataNoteIssue(value)
+      return issue ? byKey.get(issue.key) ?? null : null
+    },
+  }
+}
+
+export function dataNotesModelFromWire(wire: DataNotesWire, mode: DataNotesDataset['mode']): DataNotesModel {
+  const model = qualityNotesModelFromWire(wire.notes)
+  return {
+    ...model, totals: wire.totals, noteFor: model.noteForQuality,
+    noteForComparison(point, basis) {
+      if (point[basis] == null || (basis === 'qoq' && mode !== 'quarterly')) return null
+      return model.noteForQuality(pointComparison(point, basis))
+    },
+    noteForWindow(series) {
+      const basis = series.percent ? 'window_pp' : 'cagr'
+      if (mode !== 'annual' || series[basis] == null) return null
+      return model.noteForQuality(windowComparison(series, basis))
+    },
+  }
+}
+
+/** Absence is the sole legacy path; present metadata must already have passed the decoder. */
+export function resolveDataNotes(dataset: DataNotesDataset): DataNotesModel {
+  return Object.hasOwn(dataset, 'data_notes')
+    ? dataNotesModelFromWire(dataset.data_notes!, dataset.mode)
+    : groupDataNotes(dataset)
 }
 
 /** Group concerns once per full report, independently of any table window or presentation. */
@@ -228,17 +278,5 @@ export function groupDataNotes(dataset: DataNotesDataset): DataNotesModel {
     }
   }
 
-  const model = groups.finish()
-  return {
-    ...model, totals, noteFor: model.noteForQuality,
-    noteForComparison(point, basis) {
-      if (point[basis] == null || (basis === 'qoq' && dataset.mode !== 'quarterly')) return null
-      return model.noteForQuality(pointComparison(point, basis))
-    },
-    noteForWindow(series) {
-      const basis = series.percent ? 'window_pp' : 'cagr'
-      if (dataset.mode !== 'annual' || series[basis] == null) return null
-      return model.noteForQuality(windowComparison(series, basis))
-    },
-  }
+  return dataNotesModelFromWire({ version: 1, notes: groups.finish().notes, totals }, dataset.mode)
 }

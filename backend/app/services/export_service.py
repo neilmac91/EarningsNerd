@@ -7,7 +7,11 @@ from html import escape
 from app.models import Summary, Filing
 from app.services.pdf_branding import PALETTE, render_branded_pdf
 from app.services.analysis_export_metadata import (
-    ANALYSIS_DISCLAIMER, FCF_DEFINITION, export_points, formula_text, operand_records, point_limitations, point_method, source_urls,
+    ANALYSIS_DISCLAIMER, FCF_DEFINITION, export_points, formula_text, note_index, notes_summary,
+    operand_records, period_label, point_method, raw_value_text, source_urls,
+)
+from app.services.trend_analysis.data_notes import (
+    citation_data_notes, note_for_quality, resolve_data_notes,
 )
 from app.services.summary_sections import Block, Section, render_sections
 from app.services.provenance_service import project_summary_risks
@@ -234,205 +238,180 @@ class ExportService:
                     i += 1
         return "\n".join(parts)
 
-    def generate_analysis_pdf_html(self, analysis, company) -> str:
-        """HTML for a Multi-Period Analysis export: header, narrative, metrics-by-period grid, and
-        the verified-citations appendix. Charts render as the grid (WeasyPrint runs no JS).
+    @staticmethod
+    def _analysis_value_text(value, unit: str, percent: bool) -> str:
+        if value is None:
+            return "—"
+        if percent:
+            return f"{value:.1f}%"
+        if unit == "pure":
+            return f"{value:.2f}x"
+        currency = "$" if unit.upper().startswith("USD") else unit.split("/")[0] + " "
+        sign, magnitude = ("-" if value < 0 else ""), abs(value)
+        if unit.endswith("/shares"):
+            return f"{sign}{currency}{magnitude:,.2f}"
+        for scale, suffix, digits in ((1e12, "T", 2), (1e9, "B", 1), (1e6, "M", 1)):
+            if magnitude >= scale:
+                return f"{sign}{currency}{magnitude / scale:.{digits}f}{suffix}"
+        return f"{sign}{currency}{magnitude:,.0f}"
 
-        ``analysis`` is a TrendAnalysis row (dataset_json + narrative_md + citations_json),
-        ``company`` its Company. A dedicated template rather than the summary_sections renderer —
-        an analysis is grid + narrative shaped, not filing-section shaped.
-        """
-        dataset = analysis.dataset_json or {}
+    @staticmethod
+    def _analysis_note_mark(note: dict | None) -> str:
+        if not note:
+            return ""
+        return (f'<sup class="data-note"><a href="#{escape(note["id"], quote=True)}">'
+                f'{escape(note["letter"])}</a></sup>')
+
+    @staticmethod
+    def _analysis_links(provenance: dict) -> str:
+        return " · ".join(
+            f'<a href="{escape(url, quote=True)}">Source filing {index}</a>'
+            for index, url in enumerate(source_urls(provenance), start=1)
+        )
+
+    def _analysis_grid(self, dataset: dict, indexed: dict) -> str:
         periods = [p.get("key", "") for p in dataset.get("periods", [])]
-        mode_label = "Annual" if analysis.mode == "annual" else "Quarterly"
-
-        def format_value(value, unit, percent) -> str:
-            # Mirrors the on-page MetricsTable display (formatSeriesValue): compact money,
-            # percent/ratio/per-share as shown in the product. Full-precision values made even
-            # the landscape grid wider than the page (the TSLA field test's clipped columns) —
-            # and the Excel export carries the raw numbers for anyone who needs them.
-            if value is None:
-                return "—"
-            if percent:
-                return f"{value:.1f}%"
-            if unit == "pure":
-                return f"{value:.2f}x"
-            currency = "$" if not isinstance(unit, str) or unit.upper().startswith("USD") else (
-                unit.split("/")[0].strip() + " "
-            )
-            sign = "-" if value < 0 else ""
-            magnitude = abs(value)
-            if isinstance(unit, str) and unit.endswith("/shares"):
-                return f"{sign}{currency}{magnitude:,.2f}"
-            if magnitude >= 1e12:
-                return f"{sign}{currency}{magnitude / 1e12:.2f}T"
-            if magnitude >= 1e9:
-                return f"{sign}{currency}{magnitude / 1e9:.1f}B"
-            if magnitude >= 1e6:
-                return f"{sign}{currency}{magnitude / 1e6:.1f}M"
-            return f"{sign}{currency}{magnitude:,.0f}"
-
-        def links_html(provenance: dict) -> str:
-            return " · ".join(
-                f'<a href="{escape(url, quote=True)}">Source filing {index}</a>'
-                for index, url in enumerate(source_urls(provenance), start=1)
-            )
-
-        header_cells = "".join(f"<th>{escape(period)}</th>" for period in periods)
-        body_rows = []
-        limitation_items = []
-        method_sections = []
+        headers = "".join(f"<th>{escape(period_label(period))}</th>" for period in periods)
+        rows = []
         for series in dataset.get("series", []):
-            by_period = {p.get("period"): p for p in series.get("points", [])}
-            label = str(series.get("label", series.get("concept", "")))
+            points = {p.get("period"): p for p in series.get("points", [])}
             cells = []
-            method_items = []
             for period in periods:
-                point = by_period.get(period) or {}
-                provenance = point.get("provenance") or {}
-                rendered = format_value(
-                    point.get("value"), series.get("unit", "USD"), bool(series.get("percent"))
+                point = points.get(period) or {"value": None}
+                value = self._analysis_value_text(
+                    point.get("value"), series.get("unit") or "USD", bool(series.get("percent"))
                 )
                 if point_method(point) == "calculated" and point.get("value") is not None:
-                    rendered += " †"
-                limitations = point_limitations(point)
-                if limitations:
-                    note_number = len(limitation_items) + 1
-                    rendered += f" [note {note_number}]" if provenance else " [unreconciled]"
-                    limitation_items.append(
-                        f"<li>{escape(label)} · {escape(period)}: {escape('; '.join(limitations))}</li>"
-                    )
-                cells.append(f'<td class="num">{escape(rendered)}</td>')
+                    value += " †"
+                mark = self._analysis_note_mark(indexed.get((series["concept"], period, "value")))
+                cells.append(f'<td class="num">{escape(value)}{mark}</td>')
+            label = escape(str(series.get("label", series.get("concept", ""))))
+            rows.append(f"<tr><td>{label}</td>{''.join(cells)}</tr>")
+        return f"<table><thead><tr><th>Metric</th>{headers}</tr></thead><tbody>{''.join(rows)}</tbody></table>"
 
-            for measure, point, unit in export_points(series):
+    def _analysis_operands(self, provenance: dict) -> str:
+        items = []
+        for label, operand in operand_records(provenance):
+            dates = " to ".join(str(operand[k]) for k in ("period_start", "period_end") if operand.get(k))
+            text = (f"{label}: {operand.get('concept', '')} = {raw_value_text(operand.get('value'))} "
+                    f"{operand.get('unit', '')} ({dates})")
+            nested = operand.get("provenance") or {}
+            if nested.get("formula"):
+                text += " · " + formula_text(nested["formula"])
+            for key in ("accession", "raw_tag", "filed_at"):
+                if operand.get(key):
+                    text += f" · {key}: {operand[key]}"
+            link = self._analysis_links({**nested, "source_url": operand.get("source_url") or nested.get("source_url")})
+            items.append(f"<li>{escape(text)}{' · ' + link if link else ''}</li>")
+        return '<ul class="operands">' + "".join(items) + "</ul>" if items else ""
+
+    def _analysis_methods(self, dataset: dict, indexed: dict) -> str:
+        sections = []
+        periods = [p.get("key", "") for p in dataset.get("periods", [])]
+        bases = {"Value": "value", "YOY": "yoy", "QOQ": "qoq", "CAGR": "cagr", "Window change": "window_pp"}
+        for series in dataset.get("series", []):
+            items = []
+            for measure, point, unit in export_points(series, periods, dataset.get("period_key", "")):
                 provenance = point.get("provenance") or {}
-                period = str(point.get("period") or "")
-                value = point.get("value")
-                value_text = f"{value:,.10g}" if isinstance(value, (int, float)) else str(value or "Unavailable")
-                detail = (
-                    f"<strong>{escape(period)} · {escape(measure)}</strong>: "
-                    f"{escape(value_text)} {escape(unit)} · {escape(point_method(point).capitalize())}"
-                )
+                period = point.get("period") or ""
+                mark = self._analysis_note_mark(indexed.get((series["concept"], period, bases[measure])))
+                detail = (f"<strong>{escape(period_label(period))} · {escape(measure)}</strong>: "
+                          f"{escape(raw_value_text(point.get('value')))} {escape(str(unit))}{mark} · "
+                          f"{escape(point_method(point).capitalize())}")
                 if provenance.get("formula"):
                     detail += " · " + escape(formula_text(provenance["formula"]))
-                if point_limitations(point):
-                    detail += " · " + escape("; ".join(point_limitations(point)))
-                links = links_html(provenance)
+                links = self._analysis_links({**provenance, "source_url": point.get("source_url") or provenance.get("source_url")})
                 if links:
                     detail += " · " + links
-                operands = []
-                for operand_label, operand in operand_records(provenance):
-                    value = operand.get("value")
-                    value_text = f"{value:,}" if isinstance(value, (int, float)) else "Unavailable"
-                    period_text = " to ".join(str(operand[key]) for key in ("period_start", "period_end") if operand.get(key))
-                    operand_text = (
-                        f"{operand_label}: {operand.get('concept', '')} = {value_text} "
-                        f"{operand.get('unit', '')} ({period_text})"
-                    )
-                    nested_formula = (operand.get("provenance") or {}).get("formula")
-                    if nested_formula:
-                        operand_text += " · " + formula_text(nested_formula)
-                    operands.append(f"<li>{escape(operand_text)}</li>")
-                if operands:
-                    detail += '<ul class="operands">' + "".join(operands) + "</ul>"
-                method_items.append(f"<li>{detail}</li>")
-            body_rows.append(
-                f"<tr><td>{escape(label)}</td>" + "".join(cells) + "</tr>"
-            )
-            method_sections.append(f"<h3>{escape(label)}</h3><ul>{''.join(method_items)}</ul>")
+                items.append(f"<li>{detail}{self._analysis_operands(provenance)}</li>")
+            label = escape(str(series.get("label", series.get("concept", ""))))
+            sections.append(f"<h3>{label}</h3><ul>{''.join(items)}</ul>")
+        return "".join(sections)
 
-        citation_parts = []
-        for citation in analysis.citations_json or []:
+    def _analysis_citations(self, citations: list[dict], envelope: dict) -> tuple[str, dict]:
+        items, marks = [], {}
+        for citation in citations:
+            mark = self._analysis_note_mark(note_for_quality(citation, envelope))
+            marks[str(citation.get("n"))] = mark
             provenance = citation.get("provenance") or {}
-            warning = "; ".join(point_limitations(citation))
-            # Preserve legacy quality flags for old direct service callers; the HTTP route
-            # rejects stale snapshots before rendering and new records carry specific reasons.
-            if not provenance and citation.get("reconciled") is False:
-                warning = "Unreconciled value — check source filing."
-            citation_parts.append(
-                f"<li><strong>[{escape(str(citation.get('n')))}]</strong> "
-                f"{escape(str(citation.get('excerpt', '')))} "
-                f"<span class=\"ref\">{escape(str(citation.get('section_ref') or ''))}</span> "
-                + links_html(provenance)
-                + (f" <strong>{escape(warning)}</strong>" if warning else "") + "</li>"
+            links = self._analysis_links({**provenance, "source_url": citation.get("source_url") or provenance.get("source_url")})
+            exact = (f" · Exact value: {raw_value_text(citation['value'])} {citation.get('unit') or ''}"
+                     if citation.get("value") is not None else "")
+            items.append(
+                f"<li><strong>[{escape(str(citation.get('n')))}]</strong>{mark} "
+                f"{escape(period_label(citation.get('excerpt', '')))}{escape(exact)} "
+                f'<span class="ref">{escape(str(citation.get("section_ref") or ""))}</span> {links}</li>'
             )
-        citation_items = "".join(citation_parts)
-        has_calculated = any(
-            point_method(point) == "calculated"
-            for series in dataset.get("series", []) for point in series.get("points", [])
-        )
-        derived_note = (
-            '<p class="footnote">† Calculated from reported inputs. The Sources &amp; Methods '
-            'appendix identifies each formula and its operands. Calculation method is separate '
-            'from whether the source checks passed.</p>' if has_calculated else ""
-        )
-        limitations_html = (
-            '<h3>Data limitations</h3><ol class="limitations">' + "".join(limitation_items) + "</ol>"
-            if limitation_items else ""
-        )
-        quality_note = (
-            '<p class="footnote">Some figures are unavailable or need source review. '
-            'Specific limitations appear beside the metrics grid. Citation verification confirms '
-            'traceability, not financial reconciliation.</p>' if limitation_items else ""
-        )
-        generated_at = getattr(analysis, "updated_at", None) or getattr(analysis, "created_at", None)
-        generated_date = iso_z(ensure_utc(generated_at)) if generated_at else "Not recorded"
-        exported_date = iso_z(utcnow())
-        data_as_of = str(dataset.get("data_as_of") or "Not recorded")
-        dataset_version = str(dataset.get("dataset_version") or "Legacy snapshot")
-        snapshot_id = str(dataset.get("snapshot_id") or "Not recorded")
+        return "".join(items), marks
 
+    @staticmethod
+    def _analysis_data_notes(envelope: dict) -> str:
+        items = []
+        for note in envelope["notes"]:
+            count = len(note["values"])
+            comparisons = len(note["comparisons"])
+            scope = f"{count} figures · {comparisons} comparisons" if count or comparisons else "Narrative sources"
+            items.append(f'<li id="{escape(note["id"], quote=True)}"><strong>{escape(note["letter"])}.</strong> '
+                         f'{escape(note["message"])} <span class="ref">({scope})</span></li>')
+        return (f'<h2>Data notes</h2><p class="footnote">{escape(notes_summary(envelope))}</p>'
+                f'<ul class="data-notes">{"".join(items)}</ul>')
+
+    def generate_analysis_pdf_html(self, analysis, company) -> str:
+        """Render the saved financial snapshot; presentation fallback never consults current facts."""
+        dataset = analysis.dataset_json or {}
+        report_notes = resolve_data_notes(dataset)
+        indexed = note_index(report_notes)
+        citations = analysis.citations_json or []
+        presentation = dataset.get("narrative_presentation")
+        notes = presentation["notes"] if presentation else citation_data_notes(citations, report_notes)
+        citation_items, marks = self._analysis_citations(citations, notes)
+        narrative = self._narrative_to_html(analysis.narrative_md or "")
+        narrative = re.sub(r"\[(\d+)\]", lambda match: match[0] + marks.get(match[1], ""), narrative)
+        generated_at = getattr(analysis, "updated_at", None) or getattr(analysis, "created_at", None)
+        generated = iso_z(ensure_utc(generated_at)) if generated_at else "Not recorded"
+        mode = "Annual" if analysis.mode == "annual" else "Quarterly"
         meta_html = (
-            f'<span class="data">{escape(company.ticker or "")}</span> · {mode_label} · '
-            f'<span class="data">{escape(analysis.period_key)}</span> · '
-            f"Generated {generated_date} · Exported {exported_date}"
-            f"<br>Data as of: {escape(data_as_of)} · Dataset version: {escape(dataset_version)}"
-            f'<br>Snapshot: <span class="snapshot">{escape(snapshot_id)}</span>'
+            f'<span class="data">{escape(company.ticker or "")}</span> · {mode} · '
+            f'<span class="data">{escape(period_label(analysis.period_key))}</span> · '
+            f"Generated {generated} · Exported {iso_z(utcnow())}"
+            f"<br>Data as of: {escape(str(dataset.get('data_as_of') or 'Not recorded'))} · "
+            f"Dataset version: {escape(str(dataset.get('dataset_version') or 'Legacy snapshot'))}"
+            f'<br>Snapshot: <span class="snapshot">{escape(str(dataset.get("snapshot_id") or "Not recorded"))}</span>'
         )
         body_html = f"""
-            {quality_note}
-            {self._narrative_to_html(analysis.narrative_md or "")}
-
+            {self._analysis_data_notes(notes)}
+            {narrative}
             <section class="metrics-landscape">
                 <h2>Metrics by period</h2>
-                <table>
-                    <thead><tr><th>Metric</th>{header_cells}</tr></thead>
-                    <tbody>{"".join(body_rows)}</tbody>
-                </table>
-                {derived_note}
-                {limitations_html}
+                {self._analysis_grid(dataset, indexed)}
+                <p class="footnote">Letters refer to Data notes. † Calculated figure;
+                    available formulas and operands appear in Sources &amp; Methods. Calculation method is separate
+                    from whether source checks passed.</p>
                 <p class="footnote">{escape(FCF_DEFINITION)}</p>
             </section>
-
-            <h2>Narrative sources</h2>
-            <ol class="sources">{citation_items}</ol>
-            <p class="footnote">
-                Source entries identify reported or calculated figures. A source reference
-                establishes traceability; it does not independently validate every conclusion.
-            </p>
-            <section class="methods">
-                <h2>Sources &amp; Methods</h2>
-                <p class="footnote">Reported figures come from SEC filings. Calculated figures
-                use the formulas and operands below. Missing values are unavailable in this
-                analysis, which does not establish that the company did not report them.</p>
-                {"".join(method_sections)}
+            <h2>Narrative sources</h2><ol class="sources">{citation_items}</ol>
+            <p class="footnote">Source entries identify reported or calculated figures.
+                Citation verification confirms traceability, not financial reconciliation.</p>
+            <section class="methods"><h2>Sources &amp; Methods</h2>
+                <p class="footnote">Raw values retain the supplied numeric representation.
+                Reported figures come from SEC filings; calculated figures use the formulas and operands below.
+                Missing values are unavailable in this analysis, which does not establish that the company did not report them.</p>
+                {self._analysis_methods(dataset, indexed)}
             </section>
             <h2>About this document</h2>
-            <p class="footnote">This document combines financial data, deterministic calculations
-                and AI-assisted commentary. The data snapshot is identified above; the export date
-                does not imply that the source data or commentary were refreshed.</p>
+            <p class="footnote">This document combines financial data, deterministic calculations and
+                AI-assisted commentary. The export date does not imply that source data or commentary were refreshed.</p>
             <p class="footnote">{escape(ANALYSIS_DISCLAIMER)}</p>
         """
-        # The metrics grid can be 13+ columns for a quarterly window — it gets the shell's
-        # metrics-landscape named page (new page, A4 landscape); everything else stays portrait.
         return render_branded_pdf(
-            title=f"{escape(company.name)} — Multi-Period Analysis",
-            doc_kind="Multi-Period<br>Analysis",
-            meta_html=meta_html,
-            body_html=body_html,
-            extra_css=("ol.sources, ol.limitations, .methods { font-size: 8.5pt; } "
+            title=f"{escape(company.name)} — Multi-Period Analysis", doc_kind="Multi-Period<br>Analysis",
+            meta_html=meta_html, body_html=body_html,
+            extra_css=("ol.sources, .data-notes, .methods { font-size: 8.5pt; } "
+                       ".data-notes { list-style: none; padding-left: 0; } "
                        ".methods li { margin-bottom: 4px; } .operands { margin-top: 2px; } "
-                       ".snapshot { overflow-wrap: anywhere; }"),
+                       ".metrics-landscape td.num { white-space: nowrap; padding-left: 4px; padding-right: 4px; } "
+                       f".data-note a, .methods a, .sources a {{ color: {PALETTE['brand_strong']}; }} "
+                       ".data-note { margin-left: 2px; } .snapshot { overflow-wrap: anywhere; }"),
         )
 
     async def export_analysis_pdf(self, analysis, company) -> bytes:

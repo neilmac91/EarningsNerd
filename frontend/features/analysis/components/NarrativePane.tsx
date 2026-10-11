@@ -14,7 +14,8 @@ import { sourceUrl } from '@/features/analysis/lib/provenance'
 import { citationDisplay, compactNarrativeText, currencyAmountsNeedingPrecision, remarkCompactAnalysis, splitNarrativeEvidence, type NarrativeOperand } from '@/features/analysis/lib/narrativeDisplay'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { prefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
-import { groupQualityNotes, type QualityNotesModel } from '@/features/analysis/lib/dataNotes'
+import { groupQualityNotes, qualityNotesModelFromWire, type QualityNotesModel } from '@/features/analysis/lib/dataNotes'
+import { structuredNarrativeParts } from '@/features/analysis/lib/narrativePresentation'
 import { useReportDataNotes } from './DataNotesContext'
 import DataNoteMark, { dataNoteDescription } from './DataNoteMark'
 import DataNotesLink from './DataNotesLink'
@@ -86,7 +87,7 @@ function NarrativeEvidence({ operands, citations, notes, preciseAmounts }: { ope
       {operands.map((operand, index) => <li key={index} className="!m-0 grid grid-cols-1 gap-x-3 gap-y-1 border-t border-border-light py-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] dark:border-white/10">
         <span className="font-data text-xs text-text-tertiary-light dark:text-text-secondary-dark">{formatAnalysisPeriod(operand.period)}{operand.derived && ' †'}</span>
         <span>{operand.label}</span>
-        <span className="font-data">{compactNarrativeText(operand.value, preciseAmounts)}</span>
+        <span className="font-data">{operand.formatted ? operand.value : compactNarrativeText(operand.value, preciseAmounts)}</span>
         <span><NarrativeCitationChip citation={citations.find((citation) => citation.n === operand.citation)!} notes={notes} /></span>
       </li>)}
     </ul>
@@ -195,12 +196,17 @@ export default function NarrativePane({
   // A citation can retain its own concern even when the corresponding report value has a
   // different quality record. Reuse report letters; append citation-only notes without
   // changing dataset counts or inferring that a separately checked value clears the citation.
-  const notes = useMemo(() => groupQualityNotes(completion?.citations ?? [], reportNotes ?? undefined), [reportNotes, completion?.citations])
+  const presentation = completion?.narrative_presentation
+  const notes = useMemo(() => presentation
+    ? qualityNotesModelFromWire(presentation.notes.notes)
+    : groupQualityNotes(completion?.citations ?? [], reportNotes ?? undefined), [reportNotes, completion?.citations, presentation])
   const citedNoteKeys = new Set((completion?.citations ?? []).map((citation) => notes.noteForQuality(citation)?.key))
   const citedNotes = notes.notes.filter((note) => citedNoteKeys.has(note.key))
   const reportNoteKeys = new Set(reportNotes?.notes.map((note) => note.key))
   const supplementalNotes = citedNotes.filter((note) => !reportNoteKeys.has(note.key))
-  const narrativeParts = useMemo(() => state.status === 'done' ? splitNarrativeEvidence(state.text, completion?.citations ?? []) : [], [state.status, state.text, completion?.citations])
+  const narrativeParts = useMemo(() => state.status === 'done'
+    ? presentation ? structuredNarrativeParts(state.text, presentation) : splitNarrativeEvidence(state.text, completion?.citations ?? [])
+    : [], [state.status, state.text, completion?.citations, presentation])
   const preciseAmounts = useMemo(() => currencyAmountsNeedingPrecision(state.status === 'done' ? state.text : ''), [state.status, state.text])
   const headingRef = useRef<HTMLHeadingElement>(null)
   // Stable components-map identity across re-renders — a fresh object every render would make
@@ -315,7 +321,7 @@ export default function NarrativePane({
               narrativeParts.map((part, index) => part.kind === 'evidence' ? (
                 <NarrativeEvidence key={index} operands={part.operands} citations={completion.citations} notes={notes} preciseAmounts={preciseAmounts} />
               ) : (
-                <ReactMarkdown key={index} remarkPlugins={[remarkGfm, [remarkCompactAnalysis, { preciseAmounts }]]} components={narrativeComponents}>
+                <ReactMarkdown key={index} remarkPlugins={completion.narrative_presentation ? [remarkGfm] : [remarkGfm, [remarkCompactAnalysis, { preciseAmounts }]]} components={narrativeComponents}>
                   {part.text}
                 </ReactMarkdown>
               ))

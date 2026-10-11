@@ -172,8 +172,9 @@ export default function AnalysisPageClient() {
   )
 
   const startNarrative = useCallback(
-    (force: boolean, expectedSnapshot = dataset?.snapshot_id) => {
+    (force: boolean, report = dataset) => {
       if (!ticker || !range) return
+      const expectedSnapshot = report?.snapshot_id
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller
@@ -209,10 +210,11 @@ export default function AnalysisPageClient() {
             setRunning(false)
           },
         },
-        controller.signal
+        controller.signal,
+        report ?? undefined,
       )
     },
-    [ticker, range, mode, queryClient, dataset?.snapshot_id]
+    [ticker, range, mode, queryClient, dataset]
   )
 
   const run = useCallback(async () => {
@@ -235,7 +237,7 @@ export default function AnalysisPageClient() {
       }, controller.signal)
       if (!isCurrent()) return
       setDataset(result)
-      startNarrative(false, result.snapshot_id)
+      startNarrative(false, result)
     } catch (err) {
       if (!isCurrent()) return
       setRunning(false)
