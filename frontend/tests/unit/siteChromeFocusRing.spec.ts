@@ -696,9 +696,13 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
       const { tag, attr, focusable, field, spread } = classify(node, sf, linkNames)
       const className = attr('className')
       // An inline style outranks every class, the factory's included, so it is read before the factory exemption, and
-      // on a DS field component too, which passes it on to its field (`<Input style={{ boxShadow: 'none' }} />`).
-      const inline = (field && focusable) || isFieldComponent(node.tagName as ts.Expression) ? inlineRing(attr('style')) : null
-      if (inline) findings.push({ line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1, tag, problem: inline })
+      // on a DS field component too, which passes it on to its field (`<Input style={{ boxShadow: 'none' }} />`), as it
+      // does a props spread, which may carry one: on a component, a spread fails as on a raw field.
+      const component = isFieldComponent(node.tagName as ts.Expression)
+      const inline = (field && focusable) || component ? inlineRing(attr('style')) : null
+      const at = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
+      if (inline) findings.push({ line: at, tag, problem: inline })
+      if (component && spread) findings.push({ line: at, tag, problem: 'a props spread the scan cannot read' })
       // A spread may replace the className, the factory's included, so it is read before the factory exemption.
       if (field && focusable && !spread && className?.initializer && factoryBuilt(className.initializer, isFactory, isJoiner)) factory += 1
       else if (field && focusable) {
@@ -1198,6 +1202,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <input className={inputClasses()} style={{ '--tw-shadow': '0 0 #0000' }} />
             <Input style={{ boxShadow: 'none' }} />
             <Textarea variant="composer" style={{ maxHeight: 120, overflowY: 'auto' }} />
+            <Input {...{ style: { boxShadow: 'none' } }} />
           </>
         )
       }`
@@ -1263,6 +1268,8 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       '49 <input> an inline --tw-shadow, which outranks the DS ring',
       // A DS field component passes its style on to its field: read like a raw field's (the composer's passes).
       '50 <Input> an inline boxShadow, which outranks the DS ring',
+      // ...as it passes on a spread, which may carry one.
+      '52 <Input> a props spread the scan cannot read',
     ])
   })
 })
