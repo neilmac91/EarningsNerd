@@ -103,25 +103,28 @@ Each fails on a deliberate break of its rule (the PR lists the mutation proofs):
 
 ## Gate tails
 
-Run on 2026-10-11 in this container against the branch after it merged main (`0313a49`).
+Run on 2026-10-11 in this container against `485334a`, the branch after its second merge of
+main, and then by CI on the same commit.
 
 ```
 frontend: npm run lint                      eslint . --max-warnings 0           exit 0
 frontend: npx tsc -p tsconfig.ci.json                                           exit 0
 frontend: npm run build                     Next 16 production build, CI's env   exit 0
-frontend: npm run test -- --run             Test Files 189 passed (189); Tests 1897 passed (1897)
+frontend: npm run test -- --run             Test Files 189 passed (189); Tests 1905 passed (1905)
 frontend: npx playwright test (the whole suite; next start, no backend, CI's env:
           NEXT_PUBLIC_API_BASE_URL=http://localhost:8000, WAITLIST_MODE=false,
-          NEXT_PUBLIC_ENABLE_ANALYSIS=true; 2 workers)        205 passed, 3 skipped (6.8m)
+          NEXT_PUBLIC_ENABLE_ANALYSIS=true; 2 workers)        205 passed, 3 skipped (6.3m)
 backend:  ruff check .                      All checks passed!                   exit 0
 backend:  bandit -r app -ll                 no findings                          exit 0
-backend:  python -m pytest                  11 failed, 6935 passed, 39 skipped in 180.60s
+backend:  python -m pytest                  11 failed, 7023 passed, 39 skipped in 201.44s
+CI (run 38158954845 on 485334a): backend-tests, frontend-tests, e2e-tests, lighthouse,
+          migrations-postgres, secret-scan, eval-baseline    success
 ```
 
-The eleven backend failures are not this branch's: the same eleven fail on `origin/main` in this
-container (Python 3.13.16): ten `test_copilot_prose_quotations` cases for two code points this
-Python's Unicode tables assign, and `test_capacity_readout_error_detail_never_aborts_the_receipt`.
-None is in a file this branch touches; CI runs the pinned toolchain.
+The eleven local backend failures are not this branch's: the same eleven fail on `origin/main` in
+this container (Python 3.13.16), ten `test_copilot_prose_quotations` cases for two code points this
+Python's Unicode tables assign and `test_capacity_readout_error_detail_never_aborts_the_receipt`,
+and CI's backend job, on its pinned toolchain, passed on the same commit.
 
 ## Lessons
 
