@@ -1,10 +1,10 @@
 {
- "generatedAt": "2026-10-10T23:27:42.126Z",
+ "generatedAt": "2026-10-10T23:55:00.742Z",
  "environment": {
   "chromium": "141.0.7390.37",
   "platform": "linux x64",
   "node": "v22.22.0",
-  "commit": "9a40aa6"
+  "commit": "f0c4efe"
  },
  "configs": [
   {
@@ -85,7 +85,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -285,7 +285,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -485,7 +485,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -685,7 +685,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -885,7 +885,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -1085,7 +1085,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -1285,7 +1285,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -1485,7 +1485,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -1685,7 +1685,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -1885,7 +1885,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -2085,7 +2085,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -2285,7 +2285,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -2486,7 +2486,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -2688,7 +2688,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -2890,7 +2890,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -3092,7 +3092,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -3294,7 +3294,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -3496,7 +3496,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -3698,7 +3698,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -3900,7 +3900,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -4102,7 +4102,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -4304,7 +4304,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -4506,7 +4506,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -4708,7 +4708,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -4911,7 +4911,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -5115,7 +5115,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -5319,7 +5319,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -5523,7 +5523,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -5727,7 +5727,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -5931,7 +5931,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -6133,7 +6133,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -6333,7 +6333,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -6533,7 +6533,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -6733,7 +6733,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -6933,7 +6933,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -7133,7 +7133,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -7333,7 +7333,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -7533,7 +7533,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -7733,7 +7733,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -7933,7 +7933,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -8133,7 +8133,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -8333,7 +8333,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -8534,7 +8534,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -8736,7 +8736,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -8938,7 +8938,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -9140,7 +9140,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -9342,7 +9342,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -9544,7 +9544,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -9746,7 +9746,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -9948,7 +9948,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -10150,7 +10150,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -10352,7 +10352,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -10554,7 +10554,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -10756,7 +10756,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -10959,7 +10959,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -11163,7 +11163,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -11367,7 +11367,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -11571,7 +11571,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 10,
-   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable · 101 calculated †",
+   "notes": "Data notesNo figures need review · 230 checked · 10 unavailable (a) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -11775,7 +11775,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 41,
-   "notes": "Data notes10 values need review · 24 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [
@@ -11979,7 +11979,7 @@
    },
    "sourceCheckLabels": 0,
    "noteAffixes": 23,
-   "notes": "Data notes3 values need review · 6 comparisons built on them · 10 unavailable · 101 calculated †",
+   "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
     "fonts": [

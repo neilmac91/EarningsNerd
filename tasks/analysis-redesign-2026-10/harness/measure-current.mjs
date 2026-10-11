@@ -5,8 +5,9 @@
 // real META 12-quarter dataset in its production-like legacy state, with every API answered inside
 // the browser (page.route) — the same no-backend discipline as tests/e2e. Records page overflow,
 // KPI card-child containment, the metrics table's width and per-column widths, sticky-column
-// occlusion at the far right, and the count of repeated source-check labels, at six viewport widths,
-// both themes, 200% browser zoom (CSS viewport halved at 2x) and 200% text size.
+// occlusion at every scroll rest position, and the count of repeated source-check labels, at six viewport
+// widths, both themes, 200% browser zoom (CSS viewport halved at 2x) and 200% text size at 1480, 390 and 320
+// (the same profiles as measure-proto.mjs, so the two recorded runs compare like for like).
 //
 //   node harness/measure-current.mjs --base http://localhost:3000 --data prototype/data --out measurements/current.json [--shots dir]
 //
@@ -45,6 +46,8 @@ const CONFIGS = [
   { name: '320', width: 320, height: 568, mobile: true },
   { name: '1480@200%zoom', width: 740, height: 500, dsf: 2 },
   { name: '1480@200%text', width: 1480, height: 1000, textZoom: 2 },
+  { name: '390@200%text', width: 390, height: 844, mobile: true, textZoom: 2 },
+  { name: '320@200%text', width: 320, height: 568, mobile: true, textZoom: 2 },
 ]
 
 function sse(events) {

@@ -242,12 +242,21 @@
     const unknownGroups = notes.list.filter((g) => g.kind === 'unknown')
     const unavailableGroups = notes.list.filter((g) => g.kind === 'unavailable')
     const counts = el('span', { class: 'counts' })
+    // Each clause names the letters of the notes it counts, so the resting line stays the key to the marks:
+    // a note with values and comparisons appears in both clauses; a comparison-only note (a passed figure
+    // whose comparison carries a concern or has no validation record) appears in the comparison clause only.
     const lettersOf = (groups) => groups.map((g) => g.letter).join(', ')
+    const withValues = (groups) => groups.filter((g) => g.values.length)
+    const withComparisons = (groups) => groups.filter((g) => g.comparisons.length)
     const noteWord = (groups) => (groups.length === 1 ? 'note' : 'notes')
-    if (reviewGroups.length) counts.append(el('b', null, `${notes.reviewValues} figure${notes.reviewValues === 1 ? '' : 's'}`), ` need${notes.reviewValues === 1 ? 's' : ''} review (${lettersOf(reviewGroups)})`, notes.reviewComparisons ? ` · ${notes.reviewComparisons} comparison${notes.reviewComparisons === 1 ? '' : 's'} carry ${noteWord(reviewGroups)} ${lettersOf(reviewGroups)}` : '')
-    if (notes.unknownValues) counts.append(`${reviewGroups.length ? ' · ' : ''}${notes.unknownValues} figure${notes.unknownValues === 1 ? ' has' : 's have'} no validation record (${lettersOf(unknownGroups)})`)
-    if (notes.unknownComparisons) counts.append(` · ${notes.unknownComparisons} comparison${notes.unknownComparisons === 1 ? ' has' : 's have'} no validation record`)
-    if (!reviewGroups.length && !unknownGroups.length) counts.append(el('b', { class: 'ok' }, 'No figures need review'), ` · ${notes.passed} checked`)
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`
+    const sep = () => (counts.childNodes.length ? ' · ' : '')
+    if (notes.reviewValues) counts.append(el('b', null, plural(notes.reviewValues, 'figure', 'figures')), ` need${notes.reviewValues === 1 ? 's' : ''} review (${lettersOf(withValues(reviewGroups))})`)
+    if (notes.reviewComparisons) counts.append(`${sep()}${plural(notes.reviewComparisons, 'comparison carries', 'comparisons carry')} ${noteWord(withComparisons(reviewGroups))} ${lettersOf(withComparisons(reviewGroups))}`)
+    if (notes.unknownValues) counts.append(`${sep()}${plural(notes.unknownValues, 'figure has', 'figures have')} no validation record (${lettersOf(withValues(unknownGroups))})`)
+    if (notes.unknownComparisons) counts.append(`${sep()}${plural(notes.unknownComparisons, 'comparison has', 'comparisons have')} no validation record (${lettersOf(withComparisons(unknownGroups))})`)
+    // Every populated figure passed: say so first, before any comparison-only clause.
+    if (!notes.reviewValues && !notes.unknownValues) counts.prepend(el('b', { class: 'ok' }, 'No figures need review'), ` · ${notes.passed} checked${counts.childNodes.length ? ' · ' : ''}`)
     if (notes.unavailable) counts.append(` · ${notes.unavailable} unavailable (${lettersOf(unavailableGroups)})`)
     counts.append(` · ${notes.calculated} calculated †`)
     details.append(el('summary', null, el('span', { class: 'caret', 'aria-hidden': 'true' }), el('span', { class: 'title' }, 'Data notes'), counts))
@@ -327,9 +336,14 @@
         const yR = scale(gv.filter((v) => v != null), true)
         const glo = Math.min(0, ...gv.filter((v) => v != null)), ghi = Math.max(0, ...gv.filter((v) => v != null))
         for (let t = 0; t <= ticks; t += 1) { const v = glo + ((ghi - glo) * t) / ticks; S('text', { x: W - padR + 6, y: yR(v) + 4, 'font-size': 11, 'font-family': 'Geist Mono, ui-monospace, monospace', fill: 'var(--axis)' }, `${v.toFixed(0)}%`) }
-        let d = ''; gv.forEach((v, i) => { if (v == null) { d += ' M'; return } d += (d.endsWith('M') || d === '' ? (d === '' ? 'M' : '') : ' L') + `${x(i)} ${yR(v)}` })
-        S('path', { d: d.replace(/M\s*M/g, 'M').trim(), fill: 'none', stroke: SERIES_COLORS[1], 'stroke-width': 2 })
-        bar.points.forEach((p, i) => { if (typeof p.yoy !== 'number') return; const cn = notes.noteForComparison(p, 'yoy'); S('circle', { cx: x(i), cy: yR(p.yoy * 100), r: cn ? 4.5 : 3, fill: cn ? 'var(--panel)' : SERIES_COLORS[1], stroke: SERIES_COLORS[1], 'stroke-width': 2 }) })
+        // One M opens each run of populated points and a gap closes the pen (the line panels' rule);
+        // the first four quarters have no YoY comparison, so the path must not start with repeated moves.
+        let d = '', pen = false
+        gv.forEach((v, i) => { if (v == null) { pen = false; return } d += `${pen ? ' L' : ' M'}${x(i)} ${yR(v)}`; pen = true })
+        S('path', { d: d.trim(), fill: 'none', stroke: SERIES_COLORS[1], 'stroke-width': 2, 'stroke-linejoin': 'round' })
+        // An affected growth point is a hollow marker with its note letter above it (§4.7), like an affected value point;
+        // the letter can fall over a bar, so it carries a panel-colour halo and stays in label ink on either ground.
+        bar.points.forEach((p, i) => { if (typeof p.yoy !== 'number') return; const cn = notes.noteForComparison(p, 'yoy'); const cy = yR(p.yoy * 100); S('circle', { cx: x(i), cy, r: cn ? 4.5 : 3, fill: cn ? 'var(--panel)' : SERIES_COLORS[1], stroke: SERIES_COLORS[1], 'stroke-width': 2 }); if (cn) S('text', { x: x(i), y: cy - 8, 'text-anchor': 'middle', 'font-size': 11, 'font-family': 'Geist Mono, ui-monospace, monospace', fill: 'var(--ink-2)', stroke: 'var(--panel)', 'stroke-width': 3, 'stroke-linejoin': 'round', 'paint-order': 'stroke' }, cn.letter) })
       }
     } else {
       const rightEntry = entries.find((e) => e.right)

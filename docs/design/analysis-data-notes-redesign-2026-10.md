@@ -60,8 +60,10 @@ cannot show a whole period column beside it (§4.5). Earlier builds measured les
 overflowed on phones, and the first two runs' probes compared element boxes rather than text and read
 one row at the far right; the Track A verification and the comprehensive review of 2026-10-10 caught
 both (§11). The current build at `97293e7`, measured the same way, overflows the device by 39 px at
-390 and 93 px at 320 (78 px at 200% text), places a label 54 px past its card edge at 390 (126 px at
-200% text), and lays the table out 2,076 px wide at every width.
+390 and 93 px at 320 (78 px at 1480 with 200% text; 425 and 495 px at 390 and 320 with 200% text, where
+the figures themselves run 51 and 86 px past their cards), places a label 54 px past its card edge at
+390 (126 px at 1480 with 200% text; 303 and 338 px on the phones with 200% text), and lays the table out
+2,076 px wide at every width (4,151 px with 200% text).
 
 ## 2. Observed
 
@@ -132,7 +134,10 @@ labels, the table and column widths, the 54 / 89 / 126 px card overflow, the 39 
 overflow), no cell text is clipped (its columns size to their content, which is the defect), and the
 every-position probe now measures the half-hidden column that only the production screenshots had
 shown: 9 of the 11 rest positions at 1480 have a period column straddling the sticky edge, 16 of 18
-at 390 and 17 of 19 at 320 (the first and the last rest positions are the clean ones).
+at 390 and 17 of 19 at 320, the far-right position among them at every width (2025Q1 at 1480, 2026Q2
+at 390 and 320); with 200% text, 18 of 20 at 390 and 17 of 21 at 320. The run was retaken once more
+after Codex's seventh round with the phone 200%-text profiles the prototype harness already ran; the
+sixteen earlier records reproduced exactly again.
 
 Taken on the repository's frontend (`next build` + `next start`, `NEXT_PUBLIC_ENABLE_ANALYSIS=true`)
 with every API answered in the browser, state 2, light theme (dark theme measured identical):
@@ -148,13 +153,16 @@ with every API answered in the browser, state 2, light theme (dark theme measure
 | 320 (phone) | **413** | 33 | **89.3 px** | 53 / 53 / 69 / 53 | 2,076 / 238 |
 | 1480 at 200% zoom (740 CSS px) | 740 | 33 | 0 | 37 / 37 / 37 / 37 | 2,076 / 642 |
 | 1480 at 200% text | **1,558** | 33 | **125.6 px** | 73 / 105 / 105 / 105 | 4,151 / 1,286 |
+| 390 at 200% text | **815** | 33 | **302.6 px** (and the figures: 51.4 px) | 105 / 137 / 169 / 137 | 4,151 / 228 |
+| 320 at 200% text | **815** | 33 | **337.6 px** (and the figures: 86.4 px) | 105 / 137 / 169 / 137 | 4,151 / 158 |
 
 Document widths are measured against the configured viewport (mobile Chromium widens the layout
 viewport to the content, so `window.innerWidth` cannot detect overflow). Table columns: warned
 period columns 234–240 px, clean ones 77–105 px (469–481 vs 154–209 at 200% text). The 33 labels are four texts: "Source check needed", "Growth source check needed", "24 source
-checks needed" and "Source checks needed". The far-right sticky-column occlusion the founder saw was
-not reproduced at the rest position my probe measures; the mechanism, a scroll range that is not a
-whole number of columns, is real, and the prototype reproduced it before its range rule (§4.5).
+checks needed" and "Source checks needed". The far-right sticky-column occlusion the founder saw is
+reproduced by the retaken run (the far-right rest position leaves 2025Q1 straddling the sticky edge at
+1480 and 2026Q2 at 390 and 320; the first probe had been blind, §11); the mechanism, a scroll range that
+is not a whole number of columns, is real, and the prototype reproduced it before its range rule (§4.5).
 
 These agree with the founder's investigation (table about 2,158 px in a 1,054 px viewport; warned
 columns 229–235 px against 77–103; document 426 px at 390; the net-margin growth badge 49 px beyond its
@@ -247,7 +255,11 @@ What a reader sees in the three states (the strip's summary line; state 2 is the
   note b as above.
 
 The summary names each note's letter beside its count, so the resting line is the key to the marks on
-the page; the counts of comparisons are the dataset's (every comparison the backend computed from an
+the page: each clause names the letters of the notes it counts, so a note with values and comparisons
+appears in both of its clauses, a comparison-only note (a passed figure whose comparison carries a
+concern or has no validation record) appears in the comparison clause alone, and "No figures need
+review · N checked" leads whenever every populated figure passed, even when a comparison carries a
+note. The counts of comparisons are the dataset's (every comparison the backend computed from an
 affected figure, which the exports carry), and the note says where on the page they appear rather than
 claiming a surface that does not show them (the charts plot values, never comparisons). The strip
 `DataNotes.tsx` shipped in #1200 prints "10 figures need review · 24 comparisons need review"; the
@@ -435,7 +447,9 @@ Shipped in #1203 (chart notes with a placement pass, PNG notes). The rules, with
 
 - An affected point is a hollow marker (panel fill, 2 px series-colour stroke, ≥ 3:1 on both grounds)
   with the note letter above it; an affected bar keeps its fill and carries the letter above it (a
-  dashed or hollow bar reads as an estimate in a financial chart). Letters are 11 px data face in the
+  dashed or hollow bar reads as an estimate in a financial chart). A growth-line point's letter can
+  fall over a bar, so it carries a 3 px panel-colour halo (`paint-order: stroke`) and stays legible in
+  the label ink on either ground. Letters are 11 px data face in the
   chart label ink, never warning ink: against the honey series the warning pair measures 1.6:1 in dark
   and 2.1:1 in light, and a letter in the series colour reads as part of the series. Colours are SVG
   attributes taken from the chart theme, never CSS classes or variables, because the PNG export
@@ -583,13 +597,15 @@ the dataset they render, never from a stored list.
 |---|---|---|
 | Repeated source-check labels on the page | 33 | 0 (41 one-letter affixes; one strip) |
 | Document width at 390 / 320 / 1480 at 200% text | 429 / 413 / 1,558 | 390 / 320 / 1,480 |
-| Widest card content past a KPI card edge at 390 / 320 / 200% text | 54 / 89 / 126 px | 0 / 0 / 0 (one-up at 200% text on phones) |
+| Document width at 390 / 320 with 200% text | 815 / 815 | 390 / 320 |
+| Widest card content past a KPI card edge at 390 / 320 / 1480 at 200% text | 54 / 89 / 126 px | 0 / 0 / 0 |
+| Widest card content past a KPI card edge at 390 / 320 with 200% text | 303 / 338 px (the figures: 51 / 86 px) | 0 / 0 (one-up) |
 | KPI value tops at 390 | 37 / 53 / 53 / 53 | 37 / 37 / 37 / 37 |
 | Table width at 1480 | 2,076 (container 1,054) | 1,062 (container 1,062, no scroll) |
 | Period column widths at 1480 | 77–105 clean, 234–240 warned | 77 all |
 | Table at 1024 / 768 / 390 | 2,076 at every width | 1,044 / 1,044 / 920; Newest 6 fits ≥ 768 |
 | Cell text outside its content box (both sides) | not measured | 0 at every width, 200% text included |
-| Rest positions with a column straddling the sticky edge | 9 of 11 at 1480, 16 of 18 at 390, 17 of 19 at 320 | 0 at every rest position, every width |
+| Rest positions with a column straddling the sticky edge | 9 of 11 at 1480, 16 of 18 at 390, 17 of 19 at 320; 18 of 20 and 17 of 21 with 200% text at 390 and 320 | 0 at every rest position, every width |
 | Count the reader sees | "24 source checks needed" (26 in production) | "10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b)" |
 | Evidence for a legacy margin | "26.06536077 pure", no inputs | "26.1% · As stored: 26.0653607671% · Needs review · note a · lineage not recorded" |
 | Red flags, FCF finding | 1 sentence + 20 inline operands | 1 sentence + "Show the 20 source figures behind this · figures carry note a" |
@@ -882,7 +898,7 @@ The implementing agent verified the proposal against `main` and ran both harness
 ### Corrections from the comprehensive review (2026-10-10, evening)
 
 Six review lenses (design system, accessibility, frontend brief against `main`, backend and exports,
-measurement and gate design, product and copy) and five Codex rounds reviewed PR #1197; every finding
+measurement and gate design, product and copy) and seven Codex rounds reviewed PR #1197; every finding
 was verified against `main` at `af543b6` before it was accepted. The ranked list, with what each finding
 changed and what remains open, is `tasks/analysis-redesign-2026-10/review-2026-10-10.md`. Where each
 correction landed in this document:
@@ -890,7 +906,9 @@ correction landed in this document:
 - **The probes were blind** (element boxes, `scrollWidth` only, one row at the far right, 200% text at
   1480 only): widened in both harnesses and the prototype's `measure`; both recorded runs were
   regenerated (the current build's on the same `97293e7` build, reproducing every earlier number and
-  adding the every-position occlusion count); §1, §2.3, §4.5, §6 state what is measured now. The widened probes found four clipped
+  adding the every-position occlusion count; after Codex's seventh round it also runs the phone
+  200%-text profiles, where that build overflows the device by 425 / 495 px and its figures run 51 /
+  86 px past their cards); §1, §2.3, §4.5, §6 state what is measured now. The widened probes found four clipped
   change-line cells at every width (the YoY fallback) and seventeen at phone widths, 55 / 90 px of card
   overflow and a swallowed scroll area at 200% text on phones: fixed by the two-line fallback, the phone
   cell padding, the one-up rule (§4.4) and the un-sticking rule (§4.5), all measured at 0 afterwards.
@@ -931,5 +949,8 @@ correction landed in this document:
   labels; choosing a window keeps focus on the control; the hint and the start-at-newest position apply
   below 640 px only; the Notes chips move focus to the note; the KPI delta no longer reads "year over
   year YoY"; the sections' `aria-labelledby` targets exist; the fixture builder's restoration check is
-  real.
+  real; the revenue panel's growth line draws (its path had opened one move per missing quarter, which
+  is invalid path data, so no fixture state had drawn it; the pen now opens once per run of populated
+  comparisons); an affected growth point carries its letter above it, with the halo of §4.7; the strip
+  letters a comparison-only note in its comparison clause.
 
