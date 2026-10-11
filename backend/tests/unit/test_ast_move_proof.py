@@ -595,6 +595,8 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
              "            def hook(cls):\n                return normalize(' x ')\n", "Outer.Inner"),
             ("class Outer:\n    class Inner:\n        @register\n        def hook():\n            return normalize(' x ')\n",
              "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        if True:\n            @register\n            def hook():\n"
+             "                return normalize(' x ')\n", "Outer.Inner"),
             ("class Outer:\n    class Inner:\n        class Deep(metaclass=Base):\n            def clean(self):\n"
              "                return normalize(' x ')\n", "Outer.Inner"),
             ("class Outer:\n    class Inner:\n        Exception = Base\n\n        class Deep(Exception):\n"
