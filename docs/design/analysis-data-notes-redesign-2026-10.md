@@ -2,8 +2,8 @@
 
 Date: 2026-10-10 · Scope: `/analysis` results surface (KPI strip, Sources & methods, charts, narrative,
 metrics table, period picker) and the PDF, Excel and PNG exports that mirror it · Status: the §9
-decisions are taken (2026-10-10); Phase 1 items 1–9 and 11 of §7 are merged (#1199, #1200, #1202, #1203);
-item 10, the follow-ups in §11 and Phase 2 are open; this document itself ships nothing · Support
+decisions are taken (2026-10-10); Phase 1 items 1–10 and 11 of §7 are merged (#1199, #1200, #1202, #1203, #1206);
+the follow-ups in §11 and Phase 2 are open; this document itself ships nothing · Support
 material:
 [`tasks/analysis-redesign-2026-10/`](../../tasks/analysis-redesign-2026-10/README.md) (runnable
 prototype, measurement harnesses, recorded measurements).
@@ -243,13 +243,16 @@ What a reader sees in the three states (the strip's summary line; state 2 is the
 - State 2: "Data notes · 10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) ·
   101 calculated †". Open: note a "This saved calculation predates the current source checks. Its inputs
   need review. Operating margin (Q2 2025, Q2 2026); Net margin (Q2 2025, Q2 2026); Working capital (Q4
-  2023, Q1 2024, Q2 2026); Current ratio (Q4 2023, Q1 2024, Q2 2026) · 10 figures · 24 comparisons
-  carry this note: 14 quarter-over-quarter changes in the table and 10 year-over-year changes, of which
+  2023, Q1 2024, Q2 2026); Current ratio (Q4 2023, Q1 2024, Q2 2026) · Comparisons: Operating margin (Q2
+  2025, Q3 2025, Q2 2026); Net margin (Q2 2025, Q3 2025, Q2 2026); Working capital (Q4 2023, Q1 2024, Q2
+  2024, Q4 2024, Q1 2025, Q2 2026); Current ratio (Q4 2023, Q1 2024, Q2 2024, Q4 2024, Q1 2025, Q2 2026)
+  · 10 figures · 24 comparisons carry this note: 14 quarter-over-quarter changes in the table and 10 year-over-year changes, of which
   the headline cards show one and the exports carry all · figures are shown as stored; their source
   lineage is not recorded"; note b as in state 1.
 - State 3: "Data notes · 3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) ·
   101 calculated †". Open: note a "Available sources disagree on this figure. Revenue (Q2 2026);
-  Operating margin (Q2 2026); Net margin (Q2 2026) · 3 figures · 6 comparisons carry this note: 3
+  Operating margin (Q2 2026); Net margin (Q2 2026) · Comparisons: Revenue (Q2 2026); Operating margin (Q2
+  2026); Net margin (Q2 2026) · 3 figures · 6 comparisons carry this note: 3
   quarter-over-quarter changes in the table and 3 year-over-year changes, of which the headline cards
   show two and the exports carry all · check the original filing before relying on these figures";
   note b as above.
@@ -259,7 +262,9 @@ the page: each clause names the letters of the notes it counts, so a note with v
 appears in both of its clauses, a comparison-only note (a passed figure whose comparison carries a
 concern or has no validation record) appears in the comparison clause alone, and "No figures need
 review · N checked" leads whenever every populated figure passed, even when a comparison carries a
-note. The counts of comparisons are the dataset's (every comparison the backend computed from an
+note. An open note lists the metrics and periods of its values and, on a second line, those of its
+comparisons ("Comparisons: Revenue (Q2 2026)"), so a comparison-only note still says where it is. The
+counts of comparisons are the dataset's (every comparison the backend computed from an
 affected figure, which the exports carry), and the note says where on the page they appear rather than
 claiming a surface that does not show them (the charts plot values, never comparisons). The strip
 `DataNotes.tsx` shipped in #1200 prints "10 figures need review · 24 comparisons need review"; the
@@ -368,8 +373,9 @@ budget in `lib/tableFormat.ts`). The rules, with the corrections of §11:
   it.** At 200% text on a 390 px phone the scroll area is 244 px and the metric column 208 px: the
   column stops sticking, `scroll-padding-inline-start` drops to 0 and the table scrolls as a whole, labels
   included (WCAG 1.4.10 allows two-dimensional scrolling for a data table; a permanently half-hidden
-  column is worse than a scrolling label). The sticky cell stays opaque on row hover in dark (`#1206`
-  fixes the `dark:group-hover:bg-white/[0.03]` wash that let columns show through).
+  column is worse than a scrolling label). The sticky cell stays opaque on row hover in dark (#1206
+  replaced the `dark:group-hover:bg-white/[0.03]` wash that let columns show through with the panel fill,
+  and its gate measures the painted background).
 - **Window control** on the table header (`SegmentedControl`, `size="md"`, full width on phones): All N ·
   Newest 6 · Earliest 6, shown only when the report has more than six periods, with a `role="status"` line
   "Showing 6 of 12 quarters" (years in annual mode). The default is always All: nothing is dropped
@@ -585,11 +591,12 @@ the dataset they render, never from a stored list.
   cream and inside its tint 5.2:1; amber-500 on navy in dark; the muted letter pair is 5.2:1 / 5.8:1 on
   panel. Hollow markers keep a 2 px stroke of the series colour (≥ 3:1 on both grounds); chart letters
   use the chart label ink.
-- Gates: the analysis route joins `tests/e2e/text-floors.spec.ts` in both themes; item 10 asserts the
-  region's role, name and conditional Tab stop, the header counts, every figure name containing its
-  visible text, the focused-cell clearance from the sticky column at 390 and 1024, Home/End changing
-  `scrollLeft` and never `scrollY`, the window control keeping focus and updating its status, the Notes
-  chip moving focus to `#analysis-data-note-a`, and the dialog's name and focus return.
+- Gates: the analysis route joins `tests/e2e/text-floors.spec.ts` in both themes; the layout gate (#1206,
+  `tests/e2e/analysis-layout.spec.ts`) asserts the region's role, name and Tab stop, the header counts and
+  every figure control's name; still owed there, as follow-ups: the conditional Tab stop, the focused-cell
+  clearance from the sticky column at 390 and 1024, Home/End changing `scrollLeft` and never `scrollY`,
+  the window control keeping focus and updating its status, the Notes chip moving focus to
+  `#analysis-data-note-a`, and the dialog's name and focus return.
 
 ## 6. Before and after
 
@@ -628,10 +635,11 @@ bounded token formatting in `lib/tableFormat.ts`, with `tests/unit/data-table-sc
 stored value, bound arithmetic, checks and the comparison block; `lib/narrativeDisplay.ts` and
 `lib/figureDisplay.ts` with the evidence fold; chart notes with `lib/chartNoteLayout.ts` and PNG
 notes; `PeriodPicker` with presets and From/To selects; the one-line `analysis-api.spec.ts` change as
-the pre-approved rule-6 contract change). Open: item 10 (below, rewritten after the review), #1206
-(the dark sticky-hover wash), the follow-ups the comprehensive review lists in
-`tasks/analysis-redesign-2026-10/review-2026-10-10.md`, and Phase 2. Each landed PR recorded its own
-gate tail and browser measurements in its body.
+the pre-approved rule-6 contract change); item 10 and the dark sticky-hover fix are on `main` (#1206:
+`tests/e2e/analysis-layout.spec.ts` with its fixtures, the `ci.yml` flag, the `DataTable` hover fill; the
+status note under item 10 says what that gate still owes). Open: the follow-ups the comprehensive review
+lists in `tasks/analysis-redesign-2026-10/review-2026-10-10.md`, and Phase 2. Each landed PR recorded its
+own gate tail and browser measurements in its body.
 
 Risk tier per `AGENTS.md` §5: Phase 1 is frontend-only (routine); Phase 2 touches
 `trend_analysis/*`, `trend_analysis_service.py`, the export services and `fact_provenance.py`
@@ -687,6 +695,22 @@ operational action and is not part of this brief.
    button keeps native `disabled` until the rule-6 item in `tasks/todo.md` is resolved.
 10. **Gate** (M, high tier because it edits `ci.yml`): `tests/e2e/analysis-layout.spec.ts` with
     `tests/e2e/fixtures/analysisApi.ts` in the shape of `filing3Api.ts`; nothing is read from `tasks/`.
+    *Landed in #1206* as `tests/e2e/analysis-layout.spec.ts` with `tests/e2e/fixtures/analysis-layout.json`
+    and `analysisLayoutApi.ts`: 42 cases (the three prototype states × light and dark × 320, 390, 768, 1024
+    and 1480, 200% text at 1480, 2x zoom emulation at 740); text-range overflow against the configured
+    viewport and the layout viewport, card spills and value tops, clipped glyph ranges in every cell, equal
+    period widths, the exact note letter and kind of every cell, a region with role, name and Tab stop,
+    the far-right endpoint (reachable, nothing partly under the sticky column, the last period readable),
+    the window control's "Showing N of 12 quarters" with the KPIs, notes and charts unchanged and no second
+    dataset or stream request, and the painted background of the hovered sticky cell; `ci.yml` sets the
+    flag for the e2e build and start; the committed mutation proof was a repeated nowrap label in the KPI
+    component. Its fixture is the prototype data under `tasks/analysis-redesign-2026-10/prototype/data` in
+    its three states, hash-pinned to `22ead2f` and declared simulated by its own header, not the production
+    capture. Still owed in that spec, as follow-ups: 390 at 200% text (after the founder's decision 4
+    amendment), every scroll rest position rather than the far-right endpoint, Home/End on `scrollLeft`,
+    the focus assertions of §5, the capture-based fixture cases below and the table `text-nowrap`
+    mutation; the region's Tab stop is asserted unconditionally, so making it conditional (§4.5) changes
+    that assertion. The specification below stays the reference for those.
     - *CI*: the e2e build and start steps set `NEXT_PUBLIC_ENABLE_ANALYSIS: 'true'` (today they set only
       the API URL and `WAITLIST_MODE`, and `app/analysis/layout.tsx` answers 404 without the flag); the
       flag also shows the analysis links in the Header, Footer, ProDepth and the watchlist, so the whole
@@ -932,7 +956,8 @@ correction landed in this document:
   comparison letters announced once; recharts' accessibility layer; touch sizes corrected (§5).
 - **Item 10 could not run in CI** (`NEXT_PUBLIC_ENABLE_ANALYSIS` unset; high tier); the gate is now
   specified in full (§7, item 10) and the current-build harness finds the shipped markup by data
-  attribute and asserts its counts.
+  attribute and asserts its counts. #1206 then landed the gate with the flag set for the e2e build and
+  start; the status note under §7 item 10 says what it still owes.
 - **Phase 2**: `data_notes` computed at render time, never stored (the fingerprint); a line-for-line port
   of the shipped `dataNotes.ts`; one copy source; `PROMPT_VERSION` bump rather than a new column; the
   observation-selector gate, not B1; export mechanics and pins (§7, Phase 2).
@@ -952,5 +977,9 @@ correction landed in this document:
   real; the revenue panel's growth line draws (its path had opened one move per missing quarter, which
   is invalid path data, so no fixture state had drawn it; the pen now opens once per run of populated
   comparisons); an affected growth point carries its letter above it, with the halo of §4.7; the strip
-  letters a comparison-only note in its comparison clause.
+  letters a comparison-only note in its comparison clause; a note without a validation record keeps the
+  reasons its record supplied (keyed by the canonical set, `legacy_unknown` only for an empty one, as
+  `lib/dataNotes.ts` does); an open note lists where its comparisons are; the dialog explains the
+  displayed change (§4.6 item 5) with its status, the operand that carries the note, its formula and its
+  inputs.
 

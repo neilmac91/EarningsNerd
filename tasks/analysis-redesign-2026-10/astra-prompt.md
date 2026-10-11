@@ -60,10 +60,10 @@ before building.
 
 Status on 2026-10-10 (evening): Track A is done (the verification comment on #1197). Phase 1 items 1–2
 and 11 landed in #1199, items 3–4 in #1200, item 5 in #1202 and items 6–9 in #1203, all merged to
-`main`; the proposal's §7 carries the same status line. Open: item 10 (the layout gate, rewritten in §7
-after the comprehensive review), #1206 (the dark sticky-hover wash), the follow-ups ranked in
-`tasks/analysis-redesign-2026-10/review-2026-10-10.md` (read it before item 10: it names what the landed
-items still owe, each with its evidence and fix), and Phase 2 (rewritten in §7 after the review).
+`main`, and item 10 (the layout gate) with the dark sticky-hover fix in #1206 (2026-10-11); the proposal's
+§7 carries the same status line. Open: the follow-ups ranked in
+`tasks/analysis-redesign-2026-10/review-2026-10-10.md` (read it first: it names what the landed items and
+the gate still owe, each with its evidence and fix), and Phase 2 (rewritten in §7 after the review).
 
 The quarterly data repair (`docs/quarterly-data-repair.md`, #1191) is a separate operational action. The UI
 must look right before it (state 2) and after it (state 1). Never mark a legacy record validated from the
@@ -103,14 +103,12 @@ harnesses once to confirm the recorded numbers reproduce on your machine (the RE
 current-components harness needs `next build` with `NEXT_PUBLIC_ENABLE_ANALYSIS=true` and `next start`
 with `WAITLIST_MODE=false`, no backend).
 
-Track B, after Track A: implement what is open in proposal §7 (item 10, then the P1 follow-ups of the review
-file, then Phase 2), one PR per numbered item or grouped as the brief allows, each as a draft, each verified with
+Track B, after Track A: implement what is open in proposal §7 (the P1 follow-ups of the review file, the
+gate's leftovers among them, then Phase 2), one PR per numbered item or grouped as the brief allows, each as a draft, each verified with
 the full frontend gate from `CLAUDE.md` (`npm run lint && npx tsc -p tsconfig.ci.json && npm run test --
---run && npm run build`) and the new e2e gate (`tests/e2e/analysis-layout.spec.ts`, item 10) once it
-exists. Order: items 1–2 (model and mark, with the allowlist gate and the design-doc updates of item 11
+--run && npm run build`) and the e2e gate (`tests/e2e/analysis-layout.spec.ts`, #1206). Order: items 1–2 (model and mark, with the allowlist gate and the design-doc updates of item 11
 in the same PR; done in #1199), then 3–4 (KPI strip, Data notes strip; done in #1200), then 5 (DataTable
-options + MetricsTable; done in #1202), then 6–9 (done in #1203), then 10 (open; it edits `ci.yml`, so
-that PR is high tier), then the review file's follow-ups. Phase 2 (backend `data_notes`, exports, narrative rendering)
+options + MetricsTable; done in #1202), then 6–9 (done in #1203), then 10 (done in #1206), then the review file's follow-ups. Phase 2 (backend `data_notes`, exports, narrative rendering)
 follows after Phase 1 is on production; it changes `trend_analysis/*` and the export services only, never
 `facts_service.py`, prompts or evals, so no eval re-pin.
 
@@ -129,8 +127,8 @@ both themes, reduced motion respected.
 <rules_that_bind>
 - CLAUDE.md rules 6 (locked tests), 11 (design system; done-gate = legacy-colour grep empty and both
   themes verified on the preview) and 12 (every "never again" rule lands with its machine gate in the same
-  PR). The allowlist gate in Phase 1 item 2 and the e2e gate in item 10 are those gates; each needs one
-  mutation proof in the PR body.
+  PR). The allowlist gate of item 2 (#1199) and the e2e gate of item 10 (#1206) are those gates; a PR that
+  extends either carries one mutation proof in its body.
 - Review by risk tier (`AGENTS.md` §5): Phase 1 PRs are routine (one Opus lens, Sonnet refuters for
   blockers); Phase 2 PRs are routine too; a PR that touches `backend/app/services/facts_service.py`,
   prompts or evals is high and is outside this brief. `review-gate.yml` needs `@codex review` after each

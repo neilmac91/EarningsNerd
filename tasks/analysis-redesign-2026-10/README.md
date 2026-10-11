@@ -69,7 +69,9 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
    - `clean`: the engine's own output on a fresh ingest (every calculation carries its lineage). This is
      not the state the production data repair produces: `frontend/tests/unit/fixtures/meta-data-notes.json`
      on `main` is the captured production dataset and keeps its own `not_in_dataset` and
-     `legacy_calculation_not_supported` gaps; the gate in proposal §7 item 10 builds on that capture.
+     `legacy_calculation_not_supported` gaps. The gate #1206 landed (`tests/e2e/analysis-layout.spec.ts`)
+     uses this folder's three states as hash-pinned visual fixtures instead; the capture-based cases of
+     proposal §7 item 10 remain a follow-up.
    - `legacy`: ten computed rows have their stored provenance removed, as rows written before #1191 are
      (the `legacy_calculation` path of `fact_provenance.provenance_for_fact`), modelled on the cells the
      production screenshots show warned. The four capex / free-cash-flow gaps for Q3–Q4 2023 and the six
