@@ -228,7 +228,7 @@ PERMITTED (3 recent entries visible)`; the denied branch, now a closed class, st
    lines; four read-only `ops.yml` dispatches (one cancelled); PR #1184's body edited, eight `@codex review`
    requests, Codex's six findings answered in their threads and the threads resolved, marked ready and squash-merged; PR #1195 opened
    as a draft, its title and body edited, three `@codex review` requests, marked ready and squash-merged; four cross-session messages
-   to the merge trains (session `018w7VWiSMYqGddE2thede6V` before #1184's merge at 15:07Z, at about 23:14Z and again at 08:26Z;
+   to the merge trains (session `018w7VWiSMYqGddE2thede6V` at 15:07Z, before #1184's merge, at about 23:14Z and again at 08:26Z;
    session `01XCLCs7hHjZamJ3x4bQMaCL` at 08:26Z; one reply received); the records branch
    recreated from main; a local throwaway merge branch for the pre-merge gate, never pushed and deleted; agent and workflow launches as
    closure 174 registers; scratchpad only otherwise (the chief deleted the finished review workflow's 13 GB of per-agent copies).
