@@ -554,7 +554,7 @@
     "rules": [
       {
         "name": "The Separate Signals Rule",
-        "body": "Sage signals brand and activity. Gain/loss signals financial direction; status colors signal actual UI states. Progress indicators use sage until a terminal confirmation warrants success green.",
+        "body": "Sage signals brand and activity, never a value: a count, a date, an index name or a price rests in the ink everywhere in the app, and a control that carries one turns sage only under the pointer or focus. Gain/loss signals financial direction; status colors signal actual UI states. Progress indicators use sage until a terminal confirmation warrants success green.",
         "section": "colors"
       },
       {

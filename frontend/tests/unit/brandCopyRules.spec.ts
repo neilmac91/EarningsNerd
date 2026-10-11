@@ -15,14 +15,16 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    they can be", "the server can check"). The 2026-10-11 review caught a voice pass that had
  *    deleted that scope in nine places. Two siblings keep the other scopes: 1b, the outline is "up
  *    to nine parts"; 1c, only risk excerpts are promised as located or withheld.
- * 2. Sage never colours a number on the public surfaces (the brand brief's reading of DESIGN.md ›
- *    the Separate Signals Rule; PUBLIC_SURFACES below). Text inside an element whose own text
- *    colour is a sage token may not contain a digit, whether written inline or mapped in from a
- *    literal array. Activity variants (hover:, focus:, group-hover:) are sage's other job and are
- *    not read; the device's citation brackets ("[1]", "[F1]") are not numbers. A value computed at
- *    runtime is out of a source scan's reach; the waitlist counter's own spec covers the one on
- *    the public pages. Inside the product DESIGN.md's wording lets sage mark activity, and three
- *    calendar sites use it that way (tasks/todo.md holds the decision on them).
+ * 2. Sage never colours a number, anywhere in the app (DESIGN.md › the Separate Signals Rule;
+ *    docs/brand/decisions-log.md D-030, the founder's call of 2026-10-11: the strict reading holds
+ *    inside the product as on the public surfaces). Text inside an element whose own text colour
+ *    is a sage token may not contain a digit, whether written inline or mapped in from a literal
+ *    array. Activity variants (hover:, focus:, group-hover:) are sage's other job and are not
+ *    read, so a control may turn sage under the pointer while its count rests in the ink; the
+ *    device's citation brackets ("[1]", "[F1]") are not numbers. A value computed at runtime is
+ *    out of a source scan's reach: the waitlist counter's own spec covers the one on the public
+ *    pages, and the calendar's "+N more" controls, whose N is computed, rest in the ink by the
+ *    same rule.
  * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
  *    figure or a price, the hero's accent phrases included; the margin (`en-margin`) exists only
  *    inside MarkedCopy, and every MarkedCopy carries at least one marker (`EnRef`).
@@ -240,9 +242,9 @@ describe('brand rule 1c: the withholding promise names risk excerpts', () => {
 })
 
 describe('brand rule 2: sage never colours a number', () => {
-  it('no element on a public surface whose own text colour is a sage token renders a digit', () => {
+  it('no element in the app whose own text colour is a sage token renders a digit', () => {
     const offenders: string[] = []
-    for (const { rel, sf } of SOURCES.filter((s) => isPublic(s.rel))) {
+    for (const { rel, sf } of SOURCES) {
       visit(sf, (n) => {
         if (!ts.isJsxElement(n) || textColour(n.openingElement) !== 'sage') return
         for (const { node, text } of inkTexts(n.children, sf)) {
@@ -296,7 +298,7 @@ describe('brand rule 3: the Marked Copy Rule', () => {
   it('the scan sees the surfaces it guards (the rules above stay meaningful)', () => {
     expect(PUBLIC_SURFACES.every((prefix) => SOURCES.some((s) => (prefix.endsWith('/') ? s.rel.startsWith(prefix) : s.rel === prefix))), 'every public surface prefix matches a file').toBe(true)
     const rels = new Set(SOURCES.map((s) => s.rel))
-    for (const rel of ['features/marketing/components/HeroHeadline.tsx', 'features/marketing/components/HeroExample.tsx', 'app/waitlist/page.tsx', 'app/pricing/page.tsx', 'features/auth/components/AuthShell.tsx']) {
+    for (const rel of ['features/marketing/components/HeroHeadline.tsx', 'features/marketing/components/HeroExample.tsx', 'app/waitlist/page.tsx', 'app/pricing/page.tsx', 'features/auth/components/AuthShell.tsx', 'features/calendar/components/EarningsCalendarPage.tsx', 'features/calendar/components/MonthView.tsx', 'features/calendar/components/WeekView.tsx']) {
       expect(rels.has(rel), rel).toBe(true)
     }
     const marked = SOURCES.filter(({ sf }) => {

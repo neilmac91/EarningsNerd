@@ -97,7 +97,7 @@ function DayColumn({
               <button
                 type="button"
                 onClick={() => onShowMore(day.iso)}
-                className="mt-1.5 h-7 w-full rounded-lg text-xs font-semibold text-brand-strong transition-colors duration-fast hover:bg-brand-weak focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:hover:bg-brand-weak-dark dark:focus-visible:shadow-ring-brand-dark"
+                className="mt-1.5 h-7 w-full rounded-lg text-xs font-semibold text-text-secondary-light transition-colors duration-fast hover:bg-brand-weak hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
               >
                 +{hidden} more
               </button>
@@ -169,7 +169,7 @@ function MobileDay({
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              className="mt-2 h-9 w-full rounded-lg border border-dashed border-brand-border text-sm font-semibold text-brand-strong transition-colors duration-fast hover:bg-brand-weak focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-brand-border-dark dark:text-brand-strong-dark dark:hover:bg-brand-weak-dark dark:focus-visible:shadow-ring-brand-dark"
+              className="mt-2 h-9 w-full rounded-lg border border-dashed border-brand-border text-sm font-semibold text-text-secondary-light transition-colors duration-fast hover:bg-brand-weak hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-brand-border-dark dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
             >
               {expanded ? 'Show top 5' : `+${hidden} more`}
             </button>
