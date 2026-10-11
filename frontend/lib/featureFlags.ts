@@ -154,3 +154,7 @@ export const ENABLE_FULLTEXT_SEARCH =
  * stay on the ticker monogram and no preconnect is emitted.
  */
 export const LOGO_DEV_ENABLED = Boolean(process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN)
+
+/** Local research prototype. Hidden, including direct URLs, unless explicitly enabled. */
+export const ENABLE_FILING_REDLINES =
+  process.env.NEXT_PUBLIC_ENABLE_FILING_REDLINES === 'true'
