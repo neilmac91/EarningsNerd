@@ -154,3 +154,7 @@ export const ENABLE_FULLTEXT_SEARCH =
  * stay on the ticker monogram and no preconnect is emitted.
  */
 export const LOGO_DEV_ENABLED = Boolean(process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN)
+
+/** Local financial-refresh review prototype. Default off; no navigation entry. */
+export const ENABLE_FINANCIAL_REFRESH_REVIEW =
+  process.env.NEXT_PUBLIC_ENABLE_FINANCIAL_REFRESH_REVIEW === 'true'
