@@ -9,7 +9,7 @@
  },
  "state": "legacy",
  "data": "prototype/data",
- "generatedAt": "2026-10-11T18:05:34.877Z",
+ "generatedAt": "2026-10-11T18:17:07.774Z",
  "environment": {
   "chromium": "141.0.7390.37",
   "platform": "linux x64",
@@ -17,21 +17,23 @@
   "commit": "97293e7",
   "frontendTree": "3e57b5b11d1d1ab1c91e1ed46027667f8690287b",
   "dirty": [],
-  "buildId": "iM2FF8XHenkUSqA1UJLBb",
-  "builtAt": "2026-10-11T18:05:18.642Z",
+  "buildId": "s-zxoYPVe08fVZZG-X7wE",
+  "builtAt": "2026-10-11T18:15:33.714Z",
   "buildStamp": {
-   "format": 4,
+   "format": 5,
    "commit": "97293e76fe71ff6b7e1848d57f00e808866e8c1c",
    "frontendTree": "3e57b5b11d1d1ab1c91e1ed46027667f8690287b",
-   "buildId": "iM2FF8XHenkUSqA1UJLBb",
-   "builtAt": "2026-10-11T18:05:18.642Z",
+   "buildId": "s-zxoYPVe08fVZZG-X7wE",
+   "builtAt": "2026-10-11T18:15:33.714Z",
    "node": "v22.22.0",
    "nodeOptions": "--max-old-space-size=8192",
    "install": {
     "by": "npm ci",
     "npm": "10.9.4",
     "packages": 1011,
-    "optionalAbsent": 113
+    "optionalAbsent": 113,
+    "files": 72258,
+    "hash": "c1c1641e908f0717974fe2eff061b9fac16c6e3a047283178a4b3de7cd9e9e05"
    },
    "env": {
     "NEXT_PUBLIC_API_BASE_URL": "http://localhost:8010",
@@ -43,11 +45,11 @@
    },
    "output": {
     "files": 939,
-    "hash": "f055ba4d119aaace4eec947dbc38085270a75a07032a39422fe15660347e862f"
+    "hash": "df94c966770fc8355fb061a29e9b715d3d66a6570c3c735c61706566384480d9"
    },
    "stampedBy": "tasks/analysis-redesign-2026-10/harness/build-stamped.mjs"
   },
-  "harnessCommit": "d5f31c3",
+  "harnessCommit": "f517705",
   "harnessDirty": [],
   "fixtureHash": "001717037fc42562f06978020451d4e355d99ad5656aa6f478b1f20cb0b17180",
   "fixtureTree": "50e1c7d92925eaba6503a21979b556679f25760d",
