@@ -421,17 +421,22 @@ def _side_effect_markers(fn: ast.AST, engines: frozenset[str] = frozenset()) -> 
             return "create_task", f"asyncio.create_task{how}@{node.lineno}"
         return None
 
-    def attributes(root: ast.AST) -> list[ast.Attribute]:
-        return [node for node in ast.walk(root) if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load)]
+    found: list[tuple[str, str]] = []
 
-    found = {id(node): hit for node in attributes(fn) if (hit := marker(node, sessions, queries))}
-    for comp in ast.walk(fn):  # what a comprehension's own targets bind counts inside it, and only there
-        if isinstance(comp, _COMPREHENSIONS):
-            local_sessions, local_queries = _comprehension_names(comp, sessions, queries)
-            for node in attributes(comp):
-                if id(node) not in found and (hit := marker(node, sessions | local_sessions, queries | local_queries)):
-                    found[id(node)] = hit
-    return markers + list(found.values())
+    def scoped(node: ast.AST, sessions: set[str], queries: set[str]) -> None:
+        """Check every attribute with the names in scope where it stands: a comprehension adds what its
+        own targets bind for its subtree only, a nested one on top of its enclosing one's."""
+        if isinstance(node, _COMPREHENSIONS):
+            local_sessions, local_queries = _comprehension_names(node, sessions, queries)
+            sessions, queries = sessions | local_sessions, queries | local_queries
+        if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load) \
+                and (hit := marker(node, sessions, queries)):
+            found.append(hit)
+        for child in ast.iter_child_nodes(node):
+            scoped(child, sessions, queries)
+
+    scoped(fn, sessions, queries)
+    return markers + found
 
 
 _PARSED: dict[Path, ast.Module] = {}
@@ -1178,7 +1183,13 @@ def comprehension_names_stay_in_scope(db):
     counts = [q.count() for q in [db.query(T)]]
     q.update({"counts": counts})
     merged = [q.update({}) for q in [{}]]
-    return q, merged
+    rows = [[inner.update({}) for inner in [{}]] for outer in [db.query(T)]]
+    return q, merged, rows
+
+
+@router.get("/aq")
+def nested_comprehension_query_deletes(db):
+    return [[inner.delete() for inner in [outer]] for outer in [db.query(T)]]
 
 
 @router.get("/ad")
@@ -1223,7 +1234,8 @@ def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
     ``begin``, ``bulk_*`` and ``.update()``/``.delete()`` on a ``db.query(...)`` chain or a local
     bound to one. A local is bound by ``=``, an annotated ``=``, ``:=``, a tuple unpacking a literal
     or a ``for`` target over one, and so is a copy of a known name, for a Query, a session and a
-    Connection alike; a comprehension's target only inside it. A write or spawn counts where it is
+    Connection alike; a comprehension's target only inside it, a nested comprehension's on top of
+    its enclosing one's. A write or spawn counts where it is
     named, called or not. An engine and a Connection write as a session does; opening one,
     iterating a Query's rows, unpacking a fetched row or reusing a comprehension's name outside it
     writes nothing. Every ``execute`` counts unless its function is pinned read-only with exactly
@@ -1250,7 +1262,7 @@ def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
         "driver_sql_executes", "copied_connection_commits", "tuple_copied_connection_executes",
         "loop_copied_connection_executes", "tuple_session_commits", "loop_session_commits",
         "tuple_connection_executes", "comprehension_session_commits", "aliased_engine_runs_driver_sql",
-        "module_engine_begins",
+        "module_engine_begins", "nested_comprehension_query_deletes",
     }
     assert flagged == expected, f"missed: {sorted(expected - flagged)}; unexpected: {sorted(flagged - expected)}"
     # The Connection that engine.begin() opens counts its own writes, as a pin's per-kind count needs;
