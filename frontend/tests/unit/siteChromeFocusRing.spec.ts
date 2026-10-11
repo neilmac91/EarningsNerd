@@ -31,7 +31,10 @@ import { describe, expect, it } from 'vitest'
  * @tailwindcss/forms' own focus ring (`focus:ring-0 focus:ring-offset-0`):
  * the plugin's base style draws a blue (#2563eb) ring with a white offset on any focus, and the shadow
  * utilities compose with it, so the triple alone shows the brand ring inside a blue one. A control that
- * is statically `disabled` is not a Tab stop.
+ * is statically `disabled` is not a Tab stop. That field clause also runs app-wide, beyond the chrome (the
+ * last describe): every field the plugin styles that a page styles itself takes the plugin's ring off and
+ * draws a DS ring with its dark twin. Fields built with `inputClasses(…)` and the DS components are held by
+ * tests/unit/inputClassesNoOverrides.spec.tsx instead.
  *
  * Scope: the chrome a keyboard user tabs through on every route, discovered rather than listed (see
  * CHROME_ROOTS): everything app/layout.tsx mounts (the site header with its menus, the footer, the
@@ -399,6 +402,58 @@ function unstylableStop(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, s
   return null
 }
 
+/** What both scans need to know about one JSX element: whether a user can Tab to it, and whether @tailwindcss/forms
+    styles it. `linkNames` are next/link's default export under the names the file imports it as. */
+function classify(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.SourceFile, linkNames: Set<string>) {
+  const tag = node.tagName.getText(sf)
+  const attrs = node.attributes.properties.filter(ts.isJsxAttribute)
+  const attr = (name: string) => attrs.find((a) => a.name.getText(sf) === name)
+  // A tabIndex is read branch by branch (see tabIndexBranches): it removes a stop only when every
+  // branch is negative (`tabIndex={-1}`), and makes one when any branch may be 0 or more, a dynamic
+  // value included (`tabIndex={selected ? 0 : -1}`, a roving stop), just as a dynamic `disabled` may
+  // leave a control enabled. `tabIndex={ref ? -1 : undefined}` on a focus target is neither.
+  const tabIndex = attr('tabIndex')?.initializer
+  const branches = tabIndex && ts.isJsxExpression(tabIndex) && tabIndex.expression ? tabIndexBranches(tabIndex.expression) : []
+  // An attribute written before a props spread is the spread's to override (`<button disabled {...rest}>`
+  // rendered with `disabled={false}`), so only one no spread follows takes a control out of the order.
+  const settled = (a: ts.JsxAttribute | undefined) => !!a && !node.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p) && p.pos > a.pos)
+  const removed = branches.length > 0 && branches.every((b) => b === 'negative') && settled(attr('tabIndex'))
+  const indexed = branches.some((b) => b === 'stop')
+  // An editable region is a Tab stop of its own, unless provably off (`false`, "false", "inherit");
+  // a bare or dynamic contentEditable may be on.
+  const editable = attr('contentEditable') ?? attr('contenteditable')
+  const editableOff =
+    !!editable?.initializer &&
+    ((ts.isStringLiteral(editable.initializer) && ['false', 'inherit'].includes(editable.initializer.text)) ||
+      (ts.isJsxExpression(editable.initializer) && editable.initializer.expression?.kind === ts.SyntaxKind.FalseKeyword))
+  const editableStop = editable !== undefined && !editableOff
+  // `disabled` or `disabled={true}`; a dynamic value may be enabled, so it still counts.
+  const disabled = attr('disabled')
+  const staticallyDisabled =
+    disabled !== undefined &&
+    settled(disabled) &&
+    (!disabled.initializer ||
+      (ts.isJsxExpression(disabled.initializer) && disabled.initializer.expression?.kind === ts.SyntaxKind.TrueKeyword))
+  // A props spread (`<div {...getButtonProps()}>`, `<Menu {...menuProps} />`) can supply a tabIndex and a
+  // ringless className the scan cannot see, so the element counts as a stop and fails unread, a component
+  // included, since it may pass the spread on to an element of its own. The one spread the scan reads is
+  // a component's own rest props on the element that takes its className (ownRestProps).
+  const spread = node.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p) && !ownRestProps(p, node, sf))
+  const unstylable = unstylableStop(node, sf, removed)
+  const tabbable =
+    unstylable !== null ||
+    spread ||
+    ((INTRINSIC.has(tag) || linkNames.has(tag) || indexed || editableStop) && !removed && !staticallyDisabled)
+  const typeAttr = attr('type')?.initializer
+  // Every field @tailwindcss/forms styles: a textarea, a select, and an input that is not a button or
+  // a hidden, file, range or colour control (a missing or dynamic type counts as a field).
+  const field =
+    tag === 'textarea' ||
+    tag === 'select' ||
+    (tag === 'input' && !(typeAttr && ts.isStringLiteral(typeAttr) && NOT_FORMS_STYLED.includes(typeAttr.text)))
+  return { tag, attr, tabbable, field, spread, unstylable }
+}
+
 function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Finding[] } {
   // next/link's default export under whatever name the file imports it as.
   const linkNames = defaultImportNames(sf, (m) => m === 'next/link')
@@ -406,52 +461,7 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
   let stops = 0
   const visit = (node: ts.Node): void => {
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
-      const tag = node.tagName.getText(sf)
-      const attrs = node.attributes.properties.filter(ts.isJsxAttribute)
-      const attr = (name: string) => attrs.find((a) => a.name.getText(sf) === name)
-      // A tabIndex is read branch by branch (see tabIndexBranches): it removes a stop only when every
-      // branch is negative (`tabIndex={-1}`), and makes one when any branch may be 0 or more, a dynamic
-      // value included (`tabIndex={selected ? 0 : -1}`, a roving stop), just as a dynamic `disabled` may
-      // leave a control enabled. `tabIndex={ref ? -1 : undefined}` on a focus target is neither.
-      const tabIndex = attr('tabIndex')?.initializer
-      const branches = tabIndex && ts.isJsxExpression(tabIndex) && tabIndex.expression ? tabIndexBranches(tabIndex.expression) : []
-      // An attribute written before a props spread is the spread's to override (`<button disabled {...rest}>`
-      // rendered with `disabled={false}`), so only one no spread follows takes a control out of the order.
-      const settled = (a: ts.JsxAttribute | undefined) => !!a && !node.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p) && p.pos > a.pos)
-      const removed = branches.length > 0 && branches.every((b) => b === 'negative') && settled(attr('tabIndex'))
-      const indexed = branches.some((b) => b === 'stop')
-      // An editable region is a Tab stop of its own, unless provably off (`false`, "false", "inherit");
-      // a bare or dynamic contentEditable may be on.
-      const editable = attr('contentEditable') ?? attr('contenteditable')
-      const editableOff =
-        !!editable?.initializer &&
-        ((ts.isStringLiteral(editable.initializer) && ['false', 'inherit'].includes(editable.initializer.text)) ||
-          (ts.isJsxExpression(editable.initializer) && editable.initializer.expression?.kind === ts.SyntaxKind.FalseKeyword))
-      const editableStop = editable !== undefined && !editableOff
-      // `disabled` or `disabled={true}`; a dynamic value may be enabled, so it still counts.
-      const disabled = attr('disabled')
-      const staticallyDisabled =
-        disabled !== undefined &&
-        settled(disabled) &&
-        (!disabled.initializer ||
-          (ts.isJsxExpression(disabled.initializer) && disabled.initializer.expression?.kind === ts.SyntaxKind.TrueKeyword))
-      // A props spread (`<div {...getButtonProps()}>`, `<Menu {...menuProps} />`) can supply a tabIndex and a
-      // ringless className the scan cannot see, so the element counts as a stop and fails unread, a component
-      // included, since it may pass the spread on to an element of its own. The one spread the scan reads is
-      // a component's own rest props on the element that takes its className (ownRestProps).
-      const spread = node.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p) && !ownRestProps(p, node, sf))
-      const unstylable = unstylableStop(node, sf, removed)
-      const tabbable =
-        unstylable !== null ||
-        spread ||
-        ((INTRINSIC.has(tag) || linkNames.has(tag) || indexed || editableStop) && !removed && !staticallyDisabled)
-      const typeAttr = attr('type')?.initializer
-      // Every field @tailwindcss/forms styles: a textarea, a select, and an input that is not a button or
-      // a hidden, file, range or colour control (a missing or dynamic type counts as a field).
-      const field =
-        tag === 'textarea' ||
-        tag === 'select' ||
-        (tag === 'input' && !(typeAttr && ts.isStringLiteral(typeAttr) && NOT_FORMS_STYLED.includes(typeAttr.text)))
+      const { tag, attr, tabbable, field, spread, unstylable } = classify(node, sf, linkNames)
       if (tabbable) {
         stops += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
@@ -472,6 +482,60 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
   }
   visit(root)
   return { stops, findings }
+}
+
+/** The DS field module: its fields are held by tests/unit/inputClassesNoOverrides.spec.tsx (each `inputClasses()`
+    combination and the Input, Textarea and Select components take the forms ring off and draw the DS ring). */
+const FIELD_FACTORY = 'components/ui/Input.tsx'
+/** A DS ring in some focus state, and its dark twin: `focus:shadow-ring-brand` with `dark:focus:shadow-ring-brand-dark`,
+    or the `focus-visible:` triple a checkbox takes. */
+const DS_RING = /^(focus|focus-visible):!?shadow-ring-/
+const DS_RING_DARK = /^dark:(focus|focus-visible):!?shadow-ring-/
+
+/** Whether a className expression calls `inputClasses(…)` anywhere: the field is then built by the DS factory. */
+function callsInputClasses(node: ts.Node): boolean {
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'inputClasses') return true
+  return ts.forEachChild(node, callsInputClasses) ?? false
+}
+
+/**
+ * Every field @tailwindcss/forms styles, anywhere in a page, that a user can Tab to and that its own className
+ * styles (not one built with `inputClasses(…)`, which the DS factory's gate holds): it takes the plugin's ring off
+ * (FORMS_RING_OFF) and draws a DS ring in both themes. The reset without a ring would leave no focus indicator: the
+ * full-text search's date inputs had no DS ring, so the plugin's blue ring was their only one in dark.
+ */
+function unringedFields(source: string, fileName: string): { fields: number; factory: number; findings: Finding[] } {
+  const sf = parse(source, fileName)
+  const linkNames = defaultImportNames(sf, (m) => m === 'next/link')
+  const findings: Finding[] = []
+  let fields = 0
+  let factory = 0
+  const visit = (node: ts.Node): void => {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const { tag, attr, tabbable, field, spread } = classify(node, sf, linkNames)
+      const className = attr('className')
+      if (field && tabbable && className?.initializer && callsInputClasses(className.initializer)) factory += 1
+      else if (field && tabbable) {
+        fields += 1
+        const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
+        const tokens = classTokens(className?.initializer)
+        const missing = Array.isArray(tokens)
+          ? [
+              ...FORMS_RING_OFF.filter((t) => !tokens.includes(t)),
+              ...(tokens.some((t) => DS_RING.test(t)) ? [] : ['a focus:shadow-ring-* or focus-visible:shadow-ring-*']),
+              ...(tokens.some((t) => DS_RING_DARK.test(t)) ? [] : ['its dark: twin']),
+            ]
+          : []
+        if (spread) findings.push({ line, tag, problem: 'a props spread the scan cannot read' })
+        else if (!className) findings.push({ line, tag, problem: "no className, so the forms plugin's blue ring is its focus ring" })
+        else if (!Array.isArray(tokens)) findings.push({ line, tag, problem: 'a className the scan cannot read' })
+        else if (missing.length) findings.push({ line, tag, problem: `missing ${missing.join(', ')}` })
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return { fields, factory, findings }
 }
 
 /** The app's .tsx sources (app/, features/, components/), repository-relative. */
@@ -805,6 +869,67 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       "video: the browser's own controls take focus, each with the browser's ring",
       "audio: the browser's own controls take focus, each with the browser's ring",
       'details: no <summary> of its own, so the browser\'s "Details" summary takes focus with the default outline',
+    ])
+  })
+})
+
+describe('every field the forms plugin styles takes its ring off and draws the DS ring, app-wide', () => {
+  it('the app’s own fields', () => {
+    let fields = 0
+    let factory = 0
+    const findings: string[] = []
+    for (const file of appSources().filter((f) => f !== FIELD_FACTORY)) {
+      const result = unringedFields(readFileSync(path.join(ROOT, file), 'utf8'), file)
+      fields += result.fields
+      factory += result.factory
+      findings.push(...result.findings.map((f) => `${file}:${f.line} <${f.tag}> ${f.problem}`))
+    }
+    // A reader that finds nothing must not pass: the app styles a handful of fields itself and builds the rest with inputClasses().
+    expect(fields, 'fields that style themselves').toBeGreaterThanOrEqual(5)
+    expect(factory, 'fields built with inputClasses()').toBeGreaterThanOrEqual(15)
+    expect(findings).toEqual([])
+  })
+
+  it('the field scan catches what it is for (a self-check on fixed sources)', () => {
+    const reset = 'focus:ring-0 focus:ring-offset-0'
+    const field = `focus:border-brand focus:shadow-ring-brand dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark ${reset}`
+    const control = `${reset} focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark`
+    const src = `
+      import { inputClasses } from '@/components/ui/Input'
+      import { clsx } from 'clsx'
+      export function F({ c, busy, rest }: Props) {
+        return (
+          <>
+            <input type="checkbox" className="h-4 w-4 focus:shadow-ring-brand" />
+            <input type="checkbox" className="h-4 w-4 ${control}" />
+            <input type="date" className="border focus:border-brand focus:outline-none" />
+            <input type="date" className="border ${field}" />
+            <input type="date" className="border ${reset}" />
+            <textarea className="focus:shadow-ring-brand ${reset}" />
+            <select className={clsx(inputClasses({ select: true }), c)} />
+            <input className={\`\${inputClasses()} mt-2\`} />
+            <input type="text" className={c} />
+            <input type="email" />
+            <input type="text" {...rest} />
+            <input type="submit" className="p-2" />
+            <input type="checkbox" disabled className="h-4 w-4" />
+            <input type="text" tabIndex={-1} className="hidden" />
+            <input type="radio" disabled={busy} className="h-4 w-4" />
+          </>
+        )
+      }`
+    const { fields, factory, findings } = unringedFields(src, 'page.tsx')
+    expect(factory).toBe(2)
+    expect(fields).toBe(10)
+    expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
+      '7 <input> missing focus:ring-0, focus:ring-offset-0, its dark: twin',
+      '9 <input> missing focus:ring-0, focus:ring-offset-0, a focus:shadow-ring-* or focus-visible:shadow-ring-*, its dark: twin',
+      '11 <input> missing a focus:shadow-ring-* or focus-visible:shadow-ring-*, its dark: twin',
+      '12 <textarea> missing its dark: twin',
+      '15 <input> a className the scan cannot read',
+      "16 <input> no className, so the forms plugin's blue ring is its focus ring",
+      '17 <input> a props spread the scan cannot read',
+      '21 <input> missing focus:ring-0, focus:ring-offset-0, a focus:shadow-ring-* or focus-visible:shadow-ring-*, its dark: twin',
     ])
   })
 })
