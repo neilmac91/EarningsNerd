@@ -43,8 +43,9 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   element counts (4 cards; 13 header cells in the 12-quarter window and 7 in Newest 6; exactly the
   dataset's 20 metric rows) so
   a probe that finds nothing fails the run, and record the Chromium, platform, commit and prototype tree
-  hash of the run, refusing uncommitted prototype or harness files unless `--allow-dirty` records them (the
-  committed run was taken from a committed tree). `EN_PROTO.state.noPad = true` removes the whole-column pad for
+  hash of the run, refusing uncommitted prototype or harness files unless `--allow-dirty` records them, and
+  writing the committed recording only from a committed tree (a dirty run needs `--out` naming another file; a
+  symbolic or hard link to the recording counts as it, and any other multiply linked output is refused). `EN_PROTO.state.noPad = true` removes the whole-column pad for
   the occlusion mutation proof (at 1024 the probe then reports the Q4 ’23 column straddling the edge).
 - `harness/build_states.py`, `harness/prune_states.py` — reproduce `prototype/data/` from a saved
   companyfacts payload.

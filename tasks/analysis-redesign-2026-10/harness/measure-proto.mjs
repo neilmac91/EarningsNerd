@@ -6,18 +6,21 @@
 // or the values scrolling beneath it show through), and the count of repeated labels; 200% text at 1480,
 // 390 and 320.
 //
-//   node harness/measure-proto.mjs --out measurements/prototype.json [--fonts dir] [--shots dir] [--allow-dirty]
+//   node harness/measure-proto.mjs [--out file] [--fonts dir] [--shots dir] [--allow-dirty]
 //
 // The recorded run is auditable only from a committed tree: the output carries the commit, the prototype
 // directory's tree hash (`git rev-parse <any later commit>:tasks/analysis-redesign-2026-10/prototype`
 // reproduces it) and the list of uncommitted prototype or harness files, and the run refuses to start
-// with such files unless --allow-dirty records them. Every probe asserts its element counts (4 cards, 13
+// with such files unless --allow-dirty records them; even then the committed recording,
+// measurements/prototype.json (the default --out; a symbolic or hard link to it counts as it, and any other
+// multiply linked output is refused), is written only from a committed tree, since a recording of uncommitted
+// bytes cannot be reproduced: a dirty run needs --out naming another file. Every probe asserts its element counts (4 cards, 13
 // header cells in the 12-quarter window and 7 in Newest 6, exactly the dataset's metric rows), so a probe that finds
 // nothing fails the run instead of recording a clean result.
 //
 // Run from tasks/analysis-redesign-2026-10/. With --fonts, Google Fonts requests are answered from a
 // local directory holding the CSS as fonts.css plus the .woff2 files it names (no network needed).
-import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { readFileSync, existsSync, lstatSync, mkdirSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
@@ -26,8 +29,30 @@ const require = createRequire(import.meta.url)
 const { chromium } = require('playwright')
 
 const args = Object.fromEntries(process.argv.slice(2).map((a, i, all) => (a.startsWith('--') ? [a.slice(2), all[i + 1]] : [])).filter((x) => x.length))
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const OUT = path.resolve(ROOT, args.out || 'measurements/prototype.json')
+const ROOT = realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'))
+const git = (cmd) => { try { return execSync(cmd, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { return null } }
+// A path with every existing component resolved through its symbolic links (a dangling link is refused), and an
+// existing file compared by device and inode, so a symbolic or hard link to the committed recording is the recording.
+const canonical = (p) => {
+  const rest = []
+  let cur = p
+  while (!existsSync(cur)) {
+    try { if (lstatSync(cur).isSymbolicLink()) throw new Error(`${cur} is a dangling symbolic link: pass a real path`) } catch (e) { if (e.code !== 'ENOENT') throw e }
+    rest.unshift(path.basename(cur)); const parent = path.dirname(cur); if (parent === cur) break; cur = parent
+  }
+  return path.join(realpathSync(cur), ...rest)
+}
+const sameFile = (a, b) => { if (!existsSync(a) || !existsSync(b)) return false; const x = statSync(a), y = statSync(b); return x.dev === y.dev && x.ino === y.ino }
+const BASELINE_PATH = canonical(path.resolve(ROOT, 'measurements/prototype.json'))
+const outArg = canonical(path.resolve(ROOT, args.out || 'measurements/prototype.json'))
+const OUT = sameFile(outArg, BASELINE_PATH) ? BASELINE_PATH : outArg
+const WRITING_BASELINE = OUT === BASELINE_PATH
+if (!WRITING_BASELINE && existsSync(OUT) && statSync(OUT).nlink > 1) throw new Error(`${OUT} has ${statSync(OUT).nlink} hard links, so writing it would overwrite a file under another name: pass an --out with one name`)
+// The committed recording is written only from a committed tree: a run of uncommitted prototype or harness bytes
+// can be recorded (--allow-dirty lists the files) but never reproduced, so it needs --out naming another file.
+const dirty = (git('git status --porcelain -- prototype harness') || '').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => l.replace(/^\S+\s+/, ''))
+if (dirty.length && !('allow-dirty' in args)) throw new Error(`uncommitted prototype or harness files; commit them first, or pass --allow-dirty (with --out naming another file) to record them: ${dirty.join(', ')}`)
+if (dirty.length && WRITING_BASELINE) throw new Error(`measurements/prototype.json is written only from a committed tree (uncommitted: ${dirty.join(', ')}): commit them, or pass --out <another file> for this dirty run`)
 const FONTS = args.fonts || null
 const SHOTS = args.shots || null
 const PROTO_URL = pathToFileURL(path.join(ROOT, 'prototype/index.html')).href
@@ -71,9 +96,6 @@ function expectCounts(m, headers, rows, key) {
 
 async function run() {
   const browser = await chromium.launch()
-  const git = (cmd) => { try { return execSync(cmd, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { return null } }
-  const dirty = (git('git status --porcelain -- prototype harness') || '').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => l.replace(/^\S+\s+/, ''))
-  if (dirty.length && !('allow-dirty' in args)) { await browser.close(); throw new Error(`uncommitted prototype or harness files; commit them first, or pass --allow-dirty to record them: ${dirty.join(', ')}`) }
   const results = { generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: git('git rev-parse --short HEAD'), prototypeTree: git('git rev-parse HEAD:./prototype'), dirty }, configs: [] }
   for (const theme of ['light', 'dark']) {
     for (const cfg of CONFIGS) {
