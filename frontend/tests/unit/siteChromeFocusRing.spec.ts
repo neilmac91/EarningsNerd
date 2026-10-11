@@ -511,6 +511,15 @@ function rings(tokens: string[], dark: boolean): string[] {
     return light.map((token) => `${m[1]} ${token}`)
   })
 }
+/** The focus states holding more than one DS ring, as `state: ring, ring`, from `rings()`'s `state token` pairs. */
+function doubledRings(pairs: string[]): string[] {
+  const byState = new Map<string, Set<string>>()
+  for (const pair of pairs) {
+    const [state, token] = pair.split(' ')
+    byState.set(state, (byState.get(state) ?? new Set()).add(token))
+  }
+  return [...byState].filter(([, tokens]) => tokens.size > 1).map(([state, tokens]) => `${state}: ${[...tokens].join(', ')}`)
+}
 /** The properties a focus ring is drawn with: the box-shadow, the shadow `shadow-ring-*` sets, and the ring variables the
     forms plugin and Tailwind's `ring-*` set. */
 const SHADOW_PROPS = new Set(['box-shadow', '--tw-shadow', '--tw-shadow-colored', '--tw-ring-shadow', '--tw-ring-offset-shadow', '--tw-ring-offset-width', '--tw-ring-inset'])
@@ -576,11 +585,11 @@ function competingRings(tokens: string[]): string[] {
 /** A self-styled field's classes, read strictly: a string, a template with no `${…}`, or `cx`/`clsx` of those. Unlike the
     chrome scan, which ignores a dynamic part, a `${…}`, a condition or a variable here could add a class that draws on the
     ring (`focus:[box-shadow:none]`), so the className is unreadable. Every field in the app writes its classes this way. */
-function strictTokens(init: ts.JsxAttributeValue | undefined): string[] | null {
+function strictTokens(init: ts.JsxAttributeValue | undefined, isJoiner: (callee: ts.Expression) => boolean): string[] | null {
   const read = (e: ts.Expression): string[] | null => {
     if (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) return e.text.split(/\s+/).filter(Boolean)
     if (ts.isParenthesizedExpression(e)) return read(e.expression)
-    if (ts.isCallExpression(e) && ts.isIdentifier(e.expression) && ['cx', 'clsx'].includes(e.expression.text)) {
+    if (ts.isCallExpression(e) && isJoiner(e.expression)) {
       const parts = e.arguments.map(read)
       return parts.every((part): part is string[] => part !== null) ? parts.flat() : null
     }
@@ -590,8 +599,6 @@ function strictTokens(init: ts.JsxAttributeValue | undefined): string[] | null {
   return expr ? read(expr) : null
 }
 
-/** The modules that export the DS factory, as paths under frontend/ without extension. */
-const FACTORY_MODULES = new Set(['components/ui/Input', 'components/ui/index'])
 
 /** `@/components/ui` and `../ui/Input` alike, as a path under frontend/ without extension; a package stays as is. */
 function moduleKey(file: string, specifier: string): string {
@@ -603,32 +610,39 @@ function moduleKey(file: string, specifier: string): string {
   return key === 'components/ui' ? 'components/ui/index' : key
 }
 
-/** Whether a call is the DS factory: a reference to `inputClasses` imported (under any name) from components/ui/Input or
-    the components/ui barrel, with no local binding of that name shadowing the import. A page's own helper of that name,
-    or one imported from elsewhere, is not the factory, so its field is read like any other. */
-function factoryCall(sf: ts.SourceFile): (e: ts.Node) => boolean {
+/** The names a file imports from the given modules (`{ 'components/ui/Input': ['inputClasses'] }`, 'default' for a
+    default import), each as the predicate "this identifier is that import": a reference with no local binding of the
+    name shadowing it. A page's own helper of that name, or one imported from elsewhere, is not the import. */
+function importedName(sf: ts.SourceFile, wanted: Record<string, string[]>): (callee: ts.Expression) => boolean {
   const resolve = bindingResolver(sf)
   const imported = new Set<string>()
   for (const st of sf.statements) {
     if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier)) continue
-    if (!FACTORY_MODULES.has(moduleKey(sf.fileName, st.moduleSpecifier.text))) continue
-    const named = st.importClause?.namedBindings
+    const names = wanted[moduleKey(sf.fileName, st.moduleSpecifier.text)]
+    if (!names) continue
+    const clause = st.importClause
+    if (clause?.name && names.includes('default')) imported.add(clause.name.text)
+    const named = clause?.namedBindings
     if (named && ts.isNamedImports(named)) {
-      for (const el of named.elements) if ((el.propertyName ?? el.name).text === 'inputClasses') imported.add(el.name.text)
+      for (const el of named.elements) if (names.includes((el.propertyName ?? el.name).text)) imported.add(el.name.text)
     }
   }
-  return (e) => ts.isCallExpression(e) && ts.isIdentifier(e.expression) && imported.has(e.expression.text) && !resolve(e.expression)
+  return (callee) => ts.isIdentifier(callee) && imported.has(callee.text) && !resolve(callee)
 }
+/** The DS factory, and the class joiners a field's classes may be written with: clsx, and the DS `cx`. */
+const FACTORY_IMPORTS = { 'components/ui/Input': ['inputClasses'], 'components/ui/index': ['inputClasses'] }
+const JOINER_IMPORTS = { clsx: ['clsx', 'default'], 'components/ui/cx': ['cx'], 'components/ui/index': ['cx'] }
 
 /** Whether a className is built by the DS factory: `inputClasses(…)` itself, a direct argument of `cx`/`clsx`, or a
     template's `${…}`. A call nested anywhere else (a branch of a condition) leaves the other branch a field that styles
     itself, so that className is read like any other (and a condition is unreadable). */
-function factoryBuilt(init: ts.JsxAttributeValue, isFactory: (e: ts.Node) => boolean): boolean {
+function factoryBuilt(init: ts.JsxAttributeValue, isFactory: (callee: ts.Expression) => boolean, isJoiner: (callee: ts.Expression) => boolean): boolean {
   const expr = ts.isJsxExpression(init) ? init.expression : init
+  const factory = (e: ts.Expression) => ts.isCallExpression(e) && isFactory(e.expression)
   if (!expr) return false
-  if (isFactory(expr)) return true
-  if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression) && ['cx', 'clsx'].includes(expr.expression.text)) return expr.arguments.some(isFactory)
-  if (ts.isTemplateExpression(expr)) return expr.templateSpans.some((span) => isFactory(span.expression))
+  if (factory(expr)) return true
+  if (ts.isCallExpression(expr) && isJoiner(expr.expression)) return expr.arguments.some(factory)
+  if (ts.isTemplateExpression(expr)) return expr.templateSpans.some((span) => factory(span.expression))
   return false
 }
 
@@ -641,7 +655,8 @@ function factoryBuilt(init: ts.JsxAttributeValue, isFactory: (e: ts.Node) => boo
 function unringedFields(source: string, fileName: string): { fields: number; factory: number; findings: Finding[]; raw: RawField[] } {
   const sf = parse(source, fileName)
   const linkNames = defaultImportNames(sf, (m) => m === 'next/link')
-  const isFactory = factoryCall(sf)
+  const isFactory = importedName(sf, FACTORY_IMPORTS)
+  const isJoiner = importedName(sf, JOINER_IMPORTS)
   const findings: Finding[] = []
   const raw: RawField[] = []
   let fields = 0
@@ -651,11 +666,11 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
       const { tag, attr, tabbable, field, spread } = classify(node, sf, linkNames)
       const className = attr('className')
       // A spread may replace the className, the factory's included, so it is read before the factory exemption.
-      if (field && tabbable && !spread && className?.initializer && factoryBuilt(className.initializer, isFactory)) factory += 1
+      if (field && tabbable && !spread && className?.initializer && factoryBuilt(className.initializer, isFactory, isJoiner)) factory += 1
       else if (field && tabbable) {
         fields += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
-        const tokens = strictTokens(className?.initializer)
+        const tokens = strictTokens(className?.initializer, isJoiner)
         const light = Array.isArray(tokens) ? rings(tokens, false) : []
         const dark = Array.isArray(tokens) ? rings(tokens, true) : []
         const missing = Array.isArray(tokens)
@@ -665,11 +680,15 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
               ...(light.some((ring) => dark.includes(ring)) ? [] : ['its dark: twin in the same focus state']),
             ]
           : []
+        // One DS ring per focus state and theme: of two (`focus:shadow-ring-error` beside the brand ring), the later in
+        // the stylesheet shows, so a valid field would draw the error ring.
+        const doubled = [...doubledRings(light), ...doubledRings(dark).map((r) => `dark: ${r}`)]
         if (spread) findings.push({ line, tag, problem: 'a props spread the scan cannot read' })
         else if (!className) findings.push({ line, tag, problem: "no className, so the forms plugin's blue ring is its focus ring" })
         else if (!Array.isArray(tokens)) findings.push({ line, tag, problem: 'a className the scan cannot read' })
         else {
           if (missing.length) findings.push({ line, tag, problem: `missing ${missing.join(', ')}` })
+          if (doubled.length) findings.push({ line, tag, problem: `more than one DS ring in a focus state (${doubled.join('; ')})` })
           raw.push({ line, tag, tokens })
         }
       }
@@ -1076,6 +1095,14 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     expect(
       at(`import { inputClasses } from '@/components/ui/Input'\nexport function F({ inputClasses }: { inputClasses: () => string }) {\n  return <input className={inputClasses()} />\n}`),
     ).toEqual({ factory: 0, findings: ['3 a className the scan cannot read'] })
+    // The joiners too: a page's own `cx` (which may drop every class) is not the DS joiner, nor is one from elsewhere.
+    const ring = 'focus:border-brand focus:shadow-ring-brand dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark focus:ring-0 focus:ring-offset-0'
+    const joined = (imp: string) => at(`${imp}\nexport const F = () => <input type="date" className={cx('border', '${ring}')} />`).findings
+    expect(joined(`import { cx } from '@/components/ui/cx'`)).toEqual([])
+    expect(joined(`import { cx } from '@/components/ui'`)).toEqual([])
+    expect(joined(`import cx from 'clsx'`)).toEqual([])
+    expect(joined(`const cx = (...c: string[]) => ''`)).toEqual(['2 a className the scan cannot read'])
+    expect(joined(`import { cx } from '@/lib/strings'`)).toEqual(['2 a className the scan cannot read'])
   })
 
   it('the field scan catches what it is for (a self-check on fixed sources)', async () => {
@@ -1117,11 +1144,12 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <input type="date" className="border ${field} focus:[box-shadow:none]" />
             <input type="date" className="border ${field} focus-visible:shadow-none shadow-sm !shadow-none" />
             <input type="date" className={\`border ${field} \${c}\`} />
-            <input type="date" className={cx('border', '${field}', busy && 'opacity-50')} />
-            <input type="date" className={cx('border', '${field}')} />
+            <input type="date" className={clsx('border', '${field}', busy && 'opacity-50')} />
+            <input type="date" className={clsx('border', '${field}')} />
             <input type="date" className="border ${field} supports-[selector(:focus-visible)]:focus:[box-shadow:none]" />
             <input type="date" className="border ${field} hover:shadow-md" />
             <input type="date" className="border ${field} [box-shadow:0_0_0_1px_rgba(0,0,0,0.1)]" />
+            <input type="date" className="border ${field} focus:shadow-ring-error" />
           </>
         )
       }`
@@ -1130,7 +1158,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     const competing = 'sets the box-shadow or a ring in a state, beside the reset and the DS ring'
     const ring = 'a focus:shadow-ring-* or focus-visible:shadow-ring-*'
     expect(factory).toBe(2)
-    expect(fields).toBe(29)
+    expect(fields).toBe(30)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       `7 <input> missing focus:ring-0, focus:ring-offset-0, ${twin}`,
       `9 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
@@ -1168,6 +1196,8 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       `38 <input> supports-[selector(:focus-visible)]:focus:[box-shadow:none] ${competing}`,
       `39 <input> hover:shadow-md ${competing}`,
       // A resting arbitrary box-shadow (line 40) has no variant: the colon inside its brackets is not one.
+      // Two DS rings in one focus state: the later in the stylesheet shows.
+      '41 <input> more than one DS ring in a focus state (focus: ring-brand, ring-error)',
     ])
   })
 })
