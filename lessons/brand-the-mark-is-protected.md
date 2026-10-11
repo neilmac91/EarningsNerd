@@ -20,3 +20,7 @@ rules (use the tile, not the bare mark, below 32px), not by redrawing.
 **Evidence**: founder instruction of 2026-10-11 in the brand studio session (PR #1226);
 `frontend/public/assets/LOGO_README.md` ("In-app usage", "Rules");
 `frontend/tests/unit/wordmarkSingleSource.spec.ts` keeps the wordmark to one source.
+
+**Gate**: `frontend/tests/unit/markSingleSource.spec.ts` fails when any rendition (the assets, the
+templates, the social card, `EarningsNerdLogoIcon.tsx`, the chart export) redraws one of the three
+outlines, moves the N against the E, or stretches the mark.

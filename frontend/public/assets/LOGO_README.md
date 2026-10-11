@@ -16,8 +16,8 @@ The mark is the letters **E + N** with the N's final stroke rising into an arrow
 | `earningsnerd-mark-navy.svg` | Bare mark, fixed navy `#0B1120` (for light non-brand surfaces). |
 | `earningsnerd-mark-white.svg` | Bare mark, fixed white (for photos / dark fills). |
 | `earningsnerd-mark-mono.svg` | Bare mark in `currentColor` — the geometry source for in-app components and the asset pipeline. |
-| `earningsnerd-logo-mono.svg` | Full lockup in `currentColor` (one colour: the italic "Nerd" keeps its italic, not its colour) — print in one ink, embroidery, watermarks. |
-| `earningsnerd-logo-stacked-light.svg` | Stacked lockup, mark centred over the wordmark, one E-bar between — light surfaces (square-ish placements: social avatars, the business card back, merch). |
+| `earningsnerd-logo-mono.svg` | Full lockup in `currentColor`, for print in one ink, embroidery and watermarks. One colour: the italic "Nerd" keeps its italic, not its colour. |
+| `earningsnerd-logo-stacked-light.svg` | Stacked lockup, mark centred over the wordmark, one E-bar between, for light surfaces in square-ish placements: social avatars, the business card back, merch. |
 | `earningsnerd-logo-stacked-dark.svg` | Stacked lockup for navy. |
 | `earningsnerd-logo-stacked-mono.svg` | Stacked lockup in `currentColor`. |
 | `earningsnerd-mask-icon.svg` | Safari pinned-tab mask: the mark letterboxed in a square, black on transparent (Safari recolours it; `app/layout.tsx` declares it with the sage colour). |

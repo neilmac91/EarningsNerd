@@ -8,9 +8,9 @@ import { cx } from '@/components/ui'
  * hairline on its inner edge, holding a twin of every bracketed marker in the content
  * (`[data-en-ref]` elements), each positioned on the line its marker sits on. The content is
  * server-rendered and passed in as children; this boundary only measures. Twins are decorative
- * (`aria-hidden`): the in-text marker is the accessible one. Under SSR, before layout, and in an
- * environment without `ResizeObserver` (the unit tests), the gutter renders empty and the content
- * is unchanged, so nothing depends on the measurement.
+ * (`aria-hidden`): the in-text marker is the accessible one. Under SSR and before the first
+ * measurement the gutter is empty and the content is unchanged, so nothing depends on it; where
+ * `ResizeObserver` is missing the twins are placed once and not re-measured.
  */
 export default function MarkedCopy({ children, className }: { children: ReactNode; className?: string }) {
   const bodyRef = useRef<HTMLDivElement | null>(null)
@@ -50,11 +50,12 @@ export default function MarkedCopy({ children, className }: { children: ReactNod
   )
 }
 
-/** An in-text marker: the product's citation form (data face, semibold, brackets) with the
- *  `data-en-ref` hook the margin twins. The label is the accessible text. */
+/** An in-text marker: the product's citation form (data face, semibold, brackets) at the
+ *  provenance chip's 12px, with the `data-en-ref` hook the margin twins. The label is the
+ *  accessible text; the 11px twin in the margin is decorative. */
 export function EnRef({ label, className }: { label: string; className?: string }) {
   return (
-    <span data-en-ref={label} className={cx('ml-0.5 font-data text-data-xs font-semibold text-brand-strong dark:text-brand-strong-dark', className)}>
+    <span data-en-ref={label} className={cx('ml-0.5 font-data text-xs font-semibold text-brand-strong dark:text-brand-strong-dark', className)}>
       {label}
     </span>
   )

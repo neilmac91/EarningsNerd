@@ -17,13 +17,15 @@ export interface Headline {
 
 export const HEADLINES: Record<HeadlineVariant, Headline> = {
   A: {
-    pre: 'Read the filing faster. ',
-    accent: 'Keep the source in view',
-    post: '.',
+    pre: 'Read the filing faster. Keep ',
+    accent: 'the source',
+    post: ' in view.',
     title: 'Read the filing faster. Keep the source in view',
   },
   // B and C are two of the five brand headlines (docs/voice-and-style.md › Headlines); A survives
-  // from the July copy pass as the served default. The accent phrase carries the mark (.en-mark).
+  // from the July copy pass as the served default. The accent phrase carries the mark (.en-mark),
+  // so it stays short enough never to break across lines at phone width (docs/brand/06-system.md
+  // §6, Misuse): on A the mark sits under "the source", the words the device stands for.
   B: {
     pre: 'Read it faster. ',
     accent: 'Check it anyway',

@@ -189,7 +189,7 @@ export default function PricingSection({
                 className={radioClass('annual')}
               >
                 Annual{' '}
-                <span className="font-medium text-brand-strong dark:text-brand-strong-dark">· 2 months free</span>
+                <span className="font-medium">· 2 months free</span>
               </button>
             </div>
           </div>

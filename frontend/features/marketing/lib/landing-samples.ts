@@ -18,8 +18,6 @@ import demo from '@/features/analysis/demo/demo-analysis.json'
 
 export const AAPL_FY25_EDGAR_URL =
   'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
-/** @deprecated the FY2022 snapshot the samples used until the 2026-10 brand studio; kept for callers. */
-export const AAPL_FY22_EDGAR_URL = AAPL_FY25_EDGAR_URL
 
 export const SAMPLE_FILING = {
   ticker: 'AAPL',
@@ -32,7 +30,10 @@ export const SAMPLE_FILING = {
 
 /** Financial Highlights rows (FinancialMetricsTable). Values: FY2025 vs FY2024 10-K XBRL
  *  (RevenueFromContractWithCustomerExcludingAssessedTax 416,161M vs 391,035M; NetIncomeLoss
- *  112,010M vs 93,736M; EarningsPerShareDiluted 7.46 vs 6.08). */
+ *  112,010M vs 93,736M; EarningsPerShareDiluted 7.46 vs 6.08). The labels are the ones a real
+ *  payload carries: the server checks only mapped concepts of at least $1M
+ *  (provenance_service.build_metric_source), so the two totals read SEC XBRL and the per-share
+ *  figure reads Cited, never a match the product could not have made. */
 export const SAMPLE_FINANCIAL_METRICS: FinancialMetric[] = [
   {
     metric: 'Revenue',
@@ -69,8 +70,8 @@ export const SAMPLE_FINANCIAL_METRICS: FinancialMetric[] = [
     change_tone: 'gain',
     commentary: 'Buybacks lifted EPS above net income growth.',
     source_url: AAPL_FY25_EDGAR_URL,
-    source_verified: true,
-    xbrl_concept: 'EPS Diluted',
+    // A per-share figure: never checked against XBRL, so never labelled as matched.
+    source_verified: false,
     source_section_ref: 'Consolidated Statements of Operations',
   },
 ]

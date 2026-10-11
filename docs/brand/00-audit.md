@@ -95,8 +95,14 @@ a stranger sees first.
   2026-10-11 (accession 0000320193-25-000079; CIK 320193): `RevenueFromContractWithCustomerExcludingAssessedTax`
   FY2025 416,161,000,000 vs FY2024 391,035,000,000; `NetIncomeLoss` 112,010,000,000 vs
   93,736,000,000; `EarningsPerShareDiluted` 7.46 vs 6.08; `NetCashProvidedByUsedInOperatingActivities`
-  111,482,000,000 vs 118,254,000,000; `PaymentsOfDividends` 15,421,000,000 vs 15,234,000,000. These are the only sample
-  figures the brand work may draw, until a refreshed snapshot is captured through the product.
+  111,482,000,000 vs 118,254,000,000; `PaymentsOfDividends` 15,421,000,000 vs 15,234,000,000. Added in Phase 8 (D-021):
+  Services net sales, which companyfacts does not carry because it is a dimensioned fact, read from
+  the 10-K's own inline XBRL (`aapl-20250927.htm`): `RevenueFromContractWithCustomerExcludingAssessedTax`
+  with `srt:ProductOrServiceAxis = us-gaap:ServiceMember`, 109,158,000,000 for the year ended
+  2025-09-27 vs 96,169,000,000 for 2024-09-28, and the Item 7 sentence "Services net sales increased
+  during 2025 compared to 2024 primarily due to higher net sales from advertising, the App Store
+  and cloud services." These are the only sample figures the brand work may draw, until a
+  refreshed snapshot is captured through the product.
 - Prices are `PRICE_VARIANTS.control` $39 / $390 (`frontend/app/pricing/prices.ts`), with a $29 arm
   behind the `pricing-experiment` flag. The studio brief names a different figure; it is not in the
   code and is therefore not a brand fact; it is a founder question ([01-interview.md](01-interview.md)).

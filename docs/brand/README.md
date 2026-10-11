@@ -79,32 +79,47 @@ the verified set; every colour is a token; the mark's paths are byte-identical t
 [PR #1226](https://github.com/neilmac91/EarningsNerd/pull/1226), one branch for all ten phases.
 Review tier: routine (AGENTS.md §5), because the later phases touch marketing components, the
 pricing page's call to action, the consent bar, one product table's number formatting, backend
-copy in mail and exports, and their specs. Not touched: prompts, evals, entitlements, auth,
-billing, the summary pipeline, legal pages, `vercel.json`, `next.config.js`, workflows.
+copy in mail and exports, and their specs. Not touched: prompts, evals, entitlements, auth logic
+(`features/auth/api/auth-api.ts` is identical to main; the login and register pages' brand pane,
+`AuthShell.tsx`, changed its copy and sample only), billing, the summary pipeline, legal pages,
+`vercel.json`, `next.config.js`, workflows.
+
+The review (one Opus lens, a Sonnet refuter per blocker) found three blockers, all upheld and
+all fixed: matching claims that had lost the server's scope, a widened search-coverage claim,
+and a consent clause broader than the code. The fixes and the should-fix items are recorded in
+[09-stress-test.md](09-stress-test.md) §4 and decisions D-021 to D-025.
+
+## Gates this work added
+
+Each fails on a deliberate break of its rule (the PR lists the mutation proofs):
+
+- `frontend/tests/unit/brandCopyRules.spec.ts`: matching claims keep the server's scope; no sage
+  number on a public surface; the highlight never on a figure or price; the margin only inside
+  `MarkedCopy`, and never without a marker.
+- `frontend/tests/unit/markSingleSource.spec.ts`: every rendition of the EN monogram copies the
+  canonical outlines and placements byte for byte and never stretches them.
+- `frontend/tests/unit/founderNote.spec.tsx` and `waitlistCounter.spec.tsx`: no placeholder in the
+  founder slot, no counter below its floor or passing through "0+", the count in neutral ink.
 
 ## Gate tails
 
-Run on 2026-10-11 against the final tree in this container.
+Run on 2026-10-11 against the final tree in this container, after the review round.
 
 ```
 frontend: npm run lint                      eslint . --max-warnings 0           exit 0
 frontend: npx tsc -p tsconfig.ci.json                                           exit 0
-frontend: npm run build                     Next 16 production build            exit 0
-frontend: npm run test -- --run             182 files, 1743 tests: 1742 passed; analysis-teaser.spec.tsx ran 5.6s
-                                            against its 5s limit beside a concurrent Playwright run, then passed alone
-                                            (1 passed), so every unit test passes
-frontend: playwright (home-page-unauthenticated, not-found-page, text-floors, against next start, no backend)
-                                            20 passed (25.6s), serially, against a build made with CI's environment
-                                            (NEXT_PUBLIC_API_BASE_URL=http://localhost:8000, WAITLIST_MODE=false,
-                                            NEXT_PUBLIC_ENABLE_ANALYSIS=true); a first run against a build without
-                                            that API base timed out on the mocked routes and found the 404 spec's
-                                            old wording, fixed in bcbdc72
+frontend: npm run build                     Next 16 production build, CI's env   exit 0
+frontend: npm run test -- --run             Test Files 186 passed (186); Tests 1802 passed (1802)
+frontend: playwright (home-page-unauthenticated, not-found-page, text-floors; next start, no backend,
+          NEXT_PUBLIC_API_BASE_URL=http://localhost:8000, WAITLIST_MODE=false,
+          NEXT_PUBLIC_ENABLE_ANALYSIS=true; serial)          20 passed (21.7s)
 backend:  ruff check .                      All checks passed!
 backend:  bandit -r app -ll                 no findings                          exit 0
 backend:  python -m pytest                  11 failed, 6726 passed, 39 skipped in 563.58s
 ```
 
-The eleven backend failures are not this branch's: the same eleven fail on `origin/main` in this
+The review round changed no backend file, so the backend tails stand from the run before it. The
+eleven backend failures are not this branch's: the same eleven fail on `origin/main` in this
 container (Python 3.13.16): the `test_copilot_prose_quotations` cases for two code points this
 Python's Unicode tables assign, and `test_capacity_readout_error_detail_never_aborts_the_receipt`.
 None is in a file this branch touches; CI runs the pinned toolchain.
@@ -112,7 +127,8 @@ None is in a file this branch touches; CI runs the pinned toolchain.
 ## Lessons
 
 - `lessons/brand-the-mark-is-protected.md`: never change the EN monogram or the wordmark; brand
-  work composes around them.
+  work composes around them. Now held by `markSingleSource.spec.ts`, so `lessons/README.md` lists
+  it under the machine-gated lessons.
 
 ## Left for the founder
 
@@ -122,8 +138,11 @@ None is in a file this branch touches; CI runs the pinned toolchain.
    (`frontend/features/analysis/demo/demo-analysis.json`).
 3. A curation rule before Notable filings returns to the homepage (`NotableFilings.tsx`).
 4. The landing page's section composition (tell T4), as its own PR.
+5. Vercel Web Analytics on the privacy page, or gated on consent: `/privacy` does not name it today.
+6. Whether sage may mark a count inside the product (three calendar sites, D-023).
 
-Each is one line in `tasks/todo.md`.
+In `tasks/todo.md` the first three share the brand studio's founder line; the other three have a
+line each.
 
 ## Closing
 
@@ -131,5 +150,5 @@ The brief asked for a brand that could be recognised with the logo covered. On t
 the thing you would recognise is small and specific: a phrase with a pale mark under it, a
 bracket in the margin, a figure beside the sentence it came from. That is the product's own habit
 made visible, which is why it will hold: nothing in it needs a campaign to stay true, only the
-rules already in the gates. What remains is the founder's voice in the one slot kept for it, and
+rules the gates above now hold. What remains is the founder's voice in the one slot kept for it, and
 a page layout that has yet to be as particular as the copy it carries.

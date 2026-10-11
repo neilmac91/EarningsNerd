@@ -22,7 +22,7 @@ const SITE_URL = 'https://www.earningsnerd.io'
 const SHOW_QUOTE_SLOT = false
 
 const DESCRIPTION =
-  'AI summaries of 10-Ks and 10-Qs for investors who still check the source. Each figure points to the XBRL fact or the passage it came from, or says that it could not.'
+  'AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company’s XBRL where they can be, and quotes against the filing’s own text.'
 
 // <title> / og:title follow the default headline variant (A). The client-side experiment may swap
 // the H1 to B or C and retitles the document to match (HeroHeadline); crawlers always see A.
@@ -139,8 +139,8 @@ export default async function Home() {
         {/* Notable filings is dormant under the brand (docs/brand/01-interview.md, A8; the 2026-10
             audit found microcap 8-Ks under "high-signal"): the component, its fetcher and its spec
             stay until a curation rule exists, and tests/unit/landing-sections-mounted.spec.ts no
-            longer lists it. Unmounting its fetcher also returns the route's ISR window to the
-            hourly floor (lessons/frontend-route-redesign-needs-a-mount-gate.md). */}
+            longer lists it. Its fetcher revalidated at 3600 like the rest, so dropping it leaves the
+            route's ISR window where it was. */}
 
         {/* 9. Final CTA */}
         <CtaBanner accessMode={accessMode} />

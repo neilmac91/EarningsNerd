@@ -33,8 +33,8 @@ of one plain sentence, claims backed by a figure with its source, no throat-clea
    cut it.
 2. **Specific over abstract.** Name what the product does and who it's for. Prefer a real
    detail or number ("10-K and 10-Q summaries", "5 summaries a month") to a vague benefit
-   ("actionable insights"). A figure comes with its fact or its passage, or with the word
-   "withheld".
+   ("actionable insights"). Say what was checked and against what: a figure the server
+   matched reads "SEC XBRL", a quote it could not locate is "withheld".
 3. **Confident and plain.** Lead with the user's outcome. State the AI plainly without
    over-explaining it. Drop the hype. No exclamation marks.
 4. **Restraint over decoration.** Cut adjectives that don't earn their place and any
@@ -65,10 +65,10 @@ of one plain sentence, claims backed by a figure with its source, no throat-clea
 
 | Don't (as it was on 2026-10-11) | Do |
 |---|---|
-| "Nine-part summaries use selected filing text and available XBRL data, with source labels where a match is found." (hero subhead) | "Each figure points to the XBRL fact or the passage it came from, or says that it could not." |
+| "Nine-part summaries use selected filing text and available XBRL data, with source labels where a match is found." (hero subhead) | "Figures are checked against the company's XBRL where they can be, and quotes against the filing's own text." |
 | "Where the numbers come from" (section heading) | "Figures with their receipts." |
-| "Source labels show when financial metrics match filed XBRL data. Where supporting evidence is available, citations connect excerpts to the filing. The summary is built from selected filing text and available structured data." | "Each figure carries a label that says whether it matched the company's XBRL. Each quote carries the passage it came from. Where we could not match one, we say so." |
-| "Speed matters. Markets move fast. You need clarity before the next earnings call." (waitlist) | "Filings are long. The signal is spread across a hundred pages, and checking a number takes an afternoon. We read it with you and point at the page." |
+| "Source labels show when financial metrics match filed XBRL data. Where supporting evidence is available, citations connect excerpts to the filing. The summary is built from selected filing text and available structured data." | "Each row in the highlights carries a label: SEC XBRL when its value matched the company's XBRL fact, Cited when it points to the filing without that match. Each quote carries the passage it came from." |
+| "Speed matters. Markets move fast. You need clarity before the next earnings call." (waitlist) | "Filings are long. The signal is spread across a hundred pages, and checking a number takes an afternoon. We read it with you and point at the passage." |
 | "Join 0+ others on the waitlist" | (nothing, until the count is worth saying) |
 | "Choose the plan that fits your workflow" (pricing subtitle) | "Summaries are generated once per filing and shared. That is what makes unlimited reading possible at this price." |
 | "You're on the EarningsNerd waitlist! 🎉" (email subject) | "You're on the EarningsNerd waitlist" |
@@ -86,7 +86,7 @@ replace or extend B and C. Each is under eight words and a claim the product kee
 
 1. "The summary that shows its work." (the tagline; also variant C)
 2. "Read it faster. Check it anyway." (variant B)
-3. "Every figure, with its fact or its reason."
+3. "The summary, with the filing beside it."
 4. "The 10-K, read for you, with receipts."
 5. "Numbers you can check, not trust."
 
@@ -133,6 +133,12 @@ the business card, the footer and the merch; it is the positioning in six words.
   metrics, pricing, or testimonials.
 - If a claim can't be confirmed, leave it unchanged and flag it. Never restate an unverified
   claim more confidently.
+- Cut hedges, keep scope. "Where a match is found" is a hedge when it repeats; "where they can
+  be checked", "checkable" and "with a ticker on SEC EDGAR" are scope, because the code checks
+  only some figures (`backend/app/services/provenance_service.py`, `build_metric_source`) and
+  searches only SEC's ticker file. A rewrite may move scope into plainer words; it never deletes
+  it. `frontend/tests/unit/brandCopyRules.spec.ts` fails on "each figure" or "every figure" in
+  shipped copy without the scope beside it.
 - A sample figure on a sales surface is verified against the filing's XBRL and carries its
   filing identity; a quoted passage is verbatim from that filing (`docs/brand/00-audit.md` §4
   records the current set).

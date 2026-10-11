@@ -4,7 +4,7 @@ const STEPS = [
   {
     number: '01',
     title: 'Search a company',
-    description: 'Any company that files with the SEC, by name or ticker.',
+    description: 'Any company with a ticker on SEC EDGAR, by name or ticker.',
     icon: MagnifyingGlassIcon,
   },
   {
@@ -16,7 +16,7 @@ const STEPS = [
   {
     number: '03',
     title: 'Read the summary',
-    description: 'Nine parts, written by the AI from the filing’s text and XBRL, with each figure’s fact and each quote’s passage beside it.',
+    description: 'Nine parts, written by the AI from the filing’s own text and XBRL, in the same order for every filing.',
     // The design repeats file-text here; the lightning glyph is the pre-redesign choice for
     // "get the summary" and keeps the three tiles distinct.
     icon: LightningIcon,

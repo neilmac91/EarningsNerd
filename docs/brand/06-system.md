@@ -71,8 +71,9 @@ in the wordmark is Inter, and stays the brand's only typographic flourish.
 As they stand: Tailwind's base scale with the 18, 52, 72 px and 24 px gutter additions; radii
 4 / 8 / 12 / 16 / 24 with pills for chips; elevation e1 to e5 in light and fill-plus-hairline in
 dark; the stacking ladder sticky 30 · consent 32 · scrim 35 · header 50 · popover 60 · modal 70 ·
-toast 80. No additions. The device uses the 8 px radius where it has one (the marked span's
-outer corners) and no shadow.
+toast 80. No additions. The device has no radius and no shadow: the marked block's bar sits on
+square corners, because a stripe never sits on a rounded container (DESIGN.md, the side-tab
+stripe).
 
 ## 4. Icons
 
@@ -106,16 +107,19 @@ of the line box down, with a `brand-border` hairline at the baseline (`.en-mark`
 it is a 3 px `brand` bar on the left edge with the tint behind (`.en-marked`).
 
 **The margin** is a gutter of fixed width with a `brand-border` rule on its inner edge, holding
-bracketed marks (`[F1]`, `[1]`) in the data face at 12 px, `brand-strong` ink, each positioned on
-the line of the marker it twins (`.en-margin`, `.en-margin-mark`). The in-text marker is the
-product's own citation marker: the data face, semibold, in brackets.
+bracketed marks (`[F1]`, `[1]`) in the data face at 11 px, `brand-strong` ink, each positioned on
+the line of the marker it twins (`.en-margin`, `.en-margin-mark`). The twin is decorative
+(`aria-hidden`). The in-text marker is the product's own citation marker and the accessible one:
+the data face, semibold, in brackets, at the provenance chip's 12 px (`EnRef` in
+`frontend/features/marketing/components/MarkedCopy.tsx`).
 
 Rules:
 
 - **Scale.** The mark's hairline is 2 px on screen at every size, 0.3 mm in print; the highlight
   never exceeds 38% of the line box. The margin is 44 px on desktop and 36 px on phones; in print
-  it is 12 mm on A4 and 6 mm on a card. Marks are 11 to 12 px on screen, never smaller than the
-  provenance chip, 7 pt in print.
+  it is 12 mm on A4 and 6 mm on a card. The in-text marker is never smaller than the provenance
+  chip (12 px); its twin is 11 px, the one sub-12 px text beside copy, because it repeats a marker
+  the reader already has; 7 pt in print. The gutter and its twins show at every width.
 - **Placement.** The mark goes under one phrase per surface (the hero's accent phrase, the social
   card's promise) or beside one located passage; the margin goes on the left of a marked copy
   surface only. Never both marks on a headline, never a mark on a figure (sage never colours a

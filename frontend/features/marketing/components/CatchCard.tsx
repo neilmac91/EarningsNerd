@@ -7,8 +7,8 @@ import type { SAMPLE_CATCH } from '@/features/marketing/lib/landing-samples'
  * The catch (docs/brand/04-directions.md, D-012; docs/brand/01-interview.md, A4): the figure a reader
  * remembers beside the one in the filing. Both are real XBRL totals of the same concept from two
  * fiscal years, so no chatbot is named and no wrong number is invented: the remembered figure is
- * simply last year's. The in-filing figure carries the brand device's marker and the product's
- * XBRL chip, so the card is the receipt in miniature.
+ * simply last year's. The in-filing figure carries the product's XBRL chip, so the card is the
+ * receipt in miniature.
  */
 export default function CatchCard({ sample }: { sample: typeof SAMPLE_CATCH }) {
   return (

@@ -37,8 +37,9 @@ export default function LandingHero({
           <div className="min-w-0">
             <HeroHeadline />
             <p className="mt-5 max-w-[560px] text-base leading-relaxed text-text-secondary-light dark:text-text-secondary-dark sm:text-lg">
-              AI summaries of 10-Ks and 10-Qs for investors who still check the source. Each figure
-              points to the XBRL fact or the passage it came from, or says that it could not.
+              AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are
+              checked against the company’s XBRL where they can be, and quotes against the filing’s
+              own text.
             </p>
 
             <div className="mt-7 flex flex-col items-start gap-2.5">

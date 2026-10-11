@@ -35,7 +35,8 @@ const api = vi.hoisted(() => ({
 vi.mock('@/features/contact/api/contact-api', () => ({ submitContactForm: api.submitContactForm }))
 vi.mock('@/features/feedback/api/feedback-api', () => ({ submitFeedback: api.submitFeedback }))
 vi.mock('@/features/waitlist/api/waitlist-api', () => ({ joinWaitlist: api.joinWaitlist }))
-vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: api.getCurrentUserSafe, getRegistrationConfig: api.getRegistrationConfig }))
+vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: api.getCurrentUserSafe }))
+vi.mock('@/features/marketing/api/access-api', () => ({ getRegistrationConfig: api.getRegistrationConfig }))
 vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({
   getSubscriptionStatus: api.getSubscriptionStatus,
   getUsage: api.getUsage,

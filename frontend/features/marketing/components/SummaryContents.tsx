@@ -4,7 +4,7 @@ import SectionImpression from '@/features/marketing/components/SectionImpression
 import { SAMPLE_FILING } from '@/features/marketing/lib/landing-samples'
 
 /** The nine summary sections as the schema names them (backend/app/services/summary_schema.py,
- *  SECTION_SPECS), in its order. The live page adds "What changed" from the change report and omits a
+ *  SECTION_META), in its order. The live page adds "What changed" from the change report and omits a
  *  part the filing has nothing for (Segments), so this list is the outline, not one filing's rail. */
 const SECTIONS = [
   'The Print',

@@ -75,7 +75,7 @@ One message, eight questions. The first six are the brief's; the last two surfac
    primary action stays "See a live example" (decision B). When access opens, the same page sells
    without rewriting, because the qualification is the pitch.
 
-7. **Which price is true?** The studio brief names a lower monthly and annual figure than the
+7. **Which price is true?** The studio brief names a different monthly and annual figure from the
    code, which shows $39 / $390 with a $29 arm behind a flag, and `/pricing` shows "$32.50 /month"
    on the yearly default.
    Recommended: the code is the brand fact until the founder changes it; the brand work will not

@@ -6,7 +6,7 @@ import ChangeReportDemo from '@/features/marketing/components/ChangeReportDemo'
 import ProDepth from '@/features/marketing/components/ProDepth'
 import RevenueBars from '@/features/marketing/components/RevenueBars'
 import {
-  AAPL_FY22_EDGAR_URL,
+  AAPL_FY25_EDGAR_URL,
   SAMPLE_ANALYSIS_DATASET,
   SAMPLE_ASK,
   SAMPLE_CHANGE_REPORT,
@@ -66,7 +66,7 @@ describe('AskFilingDemo', () => {
     const fact = screen.getByRole('link', { name: /^Citation F1:/ })
     const passage = screen.getByRole('link', { name: /^Citation 1:/ })
     for (const chip of [fact, passage]) {
-      expect(chip).toHaveAttribute('href', AAPL_FY22_EDGAR_URL)
+      expect(chip).toHaveAttribute('href', AAPL_FY25_EDGAR_URL)
       expect(chip).toHaveAttribute('target', '_blank')
     }
     expect(fact).toHaveAttribute('data-citation-kind', 'xbrl')

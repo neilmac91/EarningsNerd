@@ -11,7 +11,7 @@ pages, with the evidence beside each score.
 
 | Check | Evidence | Finding |
 |---|---|---|
-| Phone size, both themes | [light 390](stress/home-light-390-fold.jpg), [dark 390](stress/home-dark-390-fold.jpg), [waitlist 390 after the fixes](stress/after-waitlist-light-390-fold.jpg) | The headline sets at 36px over three lines; the mark breaks across "Keep the source in / view." and `box-decoration-break: clone` closes each fragment, so the hairline reads on both lines. The evidence table stacks into one card per metric with its own current, prior and change. The 11px margin twins are hidden below `sm` with the gutter, so no sub-12px text reaches a phone. The consent bar covers the hero example on a first visit at 390, as it did before (T12's wording is fixed; its placement is the consent layer's, unchanged). |
+| Phone size, both themes | [light 390](stress/home-light-390-fold.jpg), [dark 390](stress/home-dark-390-fold.jpg), [waitlist 390 after the fixes](stress/after-waitlist-light-390-fold.jpg) | The headline sets at 36px over three lines. In the first pass the mark broke across "Keep the source in / view.", against 06-system.md §6 (no mark across more than one line of a headline at phone width); after the review it sits under "the source" alone and stays on one line at both widths. The evidence table stacks into one card per metric with its own current, prior and change. The margin narrows to 36px on a phone but stays, with its 11px twins `aria-hidden`; the in-text marker they repeat is 12px, the provenance chip's size, since the review. The consent bar covers the hero example on a first visit at 390, as it did before (T12's wording is fixed; its placement is the consent layer's, unchanged). |
 | Colour-blind simulation (Machado 2009, severity 1.0: protan, deutan, tritan) and grayscale, on every surface with gain or loss beside sage | [evidence section, light](stress/cvd-evidence-light.jpg), [dark](stress/cvd-evidence-dark.jpg), [Multi-Period demo](stress/cvd-multi-period.jpg) | Under protan and deutan the gain green and the loss red both become ochre, so colour alone would not separate them; it never has to. Every change carries its sign and glyph ("↗ +6.4%", "−0.3pp", "▲"), the struck-through "$391.0B" carries its meaning in the strike, and the sage mark is a tint under a phrase, never a signal on a figure. In grayscale the deltas read as mid-grey text with the glyph. The Separate Signals Rule is what makes the simulation pass. |
 | Grayscale print of the landing page | [landing, 1440, grayscale](stress/home-light-1440-grayscale.jpg) | The mark's tint fades to almost nothing in grayscale and the 2px hairline carries the device; the catch card's strike-through and the chips survive; nothing on the page depends on sage being green. |
 | Grayscale print of the business card | [front, back, colour and grayscale](stress/business-card-print.jpg) | The front's highlight becomes a hairline underline under "shows its work", still legible; the navy back prints as near-black with the stacked lockup in two greys. Nothing under 7pt (templates README, Print). |
@@ -55,8 +55,10 @@ by something still on the page.
    receipts"; the page `<title>` follows (`frontend/app/waitlist/page.tsx`).
 2. **The consent bar still opened with the sentence two competitors also say.** "We value your
    privacy" is now "Cookies on this site", and the body states what the cookies do: essential
-   keeps you signed in; analytics and session recording stay off until allowed, which is what
-   `lib/analytics.ts` enforces. The dialog's intro, which promised "personalized content" the
+   keeps you signed in; analytics cookies and session recording stay off until allowed. That is
+   what `app/posthog-provider.tsx` enforces for PostHog, the one analytics tool that sets cookies;
+   the first wording said "analytics" without "cookies", which the review caught, because Vercel
+   Web Analytics (cookieless) runs for every visitor. The dialog's intro, which promised "personalized content" the
    site does not offer, names the three categories it actually has (`components/CookieConsent.tsx`,
    `tests/unit/CookieConsent.spec.tsx`).
 3. **The Financial Highlights table rounded the figure it was demonstrating.** `fmtCurrency`
@@ -67,18 +69,31 @@ by something still on the page.
    `tests/unit/FinancialMetricsCards.spec.tsx`). This one is a product fix: live summaries round
    per-share figures the same way.
 
-Two further findings were weighed and left: the hero mark spanning two lines at 1440 and 390 is
-correct under `box-decoration-break: clone` and would only change by marking a shorter phrase of
-the served headline; and the header's "Request invite" at phone width against "Request an invite"
-on desktop is a deliberate shortening.
+The first pass left two findings: the hero mark spanning two lines, and the header's "Request
+invite" at phone width against "Request an invite" on desktop. The second is a deliberate
+shortening and stays. The first broke the device's own misuse rule, so the review round moved
+the mark onto "the source", the words the device stands for, without changing a word of the
+served headline.
 
 ## 4. The second review
+
+The routine-tier review of the whole branch (one Opus lens, a Sonnet refuter for each blocker)
+found three blockers, all upheld by their refuters and all fixed: matching claims that had lost
+the server's scope ("each figure ..." in nine places), a search-coverage claim widened to "any
+company that files with the SEC" (search reads SEC's ticker file only), and the consent clause
+above. Its should-fix items are fixed or recorded in the PR: the sample's per-share row now reads
+Cited as a real payload's would, sage is off the remaining public numbers, the marked block's
+corners are square, and four gates now hold the rules this work wrote down
+(`brandCopyRules.spec.ts`, `markSingleSource.spec.ts`, `founderNote.spec.tsx`,
+`waitlistCounter.spec.tsx`).
 
 After the fixes the production build was rebuilt and recaptured: [home, both
 themes](stress/after-home-1440-both-themes.jpg), [waitlist, both
 themes](stress/after-waitlist-1440-both-themes.jpg), [waitlist at
-390](stress/after-waitlist-light-390-fold.jpg), [the evidence
-section](stress/after-home-evidence-light.jpg). The table in §2 is scored on these. The ESLint
+390](stress/after-waitlist-light-390-fold.jpg), [home at 390](stress/after-home-light-390-fold.jpg),
+[the evidence section](stress/after-home-evidence-light.jpg); the images were captured again after
+the review round, from a build made with CI's environment (so the header shows the Multi-Period
+link). The table in §2 is scored on these. The ESLint
 design rules, the CI TypeScript check, the unit suites touched and the three Playwright specs
 that run without a backend (`home-page-unauthenticated`, `not-found-page`, `text-floors`) were run
 against the same build; their results are in the handoff ([README.md](README.md)).

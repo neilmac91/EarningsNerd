@@ -28,8 +28,9 @@ export default function WaitlistPage() {
               The 10-K, read for you, <span className="en-mark">with receipts</span>.
             </h1>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark sm:mt-6">
-              AI summaries of 10-Ks and 10-Qs for investors who still check the source. Each figure
-              points to the XBRL fact or the passage it came from, or says that it could not.
+              AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are
+              checked against the company’s XBRL where they can be, and quotes against the filing’s
+              own text.
             </p>
 
             <div className="mt-6 flex justify-center lg:justify-start">
@@ -125,7 +126,7 @@ export default function WaitlistPage() {
               {
                 step: '01',
                 title: 'Search a company',
-                body: 'Find any public company by name or ticker.',
+                body: 'Any company with a ticker on SEC EDGAR, by name or ticker.',
               },
               {
                 step: '02',
@@ -135,19 +136,20 @@ export default function WaitlistPage() {
               {
                 step: '03',
                 title: 'Read the summary',
-                body: 'Nine parts, from The Print to Notable Footnotes, each figure with its fact.',
+                body: 'Nine parts, from The Print to Notable Footnotes, in the same order for every filing.',
               },
               {
                 step: '04',
                 title: 'Check what you like',
-                body: 'Every quote points at its passage and every summary links to the original on SEC EDGAR.',
+                body: 'Risk excerpts open at their passage, and every summary links to the original on SEC EDGAR.',
               },
             ].map((item) => (
               <div
                 key={item.step}
                 className="rounded-2xl border border-border-light bg-background-light px-5 py-4 dark:border-border-dark dark:bg-background-dark"
               >
-                <div className="text-xs font-semibold uppercase tracking-eyebrow text-brand-strong dark:text-brand-strong-dark">
+                {/* A step number is a number: neutral ink, never sage (the Separate Signals Rule). */}
+                <div className="font-data text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                   {item.step}
                 </div>
                 <h3 className="mt-2 text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -164,12 +166,12 @@ export default function WaitlistPage() {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {[
             {
-              title: 'Nine parts, every filing',
-              body: 'From The Print to Notable Footnotes, in the same order, so the second filing reads faster than the first.',
+              title: 'One outline, every filing',
+              body: 'Nine parts from The Print to Notable Footnotes, in the same order, so the second filing reads faster than the first.',
             },
             {
-              title: 'Figures with their facts',
-              body: 'Each figure is matched to the company’s XBRL fact, or counted as unmatched, and the count is on the page.',
+              title: 'Figures checked against XBRL',
+              body: 'Figures the server can check are matched to the company’s XBRL fact, or counted as unmatched.',
             },
             {
               title: 'Risks in the filing’s own words',
@@ -177,7 +179,7 @@ export default function WaitlistPage() {
             },
             {
               title: 'The original, one click away',
-              body: 'Every summary links to the filing on SEC EDGAR, and every quote to its passage.',
+              body: 'Every summary links to the filing on SEC EDGAR, and each risk excerpt to its passage.',
             },
           ].map((item) => (
             <div

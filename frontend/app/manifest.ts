@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'EarningsNerd',
     short_name: 'EarningsNerd',
-    description: 'AI summaries of 10-Ks and 10-Qs, each figure with its fact, each quote with its passage.',
+    description: 'AI summaries of 10-Ks and 10-Qs, with figures checked against the company’s XBRL where they can be.',
     start_url: '/',
     display: 'standalone',
     background_color: '#F4F3EE',

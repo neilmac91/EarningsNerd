@@ -777,8 +777,8 @@ rendered ground.
 `docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:
 `.en-mark` (a phrase highlight: pale sage tint from 62% of the line box, a 2px `brand-border`
 inset hairline at the baseline, `box-decoration-break: clone` so a wrapped phrase marks per line),
-`.en-marked` (a located passage: 3px `brand` bar on the left, tint behind, 8px outer radius, the
-filing's words inside it in `.filing-reader`'s face), `.en-margin` (a gutter with a hairline on its
+`.en-marked` (a located passage: 3px `brand` bar on the left, tint behind, square corners because a
+stripe never sits on a rounded container, the filing's words inside it in `.filing-reader`'s face), `.en-margin` (a gutter with a hairline on its
 inner edge; `w-11` from `sm`, `w-9` on phones) and `.en-margin-mark` (an 11px data-face bracket,
 `brand-strong`, absolutely positioned on the line of the in-text marker it twins; the twin is
 measured by `features/marketing/components/MarkedCopy.tsx`, never hard-coded). Rules: a mark means

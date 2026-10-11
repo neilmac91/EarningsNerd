@@ -71,14 +71,6 @@ export const getCurrentUser = async (options?: { signal?: AbortSignal }): Promis
   return response.data
 }
 
-/** The public registration gate, the payload `lib/serverApi.fetchSignupConfig` reads on the server.
- *  Unknown modes resolve to null so the caller fails closed to the invite copy. */
-export const getRegistrationConfig = async (): Promise<{ mode: 'public' | 'invite_only'; beta_promo_enabled: boolean } | null> => {
-  const { data } = await api.get<{ mode?: unknown; beta_promo_enabled?: unknown }>('/api/auth/registration')
-  if (!data || (data.mode !== 'public' && data.mode !== 'invite_only')) return null
-  return { mode: data.mode, beta_promo_enabled: data.beta_promo_enabled === true }
-}
-
 export const getCurrentUserSafe = async (options?: { signal?: AbortSignal }): Promise<CurrentUser | null> => {
   const generation = getSessionGeneration()
   const sessionWasActive = hasActiveSession()

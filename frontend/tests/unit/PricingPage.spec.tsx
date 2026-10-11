@@ -36,6 +36,9 @@ vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({
 
 vi.mock('@/features/auth/api/auth-api', () => ({
   getCurrentUserSafe: () => mockGetCurrentUserSafe(),
+}))
+
+vi.mock('@/features/marketing/api/access-api', () => ({
   getRegistrationConfig: () => mockGetRegistrationConfig(),
 }))
 

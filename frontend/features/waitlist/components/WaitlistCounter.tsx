@@ -33,8 +33,9 @@ export default function WaitlistCounter() {
   }, [])
 
   // DS count-up (rAF, --duration-slow, reduced-motion + SSR safe) replacing the prior
-  // hand-rolled raw-900ms tween; rendered in the data face so the width never jitters.
-  const count = useCountUp(target ?? 0, { format: (v) => Math.round(v).toLocaleString() })
+  // hand-rolled raw-900ms tween; rendered in the data face so the width never jitters. The tween
+  // starts at 0, so the display is clamped to the floor: no frame ever reads "Join 0+ others".
+  const count = useCountUp(target ?? 0, { format: (v) => Math.round(Math.max(v, COUNT_FLOOR)).toLocaleString() })
   // A count is social proof of nothing until it is one (docs/brand/03-strategy.md, S5: never a
   // placeholder, never a counter at zero): below the floor the pill names the list, not the number.
   const showCount = target !== null && target >= COUNT_FLOOR
@@ -49,7 +50,8 @@ export default function WaitlistCounter() {
           'Join the waitlist'
         ) : (
           <>
-            Join <span className="tnum font-data">{count}</span>+ others on the waitlist
+            {/* The count is a number: neutral ink inside the sage pill (the Separate Signals Rule). */}
+            Join <span data-waitlist-count className="tnum font-data text-text-primary-light dark:text-text-primary-dark">{count}+</span> others on the waitlist
           </>
         )}
       </span>

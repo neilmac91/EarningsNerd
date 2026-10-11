@@ -3,7 +3,8 @@
 import { useState, Suspense, useRef, useEffect, useCallback } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
-import { getCurrentUserSafe, getRegistrationConfig } from '@/features/auth/api/auth-api'
+import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { getRegistrationConfig } from '@/features/marketing/api/access-api'
 import { ACCESS_COPY, resolveAccessMode } from '@/features/marketing/lib/access'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { CheckIcon } from '@/lib/icons'
@@ -105,9 +106,11 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
   })
   const { data: usage, isError: usageError } = usageQuery
 
-  // The guest's account CTA follows the page-wide access decision (invite-only or public), read
-  // from the same payload the landing page reads on the server; unreachable fails closed to the
-  // invite copy, so this page never advertises a signup /register would reject (audit T9).
+  // The Free plan's account CTA follows the page-wide access decision (invite-only or public), read
+  // from the same payload the landing page reads on the server. Until it answers, and when it
+  // cannot, the CTA fails closed to the invite copy, so the Free card never advertises a signup
+  // /register would reject (audit T9). The Pro card's guest path is the upgrade flow's own: it
+  // still routes a guest through /register, which applies the gate itself.
   const { data: registration } = useQuery({
     queryKey: queryKeys.registrationConfig(),
     queryFn: getRegistrationConfig,
@@ -396,7 +399,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
                 }}
               />
               <span className={`text-sm font-medium ${billingCycle === 'yearly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
-                Yearly <span className="text-brand-strong dark:text-brand-strong-dark">(2 months free)</span>
+                Yearly <span className="font-semibold">(2 months free)</span>
               </span>
             </div>
           )}
@@ -489,7 +492,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
                   <p className="mt-1 text-sm font-semibold text-brand-strong dark:text-brand-strong-dark">Free for beta members · no card required</p>
                 )}
                 {plan.trialNote && (
-                  <p className="mt-1 text-sm font-semibold text-brand-strong dark:text-brand-strong-dark">{plan.trialNote}</p>
+                  <p className="mt-1 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{plan.trialNote}</p>
                 )}
                 <p className="text-text-secondary-light dark:text-text-secondary-dark mt-2">{plan.description}</p>
               </div>

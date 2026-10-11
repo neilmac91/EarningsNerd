@@ -12,17 +12,17 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 
 | Section | File | What changed |
 |---|---|---|
-| Hero headline | `frontend/features/marketing/components/HeroHeadline.tsx`, `lib/headline.ts` | The accent phrase carries the mark (`.en-mark`) on the primary ink instead of sage text. Variant A ("Read the filing faster. Keep the source in view.") survives as the served default; B and C become "Read it faster. Check it anyway." and "The summary that shows its work." |
-| Hero subhead and access line | `LandingHero.tsx` | "AI summaries of 10-Ks and 10-Qs for investors who still check the source. Each figure points to the XBRL fact or the passage it came from, or says that it could not." The access line is unchanged ("Private beta · request an invite"). |
+| Hero headline | `frontend/features/marketing/components/HeroHeadline.tsx`, `lib/headline.ts` | The accent phrase carries the mark (`.en-mark`) on the primary ink instead of sage text. Variant A ("Read the filing faster. Keep the source in view.") survives as the served default, with the mark under "the source" so it never breaks across lines; B and C become "Read it faster. Check it anyway." and "The summary that shows its work." |
+| Hero subhead and access line | `LandingHero.tsx` | "AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company's XBRL where they can be, and quotes against the filing's own text." The scope is the server's: it checks a figure only when the metric maps to an XBRL concept of at least $1M (`backend/app/services/provenance_service.py`). The access line is unchanged ("Private beta · request an invite"). |
 | Hero example | `HeroExample.tsx` | The fallback is Apple's FY2025 10-K (filed 2025-10-31) with the verified figures; the evidence row is a `MarkedCopy` block: the claim with its `[1]` bracket, the bracket's twin in the margin, and the filing's sentence in a `.en-marked` blockquote set in the editorial face. Live data renders the same way. |
 | Founder slot | `FounderNote.tsx`, `lib/founderNote.ts` | Mounted under the hero example; renders nothing while `FOUNDER_NOTE` is `null` (see §6). |
 | Trust strip | `TrustStrip.tsx` | Four statements the product keeps, no hedges: sourced from SEC EDGAR; quoted excerpts are the filing's own words; one summary per filing, generated once and shared; not investment advice. |
-| Claims strip | `MeasuredClaims.tsx` | "Figures / Quotes / Nine parts / SEC EDGAR", each with the behaviour it names, in place of the four pseudo-statistics. |
-| Evidence section | `EvidenceSection.tsx`, `TraceToSourceDemo.tsx`, `CatchCard.tsx` (new) | "Figures with their receipts." over the FY2025 Financial Highlights table and the trace demo; beneath them the catch, "The number you remember": $391.0B from memory (FY2024, struck through) beside $416.2B in the filing (FY2025) with its chip, `{ } Total net sales · SEC XBRL`. |
+| Claims strip | `MeasuredClaims.tsx` | "Figures / Quotes / Nine parts / SEC EDGAR", each with the behaviour it names, in place of the four pseudo-statistics; the figures line says the server checks them where it can. |
+| Evidence section | `EvidenceSection.tsx`, `TraceToSourceDemo.tsx`, `CatchCard.tsx` (new) | "Figures with their receipts." over the FY2025 Financial Highlights table (the two totals read SEC XBRL; the per-share row reads Cited, as a real payload's would) and the trace demo; beneath them the catch, "The number you remember": $391.0B from memory (FY2024, struck through) beside $416.2B in the filing (FY2025) with its chip, `{ } Total net sales · SEC XBRL`. |
 | Contents | `SummaryContents.tsx` | The nine parts the live schema produces, from The Print to Notable Footnotes, in reading order. |
-| How it works | `HowItWorks.tsx` | Three steps without "supported" or "selected": search a company, pick a filing, read the summary. |
+| How it works | `HowItWorks.tsx` | Three steps without "supported" or "selected": search any company with a ticker on SEC EDGAR (the coverage search has: SEC's ticker file), pick a filing, read the summary. |
 | Pro section | `ProDepth.tsx`, `ChangeReportDemo.tsx` | "More ways to read one filing." with the Ask, Multi-Period and Change Report demos; the Change Report sample is FY2025 against FY2024. |
-| Sample data | `lib/landing-samples.ts` | Every sample on the page is Apple's FY2025 10-K against FY2024, from SEC companyfacts: revenue $416.2B vs $391.0B (+6.4%), net income $112.0B vs $93.7B (+19.5%), diluted EPS $7.46 vs $6.08 (+22.7%), Services $109.2B vs $96.2B (+13.5%), and the verbatim Item 7 sentence on Services. The Multi-Period demo is the one exception (§8). |
+| Sample data | `lib/landing-samples.ts` | Every sample on the page is Apple's FY2025 10-K against FY2024: revenue $416.2B vs $391.0B (+6.4%), net income $112.0B vs $93.7B (+19.5%) and diluted EPS $7.46 vs $6.08 (+22.7%) from SEC companyfacts; Services $109.2B vs $96.2B (+13.5%), a dimensioned fact companyfacts does not carry, from the 10-K's own inline XBRL; and the verbatim Item 7 sentence on Services (00-audit.md §4, D-021). The Multi-Period demo is the one exception (§8). |
 | Notable filings | `app/page.tsx`, `features/filings/components/NotableFilings.tsx` | Unmounted (see §7). |
 | Footer | `components/Footer.tsx` | The tagline, "The summary that shows its work." |
 | Metadata | `app/page.tsx`, `app/layout.tsx`, `app/manifest.ts` | Descriptions and the social image's alt text say what the product does in the voice; the Safari pinned-tab icon is declared (`mask-icon`, §4). |
@@ -33,23 +33,32 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   the homepage search, or open your dashboard." The heading stays "Page not found".
 - **Auth pane** (`frontend/features/auth/components/AuthShell.tsx`): the tagline with the mark, one
   FY2025 sentence, and the $416.2B figure with its direction chip. The three grey placeholder bars
-  are gone.
+  are gone. This is the brand pane beside the login and register forms; the auth logic and
+  `features/auth/api/auth-api.ts` are untouched.
 - **Pricing** (`frontend/app/pricing/page.tsx`): the free plan's call to action reads the
-  registration mode, so a guest under the invite gate sees "Request an invite" and goes to the
-  waitlist instead of a closed sign-up form; the plan copy says what each plan is for and that the
-  same summaries serve every reader. Prices and limits are untouched.
+  registration mode (`features/marketing/api/access-api.ts`, the client twin of the server's
+  `fetchSignupConfig`), so a guest under the invite gate sees "Request an invite" and goes to the
+  waitlist instead of a closed sign-up form; until the mode answers, it fails closed to that invite
+  copy. The Pro card's guest path is the upgrade flow's own and unchanged. The plan copy says what
+  each plan is for and that the same summaries serve every reader; the promo lines ("2 months
+  free", the trial note) are set in the ink, not sage. Prices and limits are untouched.
 - **Waitlist** (`frontend/app/waitlist/page.tsx`, `features/waitlist/components/*`): the headline is
   the fourth brand headline with the mark ("The 10-K, read for you, with receipts."); the three
-  cards, the last two of the four steps and the feature grid's titles are rewritten; the share
-  text matches; the counter renders only from 25 signups (`COUNT_FLOOR`), never "0+".
+  cards, three of the four steps and the feature grid are rewritten (search coverage stated as
+  companies with a ticker on SEC EDGAR); the share text matches; the counter renders only from 25
+  signups (`COUNT_FLOOR`), and its count-up is clamped to that floor so no frame reads "0+"; the
+  count and the step numbers are set in the ink, not sage.
 - **Consent bar** (`frontend/components/CookieConsent.tsx`): "Cookies on this site", then what the
-  cookies do (essential keeps you signed in; analytics and session recording stay off until allowed).
-  The categories, the controls and the privacy link are unchanged.
+  cookies do: essential cookies keep you signed in; analytics cookies and session recording stay off
+  until allowed. PostHog, the analytics tool that sets cookies, initialises only after consent
+  (`frontend/app/posthog-provider.tsx`); Vercel Web Analytics is cookieless and runs for every
+  visitor, which is why the clause names analytics cookies. The categories, the controls and the
+  privacy link are unchanged.
 
 ## 3. Inside the product
 
-- **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): six new loading quips in
-  the voice, signed "Reading the filing"; the stalled line and the timeout error say what happened
+- **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): five new loading quips in
+  the voice and one kept ("Reading the size-8 fine print…"), signed "Reading the filing"; the stalled line and the timeout error say what happened
   and what to do. The heading "Generation interrupted" stays.
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
@@ -107,7 +116,7 @@ known-good set, a size floor, or 10-K and 10-Q only). The mount gate
   page shows FY2019 to FY2024 in that one demo until the founder runs it to FY2025.
 - A curation rule for §7.
 
-Both items are one line each in `tasks/todo.md`.
+All three sit on one founder line in `tasks/todo.md`; the landing composition (tell T4) has its own line there.
 
 ## 9. Gates touched
 
@@ -116,7 +125,21 @@ Specs updated with the copy they pin: `pro-depth.spec.tsx`, `hero-example-surfac
 `PricingPage.spec.tsx` (new case: the invite gate's call to action), `busyControls.forms.spec.tsx`,
 `CookieConsent.spec.tsx`, `FinancialMetricsCards.spec.tsx` (new case: a per-share figure keeps its
 cents in both layouts), `tests/e2e/not-found-page.spec.ts` (the 404 body's contrast check reads the
-new sentence) and `backend/tests/unit/test_export_service.py`. The design gates
+new sentence) and `backend/tests/unit/test_export_service.py`.
+
+New gates, each with a mutation proof in the PR (CLAUDE.md rule 12):
+
+- `brandCopyRules.spec.ts`: shipped copy never says "each figure" or "every figure" without the
+  server's scope beside it; on the public surfaces no sage-coloured element renders a digit; the
+  highlight never sits on a figure or a price, the hero accents included; the margin exists only
+  inside `MarkedCopy`, and every `MarkedCopy` carries a marker.
+- `markSingleSource.spec.ts`: every rendition of the EN monogram (the assets, the templates, the
+  social card, `EarningsNerdLogoIcon.tsx`, the chart export) copies the canonical outlines and
+  placements byte for byte and never stretches them.
+- `founderNote.spec.tsx`: the slot renders nothing until filled, then the sentence and signature.
+- `waitlistCounter.spec.tsx`: no number below the floor, no "0+" frame, the count in neutral ink.
+
+The design gates
 (`designSnapshotParity.spec.ts`, the ESLint design rules, `no-em-dash-copy.spec.ts`,
 `wordmarkSingleSource.spec.ts`) run unchanged against the new surfaces; their tails are in the
 handoff ([README.md](README.md)).
