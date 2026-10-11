@@ -50,6 +50,9 @@ export default function EmailVerificationModal() {
   const [resend, setResend] = useState<ResendState>(IDLE)
   const router = useRouter()
   const queryClient = useQueryClient()
+  const [checking, setChecking] = useState(false)
+  const checkingRef = useRef(false)
+  const [checkFailure, setCheckFailure] = useState<{ title: string; message: string; n: number } | null>(null)
 
   const { data: user } = useQuery({
     queryKey: queryKeys.currentUser(),
@@ -69,7 +72,10 @@ export default function EmailVerificationModal() {
       // A new prompt starts fresh. Another gated 403 while this one is open is the same prompt: it
       // must not re-arm a just-sent Resend, whose next press would replace the fresh link. Nor does a
       // prompt reset a send still in flight, which would re-arm Resend under the live request.
-      if (!openRef.current) setResend((r) => (r.phase === 'sending' ? r : IDLE))
+      if (!openRef.current) {
+        setResend((r) => (r.phase === 'sending' ? r : IDLE))
+        if (!checkingRef.current) setCheckFailure(null)
+      }
       openRef.current = true
       setOpen(true)
     }
@@ -100,11 +106,40 @@ export default function EmailVerificationModal() {
     }
   }
 
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
-    queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
-    router.refresh()
-    setOpen(false)
+  const handleRefresh = async () => {
+    if (checkingRef.current) return
+    checkingRef.current = true
+    setChecking(true)
+    try {
+      // One explicit identity read; join an existing read instead of cancelling and restarting it.
+      const identity = await queryClient.fetchQuery({
+        queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0,
+      })
+      if (!identity) {
+        setCheckFailure((previous) => ({
+          title: "Couldn't check verification",
+          message: 'Sign in again to check your email verification.',
+          n: (previous?.n ?? 0) + 1,
+        }))
+      } else if (identity.email_verified === true) {
+        setCheckFailure(null)
+        router.refresh()
+        setOpen(false)
+      } else {
+        setCheckFailure((previous) => ({
+          title: 'Email still unverified',
+          message: "Open the newest verification link in your inbox, then choose “I've verified” again.",
+          n: (previous?.n ?? 0) + 1,
+        }))
+      }
+    } catch {
+      setCheckFailure((previous) => ({
+        title: "Couldn't check verification", message: 'Please try again in a moment.', n: (previous?.n ?? 0) + 1,
+      }))
+    } finally {
+      checkingRef.current = false
+      setChecking(false)
+    }
   }
 
   return (
@@ -141,6 +176,9 @@ export default function EmailVerificationModal() {
             className="mt-4"
           />
         ) : null}
+        {checkFailure ? (
+          <Notice key={checkFailure.n} variant="error" title={checkFailure.title} description={checkFailure.message} className="mt-4" />
+        ) : null}
       </ModalBody>
       <ModalFooter>
         <Button
@@ -153,7 +191,7 @@ export default function EmailVerificationModal() {
         >
           {resend.phase === 'sent' ? 'Link sent' : 'Resend link'}
         </Button>
-        <Button onClick={handleRefresh} className="w-full sm:w-auto">
+        <Button onClick={handleRefresh} loading={checking} loadingText="Checking…" className="w-full sm:w-auto">
           I&apos;ve verified
         </Button>
       </ModalFooter>

@@ -9,11 +9,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // that turns disabled and jsdom does not, so these cases pin the attributes, the kept focus, and
 // that a second activation fires no second request (lessons/frontend-busy-controls-stay-focusable.md).
 
-const { usePathname, useSearchParams } = vi.hoisted(() => ({
+const { usePathname, useSearchParams, refresh } = vi.hoisted(() => ({
   usePathname: vi.fn<() => string>(),
   useSearchParams: vi.fn<() => URLSearchParams>(),
+  refresh: vi.fn(),
 }))
-vi.mock('next/navigation', () => ({ usePathname, useSearchParams, useRouter: () => ({ refresh: vi.fn() }) }))
+vi.mock('next/navigation', () => ({ usePathname, useSearchParams, useRouter: () => ({ refresh }) }))
 
 vi.mock('@/features/admin/api/admin-api', () => ({
   listInvites: vi.fn(),
@@ -344,6 +345,20 @@ describe('Verification banner: Resend link stays focusable', () => {
     expect(resend).toHaveFocus()
   })
 
+  it('announces the server cap and keeps Resend focused but unavailable after a 429', async () => {
+    vi.mocked(resendVerification).mockRejectedValue(new ApiError(429, 'Too many resend requests'))
+    const user = userEvent.setup()
+    withQueryClient(<VerificationBanner />)
+    const resend = await screen.findByRole('button', { name: 'Resend link' })
+    resend.focus()
+    await user.keyboard('{Enter}')
+    expect(await screen.findByRole('alert')).toHaveTextContent("We can't send another link right now.")
+    expectInertButFocused(resend)
+    await user.keyboard('{Enter}')
+    await user.click(resend)
+    expect(resendVerification).toHaveBeenCalledTimes(1)
+  })
+
   it('hands focus to the sent line when a successful resend removes the button', async () => {
     vi.mocked(resendVerification).mockResolvedValue({})
     const user = userEvent.setup()
@@ -545,6 +560,40 @@ describe('Email verification modal: Resend link stays focusable', () => {
     expect(resendVerification).toHaveBeenCalledTimes(1)
     sent.resolve({})
     await screen.findByRole('button', { name: 'Link sent' })
+  })
+
+  it.each(['unverified', 'failed', 'signed-out'] as const)('checks once and keeps the prompt open when identity is %s', async (outcome) => {
+    const user = userEvent.setup()
+    withQueryClient(<EmailVerificationModal />)
+    await openPrompt()
+    const initial = await vi.mocked(getCurrentUserSafe).mock.results[0].value
+    const check = deferred<Awaited<ReturnType<typeof getCurrentUserSafe>>>()
+    vi.mocked(getCurrentUserSafe).mockReturnValueOnce(check.promise)
+    const before = vi.mocked(getCurrentUserSafe).mock.calls.length
+    const verified = screen.getByRole('button', { name: "I've verified" })
+    verified.focus()
+    await user.keyboard('{Enter}')
+    expectBusyAndFocused(verified)
+    await user.keyboard('{Enter}')
+    expect(getCurrentUserSafe).toHaveBeenCalledTimes(before + 1)
+    if (outcome === 'failed') check.reject(new Error('network'))
+    else check.resolve(outcome === 'signed-out' ? null : initial)
+    expect(await screen.findByRole('alert')).toHaveTextContent(outcome === 'unverified' ? 'Email still unverified' : "Couldn't check verification")
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(verified).toHaveFocus()
+    expect(verified).not.toHaveAttribute('aria-disabled')
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('closes and refreshes the route only after a confirmed verified identity', async () => {
+    const user = userEvent.setup()
+    withQueryClient(<EmailVerificationModal />)
+    await openPrompt()
+    const initial = await vi.mocked(getCurrentUserSafe).mock.results[0].value
+    vi.mocked(getCurrentUserSafe).mockResolvedValueOnce({ ...initial!, email_verified: true })
+    await user.click(screen.getByRole('button', { name: "I've verified" }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(refresh).toHaveBeenCalledTimes(1)
   })
 
   it('reads sensibly before the address loads, and Resend sends nothing without one', async () => {

@@ -7,6 +7,7 @@ import { CircleNotchIcon, WarningCircleIcon, XIcon } from '@/lib/icons'
 import { getCurrentUserSafe, resendVerification } from '@/features/auth/api/auth-api'
 import { isAuthRoute } from '@/components/SiteChrome'
 import { queryKeys } from '@/lib/queryKeys'
+import { getErrorStatus } from '@/lib/api/types'
 
 const DISMISS_KEY = 'verifyBannerDismissed'
 
@@ -26,6 +27,8 @@ export default function VerificationBanner() {
   const [dismissed, setDismissed] = useState(true) // start hidden to avoid SSR flash
   const [loading, setLoading] = useState(false)
   const [resent, setResent] = useState(false)
+  const [limited, setLimited] = useState(false)
+  const [failure, setFailure] = useState<{ message: string; n: number } | null>(null)
   const statusRef = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
@@ -43,13 +46,21 @@ export default function VerificationBanner() {
   if (dismissed || isAuthRoute(pathname)) return null
 
   const handleResend = async () => {
-    if (loading || resent) return
+    if (loading || resent || limited) return
     setLoading(true)
     try {
       await resendVerification(user.email)
       setResent(true)
-    } catch {
-      // best-effort; keep the banner quiet on failure
+      setFailure(null)
+    } catch (error) {
+      const rateLimited = getErrorStatus(error) === 429
+      setLimited(rateLimited)
+      setFailure((previous) => ({
+        message: rateLimited
+          ? "We can't send another link right now. Use the newest link in your inbox, or try again later."
+          : "Couldn't send a new link. Please try again in a moment.",
+        n: (previous?.n ?? 0) + 1,
+      }))
     } finally {
       setLoading(false)
     }
@@ -79,7 +90,7 @@ export default function VerificationBanner() {
           <button
             type="button"
             onClick={handleResend}
-            aria-disabled={loading || undefined}
+            aria-disabled={loading || limited || undefined}
             aria-busy={loading || undefined}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-lg font-semibold underline-offset-2 hover:underline aria-disabled:text-warning-light/50 dark:aria-disabled:text-warning-dark/50 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
@@ -96,6 +107,11 @@ export default function VerificationBanner() {
           <XIcon className="h-4 w-4" />
         </button>
       </div>
+      {failure ? (
+        <p key={failure.n} role="alert" className="mx-auto max-w-7xl px-4 pb-2.5 text-sm sm:px-6 lg:px-8">
+          {failure.message}
+        </p>
+      ) : null}
     </div>
   )
 }
