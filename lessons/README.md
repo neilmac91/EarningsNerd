@@ -18,6 +18,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-auth-lookups-must-let-request-cleanup-progress.md — Keep authentication pool waits off the event loop while preserving request-owned sessions
 - ops-bound-drain-batches-to-job-memory.md — Bound a regeneration batch by the job container's memory, not by its time budget alone
 - ops-ci-images-avoid-docker-hub.md — Pull CI and deploy images through a mirror, never anonymously from Docker Hub
+- ops-checkout-never-charges-more-than-the-page-shows.md — Never let checkout charge more than the page shows: lower a price on the backend first, raise it on the page first (pull requests and a daily run check it against the backend's public charge report; a binding change outside CI is found, not prevented)
 - ops-continue-approved-engineering.md — Continue the approved queue after verified releases and preserve specific founder holds
 - ops-demote-a-lesson-only-when-its-whole-rule-is-gated.md — Demote a lesson from session reading only when every clause of its rule is machine-gated and proven on the bad case
 - ops-denied-reads-report-unverified.md — A denied optional read-back reports UNVERIFIED with a closed failure class; fail closed only on readable evidence

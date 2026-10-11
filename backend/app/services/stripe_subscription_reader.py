@@ -92,3 +92,15 @@ def retrieve_invoice_snapshot(invoice_id: str) -> dict:
             return snapshot
     except Exception as exc:
         raise SubscriptionReconciliationUnavailable("Current Stripe invoice state is unavailable") from exc
+
+
+def retrieve_price_snapshot(price_id: str) -> dict:
+    """Read one exact Price for the serving-charge report, which validates the fields it reports."""
+    try:
+        with _bounded_client() as client:
+            snapshot = client.v1.prices.retrieve(price_id).to_dict()
+            if not isinstance(snapshot, dict) or snapshot.get("id") != price_id:
+                raise ValueError("Price identity does not match requested ID")
+            return snapshot
+    except Exception as exc:
+        raise SubscriptionReconciliationUnavailable("Current Stripe price state is unavailable") from exc

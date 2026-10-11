@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { checkPricingAgreement } from '../../scripts/check-pricing-agreement.mjs'
+import { checkPricingAgreement, checkServingCharge } from '../../scripts/check-pricing-agreement.mjs'
 import { PRO_PRICING } from '../../app/pricing/prices'
 
 const snapshot = () => ({
@@ -68,6 +68,62 @@ describe('the held offer agrees with supplied effective checkout prices', () => 
   })
 })
 
+// The serving backend's public charge report (GET /api/subscriptions/prices): the daily production
+// check needs agreement; the check on a pull request that changes the offer needs only that checkout
+// charges no more than the new page shows (backend first, docs/PRICING_OFFER.md).
+const serving = () => ({
+  monthly: { amount_cents: PRO_PRICING.monthly * 100, currency: 'usd', interval: 'month', interval_count: 1 },
+  yearly: { amount_cents: PRO_PRICING.yearly * 100, currency: 'usd', interval: 'year', interval_count: 1 },
+})
+const withMonthly = (overrides: Record<string, unknown>) => ({ ...serving(), monthly: { ...serving().monthly, ...overrides } })
+
+describe('what the serving checkout charges agrees with the page', () => {
+  it.each([false, true])('accepts charges equal to the offer (publishing: %s)', (publishing) => {
+    expect(checkServingCharge(serving(), { publishing })).toMatchObject({ ok: true, usable: true, errors: [], notes: [] })
+  })
+
+  it.each([false, true])('rejects checkout charging more than the page shows (publishing: %s)', (publishing) => {
+    const result = checkServingCharge(withMonthly({ amount_cents: PRO_PRICING.monthly * 100 + 1 }), { publishing })
+    expect(result).toMatchObject({ ok: false, usable: true })
+    expect(result.errors).toEqual([`monthly: checkout charges ${PRO_PRICING.monthly * 100 + 1} cents, more than the ${PRO_PRICING.monthly * 100} the page shows.`])
+  })
+
+  it('rejects a lower charge as disagreement, but before publishing only notes it', () => {
+    const lower = { ...serving(), yearly: { ...serving().yearly, amount_cents: PRO_PRICING.yearly * 100 - 1 } }
+    const message = `yearly: checkout charges ${PRO_PRICING.yearly * 100 - 1} cents, less than the ${PRO_PRICING.yearly * 100} the page shows.`
+    expect(checkServingCharge(lower)).toMatchObject({ ok: false, usable: true, errors: [message], notes: [] })
+    expect(checkServingCharge(lower, { publishing: true })).toMatchObject({ ok: true, usable: true, errors: [], notes: [message] })
+  })
+
+  it.each([
+    ['an unset binding', withMonthly({ problem: 'unconfigured' })],
+    ['an inactive Price', withMonthly({ problem: 'inactive' })],
+    ['a test-mode Price', withMonthly({ problem: 'test_mode' })],
+    ['a Price without a fixed charge', withMonthly({ problem: 'not_fixed_recurring' })],
+    ['another currency', withMonthly({ currency: 'eur' })],
+    ['a quarterly Price', withMonthly({ interval_count: 3 })],
+    ['a yearly Price bound as monthly', withMonthly({ interval: 'year' })],
+  ])('disagrees, in either mode, for %s', (_reason, report) => {
+    for (const publishing of [false, true]) {
+      expect(checkServingCharge(report, { publishing })).toMatchObject({ ok: false, usable: true })
+    }
+  })
+
+  it.each([
+    ['Stripe unavailable to the backend', withMonthly({ problem: 'unavailable' })],
+    ['an unknown problem', withMonthly({ problem: 'renamed' })],
+    ['a missing cycle', { monthly: serving().monthly }],
+    ['a string amount', withMonthly({ amount_cents: String(PRO_PRICING.monthly * 100) })],
+    ['a fractional amount', withMonthly({ amount_cents: PRO_PRICING.monthly * 100 + 0.5 })],
+    ['an array', []],
+    ['null', null],
+  ])('is no evidence for %s', (_reason, report) => {
+    for (const publishing of [false, true]) {
+      expect(checkServingCharge(report, { publishing })).toMatchObject({ ok: false, usable: false })
+    }
+  })
+})
+
 // The runbook's command itself: Node's own type stripping (not Vitest) must load prices.ts, and the
 // exit code must say agreement (0), disagreement (1) or unusable input (2).
 describe('npm run check:pricing', () => {
@@ -77,21 +133,42 @@ describe('npm run check:pricing', () => {
     input.prices.yearly.unit_amount += 100
     return JSON.stringify(input)
   }
+  const lowerMonthly = () => JSON.stringify(withMonthly({ amount_cents: PRO_PRICING.monthly * 100 - 1 }))
+  const higherMonthly = () => JSON.stringify(withMonthly({ amount_cents: PRO_PRICING.monthly * 100 + 1 }))
   it.each([
-    ['an agreeing snapshot', () => JSON.stringify(snapshot()), 0],
-    ['a higher yearly amount', higherYearly, 1],
-    ['unreadable JSON', () => '{', 2],
-  ] as const)('exits for %s with %i', (_case, contents, status) => {
+    ['an agreeing snapshot', [], () => JSON.stringify(snapshot()), 0],
+    ['a higher yearly amount', [], higherYearly, 1],
+    ['unreadable JSON', [], () => '{', 2],
+    ['an agreeing serving report', ['--serving'], () => JSON.stringify(serving()), 0],
+    ['a lower serving charge', ['--serving'], lowerMonthly, 1],
+    ['a lower serving charge before publishing', ['--serving', '--publishing'], lowerMonthly, 0],
+    ['a higher serving charge before publishing', ['--serving', '--publishing'], higherMonthly, 1],
+    ['a serving report without evidence', ['--serving'], () => JSON.stringify(withMonthly({ problem: 'unavailable' })), 2],
+    ['unreadable serving JSON', ['--serving', '--publishing'], () => '{', 2],
+  ] as const)('exits for %s with %i', (_case, flags, contents, status) => {
     const dir = mkdtempSync(join(tmpdir(), 'check-pricing-'))
     try {
       const file = join(dir, 'readback.json')
       writeFileSync(file, contents())
-      const run = spawnSync('npm', ['run', '-s', 'check:pricing', '--', file], { cwd: frontend, encoding: 'utf8' })
+      const run = spawnSync('npm', ['run', '-s', 'check:pricing', '--', ...flags, file], { cwd: frontend, encoding: 'utf8' })
       expect(run.status).toBe(status)
-      if (status !== 2) expect(JSON.parse(run.stdout)).toMatchObject({ ok: status === 0, expected: { monthly_cents: PRO_PRICING.monthly * 100, yearly_cents: PRO_PRICING.yearly * 100 } })
+      if (contents() !== '{') expect(JSON.parse(run.stdout)).toMatchObject({ ok: status === 0, expected: { monthly_cents: PRO_PRICING.monthly * 100, yearly_cents: PRO_PRICING.yearly * 100 } })
       expect(run.stderr).not.toMatch(/Warning/)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+
+  it.each([
+    ['no arguments', []],
+    ['two files', ['a.json', 'b.json']],
+    ['an unknown flag', ['--live', 'a.json']],
+    ['publishing without serving', ['--publishing', 'a.json']],
+    ['flags in the wrong order', ['--publishing', '--serving', 'a.json']],
+    ['a flag for a file', ['--serving', '--publishing']],
+  ])('refuses %s with the usage and exit 2', (_case, args) => {
+    const run = spawnSync('npm', ['run', '-s', 'check:pricing', '--', ...args], { cwd: frontend, encoding: 'utf8' })
+    expect(run.status).toBe(2)
+    expect(run.stdout).toContain('--serving [--publishing]')
   })
 })

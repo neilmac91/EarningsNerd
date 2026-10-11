@@ -1,5 +1,7 @@
-/** Read-only comparison of operator-supplied serving bindings and Stripe catalog readbacks.
- * No credentials, environment reads, network calls, checkout or catalog mutations.
+/** Read-only comparisons of the Pro offer with what checkout charges: an operator's readback of the
+ * serving bindings and Stripe catalog (checkPricingAgreement), or the serving backend's public charge
+ * report, GET /api/subscriptions/prices (checkServingCharge). Each reads one supplied JSON file: no
+ * credentials, environment reads, network calls, checkout or catalog mutations.
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -9,9 +11,11 @@ import { PRO_PRICING } from '../app/pricing/prices.ts'
 const record = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
 const idMatches = (value, prefix) => typeof value === 'string' && new RegExp(`^${prefix}_[a-zA-Z0-9]+$`).test(value)
 
+const expectedCents = () => ({ monthly: Math.round(PRO_PRICING.monthly * 100), yearly: Math.round(PRO_PRICING.yearly * 100) })
+
 export function checkPricingAgreement(snapshot) {
   const errors = []
-  const expected = { monthly: Math.round(PRO_PRICING.monthly * 100), yearly: Math.round(PRO_PRICING.yearly * 100) }
+  const expected = expectedCents()
   const result = () => ({
     ok: errors.length === 0,
     scope: 'Supplied snapshot only; not live checkout verification or activation approval.',
@@ -63,16 +67,81 @@ export function checkPricingAgreement(snapshot) {
   return result()
 }
 
+// The report's problem codes (backend/app/services/billing_serving_prices.py). "unavailable" leaves
+// the check without evidence; the others mean checkout has no fixed charge for that cycle.
+const PROBLEMS = new Set(['unconfigured', 'unavailable', 'inactive', 'test_mode', 'not_fixed_recurring'])
+const INTERVALS = { monthly: 'month', yearly: 'year' }
+
+/** Compare the serving backend's charge report with PRO_PRICING; by default they must agree. With
+ * `publishing`, the check before a page goes live, it passes while checkout charges no more than the
+ * page shows (backend first; docs/PRICING_OFFER.md). `usable` is false when the report is no evidence.
+ */
+export function checkServingCharge(report, { publishing = false } = {}) {
+  const errors = []
+  const notes = []
+  let usable = record(report)
+  const expected = expectedCents()
+  for (const cycle of ['monthly', 'yearly']) {
+    const charge = record(report) ? report[cycle] : undefined
+    const interval = INTERVALS[cycle]
+    if (!record(charge) || (charge.problem !== undefined && !PROBLEMS.has(charge.problem))) {
+      usable = false
+      errors.push(`${cycle}: the report carries no readable charge.`)
+    } else if (charge.problem !== undefined) {
+      if (charge.problem === 'unavailable') usable = false
+      errors.push(`${cycle}: checkout has no fixed charge (${charge.problem}).`)
+    } else if (!Number.isSafeInteger(charge.amount_cents) || charge.amount_cents < 0) {
+      usable = false
+      errors.push(`${cycle}: the report's amount is not a whole number of cents.`)
+    } else if (charge.currency !== 'usd' || charge.interval !== interval || charge.interval_count !== 1) {
+      errors.push(`${cycle}: checkout must charge in USD once per ${interval}.`)
+    } else if (charge.amount_cents > expected[cycle]) {
+      errors.push(`${cycle}: checkout charges ${charge.amount_cents} cents, more than the ${expected[cycle]} the page shows.`)
+    } else if (charge.amount_cents < expected[cycle]) {
+      const lower = `${cycle}: checkout charges ${charge.amount_cents} cents, less than the ${expected[cycle]} the page shows.`
+      if (publishing) notes.push(lower)
+      else errors.push(lower)
+    }
+  }
+  return {
+    ok: errors.length === 0,
+    usable,
+    scope: publishing
+      ? 'Before publishing: checkout must charge no more than this page shows, so a lower price is bound on the backend first.'
+      : 'The serving charge report only; not a catalog readback, live checkout verification or activation approval.',
+    expected: { currency: 'usd', monthly_cents: expected.monthly, yearly_cents: expected.yearly },
+    errors,
+    notes,
+  }
+}
+
+const USAGE = [
+  'Usage: npm run check:pricing -- /path/to/operator-readback.json',
+  '       npm run check:pricing -- --serving [--publishing] /path/to/serving-prices.json',
+].join('\n')
+
+function parseArgs(args) {
+  const file = (arg) => typeof arg === 'string' && arg !== '' && !arg.startsWith('--')
+  if (args.length === 1 && file(args[0])) return { file: args[0], check: checkPricingAgreement }
+  if (args.length === 2 && args[0] === '--serving' && file(args[1])) return { file: args[1], check: (input) => checkServingCharge(input) }
+  if (args.length === 3 && args[0] === '--serving' && args[1] === '--publishing' && file(args[2])) {
+    return { file: args[2], check: (input) => checkServingCharge(input, { publishing: true }) }
+  }
+  return null
+}
+
 function main() {
-  if (process.argv.length !== 3 || process.argv[2] === '--help') {
-    console.log('Usage: npm run check:pricing -- /path/to/operator-readback.json')
-    process.exitCode = process.argv[2] === '--help' ? 0 : 2
+  const args = process.argv.slice(2)
+  const call = parseArgs(args)
+  if (!call) {
+    console.log(USAGE)
+    process.exitCode = args.length === 1 && args[0] === '--help' ? 0 : 2
     return
   }
   try {
-    const result = checkPricingAgreement(JSON.parse(readFileSync(process.argv[2], 'utf8')))
+    const result = call.check(JSON.parse(readFileSync(call.file, 'utf8')))
     console.log(JSON.stringify(result, null, 2))
-    process.exitCode = result.ok ? 0 : 1
+    process.exitCode = result.usable === false ? 2 : result.ok ? 0 : 1
   } catch {
     console.error('Cannot read or parse the supplied JSON file. No agreement established.')
     process.exitCode = 2
