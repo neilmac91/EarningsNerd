@@ -241,7 +241,7 @@ def _new_company(db):
     from app.models import Company
 
     suffix = uuid.uuid4().hex[:8]
-    company = Company(cik=suffix, ticker=("T" + suffix[:4]).upper(), name=f"Co {suffix}")
+    company = Company(cik=suffix, ticker=("T" + suffix).upper(), name=f"Co {suffix}")
     db.add(company)
     db.commit()
     db.refresh(company)
