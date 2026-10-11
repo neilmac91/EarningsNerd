@@ -9,13 +9,18 @@
 // widths, both themes, 200% browser zoom (CSS viewport halved at 2x) and 200% text size at 1480, 390 and 320
 // (the same profiles as measure-proto.mjs, so the two recorded runs compare like for like).
 //
-//   node harness/measure-current.mjs --base http://localhost:3000 --data prototype/data --out measurements/current.json [--shots dir]
+//   node harness/measure-current.mjs [--build <checkout>] [--port 3100 | --base <url>] [--data prototype/data] [--out file] [--shots dir]
 //
 // Run from tasks/analysis-redesign-2026-10/. Needs the global Playwright (NODE_PATH) or the frontend's.
 // measurements/current.json is the recording of main at 97293e7 and is written only for a served build of that
-// revision. --build names the checkout whose frontend/ build the server serves (default: this harness's own
-// repository); the run reads its commit, its frontend/ tree hash, its uncommitted files under frontend/ and its
-// .next/BUILD_ID, and verifies before measuring that the server serves that build id. On any other build the run
+// revision. --build names the checkout whose frontend/ build is measured (default: this harness's own repository);
+// the run reads its commit, its frontend/ tree hash, its uncommitted files under frontend/ and its .next/BUILD_ID.
+// By default the harness serves that build itself: `next start` through Next's own CLI on this Node, on --port
+// (default 3100), in build-hash.mjs's controlled environment with WAITLIST_MODE=false (the middleware's gate on
+// /analysis), refusing the untracked env files Next would load at start, and it stops the server when the run ends and
+// records how it ran it. --base <url> measures a server started elsewhere instead, whose environment the harness
+// cannot see; the baseline refuses it. Either way the run verifies before measuring that the server serves that build
+// id. On any other build the run
 // needs --out naming another file (a fresh measurement of the shipped components, never a comparison with the
 // recording), and it refuses an --out that holds a recording of another commit; the revision is enforced whenever
 // the output is the baseline file, named by --out or defaulted (paths compare canonically: a symbolic link to the
@@ -29,24 +34,29 @@
 // build id and the checkout's frontend/ tree, its media hash must match the build's .next/static/media, where the
 // fonts next/font downloaded sit, and its output hash must match everything the build wrote under .next but Next's
 // caches, so a file edited, added or removed there after the stamp is caught); for the baseline the stamp must be of
-// build-hash.mjs's STAMP_FORMAT (the build ran `next build` itself, not through npm, from the install its lockfile
-// describes, with no Node flags but heap sizes, and the stamp records its output), and its public build variables and
-// media hash must equal the pins in BASELINE.
+// build-hash.mjs's STAMP_FORMAT (the build ran `next build` itself, not through npm, right after `npm ci` installed
+// the lockfile's packages, with no Node flags but heap sizes, and the stamp records its output), its public build
+// variables and media hash must equal the pins in BASELINE, and the harness must serve the build itself.
 // 97293e7 has no harness, so the baseline is retaken by running this tree's harness with --build pointing at a
 // worktree of that revision, built there with build-stamped.mjs.
 import { readFileSync, readdirSync, mkdirSync, writeFileSync, existsSync, lstatSync, realpathSync, statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
-import { execSync } from 'node:child_process'
+import { execSync, spawn } from 'node:child_process'
+import { createServer } from 'node:net'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
-import { STAMP_FORMAT, hashMedia, hashOutput } from './build-hash.mjs'
+import { ENV_FILES, STAMP_FORMAT, controlledEnv, hashMedia, hashOutput, heapOptions } from './build-hash.mjs'
 // The cloud image ships Playwright globally (NODE_PATH, CommonJS); the frontend's own @playwright/test works too.
 const require = createRequire(import.meta.url)
 const { chromium } = require('playwright')
 
 const args = Object.fromEntries(process.argv.slice(2).map((a, i, all) => (a.startsWith('--') ? [a.slice(2), all[i + 1]] : [])).filter((x) => x.length))
-const BASE = args.base || 'http://localhost:3000'
+// The server: the harness's own unless --base names one started elsewhere.
+const OWN_SERVER = !args.base
+const PORT = Number(args.port || 3100)
+if (OWN_SERVER && !(Number.isInteger(PORT) && PORT > 0 && PORT < 65536)) throw new Error(`--port ${args.port} is not a port number`)
+const BASE = args.base || `http://localhost:${PORT}`
 const ROOT = realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'))
 // A path with every existing component resolved through its symbolic links, so an alias of a file (a link to it, or
 // a path through a linked directory) compares equal to the file; a dangling link is refused rather than written through.
@@ -106,6 +116,14 @@ if (existsSync(stampFile)) {
 // cannot see which tree a build came from, so build from the checkout right before measuring).
 const lastFrontendCommit = git(BUILD, 'log -1 --format=%h%x20%ct -- frontend')
 if (lastFrontendCommit) { const [hash, ct] = lastFrontendCommit.split(' '); const committedAt = new Date(Number(ct) * 1000); if (new Date(SERVED.builtAt) < committedAt) throw new Error(`the build at ${BUILD} (${SERVED.builtAt}) predates its checkout's last frontend commit (${hash} at ${committedAt.toISOString()}): rebuild from that checkout before measuring`) }
+// The harness's own server runs Next's CLI from the build's checkout in the controlled environment; `next start`
+// loads the same env files `next build` does, so untracked ones are refused here too.
+const SERVE = OWN_SERVER ? { nextBin: path.join(BUILD, 'frontend', 'node_modules', 'next', 'dist', 'bin', 'next'), env: controlledEnv({ WAITLIST_MODE: 'false' }), nodeOptions: heapOptions() || null } : null
+if (SERVE) {
+  if (!existsSync(SERVE.nextBin)) throw new Error(`${SERVE.nextBin} is missing: build ${BUILD} with harness/build-stamped.mjs first`)
+  const envFiles = ENV_FILES.filter((f) => existsSync(path.join(BUILD, 'frontend', f)) && !git(BUILD, `ls-files -- frontend/${f}`))
+  if (envFiles.length) throw new Error(`untracked env files in ${path.join(BUILD, 'frontend')} (${envFiles.join(', ')}) would feed the server values its tree does not hold: move them aside`)
+}
 const sameCommit = (a, b) => !!a && !!b && (a.startsWith(b) || b.startsWith(a))
 // Output and baseline compare as canonical paths: a symbolic link to the baseline, or a path through a linked
 // directory, is the baseline and meets every baseline guard. Hard links share an inode under different names,
@@ -146,8 +164,9 @@ if (WRITING_BASELINE) {
   if (FIXTURES.hash !== BASELINE.fixtureHash) throw new Error(`${BASELINE.file} records the fixtures at tree ${BASELINE.fixtureTree.slice(0, 7)} (content hash ${BASELINE.fixtureHash.slice(0, 12)}…); prototype/data now hashes ${FIXTURES.hash.slice(0, 12)}… (tree ${String(FIXTURES.tree).slice(0, 7)}): retaking the baseline from other fixtures needs a new pin in BASELINE and a note in the README, or pass --out <another file>`)
   const what = [SERVED.dirty.length ? `uncommitted frontend files in ${BUILD} (${SERVED.dirty.join(', ')})` : null, HARNESS_DIRTY.length ? `uncommitted harness files (${HARNESS_DIRTY.join(', ')})` : null, FIXTURES.dirty && FIXTURES.dirty.length ? `uncommitted fixture files (${FIXTURES.dirty.join(', ')})` : null].filter(Boolean).join(' and ')
   if (what) throw new Error(`${BASELINE.file} is written only from clean trees: ${what}; commit or stash them, or pass --out <another file>`)
+  if (!OWN_SERVER) throw new Error(`${BASELINE.file} is measured only on a server the harness starts itself, in the controlled environment it records; a server at --base ${args.base} runs in an environment the harness cannot see: drop --base (and pass --port if 3100 is taken)`)
   if (!STAMP) throw new Error(`${BASELINE.file} is written only from a stamped build: build ${BUILD} with harness/build-stamped.mjs (it writes frontend/.next/SOURCE_TREE.json from the clean checkout right after the build) and serve that build`)
-  if (STAMP.format !== STAMP_FORMAT) throw new Error(`${BASELINE.file} is written only from a stamp of format ${STAMP_FORMAT} (the build ran \`next build\` itself, not through npm, from the install its lockfile describes, with no Node flags but heap sizes, and the stamp records its whole output); the stamp at ${stampFile} is ${STAMP.format === undefined ? 'from an older build-stamped.mjs' : `of format ${JSON.stringify(STAMP.format)}`}: rebuild with harness/build-stamped.mjs (the README's command)`)
+  if (STAMP.format !== STAMP_FORMAT) throw new Error(`${BASELINE.file} is written only from a stamp of format ${STAMP_FORMAT} (the build ran \`next build\` itself, not through npm, right after \`npm ci\` installed the lockfile's packages, with no Node flags but heap sizes, and the stamp records its whole output); the stamp at ${stampFile} is ${STAMP.format === undefined ? 'from an older build-stamped.mjs' : `of format ${JSON.stringify(STAMP.format)}`}: rebuild with harness/build-stamped.mjs (the README's command)`)
   const env =STAMP.env ? JSON.stringify(STAMP.env) : null
   if (env !== JSON.stringify(BASELINE.buildEnv)) throw new Error(`${BASELINE.file} records a build whose public build variables were exactly ${JSON.stringify(BASELINE.buildEnv)}; the stamp at ${stampFile} records ${env || 'none (it predates recorded build inputs)'}: rebuild with harness/build-stamped.mjs and exactly those variables (the README's command)`)
   if (!STAMP.media || STAMP.media.hash !== BASELINE.media.hash) throw new Error(`${BASELINE.file} records a build whose downloaded fonts and assets hash ${BASELINE.media.hash.slice(0, 12)}… (${BASELINE.media.files} files in .next/static/media); the build at ${BUILD} has ${STAMP.media ? `${STAMP.media.hash.slice(0, 12)}… (${STAMP.media.files} files)` : 'none recorded'}: retaking the baseline with other fonts needs a new pin here and a README note`)
@@ -313,12 +332,38 @@ async function measure(page, configuredWidth, expectedRows) {
   }, { vw: configuredWidth, expectedRows })
 }
 
+// The harness's own server: a taken port is refused (another server there could answer for this build), `next start`
+// runs until it serves this build's manifest, and it is stopped when the run ends, however it ends.
+const portFree = (port) => new Promise((resolve) => { const probe = createServer(); probe.once('error', () => resolve(false)); probe.listen(port, () => probe.close(() => resolve(true))) })
+async function serve() {
+  if (!(await portFree(PORT))) throw new Error(`port ${PORT} is taken, so another server could answer for this build: stop it, or pass --port <a free port>`)
+  const child = spawn(process.execPath, [SERVE.nextBin, 'start', '-p', String(PORT)], { cwd: path.join(BUILD, 'frontend'), env: SERVE.env, stdio: ['ignore', 'pipe', 'pipe'] })
+  let log = ''
+  child.stdout.on('data', (d) => { log += d })
+  child.stderr.on('data', (d) => { log += d })
+  process.on('exit', () => child.kill())
+  const tail = () => log.trim().split('\n').slice(-3).join(' / ')
+  const manifest = `${BASE}/_next/static/${SERVED.buildId}/_buildManifest.js`
+  for (const deadline = Date.now() + 60000; Date.now() < deadline;) {
+    if (child.exitCode !== null) throw new Error(`next start for ${BUILD} exited (${child.exitCode}) before serving on port ${PORT}: ${tail()}`)
+    try { if ((await fetch(manifest)).status === 200) return child } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+  child.kill()
+  throw new Error(`next start for ${BUILD} did not serve its build manifest on port ${PORT} within 60 s: ${tail()}`)
+}
+
 async function run() {
+  const server = SERVE ? await serve() : null
+  try { await measureAll() } finally { if (server) server.kill() }
+}
+
+async function measureAll() {
   const browser = await chromium.launch()
-  const results = { base: BASE, state: STATE, data: path.relative(ROOT, DATA), generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: SERVED.commit.slice(0, 7), frontendTree: SERVED.frontendTree, dirty: SERVED.dirty, buildId: SERVED.buildId, builtAt: SERVED.builtAt, buildStamp: STAMP, harnessCommit: HARNESS_COMMIT, harnessDirty: HARNESS_DIRTY, fixtureHash: FIXTURES.hash, fixtureTree: FIXTURES.tree, fixtureDirty: FIXTURES.dirty }, configs: [] }
+  const results = { base: BASE, server: SERVE ? { by: 'measure-current.mjs', command: 'next start', port: PORT, nodeOptions: SERVE.nodeOptions, waitlistMode: 'false' } : { by: 'external' }, state: STATE, data: path.relative(ROOT, DATA), generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: SERVED.commit.slice(0, 7), frontendTree: SERVED.frontendTree, dirty: SERVED.dirty, buildId: SERVED.buildId, builtAt: SERVED.builtAt, buildStamp: STAMP, harnessCommit: HARNESS_COMMIT, harnessDirty: HARNESS_DIRTY, fixtureHash: FIXTURES.hash, fixtureTree: FIXTURES.tree, fixtureDirty: FIXTURES.dirty }, configs: [] }
   // The server must serve the build of --build: its build manifest lives under the build id.
   const manifest = await (await browser.newContext()).request.get(`${BASE}/_next/static/${SERVED.buildId}/_buildManifest.js`)
-  if (manifest.status() !== 200) { await browser.close(); throw new Error(`${BASE} does not serve the build of ${BUILD} (build id ${SERVED.buildId}: ${manifest.status()} for its build manifest): start the server from that checkout's build, or pass --build <the checkout it serves>`) }
+  if (manifest.status() !== 200) { await browser.close(); throw new Error(`${BASE} does not serve the build of ${BUILD} (build id ${SERVED.buildId}: ${manifest.status()} for its build manifest): start the server from that checkout's build, or pass --build <the checkout it serves>, or drop --base to let the harness serve it`) }
   for (const theme of ['light', 'dark']) {
     for (const cfg of CONFIGS) {
       const context = await browser.newContext({ viewport: { width: cfg.width, height: cfg.height }, deviceScaleFactor: cfg.dsf || 1, isMobile: !!cfg.mobile, hasTouch: !!cfg.mobile, reducedMotion: 'reduce' })

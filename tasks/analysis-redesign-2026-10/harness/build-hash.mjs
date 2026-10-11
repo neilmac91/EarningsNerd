@@ -1,5 +1,5 @@
-// How build-stamped.mjs and measure-current.mjs hash a frontend build, and which stamp format they share, so the
-// stamp's writer and its checker agree.
+// How build-stamped.mjs and measure-current.mjs hash a frontend build, which stamp format they share, and the
+// environment both run Next in, so the stamp's writer and its checker agree.
 import { createHash } from 'node:crypto'
 import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync } from 'node:fs'
 import path from 'node:path'
@@ -10,7 +10,31 @@ import path from 'node:path'
 // records the build's whole output. (Stamps without a format predate it.)
 // 3: and node_modules was the install package-lock.json describes (every listed package at its version, an optional
 // platform package possibly absent, no unlisted top-level package).
-export const STAMP_FORMAT = 3
+// 4: and that install was made by `npm ci` from the lockfile right before the build, so the packages' contents are the
+// lockfile's tarballs (npm checks each against the lockfile's integrity hash), not an earlier or edited install.
+export const STAMP_FORMAT = 4
+
+// The env files Next loads, at `next build` and at `next start` alike; git ignores all four, so `git status` never
+// shows them.
+export const ENV_FILES = ['.env', '.env.local', '.env.production', '.env.production.local']
+
+// NODE_OPTIONS reaches every Node process it is set for, and most of its flags change what runs (--require and
+// --import preload code, --conditions changes which files imports resolve to), so only heap sizes pass.
+export const heapOptions = () => {
+  const flags = (process.env.NODE_OPTIONS || '').split(/\s+/).filter(Boolean)
+  const foreign = flags.filter((o) => !/^--max[-_](old|semi)[-_]space[-_]size=\d+$/.test(o))
+  if (foreign.length) throw new Error(`NODE_OPTIONS holds ${foreign.join(' ')}, which every Next process would run with, unrecorded: unset it (heap sizes, --max-old-space-size=N and --max-semi-space-size=N, may stay)`)
+  return flags.join(' ')
+}
+
+// The environment Next builds and serves in: what the toolchain needs to run and reach the network (PATH, HOME, temp
+// and locale, proxy and CA settings), NEXT_TELEMETRY_DISABLED=1, NODE_OPTIONS while it holds heap sizes only, and
+// the caller's additions; every other variable (Sentry, Vercel, credentials, a stray NODE_ENV) is dropped.
+const PASS = /^(PATH|HOME|USER|LOGNAME|TMPDIR|TMP|TEMP|LANG|LC_[A-Z]+|TZ|NODE_EXTRA_CA_CERTS|SSL_CERT_FILE|SSL_CERT_DIR|(HTTPS?|NO|ALL)_PROXY|(https?|no|all)_proxy|GLOBAL_AGENT_[A-Z_]+)$/
+export const controlledEnv = (extra = {}) => {
+  const nodeOptions = heapOptions()
+  return { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => PASS.test(k))), ...(nodeOptions ? { NODE_OPTIONS: nodeOptions } : {}), NEXT_TELEMETRY_DISABLED: '1', ...extra }
+}
 
 // A directory's regular files and symbolic links, recursively, by relative path and by bytes (a link by its target),
 // leaving out the entries `skip` names relative to `dir` (a directory with everything under it).

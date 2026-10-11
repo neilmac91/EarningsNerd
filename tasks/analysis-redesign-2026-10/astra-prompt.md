@@ -102,12 +102,12 @@ is a locked contract test (CLAUDE.md rule 6 lists those); say so explicitly in y
 prototype harness once to confirm `measurements/prototype.json` reproduces on your machine (the README has
 the commands). `measurements/current.json` is a recording of `main` at `97293e7`, before Phase 1 landed, so
 it reproduces only against a build of that revision: `git worktree add ../en-97293e7 97293e7`, then the
-README's commands in that worktree (`npm ci`; `harness/build-stamped.mjs` with `NEXT_PUBLIC_ENABLE_ANALYSIS=true`,
-which runs `next build` itself, not through npm, from the install the lockfile describes, with an allowlisted
-environment and no Node flags but heap sizes, and stamps the build with its source tree, public variables,
-downloaded fonts and a hash of its whole output; `next start` through Next's own CLI, without `NODE_OPTIONS`, with
-`WAITLIST_MODE=false`, no backend)
-and this tree's harness with `--build ../en-97293e7` (`97293e7` has no harness; the harness verifies that the
+README's commands (`harness/build-stamped.mjs` on that worktree with `NEXT_PUBLIC_ENABLE_ANALYSIS=true`, which
+installs its packages with `npm ci`, runs `next build` itself, not through npm, with an allowlisted environment and
+no Node flags but heap sizes, and stamps the build with its source tree, public variables, downloaded fonts and a
+hash of its whole output) and this tree's harness with `--build ../en-97293e7`, which serves the build itself
+(`next start` through Next's own CLI in the same controlled environment, with `WAITLIST_MODE=false`, no backend)
+(`97293e7` has no harness; the harness verifies that the
 server serves that worktree's build id, that the stamp names it, that checkout's `frontend/` tree, the build's
 fonts and its output unchanged since the stamp, and that
 the build's variables, fonts and fixtures match its pins, and records them). Run `measure-current.mjs` on current `main` only as a fresh measurement of the shipped

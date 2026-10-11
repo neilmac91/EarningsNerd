@@ -25,7 +25,10 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   (with the table's scroll-snap-type: the build at 97293e7 does not snap, so a scroll can rest anywhere between
   boundaries), label counts, in the
   same ten configurations as the prototype harness (six widths, 200% zoom, 200% text at 1480, 390 and
-  320), both themes. Output: `measurements/current.json`.
+  320), both themes. Output: `measurements/current.json`. By default it serves the build itself (`next start`
+  through Next's own CLI, in `build-hash.mjs`'s controlled environment with `WAITLIST_MODE=false`, on `--port`,
+  default 3100), records how, and stops the server when the run ends; `--base <url>` measures a server started
+  elsewhere, whose environment it cannot see, and the baseline refuses that.
   The recorded run measured `main` at `97293e7`, before #1199–#1203 replaced the labels, the cards, the
   table, the dialog, the narrative and the picker; it was retaken with the widened probes (text-node
   rectangles, both sides of each cell's content box, every column boundary) and the phone
@@ -53,21 +56,25 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   the occlusion mutation proof (at 1024 the probe then reports the Q4 ’23 column straddling the edge).
 - `harness/build-stamped.mjs` — builds a checkout's frontend for `measure-current.mjs` and stamps the build
   with its inputs (`frontend/.next/SOURCE_TREE.json`): it refuses uncommitted frontend files and the untracked
-  env files `next build` loads (git ignores all four, so `git status` never shows them), runs `next build` itself
-  on the Node running the script rather than through npm (npm's own configuration, its npmrc files and
-  `npm_config_*` variables, can add Node options to everything it runs), from the install `package-lock.json`
-  describes (it refuses a package missing or at another version, or a top-level package the lockfile does not list;
-  an optional platform package may be absent; `node_modules` is ignored by git, so a checkout switched without
-  `npm ci` would otherwise build with another revision's packages), with an allowlisted environment (what the
+  env files `next build` loads (git ignores all four, so `git status` never shows them), reinstalls the checkout's
+  `node_modules` with `npm ci` from the lockfile right before the build, so the packages the build runs are the
+  lockfile's tarballs (`node_modules` is ignored by git, so an install made for another revision or edited since
+  would otherwise build silently; npm keeps its network settings, but its node-options and script-shell settings are
+  set back to npm's defaults on the command line, since they would run code in every install script), then refuses
+  an install that is not the one `package-lock.json` describes (a package missing or at another version, or a
+  top-level package the lockfile does not list; an optional platform package may be absent), runs `next build`
+  itself on the Node running the script rather than through npm (npm's own configuration, its npmrc files and
+  `npm_config_*` variables, can add Node options to everything it runs), with an allowlisted environment (what the
   toolchain needs to run and reach the network, the caller's `NEXT_PUBLIC_*` variables, and `NODE_OPTIONS` only
   while it holds nothing but heap sizes: its other flags, such as `--require`, run code in every build process, so
   they are refused; credentials, Sentry and Vercel variables are dropped), and records the stamp's format, the
-  commit, the `frontend/` tree, the build id, Node and its heap sizes, the install's package counts, the public variables, a content hash of
+  commit, the `frontend/` tree, the build id, Node and its heap sizes, the npm version and the install's package counts, the public variables, a content hash of
   `.next/static/media`, where the fonts `next/font` downloads at build time sit, and a content hash of the build's
   whole output (everything under `.next` but Next's caches), so a file edited, added or removed there after the
   stamp no longer matches it.
-- `harness/build-hash.mjs` — how `build-stamped.mjs` and `measure-current.mjs` hash a build, and the stamp format
-  they share, so the stamp's writer and its checker agree: the media hash, which is reproducible across builds of one
+- `harness/build-hash.mjs` — how `build-stamped.mjs` and `measure-current.mjs` hash a build, the stamp format they
+  share, and the controlled environment both run Next in (the build, and the harness's own server), so the stamp's
+  writer and its checker agree: the media hash, which is reproducible across builds of one
   tree (the baseline pins it), and the output hash, which leaves out `cache/`, `next dev`'s `dev/`, the pages
   `next start` caches in `server/route-cache/` while it serves, and the stamp. It differs between two builds of one
   tree (the build id and the prerendered pages differ), so it binds the served bytes to one stamped build and is not
@@ -123,32 +130,30 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
 ## Running the harnesses
 
 ```bash
-# current components: build and serve the frontend from frontend/ (the critique environment's flags; no backend).
-# measurements/current.json records main at 97293e7, before Phase 1 landed. To reproduce it, build and start
-# the frontend in a worktree of that revision (97293e7 has no harness, so the harness runs from this tree and
-# --build names the worktree whose build the server serves); on current main the harness measures the shipped
+# current components: build the frontend from frontend/ (the critique environment's flags; no backend); the
+# harness serves it. measurements/current.json records main at 97293e7, before Phase 1 landed. To reproduce it,
+# build the frontend in a worktree of that revision (97293e7 has no harness, so the harness runs from this tree and
+# --build names the worktree whose build it serves and measures); on current main the harness measures the shipped
 # components instead, and the counts and geometry differ by design.
 git worktree add ../en-97293e7 97293e7
-(cd ../en-97293e7/frontend && npm ci)
-# build-stamped.mjs runs `next build` itself (not through npm) from the clean checkout and the install its lockfile
-# describes, with an allowlisted environment, refusing NODE_OPTIONS flags other than heap sizes, and stamps
-# frontend/.next/SOURCE_TREE.json with its format, commit, frontend/ tree, build id, Node and heap sizes, install,
-# public variables, downloaded fonts and the hash of its whole output; the harness requires that stamp for the
-# baseline, with exactly these two variables (.next is ignored by git)
+# build-stamped.mjs installs the worktree's packages with `npm ci` and runs `next build` itself (not through npm)
+# from the clean checkout, with an allowlisted environment, refusing NODE_OPTIONS flags other than heap sizes, and
+# stamps frontend/.next/SOURCE_TREE.json with its format, commit, frontend/ tree, build id, Node and heap sizes,
+# install, public variables, downloaded fonts and the hash of its whole output; the harness requires that stamp for
+# the baseline, with exactly these two variables (.next is ignored by git)
 NEXT_PUBLIC_ENABLE_ANALYSIS=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8010 node tasks/analysis-redesign-2026-10/harness/build-stamped.mjs ../en-97293e7
-# serve it the same way, with Next's own CLI and without NODE_OPTIONS (npm's configuration and a NODE_OPTIONS preload
-# would run inside the measured server; the harness cannot see a server's environment); WAITLIST_MODE=false lets
-# /analysis through the middleware
-(cd ../en-97293e7/frontend && env -u NODE_OPTIONS WAITLIST_MODE=false node node_modules/next/dist/bin/next start -p 3000 &)
-# then, from this repository's root, with Playwright resolvable (the frontend's install, or the cloud image's global one)
-NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-current.mjs --base http://localhost:3000 --build ../en-97293e7 --shots /tmp/shots
+# then, from this repository's root, with Playwright resolvable (the frontend's install, or the cloud image's global
+# one); the harness serves the build itself (`next start` through Next's own CLI, in the same controlled environment,
+# with WAITLIST_MODE=false, which lets /analysis through the middleware, on port 3100 unless --port says otherwise)
+NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-current.mjs --build ../en-97293e7 --shots /tmp/shots
 # The harness reads the served checkout's commit, frontend/ tree hash, uncommitted files under frontend/,
 # .next/BUILD_ID and the build's time, refuses a build older than that checkout's last commit touching frontend/
 # (it cannot see which tree a build came from, so build right before measuring), verifies before measuring that
 # the server serves that build id, and records them with its own commit. A stamp (SOURCE_TREE.json, written by
 # build-stamped.mjs) must name the served build id and the checkout's frontend/ tree, its media hash must match
 # the build's .next/static/media and its output hash everything under .next but Next's caches, whenever one is
-# present, and is recorded; the baseline needs a stamp of the current format (build-hash.mjs's STAMP_FORMAT). The fixtures --data names (default: prototype/data) are recorded by a content hash of their .js
+# present, and is recorded; the baseline needs a stamp of the current format (build-hash.mjs's STAMP_FORMAT) and the
+# harness's own server, which the recording describes under server. The fixtures --data names (default: prototype/data) are recorded by a content hash of their .js
 # files and, inside this repository, by their tree hash with their uncommitted files. It writes
 # measurements/current.json only for a served build of 97293e7 (enforced whether --out names that file, an alias
 # of it through symbolic or hard links, or it is the default; any other multiply linked output is refused), for the legacy state from the committed fixtures at the content hash the harness pins (retaking
