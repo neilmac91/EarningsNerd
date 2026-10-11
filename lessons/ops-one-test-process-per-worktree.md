@@ -1,6 +1,6 @@
 # Give each test process its own database, and never let a test depend on another test's order or leftovers
 
-Date: 2026-09-08 (rule revised 2026-10-09) · Area: ops / verification
+Date: 2026-09-08 (rule revised 2026-10-09, 2026-10-11) · Area: ops / verification
 
 **Context.** The full local gate on a worktree reported one failure in a pre-existing facts
 test (`facts_inserted` 4 instead of 2) that never reproduced alone, doubled, or in a verbose
@@ -42,12 +42,25 @@ eight cross-test dependencies, each fixed at the root:
 - A shared-deadline test's 40 ms budget left 15 ms of slack and failed under load even when warm;
   it now expires the shared deadline while the recovery request is in flight.
 
+**Ninth dependency (2026-10-11).** A test helper built `Company.ticker` from 4 uuid hex chars
+(65,536 values) while the worker's database kept every company its earlier tests had created, and
+`backfill_facts` scopes a pass by `Company.ticker IN (...)`: a leftover company with the same ticker
+and an unprocessed XBRL filing was processed too (`filings_processed` 2 instead of 1 in
+`test_tickers_filter_scopes_the_pass`, once on #1234 at `0bc0a354`, green on the next identical
+push, never reproducible alone). Every ticker and cohort key that a query filters on now carries the
+full 8-hex slice the helper already held (`test_facts_service.py`, `test_peers_service.py`); keys
+that are only stored and never looked up, and patterns created once per worker run, were left alone.
+
 **Rule.** A worktree may run more than one pytest process; each owns its database. Within a process,
 tests still share that database and every module-level global, in whatever order xdist produces (and
 pytest-randomly, when installed locally for a hunt). So a test must not depend on another test's
 order or leftovers: scope its assertions to its own rows, undo every override it makes before the
 context it overrides exits (`monkeypatch.context()` inside `stream_boundaries`), and reset
-process-wide state in a conftest autouse fixture. A real-time budget in a test must not race a
+process-wide state in a conftest autouse fixture. A key that the test or the code it calls filters
+on (a ticker, a cohort code, a filing type) is built from the full uuid slice the helper holds
+(8+ hex), never a 3-5 char sub-slice: rows accumulate per worker, so a lookup on a 65,536-value key
+eventually matches another test's row, and the failure looks like a flake because it needs a
+particular test-to-worker split. A real-time budget in a test must not race a
 wall-clock margin: arm or expire the deadline once the operation under test is under way, by
 rescheduling the real `asyncio.timeout` it entered, as the provider-lifecycle and shared-deadline
 tests do. A "passes alone, fails in the suite" result is reproduced first by running the suspect
@@ -66,4 +79,6 @@ parallel `python -m pytest`, so every PR exercises a different test-to-worker sp
 **Evidence.** W3-9 gate on `457933fd` (1 failed / 2703 passed) versus the verbose re-run on
 `70fca647` (2705 passed) with the worktree left alone; `tasks/archive/todo-ledger-through-2026-10-07.md` W3-9 section. The
 2026-10-09 parallel switch, its random-order runs and wall-clock figures are in the PR body of
-https://github.com/neilmac91/EarningsNerd/pull/1135.
+https://github.com/neilmac91/EarningsNerd/pull/1135. The 4-hex ticker collision: CI on
+https://github.com/neilmac91/EarningsNerd/pull/1234 at `0bc0a354` (`assert (2 == 1)`), reproduced
+deterministically by patching `uuid.uuid4` to share a 4-hex prefix, and gone with the full slice.

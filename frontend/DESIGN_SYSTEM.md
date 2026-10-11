@@ -111,7 +111,8 @@ A control that is busy, or unavailable as a result of its own activation, never 
 `<body>`. Busy is `<Button loading>`. Unavailable is `aria-disabled` plus an early return in the
 handler, styled with `primaryUnavailableClass` (primary Button), `secondaryUnavailableClass` (secondary
 Button; it fades the label and hairline, not the element, so the focus ring keeps its strength) or
-`fieldUnavailableClass` (field; it fades the text ink and leaves the hairline to the focus and invalid states).
+`fieldUnavailableClass` (field; it fades the text ink and leaves the hairline to the focus and invalid states,
+hovered or not: v3.7 restates the focus border under `aria-disabled:hover:`, which outranked it).
 A form that locks its text fields while it submits uses `readOnly`, never native `disabled` (`ContactForm` does;
 the login and register forms leave their fields editable). Gate: `tests/unit/busyControlsStayFocusable.spec.ts`;
 rules in `lessons/frontend-busy-controls-stay-focusable.md`.
@@ -364,8 +365,11 @@ Search option    <CompanySearch> results (2026-10 critique 1d) — an option is 
                  open" hint sit under it, aria-hidden, the hint from sm up.
 
 Chat composer    <Textarea variant="composer">  — transparent, auto-growing, chrome-free field; the
-                 app-owned shell carries inputClasses() + focus-within:border-brand +
-                 focus-within:shadow-ring-brand (never double chrome).
+                 app-owned shell carries inputClasses({ shell: true }) (v3.7): the field's tone with its
+                 focus border and ring keyed to focus-within, the border restated under hover
+                 (`hover:focus-within:border-brand`, both themes), since Tailwind emits focus-within before
+                 hover and the hover border won while both held (never double chrome). Gate: rule (f) in
+                 tests/unit/inputClassesNoOverrides.spec.tsx.
 
 Semantic card    <Card as="section">  — same recipe on a semantic element.
 

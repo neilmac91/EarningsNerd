@@ -418,6 +418,7 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 | Endpoint | Purpose |
 |----------|---------|
 | `POST /email/test` | Send a test email via Resend (diagnoses email config; defaults to admin's own address) |
+| `POST /users/free` | Create a new Free, non-beta, non-admin account and email a single-use password setup link; never edits an existing account |
 | `DELETE /filing/{id}/summary` | Delete summary for a filing |
 | `DELETE /filing/{id}/xbrl` | Clear XBRL cache for a filing |
 | `DELETE /filing/{id}/reset` | Full reset (summary, XBRL, content cache, progress) |
@@ -430,10 +431,26 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 
 ### Test accounts
 
-`freeuser@earningsnerd.io` (user id 9) is the founder's free-plan test account, kept indefinitely for checking what a free user sees. It is Free, non-beta and non-admin, and its address is an alias of the founder's mailbox. Its checkouts reuse one Stripe test Customer and are never paid.
+`freeuser@earningsnerd.io` (user id 9) is the founder's free-plan test account, kept indefinitely for checking what a free user sees. It is Free, non-beta and non-admin, and its address is an alias of the founder's mailbox. Its checkouts reuse one live Stripe Customer created for verification and are never paid.
 
 - Leave it out of funnel, revenue and user-count readouts by filtering on user id 9. That includes the `checkout_started` events its Upgrade clicks fire.
 - Nothing deletes it: the retention purge never deletes accounts (`backend/app/services/retention_service.py`).
+
+To create another test account, use an authenticated admin session to send
+`POST /api/admin/users/free` with JSON containing `email` (an address whose inbox the tester
+controls) and optional `full_name`. A successful request returns HTTP 201 with the new account's
+id and flags: Free, non-beta, non-admin and initially unverified. It emails the existing
+password-reset flow's single-use setup link, valid for one hour. Completing that flow sets the
+password and verifies inbox ownership. The response never contains the password or raw token.
+
+An existing email returns HTTP 409 and leaves that account unchanged. If the response has
+`emailed: false`, the new account still exists; use the site's forgot-password flow to request
+another setup email. Do not retry creation for the same address.
+
+The monthly trial is available once per account. To test the first-subscription trial again
+after an actual trial or subscription, create a fresh Free account. Opening an unpaid Checkout
+preview and leaving it unsubmitted does not consume that eligibility, so those checks can
+reuse the existing test account. Leave the retained user id 9 unchanged.
 
 ### Verification Scripts
 

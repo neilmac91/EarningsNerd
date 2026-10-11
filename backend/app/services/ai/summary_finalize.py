@@ -112,9 +112,6 @@ class SummaryRun:
     tax_explanation_audit: Any = field(init=False, repr=False)
     unit_index: Any = field(init=False, repr=False)
     verify_note: Any = field(init=False, repr=False)
-    writer_error: Any = field(init=False, repr=False)
-    writer_fallback_reason: Any = field(init=False, repr=False)
-    writer_result: Any = field(init=False, repr=False)
 
 
 def _segments_not_applicable(coverage_map: Dict[str, bool], xbrl_metrics: Optional[Dict]) -> List[str]:
@@ -355,9 +352,6 @@ def build_compatibility_strings(run: SummaryRun) -> None:
 
 def render_summary(run: SummaryRun, fallback_render: Any) -> None:
     # Render from structured data without a second provider call.
-    run.writer_result = None
-    run.writer_error: Optional[str] = None
-    run.writer_fallback_reason: Optional[str] = None
     # Stamp the generation version and render the shared projection.
     # The bound legacy renderer is used only when no sections render.
     run.structured_summary["schema_version"] = SUMMARY_SCHEMA_VERSION
@@ -414,12 +408,6 @@ def build_raw_payload(run: SummaryRun) -> None:
         run.raw_summary_payload[TAX_EXPLANATION_AUDIT_KEY] = run.tax_explanation_audit
     if run.reconciliation_audit:
         run.raw_summary_payload[RECONCILIATION_AUDIT_KEY] = run.reconciliation_audit
-    if run.writer_result:
-        run.raw_summary_payload["writer"] = run.writer_result
-    if run.writer_fallback_reason:
-        run.raw_summary_payload["writer_fallback_reason"] = run.writer_fallback_reason
-    if run.writer_error:
-        run.raw_summary_payload["writer_error"] = run.writer_error[:500]
     if run.sixk_class:
         # W3-8b audit: which pre-classified 6-K variant produced this summary, and why.
         run.raw_summary_payload["sixk_class"] = run.sixk_class
@@ -574,8 +562,8 @@ def determine_status(run: SummaryRun) -> None:
     coverage_ratio = run.coverage_snapshot.get("coverage_ratio", 1.0)
     missing_sections_list = run.coverage_snapshot.get("missing", [])
 
-    # If coverage is low or writer had issues, mark as partial
-    if coverage_ratio < 0.5 or run.writer_error or run.writer_fallback_reason:
+    # If coverage is low, mark as partial
+    if coverage_ratio < 0.5:
         run.status = "partial"
         run.message = "Some sections may not have loaded fully."
         if missing_sections_list:
