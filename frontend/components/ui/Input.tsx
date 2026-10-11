@@ -28,6 +28,8 @@
    components' `error`) picks the error tone instead of layering it on the default
    one, where palette order decided which border showed and a hovered invalid
    field turned grey. The error border holds on hover.
+   v3.6: every field resets the forms plugin's focus ring (`focus:ring-0
+   focus:ring-offset-0`), which painted a 1px #2563EB line over the DS ring.
    Assumes @tailwindcss/forms (already in the config plugins).
 ============================================================================= */
 
@@ -52,7 +54,10 @@ const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : use
 const FIELD_BASE = cx(
   'rounded-lg border text-sm transition-[border-color,box-shadow] duration-fast',
   'bg-white text-text-primary-light placeholder:text-text-tertiary-light',
-  'focus:outline-none',
+  // v3.6: the forms plugin's `:focus` rule sets --tw-ring-shadow (a 1px #2563EB ring; 2px past a 2px white offset on
+  // a checkbox or radio), and the shadow-ring-* tokens composite it without resetting it, listed first, so it painted
+  // over the DS ring. ring-0 zeroes its spread and ring-offset-0 its offset; `focus:`, since the plugin's rule is too.
+  'focus:outline-none focus:ring-0 focus:ring-offset-0',
   'disabled:cursor-not-allowed disabled:bg-background-light disabled:opacity-60',
   // dark: muted copy uses `secondary`, never `tertiary` (fails AA on navy)
   'dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark',
@@ -65,9 +70,9 @@ const FIELD = cx('w-full', FIELD_BASE)
     `border` and `brand`), and the default `hover:` border, a later variant, turned a hovered invalid field grey.
     `error` holds its border on hover, since the red names the problem; a disabled field's hover changes
     nothing in either tone. Each tone states its focus border in both themes even where it equals the rest
-    border: the forms plugin's `[type='text']:focus` border (#2563EB, specificity 0,2,0) beats a bare
-    `border-*` class. The error ring is `shadow-ring-error` in dark too, until a dark ring-error token exists
-    (the focus-ring item #1178 recorded). */
+    border: the forms plugin's `input:where([type='text']):focus` border (#2563EB, specificity 0,1,1) beats a
+    bare `border-*` class (0,1,0). The error ring is `shadow-ring-error` in dark too, until a dark ring-error
+    token exists (the focus-ring item #1178 recorded). */
 const TONE = {
   default: cx(
     'border-border-light hover:border-flat-light focus:border-brand focus:shadow-ring-brand disabled:hover:border-border-light',
@@ -305,7 +310,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 const COMPOSER = cx(
   'w-full resize-none border-0 bg-transparent p-0 text-sm',
   'text-text-primary-light placeholder:text-text-tertiary-light',
-  'focus:outline-none focus:ring-0 focus:shadow-none',
+  'focus:outline-none focus:ring-0 focus:ring-offset-0 focus:shadow-none',
   'disabled:cursor-not-allowed disabled:opacity-60',
   'dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark',
 )

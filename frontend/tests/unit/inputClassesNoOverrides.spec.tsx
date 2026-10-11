@@ -844,6 +844,7 @@ export const S = () => <div className={cx(inputClasses({ className: 'flex items-
     expect(await at('border-b-0')).toEqual(['border-b-0 vs border [border-bottom-width] (same chain)'])
     expect(await at('focus:[box-shadow:none] dark:focus:[box-shadow:none]')).toEqual([
       'dark:focus:[box-shadow:none] vs dark:focus:shadow-ring-brand-dark [box-shadow] (same chain)',
+      'focus:[box-shadow:none] vs focus:ring-0 [box-shadow] (same chain)',
       'focus:[box-shadow:none] vs focus:shadow-ring-brand [box-shadow] (same chain)',
     ])
     // A placeholder colour utility styles the ::placeholder the field's `placeholder:` class styles.
@@ -1061,8 +1062,8 @@ describe("the field's tone is one class per state", SLOW, () => {
   /** Each tone's border and ring by state: the classes that set the field's border colour, then its shadow, keyed
       by variant chain. The error border holds on hover (the red names the problem), and a disabled field's hover
       changes nothing in either tone. Each tone states its focus border even where it equals the rest border:
-      @tailwindcss/forms draws `[type='text']:focus` and its siblings with a #2563EB border at specificity 0,2,0,
-      which a bare `border-*` class (0,1,0) loses to. Measured in Chromium, an error tone without
+      @tailwindcss/forms draws `input:where([type='text']):focus` and its siblings with a #2563EB border at
+      specificity 0,1,1, which a bare `border-*` class (0,1,0) loses to. Measured in Chromium, an error tone without
       `focus:border-error-light` showed that blue border on focus in light. */
   const TONES = {
     default: {
@@ -1097,6 +1098,30 @@ describe("the field's tone is one class per state", SLOW, () => {
         .filter((c) => !c.target && (declCache.get(c.utility) ?? []).some((e) => !e.target && e.decls.some((d) => d.prop === prop)))
         .map((c) => [[...c.chain].sort().join(':'), c.token]),
     )
+
+  /** @tailwindcss/forms rings a focused field itself (`input:where([type='text']):focus`, `select:focus`, `textarea:focus`,
+      0,1,1: a 1px #2563EB ring; 2px past a 2px white offset on a checkbox or radio), and `shadow-ring-*` composites
+      `var(--tw-ring-offset-shadow), var(--tw-ring-shadow)` ahead of its own `--tw-shadow` instead of replacing them, so
+      the blue ring drew over the DS one on every field. Each field takes it off in the plain `focus` chain (0,2,0),
+      which outranks the plugin's rule and holds in both themes; a bare `ring-0` loses to it, and `focus-visible:` misses
+      the mouse focus the DS ring shows on. Measured on production builds: `rgb(37, 99, 235) 0px 0px 0px 1px` before
+      the DS ring on main, `0px` with the reset. */
+  it('every field takes off the forms plugin’s own focus ring', async () => {
+    // The composer Textarea has no tone (its shell draws the ring), so it is checked here and not in fields().
+    const composer = render(<Textarea aria-label="Composer" variant="composer" />).container.querySelector('textarea')!
+    const all = [...fields(), { name: 'Textarea composer', invalid: false, classes: [...composer.classList] }]
+    await loadDeclarations(all.flatMap((f) => f.classes).map((t) => parseClass(t).utility))
+    // Every class that sets the property, not one per chain: a second setter (`focus:ring-2` beside `focus:ring-0`)
+    // would win by stylesheet order, and the composer is outside the `layered` check below.
+    const every = (classes: string[], prop: string) =>
+      classes.filter((t) => (declCache.get(parseClass(t).utility) ?? []).some((e) => !e.target && e.decls.some((d) => d.prop === prop)))
+    for (const f of all) {
+      expect({ ring: every(f.classes, '--tw-ring-shadow'), offset: every(f.classes, '--tw-ring-offset-width') }, f.name).toEqual({
+        ring: ['focus:ring-0'],
+        offset: ['focus:ring-offset-0'],
+      })
+    }
+  })
 
   it('`invalid` and the components’ `error` pick the error tone, and every other field the default one, by state', async () => {
     const all = fields()
