@@ -1,6 +1,9 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
+import { type Config } from 'tailwindcss'
+import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { bindingResolver } from './astBindings'
@@ -488,11 +491,21 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
 /** The DS field module: its fields are held by tests/unit/inputClassesNoOverrides.spec.tsx (each `inputClasses()`
     combination and the Input, Textarea and Select components take the forms ring off and draw the DS ring). */
 const FIELD_FACTORY = 'components/ui/Input.tsx'
-/** A DS ring in some focus state (`focus:shadow-ring-brand`, or the `focus-visible:` one a checkbox takes), not a dark
-    token, and a dark twin in that same state (`dark:focus:shadow-ring-brand-dark`): the focus state each ring is in. */
-const DS_RING = /^(focus|focus-visible):!?shadow-ring-(?!\S*-dark$)/
-const DS_RING_DARK = /^dark:(focus|focus-visible):!?shadow-ring-/
-const ringStates = (tokens: string[], pattern: RegExp) => tokens.flatMap((t) => t.match(pattern)?.[1] ?? [])
+/** The DS ring tokens tailwind.config.js defines (`ring-brand`, `ring-brand-dark`, `ring-error`): a misspelt one
+    generates no CSS, so it draws no ring and must not count as one. */
+const RING_TOKENS = new Set(
+  Object.keys(
+    resolveConfig(createRequire(import.meta.url)(path.join(ROOT, 'tailwind.config.js')) as Config).theme.boxShadow as Record<string, unknown>,
+  ).filter((k) => k.startsWith('ring-')),
+)
+/** The focus states (`focus`, `focus-visible`) a field's DS ring is drawn in: in light, a ring token that is not a dark
+    one (`focus:shadow-ring-brand`); in dark, any ring token under `dark:` (`dark:focus:shadow-ring-brand-dark`). */
+function ringStates(tokens: string[], dark: boolean): string[] {
+  return tokens.flatMap((t) => {
+    const m = t.match(dark ? /^dark:(focus|focus-visible):!?shadow-(\S+)$/ : /^(focus|focus-visible):!?shadow-(\S+)$/)
+    return m && RING_TOKENS.has(m[2]) && (dark || !m[2].endsWith('-dark')) ? [m[1]] : []
+  })
+}
 
 /** The modules that export the DS factory, as paths under frontend/ without extension. */
 const FACTORY_MODULES = new Set(['components/ui/Input', 'components/ui/index'])
@@ -558,8 +571,8 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
         fields += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
         const tokens = classTokens(className?.initializer)
-        const light = Array.isArray(tokens) ? ringStates(tokens, DS_RING) : []
-        const dark = Array.isArray(tokens) ? ringStates(tokens, DS_RING_DARK) : []
+        const light = Array.isArray(tokens) ? ringStates(tokens, false) : []
+        const dark = Array.isArray(tokens) ? ringStates(tokens, true) : []
         const missing = Array.isArray(tokens)
           ? [
               ...FORMS_RING_OFF.filter((t) => !tokens.includes(t)),
@@ -978,6 +991,8 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <input type="date" className={busy ? inputClasses() : 'border px-2'} />
             <input type="date" className="border focus-visible:shadow-ring-brand dark:focus:shadow-ring-brand-dark ${reset}" />
             <input type="date" className="border focus:shadow-ring-brand-dark dark:focus:shadow-ring-brand-dark ${reset}" />
+            <input type="date" className="border focus:shadow-ring-brand dark:focus:shadow-ring-brnad-dark ${reset}" />
+            <input type="date" className="border focus:shadow-ring-brnad dark:focus:shadow-ring-brand-dark ${reset}" />
           </>
         )
       }`
@@ -985,7 +1000,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     const twin = 'its dark: twin in the same focus state'
     const ring = 'a focus:shadow-ring-* or focus-visible:shadow-ring-*'
     expect(factory).toBe(2)
-    expect(fields).toBe(13)
+    expect(fields).toBe(15)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       `7 <input> missing focus:ring-0, focus:ring-offset-0, ${twin}`,
       `9 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
@@ -1000,6 +1015,9 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       // A dark ring in another focus state than the light one, and a dark token standing in for the light ring.
       `23 <input> missing ${twin}`,
       `24 <input> missing ${ring}, ${twin}`,
+      // A misspelt token generates no CSS, so it is no ring, in either theme.
+      `25 <input> missing ${twin}`,
+      `26 <input> missing ${ring}, ${twin}`,
     ])
   })
 })

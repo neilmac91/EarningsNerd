@@ -1111,10 +1111,14 @@ describe("the field's tone is one class per state", SLOW, () => {
     const composer = render(<Textarea aria-label="Composer" variant="composer" />).container.querySelector('textarea')!
     const all = [...fields(), { name: 'Textarea composer', invalid: false, classes: [...composer.classList] }]
     await loadDeclarations(all.flatMap((f) => f.classes).map((t) => parseClass(t).utility))
+    // Every class that sets the property, not one per chain: a second setter (`focus:ring-2` beside `focus:ring-0`)
+    // would win by stylesheet order, and the composer is outside the `layered` check below.
+    const every = (classes: string[], prop: string) =>
+      classes.filter((t) => (declCache.get(parseClass(t).utility) ?? []).some((e) => !e.target && e.decls.some((d) => d.prop === prop)))
     for (const f of all) {
-      expect({ ring: setters(f.classes, '--tw-ring-shadow'), offset: setters(f.classes, '--tw-ring-offset-width') }, f.name).toEqual({
-        ring: { focus: 'focus:ring-0' },
-        offset: { focus: 'focus:ring-offset-0' },
+      expect({ ring: every(f.classes, '--tw-ring-shadow'), offset: every(f.classes, '--tw-ring-offset-width') }, f.name).toEqual({
+        ring: ['focus:ring-0'],
+        offset: ['focus:ring-offset-0'],
       })
     }
   })
