@@ -179,6 +179,53 @@
   box-shadow: 0 0 0 2px rgba(127, 178, 149, 0.50), 0 0 40px -5px rgba(127, 178, 149, 0.28);
 }
 
+/* Brand device — the margin and the mark (DESIGN.md › Graphic device; docs/brand/06-system.md).
+   The product's own behaviour made visible: a located passage is highlighted, a cited figure
+   carries a bracketed marker, and the marker's twin sits in a margin on the line it belongs to.
+   Theme pairs switch on .dark (DESIGN_SYSTEM.md §2). A mark never sits on a figure (the Separate
+   Signals Rule); the tint is a surface, never a text fill. */
+.en-mark {
+  background: linear-gradient(transparent 62%, #ECF2EE 62%); /* brand-weak */
+  box-shadow: inset 0 -2px 0 #CFE0D6; /* brand-border */
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.dark .en-mark {
+  background: linear-gradient(transparent 62%, rgba(127, 178, 149, 0.14) 62%); /* brand-weak-dark */
+  box-shadow: inset 0 -2px 0 rgba(127, 178, 149, 0.28); /* brand-border-dark */
+}
+/* A marked block: the located passage, in the filing's voice, with the bar on its left edge. */
+.en-marked {
+  border-left: 3px solid #4F7A63; /* brand */
+  background: #ECF2EE; /* brand-weak */
+  /* Square corners: a stripe never sits on a rounded container (DESIGN.md, the side-tab stripe). */
+  border-radius: 0;
+}
+.dark .en-marked {
+  border-left-color: #7FB295; /* brand-dark */
+  background: rgba(127, 178, 149, 0.14); /* brand-weak-dark */
+}
+/* The margin: a gutter with a hairline on its inner edge; marks are absolutely positioned on
+   the line of the marker they twin (features/marketing/components/MarkedCopy.tsx measures them). */
+.en-margin {
+  position: relative;
+  border-right: 1px solid #CFE0D6; /* brand-border */
+}
+.dark .en-margin { border-right-color: rgba(127, 178, 149, 0.28); /* brand-border-dark */ }
+.en-margin-mark {
+  position: absolute;
+  left: 0;
+  right: 0.5rem;
+  text-align: right;
+  font-family: var(--font-data);
+  font-size: 0.6875rem; /* data-xs: never smaller than the provenance chip's 12px in running copy; a twin, not copy */
+  font-weight: 600;
+  line-height: 1rem;
+  transform: translateY(-50%); /* centred on its marker's midpoint, whatever height it renders at */
+  color: #3C6650; /* brand-strong */
+}
+.dark .en-margin-mark { color: #98C5AD; /* brand-strong-dark */ }
+
 /* Hero accent word — solid sage ink, not a gradient. Tokenized: brand.strong
    in light, brand.strong-dark on navy. The legacy `.text-gradient-mint` alias
    is PURGED (v2.1 census) — re-point any straggler to this class. */

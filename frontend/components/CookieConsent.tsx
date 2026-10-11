@@ -200,8 +200,8 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
       <ModalBody>
         <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
-          We use cookies to enhance your experience, analyze site traffic, and provide
-          personalized content. Choose which cookies you&apos;re comfortable with.
+          Essential cookies keep you signed in and the site working. Analytics cookies and session
+          recording are off until you allow them here. Choose the ones you are comfortable with.
         </p>
 
         <div className="space-y-4">
@@ -337,11 +337,11 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
               <CookieIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark flex-shrink-0 mt-0.5" />
               <div>
                 <h3 className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">
-                  We value your privacy
+                  Cookies on this site
                 </h3>
                 <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  We use cookies to enhance your experience and analyze site usage. You can choose
-                  which cookies to accept.{' '}
+                  Essential cookies keep you signed in. Analytics cookies and session recording stay
+                  off until you allow them.{' '}
                   <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                     Learn more
                   </Link>

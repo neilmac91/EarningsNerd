@@ -29,8 +29,8 @@ export default function NotFound() {
         </span>
         <h1 className="mt-4 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">Page not found</h1>
         <p className="mt-2 max-w-[38ch] text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-          We couldn&apos;t find this page. The link may be mistyped or out of date. Search for a company
-          from the homepage, or open your dashboard.
+          We looked. The link is mistyped or out of date. Start from the homepage search, or open
+          your dashboard.
         </p>
         <div className="mt-6 flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <Link href="/" className={buttonVariants({ variant: 'primary' })}>

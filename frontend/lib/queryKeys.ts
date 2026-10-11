@@ -39,6 +39,10 @@ export const queryKeys = {
   notifications: () => ['notifications'] as const,
   notificationPreferences: () => ['notification-preferences'] as const,
   authConnections: () => ['auth-connections'] as const,
+  /** The public registration gate (/api/auth/registration): invite-only or public, read by surfaces
+   *  that offer an account CTA on the client (the pricing page), so none advertises a signup the
+   *  API would reject (features/marketing/lib/access.ts). */
+  registrationConfig: () => ['registration-config'] as const,
 
   // Same prefix as the library: save/delete invalidation refreshes every saved-state consumer.
   savedSummaryStatus: (summaryId: number | undefined, userId: number | undefined) =>

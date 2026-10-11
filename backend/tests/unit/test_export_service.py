@@ -179,7 +179,7 @@ class TestCsv:
         csv_out = service.generate_csv(summary, filing)
         assert csv_out.startswith("\ufeff")
         lines = csv_out.removeprefix("\ufeff").splitlines()
-        assert lines[0] == "EarningsNerd — AI-Powered SEC Filing Analysis"
+        assert lines[0] == "EarningsNerd · AI summaries of SEC filings"
         assert lines[1] == "earningsnerd.io"
         assert lines[2] == ""
         assert "BIOGEN INC." in lines[3]

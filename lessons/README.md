@@ -137,6 +137,9 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## Frontend & design system
 
+- brand-a-promise-names-what-the-code-enforces.md — Before a public sentence promises a behaviour, trace each surface it covers to the code that enforces it, flag defaults included, and scope the sentence to those (partly gated by `frontend/tests/unit/brandCopyRules.spec.ts`, rules 1, 1b and 1c; a new kind of promise is review-checked)
+- brand-the-mark-is-protected.md — Never change the EN monogram or the wordmark; brand work composes around them (arrangements, clear space and minimum sizes only) (partly gated by `frontend/tests/unit/markSingleSource.spec.ts`, which holds the outlines and their placement, and `wordmarkSingleSource.spec.ts`; the colours, the wordmark's composition and the small-size rule are review-checked)
+- frontend-check-brand-layouts-at-200-percent-text.md — Check a brand layout at 390px under a 200% root font: a figure pair wraps on its own content width, and a positioned twin centres on its anchor's measured midpoint
 - frontend-busy-controls-stay-focusable.md — A control busy with its own request stays focusable: aria-disabled plus an early return, never native disabled (partly gated by `frontend/tests/unit/busyControlsStayFocusable.spec.ts` (AST scan of every .tsx); the keyboard and focus hand-off rules are not)
 - frontend-check-luminance-vs-background.md — Verify surface luminance against the actual background, not token validity
 - frontend-citation-offset-boundaries.md — Resolve citation starts to the first matched character's text node and pin the actual flash target

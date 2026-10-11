@@ -197,6 +197,19 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     }
   })
 
+  it('keeps the precision a currency row was served with: "$7.46" never displays as "$7.5"', () => {
+    const rows: FinancialMetric[] = [
+      { metric: 'Diluted EPS', current_period: '$7.46', prior_period: '$6.08', change_display: '+22.7%', change_direction: 'up', change_tone: 'gain' },
+      { metric: 'Total net sales', current_period: '$416,161M', prior_period: '$391,035M', change_display: '+6.4%', change_direction: 'up', change_tone: 'gain' },
+    ]
+    const { container } = render(<FinancialMetricsTable metrics={rows} bare />)
+    for (const which of ['cards', 'table'] as const) {
+      const facts = factsOf(layout(container, which))
+      expect(facts.currents).toEqual(['$7.46', '$416.2B'])
+      expect(facts.priors).toEqual(['$6.08', '$391.0B'])
+    }
+  })
+
   it('a card is one <li> per served row, in order, each with the row’s name once and the caption naming the list', () => {
     const { container } = render(<FinancialMetricsTable metrics={FULL} bare />)
     const cards = cardList(container)

@@ -4,6 +4,8 @@ import { useState, Suspense, useRef, useEffect, useCallback, useId } from 'react
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { getRegistrationConfig } from '@/features/marketing/api/access-api'
+import { ACCESS_COPY, resolveAccessMode } from '@/features/marketing/lib/access'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { CheckIcon } from '@/lib/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -98,6 +100,19 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     enabled: !!currentUser,
   })
   const { data: usage, isError: usageError } = usageQuery
+
+  // The Free plan's account CTA follows the page-wide access decision (invite-only or public), read
+  // from the same payload the landing page reads on the server. Until it answers, and when it
+  // cannot, the CTA fails closed to the invite copy, so the Free card never advertises a signup
+  // /register would reject (audit T9). The Pro card's guest path is the upgrade flow's own: it
+  // still routes a guest through /register, which applies the gate itself.
+  const { data: registration } = useQuery({
+    queryKey: queryKeys.registrationConfig(),
+    queryFn: getRegistrationConfig,
+    retry: false,
+    staleTime: 60 * 60 * 1000,
+  })
+  const access = ACCESS_COPY[resolveAccessMode(registration ?? null)]
 
   // What the error Notices show. A failure keeps its Notice (and a focused Retry in it) through any
   // refetch until data replaces it.
@@ -216,7 +231,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
   const handleGetStartedFree = () => {
     // Same readiness as the buy action: an unresolved identity is not a guest.
     if (!identityResolved || isAuthenticated) return
-    router.push('/register')
+    router.push(access.href)
   }
 
   const plans = [
@@ -224,11 +239,11 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       name: 'Free',
       price: '$0',
       period: 'forever',
-      description: 'For trying out EarningsNerd',
+      description: 'For reading a few filings a month',
       features: [
         `${FREE_SUMMARY_LIMIT} summaries per month`,
         'Access to all filings',
-        'Basic AI summaries',
+        'The same summaries Pro reads',
         'Company search',
         'Historical filing access',
       ],
@@ -238,7 +253,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
         ? unresolvedCta
         : isAuthenticated && !subscription?.is_pro
         ? 'Current plan'
-        : 'Create free account',
+        : access.cta,
       disabled: !accountResolved || isAuthenticated,
       priceId: null,
       betaOriginal: null,
@@ -286,7 +301,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
       <SecondaryHeader
         title="Pricing"
-        subtitle="Choose the plan that fits your workflow"
+        subtitle="One summary per filing, generated once and shared"
         backHref="/"
         backLabel="Back to home"
       />
@@ -295,7 +310,9 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
         <div className="text-center mb-12">
           {/* SecondaryHeader already renders the page H1 ("Pricing"); no duplicate heading here. */}
           <p ref={introRef} tabIndex={-1} className="text-lg text-text-secondary-light dark:text-text-secondary-dark max-w-2xl mx-auto outline-none">
-            Choose the plan that works for you, with monthly or annual Pro billing.
+            Summaries are generated once per filing and shared. That is what makes unlimited reading
+            possible at this price. Pro is billed monthly or annually, and you can upgrade or
+            downgrade at any time.
           </p>
 
           {identityUnavailable ? (
@@ -368,7 +385,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
                 }}
               />
               <span id={yearlyLabelId} className={`text-sm font-medium ${billingCycle === 'yearly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
-                Yearly <span className="text-brand-strong dark:text-brand-strong-dark">(save {PRO_PRICING.annualSavingsPercent}%)</span>
+                Yearly <span className="font-semibold">(save {PRO_PRICING.annualSavingsPercent}%)</span>
               </span>
             </div>
           )}
@@ -463,7 +480,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
                   <p className="mt-1 text-sm font-semibold text-brand-strong dark:text-brand-strong-dark">Free for beta members · no card required</p>
                 )}
                 {plan.trialNote && (
-                  <p className="mt-1 text-sm font-semibold text-brand-strong dark:text-brand-strong-dark">{plan.trialNote}</p>
+                  <p className="mt-1 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{plan.trialNote}</p>
                 )}
                 <p className="text-text-secondary-light dark:text-text-secondary-dark mt-2">{plan.description}</p>
               </div>

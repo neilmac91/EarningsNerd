@@ -66,7 +66,7 @@ for (const theme of ['light', 'dark'] as const) {
 
     // Body copy and the heading clear AA on the card.
     expect(await textContrast(main.getByRole('heading', { level: 1 }))).toBeGreaterThanOrEqual(4.5)
-    expect(await textContrast(main.getByText(/link may be mistyped/))).toBeGreaterThanOrEqual(4.5)
+    expect(await textContrast(main.getByText(/link is mistyped/))).toBeGreaterThanOrEqual(4.5)
   })
 }
 
