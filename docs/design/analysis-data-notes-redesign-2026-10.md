@@ -254,7 +254,8 @@ What a reader sees in the three states (the strip's summary line; state 2 is the
   Operating margin (Q2 2026); Net margin (Q2 2026) · Comparisons: Revenue (Q2 2026); Operating margin (Q2
   2026); Net margin (Q2 2026) · 3 figures · 6 comparisons carry this note: 3
   quarter-over-quarter changes in the table and 3 year-over-year changes, of which the headline cards
-  show two and the exports carry all · check the original filing before relying on these figures";
+  show two, the revenue growth chart shows one and the exports carry all · check the original filing before
+  relying on these figures";
   note b as above.
 
 The summary names each note's letter beside its count, so the resting line is the key to the marks on
@@ -981,5 +982,6 @@ correction landed in this document:
   reasons its record supplied (keyed by the canonical set, `legacy_unknown` only for an empty one, as
   `lib/dataNotes.ts` does); an open note lists where its comparisons are; the dialog explains the
   displayed change (§4.6 item 5) with its status, the operand that carries the note, its formula and its
-  inputs.
+  inputs; the open note's locator counts the revenue growth chart, which plots revenue's YoY comparisons
+  with their letters.
 

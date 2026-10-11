@@ -145,7 +145,14 @@ both themes, reduced motion respected.
   actions / Not in this PR / Review. Open every PR as a draft. `git status` empty after each commit.
 - Deploy discipline (`AGENTS.md` §6) for Phase 2: one unverified backend deploy at a time.
 - After any founder correction, add or update a file in `lessons/` (its README gives the format).
-- Do not run the data repair, do not generate paid AI analyses, do not change production flags.
+- Do not run the data repair and do not change production flags. Do not generate paid AI analyses, with
+  one bounded exception the RUNBOOK prescribes: before Phase 2 item 4 bumps `PROMPT_VERSION` (which
+  invalidates every cached narrative fleet-wide), run the "Multi-Period Analysis observation-selector
+  gate" of `backend/evals/RUNBOOK.md` in full: the offline gate, then fresh analyses for three diverse
+  real companies in both modes with its spot-check protocol, then a cache re-serve of each result. That
+  is bounded measurement spend under `AGENTS.md` §3 (read the balance first; state the ceiling, six
+  generations plus their re-serves, and the protocol's results in that PR's body, under Founder actions),
+  not a standing permission: no other paid analysis is authorised by this hand-over.
 </rules_that_bind>
 
 <done_looks_like>

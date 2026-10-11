@@ -274,10 +274,13 @@
       const c = el('div', { class: 'counts' })
       if (g.kind === 'review') {
         const qoq = g.comparisons.filter((x) => x.basis === 'qoq').length, yoy = g.comparisons.filter((x) => x.basis === 'yoy').length
-        // YoY changes are displayed only on the headline cards (their latest populated point); the table shows
-        // QoQ (or the labelled YoY fallback) and the exports carry every comparison.
+        // YoY changes are displayed on the headline cards (their latest populated point) and, for revenue, on the
+        // growth line of the revenue panel (§4.7); the table shows QoQ (or the labelled YoY fallback) and the
+        // exports carry every comparison.
         const onCards = g.comparisons.filter((x) => x.basis === 'yoy' && ['revenue', 'net_income', 'free_cash_flow', 'net_margin'].includes(x.series.concept) && latestPoint(x.series) === x.point).length
-        c.append(`${g.values.length} figure${g.values.length === 1 ? '' : 's'}`, g.comparisons.length ? ` · ${g.comparisons.length} comparison${g.comparisons.length === 1 ? '' : 's'} carry this note: ${qoq} quarter-over-quarter change${qoq === 1 ? '' : 's'} in the table and ${yoy} year-over-year change${yoy === 1 ? '' : 's'}, of which the headline cards show ${['none', 'one', 'two', 'three', 'four'][onCards] || onCards} and the exports carry all` : '')
+        const onChart = g.comparisons.filter((x) => x.basis === 'yoy' && x.series.concept === 'revenue').length
+        const count = (n) => ['none', 'one', 'two', 'three', 'four'][n] || n
+        c.append(`${g.values.length} figure${g.values.length === 1 ? '' : 's'}`, g.comparisons.length ? ` · ${g.comparisons.length} comparison${g.comparisons.length === 1 ? '' : 's'} carry this note: ${qoq} quarter-over-quarter change${qoq === 1 ? '' : 's'} in the table and ${yoy} year-over-year change${yoy === 1 ? '' : 's'}, of which the headline cards show ${count(onCards)}${onChart ? `, the revenue growth chart shows ${count(onChart)}` : ''} and the exports carry all` : '')
         if (g.reasons.includes('legacy_calculation')) c.append(' · figures are shown as stored; their source lineage is not recorded')
         if (g.reasons.includes('source_conflict')) c.append(' · review the original filing before relying on these figures')
       } else if (g.kind === 'unknown') {
