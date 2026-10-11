@@ -6638,6 +6638,14 @@ Full local and hosted verification plus independent exact-head review precede re
   worker requests `200`; every durable-tasks post-deploy check completed, with an independent check (the first probe
   unverified). Seven deploys by other writers read back (healthy; every pin in place, confirmed live). Lesson
   `lessons/ops-denied-reads-report-unverified.md`. Closure 173.
+- 2026-10-11 (record 23, `runtime/control/DECISIONS-23.md`): PR #1184 (record 22) merged `322e12d8` (seventeenth deploy-skip
+  proof). The read-back follow-ups (`readback-followups-pr-01`) designed by a workflow, applied by the chief, reviewed in
+  draft (three lenses with refuters, one implementation context, a delta reviewer over two checks: no blocker) and merged as
+  PR #1195 → `f64d6040` (eighteenth proof): no gcloud error text in the describe-service, describe-jobs or logs-probe logs;
+  the receipt's message address-redacted; both heredocs committed modules; a rule-12 gate with a shrink-only `INHERITED`
+  map. Live read-backs after it: `describe-service` PASS (the worker invoker policy PRIVATE), `describe-jobs` PASS,
+  `logs-probe` PERMITTED. Thirty-nine main runs classified; twenty-three deploys by other writers read back (healthy;
+  every pin in place, read from the logs). A review agent's environment echo, the second (founder: key rotation). Closure 174.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
@@ -6675,6 +6683,9 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] Chief: complete the durable-tasks post-deploy checklist (`docs/DEPLOYMENT.md`) from the read-backs and a readout,
       with an independent check (`durable-tasks-check-01`); baseline already read (record 20). Completed 2026-10-10
       (record 22).
+- [x] Chief: the read-back follow-ups (`readback-followups-pr-01`, record 22): describe-service's shell read and logs-probe's
+      denied branch print no gcloud error text, the receipt's message is address-redacted, both heredocs are committed
+      modules, the not-executable class is pinned; a rule-12 gate. Merged `f64d6040` (PR #1195), deploying nothing (record 23).
 - [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", including Codex's own
       summary boilerplate, which cancelled a required run on PR #1131 (record 17); exclude the Codex connector's comments.
 - [x] Founder (optional, now; folded into record 17's option A): the D3 staging answer rested on an overstated premise (the insider panel is off in production;
