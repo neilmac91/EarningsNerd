@@ -312,13 +312,13 @@ def _session_names_in(fn: ast.AST, engines: frozenset[str] = frozenset()) -> set
             for item in node.items:
                 if isinstance(item.optional_vars, ast.Name) and _opens_session(item.context_expr):
                     names.add(item.optional_vars.id)
-    names.update(name for name, value in _local_bindings(fn) if _opens_session(value))
+    bindings = list(_local_bindings(fn))
+    names.update(name for name, value in bindings if _opens_session(value))
     # An engine and a Connection write as a session does (``engine.begin()``, ``conn.execute(...)``).
     names |= _ENGINE_NAMES | set(engines) | {
-        name for name, value in _local_bindings(fn)
+        name for name, value in bindings
         if isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id == "create_engine"
     }
-    bindings = list(_local_bindings(fn))
     opened = [(item.optional_vars.id, item.context_expr) for node in ast.walk(fn)
               if isinstance(node, (ast.With, ast.AsyncWith)) for item in node.items
               if isinstance(item.optional_vars, ast.Name)]
@@ -359,8 +359,9 @@ def _query_names_in(fn: ast.AST, sessions: set[str]) -> set[str]:
     ``narrowed = q.filter(...)``. A chain that ends by fetching (``.first()``, ``.all()`` …) binds
     its rows, not a Query."""
     names: set[str] = set()
+    bindings = list(_local_bindings(fn))
     while True:
-        bound = {name for name, value in _local_bindings(fn) if _binds_query(value, sessions, names)}
+        bound = {name for name, value in bindings if _binds_query(value, sessions, names)}
         if bound <= names:
             return names
         names |= bound
