@@ -26,8 +26,8 @@ overstated the gap), none on `2b38435`, one on `b6dc9f7` (the checkpoint's row c
 three), two on `25c09db` (the lesson's UNVERIFIED pass-through read as universal; its class set left out `error (gcloud not
 executable)`), one on `34bd90d` (the lesson's closed-class claim covered describe-service's shell read, which printed gcloud's
 stderr) and none on `6e1fa34` (a manual run at 15:04:11Z and the ready run's thumbs-up at 15:10:35Z) — six P2s, each fixed in the next
-head. Two heads were not reviewed: `d0925d5`, superseded 89 s later by `0f8a860` (the PR-number fill), before the first request
-(13:55:47Z); and `6dd8f69`, requested at 14:59:55Z and superseded when `6e1fa34` was pushed at 15:01:35Z, before a result was posted; each
+head. Two heads were not reviewed: `d0925d5`, superseded when `0f8a860` (the PR-number fill) was pushed at 13:54:32Z, 86 s after `d0925d5`'s push and 27 s after
+the PR opened, before the first request (13:55:47Z); and `6dd8f69`, requested at 14:59:55Z and superseded when `6e1fa34` was pushed at 15:01:35Z, before a result was posted; each
 was covered by its successor's review. Marked ready 15:07:26Z; `review-gate` passed at 15:10:38Z, on the ready run; the merge train
 (session `018w7VWiSMYqGddE2thede6V`) was told first; squash-merged `322e12d8` at 15:11:22Z with an explicit title and message; main
 CI run 38062599862 green (15:11:25–15:16:51Z); `deploy-backend` job 114244745447 (15:16:40–15:16:50Z): the detector step ran, steps
@@ -60,9 +60,10 @@ lenses (correctness, rules-and-brief, tests-and-gates) and two refuters per shou
 should-fixes on six issues: the inline-Python gate missed spellings such as `python3 -I - <<` (all three lenses found it), the rule text's scope,
 the redirect regex (`2>/dev/null 2>&1` read as discarded), opaque shell forms (backticks, `eval`, `sh -c`), the AST stderr gate,
 and the F2 vectors; all sixteen refutation attempts failed, so every finding stood. Twelve nits. One implementation context
-(launched 20:11:32Z, agent `aaecfbb8c29670557`) applied the eight should-fixes and ten nits as a patch in an exclusion-safe scratch
+(launched 20:11:32Z, agent `aaecfbb8c29670557`) applied seven should-fixes and most of the eighth (its remaining part, a spawner bound to another name, was found missing by the
+delta review and went into `d33c2dc`) and ten nits as a patch in an exclusion-safe scratch
 tree, with a planted mutation per fix; it was launched while the second refuter of one finding and both refuters of two others had
-not yet returned (disclosure 1); the chief applied the patch, ran the full gate (6760 passed) and pushed `a3eb755` (21:31:10Z); the
+not yet returned (disclosure 1); the chief applied the patch, ran the full gate (6760 passed) and pushed `a3eb755` (committed 21:31:10Z, pushed 21:32:14Z); the
 PR-body nit went into the body; the step-budget nit was kept as an accepted risk pinned by an arithmetic test. CI run 38088006357
 green (backend 6781 passed on the merge with main); Codex found no issues on `a3eb755` (21:36:29Z).
 **Delta review.** One delta reviewer (launched 21:34:32Z, agent `a2e58a8505e7f7641`; one context for both checks) bound no blocker
@@ -71,7 +72,7 @@ bound to another name (`run = subprocess.run`, `functools.partial`) slipped past
 fix had left out), and a repeated step name or a second unnamed run step hid from the name-keyed step map (present since `4414260`)
 — and seven nits (prefixed and quoted spellings, two kept redaction shapes left out of the docs, the unpinned last-redirect rule, a
 quoted-URL row, the service docstring, the Python 3.12 wording, the PR body). The chief applied all of them in `d33c2dc`
-(22:52:31Z): full gate 6771 passed; ten planted mutations, each having passed all 324 tests of the ten pinned files at `a3eb755`,
+(committed 22:52:31Z, pushed 22:52:33Z): full gate 6771 passed; ten planted mutations, each having passed all 324 tests of the ten pinned files at `a3eb755`,
 each now fail exactly one test, and the restored copy gives 335 passed. CI run 38093032559 green (backend 6792 passed); Codex found
 no issues on `d33c2dc` (22:54:58Z). The reviewer's second check bound no blocker and no should-fix to `d33c2dc` (hand-back
 23:10Z; 47 mutations), with four optional PR-body nits, applied in the body; two documentation additions they name (two more kept
@@ -185,15 +186,16 @@ PERMITTED (3 recent entries visible)`; the denied branch, now a closed class, st
    20:21Z) and both refuters of the AST-gate and F2-vector findings (to 20:52Z) had not yet returned, a launch that risked applying a
    fix for a finding a refuter might kill; all sixteen attempts failed, so no applied fix lacks a standing finding; (b) the three
    read-only dispatches were sent within nine seconds, and GitHub keeps one pending run per concurrency group, so the logs-probe
-   dispatch cancelled the queued describe-jobs one, which was re-dispatched once logs-probe had started; (c) that re-dispatch ran
-   while #1224's CI, pushed between the dispatches, was in its test jobs, against the chief's own rule of no read while a main push
-   is in flight (its deploy job had not started; above); (d) the chief's filter v2 kept no `logs-probe:` line, so the verdict was
+   dispatch cancelled the queued describe-jobs one, which was re-dispatched once logs-probe had started; (c) that re-dispatch was
+   sent and ran while #1224's CI, pushed between the dispatches, was in its test jobs, against the chief's own rule of no read while a
+   main push is in flight (its deploy job had not started; above); the logs-probe run (08:45:09–08:45:35Z) and the end of the
+   describe-service run, both dispatched before #1224 merged, also overlapped that CI's test jobs; (d) the chief's filter v2 kept no `logs-probe:` line, so the verdict was
    read from a second filtered download with the pattern added (filter v3) and the raw copy deleted again; (e) the session sat idle
    from about 23:20Z to 08:19Z after telling the merge train #1195 would merge "within about 10 minutes"; the heads-up was re-sent
-   before the merge. **A wording correction**, the same class as records 21 and 22's: the chief's working notes put #1184's
-   `review-gate` success at 15:07:31Z; the check run completed at 15:10:38Z, which this record states. The notes are not part of the
-   repository. The chief's message to the founder after #1195's merge said "the 43 main merges since record 22"; the count is the
-   thirty-nine runs this record classifies.
+   before the merge. **Two wording corrections**, the same class as records 21 and 22's: the chief's working notes put #1184's
+   `review-gate` success at 15:07:31Z (the check run's start); the check run completed at 15:10:38Z, which this record states. The
+   notes are not part of the repository. And the chief's message to the founder after #1195's merge said "the 43 main merges since
+   record 22"; the count is the thirty-nine runs this record classifies.
 2. **`record-22-reviewer-01`'s own deviations** (its first hand-back): a `git fetch -q origin main` on the checkout fast-forwarded
    the checkout's remote-tracking `origin/main` from `aa9cf45` to `39d96e0` (reflog 14:22:41Z; working tree, index, branch and HEAD
    unchanged; not reverted, which would be another write); two `git merge-tree --write-tree` calls wrote unreferenced objects into
@@ -223,9 +225,11 @@ PERMITTED (3 recent entries visible)`; the denied branch, now a closed class, st
 6. **Side effects of this record:** read-only GitHub requests (PR, run, job and check-run reads); twenty-nine job logs
    downloaded through the platform's REST API with the preconfigured CLI — the twenty-three deploys above and the three ops runs
    (logs-probe twice), each redacted locally and the raw copy deleted, and two PR backend-test logs read only for their result
-   lines; four read-only `ops.yml` dispatches (one cancelled); PR #1195's body edited, three
-   `@codex review` requests, marked ready and squash-merged; three cross-session messages to the merge trains (session
-   `018w7VWiSMYqGddE2thede6V` twice, `01XCLCs7hHjZamJ3x4bQMaCL` once, before #1195's merge; one reply received); the records branch
+   lines; four read-only `ops.yml` dispatches (one cancelled); PR #1184's body edited, eight `@codex review`
+   requests, Codex's six findings answered in their threads and the threads resolved, marked ready and squash-merged; PR #1195 opened
+   as a draft, its title and body edited, three `@codex review` requests, marked ready and squash-merged; three cross-session messages
+   to the merge trains, all before #1195's merge (session `018w7VWiSMYqGddE2thede6V` at about 23:14Z and again at 08:26Z, session
+   `01XCLCs7hHjZamJ3x4bQMaCL` at 08:26Z; one reply received); the records branch
    recreated from main; a local throwaway merge branch for the pre-merge gate, never pushed and deleted; agent and workflow launches as
    closure 174 registers; scratchpad only otherwise (the chief deleted the finished review workflow's 13 GB of per-agent copies).
 7. **Other writers' read-only dispatches:** ops run 38088527035 (2026-10-10T21:40:32Z, `describe-service` on main `a74df3b2`) was not
