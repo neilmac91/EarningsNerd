@@ -50,6 +50,9 @@ type Summary = { rendered_sections: { id: string; blocks: { kind: string; metric
 const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
 const BASE = JSON.parse(readFileSync(path.join(__dirname, 'fixtures/filing-3-summary.json'), 'utf8')) as Summary
 const ROWS = JSON.parse(readFileSync(path.join(__dirname, 'fixtures/filing-3-metric-rows.json'), 'utf8')) as Row[]
+const GENERIC_SECTIONS = JSON.parse(readFileSync(path.join(__dirname, 'fixtures/filing-generic-tables.json'), 'utf8')) as {
+  id: string; title: string; blocks: { kind: string; headers: string[]; rows: string[][] }[]
+}[]
 const FOLDER = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
 const FILING = {
   id: 3,
@@ -116,8 +119,8 @@ async function answerApi(page: Page, baseURL: string, summary: Summary) {
 }
 
 /** Anonymous reader, consent stored and the first-run nudge seen, so no chrome sits over the summary. */
-async function openFiling(page: Page, baseURL: string, { theme = 'light', rows = ROWS }: { theme?: Theme; rows?: Row[] } = {}) {
-  await answerApi(page, baseURL, withRows(rows))
+async function openFiling(page: Page, baseURL: string, { theme = 'light', rows = ROWS, generic = false }: { theme?: Theme; rows?: Row[]; generic?: boolean } = {}) {
+  await answerApi(page, baseURL, generic ? { ...BASE, rendered_sections: GENERIC_SECTIONS } : withRows(rows))
   await page.addInitScript((theme: Theme) => {
     try {
       localStorage.setItem('theme', theme)
@@ -126,7 +129,7 @@ async function openFiling(page: Page, baseURL: string, { theme = 'light', rows =
     } catch {}
   }, theme)
   await page.goto('/filing/3')
-  await expect(page.locator(SECTION)).toBeVisible()
+  await expect(page.locator(generic ? '#notable-footnotes' : SECTION)).toBeVisible()
   await page.evaluate(() => document.fonts.ready)
 }
 
@@ -778,3 +781,58 @@ test.describe('the landing page sample (the non-bare caller)', () => {
     await expect(evidence.locator('[data-metrics-layout="cards"]')).toBeHidden()
   })
 })
+
+// Generic segment/footnote tables keep one native table at every width. On phones their prose
+// columns retain a readable measure, and only an overflowing table gains a named keyboard region.
+for (const theme of ['light', 'dark'] as const) {
+  for (const width of [320, 390]) {
+    test.describe(`generic summary tables / ${theme} / ${width}`, () => {
+      test.use({ viewport: { width, height: 844 } })
+      test('keeps complete native tables readable and locally scrollable, including sources and font enlargement', async ({ page, baseURL }) => {
+        await openFiling(page, baseURL!, { theme, generic: true })
+        for (const section of GENERIC_SECTIONS) {
+          const table = page.getByRole('table', { name: section.title, exact: true })
+          const region = page.getByRole('region', { name: `Scrollable table: ${section.title}`, exact: true })
+          await expect(region).toBeVisible()
+          await expect(region).toHaveAttribute('aria-describedby', /.+/)
+          expect(await table.locator('thead th').allTextContents()).toEqual(section.blocks[0].headers)
+          const cells = await table.locator('tbody tr').evaluateAll((rows) => rows.map((row) => Array.from(row.querySelectorAll('td')).map((cell) => cell.firstChild?.textContent ?? '')))
+          expect(cells).toEqual(section.blocks[0].rows)
+          const proseCell = table.locator('tbody tr').first().locator('td').last()
+          expect((await rectOf(proseCell)).w, 'prose is squeezed into a word stack').toBeGreaterThanOrEqual(160)
+          expect((await rectOf(table.locator('tbody tr').first())).h, 'the representative first row stays readable').toBeLessThan(180)
+          await settleUnderChrome(page, region)
+          await region.focus()
+          const pageScroll = await page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }))
+          await page.keyboard.press('ArrowRight')
+          await expect.poll(() => region.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0)
+          expect(await page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }))).toEqual(pageScroll)
+          const shadow = await region.evaluate((el) => getComputedStyle(el).boxShadow)
+          expect(shadow).not.toBe('none')
+        }
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+        const source = page.locator('#notable-footnotes').getByRole('button', { name: 'Source: Verified in filing', exact: true })
+        await source.focus()
+        await page.keyboard.press('Enter')
+        const pane = page.getByRole('dialog', { name: 'Filing source and Ask' })
+        await expect(pane).toBeVisible()
+        await page.keyboard.press('Escape')
+        await expect(source).toBeFocused()
+        await page.evaluate(() => { document.documentElement.style.fontSize = '125%' })
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+        for (const section of GENERIC_SECTIONS) {
+          const region = page.getByRole('region', { name: `Scrollable table: ${section.title}`, exact: true })
+          await expect(region).toBeVisible()
+          expect(await region.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true)
+        }
+        await page.evaluate(() => { document.documentElement.style.fontSize = '' })
+        await page.setViewportSize({ width: 1280, height: 900 })
+        await expect(page.getByRole('region', { name: /^Scrollable table:/ })).toHaveCount(0)
+        for (const section of GENERIC_SECTIONS) {
+          const table = page.getByRole('table', { name: section.title, exact: true })
+          await expect(table.locator('..')).not.toHaveAttribute('tabindex')
+        }
+      })
+    })
+  }
+}

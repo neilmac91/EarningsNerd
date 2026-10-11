@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Badge } from '@/components/ui'
 import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
 import { Callout } from '@/features/summaries/components/Callout'
@@ -105,16 +105,24 @@ export function SummaryBlocks({ sections, summary, whatChanged }: SummaryBlocksP
     return <SectionEmpty label="summary" />
   }
 
-  const pageSections: PageSection[] = sections.map((section) => ({
-    id: section.id,
-    title: section.title,
-    tone: section.tone,
-    body: isRisksSection(section) ? (
-      <SummaryRisks risks={risks} projection={riskProjection} />
-    ) : (
-      section.blocks.map((block, i) => <BlockView key={i} block={block} />)
-    ),
-  }))
+  const pageSections: PageSection[] = sections.map((section) => {
+    const tableCount = section.blocks.filter((block) => block.kind === 'table').length
+    let tableNumber = 0
+    return {
+      id: section.id,
+      title: section.title,
+      tone: section.tone,
+      body: isRisksSection(section) ? (
+        <SummaryRisks risks={risks} projection={riskProjection} />
+      ) : (
+        section.blocks.map((block, i) => <BlockView key={i} block={block}
+          tableLabel={block.kind === 'table'
+            ? `${section.title}${tableCount > 1 ? `, table ${++tableNumber} of ${tableCount}` : ''}`
+            : undefined}
+        />)
+      ),
+    }
+  })
   if (whatChanged && withChanges) {
     const metricsAt = sections.findIndex((section) => section.blocks.some((block) => block.kind === 'metrics'))
     pageSections.splice(metricsAt === -1 ? 1 : metricsAt + 1, 0, {
@@ -221,7 +229,7 @@ function MobileSectionNav({ sections }: { sections: PageSection[] }) {
 
 /** One Block.kind → one renderer. The backend already strips field-name scaffolding, so text
     blocks render as plain prose (no ReactMarkdown needed). Unknown kinds render nothing. */
-function BlockView({ block }: { block: RenderedBlock }) {
+function BlockView({ block, tableLabel }: { block: RenderedBlock; tableLabel?: string }) {
   switch (block.kind) {
     case 'paragraph':
       return block.text ? (
@@ -270,6 +278,7 @@ function BlockView({ block }: { block: RenderedBlock }) {
     case 'table':
       return (
         <GenericTable
+          label={tableLabel ?? 'Summary table'}
           headers={block.headers ?? []}
           rows={block.rows ?? []}
           rowEvidence={block.row_evidence}
@@ -302,14 +311,27 @@ const WHOLE_FIGURE = /^\P{L}*[KMBT]?$/iu
 /** A plain string-cell table (segments, footnotes) on reader-table manners: hairline rows with no
     outer frame, no header fill, eyebrow header, and numeric COLUMNS detected via parseNumeric and
     rendered right-aligned in the data face (segment-revenue grids were left-aligned prose). The
-    outer cells sit flush with the section's text edge. Horizontal scroll keeps wide grids from
-    pushing the page sideways. When `rowEvidence` is present (T4 — footnotes), a per-row
+    outer cells sit flush with the section's text edge. On phones, prose columns keep a readable
+    measure instead of shrinking into tall word stacks. Wide tables scroll in a named keyboard
+    region; tables that fit add no stop. When `rowEvidence` is present (T4 — footnotes), a per-row
     Trace-to-Source chip is appended under the row's last cell. */
-function GenericTable({ headers, rows, rowEvidence }: {
+function GenericTable({ label, headers, rows, rowEvidence }: {
+  label: string
   headers: string[]
   rows: string[][]
   rowEvidence?: (BlockEvidence | null)[]
 }) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  const hintId = useId()
+  const [overflowing, setOverflowing] = useState(false)
+  useEffect(() => {
+    const box = boxRef.current
+    if (!box || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => setOverflowing(box.scrollWidth > box.clientWidth))
+    observer.observe(box)
+    if (box.firstElementChild) observer.observe(box.firstElementChild)
+    return () => observer.disconnect()
+  }, [rows, headers])
   if (rows.length === 0) return null
   const hasRowEvidence = rowEvidence?.some(Boolean) ?? false
   const colCount = Math.max(headers.length, ...rows.map((r) => r.length))
@@ -322,8 +344,13 @@ function GenericTable({ headers, rows, rowEvidence }: {
       cells.every((v) => v === '' || v === '—' || v === '-' || (WHOLE_FIGURE.test(v) && parseNumeric(v) !== null))
   })
   return (
-    <div className="overflow-x-auto">
+    <div>
+      {overflowing && <p id={hintId} className={`mb-2 text-xs ${MUTED}`}>Scroll horizontally to read all columns.</p>}
+      <div ref={boxRef}
+        className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+        {...(overflowing ? { role: 'region', 'aria-label': `Scrollable table: ${label}`, 'aria-describedby': hintId, tabIndex: 0 } : {})}>
       <table className="min-w-full border-collapse">
+        <caption className="sr-only">{label}</caption>
         {headers.length > 0 && (
           <thead>
             <tr className={`border-b ${HAIRLINE}`}>
@@ -349,18 +376,20 @@ function GenericTable({ headers, rows, rowEvidence }: {
               <tr key={r} className={`border-b ${HAIRLINE}`}>
                 {row.map((cell, c) => (
                   <td key={c}
-                    className={`px-3 py-2.5 text-sm first:pl-0 last:pr-0 ${MUTED}${cellAlign}${numericCol[c] ? ' text-right font-data tabular-nums whitespace-nowrap' : ''}`}>
+                    className={`px-3 py-2.5 text-sm first:pl-0 last:pr-0 ${MUTED}${cellAlign}${numericCol[c] ? ' text-right font-data tabular-nums whitespace-nowrap' : ' min-w-[12rem] [overflow-wrap:anywhere] md:min-w-0'}`}>
                     {cell}
                     {c === last && ev && (
                       <span className="mt-1 block"><EvidenceChip evidence={ev} /></span>
                     )}
                   </td>
                 ))}
+                {row.length === 0 && ev && <td colSpan={Math.max(1, colCount)} className="py-2.5"><EvidenceChip evidence={ev} /></td>}
               </tr>
             )
           })}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }
