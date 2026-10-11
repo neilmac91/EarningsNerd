@@ -50,8 +50,9 @@ import { bindingResolver } from './astBindings'
  * DS primitives they render included (Modal's close ✕ is one of their stops). The page header also
  * renders the controls a page passes into its `actions` slot (the dashboard's "Log out"), so every
  * `<SecondaryHeader actions={…}>` in the app is scanned too, and its controls must be written inline. A
- * page's other controls are not chrome: the filing identity strip's breadcrumb carries the recipe but
- * is outside this gate. This is the rule's one gate (AGENTS.md §4): no e2e walk repeats it.
+ * page's other controls are not chrome. The named PAGE_CONTROL_ROOTS extend the same gate to check-email,
+ * settings, invites and watchlist (their fields already have app-wide coverage). Other pages, including
+ * the filing identity strip, remain outside that scope. This is the rule's one gate (AGENTS.md §4): no e2e walk repeats it.
  */
 const ROOT = path.resolve(__dirname, '../..')
 
@@ -65,6 +66,9 @@ const ROOT = path.resolve(__dirname, '../..')
  * widget or primitive the chrome imports is scanned without anyone listing it.
  */
 const CHROME_ROOTS = ['app/layout.tsx', 'features/auth/components/AuthShell.tsx', 'components/SecondaryHeader.tsx']
+/** The page-control follow-up owns these routes and their feature modules’ raw controls. Field recipes
+    already have app-wide coverage below and in inputClassesNoOverrides; this adds their other Tab stops. */
+const PAGE_CONTROL_ROOTS = ['app/check-email/page.tsx', 'app/dashboard/settings/page.tsx', 'app/admin/invites/page.tsx', 'app/dashboard/watchlist/page.tsx']
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the
@@ -226,6 +230,8 @@ function importedNames(clause: ts.ImportClause | undefined): Set<string> | '*' {
 const RINGS = [
   ['focus-visible:outline-none', 'focus-visible:shadow-ring-brand', 'dark:focus-visible:shadow-ring-brand-dark'],
   ['focus:outline-none', 'focus:shadow-ring-brand', 'dark:focus:shadow-ring-brand-dark'],
+  ['focus-visible:outline-none', 'focus-visible:shadow-ring-brand-inset', 'dark:focus-visible:shadow-ring-brand-inset-dark'],
+  ['focus-visible:outline-none', 'focus-visible:shadow-ring-error', 'dark:focus-visible:shadow-ring-error-dark'],
 ]
 /** @tailwindcss/forms rings a focused field (text input, textarea, select, checkbox, radio) itself; these take that ring off. */
 const FORMS_RING_OFF = ['focus:ring-0', 'focus:ring-offset-0']
@@ -338,9 +344,9 @@ function defaultImportNames(sf: ts.SourceFile, matches: (module: string) => bool
 const parse = (source: string, fileName: string) => ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
 
 /** Every Tab stop in `source` whose className does not carry the brand ring. */
-function missingRings(source: string, fileName = 'chrome.tsx'): { stops: number; findings: Finding[] } {
+function missingRings(source: string, fileName = 'chrome.tsx', fieldsSeparately = false): { stops: number; findings: Finding[] } {
   const sf = parse(source, fileName)
-  return scan(sf, sf)
+  return scan(sf, sf, fieldsSeparately)
 }
 
 /** The same check on the controls `source` passes into a `<SecondaryHeader actions={…}>` slot. */
@@ -478,7 +484,7 @@ function classify(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.
   return { tag, attr, tabbable, focusable, field, spread, unstylable }
 }
 
-function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Finding[] } {
+function scan(root: ts.Node, sf: ts.SourceFile, fieldsSeparately = false): { stops: number; findings: Finding[] } {
   // next/link's default export under whatever name the file imports it as.
   const linkNames = defaultImportNames(sf, (m) => m === 'next/link')
   const findings: Finding[] = []
@@ -486,7 +492,7 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
   const visit = (node: ts.Node): void => {
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       const { tag, attr, tabbable, field, spread, unstylable } = classify(node, sf, linkNames)
-      if (tabbable) {
+      if (tabbable && !(fieldsSeparately && field)) {
         stops += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
         const className = attr('className')
@@ -898,6 +904,19 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       expect(findings.map((f) => `${file}:${f.line} <${f.tag}> ${f.problem}`)).toEqual([])
     })
   }
+
+  it('check-email, settings, invites and watchlist controls carry a ring in both themes', () => {
+    // Page/feature markup is the added scope. Shared composition helpers (Card, CompanyLogo,
+    // RetryButton) accept props and are not raw page controls; their existing owning gates remain.
+    const pages = chromeFiles(PAGE_CONTROL_ROOTS).filter((file) => !discovered.includes(file)
+      && (file.startsWith('app/') || file.startsWith('features/') || file === 'components/ui/Switch.tsx'))
+    for (const file of ['features/settings/components/ConnectedAccounts.tsx', 'features/settings/components/NotificationPreferencesForm.tsx', 'features/admin/components/InviteRow.tsx', 'features/watchlist/components/WatchlistAddSearch.tsx', 'components/ui/Switch.tsx']) {
+      expect(pages, 'the page-control graph must reach its controls').toContain(file)
+    }
+    const findings = pages.flatMap((file) => missingRings(readFileSync(path.join(ROOT, file), 'utf8'), file, true)
+      .findings.map((f) => `${file}:${f.line} <${f.tag}> ${f.problem}`))
+    expect(findings).toEqual([])
+  })
 
   it('controls a page passes into the page header\'s actions slot', () => {
     const consumers = appSources().filter((f) => /from ['"]@\/components\/SecondaryHeader['"]/.test(readFileSync(path.join(ROOT, f), 'utf8')))
