@@ -91,8 +91,9 @@ does not, nor does a property's own accessor, which copies the property), or a d
 a decorator that is not inert or, for a class, with keywords or a base that is not a builtin class (a name
 bound around the class statement, in its class body or the module, or through ``global``, is none), whose
 class-creation code may run its methods; a member class's body runs there too, and so is read for what it
-creates in turn. A dunder there is read by Python itself as well, wherever an old symbol stands above the
-binding (the next paragraph). The settlement covers reads only: moved code that rebinds the name, at module
+creates in turn, as are a ``match`` statement's cases, which are no symbols of their own (``_definitions``).
+A dunder there is read by Python itself as well, wherever an old symbol stands above the binding (the next
+paragraph). The settlement covers reads only: moved code that rebinds the name, at module
 level or through ``global``, rebound the old file's copy and now rebinds the target's, for every importer,
 and is reported. A class body is one namespace for ``global``, which the proof reads member by member: the
 member that stores or deletes a name its class body declares ``global`` binds the module's name, wherever in
@@ -532,7 +533,25 @@ def _creates_code(node: ast.stmt, properties: frozenset[str] | None, module_name
     inside = _bound_in(node.body)
     judged = {id(stmt): accessors for stmt, _, accessors in _class_body(node.body, postponed)}
     return any(_creates_code(stmt, judged.get(id(stmt), frozenset()), module_names, inside, True, postponed)
-               for stmt in _flatten(node.body) if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)))
+               for stmt in _definitions(node.body))
+
+
+def _definitions(body: list[ast.stmt]) -> list[ast.stmt]:
+    """The defs and classes a body creates where it runs: its statements, read through blocks and ``match``
+    cases (which ``_flatten`` keeps whole), not into a def or a class."""
+    found: list[ast.stmt] = []
+    for stmt in body:
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            found.append(stmt)
+        elif isinstance(stmt, ast.Match):
+            for case in stmt.cases:
+                found += _definitions(case.body)
+        elif isinstance(stmt, _COMPOUND):
+            for name in ("body", "orelse", "finalbody"):
+                found += _definitions(getattr(stmt, name, None) or [])
+            for handler in getattr(stmt, "handlers", None) or []:
+                found += _definitions(handler.body)
+    return found
 
 
 def _postpones_annotations(tree: ast.Module) -> bool:
@@ -1004,6 +1023,9 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
             # ``type`` and its ``__init_subclass__`` object's. A property's accessor on a property above it copies it.
             # A member class's body is no symbol of its own, so what it creates is judged with it.
             used.decorated |= _creates_code(node, properties, module_names, around, owner is not None, postponed)
+        elif isinstance(node, ast.Match):  # one symbol, whole: what its cases create is judged with it
+            used.decorated |= any(_creates_code(stmt, frozenset(), module_names, around, True, postponed)
+                                  for stmt in _definitions([node]))
         used.lines.append(node.lineno)
         # What it reads that its module gets from where it lives. A block reads its header; its body's
         # statements are symbols of their own, and its text drops its imports. In a class body, the names the
