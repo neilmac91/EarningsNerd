@@ -377,11 +377,21 @@
     const legendItems = bar ? [{ label: bar.label, color: SERIES_COLORS[0] }, ...(spec.growthLine ? [{ label: 'YoY growth', color: SERIES_COLORS[1] }] : [])] : entries.map((e) => ({ label: entries.some((x) => x.right) && entries.some((x) => !x.right) ? `${e.label} (${e.right ? 'right' : 'left'})` : e.label, color: e.color }))
     const legend = el('div', { class: 'legend' }, ...legendItems.map((it) => el('span', null, el('i', { style: `background:${it.color}` }), it.label)))
     if (noteLetters.size) legend.append(el('button', { type: 'button', class: 'pchip note notes-ref', onclick: () => openNote([...noteLetters][0]) }, `Notes ${[...noteLetters].join(', ')}`))
+    const plot = el('div', { class: 'plot', role: 'region', 'aria-label': `${spec.title} chart.` }, svg)
     const panel = el('section', { class: 'card panel', 'aria-labelledby': `panel-${spec.id}` },
       el('div', { class: 'head' }, el('div', { style: 'min-width:0' }, el('h2', { id: `panel-${spec.id}` }, spec.title), legend), el('div', { class: 'controls' }, el('button', { type: 'button', class: 'btn secondary icon', 'aria-label': 'Download chart as PNG', title: 'Download chart as PNG' }, '▣'), el('button', { type: 'button', class: 'btn secondary icon', 'aria-label': 'Expand chart', 'aria-expanded': 'false' }, '⤢'))),
-      el('div', { class: 'plot', tabindex: '0', role: 'region', 'aria-label': `${spec.title} chart. Scroll horizontally to view all quarters.` }, svg),
+      plot,
       unavailableNotes.length ? el('p', { class: 'foot' }, unavailableNotes.join(' ')) : null,
     )
+    // The plot is a named region that is a Tab stop only while it overflows its panel (§4.7, §5), measured
+    // like the table's region: after paint and on every resize.
+    const tabStop = () => {
+      const scrolls = plot.scrollWidth > plot.clientWidth + 1
+      if (scrolls) plot.setAttribute('tabindex', '0'); else plot.removeAttribute('tabindex')
+      plot.setAttribute('aria-label', scrolls ? `${spec.title} chart. Scroll horizontally to view all quarters.` : `${spec.title} chart.`)
+    }
+    requestAnimationFrame(tabStop)
+    if (window.ResizeObserver) new ResizeObserver(tabStop).observe(plot)
     return panel
   }
   function renderCharts(dataset, notes) {

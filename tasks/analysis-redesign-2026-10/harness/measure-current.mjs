@@ -18,7 +18,8 @@
 // .next/BUILD_ID, and verifies before measuring that the server serves that build id. On any other build the run
 // needs --out naming another file (a fresh measurement of the shipped components, never a comparison with the
 // recording), and it refuses an --out that holds a recording of another commit; the revision is enforced whenever
-// the output is the baseline file, named by --out or defaulted. The fixtures --data names (default: prototype/data)
+// the output is the baseline file, named by --out or defaulted (paths compare canonically: a symbolic link to the
+// baseline, or a path through a linked directory, is the baseline; a dangling link is refused). The fixtures --data names (default: prototype/data)
 // are recorded by a content hash of their .js files and, inside this repository, by their tree hash with their
 // uncommitted files; the baseline is written only for the legacy state from the committed fixtures whose content
 // hash BASELINE pins, from clean trees (no uncommitted frontend, harness or fixture files) and from a build that
@@ -26,7 +27,7 @@
 // stamp is the only link between a build and a tree; when present it must name the served build id and the
 // checkout's frontend/ tree). 97293e7 has no harness, so the baseline is retaken by running this tree's harness
 // with --build pointing at a worktree of that revision, built there with build-stamped.mjs.
-import { readFileSync, readdirSync, mkdirSync, writeFileSync, existsSync, statSync } from 'node:fs'
+import { readFileSync, readdirSync, mkdirSync, writeFileSync, existsSync, lstatSync, realpathSync, statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { execSync } from 'node:child_process'
 import path from 'node:path'
@@ -38,8 +39,19 @@ const { chromium } = require('playwright')
 
 const args = Object.fromEntries(process.argv.slice(2).map((a, i, all) => (a.startsWith('--') ? [a.slice(2), all[i + 1]] : [])).filter((x) => x.length))
 const BASE = args.base || 'http://localhost:3000'
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const DATA = path.resolve(ROOT, args.data || 'prototype/data')
+const ROOT = realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'))
+// A path with every existing component resolved through its symbolic links, so an alias of a file (a link to it, or
+// a path through a linked directory) compares equal to the file; a dangling link is refused rather than written through.
+const canonical = (p) => {
+  const rest = []
+  let cur = p
+  while (!existsSync(cur)) {
+    try { if (lstatSync(cur).isSymbolicLink()) throw new Error(`${cur} is a dangling symbolic link: pass a real path`) } catch (e) { if (e.code !== 'ENOENT') throw e }
+    rest.unshift(path.basename(cur)); const parent = path.dirname(cur); if (parent === cur) break; cur = parent
+  }
+  return path.join(realpathSync(cur), ...rest)
+}
+const DATA = canonical(path.resolve(ROOT, args.data || 'prototype/data'))
 const STATE = args.state || 'legacy'
 // The baseline's inputs: the revision whose build it measures and the fixtures it was fed (prototype/data at the
 // tree below, pinned by the content hash of its .js files); retaking it from other fixtures needs a new pin here.
@@ -77,8 +89,10 @@ if (existsSync(stampFile)) {
 const lastFrontendCommit = git(BUILD, 'log -1 --format=%h%x20%ct -- frontend')
 if (lastFrontendCommit) { const [hash, ct] = lastFrontendCommit.split(' '); const committedAt = new Date(Number(ct) * 1000); if (new Date(SERVED.builtAt) < committedAt) throw new Error(`the build at ${BUILD} (${SERVED.builtAt}) predates its checkout's last frontend commit (${hash} at ${committedAt.toISOString()}): rebuild from that checkout before measuring`) }
 const sameCommit = (a, b) => !!a && !!b && (a.startsWith(b) || b.startsWith(a))
-const OUT = path.resolve(ROOT, args.out || BASELINE.file)
-const WRITING_BASELINE = OUT === path.resolve(ROOT, BASELINE.file)
+// Output and baseline compare as canonical paths: a symbolic link to the baseline, or a path through a linked
+// directory, is the baseline and meets every baseline guard.
+const OUT = canonical(path.resolve(ROOT, args.out || BASELINE.file))
+const WRITING_BASELINE = OUT === canonical(path.resolve(ROOT, BASELINE.file))
 // The revision is enforced whenever the output is the baseline, however that path was chosen.
 if (WRITING_BASELINE && !sameCommit(SERVED.commit, BASELINE.revision)) throw new Error(`${BASELINE.file} is the recording of main at ${BASELINE.revision.slice(0, 7)}; the served build (${BUILD}) is ${SERVED.commit.slice(0, 7)}: pass --out <another file> for a fresh measurement of this build (it does not compare with the recording), or --build <a worktree of ${BASELINE.revision.slice(0, 7)} whose build the server serves> to retake the baseline`)
 if (existsSync(OUT)) {
@@ -90,7 +104,7 @@ const HARNESS_COMMIT = (git(ROOT, 'rev-parse HEAD') || '').slice(0, 7)
 const HARNESS_DIRTY = (git(ROOT, 'status --porcelain -- harness') || '').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => l.replace(/^\S+\s+/, ''))
 // The fixtures the page is fed (--data): recorded by a content hash of their .js files, and, when they are a
 // directory of this repository, by their committed tree hash with their uncommitted files.
-const CANONICAL_DATA = path.resolve(ROOT, 'prototype/data')
+const CANONICAL_DATA = canonical(path.resolve(ROOT, 'prototype/data'))
 const dataFiles = readdirSync(DATA).filter((f) => f.endsWith('.js')).sort()
 const dataHash = createHash('sha256'); for (const f of dataFiles) { dataHash.update(`${f}\0`); dataHash.update(readFileSync(path.join(DATA, f))); dataHash.update('\0') }
 const dataInRepo = git(DATA, 'rev-parse --show-toplevel') === git(ROOT, 'rev-parse --show-toplevel')

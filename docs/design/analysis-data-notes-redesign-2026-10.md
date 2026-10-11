@@ -1070,7 +1070,10 @@ correction landed in this document:
   review" with its reason, as its affix and its note do, instead of "No validation record". The phone
   table's "← Earlier quarters" hint hides at the scroll start and shows only while the table is scrolled
   away from it, as §4.5 says (it had shown whenever the table overflowed); the disclosure caret and the
-  button fills do not transition under `prefers-reduced-motion`. `measure-current.mjs` refuses to write
+  button fills do not transition under `prefers-reduced-motion`. The chart regions are Tab stops only while
+  they overflow their panels, measured after paint and on every resize as the table's region is, and their
+  names carry the scroll hint only then (§4.7, §5; they had been unconditional Tab stops, four inert ones at
+  1480 px). `measure-current.mjs` refuses to write
   `measurements/current.json`, the recording of `97293e7`, for any other served build (a fresh measurement
   needs `--out`, and an `--out` holding a recording of another commit is refused too). The served build is
   the checkout `--build` names (default: the harness's own repository): the harness reads its commit, its
@@ -1089,7 +1092,9 @@ correction landed in this document:
   which tree a build came from), a stamp the harness validates against the served build id and the
   checkout's `frontend/` tree whenever one is present and records; `97293e7` has no harness, so the baseline
   is retaken by this tree's harness with `--build` pointing at a worktree of that revision, built there with
-  `build-stamped.mjs`.
+  `build-stamped.mjs`. The harness compares its output and data paths as canonical paths, so a symbolic link
+  to the baseline, or a path through a linked directory, is the baseline and meets every baseline guard, and
+  a dangling link is refused rather than written through.
 - **Moved modules**, checked against `main` at `dd7b9ce` (#1222) on 2026-10-11: `normalize_companyfacts`
   lives in `facts/companyfacts.py` (#1210) behind the `facts_service.py` facade; `build_observation_catalogue`
   and `_point_value` in `trend_analysis/observations.py`, `_ratio_threshold_value` and
