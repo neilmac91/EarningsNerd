@@ -302,10 +302,13 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
 
 Analysis reading <NarrativePane> — compact monetary amounts and quarter labels in prose, without
                  changing link destinations, code or source excerpts. Preserve enough precision
-                 to keep a stated comparison meaningful. Recognized code-owned operand lists
-                 become evidence disclosures with their original citations; unrecognized content
-                 remains visible. Source entries retain the exact supplied value beside compact
-                 display. A quiet source count and Notes control replace repeated status labels.
+                 to keep a stated comparison meaningful. Up to three recognized source operands
+                 remain inline with their original citation controls; longer lists fold beneath a
+                 neutral summary that names every applicable note letter. Unrecognized content
+                 remains visible. Printing opens Data notes and narrative evidence, then restores
+                 the reader's disclosure choices. Source entries retain the exact supplied value
+                 beside compact display and distinctly named filing links. A quiet source count
+                 and Notes control replace repeated status labels.
 
 Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly, recent-period
                  presets, compact From/To Select fields, and one availability/range summary.

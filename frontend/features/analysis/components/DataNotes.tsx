@@ -4,6 +4,7 @@ import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import type { DataNote } from '@/features/analysis/lib/dataNotes'
 import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
+import { usePrintDetails } from '@/features/analysis/lib/usePrintDetails'
 import { useDataNotes } from './DataNotesContext'
 
 const comparisonLabel = (basis: string) => basis === 'qoq' ? 'QoQ' : basis === 'yoy' ? 'YoY' : basis === 'window_pp' ? 'window percentage-point' : 'CAGR'
@@ -39,6 +40,7 @@ export function DataNotesList({ notes }: { notes: DataNote[] }) {
 }
 
 export default function DataNotes({ dataset, sample = false }: { dataset: AnalysisDataset; sample?: boolean }) {
+  const printScope = usePrintDetails()
   const model = useDataNotes(dataset)
   const { totals } = model
   const unknownComparisons = model.notes.filter((note) => note.kind === 'unknown').reduce((count, note) => count + note.comparisons.length, 0)
@@ -47,7 +49,7 @@ export default function DataNotes({ dataset, sample = false }: { dataset: Analys
     .filter((note) => note.kind === kind && note[scope].length > 0).map((note) => note.letter)
   const reviewComparisonLetters = letters('review', 'comparisons')
   return (
-    <section className="min-w-0 border-y border-border-light py-1 dark:border-border-dark" data-analysis-data-notes>
+    <section className="min-w-0 border-y border-border-light py-1 dark:border-border-dark" data-analysis-data-notes data-analysis-print-scope={printScope}>
       <details>
         <summary className="cursor-pointer rounded py-2 text-sm text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark">
           <span className="font-medium">Data notes</span>

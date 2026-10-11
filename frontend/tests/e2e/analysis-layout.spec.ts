@@ -26,6 +26,38 @@ const PROFILES = [
 const TABLE = '[data-analysis-metrics] table'
 const NOTES = '[data-analysis-data-notes]'
 
+for (const theme of THEMES) for (const width of [390, 1480]) {
+  test.describe(`analysis evidence / ${theme} / ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+    test('keeps short evidence visible and restores disclosures after printing', async ({ page, baseURL }) => {
+      test.setTimeout(60_000)
+      await openAnalysis(page, baseURL!, 'legacy', theme)
+      const prose = page.locator('.markdown-body')
+      const lists = prose.getByRole('list', { name: 'Figures behind this finding', includeHidden: true })
+      await expect(lists).toHaveCount(3)
+      for (const index of [0, 2]) {
+        await expect(lists.nth(index)).toBeVisible()
+        await expect(lists.nth(index).locator('button').first()).toBeVisible()
+        expect(await lists.nth(index).evaluate(el => !!el.closest('details'))).toBe(false)
+      }
+      const fold = prose.locator('details')
+      await expect(fold).toHaveCount(1)
+      await expect(fold).not.toHaveAttribute('open')
+      await expect(fold.locator('summary')).toContainText('Show the 20 source figures behind this · figures carry note a')
+      const notes = page.locator(`${NOTES} > details`)
+      await notes.locator('summary').click()
+      const prior = await page.locator('[data-analysis-print-scope] details').evaluateAll(items => items.map(item => (item as HTMLDetailsElement).open))
+      expect(prior).toContain(true)
+      expect(prior).toContain(false)
+      await page.evaluate(() => { window.dispatchEvent(new Event('beforeprint')); window.dispatchEvent(new Event('beforeprint')) })
+      expect(await page.locator('[data-analysis-print-scope] details').evaluateAll(items => items.every(item => (item as HTMLDetailsElement).open))).toBe(true)
+      await expect(lists.nth(1)).toBeVisible()
+      await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
+      expect(await page.locator('[data-analysis-print-scope] details').evaluateAll(items => items.map(item => (item as HTMLDetailsElement).open))).toEqual(prior)
+    })
+  })
+}
+
 async function pageAndCardGeometry(page: Page) {
   return page.evaluate(() => {
     const bounds = (el: Element) => el.getBoundingClientRect()
