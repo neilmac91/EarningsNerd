@@ -176,6 +176,9 @@ original proposal; these notes are authoritative for what actually shipped.
        provenance so downstream debt-scope validation cannot lose a known entity or sum mixed entities.
     2. A numeric `filing_date` from the model raises `AttributeError` out of `summarize_filing` at
        O:1051, because the handler at O:1059 catches only `ValueError` and `TypeError`.
+       **Fixed 2026-10-11:** `derive_title` parses only nonempty strings. A5 now requires
+       numeric, boolean, container and null dates to preserve the reporting-period fallback;
+       valid annual/quarterly dates and malformed-string handling retain their existing behavior.
     3. The OUTPUT REFERENCE block at O:386-391 never fires. The markers at `prompt_loader.py:50-54` do
        not match the prompts' "## CRITICAL: Output Format" headings, so each prompt loads whole into
        the system message, its format section included (`prompt_loader.py:61`), and the user-message
