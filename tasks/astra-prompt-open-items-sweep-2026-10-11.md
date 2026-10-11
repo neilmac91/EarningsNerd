@@ -6,8 +6,9 @@
 > postpone, or recommend cancelling, each with its reason written down. The engineering rows it judges
 > worth doing it carries to merged, production-verified pull requests. This file is briefing material the
 > founder asked for on 2026-10-11; it is not the hand-over of record. That is `tasks/todo.md`
-> (`AGENTS.md` §7), which the session refreshes as it goes. Where this file and `tasks/todo.md` disagree,
-> `tasks/todo.md` on `main` wins, and the session says so in the PR that fixes this file.
+> (`AGENTS.md` §7), which the session refreshes as it goes. Where this file's account of the state
+> disagrees with `tasks/todo.md` on `main`, the page wins and the session says so in the PR that fixes
+> this file; the instructions here still bind as the founder's message.
 >
 > **How to run it.** On the Responses API use `reasoning.effort: "high"` and leave `temperature`, `top_p`
 > and `top_logprobs` unset (this model accepts none of them when reasoning is on, and tool calling needs
@@ -52,9 +53,10 @@ fix the lower document in the same PR. You do not stop to ask about a conflict.
 2. The code on `main`. Where a document disagrees with the code, the code is the truth
    (`lessons/ops-verify-plan-gaps-against-code.md`).
 3. `CLAUDE.md`: its twelve non-negotiable rules are binding word for word.
-4. `AGENTS.md`: how a non-Claude agent operates here, §3 to §8. Its §3 pre-authorizes the Engineering
-   rows of `tasks/todo.md`; this prompt adds the assessment step in front of that authorization and
-   nothing else.
+4. `AGENTS.md`, all of it: §1 the reading list, §2 the precedence, §3 to §8 how a non-Claude agent
+   operates here. Its §3 pre-authorizes the Engineering rows of `tasks/todo.md`; in front of that
+   authorization this prompt adds the assessment step, the three tracks, the spend ceiling and the
+   pauses listed under "When to stop and ask".
 5. `lessons/`: one rule per file. Read `lessons/README.md`'s "Operations & workflow" section at the
    start, and the section for each area as you enter it.
 6. `tasks/todo.md`: the open-items page, the file of record for what is open. Its top block is the
@@ -76,7 +78,7 @@ reading of a guideline, and proceed under this order.
 Bias to action. Infer the intent and scope of each row from `tasks/todo.md`, the PR or record it cites
 and the code, and carry the work you are authorized to do to a concrete, reviewable result before asking
 anything about it. When the founder writes "can you", "I want" or "help me", that is an instruction to do
-the work, not to propose it. Ask for approval only when the thing to approve exists: a pushed branch, an
+the work. Ask for approval only when the thing to approve exists: a pushed branch, an
 opened draft, a decision pack with the evidence attached. You need no permission for reversible work,
 read-only actions, reviews, fixes, or anything this prompt or `AGENTS.md` §3 already authorizes. Do not
 add warnings, disclaimers, approval steps or checklists for hypothetical risks.
@@ -96,20 +98,29 @@ clause. The full triage table goes in that PR's body, one row per item: row, sta
 validity, risk tier and spend, context, disposition, next step. `tasks/todo.md` stays one page
 (`backend/tests/unit/test_agent_workflow_rules.py` fails it past 120 lines, on any `## ` section other
 than the three it allows, and on a dated heading), never gains a file beside it, and never loses a
-Founder row by your hand. Send the founder one short message when this PR is open: what the table found,
-the two or three answers that would unblock the most, and what you are starting. Do not wait for a reply.
+Founder row by your hand. Gate it as a records PR (`AGENTS.md` §4): the link and anchor check over every
+path and section it names, `python -m pytest -n 0 tests/unit/test_agent_workflow_rules.py` from
+`backend/`, and one read-only review pass as §5's records column describes, recorded as `Review tier:
+records — …`. Other open PRs edit `tasks/todo.md` too (#1248 and #1035 on 2026-10-11): keep your edits
+to the lines your PR owns, and when one of them merges first, resolve the file by hand
+(`lessons/ops-serial-merge-adjacent-line-prs.md`). When the PR is open, send the founder the Track A
+message: what the table found, the two or three answers that would unblock the most, and what you are
+starting. Do not wait for a reply.
 
 **Track B, the engineering rows you judged DO.** One PR per row (or per numbered sub-item where the row
-lists several), on a branch named `codex/wave3-<slug>`, opened as a draft first, in this order: tests-only
-and records PRs (no deploy, no spend), then frontend PRs, then backend PRs, each backend merge verified
-before the next (`AGENTS.md` §6). Gate only committed state with the full gate the files call for
+lists several), on a branch named `codex/wave3-<slug>`, opened as a draft first. Order the PRs by class,
+then by value within the class: records and tests-only PRs first (no deploy, no spend), then frontend
+PRs, then backend PRs, each backend merge verified before the next (`AGENTS.md` §6); within a class, the
+row whose result a reader of the site sees comes first (E1 among the frontend PRs, E10's catalog rows
+among the records PRs). Gate only committed state with the full gate the files call for
 (`AGENTS.md` §8): from `backend/`, `ruff check . && bandit -r app -ll && python -m pytest`; from
 `frontend/`, `npm run lint && npx tsc -p tsconfig.ci.json && npm run test -- --run && npm run build`; the
 e2e suite for a change an e2e spec covers; the workflow-reading unit gates for a `.github/workflows/`
 change (`AGENTS.md` §4). Every new "never again" rule lands with one machine gate and exactly one mutation
 proof, pasted in the PR body (`CLAUDE.md` rule 12, `AGENTS.md` §4). Review by risk tier before marking a
-PR ready (`AGENTS.md` §5, by hand: one pass for routine with each blocker refuted once; the three lenses
-and two refutations for high), record `Review tier: <tier> — <what ran>` in the body, comment `@codex
+PR ready (`AGENTS.md` §5, by hand: one read-only pass for records; one pass for routine with each
+blocker refuted once; the three lenses and two refutations for high), record `Review tier: <tier> —
+<what ran>` in the body, comment `@codex
 review` after each push, and merge only when every required check is green on the head SHA you read from
 the PR. A backend merge deploys: after it, find the main CI run, wait for `deploy-backend`, read
 `apply_migrations: applied=0 skipped=<N>` in its log, confirm the new revision serves 100% and the health
@@ -122,14 +133,17 @@ row, that PR deletes the row's line from `tasks/todo.md`.
 pack: the evidence (files, numbers, the record it cites), the options with their cost and risk, your
 recommendation in one sentence, and, where the decision needs code, a pushed branch ready to open or an
 opened draft when opening costs nothing. A branch whose PR would start a paid CI run (the paths under
-*Spend*) is pushed and described, not opened, until the founder says yes. Send all packs in one message,
-ordered by the value a decision would unblock, after Track B's non-deploying PRs are merged or when
-Track B is blocked, whichever comes first; a pack that needs a reply to unblock Track B work goes in the
-Track A message instead.
+*Spend*) is pushed and described; open it when the founder says yes. Send all packs in the decision-pack
+message, ordered by the value a decision would unblock, after Track B's non-deploying PRs are merged or
+when Track B is blocked, whichever comes first; a pack that needs a reply to unblock Track B work goes in
+the Track A message instead.
 
-Two branches are not yours: `claude/zealous-brown-ywfbhw` (PR #1243) and `claude/stoic-fermi-5obt3f`
-(PR #1248) belong to the founder's Claude sessions. Never push to them. The rows they cover are IN-FLIGHT
-until they merge; `<founder_answers>` says who merges them.
+Branches of other sessions are not yours. On 2026-10-11 those are `claude/zealous-brown-ywfbhw` (PR
+#1243), `claude/stoic-fermi-5obt3f` (PR #1248) and `claude/brave-bohr-hai5vi-mail-mark` (PR #1249); `gh
+pr list` is the current list. Never push to them. The rows #1243 and #1248 cover are IN-FLIGHT until they
+merge; `<founder_answers>` says who merges them.
+
+After any founder correction, add or update a file in `lessons/` (its README gives the format).
 
 ## How to assess a row
 
@@ -143,7 +157,7 @@ examples at the end show the shape of a good disposition.
 2. **Value.** Who benefits (a reader of the site, the founder operating it, or the next agent) and what
    stays wrong or breaks later if the row is never done. A change to a production surface or the close of
    a real defect outranks machinery with no live instance; a gate that covers a shape no code uses is a
-   cost, not a value, unless the lesson it guards has bitten before.
+   cost unless the lesson it guards has bitten before.
 3. **Validity.** Is the row's premise still true? Is the file still where the line says (the facts service
    became a façade in #1210; the ledger's line numbers moved when entries were merged into the archive)?
    Was the proposal it defers already adopted (#1177's stronger new-member rule is in #1243)? A row whose
@@ -160,7 +174,10 @@ examples at the end show the shape of a good disposition.
 6. **Disposition.** One of DONE-ALREADY (delete the line, name the PR), IN-FLIGHT (name the PR; verify and
    delete after it merges), DO (Track B), PREPARE (Track C), POSTPONE (what unblocks it), or
    CANCEL-RECOMMENDED (why; the founder deletes the line, you never do). A Founder row can only be
-   PREPARE, POSTPONE or CANCEL-RECOMMENDED. Write the one-clause next step that goes on the row.
+   PREPARE, POSTPONE or CANCEL-RECOMMENDED. A row with several parts gets a disposition per part in the
+   triage table and a next step that names them. Write the one-clause next step that goes on the row.
+   Your own row, the first Engineering line, closes in your final records PR, which deletes it once
+   every other row carries its disposition.
 
 ## When to stop and ask
 
@@ -177,10 +194,16 @@ and proceed.
 - A paid evaluation programme beyond the ceiling under *Spend*.
 - Anything on the held list in `tasks/handover-astra-2026-09-19.md` §5 ("Held until the founder says
   otherwise"), which `tasks/todo.md` points to and never restates or lifts.
+- Implementing a part this prompt marks as a founder pause before `<founder_answers>` or a founder
+  message confirms it: E1's amended decision 4 and decisions 7, 8 and 9; the rule-6 selector change that
+  would free Analysis Run (E15).
+- Taking E6, or merging E8, without the answer in `<founder_answers>`.
+- Opening a PR that would start a paid CI run for a Founder row before its decision: push the branch.
+- Editing a legal page's text (the privacy policy in F4): push the branch; the founder opens and merges.
 - Pushing to a branch that is not yours.
 
-When something needs the founder, ask once, in one message, with the evidence needed to decide without
-scrolling back, then keep the row listed with its blocker and move to the next unblocked row.
+When something needs the founder, ask once, in a single message with the evidence needed to decide
+without scrolling back, then keep the row listed with its blocker and move to the next unblocked row.
 
 ## Spend
 
@@ -205,7 +228,8 @@ routers, integrations, migrations, scripts and tests do not trigger it
 (`backend/tests/unit/test_copilot_eval_paths.py` pins the list). Tests-only (`backend/tests/**`),
 frontend, records and workflow-only PRs spend nothing, except a change to `copilot-eval.yml` itself. A
 paid analysis or summary generation outside CI (the landing demo in F2) is a founder decision. The
-DeepSeek key exists only as a CI secret: never read, print or move it.
+DeepSeek key lives in the GitHub Actions secret `DEEPSEEK_API_KEY` and in GCP Secret Manager, from which
+the deploy mounts it into Cloud Run: never read, print or move it.
 
 ## Evidence and verification
 
@@ -223,8 +247,8 @@ Run the gate the changed files call for and complete the required checks; once t
 repeat testing only when a new change, a failure or an unresolved concern justifies it. Do not write
 tests for reversible, low-impact changes that mirror the implementation, and do not add a second gate
 for a rule that is already gated. When you do add a test, it is the one machine gate for a stated rule,
-with its one mutation proof. A test-isolation fix is proven by a leaker-then-victim run before and after,
-not by a new gate. Prefer extending the spec that already owns a surface over a sibling spec.
+with its one mutation proof. A test-isolation fix is proven by a leaker-then-victim run before and after;
+it needs no new gate. Prefer extending the spec that already owns a surface over a sibling spec.
 
 ## Delegation
 
@@ -239,7 +263,7 @@ state the result before the method. Where you cannot delegate, do the tiered rev
 ## How to write
 
 Write to the founder in clear, plain paragraphs, each developing one idea, with PR links and file paths.
-Use a list only for genuinely parallel items, a table only for numbers or for the triage rows, and never
+Use a list only for parallel items, a table only for numbers or for the triage rows, and never
 a nested list where a sentence does. State the main point first. Avoid filler and stock phrases
 ("it's worth noting", "importantly", "in short", "bottom line", "delve", "leverage", "genuinely"),
 contrastive framing that introduces an alternative nobody asked about ("X, not Y"), invented compound
@@ -305,15 +329,16 @@ production at 14:29 UTC as revision `earningsnerd-backend-00497-skh`, image `40a
 fresh. Balance USD 17.97 at 2026-10-11T02:47Z; the refactor programme's retained hold USD 0.55; no open
 eval reservation. Open pull requests: #1248 (draft, `claude/stoic-fermi-5obt3f`, the read-only GET
 gate's three follow-ups), #1243 (ready, `claude/zealous-brown-ywfbhw`, the move proof's findings),
+#1249 (draft, `claude/brave-bohr-hai5vi-mail-mark`, the sage mark raster for transactional email),
 #1223 (draft, research, October product scan), #1121 (draft, `codex/wave3-email-setup`), #1035 (draft,
 `codex/wave3-native-delivery-capability`). The top block's own list of open PRs (#1197, #1195, #1192,
 #1190, #1009) is stale: all five merged. Holds remain under `tasks/handover-astra-2026-09-19.md` §5 and
-the September 28 checkpoint in `tasks/continuation-plan-2026-09-26.md`; the E7/R1/H20 programme and the
-CODE RED records are separate work with their own control files under
-`tasks/code-red-20261004/runtime/control/`.
+the September 28 checkpoint in `tasks/continuation-plan-2026-09-26.md`; the quality-acceptance
+programme the September handover calls E7/R1/H20 (unrelated to row E7 below) and the CODE RED records
+are separate work with their own control files under `tasks/code-red-20261004/runtime/control/`.
 </current_state>
 
-<work_queue order="Track A first; then the Engineering rows in the order below, skipping to the next unblocked one; Track C alongside">
+<work_queue order="Track A first; Track B in the class-then-value order of How to work, skipping to the next unblocked row; Track C alongside">
 
 The Engineering rows, E1 to E15, follow the page's order with the pre-assessment made on 2026-10-11 while
 this prompt was written. Each pre-assessment is a starting point for your own Track A location check, not
@@ -322,7 +347,7 @@ its result. Lines quoted from `tasks/todo.md` are abbreviated; the row on `main`
 **E1. Multi-Period Analysis data-notes redesign, the follow-ups (owner: Astra).** The brief is
 `tasks/analysis-redesign-2026-10/astra-prompt.md`; read it whole and follow its Track A and Track B. The
 open list is `tasks/analysis-redesign-2026-10/review-2026-10-10.md`: its items marked open (1, 2, 11, 12,
-13, 14, 15, 18, 19, 20, 21, 24, 25, 26, 27, 28, 30, 31, 33, and the gate leftovers under 4), with Phase 2's
+13, 14, 15, 18, 19, 20, 21, 24, 25, 26, 27, 28, 29, 30, 31, 33, and the gate leftovers under 4), with Phase 2's
 open parts in 11 and 27. Four parts are founder pauses until `<founder_answers>` confirms them: the
 amended decision 4 (one-up KPI cards below 17 em; part of item 18), decision 7 (filled affected bars;
 item 29), decision 8 (plain preset buttons; part of item 19) and decision 9 ("Unavailable", "No figures
@@ -371,7 +396,7 @@ frontend PRs.
 08:00 UTC window with the whole fleet pinned and `backfill-facts` at 07:30, read with `ops.yml`'s
 read-only `capacity-readout` operation (window start and end as inputs, the end in the past, at most two
 hours). The owner is the CODE RED chief, a role the founder runs in a Claude session. Expected:
-ROLE-HELD and time-gated. Take it only if `<founder_answers>` assigns it to you and you can dispatch
+POSTPONE, role-held and time-gated. Take it only if `<founder_answers>` assigns it to you and you can dispatch
 `ops.yml` with `gh workflow run`; then run it after 08:00 UTC on 2026-10-12, and record the run id and
 the readout's classes (SEC errors, breaker opens, job outcomes) in your next records PR. Otherwise the
 line stays with the chief and you say so.
@@ -406,8 +431,11 @@ the UI line. No code.
 **E10. Lane B follow-ups.** Four parts. (a) `docs/ARCHITECTURE.md`'s service catalog has no rows for
 `admin_account_service.py`, `admin_feedback_service.py`, `admin_filing_service.py`,
 `admin_summary_service.py`, `auth_account_service.py`, `user_account_service.py`,
-`user_data_export_service.py` and `oauth_account_service.py` (a grep on 2026-10-11 found none): one
-records PR, high value for the next reader, no risk; do it first. (b) `ROUTER_ORM_CEILINGS` in
+`user_data_export_service.py` and `oauth_account_service.py` (a grep on 2026-10-11 found none), and the
+row's "new services" also covers six more Lane B services with no row: `watchlist_service.py`,
+`saved_summary_service.py`, `user_notification_feed_service.py`, `company_lookup_service.py`,
+`filing_list_service.py` and `filing_read_service.py`: one records PR, high value for the next reader,
+no risk; the first records PR of Track B. (b) `ROUTER_ORM_CEILINGS` in
 `backend/tests/unit/test_router_orm_ceilings_allowlist.py` carries zero rows for admin, auth, companies,
 filings, saved_summaries, users and watchlist, to prune once no open branch edits that file (check the
 open PRs' file lists): tests-only. (c) The routers still above zero on 2026-10-11: analysis 10, contact
@@ -448,7 +476,8 @@ owns the surface). (b) The desktop pane's unscrolled overhang for a chip-opened 
 `consent-bar-yields.spec.ts` are the neighbours). (c) Detector and doc cleanups named in the critique
 files. (d) The harness `verify_probe.mjs` / `verify_trace.mjs` consent seed, which lives under
 `tasks/critique-env-2026-10-04/`, not in CI. (e) Memoizing `CopilotMessage`'s `ReactMarkdown` components
-(`frontend/features/filings/components/copilot/CopilotMessage.tsx`, safe with `isReturnTarget`). (f)
+(`frontend/features/filings/components/copilot/CopilotMessage.tsx`; safe once `isReturnTarget`, defined
+in `FilingWorkspace.tsx`, is accounted for). (f)
 `GenericTable` at phone width (`frontend/features/summaries/components/SummaryBlocks.tsx`). (g) A
 server-side "—" for a missing prior value (backend; deploys and spends). Expected: DO (a), (b) and (f),
 which change what a reader sees, as small routine frontend PRs extending the specs that own them; (e)
@@ -519,7 +548,8 @@ no consent check); `frontend/app/privacy/page.tsx` names PostHog and Sentry only
 pins `privacy: 'June 22, 2026'` and moves with the text. Options: add Vercel Web Analytics to the
 policy (cookieless, aggregate) with the date, or gate `PrivateAnalytics` on the analytics consent
 (`frontend/lib/consentLayer.ts`) and lose non-consenting visitors' counts. Pack: recommend the policy
-addition with the gating option's cost stated, and open a draft for it (frontend only, spends nothing).
+addition with the gating option's cost stated, and push a ready branch for it; the policy text is a legal
+decision on the held list, so the founder opens and merges it.
 
 **F5. Sage on numbers inside the product (D-023).** `EarningsCalendarPage.tsx` ("S&P 500"),
 `MonthView.tsx` and `WeekView.tsx` ("+N more") under `frontend/features/calendar/components/`;
@@ -533,8 +563,9 @@ involved, the risks (`lessons/frontend-check-brand-layouts-at-200-percent-text.m
 an estimate. No PR until authorized.
 
 **F7. End the PostHog `pricing-experiment` flag.** `git grep` over `frontend/` and `backend/app` finds
-no reader; `docs/PRICING_OFFER.md` already records the experiment as retired; only
-`docs/history/plans/POSTHOG_IMPLEMENTATION_PLAN.md` still describes it as history. Pack: "safe to end in
+no reader; `docs/PRICING_OFFER.md` already records the experiment as retired;
+`docs/history/plans/POSTHOG_IMPLEMENTATION_PLAN.md` and `docs/brand/00-audit.md` describe it as
+history. Pack: "safe to end in
 the PostHog console", the grep proof, and a note that the test account's readout exclusion stays in
 `docs/OPERATIONS.md`.
 
@@ -564,8 +595,10 @@ the form it refers to. Pack: the pointer and the one sentence the founder was as
 through `mirror.gcr.io` (#1169; `lessons/ops-ci-images-avoid-docker-hub.md`), which serves only images it
 has cached. Options: an Artifact Registry remote repository for Docker Hub (a GCP console action, then the
 workflows pull from the registry path; durable) or a Docker Hub token as a CI secret with a login step.
-Pack: the tradeoffs, a recommendation (the remote repository), and a ready workflow branch for it (high
-tier, workflow-only gates), opened once the registry exists.
+Pack: the tradeoffs, a recommendation (the remote repository), and a ready branch for it: the
+`postgres:15` pull is workflow-only (high tier, the workflow-reading gates), while the deploy base image
+is the `FROM` line of `backend/Dockerfile`, so that half deploys on merge; open it once the registry
+exists.
 
 **F13. The H20-only packing and closure refinement (DECISIONS-04, DECISIONS-05).** CODE RED programme
 work under the implementation hold the ledger's CODE RED section records. Pack: state the hold and what
@@ -581,12 +614,13 @@ engineering briefs as subagents) with a recommendation and the PR each would nee
 
 **F16. Upstream DS-source sync (DS-01, P0).** The ledger cites `tasks/upstream-sync.md`, which is not in
 the repository, and the design-system source project is external. Pack: POSTPONE; ask for the notes or
-their location, and list what a sync PR would touch (`_ds_bundle.js`, the package link in place of the
-vendored copy) so the ask is concrete.
+their location, and list what a sync PR would touch (the `_ds_bundle.js` the ledger names, which is not
+in this tree, and the package link in place of the vendored copy) so the ask is concrete.
 
 **F17. An archive of the removed `frontend/design/landing-redesign` export.** Preserved at commit
 `02628e5`. Pack: verify the count (`git ls-tree -r 02628e5 -- frontend/design/landing-redesign | wc -l`,
-expecting 34), produce a `git archive` of that tree with its sha256 in a scratch location, and describe
+expecting 35: the 34 removed files plus `RATIONALE.md`, which stayed on `main` with the recovery
+instructions), produce a `git archive` of that tree with its sha256 in a scratch location, and describe
 the two publication routes (a release asset on this repository; a public archive repository). The
 founder's account publishes.
 
@@ -595,7 +629,8 @@ Dashboard cleanup of `trialing`, `past_due`, `unpaid` or `paused` subscriptions 
 (their customers have no account; the `user_deleted` audit rows list the deleted addresses, which needs a
 production read you do not have: say so, and name the read-only `ops.yml` operation if one fits), and
 the policy when Stripe fails during a deletion (today the account is deleted and `error: …` in the
-response and the audit row is the only record; `backend/app/services/user_account_service.py`). Pack:
+response and the audit row is the only record; the Stripe step lives in the delete handler of
+`backend/app/routers/users.py`, while `user_account_service.py` holds only the database step). Pack:
 recommend a policy (alert plus a retry from the audit row is the likely answer) with a code sketch; a
 backend PR is high tier and spends, so push a branch and open it on yes.
 
@@ -621,13 +656,10 @@ that merging implies, and the ceiling it needs. No engineering.
 </work_queue>
 
 <held_until_the_founder_says_otherwise>
-The list in `tasks/handover-astra-2026-09-19.md` §5, "Held until the founder says otherwise", in full:
-universe-wide pregeneration; historical repair or replay of stored summaries (the quarterly data repair
-`docs/quarterly-data-repair.md` included); production flags other than the released Notable activation,
-capacity, prices, trial, promo and registration; legal decisions; destructive data or history operations;
-new locked-anchor exceptions; live jobs, email or account actions as tests; AI provider or model changes;
-security or secret changes; future dependency majors; Dependabot alert #270; D8 (deleting two stale remote
-branches); purchasing credits. This prompt lifts none of it.
+The held list is `tasks/handover-astra-2026-09-19.md` §5, "Held until the founder says otherwise". Read it
+there; `tasks/todo.md` points to it and never restates it, and this prompt lifts none of it. Separately,
+the analysis brief holds the quarterly data repair (`docs/quarterly-data-repair.md`, which rewrites
+stored facts) as a founder operational action.
 </held_until_the_founder_says_otherwise>
 
 <environment>
@@ -673,7 +705,7 @@ answers that would unblock the most, and the first Track B PR you are starting.
 
 Stop when every row of `tasks/todo.md` carries one of the six dispositions, every DO row is merged and
 production-verified or blocked on a named founder decision, every decision pack is sent, and the top
-block of `tasks/todo.md` is a fresh "Where things stand". Then send the founder one message: what merged
+block of `tasks/todo.md` is a fresh "Where things stand". Then send the founder the final message: what merged
 (with deploy receipts), what is in flight and with whom, the decision packs in one list ordered by what a
 decision unblocks, the balance and the spend ledger for this sweep, and the single reply that would
 unblock the most.
