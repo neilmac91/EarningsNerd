@@ -248,9 +248,9 @@ PERMITTED (3 recent entries visible)`; the denied branch, now a closed class, st
    application's settings class does not set the settings library's `hide_input_in_errors`, so any settings validation error prints
    its input — values from the environment, secrets included — into whatever output carries it: an agent's tool output (twice, above),
    CI's public log, or a service's startup log. Set it and land a test that a settings validation error's rendered text (its
-   `str` and `repr`) carries no input value (rule 12); the error's structured form (`errors()`, `json()`) still carries the input,
-   so the change states that limit and no code may log such an error structurally without dropping the input. The merge deploys
-   the backend.
+   `str` and `repr`) carries no input value (rule 12). The error's structured form (`errors()`, `json()`) still carries the input,
+   so the PR also lands a gate: any caught pydantic `ValidationError` that the application, its scripts or `main.py` serialize
+   with `errors()` or `json()` must pass `include_input=False` (none does today). The merge deploys the backend.
 4. **The `INHERITED` residue** (`inherited-residue-pr-01`, closure 174): the Cloud SQL proxy step's secret read and the jobs-channel
    and rollback actions that still let gcloud's error text through, with the two documentation additions from #1195's second delta
    check.
