@@ -11,12 +11,14 @@ whose body holds only imports or ``pass``, outside the ``if TYPE_CHECKING:`` exe
 name that no inert property def above it in its class binds, or with code that runs in between; a class
 attribute bound to a bare name, whose ``__set_name__`` runs; and an unpacking of anything but a display, which
 iterates it), a new symbol that binds a name the moved code of its file reads or binds (at module level, or
-in the class body for a new class member) or a dunder that Python reads itself where moved code lives (a
-module's ``__all__`` aside), a symbol of the target file that moved code reads at import above it or
-rebinds, a class docstring that no longer opens its body, a reordered symbol, and a moved symbol that reads
-what its new module changes (its name, package, file or docstring, a relative import's target, its
-namespace, whether its annotations are postponed, or a module dunder it binds) each fail; a disclosed delta
-passes with its diff shown.
+in the class body for a new class member), a dunder that Python reads itself where moved code lives (a
+module's ``__all__`` aside) or any new member of a moved class, a symbol of the target file that moved code
+reads at import above it (directly, through code it reaches there, or through Python's own read of a dunder)
+or rebinds (a class body's ``global`` read as one scope), a class docstring that no longer opens its body, a
+reordered symbol, and a moved symbol that reads what its new module changes (its name, package, file or
+docstring, a relative import's target, its namespace, whether its annotations are postponed, or a module
+dunder it binds) each fail; a disclosed delta passes with its diff shown, and an input the CLI cannot read
+stops it with a message.
 """
 import tomllib
 from pathlib import Path

@@ -42,7 +42,8 @@ or lambda's body runs later and is not read. ``property``, ``staticmethod``, ``c
 name that an inert property def above them in the same class body binds, with no statement that runs code
 in between; a class keyword such as ``metaclass=`` is not; a call, subscript, attribute read, operator or
 unpacking in a value is not), SHADOWS (a NEW symbol that binds a name the OLD symbols of its own new file
-use, or a dunder that Python reads itself where they live; the next two paragraphs), REORDERED (an old
+use, a dunder that Python reads itself where they live, or a new member of a moved class, which attribute
+lookups read; the next two paragraphs), REORDERED (an old
 binding that now sits above one it followed in the same new file, every binding of a rebound name
 counted: module-level code runs top to bottom, so ``B = A`` above ``A = 1`` raises at import, and
 ``A = 1; A = 2; B = A`` binds ``B`` to 2 where ``A = 1; B = A; A = 2`` bound it to 1), RELOCATED (an old
@@ -76,9 +77,17 @@ binding it always had, and nothing is reported unless moved code reads the name 
 binding (in a statement, a class body, a decorator or a comprehension, which runs where it stands; a
 generator expression counts too, though it may run later): the import ran before the read, and now the
 binding runs after it, so the read raises NameError or takes an earlier binding of the name, ``read above
-it at import``. A def's or lambda's body reads it when it runs. The settlement covers reads only: moved
-code that rebinds the name, at module level or through ``global``, rebound the old file's copy and now
-rebinds the target's, for every importer, and is reported.
+it at import``. A def's or lambda's body reads it when it runs, so its place alone does not matter, but code
+that runs at import above the binding and reaches such a body runs it there: one that loads a name which
+may hold code reading it (a def, a lambda, a class whose member does, a name bound from one, through any
+chain; a reference counts as a call, since what is done with it is not followed), or a def or class created
+there by a decorator that is not inert or, for a class, with bases or keywords, whose class-creation code
+may run its methods. A dunder there is read by Python itself as well, wherever an old symbol stands above
+the binding (the next paragraph). The settlement covers reads only: moved code that rebinds the name, at
+module level or through ``global``, rebound the old file's copy and now rebinds the target's, for every
+importer, and is reported. A class body is one namespace for ``global``, which the proof reads member by
+member: the member that stores or deletes a name its class body declares ``global`` binds the module's
+name, wherever in the body the declaration stands, and a declaration alone binds nothing.
 
 Python itself reads a dunder name (``__x__``) of a namespace, with no load of it in the code there: a def
 or class body created below a module's ``__builtins__`` resolves every builtin through it, a relative
@@ -88,10 +97,16 @@ import inside a def goes through ``__package__``, an attribute missing from the 
 shadows it, ``read by Python itself``: at module level when its file holds an old symbol, and in a class
 body when the class is an old symbol. Every dunder counts, the ones libraries read included (pydantic's
 ``__get_validators__``, SQLAlchemy's ``__tablename__``), with one exemption: a module's ``__all__``, which
-every façade declares and Python reads only for ``from module import *``. (A name the old file imported
-from the target file itself is settled as above, a dunder too.) A new class's own dunders are ADDED: moved
-code reaches them only through the class's name, which SHADOWS reports when the moved code reads it, or a
-disclosed change shows when it starts to (a new base on a moved class).
+every façade declares and Python reads only for ``from module import *``. A dunder the old file imported
+from the target file itself is settled only below the target's binding: Python reads ``__name__`` (as a
+def's or class's ``__module__``) and ``__builtins__`` where it creates code, so an old symbol above the
+binding gets the target's value there, ``read above it at import by Python itself``. Any other new member
+of a class that is an old symbol is SHADOWS as well, ``read by attribute lookups on`` the class: the proof
+does not follow an attribute read, so a new member may override what the class inherited (``self.close()``),
+be a hook a library reads (an Enum's ``_missing_``) or a new field of a dataclass or a pydantic model, and a
+pure move never adds one. A new class's own members, its dunders included, are ADDED: moved code reaches
+them only through the class's name, which SHADOWS reports when the moved code reads it, or a disclosed
+change shows when it starts to (a new base on a moved class).
 
 RELOCATED: a moved symbol keeps its text, but not its module, and the import system gives every module names
 derived from where it lives. An OLD symbol with one home fails when it reads one of them, before the move and
@@ -153,10 +168,11 @@ bases. Names are followed only as written. Statements are ordered by the line th
 line (``x = v; del x``, or a body on its header's line) are outside the proof; ruff's E702 and E701, which
 ``backend/ruff.toml`` selects for every file (a self-test pins it), reject both. A new symbol that loads an
 unbound name raises NameError at import, which every test that imports the module, and the app's own startup,
-fails on loudly. A name reached through an attribute is not followed: an ADDED ``Class.member`` of a moved
-class overrides whatever the class inherited under that name for ``self.name`` and for the non-dunder names a
-class's machinery reads (an Enum's ``_missing_``), and an annotated one is a new field of a dataclass or a
-pydantic model, so read every one. Neither is a name reached through a string (a quoted annotation,
+fails on loudly. A name reached through an attribute is not followed, which is why every new member of a
+moved class is reported. Code that the target-file settlement finds running at import is followed by name,
+so a def reached through a string, a container's item, a hook another module calls (``atexit``, a registry
+outside the file) or a module that imports this one while it is still importing is not. Nor is a name
+reached through a string (a quoted annotation,
 ``globals()['name']``, a deletion by ``locals().pop('name')``), a class body's namespace that a metaclass's
 ``__prepare__`` makes keep other values than the body binds, code Python 3.12 evaluates lazily (a ``type``
 alias's value, a type parameter's bound, constraints or default: read where it stands, but evaluated when
@@ -196,7 +212,9 @@ are taken at their word, so a move that rebinds one where no moved symbol reads 
 ``TYPE_CHECKING = True`` above an exempt block, is outside the proof.
 
 The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE, SIDE EFFECT, SHADOWS, REORDERED or
-RELOCATED beyond the symbols passed with ``--allow`` (for SHADOWS, the new symbol's key); each allowed symbol
+RELOCATED beyond the symbols passed with ``--allow`` (for SHADOWS, the new symbol's key). A path that is no
+file (missing, or a directory, at a ref or in the working tree) and a file that does not parse stop the CLI
+with a message naming it, exit status 1. Each allowed symbol
 is a disclosed delta the PR body must list, and what changed is printed with it: its diff (its homes, for a
 DUPLICATE), the names it shadows and, for an old symbol with one home, what its new module changes.
 """
