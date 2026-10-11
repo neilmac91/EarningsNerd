@@ -38,7 +38,10 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   script selects Quarterly, mocks the API's field names, stores the app's consent key, waits for fonts,
   finds the shipped markup by data attribute (`[data-analysis-kpi]`, `[data-kpi-value]`,
   `[data-analysis-data-notes]`) with a fallback to the `97293e7` markup, and fails the run when a probe
-  does not find what it expects (4 cards, 13 header cells, exactly the dataset's 20 metric rows).
+  does not find what it expects (4 cards, 13 header cells, exactly the dataset's 20 metric rows, and the
+  completion's 39 citations as narrative chips and as Sources rows). The "AI trend analysis" heading also
+  stands over the page's error when it refuses a completion, so the heading alone proves nothing: on current
+  `main` a completion with a null `narrative_presentation` had passed all 20 configurations.
 - `harness/measure-proto.mjs` — the same probes on the prototype, in every state and both views, at
   1480 / 1054 / 1024 / 768 / 390 / 320 CSS px, light and dark, 200% browser zoom (CSS viewport halved at
   2x) and 200% text size at 1480, 390 and 320. Output: `measurements/prototype.json`. Since the
@@ -47,7 +50,9 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   cell's content box on both sides (a right-aligned overflow runs to the inline start, which `scrollWidth`
   never counts), visit the start, every column boundary and the far-right end, where the table snaps, for a
   header straddling the sticky edge, hover a metrics
-  row and fail on a translucent fill behind the sticky row header (the values beneath it would show through), assert their
+  row and fail on a translucent fill behind the sticky row header (the values beneath it would show through),
+  walk real Tab and Shift+Tab from the table region through the first metric row and into the second and fail on a
+  focused value less than whole in view (the mandatory snap had left one 11% visible at 320 px with 200% text), assert their
   element counts (4 cards; 13 header cells in the 12-quarter window and 7 in Newest 6; exactly the
   dataset's 20 metric rows) so
   a probe that finds nothing fails the run, and record the Chromium, platform, commit and prototype tree
@@ -89,9 +94,14 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   clipping and occlusion are that browser's, and they compare like for like only from one browser. Both harnesses
   check it right after launch and write their recording only in it; a run in any other needs `--out`. The
   frontend's own `@playwright/test` (1.63) runs Chromium 153, in which the `97293e7` build measures differently
-  in every configuration (the note under the commands below gives the numbers).
+  in every configuration (the note under the commands below gives the numbers). The pin is necessary, not
+  sufficient: text widths also follow the machine's font setup, so the recordings are one environment's run (the
+  note below), and a check on another machine asserts their invariants from a run written with `--out`.
 - `harness/build_states.py`, `harness/prune_states.py` — reproduce `prototype/data/` from a saved
-  companyfacts payload.
+  companyfacts payload. The fixtures are pinned to the engine's shape before #1225, which the prototype,
+  both recordings and the baseline's fixture hash were built on. The builder drops the two fields #1225 added:
+  the dataset's `data_notes`, and the completion's `narrative_presentation`. Production renders that envelope
+  and this builder does not, so the field would arrive as a null, which the current frontend refuses.
 - `measurements/` — the two recorded runs the proposal cites.
 - `astra-prompt.md` — the briefing prompt the founder asked for, to paste into the implementing agent's
   session (GPT-6 Astra / Codex). The hand-over of record is the Engineering row in `tasks/todo.md`
@@ -132,7 +142,8 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
      sources disagree; it does not claim Meta's filings disagree.
 3. `python tasks/analysis-redesign-2026-10/harness/prune_states.py <out> tasks/analysis-redesign-2026-10/prototype/data`
    (a re-run from the repository root on 2026-10-10 reproduced the committed files exactly, apart from
-   the `data_as_of` / `synced_at` run timestamps) keeps every displayed figure, comparison,
+   the `data_as_of` / `synced_at` run timestamps, and so did one on 2026-10-11 against `main` at `1fa5c09`
+   once the builder dropped #1225's two fields) keeps every displayed figure, comparison,
    validation state, reason, formula and first-level operand with its own lineage, and drops deeper
    nesting. The result is a visual reference, not the API schema: the provenance `version` is dropped
    and a comparison's operands are flattened to concept, value, period and validation.
@@ -199,3 +210,12 @@ frontend's own `@playwright/test` (1.63) runs Chromium 153 and serves `--out` ru
 2,076 (4,070 instead of 4,151 with 200% text), the page overflowed 33 px at 390 instead of 39 and 95 px at 320 instead of 93, and no header straddled
 the sticky edge at 1480. A recording retaken in that browser would no longer match the numbers the proposal
 cites.
+
+The pinned browser does not make the numbers portable. In the same Chromium 141.0.7390.37 on linux x64, with
+matching source, fixture, font and install hashes, the founder's review of 2026-10-11 measured the `97293e7`
+table at 2,044 px against the recording's 2,076, and all 20 geometry records differed. Six prototype card
+heights at 390 px with 200% text came out at 206 px against 238. The Track A verification had seen 2,044 px
+too. The cause in the environment is not isolated; text widths follow the machine's font setup as well as the
+browser. So the recordings are one environment's run. A check on another machine runs with `--out` and
+compares the invariants the briefing prompt's Track A lists (signs and counts, not pixels), and it never
+rewrites a committed recording to match.

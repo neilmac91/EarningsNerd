@@ -560,6 +560,27 @@
     // The hint says what is off-screen, so it shows only while the table is scrolled away from its start (§4.5).
     const atStart = () => scroll.classList.toggle('at-start', scroll.scrollLeft <= 0)
     scroll.addEventListener('scroll', atStart, { passive: true })
+    // Focus reveals the focused value's whole column. The browser scrolls a focused element into view and the
+    // mandatory snap then settles on whichever stop is nearest, which can leave the value past the edge or under the
+    // sticky labels (Tab at 320 px with 200% text showed 11% of one). So focus picks the stop itself, as the app's
+    // DataTable does: the column's own stop when it starts left of the labels' edge, else the first stop that shows
+    // its far edge. Unstuck, the label column is a stop of its own and nothing overlays the values.
+    scroll.addEventListener('focusin', (e) => {
+      const cell = e.target !== scroll && e.target.closest('td')
+      if (!cell) return
+      const unstuck = scroll.classList.contains('unstuck')
+      const view = scroll.getBoundingClientRect(), box = cell.getBoundingClientRect()
+      const inset = unstuck ? 0 : table.querySelector('thead th').getBoundingClientRect().width
+      const range = scroll.scrollWidth - scroll.clientWidth
+      const stopOf = (c) => scroll.scrollLeft + c.getBoundingClientRect().left - view.left - inset
+      let to = null
+      if (box.left < view.left + inset - 0.5) to = stopOf(cell)
+      else if (box.right > view.right + 0.5) {
+        const need = scroll.scrollLeft + box.right - view.right
+        to = Math.min(range, ...[...cell.parentElement.children].filter((c) => c.tagName === 'TD' || unstuck).map(stopOf).filter((s) => s >= need - 0.5))
+      }
+      if (to != null) scroll.scrollLeft = Math.max(0, Math.min(to, range))
+    })
     // Home/End move the table, never the page; arrows step one column through the mandatory snap.
     scroll.addEventListener('keydown', (e) => { if (e.target !== scroll) return; const range = scroll.scrollWidth - scroll.clientWidth; const col = table.querySelector('tbody td'); const step = col ? col.getBoundingClientRect().width : scroll.clientWidth; const to = e.key === 'Home' ? 0 : e.key === 'End' ? range : e.key === 'ArrowRight' ? scroll.scrollLeft + step : e.key === 'ArrowLeft' ? scroll.scrollLeft - step : null; if (to == null) return; e.preventDefault(); scroll.scrollLeft = Math.max(0, Math.min(to, range)) })
     const legend = el('div', { class: 'legend' }, hasDerived ? el('span', null, el('span', { class: 'affix' }, el('span', { class: 'dag' }, '†')), ' calculated') : null, ...(() => { const letters = notes.list.map((g) => g.letter).filter((l) => tableLetters.has(l)); return letters.length ? [el('button', { type: 'button', class: 'pchip note notes-ref', onclick: () => openNote(letters[0]) }, `Notes ${letters.join(', ')}`)] : [] })())

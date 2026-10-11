@@ -118,9 +118,11 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - test-gates-must-be-as-wide-as-their-rule.md — A gate narrower than its rule is worse than no gate; evaluate the source, don't text-match it
 - test-isolate-process-wide-contextvars.md — Isolate process-wide ContextVars per test; CI's file order can hide a leak
 - test-judge-context-parity.md — Give an LLM judge the same (or a superset of the) grounding the generator used
+- test-layout-numbers-are-one-environments-run.md — Accept a layout measurement on its invariants, never on equal pixels; one pinned browser still measures differently on another machine
 - test-leave-the-tree-alone-during-a-background-suite.md — Leave the working tree untouched while a background full-suite run reads it
 - test-parser-callback-positions.md — Match whole-input callbacks to exact raw-source positions before accepting event capacity
 - test-persistent-sqlite-db-goes-stale.md — The dev SQLite DB (backend/earningsnerd.db) is persistent — rm it after a schema change; the test suite never uses it
+- test-probes-assert-what-only-success-renders.md — A probe asserts what only a successful render shows, counted from its input; a heading that also frames the error state proves nothing
 - test-proofs-run-on-committed-state.md — Mechanical proofs must run against committed state — a proof that cannot fail proves nothing
 - test-pure-move-ast-proof.md — Verify "pure move" refactors with an AST-normalized per-symbol diff, not by eyeballing the diff
 - test-smoke-model-runs-before-sweeps.md — Smoke one or two items and inspect raw output before any long or expensive model run
@@ -159,6 +161,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - frontend-sanitize-telemetry-before-transport.md — Sanitize every telemetry transport, persisted attribution and recording lifecycle before authentication data can leave
 - frontend-site-overlays-outrank-in-page-sticky-chrome.md — A fixed site-level overlay ranks above in-page sticky chrome, and the ladder gate scans sticky sites too
 - frontend-sitemap-cache-ownership.md — Cache the rendered sitemap hourly while bypassing Next's fetch Data Cache
+- frontend-snapped-scrollers-reveal-the-focused-cell.md — A snap-scrolled table picks the snap stop that reveals a focused cell; the browser's focus scroll plus the mandatory snap can hide it
 - frontend-spinner-gate-on-shared-errored-query.md — Gate a page's spinner on the retained failure when its children observe the same query
 - frontend-status-colors-for-status-only.md — Reserve loud status colors for genuine status messages
 - frontend-sweep-replaces-need-per-site-asserts.md — Assert every targeted replace in a sweep script and grep all token variants first

@@ -406,8 +406,12 @@ budget in `lib/tableFormat.ts`). The rules, with the corrections of §11:
   the fixed columns and without the window control.
 - **Keyboard and focus**: the scroll container is a named `region` that is a Tab stop only while it
   overflows; Left/Right move one column, Home/End the ends, handled only when the region itself has focus
-  (a cell's dialog bubbles its keys through the React tree); a focused cell is scrolled clear of the
-  sticky column. On phones the table starts scrolled to the newest quarter with the hint "← Earlier
+  (a cell's dialog bubbles its keys through the React tree); a focused cell is scrolled whole into view,
+  clear of the sticky column. Focus picks the snap stop itself: the column's own stop when it starts left of
+  the sticky column's edge, else the first stop that shows its far edge; with the column unstuck, the label
+  column is a stop of its own. The browser's focus scroll followed by the mandatory snap can otherwise
+  settle on a stop that leaves the value past the edge (11% of one showed at 320 px with 200% text in the
+  prototype, until this rule). On phones the table starts scrolled to the newest quarter with the hint "← Earlier
   quarters" shown while the table is scrolled away from its start; at wider widths it starts at the
   earliest quarter without a hint.
 - **Print**: disclosures open on `beforeprint` so a printed page carries the notes and the evidence.
@@ -463,8 +467,9 @@ the comparison block); the vocabulary corrections of §11 remain. The shared `Mo
 6. The FCF definition for that series, and the existing "not an audit" line.
 
 Opens from pointer, keyboard (Enter/Space on the figure button) and touch; focus moves in, Tab cycles
-(the `Modal` focus list includes `summary`, so the trailing "Technical source details" disclosure does
-not let Tab leave the dialog), Escape closes, focus returns to the figure (the `Modal` contract).
+(the trailing "Technical source details" summaries are in the `Modal` focus list, so Tab does not leave the
+dialog: on `main` they carry `tabIndex={0}`, which its `[tabindex]` selector includes), Escape closes, focus
+returns to the figure (the `Modal` contract).
 
 ### 4.7 Charts
 
@@ -698,8 +703,9 @@ operational action and is not part of this brief.
    operands, the comparison block and the lineage copy; the status vocabulary of decision 9, "Unavailable"
    for "Withheld", waits on that decision's confirmation): display form, the stored value, the formula with
    its operands bound by concept, the status vocabulary, the comparison block, the lineage block with the
-   absent-lineage copy; never a storage unit (§4.6). Leftovers on `main`: `review-2026-10-10.md` items 1,
-   13, 16 and 28, and the paused vocabulary.
+   absent-lineage copy; never a storage unit (§4.6). Leftovers on `main`: `review-2026-10-10.md` items 1
+   and 13, item 28's "As stored" label, and the paused vocabulary (item 16 and the rest of 28 are satisfied
+   there).
 7. **`NarrativePane.tsx`** (M; partly landed in #1203: the render-time compaction, the evidence fold, the
    header chips and the Sources lines; `main` folds every operand list and its summary names only the count,
    so the three-figure rule and the letters on the fold's summary are open): compact amounts and periods at render time until Phase 2
@@ -712,8 +718,8 @@ operational action and is not part of this brief.
    dashed outline): `dot` render for hollow markers with the letter above,
    affected bars keeping their fill with the letter above (never a dashed outline: §4.7, decision 7),
    letters in the chart label ink as SVG attributes from the chart theme, "Notes a" chip, PNG note
-   sentences from `groupDataNotes`. Leftovers on `main`: `review-2026-10-10.md` items 22, 25 and 29 (29 is
-   the filled affected bar, paused under decision 7). Update
+   sentences from `groupDataNotes`. Leftovers on `main`: `review-2026-10-10.md` items 25 and 29 (29 is
+   the filled affected bar, paused under decision 7; item 22's label ink is satisfied there). Update
    `trend-charts-annotation.spec.tsx`, `trend-charts-legend.spec.tsx` (it owns the warning and PNG
    metadata assertions) and `chart-export.spec.ts`.
 9. **`PeriodPicker.tsx`** (M; partly landed in #1203 as a rule-6 contract change: the `SegmentedControl`,
@@ -967,8 +973,11 @@ The implementing agent verified the proposal against `main` and ran both harness
   configured viewport; the recorded runs were regenerated; §1, §2.3 and §6 state the corrected rule.
 - **"200% browser zoom"** in the harnesses is 2x device-scale emulation at half the CSS width, not
   native browser zoom; stated in §1.
-- **Font-dependent widths** reproduce within a few pixels, not exactly (the reviewer's run: table
-  2,044 px, KPI overflow 49.1 / 84.1 / 115.3 px); the proposal's numbers are this review's run.
+- **Font-dependent widths** differ between environments, even in one pinned Chromium build. The Track A
+  reviewer's run measured the table at 2,044 px (KPI overflow 49.1 / 84.1 / 115.3 px). The founder's review
+  of 2026-10-11 measured 2,044 px too, in Chromium 141.0.7390.37 on linux x64 with matching source, fixture,
+  font and install hashes; all 20 of its geometry records differed from the recording's, whose table is
+  2,076 px. The proposal's numbers are this review's run, and checks assert invariants, not pixels (§7).
 - **Fixture vs production.** The fixture is companyfacts-only modelled legacy state (230 / 10 / 14 + 10),
   not the captured production snapshot (236 / 4 / 16 + 10); both remain distinct fixtures (§2.2).
 - **Pruned provenance is not the API schema** (§2.2).
@@ -1017,7 +1026,7 @@ correction landed in this document:
 - **The dialog bound operands by position** (a margin's inputs are stored as `[revenue, income]`): bound
   by the formula's concepts (§4.6); "As stored" replaces "exact"; units through one display map;
   "Unavailable" replaces "Withheld"; the comparison block and the gap copy added to §4.6; the Modal's
-  focus list must include `summary`.
+  focus list must include the dialog's summaries (satisfied on `main`: they carry `tabIndex={0}`).
 - **Warning ink only for review notes**; the muted pair for no-record and unavailable letters (§4.2);
   chart letters in the chart label ink as SVG attributes (§4.7); filled bars.
 - **The strip's locator was wrong** ("in the headline figures and charts" for YoY comparisons that only
@@ -1129,7 +1138,9 @@ correction landed in this document:
   141.0.7390.37 on linux x64 (Playwright 1.56.1's build), checked right after launch, since the browser sets
   every width as the fonts do: measured in Chromium 153, the frontend's own Playwright's, the same `97293e7`
   build differs in all 20 configurations (the table 2,035 px wide instead of 2,076, 4,070 instead of 4,151 with
-  200% text, and no header straddling the sticky edge at 1480).
+  200% text, and no header straddling the sticky edge at 1480). The pin is necessary, not sufficient: in the
+  same Chromium build another machine measured that table at 2,044 px (the "Font-dependent widths" entry
+  above), so acceptance checks assert invariants (§7) and a run elsewhere writes with `--out`.
 - **Moved modules**, checked against `main` at `dd7b9ce` (#1222) on 2026-10-11: `normalize_companyfacts`
   lives in `facts/companyfacts.py` (#1210) behind the `facts_service.py` facade; `build_observation_catalogue`
   and `_point_value` in `trend_analysis/observations.py`, `_ratio_threshold_value` and

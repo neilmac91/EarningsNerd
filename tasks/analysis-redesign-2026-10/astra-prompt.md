@@ -99,14 +99,16 @@ moved, and every test the brief names that pins text the change will alter (`kpi
 `metrics-table.spec.tsx`, `analysis-source-quality.spec.tsx`, `narrative-pane.spec.tsx`,
 `trend-charts-annotation.spec.tsx`, `chart-export.spec.ts`, `period-picker-helpers.spec.ts`). None of them
 is a locked contract test (CLAUDE.md rule 6 lists those); say so explicitly in your notes. Run the
-prototype harness once to confirm `measurements/prototype.json` reproduces (the README has the commands; both
-recordings are written only in the browser `harness/browser-pin.mjs` pins, Playwright 1.56.1's Chromium on linux
-x64, so in another browser or on another platform pass `--out` and expect other widths). `measurements/current.json` is a recording of `main` at `97293e7`, before Phase 1 landed, so
-it reproduces only against a build of that revision: `git worktree add ../en-97293e7 97293e7`, then the
+prototype harness once, with `--out` naming a scratch file, to confirm the invariants of
+`measurements/prototype.json` hold on your machine (the README has the commands). Both recordings are written
+only in the browser `harness/browser-pin.mjs` pins, Playwright 1.56.1's Chromium on linux x64, but they are one
+environment's run: in that same browser another machine measured other widths, so never rewrite a committed
+recording to match yours. `measurements/current.json` is a recording of `main` at `97293e7`, before Phase 1 landed,
+so its findings reproduce only against a build of that revision: `git worktree add ../en-97293e7 97293e7`, then the
 README's commands (`harness/build-stamped.mjs` on that worktree with `NEXT_PUBLIC_ENABLE_ANALYSIS=true`, which
 installs its packages with `npm ci`, runs `next build` itself, not through npm, with an allowlisted environment and
 no Node flags but heap sizes, and stamps the build with its source tree, public variables, downloaded fonts and a
-hash of its whole output) and this tree's harness with `--build ../en-97293e7`, which serves the build itself
+hash of its whole output) and this tree's harness with `--build ../en-97293e7` and `--out` naming a scratch file, which serves the build itself
 (`next start` through Next's own CLI in the same controlled environment, with `WAITLIST_MODE=false`, no backend)
 (`97293e7` has no harness; the harness verifies that the
 server serves that worktree's build id, that the stamp names it, that checkout's `frontend/` tree, the build's
@@ -168,8 +170,16 @@ both themes, reduced motion respected.
 <done_looks_like>
 Track A: a short verification note appended to the PR that carries this prompt (or a comment on it)
 listing falsified claims (expected: none or few), moved files, and the test pins the change will alter;
-both harness runs reproduced, record for record in the pinned browser (in another browser, with `--out`, expect
-other widths).
+both harness runs complete with every probe passing (element counts, the narrative's citations, the hover and
+keyboard-focus probes), each written with `--out` to a scratch file, and their invariants hold. In the prototype's
+proposed view, at every state and configuration: 0 page overflow, 0 card-child overflow, no clipped cell, no
+occluded rest position, equal period columns, an opaque sticky hover and every keyboard-focused value fully
+visible. On the `97293e7` build, the recorded defects: 33 repeated source-check labels; the page wider than the
+viewport at 390 and 320 px and at 200% text, and not at the wider widths; a KPI card's content past its card on
+phones. Pixel values are one environment's, so compare signs and counts, not pixels: in the same pinned Chromium,
+another machine measured the `97293e7` table at 2,044 px against the recording's 2,076, and a prototype card at
+390 px with 200% text at 206 px against 238. Note your differences beside your run's `environment` block rather
+than chasing them.
 Track B, per PR: the frontend gate green, the named spec updated, the preview checked in both themes at
 1480 and 390, the measurement harness showing 0 page overflow, 0 card-child overflow, equal period
 columns and 0 occlusion for the states the PR affects, and the PR body in the §7 format with its review

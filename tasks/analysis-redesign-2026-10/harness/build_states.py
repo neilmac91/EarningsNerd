@@ -5,6 +5,10 @@ observation catalogue -> citation resolution) on a freshly fetched SEC companyfa
 private SQLite database. No production state, no AI call (the observation selection is a deterministic
 "first three per section" stand-in for the model's choice), no network beyond the already-saved payload.
 
+The output is pinned to the engine's shape before #1225, which the committed fixtures, the prototype, both
+recorded runs and the baseline's fixture hash were built on: the two fields #1225 added are dropped on write
+(PRE_1225_DROPS), so a re-run on later main still reproduces the committed files.
+
 Usage: python build_states.py <companyfacts.json> <out_dir> [--probe]
 """
 from __future__ import annotations
@@ -58,6 +62,14 @@ MISSING_ROWS = [
 ]
 # Genuine discrepancy: available sources disagree on the latest reported revenue.
 CONFLICT_ROW = ("revenue", "2026-06-30")
+
+
+# The fields #1225 added, dropped on write. The dataset's data_notes: the prototype builds its own notes model.
+# The completion's narrative_presentation: production renders that envelope and this builder does not, so
+# analysis_completion copies a null, which the current frontend refuses (decodeNarrativePresentation throws and
+# the page shows an error under the "AI trend analysis" heading), while a completion without the field renders
+# from its narrative and citations.
+PRE_1225_DROPS = (("dataset", "data_notes"), ("completion", "narrative_presentation"))
 
 
 def deterministic_selection(catalogue):
@@ -234,6 +246,8 @@ def main():
     db.commit()
 
     for name, state in states.items():
+        for part, key in PRE_1225_DROPS:
+            state[part].pop(key, None)
         (out_dir / f"{name}.json").write_text(json.dumps(state, indent=1, default=str))
         summary = quality_summary(state["dataset"])
         print(f"\n== {name}: values={summary['n_values']} flagged_points={len(summary['flagged_points'])} "

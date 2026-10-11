@@ -5,7 +5,9 @@
 // real META 12-quarter dataset in its production-like legacy state, with every API answered inside
 // the browser (page.route) — the same no-backend discipline as tests/e2e. Records page overflow,
 // KPI card-child containment, the metrics table's width and per-column widths, sticky-column
-// occlusion at the start, every column boundary and the far-right end (with the table's scroll-snap-type), and the count of repeated source-check labels, at six viewport
+// occlusion at the start, every column boundary and the far-right end (with the table's scroll-snap-type), the count of
+// repeated source-check labels, and that the narrative rendered (every citation of the completion as a chip and as a
+// Sources row, since its heading also stands over an error when the page refuses a completion), at six viewport
 // widths, both themes, 200% browser zoom (CSS viewport halved at 2x) and 200% text size at 1480, 390 and 320
 // (the same profiles as measure-proto.mjs, so the two recorded runs compare like for like).
 //
@@ -232,13 +234,13 @@ async function mockApi(context) {
   await context.route(/^https?:\/\/(?!localhost)/, (route) => route.abort())
 }
 
-async function measure(page, configuredWidth, expectedRows) {
+async function measure(page, configuredWidth, expectedRows, expectedCitations) {
   // Mobile Chromium widens the layout viewport to overflowing content, so innerWidth cannot detect
   // overflow: compare the document with the configured viewport width instead. The probes read the
   // rendered text (text-node rectangles and scrollWidth per block, `.sr-only` excluded), test both
   // sides of each cell's content box, and visit the start, every column boundary and the far-right end, as the
   // prototype's do.
-  return page.evaluate(async ({ vw, expectedRows }) => {
+  return page.evaluate(async ({ vw, expectedRows, expectedCitations }) => {
     const doc = document.documentElement
     const r = (el) => el.getBoundingClientRect()
     const EPS = 0.5
@@ -322,12 +324,18 @@ async function measure(page, configuredWidth, expectedRows) {
     }
     // The report-level summary line: the Data notes strip after #1200, the Sources & methods summary before it.
     const sm = document.querySelector('[data-analysis-data-notes] > details > summary') || [...document.querySelectorAll('summary')].find((s) => /Sources/.test(s.textContent || ''))
-    const counts = { kpiCards: cards.length, tableHeaders: tableInfo ? tableInfo.columns.length : 0, tableRows: table ? table.querySelectorAll('tbody tr').length : 0 }
+    // The narrative itself, not only its heading: a completion the page refuses (on current main, one whose
+    // narrative_presentation is null) leaves "AI trend analysis" over an error, with no citation chip and no Sources
+    // list. Both versions label each chip "Citation N: …" and head the Sources list "Sources · …", one row per citation.
+    const chipNumbers = new Set([...document.querySelectorAll('[aria-label^="Citation "]')].map((el) => (/^Citation (\d+):/.exec(el.getAttribute('aria-label') || '') || [])[1]).filter(Boolean))
+    const sourcesLabel = [...document.querySelectorAll('div')].find((el) => !el.childElementCount && /^Sources · /.test((el.textContent || '').trim()))
+    const counts = { kpiCards: cards.length, tableHeaders: tableInfo ? tableInfo.columns.length : 0, tableRows: table ? table.querySelectorAll('tbody tr').length : 0, narrativeCitations: chipNumbers.size, sourceRows: sourcesLabel && sourcesLabel.nextElementSibling ? sourcesLabel.nextElementSibling.querySelectorAll(':scope > li').length : 0 }
     // Every probe states what it found; a run whose counts are off measures nothing and must not pass.
     const probeErrors = []
     if (counts.kpiCards !== 4) probeErrors.push(`expected 4 KPI cards, found ${counts.kpiCards}`)
     if (counts.tableHeaders !== 13) probeErrors.push(`expected 13 table header cells, found ${counts.tableHeaders}`)
     if (counts.tableRows !== expectedRows) probeErrors.push(`expected the dataset's ${expectedRows} metric rows, found ${counts.tableRows}`)
+    if (counts.narrativeCitations !== expectedCitations || counts.sourceRows !== expectedCitations) probeErrors.push(`expected the narrative to show the completion's ${expectedCitations} citations as chips and as Sources rows, found ${counts.narrativeCitations} and ${counts.sourceRows}: the page refused or failed the completion`)
     return {
       viewport: vw,
       layoutViewport: window.innerWidth,
@@ -342,7 +350,7 @@ async function measure(page, configuredWidth, expectedRows) {
       kpi,
       table: tableInfo,
     }
-  }, { vw: configuredWidth, expectedRows })
+  }, { vw: configuredWidth, expectedRows, expectedCitations })
 }
 
 // The harness's own server: a taken port is refused (another server there could answer for this build), `next start`
@@ -399,9 +407,11 @@ async function measureAll() {
       await page.getByRole('button', { name: 'Run analysis' }).click()
       await page.getByRole('heading', { name: 'Metrics by period' }).waitFor({ timeout: 30000 })
       await page.getByRole('heading', { name: 'AI trend analysis' }).waitFor({ timeout: 30000 })
+      // The narrative renders after its heading, and a refused completion never renders it; measure() asserts it.
+      await page.locator('[aria-label^="Citation "]').first().waitFor({ timeout: 15000 }).catch(() => {})
       await page.evaluate(() => document.fonts.ready)
       await page.waitForTimeout(600)
-      const m = await measure(page, cfg.width, state.dataset.series.length)
+      const m = await measure(page, cfg.width, state.dataset.series.length, state.completion.citations.length)
       if (m.probeErrors.length) throw new Error(`${theme} ${cfg.name}: ${m.probeErrors.join('; ')}`)
       results.configs.push({ theme, ...cfg, ...m })
       if (SHOTS) {

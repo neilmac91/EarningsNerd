@@ -5,7 +5,10 @@
 // only in this browser, checked right after launch, before anything is measured; a run in any other needs --out naming
 // another file. It is Playwright 1.56.1's Chromium, the cloud image's global install (the frontend's own
 // @playwright/test is newer and runs a newer Chromium). Retaking the recordings in another browser needs a new pin
-// here, both recordings retaken and a README note.
+// here, both recordings retaken and a README note. The pin is necessary, not sufficient: in this same browser another
+// linux x64 machine measured the 97293e7 table at 2,044 px against the recording's 2,076, since text widths also
+// follow the machine's font setup, so the recordings are one environment's run and checks elsewhere assert their
+// invariants from an --out run.
 export const PINNED_BROWSER = { chromium: '141.0.7390.37', platform: 'linux x64' }
 
 // The platform as a recording records it.

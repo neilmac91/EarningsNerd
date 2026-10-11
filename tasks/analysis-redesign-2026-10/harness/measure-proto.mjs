@@ -4,7 +4,8 @@
 // column widths, sticky-column occlusion at EVERY rest position (the start, every column boundary and
 // the far-right end), both-sided cell clipping of the rendered
 // text, text-aware KPI containment, the painted fill of a hovered sticky row header (it must be opaque,
-// or the values scrolling beneath it show through), and the count of repeated labels; 200% text at 1480,
+// or the values scrolling beneath it show through), the share of each keyboard-focused value in view after real
+// Tab and Shift+Tab through the table (it must be whole), and the count of repeated labels; 200% text at 1480,
 // 390 and 320.
 //
 //   node harness/measure-proto.mjs [--out file] [--fonts dir] [--shots dir] [--allow-dirty]
@@ -116,6 +117,35 @@ function expectCounts(m, headers, rows, key) {
   if (problems.length) throw new Error(`${key}: ${problems.join('; ')}`)
 }
 
+// Real keyboard focus through the table: from the region at its start (Home), Tab through the first metric row and two
+// cells into the second (the wrap back to the earliest column), then Shift+Tab back; after each key, once the snap has
+// settled, the focused value's visible share of its width inside the scroll area, beside the labels while they stick.
+async function focusReveal(page) {
+  const steps = await page.evaluate(() => {
+    const scroll = document.querySelector('.metrics-scroll')
+    if (!scroll.classList.contains('scrolls')) return 0
+    scroll.focus()
+    scroll.scrollLeft = 0
+    return document.querySelector('table.metrics tbody tr').querySelectorAll('td button').length + 2
+  })
+  const stops = []
+  for (const key of [...Array(steps).fill('Tab'), ...Array(steps).fill('Shift+Tab')]) {
+    await page.keyboard.press(key)
+    const stop = await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => {
+      const scroll = document.querySelector('.metrics-scroll'), el = document.activeElement
+      if (!el || el === scroll || !scroll.contains(el)) return resolve(null)
+      const view = scroll.getBoundingClientRect(), box = el.getBoundingClientRect()
+      const inset = scroll.classList.contains('unstuck') ? 0 : document.querySelector('table.metrics thead th').getBoundingClientRect().width
+      const shown = Math.max(0, Math.min(box.right, view.right) - Math.max(box.left, view.left + inset))
+      resolve({ name: (el.getAttribute('aria-label') || '').split(':')[0], scrollLeft: Math.round(scroll.scrollLeft), visible: box.width ? shown / box.width : 1 })
+    }))))
+    if (stop) stops.push({ key, ...stop })
+  }
+  await page.evaluate(() => { if (document.activeElement) document.activeElement.blur(); window.scrollTo(0, 0) })
+  const worst = stops.reduce((a, b) => (!a || b.visible < a.visible ? b : a), null)
+  return { stops: stops.length, minVisible: worst ? Math.round(worst.visible * 1000) / 1000 : 1, worst }
+}
+
 async function run() {
   const browser = await chromium.launch()
   if (WRITING_BASELINE) await requirePinnedBrowser(browser, 'measurements/prototype.json')
@@ -171,6 +201,10 @@ async function run() {
             await page.evaluate(() => window.scrollTo(0, 0))
             if (!m.stickyHover.rowHovered) throw new Error(`${label}: the hover probe did not reach the row (its cells kept their resting fill)`)
             if (!m.stickyHover.opaque) throw new Error(`${label}: the hovered sticky row header paints ${m.stickyHover.fill}, not an opaque fill`)
+            // Keyboard focus must reveal the focused value whole, which the rest-position and clipping probes cannot
+            // see (a value can fit its cell while the mandatory snap leaves the cell under the labels or past the edge).
+            m.focusReveal = await focusReveal(page)
+            if (m.focusReveal.minVisible < 0.99) throw new Error(`${label}: keyboard focus left a value ${Math.round(m.focusReveal.minVisible * 100)}% visible (${m.focusReveal.worst.name}, after ${m.focusReveal.worst.key} at scrollLeft ${m.focusReveal.worst.scrollLeft})`)
           }
           // Does the proposed table fit without scrolling in the "Newest 6" window?
           let window6 = null
