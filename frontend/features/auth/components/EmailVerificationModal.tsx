@@ -177,7 +177,7 @@ export default function EmailVerificationModal() {
           />
         ) : null}
         {checkFailure ? (
-          <Notice key={checkFailure.n} variant="error" title={checkFailure.title} description={checkFailure.message} className="mt-4" />
+          <Notice key={`check-${checkFailure.n}`} variant="error" title={checkFailure.title} description={checkFailure.message} className="mt-4" />
         ) : null}
       </ModalBody>
       <ModalFooter>
