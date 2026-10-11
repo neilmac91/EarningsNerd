@@ -546,18 +546,21 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
     it stands, in a default or a class body), a member its class body calls, a decorator that is handed the def
     (an ``async def`` too), a class whose bases or keywords may call its methods when it is created, a
     method's decorator in the class body, and what a member class's body creates when it runs: a nested class on
-    a base that may call it, a nested def under a calling decorator. An annotation that is no lone name or
+    a base that may call it, a nested def under a calling decorator, and what it calls: a def or class it binds
+    itself. An augmented assignment reads its target before it binds it. An annotation that is no lone name or
     literal runs code where Python evaluates it (a call, a subscript's ``__class_getitem__``), and a def whose
     annotation names a reaching class holds it: what reads its ``__annotations__`` may call it. Below the binding
     each is settled, and so is a reaching def or class that nothing above the binding names or calls: a lambda
     that no call is handed, one that an inert decorator or a property's own accessor wraps (in a nested class
     too), a class whose only base is a builtin class (one no binding its lookup sees replaces: a def's local, a
     comprehension's target or another class's body does not), and a lone name an annotation evaluates, which
-    Python stores and never calls (a postponed annotation is not even evaluated)."""
+    Python stores and never calls (a postponed annotation is not even evaluated), a ``global`` declaration,
+    which reads nothing, and a class's own property's accessor, in a nested class body as in the moved code."""
     target = "def normalize(value):\n    return value.strip()\n"
     report_init = "class Report:\n    def __init__(self):\n        normalize(' x ')\n\n\n"
     report_class = "class Report:\n    def render(self):\n        return normalize(' x ')\n\n\n"
     error = "class FooError(Exception):\n    def __str__(self):\n        return normalize(' boom ')\n"
+    nested = "def hook():\n    return normalize(' x ')\n\n\nclass Outer:\n    class Inner:\n"
     for reader, key in (
             ("def describe():\n    return normalize(' x ')\n\n\nDESCRIPTION = describe()\n", "DESCRIPTION"),
             ("RUN = lambda: normalize(' x ')\nDESCRIPTION = RUN()\n", "DESCRIPTION"),
@@ -607,6 +610,8 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
              "                return normalize(' x ')\n", "Outer.Inner"),
             ("class Outer:\n    class Inner:\n        Exception = Base\n\n        class Deep(Exception):\n"
              "            def __str__(self):\n                return normalize(' boom ')\n", "Outer.Inner"),
+            (nested + "        value: hook()\n", "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        value: normalize\n", "Outer.Inner"),
             (report_init + "def build(value: Report()):\n    return value\n", "build"),
             (report_init + "def build() -> Report():\n    return 1\n", "build"),
             ("class Report:\n    def __class_getitem__(cls, item):\n        return normalize(' x ')\n\n\n"
@@ -641,6 +646,11 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    "            return normalize(' x ')\n\n        @property\n        def value(self):\n"
                    "            return self._v\n\n        @value.setter\n        def value(self, raw):\n"
                    "            self._v = normalize(raw)\n",
+                   nested + "        value: hook\n",
+                   nested + "        global hook\n",
+                   "class Outer:\n    class Inner:\n        @property\n        def normalize(self):\n"
+                   "            return 1\n\n        @normalize.setter\n        def normalize(self, raw):\n"
+                   "            pass\n",
                    report_class + "def build(text: str) -> Report:\n    return Report()\n",
                    report_class + "def build(report: Report):\n    return report\n",
                    report_class + "@dataclass\nclass Batch:\n    first: Report\n",
@@ -677,7 +687,9 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    report_init + "def build(value: Report()):\n    return value\n",
                    report_init + "VALUE: Report() = 1\n",
                    "class Report:\n    def __class_getitem__(cls, item):\n        return normalize(' x ')\n\n\n"
-                   "def build(value: Report[int]):\n    return value\n"):
+                   "def build(value: Report[int]):\n    return value\n",
+                   nested + "        value: hook()\n",
+                   "class Outer:\n    class Inner:\n        value: normalize\n"):
         old = future + "from app.b import normalize\n\n\n" + reader
         report = compare(old, {"app/a.py": "", "app/b.py": future + reader + "\n\n" + target}, old_path="app/a.py")
         assert report.ok, render(report)
@@ -687,6 +699,15 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
     report = compare("from app.b import format\n\n\n" + reader, {"app/a.py": "", "app/b.py": reader + "\n\n" + negate},
                      old_path="app/a.py")
     assert report.shadows == {"format": "app/b.py: binds format, read above it at import by VALUE"}
+    # An augmented assignment reads its target before it binds it, and a class body's lookup falls through to the
+    # module until the class has bound the name.
+    count = "COUNT = 0\n"
+    for reader, key in (("class Box:\n    COUNT += 1\n", "Box.COUNT"),
+                        ("class Outer:\n    class Inner:\n        COUNT += 1\n", "Outer.Inner")):
+        old = "from app.b import COUNT\n\n\n" + reader
+        above = compare(old, {"app/a.py": "", "app/b.py": reader + "\n\n" + count}, old_path="app/a.py")
+        assert above.shadows == {"COUNT": f"app/b.py: binds COUNT, read above it at import by {key}"}, reader
+        assert compare(old, {"app/a.py": "", "app/b.py": count + "\n\n" + reader}, old_path="app/a.py").ok, reader
 
 
 def test_python_reads_a_dunder_the_old_file_imported_from_the_target_where_moved_code_stands():
