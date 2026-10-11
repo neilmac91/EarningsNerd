@@ -96,3 +96,8 @@ d1c31ee5b5f52021119de53a81f840b53ad53a73:backend/tests/unit/test_oauth_invite_ga
 9c0555f1b0e63b5680bf0cdbf68b96dbb6fc5e83:tasks/critique-env-2026-10-04/jobs-en01.json:generic-api-key:160
 576c86c5f19cffc50c2258dd84165b260dffa06f:.gitleaksignore:generic-api-key:89
 576c86c5f19cffc50c2258dd84165b260dffa06f:tasks/todo.md:generic-api-key:16
+
+# Founder-approved exact false positives: fictional filing accession identifiers.
+# Keep credential rules and the full branch-history scan unchanged.
+ade6f8bbfe3c949d1718bb5bde7d14930d1c583b:frontend/features/research-evidence-packs/data/fictionalExample.ts:generic-api-key:3
+ade6f8bbfe3c949d1718bb5bde7d14930d1c583b:frontend/features/research-evidence-packs/data/fictionalExample.ts:generic-api-key:9
