@@ -39,7 +39,8 @@ building the checker, and the device is typographic, so it survives any UI fashi
 - **Mood.** A desk, a pencil, a good footnote. Paper and ink, one green highlighter, nothing
   decorative.
 - **Signature element.** The margin: a hairline gutter with bracketed citation marks (`[F1]`, `[1]`)
-  aligned to the lines they belong to, and the sage mark, a highlight bar under a phrase or beside a
+  positioned to the lines they belong to (the mockup measures each inline marker and places its
+  margin twin on that line), and the sage mark, a highlight bar under a phrase or beside a
   passage, which is the monogram's rising stroke laid flat. On the hero it underlines "shows its
   work"; on a surface it marks the located span.
 - **Risk.** Executed literally it turns skeuomorphic (yellow highlighter, paper grain); the margin
@@ -60,7 +61,8 @@ and on paper (a margin).
   not just a wordmark (S3 colleague, A1).
 - **Mood.** A ruled page, numbered entries, a dry aside in the margin ("worth a look"), a
   signature line.
-- **Signature element.** The numbered note (01, 02 … in the data face on a ruled page) and the
+- **Signature element.** The numbered note (01, 02 … in the data face on a ruled page, as the
+  summary's section rail already numbers itself) and the
   italic aside, which would be the one added type role: the Nerd's own voice in Inter italic,
   distinct from the filing's serif and the summary's upright sans.
 - **Risk.** A character on a trust product is a risk to S3's colleague-not-oracle line the moment
@@ -68,7 +70,7 @@ and on paper (a margin).
   Source Voice Rule forbids it; a notebook is a metaphor, and metaphors age faster than devices.
 
 Why it still works in five years: a voice is the hardest thing to copy and the easiest to keep,
-and the numbered note is already how the summary is built (the 01 to 09 rail); but the identity
+and the numbered note is already how the summary is built (the numbered section rail); but the identity
 lives in the writing, so it depends on the founder keeping the voice, not on the system.
 
 ## Comparison
@@ -76,7 +78,7 @@ lives in the writing, so it depends on the founder keeping the voice, not on the
 | | A. The Receipt | B. The Marked Copy | C. The Nerd's Notebook |
 |---|---|---|---|
 | Ownable without the logo | the tally rule and stamp | the margin and the mark | the numbered note and the aside |
-| What the product already proves | the tally sentences | the span highlight, chips, `[F1]` markers, the Source pane | the 01 to 09 section rail, the quips |
+| What the product already proves | the tally sentences | the span highlight, chips, `[F1]` markers, the Source pane | the numbered section rail, the quips |
 | Recognisable at 16px | a dashed rule: weak | a bracket: yes | a numeral: weak |
 | In grayscale and on paper | yes | yes | yes |
 | On a phone at 390 | five mono rows crowd the fold | the margin collapses to 36px and holds | the ruled page holds |
@@ -112,6 +114,10 @@ asks the other questions in the same message). "B" is enough of an answer; "B wi
   each mockup, checked by the audit, and are not the product's own count for filing 3 ("3 of 5
   checkable figures"), which the product computes over a different set.
 - The excerpt in B is the risk passage the live hero example located in the filing text, cut where
-  the product cuts it.
+  the product cuts it. "Nine parts" repeats the live hero's own claim (`LandingHero.tsx`); the
+  rendered section rail varies by filing ("Segments" and "What changed" are conditional), which
+  Phase 7 must keep in mind when it writes a count.
+- The mockups say "passage", never "page": the product cites a section and highlights a passage;
+  it does not compute page numbers.
 - Rendered with Playwright 1.56.1 and the preinstalled Chromium at device scale 2; Inter and Geist
   Mono from the repository's committed font files, Newsreader from Google Fonts at render time.

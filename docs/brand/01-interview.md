@@ -13,7 +13,7 @@ where they are.
 
 | Question | Answer | Where it is written |
 |---|---|---|
-| What is the product? | AI summaries of 10-Ks, 10-Qs and 20-Fs in which every figure is traceable to the filing's own XBRL fact or text, generated once per filing and shared. | `backend/app/services/summary_pipeline.py` (one orchestrator, CLAUDE.md rule 1); CLAUDE.md rule 2 (filing-only); `frontend/features/marketing/components/PricingSection.tsx` ("generated once per filing and shared") |
+| What is the product? | AI summaries of 10-Ks, 10-Qs and 20-Fs in which each figure is traced to the filing's own XBRL fact or text where it can be, and the ones that cannot be are counted rather than guessed; generated once per filing and shared. | `backend/app/services/summary_pipeline.py` (one orchestrator, CLAUDE.md rule 1); CLAUDE.md rule 2 (filing-only); `frontend/features/marketing/components/PricingSection.tsx` ("generated once per filing and shared") |
 | What job does it do? | "Read this filing for me, tell me what changed since last quarter, and show me exactly where it says so." | `tasks/council-prep.md`, verdict log #1 (run #1, 2026-06-28) |
 | Who is it for? | The serious individual investor who already reads 10-Ks and wants the tedium removed, not the reading replaced. Secondary: prosumers and analysts who need defensible, citable facts. Not retail who never open a filing; not traders looking for a sentiment score. | `tasks/council-prep.md`, verdict #1 ("retail unanimously rejected"); the brief §0 |
 | What is the one honest positioning? | Accountability: "ChatGPT sells confidence; you sell verifiable, source-traced accuracy." | `tasks/council-prep.md`, verdict #2 (chairman) |
@@ -43,8 +43,8 @@ One message, eight questions. The first six are the brief's; the last two surfac
    Recommended: cream light. The filing is a paper document; the OG card, the emails and the PDF
    are already light; the product's default is light. Dark stays a full peer for the reading
    session, with the same one accent, and the identity must work in both. The June document's
-   "dark-first, mint accent" line is superseded and will be corrected in the same PR that lands
-   the system.
+   "dark-first, mint accent" lines are superseded; this PR marks them so in
+   `docs/competitive-strategy-roadmap-2026.md` (AGENTS.md §2).
 
 3. **Is the EN monogram protected, or on the table if a direction proves it must change?**
    Recommended: the letters are protected; the execution is not. Keep E + N and the rising stroke's
@@ -75,11 +75,12 @@ One message, eight questions. The first six are the brief's; the last two surfac
    primary action stays "See a live example" (decision B). When access opens, the same page sells
    without rewriting, because the qualification is the pitch.
 
-7. **Which price is true?** The brief says Pro is $20 a month or $200 a year; the code shows $39 /
-   $390 with a $29 arm behind a flag, and `/pricing` shows "$32.50 /month" on the yearly default.
+7. **Which price is true?** The studio brief names a lower monthly and annual figure than the
+   code, which shows $39 / $390 with a $29 arm behind a flag, and `/pricing` shows "$32.50 /month"
+   on the yearly default.
    Recommended: the code is the brand fact until the founder changes it; the brand work will not
    touch a price, and any pricing copy it writes will read the price from `prices.ts` as the
-   landing section already does. If $20 / $200 is a planned change, it is its own PR.
+   landing section already does. If the brief's figure is a planned change, it is its own PR.
 
 8. **"Notable filings": curate, retitle or omit?** The audit found Delta Air Lines beside seven
    microcap 8-Ks under "High-signal SEC filings … across the whole market."

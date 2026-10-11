@@ -18,6 +18,7 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
 ## Open items
 
 Founder:
+- [ ] Brand studio (PR for `docs/brand/`, phases 0 to 4): choose a direction for the identity (recommended: B, the Marked Copy; `docs/brand/04-directions.md`) and answer the eight questions in `docs/brand/01-interview.md` §2; phases 5 to 10 (mark, system, voice, applications, stress test, handoff) wait on that word.
 - [ ] The dead OUTPUT REFERENCE prompt branch Wave 0 found (`prompt_loader.py:50-54`'s markers never match, so each prompt loads whole): reviving or deleting it changes prompt bytes, a RUNBOOK event that is yours (ledger, "2026-10-09 — Hot-module refactor").
 - [ ] Optional; recommended now (record 20): relay record 16's custody step A (five metadata fields) once — the text is in `DECISIONS-20.md`'s appendix — and, if you agree, tell the chief in your own words "If the answer is outcome B, I adopt record 16's form (b) for R1" (`code-red-20261004/runtime/control/DECISIONS-16.md`).
 - [ ] Optional; recommended (record 20): set the repository's squash default to "Pull request title and description" (Settings → General → Pull Requests → "Allow squash merging" → "Default commit message"), so a squash merge without an explicit message carries the reviewed PR text; the chief's attempt was refused by the auto-mode classifier (`DECISIONS-18.md`, chief defect 7; `DECISIONS-20.md`).

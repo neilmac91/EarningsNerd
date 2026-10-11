@@ -1,17 +1,17 @@
 # The battlefield (2026-10-11)
 
-Phase 2 of the brand studio brief. Eight competitor homepages were captured the same morning as the
-audit, with Playwright 1.56.1 and the preinstalled Chromium at 1440×900, and probed for computed
+Phase 2 of the brand studio brief. Eight competitor homepages were visited the same morning as the
+audit and seven were captured, with Playwright 1.56.1 and the preinstalled Chromium at 1440×900, and probed for computed
 styles (h1 face, size, weight, colour; page ground; the buttons in the first viewport). Captures are
 downscaled JPEGs under [`battlefield/`](battlefield/), kept small and used only for comparison. The
 feature tables in `tasks/research/competitors.md` (June 2026) and `docs/RESEARCH_SYNTHESIS.md`
 cover what these products do; this page covers how they look and speak.
 
-Two sites fought the capture. Fiscal.ai answered the first visit with a Vercel security checkpoint
-(HTTP 429); a second visit under a Safari identity rendered the page, and the capture is from that
-visit. Simply Wall St held every visit at a Cloudflare challenge ("Just a moment…"), including a
-20-second wait and a second route; it is described from the repository's research and from the
-brief, not from a capture, and is marked so.
+Two sites did not render on the first visit. Fiscal.ai answered it with HTTP 429 from a security
+checkpoint; a second visit rendered the page, and the capture is from that visit. Simply Wall St
+showed a bot challenge ("Just a moment…") on both visits; it is described from the repository's
+research and from the brief, not from a capture, and is marked so. It should be captured by hand
+in a normal browser before Phase 9's lineup.
 
 ## 1. The eight
 
@@ -30,7 +30,8 @@ brief, not from a capture, and is marked so.
 - **Primary CTA.** "Request Demo" (secondary "View plans"); the nav leads with "Contact Sales".
 - **Who it is for.** Institutions and platforms; the retail reader who made FinChat is no longer the
   subject of the page. The product still carries click-through citations and the "says I don't
-  know" reputation (`tasks/research/competitors.md` §A).
+  know" reputation (`tasks/research/competitors.md` §A). "AI" appears in the page title, not in
+  the first viewport.
 
 ### Quartr
 
@@ -78,12 +79,12 @@ brief, not from a capture, and is marked so.
 
 ### Simply Wall St (not captured)
 
-Both visits ended at a Cloudflare challenge. From `docs/RESEARCH_SYNTHESIS.md` (the closest
+Both visits ended at a bot challenge. From `docs/RESEARCH_SYNTHESIS.md` (the closest
 freemium analogue: unlimited watchlists, metered reports) and the brief: warm cream ground, a gold
 serif italic accent, a mascot illustration, the Snowflake radar as the signature device,
 portfolio-first. It is the one competitor with a graphic device the market recognises without the
 logo, and the one whose palette family (cream and a warm accent) sits nearest to EarningsNerd's.
-The capture should be retried from a residential connection before Phase 9's lineup.
+It should be captured by hand in a normal browser before Phase 9's lineup.
 
 ### Stock Analysis
 
@@ -147,13 +148,14 @@ The capture should be retried from a residential connection before Phase 9's lin
 
 What the eight share:
 
-- **Breadth, speed and AI.** Six of eight say "AI" in the first viewport; five count something
-  large (130,000 stocks, 500,000 investors, 700 institutions, 30 years, "everything"). Every one
-  claims speed ("in minutes", "real-time", "quickly", "faster").
+- **Breadth, speed and AI.** Of the seven captured first viewports, three say "AI" (Quartr, Koyfin,
+  Public) and Fiscal.ai says it in its page title; two count something large (TIKR's 500,000
+  investors, Stock Analysis's 130,000+ stocks) and Quartr's "700+" sits in its meta description;
+  four claim speed ("updated in minutes", "real-time", "quickly analyze", "save time").
 - **One register: the platform.** "Infrastructure", "platform", "terminal", "all-in-one", "one
   place". The reader is a user of a system. Nobody speaks as a colleague who has read the document.
-- **One composition.** Headline, one-sentence subhead, a button, a product screenshot. Seven of
-  eight. EarningsNerd is the eighth of eight.
+- **One composition.** Headline, one-sentence subhead, a button, a product screenshot. Six of the
+  seven captured (Stock Analysis leads with a search field instead). EarningsNerd matches it too.
 - **Red and green do the talking.** Koyfin's, Stock Analysis's and Public's first viewports all show
   price direction in red and green. TIKR's hero screenshot too. The casino floor is the default
   wallpaper of the category.

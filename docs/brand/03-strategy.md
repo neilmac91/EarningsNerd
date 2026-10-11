@@ -9,9 +9,9 @@ and assumptions ([01-interview.md](01-interview.md)) and the battlefield
 ## S1. Positioning
 
 **For the individual investor who still reads the filing, EarningsNerd is the summary that shows its
-receipts: every figure traced to the filing's own XBRL or text, and a plain count of what could not
-be, unlike the copilots and terminals that sell confidence, because a number you can check is worth
-more than a number you have to trust.**
+receipts: each figure traced to the filing's own XBRL or text where it can be, and a plain count of
+where it could not, unlike the copilots and terminals that sell confidence, because a number you can
+check is worth more than a number you have to trust.**
 
 ## S2. Three values, as behaviours the product already performs
 
