@@ -1,13 +1,12 @@
 {
   "files": {
-    "app/services/facts_service.py": 1338
+    "app/services/facts_service.py": 744
   },
   "functions": {
     "app/services/facts_service.py::backfill_facts": 144,
-    "app/services/facts_service.py::upsert_facts": 129,
-    "app/services/facts_service.py::reconcile_facts": 109,
     "app/services/facts_service.py::remediate_industry_facts": 102,
-    "app/services/facts_service.py::upsert_facts_bulk": 84
+    "app/services/facts/reconcile.py::reconcile_facts": 109,
+    "app/services/facts/upsert.py::upsert_facts_bulk": 84
   },
   "names": {
     "AFFECTED_FINANCIAL_CONCEPTS": "app.services.facts.concepts",
@@ -40,30 +39,30 @@
     "_inflight_syncs": null,
     "_is_financial_sic": "app.services.facts.concepts",
     "_label_quarters": "app.services.facts.calendar",
-    "_lock_fact_companies": null,
+    "_lock_fact_companies": "app.services.facts.upsert",
     "_parse_date": "app.services.facts.concepts",
     "_persist_companyfacts_payload": null,
-    "_prior_values": null,
+    "_prior_values": "app.services.facts.reconcile",
     "_running_loop_in_this_thread": "app.services.facts.transport",
     "_unit_for": "app.services.facts.concepts",
     "backfill_company_sic": null,
     "backfill_facts": null,
-    "cross_check_facts": null,
+    "cross_check_facts": "app.services.facts.reconcile",
     "derive_q4_facts": "app.services.facts.derive",
     "derive_same_period_metrics": "app.services.facts.derive",
-    "extract_authoritative_values": null,
+    "extract_authoritative_values": "app.services.facts.reconcile",
     "get_filing_fundamentals": null,
     "ingest_companyfacts": null,
     "ingest_companyfacts_by_id": null,
     "logger": "app.services.facts.transport",
     "normalize_companyfacts": "app.services.facts.companyfacts",
-    "normalize_standardized_to_facts": null,
-    "process_filing_facts": null,
-    "reconcile_facts": null,
+    "normalize_standardized_to_facts": "app.services.facts.upsert",
+    "process_filing_facts": "app.services.facts.upsert",
+    "reconcile_facts": "app.services.facts.reconcile",
     "remediate_industry_facts": null,
     "sync_companyfacts_batch": null,
-    "upsert_facts": null,
-    "upsert_facts_bulk": null
+    "upsert_facts": "app.services.facts.upsert",
+    "upsert_facts_bulk": "app.services.facts.upsert"
   },
   "forbidden_imports": [
     [
@@ -71,5 +70,5 @@
       "app.services.edgar"
     ]
   ],
-  "note": "W0.G baseline (tasks/refactor-plan-2026-10.md, 'The size-budget gate' and decision 6): ceilings are the sizes measured on main ae5b0f1c on 2026-10-09, identical to the plan's da636f6 values. Lower a ceiling in the commit that shrinks the code (a move re-keys a function row to its new path at the same number). Raise a FILE ceiling only with a dated raise line appended here, 'YYYY-MM-DD PR #N: <path> <old> -> <new> (<why extraction was not possible>)', and a 'Ceiling raise' paragraph in the PR body. Only the twenty long functions frozen in the gate have function rows, and none may go above its W0.G size; every other function is held to 80 lines. names: every name this file defined at W0.G (module level, and members of its module-level classes); a move maps a module-level name to the module that now defines it; a deliberate deletion removes the name and records why here. 2026-10-10: deliberately deleted unsafe synthetic EPS derivation, its share-tag/tolerance constants, and the old YTD9 matcher. Compatible cumulative-flow quarterization replaces them; no synthetic EPS facade remains. File/function ceilings lowered after the removal. Calendar-label helpers moved to facts/calendar.py; rolling twelve-month observations no longer define fiscal years. 2026-10-10 F1: move 28 definitions into facts/concepts.py and facts/transport.py with facade aliases; lower the file ceiling from 1875 to 1656. Function ceilings are unchanged. Add the current _CF_YTD6_WINDOW to the facade inventory alongside its existing duration-window peers. Keep the existing calendar/quarterly/lineage helpers and in-flight dict owner; no name is deleted. The transport logger uses the original facts_service logger name explicitly. 2026-10-11 F2: move companyfacts collection/normalization to facts/companyfacts.py and the two current derivation functions to facts/derive.py; preserve all facade imports/exports and the same concepts registry objects. Split normalization into collection and reported-row phases while retaining both nested closures in the 79-line normalizer; remove its long-function row. Lower the facade file ceiling from 1656 to 1338. No names are deleted; current calendar/quarterly/lineage helpers and lazy imports are unchanged."
+  "note": "W0.G baseline (tasks/refactor-plan-2026-10.md, 'The size-budget gate' and decision 6): ceilings are the sizes measured on main ae5b0f1c on 2026-10-09, identical to the plan's da636f6 values. Lower a ceiling in the commit that shrinks the code (a move re-keys a function row to its new path at the same number). Raise a FILE ceiling only with a dated raise line appended here, 'YYYY-MM-DD PR #N: <path> <old> -> <new> (<why extraction was not possible>)', and a 'Ceiling raise' paragraph in the PR body. Only the twenty long functions frozen in the gate have function rows, and none may go above its W0.G size; every other function is held to 80 lines. names: every name this file defined at W0.G (module level, and members of its module-level classes); a move maps a module-level name to the module that now defines it; a deliberate deletion removes the name and records why here. 2026-10-10: deliberately deleted unsafe synthetic EPS derivation, its share-tag/tolerance constants, and the old YTD9 matcher. Compatible cumulative-flow quarterization replaces them; no synthetic EPS facade remains. File/function ceilings lowered after the removal. Calendar-label helpers moved to facts/calendar.py; rolling twelve-month observations no longer define fiscal years. 2026-10-10 F1: move 28 definitions into facts/concepts.py and facts/transport.py with facade aliases; lower the file ceiling from 1875 to 1656. Function ceilings are unchanged. Add the current _CF_YTD6_WINDOW to the facade inventory alongside its existing duration-window peers. Keep the existing calendar/quarterly/lineage helpers and in-flight dict owner; no name is deleted. The transport logger uses the original facts_service logger name explicitly. 2026-10-11 F2: move companyfacts collection/normalization to facts/companyfacts.py and the two current derivation functions to facts/derive.py; preserve all facade imports/exports and the same concepts registry objects. Split normalization into collection and reported-row phases while retaining both nested closures in the 79-line normalizer; remove its long-function row. Lower the facade file ceiling from 1656 to 1338. No names are deleted; current calendar/quarterly/lineage helpers and lazy imports are unchanged. 2026-10-11 F3: move per-filing normalization, ordered company locking, both writers and process_filing_facts to facts/upsert.py; move reconciliation, prior lookup, authority extraction and cross-checking to facts/reconcile.py. Extract the row-writing phase of upsert_facts with same-name arguments/counters; locking, reconciliation, commit and result shaping stay in upsert_facts. Remove its long-function exception; re-key reconcile_facts and upsert_facts_bulk at unchanged ceilings. Lower the facade file ceiling from 1338 to 744. Preserve facade imports/exports, shared objects, logger and the lazy EDGAR import; no tests or names are removed."
 }
