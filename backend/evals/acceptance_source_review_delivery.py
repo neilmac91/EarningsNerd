@@ -151,29 +151,95 @@ def _repository_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+_GROUP_GRACE_SECONDS = 5.0  # for the CLI's process group to exit on SIGTERM, and again once SIGKILLed
+_GROUP_POLL_SECONDS = 0.05
+
+
+def _group_alive(pgid: int, proc_root: Path = Path("/proc")) -> bool:
+    """Whether a member of the process group can still run. A zombie cannot, and an orphaned one lingers where PID 1
+    reaps nothing (a container whose init is not one), so where Linux's ``/proc`` is mounted it is read and zombies
+    are skipped (see ``_can_run``); elsewhere (an empty ``/proc`` included) signal 0 answers, which counts a zombie
+    too."""
+    if not (proc_root / "self" / "stat").is_file():
+        try:
+            os.killpg(pgid, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True  # a member exists that this process may not signal
+        return True
+    for entry in proc_root.iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            fields = (entry / "stat").read_bytes().rpartition(b")")[2].split()  # the name may hold ")" or any byte
+        except OSError:
+            continue  # it exited while the scan ran
+        if len(fields) > 2 and fields[2] == str(pgid).encode() and _can_run(entry, fields[0]):  # state, ppid, pgrp
+            return True
+    return False
+
+
+def _can_run(entry: Path, state: bytes) -> bool:
+    """Whether a ``/proc/<pid>`` process can still run. A zombie (Z) or dead (X) one cannot, unless its main thread
+    left through ``pthread_exit``: the process then reads Z while another of its threads (``task/``) still runs."""
+    if state not in (b"Z", b"X"):
+        return True
+    try:
+        tasks = list((entry / "task").iterdir())
+    except OSError:
+        return False  # it was reaped while the scan ran
+    for task in tasks:
+        try:
+            if (task / "stat").read_bytes().rpartition(b")")[2].split()[:1] not in ([b"Z"], [b"X"]):
+                return True
+        except OSError:
+            continue  # that thread exited while the scan ran
+    return False
+
+
+def _drain_group(proc: subprocess.Popen[bytes], seconds: float) -> None:
+    """Poll until the child is reaped and nothing of its group can run, or ``seconds`` pass."""
+    deadline = time.monotonic() + seconds
+    while (proc.poll() is None or _group_alive(proc.pid)) and time.monotonic() < deadline:
+        time.sleep(_GROUP_POLL_SECONDS)
+
+
 def _terminate_group(proc: subprocess.Popen[bytes]) -> str | None:
-    """SIGTERM the child's process group, escalate to SIGKILL, and reap; returns the signal used."""
-    if proc.poll() is not None:
+    """SIGTERM the CLI's process group (``start_new_session=True``: the child leads it), give the whole group the
+    grace period, SIGKILL whatever of it can still run, and reap the child. The runners call it in a ``finally``
+    around the child's ``communicate``, before they fsync its streams, so on every path a grandchild that outlives
+    the child is ended and nothing of the group still writes to them. Out of reach: a descendant that left the
+    group through ``setsid`` or ``setpgid``, a member another user owns (no signal reaches it), and one still
+    uninterruptible when the second grace period ends. The stream hashes catch their writes, so this returns rather
+    than raises, which would skip the callers' own cleanup. Returns the strongest signal delivered, or None when
+    nothing of the group was left to signal, or only another user's member was.
+    Both acceptance runners hold this code, identically (the judge runner's guardian imports no repository module);
+    test_acceptance_process_groups.py keeps the copies equal."""
+    if proc.poll() is not None and not _group_alive(proc.pid):
         return None
     try:
         os.killpg(proc.pid, signal.SIGTERM)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):  # EPERM: the child is gone and no member left is ours to signal
         proc.wait()
         return None
-    try:
-        proc.wait(timeout=5)
-        return "SIGTERM"
-    except subprocess.TimeoutExpired:
+    _drain_group(proc, _GROUP_GRACE_SECONDS)
+    if proc.poll() is None or _group_alive(proc.pid):
         try:
             os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+        except (ProcessLookupError, PermissionError):  # it ended at the last moment, or only another user's is left
+            proc.wait()
+            return "SIGTERM"
         proc.wait()
+        _drain_group(proc, _GROUP_GRACE_SECONDS)  # SIGKILL cannot be caught, but each member still has to die
         return "SIGKILL"
+    return "SIGTERM"
 
 
 def run_route_process(invocation: RouteInvocation) -> RouteProcessResult:
-    """Default runner: file-backed streams opened create-once, own session, group kill on timeout.
+    """Default runner: file-backed streams opened create-once, own session, group kill on timeout and after an
+    exit (a grandchild that outlives the child would write after the streams are fsynced; ``kill_signal`` records
+    the strongest signal the group received, on a normal exit too).
 
     Partial stdout/stderr survive a timeout because the child writes straight into the ledger
     files; nothing is buffered in this process. There is no retry.
@@ -194,9 +260,10 @@ def run_route_process(invocation: RouteInvocation) -> RouteProcessResult:
                 proc.communicate(invocation.stdin_bytes, timeout=invocation.timeout_seconds)
             except subprocess.TimeoutExpired:
                 timed_out = True
+            finally:  # on every path: the timed-out child, or a member that outlived the child
                 kill_signal = _terminate_group(proc)
         except BaseException:
-            _terminate_group(proc)
+            _terminate_group(proc)  # again, should the first ending itself be interrupted
             raise
         finally:
             for stream in (stdout_file, stderr_file):
