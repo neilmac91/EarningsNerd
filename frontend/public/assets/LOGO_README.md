@@ -16,6 +16,11 @@ The mark is the letters **E + N** with the N's final stroke rising into an arrow
 | `earningsnerd-mark-navy.svg` | Bare mark, fixed navy `#0B1120` (for light non-brand surfaces). |
 | `earningsnerd-mark-white.svg` | Bare mark, fixed white (for photos / dark fills). |
 | `earningsnerd-mark-mono.svg` | Bare mark in `currentColor` — the geometry source for in-app components and the asset pipeline. |
+| `earningsnerd-logo-mono.svg` | Full lockup in `currentColor` (one colour: the italic "Nerd" keeps its italic, not its colour) — print in one ink, embroidery, watermarks. |
+| `earningsnerd-logo-stacked-light.svg` | Stacked lockup, mark centred over the wordmark, one E-bar between — light surfaces (square-ish placements: social avatars, the business card back, merch). |
+| `earningsnerd-logo-stacked-dark.svg` | Stacked lockup for navy. |
+| `earningsnerd-logo-stacked-mono.svg` | Stacked lockup in `currentColor`. |
+| `earningsnerd-mask-icon.svg` | Safari pinned-tab mask: the mark letterboxed in a square, black on transparent (Safari recolours it; `app/layout.tsx` declares it with the sage colour). |
 
 ## In-app usage
 
@@ -42,8 +47,28 @@ committed binaries from this directory: `favicon.ico`, `apple-touch-icon.png`
 
 ## Rules
 
+- **The mark and the wordmark do not change.** The paths in `earningsnerd-mark-mono.svg` and the
+  wordmark rule ("Earnings" in the surface's primary ink, italic "Nerd" in the brand accent) are
+  fixed by the founder (2026-10-11; `lessons/brand-the-mark-is-protected.md`). New renditions reuse
+  the same paths and the same rule; nobody redraws a stroke, moves the arrowhead, re-spaces the
+  wordmark or recolours the mark outside this table.
 - Mark aspect ratio is 94.6:73.2 (~1.29:1) — never stretch; letterboxing in a
   square box is expected.
+- **Clear space:** one E-bar on every side. The E's top bar is 11 units tall in the 94.6-unit
+  viewBox, so the clear space is 11.6% of the mark's width (7 mm at 60 mm wide, 4 px at 36 px).
+  Nothing else enters it: no text, no rule, no edge of a panel.
+- **Minimum sizes.** Bare mark: 32 px on screen, 8 mm in print; below that the E and the N fuse,
+  so use the self-backgrounded app tile (`earningsnerd-appicon.svg`), which reads down to 16 px on
+  light and dark chrome. Horizontal lockup: 120 px wide on screen, 30 mm in print. Stacked lockup:
+  64 px wide on screen, 16 mm in print. Embroidery: 60 mm wide and above (the thinnest stroke is
+  about 6 mm there, the E's open counters 2.9 mm; the E and the N kiss, which a satin stitch joins
+  and the mark survives). Evidence: `docs/brand/05-mark.md`.
+- **Where it goes.** The mark sits top-left on every surface the brand owns (the site header, the
+  OG card, the PDF masthead, the email shell, the business card front); the stacked lockup is for
+  square placements; never centre the horizontal lockup as a hero.
+- **Misuse.** Never on a photograph, never recoloured outside this table, never with a drop shadow,
+  outline or gradient, never rotated, never with the arrow pointing anywhere but up-right, never
+  beside a competitor's mark at a different size.
 - Brand accents only: sage as identity, never in a numeric/price context
   (gain/loss colors carry data meaning — see DESIGN_SYSTEM.md).
 - The wordmark's "Nerd" is always italic in the brand accent; "Earnings" is

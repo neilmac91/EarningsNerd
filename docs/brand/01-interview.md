@@ -90,12 +90,13 @@ One message, eight questions. The first six are the brief's; the last two surfac
 
 ## 3. Working assumptions until the founder answers
 
-Each is labelled where it is used in later phases.
+Each is labelled where it is used in later phases. The founder answered on 2026-10-11 with "proceed"
+and one instruction (the mark does not change), so A1, A2 and A4 to A9 stand as the working answers.
 
 - **A1 (humour).** Dry, one line per surface, never where it costs the reader, never in evidence.
 - **A2 (face).** Cream light is primary; dark is a peer; every colour is a pair.
-- **A3 (mark).** Letters protected; drawing refined; the arrowhead is on the table only as a
-  refinement question, not a replacement.
+- **A3 (mark).** Answered on 2026-10-11: the logo and monogram do not change at all (letters,
+  arrow, wordmark). Brand work adds arrangements and rules only (`lessons/brand-the-mark-is-protected.md`).
 - **A4 (naming).** No competitor is named on a brand surface; the catch is shown with two real
   figures from two real fiscal years.
 - **A5 (founder presence).** A first-person sentence slot is designed and built; it renders only with

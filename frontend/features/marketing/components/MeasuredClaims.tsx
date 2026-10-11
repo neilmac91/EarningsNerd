@@ -1,30 +1,25 @@
 import SectionImpression from '@/features/marketing/components/SectionImpression'
 
 /**
- * Four bounded product capabilities. These describe supported behavior without turning one
- * evaluation corpus or one latency observation into a universal quality promise.
+ * Four behaviours in the product's own words (docs/brand/03-strategy.md, S2): what a summary does
+ * with a figure, a quote, its own scope and its source. No invented statistics: the lead of each
+ * pair is the subject, set in the data face, and the label is the behaviour the product performs.
  */
 const CLAIMS = [
-  {
-    figure: '9-part format',
-    label: 'A consistent outline spanning financials, risks, strategy, liquidity, and footnotes',
-  },
-  { figure: 'Streams', label: 'Fresh summaries appear section by section while generation runs' },
-  {
-    figure: 'XBRL + text',
-    label: 'Source labels distinguish matched financial data from cited filing passages',
-  },
-  { figure: '10-K · 10-Q', label: 'Core filing types retrieved from SEC EDGAR' },
+  { figure: 'Figures', label: 'Matched to the company\u2019s XBRL fact, or counted as unmatched' },
+  { figure: 'Quotes', label: 'Located in the filing text, in the filing\u2019s own words, or withheld' },
+  { figure: 'Nine parts', label: 'The same outline for every 10-K and 10-Q, from The Print to Notable Footnotes' },
+  { figure: 'SEC EDGAR', label: 'Every summary links to the original filing, one click away' },
 ] as const
 
 /**
- * Product capabilities strip (landing section 3): a full-width band between two hairlines
- * holding a definition list of figure + label pairs. No icons, no card chrome: the figure in the
- * data face carries the weight, and the label beneath it explains the capability.
+ * Behaviours strip (landing section 3): a full-width band between two hairlines holding a
+ * definition list of subject + behaviour pairs. No icons, no card chrome: the subject in the data
+ * face carries the weight, and the label beneath it says what the product does with it.
  */
 export default function MeasuredClaims() {
   return (
-    <section aria-label="Product capabilities" className="border-y border-border-light dark:border-white/10">
+    <section aria-label="What a summary does" className="border-y border-border-light dark:border-white/10">
       <div className="mx-auto max-w-5xl px-4 py-7 sm:px-6 lg:px-8 lg:py-10">
         <SectionImpression section="measured_claims">
           <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-10">

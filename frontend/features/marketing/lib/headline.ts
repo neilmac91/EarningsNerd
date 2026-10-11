@@ -22,17 +22,19 @@ export const HEADLINES: Record<HeadlineVariant, Headline> = {
     post: '.',
     title: 'Read the filing faster. Keep the source in view',
   },
+  // B and C are two of the five brand headlines (docs/voice-and-style.md › Headlines); A survives
+  // from the July copy pass as the served default. The accent phrase carries the mark (.en-mark).
   B: {
-    pre: 'The 10-K, summarized for you. ',
-    accent: 'Source context included',
+    pre: 'Read it faster. ',
+    accent: 'Check it anyway',
     post: '.',
-    title: 'The 10-K, summarized for you. Source context included',
+    title: 'Read it faster. Check it anyway',
   },
   C: {
-    pre: 'From ',
-    accent: 'SEC filing',
-    post: ' to structured summary',
-    title: 'From SEC filing to structured summary',
+    pre: 'The summary that ',
+    accent: 'shows its work',
+    post: '.',
+    title: 'The summary that shows its work',
   },
 }
 

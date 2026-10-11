@@ -165,7 +165,7 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
 
     title = _write_text(ws, 7, 1, f"{dataset.get('company_name', '')} — Multi-Period Analysis")
     title.font = Font(bold=True, size=15, color=PALETTE["ink"].lstrip("#"))
-    subtitle = ws.cell(row=8, column=1, value="Chart & metrics data export · EarningsNerd — AI-Powered SEC Filing Analysis")
+    subtitle = ws.cell(row=8, column=1, value="Chart & metrics data export · EarningsNerd · AI summaries of SEC filings")
     subtitle.font = _FOOTNOTE_FONT
 
     facts: list[tuple[str, str]] = [

@@ -5,6 +5,9 @@ import { ApiError } from '@/lib/api/client'
 import { getWaitlistStats } from '@/features/waitlist/api/waitlist-api'
 import { useCountUp } from '@/hooks/useCountUp'
 
+/** The smallest count worth saying aloud. */
+export const COUNT_FLOOR = 25
+
 export default function WaitlistCounter() {
   const [target, setTarget] = useState<number | null>(null)
 
@@ -32,6 +35,9 @@ export default function WaitlistCounter() {
   // DS count-up (rAF, --duration-slow, reduced-motion + SSR safe) replacing the prior
   // hand-rolled raw-900ms tween; rendered in the data face so the width never jitters.
   const count = useCountUp(target ?? 0, { format: (v) => Math.round(v).toLocaleString() })
+  // A count is social proof of nothing until it is one (docs/brand/03-strategy.md, S5: never a
+  // placeholder, never a counter at zero): below the floor the pill names the list, not the number.
+  const showCount = target !== null && target >= COUNT_FLOOR
 
   return (
     <div className="inline-flex items-center justify-center rounded-full border border-brand-border bg-brand-weak px-4 py-2 text-sm font-medium text-brand-strong shadow-e1 dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark">
@@ -39,7 +45,7 @@ export default function WaitlistCounter() {
           text nodes *between* flex items — so the count + its surrounding spaces must live
           inside one element to keep "Join 1,234+ others" from collapsing to "Join1,234+". */}
       <span>
-        {target === null ? (
+        {!showCount ? (
           'Join the waitlist'
         ) : (
           <>

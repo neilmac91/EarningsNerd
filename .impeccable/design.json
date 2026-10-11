@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-10T23:22:31+00:00",
+  "generatedAt": "2026-10-11T12:00:00+00:00",
   "title": "Design System: EarningsNerd",
   "extensions": {
     "colorMeta": {
@@ -542,13 +542,14 @@
   ],
   "narrative": {
     "northStar": "The Investor’s Research Desk",
-    "overview": "EarningsNerd is calm, precise and evidence-led. Warm cream and espresso give the light interface the familiarity of a working document; deep navy carries the same structure into dark mode. Sage identifies actions, links and the product itself. Financial direction, status and chart series have separate color vocabularies so the interface can express their different meanings clearly.\n\nThe system is refined, readable and quietly confident. Inter headings organize the work, system-first body text supports scanning, and Geist Mono makes figures and evidence recognizable. Newsreader is reserved for the original filing reader. Depth is structural and restrained: light cards lift from the page, while dark cards separate through fill and hairlines. Decorative gradients remain outside the established visual language.",
+    "overview": "EarningsNerd is calm, precise and evidence-led. Warm cream and espresso give the light interface the familiarity of a working document; deep navy carries the same structure into dark mode. Sage identifies actions, links and the product itself. Financial direction, status and chart series have separate color vocabularies so the interface can express their different meanings clearly.\n\nThe system is refined, readable and quietly confident. Inter headings organize the work, system-first body text supports scanning, and Geist Mono makes figures and evidence recognizable. Newsreader is reserved for the original filing reader. Depth is structural and restrained: light cards lift from the page, while dark cards separate through fill and hairlines. Decorative gradients remain outside the established visual language. One graphic device, the margin and the mark, makes a surface recognisable without the logo: a located passage is highlighted and a cited figure carries a bracketed marker whose twin sits in a margin on the same line.",
     "keyCharacteristics": [
       "One sage brand accent, with explicit light and dark treatments.",
       "Warm page grounds, brighter light panels and low-noise dark panels.",
       "Type roles that distinguish interface, data and original filing prose.",
       "Compact controls and data tables within more generous page layouts.",
-      "Source context, visible focus and truthful state feedback."
+      "Source context, visible focus and truthful state feedback.",
+      "One graphic device, the margin and the mark, that only ever means \"located\" and \"cited\"."
     ],
     "rules": [
       {
@@ -572,6 +573,11 @@
         "section": "elevation"
       },
       {
+        "name": "The Marked Copy Rule",
+        "body": "A mark means \"located in the filing\" and a bracket means \"cited\"; one highlight per surface may sit under a phrase of ours as the brand's signature, and none ever sits on a figure, a price, an unverified claim or a competitor's name. The margin appears only beside text that carries at least one marker, never as decoration, and the filing's words inside a marked block keep the filing's voice.",
+        "section": "graphic device"
+      },
+      {
         "name": "The Calculation Provenance Rule",
         "body": "A calculation describes a figure’s origin, not a failed check. Multi-period analysis uses a neutral † for calculated figures and lettered data notes grouped by their underlying reasons. A figure opens its source, calculation and applicable note in the shared Modal. Only unresolved source concerns use warning ink; missing validation makes no passed-check claim. An unavailable table value is — with its note letter, explained as “Unavailable” in the evidence view and exports. Values and comparisons are counted separately, including inherited concerns. A hairline Data notes disclosure places each note’s letter beside its reason, affected periods and counts. Headline metrics form a two-up phone and four-up desktop definition list: shared rows align the metric labels, source-linked values and independently wrapping period/delta line. An older populated metric states its actual period and “latest available”. Analysis tables keep equal rem-based period columns, semantic sticky row headers and a named keyboard scroll region. Dark sticky row headers retain their opaque panel fill during hover. Mandatory column snapping includes trailing space for a whole-column scroll range. The reader can show all periods, the newest six or the earliest six without changing charts, headline figures or exports. Table figures use compact display precision when needed to keep amounts and note marks together; the rounding disclosure directs readers to full-precision evidence. Charts mark affected observations with hollow points or outlined bars and note letters, and their PNG notes use the same grouped reasons. Chart lines break at gaps. Evidence dialogs separate display precision, exact supplied values, methods, checks and recorded lineage. Narrative amounts use financial display forms while preserving meaningful differences; operand lists live in expandable evidence disclosures. A compact period selector offers presets and bounded From/To ranges. Source dates, definitions and material gaps travel with exports.",
         "section": "components"
@@ -585,7 +591,8 @@
       "**Do** use mono/tabular numerals for data while preserving the filing reader's distinct serif voice.",
       "**Do** keep keyboard focus visible and controls focusable during their own pending action.",
       "**Do** scope claims about source matching to what the implementation actually establishes.",
-      "**Do** regenerate the Markdown and sidecar together after relevant implementation changes."
+      "**Do** regenerate the Markdown and sidecar together after relevant implementation changes.",
+      "**Do** use the margin and the mark where a passage was located or a figure cited, and keep the filing's words in the filing's face inside a marked block."
     ],
     "donts": [
       "**Don't** restore retired mint branding, decorative gradients or general-purpose glow effects.",
@@ -595,7 +602,8 @@
       "**Don't** apply the filing reader's serif to AI summaries or cap pane-filling summaries to a prose rail.",
       "**Don't** treat illustrative sidecar markup as production tokens or behavior, or add synthetic tonal ramps to the sidecar.",
       "**Don't** create another dialog primitive or remove existing reduced-motion fallbacks.",
-      "**Don't** put a thick left stripe on a rounded container or set a form code as a chip; callouts are inset wells and forms are data-face text."
+      "**Don't** put a thick left stripe on a rounded container or set a form code as a chip; callouts are inset wells and forms are data-face text.",
+      "**Don't** put the mark on a figure or a status, draw a margin without a marker, or scale the device's hairline with the type."
     ]
   }
 }

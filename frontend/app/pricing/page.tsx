@@ -3,7 +3,8 @@
 import { useState, Suspense, useRef, useEffect, useCallback } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
-import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { getCurrentUserSafe, getRegistrationConfig } from '@/features/auth/api/auth-api'
+import { ACCESS_COPY, resolveAccessMode } from '@/features/marketing/lib/access'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { CheckIcon } from '@/lib/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -103,6 +104,17 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     enabled: !!currentUser,
   })
   const { data: usage, isError: usageError } = usageQuery
+
+  // The guest's account CTA follows the page-wide access decision (invite-only or public), read
+  // from the same payload the landing page reads on the server; unreachable fails closed to the
+  // invite copy, so this page never advertises a signup /register would reject (audit T9).
+  const { data: registration } = useQuery({
+    queryKey: queryKeys.registrationConfig(),
+    queryFn: getRegistrationConfig,
+    retry: false,
+    staleTime: 60 * 60 * 1000,
+  })
+  const access = ACCESS_COPY[resolveAccessMode(registration ?? null)]
 
   // What the error Notices show. A failure keeps its Notice (and a focused Retry in it) through any
   // refetch until data replaces it.
@@ -234,7 +246,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
   const handleGetStartedFree = () => {
     // Same readiness as the buy action: an unresolved identity is not a guest.
     if (!identityResolved || isAuthenticated) return
-    router.push('/register')
+    router.push(access.href)
   }
 
   const plans = [
@@ -242,11 +254,11 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       name: 'Free',
       price: '$0',
       period: 'forever',
-      description: 'For trying out EarningsNerd',
+      description: 'For reading a few filings a month',
       features: [
         `${FREE_SUMMARY_LIMIT} summaries per month`,
         'Access to all filings',
-        'Basic AI summaries',
+        'The same summaries Pro reads',
         'Company search',
         'Historical filing access',
       ],
@@ -256,7 +268,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
         ? unresolvedCta
         : isAuthenticated && !subscription?.is_pro
         ? 'Current plan'
-        : 'Create free account',
+        : access.cta,
       disabled: !accountResolved || isAuthenticated,
       priceId: null,
       betaOriginal: null,
@@ -269,7 +281,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       period: 'per month',
       betaOriginal: showBetaOffer ? proPriceDisplay : null,
       billingNote: showBetaOffer ? null : billingNote,
-      description: 'For professionals who need unlimited access',
+      description: 'For reading every filing you follow',
       features: [
         'Unlimited summaries',
         'Unlimited Multi-Period Analysis: 10-year trends, quarterly deltas & AI narrative',
@@ -304,7 +316,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
       <SecondaryHeader
         title="Pricing"
-        subtitle="Choose the plan that fits your workflow"
+        subtitle="One summary per filing, generated once and shared"
         backHref="/"
         backLabel="Back to home"
       />
@@ -313,7 +325,8 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
         <div className="text-center mb-12">
           {/* SecondaryHeader already renders the page H1 ("Pricing"); no duplicate heading here. */}
           <p ref={introRef} tabIndex={-1} className="text-lg text-text-secondary-light dark:text-text-secondary-dark max-w-2xl mx-auto outline-none">
-            Choose the plan that works for you. Upgrade or downgrade at any time.
+            Summaries are generated once per filing and shared. That is what makes unlimited reading
+            possible at this price. Upgrade or downgrade at any time.
           </p>
 
           {identityUnavailable ? (

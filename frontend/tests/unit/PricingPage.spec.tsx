@@ -10,6 +10,7 @@ import { consumePostAuthRedirect } from '@/lib/postAuthRedirect'
 const mockGetSubscriptionStatus = vi.fn<[], Promise<SubscriptionStatus>>()
 const mockGetUsage = vi.fn<[], Promise<Usage>>()
 const mockGetCurrentUserSafe = vi.fn()
+const mockGetRegistrationConfig = vi.fn()
 const mockCreateCheckoutSession = vi.fn()
 // Controls the pricing A/B arm per test (roadmap 2.3). Default (undefined) = the $39 control.
 const mockUseFeatureFlagVariantKey = vi.fn<[], string | boolean | undefined>()
@@ -35,6 +36,7 @@ vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({
 
 vi.mock('@/features/auth/api/auth-api', () => ({
   getCurrentUserSafe: () => mockGetCurrentUserSafe(),
+  getRegistrationConfig: () => mockGetRegistrationConfig(),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -100,6 +102,8 @@ describe('PricingPage', () => {
     mockCheckoutStarted.mockReset()
     mockPricingViewed.mockReset()
     mockPush.mockReset()
+    mockGetRegistrationConfig.mockReset()
+    mockGetRegistrationConfig.mockResolvedValue({ mode: 'public', beta_promo_enabled: false })
     Array.from(mockSearchParams.keys()).forEach((key) => mockSearchParams.delete(key))
     flags.ENABLE_PRO_TRIAL = false
     localStorage.clear()
@@ -174,8 +178,8 @@ describe('PricingPage', () => {
     const currentPlanButtons = screen.getAllByRole('button', { name: /current plan/i })
     expect(currentPlanButtons).toHaveLength(1)
     expect(currentPlanButtons[0]).toBeDisabled()
-    // The Free card is not the user's plan, so it stays the disabled "Create free account".
-    const freeButton = screen.getByRole('button', { name: /create free account/i })
+    // The Free card is not the user's plan, so it stays the disabled "Create a free account".
+    const freeButton = screen.getByRole('button', { name: /create a free account/i })
     expect(freeButton).toBeDisabled()
   })
 
@@ -350,11 +354,23 @@ describe('PricingPage', () => {
     expect(screen.getAllByRole('button', { name: /current plan/i })).toHaveLength(1)
   })
 
+  it('a guest under the invite gate is offered an invite, never a signup /register would reject', async () => {
+    mockGetCurrentUserSafe.mockResolvedValue(null)
+    mockGetRegistrationConfig.mockResolvedValue({ mode: 'invite_only', beta_promo_enabled: true })
+    renderPricing()
+
+    const free = await screen.findByRole('button', { name: /request an invite/i })
+    expect(free).toBeEnabled()
+    expect(screen.queryByRole('button', { name: /create a free account/i })).not.toBeInTheDocument()
+    fireEvent.click(free)
+    expect(mockPush).toHaveBeenCalledWith('/waitlist')
+  })
+
   it('a confirmed guest keeps registration routing on both cards', async () => {
     mockGetCurrentUserSafe.mockResolvedValue(null)
     renderPricing()
 
-    const free = await screen.findByRole('button', { name: /create free account/i })
+    const free = await screen.findByRole('button', { name: /create a free account/i })
     expect(free).toBeEnabled()
     fireEvent.click(free)
     expect(mockPush).toHaveBeenCalledWith('/register')

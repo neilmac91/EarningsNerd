@@ -85,7 +85,7 @@ describe('headline experiment (design tweak `headline`)', () => {
   it('swaps to the flagged arm and retitles the document to match', () => {
     mockVariant.value = 'C'
     render(<HeroHeadline />)
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('From SEC filing to structured summary')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('The summary that shows its work.')
     expect(document.title).toBe(pageTitleFor('C'))
   })
 })

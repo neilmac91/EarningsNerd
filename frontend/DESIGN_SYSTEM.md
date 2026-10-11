@@ -66,6 +66,8 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
   data-role rule).
 - **Editorial serif (Newsreader)** is wired to exactly ONE surface: the real filing viewer
   (**`.filing-reader`**, 19/1.7, opsz auto — Item 1A, MD&A, notes). Serif = the filing's own words.
+  On a public page the serif appears only inside a quoted passage the product located (the hero
+  example's evidence row, the social card's excerpt), never for a headline, tagline or a claim of ours.
   **`.markdown-body` is NOT serif**: it carries the reader's list + heading + table manners on the
   **body sans**, but FILLS its pane with no measure cap (it renders inside a card/pane, where any
   capped measure reads as dead space — field-tested twice) — its app consumer is
@@ -756,7 +758,8 @@ contrast + hairline with `shadow-none`. `brand-weak` is an accent/hover/tint col
 ## 7. Marketing surfaces
 
 Flat **solid** surfaces — no decorative gradients anywhere; the only glow is the theme-aware hero
-search glow. The hero accent word is solid `text-brand-strong dark:text-brand-strong-dark`.
+search glow. The hero accent phrase sits on the primary ink and carries the brand device's mark
+(`.en-mark`, below), not sage ink; sage ink stays for links and the wordmark's italic.
 `.mockup-frame` is flat navy (the decorative slate gradient is retired), 16px radius, paired with
 `shadow-e3`; its title-bar traffic-light dots are gone. Marketing cards use the `<Card>` recipe
 (panel + hairline + e2, brighten on hover); the popular-company chips and the reporting tiles are
@@ -769,6 +772,21 @@ ground; copy the reader must read stays secondary, including the point-of-use AI
 (`AiDisclaimer`) and the footer's "Data sourced from SEC EDGAR … Not investment advice" line. Gate:
 `tests/e2e/text-floors.spec.ts` measures every tertiary-ink text on the main routes against its
 rendered ground.
+
+**The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
+`docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:
+`.en-mark` (a phrase highlight: pale sage tint from 62% of the line box, a 2px `brand-border`
+inset hairline at the baseline, `box-decoration-break: clone` so a wrapped phrase marks per line),
+`.en-marked` (a located passage: 3px `brand` bar on the left, tint behind, 8px outer radius, the
+filing's words inside it in `.filing-reader`'s face), `.en-margin` (a gutter with a hairline on its
+inner edge; `w-11` from `sm`, `w-9` on phones) and `.en-margin-mark` (an 11px data-face bracket,
+`brand-strong`, absolutely positioned on the line of the in-text marker it twins; the twin is
+measured by `features/marketing/components/MarkedCopy.tsx`, never hard-coded). Rules: a mark means
+"located" and a bracket means "cited"; one `.en-mark` per surface may sit under a phrase of ours as
+the signature; none on a figure, a price, a status, a competitor's name or an unverified claim; no
+margin without a marker; the hairline never scales with the type. The 11px mark is the one
+sanctioned sub-12px text beside copy because it is a twin of a 12px marker, not copy; it still
+carries no claim and is `aria-hidden` (the in-text marker is the accessible one).
 
 ## 8. Theme mechanics
 

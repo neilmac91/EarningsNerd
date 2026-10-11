@@ -153,10 +153,10 @@ describe('ProDepth', () => {
 
   it('is a labelled section with the three Pro rows, the extras grid and mirror-driven caps', () => {
     render(<ProDepth />)
-    const section = screen.getByRole('region', { name: 'What Pro adds' })
+    const section = screen.getByRole('region', { name: 'More ways to read one filing.' })
     expect(section.id).toBe('pro')
     expect(
-      within(section).getByText('Three ways to work with filing data beyond one summary.'),
+      within(section).getByText('Ask it a question, read its periods side by side, see what changed since the last one.'),
     ).toBeInTheDocument()
 
     for (const title of ['Ask this Filing', 'Multi-Period Analysis', 'Change Report']) {

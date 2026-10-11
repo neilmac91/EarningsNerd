@@ -95,7 +95,7 @@ span, the bracketed marker, the chip, the "Source" pane. It gives the brand a gr
 margin and the mark) that reads at favicon size and on a business card, a copy register (the person
 who checked), and a use for the monogram's stroke that is not a chart arrow (A3). It is the only
 one of the three that makes "I can check it" (S4) visible before the reader has read a word. Phase 5
-refines the mark along the stroke; Phase 6 specifies the margin and the mark in CSS and SVG with
+audits the mark and composes around it; Phase 6 specifies the margin and the mark in CSS and SVG with
 scale, placement, colour in both themes and misuse; Phase 7 writes the voice of the person who
 marked the copy; Phase 8 applies it.
 
@@ -103,7 +103,10 @@ What B takes from the others: A's tally rule as the section divider (the count b
 reading, not before it), and C's dry aside as the one sanctioned place for the Nerd's voice (the
 loading quips, the empty states), rationed by A1.
 
-**This is the founder's choice.** Phases 5 to 10 wait on it ([01-interview.md](01-interview.md)
+**Chosen on 2026-10-11: B, with the logo and monogram untouched** (the founder: "proceed"; "I don't want
+you to change the logo or monogram, I like them"). The sentence about the stroke above now means the
+mark's existing stroke, as drawn, laid flat as the device; the mark itself is not redrawn. Phases 5 to 10
+follow. Written before the answer, the paragraph below records what the pause asked for. Phases 5 to 10 waited on it ([01-interview.md](01-interview.md)
 asks the other questions in the same message). "B" is enough of an answer; "B with A's rule" or
 "C" are equally fine, and the studio proceeds the same way from any of them.
 

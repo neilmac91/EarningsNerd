@@ -4,6 +4,7 @@ import HeroHeadline from '@/features/marketing/components/HeroHeadline'
 import MarketingCta from '@/features/marketing/components/MarketingCta'
 import QuickAccessBar from '@/features/marketing/components/QuickAccessBar'
 import TrustStrip from '@/features/marketing/components/TrustStrip'
+import FounderNote from '@/features/marketing/components/FounderNote'
 import { ArrowRightIcon } from '@/lib/icons'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import { ACCESS_COPY, type AccessMode } from '@/features/marketing/lib/access'
@@ -36,9 +37,8 @@ export default function LandingHero({
           <div className="min-w-0">
             <HeroHeadline />
             <p className="mt-5 max-w-[560px] text-base leading-relaxed text-text-secondary-light dark:text-text-secondary-dark sm:text-lg">
-              AI summaries of 10-Ks and 10-Qs for investors who still check the source. Nine-part
-              summaries use selected filing text and available XBRL data, with source labels where a
-              match is found.
+              AI summaries of 10-Ks and 10-Qs for investors who still check the source. Each figure
+              points to the XBRL fact or the passage it came from, or says that it could not.
             </p>
 
             <div className="mt-7 flex flex-col items-start gap-2.5">
@@ -66,6 +66,8 @@ export default function LandingHero({
           {/* The real pre-generated example summary (ISR), same card at every breakpoint. */}
           <div className="min-w-0">
             <HeroExample example={example} />
+            {/* The human on the page: renders only once the founder approves the sentence. */}
+            <FounderNote />
           </div>
         </div>
         <TrustStrip />

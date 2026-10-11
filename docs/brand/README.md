@@ -1,22 +1,132 @@
-# Brand studio
+# Brand studio: the handoff
 
-The identity work for EarningsNerd, phase by phase, under the brief of 2026-10-11. This folder
-holds the public-safe records; the system itself lives where the repository already keeps it
-(`DESIGN.md`, `frontend/DESIGN_SYSTEM.md`, `docs/voice-and-style.md`,
-`frontend/public/assets/LOGO_README.md`, the token sources and `.impeccable/design.json`).
-Founder deliberations stay outside the repository (AGENTS.md §7).
+The identity work for EarningsNerd under the brief of 2026-10-11, complete through Phase 10 on
+one branch (`claude/adoring-hamilton-y8iuak`, PR #1226). This folder holds the public-safe
+records; the system itself lives where the repository already keeps it, and this page is the
+index to both. Founder deliberations stay outside the repository (AGENTS.md §7).
 
-## Files
+**What it is, in one paragraph.** EarningsNerd is the summary that shows its work. The mark and
+the wordmark are unchanged (the founder's call, D-015); around them the system adds one graphic
+device, the margin and the mark, that only ever means "located in the filing" and "cited": a pale
+sage highlight with a hairline under a phrase of ours, a bracket twin in the margin beside a
+figure's marker, the filing's own words in the editorial face inside a marked block. Sage never
+colours a number; gain and loss keep their own tokens and always carry a sign. The voice is dry
+with a pulse, says what the product does in behaviours rather than hedges, and never claims a
+figure nobody measured. Every sample figure on every surface is Apple's FY2025 10-K against
+FY2024, verified against SEC XBRL.
 
-| Phase | File | State |
+## Logo files
+
+| File | Use |
+|---|---|
+| `frontend/public/assets/earningsnerd-logo-light.svg`, `-dark.svg` | The horizontal lockup, unchanged; the header and the auth pane |
+| `frontend/public/assets/earningsnerd-logo-mono.svg` | The lockup in one colour, for print and mono contexts (new) |
+| `frontend/public/assets/earningsnerd-logo-stacked-light.svg`, `-dark.svg`, `-mono.svg` | The stacked lockup for square and narrow placements (new) |
+| `frontend/public/assets/earningsnerd-mark-sage.svg`, `-navy.svg`, `-white.svg`, `-mono.svg` | The EN monogram in its four sanctioned colours, unchanged |
+| `frontend/public/assets/earningsnerd-icon-light.svg`, `-dark.svg`, `earningsnerd-appicon.svg` | The favicon and app icon, unchanged |
+| `frontend/public/assets/earningsnerd-mask-icon.svg` | Safari's pinned tab, declared in `app/layout.tsx` (new) |
+| `frontend/public/og-image.png`, `frontend/scripts/brand/og-template.html` | The social image and its source; regenerate with `npm run brand:assets` |
+| `frontend/public/assets/LOGO_README.md` | Clear space, minimum sizes, colours, and what is never done to the mark |
+
+## Guidelines
+
+- `DESIGN.md`: the system, with the new "Graphic device" section and the Marked Copy Rule; the
+  frontmatter is the token snapshot that `designSnapshotParity.spec.ts` checks against the code.
+- `frontend/DESIGN_SYSTEM.md`: the implementation rules; §3 and §7 carry the device and the accent
+  phrase; §12 is the done-gate grep.
+- `docs/voice-and-style.md`: the voice: the four rules, the tone, the do and don't table from the
+  live site, the five headlines and the tagline, dashes and house conventions.
+- `.impeccable/design.json`: the generated sidecar, in parity with `DESIGN.md`.
+- [06-system.md](06-system.md): the measured contrast tables for every light and dark pair, the
+  type scale, icons, imagery and the device's specification (§6).
+- [05-mark.md](05-mark.md): the mark's audit and arrangements; the mark itself does not change.
+
+## Tokens and the device
+
+- `frontend/tailwind.config.js`: every colour, including `brand.*`, `gain.*`, `loss.*`.
+- `frontend/app/globals.css`: the "Brand device" block: `.en-mark` (the highlight), `.en-marked`
+  (the marked block), `.en-margin` (the gutter) and `.en-margin-mark` (the bracket twin), each
+  with its dark pair.
+- `frontend/features/marketing/components/MarkedCopy.tsx`: the component that measures the
+  markers and places their twins (`EnRef` renders a marker).
+
+## Templates
+
+[templates/](templates/) with its own README: the social post (1080 × 1350, HTML and PNG), the
+business card front and back (SVG with trim guide and fill-in layer), the PDF cover (A4), the
+email header (600 px tables) and the A5 notebook cover (SVG and preview). Every figure is from
+the verified set; every colour is a token; the mark's paths are byte-identical to the mono mark.
+
+## Records by phase
+
+| Phase | File | Outcome |
 |---|---|---|
-| 0 | [00-audit.md](00-audit.md), captures under [audit/](audit/) | done; sameness score 36/42 |
-| 1 | [01-interview.md](01-interview.md) | done; eight questions wait on the founder, assumptions A1 to A9 in force |
-| 2 | [02-battlefield.md](02-battlefield.md), captures under [battlefield/](battlefield/) | done; Simply Wall St not captured (bot challenge) |
-| 3 | [03-strategy.md](03-strategy.md) | done; S1 to S5 are the labels later phases cite |
-| 4 | [04-directions.md](04-directions.md), renders and sources under [directions/](directions/) | done; the choice waits on the founder (recommended: B, the Marked Copy) |
-| 5 to 10 | the mark, the system, the voice, the applications, the stress test, the handoff | not started: they follow the Phase 4 choice |
-| all | [decisions-log.md](decisions-log.md) | running |
+| 0 | [00-audit.md](00-audit.md), [audit/](audit/) | Twenty touchpoints; sameness score 36 of 42 |
+| 1 | [01-interview.md](01-interview.md) | Cited answers; eight founder questions with recommendations; assumptions A1 to A9 |
+| 2 | [02-battlefield.md](02-battlefield.md), [battlefield/](battlefield/) | Eight competitors, seven captured; the empty space is the act of checking |
+| 3 | [03-strategy.md](03-strategy.md) | Positioning, three behaviours, the spectrum, the promise, the never list (S1 to S5) |
+| 4 | [04-directions.md](04-directions.md), [directions/](directions/) | Three rendered directions; B, the Marked Copy, chosen by the founder with the mark untouched |
+| 5 | [05-mark.md](05-mark.md), [mark/](mark/) | The mark's audit, arrangements, rules and renditions; the drawing unchanged |
+| 6 | [06-system.md](06-system.md) | Palette measured, type, spacing, icons, imagery, the device; docs and sidecar in parity |
+| 7 | [07-voice.md](07-voice.md) | The voice guide rewritten; every microcopy site changed, with its before and after |
+| 8 | [08-applications.md](08-applications.md) | The landing page and every other surface in code; templates; the founder slot; Notable filings dormant |
+| 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; three fixes; second score 12 of 42 |
+| 10 | this page | The handoff |
+| all | [decisions-log.md](decisions-log.md) | D-001 to D-020 |
 
-The Phase 10 handoff index (logo files, guidelines, tokens, templates, PRs, gate tails, lessons)
-replaces this table when the arc completes.
+## The pull request
+
+[PR #1226](https://github.com/neilmac91/EarningsNerd/pull/1226), one branch for all ten phases.
+Review tier: routine (AGENTS.md §5), because the later phases touch marketing components, the
+pricing page's call to action, the consent bar, one product table's number formatting, backend
+copy in mail and exports, and their specs. Not touched: prompts, evals, entitlements, auth,
+billing, the summary pipeline, legal pages, `vercel.json`, `next.config.js`, workflows.
+
+## Gate tails
+
+Run on 2026-10-11 against the final tree in this container.
+
+```
+frontend: npm run lint                      eslint . --max-warnings 0           exit 0
+frontend: npx tsc -p tsconfig.ci.json                                           exit 0
+frontend: npm run build                     Next 16 production build            exit 0
+frontend: npm run test -- --run             182 files: 181 passed, 1 failed; 1743 tests: 1742 passed, 1 failed
+                                            (analysis-teaser.spec.tsx ran 5.6s against its 5s limit while the
+                                            Playwright run shared the CPU; its serial re-run is in the PR body)
+frontend: playwright (home-page-unauthenticated, not-found-page, text-floors, against next start, no backend)
+                                            beside the unit suite: 11 passed, 9 timed out on the mocked filing and
+                                            dashboard routes; the serial re-run is in the PR body
+backend:  ruff check .                      All checks passed!
+backend:  bandit -r app -ll                 no findings                          exit 0
+backend:  python -m pytest                  11 failed, 6726 passed, 39 skipped in 563.58s
+```
+
+The eleven backend failures are not this branch's: the same eleven fail on `origin/main` in this
+container (Python 3.13.16): the `test_copilot_prose_quotations` cases for two code points this
+Python's Unicode tables assign, and `test_capacity_readout_error_detail_never_aborts_the_receipt`.
+None is in a file this branch touches; CI runs the pinned toolchain.
+
+## Lessons
+
+- `lessons/brand-the-mark-is-protected.md`: never change the EN monogram or the wordmark; brand
+  work composes around them.
+
+## Left for the founder
+
+1. The first-person sentence for the founder slot (`frontend/features/marketing/lib/founderNote.ts`;
+   it renders nothing until written).
+2. The Multi-Period demo regenerated through the pipeline to end at FY2025
+   (`frontend/features/analysis/demo/demo-analysis.json`).
+3. A curation rule before Notable filings returns to the homepage (`NotableFilings.tsx`).
+4. The landing page's section composition (tell T4), as its own PR.
+
+Each is one line in `tasks/todo.md`.
+
+## Closing
+
+The brief asked for a brand that could be recognised with the logo covered. On the rebuilt pages
+the thing you would recognise is small and specific: a phrase with a pale mark under it, a
+bracket in the margin, a figure beside the sentence it came from. That is the product's own habit
+made visible, which is why it will hold: nothing in it needs a campaign to stay true, only the
+rules already in the gates. What remains is the founder's voice in the one slot kept for it, and
+a page layout that has yet to be as particular as the copy it carries.

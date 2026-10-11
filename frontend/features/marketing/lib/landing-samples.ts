@@ -9,102 +9,120 @@ import demo from '@/features/analysis/demo/demo-analysis.json'
  *
  * None of this is live data. The product components (FinancialMetricsTable, SourceTrace,
  * CitationChip, KpiStrip, MetricsTable, WhatChanged) render these exactly as they render real
- * payloads. Every figure is from Apple's FY2022 10-K (accession 0000320193-22-000108), the same
- * XBRL-verified snapshot HeroExample falls back to, and the excerpts are verbatim from that
- * filing's MD&A. The takeaway sentences are editorial. Replace each block by capturing the live
- * surface (design/landing-redesign/RATIONALE.md, "Screens the founder must capture").
+ * payloads. Every figure is from Apple's FY2025 10-K (accession 0000320193-25-000079, filed
+ * 2025-10-31), the same filing the live hero example summarises, verified against the SEC
+ * companyfacts XBRL on 2026-10-11 (docs/brand/00-audit.md §4); the excerpts are verbatim from that
+ * filing's Item 7. The takeaway sentences are editorial. The Multi-Period demo below still comes
+ * from the FY2019–FY2024 pipeline snapshot (regenerate it through the pipeline, never by hand).
  */
 
-export const AAPL_FY22_EDGAR_URL =
-  'https://www.sec.gov/Archives/edgar/data/320193/000032019322000108/'
+export const AAPL_FY25_EDGAR_URL =
+  'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
+/** @deprecated the FY2022 snapshot the samples used until the 2026-10 brand studio; kept for callers. */
+export const AAPL_FY22_EDGAR_URL = AAPL_FY25_EDGAR_URL
 
 export const SAMPLE_FILING = {
   ticker: 'AAPL',
   companyName: 'Apple Inc.',
   filingType: '10-K',
-  fiscalYear: 'FY2022',
-  priorFiscalYear: 'FY2021',
-  secUrl: AAPL_FY22_EDGAR_URL,
+  fiscalYear: 'FY2025',
+  priorFiscalYear: 'FY2024',
+  secUrl: AAPL_FY25_EDGAR_URL,
 } as const
 
-/** Financial Highlights rows (FinancialMetricsTable). Values: FY2022 vs FY2021 10-K XBRL. */
+/** Financial Highlights rows (FinancialMetricsTable). Values: FY2025 vs FY2024 10-K XBRL
+ *  (RevenueFromContractWithCustomerExcludingAssessedTax 416,161M vs 391,035M; NetIncomeLoss
+ *  112,010M vs 93,736M; EarningsPerShareDiluted 7.46 vs 6.08). */
 export const SAMPLE_FINANCIAL_METRICS: FinancialMetric[] = [
   {
     metric: 'Revenue',
-    current_period: '$394.3B',
-    prior_period: '$365.8B',
-    change_display: '+7.8%',
+    current_period: '$416.2B',
+    prior_period: '$391.0B',
+    change_display: '+6.4%',
     change_direction: 'up',
     change_tone: 'gain',
-    commentary: 'Growth held at 8% on iPhone, Services and Mac.',
-    source_url: AAPL_FY22_EDGAR_URL,
+    commentary: 'Up 6.4% on the prior year; Services grew fastest.',
+    source_url: AAPL_FY25_EDGAR_URL,
     source_verified: true,
     xbrl_concept: 'Revenue',
     source_section_ref: 'Consolidated Statements of Operations',
   },
   {
     metric: 'Net income',
-    current_period: '$99.8B',
-    prior_period: '$94.7B',
-    change_display: '+5.4%',
+    current_period: '$112.0B',
+    prior_period: '$93.7B',
+    change_display: '+19.5%',
     change_direction: 'up',
     change_tone: 'gain',
-    commentary: 'Profit grew more slowly than revenue.',
-    source_url: AAPL_FY22_EDGAR_URL,
+    commentary: 'Grew three times as fast as revenue; the provision for income taxes fell.',
+    source_url: AAPL_FY25_EDGAR_URL,
     source_verified: true,
     xbrl_concept: 'NetIncomeLoss',
     source_section_ref: 'Consolidated Statements of Operations',
   },
   {
     metric: 'Diluted EPS',
-    current_period: '$6.11',
-    prior_period: '$5.61',
-    change_display: '+8.9%',
+    current_period: '$7.46',
+    prior_period: '$6.08',
+    change_display: '+22.7%',
     change_direction: 'up',
     change_tone: 'gain',
     commentary: 'Buybacks lifted EPS above net income growth.',
-    source_url: AAPL_FY22_EDGAR_URL,
+    source_url: AAPL_FY25_EDGAR_URL,
     source_verified: true,
     xbrl_concept: 'EPS Diluted',
     source_section_ref: 'Consolidated Statements of Operations',
   },
 ]
 
-/** Trace-to-Source demo: one verified claim and the MD&A sentence it came from (verbatim). */
+/** Trace-to-Source demo: one claim and the Item 7 sentence it came from (verbatim). */
 export const SAMPLE_TRACE = {
-  claim: 'Net sales rose 8% to $394.3B, led by iPhone, Services and Mac.',
+  claim: 'Services net sales rose 13.5% to $109.2B on advertising, the App Store and cloud services.',
   sectionRef: 'Item 7 · Management’s Discussion and Analysis',
   excerpt:
-    'Total net sales increased 8% or $28.5 billion during 2022 compared to 2021, driven primarily by higher net sales of iPhone, Services and Mac.',
-  url: AAPL_FY22_EDGAR_URL,
+    'Services net sales increased during 2025 compared to 2024 primarily due to higher net sales from advertising, the App Store and cloud services.',
+  url: AAPL_FY25_EDGAR_URL,
 } as const
 
-/** Ask this Filing demo: one answer with an XBRL figure chip ([F1]) and a passage chip ([1]). */
+/** The catch (docs/brand/04-directions.md, D-012): the number a reader remembers is last year's.
+ *  Both are the filing's total net sales, FY2024 and FY2025, from the same XBRL fact. */
+export const SAMPLE_CATCH = {
+  metric: 'Total net sales',
+  remembered: '$391.0B',
+  rememberedPeriod: 'FY2024',
+  inFiling: '$416.2B',
+  inFilingPeriod: 'FY2025',
+  concept: 'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+  url: AAPL_FY25_EDGAR_URL,
+} as const
+
+/** Ask this Filing demo: one answer with an XBRL figure chip ([F1]) and a passage chip ([1]).
+ *  Services net sales from the Products and Services Performance table: $109,158M vs $96,169M. */
 export const SAMPLE_ASK = {
   question: 'How much did Services revenue grow, and what drove it?',
   // Markers are injected as CitationChips by lib/citationMarkers, exactly as CopilotMessage does.
   answer:
-    'Services net sales were $78.1B, up 14.2% from $68.4B [F1]. Management attributes the increase to advertising, cloud services and the App Store [1].',
+    'Services net sales were $109.2B, up 13.5% from $96.2B [F1]. Management attributes the increase to advertising, the App Store and cloud services [1].',
   citations: [
     {
       n: 'F1',
-      excerpt: 'Services net sales: $78,129 million (FY2022) vs $68,425 million (FY2021)',
+      excerpt: 'Services net sales: $109,158 million (FY2025) vs $96,169 million (FY2024)',
       section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax · Services',
       verified: true,
-      fragment_url: AAPL_FY22_EDGAR_URL,
+      fragment_url: AAPL_FY25_EDGAR_URL,
     },
     {
       n: 1,
       excerpt:
-        'Services net sales increased during 2022 compared to 2021 due primarily to higher net sales from advertising, cloud services and the App Store.',
+        'Services net sales increased during 2025 compared to 2024 primarily due to higher net sales from advertising, the App Store and cloud services.',
       section_ref: 'Item 7 · Products and Services Performance',
       verified: true,
-      fragment_url: AAPL_FY22_EDGAR_URL,
+      fragment_url: AAPL_FY25_EDGAR_URL,
     },
   ] satisfies CopilotCitation[],
 } as const
 
-/** Change Report demo (WhatChanged): FY2022 vs FY2021 XBRL deltas. Risk lines are left to the
+/** Change Report demo (WhatChanged): FY2025 vs FY2024 XBRL deltas. Risk lines are left to the
  *  live report (the page renders skeleton bones in their place). */
 export const SAMPLE_CHANGE_REPORT: ChangeReport = {
   has_prior: true,
@@ -115,9 +133,9 @@ export const SAMPLE_CHANGE_REPORT: ChangeReport = {
     headline: 'Revenue, net income and diluted EPS all rose against the prior fiscal year.',
     data_quality: 'ok',
     items: [
-      { metric: 'revenue', label: 'Revenue', direction: 'up', pct: 7.8, current: 394328e6, prior: 365817e6, display: '+7.8%', tone: 'gain' },
-      { metric: 'net_income', label: 'Net income', direction: 'up', pct: 5.4, current: 99803e6, prior: 94680e6, display: '+5.4%', tone: 'gain' },
-      { metric: 'eps_diluted', label: 'Diluted EPS', direction: 'up', pct: 8.9, current: 6.11, prior: 5.61, display: '+8.9%', tone: 'gain' },
+      { metric: 'revenue', label: 'Revenue', direction: 'up', pct: 6.4, current: 416161e6, prior: 391035e6, display: '+6.4%', tone: 'gain' },
+      { metric: 'net_income', label: 'Net income', direction: 'up', pct: 19.5, current: 112010e6, prior: 93736e6, display: '+19.5%', tone: 'gain' },
+      { metric: 'eps_diluted', label: 'Diluted EPS', direction: 'up', pct: 22.7, current: 7.46, prior: 6.08, display: '+22.7%', tone: 'gain' },
     ],
   },
   reporting_currency: 'USD',

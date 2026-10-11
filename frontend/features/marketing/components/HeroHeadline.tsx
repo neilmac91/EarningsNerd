@@ -31,7 +31,8 @@ export default function HeroHeadline() {
       className="text-4xl font-semibold leading-[1.1] text-text-primary-light dark:text-text-primary-dark sm:text-5xl lg:text-6xl"
     >
       {headline.pre}
-      <span className="text-brand-strong dark:text-brand-strong-dark">{headline.accent}</span>
+      {/* The brand device: the accent phrase carries the mark on the primary ink (DESIGN.md › Graphic device). */}
+      <span className="en-mark">{headline.accent}</span>
       {headline.post}
     </h1>
   )

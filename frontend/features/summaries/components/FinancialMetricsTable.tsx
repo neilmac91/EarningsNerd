@@ -58,7 +58,10 @@ const formatMetricValue = (value: string): string => {
   }
 
   if (value.includes('$')) {
-    return fmtCurrency(numeric)
+    // Keep the precision the row was served with: a per-share "$7.46" must not display as "$7.5".
+    // Compact figures ("$416,161M" to "$416.2B") keep fmtCurrency's own rounding.
+    const decimals = Math.abs(numeric) < 1000 ? (value.match(/\.(\d+)/)?.[1].length ?? 0) : 0
+    return decimals > 1 ? fmtCurrency(numeric, { digits: Math.min(decimals, 2) }) : fmtCurrency(numeric)
   }
 
   return fmtScale(numeric, { digits: 2 })

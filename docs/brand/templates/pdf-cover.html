@@ -1,0 +1,122 @@
+<!doctype html>
+<!--
+  PDF export cover, A4 portrait (210 × 297 mm).
+
+  Where the real thing renders today: backend/app/services/pdf_branding.py draws the page-1
+  masthead (render_branded_pdf: the inline sage mark, the HTML wordmark and the document kind),
+  and backend/app/services/export_service.py (generate_pdf_html) builds the filing summary PDF on
+  that shell. This file is the cover those two would add in front of page 1; port it into
+  pdf_branding.py rather than linking it. The shell names the Inter face 'Inter Var' and loads
+  both fonts from app/assets/fonts/ by absolute file:// URI; this preview loads the same two files
+  from frontend/scripts/brand/fonts/ by relative path.
+
+  Named fields. This cover is a template, so it is the one place in the brand templates where
+  placeholders are allowed: the tally line's four counts are written {matched}, {checkable},
+  {located} and {excerpts}, and the backend substitutes them from the summary's own verification
+  tally. Follow VerificationTallyLine.tsx exactly: "checkable figure" and "risk excerpt" in the
+  singular when the total is 1; drop a clause when its counts are absent; append
+  " · {withheld} withheld" when any excerpt was withheld. The identity block shows a real filing
+  (Apple Inc. 10-K FY2025, accession 0000320193-25-000079, filed Oct 31, 2025) so the preview is
+  checkable; each value carries a data-field attribute naming what the backend puts there.
+
+  The highlight under "shows its work" is two nested spans (no pseudo-element, no positioning),
+  because WeasyPrint misplaces an absolutely positioned box inside an inline. The outer span's
+  own font box is sized to the lower 38% of the headline's line box and lowered onto it; its
+  bottom border is the 0.3 mm hairline; the inner span restores the ink. At 40 pt:
+    tint 14.497pt = (0.45978 × 40 - 0.85) / 1.20996, lowered 5.301pt = 0.24121 × 40 - 0.85 - 0.24121 × 14.497
+  (Inter: ascent 0.96875 em, descent 0.24121 em; 0.3 mm = 0.85 pt).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PDF cover</title>
+<style>
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 100 900;
+    src: url('../../../frontend/scripts/brand/fonts/Inter-Variable-latin.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Geist Mono';
+    font-style: normal;
+    font-weight: 100 900;
+    src: url('../../../frontend/scripts/brand/fonts/GeistMono-latin.woff2') format('woff2');
+  }
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { background: #F4F3EE; }
+  body {
+    position: relative;
+    width: 210mm;
+    height: 297mm;
+    overflow: hidden;
+    background: #F4F3EE;
+    color: #1A1A17;
+    font-family: 'Inter', 'DejaVu Sans', sans-serif;
+    font-optical-sizing: auto;
+  }
+  .data { font-family: 'Geist Mono', 'DejaVu Sans Mono', monospace; font-variant-numeric: tabular-nums; }
+
+  /* Lockup, top-left: og-template.html proportions (mark 1, wordmark 0.731, gap 0.346). */
+  .lockup { position: absolute; top: 22mm; left: 22mm; display: flex; align-items: center; }
+  .lockup svg { width: 11.63mm; height: 9mm; display: block; margin-right: 3.1mm; }
+  .wordmark { font-size: 18.7pt; font-weight: 700; letter-spacing: -0.02em; line-height: 1; color: #1A1A17; }
+  .wordmark em { font-style: italic; color: #3C6650; }
+
+  /* The filing's identity, in the data face. */
+  .identity { position: absolute; top: 92mm; left: 22mm; right: 22mm; }
+  .kind { font-size: 10.5pt; font-weight: 500; color: #636A77; margin-bottom: 5mm; }
+  .company { font-size: 24pt; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; color: #1A1A17; }
+  .ticker {
+    display: inline-block; vertical-align: 4pt; margin-left: 3mm; padding: 0.6mm 2.6mm;
+    border: 0.25mm solid #E5E7EB; border-radius: 99mm; background: #FBFAF6;
+    font-size: 10.5pt; font-weight: 600; letter-spacing: 0; color: #636A77;
+  }
+  .facts { margin-top: 3mm; font-size: 12pt; color: #636A77; }
+  .facts b { font-weight: 600; color: #1A1A17; }
+
+  /* The promise, with the one highlight, and the count that backs it. */
+  .promise { position: absolute; top: 168mm; left: 22mm; right: 22mm; }
+  .headline { font-size: 40pt; font-weight: 600; letter-spacing: -0.025em; line-height: 1.08; color: #1A1A17; }
+  .mark-tint { font-size: 14.497pt; vertical-align: -5.301pt; line-height: 0; background: #ECF2EE; border-bottom: 0.3mm solid #CFE0D6; white-space: nowrap; }
+  .mark-ink { font-size: 40pt; vertical-align: 5.301pt; line-height: 0; }
+  .tally { margin-top: 9mm; font-size: 10.5pt; line-height: 1.6; color: #374151; }
+  .tally .clause { white-space: nowrap; }
+
+  .foot {
+    position: absolute; left: 22mm; right: 22mm; bottom: 20mm;
+    padding-top: 4mm; border-top: 0.25mm solid #E5E7EB;
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 9pt; color: #636A77;
+  }
+</style>
+</head>
+<body>
+  <div class="lockup">
+    <svg viewBox="0 0 94.6 73.2" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <g transform="translate(0,-14.8)">
+        <path d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z" fill="#3C6650"></path>
+        <g transform="translate(0.92,6.98) scale(0.9193)"><path d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z" fill="#3C6650"></path><path d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z" fill="#3C6650"></path></g>
+      </g>
+    </svg>
+    <span class="wordmark">Earnings<em>Nerd</em></span>
+  </div>
+
+  <div class="identity data">
+    <p class="kind">Filing summary</p>
+    <p class="company"><span data-field="company_name">Apple Inc.</span><span class="ticker" data-field="ticker">AAPL</span></p>
+    <p class="facts"><b data-field="form">10-K</b> · <span data-field="period">FY2025</span> · filed <span data-field="filed_date">Oct 31, 2025</span></p>
+  </div>
+
+  <div class="promise">
+    <h1 class="headline">The summary that <span class="mark-tint"><span class="mark-ink">shows its work</span></span>.</h1>
+    <p class="tally data"><span class="clause">{matched} of {checkable} checkable figures matched the company’s XBRL</span> · <span class="clause">{located} of {excerpts} risk excerpts located in the filing text</span></p>
+  </div>
+
+  <div class="foot">
+    <span>Generated by EarningsNerd · AI summaries of SEC filings</span>
+    <span class="data">earningsnerd.io</span>
+  </div>
+</body>
+</html>

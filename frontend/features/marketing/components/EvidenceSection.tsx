@@ -1,7 +1,8 @@
 import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
 import SectionImpression from '@/features/marketing/components/SectionImpression'
 import TraceToSourceDemo from '@/features/marketing/components/TraceToSourceDemo'
-import { SAMPLE_FILING, SAMPLE_FINANCIAL_METRICS, SAMPLE_TRACE } from '@/features/marketing/lib/landing-samples'
+import CatchCard from '@/features/marketing/components/CatchCard'
+import { SAMPLE_CATCH, SAMPLE_FILING, SAMPLE_FINANCIAL_METRICS, SAMPLE_TRACE } from '@/features/marketing/lib/landing-samples'
 
 // The design's card footer sentence; FinancialMetricsTable renders it in its own CardFooter.
 const TABLE_NOTES = (
@@ -13,9 +14,11 @@ const TABLE_NOTES = (
 )
 
 /**
- * "Where the numbers come from": the evidence block of the landing page. Left, the REAL
+ * "Figures with their receipts": the evidence block of the landing page. Left, the REAL
  * FinancialMetricsTable fed static, XBRL-verified sample rows; right, the Trace-to-Source chip
- * with its provenance panel open. Nothing here is drawn live; see landing-samples.
+ * with its provenance panel open and, beneath it, the catch: the figure a reader remembers beside
+ * the one in the filing, two real years of one XBRL fact. Nothing here is drawn live; see
+ * landing-samples.
  */
 export default function EvidenceSection() {
   // No hairline of its own: the measured-claims strip above already draws one.
@@ -25,12 +28,11 @@ export default function EvidenceSection() {
         <SectionImpression section="evidence">
           <div className="max-w-2xl">
             <h2 id="evidence-h" className="text-3xl lg:text-4xl">
-              Where the numbers come from
+              Figures with their receipts.
             </h2>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">
-              Source labels show when financial metrics match filed XBRL data. Where supporting
-              evidence is available, citations connect excerpts to the filing. The summary is built
-              from selected filing text and available structured data.
+              Each figure carries a label that says whether it matched the company’s XBRL. Each quote
+              carries the passage it came from. Where we could not match one, we say so.
             </p>
           </div>
 
@@ -45,7 +47,10 @@ export default function EvidenceSection() {
               </p>
               <FinancialMetricsTable metrics={SAMPLE_FINANCIAL_METRICS} notes={TABLE_NOTES} />
             </div>
-            <TraceToSourceDemo trace={SAMPLE_TRACE} />
+            <div className="flex min-w-0 flex-col gap-6">
+              <TraceToSourceDemo trace={SAMPLE_TRACE} />
+              <CatchCard sample={SAMPLE_CATCH} />
+            </div>
           </div>
         </SectionImpression>
       </div>

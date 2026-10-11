@@ -3,20 +3,20 @@ import { FileTextIcon, LightningIcon, MagnifyingGlassIcon } from '@/lib/icons'
 const STEPS = [
   {
     number: '01',
-    title: 'Search SEC filers',
-    description: 'Search supported SEC filers by company name or ticker.',
+    title: 'Search a company',
+    description: 'Any company that files with the SEC, by name or ticker.',
     icon: MagnifyingGlassIcon,
   },
   {
     number: '02',
     title: 'Pick a filing',
-    description: 'Select a supported annual or quarterly report. We retrieve it from SEC EDGAR.',
+    description: 'A 10-K, 10-Q or 20-F. We fetch it from SEC EDGAR.',
     icon: FileTextIcon,
   },
   {
     number: '03',
-    title: 'Get the summary',
-    description: 'The AI analyzes selected filing sections and available XBRL data, then writes a structured summary of financials, risks, and trends.',
+    title: 'Read the summary',
+    description: 'Nine parts, written by the AI from the filing’s text and XBRL, with each figure’s fact and each quote’s passage beside it.',
     // The design repeats file-text here; the lightning glyph is the pre-redesign choice for
     // "get the summary" and keeps the three tiles distinct.
     icon: LightningIcon,
