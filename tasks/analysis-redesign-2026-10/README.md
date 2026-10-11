@@ -55,11 +55,14 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   with its inputs (`frontend/.next/SOURCE_TREE.json`): it refuses uncommitted frontend files and the untracked
   env files `next build` loads (git ignores all four, so `git status` never shows them), runs `next build` itself
   on the Node running the script rather than through npm (npm's own configuration, its npmrc files and
-  `npm_config_*` variables, can add Node options to everything it runs), with an allowlisted environment (what the
+  `npm_config_*` variables, can add Node options to everything it runs), from the install `package-lock.json`
+  describes (it refuses a package missing or at another version, or a top-level package the lockfile does not list;
+  an optional platform package may be absent; `node_modules` is ignored by git, so a checkout switched without
+  `npm ci` would otherwise build with another revision's packages), with an allowlisted environment (what the
   toolchain needs to run and reach the network, the caller's `NEXT_PUBLIC_*` variables, and `NODE_OPTIONS` only
   while it holds nothing but heap sizes: its other flags, such as `--require`, run code in every build process, so
   they are refused; credentials, Sentry and Vercel variables are dropped), and records the stamp's format, the
-  commit, the `frontend/` tree, the build id, Node and its heap sizes, the public variables, a content hash of
+  commit, the `frontend/` tree, the build id, Node and its heap sizes, the install's package counts, the public variables, a content hash of
   `.next/static/media`, where the fonts `next/font` downloads at build time sit, and a content hash of the build's
   whole output (everything under `.next` but Next's caches), so a file edited, added or removed there after the
   stamp no longer matches it.
@@ -127,13 +130,16 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
 # components instead, and the counts and geometry differ by design.
 git worktree add ../en-97293e7 97293e7
 (cd ../en-97293e7/frontend && npm ci)
-# build-stamped.mjs runs `next build` itself (not through npm) from the clean checkout with an allowlisted
-# environment, refusing NODE_OPTIONS flags other than heap sizes, and stamps frontend/.next/SOURCE_TREE.json with
-# its format, commit, frontend/ tree, build id, Node and heap sizes, public variables, downloaded fonts and the hash
-# of its whole output; the harness requires that stamp for the baseline, with exactly these two variables (.next is
-# ignored by git)
+# build-stamped.mjs runs `next build` itself (not through npm) from the clean checkout and the install its lockfile
+# describes, with an allowlisted environment, refusing NODE_OPTIONS flags other than heap sizes, and stamps
+# frontend/.next/SOURCE_TREE.json with its format, commit, frontend/ tree, build id, Node and heap sizes, install,
+# public variables, downloaded fonts and the hash of its whole output; the harness requires that stamp for the
+# baseline, with exactly these two variables (.next is ignored by git)
 NEXT_PUBLIC_ENABLE_ANALYSIS=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8010 node tasks/analysis-redesign-2026-10/harness/build-stamped.mjs ../en-97293e7
-(cd ../en-97293e7/frontend && WAITLIST_MODE=false npx next start -p 3000 &)
+# serve it the same way, with Next's own CLI and without NODE_OPTIONS (npm's configuration and a NODE_OPTIONS preload
+# would run inside the measured server; the harness cannot see a server's environment); WAITLIST_MODE=false lets
+# /analysis through the middleware
+(cd ../en-97293e7/frontend && env -u NODE_OPTIONS WAITLIST_MODE=false node node_modules/next/dist/bin/next start -p 3000 &)
 # then, from this repository's root, with Playwright resolvable (the frontend's install, or the cloud image's global one)
 NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-current.mjs --base http://localhost:3000 --build ../en-97293e7 --shots /tmp/shots
 # The harness reads the served checkout's commit, frontend/ tree hash, uncommitted files under frontend/,

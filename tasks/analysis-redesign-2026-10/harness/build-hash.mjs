@@ -8,7 +8,9 @@ import path from 'node:path'
 // this format, so a stamp from an older script is refused. Raise it whenever what a stamp guarantees changes.
 // 2: the build ran `next build` itself, not through npm, with no Node flags but heap sizes (recorded), and the stamp
 // records the build's whole output. (Stamps without a format predate it.)
-export const STAMP_FORMAT = 2
+// 3: and node_modules was the install package-lock.json describes (every listed package at its version, an optional
+// platform package possibly absent, no unlisted top-level package).
+export const STAMP_FORMAT = 3
 
 // A directory's regular files and symbolic links, recursively, by relative path and by bytes (a link by its target),
 // leaving out the entries `skip` names relative to `dir` (a directory with everything under it).

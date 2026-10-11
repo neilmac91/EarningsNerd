@@ -29,8 +29,9 @@
 // build id and the checkout's frontend/ tree, its media hash must match the build's .next/static/media, where the
 // fonts next/font downloaded sit, and its output hash must match everything the build wrote under .next but Next's
 // caches, so a file edited, added or removed there after the stamp is caught); for the baseline the stamp must be of
-// build-hash.mjs's STAMP_FORMAT (the build ran `next build` itself, not through npm, with no Node flags but heap sizes,
-// and the stamp records its output), and its public build variables and media hash must equal the pins in BASELINE.
+// build-hash.mjs's STAMP_FORMAT (the build ran `next build` itself, not through npm, from the install its lockfile
+// describes, with no Node flags but heap sizes, and the stamp records its output), and its public build variables and
+// media hash must equal the pins in BASELINE.
 // 97293e7 has no harness, so the baseline is retaken by running this tree's harness with --build pointing at a
 // worktree of that revision, built there with build-stamped.mjs.
 import { readFileSync, readdirSync, mkdirSync, writeFileSync, existsSync, lstatSync, realpathSync, statSync } from 'node:fs'
@@ -146,7 +147,7 @@ if (WRITING_BASELINE) {
   const what = [SERVED.dirty.length ? `uncommitted frontend files in ${BUILD} (${SERVED.dirty.join(', ')})` : null, HARNESS_DIRTY.length ? `uncommitted harness files (${HARNESS_DIRTY.join(', ')})` : null, FIXTURES.dirty && FIXTURES.dirty.length ? `uncommitted fixture files (${FIXTURES.dirty.join(', ')})` : null].filter(Boolean).join(' and ')
   if (what) throw new Error(`${BASELINE.file} is written only from clean trees: ${what}; commit or stash them, or pass --out <another file>`)
   if (!STAMP) throw new Error(`${BASELINE.file} is written only from a stamped build: build ${BUILD} with harness/build-stamped.mjs (it writes frontend/.next/SOURCE_TREE.json from the clean checkout right after the build) and serve that build`)
-  if (STAMP.format !== STAMP_FORMAT) throw new Error(`${BASELINE.file} is written only from a stamp of format ${STAMP_FORMAT} (the build ran \`next build\` itself, not through npm, with no Node flags but heap sizes, and the stamp records its whole output); the stamp at ${stampFile} is ${STAMP.format === undefined ? 'from an older build-stamped.mjs' : `of format ${JSON.stringify(STAMP.format)}`}: rebuild with harness/build-stamped.mjs (the README's command)`)
+  if (STAMP.format !== STAMP_FORMAT) throw new Error(`${BASELINE.file} is written only from a stamp of format ${STAMP_FORMAT} (the build ran \`next build\` itself, not through npm, from the install its lockfile describes, with no Node flags but heap sizes, and the stamp records its whole output); the stamp at ${stampFile} is ${STAMP.format === undefined ? 'from an older build-stamped.mjs' : `of format ${JSON.stringify(STAMP.format)}`}: rebuild with harness/build-stamped.mjs (the README's command)`)
   const env =STAMP.env ? JSON.stringify(STAMP.env) : null
   if (env !== JSON.stringify(BASELINE.buildEnv)) throw new Error(`${BASELINE.file} records a build whose public build variables were exactly ${JSON.stringify(BASELINE.buildEnv)}; the stamp at ${stampFile} records ${env || 'none (it predates recorded build inputs)'}: rebuild with harness/build-stamped.mjs and exactly those variables (the README's command)`)
   if (!STAMP.media || STAMP.media.hash !== BASELINE.media.hash) throw new Error(`${BASELINE.file} records a build whose downloaded fonts and assets hash ${BASELINE.media.hash.slice(0, 12)}… (${BASELINE.media.files} files in .next/static/media); the build at ${BUILD} has ${STAMP.media ? `${STAMP.media.hash.slice(0, 12)}… (${STAMP.media.files} files)` : 'none recorded'}: retaking the baseline with other fonts needs a new pin here and a README note`)

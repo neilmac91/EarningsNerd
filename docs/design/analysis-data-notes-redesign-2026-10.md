@@ -1113,7 +1113,10 @@ correction landed in this document:
   runs inside the build: `build-stamped.mjs` runs `next build` itself rather than through npm, whose npmrc files
   and `npm_config_*` variables can add Node options to every script it runs, and passes `NODE_OPTIONS` only while
   it holds nothing but heap sizes, which the stamp records (a `--require` or `--import` preload would run in every
-  build process), and the baseline needs a stamp of the format that guarantees all of this; `97293e7` has no harness, so the baseline
+  build process), and it refuses an install that is not the one the lockfile describes (`node_modules` is ignored
+  by git, so a checkout switched without `npm ci` would build with another revision's packages); the baseline needs
+  a stamp of the format that guarantees all of this, and the README serves the build the same way, with Next's own
+  CLI and without `NODE_OPTIONS`; `97293e7` has no harness, so the baseline
   is retaken by this tree's harness with `--build` pointing at a worktree of that revision, built there with
   `build-stamped.mjs`. The harness compares its output and data paths as canonical paths, so a symbolic link
   to the baseline, a path through a linked directory, or a hard link on the baseline's inode (compared by device
