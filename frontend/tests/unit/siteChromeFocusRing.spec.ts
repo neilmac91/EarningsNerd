@@ -453,13 +453,19 @@ function classify(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.
     spread ||
     ((INTRINSIC.has(tag) || linkNames.has(tag) || indexed || editableStop) && !removed && !staticallyDisabled)
   // Out of the Tab order, an element still takes a click's focus, unless it is display:none: a static `hidden`
-  // attribute, or the `hidden` class with no variant that shows it again (`md:block`), as the waitlist honeypot is.
+  // attribute, or a literal className whose only display class is `hidden`, as the waitlist honeypot's is. Any other
+  // display class (`md:block`, `!block`, `[display:block]`) may show it, and a className read any other way may hold
+  // one, so either fails the exemption.
   const hiddenAttr = attr('hidden')
-  const read = classTokens(attr('className')?.initializer)
-  const classes = Array.isArray(read) ? read : []
-  const displayNone =
-    (!!hiddenAttr && settled(hiddenAttr) && !hiddenAttr.initializer) ||
-    (classes.includes('hidden') && !classes.some((t) => t.includes(':') && DISPLAY.test(t.slice(t.lastIndexOf(':') + 1))))
+  const init = attr('className')?.initializer
+  const expr = init && ts.isJsxExpression(init) ? init.expression : init
+  const literal = expr && (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) ? expr.text : ''
+  const classes = literal.split(/\s+/).filter(Boolean)
+  const shows = (t: string) => {
+    const utility = splitClass(t).utility.replace(/^!/, '')
+    return t !== 'hidden' && (DISPLAY.test(utility) || utility.startsWith('[display:'))
+  }
+  const displayNone = (!!hiddenAttr && settled(hiddenAttr) && !hiddenAttr.initializer) || (classes.includes('hidden') && !classes.some(shows))
   const focusable = tabbable || (removed && !staticallyDisabled && !displayNone)
   const typeAttr = attr('type')?.initializer
   // Every field @tailwindcss/forms styles: a textarea, a select, and an input that is not a button or
@@ -1228,6 +1234,8 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <Input {...{ style: { boxShadow: 'none' } }} />
             <input type="date" className="border ${field} focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error" />
             <input type="date" className="border ${field} group-focus-within:!shadow-none peer-focus:shadow-none" />
+            <input type="date" tabIndex={-1} className="hidden !block" />
+            <input type="date" tabIndex={-1} className={\`hidden \${c}\`} />
           </>
         )
       }`
@@ -1236,7 +1244,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     const competing = 'sets the box-shadow or a ring in a state, beside the reset and the DS ring'
     const ring = 'a focus:shadow-ring-* or focus-visible:shadow-ring-*'
     expect(factory).toBe(3)
-    expect(fields).toBe(39)
+    expect(fields).toBe(41)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       `7 <input> missing focus:ring-0, focus:ring-offset-0, ${twin}`,
       `9 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
@@ -1299,6 +1307,10 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       '53 <input> more than one DS ring across its focus states (focus ring-brand, focus-visible ring-error; dark: focus ring-brand, focus-visible ring-error)',
       // A group or peer variant's selector leads with the marker, not the utility's own class.
       `54 <input> group-focus-within:!shadow-none peer-focus:shadow-none ${competing}`,
+      // An important display class shows a hidden field as a variant does (line 45).
+      `55 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
+      // A dynamic part may show it too, so a hidden className read any way but as a literal earns no exemption.
+      '56 <input> a className the scan cannot read',
     ])
   })
 })
