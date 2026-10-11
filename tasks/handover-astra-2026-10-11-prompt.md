@@ -192,13 +192,20 @@ run with its reservation and its known cost in the PR body (the reservation rule
 `tasks/code-red-20261004/runtime/control/DECISIONS-09.md`).
 
 What spends: the `eval-baseline` job of `ci.yml` runs a live baseline (about USD 0.30) on every
-pull-request event whose diff touches `backend/app/*`, `backend/evals/*` or `backend/prompts/*`, draft
-or not, and again on every push to such a PR, so commit locally, run the full gate, and push a backend
-PR once; the `copilot-eval` workflow runs (about USD 0.06 reserved) when a PR that is not a draft touches
-its `paths:` filter (`backend/app/**` outside tests, `backend/prompts/**`, parts of `backend/evals/`,
-the requirements files, `.github/ai-model.env`). Tests-only (`backend/tests/**`), frontend, records and
-workflow-only PRs spend nothing. A paid analysis or summary generation outside CI (the landing demo in
-F2) is a founder decision. The DeepSeek key exists only as a CI secret: never read, print or move it.
+pull-request event whose diff touches any file under `backend/app/`, `backend/evals/` or
+`backend/prompts/` (its shell `case` patterns match at any depth, routers and integrations included),
+draft or not, and again on every push to such a PR, so commit locally, run the full gate, and push a
+backend PR once. The `copilot-eval` workflow runs (about USD 0.06 reserved) when a PR that is not a
+draft touches one of the sixteen entries of its `paths:` filter: a file directly under `backend/app/`
+(`backend/app/*` matches no subdirectory), anything under `backend/app/models/`, `schemas/`,
+`services/`, `utils/`, `data/` or `assets/`, anything under `backend/prompts/`,
+`backend/evals/__init__.py`, `backend/evals/copilot_*`, `backend/evals/schema.py`,
+`backend/evals/scorers.py`, the two requirements files, `.github/ai-model.env` and the workflow itself;
+routers, integrations, migrations, scripts and tests do not trigger it
+(`backend/tests/unit/test_copilot_eval_paths.py` pins the list). Tests-only (`backend/tests/**`),
+frontend, records and workflow-only PRs spend nothing, except a change to `copilot-eval.yml` itself. A
+paid analysis or summary generation outside CI (the landing demo in F2) is a founder decision. The
+DeepSeek key exists only as a CI secret: never read, print or move it.
 
 ## Evidence and verification
 
@@ -405,7 +412,8 @@ records PR, high value for the next reader, no risk; do it first. (b) `ROUTER_OR
 filings, saved_summaries, users and watchlist, to prune once no open branch edits that file (check the
 open PRs' file lists): tests-only. (c) The routers still above zero on 2026-10-11: analysis 10, contact
 5, feedback 5, internal 18, sitemap 8, subscriptions 3, summaries 31, webhooks 1. Each thinning PR
-deploys and spends one `eval-baseline` run per push; `summaries.py` (the SSE endpoint, with the locked
+deploys, spends one `eval-baseline` run per push, and runs `copilot-eval` once ready because the moved
+code lands under `services/`; `summaries.py` (the SSE endpoint, with the locked
 stream contract), `internal.py`, `subscriptions.py` and `webhooks.py` are high tier. Do the routine ones
 first (contact, feedback, sitemap, analysis), one PR each, pure moves proven with the AST move proof
 (`lessons/test-pure-move-ast-proof.md`), lowering the ceiling in the same diff; take the high ones only
