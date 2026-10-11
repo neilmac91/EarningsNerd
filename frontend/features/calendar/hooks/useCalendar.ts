@@ -80,7 +80,7 @@ export interface BlockedState {
   ticker: string
   /** For 'error': the API's message, rendered verbatim. */
   message: string
-  /** Bell rect at click time — anchors the popover. */
+  /** Bell rect when the popover opens (after an async failure, if any). */
   anchor: DOMRect
   /** Element to restore focus to on dismiss. */
   trigger: HTMLElement | null
@@ -125,7 +125,7 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
   }, [optimistic])
 
   const mutation = useMutation({
-    mutationFn: async ({ ticker, enabling }: { ticker: string; enabling: boolean }) => {
+    mutationFn: async ({ ticker, enabling }: { ticker: string; enabling: boolean; trigger: HTMLElement }) => {
       if (enabling) await enableEarningsAlert(ticker)
       else await disableEarningsAlert(ticker)
     },
@@ -140,13 +140,15 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
     onError: (err, vars, _ctx) => {
       // Roll the optimistic flip back before surfacing anything.
       setOptimistic((o) => ({ ...o, [vars.ticker]: !vars.enabling }))
-      const anchor = vars as unknown as { anchor?: DOMRect; trigger?: HTMLElement }
-      const rect = anchor.anchor ?? new DOMRect(window.innerWidth / 2, window.innerHeight / 2, 0, 0)
+      // Scrolling while the request runs can move the bell. Read its current rect at failure;
+      // a removed trigger has no location or focus-return target, so fall back to the viewport centre.
+      const trigger = vars.trigger.isConnected ? vars.trigger : null
+      const rect = trigger?.getBoundingClientRect() ?? new DOMRect(window.innerWidth / 2, window.innerHeight / 2, 0, 0)
       if (err instanceof EarningsAlertError && err.code === EARNINGS_ALERT_LIMIT_CODE) {
-        setBlocked({ kind: 'upsell', ticker: vars.ticker, message: err.message, anchor: rect, trigger: anchor.trigger ?? null })
+        setBlocked({ kind: 'upsell', ticker: vars.ticker, message: err.message, anchor: rect, trigger })
       } else {
         const message = err instanceof Error ? err.message : 'Could not update the alert. Try again.'
-        setBlocked({ kind: 'error', ticker: vars.ticker, message, anchor: rect, trigger: anchor.trigger ?? null })
+        setBlocked({ kind: 'error', ticker: vars.ticker, message, anchor: rect, trigger })
       }
     },
   })
@@ -177,7 +179,7 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
       }
       setPending((p) => ({ ...p, [ticker]: true }))
       setOptimistic((o) => ({ ...o, [ticker]: enabling }))
-      mutation.mutate({ ticker, enabling, anchor: rect, trigger: el } as never)
+      mutation.mutate({ ticker, enabling, trigger: el })
     },
     [currentCount, isOn, mutation, pending],
   )
