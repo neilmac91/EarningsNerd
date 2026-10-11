@@ -563,6 +563,9 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
     nested = "def hook():\n    return normalize(' x ')\n\n\nclass Outer:\n    class Inner:\n"
     box = "class Box:\n    @classmethod\n    def hook(cls):\n        return normalize(' x ')\n"
     calling = "def dataclass(cls):\n    cls.hook()\n    return cls\n\n\n"
+    descriptor = ("class Descriptor:\n    def __set_name__(self, owner, name):\n        owner()\n\n\n"
+                  "descriptor = Descriptor()\n\n\n")
+    consumer = "    def __init__(self):\n        self.value = normalize(' x ')\n\n    field = descriptor\n"
     for reader, key in (
             ("def describe():\n    return normalize(' x ')\n\n\nDESCRIPTION = describe()\n", "DESCRIPTION"),
             ("RUN = lambda: normalize(' x ')\nDESCRIPTION = RUN()\n", "DESCRIPTION"),
@@ -614,6 +617,10 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
              "            def __str__(self):\n                return normalize(' boom ')\n", "Outer.Inner"),
             (nested + "        value: hook()\n", "Outer.Inner"),
             (calling + "@dataclass\n" + box, "Box"),
+            (descriptor + "class Consumer:\n" + consumer, "Consumer"),
+            (descriptor + "class Outer:\n    class Consumer:\n        def __init__(self):\n"
+             "            self.value = normalize(' x ')\n\n        field = descriptor\n", "Outer.Consumer"),
+            ("def f(x: (lambda: normalize(' x '))()):\n    return x\n", "f"),
             ("from app.c import dataclass\n\n\n@dataclass\n" + box, "Box"),
             ("import types\n\n\n" + calling.replace("dataclass", "calling")
              + "dataclasses = types.SimpleNamespace(dataclass=calling)\n\n\n@dataclasses.dataclass\n" + box, "Box"),
@@ -677,6 +684,7 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    nested + "        value: hook\n",
                    nested + "        global hook\n",
                    "from dataclasses import dataclass\n\n\n@dataclass\n" + box,
+                   "class Consumer:\n    LIMIT = 3\n\n    def __init__(self):\n        self.value = normalize(' x ')\n",
                    "import dataclasses\n\n\n@dataclasses.dataclass\n" + box,
                    "from dataclasses import dataclass as dataclass\n\n\n@dataclass\n" + box,
                    "class Outer:\n    class Inner:\n        hook = lambda: normalize(' x ')\n        VALUE = 1\n",
@@ -733,7 +741,8 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    "class Report:\n    def __class_getitem__(cls, item):\n        return normalize(' x ')\n\n\n"
                    "def build(value: Report[int]):\n    return value\n",
                    nested + "        value: hook()\n",
-                   "class Outer:\n    class Inner:\n        value: normalize\n"):
+                   "class Outer:\n    class Inner:\n        value: normalize\n",
+                   "def f(x: (lambda: normalize(' x '))()):\n    return x\n"):
         old = future + "from app.b import normalize\n\n\n" + reader
         report = compare(old, {"app/a.py": "", "app/b.py": future + reader + "\n\n" + target}, old_path="app/a.py")
         assert report.ok, render(report)
@@ -904,11 +913,21 @@ def test_a_new_member_of_a_moved_class_is_read_through_its_attributes():
 
 def test_a_class_body_global_that_is_only_read_installs_no_module_dunder():
     """``global __doc__`` in a class body makes the body read the module's docstring and binds nothing, so the
-    class moved elsewhere installs no module dunder there; a member that stores the name binds the module's."""
+    class moved elsewhere installs no module dunder there; a member that stores the name binds the module's. So
+    does the compiler's own store, before the body runs, of a class's ``__module__`` and ``__qualname__`` and a
+    documented class's docstring as ``__doc__``, where the body declares the name ``global``: the class writes the
+    module's, and a member class too."""
     doc = '"""Doc."""\n\n\nclass Box:\n    global __doc__\n    text = __doc__\n'
     assert _relocated(doc, "app/y.py", "app/x.py") == {}
     stored = doc.replace("    text = __doc__\n", "    __doc__ = 'Box.'\n")
     assert _relocated(stored, "app/y.py", "app/x.py") == {"Box.__doc__": "binds __doc__, which Python reads from app.y, was app.x"}
+    for body, name in (('    "Class documentation."\n    global __doc__\n', "__doc__"),
+                       ("    global __module__\n", "__module__"), ("    global __qualname__\n", "__qualname__")):
+        assert _relocated('"""Doc."""\n\n\nclass Box:\n' + body, "app/y.py", "app/x.py") == {
+            "Box": f"binds {name}, which Python reads from app.y, was app.x"}, name
+    member = '"""Doc."""\n\n\nclass Outer:\n    class Box:\n        "Inner doc."\n        global __doc__\n'
+    assert _relocated(member, "app/y.py", "app/x.py") == {
+        "Outer.Box": "binds __doc__, which Python reads from app.y, was app.x"}
 
 
 def test_a_class_docstring_counts_only_as_the_first_statement_of_its_body():
