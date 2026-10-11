@@ -14,7 +14,7 @@ from app.routers.auth import get_current_user, _clear_auth_cookie, _clear_refres
 # The user_* services are imported as modules, not functions: their functions stay patchable at
 # their home, and no handler below can shadow a service function of the same name.
 from app.services import user_account_service, user_data_export_service, user_notification_feed_service
-from app.services.audit_service import log_user_deletion, log_data_export
+from app.services.audit_service import stage_user_deletion, log_data_export
 from app.services.entitlements import get_entitlements
 from app.services.notification_service import (
     apply_preference_update,
@@ -385,8 +385,8 @@ async def delete_user_account(
                 logger.error(f"Failed to anonymize Sentry user {user_id}: {str(e)}")
                 deletion_results["sentry"] = f"error: {str(e)}"
 
-        # Create audit log BEFORE deleting user (so we can still reference user_id)
-        log_user_deletion(
+        # Commit the success audit together with the deletion; a failed delete rolls both back.
+        stage_user_deletion(
             db=db,
             user_id=user_id,
             user_email=user_email,

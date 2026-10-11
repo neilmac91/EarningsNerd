@@ -1,7 +1,7 @@
 """DELETE /api/users/me: account deletion (GDPR Art. 17), characterized over HTTP.
 
-Pins what is observable over HTTP: the ``user_deleted`` audit row commits before the account row
-is deleted (a failed delete still leaves it behind); on success the Set-Cookie headers equal the
+Pins what is observable over HTTP: the ``user_deleted`` success audit commits with the account
+deletion (a failed write leaves neither change behind); on success the Set-Cookie headers equal the
 logout helpers' output in call order (access + session-presence, then refresh); and a failed delete
 rolls the session back before it closes, keeps the account and sends no Set-Cookie at all. Whether
 the cookies are cleared before or after the delete is not observable here: when the handler raises
@@ -212,13 +212,16 @@ def test_delete_account_audits_deletes_and_clears_session_cookies(client):
 
 
 @pytest.mark.requires_db
-def test_failed_delete_rolls_back_keeps_account_and_sets_no_cookie(client):
+@pytest.mark.parametrize("failed_write", ["account", "audit"])
+def test_failed_delete_rolls_back_keeps_account_and_sets_no_cookie(client, failed_write):
     with _seeded_user() as (uid, email):
         session_events: list[str] = []
 
         def _refuse_user_delete(session, flush_context, instances):
-            if any(isinstance(obj, User) for obj in session.deleted):
+            if failed_write == "account" and any(isinstance(obj, User) for obj in session.deleted):
                 raise RuntimeError("injected account-delete failure")
+            if failed_write == "audit" and any(isinstance(obj, AuditLog) for obj in session.new):
+                raise RuntimeError("injected audit-insert failure")
 
         def _failing_db():
             db = SessionLocal()
@@ -240,8 +243,7 @@ def test_failed_delete_rolls_back_keeps_account_and_sets_no_cookie(client):
         assert "rollback" in session_events
         assert session_events.index("rollback") < session_events.index("close")
         assert _user_exists(uid)
-        # Pre-existing behaviour, pinned as-is: the audit row committed before the delete failed.
-        assert _audit_rows(email) == [("user_deleted", str(uid), "success")]
+        assert _audit_rows(email) == []
 
 
 @pytest.mark.requires_db

@@ -9,16 +9,19 @@ test holds wherever the export code lives.
 import re
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import Depends
 from fastapi.testclient import TestClient
 from sqlalchemy import event
+from sqlalchemy.orm.attributes import set_committed_value
 
 from main import app
 from app.database import SessionLocal, get_db
-from app.models import AuditLog, BillingPayment, User
+from app.models import (
+    AuditLog, BillingPayment, Company, Filing, SavedSummary, Summary, User, UserSearch, UserUsage, Watchlist,
+)
 from app.routers.auth import get_current_user
 
 EXPORT_KEYS = [
@@ -62,7 +65,9 @@ def _seeded_user():
         app.dependency_overrides.pop(get_db, None)
         db = SessionLocal()
         db.query(AuditLog).filter(AuditLog.user_email == email).delete()
-        db.query(User).filter(User.id == uid).delete()
+        account = db.get(User, uid)
+        if account is not None:
+            db.delete(account)
         db.commit()
         db.close()
 
@@ -95,7 +100,67 @@ def test_export_key_order_filename_and_audit_row(client):
         for key in ("searches", "saved_summaries", "watchlist", "usage", "billing_payments"):
             assert payload[key] == []
         assert datetime.fromisoformat(payload["export_timestamp"]).utcoffset() == timedelta(0)
+        assert payload["export_timestamp"].endswith("Z")
         assert _audit_rows(email) == [("data_exported", str(uid), "success")]
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("database_offset", [None, 2])
+def test_export_timestamps_preserve_instants_as_utc_z_and_keep_nulls(client, database_offset):
+    stamp = datetime(2026, 7, 6, 10, 52, 35, 123456, tzinfo=timezone.utc)
+    with _seeded_user() as (uid, _email):
+        with SessionLocal() as db:
+            company = Company(cik=uuid.uuid4().hex, ticker="EXPORT", name="Export fixture")
+            db.add(company)
+            db.flush()
+            company_id = company.id
+            filing = Filing(company_id=company_id, accession_number=uuid.uuid4().hex, filing_type="10-K",
+                            filing_date=stamp, document_url="https://example.test/filing", sec_url="https://example.test/filing")
+            db.add(filing)
+            db.flush()
+            summary = Summary(filing_id=filing.id)
+            db.add(summary)
+            db.flush()
+            db.query(User).filter(User.id == uid).update({"created_at": stamp, "updated_at": None})
+            db.add_all([
+                UserSearch(user_id=uid, query="Export fixture", company_id=company_id, created_at=stamp),
+                SavedSummary(user_id=uid, summary_id=summary.id, created_at=stamp),
+                Watchlist(user_id=uid, company_id=company_id, created_at=stamp),
+                UserUsage(user_id=uid, month="2026-07", summary_count=1, created_at=stamp, updated_at=None),
+            ])
+            db.commit()
+
+        def _database_representation(session, instance):
+            if database_offset is not None and isinstance(instance, (User, UserSearch, SavedSummary, Watchlist, UserUsage)):
+                zone = timezone(timedelta(hours=database_offset))
+                for name in ("created_at", "updated_at"):
+                    value = getattr(instance, name, None)
+                    if value is not None:
+                        set_committed_value(instance, name, value.replace(tzinfo=timezone.utc).astimezone(zone))
+
+        def _export_db():
+            with SessionLocal() as db:
+                # Simulate the representation an aware PostgreSQL column can return, without
+                # changing stored instants. The other case uses SQLite's actual naive reads.
+                event.listen(db, "loaded_as_persistent", _database_representation)
+                yield db
+
+        app.dependency_overrides[get_db] = _export_db
+        try:
+            resp = client.get("/api/users/export")
+            assert resp.status_code == 200
+            payload = resp.json()
+            assert payload["profile"]["created_at"] == "2026-07-06T10:52:35.123456Z"
+            assert payload["profile"]["updated_at"] is None
+            for section in ("searches", "saved_summaries", "watchlist", "usage"):
+                assert len(payload[section]) == 1
+                assert payload[section][0]["created_at"] == "2026-07-06T10:52:35.123456Z"
+            assert payload["usage"][0]["updated_at"] is None
+        finally:
+            with SessionLocal() as db:
+                db.delete(db.get(User, uid))
+                db.delete(db.get(Company, company_id))
+                db.commit()
 
 
 @pytest.mark.requires_db

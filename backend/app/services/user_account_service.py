@@ -1,7 +1,7 @@
 """Account writes behind ``/api/users``: profile edits and the database step of account deletion.
 
-The router keeps the third-party erasure (Stripe, PostHog, Sentry), the audit row, the cookies and
-every log line; these functions are only the session work, in the transaction the router drives.
+The router keeps the third-party erasure (Stripe, PostHog, Sentry), staging the audit row, the
+cookies and every log line; these functions commit the session work the router drives.
 """
 from typing import Any, Dict
 
@@ -19,7 +19,7 @@ def apply_profile_update(db: Session, current_user: User, data: Dict[str, Any]) 
 
 
 def delete_user(db: Session, current_user: User) -> None:
-    """Delete the account row and commit; the ORM cascade removes the rows it owns."""
+    """Commit the account deletion and staged audit; the ORM cascade removes owned rows."""
     db.delete(current_user)
     db.commit()
 

@@ -3,13 +3,18 @@
 Read-only: the caller logs the export, writes the ``data_exported`` audit row and builds the
 download response, so a failure here leaves nothing behind.
 """
-from datetime import timezone
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from sqlalchemy.orm import Session
 
 from app.models import BillingPayment, SavedSummary, User, UserSearch, UserUsage, Watchlist
-from app.utils.datetimes import iso_z, utcnow
+from app.utils.datetimes import ensure_utc, iso_z, utcnow
+
+
+def _utc_timestamp(value: datetime | None) -> str | None:
+    """Preserve nulls and the instant; SQLite returns naive UTC, PostgreSQL can return offsets."""
+    return iso_z(ensure_utc(value).astimezone(timezone.utc)) if value is not None else None
 
 
 def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
@@ -23,8 +28,8 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
         "is_pro": current_user.is_pro,
         "stripe_customer_id": current_user.stripe_customer_id,
         "stripe_subscription_id": current_user.stripe_subscription_id,
-        "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
-        "updated_at": current_user.updated_at.isoformat() if current_user.updated_at else None,
+        "created_at": _utc_timestamp(current_user.created_at),
+        "updated_at": _utc_timestamp(current_user.updated_at),
     }
 
     # Collect search history
@@ -34,7 +39,7 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
             "id": search.id,
             "query": search.query,
             "company_id": search.company_id,
-            "created_at": search.created_at.isoformat() if search.created_at else None,
+            "created_at": _utc_timestamp(search.created_at),
         }
         for search in searches
     ]
@@ -46,7 +51,7 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
             "id": summary.id,
             "summary_id": summary.summary_id,
             "notes": summary.notes,
-            "created_at": summary.created_at.isoformat() if summary.created_at else None,
+            "created_at": _utc_timestamp(summary.created_at),
         }
         for summary in saved_summaries
     ]
@@ -57,7 +62,7 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
         {
             "id": item.id,
             "company_id": item.company_id,
-            "created_at": item.created_at.isoformat() if item.created_at else None,
+            "created_at": _utc_timestamp(item.created_at),
         }
         for item in watchlist
     ]
@@ -69,8 +74,8 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
             "id": usage_item.id,
             "month": usage_item.month,
             "summary_count": usage_item.summary_count,
-            "created_at": usage_item.created_at.isoformat() if usage_item.created_at else None,
-            "updated_at": usage_item.updated_at.isoformat() if usage_item.updated_at else None,
+            "created_at": _utc_timestamp(usage_item.created_at),
+            "updated_at": _utc_timestamp(usage_item.updated_at),
         }
         for usage_item in usage
     ]
@@ -87,11 +92,8 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
             "amount_minor": payment.amount_minor,
             "currency": payment.currency,
             "payment_type": payment.payment_type,
-            # SQLite drops timezone metadata; both columns store UTC instants.
-            "paid_at": iso_z(payment.paid_at.replace(tzinfo=timezone.utc) if payment.paid_at.tzinfo is None
-                             else payment.paid_at.astimezone(timezone.utc)),
-            "observed_at": iso_z(payment.observed_at.replace(tzinfo=timezone.utc) if payment.observed_at.tzinfo is None
-                                 else payment.observed_at.astimezone(timezone.utc)),
+            "paid_at": _utc_timestamp(payment.paid_at),
+            "observed_at": _utc_timestamp(payment.observed_at),
             "subscription_invoice": payment.subscription_invoice,
             "user_id": payment.user_id,
             "attribution": payment.attribution,
@@ -112,6 +114,6 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
         "watchlist": watchlist_data,
         "usage": usage_data,
         "billing_payments": payments_data,
-        "export_timestamp": utcnow().isoformat(),
+        "export_timestamp": iso_z(utcnow()),
     }
     return export_data

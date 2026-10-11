@@ -6,7 +6,7 @@ important user actions and system events.
 """
 import logging
 from typing import Optional, Dict, Any
-from app.utils.datetimes import utcnow
+from app.utils.datetimes import iso_z, utcnow
 from sqlalchemy.orm import Session
 
 from app.models.audit_log import AuditLog
@@ -92,28 +92,33 @@ def create_audit_log(
 
 # Convenience functions for common audit events
 
-def log_user_deletion(
+def stage_user_deletion(
     db: Session,
     user_id,
     user_email: str,
     third_party_results: Dict[str, str],
     ip_address: Optional[str] = None,
 ) -> AuditLog:
-    """Log a user account deletion."""
-    return create_audit_log(
-        db=db,
+    """Stage the success audit in the account deletion's transaction, without committing.
+
+    The caller must commit this row together with the account deletion, or roll both back.
+    Unlike best-effort audit events, a failed insert must fail that transaction.
+    """
+    audit_log = AuditLog(
         action="user_deleted",
-        user_id=user_id,
+        user_id=str(user_id),
         user_email=user_email,
         entity_type="user",
         entity_id=str(user_id),
         ip_address=ip_address,
         details={
             "third_party_deletions": third_party_results,
-            "timestamp": utcnow().isoformat(),
+            "timestamp": iso_z(utcnow()),
         },
         status="success",
     )
+    db.add(audit_log)
+    return audit_log
 
 
 def log_data_export(
