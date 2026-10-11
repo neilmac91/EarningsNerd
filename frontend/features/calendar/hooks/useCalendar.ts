@@ -140,10 +140,14 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
     onError: (err, vars, _ctx) => {
       // Roll the optimistic flip back before surfacing anything.
       setOptimistic((o) => ({ ...o, [vars.ticker]: !vars.enabling }))
-      // Scrolling while the request runs can move the bell. Read its current rect at failure;
-      // a removed trigger has no location or focus-return target, so fall back to the viewport centre.
+      // Read at failure: scrolling can move or hide the bell while the request runs. A removed,
+      // hidden or fully offscreen bell has no useful placement; keep its feedback in the viewport.
       const trigger = vars.trigger.isConnected ? vars.trigger : null
-      const rect = trigger?.getBoundingClientRect() ?? new DOMRect(window.innerWidth / 2, window.innerHeight / 2, 0, 0)
+      const currentRect = trigger?.getBoundingClientRect()
+      const onScreen = currentRect && currentRect.width > 0 && currentRect.height > 0
+        && currentRect.bottom > 0 && currentRect.top < window.innerHeight
+        && currentRect.right > 0 && currentRect.left < window.innerWidth
+      const rect = onScreen ? currentRect : new DOMRect(window.innerWidth / 2, window.innerHeight / 2, 0, 0)
       if (err instanceof EarningsAlertError && err.code === EARNINGS_ALERT_LIMIT_CODE) {
         setBlocked({ kind: 'upsell', ticker: vars.ticker, message: err.message, anchor: rect, trigger })
       } else {

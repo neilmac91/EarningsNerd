@@ -61,7 +61,7 @@ describe('the calendar bell while its toggle is in flight', () => {
     }
   })
 
-  it('centres a delayed failure when the triggering bell was removed', async () => {
+  it.each(['removed', 'hidden', 'above', 'below'] as const)('centres a delayed failure when the triggering bell is %s', async (location) => {
     let reject!: (error: Error) => void
     mockEnableEarningsAlert.mockImplementationOnce(() => new Promise<void>((_resolve, fail) => { reject = fail }))
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -69,7 +69,12 @@ describe('the calendar bell while its toggle is in flight', () => {
     const bell = await screen.findByRole('button', { name: 'Get an email the morning AAPL reports' })
     fireEvent.click(bell)
     await waitFor(() => expect(bell).toHaveAttribute('aria-disabled', 'true'))
-    view.rerender(<QueryClientProvider client={client}><Harness showBell={false} /></QueryClientProvider>)
+    if (location === 'removed') {
+      view.rerender(<QueryClientProvider client={client}><Harness showBell={false} /></QueryClientProvider>)
+    } else {
+      const rect = location === 'hidden' ? new DOMRect() : new DOMRect(100, location === 'above' ? -500 : window.innerHeight + 100, 28, 28)
+      vi.spyOn(bell, 'getBoundingClientRect').mockReturnValue(rect)
+    }
     await act(async () => reject(new Error('The alert could not be saved.')))
     const popover = await screen.findByRole('group', { name: 'Alert not enabled for AAPL' })
     expect(popover.style.left).toBe(`${window.innerWidth / 2 - 150}px`)
