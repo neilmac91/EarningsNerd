@@ -80,11 +80,15 @@ def note_index(envelope: dict[str, Any]) -> dict[tuple[str, str, str], dict[str,
 
 def notes_summary(envelope: dict[str, Any]) -> str:
     totals = envelope["totals"]
+    unknown_comparisons = sum(
+        len(note["comparisons"]) for note in envelope["notes"] if note["kind"] == "unknown"
+    )
     return " · ".join([
         f"{totals['reviewValues']} figures need review",
         f"{totals['reviewComparisons']} comparisons need review",
         f"{totals['unavailable']} unavailable",
-        f"{totals['unknown']} with no validation record",
+        f"{totals['unknown']} {'figure' if totals['unknown'] == 1 else 'figures'} with no validation record",
+        f"{unknown_comparisons} {'comparison' if unknown_comparisons == 1 else 'comparisons'} with no validation record",
         f"{totals['passed']} passed automated checks",
         f"{totals['calculated']} calculated †",
     ])

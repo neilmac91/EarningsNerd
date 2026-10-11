@@ -510,6 +510,35 @@ class TestAnalysisPdfHtml:
         assert any(row[0] == "EPS" and row[1] == "Q1 2026" and row[4] is None and row[16] == "Data note c" for row in sources)
         assert dataset == before
 
+    def test_comparison_only_unknown_status_is_counted_in_pdf_and_workbook(self):
+        from copy import deepcopy
+        from io import BytesIO
+        import json
+        from pathlib import Path
+
+        from openpyxl import load_workbook
+
+        from app.services.excel_export_service import build_analysis_workbook
+
+        fixture = json.loads((Path(__file__).parents[1] / "fixtures" / "analysis_data_notes.json").read_text())
+        case = next(case for case in fixture["cases"] if case["name"] == "annual_windows_and_comparison_only_issues")
+        dataset = deepcopy(case["dataset"])
+        dataset["data_notes"] = deepcopy(case["expected"])
+        assert dataset["data_notes"]["totals"]["unknown"] == 0
+        analysis = SimpleNamespace(mode="annual", period_key=dataset["period_key"], dataset_json=dataset,
+                                   narrative_md="Annual comparisons.", citations_json=[])
+        before = deepcopy(vars(analysis))
+
+        html = ExportService().generate_analysis_pdf_html(analysis, self._company())
+        workbook = load_workbook(BytesIO(build_analysis_workbook(dataset)))
+        overview = "\n".join(str(cell.value) for row in workbook["Overview"] for cell in row if cell.value)
+
+        for exported in (html, overview):
+            assert "0 figures with no validation record" in exported
+            assert "1 comparison with no validation record" in exported
+            assert "0 figures need review · 4 comparisons need review" in exported
+        assert vars(analysis) == before
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("changed", ["facts", "version", "saved_fingerprint", "saved_snapshot", "requested_snapshot", "prompt", None])

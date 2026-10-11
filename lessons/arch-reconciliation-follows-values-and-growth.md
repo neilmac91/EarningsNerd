@@ -31,3 +31,10 @@ separately. Format the PDF's presentation copy without rewriting stored evidence
 `analysis_legacy_evidence.json` fixture is pinned by the backend producer and consumed by the
 unchanged frontend evidence parser in `narrative-pane.spec.tsx`; restoring whole-observation
 formatting must fail this gate.
+
+**Export count evidence (2026-10-11)**: A comparison can lack validation even when all selected
+figures passed their checks. The shared `totals.unknown` counts figures only; PDF and workbook
+summaries separately count unknown comparison memberships instead of implying that this total
+covers both populations. `test_comparison_only_unknown_status_is_counted_in_pdf_and_workbook`
+uses the shared annual-window fixture to check both rendered exports and preserve the source
+dataset and totals unchanged.
