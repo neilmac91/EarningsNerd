@@ -128,7 +128,13 @@ def render_narrative_presentation(
     selected: list[tuple[TrendObservation, str]] = []
 
     def display(item: TrendObservation) -> str:
-        rendered = compact_narrative_text(item.markdown, precision)
+        lead, separator, tail = item.markdown.partition(_OPERANDS_PREFIX)
+        if item.section == "red_flags" and separator:
+            # Older open tabs fold this original grammar before formatting it for display.
+            # Keep the wire tail intact; modern clients use the exact span and display_value.
+            rendered = compact_narrative_text(lead, precision) + separator + tail
+        else:
+            rendered = compact_narrative_text(item.markdown, precision)
         selected.append((item, rendered))
         return rendered
 

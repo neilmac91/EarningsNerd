@@ -413,6 +413,39 @@ class TestAnalysisPdfHtml:
         assert "do not appear in the filings" not in html
         assert "This analysis was generated" not in html
 
+    def test_pdf_compacts_raw_compatibility_tail_without_mutating_saved_evidence(self):
+        from copy import deepcopy
+
+        from app.services.trend_analysis.data_notes import resolve_data_notes
+
+        analysis = self._analysis()
+        tail = (
+            " Source operands: Revenue USD 5,600,000,000 in 2026Q2 [1]; "
+            "Net income EUR 1,500,000,000 in 2026Q2 [2]; "
+            "Cash USD 1,010,000,000 in 2026Q1 [3]; Cash USD 1,040,000,000 in 2026Q2 [4]; "
+            "Current ratio 1.0001x in 2026Q2 [5]."
+        )
+        lead = "## Red flags\nRevenue was $5.6B in Q2 2026 [1]."
+        analysis.narrative_md = lead + tail
+        analysis.dataset_json["snapshot_id"] = "a" * 64
+        for citation in analysis.citations_json:
+            citation["provenance"] = {"method": "reported", "validation": "passed", "reasons": []}
+        analysis.dataset_json["narrative_presentation"] = {
+            "notes": resolve_data_notes(analysis.dataset_json),
+            "evidence": [{"tail": {"start": len(lead), "end": len(lead + tail), "text": tail}}],
+        }
+        before = deepcopy(vars(analysis))
+
+        html = ExportService().generate_analysis_pdf_html(analysis, self._company())
+
+        assert "Revenue was $5.6B in Q2 2026 [1]. Source operands: Revenue $5.6B in Q2 2026 [1]" in html
+        assert "Net income EUR\u00a01.5B in Q2 2026 [2]" in html
+        assert "Cash USD 1,010,000,000 in Q1 2026 [3]" in html
+        assert "Cash USD 1,040,000,000 in Q2 2026 [4]" in html
+        assert "$1.0B" not in html  # Distinct inputs must not collapse to one displayed amount.
+        assert "Current ratio 1.0001× in Q2 2026 [5]" in html
+        assert vars(analysis) == before  # Stored text, offsets and financial snapshot are immutable.
+
     def test_shared_saved_notes_and_exact_values_survive_both_exports(self):
         from copy import deepcopy
         from io import BytesIO

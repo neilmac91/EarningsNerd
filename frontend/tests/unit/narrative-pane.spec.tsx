@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { citationDisplay, compactNarrativeText, SOURCE_OPERANDS_PREFIX } from '@/features/analysis/lib/narrativeDisplay'
+import { citationDisplay, compactNarrativeText, splitNarrativeEvidence, SOURCE_OPERANDS_PREFIX, type NarrativeOperand } from '@/features/analysis/lib/narrativeDisplay'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 
 import NarrativePane, { type NarrativeState } from '@/features/analysis/components/NarrativePane'
@@ -130,6 +130,34 @@ describe('NarrativePane readable evidence', () => {
     expect(evidence).toHaveTextContent('$1.746B')
     expect(evidence).toHaveTextContent('Q2 2026')
     expect(within(evidence).getByRole('button', { hidden: true })).toHaveAccessibleName(/Citation 1:/)
+  })
+
+  it.each(['legacy', 'structured'] as const)('folds the backend-produced compatibility fixture in %s tabs', (mode) => {
+    const fixture = JSON.parse(readFileSync(resolve(process.cwd(), '../backend/tests/fixtures/analysis_legacy_evidence.json'), 'utf8')) as {
+      expected: { narrative: string; citations: AnalysisCitation[]; narrative_presentation: NarrativePresentation }
+      legacy_operands: NarrativeOperand[][]
+    }
+    const { narrative, citations, narrative_presentation: presentation } = fixture.expected
+    // The backend test pins these bytes to the real producer. Keep this parser unchanged:
+    // an already-open Phase 1 tab drops the new envelope and takes exactly this path.
+    const parts = splitNarrativeEvidence(narrative, citations)
+    expect(parts.filter((part) => part.kind === 'evidence').map((part) => part.operands)).toEqual(fixture.legacy_operands)
+    const completion = doneCompletion({ narrative, citations,
+      ...(mode === 'structured' ? { narrative_presentation: presentation } : {}),
+    })
+    const { container } = render(<NarrativePane state={doneState({ text: narrative, completion })} />)
+    expect(container.querySelector('.markdown-body')).not.toHaveTextContent('Source operands:')
+    expect(screen.getByText(/Watch how revenue in the next reporting update/)).toBeInTheDocument()
+    const blocks = screen.getAllByRole('list', { name: 'Figures behind this finding', hidden: true })
+    expect(blocks).toHaveLength(fixture.legacy_operands.length)
+    blocks.forEach((block, index) => {
+      expect(within(block).getAllByRole('button', { hidden: true })).toHaveLength(fixture.legacy_operands[index].length)
+      expect(block).toHaveTextContent('Q4 2025')
+      expect(block).toHaveTextContent('1.00004×')
+      if (mode === 'structured') {
+        presentation.evidence[index].operands.forEach((operand) => expect(block.textContent).toContain(operand.display_value))
+      }
+    })
   })
 
   it('uses explicit wire units for non-dollar and computed-window citation figures', () => {

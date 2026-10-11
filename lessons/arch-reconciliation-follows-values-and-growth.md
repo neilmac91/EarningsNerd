@@ -23,3 +23,11 @@ Python and TypeScript. `test_analysis_data_notes.py`, `data-notes.spec.ts` and e
 shared groups and numeric-cell preservation. `analysis-presentation-api.spec.ts` rejects supplied
 metadata that omits concerns or belongs to another snapshot before the stream becomes terminal;
 an absent legacy field alone permits the older presentation fallback.
+
+**Deployment compatibility (2026-10-11)**: Adding structured evidence does not update an
+already-open browser tab. Keep the code-owned operand tail in its existing wire grammar until
+those clients no longer depend on it; compact the reading prose and structured operand values
+separately. Format the PDF's presentation copy without rewriting stored evidence. The shared
+`analysis_legacy_evidence.json` fixture is pinned by the backend producer and consumed by the
+unchanged frontend evidence parser in `narrative-pane.spec.tsx`; restoring whole-observation
+formatting must fail this gate.

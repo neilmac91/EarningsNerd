@@ -13,6 +13,7 @@ from app.services.analysis_export_metadata import (
 from app.services.trend_analysis.data_notes import (
     citation_data_notes, note_for_quality, resolve_data_notes,
 )
+from app.services.trend_analysis.narrative_display import compact_narrative_text
 from app.services.summary_sections import Block, Section, render_sections
 from app.services.provenance_service import project_summary_risks
 from app.utils.datetimes import ensure_utc, iso_z, utcnow
@@ -365,7 +366,9 @@ class ExportService:
         presentation = dataset.get("narrative_presentation")
         notes = presentation["notes"] if presentation else citation_data_notes(citations, report_notes)
         citation_items, marks = self._analysis_citations(citations, notes)
-        narrative = self._narrative_to_html(analysis.narrative_md or "")
+        # Storage keeps raw operand tails for older tabs. Format a PDF-only copy;
+        # the shared precision policy retains distinct amounts that would round alike.
+        narrative = self._narrative_to_html(compact_narrative_text(analysis.narrative_md or ""))
         narrative = re.sub(r"\[(\d+)\]", lambda match: match[0] + marks.get(match[1], ""), narrative)
         generated_at = getattr(analysis, "updated_at", None) or getattr(analysis, "created_at", None)
         generated = iso_z(ensure_utc(generated_at)) if generated_at else "Not recorded"

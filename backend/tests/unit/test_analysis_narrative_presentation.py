@@ -2,6 +2,7 @@
 from copy import deepcopy
 from datetime import date
 import json
+from pathlib import Path
 import re
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -63,6 +64,29 @@ def _render(dataset):
     catalogue = build_observation_catalogue(dataset)
     selection = {section: [] for section, _ in ANALYSIS_SECTIONS}
     return render_narrative_presentation(dataset, catalogue, selection, marker_index(dataset))
+
+
+def test_actual_producer_pins_the_shared_legacy_and_structured_evidence_fixture():
+    fixture = json.loads((Path(__file__).parents[1] / "fixtures" / "analysis_legacy_evidence.json").read_text())
+    dataset = fixture["dataset"]
+    assert data_notes(dataset) == dataset["data_notes"]
+    assert dataset_fingerprint(dataset) == dataset["snapshot_id"]
+    narrative, citations, grounded, unverified, presentation = render_narrative_presentation(
+        dataset, build_observation_catalogue(dataset), fixture["selection"], marker_index(dataset),
+    )
+    assert {"narrative": narrative, "citations": citations, "narrative_presentation": presentation} == fixture["expected"]
+    assert grounded == len(citations) and unverified == 0
+    assert scan_numeric_fidelity(narrative, citations, marker_index(dataset)) == []
+    assert len(presentation["evidence"]) == len(fixture["legacy_operands"])
+    for evidence, operands in zip(presentation["evidence"], fixture["legacy_operands"]):
+        expected_tail = " Source operands: " + "; ".join(
+            f"{operand['label']} {operand['value']} in {operand['period']} [{operand['citation']}]"
+            + (" (derived Q4)" if operand["derived"] else "")
+            for operand in operands
+        ) + "."
+        assert evidence["tail"]["text"] == expected_tail
+    displays = [operand["display_value"] for operand in presentation["evidence"][0]["operands"]]
+    assert displays == ["EUR\u00a01.6B", "$100.0M", "1.00004×", "GBP\u00a06.25 per share", "26.1%"]
 
 
 def test_selected_narrative_is_compact_but_evidence_and_selector_inputs_remain_exact():
