@@ -466,7 +466,8 @@ function classify(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.
     return t !== 'hidden' && (DISPLAY.test(utility) || utility.startsWith('[display:'))
   }
   const displayNone = (!!hiddenAttr && settled(hiddenAttr) && !hiddenAttr.initializer) || (classes.includes('hidden') && !classes.some(shows))
-  const focusable = tabbable || (removed && !staticallyDisabled && !displayNone)
+  // A display:none element takes no focus at all, in the Tab order or out of it (`<input hidden />`).
+  const focusable = !displayNone && (tabbable || (removed && !staticallyDisabled))
   const typeAttr = attr('type')?.initializer
   // Every field @tailwindcss/forms styles: a textarea, a select, and an input that is not a button or
   // a hidden, file, range or colour control (a missing or dynamic type counts as a field).
@@ -1236,6 +1237,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <input type="date" className="border ${field} group-focus-within:!shadow-none peer-focus:shadow-none" />
             <input type="date" tabIndex={-1} className="hidden !block" />
             <input type="date" tabIndex={-1} className={\`hidden \${c}\`} />
+            <input hidden type="text" />
           </>
         )
       }`
@@ -1311,6 +1313,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       `55 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
       // A dynamic part may show it too, so a hidden className read any way but as a literal earns no exemption.
       '56 <input> a className the scan cannot read',
+      // A static `hidden` attribute (line 57) takes the field out of focus whatever its tabIndex: no finding.
     ])
   })
 })
