@@ -1,6 +1,6 @@
 'use client'
 
-import { useContext, useMemo, useRef, useState } from 'react'
+import { useContext, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   Bar,
   CartesianGrid,
@@ -112,7 +112,7 @@ function NoteDot({ cx, cy, value, color, dark, note, position }: NoteDotProps & 
   return (
     <g aria-label={`Data note ${note.letter}`}>
       <circle cx={cx} cy={cy} r={4} fill={chartTheme(dark).tipBg} stroke={color} strokeWidth={2} />
-      <text x={position?.x ?? cx} y={position?.y ?? cy! - 9} textAnchor="middle" fill={chartTheme(dark).label} fontFamily={CHART_FONT} fontSize={11}>{note.letter}</text>
+      <text x={position?.x ?? cx} y={position?.y ?? cy! - 9} textAnchor="middle" fill={chartTheme(dark).label} stroke={chartTheme(dark).tipBg} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke" fontFamily={CHART_FONT} fontSize={11}>{note.letter}</text>
     </g>
   )
 }
@@ -157,10 +157,9 @@ function NoteBar({ x, y, width, height, color, dark, note, position }: NoteBarPr
   return (
     <g aria-label={note ? `Data note ${note.letter}` : undefined}>
       <Rectangle x={x} y={y} width={width} height={height} radius={[4, 4, 0, 0]}
-        fill={note ? chartTheme(dark).tipBg : color} stroke={note ? color : undefined}
-        strokeWidth={note ? 2 : undefined} strokeDasharray={note ? '4 3' : undefined} />
+        fill={color} />
       {/* Recharts supplies y at the value endpoint and signed height back to the baseline. */}
-      {note && <text x={position?.x ?? x + width / 2} y={position?.y ?? y + (height < 0 ? 18 : -10)} textAnchor="middle" fill={chartTheme(dark).label} fontFamily={CHART_FONT} fontSize={11}>{note.letter}</text>}
+      {note && <text x={position?.x ?? x + width / 2} y={position?.y ?? y + (height < 0 ? 18 : -10)} textAnchor="middle" fill={chartTheme(dark).label} stroke={chartTheme(dark).tipBg} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke" fontFamily={CHART_FONT} fontSize={11}>{note.letter}</text>}
     </g>
   )
 }
@@ -170,6 +169,29 @@ function PositionedNoteBar({ anchors, anchorKey, ...props }: NoteBarProps & {
 }) {
   const position = useChartNotePosition(anchors, anchorKey)
   return <NoteBar {...props} position={position} />
+}
+
+/** A keyboard stop is useful only while there is more plot to scroll into view. */
+function ChartViewport({ label, children }: { label: string; children: React.ReactNode }) {
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const [overflowing, setOverflowing] = useState(false)
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    const measure = () => setOverflowing(viewport.scrollWidth > viewport.clientWidth + 1)
+    measure()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
+    observer?.observe(viewport)
+    if (viewport.firstElementChild) observer?.observe(viewport.firstElementChild)
+    window.addEventListener('resize', measure)
+    return () => { observer?.disconnect(); window.removeEventListener('resize', measure) }
+  }, [])
+  return <div ref={viewportRef} data-analysis-chart-scroll
+    className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+    tabIndex={overflowing ? 0 : undefined} role={overflowing ? 'region' : undefined}
+    aria-label={overflowing ? `${label} chart. Scroll horizontally to view all periods.` : undefined}>
+    {children}
+  </div>
 }
 
 interface PanelSpec {
@@ -403,7 +425,7 @@ function PanelCard({
           </PanelControl>
         </div>
       </div>
-      <div className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark" tabIndex={0} role="region" aria-label={`${panel.title} chart. Scroll horizontally to view all periods.`}>
+      <ChartViewport label={panel.title}>
       <div
         ref={plotRef}
         data-analysis-chart={panel.title}
@@ -417,7 +439,7 @@ function PanelCard({
       >
         <ResponsiveContainer width="100%" height="100%">
           {barSeries ? (
-            <ComposedChart data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
+            <ComposedChart accessibilityLayer={false} data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
               <CartesianGrid {...gridProps(dark)} />
               <XAxis
                 dataKey="period"
@@ -474,7 +496,7 @@ function PanelCard({
             </ComposedChart>
           ) : (
             // Dual-axis panels reserve top room for the right axis's head-tag (the named scale).
-            <LineChart data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
+            <LineChart accessibilityLayer={false} data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
               <CartesianGrid {...gridProps(dark)} />
               <XAxis
                 dataKey="period"
@@ -528,7 +550,7 @@ function PanelCard({
           )}
         </ResponsiveContainer>
       </div>
-      </div>
+      </ChartViewport>
       {unavailableNotes.length > 0 && (
         <p className="mt-2 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
           {unavailableNotes.join(' ')}

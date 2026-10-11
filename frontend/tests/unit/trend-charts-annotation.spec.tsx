@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 
 // recharts measures the DOM, which jsdom can't do — stub it (same pattern as trend-charts-legend).
 vi.mock('recharts', async () => {
   const { createContext, useContext } = await import('react')
   type Row = Record<string, number | string | null>
   const Data = createContext<Row[]>([])
-  const Chart = ({ children, data }: { children: React.ReactNode; data: Row[] }) => <Data.Provider value={data}><svg>{children}</svg></Data.Provider>
+  const Chart = ({ children, data, accessibilityLayer }: { children: React.ReactNode; data: Row[]; accessibilityLayer?: boolean }) => <Data.Provider value={data}><svg data-testid="chart-layer" tabIndex={accessibilityLayer === false ? undefined : 0}>{children}</svg></Data.Provider>
   const project = (value: number, axis: string) => 100 - value / (axis === 'right' ? 10 : axis === 'growth' ? 2 : 1)
   return {
     ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -39,6 +39,9 @@ vi.mock('recharts', async () => {
 })
 
 import TrendCharts from '@/features/analysis/components/TrendCharts'
+import { ThemeContext } from '@/components/ThemeProvider'
+import { chartTheme, seriesColor } from '@/components/ui'
+import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 
 const period = (key: string, year: number) => ({
@@ -115,9 +118,11 @@ describe('TrendCharts source note marks', () => {
     revenue.points[1].provenance = { ...passed, validation: 'needs_review', reasons: ['source_conflict'] }
     revenue.points[2].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }
     const { container } = render(<TrendCharts dataset={{ ...dataset, series: [revenue] }} />)
-    expect(container.querySelectorAll('rect[stroke-dasharray="4 3"]')).toHaveLength(1)
+    const bars = [...container.querySelectorAll('rect')]
+    expect(bars).toHaveLength(3)
+    expect(bars.every((bar) => bar.getAttribute('fill') === seriesColor(0) && !bar.hasAttribute('stroke-dasharray'))).toBe(true)
     expect(container.querySelectorAll('circle[stroke-width="2"]')).toHaveLength(1)
-    expect(container.querySelector('rect[stroke-dasharray]')?.parentElement).toHaveAttribute('aria-label', 'Data note a')
+    expect(bars[1].parentElement).toHaveAttribute('aria-label', 'Data note a')
     expect(container.querySelector('circle')?.parentElement).toHaveAttribute('aria-label', 'Data note b')
     expect(container.querySelectorAll('text')).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Review data notes a, b' })).toBeInTheDocument()
@@ -130,7 +135,7 @@ describe('TrendCharts source note marks', () => {
     revenue.points[0].yoy = value * 2 / 100
     revenue.points[0].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }
     const { container } = render(<TrendCharts dataset={{ ...dataset, series: [revenue] }} />)
-    const bar = container.querySelector('rect[stroke-dasharray="4 3"]')!
+    const bar = container.querySelector('g[aria-label="Data note a"] rect')!
     const dot = container.querySelector('circle[stroke-width="2"]')!
     const endpoint = 100 - value
     expect(bar).toHaveAttribute('x', '-7.5')
@@ -159,6 +164,28 @@ describe('TrendCharts source note marks', () => {
       expect(box.y).toBeGreaterThanOrEqual(0)
       expect(box.x + box.width).toBeLessThanOrEqual(300)
       expect(box.y + box.height).toBeLessThanOrEqual(160)
+    }
+  })
+
+  it.each(['light', 'dark'] as const)('keeps multiletter notes legible over bars with explicit SVG halo attributes in %s', (theme) => {
+    const revenue = series('revenue', 'Revenue', [40, 50, 60])
+    revenue.points.forEach((point) => {
+      point.provenance = { ...passed, validation: 'needs_review', reasons: ['source_conflict'] }
+      point.yoy = 0.5
+      point.yoy_provenance = point.provenance
+    })
+    const data = { ...dataset, series: [revenue] }
+    const grouped = groupDataNotes(data)
+    const admitted = { version: 1 as const, totals: grouped.totals, notes: grouped.notes.map(note => ({ ...note, letter: 'aa', id: 'analysis-data-note-aa' })) }
+    const { container } = render(<ThemeContext.Provider value={{ theme, toggleTheme: vi.fn() }}><TrendCharts dataset={{ ...data, data_notes: admitted }} /></ThemeContext.Provider>)
+    const letters = [...container.querySelectorAll('g[aria-label="Data note aa"] text')]
+    expect(letters).toHaveLength(6)
+    for (const letter of letters) {
+      expect(letter).toHaveTextContent('aa')
+      expect(letter).toHaveAttribute('fill', chartTheme(theme === 'dark').label)
+      expect(letter).toHaveAttribute('stroke', chartTheme(theme === 'dark').tipBg)
+      expect(letter).toHaveAttribute('stroke-width', '3')
+      expect(letter).toHaveAttribute('paint-order', 'stroke')
     }
   })
 
@@ -215,5 +242,43 @@ describe('TrendCharts source note marks', () => {
     }
     // The middle right-axis note remains near its actual point, not clamped from the wrong scale.
     expect(Math.abs(Number(marks[7].querySelector('text')!.getAttribute('y')) - circles[7].y)).toBeLessThan(32)
+  })
+})
+
+describe('TrendCharts keyboard viewport', () => {
+  it('adds one named keyboard stop only while overflowing and cleans up on unmount', () => {
+    let width = 300
+    const callbacks: Array<() => void> = []
+    const disconnect = vi.fn()
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) { callbacks.push(callback) }
+      observe() {}
+      disconnect = disconnect
+    })
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => width)
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(500)
+    try {
+      const { container, unmount } = render(<TrendCharts dataset={{ ...dataset, series: [series('revenue', 'Revenue', [30, 40, 50]), ...dataset.series] }} />)
+      const viewports = [...container.querySelectorAll('[data-analysis-chart-scroll]')]
+      expect(viewports).toHaveLength(3)
+      for (const viewport of viewports) {
+        expect(viewport).toHaveAttribute('tabindex', '0')
+        expect(viewport).toHaveAttribute('role', 'region')
+        expect(viewport).toHaveAccessibleName(/chart\. Scroll horizontally to view all periods\./)
+        expect(viewport.querySelector('[tabindex]')).toBeNull()
+      }
+      width = 500
+      act(() => callbacks.forEach(callback => callback()))
+      for (const viewport of viewports) {
+        expect(viewport).not.toHaveAttribute('tabindex')
+        expect(viewport).not.toHaveAttribute('role')
+        expect(viewport).not.toHaveAttribute('aria-label')
+      }
+      width = 280
+      act(() => callbacks.forEach(callback => callback()))
+      expect(screen.getAllByRole('region')).toHaveLength(3)
+      unmount()
+      expect(disconnect).toHaveBeenCalledTimes(3)
+    } finally { vi.restoreAllMocks(); vi.unstubAllGlobals() }
   })
 })

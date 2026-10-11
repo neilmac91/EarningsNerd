@@ -888,8 +888,12 @@ Legacy concerns remain until their stored validation changes; missing metadata m
 claim. Do not remove inherited concerns from growth. Unavailable table values use — with a note
 letter and read “Unavailable” in the evidence view, never zero or a claim that the company did not
 report them. Affected chart points use hollow series-colour markers with a 2px stroke and 11px note letters;
-affected bars have dashed outlines. Value and YoY concerns are independent. PNG notes use the
-same grouped reason sentences beneath the plot, with explicit SVG ink/fonts preserving the marks. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
+affected bars keep their series fill. Note letters use the neutral chart label ink, a 3px panel-colour
+stroke and paint-order=stroke so growth letters remain legible over bars; those are SVG attributes
+retained in PNG export. Value and YoY concerns are independent. PNG notes use the same grouped
+reason sentences beneath the plot and list each recorded gap once. The plot is a named keyboard
+region only while overflowing, measured before paint and on resize; the redundant unnamed Recharts
+accessibility layer is disabled. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
 source dates, material gaps and a concise disclosure. Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the

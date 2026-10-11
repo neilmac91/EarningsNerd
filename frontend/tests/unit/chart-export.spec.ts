@@ -92,6 +92,9 @@ describe('chartDataNotes', () => {
     expect(panel.exportNotes).toContain('Includes figures calculated by EarningsNerd.')
     expect(panel.exportNotes).toContain(FCF_DEFINITION)
     expect(panel.exportNotes.some((note) => note.includes('Not available in this dataset.'))).toBe(true)
+    expect(panel.exportNotes.filter((note) => note.includes('Q3 2024'))).toHaveLength(1)
+    const withoutRecordedNotes = chartDataNotes(dataset, [series], { ...groupDataNotes(dataset), noteFor: () => null }, false)
+    expect(withoutRecordedNotes.exportNotes).toContain('Free cash flow: unavailable for Q3 2024.')
   })
 })
 
@@ -289,7 +292,7 @@ describe('exportPanelPng header', () => {
     const container = makeContainer()
     const svg = container.querySelector('svg')!
     svg.setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns', 'http://www.w3.org/2000/svg')
-    svg.innerHTML = '<text font-family="var(--font-geist-mono), ui-monospace, monospace" style="font-family: var(--font-geist-mono), ui-monospace, monospace">$10B<tspan style="font-family: var(--font-geist-mono), Menlo, monospace">a</tspan></text>'
+    svg.innerHTML = '<text font-family="var(--font-geist-mono), ui-monospace, monospace" style="font-family: var(--font-geist-mono), ui-monospace, monospace" fill="#6B7280" stroke="#FBFAF6" stroke-width="3" paint-order="stroke">$10B<tspan style="font-family: var(--font-geist-mono), Menlo, monospace">aa</tspan></text>'
     const sourceMarkup = svg.outerHTML
     const originalComputedStyle = window.getComputedStyle.bind(window)
     const families = ['"Geist Mono", ui-monospace, monospace', '"Geist Mono", Menlo, monospace']
@@ -309,7 +312,10 @@ describe('exportPanelPng header', () => {
     expect([...isolated.querySelectorAll('text, tspan')].map(text => (text as SVGTextContentElement).style.fontFamily)).toEqual(families)
     expect([...isolated.querySelectorAll('text, tspan')].map(text => text.getAttribute('font-family'))).toEqual(families)
     expect(markup).not.toContain('var(')
-    expect(isolated.documentElement.textContent).toBe('$10Ba')
+    expect(isolated.documentElement.textContent).toBe('$10Baa')
+    expect(isolated.querySelector('text')?.getAttribute('stroke')).toBe('#FBFAF6')
+    expect(isolated.querySelector('text')?.getAttribute('stroke-width')).toBe('3')
+    expect(isolated.querySelector('text')?.getAttribute('paint-order')).toBe('stroke')
     expect(svg.outerHTML).toBe(sourceMarkup)
   })
 

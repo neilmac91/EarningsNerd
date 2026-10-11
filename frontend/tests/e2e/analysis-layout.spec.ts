@@ -679,3 +679,63 @@ for (const theme of THEMES) for (const state of ['captured', 'edge', 'annual'] a
     })
   })
 }
+
+for (const theme of THEMES) for (const width of [390, 1480]) {
+  test.describe(`analysis chart notes / ${theme} / ${width}px`, () => {
+    test.use({ viewport: { width, height: 1000 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+    test('keeps filled bars and legible note letters with one useful keyboard viewport', async ({ page, baseURL }, testInfo) => {
+      await openAnalysis(page, baseURL!, 'discrepancy', theme)
+      const plots = page.locator('[data-analysis-chart]')
+      await expect(plots).toHaveCount(4)
+      const assertViewport = async () => {
+        for (const viewport of await page.locator('[data-analysis-chart-scroll]').all()) {
+          const overflow = await viewport.evaluate(element => element.scrollWidth > element.clientWidth + 1)
+          if (overflow) {
+            await expect(viewport).toHaveAttribute('role', 'region')
+            await expect(viewport).toHaveAttribute('tabindex', '0')
+            await expect(viewport).toHaveAccessibleName(/chart\. Scroll horizontally to view all periods\./)
+          } else {
+            await expect(viewport).not.toHaveAttribute('role')
+            await expect(viewport).not.toHaveAttribute('tabindex')
+          }
+          await expect(viewport.locator('[tabindex]')).toHaveCount(0)
+        }
+      }
+      await assertViewport()
+      const revenue = plots.first()
+      const allBars = revenue.locator('.recharts-bar-rectangle path')
+      await expect(allBars).toHaveCount(12)
+      const cleanFill = await allBars.first().getAttribute('fill')
+      const affectedBar = revenue.locator('g[aria-label="Data note a"] path')
+      await expect(affectedBar).toHaveCount(1)
+      await expect(affectedBar).toHaveAttribute('fill', cleanFill!)
+      await expect(affectedBar).not.toHaveAttribute('stroke-dasharray')
+      const letters = page.locator('[data-analysis-chart] g[aria-label^="Data note "] text')
+      expect(await letters.count()).toBeGreaterThan(0)
+      const panel = await revenue.evaluate(element => getComputedStyle(element.closest('section')!).backgroundColor)
+      for (const letter of await letters.all()) {
+        await expect(letter).toHaveAttribute('stroke-width', '3')
+        await expect(letter).toHaveAttribute('paint-order', 'stroke')
+        expect(await letter.evaluate(element => getComputedStyle(element).stroke)).toBe(panel)
+        expect(await letter.evaluate(element => {
+          const bounds = (element as SVGGraphicsElement).getBBox()
+          return bounds.width > 0 && bounds.height > 0 && getComputedStyle(element).fill !== 'none'
+        })).toBe(true)
+      }
+      const viewport = revenue.locator('..')
+      if (width === 390) {
+        await viewport.focus()
+        await page.keyboard.press('ArrowRight')
+        await expect.poll(() => viewport.evaluate(element => element.scrollLeft)).toBeGreaterThan(0)
+      }
+      const downloadPromise = page.waitForEvent('download')
+      await revenue.locator('xpath=ancestor::section[1]').getByRole('button', { name: 'Download chart as PNG' }).click()
+      const download = await downloadPromise
+      expect(download.suggestedFilename()).toMatch(/\.png$/)
+      await download.saveAs(testInfo.outputPath(`revenue-notes-${theme}-${width}.png`))
+      await page.setViewportSize({ width: width === 390 ? 1480 : 390, height: 1000 })
+      await expect.poll(() => viewport.evaluate(element => element.hasAttribute('tabindex'))).toBe(width !== 390)
+      await assertViewport()
+    })
+  })
+}
