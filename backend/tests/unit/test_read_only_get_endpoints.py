@@ -36,15 +36,16 @@ every hit). Two AST checks over every ``@<router>.get`` handler in ``app/routers
    any ``Session``-annotated parameter (nested defs included) and any name bound from
    ``SessionLocal()``/``next(get_db())``; a write or spawn counts wherever it is named, called or
    not (``run_in_threadpool(db.commit)``, ``commit = db.commit``). A local is bound by ``=``, an
-   annotated ``=``, ``:=``, a tuple that unpacks a literal of the same length (``q, n =
-   db.query(X), 0``) and a ``for`` target over a literal tuple, list or set (``for q in
-   (db.query(X), db.query(Y))``), and so is a copy of a known session, Connection or Query (``conn =
-   original``) by any of these. A comprehension's ``for`` target binds only inside that
-   comprehension, in order, with the first iterable read outside it, as Python scopes it. A name it
-   takes from a literal tuple, list or set means what the items give it there; any other name keeps
-   its meaning, and so do ``db``, ``session``, ``engine``, the file's engine names and a
-   ``Session``-annotated parameter (fail closed). A lambda's or nested def's parameter keeps the
-   meaning its name has outside too: the gate cannot see what it receives.
+   annotated ``=``, ``:=``, a tuple that unpacks a literal of the same length (``q, n = db.query(X),
+   0``) and a ``for`` target over a literal tuple, list or set (``for q in (db.query(X),
+   db.query(Y))``), and so is a copy of a known session, Connection or Query (``conn = original``)
+   by any of these. A conditional value (``a if c else b``, ``a or b``, ``(n := v)``) counts as each
+   value it may take, when it is bound and as the receiver of a write. A comprehension's ``for``
+   target binds only inside that comprehension, in order, with the first iterable read outside it,
+   as Python scopes it. A name it takes from a literal tuple, list or set means what the items give
+   it there; any other name keeps its meaning, and so do ``db``, ``session``, ``engine``, the file's
+   engine names and a ``Session``-annotated parameter (fail closed). A lambda's or nested def's
+   parameter keeps the meaning its name has outside too: the gate cannot see what it receives.
    ``api_route(methods=["GET"])`` handlers are GET handlers too. Limitation: the walk
    resolves names, not types, so a method on an object it cannot name (a parameter, an attribute
    of ``self``, a function's return value) is not followed, and a Query, a Connection or an engine
@@ -338,13 +339,29 @@ def _session_names_in(fn: ast.AST, engines: frozenset[str] = frozenset(),
         names |= bound
 
 
+def _alternatives(expr: ast.AST):
+    """The values ``expr`` may evaluate to: each branch of ``a if c else b``, each operand of ``a or
+    b`` and ``a and b``, and the value of ``(n := v)``, however nested; ``expr`` itself otherwise."""
+    if isinstance(expr, ast.IfExp):
+        yield from _alternatives(expr.body)
+        yield from _alternatives(expr.orelse)
+    elif isinstance(expr, ast.BoolOp):
+        for value in expr.values:
+            yield from _alternatives(value)
+    elif isinstance(expr, ast.NamedExpr):
+        yield from _alternatives(expr.value)
+    else:
+        yield expr
+
+
 def _binds_session(value: ast.AST, sessions: set[str]) -> bool:
     """Whether a value bound to a name is a session, an engine or a Connection: a session factory
     (``SessionLocal()``), ``create_engine()``, a Connection opened on a name in ``sessions``, or a
-    copy of one. A local binding and a comprehension's target are judged by this one test."""
-    return _opens_session(value) or (
-        isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id == "create_engine"
-    ) or _opens_connection(value, sessions) or _dotted(value) in sessions
+    copy of one; a conditional is one if any value it may take is (``_alternatives``). A local
+    binding and a comprehension's target are judged by this one test."""
+    return any(_opens_session(alt) or (
+        isinstance(alt, ast.Call) and isinstance(alt.func, ast.Name) and alt.func.id == "create_engine"
+    ) or _opens_connection(alt, sessions) or _dotted(alt) in sessions for alt in _alternatives(value))
 
 
 def _opens_connection(expr: ast.AST, sessions: set[str]) -> bool:
@@ -366,6 +383,8 @@ def _query_root(expr: ast.AST, sessions: set[str], queries: set[str]) -> str | N
             expr = func
         else:
             expr = expr.value
+    if isinstance(expr, (ast.IfExp, ast.BoolOp, ast.NamedExpr)):  # ``(q if c else other).delete()``
+        return next(filter(None, (_query_root(alt, sessions, queries) for alt in _alternatives(expr))), None)
     return expr.id if isinstance(expr, ast.Name) and expr.id in queries else None
 
 
@@ -384,10 +403,11 @@ def _query_names_in(fn: ast.AST, sessions: set[str]) -> set[str]:
 
 def _binds_query(value: ast.AST, sessions: set[str], queries: set[str]) -> bool:
     """Whether a value is a Query: a chain from ``db.query(...)`` or a Query name that does not
-    end by fetching (``.first()``, ``.all()`` … bind rows)."""
-    return bool(_query_root(value, sessions, queries)) and not (
-        isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute) and value.func.attr in _QUERY_FETCHES
-    )
+    end by fetching (``.first()``, ``.all()`` … bind rows); a conditional is one if any value it
+    may take is (``_alternatives``)."""
+    return any(bool(_query_root(alt, sessions, queries)) and not (
+        isinstance(alt, ast.Call) and isinstance(alt.func, ast.Attribute) and alt.func.attr in _QUERY_FETCHES
+    ) for alt in _alternatives(value))
 
 
 def _comprehension_target(generator: ast.comprehension, sessions: set[str], queries: set[str],
@@ -423,9 +443,10 @@ def _side_effect_markers(fn: ast.AST, engines: frozenset[str] = frozenset()) -> 
     def marker(node: ast.Attribute, sessions: set[str], queries: set[str]) -> tuple[str, str] | None:
         how = "()" if id(node) in called else " (uncalled)"
         receiver = node.value
-        if (name := _dotted(receiver)) in sessions and node.attr in _SESSION_WRITES:
-            return node.attr, f"{name}.{node.attr}{how}@{node.lineno}"
-        if _opens_connection(receiver, sessions) and node.attr in _SESSION_WRITES:
+        held = next((name for alt in _alternatives(receiver) if (name := _dotted(alt)) in sessions), None)
+        if held and node.attr in _SESSION_WRITES:
+            return node.attr, f"{held}.{node.attr}{how}@{node.lineno}"
+        if any(_opens_connection(alt, sessions) for alt in _alternatives(receiver)) and node.attr in _SESSION_WRITES:
             return node.attr, f"{ast.unparse(receiver)}.{node.attr}{how}@{node.lineno}"
         if node.attr in _QUERY_WRITES and (root := _query_root(receiver, sessions, queries)):
             return f"query.{node.attr}", f"{root}.{node.attr}{how}@{node.lineno}"
@@ -1316,6 +1337,57 @@ def reuses_the_name():
     return shared
 
 
+@router.get("/bd")
+def conditional_query_deletes(db):
+    q = db.query(T) if enabled else None
+    q.delete()
+
+
+@router.get("/be")
+def loop_conditional_query_deletes(db):
+    for q in [db.query(T) if enabled else {}]:
+        q.delete()
+
+
+@router.get("/bf")
+def fallback_query_deletes(db):
+    q = cached or db.query(T)
+    q.delete()
+
+
+@router.get("/bg")
+def walrus_value_query_deletes(db):
+    stale = (inner := db.query(T))
+    stale.delete()
+
+
+@router.get("/bh")
+def conditional_session_commits():
+    s = SessionLocal() if enabled else None
+    s.commit()
+
+
+@router.get("/bi")
+def conditional_receiver_deletes(db):
+    return (db.query(T) if enabled else db.query(U)).delete()
+
+
+@router.get("/bj")
+def conditional_session_receiver_commits(db):
+    (db if enabled else other).commit()
+
+
+@router.get("/bk")
+def conditional_connection_receiver_executes():
+    (engine.connect() if enabled else other).execute(delete(T))
+
+
+@router.get("/bl")
+def conditional_rows_stay_rows(db):
+    first = db.query(T).first() if enabled else db.query(U).one()
+    first.update({})
+
+
 @router.get("/ab")
 def connects_iterates_and_unpacks_rows(db):
     with engine.connect() as conn:
@@ -1347,15 +1419,15 @@ def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
     ``begin``, ``bulk_*`` and ``.update()``/``.delete()`` on a ``db.query(...)`` chain or a local
     bound to one. A local is bound by ``=``, an annotated ``=``, ``:=``, a tuple unpacking a literal
     or a ``for`` target over one, and so is a copy of a known name, for a Query, a session and a
-    Connection alike; a comprehension's target only inside it and in order, a nested comprehension's
-    on top of its enclosing one's. A comprehension rebinds a name only where a literal shows its
-    values, and never a session by convention or declaration; a lambda's parameter rebinds nothing.
-    A write or spawn counts where it is named, called or not. An engine and a Connection write as a
-    session does, under any name the file imports it as; opening one, iterating a Query's rows,
-    unpacking a fetched row, or reusing a comprehension's name outside it or rebinding it inside to
-    a literal's other value, writes nothing. Every ``execute`` counts
-    unless its function is pinned read-only with exactly its count; with any of these dropped, this
-    fails."""
+    Connection alike, a conditional value counting as each value it may take; a comprehension's
+    target only inside it and in order, a nested comprehension's on top of its enclosing one's. A
+    comprehension rebinds a name only where a literal shows its values, and never a session by
+    convention or declaration; a lambda's parameter rebinds nothing. A write or spawn counts where
+    it is named, called or not. An engine and a Connection write as a session does, under any name
+    the file imports it as; opening one, iterating a Query's rows, unpacking a fetched row, or
+    reusing a comprehension's name outside it or rebinding it inside to a literal's other value,
+    writes nothing. Every ``execute`` counts unless its function is pinned read-only with exactly
+    its count; with any of these dropped, this fails."""
     _use_tree(tmp_path, monkeypatch, {
         "app/__init__.py": "", "app/database.py": "engine = SessionLocal = None\n",
         "app/routers/__init__.py": "", "app/routers/w.py": _WRITE_KINDS_ROUTER,
@@ -1384,6 +1456,9 @@ def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
         "comprehension_over_unknown_keeps_the_query", "comprehension_target_named_db_commits",
         "comprehension_target_named_engine_begins", "comprehension_target_named_db_engine_begins",
         "comprehension_target_annotated_commits", "lambda_parameter_keeps_the_query",
+        "conditional_query_deletes", "loop_conditional_query_deletes", "fallback_query_deletes",
+        "walrus_value_query_deletes", "conditional_session_commits", "conditional_receiver_deletes",
+        "conditional_session_receiver_commits", "conditional_connection_receiver_executes",
     }
     assert flagged == expected, f"missed: {sorted(expected - flagged)}; unexpected: {sorted(flagged - expected)}"
     # The Connection that engine.begin() opens counts its own writes, as a pin's per-kind count needs;
