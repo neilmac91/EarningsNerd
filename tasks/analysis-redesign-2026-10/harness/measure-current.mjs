@@ -11,7 +11,9 @@
 //
 //   node harness/measure-current.mjs [--build <checkout>] [--port 3100 | --base <url>] [--data prototype/data] [--out file] [--shots dir]
 //
-// Run from tasks/analysis-redesign-2026-10/. Needs the global Playwright (NODE_PATH) or the frontend's.
+// Run from tasks/analysis-redesign-2026-10/. Needs Playwright (NODE_PATH); the baseline needs the browser
+// browser-pin.mjs pins, Playwright 1.56.1's Chromium on linux x64 (the cloud image's global install), and the
+// frontend's own, newer Playwright serves --out runs.
 // measurements/current.json is the recording of main at 97293e7 and is written only for a served build of that
 // revision. --build names the checkout whose frontend/ build is measured (default: this harness's own repository);
 // the run reads its commit, its frontend/ tree hash, its uncommitted files under frontend/ and its .next/BUILD_ID.
@@ -38,7 +40,8 @@
 // build-hash.mjs's STAMP_FORMAT (the build ran `next build` itself, not through npm, right after `npm ci` installed
 // the lockfile's packages, with no Node flags but heap sizes, and the stamp records its output and its install's
 // content hash, both checked before and after the run), its public build
-// variables and media hash must equal the pins in BASELINE, and the harness must serve the build itself.
+// variables and media hash must equal the pins in BASELINE, the harness must serve the build itself, and the browser
+// must be the one browser-pin.mjs pins (Chromium's version and platform, checked right after launch).
 // 97293e7 has no harness, so the baseline is retaken by running this tree's harness with --build pointing at a
 // worktree of that revision, built there with build-stamped.mjs.
 import { readFileSync, readdirSync, mkdirSync, writeFileSync, existsSync, lstatSync, realpathSync, statSync } from 'node:fs'
@@ -49,7 +52,9 @@ import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { ENV_FILES, STAMP_FORMAT, controlledEnv, hashInstall, hashMedia, hashOutput, heapOptions } from './build-hash.mjs'
-// The cloud image ships Playwright globally (NODE_PATH, CommonJS); the frontend's own @playwright/test works too.
+import { platform, requirePinnedBrowser } from './browser-pin.mjs'
+// The cloud image ships Playwright globally (NODE_PATH, CommonJS); the frontend's own @playwright/test works too, for
+// an --out run (its Chromium is newer than the one the baseline pins).
 const require = createRequire(import.meta.url)
 const { chromium } = require('playwright')
 
@@ -374,7 +379,8 @@ async function run() {
 
 async function measureAll() {
   const browser = await chromium.launch()
-  const results = { base: BASE, server: SERVE ? { by: 'measure-current.mjs', command: 'next start', port: PORT, nodeOptions: SERVE.nodeOptions, waitlistMode: 'false' } : { by: 'external' }, state: STATE, data: path.relative(ROOT, DATA), generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: SERVED.commit.slice(0, 7), frontendTree: SERVED.frontendTree, dirty: SERVED.dirty, buildId: SERVED.buildId, builtAt: SERVED.builtAt, buildStamp: STAMP, harnessCommit: HARNESS_COMMIT, harnessDirty: HARNESS_DIRTY, fixtureHash: FIXTURES.hash, fixtureTree: FIXTURES.tree, fixtureDirty: FIXTURES.dirty }, configs: [] }
+  if (WRITING_BASELINE) await requirePinnedBrowser(browser, BASELINE.file)
+  const results = { base: BASE, server: SERVE ? { by: 'measure-current.mjs', command: 'next start', port: PORT, nodeOptions: SERVE.nodeOptions, waitlistMode: 'false' } : { by: 'external' }, state: STATE, data: path.relative(ROOT, DATA), generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: platform(), node: process.version, commit: SERVED.commit.slice(0, 7), frontendTree: SERVED.frontendTree, dirty: SERVED.dirty, buildId: SERVED.buildId, builtAt: SERVED.builtAt, buildStamp: STAMP, harnessCommit: HARNESS_COMMIT, harnessDirty: HARNESS_DIRTY, fixtureHash: FIXTURES.hash, fixtureTree: FIXTURES.tree, fixtureDirty: FIXTURES.dirty }, configs: [] }
   // The server must serve the build of --build: its build manifest lives under the build id.
   const manifest = await (await browser.newContext()).request.get(`${BASE}/_next/static/${SERVED.buildId}/_buildManifest.js`)
   if (manifest.status() !== 200) { await browser.close(); throw new Error(`${BASE} does not serve the build of ${BUILD} (build id ${SERVED.buildId}: ${manifest.status()} for its build manifest): start the server from that checkout's build, or pass --build <the checkout it serves>, or drop --base to let the harness serve it`) }

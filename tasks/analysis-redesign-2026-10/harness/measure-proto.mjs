@@ -21,13 +21,17 @@
 //
 // Run from tasks/analysis-redesign-2026-10/. With --fonts, Google Fonts requests are answered from a
 // local directory holding the CSS as fonts.css plus the .woff2 files it names (no network needed); the run
-// records those inputs by content hash, and the committed recording is written only from the pinned ones.
+// records those inputs by content hash, and the committed recording is written only from the pinned ones. It is
+// written only in the browser browser-pin.mjs pins too (Playwright 1.56.1's Chromium on linux x64, the browser of
+// measurements/current.json, so the two compare like for like), checked right after launch; a run in another
+// browser needs --out naming another file.
 import { readFileSync, existsSync, lstatSync, mkdirSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { execSync } from 'node:child_process'
+import { platform, requirePinnedBrowser } from './browser-pin.mjs'
 const require = createRequire(import.meta.url)
 const { chromium } = require('playwright')
 
@@ -114,7 +118,8 @@ function expectCounts(m, headers, rows, key) {
 
 async function run() {
   const browser = await chromium.launch()
-  const results = { generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, fonts: FONT_INPUTS, commit: git('git rev-parse --short HEAD'), prototypeTree: git('git rev-parse HEAD:./prototype'), dirty }, configs: [] }
+  if (WRITING_BASELINE) await requirePinnedBrowser(browser, 'measurements/prototype.json')
+  const results = { generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: platform(), node: process.version, fonts: FONT_INPUTS, commit: git('git rev-parse --short HEAD'), prototypeTree: git('git rev-parse HEAD:./prototype'), dirty }, configs: [] }
   for (const theme of ['light', 'dark']) {
     for (const cfg of CONFIGS) {
       const context = await browser.newContext({ viewport: { width: cfg.width, height: cfg.height }, deviceScaleFactor: cfg.dsf || 1, isMobile: !!cfg.mobile, hasTouch: !!cfg.mobile, reducedMotion: 'reduce' })

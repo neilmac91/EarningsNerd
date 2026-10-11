@@ -29,7 +29,8 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   through Next's own CLI, in `build-hash.mjs`'s controlled environment with `WAITLIST_MODE=false`, on `--port`,
   default 3100), records how, and stops the server when the run ends; it checks the build's output and its install
   against the stamp before it serves and again after the server stops, and writes the recording only if both hold; `--base <url>` measures a server started
-  elsewhere, whose environment it cannot see, and the baseline refuses that.
+  elsewhere, whose environment it cannot see, and the baseline refuses that, as it refuses any browser but the one
+  `browser-pin.mjs` pins.
   The recorded run measured `main` at `97293e7`, before #1199–#1203 replaced the labels, the cards, the
   table, the dialog, the narrative and the picker; it was retaken with the widened probes (text-node
   rectangles, both sides of each cell's content box, every column boundary) and the phone
@@ -51,8 +52,8 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   dataset's 20 metric rows) so
   a probe that finds nothing fails the run, and record the Chromium, platform, commit and prototype tree
   hash of the run, refusing uncommitted prototype or harness files unless `--allow-dirty` records them, and
-  writing the committed recording only from a committed tree and the pinned fonts (a dirty run, an online run or a
-  run with other fonts needs `--out` naming another file; a symbolic or hard link to the recording counts as it, and
+  writing the committed recording only from a committed tree and the pinned fonts, in the pinned browser (a dirty
+  run, an online run, a run with other fonts or in another browser needs `--out` naming another file; a symbolic or hard link to the recording counts as it, and
   any other multiply linked output is refused). `EN_PROTO.state.noPad = true` removes the whole-column pad for
   the occlusion mutation proof (at 1024 the probe then reports the Q4 ’23 column straddling the edge).
 - `harness/build-stamped.mjs` — builds a checkout's frontend for `measure-current.mjs` and stamps the build
@@ -82,6 +83,13 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   pinned; and the install hash, everything under `node_modules` but a tool cache, which `next start` does not write.
   The baseline needs a stamp of the current format, `STAMP_FORMAT`, raised whenever what a stamp guarantees
   changes.
+- `harness/browser-pin.mjs` — the browser both recordings were measured in, Chromium 141.0.7390.37 on linux x64
+  (Playwright 1.56.1's build, the cloud image's global install). Layout is the browser's: another Chromium version,
+  or the same one on another platform, can shape text and break lines differently, so the recordings' widths,
+  clipping and occlusion are that browser's, and they compare like for like only from one browser. Both harnesses
+  check it right after launch and write their recording only in it; a run in any other needs `--out`. The
+  frontend's own `@playwright/test` (1.63) runs Chromium 153, in which the `97293e7` build measures differently
+  in every configuration (the note under the commands below gives the numbers).
 - `harness/build_states.py`, `harness/prune_states.py` — reproduce `prototype/data/` from a saved
   companyfacts payload.
 - `measurements/` — the two recorded runs the proposal cites.
@@ -144,10 +152,15 @@ git worktree add ../en-97293e7 97293e7
 # install, public variables, downloaded fonts and the hash of its whole output; the harness requires that stamp for
 # the baseline, with exactly these two variables (.next is ignored by git)
 NEXT_PUBLIC_ENABLE_ANALYSIS=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8010 node tasks/analysis-redesign-2026-10/harness/build-stamped.mjs ../en-97293e7
-# then, from this repository's root, with Playwright resolvable (the frontend's install, or the cloud image's global
-# one); the harness serves the build itself (`next start` through Next's own CLI, in the same controlled environment,
+# then, from this repository's root, with Playwright 1.56.1, whose Chromium (141.0.7390.37 on linux x64) is the
+# browser both recordings pin (harness/browser-pin.mjs; the frontend's own Playwright is newer, and the recordings
+# refuse its Chromium): the cloud image's global install is that version, and on any linux x64 machine these two
+# lines give it
+npm install --prefix /tmp/pw-1.56 --no-audit --no-fund playwright@1.56.1
+/tmp/pw-1.56/node_modules/.bin/playwright install chromium
+# the harness serves the build itself (`next start` through Next's own CLI, in the same controlled environment,
 # with WAITLIST_MODE=false, which lets /analysis through the middleware, on port 3100 unless --port says otherwise)
-NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-current.mjs --build ../en-97293e7 --shots /tmp/shots
+NODE_PATH=/tmp/pw-1.56/node_modules node tasks/analysis-redesign-2026-10/harness/measure-current.mjs --build ../en-97293e7 --shots /tmp/shots
 # The harness reads the served checkout's commit, frontend/ tree hash, uncommitted files under frontend/,
 # .next/BUILD_ID and the build's time, refuses a build older than that checkout's last commit touching frontend/
 # (it cannot see which tree a build came from, so build right before measuring), verifies before measuring that
@@ -173,9 +186,15 @@ NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harn
 UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
 mkdir -p /tmp/fonts && curl -sS -A "$UA" -o /tmp/fonts/fonts.css "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap"
 for u in $(grep -o 'https://fonts.gstatic.com[^)]*' /tmp/fonts/fonts.css | sort -u); do curl -sS -A "$UA" -o "/tmp/fonts/$(basename "$u")" "$u"; done
-NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-proto.mjs --fonts /tmp/fonts --shots /tmp/shots
+NODE_PATH=/tmp/pw-1.56/node_modules node tasks/analysis-redesign-2026-10/harness/measure-proto.mjs --fonts /tmp/fonts --shots /tmp/shots
 ```
 
-Both scripts resolve Playwright through `createRequire`, so the cloud image's global install
-(`NODE_PATH=/opt/node-tools/node_modules`, `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`) or the frontend's
-own `@playwright/test` works.
+Both scripts resolve Playwright through `createRequire` (`NODE_PATH`) and write their recording only in the
+browser `harness/browser-pin.mjs` pins, Chromium 141.0.7390.37 on linux x64: Playwright 1.56.1's build, which
+the cloud image's global install provides (`NODE_PATH=/opt/node-tools/node_modules`,
+`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`) and the two install lines above give on any linux x64 machine. The
+frontend's own `@playwright/test` (1.63) runs Chromium 153 and serves `--out` runs. Measured in it on
+2026-10-11, the same `97293e7` build differed in all 20 configurations: the table was 2,035 px wide instead of
+2,076, the page overflowed 33 px at 390 instead of 39 and 95 px at 320 instead of 93, and no header straddled
+the sticky edge at 1480. A recording retaken in that browser would no longer match the numbers the proposal
+cites.

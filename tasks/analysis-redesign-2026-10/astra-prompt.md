@@ -99,8 +99,9 @@ moved, and every test the brief names that pins text the change will alter (`kpi
 `metrics-table.spec.tsx`, `analysis-source-quality.spec.tsx`, `narrative-pane.spec.tsx`,
 `trend-charts-annotation.spec.tsx`, `chart-export.spec.ts`, `period-picker-helpers.spec.ts`). None of them
 is a locked contract test (CLAUDE.md rule 6 lists those); say so explicitly in your notes. Run the
-prototype harness once to confirm `measurements/prototype.json` reproduces on your machine (the README has
-the commands). `measurements/current.json` is a recording of `main` at `97293e7`, before Phase 1 landed, so
+prototype harness once to confirm `measurements/prototype.json` reproduces (the README has the commands; both
+recordings are written only in the browser `harness/browser-pin.mjs` pins, Playwright 1.56.1's Chromium on linux
+x64, so in another browser or on another platform pass `--out` and expect other widths). `measurements/current.json` is a recording of `main` at `97293e7`, before Phase 1 landed, so
 it reproduces only against a build of that revision: `git worktree add ../en-97293e7 97293e7`, then the
 README's commands (`harness/build-stamped.mjs` on that worktree with `NEXT_PUBLIC_ENABLE_ANALYSIS=true`, which
 installs its packages with `npm ci`, runs `next build` itself, not through npm, with an allowlisted environment and
@@ -110,7 +111,7 @@ hash of its whole output) and this tree's harness with `--build ../en-97293e7`, 
 (`97293e7` has no harness; the harness verifies that the
 server serves that worktree's build id, that the stamp names it, that checkout's `frontend/` tree, the build's
 fonts, and its output and installed packages unchanged since the stamp, before the run and after it, and that
-the build's variables, fonts and fixtures match its pins, and records them). Run `measure-current.mjs` on current `main` only as a fresh measurement of the shipped
+the build's variables, fonts and fixtures and the browser match its pins, and records them). Run `measure-current.mjs` on current `main` only as a fresh measurement of the shipped
 components (its probes find that markup by data attribute), never as a comparison with the recording: the
 counts and geometry differ by design, and the harness refuses to write `measurements/current.json` for any
 other served build, so pass `--out` naming another file.
