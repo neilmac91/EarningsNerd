@@ -126,16 +126,21 @@ lineage-contract fixture.
 Probes (both harnesses, after the comprehensive review of 2026-10-10): page overflow against the
 configured viewport; KPI containment from the rendered text (text-node rectangles and `scrollWidth`
 against `clientWidth` of every block, `.sr-only` excluded), not from element boxes alone; cell text
-against the cell's content box on both sides; sticky-column occlusion at every scroll rest position
-(a header straddling the sticky edge), not only at the far right; every probe asserts how many
-elements it found. The recorded run of the current build (`measurements/current.json`) was retaken
+against the cell's content box on both sides; sticky-column occlusion (a header straddling the sticky
+edge) at the start, at every column boundary and at the far-right end of the scroll range, not only at
+the far right, with the table's `scroll-snap-type` recorded; every probe asserts how many elements it
+found. The recorded run of the current build (`measurements/current.json`) was retaken
 with the widened probes on the same `97293e7` build: every earlier number reproduced exactly (the
 labels, the table and column widths, the 54 / 89 / 126 px card overflow, the 39 / 93 / 78 px page
 overflow), no cell text is clipped (its columns size to their content, which is the defect), and the
-every-position probe now measures the half-hidden column that only the production screenshots had
-shown: 9 of the 11 rest positions at 1480 have a period column straddling the sticky edge, 16 of 18
-at 390 and 17 of 19 at 320, the far-right position among them at every width (2025Q1 at 1480, 2026Q2
-at 390 and 320); with 200% text, 18 of 20 at 390 and 17 of 21 at 320. The run was retaken once more
+occlusion probe now measures the half-hidden column that only the production screenshots had shown:
+the table does not snap (`scroll-snap-type: none`), so a scroll rests wherever it stops, and every
+position between two column boundaries leaves a period column straddling the sticky edge; at the
+boundaries themselves only the far-right end does, at every width (2025Q1 at 1480, 2025Q2 at 1054 and
+1024, 2025Q3 at 768 and at 1480 with 200% zoom or text, 2026Q2 at 390 and 320 and at 390 with 200%
+text) except 320 with 200% text, where the range ends on a boundary. Until Codex's thirty-third round
+the probe stepped by the first period column's width, an arbitrary grid in a table of 77–240 px
+columns, and reported 9 of 11 such positions at 1480, 16 of 18 at 390 and 17 of 19 at 320. The run was retaken once more
 after Codex's seventh round with the phone 200%-text profiles the prototype harness already ran; the
 sixteen earlier records reproduced exactly again.
 
@@ -626,7 +631,7 @@ grouping and the sentences so the four cannot disagree (Phase 2); the exports re
 | Period column widths at 1480 | 77–105 clean, 234–240 warned | 77 all |
 | Table at 1024 / 768 / 390 | 2,076 at every width | 1,044 / 1,044 / 920; Newest 6 fits ≥ 768 |
 | Cell text outside its content box (both sides) | not measured | 0 at every width, 200% text included |
-| Rest positions with a column straddling the sticky edge | 9 of 11 at 1480, 16 of 18 at 390, 17 of 19 at 320; 18 of 20 and 17 of 21 with 200% text at 390 and 320 | 0 at every rest position, every width |
+| A column straddling the sticky edge at rest | no snapping, so at any position between two column boundaries; at the boundaries, the far-right end at every width but 320 with 200% text | 0: the table snaps to column boundaries and its range is a whole number of columns, at every width |
 | Count the reader sees | "24 source checks needed" (26 in production) | "10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b)" |
 | Evidence for a legacy margin | "26.06536077 pure", no inputs | "26.1% · As stored: 26.0653607671% · Needs review · note a · lineage not recorded" |
 | Red flags, FCF finding | 1 sentence + 20 inline operands | 1 sentence + "Show the 20 source figures behind this · figures carry note a" |
@@ -995,7 +1000,9 @@ correction landed in this document:
 - **The probes were blind** (element boxes, `scrollWidth` only, one row at the far right, 200% text at
   1480 only): widened in both harnesses and the prototype's `measure`; both recorded runs were
   regenerated (the current build's on the same `97293e7` build, reproducing every earlier number and
-  adding the every-position occlusion count; after Codex's seventh round it also runs the phone
+  adding the occlusion count, first on a grid of the first period column's width and, since Codex's
+  thirty-third round, at the start, every column boundary and the far-right end, with the table's
+  `scroll-snap-type` recorded, since that build does not snap; after Codex's seventh round it also runs the phone
   200%-text profiles, where that build overflows the device by 425 / 495 px and its figures run 51 /
   86 px past their cards); §1, §2.3, §4.5, §6 state what is measured now. The widened probes found four clipped
   change-line cells at every width (the YoY fallback) and seventeen at phone widths, 55 / 90 px of card

@@ -817,15 +817,19 @@
         const w = worstOutside(td, box)
         if (w.worst > EPS) clipped.push({ text: w.text, by: w.worst })
       }
-      // Every rest position: scroll column by column and at the far right; a period header that
-      // straddles the sticky column's right edge is an occluded column.
+      // Rest positions: the start, every column boundary (the scroll position at which a period header's left edge
+      // meets the sticky column's right edge, clamped to the range) and the far-right end; the table snaps, so these
+      // are where it rests. A period header that straddles the sticky column's right edge is an occluded column.
+      const snap = sc ? getComputedStyle(sc).scrollSnapType : null
       const occluded = []
       const positions = []
-      if (sc && colWidth && t.scrollWidth > sc.clientWidth + 1) {
+      if (sc && ths.length > 1 && t.scrollWidth > sc.clientWidth + 1) {
         const range = sc.scrollWidth - sc.clientWidth
-        const stops = []
-        for (let k = 0; k * colWidth <= range + EPS; k++) stops.push(Math.min(k * colWidth, range))
-        if (stops[stops.length - 1] < range - EPS) stops.push(range)
+        sc.scrollLeft = 0
+        await settle()
+        const edge = r(ths[0]).right
+        const sorted = [0, ...ths.slice(1).map((th) => r(th).left - edge), range].map((x) => Math.min(Math.max(x, 0), range)).sort((a, b) => a - b)
+        const stops = sorted.filter((x, i) => i === 0 || x - sorted[i - 1] > EPS)
         for (const stop of stops) {
           sc.scrollLeft = stop
           await settle()
@@ -839,7 +843,7 @@
       }
       const stickyWidth = r(ths[0]).width
       const unstuck = t.classList.contains('unstick')
-      table = { rows: t.querySelectorAll('tbody tr').length, tableWidth: Math.round(t.scrollWidth), containerWidth: Math.round(sc.clientWidth), scrolls: t.scrollWidth > sc.clientWidth + 1, columns: cols, minColumn: Math.min(...cols.slice(1)), maxColumn: Math.max(...cols.slice(1)), stickyWidth: Math.round(stickyWidth), stickyColumn: !unstuck, readableColumns: colWidth ? Math.floor((sc.clientWidth - (unstuck ? 0 : stickyWidth)) / colWidth) : null, restPositions: positions.length, occludedPositions: occluded, occludedAtFarRight: occluded.filter((o) => o.scrollLeft >= (sc.scrollWidth - sc.clientWidth) - 1), cellTextClipped: clipped.length > 0, clippedCells: clipped.slice(0, 8), clippedCount: clipped.length }
+      table = { rows: t.querySelectorAll('tbody tr').length, tableWidth: Math.round(t.scrollWidth), containerWidth: Math.round(sc.clientWidth), scrolls: t.scrollWidth > sc.clientWidth + 1, columns: cols, minColumn: Math.min(...cols.slice(1)), maxColumn: Math.max(...cols.slice(1)), stickyWidth: Math.round(stickyWidth), stickyColumn: !unstuck, readableColumns: colWidth ? Math.floor((sc.clientWidth - (unstuck ? 0 : stickyWidth)) / colWidth) : null, snap, restPositions: positions.length, occludedPositions: occluded, occludedAtFarRight: occluded.filter((o) => o.scrollLeft >= (sc.scrollWidth - sc.clientWidth) - 1), cellTextClipped: clipped.length > 0, clippedCells: clipped.slice(0, 8), clippedCount: clipped.length }
     }
     const labels = [...document.querySelectorAll('.badge')].filter((b) => /source check/i.test(b.textContent)).length
     const affixes = document.querySelectorAll('.affix .note').length

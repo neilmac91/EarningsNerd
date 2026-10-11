@@ -41,7 +41,7 @@ count that measures labels rather than issues. A design review (2026-10-10, Clau
   `next build` + `next start`, API mocked in the browser) and `harness/measure-proto.mjs` (the prototype),
   with `measurements/current.json` and `measurements/prototype.json`. Both measure page overflow, KPI
   card-child containment and value alignment, table and column widths, sticky-column occlusion at every
-  scroll rest position and label counts at 1480 / 1054 / 1024 / 768 / 390 / 320 CSS px, light and dark,
+  column boundary and the far-right end, and label counts at 1480 / 1054 / 1024 / 768 / 390 / 320 CSS px, light and dark,
   200% zoom and 200% text at 1480, 390 and 320.
 
 Key numbers (state 2). Current build: 33 repeated labels; table 2,076 px at every width with warned columns

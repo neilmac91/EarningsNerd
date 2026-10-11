@@ -5,7 +5,7 @@
 // real META 12-quarter dataset in its production-like legacy state, with every API answered inside
 // the browser (page.route) — the same no-backend discipline as tests/e2e. Records page overflow,
 // KPI card-child containment, the metrics table's width and per-column widths, sticky-column
-// occlusion at every scroll rest position, and the count of repeated source-check labels, at six viewport
+// occlusion at the start, every column boundary and the far-right end (with the table's scroll-snap-type), and the count of repeated source-check labels, at six viewport
 // widths, both themes, 200% browser zoom (CSS viewport halved at 2x) and 200% text size at 1480, 390 and 320
 // (the same profiles as measure-proto.mjs, so the two recorded runs compare like for like).
 //
@@ -204,7 +204,8 @@ async function measure(page, configuredWidth, expectedRows) {
   // Mobile Chromium widens the layout viewport to overflowing content, so innerWidth cannot detect
   // overflow: compare the document with the configured viewport width instead. The probes read the
   // rendered text (text-node rectangles and scrollWidth per block, `.sr-only` excluded), test both
-  // sides of each cell's content box, and visit every scroll rest position, as the prototype's do.
+  // sides of each cell's content box, and visit the start, every column boundary and the far-right end, as the
+  // prototype's do.
   return page.evaluate(async ({ vw, expectedRows }) => {
     const doc = document.documentElement
     const r = (el) => el.getBoundingClientRect()
@@ -259,15 +260,21 @@ async function measure(page, configuredWidth, expectedRows) {
         const w = worstOutside(td, box)
         if (w.worst > EPS) clipped.push({ text: w.text, by: w.worst })
       }
-      // Every rest position: a period header straddling the sticky column's right edge is an occluded column.
-      const colWidth = ths.length > 1 ? r(ths[1]).width : 0
+      // Rest positions. A table that snaps rests only at its column boundaries; one that does not (the build at 97293e7)
+      // rests wherever a scroll stops, and every position between two boundaries leaves a period column straddling
+      // the sticky edge. The probe visits the start, every column boundary (the scroll position at which a period
+      // header's left edge meets the sticky column's right edge, clamped to the range) and the far-right end, where a
+      // range that is not a whole number of columns leaves a column straddling, and records the table's scroll-snap-type.
+      const snap = getComputedStyle(scroller).scrollSnapType
       const occluded = []
       let restPositions = 0
-      if (colWidth && table.scrollWidth > scroller.clientWidth + 1) {
+      if (ths.length > 1 && table.scrollWidth > scroller.clientWidth + 1) {
         const range = scroller.scrollWidth - scroller.clientWidth
-        const stops = []
-        for (let k = 0; k * colWidth <= range + EPS; k++) stops.push(Math.min(k * colWidth, range))
-        if (stops[stops.length - 1] < range - EPS) stops.push(range)
+        scroller.scrollLeft = 0
+        await settle()
+        const edge = r(ths[0]).right
+        const sorted = [0, ...ths.slice(1).map((th) => r(th).left - edge), range].map((x) => Math.min(Math.max(x, 0), range)).sort((a, b) => a - b)
+        const stops = sorted.filter((x, i) => i === 0 || x - sorted[i - 1] > EPS)
         for (const stop of stops) {
           scroller.scrollLeft = stop
           await settle()
@@ -279,7 +286,7 @@ async function measure(page, configuredWidth, expectedRows) {
         scroller.scrollLeft = 0
         await settle()
       }
-      tableInfo = { tableWidth: Math.round(table.scrollWidth), containerWidth: Math.round(scroller.clientWidth), columns: cols, warnedWidths: cols.filter((c) => c.warned).map((c) => c.width), cleanWidths: cols.slice(1).filter((c) => !c.warned).map((c) => c.width), restPositions, occludedPositions: occluded, occludedAtFarRight: occluded.filter((o) => o.scrollLeft >= (scroller.scrollWidth - scroller.clientWidth) - 1), clippedCount: clipped.length, clippedCells: clipped.slice(0, 8) }
+      tableInfo = { tableWidth: Math.round(table.scrollWidth), containerWidth: Math.round(scroller.clientWidth), columns: cols, warnedWidths: cols.filter((c) => c.warned).map((c) => c.width), cleanWidths: cols.slice(1).filter((c) => !c.warned).map((c) => c.width), snap, restPositions, occludedPositions: occluded, occludedAtFarRight: occluded.filter((o) => o.scrollLeft >= (scroller.scrollWidth - scroller.clientWidth) - 1), clippedCount: clipped.length, clippedCells: clipped.slice(0, 8) }
     }
     // The report-level summary line: the Data notes strip after #1200, the Sources & methods summary before it.
     const sm = document.querySelector('[data-analysis-data-notes] > details > summary') || [...document.querySelectorAll('summary')].find((s) => /Sources/.test(s.textContent || ''))

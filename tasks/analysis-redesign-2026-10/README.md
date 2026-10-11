@@ -21,12 +21,14 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
 - `harness/measure-current.mjs` — measures the CURRENT components on the repository's own frontend build
   (`next build` + `next start` with `NEXT_PUBLIC_ENABLE_ANALYSIS=true`, every API answered in the browser
   with `page.route`, as `tests/e2e` does): page overflow, KPI card-child containment and value alignment,
-  table and column widths, sticky-column occlusion at every scroll rest position, label counts, in the
+  table and column widths, sticky-column occlusion at the start, every column boundary and the far-right end
+  (with the table's scroll-snap-type: the build at 97293e7 does not snap, so a scroll can rest anywhere between
+  boundaries), label counts, in the
   same ten configurations as the prototype harness (six widths, 200% zoom, 200% text at 1480, 390 and
   320), both themes. Output: `measurements/current.json`.
   The recorded run measured `main` at `97293e7`, before #1199–#1203 replaced the labels, the cards, the
   table, the dialog, the narrative and the picker; it was retaken with the widened probes (text-node
-  rectangles, both sides of each cell's content box, every scroll rest position) and the phone
+  rectangles, both sides of each cell's content box, every column boundary) and the phone
   200%-text profiles on that same build. The
   script selects Quarterly, mocks the API's field names, stores the app's consent key, waits for fonts,
   finds the shipped markup by data attribute (`[data-analysis-kpi]`, `[data-kpi-value]`,
@@ -38,7 +40,8 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   comprehensive review of 2026-10-10 the probes read the rendered text (text-node rectangles and
   `scrollWidth` against `clientWidth` of every block, `.sr-only` excluded), test cell text against the
   cell's content box on both sides (a right-aligned overflow runs to the inline start, which `scrollWidth`
-  never counts), visit every scroll rest position for a header straddling the sticky edge, hover a metrics
+  never counts), visit the start, every column boundary and the far-right end, where the table snaps, for a
+  header straddling the sticky edge, hover a metrics
   row and fail on a translucent fill behind the sticky row header (the values beneath it would show through), assert their
   element counts (4 cards; 13 header cells in the 12-quarter window and 7 in Newest 6; exactly the
   dataset's 20 metric rows) so

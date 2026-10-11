@@ -1,7 +1,8 @@
 // Measures the PROTOTYPE (prototype/index.html) in every state, in the proposed view and in the
 // reproduction of today's markup, at the brief's widths, both themes, 200% browser zoom and 200%
 // text size: page overflow, KPI card-child containment and value alignment, table width and
-// column widths, sticky-column occlusion at EVERY rest position, both-sided cell clipping of the rendered
+// column widths, sticky-column occlusion at EVERY rest position (the start, every column boundary and
+// the far-right end), both-sided cell clipping of the rendered
 // text, text-aware KPI containment, the painted fill of a hovered sticky row header (it must be opaque,
 // or the values scrolling beneath it show through), and the count of repeated labels; 200% text at 1480,
 // 390 and 320.
