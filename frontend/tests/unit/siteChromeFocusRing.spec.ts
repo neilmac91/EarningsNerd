@@ -557,6 +557,23 @@ function competingRings(tokens: string[]): string[] {
   })
 }
 
+/** A self-styled field's classes, read strictly: a string, a template with no `${…}`, or `cx`/`clsx` of those. Unlike the
+    chrome scan, which ignores a dynamic part, a `${…}`, a condition or a variable here could add a class that draws on the
+    ring (`focus:[box-shadow:none]`), so the className is unreadable. Every field in the app writes its classes this way. */
+function strictTokens(init: ts.JsxAttributeValue | undefined): string[] | null {
+  const read = (e: ts.Expression): string[] | null => {
+    if (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) return e.text.split(/\s+/).filter(Boolean)
+    if (ts.isParenthesizedExpression(e)) return read(e.expression)
+    if (ts.isCallExpression(e) && ts.isIdentifier(e.expression) && ['cx', 'clsx'].includes(e.expression.text)) {
+      const parts = e.arguments.map(read)
+      return parts.every((part): part is string[] => part !== null) ? parts.flat() : null
+    }
+    return null
+  }
+  const expr = init && (ts.isJsxExpression(init) ? init.expression : init)
+  return expr ? read(expr) : null
+}
+
 /** The modules that export the DS factory, as paths under frontend/ without extension. */
 const FACTORY_MODULES = new Set(['components/ui/Input', 'components/ui/index'])
 
@@ -622,7 +639,7 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
       else if (field && tabbable) {
         fields += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
-        const tokens = classTokens(className?.initializer)
+        const tokens = strictTokens(className?.initializer)
         const light = Array.isArray(tokens) ? rings(tokens, false) : []
         const dark = Array.isArray(tokens) ? rings(tokens, true) : []
         const missing = Array.isArray(tokens)
@@ -1083,6 +1100,9 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <input type="date" className="border ${field} dark:focus:ring-offset-2 ring-brand" />
             <input type="date" className="border ${field} focus:[box-shadow:none]" />
             <input type="date" className="border ${field} focus-visible:shadow-none shadow-sm !shadow-none" />
+            <input type="date" className={\`border ${field} \${c}\`} />
+            <input type="date" className={cx('border', '${field}', busy && 'opacity-50')} />
+            <input type="date" className={cx('border', '${field}')} />
           </>
         )
       }`
@@ -1091,7 +1111,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     const competing = 'draws on the focus ring beside the reset and the DS ring'
     const ring = 'a focus:shadow-ring-* or focus-visible:shadow-ring-*'
     expect(factory).toBe(2)
-    expect(fields).toBe(23)
+    expect(fields).toBe(26)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       `7 <input> missing focus:ring-0, focus:ring-offset-0, ${twin}`,
       `9 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
@@ -1122,6 +1142,9 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       `32 <input> dark:focus:ring-offset-2 ${competing}`,
       `33 <input> focus:[box-shadow:none] ${competing}`,
       `34 <input> focus-visible:shadow-none !shadow-none ${competing}`,
+      // A dynamic part could add a class that draws on the ring, so it is unreadable; a cx of literals is read (line 37).
+      '35 <input> a className the scan cannot read',
+      '36 <input> a className the scan cannot read',
     ])
   })
 })
