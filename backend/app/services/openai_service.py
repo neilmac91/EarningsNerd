@@ -485,7 +485,7 @@ class OpenAIService(
         sixk_class: Optional[str] = None,
         sixk_class_audit: Optional[Dict] = None,
     ) -> Dict:
-        """Generate newsroom-ready summary using structured extraction + editorial writer phases.
+        """Generate a newsroom-ready summary: one structured extraction, rendered without a second provider call.
 
         ``stream_cb`` opts into progressive previews. The provider request policy owns bounded
         transient retries; exhausted/authentication failures retain the existing error contract.

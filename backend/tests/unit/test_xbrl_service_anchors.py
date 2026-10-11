@@ -161,8 +161,8 @@ async def test_x0_1_companyfacts_transport(monkeypatch, status):
     ``sec_rate_limiter.execute`` single token wait, never ``execute_with_backoff`` (:883, comment
     :868-872), and never through the edgar circuit breaker; a non-2xx is None via
     ``raise_for_status`` and the outer except (:880, :887-889); a 2xx body goes unchanged to
-    ``_parse_company_facts`` with the requested accession (:884-885). The comment says "non-200",
-    but ``raise_for_status`` passes every 2xx, so a 203 is parsed like a 200; pinned as it is today.
+    ``_parse_company_facts`` with the requested accession (:884-885). ``raise_for_status`` passes
+    every 2xx, so a 203 is parsed like a 200, as the comment says; pinned as it is today.
     Today the method is only ever patched away (test_accession_xbrl_extraction.py:416,430,448;
     evals/acceptance_archive.py:630).
     """

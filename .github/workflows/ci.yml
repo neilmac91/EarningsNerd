@@ -17,7 +17,71 @@ on:
         required: true
         default: '2'
 
+# Only PR updates supersede one another. Unique run IDs for pushes/manual runs keep
+# main's test/deploy chain out of this cancellation group (including pending runs).
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  ci-scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      records_only: ${{ steps.scope.outputs.records_only }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Classify records changes for browser checks
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          full_suite() { echo 'records_only=false' >> "$GITHUB_OUTPUT"; }
+          CHECKED_SHA=$(git rev-parse --verify 'HEAD^{commit}')
+          if [ "$CHECKED_SHA" != "$GITHUB_SHA" ]; then
+            echo '::error::Checked source does not match the workflow commit.'
+            exit 1
+          fi
+          case "$EVENT_NAME" in
+            pull_request)
+              read -r -a PARENTS <<< "$(git show -s --format=%P HEAD)"
+              if [ "${#PARENTS[@]}" -ne 2 ] || [ "${PARENTS[1]}" != "$PR_HEAD_SHA" ]; then
+                echo '::error::Expected the checked PR merge and its exact head parent.'
+                exit 1
+              fi
+              BASE=${PARENTS[0]}
+              ;;
+            push)
+              # A multi-commit/force push can put `before` outside this shallow clone.
+              # Unavailable history runs everything; never classify just the last commit.
+              if ! [[ "$BEFORE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+                full_suite; exit 0
+              fi
+              BASE=$BEFORE_SHA
+              ;;
+            *) full_suite; exit 0 ;;
+          esac
+          CHANGED_PATHS="$RUNNER_TEMP/browser-changed-paths"
+          # Both sides of a rename matter, and filenames are NUL-delimited.
+          git diff --no-renames --name-only -z "$BASE" HEAD > "$CHANGED_PATHS"
+          RECORDS_ONLY=true
+          [ -s "$CHANGED_PATHS" ] || RECORDS_ONLY=false
+          while IFS= read -r -d '' CHANGED_PATH; do
+            case "$CHANGED_PATH" in
+              tasks/*.md|lessons/*.md|docs/*.md) ;;
+              *) RECORDS_ONLY=false ;;
+            esac
+          done < "$CHANGED_PATHS"
+          echo "records_only=$RECORDS_ONLY" >> "$GITHUB_OUTPUT"
+
   backend-tests:
     runs-on: ubuntu-latest
     steps:
@@ -26,6 +90,10 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -137,6 +205,8 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
       - name: Install dependencies
         # Only create_all needs Python; the migrations themselves run through psql.
         run: pip install -r backend/requirements.txt
@@ -250,28 +320,45 @@ jobs:
   # Treat it as a regression signal for the static shell; get the authoritative
   # number from PageSpeed Insights / Lighthouse against the live or Vercel-preview URL.
   lighthouse:
+    needs: [ci-scope]
+    if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
+      - name: Require a valid browser scope
+        env:
+          SCOPE_RESULT: ${{ needs.ci-scope.result }}
+          RECORDS_ONLY: ${{ needs.ci-scope.outputs.records_only }}
+        run: |
+          [ "$SCOPE_RESULT" = success ] && [[ "$RECORDS_ONLY" = true || "$RECORDS_ONLY" = false ]]
+      - name: Records-only browser check outcome
+        if: needs.ci-scope.outputs.records_only == 'true'
+        run: echo 'Records only; browser build and Lighthouse are not applicable. Backend, frontend, migration and secret checks still run.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v7
+        if: needs.ci-scope.outputs.records_only == 'false'
       - name: Set up Node.js
+        if: needs.ci-scope.outputs.records_only == 'false'
         uses: actions/setup-node@v7
         with:
           node-version: '22.23.2'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
+        if: needs.ci-scope.outputs.records_only == 'false'
         run: npm ci
         working-directory: frontend
       - name: Install Chrome
+        if: needs.ci-scope.outputs.records_only == 'false'
         uses: browser-actions/setup-chrome@v2
       - name: Build
+        if: needs.ci-scope.outputs.records_only == 'false'
         run: npm run build
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
           WAITLIST_MODE: 'false'
       - name: Lighthouse CI (advisory)
+        if: needs.ci-scope.outputs.records_only == 'false'
         run: npx lhci autorun
         working-directory: frontend
         env:
@@ -365,6 +452,8 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
       - name: Install dependencies
         if: steps.key.outputs.have == 'true'
         run: pip install -r backend/requirements.txt
@@ -438,20 +527,35 @@ jobs:
           retention-days: 14
 
   e2e-tests:
+    needs: [ci-scope]
+    if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
+      - name: Require a valid browser scope
+        env:
+          SCOPE_RESULT: ${{ needs.ci-scope.result }}
+          RECORDS_ONLY: ${{ needs.ci-scope.outputs.records_only }}
+        run: |
+          [ "$SCOPE_RESULT" = success ] && [[ "$RECORDS_ONLY" = true || "$RECORDS_ONLY" = false ]]
+      - name: Records-only browser check outcome
+        if: needs.ci-scope.outputs.records_only == 'true'
+        run: echo 'Records only; browser build and E2E are not applicable. Backend, frontend, migration and secret checks still run.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v7
+        if: needs.ci-scope.outputs.records_only == 'false'
       - name: Set up Node.js
+        if: needs.ci-scope.outputs.records_only == 'false'
         uses: actions/setup-node@v7
         with:
           node-version: '22.23.2'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
+        if: needs.ci-scope.outputs.records_only == 'false'
         run: npm ci
         working-directory: frontend
       - name: Drop flaky packages.microsoft.com apt source
+        if: needs.ci-scope.outputs.records_only == 'false'
         # GitHub-hosted runners ship a packages.microsoft.com apt repo (azure-cli + prod)
         # that intermittently returns 403. That aborts the `apt-get update` inside the next
         # step's `playwright install --with-deps`, failing e2e for reasons unrelated to our
@@ -462,6 +566,7 @@ jobs:
           grep -rlE 'packages\.microsoft\.com' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null \
             | sudo xargs -r rm -f || true
       - name: Install Playwright browsers
+        if: needs.ci-scope.outputs.records_only == 'false'
         # `--with-deps` runs apt, which on GitHub-hosted runners intermittently STALLS/errors
         # (mirror outage) — it has hung this job ~9 min and failed it across several runs, blocking
         # deploy-backend (which gates on e2e). Try the full install once, bounded; on failure fall
@@ -473,6 +578,7 @@ jobs:
           npx playwright install chromium
         working-directory: frontend
       - name: Build frontend
+        if: needs.ci-scope.outputs.records_only == 'false'
         run: npm run build
         working-directory: frontend
         env:
@@ -480,6 +586,7 @@ jobs:
           WAITLIST_MODE: 'false'
           NEXT_PUBLIC_ENABLE_ANALYSIS: 'true'
       - name: Start frontend server
+        if: needs.ci-scope.outputs.records_only == 'false'
         run: npm run start &
         working-directory: frontend
         env:
@@ -487,9 +594,11 @@ jobs:
           WAITLIST_MODE: 'false'
           NEXT_PUBLIC_ENABLE_ANALYSIS: 'true'
       - name: Wait for frontend server
+        if: needs.ci-scope.outputs.records_only == 'false'
         run: npx wait-on http://localhost:3000 --timeout 60000
         working-directory: frontend
       - name: Run E2E tests
+        if: needs.ci-scope.outputs.records_only == 'false'
         run: npx playwright test
         working-directory: frontend
         env:

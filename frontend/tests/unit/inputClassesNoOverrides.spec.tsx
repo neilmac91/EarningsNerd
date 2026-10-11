@@ -25,8 +25,10 @@ import { bindingResolver } from './astBindings'
  * `text-xs` (699) beat `text-sm` (697) by one rule. The options are `select` (a raw <select>'s chevron room),
  * `autoWidth` (sized to its content), `density`, `leadingIcon` and `trailingIcon` (the password field's reveal
  * toggle, which set `pr-10` on top until it existed); Button's twin gate is button-icon-size-gate.spec.ts. The
- * options' own padding is held to explicit sides by "the field's padding is explicit" below: the scan skips
- * Input.tsx, so nothing else would see a pad constant that sets one side twice.
+ * scan skips Input.tsx, so the module's own classes are held below: padding to explicit sides by "the field's
+ * padding is explicit", and every field (each combination of the options, and the Input, Textarea and Select
+ * components) to one class per property per variant chain, with `invalid` (the components' `error`) picking the
+ * error tone's border and ring rather than layering them, by "the field's tone is one class per state".
  *
  * The scan reads the TypeScript AST of every .ts and .tsx under app/, components/, features/, hooks/ and lib/,
  * except Input.tsx, which defines the field. For each `inputClasses(…)` call (imported from components/ui/Input
@@ -61,9 +63,17 @@ import { bindingResolver } from './astBindings'
  *      20px spinner at right-4 over the 14px inset, over the last 17–21px of typed text. `inset-y-*` is vertical
  *      (the reveal toggle's `inset-y-0 right-0`); a popover at `top-full` or with no horizontal anchor is not at an
  *      edge; `inset-*`, `inset-x-*`, both sides at once, or a sibling it cannot enumerate fails closed.
+ *  (f) no union twin: the two carry different variant chains, neither inside the other, that can hold at once
+ *      (not `disabled:` beside `focus:`), in one theme and screen, and the field does not style the added class's
+ *      chain itself (that is (a)'s). Of the classes whose chain lies inside both chains together, the longest
+ *      ones disagree, so variant order or a variant count, not the state, decides. On main the composer shell's
+ *      `focus-within:border-brand` lost to the field's `hover:border-flat-light` (Tailwind emits `focus-within`
+ *      before `hover`), so a hovered, focused composer turned grey, and `fieldUnavailableClass`'s
+ *      `aria-disabled:hover:border-border-light` (0,3,0) beat a focused select's `focus:border-brand` (0,2,0).
+ *      A class on the union chain (`hover:focus-within:border-brand`) settles it.
  *
  * A state layer passes: `aria-disabled:bg-background-light` over the field's `bg-white` (with its
- * `dark:aria-disabled:` twin), `focus-within:border-brand` on the composer shell. A position the scan cannot
+ * `dark:aria-disabled:` twin), `aria-disabled:hover:focus:border-brand` on the focused select. A position the scan cannot
  * follow (the result held in a variable, returned, joined with `+`, passed to another function, a className
  * from a parameter, an option spread, a class glued to a template's text or to the next expression) fails rather
  * than passing unread.
@@ -72,9 +82,12 @@ import { bindingResolver } from './astBindings'
  * shrink-only: a new finding fails, a second site with a pinned finding fails, and so does a pin that no longer
  * matches.
  *
- * What it cannot see: two different state chains of one specificity that Tailwind's variant order decides (the
- * composer shell's `focus-within:` border loses to the field's `hover:` border while both hold); a class reaching
- * the field through a props spread or another component; a namespace import, a dynamic import, or a re-export
+ * The module's own tones are held to the same standard by "the field's tone is one class per state": the default
+ * tone leaves only its `focus:` border over its `hover:` one to variant order, and the test reads Tailwind's
+ * compile to show focus is emitted after hover; a shell (`inputClasses({ shell: true })`) restates its
+ * `focus-within:` border under `hover:`.
+ *
+ * What it cannot see: a class reaching the field through a props spread or another component; a namespace import, a dynamic import, or a re-export
  * other than the components/ui barrel; a member-tag select (`<motion.select>`) reads as not a select; a positioned
  * control nested in an unpositioned sibling wrapper, or a component other than FieldSpinner that positions itself.
  */
@@ -120,9 +133,9 @@ function againstPins(found: { file: string; line: number; finding: string }[], p
 
 // ------------------------------------------------------------------------------------------------- scanner
 
-type Options = { invalid: boolean; leadingIcon: boolean; trailingIcon: boolean; select: boolean; density: FieldDensity; autoWidth: boolean }
-const DEFAULTS: Options = { invalid: false, leadingIcon: false, trailingIcon: false, select: false, density: 'comfortable', autoWidth: false }
-const BOOLEAN_OPTIONS = ['invalid', 'leadingIcon', 'trailingIcon', 'select', 'autoWidth'] as const
+type Options = { invalid: boolean; leadingIcon: boolean; trailingIcon: boolean; select: boolean; density: FieldDensity; autoWidth: boolean; shell: boolean }
+const DEFAULTS: Options = { invalid: false, leadingIcon: false, trailingIcon: false, select: false, density: 'comfortable', autoWidth: false, shell: false }
+const BOOLEAN_OPTIONS = ['invalid', 'leadingIcon', 'trailingIcon', 'select', 'autoWidth', 'shell'] as const
 const DENSITIES: FieldDensity[] = ['comfortable', 'compact']
 
 /** A sibling drawn at one edge of the field: it needs that side's inset, reserved always. */
@@ -261,7 +274,7 @@ function scanSource(file: string, text: string): Scan {
     if (!arg) return { combos: [DEFAULTS], className: [] }
     if (!ts.isObjectLiteralExpression(arg)) throw new Unreadable('inputClasses() options that are not an object literal')
     const values: { [K in keyof Options]: Options[K][] } = {
-      invalid: [false], leadingIcon: [false], trailingIcon: [false], select: [false], density: ['comfortable'], autoWidth: [false],
+      invalid: [false], leadingIcon: [false], trailingIcon: [false], select: [false], density: ['comfortable'], autoWidth: [false], shell: [false],
     }
     let className: string[] = []
     for (const p of arg.properties) {
@@ -518,8 +531,40 @@ function propList(props: string[]): string {
 
 const sameSet = (a: Set<string>, b: Set<string>) => a.size === b.size && [...a].every((x) => b.has(x))
 
+type Parsed = ReturnType<typeof parseClass>
+/** Variant pairs that cannot hold on one element at once (a disabled control takes no focus), so rule (f) skips them. */
+const EXCLUSIVE: [string, string][] = [
+  ['disabled', 'enabled'], ['disabled', 'focus'], ['disabled', 'focus-visible'], ['disabled', 'focus-within'],
+  ['motion-safe', 'motion-reduce'], ['portrait', 'landscape'], ['ltr', 'rtl'], ['contrast-more', 'contrast-less'],
+]
+const isSubset = (x: Set<string>, y: Set<string>) => [...x].every((v) => y.has(v))
+
+/** Rule (f). Returns the union chain when the outcome there is left to variant order. */
+function cooccurring(a: Parsed, aTarget: string, f: Parsed, props: string[], field: string[], added: Parsed[]): string | undefined {
+  if (isSubset(a.chain, f.chain) || isSubset(f.chain, a.chain)) return undefined
+  if (EXCLUSIVE.some(([x, y]) => (a.chain.has(x) && f.chain.has(y)) || (a.chain.has(y) && f.chain.has(x)))) return undefined
+  const fieldParsed = field.map(parseClass)
+  const setsHere = (t: Parsed) =>
+    (declCache.get(t.utility) ?? []).filter((e) => joinTarget(t.target, e.target) === aTarget).flatMap((e) => e.decls).filter((d) => props.includes(d.prop))
+  // A chain the field styles itself: a differing class there is rule (a)'s finding, an equal one changes nothing.
+  if (fieldParsed.some((g) => sameSet(g.chain, a.chain) && setsHere(g).length)) return undefined
+  const union = new Set([...a.chain, ...f.chain])
+  const holders = [...fieldParsed, ...added]
+    .filter((t) => !t.arbitrary && isSubset(t.chain, union))
+    .map((t) => ({ chain: t.chain, decls: setsHere(t).filter((d) => !d.plumbing) }))
+    .filter((t) => t.decls.length)
+  for (const prop of props) {
+    const setting = holders.filter((h) => h.decls.some((d) => d.prop === prop))
+    const maximal = setting.filter((h) => !setting.some((o) => o.chain.size > h.chain.size && isSubset(h.chain, o.chain)))
+    if (new Set(maximal.flatMap((h) => h.decls.filter((d) => d.prop === prop).map((d) => d.value))).size > 1) return [...union].sort().join('+')
+  }
+  return undefined
+}
+
 function competing(field: string[], added: string[]): string[] {
   const out = new Set<string>()
+  /** (f), one per added class and union state, naming the field class with the longest chain there. */
+  const unionFindings = new Map<string, { size: number; text: string }>()
   const parsedAdded = added.map(parseClass)
   for (const a of parsedAdded) {
     if (a.important) out.add(`${a.token} (important)`)
@@ -548,7 +593,16 @@ function competing(field: string[], added: string[]): string[] {
           }
           const lacking = [...f.chain].filter((v) => OUTRANKING.has(v) && !a.chain.has(v))
           const rest = [...f.chain].filter((v) => !OUTRANKING.has(v))
-          if (!lacking.length || !rest.every((v) => a.chain.has(v))) continue
+          if (!lacking.length || !rest.every((v) => a.chain.has(v))) {
+            // (f) owns the pairs in one theme and screen; a field chain under a dark/screen variant `a` lacks is (b)'s.
+            const union = lacking.length ? undefined : cooccurring(a, aTarget, f, props, field, parsedAdded)
+            if (union) {
+              const key = `${a.token} ${union}`
+              const held = unionFindings.get(key)
+              if (!held || f.chain.size > held.size) unionFindings.set(key, { size: f.chain.size, text: `${a.token} vs ${f.token} ${list} (no ${union} twin)` })
+            }
+            continue
+          }
           const want = new Set([...a.chain, ...lacking])
           const twin = parsedAdded.some((t) =>
             sameSet(t.chain, want) &&
@@ -559,6 +613,7 @@ function competing(field: string[], added: string[]): string[] {
       }
     }
   }
+  for (const { text } of unionFindings.values()) out.add(text)
   return [...out]
 }
 
@@ -640,7 +695,7 @@ describe('a raw field takes inputClasses() options, never a competing class on t
     expect(
       unpinned,
       'A class on top of inputClasses() that sets what the field sets resolves by stylesheet order, not class ' +
-        'order (cx and clsx do no tailwind-merge). Use an option (select, autoWidth, density, leadingIcon, trailingIcon, invalid) ' +
+        'order (cx and clsx do no tailwind-merge). Use an option (select, autoWidth, density, leadingIcon, trailingIcon, invalid, shell) ' +
         'or add one to components/ui/Input.tsx with explicit sides.',
     ).toEqual([])
     expect(stale, 'pins that no longer match a finding: remove them').toEqual([])
@@ -724,25 +779,64 @@ export const C = ({ on }: { on: boolean }) => (
     expect(await findingsOf(`${IMPORTS}export const X = () => <input className={inputClasses({ className: 'focus:border-error-light focus:shadow-ring-error' })} />`)).toEqual(
       PINS['app/dashboard/settings/page.tsx'].findings,
     )
-    // The chat composer's shell: a focus-within state layer with its dark twin.
-    const composer = `import { cx, inputClasses } from '@/components/ui'
-export const S = () => <div className={cx(inputClasses({ className: 'flex items-end gap-2' }), 'focus-within:border-brand focus-within:shadow-ring-brand', 'dark:focus-within:border-brand-dark dark:focus-within:shadow-ring-brand-dark')} />`
-    expect(await findingsOf(composer)).toEqual([])
-    expect(await findingsOf(composer.replace(", 'dark:focus-within:border-brand-dark dark:focus-within:shadow-ring-brand-dark'", ''))).toEqual([
+    // A focus-within layer on a shell (the chat composer's before `shell`) in light alone: each class wants its dark twin.
+    const lightOnly = `import { cx, inputClasses } from '@/components/ui'
+export const S = () => <div className={cx(inputClasses({ className: 'flex items-end gap-2' }), 'focus-within:border-brand hover:focus-within:border-brand focus-within:shadow-ring-brand')} />`
+    expect(await findingsOf(lightOnly)).toEqual([
       'focus-within:border-brand vs dark:border-border-dark [border-color] (no dark twin)',
+      'hover:focus-within:border-brand vs dark:border-border-dark [border-color] (no dark twin)',
+      'hover:focus-within:border-brand vs dark:hover:border-flat-dark [border-color] (no dark twin)',
     ])
+  })
+
+  it('fails two chains that hold at once when variant order, not the state, picks the winner (rule f)', async () => {
+    const shell = (classes: string) =>
+      findingsOf(`import { cx, inputClasses } from '@/components/ui'\nexport const S = () => <div className={cx(inputClasses({ className: 'flex items-end gap-2' }), '${classes}')} />`)
+    const RECIPE = 'focus-within:border-brand focus-within:shadow-ring-brand dark:focus-within:border-brand-dark dark:focus-within:shadow-ring-brand-dark'
+    // The composer shell on main: Tailwind emits focus-within before hover, so the field's hover border won while both held.
+    expect(await shell(RECIPE)).toEqual([
+      'dark:focus-within:border-brand-dark vs dark:hover:border-flat-dark [border-color] (no dark+focus-within+hover twin)',
+      'focus-within:border-brand vs hover:border-flat-light [border-color] (no focus-within+hover twin)',
+    ])
+    expect(await shell(`${RECIPE} hover:focus-within:border-brand dark:hover:focus-within:border-brand-dark`)).toEqual([])
+    // The light twin alone: rule (b) asks for its dark twin, and (f) still sees the dark layer lose to dark:hover.
+    expect(await shell(`${RECIPE} hover:focus-within:border-brand`)).toEqual([
+      'dark:focus-within:border-brand-dark vs dark:hover:border-flat-dark [border-color] (no dark+focus-within+hover twin)',
+      'hover:focus-within:border-brand vs dark:border-border-dark [border-color] (no dark twin)',
+      'hover:focus-within:border-brand vs dark:hover:border-flat-dark [border-color] (no dark twin)',
+    ])
+    // A chain the field styles itself is rule (a)'s, not (f)'s: the delete-account pin gains nothing.
+    expect(await shell('focus:border-error-light dark:focus:border-error-dark')).toEqual(['focus:border-error-light vs focus:border-brand [border-color] (same chain)', 'dark:focus:border-error-dark vs dark:focus:border-brand-dark [border-color] (same chain)'].sort())
+    // Chains that cannot hold at once (a disabled control takes no focus) pass; an aria-disabled one can be disabled too.
+    expect(await shell('focus-within:cursor-text')).toEqual([])
+    expect(await shell('aria-disabled:cursor-text')).toEqual(['aria-disabled:cursor-text vs disabled:cursor-not-allowed [cursor] (no aria-disabled+disabled twin)'])
+    // The field wins by count, not by order: `aria-disabled:hover:` (0,3,0) over `focus:border-brand` (0,2,0).
+    expect(await shell('aria-disabled:hover:border-border-light dark:aria-disabled:hover:border-border-dark')).toEqual([
+      'aria-disabled:hover:border-border-light vs focus:border-brand [border-color] (no aria-disabled+focus+hover twin)',
+      'dark:aria-disabled:hover:border-border-dark vs dark:focus:border-brand-dark [border-color] (no aria-disabled+dark+focus+hover twin)',
+    ])
+    expect(
+      await shell('aria-disabled:hover:border-border-light dark:aria-disabled:hover:border-border-dark aria-disabled:hover:focus:border-brand dark:aria-disabled:hover:focus:border-brand-dark'),
+    ).toEqual([])
+    // A state layer over the field's own chain passes, as before.
+    expect(await shell('aria-disabled:bg-background-light dark:aria-disabled:bg-white/5')).toEqual([])
+    expect(await findingsOf(`import { inputClasses } from '@/components/ui'\nexport const S = () => <div className={inputClasses({ shell: true, className: 'flex items-end gap-2' })} />`)).toEqual([])
   })
 
   it("passes #1178's ink-fade fieldUnavailableClass, and fails it without its dark twins", async () => {
     const fade =
       'aria-disabled:cursor-not-allowed aria-disabled:bg-background-light aria-disabled:text-text-primary-light/60 aria-disabled:hover:border-border-light ' +
-      'dark:aria-disabled:bg-white/5 dark:aria-disabled:text-text-primary-dark/60 dark:aria-disabled:hover:border-border-dark'
+      'dark:aria-disabled:bg-white/5 dark:aria-disabled:text-text-primary-dark/60 dark:aria-disabled:hover:border-border-dark ' +
+      'aria-disabled:hover:focus:border-brand dark:aria-disabled:hover:focus:border-brand-dark'
     const site = (classes: string) => `${IMPORTS}const FADE = '${classes}'\nexport const U = () => <select className={clsx(inputClasses({ select: true, autoWidth: true }), FADE)} />`
     expect(await findingsOf(site(fade))).toEqual([])
     expect(await findingsOf(site(fade.replace(/ dark:aria-disabled:\S+/g, '')))).toEqual([
       'aria-disabled:bg-background-light vs dark:bg-white/5 [background-color] (no dark twin)',
       'aria-disabled:hover:border-border-light vs dark:border-border-dark [border-color] (no dark twin)',
       'aria-disabled:hover:border-border-light vs dark:hover:border-flat-dark [border-color] (no dark twin)',
+      'aria-disabled:hover:focus:border-brand vs dark:border-border-dark [border-color] (no dark twin)',
+      'aria-disabled:hover:focus:border-brand vs dark:focus:border-brand-dark [border-color] (no dark twin)',
+      'aria-disabled:hover:focus:border-brand vs dark:hover:border-flat-dark [border-color] (no dark twin)',
       'aria-disabled:text-text-primary-light/60 vs dark:text-text-primary-dark [color] (no dark twin)',
     ])
   })
@@ -842,6 +936,7 @@ export const S = () => <div className={cx(inputClasses({ className: 'flex items-
     expect(await at('border-b-0')).toEqual(['border-b-0 vs border [border-bottom-width] (same chain)'])
     expect(await at('focus:[box-shadow:none] dark:focus:[box-shadow:none]')).toEqual([
       'dark:focus:[box-shadow:none] vs dark:focus:shadow-ring-brand-dark [box-shadow] (same chain)',
+      'focus:[box-shadow:none] vs focus:ring-0 [box-shadow] (same chain)',
       'focus:[box-shadow:none] vs focus:shadow-ring-brand [box-shadow] (same chain)',
     ])
     // A placeholder colour utility styles the ::placeholder the field's `placeholder:` class styles.
@@ -892,6 +987,12 @@ export const S = () => <div className={cx(inputClasses({ className: 'flex items-
   })
 })
 
+/** Every combination of the options, built from the gate's own lists so a new flag joins it unasked. */
+const ALL: Options[] = BOOLEAN_OPTIONS.reduce<Options[]>(
+  (combos, k) => combos.flatMap((c) => [{ ...c, [k]: false }, { ...c, [k]: true }]),
+  DENSITIES.map((density) => ({ ...DEFAULTS, density })),
+)
+
 // ------------------------------------------------------------------------------------------------- width
 
 describe("the field's width is explicit", () => {
@@ -920,11 +1021,6 @@ describe("the field's width is explicit", () => {
 // ------------------------------------------------------------------------------------------------- padding
 
 describe("the field's padding is explicit", () => {
-  /** Every combination of the options, built from the gate's own lists so a new flag joins it unasked. */
-  const ALL: Options[] = BOOLEAN_OPTIONS.reduce<Options[]>(
-    (combos, k) => combos.flatMap((c) => [{ ...c, [k]: false }, { ...c, [k]: true }]),
-    DENSITIES.map((density) => ({ ...DEFAULTS, density })),
-  )
   const SIDES_OF: Record<string, string[]> = { p: ['t', 'r', 'b', 'l'], px: ['r', 'l'], py: ['t', 'b'], pt: ['t'], pr: ['r'], pb: ['b'], pl: ['l'] }
   /** Each side a combination's padding classes set: its screen (`sm:`, or '' for none), the side, the class. */
   const padding = (o: Options) =>
@@ -989,5 +1085,231 @@ describe("the field's padding is explicit", () => {
     // The gate reads <FieldSpinner /> as a control at the right edge: its classes must keep it inside the inset.
     const spinner = render(<FieldSpinner />).container.querySelector('svg')!.classList
     for (const c of ['absolute', 'right-3', 'h-4', 'w-4']) expect(spinner.contains(c), c).toBe(true)
+  })
+})
+
+// ------------------------------------------------------------------------------------------------- tone
+
+describe("the field's tone is one class per state", SLOW, () => {
+  /** The fields the components draw, with and without an error (a message, or `true` for none), Input with its
+      icon and loading insets too. */
+  const componentFields = () => {
+    const { container } = render(
+      <>
+        <Input aria-label="Input" />
+        <Input aria-label="Input error" error="Required" />
+        <Input aria-label="Input boolean error" error />
+        <Input aria-label="Input icon loading error" icon="i" loading error="Required" />
+        <Textarea aria-label="Textarea" />
+        <Textarea aria-label="Textarea error" error="Required" />
+        <Select aria-label="Select">
+          <option>x</option>
+        </Select>
+        <Select aria-label="Select compact error" density="compact" error="Required">
+          <option>x</option>
+        </Select>
+      </>,
+    )
+    return [...container.querySelectorAll('input, textarea, select')].map((el) => ({
+      name: el.getAttribute('aria-label')!,
+      invalid: el.getAttribute('aria-invalid') === 'true',
+      shell: false,
+      classes: [...el.classList],
+    }))
+  }
+  /** Every field the module draws: each combination of inputClasses() options, then the components. */
+  const fields = () => [
+    ...ALL.map((o) => ({ name: JSON.stringify(o), invalid: o.invalid, shell: o.shell, classes: inputClasses(o as InputClassesOptions).split(' ') })),
+    ...componentFields(),
+  ]
+
+  /** Two of a field's own classes that set one property of one element in one variant chain: stylesheet order,
+      not the field's state, decides between them. Tailwind's `transition-*` sets the default duration that its
+      `duration-*` exists to override, the one pairing it documents and the one exempt. */
+  const layered = (classes: string[]) => {
+    const parsed = classes.map(parseClass)
+    const durationPair = (a: string, b: string) => /^transition(-|$)/.test(a) && /^duration-/.test(b)
+    return parsed.flatMap((a, i) =>
+      parsed.slice(i + 1).flatMap((b) => {
+        if (!sameSet(a.chain, b.chain)) return []
+        const props = (declCache.get(a.utility) ?? []).flatMap((ae) =>
+          (declCache.get(b.utility) ?? [])
+            .filter((be) => joinTarget(a.target, ae.target) === joinTarget(b.target, be.target))
+            .flatMap((be) => ae.decls.filter((d) => be.decls.some((x) => x.prop === d.prop && !(x.plumbing && d.plumbing))))
+            .map((d) => d.prop)
+            .filter((prop) => !(prop === 'transition-duration' && (durationPair(a.utility, b.utility) || durationPair(b.utility, a.utility)))),
+        )
+        return props.length ? [`${a.token} vs ${b.token} ${propList(props)}`] : []
+      }),
+    )
+  }
+
+  it('sets each property once per variant chain, for every combination of the options and every component', async () => {
+    const all = fields()
+    await loadDeclarations(all.flatMap((f) => f.classes).map((t) => parseClass(t).utility))
+    expect(all.length).toBe(ALL.length + 8)
+    expect(all.filter((f) => f.invalid).length, '`invalid` is one of BOOLEAN_OPTIONS, and the components take `error`').toBe(ALL.length / 2 + 5)
+    for (const f of all) expect(layered(f.classes), f.name).toEqual([])
+  })
+
+  /** Each tone's border and ring by state: the classes that set the field's border colour, then its shadow, keyed
+      by variant chain. The error border holds on hover (the red names the problem), and a disabled field's hover
+      changes nothing in either tone. Each tone states its focus border even where it equals the rest border:
+      @tailwindcss/forms draws `input:where([type='text']):focus` and its siblings with a #2563EB border at
+      specificity 0,1,1, which a bare `border-*` class (0,1,0) loses to. Measured in Chromium, an error tone without
+      `focus:border-error-light` showed that blue border on focus in light. */
+  const TONES = {
+    default: {
+      border: {
+        '': 'border-border-light',
+        hover: 'hover:border-flat-light',
+        focus: 'focus:border-brand',
+        'disabled:hover': 'disabled:hover:border-border-light',
+        dark: 'dark:border-border-dark',
+        'dark:hover': 'dark:hover:border-flat-dark',
+        'dark:focus': 'dark:focus:border-brand-dark',
+        'dark:disabled:hover': 'dark:disabled:hover:border-border-dark',
+      },
+      ring: { focus: 'focus:shadow-ring-brand', 'dark:focus': 'dark:focus:shadow-ring-brand-dark' },
+    },
+    error: {
+      border: {
+        '': 'border-error-light',
+        focus: 'focus:border-error-light',
+        dark: 'dark:border-error-dark',
+        'dark:focus': 'dark:focus:border-error-dark',
+      },
+      // The dark ring is the light token until a dark ring-error exists (the focus-ring item #1178 recorded).
+      ring: { focus: 'focus:shadow-ring-error', 'dark:focus': 'dark:focus:shadow-ring-error' },
+    },
+  }
+  const SHELL_TONES = {
+    default: {
+      border: {
+        '': 'border-border-light',
+        hover: 'hover:border-flat-light',
+        'focus-within': 'focus-within:border-brand',
+        'focus-within:hover': 'hover:focus-within:border-brand',
+        dark: 'dark:border-border-dark',
+        'dark:hover': 'dark:hover:border-flat-dark',
+        'dark:focus-within': 'dark:focus-within:border-brand-dark',
+        'dark:focus-within:hover': 'dark:hover:focus-within:border-brand-dark',
+      },
+      ring: { 'focus-within': 'focus-within:shadow-ring-brand', 'dark:focus-within': 'dark:focus-within:shadow-ring-brand-dark' },
+    },
+    error: {
+      border: {
+        '': 'border-error-light',
+        'focus-within': 'focus-within:border-error-light',
+        dark: 'dark:border-error-dark',
+        'dark:focus-within': 'dark:focus-within:border-error-dark',
+      },
+      ring: { 'focus-within': 'focus-within:shadow-ring-error', 'dark:focus-within': 'dark:focus-within:shadow-ring-error' },
+    },
+  }
+  /** The classes that set `prop` on the field itself, keyed by their variant chain (sorted, `:`-joined). */
+  const setters = (classes: string[], prop: string) =>
+    Object.fromEntries(
+      classes
+        .map(parseClass)
+        .filter((c) => !c.target && (declCache.get(c.utility) ?? []).some((e) => !e.target && e.decls.some((d) => d.prop === prop)))
+        .map((c) => [[...c.chain].sort().join(':'), c.token]),
+    )
+
+  /** @tailwindcss/forms rings a focused field itself (`input:where([type='text']):focus`, `select:focus`, `textarea:focus`,
+      0,1,1: a 1px #2563EB ring; 2px past a 2px white offset on a checkbox or radio), and `shadow-ring-*` composites
+      `var(--tw-ring-offset-shadow), var(--tw-ring-shadow)` ahead of its own `--tw-shadow` instead of replacing them, so
+      the blue ring drew over the DS one on every field. Each field takes it off in the plain `focus` chain (0,2,0),
+      which outranks the plugin's rule and holds in both themes; a bare `ring-0` loses to it, and `focus-visible:` misses
+      the mouse focus the DS ring shows on. Measured on production builds: `rgb(37, 99, 235) 0px 0px 0px 1px` before
+      the DS ring on main, `0px` with the reset. */
+  it('every field takes off the forms plugin’s own focus ring', async () => {
+    // The composer Textarea has no tone (its shell draws the ring), so it is checked here and not in fields().
+    const composer = render(<Textarea aria-label="Composer" variant="composer" />).container.querySelector('textarea')!
+    const all = [...fields(), { name: 'Textarea composer', invalid: false, classes: [...composer.classList] }]
+    await loadDeclarations(all.flatMap((f) => f.classes).map((t) => parseClass(t).utility))
+    // Every class that sets the property, not one per chain: a second setter (`focus:ring-2` beside `focus:ring-0`)
+    // would win by stylesheet order, and the composer is outside the `layered` check below.
+    const every = (classes: string[], prop: string) =>
+      classes.filter((t) => (declCache.get(parseClass(t).utility) ?? []).some((e) => !e.target && e.decls.some((d) => d.prop === prop)))
+    for (const f of all) {
+      expect({ ring: every(f.classes, '--tw-ring-shadow'), offset: every(f.classes, '--tw-ring-offset-width') }, f.name).toEqual({
+        ring: ['focus:ring-0'],
+        offset: ['focus:ring-offset-0'],
+      })
+    }
+  })
+
+  /** Pairs of the field's own classes that hold at once and that Tailwind's variant order, not the state, decides. */
+  const orderDecided = (classes: string[]) => {
+    const parsed = classes.map(parseClass)
+    const out = new Set<string>()
+    for (const x of parsed) {
+      for (const y of parsed) {
+        if (x === y || isSubset(x.chain, y.chain) || isSubset(y.chain, x.chain)) continue
+        if (EXCLUSIVE.some(([p, q]) => (x.chain.has(p) && y.chain.has(q)) || (x.chain.has(q) && y.chain.has(p)))) continue
+        for (const xe of declCache.get(x.utility) ?? []) for (const ye of declCache.get(y.utility) ?? []) {
+          const target = joinTarget(x.target, xe.target)
+          if (target !== joinTarget(y.target, ye.target)) continue
+          const props = xe.decls.filter((d) => !d.plumbing && ye.decls.some((e) => e.prop === d.prop && e.value !== d.value && !e.plumbing)).map((d) => d.prop)
+          if (!props.length) continue
+          const union = new Set([...x.chain, ...y.chain])
+          const holders = parsed.filter((t) => isSubset(t.chain, union)).flatMap((t) =>
+            (declCache.get(t.utility) ?? []).filter((e) => joinTarget(t.target, e.target) === target).map((e) => ({ chain: t.chain, decls: e.decls.filter((d) => !d.plumbing && props.includes(d.prop)) })),
+          ).filter((h) => h.decls.length)
+          for (const prop of props) {
+            const setting = holders.filter((h) => h.decls.some((d) => d.prop === prop))
+            const maximal = setting.filter((h) => !setting.some((o) => o.chain.size > h.chain.size && isSubset(h.chain, o.chain)))
+            if (new Set(maximal.flatMap((h) => h.decls.filter((d) => d.prop === prop).map((d) => d.value))).size > 1) {
+              out.add([x.token, y.token].sort().join(' vs ') + ` (${[...union].sort().join('+')})`)
+            }
+          }
+        }
+      }
+    }
+    return [...out].sort()
+  }
+
+  /** The position of each class's rule in the stylesheet Tailwind emits for them (this config, globals.css as input). */
+  const ruleOrder = async (tokens: string[]) => {
+    const from = path.join(FRONTEND_ROOT, 'app/globals.css')
+    const css = await postcss([tailwindcss({ ...config, content: [{ raw: tokens.join(' '), extension: 'html' }], safelist: [] })]).process(readFileSync(from, 'utf8'), { from })
+    const order = new Map<string, number>()
+    let i = 0
+    css.root.walkRules((rule) => {
+      i += 1
+      const m = rule.selector.match(/^\.((?:\\[0-9a-fA-F]{1,6} ?|\\.|[\w-])+)/)
+      const token = m && unescapeCss(m[1])
+      if (token && tokens.includes(token) && !order.has(token)) order.set(token, i)
+    })
+    return order
+  }
+
+  it('the default tone leaves only focus-over-hover to variant order, and Tailwind emits focus after hover; no other tone leaves any', async () => {
+    const all = fields()
+    await loadDeclarations(all.flatMap((f) => f.classes).map((t) => parseClass(t).utility))
+    const FOCUS_OVER_HOVER = [
+      'dark:focus:border-brand-dark vs dark:hover:border-flat-dark (dark+focus+hover)',
+      'dark:focus:border-brand-dark vs hover:border-flat-light (dark+focus+hover)',
+      'dark:hover:border-flat-dark vs focus:border-brand (dark+focus+hover)',
+      'focus:border-brand vs hover:border-flat-light (focus+hover)',
+    ]
+    for (const f of all) {
+      expect(orderDecided(f.classes), f.name).toEqual(!f.shell && !f.invalid ? FOCUS_OVER_HOVER : [])
+    }
+    const order = await ruleOrder(['hover:border-flat-light', 'focus:border-brand', 'dark:hover:border-flat-dark', 'dark:focus:border-brand-dark'])
+    expect(order.get('focus:border-brand')!).toBeGreaterThan(order.get('hover:border-flat-light')!)
+    expect(order.get('dark:focus:border-brand-dark')!).toBeGreaterThan(order.get('dark:hover:border-flat-dark')!)
+  })
+
+  it('`invalid` and the components’ `error` pick the error tone, and every other field the default one, by state', async () => {
+    const all = fields()
+    await loadDeclarations(all.flatMap((f) => f.classes).map((t) => parseClass(t).utility))
+    for (const f of all) {
+      expect(
+        { border: setters(f.classes, 'border-top-color'), ring: setters(f.classes, '--tw-shadow') },
+        f.name,
+      ).toEqual((f.shell ? SHELL_TONES : TONES)[f.invalid ? 'error' : 'default'])
+    }
   })
 })

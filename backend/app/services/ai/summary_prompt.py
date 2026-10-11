@@ -144,13 +144,6 @@ def build_primary_request(
                        .replace("<financial_driver>", facade.FINANCIAL_DRIVER)
                        .replace("<earnings_reconciliation>", facade.EARNINGS_RECONCILIATION))
 
-    output_reference = ""
-    if prompt_template.user:
-        output_reference = (
-            "\n\nOUTPUT REFERENCE (use for content coverage; respond in JSON schema below):\n"
-            f"{prompt_template.user}\n"
-        )
-
     # Roadmap S1 (flagged): in structured-output mode use the schema-first prompt (which
     # omits the narrative "produce a cohesive markdown summary / 600-1000 words" block that
     # contradicts the JSON demand). Off → current behavior, unchanged.
@@ -178,7 +171,7 @@ Guidance for emphasis:
 CRITICAL FILING EXCERPTS:
 {filing_sample}
 
-{output_reference}
+
 
 Return ONLY valid JSON (no markdown fences) that matches this schema (replace placeholders with actual values or meaningful nulls). Every string must contain substantive content—never emit blank strings or placeholder tokens, except `results_that_matter.table[].supporting_evidence` and `notable_footnotes[].supporting_evidence`, which must be "" when no exactly-copyable prose span exists. Arrays must never be empty (exceptions: `results_that_matter.table` is empty when no reported metric is substantiated; `segments` is OMITTED entirely when no segments are listed, and `red_flags` / `highlights` / `quotes` are left EMPTY when nothing qualifies — a quote you cannot copy exactly does NOT qualify; no filler); otherwise, if no verifiable bullet exists, supply a single-element array with "Not disclosed—<concise reason>":
 {schema_template}

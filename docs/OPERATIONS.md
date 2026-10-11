@@ -418,6 +418,7 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 | Endpoint | Purpose |
 |----------|---------|
 | `POST /email/test` | Send a test email via Resend (diagnoses email config; defaults to admin's own address) |
+| `POST /users/free` | Create a new Free, non-beta, non-admin account and email a single-use password setup link; never edits an existing account |
 | `DELETE /filing/{id}/summary` | Delete summary for a filing |
 | `DELETE /filing/{id}/xbrl` | Clear XBRL cache for a filing |
 | `DELETE /filing/{id}/reset` | Full reset (summary, XBRL, content cache, progress) |
@@ -427,6 +428,29 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 | `POST /filings/bulk-reset-stale` | Bulk reset stale filings (supports dry_run) |
 | `POST /summaries/reset-all` | Bulk delete summaries by form so they regenerate with current prompts; skips saved (bookmarked) rows unless `include_saved=true` (supports dry_run) |
 | `POST /summaries/refresh-stale` | Bulk **in-place** refresh of version-stale summaries (below a `schema_version`, or stale vs the current schema+prompt version) via the one orchestrator with `force_regenerate=True`; preserves `summaries.id` so bookmarks survive, keep-better quality gate prevents downgrading a summary the filing page shows (a stored row the page cannot show is always replaced), `dry_run` reports the staleness count. Returns honest per-filing outcomes (`updated`/`kept_by_gate`/`failed`): a row the keep-better gate keeps stays **stale** and may be re-selected on a later call. Candidates are sampled at random per call, so a filing that consistently loses to the gate is a diminishing nuisance, not a permanent head-of-line wedge. If `stale_total` stops shrinking, the head of the queue keeps losing to the gate — narrow with `filing_type`/`schema_version_lt`. |
+
+### Test accounts
+
+`freeuser@earningsnerd.io` (user id 9) is the founder's free-plan test account, kept indefinitely for checking what a free user sees. It is Free, non-beta and non-admin, and its address is an alias of the founder's mailbox. Its checkouts reuse one live Stripe Customer created for verification and are never paid.
+
+- Leave it out of funnel, revenue and user-count readouts by filtering on user id 9. That includes the `checkout_started` events its Upgrade clicks fire.
+- Nothing deletes it: the retention purge never deletes accounts (`backend/app/services/retention_service.py`).
+
+To create another test account, use an authenticated admin session to send
+`POST /api/admin/users/free` with JSON containing `email` (an address whose inbox the tester
+controls) and optional `full_name`. A successful request returns HTTP 201 with the new account's
+id and flags: Free, non-beta, non-admin and initially unverified. It emails the existing
+password-reset flow's single-use setup link, valid for one hour. Completing that flow sets the
+password and verifies inbox ownership. The response never contains the password or raw token.
+
+An existing email returns HTTP 409 and leaves that account unchanged. If the response has
+`emailed: false`, the new account still exists; use the site's forgot-password flow to request
+another setup email. Do not retry creation for the same address.
+
+The monthly trial is available once per account. To test the first-subscription trial again
+after an actual trial or subscription, create a fresh Free account. Opening an unpaid Checkout
+preview and leaving it unsubmitted does not consume that eligibility, so those checks can
+reuse the existing test account. Leave the retained user id 9 unchanged.
 
 ### Verification Scripts
 

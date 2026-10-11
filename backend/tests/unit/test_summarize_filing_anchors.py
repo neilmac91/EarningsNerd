@@ -328,8 +328,8 @@ def _a2_tax_and_reconciliation():
 
 
 # (case, builder, message expected, raw_summary keys beyond the always-present ones). Each conditional key of
-# openai_service.py:1003-1037 is absent in "bare" and present in at least one case; the dead writer keys
-# (:964-966 are constant None, :1027-1032) are absent everywhere.
+# openai_service.py:1003-1037 is absent in "bare" and present in at least one case; the writer keys
+# (:1027-1032), dead because :964-966 set them to a constant None, are removed and absent everywhere.
 _A2_CASES = [
     ("bare", _a2_bare, False, set()),
     ("partial", _a2_partial, True, set()),
