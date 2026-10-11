@@ -110,9 +110,9 @@ frontend: npm run lint                      eslint . --max-warnings 0           
 frontend: npx tsc -p tsconfig.ci.json                                           exit 0
 frontend: npm run build                     Next 16 production build, CI's env   exit 0
 frontend: npm run test -- --run             Test Files 186 passed (186); Tests 1802 passed (1802)
-frontend: playwright (home-page-unauthenticated, not-found-page, text-floors; next start, no backend,
+frontend: npx playwright test (the whole suite; next start, no backend, CI's env:
           NEXT_PUBLIC_API_BASE_URL=http://localhost:8000, WAITLIST_MODE=false,
-          NEXT_PUBLIC_ENABLE_ANALYSIS=true; serial)          20 passed (21.7s)
+          NEXT_PUBLIC_ENABLE_ANALYSIS=true; 2 workers)        205 passed, 3 skipped (6.7m)
 backend:  ruff check .                      All checks passed!
 backend:  bandit -r app -ll                 no findings                          exit 0
 backend:  python -m pytest                  11 failed, 6726 passed, 39 skipped in 563.58s
