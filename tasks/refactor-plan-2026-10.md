@@ -40,6 +40,35 @@ folded in (see [Verification](#verification-how-the-plans-claims-were-checked-an
 
 ## Implementation Notes / Deltas (recorded during execution)
 
+**Programme completed, 2026-10-11.** All planned move/split PRs and the final
+[actual-size Ratchet #1220](https://github.com/neilmac91/EarningsNerd/pull/1220) are merged.
+I2's reader repoints were included in X4; optional X5 was taken. The
+[execution and spend ledger](refactor-closeout-2026-10.md) retains each reviewed head,
+AST/phase proof, gate provenance, evaluation verdict and verified serial release.
+The separate timestamp/behavior follow-ups and founder prompt-byte decision remain open.
+
+**Measured target correction, 2026-10-11.** Original forecasts below remain historical:
+
+| Facade | Original estimate | Final lines | Disposition |
+|---|---|---|---|
+| Copilot M1 | ≈800 | 619 | Within estimate |
+| Facts M2 | ≤60 | 60 | Met |
+| Trend M3 | ≤60 | 204 | Exceeded; compatibility imports/exports retained in T3 |
+| OpenAI M4 | ≈670–840 | 574 | Below estimate band |
+| XBRL M5 | ≤300 | 348 | Exceeded; async class/method ownership and compatibility surface retained in X5 |
+| Instance M6 | ≈45 | 71 | Exceeded; complete compatibility contract retained in I1 |
+
+Ratchet now explicitly covers 55 current files: six facades and 49 destination
+modules. The 53 nonempty files use actual newline counts; two empty initializers
+use the schema minimum of 1. All 49 former implicit 600-line ceilings are explicit.
+The existing 600/80 defaults and 100/20 stale-row allowances remain. Six unchanged
+long-function exceptions remain: `_resolve_citations` 114, `reconcile_facts` 109,
+`upsert_facts_bulk` 84, `remediate_industry_facts` 102,
+`_assemble_structured_summary` 87 and `get_xbrl_data` 81. No ceiling was raised or
+new exception added. The measured deviations preserve the pure-move contract;
+source formatting was not compressed to force the original estimates.
+
+
 Where execution diverges from the plan below, log it here. The plan text is preserved as the
 original proposal; these notes are authoritative for what actually shipped.
 
@@ -161,7 +190,7 @@ original proposal; these notes are authoritative for what actually shipped.
 - **Wave 0 closed (2026-10-10).** W0.G and all six anchor PRs are merged. The
   [closeout evidence](refactor-wave0-closeout-2026-10.md) links each mutation record, the proof
   hardening in #1174/#1177, the current full-suite baseline and every retained paid run.
-  Dead is the next PR; I1 starts after Dead's gates, review and verified deployment.
+  Dead and all subsequent refactor stages are complete; the [final closeout](refactor-closeout-2026-10.md) records their reviews, proofs, evaluations and verified releases.
 - **Spend log** (decision 1). Rows land in tasks-only PRs, batched once per wave and never in a
   refactor PR, because a push to a code-bearing PR re-fires `eval-baseline` and parallel PRs would
   collide on the running total. Each balance reading gets its own row. A second `copilot-eval` run on
@@ -173,6 +202,11 @@ original proposal; these notes are authoritative for what actually shipped.
   The [Wave 0 spend table](refactor-wave0-closeout-2026-10.md#wave-0-spend) records USD 0.133491
   in estimated inference cost from job telemetry, including the cancelled run that completed its
   paid calls. Provider balance changes also include other programmes and production traffic.
+  The [final consolidated ledger](refactor-closeout-2026-10.md#spend-ledger) counts Wave 0 once:
+  **USD 3.815166 known + USD 0.553850 retained unknown-call hold = USD 4.369016 / 18**,
+  with no open evaluation reservations. The final free balance read was **USD 17.97**
+  at **2026-10-11T02:47:28.4876132Z**, above the USD 5 floor. The T4 provider-error
+  cost remains unknown; the hold is retained rather than inferred from wallet movements.
 
 ---
 
