@@ -74,12 +74,12 @@ async function mockApi(context) {
   await context.route(/^https?:\/\/(?!localhost)/, (route) => route.abort())
 }
 
-async function measure(page, configuredWidth) {
+async function measure(page, configuredWidth, expectedRows) {
   // Mobile Chromium widens the layout viewport to overflowing content, so innerWidth cannot detect
   // overflow: compare the document with the configured viewport width instead. The probes read the
   // rendered text (text-node rectangles and scrollWidth per block, `.sr-only` excluded), test both
   // sides of each cell's content box, and visit every scroll rest position, as the prototype's do.
-  return page.evaluate(async (vw) => {
+  return page.evaluate(async ({ vw, expectedRows }) => {
     const doc = document.documentElement
     const r = (el) => el.getBoundingClientRect()
     const EPS = 0.5
@@ -162,7 +162,7 @@ async function measure(page, configuredWidth) {
     const probeErrors = []
     if (counts.kpiCards !== 4) probeErrors.push(`expected 4 KPI cards, found ${counts.kpiCards}`)
     if (counts.tableHeaders !== 13) probeErrors.push(`expected 13 table header cells, found ${counts.tableHeaders}`)
-    if (counts.tableRows < 10) probeErrors.push(`expected the metric rows, found ${counts.tableRows}`)
+    if (counts.tableRows !== expectedRows) probeErrors.push(`expected the dataset's ${expectedRows} metric rows, found ${counts.tableRows}`)
     return {
       viewport: vw,
       layoutViewport: window.innerWidth,
@@ -177,7 +177,7 @@ async function measure(page, configuredWidth) {
       kpi,
       table: tableInfo,
     }
-  }, configuredWidth)
+  }, { vw: configuredWidth, expectedRows })
 }
 
 async function run() {
@@ -200,7 +200,7 @@ async function run() {
       await page.getByRole('heading', { name: 'AI trend analysis' }).waitFor({ timeout: 30000 })
       await page.evaluate(() => document.fonts.ready)
       await page.waitForTimeout(600)
-      const m = await measure(page, cfg.width)
+      const m = await measure(page, cfg.width, state.dataset.series.length)
       if (m.probeErrors.length) throw new Error(`${theme} ${cfg.name}: ${m.probeErrors.join('; ')}`)
       results.configs.push({ theme, ...cfg, ...m })
       if (SHOTS) {

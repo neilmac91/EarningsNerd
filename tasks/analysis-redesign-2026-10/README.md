@@ -31,7 +31,7 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   script selects Quarterly, mocks the API's field names, stores the app's consent key, waits for fonts,
   finds the shipped markup by data attribute (`[data-analysis-kpi]`, `[data-kpi-value]`,
   `[data-analysis-data-notes]`) with a fallback to the `97293e7` markup, and fails the run when a probe
-  does not find what it expects (4 cards, 13 header cells, the metric rows).
+  does not find what it expects (4 cards, 13 header cells, exactly the dataset's 20 metric rows).
 - `harness/measure-proto.mjs` — the same probes on the prototype, in every state and both views, at
   1480 / 1054 / 1024 / 768 / 390 / 320 CSS px, light and dark, 200% browser zoom (CSS viewport halved at
   2x) and 200% text size at 1480, 390 and 320. Output: `measurements/prototype.json`. Since the
@@ -39,7 +39,8 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   `scrollWidth` against `clientWidth` of every block, `.sr-only` excluded), test cell text against the
   cell's content box on both sides (a right-aligned overflow runs to the inline start, which `scrollWidth`
   never counts), visit every scroll rest position for a header straddling the sticky edge, assert their
-  element counts (4 cards; 13 header cells in the 12-quarter window and 7 in Newest 6; the metric rows) so
+  element counts (4 cards; 13 header cells in the 12-quarter window and 7 in Newest 6; exactly the
+  dataset's 20 metric rows) so
   a probe that finds nothing fails the run, and record the Chromium, platform, commit and prototype tree
   hash of the run, refusing uncommitted prototype or harness files unless `--allow-dirty` records them (the
   committed run was taken from a committed tree). `EN_PROTO.state.noPad = true` removes the whole-column pad for
@@ -47,9 +48,10 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
 - `harness/build_states.py`, `harness/prune_states.py` — reproduce `prototype/data/` from a saved
   companyfacts payload.
 - `measurements/` — the two recorded runs the proposal cites.
-- `astra-prompt.md` — the hand-over prompt for the implementing agent (GPT-6 Astra / Codex), with the
-  founder's five §9 decisions recorded and the review's amendment to decision 4 and decisions 6–9 marked
-  as awaiting the founder's confirmation.
+- `astra-prompt.md` — the briefing prompt the founder asked for, to paste into the implementing agent's
+  session (GPT-6 Astra / Codex). The hand-over of record is the Engineering row in `tasks/todo.md`
+  (`AGENTS.md` §7); the proposal's §7 and §9 carry the status and the founder's decisions, and the prompt
+  points at them rather than restating them.
 - `review-2026-10-10.md` — the comprehensive review's findings, ranked, with what each changed in this
   folder and in the proposal and what remains open for the implementation.
 

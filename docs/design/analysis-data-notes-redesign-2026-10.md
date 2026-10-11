@@ -870,7 +870,12 @@ and the Engineering row in `tasks/todo.md` does not pre-authorize them).
 5. Whether the table window should also drive the charts. Recommended: no.
 
 **Amended and added by the comprehensive review (2026-10-10, evening).** Each is implemented in the
-prototype as recommended; the founder may overrule any of them.
+prototype as recommended; the founder may overrule any of them. On `main` at `dd7b9ce` (2026-10-11):
+decision 6 is shipped (#1202) and stands pending ratification, so overruling it is a rollback follow-up;
+the amended 4, 7, 8 and 9 are not shipped (`TrendCharts.tsx` still draws an affected bar as a dashed
+outline, `PeriodPicker.tsx`'s presets are still an `aria-pressed` group, `SourceValue.tsx` still says
+"Withheld" and `DataNotes.tsx` still counts figures that "passed"), so the implementation pause applies to
+those four.
 
 4 (amended). Decision 4 was measured at 100% text only. At 200% text a 390 px phone shows 55 px of
    card overflow two-up and 90 px at 320. Recommended and implemented: two-up stays at 320 px and 100%

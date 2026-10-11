@@ -3,8 +3,10 @@
 > **What this is.** A ready-to-paste first message for a GPT-6 Astra / Codex session on this repository,
 > continuing the design proposal in `docs/design/analysis-data-notes-redesign-2026-10.md`. It hands over
 > everything the proposing session knew, states what is decided and what is open, and names the gates.
-> Paste everything below the cut line. The founder's decisions are recorded in the
-> "Founder decisions" block, so both tracks apply.
+> Paste everything below the cut line. This file is briefing material the founder asked for, not the
+> hand-over of record: that is the Engineering row in `tasks/todo.md` (`AGENTS.md` §7), which carries the
+> status and the next step, while the proposal's §7 and §9 carry the brief's status and the founder's
+> decisions; this file restates none of them as authority.
 
 ---8<--- copy everything below this line ---8<---
 
@@ -58,12 +60,11 @@ The Track A verification of 2026-10-10 (PR #1197) found a phone overflow in the 
 list of brief corrections; all are folded into the proposal's §11 and the sections it names. Read §11
 before building.
 
-Status on 2026-10-10 (evening): Track A is done (the verification comment on #1197). Phase 1 items 1–2
-and 11 landed in #1199, items 3–4 in #1200, item 5 in #1202 and items 6–9 in #1203, all merged to
-`main`, and item 10 (the layout gate) with the dark sticky-hover fix in #1206 (2026-10-11); the proposal's
-§7 carries the same status line. Open: the follow-ups ranked in
-`tasks/analysis-redesign-2026-10/review-2026-10-10.md` (read it first: it names what the landed items and
-the gate still owe, each with its evidence and fix), and Phase 2 (rewritten in §7 after the review).
+Status: the Engineering row in `tasks/todo.md` and the proposal's §7 status block are the record of which
+PRs landed which items and what is next; this file does not restate them. Track A is done (the
+verification comment on #1197). Read `tasks/analysis-redesign-2026-10/review-2026-10-10.md` first: it names
+what the landed items and the gate still owe, each with its evidence and fix; Phase 2 is rewritten in §7
+after the review.
 
 The quarterly data repair (`docs/quarterly-data-repair.md`, #1191) is a separate operational action. The UI
 must look right before it (state 2) and after it (state 1). Never mark a legacy record validated from the
@@ -71,22 +72,17 @@ frontend, never hide a note, never show the word "verified".
 </context>
 
 <founder_decisions>
-Taken on 2026-10-10 (the founder: "regarding decisions for founder - i'm aligned with your
-recommendations"); these five are confirmed and Track B is unblocked on them:
-1. Note mark: letters a, b, c.
-2. Column snapping: mandatory, with the whole-column scroll-range rule.
-3. Period vocabulary: "Q2 2026" in prose, labels and dialogs, "Q2 ’26" where space is short, on the
-   analysis surfaces and their exports; the filing and company pages keep their own vocabulary.
-4. KPI strip stays two-up at 320 px.
-5. The table window does not drive the charts.
-
-NOT yet confirmed (proposal §9, "Amended and added by the comprehensive review"): the amendment to
-decision 4 (cards one-up when the page is narrower than 17 em of its own text size, which is 200% text
-on a phone) and the added decisions 6–9 (the table's glyph budget that #1202 shipped; filled bars;
-presets as plain buttons; "Unavailable" and "No figures need review"). They are recommended and
-implemented in the prototype only. Treat each as a founder pause (`AGENTS.md` §3): do not implement
-it on `main` until the founder confirms it in writing, and say in the PR body which of them a PR
-relies on. Decision 6 is already on `main` (#1202); if the founder overrules it, that is a follow-up.
+Proposal §9 is the record of the founder's decisions; this block only points at it. Five were taken on
+2026-10-10 (the founder: "regarding decisions for founder - i'm aligned with your recommendations"):
+letters as the note mark; mandatory column snapping with the whole-column range rule; the "Q2 2026" /
+"Q2 ’26" vocabulary on the analysis surfaces and their exports; the KPI strip two-up at 320 px; the table
+window not driving the charts. Track B is unblocked on them. Under "Amended and added by the
+comprehensive review", the amendment to decision 4 and decisions 6–9 are NOT yet confirmed: decision 6
+(the table's glyph budget) is on `main` (#1202) pending ratification, so overruling it is a rollback
+follow-up; the amended 4 (one-up cards below 17 em), 7 (filled bars), 8 (presets as plain buttons) and 9
+("Unavailable", "No figures need review") are not on `main` and are implemented in the prototype only:
+treat each as a founder pause (`AGENTS.md` §3), do not implement it until the founder confirms it in
+writing, and say in the PR body which of them a PR relies on.
 </founder_decisions>
 
 <task>
@@ -114,9 +110,8 @@ gate (`npm run lint && npx tsc -p tsconfig.ci.json && npm run test -- --run && n
 gate (`tests/e2e/analysis-layout.spec.ts`, #1206); the Phase 2 PRs, which change backend services, with the
 full backend gate from `backend/` (`ruff check . && bandit -r app -ll && python -m pytest`) as well, plus
 the frontend gate whenever they touch `frontend/` (the exports' letters, the narrative's rendering) and the
-offline fidelity test and observation-selector gate §7 Phase 2 names. Order: items 1–2 (model and mark, with the allowlist gate and the design-doc updates of item 11
-in the same PR; done in #1199), then 3–4 (KPI strip, Data notes strip; done in #1200), then 5 (DataTable
-options + MetricsTable; done in #1202), then 6–9 (done in #1203), then 10 (done in #1206), then the review file's follow-ups. Phase 2 (backend `data_notes`, exports, narrative rendering)
+offline fidelity test and observation-selector gate §7 Phase 2 names. Order: Phase 1's items 1–11 are on `main` (the todo row and §7 name the PRs); next the review file's
+follow-ups, the gate's leftovers among them. Phase 2 (backend `data_notes`, exports, narrative rendering)
 follows after Phase 1 is on production; it changes `trend_analysis/*` and the export services only, never
 the facts service (`facts_service.py` and the `facts/` package behind it since #1210), prompts or evals, so
 no eval re-pin.

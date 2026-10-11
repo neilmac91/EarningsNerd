@@ -10,7 +10,7 @@
 // directory's tree hash (`git rev-parse <any later commit>:tasks/analysis-redesign-2026-10/prototype`
 // reproduces it) and the list of uncommitted prototype or harness files, and the run refuses to start
 // with such files unless --allow-dirty records them. Every probe asserts its element counts (4 cards, 13
-// header cells in the 12-quarter window and 7 in Newest 6, the metric rows), so a probe that finds
+// header cells in the 12-quarter window and 7 in Newest 6, exactly the dataset's metric rows), so a probe that finds
 // nothing fails the run instead of recording a clean result.
 //
 // Run from tasks/analysis-redesign-2026-10/. With --fonts, Google Fonts requests are answered from a
@@ -56,13 +56,13 @@ async function routeFonts(context) {
 }
 
 // A probe that finds nothing must fail the run, never record a clean result (measure-current.mjs does the same).
-function expectCounts(m, headers, key) {
+function expectCounts(m, headers, rows, key) {
   const problems = []
   if (!m.kpi || m.kpi.length !== 4) problems.push(`${(m.kpi || []).length} KPI cards, expected 4`)
   if (!m.table) problems.push('no metrics table')
   else {
     if (m.table.columns.length !== headers) problems.push(`${m.table.columns.length} header cells, expected ${headers}`)
-    if (!(m.table.rows >= 10)) problems.push(`${m.table.rows} metric rows, expected at least 10`)
+    if (m.table.rows !== rows) problems.push(`${m.table.rows} metric rows, expected the dataset's ${rows}`)
   }
   if (problems.length) throw new Error(`${key}: ${problems.join('; ')}`)
 }
@@ -82,6 +82,7 @@ async function run() {
       await page.goto(PROTO_URL, { waitUntil: 'load' })
       await page.evaluate(() => document.fonts.ready)
       for (const stateName of STATES) {
+        const rows = await page.evaluate((s) => window.EN_STATES[s].dataset.series.length, stateName)
         for (const mode of MODES) {
           await page.evaluate(({ stateName, mode, textZoom }) => {
             window.EN_PROTO.state.stateName = stateName
@@ -92,14 +93,14 @@ async function run() {
           }, { stateName, mode, textZoom: cfg.textZoom || null })
           await page.waitForTimeout(120)
           const m = await page.evaluate((w) => window.EN_PROTO.measure(w), cfg.width)
-          expectCounts(m, 13, `${stateName}/${mode}/${theme}/${cfg.name}`)
+          expectCounts(m, 13, rows, `${stateName}/${mode}/${theme}/${cfg.name}`)
           // Does the proposed table fit without scrolling in the "Newest 6" window?
           let window6 = null
           if (mode === 'proposed') {
             await page.evaluate(() => { window.EN_PROTO.state.window = '6n'; window.EN_PROTO.render() })
             await page.waitForTimeout(80)
             const m6 = await page.evaluate((w) => window.EN_PROTO.measure(w), cfg.width)
-            expectCounts(m6, 7, `${stateName}/${mode}/${theme}/${cfg.name}/newest6`)
+            expectCounts(m6, 7, rows, `${stateName}/${mode}/${theme}/${cfg.name}/newest6`)
             window6 = m6.table
             await page.evaluate(() => { window.EN_PROTO.state.window = '12'; window.EN_PROTO.render() })
             await page.waitForTimeout(80)
