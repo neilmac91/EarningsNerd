@@ -4,8 +4,8 @@ Recorded 2026-10-11T09:02Z, by the successor chief (`https://claude.ai/code/sess
 Context: record 22 merged to main as `322e12d8` (PR #1184, 2026-10-10T15:11:22Z) and the read-back follow-ups PR as `f64d6040`
 (PR #1195, 2026-10-11T08:31:21Z); GitHub deleted the records branch `claude/stoic-wright-6jeujo` at #1184's merge, and it was
 recreated at main `f64d6040` (2026-10-11T08:35:52Z) before this record's first commit. This PR: this record, closure 174, the
-checkpoint, the appointments file, the archive ledger's record-23 entry and `tasks/todo.md` (one CODE RED line extended and one
-added; the standing, another writer's, untouched): no application code, workflow, migration, cloud, IAM or production change (nothing
+checkpoint, the appointments file, the archive ledger's record-23 entry and `tasks/todo.md` (one CODE RED line extended, one
+added, and one founder line added; the standing, another writer's, untouched): no application code, workflow, migration, cloud, IAM or production change (nothing
 under `backend/`, so the merge deploys nothing); no provider call; no reservation; nothing opened under
 `tasks/readiness-2026-09-21/acceptance/` or `tasks/review-evidence/`. The four `ops.yml` dispatches of this record (one cancelled by
 the workflow's own concurrency group) are read-only operations run from `main` by the founder's account; they changed nothing.
@@ -227,9 +227,9 @@ PERMITTED (3 recent entries visible)`; the denied branch, now a closed class, st
    (logs-probe twice), each redacted locally and the raw copy deleted, and two PR backend-test logs read only for their result
    lines; four read-only `ops.yml` dispatches (one cancelled); PR #1184's body edited, eight `@codex review`
    requests, Codex's six findings answered in their threads and the threads resolved, marked ready and squash-merged; PR #1195 opened
-   as a draft, its title and body edited, three `@codex review` requests, marked ready and squash-merged; three cross-session messages
-   to the merge trains, all before #1195's merge (session `018w7VWiSMYqGddE2thede6V` at about 23:14Z and again at 08:26Z, session
-   `01XCLCs7hHjZamJ3x4bQMaCL` at 08:26Z; one reply received); the records branch
+   as a draft, its title and body edited, three `@codex review` requests, marked ready and squash-merged; four cross-session messages
+   to the merge trains (session `018w7VWiSMYqGddE2thede6V` before #1184's merge at 15:07Z, at about 23:14Z and again at 08:26Z;
+   session `01XCLCs7hHjZamJ3x4bQMaCL` at 08:26Z; one reply received); the records branch
    recreated from main; a local throwaway merge branch for the pre-merge gate, never pushed and deleted; agent and workflow launches as
    closure 174 registers; scratchpad only otherwise (the chief deleted the finished review workflow's 13 GB of per-agent copies).
 7. **Other writers' read-only dispatches:** ops run 38088527035 (2026-10-10T21:40:32Z, `describe-service` on main `a74df3b2`) was not
