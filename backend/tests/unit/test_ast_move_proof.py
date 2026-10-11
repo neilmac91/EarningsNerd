@@ -544,15 +544,16 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
     old file's import had run first: a call, a reference (what is done with it is not followed), through any
     chain of defs or a class's methods, a lambda handed to a call (``sorted(key=...)``, ``map``, one called where
     it stands, in a default or a class body), a member its class body calls, a decorator that is handed the def
-    (an ``async def`` too), a class whose bases or keywords may call its methods when it is created, and a
-    method's decorator in the class body. An annotation that is no lone name or literal runs code where Python
-    evaluates it (a call, a subscript's ``__class_getitem__``), and a def whose annotation names a reaching class
-    holds it: what reads its ``__annotations__`` may call it. Below the binding each is settled, and so is a
-    reaching def or class that nothing above the binding names or calls: a lambda that no call is handed, one
-    that an inert decorator or a property's own accessor wraps, a class whose only base is a builtin class (one
-    no binding the base's lookup sees replaces: a def's local or a comprehension's target does not), and a lone
-    name an annotation evaluates, which Python stores and never calls (a postponed annotation is not even
-    evaluated)."""
+    (an ``async def`` too), a class whose bases or keywords may call its methods when it is created, a
+    method's decorator in the class body, and what a member class's body creates when it runs: a nested class on
+    a base that may call it, a nested def under a calling decorator. An annotation that is no lone name or
+    literal runs code where Python evaluates it (a call, a subscript's ``__class_getitem__``), and a def whose
+    annotation names a reaching class holds it: what reads its ``__annotations__`` may call it. Below the binding
+    each is settled, and so is a reaching def or class that nothing above the binding names or calls: a lambda
+    that no call is handed, one that an inert decorator or a property's own accessor wraps (in a nested class
+    too), a class whose only base is a builtin class (one no binding its lookup sees replaces: a def's local, a
+    comprehension's target or another class's body does not), and a lone name an annotation evaluates, which
+    Python stores and never calls (a postponed annotation is not even evaluated)."""
     target = "def normalize(value):\n    return value.strip()\n"
     report_init = "class Report:\n    def __init__(self):\n        normalize(' x ')\n\n\n"
     report_class = "class Report:\n    def render(self):\n        return normalize(' x ')\n\n\n"
@@ -589,6 +590,15 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
             ("FOUND = [(Exception := Base) for _ in (1,)]\n\n\n" + error, "FooError"),
             ("class Box:\n    Exception = Base\n\n    class FooError(Exception):\n        def __str__(self):\n"
              "            return normalize(' boom ')\n", "Box.FooError"),
+            ("class Base:\n    def __init_subclass__(cls, **kwargs):\n        super().__init_subclass__(**kwargs)\n"
+             "        cls.hook()\n\n\nclass Outer:\n    class Inner:\n        class Deep(Base):\n            @classmethod\n"
+             "            def hook(cls):\n                return normalize(' x ')\n", "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        @register\n        def hook():\n            return normalize(' x ')\n",
+             "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        class Deep(metaclass=Base):\n            def clean(self):\n"
+             "                return normalize(' x ')\n", "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        Exception = Base\n\n        class Deep(Exception):\n"
+             "            def __str__(self):\n                return normalize(' boom ')\n", "Outer.Inner"),
             (report_init + "def build(value: Report()):\n    return value\n", "build"),
             (report_init + "def build() -> Report():\n    return 1\n", "build"),
             ("class Report:\n    def __class_getitem__(cls, item):\n        return normalize(' x ')\n\n\n"
@@ -614,6 +624,13 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    error,
                    "def helper():\n    Exception = object\n    return Exception\n\n\n" + error,
                    "PICK = lambda Exception: Exception\nNAMES = [Exception for Exception in ()]\n\n\n" + error,
+                   "class Other:\n    Exception = object\n\n\n" + error,
+                   "class Outer:\n    class Inner:\n        class Deep(Exception):\n            def __str__(self):\n"
+                   "                return normalize(' boom ')\n",
+                   "class Outer:\n    class Inner:\n        @staticmethod\n        def hook():\n"
+                   "            return normalize(' x ')\n\n        @property\n        def value(self):\n"
+                   "            return self._v\n\n        @value.setter\n        def value(self, raw):\n"
+                   "            self._v = normalize(raw)\n",
                    report_class + "def build(text: str) -> Report:\n    return Report()\n",
                    report_class + "def build(report: Report):\n    return report\n",
                    report_class + "@dataclass\nclass Batch:\n    first: Report\n",
