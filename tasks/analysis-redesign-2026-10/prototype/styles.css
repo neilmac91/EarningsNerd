@@ -244,7 +244,7 @@ table.metrics .cell .d[data-basis="yoy"] { white-space: normal; }
 /* When the scroll area minus the metric column cannot show one whole period column (200% text on a
    phone), the metric column stops sticking and the table scrolls as a whole: WCAG 1.4.10 allows
    two-dimensional scrolling for data tables, and a half-hidden column is worse than a scrolling label. */
-table.metrics.unstick .sticky { position: static; }
+table.metrics.unstick .sticky { position: static; scroll-snap-align: start; } /* the label column is a rest position of its own: mandatory snapping would otherwise settle on the first period column and the labels could never be scrolled back into view */
 .metrics-scroll.unstuck { scroll-padding-inline-start: 0; }
 table.metrics col.metric { width: var(--metric-col); }
 table.metrics .cell button { all: unset; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-decoration-color: var(--hair); text-underline-offset: 3px; white-space: nowrap; }

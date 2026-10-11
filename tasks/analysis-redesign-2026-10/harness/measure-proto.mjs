@@ -99,16 +99,33 @@ async function run() {
           // A hovered sticky row header must paint an opaque fill (review item 17, #1206's rule): a translucent
           // wash lets the values scrolling beneath it show through, a state the rest-position probe cannot see.
           if (mode === 'proposed') {
-            const header = page.locator('table.metrics tbody tr th.sticky').first()
-            await header.hover()
-            m.stickyHover = await header.evaluate((el) => {
-              const fill = getComputedStyle(el).backgroundColor
-              const channels = (fill.match(/^rgba?\(([^)]+)\)$/) || [, ''])[1].split(/[\s,/]+/).filter(Boolean)
-              return { fill, opaque: channels.length === 3 || (channels.length === 4 && parseFloat(channels[3]) >= 1) }
+            const label = `${stateName}/${mode}/${theme}/${cfg.name}`
+            // Aim the pointer at the visible part of the first row header ourselves: the prototype bar (not
+            // part of the design) is sticky and must not take the pointer, and below 640 px the table starts
+            // at its newest columns, so the container is scrolled to the start first. The probe proves the
+            // hover landed (the row's cells change fill) before it judges the header's fill.
+            const target = await page.evaluate(() => {
+              const bar = document.querySelector('.proto-bar'); if (bar) bar.style.pointerEvents = 'none'
+              const scroll = document.querySelector('.metrics-scroll'); scroll.scrollLeft = 0
+              const th = document.querySelector('table.metrics tbody tr th.sticky'); th.scrollIntoView({ block: 'center' })
+              const td = th.parentElement.querySelector('td')
+              const r = th.getBoundingClientRect(), c = scroll.getBoundingClientRect()
+              const left = Math.max(r.left, c.left, 0), right = Math.min(r.right, c.right, window.innerWidth), top = Math.max(r.top, c.top, 0), bottom = Math.min(r.bottom, c.bottom, window.innerHeight)
+              return { x: (left + right) / 2, y: (top + bottom) / 2, visible: right > left && bottom > top, tdRest: getComputedStyle(td).backgroundColor }
             })
+            if (!target.visible) throw new Error(`${label}: the first row header is not visible for the hover probe`)
+            await page.mouse.move(target.x, target.y)
+            m.stickyHover = await page.evaluate((tdRest) => {
+              const th = document.querySelector('table.metrics tbody tr th.sticky'), td = th.parentElement.querySelector('td')
+              const fill = getComputedStyle(th).backgroundColor
+              const channels = (fill.match(/^rgba?\(([^)]+)\)$/) || [, ''])[1].split(/[\s,/]+/).filter(Boolean)
+              const bar = document.querySelector('.proto-bar'); if (bar) bar.style.pointerEvents = ''
+              return { fill, opaque: channels.length === 3 || (channels.length === 4 && parseFloat(channels[3]) >= 1), rowHovered: getComputedStyle(td).backgroundColor !== tdRest }
+            }, target.tdRest)
             await page.mouse.move(0, 0)
             await page.evaluate(() => window.scrollTo(0, 0))
-            if (!m.stickyHover.opaque) throw new Error(`${stateName}/${mode}/${theme}/${cfg.name}: the hovered sticky row header paints ${m.stickyHover.fill}, not an opaque fill`)
+            if (!m.stickyHover.rowHovered) throw new Error(`${label}: the hover probe did not reach the row (its cells kept their resting fill)`)
+            if (!m.stickyHover.opaque) throw new Error(`${label}: the hovered sticky row header paints ${m.stickyHover.fill}, not an opaque fill`)
           }
           // Does the proposed table fit without scrolling in the "Newest 6" window?
           let window6 = null

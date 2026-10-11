@@ -375,7 +375,9 @@ budget in `lib/tableFormat.ts`). The rules, with the corrections of §11:
   it.** At 200% text on a 390 px phone the scroll area is 244 px and the metric column 208 px: the
   column stops sticking, `scroll-padding-inline-start` drops to 0 and the table scrolls as a whole, labels
   included (WCAG 1.4.10 allows two-dimensional scrolling for a data table; a permanently half-hidden
-  column is worse than a scrolling label). The sticky cell stays opaque on row hover in dark (#1206
+  column is worse than a scrolling label); the label column is then a snap position of its own, so the
+  labels can be scrolled back into view (with period columns as the only snap points, mandatory snapping
+  settles on the first period column and the labels are never fully visible). The sticky cell stays opaque on row hover in dark (#1206
   replaced the `dark:group-hover:bg-white/[0.03]` wash that let columns show through with the panel fill,
   and its gate measures the painted background).
 - **Window control** on the table header (`SegmentedControl`, `size="md"`, full width on phones): All N ·
@@ -1014,7 +1016,12 @@ correction landed in this document:
   panel's Notes chip includes the letters of its unavailable values and the unavailable-periods line names
   them, while a gap still draws no marker; each operand's "Open filing ↗" link is named by its concept
   and period; a citation chip scrolls instantly and tints its source row without a transition under
-  `prefers-reduced-motion`, as `main`'s `flashAndScrollToSource` does.
+  `prefers-reduced-motion`, as `main`'s `flashAndScrollToSource` does; in the un-stuck mode (200% text
+  on a phone) the label column is a snap position of its own: the hover probe found that mandatory
+  snapping settled on the first period column, so `scrollLeft = 0` rested at 208 px and the labels could
+  never be scrolled back into view (§4.5). The probe aims the pointer at the visible part of the row
+  header itself, with the prototype bar not taking the pointer, and proves the hover landed (the row's
+  cells change fill) before it judges the header's fill.
 - **Moved modules**, checked against `main` at `dd7b9ce` (#1222) on 2026-10-11: `normalize_companyfacts`
   lives in `facts/companyfacts.py` (#1210) behind the `facts_service.py` facade; `build_observation_catalogue`
   and `_point_value` in `trend_analysis/observations.py`, `_ratio_threshold_value` and
