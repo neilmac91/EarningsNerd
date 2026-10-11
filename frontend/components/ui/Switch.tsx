@@ -8,6 +8,9 @@
    buttons (pricing billing cycle, notification preferences). Controlled only —
    pass `checked` + `onCheckedChange`. Focus-visible = brand ring; the knob
    slide respects prefers-reduced-motion.
+   Name it for what "on" means, ideally by the visible text that says so
+   (`aria-labelledby`): the pricing switch reads "Yearly (save N%), switch, on".
+   A category name ("Billing cycle") leaves on and off meaning nothing.
 ============================================================================= */
 
 import { forwardRef, type ButtonHTMLAttributes } from 'react'

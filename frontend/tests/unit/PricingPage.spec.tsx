@@ -96,6 +96,10 @@ const baseSub: SubscriptionStatus = {
 
 const baseUsage: Usage = { summaries_used: 0, summaries_limit: null, is_pro: true, month: '2026-06' }
 
+// The billing switch is named by the cycle it turns on, its visible "Yearly" label (the literal
+// offer is pinned in this file).
+const BILLING_SWITCH = { name: 'Yearly (save 20%)' }
+
 describe('PricingPage', () => {
   beforeEach(() => {
     mockGetSubscriptionStatus.mockReset()
@@ -138,7 +142,7 @@ describe('PricingPage', () => {
     // Plan changes for a live trial go through the billing portal, not a second checkout —
     // the cycle toggle would only move a button the user can't press.
     await waitFor(() =>
-      expect(screen.queryByRole('switch', { name: /billing cycle/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('switch')).not.toBeInTheDocument()
     )
   })
 
@@ -154,7 +158,7 @@ describe('PricingPage', () => {
     expect(upgrade).toBeEnabled()
     expect(screen.queryByRole('button', { name: /current plan \(trial\)/i })).not.toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: /current plan/i })).toHaveLength(1)
-    expect(screen.getByRole('switch', { name: /billing cycle/i })).toBeInTheDocument()
+    expect(screen.getByRole('switch', BILLING_SWITCH)).toBeInTheDocument()
     fireEvent.click(upgrade)
     await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly'))
     expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 240, 'yearly')
@@ -174,7 +178,7 @@ describe('PricingPage', () => {
     // Toggle removal is the subscription-driven change; wait for it so we don't assert mid-load
     // (the Free card renders its own disabled "Current plan" before the subscription resolves).
     await waitFor(() =>
-      expect(screen.queryByRole('switch', { name: /billing cycle/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('switch')).not.toBeInTheDocument()
     )
     // A paid subscriber has nothing to buy — no enabled upgrade/subscribe CTA anywhere.
     expect(screen.queryByRole('button', { name: /subscribe to pro|upgrade to pro/i })).not.toBeInTheDocument()
@@ -225,7 +229,7 @@ describe('PricingPage', () => {
     fireEvent.click(home.getByRole('radio', { name: /monthly/i }))
     expect(home.getByText('$25')).toBeInTheDocument()
     expect(home.getByText('Billed monthly. Or $20 a month, billed annually at $240.')).toBeInTheDocument()
-    fireEvent.click(page.getByRole('switch', { name: /billing cycle/i }))
+    fireEvent.click(page.getByRole('switch', BILLING_SWITCH))
     expect(page.getByText('$25')).toBeInTheDocument()
     expect(page.getByText('Billed monthly')).toBeInTheDocument()
     expect(mockUseFeatureFlagVariantKey).not.toHaveBeenCalled()
@@ -399,7 +403,7 @@ describe('PricingPage', () => {
 
     const label = cycle === 'monthly' ? 'Start 7-day free trial' : 'Upgrade to Pro'
     const checkout = await screen.findByRole('button', { name: label })
-    expect(screen.getByRole('switch', { name: /billing cycle/i })).toHaveAttribute('aria-checked', String(cycle === 'yearly'))
+    expect(screen.getByRole('switch', BILLING_SWITCH)).toHaveAttribute('aria-checked', String(cycle === 'yearly'))
     expect(mockPricingViewed.mock.calls).toEqual([[cycle]])
     if (cycle === 'yearly') expect(screen.queryByRole('button', { name: /start 7-day/i })).not.toBeInTheDocument()
     fireEvent.click(checkout)
@@ -414,7 +418,7 @@ describe('PricingPage', () => {
     renderPricing()
 
     await screen.findByRole('button', { name: 'Start 7-day free trial' })
-    fireEvent.click(screen.getByRole('switch', { name: /billing cycle/i }))
+    fireEvent.click(screen.getByRole('switch', BILLING_SWITCH))
     const checkout = await screen.findByRole('button', { name: 'Upgrade to Pro' })
     expect(screen.getByText('$20')).toBeInTheDocument()
     fireEvent.click(checkout)
@@ -437,6 +441,18 @@ describe('PricingPage', () => {
     expect(consumePostAuthRedirect()).toBeNull()
     expect(mockCreateCheckoutSession).not.toHaveBeenCalled()
     expect(mockCheckoutStarted).not.toHaveBeenCalled()
+  })
+
+  it("labels a beta member's struck-through regular price for screen readers", async () => {
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'beta@example.com', is_beta: true })
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+    renderPricing()
+
+    // The strike is visual only: the struck price carries a hidden label, read before it.
+    const regular = await screen.findByText('$20/mo')
+    expect(regular).toHaveClass('line-through')
+    expect(within(regular).getByText('Regular price')).toHaveClass('sr-only')
+    expect(regular).toHaveTextContent(/^Regular price \$20\/mo$/)
   })
 
   it('a monthly trial link keeps beta checkout separate from trial eligibility', async () => {
@@ -471,7 +487,7 @@ describe('PricingPage', () => {
     destination.searchParams.forEach((value, key) => mockSearchParams.set(key, value))
     renderPricing()
     expect(await screen.findByRole('button', { name: label })).toBeEnabled()
-    expect(screen.getByRole('switch', { name: /billing cycle/i })).toHaveAttribute('aria-checked', String(!pickMonthly))
+    expect(screen.getByRole('switch', BILLING_SWITCH)).toHaveAttribute('aria-checked', String(!pickMonthly))
     const trialNote = 'First 7 days free · cancel anytime, no charge'
     if (pickMonthly) {
       expect(screen.getByText(trialNote)).toBeInTheDocument()

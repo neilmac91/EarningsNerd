@@ -28,6 +28,13 @@
    components' `error`) picks the error tone instead of layering it on the default
    one, where palette order decided which border showed and a hovered invalid
    field turned grey. The error border holds on hover.
+   v3.6: every field resets the forms plugin's focus ring (`focus:ring-0
+   focus:ring-offset-0`), which painted a 1px #2563EB line over the DS ring.
+   v3.7: inputClasses() grows `shell` (the field drawn on a wrapper around a
+   chrome-free control, the chat composer): its focus border and ring key on
+   :focus-within and hold while the shell is hovered, where Tailwind's variant
+   order let the hover border win. fieldUnavailableClass likewise keeps a focused
+   field's brand border under hover.
    Assumes @tailwindcss/forms (already in the config plugins).
 ============================================================================= */
 
@@ -52,7 +59,10 @@ const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : use
 const FIELD_BASE = cx(
   'rounded-lg border text-sm transition-[border-color,box-shadow] duration-fast',
   'bg-white text-text-primary-light placeholder:text-text-tertiary-light',
-  'focus:outline-none',
+  // v3.6: the forms plugin's `:focus` rule sets --tw-ring-shadow (a 1px #2563EB ring; 2px past a 2px white offset on
+  // a checkbox or radio), and the shadow-ring-* tokens composite it without resetting it, listed first, so it painted
+  // over the DS ring. ring-0 zeroes its spread and ring-offset-0 its offset; `focus:`, since the plugin's rule is too.
+  'focus:outline-none focus:ring-0 focus:ring-offset-0',
   'disabled:cursor-not-allowed disabled:bg-background-light disabled:opacity-60',
   // dark: muted copy uses `secondary`, never `tertiary` (fails AA on navy)
   'dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark',
@@ -65,9 +75,9 @@ const FIELD = cx('w-full', FIELD_BASE)
     `border` and `brand`), and the default `hover:` border, a later variant, turned a hovered invalid field grey.
     `error` holds its border on hover, since the red names the problem; a disabled field's hover changes
     nothing in either tone. Each tone states its focus border in both themes even where it equals the rest
-    border: the forms plugin's `[type='text']:focus` border (#2563EB, specificity 0,2,0) beats a bare
-    `border-*` class. The error ring is `shadow-ring-error` in dark too, until a dark ring-error token exists
-    (the focus-ring item #1178 recorded). */
+    border: the forms plugin's `input:where([type='text']):focus` border (#2563EB, specificity 0,1,1) beats a
+    bare `border-*` class (0,1,0). The error ring is `shadow-ring-error` in dark too, until a dark ring-error
+    token exists (the focus-ring item #1178 recorded). */
 const TONE = {
   default: cx(
     'border-border-light hover:border-flat-light focus:border-brand focus:shadow-ring-brand disabled:hover:border-border-light',
@@ -79,7 +89,23 @@ const TONE = {
     'dark:border-error-dark dark:focus:border-error-dark dark:focus:shadow-ring-error',
   ),
 } as const
-const tone = (invalid: unknown) => TONE[invalid ? 'error' : 'default']
+/** v3.7 — the tone of a field SHELL: a wrapper that draws the field around a chrome-free control (the chat composer's
+    <Textarea variant="composer"> beside its send button), so its focus states key on :focus-within. Tailwind emits
+    `focus-within` BEFORE `hover` (one specificity, 0,2,0), so the default tone's hover border beat a focus-within one
+    and a hovered, focused shell turned grey; `hover:focus-within:` restates the focus border one pseudo-class up, in
+    both themes. A shell is a <div>, never :focus or :disabled, so it takes no `focus:` or `disabled:hover:` border. */
+const SHELL_TONE = {
+  default: cx(
+    'border-border-light hover:border-flat-light focus-within:border-brand focus-within:shadow-ring-brand hover:focus-within:border-brand',
+    'dark:border-border-dark dark:hover:border-flat-dark dark:focus-within:border-brand-dark dark:focus-within:shadow-ring-brand-dark',
+    'dark:hover:focus-within:border-brand-dark',
+  ),
+  error: cx(
+    'border-error-light focus-within:border-error-light focus-within:shadow-ring-error',
+    'dark:border-error-dark dark:focus-within:border-error-dark dark:focus-within:shadow-ring-error',
+  ),
+} as const
+const tone = (invalid: unknown, shell = false) => (shell ? SHELL_TONE : TONE)[invalid ? 'error' : 'default']
 
 const PAD = 'px-3.5 py-2.5'
 /** Leading-icon inset — EXPLICIT sides. px-3.5 + a pl-11 override is Tailwind
@@ -121,6 +147,9 @@ interface InputClassesBase {
       for options that come from data. Never `w-auto` on top of the default: the stylesheet emits
       `.w-full` after `.w-auto`, so that override loses. */
   autoWidth?: boolean
+  /** v3.7: the field drawn on a wrapper around a chrome-free control (<Textarea variant="composer"> and its send
+      button): the tone's focus border and ring key on :focus-within, and hold while the shell is hovered. */
+  shell?: boolean
   className?: string
 }
 
@@ -149,6 +178,7 @@ export type InputClassesOptions = InputClassesBase &
         select: true
         leadingIcon?: never
         trailingIcon?: never
+        shell?: never
       }
   )
 
@@ -164,11 +194,12 @@ export function inputClasses({
   select = false,
   density = 'comfortable',
   autoWidth = false,
+  shell = false,
   className,
 }: InputClassesOptions = {}): string {
   const inset = leadingIcon ? (trailingIcon ? 'both' : 'leading') : trailingIcon ? 'trailing' : 'plain'
   const pad = select ? SELECT_PAD[density] : FIELD_PAD[density][inset]
-  return cx(autoWidth ? cx('max-w-full', FIELD_BASE) : FIELD, tone(invalid), pad, className)
+  return cx(autoWidth ? cx('max-w-full', FIELD_BASE) : FIELD, tone(invalid, shell), pad, className)
 }
 
 /** The field's `disabled:` look keyed to `aria-disabled`, for a field (a <select> here) that is
@@ -180,6 +211,8 @@ export function inputClasses({
 export const fieldUnavailableClass = cx(
   'aria-disabled:cursor-not-allowed aria-disabled:bg-background-light aria-disabled:text-text-primary-light/60 aria-disabled:hover:border-border-light',
   'dark:aria-disabled:bg-white/5 dark:aria-disabled:text-text-primary-dark/60 dark:aria-disabled:hover:border-border-dark',
+  // v3.7: hover holds a focused field's brand border; `aria-disabled:hover:` alone (0,3,0) beat `focus:border-brand` (0,2,0).
+  'aria-disabled:hover:focus:border-brand dark:aria-disabled:hover:focus:border-brand-dark',
 )
 
 interface FieldExtras {
@@ -292,20 +325,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 
 /** Composer chrome — the transparent field for a focus-within shell. The SHELL
     (app-owned: send button, attachments) carries border + ring so there is no
-    double chrome:
+    double chrome, through `shell: true` (v3.7), never focus-within classes on top:
+    a bare `focus-within:` border loses to the field's `hover:` one.
 
-      <div className={cx(
-        inputClasses({ className: 'flex items-end gap-2' }),
-        'focus-within:border-brand focus-within:shadow-ring-brand',
-        'dark:focus-within:border-brand-dark dark:focus-within:shadow-ring-brand-dark',
-      )}>
+      <div className={inputClasses({ shell: true, className: 'flex items-end gap-2' })}>
         <Textarea variant="composer" aria-label="Ask this filing" placeholder="Ask this filing…" />
         <Button size="sm">Ask</Button>
       </div> */
 const COMPOSER = cx(
   'w-full resize-none border-0 bg-transparent p-0 text-sm',
   'text-text-primary-light placeholder:text-text-tertiary-light',
-  'focus:outline-none focus:ring-0 focus:shadow-none',
+  'focus:outline-none focus:ring-0 focus:ring-offset-0 focus:shadow-none',
   'disabled:cursor-not-allowed disabled:opacity-60',
   'dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark',
 )

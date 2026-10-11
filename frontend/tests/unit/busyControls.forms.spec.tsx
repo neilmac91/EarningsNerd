@@ -365,7 +365,7 @@ describe('Pricing page Retry buttons (a failure keeps its Notice through any ref
     api.getSubscriptionStatus.mockReturnValueOnce(pending.promise)
     fireEvent.click(retry)
     await waitFor(() => expect(retry).toHaveAttribute('aria-busy', 'true'))
-    const toggle = screen.getByRole('switch', { name: /billing cycle/i })
+    const toggle = screen.getByRole('switch', { name: /^yearly/i })
     toggle.focus()
 
     await act(async () => pending.resolve(freeSub))

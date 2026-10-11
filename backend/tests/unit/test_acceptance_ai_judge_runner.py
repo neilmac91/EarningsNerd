@@ -53,6 +53,12 @@ def _fake_cli(path: Path) -> None:
         "    pathlib.Path(__file__).with_suffix('.pid').write_text(str(os.getpid()))\n"
         "    print('partial raw stdout', flush=True)\n"
         "    time.sleep(30)\n"
+        "if text.startswith('STRAGGLER'):\n"
+        "    import subprocess\n"
+        "    writer = subprocess.Popen([sys.executable, '-c', 'import sys, time\\nwhile True:\\n'\n"
+        "                               '    sys.stderr.write(\"x\"); sys.stderr.flush(); time.sleep(0.001)'])\n"
+        "    pathlib.Path(__file__).with_suffix('.writer').write_text(str(writer.pid))\n"
+        "    time.sleep(0.2)\n"
         "if text.startswith('RETRY') and n == 0:\n"
         "    print(json.dumps({'is_error': True, 'subtype': 'error', 'result': 'temporary'}))\n"
         "else:\n"
@@ -190,6 +196,39 @@ def test_owner_death_guardian_terminates_child_and_preserves_partial_raw(tmp_pat
         if controller.poll() is None:
             controller.kill()
             controller.wait(timeout=5)
+        _cleanup_recorded_fake_cli(root, fake)
+
+
+def test_a_cli_grandchild_is_ended_before_the_guardian_hashes_the_streams(tmp_path: Path) -> None:
+    """The CLI exits with its verdict and leaves a grandchild writing to its stderr. The guardian ends the group
+    before it fsyncs and hashes the streams, so the owner's re-hash agrees and the call keeps its verdict."""
+    root, fake = _programme(tmp_path, input_text="STRAGGLER")
+    writer = fake.with_suffix(".writer")
+    try:
+        assert run_one(root, "H01-candidate-1", cli=fake)["status"] == "verdict"
+        assert _process_is_terminated(int(writer.read_text()))
+        assert inspect(root)["stop_reason"] is None
+        [stderr] = (root / "attempts").glob("*/stderr.txt")
+        assert b"xxxx" in stderr.read_bytes()  # the straggler did write after the CLI's verdict
+    finally:
+        try:
+            os.kill(int(writer.read_text()), signal.SIGKILL)
+        except (OSError, ValueError):
+            pass
+
+
+def test_a_cli_timeout_stops_the_programme_with_its_own_label(tmp_path: Path) -> None:
+    """The guardian ends a CLI that outlives its timeout, keeps its partial stream, and stops the programme as
+    ``cli_timeout_uncertain`` (the first reason recorded wins over the guardian's generic one)."""
+    root, fake = _programme(tmp_path, input_text="SLEEP")
+    try:
+        with pytest.raises(ValueError, match="guardian failed"):
+            run_one(root, "H01-candidate-1", cli=fake, timeout_seconds=1)
+        assert inspect(root)["stop_reason"] == "cli_timeout_uncertain"
+        assert _process_is_terminated(int(fake.with_suffix(".pid").read_text()))
+        [raw] = (root / "attempts").glob("*/stdout.raw")
+        assert raw.read_bytes().startswith(b"partial raw stdout")
+    finally:
         _cleanup_recorded_fake_cli(root, fake)
 
 

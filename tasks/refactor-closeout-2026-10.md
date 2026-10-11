@@ -367,3 +367,14 @@ NaN, numeric model filing_date, model-supplied structured-output keys), and the
 existing Founder OUTPUT REFERENCE prompt-byte decision until separately resolved.
 This closeout changes three task documents. Original red verdicts and unknown
 costs remain visible; the separate behavior and founder decisions are not closed.
+
+
+### Follow-ups resolved — 2026-10-11
+
+Rule 7 timestamps and the three Wave 0 behavior fixes landed in #1222, #1224, #1227 and #1231;
+[deployment and evaluation receipts](https://github.com/neilmac91/EarningsNerd/pull/1231#issuecomment-6108047072).
+The founder subsequently authorized removing the unused OUTPUT REFERENCE plumbing while retaining
+all request bytes and existing snapshots. That cleanup closes the remaining decision from this
+refactor: no prompt instructions, model settings, production flags or baseline scores change.
+The earlier statement that deletion necessarily changes prompt bytes was too broad; activating
+prompt splitting would change them, but deleting the empty reference slot's machinery need not.

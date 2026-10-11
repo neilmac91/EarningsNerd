@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense, useRef, useEffect, useCallback } from 'react'
+import { useState, Suspense, useRef, useEffect, useCallback, useId } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
@@ -64,6 +64,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
   billingResolved: boolean
 }) {
   const router = useRouter()
+  const yearlyLabelId = useId()
   const [isLoadingCheckout, setIsLoadingCheckout] = useState<string | null>(null)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const checkoutErrorRef = useRef<HTMLDivElement>(null)
@@ -371,16 +372,19 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
               <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
                 Monthly
               </span>
+              {/* Named by the cycle it turns on, its visible "Yearly" label, so a screen reader hears
+                  "Yearly (save N%), switch, on"; off is monthly. A category name ("Billing cycle")
+                  left on and off meaning nothing. */}
               <Switch
                 checked={billingCycle === 'yearly'}
-                aria-label="Billing cycle"
+                aria-labelledby={yearlyLabelId}
                 onCheckedChange={(next) => {
                   const nextCycle = next ? 'yearly' : 'monthly'
                   analytics.billingCycleToggled(billingCycle, nextCycle)
                   setBillingCycle(nextCycle)
                 }}
               />
-              <span className={`text-sm font-medium ${billingCycle === 'yearly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
+              <span id={yearlyLabelId} className={`text-sm font-medium ${billingCycle === 'yearly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
                 Yearly <span className="font-semibold">(save {PRO_PRICING.annualSavingsPercent}%)</span>
               </span>
             </div>
@@ -459,7 +463,10 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
                 <div className="flex items-baseline justify-center gap-2">
                   <span className="tabular text-5xl font-semibold text-text-primary-light dark:text-text-primary-dark">{plan.price}</span>
                   {plan.betaOriginal ? (
-                    <span className="tabular text-2xl font-medium text-text-secondary-light line-through dark:text-text-secondary-dark">{plan.betaOriginal}/mo</span>
+                    // The strike is visual only, so a screen reader is told which price this is.
+                    <span className="tabular text-2xl font-medium text-text-secondary-light line-through dark:text-text-secondary-dark">
+                      <span className="sr-only">Regular price</span>{' '}{plan.betaOriginal}/mo
+                    </span>
                   ) : (
                     plan.period !== 'forever' && (
                       <span className="text-text-secondary-light dark:text-text-secondary-dark">/month</span>
