@@ -94,14 +94,18 @@ does not, nor does a property's own accessor, which copies the property), or a d
 a decorator that is not inert (nor is one whose name the class body around binds, or the module otherwise
 than by its standard import) or, for a class, with keywords or a base that is not a builtin class (a name
 bound around the class statement, in its class body or the module, or through ``global``, is none), whose
-class-creation code may run its methods; a member class's body runs there too, and so is read for what it
-creates in turn, as are a ``match`` statement's cases, which are no symbols of their own (``_definitions``).
-A dunder there is read by Python itself as well, wherever an old symbol stands above the binding (the next
-paragraph). The settlement covers reads only: moved code that rebinds the name, at module
+class-creation code may run its methods, and so may a value its body binds, whose ``__set_name__`` creating the
+class calls with the class (``_hands_class``: a literal, a lambda, a def or a class is no such value, a bare name
+or a call's result may be, and the member that binds it is reported); a member class's body runs there too,
+and so is read for what it creates in turn, as are a ``match`` statement's cases, which are no symbols of their
+own (``_definitions``). A dunder there is read by Python itself as well, wherever an old symbol stands above the
+binding (the next paragraph). The settlement covers reads only: moved code that rebinds the name, at module
 level or through ``global``, rebound the old file's copy and now rebinds the target's, for every importer,
 and is reported. A class body is one namespace for ``global``, which the proof reads member by member: the
 member that stores or deletes a name its class body declares ``global`` binds the module's name, wherever in
-the body the declaration stands, and a declaration alone neither binds nor reads it; a method's own
+the body the declaration stands, and a declaration alone neither binds nor reads it, but the compiler's own
+stores before the body runs, of ``__module__``, ``__qualname__`` and a documented class's docstring as
+``__doc__``, bind the module's name where the body declares it ``global`` (``_class_stores``); a method's own
 ``global`` of its name leaves the method a member of the class.
 
 Python itself reads a dunder name (``__x__``) of a namespace, with no load of it in the code there: a def
@@ -194,7 +198,9 @@ names a reaching class holds it though nothing may read its ``__annotations__`` 
 class member that reads the name its own class body bound above it is taken to read the module's
 (``class C: normalize = ...; out = normalize(x)``), an evaluated annotation that is no lone name is taken to
 run what it names (``Optional[Report]`` does not), and a decorator that is not inert, or a class base that
-is not a builtin class, is taken to run what it is handed (a FastAPI route's decorator does not).
+is not a builtin class, is taken to run what it is handed (a FastAPI route's decorator does not), and a
+class-body binding of a bare name or a call's result is taken to hold a descriptor whose ``__set_name__`` calls
+the class (``VALUE = other()`` need not).
 ``--allow`` takes the target's binding, which allows every report on it: list each user in the PR body. Nor
 is a name reached through a string (a quoted annotation,
 ``globals()['name']``, a deletion by ``locals().pop('name')``), a class body's namespace that a metaclass's
@@ -514,6 +520,33 @@ def _inert(stmt: ast.stmt, postponed: bool, properties: frozenset[str] | None = 
     return False
 
 
+def _hands_class(body: list[ast.stmt]) -> bool:
+    """Whether a class body may leave a value in its namespace whose ``__set_name__``, which creating the class
+    calls with the class itself, may call the class's code: anything an assignment binds that an inert binding
+    does not make (``_inert_binding``: a literal, a lambda, a display of them; a bare name is not), and whatever a
+    block, an import or ``:=`` binds. A def and a class are judged by themselves (``_creates_code``); ``pass``,
+    an expression statement, ``global`` and ``del`` bind nothing."""
+    for stmt in body:
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Pass, ast.Global, ast.Nonlocal,
+                             ast.Delete)):
+            continue
+        if isinstance(stmt, ast.Expr) and not any(isinstance(each, ast.NamedExpr) for each in ast.walk(stmt)):
+            continue
+        if isinstance(stmt, ast.Assign) and all(_inert_binding(target, stmt.value, True) for target in stmt.targets):
+            continue
+        if isinstance(stmt, ast.AnnAssign) and (stmt.value is None or _inert_binding(stmt.target, stmt.value, True)):
+            continue
+        return True
+    return False
+
+
+def _class_stores(node: ast.ClassDef) -> set[str]:
+    """The names the compiler stores for a class before its body runs: ``__module__``, ``__qualname__`` and, for a
+    documented class, its docstring as ``__doc__``. Where the body declares one ``global``, the store binds the
+    module's name (``STORE_GLOBAL``), as a member's store of it does."""
+    return {"__module__", "__qualname__"} | ({"__doc__"} if _is_docstring(node.body[0]) else set())
+
+
 def _bound_in(body: list[ast.stmt]) -> set[str]:
     """Every name a module's or a class's body may bind in its own namespace, wherever in it and in whatever
     order: its statements, through blocks, and a ``:=`` in a comprehension or a def's header there; and any name
@@ -571,7 +604,11 @@ def _creates_code(node: ast.stmt, properties: frozenset[str] | None, module_name
     if node.keywords or not all(isinstance(base, ast.Name) and base.id in builtin for base in node.bases):
         return True
     if not nested:
-        return False
+        # A module-level class's members are symbols of their own, each handing the class to what it binds
+        # (``_Names.hands``), but an import in its body is in no member.
+        return any(isinstance(stmt, (ast.Import, ast.ImportFrom)) for stmt in node.body)
+    if _hands_class(node.body):
+        return True
     inside = _bound_in(node.body)
     judged = {id(stmt): accessors for stmt, _, accessors in _class_body(node.body, postponed)}
     return any(_creates_code(stmt, judged.get(id(stmt), frozenset()), module_names, inside, True, postponed, rebound)
@@ -813,9 +850,11 @@ class _Scope:
         self.nested: list[_Scope] = []
         self.walrus = walrus or self
         self.statements: list[ast.stmt] = []  # a class body's own, read one by one for ``held``
+        self.annotated = False  # inside an annotation (a lambda's or comprehension's), which postponing skips
 
     def _open(self, in_class: bool = False, walrus: _Scope | None = None, deferred: bool = False) -> _Scope:
         self.nested.append(_Scope(in_class, walrus, deferred))
+        self.nested[-1].annotated = self.annotated or self.annotating > 0
         return self.nested[-1]
 
     def read(self, *nodes: ast.AST | None) -> _Scope:
@@ -862,6 +901,7 @@ class _Scope:
                 if _is_docstring(node.body[0]) and "__doc__" not in _deletions(node.body):  # fail closed
                     body.first.add("__doc__")
                 body.read(*node.body)
+                body.bound |= _class_stores(node) & body.module  # the module's, where the body declares them
             elif isinstance(node, _COMPREHENSIONS):
                 first, *rest = node.generators
                 self.read(first.iter)
@@ -922,9 +962,10 @@ class _Scope:
         """Of what ``taken`` gives, the names read where they stand, at import, by this scope and the scopes
         nested in it that run there (a comprehension's or a class's body, not a def's), each read as
         ``_Names.evaluated`` reads a symbol's own: no ``global`` declaration, no ``@name.setter``-shaped
-        decorator's receiver, and no annotation when the module postpones them. ``calls``: only the names whose
+        decorator's receiver, and no annotation when the module postpones them, nor a lambda or comprehension in
+        one (``annotated``). ``calls``: only the names whose
         code may run there, as ``_Names.calls`` reads them, so no lone name an annotation evaluates either."""
-        if self.deferred:
+        if self.deferred or (postponed and self.annotated):
             return set()
         loads = self.untyped | (set() if postponed else self.active if calls else self.typed)
         if self.in_class:
@@ -989,7 +1030,8 @@ class _Names:
     evaluated; ``postponed``, whether its module postpones annotations; ``class_global``, the names it binds that
     its class body declares ``global``, which are the module's; ``holders``, the names that the statements of
     the class bodies nested in it bind (``_Scope.held``), each with the names its statement takes from the
-    module."""
+    module; ``hands``, for a class member that may bind a value with a ``__set_name__`` (``_hands_class``), its
+    class, which creating the class hands to that code."""
     owner: str | None
     block: bool = False
     binds: set[str] = field(default_factory=set)
@@ -1014,6 +1056,7 @@ class _Names:
     postponed: bool = False
     class_global: set[str] = field(default_factory=set)
     holders: dict[str, set[str]] = field(default_factory=dict)
+    hands: set[str] = field(default_factory=set)
 
     def reads(self, owner: str | None) -> set[str]:
         """The names of one namespace (a class body, or the module for None) that this symbol reads. What
@@ -1037,8 +1080,9 @@ class _Names:
     def calls(self) -> set[str]:
         """Of those, the names whose code it may run there: not a lone name an annotation evaluates, which Python
         stores and never calls (code that reads one through ``__annotations__`` reads this symbol's own name
-        first), but every name of an annotation that may run code, unless the module postpones annotations."""
-        return self.plain | self.soon_calls | (set() if self.postponed else self.active)
+        first), but every name of an annotation that may run code, unless the module postpones annotations, and
+        the class it ``hands`` to a value's ``__set_name__``."""
+        return self.plain | self.soon_calls | (set() if self.postponed else self.active) | self.hands
 
     def rebinds(self) -> set[str]:
         """The module's names it binds: at module level, or anywhere through ``global``."""
@@ -1239,12 +1283,14 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
                                      and not _bound_at(shadowing, name, node.lineno), modules)
             class_globals = frozenset(name for each in _scope_nodes(node.body) if isinstance(each, ast.Global)
                                       for name in each.names)
+            names[node.name].declared |= class_globals & _class_stores(node)  # the class statement's own stores
             class_names = _bound_in(node.body)  # where a member class looks up its bases first
             for guard in _guards(node.body):
                 if not _type_checking_imports(guard):
                     put(f"{node.name}.guard:{_guard_header(guard)}", ast.unparse(_without_imports(guard)), guard,
                         inert=False, owner=node.name, implicit=implicit(guard), local=local, in_body=in_body,
                         class_globals=class_globals)
+                    names[f"{node.name}.guard:{_guard_header(guard)}"].hands.add(node.name)  # binds anything
             # Each member is judged where it stands in the class body; inside a block, no property above it counts.
             judged = {id(stmt): (inert, properties) for stmt, inert, properties in _class_body(node.body, postponed)}
             for member in members:
@@ -1264,6 +1310,8 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
                 put(f"{node.name}.{key}", ast.unparse(member), member, inert, owner=node.name,
                     implicit=implicit(member), local=local, in_body=in_body, class_globals=class_globals,
                     properties=properties, around=class_names)
+                if _hands_class([member]):  # creating the class hands it to what the member binds
+                    names[f"{node.name}.{key}"].hands.add(node.name)
         elif isinstance(node, ast.Assign):
             put(_assignment_key(node.targets), ast.unparse(node), node, _inert(node, postponed))
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):

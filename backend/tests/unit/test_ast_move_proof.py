@@ -597,7 +597,7 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
             ("def setup():\n    global Exception\n    Exception = Base\n\n\n" + error, "FooError"),
             ("FOUND = [(Exception := Base) for _ in (1,)]\n\n\n" + error, "FooError"),
             ("class Box:\n    Exception = Base\n\n    class FooError(Exception):\n        def __str__(self):\n"
-             "            return normalize(' boom ')\n", "Box.FooError"),
+             "            return normalize(' boom ')\n", "Box.Exception, Box.FooError"),
             ("class Base:\n    def __init_subclass__(cls, **kwargs):\n        super().__init_subclass__(**kwargs)\n"
              "        cls.hook()\n\n\nclass Outer:\n    class Inner:\n        class Deep(Base):\n            @classmethod\n"
              "            def hook(cls):\n                return normalize(' x ')\n", "Outer.Inner"),
@@ -617,7 +617,9 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
              "            def __str__(self):\n                return normalize(' boom ')\n", "Outer.Inner"),
             (nested + "        value: hook()\n", "Outer.Inner"),
             (calling + "@dataclass\n" + box, "Box"),
-            (descriptor + "class Consumer:\n" + consumer, "Consumer"),
+            (descriptor + "class Consumer:\n" + consumer, "Consumer.field"),
+            ("class Outer:\n    class Inner:\n        def other():\n            return 1\n\n        def hook():\n"
+             "            return normalize(' x ')\n\n        VALUE = other()\n", "Outer.Inner"),
             (descriptor + "class Outer:\n    class Consumer:\n        def __init__(self):\n"
              "            self.value = normalize(' x ')\n\n        field = descriptor\n", "Outer.Consumer"),
             ("def f(x: (lambda: normalize(' x '))()):\n    return x\n", "f"),
@@ -674,7 +676,7 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    "PICK = lambda Exception: Exception\nNAMES = [Exception for Exception in ()]\n\n\n" + error,
                    "class Other:\n    Exception = object\n\n\n" + error,
                    "class Outer:\n    class Inner:\n        def other():\n            return 1\n\n        def hook():\n"
-                   "            return normalize(' x ')\n\n        VALUE = other()\n",
+                   "            return normalize(' x ')\n\n        other()\n",
                    "class Outer:\n    class Inner:\n        class Deep(Exception):\n            def __str__(self):\n"
                    "                return normalize(' boom ')\n",
                    "class Outer:\n    class Inner:\n        @staticmethod\n        def hook():\n"
@@ -689,13 +691,13 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    "from dataclasses import dataclass as dataclass\n\n\n@dataclass\n" + box,
                    "class Outer:\n    class Inner:\n        hook = lambda: normalize(' x ')\n        VALUE = 1\n",
                    "class Outer:\n    class Inner:\n        hook = lambda: 1\n"
-                   "        other = lambda: normalize(' x ')\n        VALUE = hook()\n",
+                   "        other = lambda: normalize(' x ')\n        hook()\n",
                    "def hook():\n    return 1\n\n\nclass Outer:\n    class Inner:\n        def make():\n"
                    "            class Made:\n                hook = lambda: normalize(' x ')\n\n"
-                   "            return Made\n\n        VALUE = hook()\n",
+                   "            return Made\n\n        hook()\n",
                    "def hook():\n    return 1\n\n\nclass Outer:\n    class Inner:\n        def make():\n"
                    "            def hook():\n                return normalize(' x ')\n\n            return hook\n\n"
-                   "        VALUE = hook()\n",
+                   "        hook()\n",
                    "class Outer:\n    class Inner:\n        @property\n        def normalize(self):\n"
                    "            return 1\n\n        @normalize.setter\n        def normalize(self, raw):\n"
                    "            pass\n",
