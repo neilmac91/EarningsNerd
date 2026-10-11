@@ -6,7 +6,7 @@ They allow clearing cached summaries and XBRL data to fix issues with stale data
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from typing import Optional
 from datetime import datetime
 import logging
@@ -21,12 +21,14 @@ from app.schemas.feedback import FeedbackAdminItem, FeedbackStatusUpdate, Feedba
 from app.services.edgar import clear_xbrl_cache, get_xbrl_cache_stats
 from app.services.resend_service import send_email, ResendError
 from app.services import admin_feedback_service
+from app.services import admin_account_service
 from app.services import admin_filing_service
 from app.services import admin_summary_service
 from app.services import invite_service
 from app.services import audit_service
 from app.services.email_service import send_invite_email
 from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
+from app.utils.text import has_control_characters
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -47,6 +49,54 @@ def _require_admin(user: User) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
         )
+
+
+class CreateFreeAccountRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr = Field(max_length=254)
+    full_name: Optional[str] = Field(default=None, max_length=100)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value: object) -> object:
+        return value.strip().lower() if isinstance(value, str) else value
+
+    @field_validator("full_name")
+    @classmethod
+    def clean_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if has_control_characters(value):
+            raise ValueError("Name must not contain control characters.")
+        return value or None
+
+
+class FreeAccountResponse(BaseModel):
+    id: int
+    email: str
+    full_name: Optional[str]
+    is_pro: bool
+    is_beta: bool
+    is_admin: bool
+    email_verified: bool
+    emailed: bool
+
+
+@router.post("/users/free", response_model=FreeAccountResponse, status_code=status.HTTP_201_CREATED)
+async def create_free_account(
+    payload: CreateFreeAccountRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    try:
+        return await admin_account_service.create_free_account(
+            db, email=payload.email, full_name=payload.full_name, actor=current_user,
+        )
+    except admin_account_service.FreeAccountAlreadyExistsError:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Account already exists.") from None
 
 
 class EmailTestRequest(BaseModel):
