@@ -12,7 +12,13 @@
 //   node harness/measure-current.mjs --base http://localhost:3000 --data prototype/data --out measurements/current.json [--shots dir]
 //
 // Run from tasks/analysis-redesign-2026-10/. Needs the global Playwright (NODE_PATH) or the frontend's.
-import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
+// measurements/current.json is the recording of main at 97293e7 and is written only from a checkout of that
+// revision: on any other checkout the run needs --out naming another file (a fresh measurement of the shipped
+// components, never a comparison with the recording), and it refuses an --out that holds a recording of another
+// commit. Every run records the checkout's commit, the frontend/ tree hash and the uncommitted files under
+// frontend/ and this directory; the served build must come from that checkout.
+import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs'
+import { execSync } from 'node:child_process'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
@@ -24,7 +30,18 @@ const args = Object.fromEntries(process.argv.slice(2).map((a, i, all) => (a.star
 const BASE = args.base || 'http://localhost:3000'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DATA = path.resolve(ROOT, args.data || 'prototype/data')
-const OUT = path.resolve(ROOT, args.out || 'measurements/current.json')
+const BASELINE = { file: 'measurements/current.json', revision: '97293e76fe71ff6b7e1848d57f00e808866e8c1c' }
+const git = (cmd) => { try { return execSync(cmd, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { return null } }
+const COMMIT = git('git rev-parse HEAD') || ''
+const sameCommit = (a, b) => !!a && !!b && (a.startsWith(b) || b.startsWith(a))
+if (!args.out && !sameCommit(COMMIT, BASELINE.revision)) throw new Error(`${BASELINE.file} is the recording of main at ${BASELINE.revision.slice(0, 7)}; this checkout is ${COMMIT.slice(0, 7) || 'unknown'}: pass --out <another file> for a fresh measurement of this build (it does not compare with the recording), or run from a worktree of ${BASELINE.revision.slice(0, 7)} to retake the baseline`)
+const OUT = path.resolve(ROOT, args.out || BASELINE.file)
+if (existsSync(OUT)) {
+  let recorded = null
+  try { recorded = (JSON.parse(readFileSync(OUT, 'utf8')).environment || {}).commit || null } catch {}
+  if (recorded && !sameCommit(COMMIT, recorded)) throw new Error(`${path.relative(ROOT, OUT)} records a run of ${recorded}; this checkout is ${COMMIT.slice(0, 7) || 'unknown'}: pass a different --out`)
+}
+const DIRTY = (git('git status --porcelain -- :/frontend :/tasks/analysis-redesign-2026-10/harness') || '').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => l.replace(/^\S+\s+/, ''))
 const SHOTS = args.shots || null
 const STATE = args.state || 'legacy'
 const API = 'http://localhost:8010'
@@ -182,7 +199,7 @@ async function measure(page, configuredWidth, expectedRows) {
 
 async function run() {
   const browser = await chromium.launch()
-  const results = { base: BASE, state: STATE, generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version }, configs: [] }
+  const results = { base: BASE, state: STATE, generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: COMMIT.slice(0, 7), frontendTree: git('git rev-parse HEAD:frontend'), dirty: DIRTY }, configs: [] }
   for (const theme of ['light', 'dark']) {
     for (const cfg of CONFIGS) {
       const context = await browser.newContext({ viewport: { width: cfg.width, height: cfg.height }, deviceScaleFactor: cfg.dsf || 1, isMobile: !!cfg.mobile, hasTouch: !!cfg.mobile, reducedMotion: 'reduce' })

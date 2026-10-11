@@ -1040,7 +1040,11 @@ correction landed in this document:
   review" with its reason, as its affix and its note do, instead of "No validation record". The phone
   table's "← Earlier quarters" hint hides at the scroll start and shows only while the table is scrolled
   away from it, as §4.5 says (it had shown whenever the table overflowed); the disclosure caret and the
-  button fills do not transition under `prefers-reduced-motion`.
+  button fills do not transition under `prefers-reduced-motion`. `measure-current.mjs` refuses to write
+  `measurements/current.json`, the recording of `97293e7`, from any other checkout (a fresh measurement needs
+  `--out`, and an `--out` holding a recording of another commit is refused too) and records the checkout's
+  commit, its `frontend/` tree hash and the uncommitted files, as the prototype harness does; the committed
+  recording's environment block is annotated with its revision after the fact, its measurements untouched.
 - **Moved modules**, checked against `main` at `dd7b9ce` (#1222) on 2026-10-11: `normalize_companyfacts`
   lives in `facts/companyfacts.py` (#1210) behind the `facts_service.py` facade; `build_observation_catalogue`
   and `_point_value` in `trend_analysis/observations.py`, `_ratio_threshold_value` and

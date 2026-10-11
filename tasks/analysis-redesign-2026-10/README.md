@@ -104,6 +104,10 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
 (cd frontend && WAITLIST_MODE=false npx next start -p 3000 &)
 # then, from the repository root, with Playwright resolvable (the frontend's install, or the cloud image's global one)
 NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-current.mjs --base http://localhost:3000 --shots /tmp/shots
+# A fresh measurement of any other checkout needs --out naming another file: the harness refuses to write
+# measurements/current.json from a checkout other than 97293e7, and refuses an --out that holds a recording of
+# another commit. Every run records the checkout's commit, its frontend/ tree hash and the uncommitted files
+# under frontend/ and the harness; the served build must come from that checkout.
 
 # prototype (no server needed; --fonts answers Google Fonts from a local directory when offline)
 NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harness/measure-proto.mjs --shots /tmp/shots

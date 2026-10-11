@@ -101,7 +101,9 @@ it reproduces only on a checkout of that revision: `git worktree add ../en-97293
 README's build and start commands in that worktree (`next build` with `NEXT_PUBLIC_ENABLE_ANALYSIS=true`,
 `next start` with `WAITLIST_MODE=false`, no backend). Run `measure-current.mjs` on current `main` only as a
 fresh measurement of the shipped components (its probes find that markup by data attribute), never as a
-comparison with the recording: the counts and geometry differ by design.
+comparison with the recording: the counts and geometry differ by design, and the harness refuses to write
+`measurements/current.json` from any other checkout, so pass `--out` naming another file (the run records the
+checkout's commit and the uncommitted files under `frontend/`).
 
 Track B, after Track A: implement what is open in proposal §7 (the P1 follow-ups of the review file, the
 gate's leftovers among them, then Phase 2), one PR per numbered item or grouped as the brief allows, each as a draft, each verified with
