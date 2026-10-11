@@ -95,8 +95,9 @@ a decorator that is not inert (nor is one whose name the class body around binds
 than by its standard import) or, for a class, with keywords or a base that is not a builtin class (a name
 bound around the class statement, in its class body or the module, or through ``global``, is none), whose
 class-creation code may run its methods, and so may a value its body binds, whose ``__set_name__`` creating the
-class calls with the class (``_hands_class``: a literal, a lambda, a def or a class is no such value, a bare name
-or a call's result may be, and the member that binds it is reported); a member class's body runs there too,
+class calls with the class (``_hands_class``: a literal, a lambda, or a def or class whose creation runs no code
+is no such value; a bare name, a call's result, or a def or class whose decorator or class keywords or bases
+may run code may be, and the member that binds it is reported); a member class's body runs there too,
 and so is read for what it creates in turn, as are a ``match`` statement's cases, which are no symbols of their
 own (``_definitions``). A dunder there is read by Python itself as well, wherever an old symbol stands above the
 binding (the next paragraph). The settlement covers reads only: moved code that rebinds the name, at module
@@ -524,8 +525,10 @@ def _hands_class(body: list[ast.stmt]) -> bool:
     """Whether a class body may leave a value in its namespace whose ``__set_name__``, which creating the class
     calls with the class itself, may call the class's code: anything an assignment binds that an inert binding
     does not make (``_inert_binding``: a literal, a lambda, a display of them; a bare name is not), and whatever a
-    block, an import or ``:=`` binds. A def and a class are judged by themselves (``_creates_code``); ``pass``,
-    an expression statement, ``global`` and ``del`` bind nothing."""
+    block, an import or ``:=`` binds. A def or a class is such a value only where what creates it may run code
+    (``_runs_on_creation``), which needs the names around it: a module-level class's member is judged by the
+    caller, and a nested class's by ``_creates_code``. ``pass``, an expression statement, ``global`` and ``del``
+    bind nothing."""
     for stmt in body:
         if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Pass, ast.Global, ast.Nonlocal,
                              ast.Delete)):
@@ -583,17 +586,17 @@ def _rebound_decorators(body: list[ast.stmt]) -> frozenset[str]:
     return frozenset(rebound & _TRUSTED_NAMES)
 
 
-def _creates_code(node: ast.stmt, properties: frozenset[str] | None, module_names: Set[str], around: Set[str],
-                  nested: bool, postponed: bool, rebound: Set[str]) -> bool:
-    """Whether creating a def or class where it stands may call the module's code: a decorator that is not inert
-    (a property's own accessor is, on a name in ``properties``), or a class's keywords or a base that is not a
-    builtin class, which run class-creation code (``__init_subclass__``, a metaclass). A base is looked up in the
-    namespace around the class statement (``around``, a class body's) and then the module's, so a name either
+def _runs_on_creation(node: ast.stmt, properties: frozenset[str] | None, module_names: Set[str], around: Set[str],
+                      rebound: Set[str]) -> bool:
+    """Whether creating a def or class where it stands may call the module's code by itself: a decorator that is
+    not inert (a property's own accessor is, on a name in ``properties``), or a class's keywords or a base that is
+    not a builtin class, which run class-creation code (``__init_subclass__``, a metaclass). A base is looked up in
+    the namespace around the class statement (``around``, a class body's) and then the module's, so a name either
     binds (``_bound_in``) is not the builtin, and so is a decorator's: one of the names the inert ones are spelled
     with is no longer inert when the class body around binds it, or the module binds it otherwise than the
-    standard library does (``rebound``: ``_rebound_decorators``). A ``nested`` class is one whose body the proof
-    does not split into symbols (a member class, and each class inside one): its body runs where it stands, so
-    what it creates there counts as well, its own bases and decorators looked up around it."""
+    standard library does (``rebound``: ``_rebound_decorators``). Only such a def or class can leave a class body a
+    value with a ``__set_name__`` (``_hands_class``): a decorator's result, or a class whose metaclass may not be
+    ``type``."""
     untrusted = set(rebound) | (set(around) & _TRUSTED_NAMES)
     if not all(_inert_decorator(decorator, properties) and _first_name(decorator) not in untrusted
                for decorator in node.decorator_list):
@@ -603,6 +606,19 @@ def _creates_code(node: ast.stmt, properties: frozenset[str] | None, module_name
     builtin = _BUILTIN_CLASSES - module_names - around
     if node.keywords or not all(isinstance(base, ast.Name) and base.id in builtin for base in node.bases):
         return True
+    return False
+
+
+def _creates_code(node: ast.stmt, properties: frozenset[str] | None, module_names: Set[str], around: Set[str],
+                  nested: bool, postponed: bool, rebound: Set[str]) -> bool:
+    """Whether creating a def or class where it stands may call the module's code: by itself
+    (``_runs_on_creation``), or, for a ``nested`` class, one whose body the proof does not split into symbols (a
+    member class, and each class inside one), by what its body creates where it runs, its own bases and
+    decorators looked up around it."""
+    if _runs_on_creation(node, properties, module_names, around, rebound):
+        return True
+    if not isinstance(node, ast.ClassDef):
+        return False
     if not nested:
         # A module-level class's members are symbols of their own, each handing the class to what it binds
         # (``_Names.hands``), but an import in its body is in no member.
@@ -1030,8 +1046,8 @@ class _Names:
     evaluated; ``postponed``, whether its module postpones annotations; ``class_global``, the names it binds that
     its class body declares ``global``, which are the module's; ``holders``, the names that the statements of
     the class bodies nested in it bind (``_Scope.held``), each with the names its statement takes from the
-    module; ``hands``, for a class member that may bind a value with a ``__set_name__`` (``_hands_class``), its
-    class, which creating the class hands to that code."""
+    module; ``hands``, for a class member that may bind a value with a ``__set_name__`` (``_hands_class``, or a
+    def or class that ``_runs_on_creation``), its class, which creating the class hands to that code."""
     owner: str | None
     block: bool = False
     binds: set[str] = field(default_factory=set)
@@ -1314,7 +1330,11 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
                 put(f"{node.name}.{key}", ast.unparse(member), member, inert, owner=node.name,
                     implicit=implicit(member), local=local, in_body=in_body, class_globals=class_globals,
                     properties=properties, around=class_names)
-                if _hands_class([member]):  # creating the class hands it to what the member binds
+                # Creating the class hands it to what the member binds: a value an assignment may leave, or a def or
+                # class whose creation may run code, so that its decorator's result or its metaclass may be a descriptor.
+                if _hands_class([member]) or (
+                        isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                        and _runs_on_creation(member, properties, module_names, class_names, rebound)):
                     names[f"{node.name}.{key}"].hands.add(node.name)
         elif isinstance(node, ast.Assign):
             put(_assignment_key(node.targets), ast.unparse(node), node, _inert(node, postponed))
