@@ -674,6 +674,24 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
              "Consumer.expr:sys._getframe().f_locals.update(field=Descriptor())"),
             (descriptor + "class Outer:\n    class Consumer:\n        def __init__(self):\n"
              "            self.value = normalize(' x ')\n\n        locals().update(field=Descriptor())\n", "Outer.Consumer"),
+            ("import inspect\n\n\n" + descriptor + "class Consumer:\n" + init
+             + "    inspect.stack()[0].frame.f_locals.update(field=Descriptor())\n",
+             "Consumer.expr:inspect.stack()[0].frame.f_locals.update(field=Descriptor())"),
+            # ... or keep the namespace or its frame for a later call: a def's or a lambda's default (Codex's tenth round).
+            (descriptor + "class Consumer:\n" + init + "    def install(ns=locals()):\n        ns['field'] = Descriptor()\n\n"
+             "    install()\n", "Consumer.install"),
+            (descriptor + "class Consumer:\n" + init + "    def install(*, ns=vars()):\n        ns['field'] = Descriptor()\n\n"
+             "    install()\n", "Consumer.install"),
+            ("import sys\n\n\n" + descriptor + "class Consumer:\n" + init + "    def install(frame=sys._getframe()):\n"
+             "        frame.f_locals['field'] = Descriptor()\n\n    install()\n", "Consumer.install"),
+            ("import inspect\n\n\n" + descriptor + "class Consumer:\n" + init
+             + "    def install(frame=inspect.currentframe()):\n        frame.f_locals['field'] = Descriptor()\n\n"
+             "    install()\n", "Consumer.install"),
+            (descriptor + "class Consumer:\n" + init + "    register(lambda ns=locals(): ns.update(field=Descriptor()))\n",
+             "Consumer.expr:register(lambda ns=locals(): ns.update(field=Descriptor()))"),
+            (descriptor + "class Outer:\n    class Consumer:\n        def __init__(self):\n"
+             "            self.value = normalize(' x ')\n\n        def install(ns=locals()):\n"
+             "            ns['field'] = Descriptor()\n\n        install()\n", "Outer.Consumer"),
             ("def f(x: (lambda: normalize(' x '))()):\n    return x\n", "f"),
             ("from app.c import dataclass\n\n\n@dataclass\n" + box, "Box"),
             ("import types\n\n\n" + calling.replace("dataclass", "calling")
@@ -740,6 +758,9 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    "from dataclasses import dataclass\n\n\n@dataclass\n" + box,
                    "class Consumer:\n    LIMIT = 3\n\n    def __init__(self):\n        self.value = normalize(' x ')\n",
                    "class Consumer:\n" + init + "    int('1')\n",
+                   "class Consumer:\n" + init + "    def snapshot(self):\n        return dict(vars(self), **locals())\n",
+                   "class Consumer:\n" + init + "    register(lambda: locals())\n",
+                   descriptor + "class Consumer:\n" + init + "    class Inner:\n        locals().update(field=Descriptor())\n",
                    "class Consumer:\n" + init + "    class Inner:\n        pass\n\n    class Error(Exception):\n        pass\n",
                    "class Consumer:\n" + init + "    @property\n    def size(self):\n        return 1\n\n    @staticmethod\n"
                    "    def make():\n        return 1\n\n    @classmethod\n    def build(cls):\n        return cls\n",
