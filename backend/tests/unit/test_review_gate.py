@@ -138,3 +138,18 @@ def test_workflow_publishes_the_gate_on_every_non_draft_head_without_write_permi
     script = rerun["steps"][-1]["run"]
     assert "review-gate.yml/runs?event=pull_request_target" in script and "/rerun" in script
     assert "actions/checkout" not in str(rerun)  # never checks out or executes pull-request code
+
+
+def test_only_explicit_human_requests_rerun_and_comments_cannot_cancel_each_other():
+    workflow = yaml.load((ROOT / ".github/workflows/review-gate.yml").read_text(), Loader=yaml.BaseLoader)
+    condition = workflow["jobs"]["rerun-on-review-request"]["if"]
+    assert " ".join(condition.split()) == (
+        "github.event_name == 'issue_comment' && github.event.issue.pull_request && "
+        "github.event.comment.user.type == 'User' && "
+        "startsWith(github.event.comment.body, '@codex review')"
+    )
+    # An ignored bot event still enters workflow-level concurrency. It must not
+    # cancel the human request before that request can call the rerun endpoint.
+    assert workflow["concurrency"]["group"] == (
+        "review-gate-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}"
+    )
