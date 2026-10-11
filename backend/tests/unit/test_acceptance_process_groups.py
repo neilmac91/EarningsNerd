@@ -50,12 +50,26 @@ GRANDCHILDREN = {
         "print('ready', flush=True)\n"
         "time.sleep(60)\n"
     ),
+    "threaded": (  # its main thread leaves through pthread_exit, so /proc reads it Z while another thread runs
+        "import ctypes, threading, time\n"
+        "threading.Thread(target=time.sleep, args=(60,)).start()\n"
+        "print('ready', flush=True)\n"
+        "ctypes.CDLL(None).pthread_exit(None)\n"
+    ),
 }
+LINUX_PROC = pytest.mark.skipif(not Path("/proc/self/stat").is_file(), reason="reads Linux's /proc")
+
+
+def _state(pid: int) -> bytes | None:
+    try:
+        return Path(f"/proc/{pid}/stat").read_bytes().rpartition(b")")[2].split()[0]
+    except (FileNotFoundError, ProcessLookupError):
+        return None
 
 
 def _running(pid: int) -> bool:
-    """Whether the pid can still run: a zombie, which a reaper-less container leaves behind, cannot. Without /proc,
-    signal 0 answers (a zombie counts there, and an init that reaps clears it)."""
+    """Whether any thread of the pid can still run: a zombie, which a reaper-less container leaves behind, cannot.
+    Without /proc, signal 0 answers (a zombie counts there, and an init that reaps clears it)."""
     if not Path("/proc/self/stat").is_file():
         try:
             os.kill(pid, 0)
@@ -63,10 +77,10 @@ def _running(pid: int) -> bool:
             return False
         return True
     try:
-        state = Path(f"/proc/{pid}/stat").read_bytes().rpartition(b")")[2].split()[0]
+        tids = [int(task.name) for task in Path(f"/proc/{pid}/task").iterdir()]
     except (FileNotFoundError, ProcessLookupError):
         return False
-    return state not in (b"Z", b"X")
+    return any(_state(tid) not in (None, b"Z", b"X") for tid in tids)
 
 
 @pytest.fixture
@@ -118,23 +132,47 @@ def test_an_exited_child_leaves_its_group_to_be_ended(runner, group) -> None:
     assert runner._terminate_group(proc) is None  # nothing of the group is left to signal
 
 
-def test_a_zombie_is_no_live_member(tmp_path: Path) -> None:
+@RUNNERS
+@LINUX_PROC
+def test_a_member_whose_main_thread_left_is_still_ended(runner, group) -> None:
+    """A grandchild whose main thread called pthread_exit reads Z in /proc while its other thread runs: it is still a
+    member that can write, so it is signalled after the child exits."""
+    proc, grandchild = group("threaded", then="exit")
+    proc.wait()
+    deadline = time.monotonic() + 5
+    while _state(grandchild) != b"Z" and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert _state(grandchild) == b"Z" and _running(grandchild)
+    assert runner._terminate_group(proc) == "SIGTERM"
+    assert not _running(grandchild)
+
+
+def test_a_zombie_is_no_live_member(tmp_path: Path, monkeypatch) -> None:
     """``/proc`` is read where it exists: a member counts by its process group (not its session) unless it is a
-    zombie (state Z), and any process's name may hold ")" or bytes that are not UTF-8. Elsewhere signal 0 answers."""
-    def stat(pid: int, name: bytes, state: str, pgid: int, session: int = 9999) -> None:
+    zombie (state Z) whose threads are all zombies too, and any process's name may hold ")" or bytes that are not
+    UTF-8. Elsewhere signal 0 answers."""
+    def stat(pid: int, name: bytes, state: str, pgid: int, session: int = 9999,
+             threads: dict[int, str] | None = None) -> None:
         (tmp_path / str(pid)).mkdir()
         (tmp_path / str(pid) / "stat").write_bytes(b"%d (%s) %s 1 %d %d 0 -1\n" % (pid, name, state.encode(), pgid, session))
+        for tid, thread_state in (threads or {}).items():
+            (tmp_path / str(pid) / "task" / str(tid)).mkdir(parents=True)
+            if thread_state:  # empty: the thread exited while the scan ran
+                (tmp_path / str(pid) / "task" / str(tid) / "stat").write_bytes(
+                    b"%d (%s) %s 1 %d %d 0 -1\n" % (tid, name, thread_state.encode(), pgid, session))
 
     (tmp_path / "self").mkdir()
     (tmp_path / "self" / "stat").write_bytes(b"1 (pytest) S 0 1 1 0 -1\n")  # a mounted /proc
     (tmp_path / "net").mkdir()
     (tmp_path / "net" / "stat").write_bytes(b"0 (net) S 1 4242 4242 0 -1\n")  # not a pid: never a member
     (tmp_path / "104").mkdir()  # exited while the scan ran: its stat is gone
-    stat(100, b"sh", "Z", 4242)
+    stat(100, b"sh", "Z", 4242, threads={100: "Z", 106: ""})  # a zombie lists its own thread, a zombie too
     stat(101, b"odd) S 1 4242 x", "Z", 4242)
     stat(102, b"app-\xd0", "S", 7, session=4242)  # not UTF-8, and its session (not its group) is 4242
     stat(105, b"dead", "X", 4242)
     assert not delivery._group_alive(4242, tmp_path)
+    stat(107, b"node", "Z", 4244, threads={107: "Z", 108: "S"})  # its main thread left through pthread_exit
+    assert delivery._group_alive(4244, tmp_path)
     stat(103, b"sleep", "S", 4242)
     assert delivery._group_alive(4242, tmp_path)
     assert not delivery._group_alive(4243, tmp_path)
@@ -144,6 +182,12 @@ def test_a_zombie_is_no_live_member(tmp_path: Path) -> None:
     for elsewhere in (tmp_path / "absent", tmp_path / "net"):  # no /proc, or one with no stat of its own (unmounted)
         assert delivery._group_alive(os.getpgrp(), elsewhere)
         assert not delivery._group_alive(gone.pid, elsewhere)
+
+    def refuse(pgid: int, sig: int) -> None:
+        raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr(delivery.os, "killpg", refuse)  # a member exists that this process may not signal
+    assert delivery._group_alive(gone.pid, tmp_path / "absent")
 
 
 @RUNNERS
@@ -193,8 +237,10 @@ def test_both_runners_hold_the_same_group_termination() -> None:
     twice; a fix to anything ``_terminate_group`` reaches, in one copy, must reach the other."""
     names: set[str] = set()
     _reached(delivery, "_terminate_group", names)
-    _reached(judge_runner, "_terminate_group", names)
-    assert {"_group_alive", "_drain_group", "_GROUP_GRACE_SECONDS", "_GROUP_POLL_SECONDS"} <= names
+    theirs: set[str] = set()
+    _reached(judge_runner, "_terminate_group", theirs)
+    assert names == theirs
+    assert {"_group_alive", "_can_run", "_drain_group", "_GROUP_GRACE_SECONDS", "_GROUP_POLL_SECONDS"} <= names
     for name in sorted(names):
         ours, theirs = getattr(delivery, name), getattr(judge_runner, name)
         if inspect.isfunction(ours):
@@ -217,14 +263,19 @@ def _try_around_fsync(function) -> ast.Try:
 @pytest.mark.parametrize("function", [delivery.run_route_process, judge_runner._guardian_main],
                          ids=["delivery", "judge"])
 def test_the_group_is_ended_before_the_streams_are_fsynced(function) -> None:
-    """On every path that reaches the fsync, the group is ended in the ``try`` body that the ``finally`` follows, after
-    the child's ``communicate`` (a straggler's bytes must not be hashed into the receipt unfsynced)."""
-    body = _try_around_fsync(function).body
-    calls = [ast.unparse(call.func) for stmt in body for call in ast.walk(stmt) if isinstance(call, ast.Call)]
+    """On every path that reaches the fsync, the group is ended first (a straggler's bytes must not be hashed into the
+    receipt unfsynced): the ``try`` whose ``finally`` fsyncs holds one statement, an inner ``try`` around the child's
+    ``communicate`` whose ``finally`` is the one call that ends the group. A return, a timeout or any other exception
+    out of ``communicate`` passes that call before the outer handlers and the fsync."""
+    outer = _try_around_fsync(function)
+    assert len(outer.body) == 1 and isinstance(outer.body[0], ast.Try), ast.unparse(outer.body[0])
+    inner = outer.body[0]
+    calls = [ast.unparse(call.func) for stmt in inner.body for call in ast.walk(stmt) if isinstance(call, ast.Call)]
     assert any(name.endswith("communicate") for name in calls)
-    last = body[-1]
-    assert isinstance(last, (ast.Expr, ast.Assign)) and isinstance(last.value, ast.Call)
-    assert ast.unparse(last.value.func) == "_terminate_group", ast.unparse(last)
+    assert len(inner.finalbody) == 1, [ast.unparse(stmt) for stmt in inner.finalbody]
+    ends = inner.finalbody[0]
+    assert isinstance(ends, (ast.Expr, ast.Assign)) and isinstance(ends.value, ast.Call)
+    assert ast.unparse(ends.value.func) == "_terminate_group", ast.unparse(ends)
 
 
 def _route(tmp_path: Path, leader: str, timeout_seconds: int):
