@@ -257,6 +257,11 @@ What a reader sees in the three states (the strip's summary line; state 2 is the
   show two, the revenue growth chart shows one and the exports carry all · check the original filing before
   relying on these figures";
   note b as above.
+- When the table window is narrower than the report (Newest 6, Earliest 6), the table clause adds how
+  many of those changes are in the quarters shown, since the report-wide count no longer describes the
+  page: state 2 with Newest 6 reads "14 quarter-over-quarter changes in the table (8 in the 6 quarters
+  shown)", state 3 with Earliest 6 "3 quarter-over-quarter changes in the table (none in the 6 quarters
+  shown)"; with the full window the clause is unchanged.
 
 The summary names each note's letter beside its count, so the resting line is the key to the marks on
 the page: each clause names the letters of the notes it counts, so a note with values and comparisons
@@ -1021,7 +1026,10 @@ correction landed in this document:
   snapping settled on the first period column, so `scrollLeft = 0` rested at 208 px and the labels could
   never be scrolled back into view (§4.5). The probe aims the pointer at the visible part of the row
   header itself, with the prototype bar not taking the pointer, and proves the hover landed (the row's
-  cells change fill) before it judges the header's fill.
+  cells change fill) before it judges the header's fill. The picker's presets are plain buttons, without
+  `aria-pressed` or a selected tint (§4.9, as decision 8 recommends; the summary line states the range);
+  the open note's table clause says how many of its quarter-over-quarter changes are in the quarters
+  shown when the table window is narrower than the report (§4.1).
 - **Moved modules**, checked against `main` at `dd7b9ce` (#1222) on 2026-10-11: `normalize_companyfacts`
   lives in `facts/companyfacts.py` (#1210) behind the `facts_service.py` facade; `build_observation_catalogue`
   and `_point_value` in `trend_analysis/observations.py`, `_ratio_threshold_value` and
