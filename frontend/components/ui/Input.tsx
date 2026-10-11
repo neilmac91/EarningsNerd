@@ -76,8 +76,7 @@ const FIELD = cx('w-full', FIELD_BASE)
     `error` holds its border on hover, since the red names the problem; a disabled field's hover changes
     nothing in either tone. Each tone states its focus border in both themes even where it equals the rest
     border: the forms plugin's `input:where([type='text']):focus` border (#2563EB, specificity 0,1,1) beats a
-    bare `border-*` class (0,1,0). The error ring is `shadow-ring-error` in dark too, until a dark ring-error
-    token exists (the focus-ring item #1178 recorded). */
+    bare `border-*` class (0,1,0). Error focus uses the error ring's light/dark pair. */
 const TONE = {
   default: cx(
     'border-border-light hover:border-flat-light focus:border-brand focus:shadow-ring-brand disabled:hover:border-border-light',
@@ -86,7 +85,7 @@ const TONE = {
   ),
   error: cx(
     'border-error-light focus:border-error-light focus:shadow-ring-error',
-    'dark:border-error-dark dark:focus:border-error-dark dark:focus:shadow-ring-error',
+    'dark:border-error-dark dark:focus:border-error-dark dark:focus:shadow-ring-error-dark',
   ),
 } as const
 /** v3.7 — the tone of a field SHELL: a wrapper that draws the field around a chrome-free control (the chat composer's
@@ -102,7 +101,7 @@ const SHELL_TONE = {
   ),
   error: cx(
     'border-error-light focus-within:border-error-light focus-within:shadow-ring-error',
-    'dark:border-error-dark dark:focus-within:border-error-dark dark:focus-within:shadow-ring-error',
+    'dark:border-error-dark dark:focus-within:border-error-dark dark:focus-within:shadow-ring-error-dark',
   ),
 } as const
 const tone = (invalid: unknown, shell = false) => (shell ? SHELL_TONE : TONE)[invalid ? 'error' : 'default']

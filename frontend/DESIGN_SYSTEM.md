@@ -179,7 +179,8 @@ Secondary button <Button variant="secondary">  — brand hairline on transparent
                  border border-brand-border bg-transparent text-brand-strong hover:bg-brand-weak
                  active:bg-brand-border/60  dark:border-brand-border-dark dark:text-brand-strong-dark
                  dark:hover:bg-brand-weak-dark dark:active:bg-brand-border-dark
-                 (never hover:opacity — it darkens)
+                 (never hover:opacity — it darkens). Native disabled secondary/ghost controls keep their
+                 transparent fill under hover and active in both themes; loading keeps the resting look.
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
@@ -205,7 +206,9 @@ Link as button   buttonVariants({ variant, size })  — the class-string factory
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
-                 destructive + invalid fields use shadow-ring-error. There is no global :focus-visible rule, so
+                 destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
+                 hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
+                 shadow-ring-brand-inset / shadow-ring-brand-inset-dark. There is no global :focus-visible rule, so
                  a control without the recipe draws the browser's own outline (`auto`), unlike its neighbours.
                  A control that is a block of its own (a logo link, an icon button, a menu row) takes a radius
                  (`rounded-lg`) so the ring follows its shape. A field the forms plugin styles (a text

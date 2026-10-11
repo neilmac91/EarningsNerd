@@ -512,10 +512,10 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
     combination and the Input, Textarea and Select components take the forms ring off and draw the DS ring). */
 const FIELD_FACTORY = 'components/ui/Input.tsx'
 /** The DS ring tokens, pinned, each light one with the dark token it pairs with: `ring-brand` with `ring-brand-dark`,
-    and `ring-error` with itself until a dark ring-error token exists (the focus-ring item #1178 recorded). A misspelt
+    and `ring-error` with `ring-error-dark`. A misspelt
     token generates no CSS, and a `ring-*` key added to the theme later need not draw a ring (`ring-none: 'none'`), so
     only these count; the describe below holds each to a visible shadow in tailwind.config.js. */
-const DARK_RING: Record<string, string> = { 'ring-brand': 'ring-brand-dark', 'ring-error': 'ring-error' }
+const DARK_RING: Record<string, string> = { 'ring-brand': 'ring-brand-dark', 'ring-error': 'ring-error-dark' }
 const RING_TOKENS = new Set([...Object.keys(DARK_RING), ...Object.values(DARK_RING)])
 const THEME_SHADOWS = resolveConfig(createRequire(import.meta.url)(path.join(ROOT, 'tailwind.config.js')) as Config).theme
   .boxShadow as Record<string, string>
@@ -962,6 +962,7 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       expect(block(variant), variant).toContain('dark:focus-visible:shadow-ring-brand-dark')
     }
     expect(block('destructive')).toContain('focus-visible:shadow-ring-error')
+    expect(block('destructive')).toContain('dark:focus-visible:shadow-ring-error-dark')
   })
 
   it('the scan catches what it is for (a self-check on fixed sources)', () => {
@@ -1129,12 +1130,32 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     expect(findings).toEqual([])
   })
 
-  it('every pinned DS ring token draws a visible ring in tailwind.config.js', () => {
-    for (const token of RING_TOKENS) {
-      // A spread above zero in a colour that is not transparent: `0 0 0 3px rgba(79, 122, 99, 0.50)`.
-      const m = THEME_SHADOWS[token]?.match(/^0 0 0 [1-9]\d*px rgba?\(\s*\d+,\s*\d+,\s*\d+\s*(?:,\s*([\d.]+)\s*)?\)$/)
+  it('every DS ring draws at least 3:1 focus ink on its theme’s page, panel and tinted controls', () => {
+    const colors = resolveConfig(TAILWIND_CONFIG).theme.colors as Record<string, Record<string, string>>
+    const rgba = (color: string): number[] => color.startsWith('#')
+      ? [...color.slice(1).match(/../g)!.map((v) => parseInt(v, 16)), 1]
+      : color.match(/[\d.]+/g)!.map(Number)
+    const over = (ink: number[], ground: number[]): number[] => ink.slice(0, 3).map((v, i) => v * (ink[3] ?? 1) + ground[i] * (1 - (ink[3] ?? 1)))
+    const luminance = (rgb: number[]) => rgb.slice(0, 3).map((v) => {
+      const s = v / 255
+      return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+    }).reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0)
+    for (const token of [...RING_TOKENS, 'ring-brand-inset', 'ring-brand-inset-dark']) {
+      const m = THEME_SHADOWS[token]?.match(/^(?:inset )?0 0 0 [1-9]\d*px (rgba?\([\d.,\s]+\))$/)
       expect(m, token).toBeTruthy()
-      expect(m![1] === undefined ? 1 : Number(m![1]), `${token}'s alpha`).toBeGreaterThan(0)
+      const dark = token.endsWith('-dark')
+      const theme = dark ? 'dark' : 'light'
+      const page = rgba(colors.background[theme])
+      const panel = rgba(colors.panel[theme])
+      const grounds = [page, panel, ...(dark ? [page, panel].flatMap((ground) => [
+        over(rgba('rgba(255,255,255,0.05)'), ground),
+        over(rgba(colors.brand['weak-dark']), ground),
+        over(rgba(colors.brand['border-dark']), ground),
+      ]) : [rgba('#FFFFFF'), rgba(colors.brand.weak), over(rgba('rgba(207,224,214,0.6)'), panel)])]
+      for (const ground of grounds) {
+        const levels = [luminance(over(rgba(m![1]), ground)), luminance(ground)].sort((a, b) => b - a)
+        expect((levels[0] + 0.05) / (levels[1] + 0.05), `${token} on ${ground.join(',')}`).toBeGreaterThanOrEqual(3)
+      }
     }
   })
 
@@ -1213,7 +1234,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <input type="text" className={inputClasses()} {...rest} />
             <input type="date" className="border focus:shadow-ring-none dark:focus:shadow-ring-none ${reset}" />
             <input type="date" className="border focus:shadow-ring-brand dark:focus:shadow-ring-brand ${reset}" />
-            <input type="date" className="border focus:shadow-ring-error dark:focus:shadow-ring-error ${reset}" />
+            <input type="date" className="border focus:shadow-ring-error dark:focus:shadow-ring-error-dark ${reset}" />
             <input type="date" className="border ${field} focus:ring-2" />
             <input type="date" className="border ${field} dark:focus:ring-offset-2 ring-brand" />
             <input type="date" className="border ${field} focus:[box-shadow:none]" />
@@ -1236,7 +1257,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <Input style={{ boxShadow: 'none' }} />
             <Textarea variant="composer" style={{ maxHeight: 120, overflowY: 'auto' }} />
             <Input {...{ style: { boxShadow: 'none' } }} />
-            <input type="date" className="border ${field} focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error" />
+            <input type="date" className="border ${field} focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark" />
             <input type="date" className="border ${field} group-focus-within:!shadow-none peer-focus:shadow-none" />
             <input type="date" tabIndex={-1} className="hidden !block" />
             <input type="date" tabIndex={-1} className={\`hidden \${c}\`} />

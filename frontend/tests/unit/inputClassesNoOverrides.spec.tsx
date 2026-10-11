@@ -97,22 +97,10 @@ const ROOTS = ['app', 'components', 'features', 'hooks', 'lib']
 const DEFINITION = 'components/ui/Input.tsx'
 
 const PINS: Record<string, { findings: string[]; reason: string }> = {
-  'app/dashboard/settings/page.tsx': {
-    findings: [
-      'focus:border-error-light vs dark:border-border-dark [border-color] (no dark twin)',
-      'focus:border-error-light vs dark:focus:border-brand-dark [border-color] (no dark twin)',
-      'focus:border-error-light vs focus:border-brand [border-color] (same chain)',
-      'focus:shadow-ring-error vs dark:focus:shadow-ring-brand-dark [--tw-shadow] (no dark twin)',
-      'focus:shadow-ring-error vs focus:shadow-ring-brand [--tw-shadow] (same chain)',
-    ],
-    reason:
-      'The delete-account confirm field: its error-toned focus wins in light by one rule and loses in dark (the ' +
-      'sage brand border and ring show). The fix shows `shadow-ring-error` in dark, which reads 1.27:1 on panel, ' +
-      'so it waits on the dark ring-error token decision (rule 11) recorded by #1178.',
-  },
+
 }
 /** Shrink-only: files, and findings (one entry per site, so a second site with the same override fails). */
-const MAX_PINNED = { files: 1, findings: 5 }
+const MAX_PINNED = { files: 0, findings: 0 }
 
 /** The findings PINS does not cover, counting each pinned entry once, and the pins no finding matched. */
 function againstPins(found: { file: string; line: number; finding: string }[], pins: typeof PINS) {
@@ -777,7 +765,13 @@ export const C = ({ on }: { on: boolean }) => (
 
   it('fails a state colour with no dark twin, and passes one that has it', async () => {
     expect(await findingsOf(`${IMPORTS}export const X = () => <input className={inputClasses({ className: 'focus:border-error-light focus:shadow-ring-error' })} />`)).toEqual(
-      PINS['app/dashboard/settings/page.tsx'].findings,
+      [
+        'focus:border-error-light vs dark:border-border-dark [border-color] (no dark twin)',
+        'focus:border-error-light vs dark:focus:border-brand-dark [border-color] (no dark twin)',
+        'focus:border-error-light vs focus:border-brand [border-color] (same chain)',
+        'focus:shadow-ring-error vs dark:focus:shadow-ring-brand-dark [--tw-shadow] (no dark twin)',
+        'focus:shadow-ring-error vs focus:shadow-ring-brand [--tw-shadow] (same chain)',
+      ],
     )
     // A focus-within layer on a shell (the chat composer's before `shell`) in light alone: each class wants its dark twin.
     const lightOnly = `import { cx, inputClasses } from '@/components/ui'
@@ -1179,8 +1173,7 @@ describe("the field's tone is one class per state", SLOW, () => {
         dark: 'dark:border-error-dark',
         'dark:focus': 'dark:focus:border-error-dark',
       },
-      // The dark ring is the light token until a dark ring-error exists (the focus-ring item #1178 recorded).
-      ring: { focus: 'focus:shadow-ring-error', 'dark:focus': 'dark:focus:shadow-ring-error' },
+      ring: { focus: 'focus:shadow-ring-error', 'dark:focus': 'dark:focus:shadow-ring-error-dark' },
     },
   }
   const SHELL_TONES = {
@@ -1204,7 +1197,7 @@ describe("the field's tone is one class per state", SLOW, () => {
         dark: 'dark:border-error-dark',
         'dark:focus-within': 'dark:focus-within:border-error-dark',
       },
-      ring: { 'focus-within': 'focus-within:shadow-ring-error', 'dark:focus-within': 'dark:focus-within:shadow-ring-error' },
+      ring: { 'focus-within': 'focus-within:shadow-ring-error', 'dark:focus-within': 'dark:focus-within:shadow-ring-error-dark' },
     },
   }
   /** The classes that set `prop` on the field itself, keyed by their variant chain (sorted, `:`-joined). */

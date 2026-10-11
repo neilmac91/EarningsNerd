@@ -407,8 +407,9 @@ The exact source shadow strings are stored in the sidecar's `extensions.shadows`
 | `e2` | Default light card lift |
 | `e3` | Featured/hero surface emphasis |
 | `e4` / `e5` | `e4` for popovers (alert bell, source trace) and the Copilot coachmark; `e5` for the shared Modal, bottom sheets, the citation-chip popover and the cookie-consent banner, light mode only. Header menus use `e2` and search dropdowns `e3` |
-| `ring-brand` / `ring-brand-dark` | Keyboard focus; fields also show the ring on focus |
-| `ring-error` | Invalid fields and destructive-action focus |
+| `ring-brand` / `ring-brand-dark` | Opaque 3px keyboard focus, at least 3:1 on page, panel and tinted control surfaces; fields also show it on focus |
+| `ring-brand-inset` / `ring-brand-inset-dark` | The same focus ink inside clipped scroll regions and calendar cells |
+| `ring-error` / `ring-error-dark` | Invalid fields and destructive-action focus, with opaque ink in each theme |
 
 **The Lifted Paper Rule.** On cream, default cards use the brighter panel fill, a hairline and restrained shadow. Pale sage is an accent tint, not the default card fill. Dark cards separate with fill and hairline.
 
