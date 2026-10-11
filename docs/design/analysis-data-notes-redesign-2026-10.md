@@ -408,8 +408,8 @@ budget in `lib/tableFormat.ts`). The rules, with the corrections of §11:
   overflows; Left/Right move one column, Home/End the ends, handled only when the region itself has focus
   (a cell's dialog bubbles its keys through the React tree); a focused cell is scrolled whole into view,
   clear of the sticky column. Focus picks the snap stop itself: the column's own stop when it starts left of
-  the sticky column's edge, else the first stop that shows its far edge; with the column unstuck, the label
-  column is a stop of its own. The browser's focus scroll followed by the mandatory snap can otherwise
+  the sticky column's edge, else the first stop that shows its far edge, never past the column's own stop; with the column unstuck,
+  the label column is a stop of its own. The browser's focus scroll followed by the mandatory snap can otherwise
   settle on a stop that leaves the value past the edge (11% of one showed at 320 px with 200% text in the
   prototype, until this rule). On phones the table starts scrolled to the newest quarter with the hint "← Earlier
   quarters" shown while the table is scrolled away from its start; at wider widths it starts at the
@@ -617,8 +617,8 @@ grouping and the sentences so the four cannot disagree (Phase 2); the exports re
   use the chart label ink.
 - Gates: the analysis route joins `tests/e2e/text-floors.spec.ts` in both themes; the layout gate (#1206,
   `tests/e2e/analysis-layout.spec.ts`) asserts the region's role, name and Tab stop, the header counts and
-  every figure control's name; still owed there, as follow-ups: the conditional Tab stop, the focused-cell
-  clearance from the sticky column at 390 and 1024, Home/End changing `scrollLeft` and never `scrollY`,
+  every figure control's name; still owed there, as follow-ups: the conditional Tab stop, a focused cell
+  whole in view (clear of the sticky column and inside the far edge) at 390 and 1024, Home/End changing `scrollLeft` and never `scrollY`,
   the window control keeping focus and updating its status, the Notes chip moving focus to
   `#analysis-data-note-a`, and the dialog's name and focus return.
 

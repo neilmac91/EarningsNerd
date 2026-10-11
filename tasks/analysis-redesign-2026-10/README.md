@@ -95,7 +95,7 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   check it right after launch and write their recording only in it; a run in any other needs `--out`. The
   frontend's own `@playwright/test` (1.63) runs Chromium 153, in which the `97293e7` build measures differently
   in every configuration (the note under the commands below gives the numbers). The pin is necessary, not
-  sufficient: text widths also follow the machine's font setup, so the recordings are one environment's run (the
+  sufficient: text widths also depend on the machine (its font setup most likely; the cause is not isolated), so the recordings are one environment's run (the
   note below), and a check on another machine asserts their invariants from a run written with `--out`.
 - `harness/build_states.py`, `harness/prune_states.py` — reproduce `prototype/data/` from a saved
   companyfacts payload. The fixtures are pinned to the engine's shape before #1225, which the prototype,
@@ -151,6 +151,8 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
 ## Running the harnesses
 
 ```bash
+# These commands write the committed recordings (each harness's default output) and are for retaking them in
+# the recordings' environment; a check on any other machine adds --out <a scratch file> (see the note below them).
 # current components: build the frontend from frontend/ (the critique environment's flags; no backend); the
 # harness serves it. measurements/current.json records main at 97293e7, before Phase 1 landed. To reproduce it,
 # build the frontend in a worktree of that revision (97293e7 has no harness, so the harness runs from this tree and
@@ -214,8 +216,8 @@ cites.
 The pinned browser does not make the numbers portable. In the same Chromium 141.0.7390.37 on linux x64, with
 matching source, fixture, font and install hashes, the founder's review of 2026-10-11 measured the `97293e7`
 table at 2,044 px against the recording's 2,076, and all 20 geometry records differed. Six prototype card
-heights at 390 px with 200% text came out at 206 px against 238. The Track A verification had seen 2,044 px
-too. The cause in the environment is not isolated; text widths follow the machine's font setup as well as the
-browser. So the recordings are one environment's run. A check on another machine runs with `--out` and
-compares the invariants the briefing prompt's Track A lists (signs and counts, not pixels), and it never
-rewrites a committed recording to match.
+heights at 390 px with 200% text came out at 206 px against 238. The Track A verification had seen 2,044 px too.
+The cause in the environment is not isolated; the machine's font setup is the likeliest, since text widths
+differ while every input hash matches. So the recordings are one environment's run. A check on another machine
+runs with `--out` and compares the invariants the briefing prompt's Track A lists (signs and counts, not
+pixels), and it never rewrites a committed recording to match.

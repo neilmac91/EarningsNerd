@@ -1,4 +1,4 @@
-# Re-read the actual code before implementing any plan item marked missing
+# Re-read the actual code before implementing any plan item marked missing, or listing one as open
 
 Date: 2026-06-16   Area: ops
 

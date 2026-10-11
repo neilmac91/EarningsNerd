@@ -142,6 +142,9 @@ async function focusReveal(page) {
     if (stop) stops.push({ key, ...stop })
   }
   await page.evaluate(() => { if (document.activeElement) document.activeElement.blur(); window.scrollTo(0, 0) })
+  // A walk that never reached the table measures nothing: every key but the last Shift+Tab (back onto the region)
+  // must land on a value inside it.
+  if (stops.length !== (steps ? 2 * steps - 1 : 0)) throw new Error(`the keyboard-focus probe reached ${stops.length} values in the table, expected ${steps ? 2 * steps - 1 : 0}`)
   const worst = stops.reduce((a, b) => (!a || b.visible < a.visible ? b : a), null)
   return { stops: stops.length, minVisible: worst ? Math.round(worst.visible * 1000) / 1000 : 1, worst }
 }

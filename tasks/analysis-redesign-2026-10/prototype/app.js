@@ -564,7 +564,9 @@
     // mandatory snap then settles on whichever stop is nearest, which can leave the value past the edge or under the
     // sticky labels (Tab at 320 px with 200% text showed 11% of one). So focus picks the stop itself, as the app's
     // DataTable does: the column's own stop when it starts left of the labels' edge, else the first stop that shows
-    // its far edge. Unstuck, the label column is a stop of its own and nothing overlays the values.
+    // its far edge, never past the column's own stop (a column up to 1 px wider than the room beside the labels
+    // still sticks, and the next stop would put it under them). Unstuck, the label column is a stop of its own and
+    // nothing overlays the values.
     scroll.addEventListener('focusin', (e) => {
       const cell = e.target !== scroll && e.target.closest('td')
       if (!cell) return
@@ -577,7 +579,7 @@
       if (box.left < view.left + inset - 0.5) to = stopOf(cell)
       else if (box.right > view.right + 0.5) {
         const need = scroll.scrollLeft + box.right - view.right
-        to = Math.min(range, ...[...cell.parentElement.children].filter((c) => c.tagName === 'TD' || unstuck).map(stopOf).filter((s) => s >= need - 0.5))
+        to = Math.min(range, stopOf(cell), ...[...cell.parentElement.children].filter((c) => c.tagName === 'TD' || unstuck).map(stopOf).filter((s) => s >= need - 0.5))
       }
       if (to != null) scroll.scrollLeft = Math.max(0, Math.min(to, range))
     })

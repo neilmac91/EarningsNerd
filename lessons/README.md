@@ -40,7 +40,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-unmergeable-pr-runs-no-pull-request-workflows.md — Check the PR's mergeable state before diagnosing missing `pull_request` workflow runs
 - ops-validate-workflow-inputs-before-pipeline.md — Validate workflow inputs before `pipeline()`; a throw inside a stage is a silent drop, and a `null` agent result is no result, never clearance
 - ops-verify-env-updates-reach-session.md — Fingerprint env values in the running shell before debugging a rotated secret
-- ops-verify-plan-gaps-against-code.md — Re-read the actual code before implementing any plan item marked missing
+- ops-verify-plan-gaps-against-code.md — Re-read the actual code before implementing any plan item marked missing, or listing one as open
 - ops-write-down-the-second-anomaly-before-chasing-the-first.md — Write down the second anomaly before chasing the first — a parked finding is a lost finding
 
 ## Evals, judging, paid runs and the founder's machine (read for that work)
