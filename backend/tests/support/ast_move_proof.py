@@ -89,9 +89,10 @@ name or literal, whose evaluation may run code (a call, a subscript's ``__class_
 descriptor), but a lone name an annotation evaluates (``-> Report``), which Python stores and never calls,
 does not, nor does a property's own accessor, which copies the property), or a def or class created there by
 a decorator that is not inert or, for a class, with keywords or a base that is not a builtin class (a name
-that the module, a class body or a ``global`` binds is none), whose class-creation code may run its methods.
-A dunder there is read by Python itself as well, wherever an old symbol stands above the binding (the next
-paragraph). The settlement covers reads only: moved code that rebinds the name, at module
+bound around the class statement, in its class body or the module, or through ``global``, is none), whose
+class-creation code may run its methods; a member class's body runs there too, and so is read for what it
+creates in turn. A dunder there is read by Python itself as well, wherever an old symbol stands above the
+binding (the next paragraph). The settlement covers reads only: moved code that rebinds the name, at module
 level or through ``global``, rebound the old file's copy and now rebinds the target's, for every importer,
 and is reported. A class body is one namespace for ``global``, which the proof reads member by member: the
 member that stores or deletes a name its class body declares ``global`` binds the module's name, wherever in
@@ -501,14 +502,37 @@ def _inert(stmt: ast.stmt, postponed: bool, properties: frozenset[str] | None = 
     return False
 
 
-def _namespace_bindings(tree: ast.Module) -> set[str]:
-    """Every name that the namespaces where a symbol's class looks up its bases may bind, wherever in them and in
-    whatever order: the module's (its statements, through blocks, and a ``:=`` in a comprehension or a def's
-    header there), a module-level class's body (a member class's bases), and any name a scope binds through
-    ``global``. A def's or lambda's own names and a comprehension's targets are not: no such lookup sees them. A
-    star import is not followed: an old file that has one settles no name (``_imported_from``)."""
-    module = _Scope().read(*tree.body)
-    return module.bound | module.declared() | set().union(*(scope.bound for scope in module.nested if scope.in_class))
+def _bound_in(body: list[ast.stmt]) -> set[str]:
+    """Every name a module's or a class's body may bind in its own namespace, wherever in it and in whatever
+    order: its statements, through blocks, and a ``:=`` in a comprehension or a def's header there; and any name
+    a scope inside it binds through ``global``. A def's or lambda's own names and a comprehension's targets are
+    not. A star import is not followed: an old file that has one settles no name (``_imported_from``)."""
+    scope = _Scope().read(*body)
+    return scope.bound | scope.declared()
+
+
+def _creates_code(node: ast.stmt, properties: frozenset[str] | None, module_names: Set[str], around: Set[str],
+                  nested: bool, postponed: bool) -> bool:
+    """Whether creating a def or class where it stands may call the module's code: a decorator that is not inert
+    (a property's own accessor is, on a name in ``properties``), or a class's keywords or a base that is not a
+    builtin class, which run class-creation code (``__init_subclass__``, a metaclass). A base is looked up in the
+    namespace around the class statement (``around``, a class body's) and then the module's, so a name either
+    binds (``_bound_in``) is not the builtin. A ``nested`` class is one whose body the proof does not split into
+    symbols (a member class, and each class inside one): its body runs where it stands, so what it creates
+    there counts as well, its own bases looked up around it."""
+    if not all(_inert_decorator(decorator, properties) for decorator in node.decorator_list):
+        return True
+    if not isinstance(node, ast.ClassDef):
+        return False
+    builtin = _BUILTIN_CLASSES - module_names - around
+    if node.keywords or not all(isinstance(base, ast.Name) and base.id in builtin for base in node.bases):
+        return True
+    if not nested:
+        return False
+    inside = _bound_in(node.body)
+    judged = {id(stmt): accessors for stmt, _, accessors in _class_body(node.body, postponed)}
+    return any(_creates_code(stmt, judged.get(id(stmt), frozenset()), module_names, inside, True, postponed)
+               for stmt in _flatten(node.body) if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)))
 
 
 def _postpones_annotations(tree: ast.Module) -> bool:
@@ -861,7 +885,8 @@ class _Names:
     the names it binds only possibly (a bare annotation binds nothing at run time, and ``:=`` may not run);
     ``deletes``, the names it is a ``del`` of; ``decorated``, whether creating it may call its own code: a
     decorator that is not inert is handed the def or class, and a class's keywords or a base that is not a
-    builtin class run class-creation code (``__init_subclass__``, a metaclass). For the target-file settlement:
+    builtin class run class-creation code (``__init_subclass__``, a metaclass); for a member class, what its body
+    creates counts too (``_creates_code``). For the target-file settlement:
     ``plain`` and ``typed``, the names it loads where it stands outside annotations and in them (a ``global``
     declaration loads nothing), and ``active``, those of ``typed`` in an annotation that may run code where it is
     evaluated; ``postponed``, whether its module postpones annotations; ``class_global``, the names it binds that
@@ -944,7 +969,7 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
               for name in {name for inner in ast.walk(each) if isinstance(inner, ast.Global) for name in inner.names}
               & set(_deletions(each.body))}
     shadowing = {name: spans for name, spans in _certain_bindings(tree.body).items() if name not in undone}
-    builtin_classes = _BUILTIN_CLASSES - _namespace_bindings(tree)
+    module_names = _bound_in(tree.body)
     aliases, modules = _builtin_names(_scope_nodes(tree.body),
                                       lambda name, at: not _bound_at(shadowing, name, at.lineno))
 
@@ -952,7 +977,8 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
             code: ast.AST | None = None, implicit: Set[str] = frozenset(),
             local: dict[str, list[tuple[int, int | None]]] | None = None,
             in_body: tuple[dict[str, set[str]], set[str]] = ({}, set()),
-            class_globals: Set[str] = frozenset(), properties: frozenset[str] | None = None) -> None:
+            class_globals: Set[str] = frozenset(), properties: frozenset[str] | None = None,
+            around: Set[str] = frozenset()) -> None:
         found[key] = f"{found[key]}\n{text}" if key in found else text  # every definition, in source order
         occurrences.append((node.lineno, node.col_offset, len(occurrences), key))
         if not inert:
@@ -976,9 +1002,8 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             # A builtin class base (``Exception``) runs no class-creation code of the module's: its metaclass is
             # ``type`` and its ``__init_subclass__`` object's. A property's accessor on a property above it copies it.
-            used.decorated |= (not all(_inert_decorator(decorator, properties) for decorator in node.decorator_list)
-                               or (isinstance(node, ast.ClassDef) and (bool(node.keywords) or not all(
-                                   isinstance(base, ast.Name) and base.id in builtin_classes for base in node.bases))))
+            # A member class's body is no symbol of its own, so what it creates is judged with it.
+            used.decorated |= _creates_code(node, properties, module_names, around, owner is not None, postponed)
         used.lines.append(node.lineno)
         # What it reads that its module gets from where it lives. A block reads its header; its body's
         # statements are symbols of their own, and its text drops its imports. In a class body, the names the
@@ -1104,6 +1129,7 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
                                      and not _bound_at(shadowing, name, node.lineno), modules)
             class_globals = frozenset(name for each in _scope_nodes(node.body) if isinstance(each, ast.Global)
                                       for name in each.names)
+            class_names = _bound_in(node.body)  # where a member class looks up its bases first
             for guard in _guards(node.body):
                 if not _type_checking_imports(guard):
                     put(f"{node.name}.guard:{_guard_header(guard)}", ast.unparse(_without_imports(guard)), guard,
@@ -1127,7 +1153,7 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
                     inert = _inert(member, postponed, frozenset())
                 put(f"{node.name}.{key}", ast.unparse(member), member, inert, owner=node.name,
                     implicit=implicit(member), local=local, in_body=in_body, class_globals=class_globals,
-                    properties=properties)
+                    properties=properties, around=class_names)
         elif isinstance(node, ast.Assign):
             put(_assignment_key(node.targets), ast.unparse(node), node, _inert(node, postponed))
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
