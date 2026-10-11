@@ -205,13 +205,14 @@ by `__all__`); a pkgutil-walking test asserts no submodule can see the `User` mo
 ### The `edgar/` layer
 
 `client.py` (EdgarTools calls, breaker-wrapped), `xbrl_service.py` (persisted accession snapshot first, then two-tier cached XBRL),
+`xbrl_companyfacts.py` (companyfacts fallback transport and parser, delegated by the service class),
 `compat.py` (ticker cache + document fetch), `circuit_breaker.py`, `async_executor.py`
 (dedicated thread pool; `run_with_circuit_breaker` is the standard wrapper),
 `instance_extractor.py` (**accession-aware**: selects facts for the filing's own reporting
 period), `statement_parser.py` (pure DataFrame helpers), `sixk_extractor.py`, plus
 `config.py`/`exceptions.py`/`models.py`. Breaker coverage is selective: the XBRL primary path
-uses plain timeouts for local parsing, and its raw companyfacts fallback uses a single limiter
-wait without the breaker. Existing raw-HTTP paths outside the layer — `SECFullTextSearchClient`
+uses plain timeouts for local parsing, and the raw companyfacts fallback in `xbrl_companyfacts.py`
+uses a single limiter wait without the breaker. Existing raw-HTTP paths outside the layer — `SECFullTextSearchClient`
 in `app/integrations/sec_api.py` and companyfacts fetching in `app/services/facts/transport.py` —
 use shared limiter/backoff without the breaker. Preserve the existing transport owners;
 do not add raw-HTTP SEC bypasses outside them, even if paced.
