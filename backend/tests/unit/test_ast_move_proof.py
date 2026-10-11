@@ -545,11 +545,18 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
     chain of defs or a class's methods, a lambda handed to a call (``sorted(key=...)``, ``map``, one called where
     it stands, in a default or a class body), a member its class body calls, a decorator that is handed the def
     (an ``async def`` too), a class whose bases or keywords may call its methods when it is created, and a
-    method's decorator in the class body. Below the binding each is settled, and so is a reaching def or class
-    that nothing above the binding names or calls: a lambda that no call is handed, one that an inert decorator
-    or a property's own accessor wraps, a class whose only base is a builtin class (one the module does not
-    rebind), and an annotation, which Python stores and never calls (a postponed one is not even evaluated)."""
+    method's decorator in the class body. An annotation that is no lone name or literal runs code where Python
+    evaluates it (a call, a subscript's ``__class_getitem__``), and a def whose annotation names a reaching class
+    holds it: what reads its ``__annotations__`` may call it. Below the binding each is settled, and so is a
+    reaching def or class that nothing above the binding names or calls: a lambda that no call is handed, one
+    that an inert decorator or a property's own accessor wraps, a class whose only base is a builtin class (one
+    no binding the base's lookup sees replaces: a def's local or a comprehension's target does not), and a lone
+    name an annotation evaluates, which Python stores and never calls (a postponed annotation is not even
+    evaluated)."""
     target = "def normalize(value):\n    return value.strip()\n"
+    report_init = "class Report:\n    def __init__(self):\n        normalize(' x ')\n\n\n"
+    report_class = "class Report:\n    def render(self):\n        return normalize(' x ')\n\n\n"
+    error = "class FooError(Exception):\n    def __str__(self):\n        return normalize(' boom ')\n"
     for reader, key in (
             ("def describe():\n    return normalize(' x ')\n\n\nDESCRIPTION = describe()\n", "DESCRIPTION"),
             ("RUN = lambda: normalize(' x ')\nDESCRIPTION = RUN()\n", "DESCRIPTION"),
@@ -577,20 +584,36 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
             ("class Box:\n    def _wrap(fn):\n        normalize(' x ')\n        return fn\n\n    @_wrap\n    def clean(self):\n"
              "        return 1\n", "Box.clean"),
             ("def build(value) -> normalize:\n    return value\n", "build"),
-            ("Exception = Base\n\n\nclass FooError(Exception):\n    def __str__(self):\n        return normalize(' boom ')\n",
-             "FooError")):
+            ("Exception = Base\n\n\n" + error, "FooError"),
+            ("def setup():\n    global Exception\n    Exception = Base\n\n\n" + error, "FooError"),
+            ("FOUND = [(Exception := Base) for _ in (1,)]\n\n\n" + error, "FooError"),
+            ("class Box:\n    Exception = Base\n\n    class FooError(Exception):\n        def __str__(self):\n"
+             "            return normalize(' boom ')\n", "Box.FooError"),
+            (report_init + "def build(value: Report()):\n    return value\n", "build"),
+            (report_init + "def build() -> Report():\n    return 1\n", "build"),
+            ("class Report:\n    def __class_getitem__(cls, item):\n        return normalize(' x ')\n\n\n"
+             "def build(value: Report[int]):\n    return value\n", "build"),
+            (report_init + "VALUE: Report() = 1\n", "VALUE"),
+            ("from typing import Optional\n\n\n" + report_init
+             + "def build(value: Optional[Report]):\n    return value\n", "build"),
+            (report_init + "def build(value: Report):\n    return value\n\n\n"
+             "CHECK = build.__annotations__['value']()\n", "CHECK"),
+            ("def route(fn):\n    for hint in fn.__annotations__.values():\n        hint()\n    return fn\n\n\n"
+             + report_init + "@route\ndef build(value: Report):\n    return value\n", "build"),
+            (report_class + "def build(value: Report):\n    return value\n\n\nHANDLERS = [build]\n", "HANDLERS")):
         old = "from app.b import normalize\n\n\n" + reader
         above = compare(old, {"app/a.py": "", "app/b.py": reader + "\n\n" + target}, old_path="app/a.py")
         assert above.shadows == {"normalize": f"app/b.py: binds normalize, read above it at import by {key}"}, reader
         assert compare(old, {"app/a.py": "", "app/b.py": target + "\n\n" + reader}, old_path="app/a.py").ok, reader
-    report_class = "class Report:\n    def render(self):\n        return normalize(' x ')\n\n\n"
     for reader in ("def describe():\n    return normalize(' x ')\n\n\nVALUE = other()\n",
                    "class Box(Base):\n    LIMIT = 3\n",
                    "class Box:\n    @property\n    def clean(self):\n        return normalize(' x ')\n",
                    "VALUE = [lambda row: normalize(row)]\n",
                    "class Box:\n    @property\n    def value(self):\n        return self._v\n\n    @value.setter\n"
                    "    def value(self, raw):\n        self._v = normalize(raw)\n",
-                   "class FooError(Exception):\n    def __str__(self):\n        return normalize(' boom ')\n",
+                   error,
+                   "def helper():\n    Exception = object\n    return Exception\n\n\n" + error,
+                   "PICK = lambda Exception: Exception\nNAMES = [Exception for Exception in ()]\n\n\n" + error,
                    report_class + "def build(text: str) -> Report:\n    return Report()\n",
                    report_class + "def build(report: Report):\n    return report\n",
                    report_class + "@dataclass\nclass Batch:\n    first: Report\n",
@@ -598,10 +621,15 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
         old = "from app.b import normalize\n\n\n" + reader
         report = compare(old, {"app/a.py": "", "app/b.py": reader + "\n\n" + target}, old_path="app/a.py")
         assert report.ok, render(report)
-    # A postponed annotation is not evaluated: neither one that names the binding nor one that reaches it.
+    # A postponed annotation is not evaluated: neither one that names the binding nor one that reaches it, nor
+    # one that would call or subscript a reaching class.
     future = "from __future__ import annotations\n"
     for reader in ("def build(value) -> normalize:\n    return value\n",
-                   report_class + "def build(text: str) -> Report:\n    return Report()\n"):
+                   report_class + "def build(text: str) -> Report:\n    return Report()\n",
+                   report_init + "def build(value: Report()):\n    return value\n",
+                   report_init + "VALUE: Report() = 1\n",
+                   "class Report:\n    def __class_getitem__(cls, item):\n        return normalize(' x ')\n\n\n"
+                   "def build(value: Report[int]):\n    return value\n"):
         old = future + "from app.b import normalize\n\n\n" + reader
         report = compare(old, {"app/a.py": "", "app/b.py": future + reader + "\n\n" + target}, old_path="app/a.py")
         assert report.ok, render(report)
