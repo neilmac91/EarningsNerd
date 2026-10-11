@@ -2,8 +2,8 @@
 
 Date: 2026-10-10 · Scope: `/analysis` results surface (KPI strip, Sources & methods, charts, narrative,
 metrics table, period picker) and the PDF, Excel and PNG exports that mirror it · Status: the five original §9
-decisions are taken (2026-10-10), the amended decision 4 and decisions 6–9 await the founder's confirmation; Phase 1 items 1–10 and 11 of §7 are merged (#1199, #1200, #1202, #1203, #1206);
-the follow-ups in §11 and Phase 2 are open; this document itself ships nothing · Support
+decisions are taken (2026-10-10), the amended decision 4 and decisions 6–9 await the founder's confirmation; Phase 1 items 1–10 and 11 of §7 are merged (#1199, #1200, #1202, #1203, #1206) and Phase 2 in #1225 (the status note under §7's Phase 2 says where it departs from the brief and what stays open);
+the follow-ups in §11 are open; this document itself ships nothing · Support
 material:
 [`tasks/analysis-redesign-2026-10/`](../../tasks/analysis-redesign-2026-10/README.md) (runnable
 prototype, measurement harnesses, recorded measurements).
@@ -528,7 +528,7 @@ line; a shorter list stays inline, in display form, with its chips ("Operating m
 [13]; 40.6%, Q1 2026 [15]; 30.9%, Q2 2026 [12]ᵃ"), and a fold's summary names the letters its figures
 carry, so a flag resting on a figure that needs review never reads unqualified. The rows of a fold come
 from the citations the markers name, never from parsing the operand text (negative amounts and annual
-periods would lose their row); Phase 2 ships them as a structured `evidence` list.
+periods would lose their row); Phase 2 ships them as the structured `evidence` list of the completion's `narrative_presentation` (#1225).
 
 ### 4.9 Period selector
 
@@ -570,8 +570,8 @@ corrections of §11:
 Period headers in Excel read "Q2 2026" (the straight form; a typed filter cannot match a typographic
 apostrophe) and the data columns keep the period keys the API uses. The PDF's compact money formatter
 matches the web's ("$1.2T", "$1.0B"; today's prints "$1.23T" and "$1000.0M"). The backend owns the
-grouping and the sentences so the four cannot disagree (Phase 2); the exports compute the notes from
-the dataset they render, never from a stored list.
+grouping and the sentences so the four cannot disagree (Phase 2); the exports read the same stored list
+(`resolve_data_notes`, which regroups only when a saved snapshot lacks it; #1225).
 
 ## 5. Keyboard, screen reader and touch
 
@@ -653,9 +653,10 @@ the pre-approved rule-6 contract change, each item except the parts that wait on
 under items 6, 8 and 9, and item 7's three-figure rule and summary letters, open under item 7); item 10 and
 the dark sticky-hover fix are on `main` (#1206:
 `tests/e2e/analysis-layout.spec.ts` with its fixtures, the `ci.yml` flag, the `DataTable` hover fill; the
-status note under item 10 says what that gate still owes). Open: the follow-ups the comprehensive review
-lists in `tasks/analysis-redesign-2026-10/review-2026-10-10.md`, and Phase 2. Each landed PR recorded its
-own gate tail and browser measurements in its body.
+status note under item 10 says what that gate still owes); Phase 2 landed in #1225 (the status note under
+its heading says where it departs from the brief). Open: the follow-ups the comprehensive review
+lists in `tasks/analysis-redesign-2026-10/review-2026-10-10.md`, Phase 2's open parts among them. Each
+landed PR recorded its own gate tail and browser measurements in its body.
 
 Risk tier per `AGENTS.md` §5: Phase 1 is frontend-only (routine); Phase 2 touches
 `trend_analysis/*`, `trend_analysis_service.py`, the export services and `fact_provenance.py`
@@ -793,9 +794,37 @@ operational action and is not part of this brief.
 
 ### Phase 2 — backend, one verified deploy
 
+*Landed in #1225* on 2026-10-11, after the founder accepted the live Phase 1 report, in one PR reviewed at the
+high tier for its approved contract change (two key-set anchors in `test_trend_refactor_anchors.py` admit
+`narrative_presentation`). Where it departs from the items below, each is a branch the brief allowed or a
+safer one. Item 1: the list **is stored** on the dataset (`dataset.py` writes `data_notes`; the fingerprint
+excludes `data_notes` and `narrative_presentation`, the shipped-list branch), built by the new
+`trend_analysis/data_notes.py` (re-exported by `dataset_quality.py`; `resolve_data_notes` returns the saved
+envelope, errors on a present but malformed one and regroups only when the field is absent;
+`citation_data_notes` appends citation-only notes after the report letters) and admitted on the web at the
+API boundary (`lib/dataNotesContract.ts` rejects malformed or mismatched metadata; `resolveDataNotes` falls
+back to `groupDataNotes` only when the field is absent; `issueFor` is the exported `dataNoteIssue`), with the
+shared fixture `backend/tests/fixtures/analysis_data_notes.json` exercised by `test_analysis_data_notes.py`
+and `data-notes.spec.ts`. Item 2: the one table is `data_notes.py`'s `REASONS`, shipped as
+`data_notes[].message` and read by the exports (`analysis_export_metadata.py`'s table and its "needs
+rebuilding" are gone; workbook comments open "Data note a: …"; "(marked Computed)" is gone from
+`NarrativePane.tsx`); open: `provenance.ts` keeps its own table and "Source check needed" without a parity
+test, and the `/source check|\bverif/i` spec does not exist. Item 3: `<sup class="data-note">` letters and a
+Data notes section in the PDF, the summary and note comments in the workbook, "Q2 2026" period labels
+(`period_label`, display only) and separate counts of unknown figures and unknown comparisons; its other
+details are in #1225's body. Item 4: the selected observations are rendered **after** selection
+(`trend_analysis/presentation.py`, through `render_observation_selection`'s `render_item`), leaving the
+catalogue and prompt bytes unchanged, so `PROMPT_VERSION` is untouched and the observation-selector gate did
+not apply; a `NARRATIVE_FORMAT_VERSION` travels inside the saved dataset JSON (`narrative_presentation`:
+structured operands, UTF-16 spans, the combined notes, the snapshot id), no column and no migration;
+`presentation_is_current` gates the cache re-serve (an older presentation regenerates on the
+system-invalidated path) and the exports (409, "This analysis uses an older presentation format. Re-run it
+before exporting."); the inline operand sentence stays in the stored Markdown for the PDF and already-open
+tabs, and the web replaces its exact spans with evidence disclosures.
+
 1. **`trend_analysis/dataset_quality.py`** (M): `data_notes(dataset)` as a line-for-line port of
    `frontend/features/analysis/lib/dataNotes.ts` (the shipped rule, not the §4.1 prose and not the
-   prototype's `buildNotes`): `issueFor`'s kinds (a populated value whose validation is neither passed nor
+   prototype's `buildNotes`): `issueFor`'s kinds (`dataNoteIssue` since #1225) (a populated value whose validation is neither passed nor
    needs_review is "unknown", keyed by its supplied reasons, so several unknown notes are possible),
    unavailability notes keyed by the reason set, letters continuing "aa" after "z", periods missing from a
    series as `not_in_dataset`, a comparison without provenance a review item only when `*_reconciled ===
@@ -996,7 +1025,8 @@ correction landed in this document:
   start; the status note under §7 item 10 says what it still owes.
 - **Phase 2**: `data_notes` computed at render time, never stored (the fingerprint); a line-for-line port
   of the shipped `dataNotes.ts`; one copy source; `PROMPT_VERSION` bump rather than a new column; the
-  observation-selector gate, not B1; export mechanics and pins (§7, Phase 2).
+  observation-selector gate, not B1; export mechanics and pins (§7, Phase 2; #1225 then took the stored-list
+  and format-version branches, recorded in §7's status note and the "Phase 2 landed" bullet below).
 - **Fixtures**: the production capture on `main` (`meta-data-notes.json`) keeps its own gaps, so
   "after the repair" is not state 1 (§7, Not in this brief); the gate builds on the capture plus
   synthetic cases, and `prototype/data` stays a visual reference.
@@ -1063,3 +1093,10 @@ correction landed in this document:
   `trend_analysis/stream_events.py` (#1204, #1205, #1209), all re-exported by `trend_analysis_service.py`;
   `ReconciliationBadge.tsx` became `features/fundamentals/components/SourceCheckBadge.tsx` (#1199). Every
   other path and symbol this document names resolves on that `main`.
+- **Phase 2 landed**, checked against `main` at `1268e8e` (#1225) on 2026-10-11: the status note under §7's
+  Phase 2 says what shipped and where it departs from the brief (the stored, fingerprint-excluded list;
+  rendering after selection instead of at catalogue time; a format version inside the saved dataset instead
+  of a `PROMPT_VERSION` bump), so the briefing prompt's bounded paid-run exception lapsed with the prompt
+  bytes unchanged; `issueFor` is the exported `dataNoteIssue`, `groupDataNotes` is the fallback behind
+  `resolveDataNotes`, and `analysis_export_metadata.py` lost its reason table. Every other path and symbol
+  this document names resolves on that `main`.

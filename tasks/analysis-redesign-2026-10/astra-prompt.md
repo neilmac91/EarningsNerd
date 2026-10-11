@@ -64,7 +64,8 @@ Status: the Engineering row in `tasks/todo.md` and the proposal's §7 status blo
 PRs landed which items and what is next; this file does not restate them. Track A is done (the
 verification comment on #1197). Read `tasks/analysis-redesign-2026-10/review-2026-10-10.md` first: it names
 what the landed items and the gate still owe, each with its evidence and fix; Phase 2 is rewritten in §7
-after the review.
+after the review and landed in #1225 (its status note there says where it departs from the brief and what
+stays open).
 
 The quarterly data repair (`docs/quarterly-data-repair.md`, #1191) is a separate operational action. The UI
 must look right before it (state 2) and after it (state 1). Never mark a legacy record validated from the
@@ -107,17 +108,17 @@ counts and geometry differ by design, and the harness refuses to write `measurem
 other served build, so pass `--out` naming another file.
 
 Track B, after Track A: implement what is open in proposal §7 (the P1 follow-ups of the review file, the
-gate's leftovers among them, then Phase 2), one PR per numbered item or grouped as the brief allows, each as a draft, each verified with
+gate's leftovers and Phase 2's open parts among them; Phase 2 itself landed in #1225), one PR per numbered item or grouped as the brief allows, each as a draft, each verified with
 the gates its files call for (`CLAUDE.md`, `AGENTS.md` §8): the frontend follow-ups with the full frontend
 gate (`npm run lint && npx tsc -p tsconfig.ci.json && npm run test -- --run && npm run build`) and the e2e
-gate (`tests/e2e/analysis-layout.spec.ts`, #1206); the Phase 2 PRs, which change backend services, with the
-full backend gate from `backend/` (`ruff check . && bandit -r app -ll && python -m pytest`) as well, plus
-the frontend gate whenever they touch `frontend/` (the exports' letters, the narrative's rendering) and the
-offline fidelity test and observation-selector gate §7 Phase 2 names. Order: Phase 1's items 1–11 are on `main` (the todo row and §7 name the PRs); next the review file's
-follow-ups, the gate's leftovers among them. Phase 2 (backend `data_notes`, exports, narrative rendering)
-follows after Phase 1 is on production; it changes `trend_analysis/*` and the export services only, never
-the facts service (`facts_service.py` and the `facts/` package behind it since #1210), prompts or evals, so
-no eval re-pin.
+gate (`tests/e2e/analysis-layout.spec.ts`, #1206); a PR that changes backend services (as Phase 2's #1225
+did) with the full backend gate from `backend/` (`ruff check . && bandit -r app -ll && python -m pytest`) as
+well, plus the frontend gate whenever it touches `frontend/`, and, should one ever change the catalogue or
+prompt bytes, the observation-selector gate §7 Phase 2 names. Order: Phase 1's items 1–11 and Phase 2 are on
+`main` (the todo row and §7 name the PRs; #1225 changed `trend_analysis/*`, the export services and the
+analysis frontend, never the facts service (`facts_service.py` and the `facts/` package behind it since
+#1210), prompts or evals, so no eval re-pin); what remains is the review file's follow-ups, the gate's
+leftovers and Phase 2's open parts (§7's status note; review items 11 and 27) among them.
 
 Use the prototype as the reference for geometry, copy and behaviour (`prototype/app.js` is plain DOM; map
 each block to the React component the brief names), not as code to port. Do not port: its global
@@ -137,21 +138,22 @@ both themes, reduced motion respected.
   PR). The allowlist gate of item 2 (#1199) and the e2e gate of item 10 (#1206) are those gates; a PR that
   extends either carries one mutation proof in its body.
 - Review by risk tier (`AGENTS.md` §5): Phase 1 PRs are routine (one Opus lens, Sonnet refuters for
-  blockers); Phase 2 PRs are routine too; a PR that touches the facts service (`backend/app/services/facts_service.py` or
+  blockers); a backend PR on these surfaces is routine too (#1225 went high for its approved locked-anchor
+  change); a PR that touches the facts service (`backend/app/services/facts_service.py` or
   `backend/app/services/facts/`), prompts or evals is high and is outside this brief. `review-gate.yml` needs `@codex review` after each
   push. Record `Review tier: … — …` in the PR body.
 - PR body format (`AGENTS.md` §7): What / Why / Verification (exact gate tails) / Mutation proofs / Founder
   actions / Not in this PR / Review. Open every PR as a draft. `git status` empty after each commit.
-- Deploy discipline (`AGENTS.md` §6) for Phase 2: one unverified backend deploy at a time.
+- Deploy discipline (`AGENTS.md` §6) for any backend PR: one unverified backend deploy at a time.
 - After any founder correction, add or update a file in `lessons/` (its README gives the format).
-- Do not run the data repair and do not change production flags. Do not generate paid AI analyses, with
-  one bounded exception the RUNBOOK prescribes: before Phase 2 item 4 bumps `PROMPT_VERSION` (which
-  invalidates every cached narrative fleet-wide), run the "Multi-Period Analysis observation-selector
-  gate" of `backend/evals/RUNBOOK.md` in full: the offline gate, then fresh analyses for three diverse
-  real companies in both modes with its spot-check protocol, then a cache re-serve of each result. That
-  is bounded measurement spend under `AGENTS.md` §3 (read the balance first; state the ceiling, six
-  generations plus their re-serves, and the protocol's results in that PR's body, under Founder actions),
-  not a standing permission: no other paid analysis is authorised by this hand-over.
+- Do not run the data repair and do not change production flags. Do not generate paid AI analyses. The one
+  bounded exception this prompt carried, the RUNBOOK's "Multi-Period Analysis observation-selector gate"
+  before a `PROMPT_VERSION` bump, lapsed with #1225, which left the prompt and catalogue bytes unchanged; a
+  future change to them re-opens that gate (`backend/evals/RUNBOOK.md`: the offline gate, fresh analyses for
+  three diverse real companies in both modes with its spot-check protocol, a cache re-serve of each) as
+  bounded measurement spend under `AGENTS.md` §3, with the balance read first and the ceiling, the six
+  generations plus their re-serves and the protocol's results in that PR's body under Founder actions,
+  never as a standing permission: no other paid analysis is authorised by this hand-over.
 </rules_that_bind>
 
 <done_looks_like>
