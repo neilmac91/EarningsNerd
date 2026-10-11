@@ -548,6 +548,9 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
             ("def inner():\n    return normalize(' x ')\n\n\ndef outer():\n    return inner()\n\n\nDESCRIPTION = outer()\n",
              "DESCRIPTION"),
             ("def describe():\n    return normalize(' x ')\n\n\nHANDLERS = [describe]\n", "HANDLERS"),
+            ("def describe():\n    return normalize(' x ')\n\n\nALIAS = describe\nDESCRIPTION = ALIAS()\n", "ALIAS, DESCRIPTION"),
+            ("def describe():\n    return normalize(' x ')\n\n\ndef setup():\n    global HOOK\n    HOOK = describe\n\n\n"
+             "setup()\nVALUE = HOOK()\n", "VALUE, expr:setup()"),
             ("class Box:\n    def clean(self):\n        return normalize(' x ')\n\n\nCLEAN = Box().clean()\n", "CLEAN"),
             ("@register\ndef hook():\n    return normalize(' x ')\n", "hook"),
             ("class Box(Base):\n    def clean(self):\n        return normalize(' x ')\n", "Box"),
@@ -602,6 +605,10 @@ def test_the_target_file_settlement_weighs_old_module_level_code_by_what_it_did_
         report = compare("from app.b import normalize\n\n" + before, {"app/a.py": "", "app/b.py": after + "\n\n" + target},
                          old_path="app/a.py")
         assert list(report.changed) == ["X"] and report.shadows == {}, before
+    hook = "def hook():\n    return normalize(' x ')\n"
+    report = compare("from app.b import normalize\n\n" + hook, {"app/a.py": "", "app/b.py": "@register\n" + hook + "\n\n" + target},
+                     old_path="app/a.py")
+    assert list(report.changed) == ["hook"] and report.shadows == {}  # a decorator added by a disclosed change
     reset = "def reset():\n    global normalize\n    normalize = None\n"
     for before, after in (("def reset():\n    pass\n", reset), (reset, "def reset():\n    pass\n")):
         report = compare("from app.b import normalize\n\n" + before, {"app/a.py": "", "app/b.py": target + "\n\n" + after},
@@ -609,7 +616,7 @@ def test_the_target_file_settlement_weighs_old_module_level_code_by_what_it_did_
         assert list(report.changed) == ["reset"] and report.shadows == {}, before
     added = compare("from app.b import normalize\n\nX = 1\n",
                     {"app/a.py": "", "app/b.py": "ALIAS = normalize\nX = 1\n\n\n" + target}, old_path="app/a.py")
-    assert added.added == {"ALIAS": "app/b.py"} and added.shadows == {}
+    assert added.added == dict.fromkeys(("ALIAS", "normalize"), "app/b.py") and added.shadows == {}
 
 
 def test_a_relative_import_beyond_the_top_level_package_places_no_name():

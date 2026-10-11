@@ -764,7 +764,9 @@ class _Names:
     that ``from __future__ import annotations`` changes (a class's header holds its members'); ``compiles``,
     the builtins it calls that compile code under its module's ``from __future__`` imports; ``tentative``,
     the names it binds only possibly (a bare annotation binds nothing at run time, and ``:=`` may not run);
-    ``deletes``, the names it is a ``del`` of."""
+    ``deletes``, the names it is a ``del`` of; ``decorated``, whether creating it may call its own code: a
+    decorator that is not inert is handed the def or class, and a class's bases or keywords run class-creation
+    code (``__init_subclass__``, a metaclass)."""
     owner: str | None
     block: bool = False
     binds: set[str] = field(default_factory=set)
@@ -781,6 +783,7 @@ class _Names:
     compiles: set[str] = field(default_factory=set)
     tentative: set[str] = field(default_factory=set)
     deletes: set[str] = field(default_factory=set)
+    decorated: bool = False
 
     def reads(self, owner: str | None) -> set[str]:
         """The names of one namespace (a class body, or the module for None) that this symbol reads. What
@@ -835,7 +838,8 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
     def put(key: str, text: str, node: ast.AST, inert: bool, owner: str | None = None,
             code: ast.AST | None = None, implicit: Set[str] = frozenset(),
             local: dict[str, list[tuple[int, int | None]]] | None = None,
-            in_body: tuple[dict[str, set[str]], set[str]] = ({}, set())) -> None:
+            in_body: tuple[dict[str, set[str]], set[str]] = ({}, set()),
+            class_globals: Set[str] = frozenset()) -> None:
         found[key] = f"{found[key]}\n{text}" if key in found else text  # every definition, in source order
         occurrences.append((node.lineno, node.col_offset, len(occurrences), key))
         if not inert:
@@ -847,9 +851,13 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
         used.here |= scope.loaded | scope.module
         used.later |= set().union(*(nested.taken() for nested in scope.nested))
         used.soon |= set().union(*(nested.taken(now=True) for nested in scope.nested))
-        # A ``global`` directly in a class body holds for the whole body, but each member is read on its
-        # own, so the store is another member's: there the declaration alone counts.
-        used.declared |= scope.declared() | (scope.module if owner else set())
+        # A ``global`` in a class body holds for the whole body, which the compiler scopes as one namespace and
+        # the proof reads member by member: the member that stores or deletes a name the body declares global
+        # binds the module's, and a declaration that is only read binds nothing (``class_globals``).
+        used.declared |= scope.declared() | (scope.bound & class_globals)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            used.decorated |= (not all(map(_inert_decorator, node.decorator_list))
+                               or (isinstance(node, ast.ClassDef) and bool(node.bases or node.keywords)))
         used.lines.append(node.lineno)
         # What it reads that its module gets from where it lives. A block reads its header; its body's
         # statements are symbols of their own, and its text drops its imports. In a class body, the names the
@@ -973,10 +981,13 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
             # What the class body binds to a builtin: a name it assigns one from is the class's above, else the module's.
             in_body = _builtin_names(_scope_nodes(node.body), lambda name, at: not _bound_at(local, name, at.lineno)
                                      and not _bound_at(shadowing, name, node.lineno), modules)
+            class_globals = frozenset(name for each in _scope_nodes(node.body) if isinstance(each, ast.Global)
+                                      for name in each.names)
             for guard in _guards(node.body):
                 if not _type_checking_imports(guard):
                     put(f"{node.name}.guard:{_guard_header(guard)}", ast.unparse(_without_imports(guard)), guard,
-                        inert=False, owner=node.name, implicit=implicit(guard), local=local, in_body=in_body)
+                        inert=False, owner=node.name, implicit=implicit(guard), local=local, in_body=in_body,
+                        class_globals=class_globals)
             # Each member is judged where it stands in the class body; inside a block, no property above it counts.
             judged = {id(stmt): inert for stmt, inert in _class_body(node.body, postponed)}
             for member in members:
@@ -992,7 +1003,7 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
                     key = "expr:" + ast.unparse(member)
                 inert = judged[id(member)] if id(member) in judged else _inert(member, postponed, frozenset())
                 put(f"{node.name}.{key}", ast.unparse(member), member, inert, owner=node.name,
-                    implicit=implicit(member), local=local, in_body=in_body)
+                    implicit=implicit(member), local=local, in_body=in_body, class_globals=class_globals)
         elif isinstance(node, ast.Assign):
             put(_assignment_key(node.targets), ast.unparse(node), node, _inert(node, postponed))
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
@@ -1045,14 +1056,16 @@ def _imported_from(old_source: str, old_path: str) -> dict[str, frozenset[str]]:
     once, under an alias or inside a block is left out, and so is every name once the file has a star
     import: where such a name came from is not known."""
     tree = ast.parse(old_source)
-    packages = PurePosixPath(old_path).parents  # a relative import's dots count up from here: one is the package
+    # A relative import's dots count up from here: one is the package. The last parent, ".", is the directory
+    # holding the top-level package, no package itself, so as many dots as parents climb past it (ImportError).
+    packages = PurePosixPath(old_path).parents
     plain = {id(node) for node in tree.body if isinstance(node, ast.ImportFrom)}
     origins: dict[str, frozenset[str]] = {}
     imported: list[str] = []
     for node in _flatten(tree.body):
         for alias in node.names if isinstance(node, (ast.Import, ast.ImportFrom)) else ():
             imported.append((alias.asname or alias.name).split(".")[0])
-            if id(node) in plain and alias.asname is None and node.level <= len(packages):
+            if id(node) in plain and alias.asname is None and node.level < len(packages):
                 base = packages[node.level - 1] if node.level else PurePosixPath()
                 module = base.joinpath(*(node.module or "").split("."))
                 origins[alias.name] = frozenset({f"{module}.py", f"{module}/__init__.py"})
@@ -1072,41 +1085,68 @@ def _dunder(name: str) -> bool:
 _DECLARED_DUNDERS = frozenset({"__all__"})
 
 
+def _reaching(name: str, names: dict[str, _Names]) -> set[str]:
+    """The module's names that may hold code which reads ``name`` when it runs, ``name`` among them: a def,
+    lambda or class whose code (a body, a method, any nested scope) loads one of them, a class one of whose
+    members does, and a name bound at import from one of them (``HANDLERS = [describe]``) or through
+    ``global``, closed under those steps. What code does with a name is not followed: a reference counts as
+    much as a call."""
+    reach = {name}
+    while True:
+        grown = reach.union(*((used.binds if used.owner is None else {used.owner}) | used.declared
+                              for used in names.values() if (used.here | used.later) & reach))
+        if grown == reach:
+            return reach
+        reach = grown
+
+
 def _shadows(key: str, names: dict[str, _Names], old_names: dict[str, _Names],
              own: frozenset[str] = frozenset()) -> str:
     """The names the NEW symbol ``key`` binds that OLD symbols of its file read or bind in the same
     namespace, before the move and after it, as ``binds make, read by X, build``. A dunder of a namespace
     that holds moved code (a module with an old symbol, or a class that is one) is read by Python itself,
-    named in the moved code or not, except a module's ``__all__``. Empty when there are none, and for a new
-    block: it is a SIDE EFFECT already, and each statement in it is a symbol of its own.
+    named in the moved code or not, except a module's ``__all__``; any other new member of a class that is
+    an old symbol is read by attribute lookups on it, which the proof cannot follow (a name the class body
+    declares ``global`` is the module's, not a member). Empty when there are none, and for a new block: it is
+    a SIDE EFFECT already, and each statement in it is a symbol of its own.
     ``own``: the module-level names the old file imported from this very file (``_imported_from``). Such a
     binding is the one the moved code always had, so it shadows only the moved code that reads it at import
-    above it (``read above it at import by X``): there the import ran first, and now the read does. Code that
-    rebinds the name, at module level or through ``global``, rebound the old file's copy and now rebinds this
-    file's, for every importer, so it is ``bound by`` as for any other name."""
+    above it (``read above it at import by X``): there the import ran first, and now the read does. That is
+    code that loads it at import, or a name that may hold code reading it (``_reaching``: a def called there,
+    a reference to it), or is created there by a decorator or a class's bases that may run that code; and
+    for a dunder, Python itself wherever an old symbol stands above it. Code that rebinds the name, at module
+    level or through ``global``, rebound the old file's copy and now rebinds this file's, for every importer,
+    so it is ``bound by`` as for any other name."""
     new, found = names[key], []
-    moved_here = new.owner in old_names if new.owner else any(other in old_names for other in names)
     for name in sorted(() if new.block else new.binds):
+        owner = None if name in new.declared else new.owner  # a class body's ``global`` binds the module's
+        moved_here = owner in old_names if owner else any(other in old_names for other in names)
         uses = []
-        if new.owner is None and name in own:
-            early = [other for other in sorted(names) if other in old_names
-                     and name in names[other].at_import() & old_names[other].at_import()
+        if owner is None and name in own:
+            reach = _reaching(name, names)
+            above = [other for other in sorted(names) if other in old_names
                      and min(names[other].lines) < max(new.lines)]
+            early = [other for other in above if reach & names[other].at_import() & old_names[other].at_import()
+                     or (names[other].decorated and old_names[other].decorated
+                         and reach & (names[other].later | names[other].binds))]
             rebinding = [other for other in sorted(names) if other in old_names
                          and name in names[other].rebinds() & old_names[other].rebinds()]
-            for verb, users in (("read above it at import", early), ("bound", rebinding)):
-                if users:
+            python = ["Python itself"] if _dunder(name) and name not in _DECLARED_DUNDERS and above else []
+            for verb, users, lead in (("read above it at import", early, python), ("bound", rebinding, [])):
+                if lead or users:
                     more = f" and {len(users) - 3} more" if len(users) > 3 else ""
-                    uses.append(f"{verb} by {', '.join(users[:3])}{more}")
+                    uses.append(f"{verb} by {', '.join(lead + users[:3])}{more}")
         else:
-            itself = moved_here and _dunder(name) and not (new.owner is None and name in _DECLARED_DUNDERS)
+            itself = moved_here and _dunder(name) and not (owner is None and name in _DECLARED_DUNDERS)
+            attributes = owner is not None and moved_here and not _dunder(name)
             for verb, used in (("read", _Names.reads), ("bound", _Names.bound)):
                 users = [other for other in sorted(names) if other in old_names
-                         and name in used(names[other], new.owner) & used(old_names[other], new.owner)]
-                python = ["Python itself"] if verb == "read" and itself else []
-                if python or users:
+                         and name in used(names[other], owner) & used(old_names[other], owner)]
+                lead = ([] if verb != "read" else ["Python itself"] if itself
+                        else [f"attribute lookups on {owner}"] if attributes else [])
+                if lead or users:
                     more = f" and {len(users) - 3} more" if len(users) > 3 else ""
-                    uses.append(f"{verb} by {', '.join(python + users[:3])}{more}")
+                    uses.append(f"{verb} by {', '.join(lead + users[:3])}{more}")
         if uses:
             found.append(f"binds {name}, {' and '.join(uses)}")
     return "; ".join(found)
@@ -1386,7 +1426,15 @@ def _occurrence_ranks(order: list[str]) -> dict[tuple[str, int], int]:
 
 
 def _git_show(ref: str, rel_path: str) -> str:
+    """The file at ``ref``; a path that is no file there (missing, or a directory, which ``git show`` would
+    list) stops the CLI with a message, as any input it cannot read does: never a traceback, never an OK."""
     repo_path = (BACKEND_DIR / rel_path).resolve().relative_to(REPO_ROOT).as_posix()
+    kind = subprocess.run(  # nosec B603 B607 - fixed git argv, read-only, developer tool
+        ["git", "-C", str(REPO_ROOT), "cat-file", "-t", f"{ref}:{repo_path}"],
+        capture_output=True, text=True, check=False,
+    )
+    if kind.returncode == 0 and kind.stdout.strip() != "blob":
+        raise SystemExit(f"cannot read {repo_path} at {ref}: a {kind.stdout.strip()}, not a file")
     result = subprocess.run(  # nosec B603 B607 - fixed git argv, read-only, developer tool
         ["git", "-C", str(REPO_ROOT), "show", f"{ref}:{repo_path}"],
         capture_output=True, text=True, check=False,
@@ -1394,6 +1442,14 @@ def _git_show(ref: str, rel_path: str) -> str:
     if result.returncode != 0:
         raise SystemExit(f"cannot read {repo_path} at {ref}: {result.stderr.strip()}")
     return result.stdout
+
+
+def _worktree(rel_path: str) -> str:
+    """The file in the working tree; a missing path or a directory stops the CLI with a message."""
+    path = BACKEND_DIR / rel_path
+    if not path.is_file():
+        raise SystemExit(f"cannot read {rel_path} in the working tree: not a file")
+    return path.read_text()
 
 
 def _canonical(path: str) -> str:
@@ -1449,9 +1505,14 @@ def main(argv: list[str] | None = None) -> int:
     old_path = _canonical(args.old)
     old_source = _git_show(args.base, old_path)
     new_sources = {
-        path: (BACKEND_DIR / path).read_text() if args.worktree else _git_show(args.head, path)
+        path: _worktree(path) if args.worktree else _git_show(args.head, path)
         for path in map(_canonical, args.new)
     }
+    for path, source in ((old_path, old_source), *new_sources.items()):
+        try:
+            ast.parse(source, filename=path)
+        except SyntaxError as exc:
+            raise SystemExit(f"cannot parse {path}: {exc.msg} (line {exc.lineno})") from None
     report = compare(old_source, new_sources, frozenset(args.allow), old_path)
     print(render(report))
     return 0 if report.ok else 1
