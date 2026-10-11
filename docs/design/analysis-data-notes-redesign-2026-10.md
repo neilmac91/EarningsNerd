@@ -637,7 +637,8 @@ bounded token formatting in `lib/tableFormat.ts`, with `tests/unit/data-table-sc
 stored value, bound arithmetic, checks and the comparison block; `lib/narrativeDisplay.ts` and
 `lib/figureDisplay.ts` with the evidence fold; chart notes with `lib/chartNoteLayout.ts` and PNG
 notes; `PeriodPicker` with presets and From/To selects; the one-line `analysis-api.spec.ts` change as
-the pre-approved rule-6 contract change); item 10 and the dark sticky-hover fix are on `main` (#1206:
+the pre-approved rule-6 contract change, each item except the parts that wait on decisions 7–9, named
+under items 6, 8 and 9); item 10 and the dark sticky-hover fix are on `main` (#1206:
 `tests/e2e/analysis-layout.spec.ts` with its fixtures, the `ci.yml` flag, the `DataTable` hover fill; the
 status note under item 10 says what that gate still owes). Open: the follow-ups the comprehensive review
 lists in `tasks/analysis-redesign-2026-10/review-2026-10-10.md`, and Phase 2. Each landed PR recorded its
@@ -674,25 +675,32 @@ operational action and is not part of this brief.
    `<th scope="row">`). **`MetricsTable.tsx`** (M): column widths, header basis line, change line without
    prefix, "—ᵇ", window control (`SegmentedControl`), start-at-newest on phones with the hint, 12-of-12
    caption. Update `metrics-table.spec.tsx`.
-6. **`SourceValue.tsx`** (M; landed in #1203): display form, the stored value, the formula with its
-   operands bound by concept, the status vocabulary, the comparison block, the lineage block with the
+6. **`SourceValue.tsx`** (M; partly landed in #1203: the display form, the stored value, the bound
+   operands, the comparison block and the lineage copy; the status vocabulary of decision 9, "Unavailable"
+   for "Withheld", waits on that decision's confirmation): display form, the stored value, the formula with
+   its operands bound by concept, the status vocabulary, the comparison block, the lineage block with the
    absent-lineage copy; never a storage unit (§4.6). Leftovers on `main`: `review-2026-10-10.md` items 1,
-   13, 16 and 28.
+   13, 16 and 28, and the paused vocabulary.
 7. **`NarrativePane.tsx`** (M; landed in #1203): compact amounts and periods at render time until Phase 2
    renders them server-side, under the relation-safe rule of §4.8; the evidence disclosure for lists of
    more than three figures, shorter lists inline, letters on the fold's summary, rows from the citations
    the markers name; header chips; Sources list lines. Update `narrative-pane.spec.tsx`. Leftovers on
    `main`: `review-2026-10-10.md` items 2 and 11.
-8. **`TrendCharts.tsx`** (S; landed in #1203): `dot` render for hollow markers with the letter above,
+8. **`TrendCharts.tsx`** (S; partly landed in #1203: the hollow markers with their letters, the chip and
+   the PNG notes; the filled affected bars wait on decision 7's confirmation, and `main` still draws a
+   dashed outline): `dot` render for hollow markers with the letter above,
    affected bars keeping their fill with the letter above (never a dashed outline: §4.7, decision 7),
    letters in the chart label ink as SVG attributes from the chart theme, "Notes a" chip, PNG note
-   sentences from `groupDataNotes`. Leftovers on `main`: `review-2026-10-10.md` items 22, 25 and 29. Update
+   sentences from `groupDataNotes`. Leftovers on `main`: `review-2026-10-10.md` items 22, 25 and 29 (29 is
+   the filled affected bar, paused under decision 7). Update
    `trend-charts-annotation.spec.tsx`, `trend-charts-legend.spec.tsx` (it owns the warning and PNG
    metadata assertions) and `chart-export.spec.ts`.
-9. **`PeriodPicker.tsx`** (M; landed in #1203 as a rule-6 contract change): `SegmentedControl`, presets as
+9. **`PeriodPicker.tsx`** (M; partly landed in #1203 as a rule-6 contract change: the `SegmentedControl`,
+   the From/To selects and the summary line; presets as plain buttons wait on decision 8's confirmation,
+   and `main` still renders an `aria-pressed` group): `SegmentedControl`, presets as
    plain buttons, From/To selects with the announced clamp, summary line (§4.9); `chipsFor`/`nextRange`
    become option builders. Update `period-picker-helpers.spec.ts`. Leftovers on `main`:
-   `review-2026-10-10.md` item 19.
+   `review-2026-10-10.md` item 19, which carries the paused presets.
    `SegmentedControl` has no unavailable-option API today and the picker disables Quarterly when a
    company has no quarterly coverage: add an `aria-disabled` option (early return in the handler, the
    DS unavailable recipe, never native `disabled`) so that state survives the migration. Note the Run

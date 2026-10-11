@@ -278,7 +278,8 @@
         // growth line of the revenue panel (§4.7); the table shows QoQ (or the labelled YoY fallback) and the
         // exports carry every comparison.
         const onCards = g.comparisons.filter((x) => x.basis === 'yoy' && ['revenue', 'net_income', 'free_cash_flow', 'net_margin'].includes(x.series.concept) && latestPoint(x.series) === x.point).length
-        const onChart = g.comparisons.filter((x) => x.basis === 'yoy' && x.series.concept === 'revenue').length
+        // The chart draws a growth marker only for a numeric YoY ("nm" comparisons have no marker or letter).
+        const onChart = g.comparisons.filter((x) => x.basis === 'yoy' && x.series.concept === 'revenue' && typeof x.point.yoy === 'number').length
         const count = (n) => ['none', 'one', 'two', 'three', 'four'][n] || n
         c.append(`${g.values.length} figure${g.values.length === 1 ? '' : 's'}`, g.comparisons.length ? ` · ${g.comparisons.length} comparison${g.comparisons.length === 1 ? '' : 's'} carry this note: ${qoq} quarter-over-quarter change${qoq === 1 ? '' : 's'} in the table and ${yoy} year-over-year change${yoy === 1 ? '' : 's'}, of which the headline cards show ${count(onCards)}${onChart ? `, the revenue growth chart shows ${count(onChart)}` : ''} and the exports carry all` : '')
         if (g.reasons.includes('legacy_calculation')) c.append(' · figures are shown as stored; their source lineage is not recorded')
