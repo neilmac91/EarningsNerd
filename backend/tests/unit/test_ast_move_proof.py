@@ -622,6 +622,8 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
              "Outer.Inner"),
             ("def property(fn):\n    fn(None)\n    return fn\n\n\nclass Box:\n    @property\n    def value(self):\n"
              "        return normalize(' x ')\n", "Box.value"),
+            (calling + "class Outer:\n    class Inner:\n        @dataclass\n        class Deep:\n"
+             "            @classmethod\n            def hook(cls):\n                return normalize(' x ')\n", "Outer.Inner"),
             ("class Outer:\n    class Inner:\n        hook = lambda: normalize(' x ')\n        VALUE = hook()\n",
              "Outer.Inner"),
             ("class Outer:\n    class Inner:\n        hook: object = lambda: normalize(' x ')\n"
@@ -710,7 +712,9 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    "match 1:\n    case _:\n        class Box:\n            def hook():\n                return normalize(' x ')\n\n"
                    "            VALUE = hook()\n",
                    "match 1:\n    case _:\n        class Box:\n            clean = lambda value: normalize(value)\n"
-                   "            VALUE = clean(' x ')\n"):
+                   "            VALUE = clean(' x ')\n",
+                   calling + "match 1:\n    case _:\n        @dataclass\n        class Box:\n            @classmethod\n"
+                   "            def hook(cls):\n                return normalize(' x ')\n"):
         old = "from app.b import normalize\n\n\n" + reader
         above = compare(old, {"app/a.py": "", "app/b.py": reader + "\n\n" + target}, old_path="app/a.py")
         assert above.shadows.get("normalize", "").startswith(

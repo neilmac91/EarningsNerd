@@ -533,8 +533,9 @@ def _first_name(node: ast.expr) -> str | None:
 def _rebound_decorators(body: list[ast.stmt]) -> frozenset[str]:
     """The first names of ``_INERT_DECORATORS`` that a module's body binds otherwise than the standard library
     does at its top (``from dataclasses import dataclass``, ``import functools``): by a def, a class, an
-    assignment, another import or one in a block, a star import, or ``global``. A builtin's (``property``) is
-    bound by nothing. A decorator by such a name is whatever its binding makes it, so it is not inert."""
+    assignment, another import or one in a block, or ``global``. A builtin's (``property``) is bound by nothing.
+    A decorator by such a name is whatever its binding makes it, so it is not inert. A star import is not
+    followed: an old file or a target that has one settles no name (``_imported_from``, ``_unsettled``)."""
     rebound = _bound_in([stmt for stmt in body if not isinstance(stmt, (ast.Import, ast.ImportFrom))])
     for stmt in body:
         if not isinstance(stmt, (ast.Import, ast.ImportFrom)):
@@ -546,7 +547,7 @@ def _rebound_decorators(body: list[ast.stmt]) -> frozenset[str]:
                 if isinstance(stmt, ast.ImportFrom) else alias.name in _STANDARD_DECORATORS.values())
             if not standard:
                 rebound.add((alias.asname or alias.name).split(".")[0])
-    return _TRUSTED_NAMES if "*" in rebound else frozenset(rebound & _TRUSTED_NAMES)
+    return frozenset(rebound & _TRUSTED_NAMES)
 
 
 def _creates_code(node: ast.stmt, properties: frozenset[str] | None, module_names: Set[str], around: Set[str],
