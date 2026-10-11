@@ -597,6 +597,12 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
              "Outer.Inner"),
             ("class Outer:\n    class Inner:\n        if True:\n            @register\n            def hook():\n"
              "                return normalize(' x ')\n", "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        def hook():\n            return normalize(' x ')\n\n"
+             "        VALUE = hook()\n", "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        class Deep:\n            def __init__(self):\n"
+             "                normalize(' x ')\n\n        VALUE = Deep()\n", "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        class Deeper:\n            def hook():\n"
+             "                return normalize(' x ')\n\n            VALUE = hook()\n", "Outer.Inner"),
             ("class Outer:\n    class Inner:\n        class Deep(metaclass=Base):\n            def clean(self):\n"
              "                return normalize(' x ')\n", "Outer.Inner"),
             ("class Outer:\n    class Inner:\n        Exception = Base\n\n        class Deep(Exception):\n"
@@ -627,6 +633,8 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    "def helper():\n    Exception = object\n    return Exception\n\n\n" + error,
                    "PICK = lambda Exception: Exception\nNAMES = [Exception for Exception in ()]\n\n\n" + error,
                    "class Other:\n    Exception = object\n\n\n" + error,
+                   "class Outer:\n    class Inner:\n        def other():\n            return 1\n\n        def hook():\n"
+                   "            return normalize(' x ')\n\n        VALUE = other()\n",
                    "class Outer:\n    class Inner:\n        class Deep(Exception):\n            def __str__(self):\n"
                    "                return normalize(' boom ')\n",
                    "class Outer:\n    class Inner:\n        @staticmethod\n        def hook():\n"
@@ -650,7 +658,9 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    "class Box:\n    match 1:\n        case _:\n            @register\n            def hook():\n"
                    "                return normalize(' x ')\n",
                    hooking + "match 1:\n    case _:\n        class Deep(Base):\n            @classmethod\n"
-                   "            def hook(cls):\n                return normalize(' x ')\n"):
+                   "            def hook(cls):\n                return normalize(' x ')\n",
+                   "match 1:\n    case _:\n        class Box:\n            def hook():\n                return normalize(' x ')\n\n"
+                   "            VALUE = hook()\n"):
         old = "from app.b import normalize\n\n\n" + reader
         above = compare(old, {"app/a.py": "", "app/b.py": reader + "\n\n" + target}, old_path="app/a.py")
         assert above.shadows.get("normalize", "").startswith(
