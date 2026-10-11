@@ -1,11 +1,11 @@
 {
- "generatedAt": "2026-10-11T08:22:19.749Z",
+ "generatedAt": "2026-10-11T08:48:55.079Z",
  "environment": {
   "chromium": "141.0.7390.37",
   "platform": "linux x64",
   "node": "v22.22.0",
-  "commit": "7d6831a",
-  "prototypeTree": "6c9be7dafd1bfc5b2bcc944e73143aa5bbbb243e",
+  "commit": "d05f43d",
+  "prototypeTree": "dafe7509bc49d77293f69e983f9edb87d9af430b",
   "dirty": []
  },
  "configs": [
@@ -96,6 +96,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1062,
@@ -290,7 +295,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -298,6 +303,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -493,7 +503,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -501,6 +511,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -705,6 +720,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 964,
@@ -899,7 +919,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -907,6 +927,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -1102,7 +1127,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -1110,6 +1135,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -1314,6 +1344,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 934,
@@ -1508,7 +1543,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -1516,6 +1551,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -1711,7 +1751,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -1719,6 +1759,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -1922,6 +1967,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -2117,7 +2167,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -2125,6 +2175,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -2320,7 +2375,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -2328,6 +2383,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -2533,6 +2593,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 512,
@@ -2729,7 +2794,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -2737,6 +2802,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -2934,7 +3004,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -2942,6 +3012,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -3148,6 +3223,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 512,
@@ -3344,7 +3424,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -3352,6 +3432,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -3549,7 +3634,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -3557,6 +3642,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -3763,6 +3853,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 650,
@@ -3959,7 +4054,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -3967,6 +4062,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -4164,7 +4264,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -4172,6 +4272,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -4378,6 +4483,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1302,
@@ -4574,7 +4684,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -4582,6 +4692,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -4779,7 +4894,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -4787,6 +4902,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -4994,6 +5114,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1024,
@@ -5192,7 +5317,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -5200,6 +5325,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -5399,7 +5529,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -5407,6 +5537,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -5615,6 +5750,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1024,
@@ -5813,7 +5953,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -5821,6 +5961,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -6020,7 +6165,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -6028,6 +6173,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(255, 255, 255)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -6234,6 +6384,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1062,
@@ -6428,7 +6583,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -6436,6 +6591,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -6631,7 +6791,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -6639,6 +6799,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -6843,6 +7008,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 964,
@@ -7037,7 +7207,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -7045,6 +7215,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -7240,7 +7415,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -7248,6 +7423,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -7452,6 +7632,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 934,
@@ -7646,7 +7831,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -7654,6 +7839,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -7849,7 +8039,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -7857,6 +8047,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -8060,6 +8255,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -8255,7 +8455,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -8263,6 +8463,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -8458,7 +8663,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -8466,6 +8671,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -8671,6 +8881,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 512,
@@ -8867,7 +9082,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -8875,6 +9090,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -9072,7 +9292,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -9080,6 +9300,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -9286,6 +9511,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 512,
@@ -9482,7 +9712,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -9490,6 +9720,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -9687,7 +9922,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -9695,6 +9930,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -9901,6 +10141,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 650,
@@ -10097,7 +10342,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -10105,6 +10350,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -10302,7 +10552,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -10310,6 +10560,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -10516,6 +10771,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1302,
@@ -10712,7 +10972,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -10720,6 +10980,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -10917,7 +11182,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -10925,6 +11190,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -11131,6 +11401,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -11330,7 +11605,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -11338,6 +11613,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -11537,7 +11817,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -11545,6 +11825,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -11753,6 +12038,11 @@
      "Geist Mono:true"
     ]
    },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1024,
@@ -11951,7 +12241,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 41,
+   "noteAffixes": 40,
    "notes": "Data notes10 figures need review (a) · 24 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -11959,6 +12249,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,
@@ -12158,7 +12453,7 @@
     "clippedCount": 0
    },
    "sourceCheckLabels": 0,
-   "noteAffixes": 23,
+   "noteAffixes": 22,
    "notes": "Data notes3 figures need review (a) · 6 comparisons carry note a · 10 unavailable (b) · 101 calculated †",
    "env": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
@@ -12166,6 +12461,11 @@
      "Inter:true",
      "Geist Mono:true"
     ]
+   },
+   "stickyHover": {
+    "fill": "rgb(31, 41, 55)",
+    "opaque": true,
+    "rowHovered": true
    },
    "window6": {
     "rows": 20,

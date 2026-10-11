@@ -606,7 +606,7 @@ the dataset they render, never from a stored list.
 
 | Measure (state 2) | Current build (`97293e7`) | Prototype |
 |---|---|---|
-| Repeated source-check labels on the page | 33 | 0 (41 one-letter affixes; one strip) |
+| Repeated source-check labels on the page | 33 | 0 (40 one-letter affixes; one strip) |
 | Document width at 390 / 320 / 1480 at 200% text | 429 / 413 / 1,558 | 390 / 320 / 1,480 |
 | Document width at 390 / 320 with 200% text | 815 / 815 | 390 / 320 |
 | Widest card content past a KPI card edge at 390 / 320 / 1480 at 200% text | 54 / 89 / 126 px | 0 / 0 / 0 |

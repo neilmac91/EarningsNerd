@@ -44,7 +44,7 @@ count that measures labels rather than issues. A design review (2026-10-10, Clau
 Key numbers (state 2). Current build: 33 repeated labels; table 2,076 px at every width with warned columns
 234–240 px against 77–105 px clean; the net-margin growth label 54 px past its card at 390 (89 at 320, 126
 at 1480 with 200% text, 303 / 338 on the phones with 200% text, where the figures themselves run 51 / 86 px
-past their cards); document 429 px wide on a 390 phone (815 with 200% text). Prototype: 0 labels (41 one-letter affixes and one
+past their cards); document 429 px wide on a 390 phone (815 with 200% text). Prototype: 0 labels (40 one-letter affixes and one
 strip), 0 page or card overflow at every configuration, twelve 77 px columns fitting at 1480 with no scroll,
 no column ever half-hidden under the sticky metric column.
 
