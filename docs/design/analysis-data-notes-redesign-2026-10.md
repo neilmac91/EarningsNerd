@@ -1093,8 +1093,9 @@ correction landed in this document:
   checkout's `frontend/` tree whenever one is present and records; `97293e7` has no harness, so the baseline
   is retaken by this tree's harness with `--build` pointing at a worktree of that revision, built there with
   `build-stamped.mjs`. The harness compares its output and data paths as canonical paths, so a symbolic link
-  to the baseline, or a path through a linked directory, is the baseline and meets every baseline guard, and
-  a dangling link is refused rather than written through.
+  to the baseline, a path through a linked directory, or a hard link on the baseline's inode (compared by device
+  and inode, which `realpath` does not collapse) is the baseline and meets every baseline guard, while a
+  dangling link and any other output with more than one hard link are refused rather than written through.
 - **Moved modules**, checked against `main` at `dd7b9ce` (#1222) on 2026-10-11: `normalize_companyfacts`
   lives in `facts/companyfacts.py` (#1210) behind the `facts_service.py` facade; `build_observation_catalogue`
   and `_point_value` in `trend_analysis/observations.py`, `_ratio_threshold_value` and

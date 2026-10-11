@@ -117,7 +117,7 @@ NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harn
 # is recorded. The fixtures --data names (default: prototype/data) are recorded by a content hash of their .js
 # files and, inside this repository, by their tree hash with their uncommitted files. It writes
 # measurements/current.json only for a served build of 97293e7 (enforced whether --out names that file, an alias
-# of it through symbolic links, or it is the default), for the legacy state from the committed fixtures at the content hash the harness pins (retaking
+# of it through symbolic or hard links, or it is the default; any other multiply linked output is refused), for the legacy state from the committed fixtures at the content hash the harness pins (retaking
 # from other fixtures needs a new pin), from clean trees (no uncommitted frontend, harness or fixture files) and
 # from a stamped build: a fresh measurement of any other build, state or data (--build defaults to this
 # repository) needs --out naming another file, and an --out that holds a recording of another commit is refused.

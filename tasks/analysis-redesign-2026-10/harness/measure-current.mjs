@@ -19,7 +19,8 @@
 // needs --out naming another file (a fresh measurement of the shipped components, never a comparison with the
 // recording), and it refuses an --out that holds a recording of another commit; the revision is enforced whenever
 // the output is the baseline file, named by --out or defaulted (paths compare canonically: a symbolic link to the
-// baseline, or a path through a linked directory, is the baseline; a dangling link is refused). The fixtures --data names (default: prototype/data)
+// baseline, a path through a linked directory, or a hard link on the baseline's inode is the baseline; a dangling
+// link and any other multiply linked output are refused). The fixtures --data names (default: prototype/data)
 // are recorded by a content hash of their .js files and, inside this repository, by their tree hash with their
 // uncommitted files; the baseline is written only for the legacy state from the committed fixtures whose content
 // hash BASELINE pins, from clean trees (no uncommitted frontend, harness or fixture files) and from a build that
@@ -90,9 +91,15 @@ const lastFrontendCommit = git(BUILD, 'log -1 --format=%h%x20%ct -- frontend')
 if (lastFrontendCommit) { const [hash, ct] = lastFrontendCommit.split(' '); const committedAt = new Date(Number(ct) * 1000); if (new Date(SERVED.builtAt) < committedAt) throw new Error(`the build at ${BUILD} (${SERVED.builtAt}) predates its checkout's last frontend commit (${hash} at ${committedAt.toISOString()}): rebuild from that checkout before measuring`) }
 const sameCommit = (a, b) => !!a && !!b && (a.startsWith(b) || b.startsWith(a))
 // Output and baseline compare as canonical paths: a symbolic link to the baseline, or a path through a linked
-// directory, is the baseline and meets every baseline guard.
-const OUT = canonical(path.resolve(ROOT, args.out || BASELINE.file))
-const WRITING_BASELINE = OUT === canonical(path.resolve(ROOT, BASELINE.file))
+// directory, is the baseline and meets every baseline guard. Hard links share an inode under different names,
+// which realpath does not collapse, so an existing output on the baseline's inode is the baseline too, and any
+// other output with more than one hard link is refused (the harness cannot tell what else it would overwrite).
+const sameFile = (a, b) => { if (!existsSync(a) || !existsSync(b)) return false; const x = statSync(a), y = statSync(b); return x.dev === y.dev && x.ino === y.ino }
+const BASELINE_PATH = canonical(path.resolve(ROOT, BASELINE.file))
+const outArg = canonical(path.resolve(ROOT, args.out || BASELINE.file))
+const OUT = sameFile(outArg, BASELINE_PATH) ? BASELINE_PATH : outArg
+const WRITING_BASELINE = OUT === BASELINE_PATH
+if (!WRITING_BASELINE && existsSync(OUT) && statSync(OUT).nlink > 1) throw new Error(`${OUT} has ${statSync(OUT).nlink} hard links, so writing it would overwrite a file under another name: pass an --out with one name`)
 // The revision is enforced whenever the output is the baseline, however that path was chosen.
 if (WRITING_BASELINE && !sameCommit(SERVED.commit, BASELINE.revision)) throw new Error(`${BASELINE.file} is the recording of main at ${BASELINE.revision.slice(0, 7)}; the served build (${BUILD}) is ${SERVED.commit.slice(0, 7)}: pass --out <another file> for a fresh measurement of this build (it does not compare with the recording), or --build <a worktree of ${BASELINE.revision.slice(0, 7)} whose build the server serves> to retake the baseline`)
 if (existsSync(OUT)) {
