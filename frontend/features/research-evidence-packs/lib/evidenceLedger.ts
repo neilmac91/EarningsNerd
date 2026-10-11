@@ -128,7 +128,7 @@ function sourceMarkdown(source: SourceSnapshot): string {
   return [
     `${markdownText(source.companyName)} (${markdownText(source.ticker)}) · ${source.form} · period ${source.reportDate} · filed ${source.filedDate}`,
     `Accession: ${markdownText(source.accession)} · cached paragraph ${source.paragraph} · captured ${source.capturedAt}`,
-    source.fictional ? '**FICTIONAL EXAMPLE — invented source, not an SEC filing.**' : `Original: <${source.originalUrl}>`,
+    source.fictional ? '**FICTIONAL EXAMPLE: invented source, not an SEC filing.**' : `Original: <${source.originalUrl}>`,
     source.quote.split('\n').map((line) => `> ${markdownText(line)}`).join('\n'),
   ].join('\n\n')
 }
@@ -136,9 +136,9 @@ export function exportEvidence(entries: readonly EvidenceEntry[], format: 'json'
   const disclosure = 'Local prototype. User review records a decision, not verified truth or investment advice. Cached text coverage is unverified. A quote match does not establish that an interpretation is supported. Recheck sources before reuse.'
   if (format === 'json') return JSON.stringify({ schemaVersion: 1, exportedAt, disclosure, entries }, null, 2)
   return ['# Research evidence pack', `Exported: ${exportedAt}`, disclosure, ...entries.map((entry) => [
-    `## Evidence ${entry.id} — ${entry.status}`, `### My interpretation\n\n${entry.interpretation.split('\n').map((line) => markdownText(line)).join('  \n') || '(No interpretation recorded)'}`,
+    `## Evidence ${entry.id}: ${entry.status}`, `### My interpretation\n\n${entry.interpretation.split('\n').map((line) => markdownText(line)).join('  \n') || '(No interpretation recorded)'}`,
     ...entry.revisions.map((source, index) => `### Source revision ${index + 1}\n\n${sourceMarkdown(source)}`),
-    ...(entry.proposal ? [`### Pending source proposal — review needed\n\n${sourceMarkdown(entry.proposal)}`] : []),
+    ...(entry.proposal ? [`### Pending source proposal: review needed\n\n${sourceMarkdown(entry.proposal)}`] : []),
     ...entry.reviews.map((review) => `### Review: ${review.decision} · ${review.reviewedAt}\n\n${markdownText(review.note)}\n\nInterpretation at review: ${markdownText(review.interpretation)}${review.candidate ? `\n\nCandidate considered:\n\n${sourceMarkdown(review.candidate)}` : ''}`),
   ].join('\n\n'))].join('\n\n') + '\n'
 }
