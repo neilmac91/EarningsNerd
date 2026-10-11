@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import Company, FinancialFact
 from app.services.fact_provenance import CALCULATION_VERSION, calculated_provenance
-from app.services.trend_analysis.dataset_quality import add_comparisons, dataset_point
+from app.services.trend_analysis.dataset_quality import add_comparisons, data_notes, dataset_point
 from app.services.trend_analysis.detectors import detect_inflections
 from app.services.trend_analysis.formatting import NOT_MEANINGFUL
 from app.services.trend_analysis.periods import (
@@ -19,7 +19,6 @@ from app.services.trend_analysis.periods import (
 )
 from app.services.trend_analysis.series import _series_map, _valued_points
 from app.utils.datetimes import ensure_utc, iso_z
-
 
 # Balance-sheet (point-in-time) concepts + their derived metrics: matched by period_end in
 # quarterly mode; everything else is a flow/duration concept matched by (fiscal_year, fiscal_period).
@@ -380,6 +379,7 @@ def build_dataset(
         ),
     }
     dataset["inflections"] = detect_inflections(dataset)
+    dataset["data_notes"] = data_notes(dataset)
     dataset["snapshot_id"] = dataset_fingerprint(dataset)
     return dataset
 
@@ -391,8 +391,8 @@ def dataset_fingerprint(dataset: dict[str, Any]) -> str:
     """sha256 of the canonical dataset JSON — new facts (or a changed range) change it, which
     invalidates the cached narrative for that key (D4)."""
     # A refresh that confirms the same source facts must not consume a new AI generation. The
-    # self-identifying hash and fetch time are metadata; source/quality/formula changes are not.
-    content = {key: value for key, value in dataset.items() if key not in {"snapshot_id", "data_as_of"}}
+    # Display metadata is excluded; underlying source/quality/formula changes are not.
+    content = {key: value for key, value in dataset.items() if key not in {"snapshot_id", "data_as_of", "data_notes", "narrative_presentation"}}
     canonical = json.dumps(content, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 

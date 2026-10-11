@@ -329,7 +329,7 @@ async def stream_analysis(
 ):
     """Streamed (SSE) AI trend narrative over the deterministic dataset.
 
-    Cache-first: a stored narrative whose prompt_version + dataset fingerprint still match is
+    Cache-first: a stored narrative whose prompt, display format and financial snapshot match is
     re-served instantly (no model call, no meter); ``force`` regenerates. Metering counts only
     fresh "analysis" completions against the monthly fair-use cap — a failed or aborted generation
     never burns quota. Excluded from the timeout middleware by the ``*stream*`` name rule.
@@ -437,6 +437,7 @@ async def export_analysis_pdf(
     from app.models import TrendAnalysis
     from app.services.entitlements import get_entitlements
     from app.services.export_service import export_service
+    from app.services.trend_analysis.presentation import presentation_is_current
 
     if not get_entitlements(current_user).can_export:
         raise HTTPException(
@@ -461,6 +462,11 @@ async def export_analysis_pdf(
     # Saved narratives and current facts must describe the same snapshot. A data correction
     # invalidates the PDF as well as the on-page narrative, even without a prompt-version bump.
     saved_dataset = analysis.dataset_json or {}
+    if not presentation_is_current(saved_dataset):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This analysis uses an older presentation format. Re-run it before exporting.",
+        )
     try:
         start_period, end_period = analysis.period_key.split("..")
         current_dataset = trend_analysis_service.build_dataset(

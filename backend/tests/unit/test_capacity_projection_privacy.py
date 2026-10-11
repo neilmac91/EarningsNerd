@@ -1,14 +1,18 @@
 """The complete Ops Python readback withholds private command/environment values."""
+import importlib.util
 import json
 from pathlib import Path
 import subprocess
-from unittest.mock import mock_open
+from unittest.mock import Mock
 
 import pytest
 import yaml
 
 MODEL = "allowed-model-value"  # an allow-listed name's value is echoed by design
-# The task worker entrypoint ci.yml pins; the heredoc prints a match/mismatch verdict, never these tokens.
+MODULE = Path(__file__).parents[3] / "ops/describe/service.py"  # the readback the describe-service step runs
+SERVICE = "earningsnerd-backend"
+SERVICE_READ = ("services", "describe", SERVICE)  # the API service describe, the first of six reads
+# The task worker entrypoint ci.yml pins; the readback prints a match/mismatch verdict, never these tokens.
 WORKER_COMMAND = ["uvicorn"]
 WORKER_ARGS = ["task_worker_main:app", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers",
                "--forwarded-allow-ips=*"]
@@ -39,25 +43,24 @@ def test_capacity_projection_withholds_commands_and_private_values(capfd, monkey
     workflow = yaml.safe_load((Path(__file__).parents[3] / ".github/workflows/ops.yml").read_text())
     step = next(s for s in workflow["jobs"]["ops"]["steps"]
                 if s.get("name") == "Describe service env (values only for known feature flags)")
-    assert step["timeout-minutes"] == 10  # five 100 s gcloud reads plus the shell describe fit with headroom
+    assert step["timeout-minutes"] == 10  # six reads of at most 100 s each (the shell describe had no bound)
     capacity = next(s for s in workflow["jobs"]["ops"]["steps"] if s.get("name") == "Read historical capacity evidence")
     assert capacity["timeout-minutes"] >= 15  # the readout bounds itself to 17 channels x 5 pages x 10 s = 850 s
-    # Execute the entire Python readback, including show(), not a comment-delimited suffix.
-    # The fixed shell wrapper redirects its only external read; added shell output must fail too.
-    shell, projection = step["run"].split("python3 - <<'PY'\n", 1)
-    projection, suffix = projection.split("\nPY", 1)
-    assert shell == ('set -euo pipefail\n'
-                     'gcloud run services describe "$SERVICE" --region="$REGION" --format=json > /tmp/svc.json\n')
-    assert not suffix.strip()
+    # Execute the entire committed readback, including show(), not a comment-delimited suffix.
+    # The step is exactly the one-line module invocation, so added shell output must fail too.
+    assert step["run"] == "python3 ops/describe/service.py" and workflow["env"]["SERVICE"] == SERVICE
     svc, revision, pregenerate, job_container = _service_fixtures(command, args, concurrency, timeout)
     worker, worker_revision, policy = _worker_fixtures()
     readbacks = _readbacks(revision, pregenerate, worker, worker_revision, policy)
-    service_json, calls = _run(projection, svc, readbacks, monkeypatch)
+    opened, calls = _run(svc, readbacks, monkeypatch)
     # Descriptor capture includes inherited child stdout/stderr as well as Python writes.
     captured = capfd.readouterr()
     output = captured.out + captured.err
-    service_json.assert_called_once_with("/tmp/svc.json")
-    assert calls == list(readbacks)
+    opened.assert_not_called()  # every read, the service describe included, goes through the gcloud seam
+    assert calls == [SERVICE_READ, *readbacks]
+    # Every read is bounded at 100 s (the fake asserts it), so all of them fit the step timeout: a seventh read or a
+    # shorter step fails here. At the bound a run that spends it all is cut by the step timeout, still a failure.
+    assert 100 * len(calls) <= step["timeout-minutes"] * 60
     assert "PRIVATE_" not in output
     assert "example.invalid" not in output  # no fixture host: service, worker, traffic or policy
     # Every fixture token is distinct from allowed output (worker env stays 4, args use 17/29).
@@ -121,7 +124,7 @@ def test_capacity_projection_withholds_commands_and_private_values(capfd, monkey
 def test_worker_command_verdict_withholds_values(capfd, monkeypatch, command, args, verdict):
     svc, revision, pregenerate, job_container = _service_fixtures([], [], 80, 300)
     worker, worker_revision, policy = _worker_fixtures(command, args)
-    _run(_projection(), svc, _readbacks(revision, pregenerate, worker, worker_revision, policy), monkeypatch)
+    _run(svc, _readbacks(revision, pregenerate, worker, worker_revision, policy), monkeypatch)
     captured = capfd.readouterr()
     output = captured.out + captured.err
     assert f"Worker command/args: {verdict}" in output
@@ -129,13 +132,6 @@ def test_worker_command_verdict_withholds_values(capfd, monkeypatch, command, ar
     for token in command + args + WORKER_COMMAND + WORKER_ARGS + job_container["command"] + job_container["args"]:
         assert token not in output
     assert output.rstrip().endswith("describe-service: PASS")
-
-
-def _projection():
-    workflow = yaml.safe_load((Path(__file__).parents[3] / ".github/workflows/ops.yml").read_text())
-    step = next(s for s in workflow["jobs"]["ops"]["steps"]
-                if s.get("name") == "Describe service env (values only for known feature flags)")
-    return step["run"].split("python3 - <<'PY'\n", 1)[1].split("\nPY", 1)[0]
 
 
 def _service_fixtures(command, args, concurrency, timeout):
@@ -221,7 +217,7 @@ def _worker_fixtures(command=None, args=None):
 
 
 def _readbacks(revision, pregenerate, worker, worker_revision, policy):
-    """The five gcloud reads the heredoc makes, in order, keyed by (kind, verb, name)."""
+    """The five gcloud reads that follow the API service describe, in order, keyed by (kind, verb, name)."""
     return {("revisions", "describe", "revision-1"): revision,
             ("jobs", "describe", "earningsnerd-pregenerate"): pregenerate,
             ("services", "describe", "earningsnerd-task-worker"): worker,
@@ -229,9 +225,11 @@ def _readbacks(revision, pregenerate, worker, worker_revision, policy):
             ("services", "get-iam-policy", "earningsnerd-task-worker"): policy}
 
 
-def _run(projection, svc, readbacks, monkeypatch):
-    """Execute the heredoc against a dict-keyed gcloud fake; returns (the open mock, the ordered read keys)."""
+def _run(svc, readbacks, monkeypatch):
+    """Load the committed module by path against a dict-keyed gcloud fake that serves the API service describe and
+    then `readbacks`; returns (the open guard, the ordered read keys)."""
     calls = []
+    reads = {SERVICE_READ: svc, **readbacks}
 
     def describe(argv: list[str], *, text: bool, stderr, timeout) -> str:
         assert argv[:2] == ["gcloud", "run"] and argv[3] in ("describe", "get-iam-policy")
@@ -239,10 +237,14 @@ def _run(projection, svc, readbacks, monkeypatch):
         assert stderr is subprocess.PIPE and timeout == 100  # stderr is classified, never inherited by the log
         key = (argv[2], argv[3], argv[4])
         calls.append(key)
-        return json.dumps(readbacks[key])
+        return json.dumps(reads[key])
 
     monkeypatch.setenv("REGION", "offline-region")
+    monkeypatch.setenv("SERVICE", SERVICE)
     monkeypatch.setattr(subprocess, "check_output", describe)
-    service_json = mock_open(read_data=json.dumps(svc))
-    exec(projection, {"open": service_json})
-    return service_json, calls
+    opened = Mock(side_effect=AssertionError("the readback reads no file"))
+    spec = importlib.util.spec_from_file_location("ops_describe_service", MODULE)
+    module = importlib.util.module_from_spec(spec)
+    module.open = opened  # module globals shadow the builtin, as the heredoc's exec globals did
+    spec.loader.exec_module(module)
+    return opened, calls

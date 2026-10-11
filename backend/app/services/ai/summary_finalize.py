@@ -436,7 +436,7 @@ def derive_title(run: SummaryRun) -> None:
 
     # Generate summary title
     period_suffix = f" ({reporting_period})" if reporting_period else ""
-    if filing_date:
+    if isinstance(filing_date, str) and filing_date:
         try:
             from datetime import datetime
             date_obj = datetime.fromisoformat(filing_date.replace("Z", "+00:00"))

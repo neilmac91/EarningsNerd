@@ -1,0 +1,500 @@
+{
+  "version": 1,
+  "scope": "Offline presentation compatibility, not an analysis eligibility or selector evaluation fixture.",
+  "dataset": {
+    "ticker": "COMPAT",
+    "company_name": "Offline compatibility fixture",
+    "dataset_version": "quarterly-v2",
+    "mode": "quarterly",
+    "period_key": "2025Q4..2025Q4",
+    "periods": [
+      {
+        "key": "2025Q4"
+      }
+    ],
+    "series": [
+      {
+        "concept": "revenue",
+        "label": "Revenue",
+        "unit": "EUR",
+        "percent": false,
+        "cagr": null,
+        "points": [
+          {
+            "period": "2025Q4",
+            "value": 1600000000,
+            "marker": "F1",
+            "derived": false,
+            "reconciled": true,
+            "provenance": {
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "inputs": []
+            }
+          }
+        ]
+      },
+      {
+        "concept": "net_income",
+        "label": "Net income",
+        "unit": "USD",
+        "percent": false,
+        "cagr": null,
+        "points": [
+          {
+            "period": "2025Q4",
+            "value": 100000000,
+            "marker": "F2",
+            "derived": false,
+            "reconciled": true,
+            "provenance": {
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "inputs": []
+            }
+          }
+        ]
+      },
+      {
+        "concept": "current_ratio",
+        "label": "Current ratio",
+        "unit": "pure",
+        "percent": false,
+        "cagr": null,
+        "points": [
+          {
+            "period": "2025Q4",
+            "value": 1.00004,
+            "marker": "F3",
+            "derived": false,
+            "reconciled": true,
+            "provenance": {
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "inputs": []
+            }
+          }
+        ]
+      },
+      {
+        "concept": "earnings_per_share",
+        "label": "EPS (basic)",
+        "unit": "GBP/shares",
+        "percent": false,
+        "cagr": null,
+        "points": [
+          {
+            "period": "2025Q4",
+            "value": 6.25,
+            "marker": "F4",
+            "derived": true,
+            "reconciled": true,
+            "provenance": {
+              "method": "reported",
+              "validation": "passed",
+              "reasons": [],
+              "inputs": []
+            }
+          }
+        ]
+      },
+      {
+        "concept": "operating_margin",
+        "label": "Operating margin",
+        "unit": "pure",
+        "percent": true,
+        "cagr": null,
+        "points": [
+          {
+            "period": "2025Q4",
+            "value": 26.06536076709265,
+            "marker": "F5",
+            "derived": false,
+            "reconciled": false,
+            "provenance": {
+              "method": "calculated",
+              "validation": "needs_review",
+              "reasons": [
+                "legacy_calculation"
+              ],
+              "inputs": []
+            }
+          }
+        ]
+      }
+    ],
+    "inflections": [
+      {
+        "kind": "display_compatibility",
+        "detail": "The selected revenue was EUR 1,600,000,000 in 2025Q4 [F1].",
+        "markers": [
+          "F1",
+          "F2",
+          "F3",
+          "F4",
+          "F5"
+        ]
+      }
+    ],
+    "data_notes": {
+      "version": 1,
+      "notes": [
+        {
+          "kind": "review",
+          "reasons": [
+            "legacy_calculation"
+          ],
+          "key": "[\"review\",[\"legacy_calculation\"]]",
+          "id": "analysis-data-note-a",
+          "letter": "a",
+          "message": "This saved calculation predates the current source checks. Its inputs need review.",
+          "values": [
+            {
+              "concept": "operating_margin",
+              "label": "Operating margin",
+              "period": "2025Q4"
+            }
+          ],
+          "comparisons": [],
+          "counts": {
+            "qoq": 0,
+            "yoy": 0,
+            "cagr": 0,
+            "window_pp": 0
+          }
+        }
+      ],
+      "totals": {
+        "reviewValues": 1,
+        "reviewComparisons": 0,
+        "unavailable": 0,
+        "passed": 4,
+        "unknown": 0,
+        "calculated": 1,
+        "total": 5
+      }
+    },
+    "snapshot_id": "f9fe330f6228e913ca33b751acd9a0d4a200c5b4000fa3486f4dd40a099585a1"
+  },
+  "selection": {
+    "trajectory": [],
+    "growth_quality": [],
+    "margins": [],
+    "cash_balance_sheet": [],
+    "red_flags": [],
+    "watch_next": []
+  },
+  "expected": {
+    "narrative": "## The trajectory\nRevenue was EUR 1.6B in Q4 2025 [1].\nNet income was $100.0M in Q4 2025 [2].\n\n## Growth quality\nEPS (basic) was GBP 6.25 per share in Q4 2025 [3] (derived Q4).\n\n## Margins\nOperating margin was 26.1% in Q4 2025 [4].\n\n## Cash & balance sheet\nThe current ratio was 1.00004× in Q4 2025 [5], above 1.00×.\n\n## Red flags\nThe selected revenue was EUR 1.6B in Q4 2025 [1]. Source operands: Revenue EUR 1,600,000,000 in 2025Q4 [1]; Net income USD 100,000,000 in 2025Q4 [2]; Current ratio 1.00004x in 2025Q4 [5]; EPS (basic) GBP 6.25 per share in 2025Q4 [3] (derived Q4); Operating margin 26.1% in 2025Q4 [4].\n\n## What to watch next\nWatch how revenue in the next reporting update compares with EUR 1.6B in Q4 2025 [1].",
+    "citations": [
+      {
+        "n": 1,
+        "excerpt": "Revenue = 1,600,000,000 (2025Q4)",
+        "section_ref": "Reported filing · revenue",
+        "verified": true,
+        "fragment_url": null,
+        "concept": "revenue",
+        "value": 1600000000,
+        "period": "2025Q4",
+        "derived": false,
+        "reconciled": true,
+        "provenance": {
+          "method": "reported",
+          "validation": "passed",
+          "reasons": [],
+          "inputs": []
+        },
+        "source_url": null,
+        "marker": "F1",
+        "unit": "EUR",
+        "percent": false
+      },
+      {
+        "n": 2,
+        "excerpt": "Net income = 100,000,000 (2025Q4)",
+        "section_ref": "Reported filing · net_income",
+        "verified": true,
+        "fragment_url": null,
+        "concept": "net_income",
+        "value": 100000000,
+        "period": "2025Q4",
+        "derived": false,
+        "reconciled": true,
+        "provenance": {
+          "method": "reported",
+          "validation": "passed",
+          "reasons": [],
+          "inputs": []
+        },
+        "source_url": null,
+        "marker": "F2",
+        "unit": "USD",
+        "percent": false
+      },
+      {
+        "n": 3,
+        "excerpt": "EPS (basic) = 6.25 (2025Q4) — derived Q4",
+        "section_ref": "Reported filing · earnings_per_share",
+        "verified": true,
+        "fragment_url": null,
+        "concept": "earnings_per_share",
+        "value": 6.25,
+        "period": "2025Q4",
+        "derived": true,
+        "reconciled": true,
+        "provenance": {
+          "method": "reported",
+          "validation": "passed",
+          "reasons": [],
+          "inputs": []
+        },
+        "source_url": null,
+        "marker": "F4",
+        "unit": "GBP/shares",
+        "percent": false
+      },
+      {
+        "n": 4,
+        "excerpt": "Operating margin = 26.1% (2025Q4)",
+        "section_ref": "Calculated · operating_margin",
+        "verified": true,
+        "fragment_url": null,
+        "concept": "operating_margin",
+        "value": 26.06536076709265,
+        "period": "2025Q4",
+        "derived": false,
+        "reconciled": false,
+        "provenance": {
+          "method": "calculated",
+          "validation": "needs_review",
+          "reasons": [
+            "legacy_calculation"
+          ],
+          "inputs": []
+        },
+        "source_url": null,
+        "marker": "F5",
+        "unit": "percent",
+        "percent": true
+      },
+      {
+        "n": 5,
+        "excerpt": "Current ratio = 1.00004x (2025Q4)",
+        "section_ref": "Reported filing · current_ratio",
+        "verified": true,
+        "fragment_url": null,
+        "concept": "current_ratio",
+        "value": 1.00004,
+        "period": "2025Q4",
+        "derived": false,
+        "reconciled": true,
+        "provenance": {
+          "method": "reported",
+          "validation": "passed",
+          "reasons": [],
+          "inputs": []
+        },
+        "source_url": null,
+        "marker": "F3",
+        "unit": "pure",
+        "percent": false
+      }
+    ],
+    "narrative_presentation": {
+      "format_version": "analysis-narrative-v1",
+      "snapshot_id": "f9fe330f6228e913ca33b751acd9a0d4a200c5b4000fa3486f4dd40a099585a1",
+      "data_notes_version": 1,
+      "offset_encoding": "utf-16",
+      "notes": {
+        "version": 1,
+        "notes": [
+          {
+            "kind": "review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "key": "[\"review\",[\"legacy_calculation\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
+            "message": "This saved calculation predates the current source checks. Its inputs need review.",
+            "values": [
+              {
+                "concept": "operating_margin",
+                "label": "Operating margin",
+                "period": "2025Q4"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          }
+        ],
+        "totals": {
+          "reviewValues": 1,
+          "reviewComparisons": 0,
+          "unavailable": 0,
+          "passed": 4,
+          "unknown": 0,
+          "calculated": 1,
+          "total": 5
+        }
+      },
+      "evidence": [
+        {
+          "observation_id": "red_flags.signal.display-compatibility.1",
+          "section": "red_flags",
+          "tail": {
+            "start": 380,
+            "end": 615,
+            "text": " Source operands: Revenue EUR 1,600,000,000 in 2025Q4 [1]; Net income USD 100,000,000 in 2025Q4 [2]; Current ratio 1.00004x in 2025Q4 [5]; EPS (basic) GBP 6.25 per share in 2025Q4 [3] (derived Q4); Operating margin 26.1% in 2025Q4 [4]."
+          },
+          "operands": [
+            {
+              "marker": "F1",
+              "concept": "revenue",
+              "label": "Revenue",
+              "value": 1600000000,
+              "unit": "EUR",
+              "percent": false,
+              "period": "2025Q4",
+              "citation_id": 1,
+              "derived": false,
+              "display_value": "EUR 1.6B",
+              "provenance": {
+                "method": "reported",
+                "validation": "passed",
+                "reasons": [],
+                "inputs": []
+              },
+              "source_url": null
+            },
+            {
+              "marker": "F2",
+              "concept": "net_income",
+              "label": "Net income",
+              "value": 100000000,
+              "unit": "USD",
+              "percent": false,
+              "period": "2025Q4",
+              "citation_id": 2,
+              "derived": false,
+              "display_value": "$100.0M",
+              "provenance": {
+                "method": "reported",
+                "validation": "passed",
+                "reasons": [],
+                "inputs": []
+              },
+              "source_url": null
+            },
+            {
+              "marker": "F3",
+              "concept": "current_ratio",
+              "label": "Current ratio",
+              "value": 1.00004,
+              "unit": "pure",
+              "percent": false,
+              "period": "2025Q4",
+              "citation_id": 5,
+              "derived": false,
+              "display_value": "1.00004×",
+              "provenance": {
+                "method": "reported",
+                "validation": "passed",
+                "reasons": [],
+                "inputs": []
+              },
+              "source_url": null
+            },
+            {
+              "marker": "F4",
+              "concept": "earnings_per_share",
+              "label": "EPS (basic)",
+              "value": 6.25,
+              "unit": "GBP/shares",
+              "percent": false,
+              "period": "2025Q4",
+              "citation_id": 3,
+              "derived": true,
+              "display_value": "GBP 6.25 per share",
+              "provenance": {
+                "method": "reported",
+                "validation": "passed",
+                "reasons": [],
+                "inputs": []
+              },
+              "source_url": null
+            },
+            {
+              "marker": "F5",
+              "concept": "operating_margin",
+              "label": "Operating margin",
+              "value": 26.06536076709265,
+              "unit": "percent",
+              "percent": true,
+              "period": "2025Q4",
+              "citation_id": 4,
+              "derived": false,
+              "display_value": "26.1%",
+              "provenance": {
+                "method": "calculated",
+                "validation": "needs_review",
+                "reasons": [
+                  "legacy_calculation"
+                ],
+                "inputs": []
+              },
+              "source_url": null
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "legacy_operands": [
+    [
+      {
+        "label": "Revenue",
+        "value": "EUR 1,600,000,000",
+        "period": "2025Q4",
+        "citation": 1,
+        "derived": false
+      },
+      {
+        "label": "Net income",
+        "value": "USD 100,000,000",
+        "period": "2025Q4",
+        "citation": 2,
+        "derived": false
+      },
+      {
+        "label": "Current ratio",
+        "value": "1.00004x",
+        "period": "2025Q4",
+        "citation": 5,
+        "derived": false
+      },
+      {
+        "label": "EPS (basic)",
+        "value": "GBP 6.25 per share",
+        "period": "2025Q4",
+        "citation": 3,
+        "derived": true
+      },
+      {
+        "label": "Operating margin",
+        "value": "26.1%",
+        "period": "2025Q4",
+        "citation": 4,
+        "derived": false
+      }
+    ]
+  ]
+}

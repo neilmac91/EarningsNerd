@@ -1,0 +1,142 @@
+"""Shared presentation contract: exact financial concerns, no new verification claims."""
+import json
+import uuid
+from copy import deepcopy
+from datetime import date
+from pathlib import Path
+
+import pytest
+
+from app.services.trend_analysis.data_notes import (
+    REASONS,
+    citation_data_notes,
+    data_notes,
+    note_for_quality,
+    quality_key,
+    resolve_data_notes,
+)
+from app.services.trend_analysis.dataset import build_dataset, dataset_fingerprint
+
+GOLDEN = json.loads((Path(__file__).parents[1] / "fixtures" / "analysis_data_notes.json").read_text())
+CASES = GOLDEN["cases"]
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda case: case["name"])
+def test_shared_presentation_golden_preserves_inputs(case):
+    before = deepcopy(case["dataset"])
+    assert data_notes(case["dataset"]) == case["expected"]
+    assert resolve_data_notes(case["dataset"]) == case["expected"]
+    assert case["dataset"] == before
+
+
+@pytest.mark.parametrize("case", [case for case in CASES if "citations" in case], ids=lambda case: case["name"])
+def test_citation_supplements_preserve_report_letters_populations_and_inputs(case):
+    report = deepcopy(case["expected"])
+    citations = deepcopy(case["citations"])
+    combined = citation_data_notes(citations, report)
+    assert combined == case["expected_citation_notes"]
+    assert combined["totals"] == report["totals"]
+    assert report == case["expected"]
+    assert citations == case["citations"]
+    assert citation_data_notes(citations, combined) == combined
+    for citation in citations:
+        note = note_for_quality(citation, combined)
+        assert note is None if quality_key(citation) is None else note["key"] == quality_key(citation)
+
+
+def test_canonical_keys_preserve_unknown_codes_and_utf16_order():
+    note = CASES[2]["expected"]["notes"][0]
+    assert note["reasons"] == ['quote"\\\n', "\x7f", "é", "\ud800", "😀", "\ue000"]
+    assert note["key"].isascii()
+    assert "\\u007f" in note["key"] and "\\ud83d\\ude00" in note["key"]
+    # All six unknown codes survive, even though each maps to the same public sentence.
+    assert note["message"].count("Check the original filing.") == 6
+    assert quality_key(CASES[2]["dataset"]["series"][0]["points"][0]) == note["key"]
+
+
+def test_every_known_reason_has_a_pinned_message_and_supplements_continue_after_z():
+    case = CASES[3]
+    assert {note["reasons"][0] for note in case["expected"]["notes"]} == set(REASONS)
+    result = citation_data_notes(case["citations"], data_notes(case["dataset"]))
+    assert [note["letter"] for note in result["notes"][-4:]] == ["aa", "ab", "ac", "ad"]
+    assert all(not note["values"] and not note["comparisons"] for note in result["notes"][-3:])
+
+
+def test_saved_supported_notes_are_authoritative_and_detached():
+    dataset = deepcopy(CASES[0]["dataset"])
+    saved = deepcopy(CASES[0]["expected"])
+    saved["notes"][0]["message"] = "Server-owned wording for this notes version."
+    dataset["data_notes"] = saved
+    resolved = resolve_data_notes(dataset)
+    assert resolved == saved
+    resolved["notes"][0]["message"] = "Local edit"
+    resolved["totals"]["total"] = -1
+    assert saved["notes"][0]["message"] == "Server-owned wording for this notes version."
+    assert saved["totals"]["total"] == 12
+
+
+@pytest.mark.parametrize("present", [None, {}, {"version": True}, {"version": 2}, {"version": 1, "notes": None, "totals": {}}])
+def test_present_unusable_notes_never_silently_fall_back(present):
+    dataset = {**CASES[0]["dataset"], "data_notes": present}
+    with pytest.raises(ValueError, match="Unsupported or malformed"):
+        resolve_data_notes(dataset)
+
+
+def test_duplicate_legacy_slots_are_counted_once_and_last_point_wins():
+    dataset = deepcopy(CASES[4]["dataset"])
+    dataset["periods"] *= 2
+    dataset["series"] += deepcopy(dataset["series"])
+    first = dataset["series"][0]
+    first["points"].insert(0, {"period": "2024Q1", "value": None})
+    assert data_notes(dataset) == CASES[4]["expected"]
+
+
+def test_display_metadata_does_not_change_snapshot_but_financial_quality_does():
+    dataset = deepcopy(CASES[0]["dataset"])
+    original = dataset_fingerprint(dataset)
+    dataset["data_notes"] = data_notes(dataset)
+    dataset["narrative_presentation"] = {"format_version": "analysis-narrative-v1", "evidence": []}
+    dataset["snapshot_id"] = original
+    dataset["data_as_of"] = "2026-10-11T00:00:00Z"
+    assert dataset_fingerprint(dataset) == original
+    dataset["data_notes"]["notes"][0]["message"] = "Updated display copy."
+    dataset["narrative_presentation"]["evidence"].append({"observation_id": "signal-1"})
+    assert dataset_fingerprint(dataset) == original
+    dataset["series"][0]["points"][0]["provenance"]["reasons"] = ["source_conflict"]
+    assert dataset_fingerprint(dataset) != original
+
+
+@pytest.mark.requires_db
+def test_built_dataset_carries_notes_for_values_and_inherited_comparisons():
+    from app.database import SessionLocal, engine
+    from app.models import Base, Company, FinancialFact
+
+    Base.metadata.create_all(bind=engine)
+    with SessionLocal() as db:
+        company = Company(cik=uuid.uuid4().hex[:10], ticker="NOTES", name="Notes example")
+        db.add(company)
+        db.flush()
+        for year in (2023, 2024):
+            for concept, amount in (("revenue", 100), ("net_income", 10)):
+                reviewed = year == 2024 and concept == "revenue"
+                provenance = {
+                    "version": 1, "method": "reported", "validation": "needs_review" if reviewed else "passed",
+                    "reasons": ["source_conflict"] if reviewed else [], "formula": None, "inputs": [],
+                }
+                db.add(FinancialFact(
+                    company_id=company.id, concept=concept, value=amount + year - 2023,
+                    unit="USD", period_start=date(year, 1, 1), period_end=date(year, 12, 31),
+                    fiscal_year=year, fiscal_period="FY", form="10-K", accession=f"NOTES-{year}",
+                    source="companyfacts", raw_tag=f"us-gaap:{concept}", reconciled=not reviewed,
+                    is_latest=True, provenance=provenance,
+                ))
+        db.flush()
+        dataset = build_dataset(db, company, "annual", "FY2023", "FY2024")
+        notes = dataset["data_notes"]
+        assert notes["version"] == 1
+        concern = next(note for note in notes["notes"] if note["reasons"] == ["source_conflict"])
+        assert {ref["concept"] for ref in concern["values"]} == {"revenue"}
+        assert {ref["basis"] for ref in concern["comparisons"]} == {"yoy", "cagr"}
+        assert notes["totals"]["reviewValues"] == 1
+        assert notes["totals"]["reviewComparisons"] == 2
+        assert dataset["snapshot_id"] == dataset_fingerprint(dataset)

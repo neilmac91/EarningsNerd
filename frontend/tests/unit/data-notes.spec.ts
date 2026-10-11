@@ -1,13 +1,186 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
-  groupDataNotes, groupQualityNotes,
-  type DataNoteQuality, type DataNotesDataset, type DataNotesPoint, type DataNotesSeries,
+  groupDataNotes, groupQualityNotes, resolveDataNotes, qualityNotesModelFromWire,
+  type DataNoteQuality, type DataNotesDataset, type DataNotesPoint, type DataNotesSeries, type DataNotesWire,
 } from '@/features/analysis/lib/dataNotes'
+import { decodeCitationDataNotes, decodeDataNotes } from '@/features/analysis/lib/dataNotesContract'
 import type { FactProvenance } from '@/features/analysis/lib/provenance'
 
 const provenance = (validation: FactProvenance['validation'], reasons: string[] = []): FactProvenance => ({
   version: 1, method: 'reported', validation, reasons, formula: null, inputs: [],
+})
+
+interface GoldenCase {
+  name: string
+  dataset: DataNotesDataset
+  expected: DataNotesWire
+  citations?: DataNoteQuality[]
+  expected_citation_notes?: DataNotesWire
+}
+const golden: { version: number; cases: GoldenCase[] } = JSON.parse(readFileSync('../backend/tests/fixtures/analysis_data_notes.json', 'utf8'))
+
+describe('server data notes admission', () => {
+  it.each(golden.cases)('shares Python memberships, counts, messages and portable identities: $name', (example) => {
+    const before = JSON.stringify(example)
+    const legacy = groupDataNotes(example.dataset)
+    expect({ version: 1, notes: legacy.notes, totals: legacy.totals }).toEqual(example.expected)
+    const admitted = decodeDataNotes(example.expected, example.dataset)
+    expect(admitted).toEqual(example.expected)
+    const report = { ...example.dataset, data_notes: admitted }
+    const resolved = resolveDataNotes(report)
+    expect(resolved.notes).toBe(admitted.notes)
+    expect(resolved.totals).toBe(admitted.totals)
+    if (example.citations && example.expected_citation_notes) {
+      const combined = groupQualityNotes(example.citations, legacy)
+      expect({ version: 1, notes: combined.notes, totals: legacy.totals }).toEqual(example.expected_citation_notes)
+      const completion = decodeCitationDataNotes(example.expected_citation_notes, report, example.citations)
+      expect(completion).toEqual(example.expected_citation_notes)
+      const model = qualityNotesModelFromWire(completion.notes)
+      for (const citation of example.citations) expect(model.noteForQuality(citation)).toEqual(combined.noteForQuality(citation))
+    }
+    expect(JSON.stringify(example)).toBe(before)
+  })
+
+  it('retains admitted server copy, letters, ordering and totals across lookups', () => {
+    const example = golden.cases[0]
+    const wire = structuredClone(example.expected)
+    wire.notes.reverse().forEach((note, index) => {
+      note.letter = `z${String.fromCharCode(97 + index)}`
+      note.id = `analysis-data-note-${note.letter}`
+      note.message = `Server explanation ${index}`
+    })
+    const admitted = decodeDataNotes(wire, example.dataset)
+    const model = resolveDataNotes({ ...example.dataset, data_notes: admitted })
+    expect(model.notes).toEqual(wire.notes)
+    expect(model.totals).toBe(admitted.totals)
+    for (const note of admitted.notes) {
+      const quality: DataNoteQuality = { value: note.kind === 'unavailable' ? null : 1, provenance: provenance(note.kind === 'review' ? 'needs_review' : 'unavailable', note.reasons) }
+      expect(model.noteForQuality(quality)).toBe(note)
+    }
+  })
+
+  it('uses legacy grouping only when the server field is absent', () => {
+    const report = golden.cases[0].dataset
+    expect(resolveDataNotes(report).notes).toEqual(groupDataNotes(report).notes)
+    for (const data_notes of [undefined, null]) {
+      expect(() => resolveDataNotes({ ...report, data_notes } as unknown as DataNotesDataset)).toThrow()
+      expect(() => decodeDataNotes(data_notes, report)).toThrow('Invalid analysis data notes')
+    }
+  })
+
+  it.each([
+    ['unsupported version', (wire: DataNotesWire) => { Object.assign(wire, { version: 2 }) }],
+    ['fractional total', (wire: DataNotesWire) => { wire.totals.total = 1.5 }],
+    ['unsafe total', (wire: DataNotesWire) => { wire.totals.total = Number.MAX_SAFE_INTEGER + 1 }],
+    ['duplicate note', (wire: DataNotesWire) => { wire.notes.push(structuredClone(wire.notes[0])) }],
+    ['incorrect key', (wire: DataNotesWire) => { wire.notes[0].key = 'review' }],
+    ['incorrect id', (wire: DataNotesWire) => { wire.notes[0].id = 'analysis-data-note-z' }],
+    ['invalid letter', (wire: DataNotesWire) => { wire.notes[0].letter = 'A'; wire.notes[0].id = 'analysis-data-note-A' }],
+    ['missing message', (wire: DataNotesWire) => { wire.notes[0].message = '' }],
+    ['incorrect basis count', (wire: DataNotesWire) => { wire.notes[0].counts.qoq++ }],
+  ])('rejects %s instead of silently regrouping it', (_name, mutate) => {
+    const example = golden.cases[0]
+    const wire = structuredClone(example.expected)
+    mutate(wire)
+    expect(() => decodeDataNotes(wire, example.dataset)).toThrow('Invalid analysis data notes')
+  })
+
+  it('rejects internally balanced totals that falsely promote a review value to passed', () => {
+    const example = golden.cases[0]
+    const wire = structuredClone(example.expected)
+    wire.totals.reviewValues--
+    wire.totals.passed++
+    expect(wire.totals.reviewValues + wire.totals.passed + wire.totals.unknown + wire.totals.unavailable).toBe(wire.totals.total)
+    expect(() => decodeDataNotes(wire, example.dataset)).toThrow('disagrees with dataset quality')
+  })
+
+  it.each(['omitted', 'duplicate', 'misassigned', 'wrong label', 'extra passed value'] as const)('rejects %s value membership', (mutation) => {
+    const original = dataset([series('cash', [point('2024Q1', { provenance: review('unit_mismatch') }), point('2024Q2', { provenance: review('source_conflict') })]), series('passed', [point('2024Q1'), point('2024Q2')])])
+    const grouped = groupDataNotes(original)
+    const wire: DataNotesWire = { version: 1, notes: grouped.notes, totals: grouped.totals }
+    const ref = wire.notes[0].values[0]
+    if (mutation === 'omitted') wire.notes[0].values = []
+    if (mutation === 'duplicate') wire.notes[0].values.push({ ...ref })
+    if (mutation === 'misassigned') wire.notes[1].values.push(wire.notes[0].values.pop()!)
+    if (mutation === 'wrong label') ref.label = 'Other metric'
+    if (mutation === 'extra passed value') wire.notes[0].values.push({ concept: 'passed', label: 'passed', period: '2024Q1' })
+    expect(() => decodeDataNotes(wire, original)).toThrow('Invalid analysis data notes')
+  })
+
+  it('rejects an omitted comparison even when the remaining basis count and total agree', () => {
+    const example = golden.cases.find((entry) => entry.name === 'annual_windows_and_comparison_only_issues')!
+    const wire = structuredClone(example.expected)
+    const note = wire.notes.find((entry) => entry.comparisons.length)!
+    const removed = note.comparisons.pop()!
+    note.counts[removed.basis]--
+    if (note.kind === 'review') wire.totals.reviewComparisons--
+    expect(() => decodeDataNotes(wire, example.dataset)).toThrow('dataset concerns are missing')
+  })
+
+  it.each(['duplicate', 'misassigned', 'wrong basis'] as const)('rejects %s comparison membership', (mutation) => {
+    const original = dataset([series('cash', [point('2024Q1'), point('2024Q2', {
+      qoq: 0, qoq_provenance: review('unit_mismatch'), yoy: 'nm', yoy_provenance: review('source_conflict'),
+    })])])
+    const grouped = groupDataNotes(original)
+    const wire: DataNotesWire = { version: 1, notes: grouped.notes, totals: grouped.totals }
+    const first = wire.notes[0]
+    if (mutation === 'duplicate') { first.comparisons.push({ ...first.comparisons[0] }); first.counts.qoq++ }
+    if (mutation === 'misassigned') { wire.notes[1].comparisons.push(first.comparisons.pop()!); first.counts.qoq--; wire.notes[1].counts.qoq++ }
+    if (mutation === 'wrong basis') { first.comparisons[0].basis = 'cagr'; first.counts.qoq--; first.counts.cagr++ }
+    expect(() => decodeDataNotes(wire, original)).toThrow('Invalid analysis data notes')
+  })
+
+  it.each(['period', 'concept', 'point'] as const)('rejects ambiguous duplicate dataset %s identities at ingress', (field) => {
+    const example = golden.cases[0]
+    const original = structuredClone(example.dataset)
+    if (field === 'period') original.periods = [...original.periods, original.periods[0]]
+    if (field === 'concept') original.series = [...original.series, original.series[0]]
+    if (field === 'point') original.series[0].points = [...original.series[0].points, original.series[0].points[0]]
+    expect(() => decodeDataNotes(example.expected, original)).toThrow('contains duplicates')
+  })
+
+  it('retains citation concerns even when the matching report value explicitly passed', () => {
+    const original = dataset([series('revenue', [point('2024Q1'), point('2024Q2')])])
+    const base = groupDataNotes(original)
+    const citation = { provenance: review('source_conflict') }
+    const supplemental = groupQualityNotes([citation], base)
+    const wire: DataNotesWire = { version: 1, notes: supplemental.notes, totals: base.totals }
+    const admitted = decodeCitationDataNotes(wire, original, [citation])
+    expect(admitted.notes[0]).toMatchObject({ kind: 'review', values: [], comparisons: [] })
+    expect(admitted.totals).toMatchObject({ passed: 2, reviewValues: 0, reviewComparisons: 0 })
+    expect(() => decodeCitationDataNotes({ ...wire, notes: [] }, original, [citation])).toThrow('citation concerns are missing')
+  })
+
+  it('preserves sparse supplemental letters after the report but rejects an earlier unused letter', () => {
+    const original = dataset([series('cash', [point('2024Q1', { provenance: review('unit_mismatch') }), point('2024Q2')])])
+    const grouped = groupDataNotes(original)
+    grouped.notes[0].letter = 'z'
+    grouped.notes[0].id = 'analysis-data-note-z'
+    const report = { ...original, data_notes: decodeDataNotes({ version: 1, notes: grouped.notes, totals: grouped.totals }, original) }
+    const citation = { provenance: review('source_conflict') }
+    const combined = groupQualityNotes([citation], resolveDataNotes(report))
+    const wire: DataNotesWire = { version: 1, notes: combined.notes, totals: grouped.totals }
+    wire.notes[1] = { ...wire.notes[1], letter: 'az', id: 'analysis-data-note-az', message: 'Server citation explanation.' }
+    expect(decodeCitationDataNotes(wire, report, [citation]).notes[1]).toEqual(wire.notes[1])
+    wire.notes[1].letter = 'y'
+    wire.notes[1].id = 'analysis-data-note-y'
+    expect(() => decodeCitationDataNotes(wire, report, [citation])).toThrow('supplement letters must follow')
+  })
+
+  it.each(['prefix', 'totals', 'omitted', 'extra', 'reference', 'earlier letter'] as const)('rejects a citation envelope with %s changes', (mutation) => {
+    const example = golden.cases.find((entry) => entry.name === 'all_known_reason_messages_and_supplements_after_z')!
+    const wire = structuredClone(example.expected_citation_notes!)
+    const original = { ...example.dataset, data_notes: decodeDataNotes(example.expected, example.dataset) }
+    const firstSupplement = wire.notes[example.expected.notes.length]
+    if (mutation === 'prefix') wire.notes[0].message = 'Changed report explanation'
+    if (mutation === 'totals') wire.totals.passed++
+    if (mutation === 'omitted') wire.notes.pop()
+    if (mutation === 'extra') firstSupplement.key = '["review",["invented"]]'
+    if (mutation === 'reference') firstSupplement.values.push({ concept: 'unlisted', label: 'Unlisted', period: 'FY2024' })
+    if (mutation === 'earlier letter') { firstSupplement.letter = 'a'; firstSupplement.id = 'analysis-data-note-a' }
+    expect(() => decodeCitationDataNotes(wire, original, example.citations!)).toThrow('Invalid analysis data notes')
+  })
 })
 const passed = provenance('passed')
 const review = (...reasons: string[]) => provenance('needs_review', reasons)

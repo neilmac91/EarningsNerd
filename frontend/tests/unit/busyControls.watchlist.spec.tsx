@@ -203,6 +203,8 @@ describe('WatchlistAddSearch result option', () => {
     await waitFor(() => expect(apple).toHaveAttribute('aria-busy', 'true'))
     expectBusyAndFocused(apple)
     expectUnavailableNotBusy(appLovin)
+    // The add is the option's request: the search field shows the spinner but is not the busy one.
+    expect(screen.getByLabelText('Search for a company to add to your watchlist')).not.toHaveAttribute('aria-busy')
     fireEvent.click(apple)
     fireEvent.click(appLovin)
     await settle()

@@ -14,3 +14,27 @@ chart exports and workbooks. Show quality independently of citation traceability
 **Evidence**: PR #697; backend `tests/unit/test_data_completeness.py` pins earlier-input growth,
 citations, exported cell comments and PDF value/source warnings. Frontend metric/KPI/trend/narrative regression cases pin
 the corresponding visible warnings; mutations removing these paths must fail those tests.
+
+**Additional evidence (2026-10-11, analysis data notes)**: Repeated warnings made the same concern
+look like many unrelated errors and widened metric columns. Group explanations once and carry the
+same letters, reason identities and counts across the report and exports; keep a mark at each
+affected figure. Shared `backend/tests/fixtures/analysis_data_notes.json` cases are exercised by
+Python and TypeScript. `test_analysis_data_notes.py`, `data-notes.spec.ts` and export tests pin the
+shared groups and numeric-cell preservation. `analysis-presentation-api.spec.ts` rejects supplied
+metadata that omits concerns or belongs to another snapshot before the stream becomes terminal;
+an absent legacy field alone permits the older presentation fallback.
+
+**Deployment compatibility (2026-10-11)**: Adding structured evidence does not update an
+already-open browser tab. Keep the code-owned operand tail in its existing wire grammar until
+those clients no longer depend on it; compact the reading prose and structured operand values
+separately. Format the PDF's presentation copy without rewriting stored evidence. The shared
+`analysis_legacy_evidence.json` fixture is pinned by the backend producer and consumed by the
+unchanged frontend evidence parser in `narrative-pane.spec.tsx`; restoring whole-observation
+formatting must fail this gate.
+
+**Export count evidence (2026-10-11)**: A comparison can lack validation even when all selected
+figures passed their checks. The shared `totals.unknown` counts figures only; PDF and workbook
+summaries separately count unknown comparison memberships instead of implying that this total
+covers both populations. `test_comparison_only_unknown_status_is_counted_in_pdf_and_workbook`
+uses the shared annual-window fixture to check both rendered exports and preserve the source
+dataset and totals unchanged.

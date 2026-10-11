@@ -1,6 +1,6 @@
 import type { AnalysisCitation } from '../api/analysis-api'
 import { fmtScale } from '@/lib/format'
-import { compactFigure, exactNumber } from './figureDisplay'
+import { compactFigure, exactFigure, exactNumber } from './figureDisplay'
 import { formatAnalysisPeriod } from './periodLabels'
 
 /** Pinned to the code-owned renderer by narrative-pane.spec.tsx until structured evidence ships. */
@@ -12,6 +12,8 @@ export interface NarrativeOperand {
   period: string
   citation: number
   derived: boolean
+  /** Structured evidence already uses the server's report-wide precision plan. */
+  formatted?: boolean
 }
 export type NarrativePart = { kind: 'markdown'; text: string } | { kind: 'evidence'; operands: NarrativeOperand[] }
 
@@ -103,12 +105,16 @@ export function remarkCompactAnalysis(options: { preciseAmounts?: ReadonlySet<st
   }
 }
 
-/** Citations currently omit their currency. Retain that omission rather than inventing USD;
- * the appendix adds compact scale beside the full-precision supplied value. */
+/** New citations carry explicit display units; legacy citations keep their supplied currency
+ * omission. The appendix retains the exact numeric payload alongside the compact figure. */
 export function citationDisplay(citation: AnalysisCitation): string {
   const match = /^(.*?) = (.*?) \(([^)]+)\)(?: — derived Q4)?$/.exec(citation.excerpt)
   if (!match) return citation.excerpt
   const [, label, sourceValue, period] = match
+  if (citation.unit && typeof citation.value === 'number' && Number.isFinite(citation.value)) {
+    const figure = { concept: citation.concept, unit: citation.unit }
+    return `${label} · ${formatAnalysisPeriod(period)} · ${compactFigure(citation.value, figure)} (${exactFigure(citation.value, figure)})`
+  }
   const value = citation.value ?? Number(sourceValue.replaceAll(',', '').replace(/[x%]$/, ''))
   if (!Number.isFinite(value)) return citation.excerpt
   const percent = sourceValue.endsWith('%')

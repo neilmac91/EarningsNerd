@@ -45,7 +45,7 @@ folded in (see [Verification](#verification-how-the-plans-claims-were-checked-an
 I2's reader repoints were included in X4; optional X5 was taken. The
 [execution and spend ledger](refactor-closeout-2026-10.md) retains each reviewed head,
 AST/phase proof, gate provenance, evaluation verdict and verified serial release.
-The behavior follow-ups and founder prompt-byte decision remain open.
+The timestamp and three Wave 0 behavior follow-ups are complete; the founder prompt-byte decision remains open.
 
 **Measured target correction, 2026-10-11.** Original forecasts below remain historical:
 
@@ -170,8 +170,15 @@ original proposal; these notes are authoritative for what actually shipped.
     updates the anchor that pins today's behaviour.
     1. IE:648-650 has no NaN guard. Under the pinned pandas 3.0.6, a missing entity id counts as the
        entity "nan", and the debt observation is dropped (I0.4's `a-missing-identifier-arrives-as-nan-and-counts`).
+       **Fixed 2026-10-11:** the comparison uses the existing `_text_or_none` scalar normalizer;
+       missing values no longer invent an entity. I0.4 now requires the observation to survive
+       missing identifiers in either row, selecting the first known-entity row with its own complete
+       provenance so downstream debt-scope validation cannot lose a known entity or sum mixed entities.
     2. A numeric `filing_date` from the model raises `AttributeError` out of `summarize_filing` at
        O:1051, because the handler at O:1059 catches only `ValueError` and `TypeError`.
+       **Fixed 2026-10-11:** `derive_title` parses only nonempty strings. A5 now requires
+       numeric, boolean, container and null dates to preserve the reporting-period fallback;
+       valid annual/quarterly dates and malformed-string handling retain their existing behavior.
     3. The OUTPUT REFERENCE block at O:386-391 never fires. The markers at `prompt_loader.py:50-54` do
        not match the prompts' "## CRITICAL: Output Format" headings, so each prompt loads whole into
        the system message, its format section included (`prompt_loader.py:61`), and the user-message
@@ -181,6 +188,10 @@ original proposal; these notes are authoritative for what actually shipped.
     4. Model-supplied top-level `_`-prefixed keys survive into `raw_summary["structured"]`, as does
        `metric_delta_context_version`, the one context key the pop list at O:977-985 skips. A6's second
        case pins this. Rule 9 says to validate AI output where it enters.
+       **Fixed 2026-10-11:** the shared model-JSON coercion boundary drops top-level `_` keys
+       and `metric_delta_context_version` before assembly adds trusted source/recovery metadata.
+       A6 now checks object and supported list shapes, real and absent recovery results,
+       boundary/section identity and the final stored keys; unrelated public values remain intact.
     5. Three comments disagree with their code:
        - X:871-872 says non-200, but the code treats every 2xx as success;
        - `_compact_xbrl_block`'s docstring (C:290) says an oversized payload returns "", but the code truncates at C:309;

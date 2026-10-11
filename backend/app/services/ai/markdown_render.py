@@ -219,7 +219,7 @@ class _MarkdownRenderMixin:
 
     @staticmethod
     def _coerce_summary_dict(data: Any) -> Dict[str, Any]:
-        """Normalize parsed model JSON to the expected object shape.
+        """Normalize parsed model JSON, reserving private metadata for application authors.
 
         Some models (especially without a strict schema) return a top-level array, or a
         single-element array wrapping the object. Without this guard, ``data.get(...)`` raises
@@ -227,15 +227,13 @@ class _MarkdownRenderMixin:
         "Unable to retrieve this filing" error. Coercing here keeps the pipeline alive so the
         structured fallbacks can fill any gaps instead of crashing.
         """
-        if isinstance(data, dict):
-            return data
         if isinstance(data, list):
-            for item in data:  # prefer an element that looks like the summary object
-                if isinstance(item, dict) and ("sections" in item or "metadata" in item):
-                    return item
-            for item in data:
-                if isinstance(item, dict):
-                    return item
+            objects = [item for item in data if isinstance(item, dict)]
+            data = next((item for item in objects if "sections" in item or "metadata" in item),
+                        objects[0] if objects else {})
+        if isinstance(data, dict):
+            return {key: value for key, value in data.items()
+                    if not key.startswith("_") and key != "metric_delta_context_version"}
         return {}
 
     def _apply_structured_fallbacks(
