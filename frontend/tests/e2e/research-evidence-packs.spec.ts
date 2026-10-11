@@ -21,6 +21,16 @@ for (const theme of ['light', 'dark'] as const) {
   for (const width of [390, 1440]) {
     test(`evidence capture, review, export and missing cache: ${theme} ${width}px`, async ({ page, baseURL }, testInfo) => {
       test.skip(!enabled, 'Enable the flag in both local server and test process.')
+      const runtimeErrors: string[] = []
+      page.on('pageerror', (error) => runtimeErrors.push(error.message))
+      page.on('console', (message) => {
+        if (message.type() === 'error' && /hydrat/i.test(message.text())) runtimeErrors.push(message.text())
+      })
+      const screenshot = async (name: string) => {
+        await page.evaluate(() => window.scrollTo(0, 0))
+        await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
+        await page.screenshot({ path: testInfo.outputPath(`${name}-${theme}-${width}.png`), fullPage: true })
+      }
       await page.setViewportSize({ width, height: 1000 })
       await page.addInitScript((mode) => {
         localStorage.setItem('theme', mode)
@@ -58,7 +68,10 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/)
       await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /\bdark\b/ : /^(?!.*\bdark\b)/)
       expect(calls).toEqual([])
-      await page.screenshot({ path: testInfo.outputPath(`example-${theme}-${width}.png`), fullPage: true })
+      // Prove hydration via an actual state transition before screenshots hide textarea carets.
+      await page.getByRole('button', { name: 'Compare selected source' }).click()
+      await expect(page.getByRole('article', { name: 'Evidence 1' }).getByText('Review needed', { exact: true })).toBeVisible()
+      await screenshot('example')
       await page.getByRole('button', { name: 'Cached filings', exact: true }).click()
       await page.getByLabel('Filing ID').fill('101')
       const load = page.getByRole('button', { name: /Load cached filing|Loading cached text/ })
@@ -96,13 +109,14 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(card.getByText('Unreviewed', { exact: true })).toBeVisible()
       const dimensions = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }))
       expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.client + 1)
-      await page.screenshot({ path: testInfo.outputPath(`review-${theme}-${width}.png`), fullPage: true })
+      await screenshot('review')
       missing = true
       await load.click()
-      await expect(page.getByRole('alert')).toContainText('Cached text is unavailable')
+      await expect(page.getByRole('region', { name: 'Source selection' }).getByRole('alert')).toContainText('Cached text is unavailable')
       await expect(page.getByRole('button', { name: 'Save as new evidence' })).toHaveCount(0)
       await expect(card.getByText(literal, { exact: true })).toBeVisible()
-      await page.screenshot({ path: testInfo.outputPath(`missing-${theme}-${width}.png`), fullPage: true })
+      await screenshot('missing')
+      expect(runtimeErrors).toEqual([])
     })
   }
 }
