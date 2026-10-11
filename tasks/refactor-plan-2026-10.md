@@ -45,7 +45,7 @@ folded in (see [Verification](#verification-how-the-plans-claims-were-checked-an
 I2's reader repoints were included in X4; optional X5 was taken. The
 [execution and spend ledger](refactor-closeout-2026-10.md) retains each reviewed head,
 AST/phase proof, gate provenance, evaluation verdict and verified serial release.
-The behavior follow-ups and founder prompt-byte decision remain open.
+The timestamp and three Wave 0 behavior follow-ups are complete; the founder prompt-byte decision remains open.
 
 **Measured target correction, 2026-10-11.** Original forecasts below remain historical:
 
@@ -188,6 +188,10 @@ original proposal; these notes are authoritative for what actually shipped.
     4. Model-supplied top-level `_`-prefixed keys survive into `raw_summary["structured"]`, as does
        `metric_delta_context_version`, the one context key the pop list at O:977-985 skips. A6's second
        case pins this. Rule 9 says to validate AI output where it enters.
+       **Fixed 2026-10-11:** the shared model-JSON coercion boundary drops top-level `_` keys
+       and `metric_delta_context_version` before assembly adds trusted source/recovery metadata.
+       A6 now checks object and supported list shapes, real and absent recovery results,
+       boundary/section identity and the final stored keys; unrelated public values remain intact.
     5. Three comments disagree with their code:
        - X:871-872 says non-200, but the code treats every 2xx as success;
        - `_compact_xbrl_block`'s docstring (C:290) says an oversized payload returns "", but the code truncates at C:309;
