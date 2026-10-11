@@ -69,9 +69,9 @@ def _one_undimensioned_instant_fact(
             continue  # a monetary balance with no unit cannot carry a currency-qualified claim
         if reporting_currency is not None and row_currency != reporting_currency:
             continue  # a convenience translation, not the issuer's reported balance
-        entity = row.get("entity_identifier")
-        if entity is not None and str(entity).strip():
-            entities.add(str(entity).strip())
+        entity = _text_or_none(row.get("entity_identifier"))
+        if entity is not None:
+            entities.add(entity)
         values.setdefault(round(value, 4), row)
     if len(values) != 1 or len(entities) > 1:
         return None

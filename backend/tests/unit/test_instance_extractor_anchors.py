@@ -385,15 +385,23 @@ def test_i0_4_a_currency_less_duplicate_does_not_make_the_balance_ambiguous():
     pytest.param("0000104169", "   ", "0000104169", id="a-blank-identifier-is-not-an-entity"),
     pytest.param(None, None, None, id="no-identifier-at-all-is-not-ambiguous"),
     pytest.param("0000104169", "0000038777", _NO_OBSERVATION, id="two-entities-fail-closed"),
-    # Today's behaviour: pandas 3 turns the None into NaN, and :649-650 count str(nan) == "nan".
-    pytest.param("0000104169", None, _NO_OBSERVATION, id="a-missing-identifier-arrives-as-nan-and-counts"),
+    # pandas 3 turns None / NA in a string column into float NaN; none names a second entity.
+    pytest.param("0000104169", None, "0000104169", id="a-missing-identifier-arrives-as-nan-and-is-ignored"),
+    pytest.param("0000104169", float("nan"), "0000104169", id="a-float-nan-is-not-an-entity"),
+    pytest.param("0000104169", pd.NA, "0000104169", id="pandas-na-is-not-an-entity"),
+    pytest.param(None, "0000104169", None, id="missing-first-row-keeps-its-own-provenance"),
+    pytest.param(float("nan"), "0000104169", None, id="nan-first-row-keeps-its-own-provenance"),
+    pytest.param(pd.NA, "0000104169", None, id="pandas-na-first-row-keeps-its-own-provenance"),
+    pytest.param(float("nan"), float("nan"), None, id="all-nan-identifiers-are-not-ambiguous"),
+    pytest.param("0000104169", "nan", _NO_OBSERVATION, id="literal-nan-is-a-present-distinct-identifier"),
 ])
 def test_i0_4_entity_identifiers_are_compared_after_normalisation(first_entity, second_entity, expected_entity):
     """I0.4: two contexts carrying the SAME balance are one observation unless they name two
-    entities, compared after whitespace stripping; the first row's identity is the one reported.
+    present entities after whitespace stripping. Missing scalars are ignored, while a literal
+    "nan" remains an identifier. The first row's identity is reported, never filled from a duplicate.
 
-    Pins app/services/edgar/instance_extractor.py:648-650 (None and blank skipped, then strip) with
-    the entity count at :652 and first-row-wins at :651, :654 and :702. Same value throughout, so the
+    Pins app/services/edgar/instance/debt.py::_one_undimensioned_instant_fact (the former
+    instance_extractor.py:648-654) and debt_component_observations. Same value throughout, so the
     entity rule is isolated (test_debt_scope_owner.py:277-283 also differs in value).
     """
     rows = [
