@@ -2,9 +2,12 @@ import { spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { checkPricingAgreement, checkServingCharge } from '../../scripts/check-pricing-agreement.mjs'
+import { checkPricingAgreement, checkServingCharge, livePageOffer } from '../../scripts/check-pricing-agreement.mjs'
 import { PRO_PRICING } from '../../app/pricing/prices'
+import PricingLayout from '../../app/pricing/layout'
 
 const snapshot = () => ({
   bindings: {
@@ -115,12 +118,55 @@ describe('what the serving checkout charges agrees with the page', () => {
     ['a missing cycle', { monthly: serving().monthly }],
     ['a string amount', withMonthly({ amount_cents: String(PRO_PRICING.monthly * 100) })],
     ['a fractional amount', withMonthly({ amount_cents: PRO_PRICING.monthly * 100 + 0.5 })],
+    ['a negative amount', withMonthly({ amount_cents: -1 })],
     ['an array', []],
     ['null', null],
   ])('is no evidence for %s', (_reason, report) => {
     for (const publishing of [false, true]) {
       expect(checkServingCharge(report, { publishing })).toMatchObject({ ok: false, usable: false })
     }
+  })
+})
+
+// The daily check reads the offer from the live page, so a frontend rollback or a deploy that skipped
+// main is compared too. The page is the server render of app/pricing/layout.tsx's JSON-LD.
+const pageHtml = () => renderToStaticMarkup(createElement(PricingLayout, null, createElement('div')))
+const ldScript = (data: unknown) => `<script type="application/ld+json">${JSON.stringify(data)}</script>`
+const product = (offers: unknown[], id = 'https://www.earningsnerd.io/pricing#product') => ({ '@type': 'Product', '@id': id, offers })
+const offer = (name: string, price: unknown, priceCurrency = 'USD') => ({ '@type': 'Offer', name, price, priceCurrency })
+
+describe('the offer a live pricing page publishes', () => {
+  it('reads the rendered pricing layout as the module offer, in cents', () => {
+    expect(livePageOffer(pageHtml())).toEqual({ monthly: PRO_PRICING.monthly * 100, yearly: PRO_PRICING.yearly * 100 })
+  })
+
+  it('reads a cents-bearing price and skips other structured data', () => {
+    const html = '<script type="application/ld+json">{not json</script>'
+      + ldScript({ '@type': 'Organization', name: 'EarningsNerd' })
+      + ldScript(product([offer('Pro (monthly)', 24.99), offer('Pro (annual)', 239)]))
+    expect(livePageOffer(html)).toEqual({ monthly: 2499, yearly: 23900 })
+  })
+
+  it.each([
+    ['a page without structured data', '<html></html>'],
+    ['another product only', ldScript(product([offer('Pro (monthly)', 25), offer('Pro (annual)', 240)], 'https://example.com/other'))],
+    ['two pricing products', ldScript(product([offer('Pro (monthly)', 25), offer('Pro (annual)', 240)])).repeat(2)],
+    ['a missing annual offer', ldScript(product([offer('Pro (monthly)', 25)]))],
+    ['a duplicated monthly offer', ldScript(product([offer('Pro (monthly)', 25), offer('Pro (monthly)', 20), offer('Pro (annual)', 240)]))],
+    ['another currency', ldScript(product([offer('Pro (monthly)', 25, 'EUR'), offer('Pro (annual)', 240)]))],
+    ['a string price', ldScript(product([offer('Pro (monthly)', '25'), offer('Pro (annual)', 240)]))],
+    ['a negative price', ldScript(product([offer('Pro (monthly)', -25), offer('Pro (annual)', 240)]))],
+    ['no page at all', undefined],
+  ])('is no offer for %s', (_case, html) => {
+    expect(livePageOffer(html)).toBeNull()
+  })
+
+  it('compares the report with the page instead of the module when given one', () => {
+    const page = { monthly: PRO_PRICING.monthly * 100 - 500, yearly: PRO_PRICING.yearly * 100 }
+    const result = checkServingCharge(serving(), { page })
+    expect(result).toMatchObject({ ok: false, usable: true, expected: { source: 'live page', monthly_cents: page.monthly } })
+    expect(result.errors).toEqual([`monthly: checkout charges ${PRO_PRICING.monthly * 100} cents, more than the ${page.monthly} the page shows.`])
+    expect(checkServingCharge(serving(), { page: { monthly: PRO_PRICING.monthly * 100, yearly: PRO_PRICING.yearly * 100 } })).toMatchObject({ ok: true, expected: { source: 'live page' } })
   })
 })
 
@@ -145,15 +191,35 @@ describe('npm run check:pricing', () => {
     ['a higher serving charge before publishing', ['--serving', '--publishing'], higherMonthly, 1],
     ['a serving report without evidence', ['--serving'], () => JSON.stringify(withMonthly({ problem: 'unavailable' })), 2],
     ['unreadable serving JSON', ['--serving', '--publishing'], () => '{', 2],
+    ['the live page agreeing', ['--serving', '--page', '@page'], () => JSON.stringify(serving()), 0],
+    ['the live page showing less than checkout charges', ['--serving', '--page', '@page'], higherMonthly, 1],
   ] as const)('exits for %s with %i', (_case, flags, contents, status) => {
     const dir = mkdtempSync(join(tmpdir(), 'check-pricing-'))
     try {
       const file = join(dir, 'readback.json')
+      const page = join(dir, 'pricing.html')
       writeFileSync(file, contents())
-      const run = spawnSync('npm', ['run', '-s', 'check:pricing', '--', ...flags, file], { cwd: frontend, encoding: 'utf8' })
+      writeFileSync(page, pageHtml())
+      const args = flags.map((flag) => (flag === '@page' ? page : flag))
+      const run = spawnSync('npm', ['run', '-s', 'check:pricing', '--', ...args, file], { cwd: frontend, encoding: 'utf8' })
       expect(run.status).toBe(status)
       if (contents() !== '{') expect(JSON.parse(run.stdout)).toMatchObject({ ok: status === 0, expected: { monthly_cents: PRO_PRICING.monthly * 100, yearly_cents: PRO_PRICING.yearly * 100 } })
       expect(run.stderr).not.toMatch(/Warning/)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('exits 2 when the page carries no readable offer', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'check-pricing-'))
+    try {
+      const file = join(dir, 'serving.json')
+      const page = join(dir, 'pricing.html')
+      writeFileSync(file, JSON.stringify(serving()))
+      writeFileSync(page, '<html></html>')
+      const run = spawnSync('npm', ['run', '-s', 'check:pricing', '--', '--serving', '--page', page, file], { cwd: frontend, encoding: 'utf8' })
+      expect(run.status).toBe(2)
+      expect(run.stderr).toContain('no readable Pro offer')
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -166,9 +232,12 @@ describe('npm run check:pricing', () => {
     ['publishing without serving', ['--publishing', 'a.json']],
     ['flags in the wrong order', ['--publishing', '--serving', 'a.json']],
     ['a flag for a file', ['--serving', '--publishing']],
+    ['a page without its file', ['--serving', '--page', 'a.json']],
+    ['a page before publishing', ['--serving', '--page', 'p.html', '--publishing', 'a.json']],
+    ['a page for the operator readback', ['--page', 'p.html', 'a.json']],
   ])('refuses %s with the usage and exit 2', (_case, args) => {
     const run = spawnSync('npm', ['run', '-s', 'check:pricing', '--', ...args], { cwd: frontend, encoding: 'utf8' })
     expect(run.status).toBe(2)
-    expect(run.stdout).toContain('--serving [--publishing]')
+    expect(run.stdout).toContain('--serving [--publishing] [--page')
   })
 })

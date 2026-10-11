@@ -31,6 +31,8 @@ jobs:
       contents: read
     outputs:
       records_only: ${{ steps.scope.outputs.records_only }}
+      # Written only when the diff was computed, so an unknown scope never skips price-agreement.
+      prices_changed: ${{ steps.scope.outputs.prices_changed }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -73,14 +75,19 @@ jobs:
           # Both sides of a rename matter, and filenames are NUL-delimited.
           git diff --no-renames --name-only -z "$BASE" HEAD > "$CHANGED_PATHS"
           RECORDS_ONLY=true
+          PRICES_CHANGED=false
           [ -s "$CHANGED_PATHS" ] || RECORDS_ONLY=false
           while IFS= read -r -d '' CHANGED_PATH; do
             case "$CHANGED_PATH" in
               tasks/*.md|lessons/*.md|docs/*.md) ;;
               *) RECORDS_ONLY=false ;;
             esac
+            case "$CHANGED_PATH" in
+              frontend/app/pricing/prices.ts) PRICES_CHANGED=true ;;
+            esac
           done < "$CHANGED_PATHS"
           echo "records_only=$RECORDS_ONLY" >> "$GITHUB_OUTPUT"
+          echo "prices_changed=$PRICES_CHANGED" >> "$GITHUB_OUTPUT"
 
   backend-tests:
     runs-on: ubuntu-latest
@@ -309,6 +316,48 @@ jobs:
       - name: Run unit tests
         run: npx vitest run --config vitest.config.mts
         working-directory: frontend
+
+  # Backend first (docs/PRICING_OFFER.md, "Machine checks"): a pricing page must never show less than
+  # checkout charges. A pull request that changes the offer (frontend/app/pricing/prices.ts, per
+  # ci-scope) reads what production checkout charges now from the backend's public report
+  # (GET /api/subscriptions/prices; no credentials) and fails while that is more than the new page
+  # would show: bind the lower Prices first, then re-run this job. A raise passes. The job is skipped,
+  # which a required check counts as passing, only when ci-scope says the pull request leaves the
+  # offer alone; a failed or missing scope runs it, and the guard fails it. An unreachable production
+  # API fails it too; re-run. main never runs it, so it is not in deploy-backend's needs.
+  # Gate: backend/tests/unit/test_price_agreement_checks.py.
+  price-agreement:
+    needs: [ci-scope]
+    if: ${{ always() && !cancelled() && github.event_name == 'pull_request' && !(needs.ci-scope.result == 'success' && needs.ci-scope.outputs.prices_changed == 'false') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Require a scope that says the offer changed
+        env:
+          SCOPE_RESULT: ${{ needs.ci-scope.result }}
+          PRICES_CHANGED: ${{ needs.ci-scope.outputs.prices_changed }}
+        run: |
+          if [ "$SCOPE_RESULT" != success ] || [ "$PRICES_CHANGED" != true ]; then
+            echo '::error::ci-scope did not establish whether this pull request changes the offer.'
+            exit 1
+          fi
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.23.2'
+      - name: Read what production checkout charges
+        run: |
+          curl -fsS --connect-timeout 10 --max-time 30 \
+            https://api.earningsnerd.io/api/subscriptions/prices -o "$RUNNER_TEMP/serving-prices.json"
+          cat "$RUNNER_TEMP/serving-prices.json"
+      - name: Checkout must charge no more than this page shows
+        working-directory: frontend
+        run: npm run -s check:pricing -- --serving --publishing "$RUNNER_TEMP/serving-prices.json"
 
   # Advisory performance measurement (Lighthouse). Non-blocking by design:
   # continue-on-error + warn-level assertions, and intentionally NOT in the

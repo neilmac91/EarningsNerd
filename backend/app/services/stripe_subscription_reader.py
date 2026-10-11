@@ -1,8 +1,10 @@
-"""Current-subscription read boundary; independent of the global checkout Stripe client.
+"""Exact-ID Stripe read boundary; independent of the global checkout Stripe client.
 
-The transport limits connection/read inactivity and makes one attempt. These are not a total
-wall-clock deadline: DNS and a progressing response can take longer. The calling worker retains
-its account lock/session until the read finishes; never abandon that worker on a future timeout.
+Webhook reconciliation reads the current subscription and an invoice; the serving-charge report
+(``billing_serving_prices.py``) reads the bound Prices. The transport limits connection/read
+inactivity and makes one attempt. These are not a total wall-clock deadline: DNS and a progressing
+response can take longer. A reconciling worker retains its account lock/session until the read
+finishes; never abandon that worker on a future timeout.
 """
 from __future__ import annotations
 

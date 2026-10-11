@@ -166,8 +166,8 @@ frontend/
 | `login_lockout.py` | Atomic failed-login upserts keyed by peppered email hash; existing reset/lock windows; success clear stays in the caller transaction |
 | `subscription_sync.py` | Stripe identity/state mapping and event-ledger helpers |
 | `subscription_webhook_service.py` | Worker-owned webhook transactions, per-account PostgreSQL locks, current-bound-ID created/updated reconciliation and post-commit analytics; cross-ID chronology remains separate |
-| `stripe_subscription_reader.py` | Dedicated exact-ID provider read, validated identity/status/consumed optional fields, zero retries and connect/read inactivity limits; failure rolls back the event |
-| `billing_serving_prices.py` | The public serving-charge report (`GET /api/subscriptions/prices`): what the bound Pro Prices charge, without IDs, cached per process with one non-blocking read at a time; the price-agreement checks compare it with the page (`docs/PRICING_OFFER.md`) |
+| `stripe_subscription_reader.py` | Dedicated exact-ID provider read, validated identity/status/consumed optional fields, zero retries and connect/read inactivity limits; a failed reconciliation read rolls back the event, a failed serving-Price read reports `unavailable` |
+| `billing_serving_prices.py` | The public serving-charge report (`GET /api/subscriptions/prices`): what the bound Pro Prices charge, without IDs, cached per process; one read at a time, and no request waits on another's; the price-agreement checks compare it with the page (`docs/PRICING_OFFER.md`) |
 | `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage |
 | `oauth_verify.py` / `password_utils.py` | Google/Apple JWKS + id-token verification; bcrypt + policy (extracted from the auth router) |
 | `copilot_service.py` / `copilot_tools.py` | "Ask this Filing" Pro Q&A with verifiable deep-linked citations; numeric tool-use from `financial_fact` |
@@ -253,7 +253,7 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
 | `peers.py` / `insiders.py` | `/api/companies` | `/{ticker}/peers`, `/{ticker}/insiders` |
 | `analysis.py` | `/api/analysis` | Multi-Period Analysis: coverage (auth), dataset + SSE narrative + PDF (Pro `can_analyze_trends` gate) |
 | `auth.py` / `users.py` | `/api/auth`, `/api/users` | login/register/refresh/OAuth; profile/export/deletion |
-| `subscriptions.py` | `/api/subscriptions` | management + **signature-verified** Stripe webhook |
+| `subscriptions.py` | `/api/subscriptions` | management + **signature-verified** Stripe webhook; public `GET /prices`, what checkout charges (no IDs) |
 | `watchlist.py` | `/api/watchlist` + `/api/waitlist` | exports both routers |
 | `dashboard.py` / `calendar.py` | `/api/dashboard`, `/api/calendar` | feed, upcoming calendar |
 | `search.py` | `/api/search` | SEC full-text search (EFTS) |

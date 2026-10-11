@@ -10,9 +10,10 @@ identifiers belong in the private operator receipt.
 
 Stripe never changes a Price's amount or recurrence, and the bindings are fixed for a process, so a
 report of two charges is kept for ``GOOD_TTL_SECONDS`` (an archived Price still shows within that);
-anything less is read again after ``RETRY_TTL_SECONDS``. One read runs at a time and no request waits
-for it: a request that arrives during a read gets the previous report, or "unavailable" when there is
-none, so traffic to the public route never multiplies Stripe calls.
+anything less is read again after ``RETRY_TTL_SECONDS``. One read runs at a time, and no request waits
+on another request's read: it gets the previous report, or "unavailable" when there is none. The
+request that reads waits on Stripe itself, within the reader's connect and read limits. So however
+much traffic the public route gets, a process reads Stripe at most once per expiry.
 """
 from __future__ import annotations
 
@@ -61,6 +62,7 @@ def _charge(price: dict) -> dict:
     if (
         not isinstance(currency, str)
         or not _CURRENCY.fullmatch(currency)
+        or not isinstance(interval, str)
         or interval not in _INTERVALS
         or type(count) is not int
         or count < 1
@@ -75,7 +77,7 @@ def _read(cycle: str, price_id: str) -> dict:
     try:
         return _charge(retrieve_price_snapshot(price_id))
     except SubscriptionReconciliationUnavailable as exc:
-        # The cause's type only: provider error text stays out of the log.
+        # The cause's type only: this line carries no provider text.
         logger.warning("Serving %s Price could not be read (%s)", cycle, type(exc.__cause__).__name__)
         return {"problem": "unavailable"}
 
@@ -95,14 +97,22 @@ class ServingPrices:
         self._refresh = threading.Lock()
         self._report: _Report | None = None
 
+    def _held(self, bindings: tuple[str, str]) -> _Report | None:
+        report = self._report
+        return report if report is not None and report.bindings == bindings else None
+
     def report(self) -> dict:
         bindings = (settings.STRIPE_PRICE_MONTHLY_ID, settings.STRIPE_PRICE_YEARLY_ID)
-        held = self._report if self._report is not None and self._report.bindings == bindings else None
+        held = self._held(bindings)
         if held is not None and self._clock() < held.expires:
             return held.charges
         if not self._refresh.acquire(blocking=False):
             return held.charges if held is not None else {cycle: {"problem": "unavailable"} for cycle in CYCLES}
         try:
+            # Another request may have finished a read since the check above.
+            held = self._held(bindings)
+            if held is not None and self._clock() < held.expires:
+                return held.charges
             charges = {cycle: _read(cycle, price_id) for cycle, price_id in zip(CYCLES, bindings)}
             good = all("amount_cents" in charge for charge in charges.values())
             ttl = GOOD_TTL_SECONDS if good else RETRY_TTL_SECONDS

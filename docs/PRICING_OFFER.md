@@ -27,10 +27,10 @@ charge (25 or 240), while the server remains authoritative for the actual charge
 
 ## Catalog preparation
 
-The Pro product needs live USD Prices of **2,500 cents a month** and **24,000 cents a year**,
-created inactive until step 3; until then the serving bindings select the previous Prices. Leave
-every other inactive Pro Price inactive. Catalog identifiers and readbacks belong in the private
-operator receipt, never in this repository or frontend code.
+The Pro product needed live USD Prices of **2,500 cents a month** and **24,000 cents a year**,
+created inactive until step 3, while the serving bindings still selected the previous Prices; both
+are now active and bound. Leave every other inactive Pro Price inactive. Catalog identifiers and
+readbacks belong in the private operator receipt, never in this repository or frontend code.
 
 The pricing introduction and FAQ describe the billing controls the default Customer Portal offers
 (period-end cancellation, payment method and invoices) without promising immediate plan changes.
@@ -95,29 +95,34 @@ the invariant is checked without Stripe credentials in CI:
   `interval_count`) or the `problem` that leaves it without one: `unconfigured`, `unavailable`,
   `inactive`, `test_mode` or `not_fixed_recurring`. It carries no Price or Product ID. Each backend
   process keeps a report of two charges for ten minutes and reads anything less again after a
-  minute; one read runs at a time, and no request waits on Stripe
+  minute. One read runs at a time, and no request waits on another request's read
   (`backend/app/services/billing_serving_prices.py`).
-- **Before a page is published.** `.github/workflows/price-agreement.yml` runs on every pull
-  request that changes `frontend/app/pricing/prices.ts`. It fails while production checkout
-  charges more than the new page would show, so a lower offer cannot reach `main` before step 3:
-  bind the lower Prices, then re-run the job. A raise passes, because the page then shows at least
-  the charge. An unreachable production API fails the job.
-- **Every day.** `prod-smoke.yml` compares the report with `main`'s offer and fails on a
-  disagreement in either direction, opening or updating its failure issue. It finds a higher Price
-  bound under the lower pages, a raise whose bindings were never moved, and an archived Price.
+- **Before a page is published.** The `price-agreement` job in `.github/workflows/ci.yml` runs on
+  every pull request that changes `frontend/app/pricing/prices.ts`. It fails while production
+  checkout charges more than the new page would show: bind the lower Prices (step 3), then re-run
+  it. A raise passes, because the page then shows at least the charge. An unreachable production
+  API fails the job. On any other pull request it is skipped, which a required check counts as
+  passing, so it can be made required. Until it is, a red job holds back an agent, which never
+  merges a red pull request, but not a person's merge.
+- **Every day.** `prod-smoke.yml` compares the report with the offer the live pricing page
+  publishes (its Product/Offer JSON-LD) and fails on a disagreement in either direction, opening or
+  updating its failure issue. Reading the live page means it also sees a Vercel rollback, a deploy
+  from outside `main` or a failed frontend deploy. It finds a higher Price bound under the lower
+  pages, a raise whose bindings were never moved and an archived Price.
 - **By hand, after any binding change.** From `frontend/`:
-  `curl -fsS https://api.earningsnerd.io/api/subscriptions/prices -o serving.json`, then
-  `npm run check:pricing -- --serving serving.json` (exit 0 agree, 1 disagree, 2 no evidence;
-  `--serving --publishing` applies the pre-publication rule instead).
+  `curl -fsS https://api.earningsnerd.io/api/subscriptions/prices -o serving.json` and
+  `curl -fsSL https://www.earningsnerd.io/pricing -o pricing.html`, then
+  `npm run check:pricing -- --serving --page pricing.html serving.json` (exit 0 agree, 1 disagree,
+  2 no evidence). Without `--page` it compares with this checkout's `PRO_PRICING`;
+  `--serving --publishing` applies the pre-publication rule instead.
 
 Limits. A binding change is an operator action outside CI, so nothing prevents a higher Price
-under a lower page: the daily run finds it within a day, the manual check at once. The report
-proves the bound Prices' amount, currency, cadence and state only; the operator readback above
-remains the evidence that the bindings name the intended Pro Product, and neither proves tax,
-discount or trial totals, the beta promotion or existing customers' renewal terms. A Vercel
-rollback or redeploy that bypasses a pull request is seen by the daily run only. Whether a red
-`checkout-charges-no-more` job blocks merging depends on the repository's required checks, a
-founder setting. Gate: `backend/tests/unit/test_price_agreement_checks.py`.
+under a lower page, and the same holds for a frontend rollback: the daily run finds either within a
+day, the manual check at once. The report proves the bound Prices' amount, currency, cadence and
+state only; the operator readback above remains the evidence that the bindings name the intended
+Pro Product, and neither proves tax, discount or trial totals, the beta promotion or existing
+customers' renewal terms. Making `price-agreement` a required check is a founder setting. Gate:
+`backend/tests/unit/test_price_agreement_checks.py`.
 
 ## Activation checklist
 
@@ -138,7 +143,7 @@ waive those gates or authorize customer recruitment.
    `STRIPE_PRICE_YEARLY_ID` through the normal deployment/configuration process. Retain the
    effective serving bindings and verification that new checkouts select the set amounts.
    **Complete and verify this step before publishing the lower frontend prices.** The
-   price-agreement workflow fails the publishing pull request until it is done.
+   `price-agreement` CI job fails the publishing pull request until it is done.
 4. Publish the reviewed frontend and verify the exact deployment: the homepage and pricing page
    open on annual at $20/month billed $240 with the $60 saving, monthly shows $25, the JSON-LD
    carries 25 and 240, and checkout agrees. The backend-first transition is not atomic: an old

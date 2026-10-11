@@ -11,18 +11,18 @@ without Stripe credentials in CI, which are the founder's to grant, so the backe
 what its bindings charge, without IDs, and the checks read that report.
 
 **Rule**: Checkout never charges more than the live page shows, and at rest the two agree. Lower a
-price by binding the lower Prices on the backend first, then publish the page; raise one by
-publishing the page first, then binding the higher Prices. Never bind a higher Price under a lower
-page while it or a cached tab can still submit checkout. After any binding change, compare by
-hand: from `frontend/`, `curl -fsS https://api.earningsnerd.io/api/subscriptions/prices -o
-serving.json`, then `npm run check:pricing -- --serving serving.json`.
+price by binding the lower Prices on the backend first, then publish the page. Raise one by
+publishing the page first, and bind the higher Prices only under a verified checkout pause
+procedure (`docs/PRICING_OFFER.md`, "Rollback"): a cached tab of the lower page can still submit
+checkout. After any binding change or frontend rollback, compare by hand (`docs/PRICING_OFFER.md`,
+"Machine checks": `npm run check:pricing -- --serving --page pricing.html serving.json`).
 
 **Evidence**: `GET /api/subscriptions/prices` (`backend/app/services/billing_serving_prices.py`,
 `backend/tests/unit/test_serving_prices.py`) reports each bound Price's fixed charge or the
-problem that leaves it without one. `.github/workflows/price-agreement.yml` fails a pull request
-that changes `frontend/app/pricing/prices.ts` while production checkout charges more than the new
-page shows; `prod-smoke.yml` fails daily on any disagreement and opens its issue
-(`backend/tests/unit/test_price_agreement_checks.py`; verdicts in
-`frontend/tests/unit/pricingAgreement.spec.ts`). A binding change is an operator action, so a
-higher Price bound under a lower page is found by the next daily run or the manual check, never
-prevented; that clause stays session reading.
+problem that leaves it without one. The `price-agreement` job in `.github/workflows/ci.yml` fails
+a pull request that changes `frontend/app/pricing/prices.ts` while production checkout charges
+more than the new page shows; `prod-smoke.yml` compares the report with the live page's offer
+daily and opens its issue on any disagreement (`backend/tests/unit/test_price_agreement_checks.py`;
+verdicts in `frontend/tests/unit/pricingAgreement.spec.ts`). A binding change or a frontend
+rollback happens outside CI, so a higher Price under a lower page is found by the next daily run
+or the manual check, never prevented; that clause stays session reading.

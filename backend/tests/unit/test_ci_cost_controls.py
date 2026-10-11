@@ -2,6 +2,9 @@
 
 Only Markdown records under tasks/, lessons/ and docs/ omit browser builds. All
 application, contract, policy and migration suites retain their existing coverage.
+A computed scope also says whether the change touches the offer (``prices_changed``,
+read by the price-agreement job); a scope that falls back to the full suite says
+nothing about it, so an unknown scope can never skip that job.
 """
 
 import os
@@ -12,6 +15,12 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
+PRICES = "frontend/app/pricing/prices.ts"
+
+
+def scoped(records, prices=False):
+    """What a computed scope writes, one line per output."""
+    return f"records_only={str(records).lower()}\nprices_changed={str(prices).lower()}"
 
 
 def workflow():
@@ -92,6 +101,9 @@ def classify(history, tmp_path, event="push", **overrides):
     ("docs-lookalike/guide.md", False),
     ("new-shared-config", False),
     ("backend/app/new\nfile.md", False),
+    (PRICES, False),
+    ("frontend/app/pricing/prices.tsx", False),
+    ("frontend/app/pricing/prices.ts.bak", False),
 ])
 def test_scope_classifies_real_changes(history, tmp_path, path, records):
     _, _, git, write = history
@@ -100,7 +112,7 @@ def test_scope_classifies_real_changes(history, tmp_path, path, records):
     git("commit", "-qm", "change")
     result, output = classify(history, tmp_path)
     assert result.returncode == 0, result.stderr
-    assert output == f"records_only={str(records).lower()}"
+    assert output == scoped(records, prices=path == PRICES)
 
 
 def test_scope_uses_whole_push_and_preserves_both_rename_sides(history, tmp_path):
@@ -113,23 +125,42 @@ def test_scope_uses_whole_push_and_preserves_both_rename_sides(history, tmp_path
     git("add", ".")
     git("commit", "-qm", "records tail")
     result, output = classify(history, tmp_path, BEFORE_SHA=before)
-    assert result.returncode == 0 and output == "records_only=false"
+    assert result.returncode == 0 and output == scoped(False)
 
     # Moving an identical runtime file into records must not hide its deletion.
     git("mv", "backend/app/runtime.md", "tasks/runtime.md")
     git("commit", "-qm", "rename into records")
     result, output = classify(history, tmp_path)
-    assert result.returncode == 0 and output == "records_only=false"
+    assert result.returncode == 0 and output == scoped(False)
 
     git("mv", "tasks/runtime.md", "backend/app/runtime.md")
     git("commit", "-qm", "rename out of records")
     result, output = classify(history, tmp_path)
-    assert result.returncode == 0 and output == "records_only=false"
+    assert result.returncode == 0 and output == scoped(False)
 
     (repo / "backend/app/runtime.md").unlink()
     git("commit", "-qam", "delete runtime")
     result, output = classify(history, tmp_path)
-    assert result.returncode == 0 and output == "records_only=false"
+    assert result.returncode == 0 and output == scoped(False)
+
+
+def test_scope_finds_an_offer_change_anywhere_in_the_change(history, tmp_path):
+    repo, _, git, write = history
+    before = git("rev-parse", "HEAD")
+    write(PRICES, "export const PRO_PRICING = proPricing(30, 300)\n")
+    git("add", ".")
+    git("commit", "-qm", "offer")
+    write("tasks/todo.md")
+    git("add", ".")
+    git("commit", "-qm", "records tail")
+    result, output = classify(history, tmp_path, BEFORE_SHA=before)
+    assert result.returncode == 0 and output == scoped(False, prices=True)
+
+    # Deleting or renaming the module changes the offer too.
+    git("mv", PRICES, "frontend/app/pricing/offer.ts")
+    git("commit", "-qm", "rename the offer")
+    result, output = classify(history, tmp_path)
+    assert result.returncode == 0 and output == scoped(False, prices=True)
 
 
 def test_pr_scope_compares_checked_merge_to_its_base_parent(history, tmp_path):
@@ -144,11 +175,30 @@ def test_pr_scope_compares_checked_merge_to_its_base_parent(history, tmp_path):
     write("frontend/app/page.tsx", "base-only\n")
     git("add", ".")
     git("commit", "-qm", "base advanced")
+    write(PRICES, "base-only offer\n")
+    git("add", ".")
+    git("commit", "-qm", "base offer advanced")
     git("merge", "--no-ff", "-qm", "checked merge", "feature")
     result, output = classify(history, tmp_path, "pull_request", PR_HEAD_SHA=head)
-    assert result.returncode == 0 and output == "records_only=true"
+    assert result.returncode == 0 and output == scoped(True, prices=False)
     result, output = classify(history, tmp_path, "pull_request", PR_HEAD_SHA="a" * 40)
-    assert result.returncode != 0 and output != "records_only=true"
+    assert result.returncode != 0 and "records_only=true" not in output and "prices_changed=false" not in output
+
+
+def test_pr_scope_reports_the_pull_requests_own_offer_change(history, tmp_path):
+    _, _, git, write = history
+    git("switch", "-qc", "feature")
+    write(PRICES, "export const PRO_PRICING = proPricing(20, 200)\n")
+    git("add", ".")
+    git("commit", "-qm", "offer")
+    head = git("rev-parse", "HEAD")
+    git("switch", "-q", "main")
+    write("tasks/todo.md", "base-only\n")
+    git("add", ".")
+    git("commit", "-qm", "base advanced")
+    git("merge", "--no-ff", "-qm", "checked merge", "feature")
+    result, output = classify(history, tmp_path, "pull_request", PR_HEAD_SHA=head)
+    assert result.returncode == 0 and output == scoped(False, prices=True)
 
 
 def test_unknown_empty_manual_and_mismatched_inputs_never_skip(history, tmp_path):
@@ -156,10 +206,12 @@ def test_unknown_empty_manual_and_mismatched_inputs_never_skip(history, tmp_path
     write("tasks/todo.md")
     git("add", ".")
     git("commit", "-qm", "records")
-    for overrides in ({"BEFORE_SHA": "0" * 40}, {"BEFORE_SHA": "HEAD^"},
-                      {"BEFORE_SHA": git("rev-parse", "HEAD")}):
+    # An unusable push base falls back to the full suite and says nothing about the offer.
+    for overrides in ({"BEFORE_SHA": "0" * 40}, {"BEFORE_SHA": "HEAD^"}):
         result, output = classify(history, tmp_path, **overrides)
         assert result.returncode == 0 and output == "records_only=false"
+    result, output = classify(history, tmp_path, BEFORE_SHA=git("rev-parse", "HEAD"))
+    assert result.returncode == 0 and output == scoped(False)  # an empty change runs everything
     for event in ("workflow_dispatch", "unexpected"):
         result, output = classify(history, tmp_path, event)
         assert result.returncode == 0 and output == "records_only=false"

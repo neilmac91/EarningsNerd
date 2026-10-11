@@ -85,6 +85,8 @@ def test_reports_each_bound_price_as_a_fixed_charge(bound):
     ({"recurring": {"interval": "fortnight", "interval_count": 1, "usage_type": "licensed"}}, "not_fixed_recurring"),
     ({"recurring": {"interval": "month", "interval_count": 0, "usage_type": "licensed"}}, "not_fixed_recurring"),
     ({"recurring": {"interval": "month", "interval_count": "1", "usage_type": "licensed"}}, "not_fixed_recurring"),
+    ({"recurring": {"interval": ["month"], "interval_count": 1, "usage_type": "licensed"}}, "not_fixed_recurring"),
+    ({"recurring": {"interval": {"month": 1}, "interval_count": 1, "usage_type": "licensed"}}, "not_fixed_recurring"),
 ])
 def test_a_price_without_one_fixed_charge_per_period_names_its_problem(bound, overrides, problem):
     bound.catalog["price_monthly"] = _price("monthly", **overrides)
@@ -193,9 +195,31 @@ def test_a_request_during_a_read_neither_waits_nor_reads_again(bound):
         reading.join(5)
 
 
+def test_a_read_finished_between_the_check_and_the_lock_is_not_repeated(bound):
+    serving.serving_pro_prices()
+    bound.clock.now += serving.GOOD_TTL_SECONDS
+    instance = serving._serving_prices
+    real_clock, armed = instance._clock, [True]
+
+    def clock():
+        # This request has found the report stale; before it takes the lock, another request
+        # completes a whole read.
+        if armed[0]:
+            armed[0] = False
+            instance.report()
+        return real_clock()
+
+    instance._clock = clock
+    reads = bound.read.call_count
+    assert serving.serving_pro_prices() == AGREEING
+    assert bound.read.call_count == reads + 2  # the other request's read only
+
+
 def test_the_real_sdk_read_uses_the_bounded_reader(monkeypatch):
     """Real StripeClient/RequestsClient with a fake requests session: the URL, limits and identity."""
     monkeypatch.setattr(settings, "STRIPE_SECRET_KEY", "sk_test_reader")
+    monkeypatch.setattr(settings, "STRIPE_RECONCILIATION_CONNECT_TIMEOUT_SECONDS", 1.25)
+    monkeypatch.setattr(settings, "STRIPE_RECONCILIATION_READ_TIMEOUT_SECONDS", 2.5)
     response = SimpleNamespace(content=json.dumps(_price("monthly")).encode(), status_code=200, headers={})
     session = SimpleNamespace(request=Mock(return_value=response), close=Mock())
     real_transport, real_client = reader.stripe.RequestsClient, reader.stripe.StripeClient
@@ -205,6 +229,7 @@ def test_the_real_sdk_read_uses_the_bounded_reader(monkeypatch):
 
     assert reader.retrieve_price_snapshot("price_monthly")["unit_amount"] == 2500
     assert session.request.call_args.args[:2] == ("get", "https://api.stripe.com/v1/prices/price_monthly")
+    assert session.request.call_args.kwargs["timeout"] == (1.25, 2.5)
     assert client_spy.call_args.kwargs["max_network_retries"] == 0
     session.close.assert_called_once()
 
@@ -215,9 +240,18 @@ def test_the_real_sdk_read_uses_the_bounded_reader(monkeypatch):
     assert session.close.call_count == 2
 
 
-def test_the_public_route_carries_charges_and_problems_but_no_identifiers(bound):
+def test_the_public_route_carries_charges_and_problems_but_no_identifiers(bound, monkeypatch):
     bound.catalog["price_yearly"] = _price("yearly", active=False)
+    hops = []
+    real_hop = subscriptions.run_in_threadpool
+
+    async def hop(func, *args, **kwargs):  # the Stripe read must stay off the event loop
+        hops.append(func)
+        return await real_hop(func, *args, **kwargs)
+
+    monkeypatch.setattr(subscriptions, "run_in_threadpool", hop)
     response = TestClient(main.app).get("/api/subscriptions/prices")  # no credentials: public
+    assert hops == [subscriptions.serving_pro_prices]
     assert response.status_code == 200
     assert response.json() == {"monthly": AGREEING["monthly"], "yearly": {"problem": "inactive"}}
     assert "price_" not in response.text and "prod_" not in response.text
