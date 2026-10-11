@@ -8,7 +8,8 @@
   "node": "v22.22.0",
   "commit": "97293e7",
   "frontendTree": "3e57b5b11d1d1ab1c91e1ed46027667f8690287b",
-  "annotated": "commit and frontendTree were added on 2026-10-11 from the revision the README and the PR record for this run (a worktree of 97293e7); the harness has written them itself since then, with the uncommitted-files list, which this run did not record"
+  "fixtureTree": "50e1c7d92925eaba6503a21979b556679f25760d",
+  "annotated": "commit, frontendTree and fixtureTree were added on 2026-10-11 from the revision the README and the PR record for this run (a worktree of 97293e7) and from the fixtures' tree, unchanged since their commit of 2026-10-10 19:01 UTC, before this run; the harness has written them itself since then, with the uncommitted-files lists, which this run did not record"
  },
  "configs": [
   {
