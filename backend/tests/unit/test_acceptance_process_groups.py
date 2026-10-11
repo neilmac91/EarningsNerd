@@ -161,21 +161,26 @@ def test_a_zombie_is_no_live_member(tmp_path: Path, monkeypatch) -> None:
                 (tmp_path / str(pid) / "task" / str(tid) / "stat").write_bytes(
                     b"%d (%s) %s 1 %d %d 0 -1\n" % (tid, name, thread_state.encode(), pgid, session))
 
+    class Listed(type(tmp_path)):  # lists entries whose stat is gone first, so a scan must go past them
+        def iterdir(self):
+            return iter(sorted(super().iterdir(), key=lambda entry: (entry / "stat").is_file()))
+
+    proc = Listed(tmp_path)
     (tmp_path / "self").mkdir()
     (tmp_path / "self" / "stat").write_bytes(b"1 (pytest) S 0 1 1 0 -1\n")  # a mounted /proc
     (tmp_path / "net").mkdir()
     (tmp_path / "net" / "stat").write_bytes(b"0 (net) S 1 4242 4242 0 -1\n")  # not a pid: never a member
     (tmp_path / "104").mkdir()  # exited while the scan ran: its stat is gone
-    stat(100, b"sh", "Z", 4242, threads={100: "Z", 106: ""})  # a zombie lists its own thread, a zombie too
+    stat(100, b"sh", "Z", 4242, threads={100: "Z", 106: "", 110: "X"})  # a zombie's threads: zombie, gone, dead
     stat(101, b"odd) S 1 4242 x", "Z", 4242)
     stat(102, b"app-\xd0", "S", 7, session=4242)  # not UTF-8, and its session (not its group) is 4242
     stat(105, b"dead", "X", 4242)
-    assert not delivery._group_alive(4242, tmp_path)
-    stat(107, b"node", "Z", 4244, threads={107: "Z", 108: "S"})  # its main thread left through pthread_exit
-    assert delivery._group_alive(4244, tmp_path)
+    assert not delivery._group_alive(4242, proc)
+    stat(107, b"node", "Z", 4244, threads={107: "Z", 109: "", 108: "S"})  # its main thread left through pthread_exit
+    assert delivery._group_alive(4244, proc)
     stat(103, b"sleep", "S", 4242)
-    assert delivery._group_alive(4242, tmp_path)
-    assert not delivery._group_alive(4243, tmp_path)
+    assert delivery._group_alive(4242, proc)
+    assert not delivery._group_alive(4243, proc)
 
     gone = subprocess.Popen([sys.executable, "-c", "pass"], start_new_session=True)
     gone.wait()
@@ -295,6 +300,31 @@ def _writer(ignore_sigterm: bool) -> str:
         "while True:\n"
         "    sys.stdout.write('x'); sys.stdout.flush(); time.sleep(0.02)\n"
     )
+
+
+def test_an_interrupted_ending_is_retried_before_the_fsync(tmp_path: Path, monkeypatch, writer_cleanup) -> None:
+    """Should the first ending of the group be interrupted (an operator's Ctrl-C in its grace period), the delivery
+    runner ends the group again before the fsync, so a grandchild deaf to SIGTERM does not outlive the runner."""
+    monkeypatch.setattr(delivery, "_GROUP_GRACE_SECONDS", 0.3)
+    real, calls = delivery._terminate_group, []
+
+    def interrupted_once(proc):
+        calls.append(proc.pid)
+        if len(calls) == 1:
+            raise KeyboardInterrupt
+        return real(proc)
+
+    monkeypatch.setattr(delivery, "_terminate_group", interrupted_once)
+    leader = (
+        "import os, subprocess, sys, time\n"
+        f"subprocess.Popen([sys.executable, '-c', {_writer(ignore_sigterm=True)!r}])\n"
+        "while not os.path.exists('writer.pid'):\n"
+        "    time.sleep(0.01)\n"
+    )
+    with pytest.raises(KeyboardInterrupt):
+        _route(tmp_path, leader, timeout_seconds=30)
+    assert len(calls) == 2
+    assert not _running(int((tmp_path / "writer.pid").read_text()))
 
 
 def _assert_stream_final(tmp_path: Path) -> None:

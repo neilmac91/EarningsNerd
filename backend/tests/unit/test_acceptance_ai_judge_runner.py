@@ -217,6 +217,21 @@ def test_a_cli_grandchild_is_ended_before_the_guardian_hashes_the_streams(tmp_pa
             pass
 
 
+def test_a_cli_timeout_stops_the_programme_with_its_own_label(tmp_path: Path) -> None:
+    """The guardian ends a CLI that outlives its timeout, keeps its partial stream, and stops the programme as
+    ``cli_timeout_uncertain`` (the first reason recorded wins over the guardian's generic one)."""
+    root, fake = _programme(tmp_path, input_text="SLEEP")
+    try:
+        with pytest.raises(ValueError, match="guardian failed"):
+            run_one(root, "H01-candidate-1", cli=fake, timeout_seconds=1)
+        assert inspect(root)["stop_reason"] == "cli_timeout_uncertain"
+        assert _process_is_terminated(int(fake.with_suffix(".pid").read_text()))
+        [raw] = (root / "attempts").glob("*/stdout.raw")
+        assert raw.read_bytes().startswith(b"partial raw stdout")
+    finally:
+        _cleanup_recorded_fake_cli(root, fake)
+
+
 def test_version_and_prompt_are_checked_before_judge_reservation(tmp_path: Path) -> None:
     root, fake = _programme(tmp_path)
     (root / "cli-version.stdout.raw").write_text("0.0.0\n")

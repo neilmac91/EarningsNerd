@@ -260,6 +260,9 @@ def run_route_process(invocation: RouteInvocation) -> RouteProcessResult:
                 timed_out = True
             finally:  # on every path: the timed-out child, or a member that outlived the child
                 kill_signal = _terminate_group(proc)
+        except BaseException:
+            _terminate_group(proc)  # again, should the first ending itself be interrupted
+            raise
         finally:
             for stream in (stdout_file, stderr_file):
                 stream.flush()
