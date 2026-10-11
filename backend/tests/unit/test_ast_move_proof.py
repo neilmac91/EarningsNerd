@@ -663,6 +663,17 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
             (deco + "class Consumer:\n" + init + "    @deco\n    class Inner:\n        pass\n", "Consumer.Inner"),
             (meta + "if True:\n    class Consumer:\n        def __init__(self):\n            self.value = normalize(' x ')\n\n"
              "        class Inner(metaclass=Meta):\n            pass\n", "Consumer.Inner"),
+            # A class-body expression may leave such a value without binding a name: through ``locals()``,
+            # ``vars()`` or a frame's ``f_locals`` (Codex's ninth round).
+            (descriptor + "class Consumer:\n" + init + "    locals().update(field=Descriptor())\n",
+             "Consumer.expr:locals().update(field=Descriptor())"),
+            (descriptor + "class Consumer:\n" + init + "    vars().update(field=Descriptor())\n",
+             "Consumer.expr:vars().update(field=Descriptor())"),
+            ("import sys\n\n\n" + descriptor + "class Consumer:\n" + init
+             + "    sys._getframe().f_locals.update(field=Descriptor())\n",
+             "Consumer.expr:sys._getframe().f_locals.update(field=Descriptor())"),
+            (descriptor + "class Outer:\n    class Consumer:\n        def __init__(self):\n"
+             "            self.value = normalize(' x ')\n\n        locals().update(field=Descriptor())\n", "Outer.Consumer"),
             ("def f(x: (lambda: normalize(' x '))()):\n    return x\n", "f"),
             ("from app.c import dataclass\n\n\n@dataclass\n" + box, "Box"),
             ("import types\n\n\n" + calling.replace("dataclass", "calling")
@@ -728,6 +739,7 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    nested + "        global hook\n",
                    "from dataclasses import dataclass\n\n\n@dataclass\n" + box,
                    "class Consumer:\n    LIMIT = 3\n\n    def __init__(self):\n        self.value = normalize(' x ')\n",
+                   "class Consumer:\n" + init + "    int('1')\n",
                    "class Consumer:\n" + init + "    class Inner:\n        pass\n\n    class Error(Exception):\n        pass\n",
                    "class Consumer:\n" + init + "    @property\n    def size(self):\n        return 1\n\n    @staticmethod\n"
                    "    def make():\n        return 1\n\n    @classmethod\n    def build(cls):\n        return cls\n",
@@ -754,6 +766,13 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
         old = "from app.b import normalize\n\n\n" + reader
         report = compare(old, {"app/a.py": "", "app/b.py": reader + "\n\n" + target}, old_path="app/a.py")
         assert report.ok, render(report)
+    # ``exec`` and ``eval`` read the module's namespace, so moving them is RELOCATED wherever they stand; above the
+    # binding, what they bind in a class body may also be handed the class.
+    for call in ("exec('field = Descriptor()')", "eval('(field := Descriptor())')"):
+        reader = descriptor + "class Consumer:\n" + init + f"    {call}\n"
+        above = compare("from app.b import normalize\n\n\n" + reader, {"app/a.py": "", "app/b.py": reader + "\n\n" + target},
+                        old_path="app/a.py")
+        assert above.shadows == {"normalize": f"app/b.py: binds normalize, read above it at import by Consumer.expr:{call}"}
     # A ``match`` case creates its defs and classes where the match runs, at import: in a member class's body,
     # at module level, or in a module-level class's body. An undecorated def there is settled.
     hooking = ("class Base:\n    def __init_subclass__(cls, **kwargs):\n        super().__init_subclass__(**kwargs)\n"
