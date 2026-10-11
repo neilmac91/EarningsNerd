@@ -162,6 +162,16 @@ describe('the offer a live pricing page publishes', () => {
     expect(livePageOffer(html)).toBeNull()
   })
 
+  it.each([
+    ['a missing amount', { monthly: Number.NaN, yearly: PRO_PRICING.yearly * 100 }],
+    ['a fractional amount', { monthly: PRO_PRICING.monthly * 100 + 0.5, yearly: PRO_PRICING.yearly * 100 }],
+    ['a negative amount', { monthly: -1, yearly: PRO_PRICING.yearly * 100 }],
+  ])('is no evidence when the offer has %s', (_case, page) => {
+    for (const publishing of [false, true]) {
+      expect(checkServingCharge(serving(), { publishing, page })).toMatchObject({ ok: false, usable: false })
+    }
+  })
+
   it('compares the report with the page instead of the module when given one', () => {
     const page = { monthly: PRO_PRICING.monthly * 100 - 500, yearly: PRO_PRICING.yearly * 100 }
     const result = checkServingCharge(serving(), { page })

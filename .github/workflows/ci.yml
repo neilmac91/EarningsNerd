@@ -321,11 +321,12 @@ jobs:
   # checkout charges. A pull request that changes the offer (frontend/app/pricing/prices.ts, per
   # ci-scope) reads what production checkout charges now from the backend's public report
   # (GET /api/subscriptions/prices; no credentials) and fails while that is more than the new page
-  # would show: bind the lower Prices first, then re-run this job. A raise passes. The job is skipped,
-  # which a required check counts as passing, only when ci-scope says the pull request leaves the
-  # offer alone; a failed or missing scope runs it, and the guard fails it. An unreachable production
-  # API fails it too; re-run. main never runs it, so it is not in deploy-backend's needs.
-  # Gate: backend/tests/unit/test_price_agreement_checks.py.
+  # would show: bind the lower Prices first, then re-run this job. A raise passes. On a pull request
+  # the job is skipped, which a required check counts as passing, only when ci-scope says it leaves
+  # the offer alone; a failed or missing scope runs it, and the guard fails it. An unreachable
+  # production API fails it too; re-run. Pushes and manual runs always skip it, so it is not in
+  # deploy-backend's needs; don't dispatch CI on a pricing pull request's branch, where that skipped
+  # run would sit on the same commit. Gate: backend/tests/unit/test_price_agreement_checks.py.
   price-agreement:
     needs: [ci-scope]
     if: ${{ always() && !cancelled() && github.event_name == 'pull_request' && !(needs.ci-scope.result == 'success' && needs.ci-scope.outputs.prices_changed == 'false') }}
@@ -357,7 +358,13 @@ jobs:
           cat "$RUNNER_TEMP/serving-prices.json"
       - name: Checkout must charge no more than this page shows
         working-directory: frontend
-        run: npm run -s check:pricing -- --serving --publishing "$RUNNER_TEMP/serving-prices.json"
+        run: |
+          # The offer this pull request would publish: the checked merge, never another ref.
+          if [ "$(git rev-parse --verify 'HEAD^{commit}')" != "$GITHUB_SHA" ]; then
+            echo '::error::Checked source does not match the workflow commit.'
+            exit 1
+          fi
+          npm run -s check:pricing -- --serving --publishing "$RUNNER_TEMP/serving-prices.json"
 
   # Advisory performance measurement (Lighthouse). Non-blocking by design:
   # continue-on-error + warn-level assertions, and intentionally NOT in the

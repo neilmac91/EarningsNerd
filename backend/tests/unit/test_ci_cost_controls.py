@@ -217,7 +217,7 @@ def test_unknown_empty_manual_and_mismatched_inputs_never_skip(history, tmp_path
         assert result.returncode == 0 and output == "records_only=false"
     for event, overrides in (("push", {"GITHUB_SHA": "a" * 40}), ("pull_request", {})):
         result, output = classify(history, tmp_path, event, **overrides)
-        assert result.returncode != 0 and output != "records_only=true"
+        assert result.returncode != 0 and "records_only=true" not in output and "prices_changed=false" not in output
 
 
 def test_browser_checks_report_records_and_reject_failed_or_missing_scope(tmp_path):

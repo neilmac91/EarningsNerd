@@ -2,10 +2,10 @@
 
 - ci.yml's ``price-agreement`` job runs on a pull request unless ci-scope positively says the offer
   (the module exporting ``PRO_PRICING``) is unchanged. It reads production's public charge report
-  and fails while checkout would charge more than the new page shows: the backend-first step order.
-  Being skipped only on that positive "unchanged" (a skip counts as passing) is what lets the founder
-  make it a required check; a failed or missing scope runs it, and its guard fails. Nothing in it is
-  advisory, and ``main`` never runs it.
+  and fails while checkout would charge more than the offer the checked merge publishes: the
+  backend-first step order. On a pull request, being skipped only on that positive "unchanged" (a
+  skip counts as passing) is what lets the founder make it a required check; a failed or missing
+  scope runs it, and its guard fails. Nothing in it is advisory. Pushes and manual runs skip it.
 - ``prod-smoke.yml`` compares the same report with the offer the live pricing page publishes every
   day, even when its browser probe failed, so a disagreement in either direction (a higher Price
   bound under a lower page, or a frontend rollback) opens its failure issue.
@@ -66,7 +66,10 @@ def test_a_pull_request_that_changes_the_offer_is_checked_against_production(tmp
         )
         assert (result.returncode == 0) == (state == "success" and value == "true"), (state, value)
     assert REPORT_URL in read["run"] and "curl -fsS" in read["run"]
+    checkout = next(step for step in job["steps"] if str(step.get("uses", "")).startswith("actions/checkout@"))
+    assert checkout["with"] == {"persist-credentials": "false"}  # the checked merge, no other ref
     assert check["working-directory"] == "frontend"
+    assert "git rev-parse --verify 'HEAD^{commit}')\" != \"$GITHUB_SHA\"" in check["run"]
     assert _last_command(check["run"]) == (
         'npm run -s check:pricing -- --serving --publishing "$RUNNER_TEMP/serving-prices.json"'
     )

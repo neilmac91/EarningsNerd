@@ -115,7 +115,10 @@ export function checkServingCharge(report, { publishing = false, page = null } =
   for (const cycle of ['monthly', 'yearly']) {
     const charge = record(report) ? report[cycle] : undefined
     const interval = INTERVALS[cycle]
-    if (!record(charge) || (charge.problem !== undefined && !PROBLEMS.has(charge.problem))) {
+    if (!Number.isSafeInteger(expected[cycle]) || expected[cycle] < 0) {
+      usable = false
+      errors.push(`${cycle}: the offer is not a whole number of cents.`)
+    } else if (!record(charge) || (charge.problem !== undefined && !PROBLEMS.has(charge.problem))) {
       usable = false
       errors.push(`${cycle}: the report carries no readable charge.`)
     } else if (charge.problem !== undefined) {

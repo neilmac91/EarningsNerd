@@ -82,7 +82,7 @@ or prove existing customers' renewal terms. Those remain separate activation che
 #1009's merge commit records that this check passed on the serving bindings at activation. Passing
 it never authorizes a price change by itself. Do not change catalog activity or backend bindings
 merely to make it pass. The [machine checks](#machine-checks) below compare the bound amounts with
-the page continuously; this readback stays the evidence for what they omit.
+the page daily and on every offer change; this readback stays the evidence for what they omit.
 
 ## Machine checks
 
@@ -101,9 +101,11 @@ the invariant is checked without Stripe credentials in CI:
   every pull request that changes `frontend/app/pricing/prices.ts`. It fails while production
   checkout charges more than the new page would show: bind the lower Prices (step 3), then re-run
   it. A raise passes, because the page then shows at least the charge. An unreachable production
-  API fails the job. On any other pull request it is skipped, which a required check counts as
-  passing, so it can be made required. Until it is, a red job holds back an agent, which never
-  merges a red pull request, but not a person's merge.
+  API fails the job. On a pull request that leaves the offer alone it is skipped, which a required
+  check counts as passing, so it can be made required; if `ci-scope` itself fails, the job fails
+  with it. Pushes and manual runs skip it, so don't dispatch CI on a pricing pull request's branch.
+  Until the job is required, a red run holds back an agent, which never merges a red pull request,
+  but not a person's merge.
 - **Every day.** `prod-smoke.yml` compares the report with the offer the live pricing page
   publishes (its Product/Offer JSON-LD) and fails on a disagreement in either direction, opening or
   updating its failure issue. Reading the live page means it also sees a Vercel rollback, a deploy
