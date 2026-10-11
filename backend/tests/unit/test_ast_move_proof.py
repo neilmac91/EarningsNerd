@@ -648,6 +648,9 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    "            self._v = normalize(raw)\n",
                    nested + "        value: hook\n",
                    nested + "        global hook\n",
+                   "def hook():\n    return 1\n\n\nclass Outer:\n    class Inner:\n        def make():\n"
+                   "            def hook():\n                return normalize(' x ')\n\n            return hook\n\n"
+                   "        VALUE = hook()\n",
                    "class Outer:\n    class Inner:\n        @property\n        def normalize(self):\n"
                    "            return 1\n\n        @normalize.setter\n        def normalize(self, raw):\n"
                    "            pass\n",
