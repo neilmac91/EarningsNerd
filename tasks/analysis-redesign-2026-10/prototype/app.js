@@ -812,7 +812,7 @@
       }
       const stickyWidth = r(ths[0]).width
       const unstuck = t.classList.contains('unstick')
-      table = { tableWidth: Math.round(t.scrollWidth), containerWidth: Math.round(sc.clientWidth), scrolls: t.scrollWidth > sc.clientWidth + 1, columns: cols, minColumn: Math.min(...cols.slice(1)), maxColumn: Math.max(...cols.slice(1)), stickyWidth: Math.round(stickyWidth), stickyColumn: !unstuck, readableColumns: colWidth ? Math.floor((sc.clientWidth - (unstuck ? 0 : stickyWidth)) / colWidth) : null, restPositions: positions.length, occludedPositions: occluded, occludedAtFarRight: occluded.filter((o) => o.scrollLeft >= (sc.scrollWidth - sc.clientWidth) - 1), cellTextClipped: clipped.length > 0, clippedCells: clipped.slice(0, 8), clippedCount: clipped.length }
+      table = { rows: t.querySelectorAll('tbody tr').length, tableWidth: Math.round(t.scrollWidth), containerWidth: Math.round(sc.clientWidth), scrolls: t.scrollWidth > sc.clientWidth + 1, columns: cols, minColumn: Math.min(...cols.slice(1)), maxColumn: Math.max(...cols.slice(1)), stickyWidth: Math.round(stickyWidth), stickyColumn: !unstuck, readableColumns: colWidth ? Math.floor((sc.clientWidth - (unstuck ? 0 : stickyWidth)) / colWidth) : null, restPositions: positions.length, occludedPositions: occluded, occludedAtFarRight: occluded.filter((o) => o.scrollLeft >= (sc.scrollWidth - sc.clientWidth) - 1), cellTextClipped: clipped.length > 0, clippedCells: clipped.slice(0, 8), clippedCount: clipped.length }
     }
     const labels = [...document.querySelectorAll('.badge')].filter((b) => /source check/i.test(b.textContent)).length
     const affixes = document.querySelectorAll('.affix .note').length

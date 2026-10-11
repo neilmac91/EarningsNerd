@@ -4,7 +4,14 @@
 // column widths, sticky-column occlusion at EVERY rest position, both-sided cell clipping of the rendered
 // text, text-aware KPI containment, and the count of repeated labels; 200% text at 1480, 390 and 320.
 //
-//   node harness/measure-proto.mjs --out measurements/prototype.json [--fonts dir] [--shots dir]
+//   node harness/measure-proto.mjs --out measurements/prototype.json [--fonts dir] [--shots dir] [--allow-dirty]
+//
+// The recorded run is auditable only from a committed tree: the output carries the commit, the prototype
+// directory's tree hash (`git rev-parse <any later commit>:tasks/analysis-redesign-2026-10/prototype`
+// reproduces it) and the list of uncommitted prototype or harness files, and the run refuses to start
+// with such files unless --allow-dirty records them. Every probe asserts its element counts (4 cards, 13
+// header cells in the 12-quarter window and 7 in Newest 6, the metric rows), so a probe that finds
+// nothing fails the run instead of recording a clean result.
 //
 // Run from tasks/analysis-redesign-2026-10/. With --fonts, Google Fonts requests are answered from a
 // local directory holding the CSS as fonts.css plus the .woff2 files it names (no network needed).
@@ -48,9 +55,24 @@ async function routeFonts(context) {
   })
 }
 
+// A probe that finds nothing must fail the run, never record a clean result (measure-current.mjs does the same).
+function expectCounts(m, headers, key) {
+  const problems = []
+  if (!m.kpi || m.kpi.length !== 4) problems.push(`${(m.kpi || []).length} KPI cards, expected 4`)
+  if (!m.table) problems.push('no metrics table')
+  else {
+    if (m.table.columns.length !== headers) problems.push(`${m.table.columns.length} header cells, expected ${headers}`)
+    if (!(m.table.rows >= 10)) problems.push(`${m.table.rows} metric rows, expected at least 10`)
+  }
+  if (problems.length) throw new Error(`${key}: ${problems.join('; ')}`)
+}
+
 async function run() {
   const browser = await chromium.launch()
-  const results = { generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: (() => { try { return execSync('git rev-parse --short HEAD', { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { return null } })() }, configs: [] }
+  const git = (cmd) => { try { return execSync(cmd, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { return null } }
+  const dirty = (git('git status --porcelain -- prototype harness') || '').split('\n').filter(Boolean).map((l) => l.slice(3))
+  if (dirty.length && !('allow-dirty' in args)) { await browser.close(); throw new Error(`uncommitted prototype or harness files; commit them first, or pass --allow-dirty to record them: ${dirty.join(', ')}`) }
+  const results = { generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: git('git rev-parse --short HEAD'), prototypeTree: git('git rev-parse HEAD:./prototype'), dirty }, configs: [] }
   for (const theme of ['light', 'dark']) {
     for (const cfg of CONFIGS) {
       const context = await browser.newContext({ viewport: { width: cfg.width, height: cfg.height }, deviceScaleFactor: cfg.dsf || 1, isMobile: !!cfg.mobile, hasTouch: !!cfg.mobile, reducedMotion: 'reduce' })
@@ -70,12 +92,14 @@ async function run() {
           }, { stateName, mode, textZoom: cfg.textZoom || null })
           await page.waitForTimeout(120)
           const m = await page.evaluate((w) => window.EN_PROTO.measure(w), cfg.width)
+          expectCounts(m, 13, `${stateName}/${mode}/${theme}/${cfg.name}`)
           // Does the proposed table fit without scrolling in the "Newest 6" window?
           let window6 = null
           if (mode === 'proposed') {
             await page.evaluate(() => { window.EN_PROTO.state.window = '6n'; window.EN_PROTO.render() })
             await page.waitForTimeout(80)
             const m6 = await page.evaluate((w) => window.EN_PROTO.measure(w), cfg.width)
+            expectCounts(m6, 7, `${stateName}/${mode}/${theme}/${cfg.name}/newest6`)
             window6 = m6.table
             await page.evaluate(() => { window.EN_PROTO.state.window = '12'; window.EN_PROTO.render() })
             await page.waitForTimeout(80)
