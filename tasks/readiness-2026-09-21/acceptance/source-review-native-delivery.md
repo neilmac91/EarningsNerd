@@ -58,7 +58,9 @@ operator rule (the probe manifest pins one). `request.json` and `stdin.bin` are 
 create-once before the spawn; `stdout.raw`/`stderr.raw` are file-backed so partial output survives a
 timeout; the child runs in its own session in an empty `cwd` and, once it exits or times out, its
 whole process group is ended (SIGTERM, then SIGKILL for whatever still runs after the grace period)
-before the streams are fsynced, so no grandchild still writes to them; `process.kill_signal` records
+before the streams are fsynced, so no grandchild still writes to them (short of one that left the group,
+belongs to another user or stays uninterruptible past SIGKILL; the receipt's stream hashes catch its
+writes); `process.kill_signal` records
 the strongest signal the group received, on a normal exit too. `receipt.json` is written after the
 process ends; if the
 dispatch raises before that (a spawn error, for instance) the ledger stays **incomplete** with no

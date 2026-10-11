@@ -425,9 +425,11 @@ def _terminate_group(proc: subprocess.Popen[bytes]) -> str | None:
     """SIGTERM the CLI's process group (``start_new_session=True``: the child leads it), give the whole group the
     grace period, SIGKILL whatever of it can still run, and reap the child. The runners call it in a ``finally``
     around the child's ``communicate``, before they fsync its streams, so on every path a grandchild that outlives
-    the child is ended and nothing of the group still writes to them (a descendant that left it through ``setsid``
-    or ``setpgid`` is out of reach; the stream hashes catch its writes). Returns the strongest signal delivered, or
-    None when nothing of the group was left to signal, or only another user's member was, which no signal reaches.
+    the child is ended and nothing of the group still writes to them. Out of reach: a descendant that left the
+    group through ``setsid`` or ``setpgid``, a member another user owns (no signal reaches it), and one still
+    uninterruptible when the second grace period ends. The stream hashes catch their writes, so this returns rather
+    than raises, which would skip the callers' own cleanup. Returns the strongest signal delivered, or None when
+    nothing of the group was left to signal, or only another user's member was.
     Both acceptance runners hold this code, identically (the judge runner's guardian imports no repository module);
     test_acceptance_process_groups.py keeps the copies equal."""
     if proc.poll() is not None and not _group_alive(proc.pid):
