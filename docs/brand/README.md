@@ -90,12 +90,15 @@ Run on 2026-10-11 against the final tree in this container.
 frontend: npm run lint                      eslint . --max-warnings 0           exit 0
 frontend: npx tsc -p tsconfig.ci.json                                           exit 0
 frontend: npm run build                     Next 16 production build            exit 0
-frontend: npm run test -- --run             182 files: 181 passed, 1 failed; 1743 tests: 1742 passed, 1 failed
-                                            (analysis-teaser.spec.tsx ran 5.6s against its 5s limit while the
-                                            Playwright run shared the CPU; its serial re-run is in the PR body)
+frontend: npm run test -- --run             182 files, 1743 tests: 1742 passed; analysis-teaser.spec.tsx ran 5.6s
+                                            against its 5s limit beside a concurrent Playwright run, then passed alone
+                                            (1 passed), so every unit test passes
 frontend: playwright (home-page-unauthenticated, not-found-page, text-floors, against next start, no backend)
-                                            beside the unit suite: 11 passed, 9 timed out on the mocked filing and
-                                            dashboard routes; the serial re-run is in the PR body
+                                            20 passed (25.6s), serially, against a build made with CI's environment
+                                            (NEXT_PUBLIC_API_BASE_URL=http://localhost:8000, WAITLIST_MODE=false,
+                                            NEXT_PUBLIC_ENABLE_ANALYSIS=true); a first run against a build without
+                                            that API base timed out on the mocked routes and found the 404 spec's
+                                            old wording, fixed in bcbdc72
 backend:  ruff check .                      All checks passed!
 backend:  bandit -r app -ll                 no findings                          exit 0
 backend:  python -m pytest                  11 failed, 6726 passed, 39 skipped in 563.58s
