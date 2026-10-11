@@ -1,5 +1,6 @@
 """Observed production pins and read-only configuration evidence; no cloud/model calls."""
 import ast
+import importlib.util
 import io
 import json
 import re
@@ -7,7 +8,7 @@ import subprocess
 import sys
 from contextlib import redirect_stdout
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 import yaml
@@ -16,6 +17,7 @@ from app.config import Settings
 from scripts import pin_baseline
 
 ROOT = Path(__file__).resolve().parents[3]
+MODULE = ROOT / "ops/describe/service.py"  # the readback the describe-service step runs
 PROD_ENV_PINS = {
     "NOTABLE_FILINGS_ENABLED": "true", "AI_EVIDENCE_SNAP": "true",
     "AI_FIGURE_TRACE_GATE": "false", "AI_FORWARD_QUOTE_GATE": "false", "AI_ATTRIBUTION_GATE": "false",
@@ -64,7 +66,16 @@ def _env_map(run):
 def _ops_code():
     step = _step(_workflow("ops.yml")["jobs"]["ops"],
                  "Describe service env (values only for known feature flags)")
-    return step["run"].split("python3 - <<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+    assert step["run"] == "python3 ops/describe/service.py"  # the literals read below are the code the step runs
+    return MODULE.read_text()
+
+
+def _load():
+    """Execute the committed describe-service module by path; its top level is the readback."""
+    spec = importlib.util.spec_from_file_location("ops_describe_service", MODULE)
+    module = importlib.util.module_from_spec(spec)
+    module.open = Mock(side_effect=AssertionError("the readback reads no file"))  # every read is a gcloud read
+    spec.loader.exec_module(module)
 
 
 def test_production_pins_match_defaults_pregenerate_and_ops_visibility(tmp_path):
@@ -141,11 +152,15 @@ def test_pin_parser_rejects_unusable_service_evidence(monkeypatch, tmp_path, def
         pin_baseline.production_env()
 
 
-# The five gcloud reads of describe-service, in order, keyed by (kind, verb, name).
+# The five gcloud reads of describe-service after the API service describe, in order, keyed by (kind, verb, name).
 FIVE = [("revisions", "describe", "serving"), ("jobs", "describe", "earningsnerd-pregenerate"),
         ("services", "describe", "earningsnerd-task-worker"), ("revisions", "describe", "worker-serving"),
         ("services", "get-iam-policy", "earningsnerd-task-worker")]
-# gcloud's error text can name the acting principal; the heredoc reduces it to a class and never echoes it.
+# The API service describe comes first (it was the step's shell read, outside the classified seam).
+SERVICE = "earningsnerd-backend"
+SERVICE_READ = ("services", "describe", SERVICE)
+SERVICE_ARGV = ["gcloud", "run", "services", "describe", SERVICE, "--region=fixture-region", "--format=json"]
+# gcloud's error text can name the acting principal; the readback reduces it to a class and never echoes it.
 STDERR = "PRIVATE_STDERR_SENTINEL principal@example.invalid"
 PIN_DEFECTS = {"missing": "<missing>", "secret-ref": "<secret-ref>", "10": "'10'",
                "1 ": "<value withheld: not a plain numeric string>", 1: "<value withheld: not a plain numeric string>",
@@ -158,12 +173,14 @@ def _readbacks(revision, job, worker, worker_revision, policy):
 
 
 def _execute(service, readbacks, *, denied=None, raw=None):
-    """Run the heredoc with a dict-keyed gcloud fake; returns (output, SystemExit or None, ordered read keys).
+    """Run the module with a dict-keyed gcloud fake; returns (output, SystemExit or None, the ordered read keys
+    after the API service describe, which must come first).
 
-    `denied` maps a read key to the stderr text of a failing gcloud (CalledProcessError) or to "timeout";
-    `raw` maps a read key to non-JSON stdout."""
+    `denied` maps a read key to the stderr text of a failing gcloud (CalledProcessError), to "timeout" or to
+    "missing" (no gcloud executable); `raw` maps a read key to non-JSON stdout."""
     denied = denied or {}
     raw = raw or {}
+    reads = {SERVICE_READ: service, **readbacks}
     calls = []
 
     def fake(argv, *, text, stderr, timeout):
@@ -175,23 +192,34 @@ def _execute(service, readbacks, *, denied=None, raw=None):
         if key in denied:
             if denied[key] == "timeout":
                 raise subprocess.TimeoutExpired(argv, timeout)
+            if denied[key] == "missing":
+                raise FileNotFoundError(2, "No such file or directory", "gcloud")
             raise subprocess.CalledProcessError(1, argv, output="", stderr=denied[key])
         if key in raw:
             return raw[key]
-        return json.dumps(readbacks[key])
+        return json.dumps(reads[key])
 
-    code = compile(_ops_code(), "ops-describe", "exec")
     output = io.StringIO()
     exit_ = None
-    with patch("builtins.open", return_value=io.StringIO(json.dumps(service))), \
-            patch.dict("os.environ", {"REGION": "fixture-region"}), \
+    with patch.dict("os.environ", {"REGION": "fixture-region", "SERVICE": SERVICE}), \
             patch("subprocess.check_output", new=fake), \
             redirect_stdout(output):
         try:
-            exec(code, {})
+            _load()
         except SystemExit as exc:
             exit_ = exc
-    return output.getvalue(), exit_, calls
+    assert calls[:1] == [SERVICE_READ], calls  # the API service describe is always the first read
+    return output.getvalue(), exit_, calls[1:]
+
+
+def _service_then(service, later):
+    """A gcloud fake serving the API service describe (exact argv) and handing every later read to `later`."""
+    def fake(argv, *, text, stderr, timeout):
+        if argv == SERVICE_ARGV:
+            assert text is True and stderr is subprocess.PIPE and timeout == 100
+            return json.dumps(service)
+        return later(argv, text=text, stderr=stderr, timeout=timeout)
+    return fake
 
 
 def _render(service, revision, job, worker, worker_revision, policy):
@@ -282,12 +310,12 @@ def test_ops_renderer_rejects_unresolved_traffic_before_describing(resources, de
     else:
         service["status"]["latestCreatedRevisionName"] = "unready"
         match = r"100% traffic.*latest created revision unready is not ready \(latest ready serving\)"
-    with patch("subprocess.check_output", side_effect=[json.dumps(revision), json.dumps(job)]) as describe, \
-            patch.dict("os.environ", {"REGION": "fixture-region"}), \
+    describe = Mock(side_effect=[json.dumps(revision), json.dumps(job)])  # every read after the service describe
+    with patch("subprocess.check_output", new=_service_then(service, describe)), \
+            patch.dict("os.environ", {"REGION": "fixture-region", "SERVICE": SERVICE}), \
             pytest.raises(SystemExit, match=match):
-        # _render would install a second patch, so execute directly for the no-cloud-call assertion.
-        with patch("builtins.open", return_value=io.StringIO(json.dumps(service))):
-            exec(compile(_ops_code(), "ops-describe", "exec"), {})
+        # _render would install a second patch, so execute directly for the no-later-read assertion.
+        _load()
     describe.assert_not_called()
 
 
@@ -306,11 +334,11 @@ def test_deploy_routes_traffic_to_latest_and_clears_revision_tags(step):
 def test_ops_renderer_rejects_tagged_traffic_targets(resources):
     service, revision, job, *_ = resources
     service["status"]["traffic"].append({"revisionName": "retired", "percent": 0, "tag": "old", "url": "hidden-host"})
-    with patch("subprocess.check_output", side_effect=[json.dumps(revision), json.dumps(job)]) as describe, \
-            patch.dict("os.environ", {"REGION": "fixture-region"}), \
+    describe = Mock(side_effect=[json.dumps(revision), json.dumps(job)])  # every read after the service describe
+    with patch("subprocess.check_output", new=_service_then(service, describe)), \
+            patch.dict("os.environ", {"REGION": "fixture-region", "SERVICE": SERVICE}), \
             pytest.raises(SystemExit, match="tagged traffic targets") as excinfo:
-        with patch("builtins.open", return_value=io.StringIO(json.dumps(service))):
-            exec(compile(_ops_code(), "ops-describe", "exec"), {})
+        _load()
     describe.assert_not_called()
     assert "hidden-host" not in str(excinfo.value)
 
@@ -491,7 +519,7 @@ def test_ops_renderer_unverified_never_masks_a_fail(resources, defect):
                                            ("<html>", "unreadable_response")])
 @pytest.mark.parametrize("index", [0, 1, 2, 3])
 def test_ops_renderer_fails_closed_on_failed_describe(resources, index, failure, klass):
-    """Every describe read the heredoc depends on fails closed with its class; stderr never reaches the log."""
+    """Every describe read the readback depends on fails closed with its class; stderr never reaches the log."""
     service, revision, job, worker, worker_revision, policy = resources
     kind, _, name = key = FIVE[index]
     readbacks = _readbacks(revision, job, worker, worker_revision, policy)
@@ -502,6 +530,26 @@ def test_ops_renderer_fails_closed_on_failed_describe(resources, index, failure,
     assert exit_ is not None and calls == FIVE[:index + 1]
     assert f"cannot describe {kind} {name} ({klass})" in str(exit_)
     assert "PRIVATE_STDERR_SENTINEL" not in output + str(exit_)
+
+
+@pytest.mark.parametrize("failure,klass", [
+    ("ERROR: (gcloud.run.services.describe) PERMISSION_DENIED: " + STDERR, "permission_denied"),
+    ("ERROR: NOT_FOUND " + STDERR, "not_found"), ("ERROR: UNAVAILABLE " + STDERR, "unavailable"),
+    ("ERROR: DEADLINE_EXCEEDED " + STDERR, "unavailable"), ("ERROR: odd " + STDERR, "error (gcloud exit 1)"),
+    ("timeout", "timeout"), ("missing", "error (gcloud not executable)"), ("<html>", "unreadable_response"),
+])
+def test_ops_renderer_fails_closed_on_failed_service_describe(resources, failure, klass):
+    """The API service describe, once the step's shell read that printed gcloud's own error text, fails closed with
+    its class before any other read and prints nothing else (no traffic line, no verdict)."""
+    service, revision, job, worker, worker_revision, policy = resources
+    readbacks = _readbacks(revision, job, worker, worker_revision, policy)
+    if klass == "unreadable_response":
+        output, exit_, calls = _execute(service, readbacks, raw={SERVICE_READ: failure})
+    else:
+        output, exit_, calls = _execute(service, readbacks, denied={SERVICE_READ: failure})
+    assert exit_ is not None and calls == []
+    assert str(exit_) == f"Unresolved production configuration: cannot describe services {SERVICE} ({klass})."
+    assert output == "" and "PRIVATE_STDERR_SENTINEL" not in str(exit_) and "principal@" not in str(exit_)
 
 
 @pytest.mark.parametrize("throttling,durable,expected", [
