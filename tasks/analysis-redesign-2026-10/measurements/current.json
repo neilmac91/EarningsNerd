@@ -2,7 +2,7 @@
  "base": "http://localhost:3100",
  "state": "legacy",
  "data": "prototype/data",
- "generatedAt": "2026-10-11T12:18:32.398Z",
+ "generatedAt": "2026-10-11T12:32:37.747Z",
  "environment": {
   "chromium": "141.0.7390.37",
   "platform": "linux x64",
@@ -28,7 +28,7 @@
    },
    "stampedBy": "tasks/analysis-redesign-2026-10/harness/build-stamped.mjs"
   },
-  "harnessCommit": "72546d6",
+  "harnessCommit": "1f720a4",
   "harnessDirty": [],
   "fixtureHash": "001717037fc42562f06978020451d4e355d99ad5656aa6f478b1f20cb0b17180",
   "fixtureTree": "50e1c7d92925eaba6503a21979b556679f25760d",
@@ -182,56 +182,9 @@
      105,
      77
     ],
-    "restPositions": 11,
+    "snap": "none",
+    "restPositions": 8,
     "occludedPositions": [
-     {
-      "scrollLeft": 209,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 314,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 523,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 732,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 941,
-      "columns": [
-       "2024Q4"
-      ]
-     },
      {
       "scrollLeft": 1022,
       "columns": [
@@ -398,62 +351,9 @@
      105,
      77
     ],
-    "restPositions": 12,
+    "snap": "none",
+    "restPositions": 9,
     "occludedPositions": [
-     {
-      "scrollLeft": 209,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 314,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 523,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 732,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 941,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2025Q1"
-      ]
-     },
      {
       "scrollLeft": 1120,
       "columns": [
@@ -620,62 +520,9 @@
      105,
      77
     ],
-    "restPositions": 12,
+    "snap": "none",
+    "restPositions": 9,
     "occludedPositions": [
-     {
-      "scrollLeft": 209,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 314,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 523,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 732,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 941,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2025Q1"
-      ]
-     },
      {
       "scrollLeft": 1150,
       "columns": [
@@ -842,80 +689,9 @@
      105,
      77
     ],
-    "restPositions": 15,
+    "snap": "none",
+    "restPositions": 10,
     "occludedPositions": [
-     {
-      "scrollLeft": 209,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 314,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 523,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 732,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 941,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2025Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1150,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1254,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1359,
-      "columns": [
-       "2025Q3"
-      ]
-     },
      {
       "scrollLeft": 1406,
       "columns": [
@@ -1083,98 +859,9 @@
      105,
      77
     ],
-    "restPositions": 18,
+    "snap": "none",
+    "restPositions": 13,
     "occludedPositions": [
-     {
-      "scrollLeft": 209,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 314,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 523,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 732,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 941,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2025Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1150,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1254,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1359,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 1463,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 1568,
-      "columns": [
-       "2025Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1673,
-      "columns": [
-       "2026Q1"
-      ]
-     },
      {
       "scrollLeft": 1768,
       "columns": [
@@ -1342,104 +1029,9 @@
      105,
      77
     ],
-    "restPositions": 19,
+    "snap": "none",
+    "restPositions": 13,
     "occludedPositions": [
-     {
-      "scrollLeft": 209,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 314,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 523,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 732,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 941,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2025Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1150,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1254,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1359,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 1463,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 1568,
-      "columns": [
-       "2025Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1673,
-      "columns": [
-       "2026Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1777,
-      "columns": [
-       "2026Q2"
-      ]
-     },
      {
       "scrollLeft": 1838,
       "columns": [
@@ -1607,80 +1199,9 @@
      105,
      77
     ],
-    "restPositions": 15,
+    "snap": "none",
+    "restPositions": 10,
     "occludedPositions": [
-     {
-      "scrollLeft": 209,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 314,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 523,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 732,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 941,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2025Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1150,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1254,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1359,
-      "columns": [
-       "2025Q3"
-      ]
-     },
      {
       "scrollLeft": 1434,
       "columns": [
@@ -1848,80 +1369,9 @@
      209,
      154
     ],
-    "restPositions": 15,
+    "snap": "none",
+    "restPositions": 10,
     "occludedPositions": [
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1254,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1463,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1672,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 1881,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 2090,
-      "columns": [
-       "2025Q1"
-      ]
-     },
-     {
-      "scrollLeft": 2300,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 2509,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 2718,
-      "columns": [
-       "2025Q3"
-      ]
-     },
      {
       "scrollLeft": 2865,
       "columns": [
@@ -2090,110 +1540,9 @@
      209,
      154
     ],
-    "restPositions": 20,
+    "snap": "none",
+    "restPositions": 13,
     "occludedPositions": [
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1254,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1463,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1672,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 1881,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 2090,
-      "columns": [
-       "2025Q1"
-      ]
-     },
-     {
-      "scrollLeft": 2300,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 2509,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 2718,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 2927,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 3136,
-      "columns": [
-       "2025Q4"
-      ]
-     },
-     {
-      "scrollLeft": 3345,
-      "columns": [
-       "2026Q1"
-      ]
-     },
-     {
-      "scrollLeft": 3554,
-      "columns": [
-       "2026Q2"
-      ]
-     },
-     {
-      "scrollLeft": 3763,
-      "columns": [
-       "2026Q2"
-      ]
-     },
      {
       "scrollLeft": 3923,
       "columns": [
@@ -2362,111 +1711,9 @@
      209,
      154
     ],
-    "restPositions": 21,
-    "occludedPositions": [
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1254,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1463,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1672,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 1881,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 2090,
-      "columns": [
-       "2025Q1"
-      ]
-     },
-     {
-      "scrollLeft": 2300,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 2509,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 2718,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 2927,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 3136,
-      "columns": [
-       "2025Q4"
-      ]
-     },
-     {
-      "scrollLeft": 3345,
-      "columns": [
-       "2026Q1"
-      ]
-     },
-     {
-      "scrollLeft": 3554,
-      "columns": [
-       "2026Q2"
-      ]
-     },
-     {
-      "scrollLeft": 3763,
-      "columns": [
-       "2026Q2"
-      ]
-     }
-    ],
+    "snap": "none",
+    "restPositions": 13,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
     "clippedCount": 0,
     "clippedCells": []
@@ -2619,56 +1866,9 @@
      105,
      77
     ],
-    "restPositions": 11,
+    "snap": "none",
+    "restPositions": 8,
     "occludedPositions": [
-     {
-      "scrollLeft": 209,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 314,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 523,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 732,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 941,
-      "columns": [
-       "2024Q4"
-      ]
-     },
      {
       "scrollLeft": 1022,
       "columns": [
@@ -2835,62 +2035,9 @@
      105,
      77
     ],
-    "restPositions": 12,
+    "snap": "none",
+    "restPositions": 9,
     "occludedPositions": [
-     {
-      "scrollLeft": 209,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 314,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 523,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 732,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 941,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2025Q1"
-      ]
-     },
      {
       "scrollLeft": 1120,
       "columns": [
@@ -3057,62 +2204,9 @@
      105,
      77
     ],
-    "restPositions": 12,
+    "snap": "none",
+    "restPositions": 9,
     "occludedPositions": [
-     {
-      "scrollLeft": 209,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 314,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 523,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 732,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 941,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2025Q1"
-      ]
-     },
      {
       "scrollLeft": 1150,
       "columns": [
@@ -3279,80 +2373,9 @@
      105,
      77
     ],
-    "restPositions": 15,
+    "snap": "none",
+    "restPositions": 10,
     "occludedPositions": [
-     {
-      "scrollLeft": 209,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 314,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 523,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 732,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 941,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2025Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1150,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1254,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1359,
-      "columns": [
-       "2025Q3"
-      ]
-     },
      {
       "scrollLeft": 1406,
       "columns": [
@@ -3520,98 +2543,9 @@
      105,
      77
     ],
-    "restPositions": 18,
+    "snap": "none",
+    "restPositions": 13,
     "occludedPositions": [
-     {
-      "scrollLeft": 209,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 314,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 523,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 732,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 941,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2025Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1150,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1254,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1359,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 1463,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 1568,
-      "columns": [
-       "2025Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1673,
-      "columns": [
-       "2026Q1"
-      ]
-     },
      {
       "scrollLeft": 1768,
       "columns": [
@@ -3779,104 +2713,9 @@
      105,
      77
     ],
-    "restPositions": 19,
+    "snap": "none",
+    "restPositions": 13,
     "occludedPositions": [
-     {
-      "scrollLeft": 209,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 314,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 523,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 732,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 941,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2025Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1150,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1254,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1359,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 1463,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 1568,
-      "columns": [
-       "2025Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1673,
-      "columns": [
-       "2026Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1777,
-      "columns": [
-       "2026Q2"
-      ]
-     },
      {
       "scrollLeft": 1838,
       "columns": [
@@ -4044,80 +2883,9 @@
      105,
      77
     ],
-    "restPositions": 15,
+    "snap": "none",
+    "restPositions": 10,
     "occludedPositions": [
-     {
-      "scrollLeft": 209,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 314,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 523,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 732,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 941,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2025Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1150,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1254,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1359,
-      "columns": [
-       "2025Q3"
-      ]
-     },
      {
       "scrollLeft": 1434,
       "columns": [
@@ -4285,80 +3053,9 @@
      209,
      154
     ],
-    "restPositions": 15,
+    "snap": "none",
+    "restPositions": 10,
     "occludedPositions": [
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1254,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1463,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1672,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 1881,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 2090,
-      "columns": [
-       "2025Q1"
-      ]
-     },
-     {
-      "scrollLeft": 2300,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 2509,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 2718,
-      "columns": [
-       "2025Q3"
-      ]
-     },
      {
       "scrollLeft": 2865,
       "columns": [
@@ -4527,110 +3224,9 @@
      209,
      154
     ],
-    "restPositions": 20,
+    "snap": "none",
+    "restPositions": 13,
     "occludedPositions": [
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1254,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1463,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1672,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 1881,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 2090,
-      "columns": [
-       "2025Q1"
-      ]
-     },
-     {
-      "scrollLeft": 2300,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 2509,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 2718,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 2927,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 3136,
-      "columns": [
-       "2025Q4"
-      ]
-     },
-     {
-      "scrollLeft": 3345,
-      "columns": [
-       "2026Q1"
-      ]
-     },
-     {
-      "scrollLeft": 3554,
-      "columns": [
-       "2026Q2"
-      ]
-     },
-     {
-      "scrollLeft": 3763,
-      "columns": [
-       "2026Q2"
-      ]
-     },
      {
       "scrollLeft": 3923,
       "columns": [
@@ -4799,111 +3395,9 @@
      209,
      154
     ],
-    "restPositions": 21,
-    "occludedPositions": [
-     {
-      "scrollLeft": 418,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 627,
-      "columns": [
-       "2023Q4"
-      ]
-     },
-     {
-      "scrollLeft": 836,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1045,
-      "columns": [
-       "2024Q1"
-      ]
-     },
-     {
-      "scrollLeft": 1254,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1463,
-      "columns": [
-       "2024Q2"
-      ]
-     },
-     {
-      "scrollLeft": 1672,
-      "columns": [
-       "2024Q3"
-      ]
-     },
-     {
-      "scrollLeft": 1881,
-      "columns": [
-       "2024Q4"
-      ]
-     },
-     {
-      "scrollLeft": 2090,
-      "columns": [
-       "2025Q1"
-      ]
-     },
-     {
-      "scrollLeft": 2300,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 2509,
-      "columns": [
-       "2025Q2"
-      ]
-     },
-     {
-      "scrollLeft": 2718,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 2927,
-      "columns": [
-       "2025Q3"
-      ]
-     },
-     {
-      "scrollLeft": 3136,
-      "columns": [
-       "2025Q4"
-      ]
-     },
-     {
-      "scrollLeft": 3345,
-      "columns": [
-       "2026Q1"
-      ]
-     },
-     {
-      "scrollLeft": 3554,
-      "columns": [
-       "2026Q2"
-      ]
-     },
-     {
-      "scrollLeft": 3763,
-      "columns": [
-       "2026Q2"
-      ]
-     }
-    ],
+    "snap": "none",
+    "restPositions": 13,
+    "occludedPositions": [],
     "occludedAtFarRight": [],
     "clippedCount": 0,
     "clippedCells": []
