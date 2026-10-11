@@ -373,9 +373,9 @@ _GROUP_POLL_SECONDS = 0.05
 
 def _group_alive(pgid: int, proc_root: Path = Path("/proc")) -> bool:
     """Whether a member of the process group can still run. A zombie cannot, and an orphaned one lingers where PID 1
-    reaps nothing (a container whose init is not one), so where ``/proc`` exists it is read and zombies are skipped;
-    elsewhere signal 0 answers, which counts a zombie too."""
-    if not proc_root.is_dir():
+    reaps nothing (a container whose init is not one), so where Linux's ``/proc`` is mounted it is read and zombies
+    are skipped; elsewhere (an empty ``/proc`` included) signal 0 answers, which counts a zombie too."""
+    if not (proc_root / "self" / "stat").is_file():
         try:
             os.killpg(pgid, 0)
         except ProcessLookupError:
@@ -406,24 +406,25 @@ def _terminate_group(proc: subprocess.Popen[bytes]) -> str | None:
     """SIGTERM the CLI's process group (``start_new_session=True``: the child leads it), give the whole group the
     grace period, SIGKILL whatever of it can still run, and reap the child. The runners call it once the child has
     exited or timed out, before they fsync its streams, so a grandchild that outlives the child is ended and nothing
-    still writes to them. Returns the strongest signal sent, or None when nothing of the group was left to signal.
+    of the group still writes to them (a descendant that left it through ``setsid`` or ``setpgid`` is out of reach;
+    the stream hashes catch its writes). Returns the strongest signal delivered, or None when nothing of the group
+    was left to signal, or only another user's member was, which no signal reaches.
     Both acceptance runners hold this code, identically (the judge runner's guardian imports no repository module);
     test_acceptance_process_groups.py keeps the copies equal."""
     if proc.poll() is not None and not _group_alive(proc.pid):
         return None
     try:
         os.killpg(proc.pid, signal.SIGTERM)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):  # EPERM: the child is gone and no member left is ours to signal
         proc.wait()
         return None
-    except PermissionError:
-        pass  # no member could be signalled (another user's); the grace period and SIGKILL still decide
     _drain_group(proc, _GROUP_GRACE_SECONDS)
     if proc.poll() is None or _group_alive(proc.pid):
         try:
             os.killpg(proc.pid, signal.SIGKILL)
-        except (ProcessLookupError, PermissionError):
-            pass
+        except (ProcessLookupError, PermissionError):  # it ended at the last moment, or only another user's is left
+            proc.wait()
+            return "SIGTERM"
         proc.wait()
         _drain_group(proc, _GROUP_GRACE_SECONDS)  # SIGKILL cannot be caught, but each member still has to die
         return "SIGKILL"

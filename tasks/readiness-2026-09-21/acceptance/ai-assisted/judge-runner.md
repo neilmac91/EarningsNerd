@@ -26,7 +26,9 @@ directory (including settings and rules), or `.git`. It checks
 again inside the guardian immediately before CLI launch. The guardian writes
 raw stdout and stderr to
 exclusive files, watches the controller, and kills the CLI process group if
-the controller dies. If the guardian dies, the controller stops the programme
+the controller dies. Once the CLI exits or times out, the guardian ends its
+whole process group before it fsyncs and hashes the streams, so no grandchild
+still writes to them. If the guardian dies, the controller stops the programme
 and kills its recorded CLI process group.
 
 There are at most 243 calls including one optional quota probe. A substantive

@@ -6,6 +6,7 @@ then fsynced and hashed streams the grandchild could still write to, and the del
 grandchild's state right after the timeout raced it (CI run 38076411964). Each case runs against both runners'
 copies, which must stay identical: the judge runner's guardian imports no repository module.
 """
+import ast
 import inspect
 import os
 import signal
@@ -53,12 +54,19 @@ GRANDCHILDREN = {
 
 
 def _running(pid: int) -> bool:
-    """Whether the pid can still run: a zombie, which a reaper-less container leaves behind, cannot."""
+    """Whether the pid can still run: a zombie, which a reaper-less container leaves behind, cannot. Without /proc,
+    signal 0 answers (a zombie counts there, and an init that reaps clears it)."""
+    if not Path("/proc/self/stat").is_file():
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        return True
     try:
-        state = Path(f"/proc/{pid}/stat").read_text().rpartition(")")[2].split()[0]
+        state = Path(f"/proc/{pid}/stat").read_bytes().rpartition(b")")[2].split()[0]
     except (FileNotFoundError, ProcessLookupError):
         return False
-    return state not in ("Z", "X")
+    return state not in (b"Z", b"X")
 
 
 @pytest.fixture
@@ -117,9 +125,15 @@ def test_a_zombie_is_no_live_member(tmp_path: Path) -> None:
         (tmp_path / str(pid)).mkdir()
         (tmp_path / str(pid) / "stat").write_bytes(b"%d (%s) %s 1 %d %d 0 -1\n" % (pid, name, state.encode(), pgid, session))
 
+    (tmp_path / "self").mkdir()
+    (tmp_path / "self" / "stat").write_bytes(b"1 (pytest) S 0 1 1 0 -1\n")  # a mounted /proc
+    (tmp_path / "net").mkdir()
+    (tmp_path / "net" / "stat").write_bytes(b"0 (net) S 1 4242 4242 0 -1\n")  # not a pid: never a member
+    (tmp_path / "104").mkdir()  # exited while the scan ran: its stat is gone
     stat(100, b"sh", "Z", 4242)
     stat(101, b"odd) S 1 4242 x", "Z", 4242)
     stat(102, b"app-\xd0", "S", 7, session=4242)  # not UTF-8, and its session (not its group) is 4242
+    stat(105, b"dead", "X", 4242)
     assert not delivery._group_alive(4242, tmp_path)
     stat(103, b"sleep", "S", 4242)
     assert delivery._group_alive(4242, tmp_path)
@@ -127,18 +141,90 @@ def test_a_zombie_is_no_live_member(tmp_path: Path) -> None:
 
     gone = subprocess.Popen([sys.executable, "-c", "pass"], start_new_session=True)
     gone.wait()
-    missing = tmp_path / "absent"
-    assert delivery._group_alive(os.getpgrp(), missing)
-    assert not delivery._group_alive(gone.pid, missing)
+    for elsewhere in (tmp_path / "absent", tmp_path / "net"):  # no /proc, or one with no stat of its own (unmounted)
+        assert delivery._group_alive(os.getpgrp(), elsewhere)
+        assert not delivery._group_alive(gone.pid, elsewhere)
+
+
+@RUNNERS
+def test_a_member_no_signal_reaches_is_not_reported_as_signalled(runner, group, monkeypatch) -> None:
+    """killpg fails with EPERM when the child is gone and only another user's member is left: nothing is sent, so
+    nothing is reported, and no grace period is spent on it. When only SIGKILL meets EPERM, SIGTERM is what was sent."""
+    proc, _ = group("plain", then="exit")
+    proc.wait()
+    monkeypatch.setattr(runner, "_group_alive", lambda pgid, proc_root=Path("/proc"): True)
+    monkeypatch.setattr(runner, "_GROUP_GRACE_SECONDS", 0.2)
+
+    def refuse(pgid: int, sig: int) -> None:
+        raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr(runner.os, "killpg", refuse)
+    started = time.monotonic()
+    assert runner._terminate_group(proc) is None
+    assert time.monotonic() - started < 0.1
+
+    def refuse_sigkill(pgid: int, sig: int) -> None:
+        if sig == signal.SIGKILL:
+            refuse(pgid, sig)
+
+    monkeypatch.setattr(runner.os, "killpg", refuse_sigkill)
+    assert runner._terminate_group(proc) == "SIGTERM"
+
+
+def _reached(module, name: str, seen: set[str]) -> None:
+    """Every module-level function or constant of ``module`` that ``name`` reaches, through nested code too."""
+    if name in seen or not hasattr(module, name):
+        return
+    value = getattr(module, name)
+    if inspect.ismodule(value) or (inspect.isclass(value) and value.__module__ != module.__name__):
+        return  # os, signal, Path: shared, not held twice
+    seen.add(name)
+    if inspect.isfunction(value) and value.__module__ == module.__name__:
+        codes = [value.__code__]
+        while codes:
+            code = codes.pop()
+            codes.extend(const for const in code.co_consts if inspect.iscode(const))
+            for reached in code.co_names:
+                _reached(module, reached, seen)
 
 
 def test_both_runners_hold_the_same_group_termination() -> None:
     """The judge runner's guardian runs its file as a script and imports no repository module, so the code is held
-    twice; a fix to one copy must reach the other."""
-    for name in ("_group_alive", "_drain_group", "_terminate_group"):
-        assert inspect.getsource(getattr(delivery, name)) == inspect.getsource(getattr(judge_runner, name)), name
-    for name in ("_GROUP_GRACE_SECONDS", "_GROUP_POLL_SECONDS"):
-        assert getattr(delivery, name) == getattr(judge_runner, name), name
+    twice; a fix to anything ``_terminate_group`` reaches, in one copy, must reach the other."""
+    names: set[str] = set()
+    _reached(delivery, "_terminate_group", names)
+    _reached(judge_runner, "_terminate_group", names)
+    assert {"_group_alive", "_drain_group", "_GROUP_GRACE_SECONDS", "_GROUP_POLL_SECONDS"} <= names
+    for name in sorted(names):
+        ours, theirs = getattr(delivery, name), getattr(judge_runner, name)
+        if inspect.isfunction(ours):
+            assert inspect.getsource(ours) == inspect.getsource(theirs), name
+        else:
+            assert ours == theirs, name
+
+
+def _try_around_fsync(function) -> ast.Try:
+    """The ``try`` whose ``finally`` fsyncs the CLI's streams."""
+    tree = ast.parse(inspect.getsource(function))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Try) and any(
+                isinstance(call, ast.Call) and ast.unparse(call.func) == "os.fsync"
+                for stmt in node.finalbody for call in ast.walk(stmt)):
+            return node
+    raise AssertionError(f"{function.__name__} fsyncs no stream in a finally")
+
+
+@pytest.mark.parametrize("function", [delivery.run_route_process, judge_runner._guardian_main],
+                         ids=["delivery", "judge"])
+def test_the_group_is_ended_before_the_streams_are_fsynced(function) -> None:
+    """On every path that reaches the fsync, the group is ended in the ``try`` body that the ``finally`` follows, after
+    the child's ``communicate`` (a straggler's bytes must not be hashed into the receipt unfsynced)."""
+    body = _try_around_fsync(function).body
+    calls = [ast.unparse(call.func) for stmt in body for call in ast.walk(stmt) if isinstance(call, ast.Call)]
+    assert any(name.endswith("communicate") for name in calls)
+    last = body[-1]
+    assert isinstance(last, (ast.Expr, ast.Assign)) and isinstance(last.value, ast.Call)
+    assert ast.unparse(last.value.func) == "_terminate_group", ast.unparse(last)
 
 
 def _route(tmp_path: Path, leader: str, timeout_seconds: int):
@@ -153,7 +239,8 @@ def _writer(ignore_sigterm: bool) -> str:
     return (
         "import os, pathlib, signal, sys, time\n"
         + ("signal.signal(signal.SIGTERM, signal.SIG_IGN)\n" if ignore_sigterm else "")
-        + "pathlib.Path('writer.pid').write_text(str(os.getpid()))\n"
+        + "pathlib.Path('writer.tmp').write_text(str(os.getpid()))\n"
+        "os.replace('writer.tmp', 'writer.pid')\n"  # appears whole
         "while True:\n"
         "    sys.stdout.write('x'); sys.stdout.flush(); time.sleep(0.02)\n"
     )
@@ -179,6 +266,15 @@ def test_nothing_writes_to_the_delivery_streams_after_a_timeout(tmp_path: Path, 
     """A grandchild that ignores SIGTERM and keeps writing to the inherited stdout is killed before the runner
     fsyncs its streams, so the stdout the receipt hashes is final."""
     monkeypatch.setattr(delivery, "_GROUP_GRACE_SECONDS", 0.5)
+    alive_at_fsync: list[bool] = []
+    real_fsync = os.fsync
+
+    def fsync(fd: int) -> None:
+        pid_file = tmp_path / "writer.pid"
+        alive_at_fsync.append(pid_file.exists() and _running(int(pid_file.read_text())))
+        real_fsync(fd)
+
+    monkeypatch.setattr(delivery.os, "fsync", fsync)
     leader = (
         "import os, subprocess, sys, time\n"
         f"subprocess.Popen([sys.executable, '-c', {_writer(ignore_sigterm=True)!r}])\n"
@@ -188,6 +284,7 @@ def test_nothing_writes_to_the_delivery_streams_after_a_timeout(tmp_path: Path, 
     )
     result = _route(tmp_path, leader, timeout_seconds=2)  # ample time for the writer to set SIGTERM aside
     assert result.timed_out and result.kill_signal == "SIGKILL"
+    assert alive_at_fsync == [False, False]  # stdout and stderr, each fsynced once the writer is dead
     assert not _running(int((tmp_path / "writer.pid").read_text()))
     _assert_stream_final(tmp_path)
 
@@ -198,9 +295,8 @@ def test_nothing_writes_to_the_delivery_streams_after_the_child_exits(tmp_path: 
     leader = (
         "import os, subprocess, sys, time\n"
         f"subprocess.Popen([sys.executable, '-c', {_writer(ignore_sigterm=False)!r}])\n"
-        "while not os.path.exists('writer.pid'):\n"
+        "while not os.path.exists('writer.pid') or os.path.getsize('stdout.raw') == 0:\n"
         "    time.sleep(0.01)\n"
-        "time.sleep(0.1)\n"
     )
     result = _route(tmp_path, leader, timeout_seconds=30)
     assert (result.exit_code, result.timed_out, result.kill_signal) == (0, False, "SIGTERM")

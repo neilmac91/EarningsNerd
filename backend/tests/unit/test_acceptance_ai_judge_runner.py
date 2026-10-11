@@ -208,6 +208,8 @@ def test_a_cli_grandchild_is_ended_before_the_guardian_hashes_the_streams(tmp_pa
         assert run_one(root, "H01-candidate-1", cli=fake)["status"] == "verdict"
         assert _process_is_terminated(int(writer.read_text()))
         assert inspect(root)["stop_reason"] is None
+        [stderr] = (root / "attempts").glob("*/stderr.txt")
+        assert b"xxxx" in stderr.read_bytes()  # the straggler did write after the CLI's verdict
     finally:
         try:
             os.kill(int(writer.read_text()), signal.SIGKILL)

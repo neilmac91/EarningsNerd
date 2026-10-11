@@ -56,8 +56,11 @@ delivery root, including after an `unknown` outcome, is refused. The journal kee
 memory, so the lock's scope is the delivery root and **one delivery root per journal** is the
 operator rule (the probe manifest pins one). `request.json` and `stdin.bin` are published
 create-once before the spawn; `stdout.raw`/`stderr.raw` are file-backed so partial output survives a
-timeout; the child runs in its own session in an empty `cwd` and its process group is terminated
-(SIGTERM, then SIGKILL) on timeout. `receipt.json` is written after the process ends; if the
+timeout; the child runs in its own session in an empty `cwd` and, once it exits or times out, its
+whole process group is ended (SIGTERM, then SIGKILL for whatever still runs after the grace period)
+before the streams are fsynced, so no grandchild still writes to them; `process.kill_signal` records
+the strongest signal the group received, on a normal exit too. `receipt.json` is written after the
+process ends; if the
 dispatch raises before that (a spawn error, for instance) the ledger stays **incomplete** with no
 receipt, still blocks redispatch, and the operator settles or retires through the journal after
 inspection. The raw streams are retained unredacted for local custody: before any ledger file leaves
@@ -158,4 +161,6 @@ validate_delivery_binding(journal_root, delivery_root, reservation_id=reservatio
 Tests: `backend/tests/unit/test_acceptance_source_review_delivery.py` (offline; an injected fake
 route for classification and the ledger, plus one run of the default subprocess runner against a
 fake `claude` executable that echoes the stdin hash and, on a sleep trigger, proves partial-output
-retention and process-group termination).
+retention and process-group termination), and
+`backend/tests/unit/test_acceptance_process_groups.py` (both runners' group termination: a
+grandchild that outlives the child, on a timeout or a normal exit, is ended before the fsync).
