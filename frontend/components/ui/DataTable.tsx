@@ -22,14 +22,14 @@
        sticks to the left of the scroll container on an opaque panel
        surface with a token hairline on its right edge, so a wide financial
        table can scroll horizontally without losing the row label. Body
-       cells repaint on row hover via `group-hover` (their own opaque fill
-       would otherwise mask the row's hover brighten). Composes cleanly
+       cells retain an opaque fill on hover; a translucent replacement
+       would expose the values scrolling beneath the label. Composes cleanly
        with stickyHeader — the header's first cell (the "corner") gets a
        higher z-index than both plain sticky-header cells and the sticky
        column's body cells, so it is never overlapped by either.
 ============================================================================= */
 
-import { type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useContentIn } from '../../hooks/useContentIn'
 import { cx } from './cx'
 import { Skeleton } from './Skeleton'
@@ -65,6 +65,8 @@ export interface Column<T> {
   tone?: (row: T) => CellTone | undefined
   /** Header becomes a sort button (needs `onSort` on the table). */
   sortable?: boolean
+  /** Render the body cell as a semantic row header. Opt-in; unrelated tables retain td cells. */
+  rowHeader?: boolean
 }
 
 export interface SortState {
@@ -92,6 +94,15 @@ export interface DataTableProps<T> {
   stickyFirstColumn?: boolean
   /** Accessible summary, rendered sr-only. */
   caption?: string
+  /** Fixed layout uses explicit CSS widths (including rem or responsive CSS variables). */
+  layout?: 'auto' | 'fixed'
+  colWidths?: readonly string[]
+  /** Narrow horizontal insets for dense, fixed-width columns; independent of row density. */
+  cellPadding?: 'standard' | 'compact'
+  /** Opt-in, named keyboard scroll region; child controls retain their own keys. */
+  scrollRegion?: { label: string; hint?: string; startAtEndOnMobile?: boolean }
+  /** Equal data columns after the optional sticky label column snap to their full width. */
+  snapColumns?: boolean
   className?: string
 }
 
@@ -132,11 +143,63 @@ export function DataTable<T extends Record<string, unknown>>({
   stickyHeader = false,
   stickyFirstColumn = false,
   caption,
+  layout = 'auto',
+  colWidths,
+  cellPadding = 'standard',
+  scrollRegion,
+  snapColumns = false,
   className,
 }: DataTableProps<T>) {
   const colSpan = columns.length
   const showRows = !loading && !error && rows.length > 0
   const d = DENSITY[density]
+  const inset = cellPadding === 'compact' ? 'px-px md:px-1' : 'px-3'
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const tableRef = useRef<HTMLTableElement>(null)
+  const geometry = useRef({ step: 0, inset: 0, range: 0 })
+  const initialized = useRef(false)
+  const [overflows, setOverflows] = useState(false)
+  const hintId = useId()
+  const fixedWidth = layout === 'fixed' && colWidths?.length === columns.length
+    ? `max(100%, calc(${colWidths.join(' + ')}))` : undefined
+  const startAtEndOnMobile = scrollRegion?.startAtEndOnMobile
+
+  useEffect(() => {
+    const scroll = scrollRef.current
+    const table = tableRef.current
+    if (!scroll || !table || !snapColumns) return
+    const measure = () => {
+      const previous = geometry.current
+      const columnIndex = previous.step ? Math.round(scroll.scrollLeft / previous.step) : 0
+      // Remove the old pad before measuring: resize and text-size changes must never compound it.
+      scroll.style.paddingInlineEnd = '0px'
+      const headers = table.tHead?.rows[0]?.cells
+      const insetWidth = stickyFirstColumn ? headers?.[0]?.getBoundingClientRect().width ?? 0 : 0
+      const step = headers?.[stickyFirstColumn ? 1 : 0]?.getBoundingClientRect().width ?? 0
+      if (!step || !scroll.clientWidth) return
+      const range = Math.max(0, scroll.scrollWidth - scroll.clientWidth)
+      const pad = range > 0 ? (step - range % step) % step : 0
+      scroll.style.paddingInlineEnd = `${pad}px`
+      scroll.style.scrollPaddingInlineStart = `${insetWidth}px`
+      const wholeRange = range + pad
+      geometry.current = { step, inset: insetWidth, range: wholeRange }
+      setOverflows(range > 0)
+      const newest = !initialized.current && startAtEndOnMobile && window.matchMedia('(max-width: 767px)').matches
+      scroll.scrollLeft = newest ? wholeRange : Math.min(columnIndex * step, wholeRange)
+      initialized.current = true
+    }
+    measure()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
+    observer?.observe(scroll)
+    observer?.observe(table)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', measure)
+      scroll.style.paddingInlineEnd = ''
+      scroll.style.scrollPaddingInlineStart = ''
+    }
+  }, [snapColumns, stickyFirstColumn, fixedWidth, startAtEndOnMobile])
 
   // Skeleton→content handoff: when `loading` flips false, whatever replaces the
   // skeleton rows (data, empty, error) crossfades in; tables that never load
@@ -149,16 +212,63 @@ export function DataTable<T extends Record<string, unknown>>({
   const rowBorder = (i: number) => (stickyHeader && i === 0 ? undefined : ROW_BORDER)
 
   return (
-    <div className={cx(stickyHeader ? 'overflow-auto' : 'overflow-x-auto', className)}>
+    <>
+    {scrollRegion?.hint && overflows && <p id={hintId} className="mb-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">{scrollRegion.hint}</p>}
+    <div
+      ref={scrollRef}
+      role={scrollRegion ? 'region' : undefined}
+      tabIndex={scrollRegion ? 0 : undefined}
+      aria-label={scrollRegion?.label}
+      aria-describedby={scrollRegion?.hint && overflows ? hintId : undefined}
+      className={cx(
+        (scrollRegion || snapColumns) && 'relative',
+        stickyHeader ? 'overflow-auto' : 'overflow-x-auto',
+        scrollRegion && 'rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+        snapColumns && 'snap-x snap-mandatory',
+        className,
+      )}
+      onKeyDown={scrollRegion ? (event) => {
+        if (event.target !== event.currentTarget || event.altKey || event.ctrlKey || event.metaKey) return
+        const scroll = event.currentTarget
+        const step = geometry.current.step || scroll.clientWidth
+        if (!step) return
+        const range = Math.max(0, scroll.scrollWidth - scroll.clientWidth)
+        const position = Math.round(scroll.scrollLeft / step) * step
+        const target = event.key === 'ArrowRight' ? position + step : event.key === 'ArrowLeft' ? position - step
+          : event.key === 'Home' ? 0 : event.key === 'End' ? range : undefined
+        if (target == null) return
+        event.preventDefault()
+        scroll.scrollLeft = Math.max(0, Math.min(target, range))
+      } : undefined}
+      onFocusCapture={snapColumns ? (event) => {
+        if (event.target === event.currentTarget) return
+        const cell = (event.target as HTMLElement).closest('td, th')
+        const scroll = event.currentTarget
+        const { step, inset: stickyWidth } = geometry.current
+        if (!cell || !scroll.contains(cell) || !step || (cell === cell.parentElement?.firstElementChild && stickyFirstColumn)) return
+        const bounds = cell.getBoundingClientRect()
+        const viewport = scroll.getBoundingClientRect()
+        // Native focus scrolling does not consistently reserve an overlaid sticky column.
+        if (bounds.left < viewport.left + stickyWidth) {
+          scroll.scrollLeft = Math.max(0, Math.round((scroll.scrollLeft + bounds.left - viewport.left - stickyWidth) / step) * step)
+        } else if (bounds.right > viewport.right) {
+          scroll.scrollLeft = Math.ceil((scroll.scrollLeft + bounds.right - viewport.right) / step) * step
+        }
+      } : undefined}
+    >
       <table
+        ref={tableRef}
+        style={fixedWidth ? { width: fixedWidth } : undefined}
         className={cx(
           'w-full',
+          layout === 'fixed' && 'table-fixed',
           d.text,
           stickyHeader || stickyFirstColumn ? 'border-separate border-spacing-0' : 'border-collapse'
         )}
         aria-busy={loading || undefined}
       >
         {caption ? <caption className="sr-only">{caption}</caption> : null}
+        {layout === 'fixed' && colWidths && <colgroup>{colWidths.map((width, index) => <col key={columns[index]?.key ?? index} style={{ width }} />)}</colgroup>}
         <thead>
           {/* 12px uppercase metric-label header — eyebrow tracking 0.08em (--track-eyebrow), matching .markdown-body th */}
           <tr className="text-left text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
@@ -171,7 +281,8 @@ export function DataTable<T extends Record<string, unknown>>({
                   scope="col"
                   aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}
                   className={cx(
-                    'px-3 font-semibold',
+                    inset, 'font-semibold',
+                    snapColumns && !isFirstCol && 'snap-start',
                     d.headerY,
                     c.align === 'right' && 'text-right',
                     stickyHeader && STICKY_TH,
@@ -223,7 +334,7 @@ export function DataTable<T extends Record<string, unknown>>({
                       <td
                         key={c.key}
                         className={cx(
-                          'px-3',
+                          inset,
                           d.skelY,
                           rowBorder(r),
                           isFirstCol && STICKY_COL_BASE,
@@ -262,30 +373,34 @@ export function DataTable<T extends Record<string, unknown>>({
             ? rows.map((row, i) => (
                 <tr
                   key={rowKey(row, i)}
-                  // `group` lets the sticky first column repaint on row hover via group-hover
-                  // (its own opaque fill would otherwise mask the row's hover brighten, since a
-                  // td's background paints over whatever the tr's hover background shows through).
+                  // Light sticky labels brighten with the row; dark labels keep their opaque
+                  // panel fill. Replacing that fill with the row's translucent white tint
+                  // would let horizontally scrolled values show through the sticky label.
                   className="group transition-colors hover:bg-white dark:hover:bg-white/[0.03]"
                 >
                   {columns.map((c, colIndex) => {
                     const tone = c.tone?.(row)
                     const isFirstCol = colIndex === 0 && stickyFirstColumn
+                    const Cell = c.rowHeader ? 'th' : 'td'
                     return (
-                      <td
+                      <Cell
                         key={c.key}
+                        scope={c.rowHeader ? 'row' : undefined}
                         className={cx(
-                          'px-3',
+                          inset,
+                          c.rowHeader && cx('font-normal', c.align !== 'right' && 'text-left'),
+                          snapColumns && !isFirstCol && 'snap-start',
                           d.cellY,
                           rowBorder(i),
                           c.align === 'right' && 'text-right',
                           c.numeric && 'font-data tabular-nums',
                           tone && TONE[tone],
-                          isFirstCol && cx(STICKY_COL_BASE, 'group-hover:bg-white dark:group-hover:bg-white/[0.03]'),
+                          isFirstCol && cx(STICKY_COL_BASE, 'group-hover:bg-white dark:group-hover:bg-panel-dark'),
                           bodyZIndex(isFirstCol)
                         )}
                       >
                         {c.render ? c.render(row) : (row[c.key] as ReactNode)}
-                      </td>
+                      </Cell>
                     )
                   })}
                 </tr>
@@ -294,5 +409,6 @@ export function DataTable<T extends Record<string, unknown>>({
         </tbody>
       </table>
     </div>
+    </>
   )
 }

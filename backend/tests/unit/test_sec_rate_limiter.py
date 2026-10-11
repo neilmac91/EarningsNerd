@@ -68,7 +68,10 @@ class TestRetryAfterHonored:
         async def _fake_sleep(seconds):
             waits.append(seconds)
 
-        monkeypatch.setattr("app.services.sec_rate_limiter.asyncio.sleep", _fake_sleep)
+        monkeypatch.setattr(
+            "app.services.sec_rate_limiter.asyncio",
+            SimpleNamespace(Lock=asyncio.Lock, sleep=_fake_sleep),
+        )
 
         limiter = SECRateLimiter(requests_per_second=100, max_retries=2, base_backoff_seconds=0.5)
         calls = {"n": 0}
@@ -90,7 +93,10 @@ class TestRetryAfterHonored:
         async def _fake_sleep(seconds):
             waits.append(seconds)
 
-        monkeypatch.setattr("app.services.sec_rate_limiter.asyncio.sleep", _fake_sleep)
+        monkeypatch.setattr(
+            "app.services.sec_rate_limiter.asyncio",
+            SimpleNamespace(Lock=asyncio.Lock, sleep=_fake_sleep),
+        )
 
         limiter = SECRateLimiter(requests_per_second=100, max_retries=2, base_backoff_seconds=0.5)
 
@@ -127,8 +133,14 @@ async def test_elapsed_refill_is_spent_once(monkeypatch, scenario):
         "app.services.sec_rate_limiter.time",
         SimpleNamespace(monotonic=lambda: clock.now),
     )
-    monkeypatch.setattr("app.services.sec_rate_limiter.asyncio.sleep", fake_sleep)
+    monkeypatch.setattr(
+        "app.services.sec_rate_limiter.asyncio",
+        SimpleNamespace(Lock=asyncio.Lock, sleep=fake_sleep),
+    )
     limiter = SECRateLimiter(requests_per_second=4)
+
+    # Caller/background sleeps must not advance the limiter's simulated clock.
+    await asyncio.sleep(0)
 
     async def request() -> None:
         admitted.append(clock.now)

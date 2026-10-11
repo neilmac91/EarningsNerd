@@ -195,6 +195,7 @@ def facts_job_sessions(tmp_path, monkeypatch):
 def test_facts_job_returns_read_lease_preserving_real_work(facts_job_sessions, monkeypatch, available, expire):
     from scripts import backfill_facts
     from app.services import facts_service
+    from app.services.facts import jobs
     from tests.unit.test_facts_service import _COMPANYFACTS
 
     factory, engine = facts_job_sessions
@@ -239,7 +240,7 @@ def test_facts_job_returns_read_lease_preserving_real_work(facts_job_sessions, m
         return original_process(db, filing, **kwargs)
 
     monkeypatch.setattr(facts_service, "backfill_facts", run_service)
-    monkeypatch.setattr(facts_service, "process_filing_facts", process)
+    monkeypatch.setattr(jobs, "process_filing_facts", process)
     monkeypatch.setattr(facts_service, "_fetch_companyfacts_sync", fetch)
     backfill_facts._main(only_unprocessed=True, limit=2)
     assert order == ["LEASE-0", "LEASE-1"] and fetches == ["81001"]

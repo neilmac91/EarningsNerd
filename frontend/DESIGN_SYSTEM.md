@@ -237,6 +237,87 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  (the 600-level gain/loss are chips + graphics only — the 3:1 non-text floor).
                  lib/financialTone.directionText IS this recipe — route delta text through it.
 
+Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated origin, then a superscript
+                 letter for its grouped data note. The letter is text-data-xs (11px minimum), zero
+                 line-height, and does not size its row. Warning ink belongs only to unresolved review
+                 concerns; unavailable values and missing validation use secondary ink. The mark is
+                 aria-hidden inside the figure's source button; its accessible name states the note
+                 and any inherited comparison note. Letters are snapshot-local, review notes first.
+                 Data notes counts distinguish values, QoQ, YoY and annual window comparisons;
+                 a missing validation record is never counted as a passed check. Preserve every
+                 reason, including comparison-only concerns. Full-width status Badges and nowrap
+                 labels do not belong in an analysis KPI or metrics cell.
+                 MetricsTable opts into compact mark spacing so an amount and its affixes stay
+                 together in a fixed period column; the other surfaces retain standard spacing.
+
+Data table hover <DataTable> — ordinary rows use hover:bg-white dark:hover:bg-white/[0.03].
+                 With stickyFirstColumn, first-column body cells stay opaque: light hover uses
+                 group-hover:bg-white; dark hover retains dark:group-hover:bg-panel-dark. The
+                 ordinary row tint must not replace that opaque fill and reveal scrolled values.
+
+Analysis table   <MetricsTable> — equal rem period columns with a semantic sticky row-header column.
+                 The named scroll region supports Left/Right by one measured column, Home/End,
+                 and mandatory snapping. Inline-end padding makes the entire scroll range a whole
+                 number of columns; resize and enlarged text recompute the actual rendered widths.
+                 Focused figure controls are scrolled clear of the sticky labels. Phones start at
+                 the newest period, with a visible scrolling hint when columns are off-screen.
+                 A table-only segmented window defaults to All, with Newest 6 and Earliest 6 when
+                 more than six periods exist. Charts, KPI cards, data-note totals and full exports
+                 retain the complete selected dataset. A new report resets the table window.
+                 Headers show quarter/year on two lines. The change basis is stated once, while
+                 a fallback YoY comparison retains its explicit prefix. Only a period-derived Q4
+                 receives a column dagger; ordinary arithmetic ratios do not create one.
+                 Table-only formatting keeps complete amounts and affixes together: normal precision
+                 first, then fewer decimals, compact scale or scientific notation for large tokens.
+                 Signs and percent/ratio units remain. USD keeps its dollar symbol; other currency
+                 codes appear in the metric row heading (including per-share units), with signed
+                 numeric amounts in its cells so long currency prefixes cannot widen the table.
+                 Source evidence retains every original currency and value. The visible rounding note
+                 directs readers to full-precision evidence; the dialog keeps the original value
+                 and ordinary comparison display. Shared financial formatters remain unchanged.
+                 DataTable's layout, colWidths, compact cellPadding, named scrollRegion, snapColumns
+                 and Column.rowHeader options are opt-in; other consumers retain their geometry.
+
+Analysis evidence <SourceValue> — the shared Modal presents financial display form, exact supplied
+                 value and human-readable units, then Method, Checks, and recorded source lineage.
+                 Formula substitution uses operand identity, not list position; it only asserts an
+                 equality for a passed calculation. Missing lineage is stated explicitly, never
+                 represented as recorded inputs or a scheduled repair. Original SEC links and
+                 nested inputs remain accessible; raw tags sit in technical disclosures. Annual
+                 growth fractions and percentage-point changes retain their distinct units.
+
+Analysis reading <NarrativePane> — compact monetary amounts and quarter labels in prose, without
+                 changing link destinations, code or source excerpts. Preserve enough precision
+                 to keep a stated comparison meaningful. Recognized code-owned operand lists
+                 become evidence disclosures with their original citations; unrecognized content
+                 remains visible. Source entries retain the exact supplied value beside compact
+                 display. A quiet source count and Notes control replace repeated status labels.
+
+Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly, recent-period
+                 presets, compact From/To Select fields, and one availability/range summary.
+                 Moving an endpoint keeps the range ordered and within the server-provided cap.
+                 Unavailable annual years remain visible but disabled; Quarterly is disabled when
+                 there are no quarterly options. Table windows never alter this report selection.
+
+Analysis KPI     <KpiStrip> — a definition list, two cards across at phone widths and four from lg.
+                 Each Card groups a metric-only dt and two dd rows: the 24px data-face value/source
+                 button, then the actual reporting period and delta. Cards span three subgrid rows,
+                 so wrapped labels do not move neighbouring values. The period and delta wrap as
+                 independent inline items; an older populated point says "latest available" beside
+                 its actual period. Missing comparisons leave the period visible. Cards use 12px
+                 padding below sm and 16px above, preserving the two-up 320px treatment.
+
+Data notes strip <DataNotes> — hairlines above and below a native details disclosure on the page
+                 ground, below the KPIs. The title uses primary ink; counts use the data face, with
+                 review counts in warning ink and an all-passed count in sage. Unknown validation,
+                 unavailable and calculated counts remain separate. Expanded notes use two columns:
+                 the letter, then its reason, affected metric/periods and distinct comparison counts.
+                 Existing Sources & methods prose, source date and snapshot reference stay inside.
+                 Note chips reveal and focus the same stable note ID. Citation-only supplemental
+                 notes remain in the narrative and do not increase the report's figure counts.
+                 formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
+                 FY2026 and all API/snapshot/selection keys retain their original identity.
+
 Solid chip       <Badge variant="solid">  — the primary colorway as a chip (brand.strong fill +
                  white label; dark: NAVY ink on brand.dark) for brand-weak TINTED grounds where the
                  tint chips vanish. <Badge variant="info"> = the info STATE tint
@@ -284,7 +365,8 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
                  `fullWidth` stretches the segments across a phone row and wraps them onto another row when
                  they do not fit (a form filter with amendments), so every option stays visible; from sm up
-                 it is one auto-width row.
+                 it is one auto-width row. Optional disabled options remain visible and use native
+                 disabled semantics when unavailable before selection; this is not a busy-state API.
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
@@ -710,14 +792,18 @@ rendered ground.
 ## 10. Charts (recharts)
 
 **Financial source states (October 2026).** Consume the server’s separate `provenance.method`
-and `provenance.validation`; a calculated figure is not an error. Multi-period tables use the
-neutral `† calculated` legend and `SourceValue` buttons opening the shared Modal with source
-links, formulas and operands. `SourcesMethods` provides one report-level explanation; filing
-fundamentals and peers use `SourceChecks`. Amber “Source check needed” means an unresolved
-source concern, never routine arithmetic. Legacy false flags remain concerns until repaired;
-missing metadata makes no passed-check claim. Do not remove inherited concerns from growth.
-Missing values are “Unavailable”, never zero or an assertion that the company did not report
-them. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
+and `provenance.validation`; a calculated figure is not an error. Multi-period analysis uses
+neutral `† calculated` marks and lettered data notes with `SourceValue` buttons opening the shared
+Modal with source links, formulas, operands and the applicable note. The report-level disclosure
+groups concerns by reason and counts figures separately from inherited comparisons. Chart and
+narrative Notes controls open the same note; filing fundamentals and peers retain their own
+source-check presentation. Warning ink identifies an unresolved concern, never routine arithmetic.
+Legacy concerns remain until their stored validation changes; missing metadata makes no passed-check
+claim. Do not remove inherited concerns from growth. Unavailable table values use — with a note
+letter and read “Unavailable” in the evidence view, never zero or a claim that the company did not
+report them. Affected chart points use hollow series-colour markers with a 2px stroke and 11px note letters;
+affected bars have dashed outlines. Value and YoY concerns are independent. PNG notes use the
+same grouped reason sentences beneath the plot, with explicit SVG ink/fonts preserving the marks. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
 source dates, material gaps and a concise disclosure. Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the

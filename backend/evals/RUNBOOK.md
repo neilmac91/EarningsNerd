@@ -792,7 +792,7 @@ tool-call history. `count_uncited_figures` stays advisory and is never consulted
 
 **Duration is the binding proof. Newly ingested facts now carry it; rows written earlier do not,
 and still abstain.** The annual form and the `FY` label are one signal, not two: `facts_service.
-_fiscal_period` derives `FY` from the form. The companyfacts fallback in `edgar/xbrl_service.py`
+_fiscal_period` derives `FY` from the form. The companyfacts fallback in `edgar/xbrl_companyfacts.py`
 only *ranks* the durations sharing a period end, so a lone three-month point ending on the fiscal
 year end is kept and still reaches the fact table labelled `FY`, passing `_valid_fact_provenance`.
 Certifying on the label would put a verified chip on a possibly-quarterly figure, so a fact whose

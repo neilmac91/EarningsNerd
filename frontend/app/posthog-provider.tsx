@@ -5,6 +5,8 @@ import { PostHogProvider as PHProvider } from 'posthog-js/react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, Suspense, useState } from 'react'
 import { getCookiePreferences, type CookiePreferences } from '@/components/CookieConsent'
+import { canRecordTelemetry, onRecordingBlocked, sanitizeTelemetryUrl } from '@/lib/telemetryPrivacy'
+import { initializePostHogPrivacy, postHogPrivacyConfig } from '@/lib/posthogPrivacy'
 
 function PostHogPageView() {
   const pathname = usePathname()
@@ -18,7 +20,7 @@ function PostHogPageView() {
           url = url + `?${searchParams.toString()}`
         }
         posthog.capture('$pageview', {
-          '$current_url': url,
+          '$current_url': sanitizeTelemetryUrl(url),
         })
       } catch (error) {
         console.error('PostHog: Failed to capture pageview', error)
@@ -62,6 +64,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
           if (posthog?.__loaded) {
             // If already loaded, opt out
             posthog.opt_out_capturing()
+            posthog.stopSessionRecording()
           }
           return
         }
@@ -80,23 +83,19 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
             capture_pageview: false, // We handle it manually
             capture_pageleave: consent?.analytics || false,
             autocapture: consent?.analytics || false,
-            session_recording: {
-              maskAllInputs: true, // Mask all inputs by default for privacy
-              maskInputOptions: { password: true },
-              maskTextSelector: '[data-ph-mask]',
-              recordCrossOriginIframes: false,
-              // Only enable session recording if explicitly consented
-              // Note: This is controlled by startSessionRecording() call below
-            },
-            disable_session_recording: !consent?.sessionRecording, // Disable if not consented
+            // Avoid SDK reintroducing raw initial URLs before feature-flag requests. Sanitized
+            // attribution is seeded in loaded, before the SDK requests remote configuration.
+            ...postHogPrivacyConfig(posthog),
+            disable_session_recording: !consent?.sessionRecording || !canRecordTelemetry(),
             bootstrap: { featureFlags: {} },
             loaded: (posthogClient) => {
+              initializePostHogPrivacy(posthog)
               if (process.env.NODE_ENV === 'development') {
                 posthogClient.debug()
               }
 
               // Start session recording only if user explicitly consented
-              if (consent?.sessionRecording) {
+              if (consent?.sessionRecording && canRecordTelemetry()) {
                 posthogClient.startSessionRecording()
               } else {
                 posthogClient.stopSessionRecording()
@@ -118,7 +117,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
             posthog.opt_in_capturing()
 
             // Update session recording based on consent
-            if (consent.sessionRecording) {
+            if (consent.sessionRecording && canRecordTelemetry()) {
               posthog.startSessionRecording()
             } else {
               posthog.stopSessionRecording()
@@ -133,6 +132,10 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    const unsubscribeRecordingGuard = onRecordingBlocked(() => {
+      if (posthog?.__loaded) posthog.stopSessionRecording()
+    })
+
     // Initialize on mount
     initializePostHog()
 
@@ -146,6 +149,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       window.removeEventListener('cookieConsentChanged', handleConsentChange)
+      unsubscribeRecordingGuard()
     }
   }, [initialized])
 

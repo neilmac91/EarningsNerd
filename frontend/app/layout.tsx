@@ -6,7 +6,7 @@ import { SiteHeader, SiteFooter } from '@/components/SiteChrome'
 import VerificationBanner from '@/features/auth/components/VerificationBanner'
 import EmailVerificationModal from '@/features/auth/components/EmailVerificationModal'
 import CookieConsent from '@/components/CookieConsent'
-import { Analytics } from '@vercel/analytics/next'
+import { PrivateAnalytics } from './private-analytics'
 import { fetchSignupConfig } from '@/lib/serverApi'
 import { resolveAccessMode } from '@/features/marketing/lib/access'
 
@@ -124,7 +124,7 @@ export default async function RootLayout({
           <SiteFooter />
           <EmailVerificationModal />
           <CookieConsent />
-          <Analytics />
+          <PrivateAnalytics />
         </Providers>
       </body>
     </html>

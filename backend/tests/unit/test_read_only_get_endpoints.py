@@ -122,8 +122,8 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
 ALLOWED_WRITE_SITES: dict[tuple[str, str], dict[str, dict[str, int]]] = {
     ("app/routers/analysis.py", "get_coverage"): {
         "app/routers/analysis.py::get_coverage": {"create_task": 1},
-        "app/services/facts_service.py::_persist_companyfacts_payload": {"commit": 1},
-        "app/services/facts_service.py::upsert_facts_bulk": {"add": 1, "commit": 1},
+        "app/services/facts/ingest.py::_persist_companyfacts_payload": {"commit": 1},
+        "app/services/facts/upsert.py::upsert_facts_bulk": {"add": 1, "commit": 1},
     },
     ("app/routers/auth.py", "apple_login"): {
         "app/services/oauth_account_service.py::save_apple_state": {"commit": 1},

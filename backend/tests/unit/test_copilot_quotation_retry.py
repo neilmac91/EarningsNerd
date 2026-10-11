@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from main import app
 from app.services import copilot_service
+from app.services.copilot import envelope as copilot_envelope
 from app.services.ai import copilot_chat
 from app.services.ai.copilot_chat import merge_chat_usage
 from app.services.ai.provider_requests import signal_provider_start
@@ -121,6 +122,7 @@ async def test_quotation_retry_safety_gate(monkeypatch, surface):
 
     monkeypatch.setattr(copilot_service, "_select_source_text", select)
     monkeypatch.setattr(copilot_service, "normalize_for_match", normalized)
+    monkeypatch.setattr(copilot_envelope, "normalize_for_match", normalized)
     monkeypatch.setattr(copilot_service.copilot_tools, "run_tool", fact)
     monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
     before = asyncio.get_running_loop().time()

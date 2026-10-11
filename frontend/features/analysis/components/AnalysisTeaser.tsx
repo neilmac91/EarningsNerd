@@ -5,6 +5,8 @@ import KpiStrip from './KpiStrip'
 import MetricsTable from './MetricsTable'
 import NarrativePane from './NarrativePane'
 import TrendCharts from './TrendCharts'
+import DataNotes from './DataNotes'
+import { DataNotesProvider } from './DataNotesContext'
 import demo from '../demo/demo-analysis.json'
 import type { AnalysisCompletion, AnalysisDataset } from '@/features/analysis/api/analysis-api'
 
@@ -24,15 +26,18 @@ export default function AnalysisTeaser({ forTicker }: { forTicker?: string }) {
         {forTicker ? `. Upgrade to run it for ${forTicker.toUpperCase()}` : ''}.
       </p>
       <PeekLocked feature="Multi-Period Analysis">
-        <div className="flex flex-col gap-4">
-          <KpiStrip dataset={demoDataset} />
-          <TrendCharts dataset={demoDataset} />
-          <NarrativePane
-            state={{ status: 'done', text: demoCompletion.narrative, completion: demoCompletion }}
-            sample
-          />
-          <MetricsTable dataset={demoDataset} />
-        </div>
+        <DataNotesProvider dataset={demoDataset}>
+          <div className="flex flex-col gap-4">
+            <KpiStrip dataset={demoDataset} />
+            <DataNotes dataset={demoDataset} sample />
+            <TrendCharts dataset={demoDataset} />
+            <NarrativePane
+              state={{ status: 'done', text: demoCompletion.narrative, completion: demoCompletion }}
+              sample
+            />
+            <MetricsTable dataset={demoDataset} />
+          </div>
+        </DataNotesProvider>
       </PeekLocked>
     </div>
   )

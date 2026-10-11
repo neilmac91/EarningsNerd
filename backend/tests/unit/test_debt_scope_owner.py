@@ -25,6 +25,7 @@ import pandas as pd
 import pytest
 from unittest.mock import patch
 
+from app.services.edgar import xbrl_instance
 from app.services.edgar import xbrl_service as xbrl_module
 from app.services.edgar.debt_concepts import (
     DEBT_CONCEPTS,
@@ -615,7 +616,7 @@ def _patch_company(filings):
             return list(filings)
 
     return patch.object(
-        xbrl_module, "resolve_filing_by_accession",
+        xbrl_instance, "resolve_filing_by_accession",
         lambda cik, accession_number: (_Company(), list(filings)),
     )
 
@@ -646,12 +647,12 @@ def _run_real_path(monkeypatch, debt_frames, model_sections):
     xb = FakeXB(frames)
     monkeypatch.setattr(settings, "RICHER_FINANCIALS_ENABLED", False)
     monkeypatch.setattr(settings, "USE_STATEMENT_FINANCIALS", False)
-    monkeypatch.setattr(xbrl_module, "DURATION_CONCEPTS", {"net_income": ["NetIncomeLoss"]})
-    monkeypatch.setattr(xbrl_module, "INSTANT_CONCEPTS", {
+    monkeypatch.setattr(xbrl_instance, "DURATION_CONCEPTS", {"net_income": ["NetIncomeLoss"]})
+    monkeypatch.setattr(xbrl_instance, "INSTANT_CONCEPTS", {
         "long_term_debt": ["LongTermDebtNoncurrent", "LongTermDebt", "NoncurrentBorrowings"],
     })
-    monkeypatch.setattr(xbrl_module, "dividend_component_sum_series", lambda *a: ([], None))
-    monkeypatch.setattr(xbrl_module, "_extract_segments", lambda *a: [])
+    monkeypatch.setattr(xbrl_instance, "dividend_component_sum_series", lambda *a: ([], None))
+    monkeypatch.setattr(xbrl_instance, "_extract_segments", lambda *a: [])
     with _patch_company([_fake_filing(xb)]):
         raw = _extract_from_filing_instance_sync("0000104169", ACCN)
     metrics = EdgarXBRLService().extract_standardized_metrics(raw)

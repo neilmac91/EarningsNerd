@@ -69,6 +69,16 @@ def test_naive_utcnow_calls_match_the_allowlist():
         for func in _naive_utcnow_sites(py):
             found.add((rel, func))
 
+    for relative in (
+        "services/edgar/xbrl_service.py", "services/edgar/xbrl_cache.py",
+        "services/facts/ingest.py", "services/facts/upsert.py",
+    ):
+        tree = ast.parse((APP_DIR / relative).read_text(encoding="utf-8"))
+        assert not any(
+            isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "now" for node in ast.walk(tree)
+        ), f"{relative}: use app.utils.datetimes.utcnow for the Rule-7 follow-up sites"
+
     assert found == ALLOWED_NAIVE_UTCNOW, (
         "Naive `datetime.utcnow()` call sites in app/ drifted from the allow-list.\n"
         f"  unexpected (add the aware helper instead): {sorted(found - ALLOWED_NAIVE_UTCNOW)}\n"

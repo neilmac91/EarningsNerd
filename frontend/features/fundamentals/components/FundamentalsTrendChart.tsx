@@ -14,7 +14,7 @@ import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { ThemeContext } from '@/components/ThemeProvider'
 import { Card, seriesColor, CHART_SERIES, gridProps, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton } from '@/components/ui'
 import { needsSourceCheck } from '@/features/analysis/lib/provenance'
-import ReconciliationBadge from '@/features/analysis/components/ReconciliationBadge'
+import SourceCheckBadge from '@/features/fundamentals/components/SourceCheckBadge'
 import SourceChecks from '@/features/analysis/components/SourceChecks'
 
 type FmtKind = 'usd' | 'eps' | 'pct' | 'ratio'
@@ -147,7 +147,7 @@ export default function FundamentalsTrendChart({
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Financial Trends</h2>
             {hasUnverified && (
-              <ReconciliationBadge reconciled={false} />
+              <SourceCheckBadge reconciled={false} />
             )}
           </div>
           {subtitle && (

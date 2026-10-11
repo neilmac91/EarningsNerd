@@ -33,6 +33,8 @@ export interface SegmentedOption<T extends string> {
   label: ReactNode
   /** Set the label in the data face (form codes, tickers): Geist Mono + tabular figures. */
   mono?: boolean
+  /** Unavailable before selection (for example, a mode with no data). */
+  disabled?: boolean
 }
 
 export interface SegmentedControlProps<T extends string> {
@@ -55,7 +57,7 @@ const SHELL = cx(
 
 const SEGMENT = cx(
   'inline-flex items-center justify-center whitespace-nowrap rounded font-semibold transition-colors duration-fast',
-  'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+  'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark disabled:cursor-not-allowed disabled:opacity-40',
 )
 
 const SIZE: Record<SegmentedControlSize, string> = {
@@ -88,8 +90,9 @@ export function SegmentedControl<T extends string>({
             key={option.value}
             type="button"
             aria-pressed={selected}
+            disabled={option.disabled}
             onClick={() => {
-              if (!selected) onChange(option.value)
+              if (!selected && !option.disabled) onChange(option.value)
             }}
             className={cx(
               SEGMENT,

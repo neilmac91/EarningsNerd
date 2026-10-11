@@ -28,6 +28,7 @@ from main import app
 from app.routers.auth import get_current_user
 from app.dependencies import _resolve_current_user
 from app.services import copilot_service
+from app.services.copilot import envelope as copilot_envelope
 from app.services.provenance_service import (
     _MIN_VERIFIABLE_LEN,
     extract_quoted_span,
@@ -322,7 +323,7 @@ async def test_service_publishes_plain_section_ref(monkeypatch, section):
 def test_copilot_citations_never_use_the_prefix_tolerant_verifier():
     """Gate: Copilot displays the whole excerpt, so ``_verify_citations`` verifies the whole excerpt.
     The prefix-tolerant helpers serve summary evidence and must not return to this module."""
-    tree = ast.parse(inspect.getsource(copilot_service))
+    tree = ast.parse(inspect.getsource(copilot_envelope))
     referenced = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
     referenced |= {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
     referenced |= {alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)

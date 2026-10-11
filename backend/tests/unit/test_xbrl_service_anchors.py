@@ -13,7 +13,7 @@ xbrl_service's module namespace; X0.5 patches attributes of a throwaway ``EdgarX
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -22,6 +22,7 @@ import httpx
 import pytest
 
 from app.config import settings
+from app.utils.datetimes import utcnow
 from app.services.edgar import client as edgar_client
 from app.services.edgar import xbrl_service
 from app.services.edgar.circuit_breaker import edgar_circuit_breaker
@@ -448,14 +449,15 @@ async def test_x0_5_get_xbrl_data_l1_expiry_branch(
     monkeypatch.setattr(svc, "_get_from_redis", get_l2)
     monkeypatch.setattr(svc, "_fetch_xbrl_data", fetch)
     monkeypatch.setattr(svc, "_set_to_redis", set_l2)
-    # Naive local time on purpose: the L1 stamps and compares with datetime.now() (:207, :692).
-    stamped = datetime.now() - timedelta(hours=age_hours)
+    # Rule 7: L1 stamps, expiry, eviction ages and stats all use aware UTC.
+    stamped = utcnow() - timedelta(hours=age_hours)
     _cache_set_sync(f"{xbrl_service._XBRL_CACHE_VERSION}:{CIK}:{ACC}", (stamped, STALE))
     before = get_xbrl_cache_stats()
 
     assert await svc.get_xbrl_data(ACC, CIK) == served
 
     after = get_xbrl_cache_stats()
+    assert all(stamp.utcoffset() == timedelta(0) for stamp, _ in xbrl_service._xbrl_cache.values())
     assert {key: after[key] - before[key] for key in deltas} == deltas
     assert (after["l1_total_entries"], after["l1_valid_entries"], after["l1_expired_entries"]) == entries
     assert (get_l2.await_count, fetch.await_count, set_l2.await_count) == awaits
