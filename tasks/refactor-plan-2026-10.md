@@ -170,6 +170,9 @@ original proposal; these notes are authoritative for what actually shipped.
     updates the anchor that pins today's behaviour.
     1. IE:648-650 has no NaN guard. Under the pinned pandas 3.0.6, a missing entity id counts as the
        entity "nan", and the debt observation is dropped (I0.4's `a-missing-identifier-arrives-as-nan-and-counts`).
+       **Fixed 2026-10-11:** the comparison uses the existing `_text_or_none` scalar normalizer;
+       missing values no longer invent an entity. I0.4 now requires the observation to survive
+       missing identifiers in either row, while retaining distinct-entity rejection and first-row provenance.
     2. A numeric `filing_date` from the model raises `AttributeError` out of `summarize_filing` at
        O:1051, because the handler at O:1059 catches only `ValueError` and `TypeError`.
     3. The OUTPUT REFERENCE block at O:386-391 never fires. The markers at `prompt_loader.py:50-54` do
