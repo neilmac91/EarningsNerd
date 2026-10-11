@@ -63,7 +63,7 @@ describe('NarrativePane readable evidence', () => {
     const disclosures = Array.from(container.querySelectorAll('details')).filter((element) => element.textContent?.includes('behind this'))
     expect(disclosures).toHaveLength(2)
     expect(disclosures[0]).not.toHaveAttribute('open')
-    fireEvent.click(screen.getByText('Show the 2 figures behind this'))
+    fireEvent.click(screen.getByText('Show the figures behind this'))
     expect(within(disclosures[0]).getByRole('list', { hidden: true })).toHaveAccessibleName('Figures behind this finding')
     expect(within(disclosures[0]).getAllByRole('button', { hidden: true })).toHaveLength(2)
     expect(disclosures[0]).toHaveTextContent('Q2 2026')

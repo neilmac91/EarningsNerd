@@ -54,7 +54,7 @@ export default function DataNotes({ dataset, sample = false }: { dataset: Analys
             {totals.reviewComparisons > 0 && <span className="text-warning-light dark:text-warning-dark"> · {totals.reviewComparisons} {totals.reviewComparisons === 1 ? 'comparison needs' : 'comparisons need'} review</span>}
             {totals.unknown > 0 && <span> · {totals.unknown} {totals.unknown === 1 ? 'figure has' : 'figures have'} no validation record</span>}
             {unknownComparisons > 0 && <span> · {unknownComparisons} {unknownComparisons === 1 ? 'comparison has' : 'comparisons have'} no validation record</span>}
-            {!sample && allPopulatedPassed && totals.passed > 0 && <span className="text-brand-strong dark:text-brand-strong-dark"> · {totals.passed} {totals.passed === 1 ? 'figure' : 'figures'} passed automated checks</span>}
+            {!sample && allPopulatedPassed && totals.passed > 0 && <span> · {totals.passed} {totals.passed === 1 ? 'figure' : 'figures'} passed automated checks</span>}
             {totals.unavailable > 0 && <span> · {totals.unavailable} unavailable</span>}
             {totals.calculated > 0 && <span> · {totals.calculated} calculated †</span>}
           </span>

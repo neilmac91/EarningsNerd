@@ -137,7 +137,7 @@ New gates, each with a mutation proof in the PR (CLAUDE.md rule 12):
 - `brandCopyRules.spec.ts`: shipped copy never says "each figure" or "every figure" without the
   server's scope beside it, never promises nine parts for every filing, and on the public surfaces
   never promises that quotes are withheld or are the filing's own words unless it names risk
-  excerpts; on the public surfaces no sage-coloured element renders a digit; the
+  excerpts; on the public surfaces no sage-coloured element renders a digit (D-030 later widened this to the whole app and to computed values); the
   highlight never sits on a figure or a price, the hero accents included; the margin exists only
   inside `MarkedCopy`, and every `MarkedCopy` carries a marker.
 - `markSingleSource.spec.ts`: every rendition of the EN monogram (the assets, the templates, the

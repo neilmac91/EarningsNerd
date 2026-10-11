@@ -42,6 +42,12 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 const FILES = SCAN_DIRS.flatMap((dir) => walk(path.join(ROOT, dir)))
+/** One program over the scanned files, so rule 2 can ask the checker what an expression renders (a
+ *  number, a template with a number in it, a formatter fed a number), not only what its literals say. */
+const TSCONFIG = ts.readConfigFile(path.join(ROOT, 'tsconfig.json'), ts.sys.readFile)
+const PARSED = ts.parseJsonConfigFileContent(TSCONFIG.config, ts.sys, ROOT)
+const PROGRAM = ts.createProgram(FILES, { ...PARSED.options, noEmit: true, skipLibCheck: true })
+const CHECKER = PROGRAM.getTypeChecker()
 /** The surfaces a stranger meets before signing in, where the brand brief's strict reading holds. */
 const PUBLIC_SURFACES = [
   'app/page.tsx', 'app/not-found.tsx', 'app/waitlist/', 'app/pricing/', 'app/login/', 'app/register/', 'app/forgot-password/',
@@ -49,10 +55,11 @@ const PUBLIC_SURFACES = [
   'components/Header.tsx', 'components/Footer.tsx', 'components/CookieConsent.tsx',
 ]
 const isPublic = (rel: string) => PUBLIC_SURFACES.some((prefix) => (prefix.endsWith('/') ? rel.startsWith(prefix) : rel === prefix))
-const SOURCES = FILES.map((file) => ({
-  rel: path.relative(ROOT, file).split(path.sep).join('/'),
-  sf: ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS),
-}))
+const SOURCES = FILES.map((file) => {
+  const sf = PROGRAM.getSourceFile(file)
+  if (!sf) throw new Error(`${file} is not in the program`)
+  return { rel: path.relative(ROOT, file).split(path.sep).join('/'), sf }
+})
 
 const where = (rel: string, sf: ts.SourceFile, node: ts.Node, text: string) =>
   `${rel}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1} ${JSON.stringify(text.trim().slice(0, 80))}`
@@ -157,6 +164,74 @@ function inkTexts(children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile, out: {
   return out
 }
 
+const NUMBER_LIKE = ts.TypeFlags.NumberLike
+function isNumberTyped(e: ts.Expression): boolean {
+  const t = CHECKER.getTypeAtLocation(e)
+  if (t.flags & NUMBER_LIKE) return true
+  // A union is a number when every member that is not null or undefined is one (`number | null`);
+  // ReactNode and `string | number` carry other things and are not read as values.
+  if (!t.isUnion()) return false
+  const members = t.types.filter((u) => !(u.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)))
+  return members.length > 0 && members.every((u) => (u.flags & NUMBER_LIKE) !== 0)
+}
+
+/** The initializer of a `const` declared in this file under that name, if any (one level, as mappedValues resolves). */
+function localInitializer(id: ts.Identifier, sf: ts.SourceFile): ts.Expression | undefined {
+  let init: ts.Expression | undefined
+  visit(sf, (n) => {
+    if (!init && ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === id.text && n.initializer) init = n.initializer
+  })
+  return init
+}
+
+/** Whether a JSX expression renders a value: a number-typed expression, a template or concatenation
+ *  with a number in it, a string-returning call fed a number (a formatter), a conditional with such
+ *  a branch, or a same-file constant built from one of those. */
+function rendersValue(e: ts.Expression, sf: ts.SourceFile, depth = 0): boolean {
+  const x = unwrap(e)
+  if (depth > 6 || ts.isJsxSelfClosingElement(x)) return false
+  if (ts.isJsxFragment(x)) return inkValues(x.children, sf).length > 0
+  if (ts.isJsxElement(x)) return textColour(x.openingElement) === null && inkValues(x.children, sf).length > 0
+  if (ts.isTemplateExpression(x)) return x.templateSpans.some((span) => rendersValue(span.expression, sf, depth + 1))
+  if (literalText(x) !== null) return false
+  if (ts.isConditionalExpression(x)) return rendersValue(x.whenTrue, sf, depth + 1) || rendersValue(x.whenFalse, sf, depth + 1)
+  if (ts.isBinaryExpression(x)) return rendersValue(x.left, sf, depth + 1) || rendersValue(x.right, sf, depth + 1)
+  if (ts.isCallExpression(x)) return isNumberTyped(x) || x.arguments.some((a) => isNumberTyped(a))
+  if (ts.isIdentifier(x)) {
+    const init = localInitializer(x, sf)
+    if (init) return rendersValue(init, sf, depth + 1)
+  }
+  return isNumberTyped(x)
+}
+
+/** The device's citation marker: an expression set between a "[" and a "]" of its own line of text ("[{n}]"). */
+function citationBracket(children: ts.NodeArray<ts.JsxChild>, i: number): boolean {
+  const before = children[i - 1]
+  const after = children[i + 1]
+  return !!before && !!after && ts.isJsxText(before) && ts.isJsxText(after) && /\[\s*$/.test(before.text) && /^\s*\]/.test(after.text)
+}
+
+/** The expression a link renders as its own address (`<a href={url}>{url}</a>`): text, not a value. */
+function ownAddress(opening: ts.JsxOpeningLikeElement | undefined, e: ts.Expression): boolean {
+  const href = opening?.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'href')
+  return !!href?.initializer && ts.isJsxExpression(href.initializer) && !!href.initializer.expression && href.initializer.expression.getText() === e.getText()
+}
+
+/** The expressions an element renders in its own ink that carry a value (stops at a child with its own colour). */
+function inkValues(children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile, out: ts.Node[] = [], opening?: ts.JsxOpeningLikeElement) {
+  children.forEach((child, i) => {
+    if (ts.isJsxExpression(child) && child.expression) {
+      if (citationBracket(children, i) || ownAddress(opening, child.expression)) return
+      const x = unwrap(child.expression)
+      if (ts.isTemplateExpression(x) && /\[\s*$/.test(x.head.text) && x.templateSpans.length === 1 && /^\s*\]/.test(x.templateSpans[0].literal.text)) return
+      if (ts.isJsxElement(x) || ts.isJsxFragment(x)) { if (ts.isJsxElement(x) ? textColour(x.openingElement) === null : true) inkValues(x.children, sf, out); return }
+      if (rendersValue(child.expression, sf)) out.push(child.expression)
+    } else if (ts.isJsxFragment(child)) inkValues(child.children, sf, out)
+    else if (ts.isJsxElement(child) && textColour(child.openingElement) === null) inkValues(child.children, sf, out)
+  })
+  return out
+}
+
 /** All literal text under an element, whatever its colour (for the highlight rule). */
 function allTexts(node: ts.Node, sf: ts.SourceFile): { node: ts.Node; text: string }[] {
   const out: { node: ts.Node; text: string }[] = []
@@ -251,6 +326,7 @@ describe('brand rule 2: sage never colours a number', () => {
           const trimmed = text.trim()
           if (/\d/.test(trimmed) && !CITATION.test(trimmed)) offenders.push(where(rel, sf, node, trimmed))
         }
+        for (const node of inkValues(n.children, sf, [], n.openingElement)) offenders.push(where(rel, sf, node, `{${node.getText(sf)}}`))
       })
     }
     expect(offenders, 'set the number in the ink (text-text-primary / secondary); sage signals brand and activity').toEqual([])

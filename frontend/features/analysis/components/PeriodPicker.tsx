@@ -131,7 +131,7 @@ export default function PeriodPicker({ coverage, mode, range, onModeChange, onRa
                 onClick={() => { if (preset) onRangeChange(preset) }}
                 className={cx(
                   'rounded-full px-3 py-2 text-xs font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
-                  active ? 'bg-brand-weak text-brand-strong dark:bg-brand-weak-dark dark:text-brand-strong-dark' : 'text-text-secondary-light hover:bg-brand-weak dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark',
+                  active ? 'bg-brand text-white dark:bg-brand-dark dark:text-background-dark' : 'text-text-secondary-light hover:bg-brand-weak dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark',
                 )}
               >
                 Last {count}

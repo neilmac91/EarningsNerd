@@ -81,7 +81,7 @@ function buildNarrativeComponents(citations: AnalysisCitation[], notes: QualityN
 function NarrativeEvidence({ operands, citations, notes, preciseAmounts }: { operands: NarrativeOperand[]; citations: AnalysisCitation[]; notes: QualityNotesModel; preciseAmounts: ReadonlySet<string> }) {
   return <details className="my-3 text-sm">
     <summary className="cursor-pointer rounded text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark">
-      Show the {operands.length} {operands.length === 1 ? 'figure' : 'figures'} behind this
+      Show the {operands.length === 1 ? 'figure' : 'figures'} behind this
     </summary>
     <ul role="list" className="mt-2 list-none !pl-0" aria-label="Figures behind this finding">
       {operands.map((operand, index) => <li key={index} className="!m-0 grid grid-cols-1 gap-x-3 gap-y-1 border-t border-border-light py-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] dark:border-white/10">
@@ -148,7 +148,7 @@ function CitationList({ citations, sample, notes }: { citations: AnalysisCitatio
             className="tnum font-data flex items-baseline gap-2 text-xs text-text-secondary-light dark:text-text-secondary-dark"
           >
             <span className="shrink-0 rounded bg-brand-weak px-1.5 py-0.5 font-semibold text-brand-strong dark:bg-white/10 dark:text-brand-strong-dark">
-              {citation.n}
+              [{citation.n}]
             </span>
             {/* min-w-0 lets this flex child shrink; break-words keeps long unbroken tokens
                 (us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax) inside the card

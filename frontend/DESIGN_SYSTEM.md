@@ -320,7 +320,7 @@ Analysis KPI     <KpiStrip> — a definition list, two cards across at phone wid
 
 Data notes strip <DataNotes> — hairlines above and below a native details disclosure on the page
                  ground, below the KPIs. The title uses primary ink; counts use the data face, with
-                 review counts in warning ink and an all-passed count in sage. Unknown validation,
+                 review counts in warning ink and the all-passed count in the strip's own ink (sage never colours a number, D-030). Unknown validation,
                  unavailable and calculated counts remain separate. Expanded notes use two columns:
                  the letter, then its reason, affected metric/periods and distinct comparison counts.
                  Existing Sources & methods prose, source date and snapshot reference stay inside.
