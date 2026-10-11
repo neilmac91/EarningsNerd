@@ -10,12 +10,15 @@ the second reads the mirror, so the viewer fetched the content twice in parallel
 settled last won. A unit spec that queued one mocked answer for the first call saw the second call's
 default answer instead, which is how it surfaced (EN-01).
 
-**Rule**: When more than one effect can start the same async work in one commit, the work itself
-carries a synchronous guard: a ref set before the first `await` and cleared in `finally`. State
-mirrors read during effects describe the last render, not the current pass, so they cannot
-serialize starts. Pin it with a spec that counts the calls after the double trigger.
+**Rule**: When more than one effect can start the same async work in one commit, one owner
+serializes it synchronously: a local loader uses a ref set before the first `await` and cleared in
+`finally`; a query joins the cache's in-flight request. State mirrors read during effects describe
+the last render, not the current pass, so they cannot serialize starts. Pin it with a spec that
+counts the calls after the double trigger.
 
-**Evidence**: `frontend/features/filings/components/copilot/FilingViewer.tsx` (`inFlight` ref in
-`load`). `tests/unit/FilingViewerEmbedded.spec.tsx` "repeated activation of the same citation
-highlights again each time" asserts one fetch for the chip-driven first activation; without the guard
-it is two.
+**Evidence**: `frontend/features/filings/components/copilot/FilingViewer.tsx` originally used an
+`inFlight` ref in `load`. Its retained-failure recovery now uses the registered `filingContent` query:
+the query cache owns the synchronous in-flight guard, and a citation retry joins it with
+`cancelRefetch: false`. `tests/unit/FilingViewerEmbedded.spec.tsx` "repeated activation of the same
+citation highlights again each time" still asserts one fetch for the chip-driven first activation.
+Do not add a second hand-rolled loader alongside the query.
