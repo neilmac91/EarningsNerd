@@ -642,6 +642,20 @@ function importedName(sf: ts.SourceFile, wanted: Record<string, string[]>): (cal
   }
   return (callee) => ts.isIdentifier(callee) && imported.has(callee.text) && !resolve(callee)
 }
+/** What a field's `style` prop does to its focus ring: nothing (no prop, or an object literal of other properties), or
+    an inline box-shadow or ring variable, which outranks every class and so takes the DS ring off (`style={{ boxShadow:
+    'none' }}`). Anything the scan cannot read key by key (a variable, a spread, a shorthand) fails closed. */
+function inlineRing(attr: ts.JsxAttribute | undefined): string | null {
+  if (!attr) return null
+  const expr = attr.initializer && ts.isJsxExpression(attr.initializer) ? attr.initializer.expression : undefined
+  if (!expr || !ts.isObjectLiteralExpression(expr)) return 'a style prop the scan cannot read'
+  for (const p of expr.properties) {
+    if (!ts.isPropertyAssignment(p) || !(ts.isIdentifier(p.name) || ts.isStringLiteral(p.name))) return 'a style prop the scan cannot read'
+    if (p.name.text === 'boxShadow' || p.name.text.startsWith('--tw-')) return `an inline ${p.name.text}, which outranks the DS ring`
+  }
+  return null
+}
+
 /** The DS factory, and the class joiners a field's classes may be written with: clsx, and the DS `cx`. */
 const FACTORY_IMPORTS = { 'components/ui/Input': ['inputClasses'], 'components/ui/index': ['inputClasses'] }
 const JOINER_IMPORTS = { clsx: ['clsx', 'default'], 'components/ui/cx': ['cx'], 'components/ui/index': ['cx'] }
@@ -678,6 +692,9 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       const { tag, attr, focusable, field, spread } = classify(node, sf, linkNames)
       const className = attr('className')
+      // An inline style outranks every class, the factory's included, so it is read before the factory exemption.
+      const inline = field && focusable ? inlineRing(attr('style')) : null
+      if (inline) findings.push({ line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1, tag, problem: inline })
       // A spread may replace the className, the factory's included, so it is read before the factory exemption.
       if (field && focusable && !spread && className?.initializer && factoryBuilt(className.initializer, isFactory, isJoiner)) factory += 1
       else if (field && focusable) {
@@ -1167,6 +1184,10 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <input type="date" className="border ${field} dark:focus:shadow-ring-brand" />
             <input type="date" tabIndex={-1} className="border focus:border-brand" />
             <input type="date" tabIndex={-1} className="hidden md:block" />
+            <input type="date" className="border ${field}" style={{ boxShadow: 'none' }} />
+            <input type="date" className="border ${field}" style={{ maxWidth: 200 }} />
+            <input type="date" className="border ${field}" style={c} />
+            <input className={inputClasses()} style={{ '--tw-shadow': '0 0 #0000' }} />
           </>
         )
       }`
@@ -1174,8 +1195,8 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     const twin = 'its dark: twin in the same focus state'
     const competing = 'sets the box-shadow or a ring in a state, beside the reset and the DS ring'
     const ring = 'a focus:shadow-ring-* or focus-visible:shadow-ring-*'
-    expect(factory).toBe(2)
-    expect(fields).toBe(34)
+    expect(factory).toBe(3)
+    expect(fields).toBe(37)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       `7 <input> missing focus:ring-0, focus:ring-offset-0, ${twin}`,
       `9 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
@@ -1225,6 +1246,11 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       `44 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
       // `hidden` shows again from md, so it can take focus there; the honeypot's bare `hidden` (line 24) never can.
       `45 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
+      // An inline style outranks every class: a box-shadow or ring variable in it takes the ring off, the factory's
+      // included (line 49); other properties pass (line 47), and a style the scan cannot read fails closed.
+      '46 <input> an inline boxShadow, which outranks the DS ring',
+      '48 <input> a style prop the scan cannot read',
+      '49 <input> an inline --tw-shadow, which outranks the DS ring',
     ])
   })
 })
