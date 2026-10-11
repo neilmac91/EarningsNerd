@@ -7,36 +7,13 @@ ledger-format entries merged to `main` after the ledger closed were moved there 
 unchecked rows are history unless an item below carries them. Format: `AGENTS.md` §7. Close an item by
 deleting its line in the PR that closes it; a handover is a refresh of "Where things stand".
 
-## Where things stand — 2026-10-10
+## Where things stand — 2026-10-11, Codex
 
-- Production: the last recorded state is the ledger's "2026-10-04 — CODE RED chief takeover"
-  section and its records under `code-red-20261004/runtime/` (record 21, `DECISIONS-21.md`, is the
-  latest merged; record 22 is open as #1184 and read production back live through 13:05Z: #1176's
-  images, every SEC pin at 1, durable tasks delivering); verify the latest `deploy-backend` run on
-  `main` and `/health/detailed` before relying on it. Record 19 notes for the CPO that `eval-baseline`'s
-  `mean_citation_fidelity` read 0.83–0.86 against its 0.9648 baseline on all six runs of
-  2026-10-09 (advisory).
-- Holds: everything under "Held until the founder says otherwise" in
-  `handover-astra-2026-09-19.md` §5 and the September 28 checkpoint in
-  `continuation-plan-2026-09-26.md` stays held. The E7/R1/H20 acceptance programme and the CODE RED
-  records are a separate task; nothing here redesigns, lifts or restates them.
-- Open PRs on 2026-10-10: #1121 (founder role contacts, held), #1035 (native delivery) and #1009
-  (Pro pricing, held) drafts, and #1184 (CODE RED record 22, the CODE RED chief's). The
-  chief-engineer merge train of 2026-10-09/10 landed them one verified backend deploy at a time:
-  #1142 and #1143 (EN-05 parts a and c, EN-04), #1166 (the design-critique decisions A–E), #1170,
-  #1134 (the Lane B gates), #1171, #1123 (copilot-eval paths), #1135 (the parallel backend suite),
-  Lane B's seven router PRs (#1137–#1141, #1163, #1164: each router at ORM ceiling 0) and this
-  page's PR (#1118, with #1126 folded in). Earlier on 2026-10-09: #1144 (the summary pipeline's
-  named stages), #1153 (risk headings), #1156 (W0.G), #1167 (record 20), #1168 and #1169 (CI
-  images through `mirror.gcr.io`). The CODE RED chief's #1172 (record 21) and #1181 (the read-back
-  PR) merged on 2026-10-10, deploying nothing.
-- Review and models: PRs are reviewed by risk tier (`AGENTS.md` §5); `review-gate.yml` needs a Codex
-  review or a `Review override:` line; Codex reviews again since 2026-10-07, so the override
-  exception rests while it does (CODE RED record 15). Marking a PR ready for review triggers the
-  paid `copilot-eval` run only when it touches that workflow's `paths:` filter (the eval's own
-  inputs since #1123), once per head commit (#1166's draw gate): reserve first (`DECISIONS-09.md`;
-  `AGENTS.md` §6). `python -m pytest` runs under pytest-xdist (`-n auto`) since #1135, so every
-  venv needs `pip install -r backend/requirements-dev.txt`.
+- Production: X5 main CI [38106052520](https://github.com/neilmac91/EarningsNerd/actions/runs/38106052520) verified API `earningsnerd-backend-00487-bs5` and worker `earningsnerd-task-worker-00040-j9q`, both at 100%; migrations `applied=0 skipped=43`, eight job images updated, detailed health healthy at 2026-10-11 02:56:25 UTC. Ratchet's main CI verified no runtime deployment.
+- Balance: USD 17.97 at 2026-10-11 02:47:28 UTC, above the programme's USD 5 floor. Refactor accounting is USD 3.815166 known plus USD 0.553850 retained hold, USD 4.369016 of 18 encumbered, with no open eval reservation; [receipts](refactor-closeout-2026-10.md#spend-ledger).
+- Hot-module moves/splits, optional X5, I2 repoints and the final Ratchet are complete; [closeout](refactor-closeout-2026-10.md). Separate behavior and founder decisions remain below.
+- Other open PRs at 02:46 UTC: #1197, #1195, #1192, #1190, #1009, and drafts #1121 and #1035. This records PR is separate; verify the live list before acting on another branch.
+- Holds remain under `handover-astra-2026-09-19.md` §5 and the September 28 checkpoint in `continuation-plan-2026-09-26.md`. The E7/R1/H20 programme and CODE RED records remain separate work.
 
 ## Open items
 
@@ -58,7 +35,7 @@ Founder:
 Engineering:
 - [ ] Field-class follow-ups from #1180's body ("Not in this PR"; the one pin left is in `frontend/tests/unit/inputClassesNoOverrides.spec.tsx`): the delete-account confirm field's error focus shows the brand border and ring in dark, pinned until the dark `shadow-ring-error` token in the focus-ring line below exists; the chat composer's shell border turns grey on hover while it is focused (`focus-within:border-brand` loses to the field's `hover:border-flat-light` on variant order; add `hover:focus-within:` twins in both themes or a focus-within shell option).
 - [ ] Focus-ring follow-ups, recorded on the founder's instruction of 2026-10-10 (#1178's body, "Not in this PR"): the DS ring recipe on every Tab stop of the pages whose controls still draw the browser's outline (check-email, the settings cards, admin invites, and the watchlist add field's result rows, which need an inset ring; the hand-rolled notification switch becomes the DS `Switch`), with a gate that reaches page controls (`siteChromeFocusRing.spec.ts` covers the chrome only); `shadow-ring-error` has no dark token and reads 1.27:1 on panel in dark, part of the ring-token decision in the UI and a11y line below.
-- [ ] Hot-module refactor, lane D, under the founder's standing authorization (`refactor-plan-2026-10.md`; ledger, "2026-10-09 — Hot-module refactor", which states what it does not cover and lists Wave 0's PRs): Wave 0 closed ([evidence](refactor-wave0-closeout-2026-10.md)); founder authorized Dead cleanup on 2026-10-10 and confirmed the USD 5 floor for this programme (USD 18 ceiling unchanged); Dead then I1, one verified deploy at a time; outside the plan, the Rule-7 follow-up and Wave 0's three behaviour bugs, each with its anchor updated in the same PR.
+- [ ] Engineering: complete the separate Rule-7 timestamp follow-up and Wave 0 behavior findings (missing-identifier NaN, numeric model filing_date, model-supplied structured-output keys), each under its own scope with its anchor updated in the same PR ([recorded findings](refactor-plan-2026-10.md#implementation-notes--deltas-recorded-during-execution)).
 - [ ] CODE RED chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window, the first with the whole fleet pinned and `backfill-facts` at 07:30, with the read-only `capacity-readout`: SEC errors, breaker opens, job outcomes (`DECISIONS-19.md`).
 - [ ] CODE RED chief: the read-back follow-ups #1181's review left (`DECISIONS-22.md`): the describe-service shell read still inherits gcloud's stderr (behind the privacy test's byte-exact lock), the capacity receipt's `error_detail.message` is bounded but not address-redacted, the logs-probe step echoes raw stderr on its denied branch, and both heredoc bodies wait to be extracted to committed modules under `ops/`; and, from #1184's review, no test pins the classifier's `error (gcloud not executable)` class; none deploys.
 - [ ] Design critique 2026-10, what remains after its four PRs (#1146, #1147, #1148, #1150): outside the repo, P-01 republish the design-system package in Claude Design; in it, the three allowlisted full-page spinner screens wait for their pages' next rework (ledger, "2026-10-09 — Design critique 2026-10" sections).
@@ -74,5 +51,5 @@ Engineering:
 
 ## What to doubt first
 
-- An item above may already be closed by a PR merged after 2026-10-10: check `git log` before starting it.
+- An item above may already be closed by a PR merged after 2026-10-11: check `git log` before starting it.
 - The ledger's older unchecked rows and the dated handovers are not a queue (`AGENTS.md` §1).
