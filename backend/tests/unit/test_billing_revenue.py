@@ -94,15 +94,28 @@ def test_canonical_event_mode_and_account_boundaries():
 def test_invoice_shapes_and_price_classification(monkeypatch):
     monkeypatch.setattr(revenue.settings, "STRIPE_PRICE_MONTHLY_ID", "price_month")
     monkeypatch.setattr(revenue.settings, "STRIPE_PRICE_YEARLY_ID", "price_year")
+    monkeypatch.setattr(revenue.settings, "STRIPE_PREVIOUS_PRICE_MONTHLY_ID", "price_old_month")
+    monkeypatch.setattr(revenue.settings, "STRIPE_PREVIOUS_PRICE_YEARLY_ID", "price_old_year")
     base = revenue.payment_from_event(payment_event(invoice={"id": "in_one"}))
     modern = revenue.with_invoice(base, invoice())
     assert (modern.subscription_id, modern.billing_cycle) == ("sub_one", "monthly")
     legacy = invoice(parent=None, subscription="sub_one", lines={"has_more": False, "data": [{"price": {"id": "price_year"}}]})
     assert revenue.with_invoice(base, legacy).billing_cycle == "yearly"
+    for price, cycle in (("price_old_month", "monthly"), ("price_old_year", "yearly")):
+        legacy["lines"]["data"][0]["price"]["id"] = price
+        assert revenue.with_invoice(base, legacy).billing_cycle == cycle
     for lines in ({"has_more": True, "data": invoice()["lines"]["data"]},
                   {"has_more": False, "data": [{"price": "price_year"}, {"price": "price_month"}]},
+                  {"has_more": False, "data": [{"price": "price_month"}, {"price": "price_old_month"}]},
+                  {"has_more": False, "data": [{"price": "price_unconfigured"}]},
+                  {"has_more": False, "data": [{"price": ""}]},
                   {"has_more": False, "data": []}):
         assert revenue.with_invoice(base, invoice(lines=lines)).billing_cycle is None
+    monkeypatch.setattr(revenue.settings, "STRIPE_PREVIOUS_PRICE_YEARLY_ID", "price_month")
+    assert revenue.with_invoice(base, invoice()).billing_cycle is None
+    monkeypatch.setattr(revenue.settings, "STRIPE_PREVIOUS_PRICE_YEARLY_ID", "price_old_month")
+    ambiguous = invoice(lines={"has_more": False, "data": [{"price": "price_old_month"}]})
+    assert revenue.with_invoice(base, ambiguous).billing_cycle is None
     with pytest.raises(ValueError, match="Conflicting"):
         revenue.with_invoice(base, {**invoice(), "subscription": "sub_other"})
     for change in ({"id": "in_other"}, {"currency": "eur"}, {"livemode": False}):
@@ -226,12 +239,20 @@ def test_invoice_reader_uses_shared_transport_and_closes_it(monkeypatch, fail):
 def test_report_billing_mix_uses_invoice_evidence_and_preserves_unknown(db, monkeypatch):
     monkeypatch.setattr(revenue.settings, "STRIPE_PRICE_MONTHLY_ID", "price_month")
     monkeypatch.setattr(revenue.settings, "STRIPE_PRICE_YEARLY_ID", "price_year")
+    monkeypatch.setattr(revenue.settings, "STRIPE_PREVIOUS_PRICE_MONTHLY_ID", "price_old_month")
+    monkeypatch.setattr(revenue.settings, "STRIPE_PREVIOUS_PRICE_YEARLY_ID", "price_old_year")
     owner = user(db)
     record(db, payment_event(), invoice(), owner)
     record(db, payment_event("inpay_year", "in_year"), invoice("in_year", lines={"has_more": False, "data": [{"price": "price_year"}]}), owner)
+    for suffix, amount in (("month", 3900), ("year", 39000)):
+        invoice_id = f"in_old_{suffix}"
+        record(db, payment_event(f"inpay_old_{suffix}", invoice_id, amount), invoice(invoice_id, lines={
+            "has_more": False, "data": [{"pricing": {"price_details": {"price": f"price_old_{suffix}"}}}],
+        }), owner)
     record(db, payment_event("inpay_partial", "in_partial"), invoice("in_partial", lines={"has_more": True, "data": [{"price": "price_year"}]}), owner)
     assert revenue.payment_report(db, SINCE, UNTIL)["currencies"][0]["billing_cycle_counts"] == [
-        {"billing_cycle": cycle, "payment_count": 1, "invoice_count": 1} for cycle in ("monthly", "unknown", "yearly")]
+        {"billing_cycle": cycle, "payment_count": count, "invoice_count": count}
+        for cycle, count in (("monthly", 2), ("unknown", 1), ("yearly", 2))]
 
 
 @pytest.mark.asyncio

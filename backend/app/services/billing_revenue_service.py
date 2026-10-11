@@ -141,9 +141,10 @@ def with_invoice(evidence: PaymentEvidence, invoice: dict) -> PaymentEvidence:
     cycle = None
     if lines.get("has_more") is False and len(prices) == 1:
         price = next(iter(prices))
-        monthly, yearly = settings.STRIPE_PRICE_MONTHLY_ID, settings.STRIPE_PRICE_YEARLY_ID
-        if price and monthly != yearly:
-            cycle = "monthly" if price == monthly else "yearly" if price == yearly else None
+        monthly = {settings.STRIPE_PRICE_MONTHLY_ID, settings.STRIPE_PREVIOUS_PRICE_MONTHLY_ID} - {""}
+        yearly = {settings.STRIPE_PRICE_YEARLY_ID, settings.STRIPE_PREVIOUS_PRICE_YEARLY_ID} - {""}
+        if price and (price in monthly) != (price in yearly):
+            cycle = "monthly" if price in monthly else "yearly"
     return replace(evidence, customer_id=customer, subscription_id=current or legacy, billing_cycle=cycle)
 
 

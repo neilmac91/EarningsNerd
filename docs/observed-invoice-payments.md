@@ -54,8 +54,11 @@ see a later commit; the report does not claim a transaction-wide atomic snapshot
 historical enrollment. Conflicting labels at a tied first timestamp remain unknown.
 
 Billing-cycle payment/invoice counts are grouped within each currency. Classification requires
-a complete invoice line page and one configured monthly/yearly price ID. Truncated, missing,
-mixed or unknown prices remain unknown. Separate allocations for an edited invoice can carry
+a complete invoice line page and one price ID configured exclusively for a monthly or yearly
+cycle. The current checkout IDs and optional `STRIPE_PREVIOUS_PRICE_MONTHLY_ID` /
+`STRIPE_PREVIOUS_PRICE_YEARLY_ID` settings are recognized. These previous IDs only classify new
+observations; they do not select checkout Prices or reclassify stored rows. Truncated, missing,
+mixed, unconfigured or ambiguously configured prices remain unknown. Separate allocations for an edited invoice can carry
 different observed classifications; category invoice counts are not guaranteed additive.
 
 Refunds, credit notes, disputes, tax adjustments and fees are not netted. Events not delivered

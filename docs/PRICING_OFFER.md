@@ -160,10 +160,12 @@ duration, monthly-only eligibility, account-state guards, repeat-subscriber rest
 the `PRO_TRIAL_DAYS` / `NEXT_PUBLIC_ENABLE_PRO_TRIAL` lockstep are separate decisions; this
 price change does not flip them.
 
-After step 3, positive renewal payments on the previous Prices count under an `unknown` billing
-cycle in the payment report, because classification matches only the configured bindings
-([Reading the report](observed-invoice-payments.md#reading-the-report)); amounts, payer counts and
-access are unaffected. Read a legacy renewal's cycle from Stripe.
+After step 3, newly observed positive renewal payments on the previous Prices have an `unknown`
+billing cycle unless their IDs are configured in `STRIPE_PREVIOUS_PRICE_MONTHLY_ID` and
+`STRIPE_PREVIOUS_PRICE_YEARLY_ID` ([Reading the report](observed-invoice-payments.md#reading-the-report)).
+Those optional settings affect reporting only; amounts, payer counts, checkout and access are
+unaffected. Existing observations retain their recorded cycle. Read a legacy renewal's cycle
+from Stripe when it remains unknown.
 
 Existing display limitation: the pricing page shows the public offer alongside “Current Plan”
 for paid users; it does not read their actual Stripe subscription amount. That pre-existing

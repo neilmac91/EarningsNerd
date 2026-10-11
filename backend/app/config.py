@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     # MUST be set via environment variables - no defaults to fail obviously if misconfigured
     STRIPE_PRICE_MONTHLY_ID: str = ""
     STRIPE_PRICE_YEARLY_ID: str = ""
+    # Optional previous Prices for observed-payment classification only; never used for checkout.
+    STRIPE_PREVIOUS_PRICE_MONTHLY_ID: str = ""
+    STRIPE_PREVIOUS_PRICE_YEARLY_ID: str = ""
     # Closed-beta 100%-off access. The id of a Stripe *Promotion Code* (promo_…), backed by a
     # 100%-off, duration=forever Coupon. Consumed by the Week 2 invite flow, which applies it via
     # `discounts` gated on the user's beta eligibility server-side (never a client param); paired with
