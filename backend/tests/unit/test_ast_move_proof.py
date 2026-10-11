@@ -753,6 +753,14 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
     settled = compare(old, {"app/a.py": "", "app/b.py": fast + reader + "\n\nfrom fastnorm import other\n"},
                       old_path="app/a.py")
     assert settled.ok, render(settled)
+    # A file's import of a name from itself (moved code that kept its own import) binds the name to itself, or
+    # raises ImportError at import: it settles as the def does. Under another name it binds another value.
+    for itself in ("from app.b import normalize\n", "from .b import normalize\n"):
+        report = compare(old, {"app/a.py": "", "app/b.py": fast + itself + reader}, old_path="app/a.py")
+        assert report.ok, render(report)
+    aliased = compare(old, {"app/a.py": "", "app/b.py": fast + reader + "\n\nfrom app.b import X as normalize\n"},
+                      old_path="app/a.py")
+    assert aliased.shadows == {"normalize": "app/b.py: binds normalize, read by X"}
 
 
 def test_python_reads_a_dunder_the_old_file_imported_from_the_target_where_moved_code_stands():

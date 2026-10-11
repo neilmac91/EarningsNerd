@@ -72,18 +72,20 @@ already, each statement in it is a symbol of its own, and its key shows what its
 does not know what a new file held before the move, so a symbol the target file already had is new to it,
 and one the moved code reads is reported: a same-named helper of the target module is what a move into an
 existing module risks. One case is settled from the old file's own imports: when it took the name with a
-single plain module-level ``from M import name`` and the new file is M itself, the moved code keeps the
-binding it always had, and nothing is reported unless moved code reads the name at import above that
-binding (in a statement, a class body, a decorator, an annotation Python evaluates, which is not one its
-module postpones, or a comprehension, which runs where it stands; a generator expression counts too, though
-it may run later, and so does a lambda handed to a call, ``sorted(rows, key=lambda row: ...)``, which may
-call it there): the import ran before the read, and now the binding runs after it, so the read raises
-NameError or takes an earlier binding of the name, or the builtin of that name, ``read above it at import``.
+single plain module-level ``from M import name``, the new file is M itself, and M binds the name nowhere that
+no symbol's place shows (by an import, a star import or a new symbol's ``global``: ``_unsettled``, which
+moved code below M's def could read first), the moved code keeps the binding it always had, and nothing is
+reported unless moved code reads the name at import above that binding (in a statement, a class body, a
+decorator, an annotation Python evaluates, which is not one its module postpones, or a comprehension, which
+runs where it stands; a generator expression counts too, though it may run later, and so does a lambda
+handed to a call, ``sorted(rows, key=lambda row: ...)``, which may call it there): the import ran before the
+read, and now the binding runs after it, so the read raises NameError or takes an earlier binding of the
+name, or the builtin of that name, ``read above it at import``.
 A def's or lambda's body reads it when it runs, so its place alone does not matter, but code that runs at
 import above the binding and reaches such a body runs it there: one that loads a name which may hold code
 reading it (a def, a lambda, a class whose member does and that member's own name, which the class body may
-call where it stands, and so for a def or class that a member class's body binds, or the body of a class that a
-``match`` case creates, a def whose decorator, default or annotation names one, since what reads its
+call where it stands, and so for a name a statement binds in a member class's body or a ``match`` case's class,
+from a load or the code it creates, a def whose decorator, default or annotation names one, since what reads its
 ``__annotations__`` may call it, a name bound from one, through any chain; a reference counts as a call, since
 what is done with it is not followed, and so does every name of an annotation Python evaluates that is no lone
 name or literal, whose evaluation may run code (a call, a subscript's ``__class_getitem__``, an attribute's
@@ -187,11 +189,13 @@ so a def reached through a string, a container's item, a hook another module cal
 outside the file) or a module that imports this one while it is still importing is not. Its reach errs toward
 a report (fail closed): names are matched across namespaces, a block joins every name it binds when one of
 its statements reaches the name (a ``try`` that binds both ``dumps`` and ``BACKEND``), a def whose annotation
-names a reaching class holds it though nothing may read its ``__annotations__`` (``HANDLERS = [build]``), an
-evaluated annotation that is no lone name is taken to run what it names (``Optional[Report]`` does not), and a
-decorator that is not inert, or a class base that is not a builtin class, is taken to run what it is handed (a
-FastAPI route's decorator does not). ``--allow`` takes the target's binding, which allows every report on it:
-list each user in the PR body. Nor is a name reached through a string (a quoted annotation,
+names a reaching class holds it though nothing may read its ``__annotations__`` (``HANDLERS = [build]``), a
+class member that reads the name its own class body bound above it is taken to read the module's
+(``class C: normalize = ...; out = normalize(x)``), an evaluated annotation that is no lone name is taken to
+run what it names (``Optional[Report]`` does not), and a decorator that is not inert, or a class base that
+is not a builtin class, is taken to run what it is handed (a FastAPI route's decorator does not).
+``--allow`` takes the target's binding, which allows every report on it: list each user in the PR body. Nor
+is a name reached through a string (a quoted annotation,
 ``globals()['name']``, a deletion by ``locals().pop('name')``), a class body's namespace that a metaclass's
 ``__prepare__`` makes keep other values than the body binds, code Python 3.12 evaluates lazily (a ``type``
 alias's value, a type parameter's bound, constraints or default: read where it stands, but evaluated when
@@ -771,7 +775,7 @@ class _Scope:
         self.first: set[str] = set()  # bound before a class body runs: a documented class's ``__doc__``
         self.nested: list[_Scope] = []
         self.walrus = walrus or self
-        self.name: str | None = None  # the def or class this is the body of
+        self.statements: list[ast.stmt] = []  # a class body's own, read one by one for ``held``
 
     def _open(self, in_class: bool = False, walrus: _Scope | None = None, deferred: bool = False) -> _Scope:
         self.nested.append(_Scope(in_class, walrus, deferred))
@@ -799,7 +803,6 @@ class _Scope:
                     body.read(node.body)
                 else:
                     self.bound.add(node.name)
-                    body.name = node.name
                     for decorator in node.decorator_list:
                         receiver = _accessor_receiver(decorator)
                         if receiver is None:
@@ -818,7 +821,7 @@ class _Scope:
                 self.read(*node.decorator_list, *node.bases, *(keyword.value for keyword in node.keywords),
                           *getattr(node, "type_params", ()))
                 body = self._open(in_class=True)
-                body.name = node.name
+                body.statements = node.body
                 if _is_docstring(node.body[0]) and "__doc__" not in _deletions(node.body):  # fail closed
                     body.first.add("__doc__")
                 body.read(*node.body)
@@ -895,16 +898,19 @@ class _Scope:
         return taken.union(*(scope.taken_now(postponed, calls, enclosing) for scope in self.nested))
 
     def held(self) -> dict[str, set[str]]:
-        """The defs and classes that a class body nested in this scope binds, through class bodies only (a
-        member class's own members, and theirs), each with the names its code takes from the module. No symbol
-        of the proof's holds them, and the class body that binds one may call it where it runs."""
+        """The names that the statements of a class body nested in this scope bind, through class bodies only (a
+        member class's own body, and the class bodies in it), each with the names its statement takes from the
+        module, where it stands or in the code it creates (a def, a lambda, a class), as a symbol's ``here`` and
+        ``later`` do. No symbol of the proof's holds them, and the class body may call one where it runs."""
         found: dict[str, set[str]] = {}
         for scope in self.nested:
             if not scope.in_class:
                 continue
-            for inner in scope.nested:
-                if inner.name is not None:
-                    found.setdefault(inner.name, set()).update(inner.taken())
+            for statement in scope.statements:
+                each = _Scope().read(statement)
+                takes = each.loaded | each.module | set().union(*(inner.taken() for inner in each.nested))
+                for name in each.bound:
+                    found.setdefault(name, set()).update(takes)
             for name, takes in scope.held().items():
                 found.setdefault(name, set()).update(takes)
         return found
@@ -944,8 +950,9 @@ class _Names:
     ``plain`` and ``typed``, the names it loads where it stands outside annotations and in them (a ``global``
     declaration loads nothing), and ``active``, those of ``typed`` in an annotation that may run code where it is
     evaluated; ``postponed``, whether its module postpones annotations; ``class_global``, the names it binds that
-    its class body declares ``global``, which are the module's; ``holders``, the defs and classes that the class
-    bodies nested in it bind (``_Scope.held``), each with the names its code takes from the module."""
+    its class body declares ``global``, which are the module's; ``holders``, the names that the statements of
+    the class bodies nested in it bind (``_Scope.held``), each with the names its statement takes from the
+    module."""
     owner: str | None
     block: bool = False
     binds: set[str] = field(default_factory=set)
@@ -1263,6 +1270,19 @@ def _delta(name: str, text: str | None, homes: list[str], new_by_file: dict[str,
     return "\n".join(difflib.unified_diff(text.splitlines(), new_text.splitlines(), "old", homes[0], lineterm="", n=1))
 
 
+def _origin(node: ast.ImportFrom, path: str) -> frozenset[str]:
+    """The files that a ``from M import ...`` in the file at ``path`` (relative to backend/) may import: ``M.py``
+    or ``M/__init__.py``, or none when its dots climb past the top-level package (ImportError)."""
+    # A relative import's dots count up from here: one is the package. The last parent, ".", is the directory
+    # holding the top-level package, no package itself, so as many dots as parents climb past it (ImportError).
+    packages = PurePosixPath(path).parents
+    if node.level >= len(packages):
+        return frozenset()
+    base = packages[node.level - 1] if node.level else PurePosixPath()
+    module = base.joinpath(*(node.module or "").split("."))
+    return frozenset({f"{module}.py", f"{module}/__init__.py"})
+
+
 def _imported_from(old_source: str, old_path: str) -> dict[str, frozenset[str]]:
     """The names the old file took with one plain module-level ``from M import name``, each with the files M
     may be (``M.py`` or ``M/__init__.py``, relative to backend/ like ``old_path``). When moved code lands in
@@ -1270,22 +1290,35 @@ def _imported_from(old_source: str, old_path: str) -> dict[str, frozenset[str]]:
     once, under an alias or inside a block is left out, and so is every name once the file has a star
     import: where such a name came from is not known."""
     tree = ast.parse(old_source)
-    # A relative import's dots count up from here: one is the package. The last parent, ".", is the directory
-    # holding the top-level package, no package itself, so as many dots as parents climb past it (ImportError).
-    packages = PurePosixPath(old_path).parents
     plain = {id(node) for node in tree.body if isinstance(node, ast.ImportFrom)}
     origins: dict[str, frozenset[str]] = {}
     imported: list[str] = []
     for node in _flatten(tree.body):
         for alias in node.names if isinstance(node, (ast.Import, ast.ImportFrom)) else ():
             imported.append((alias.asname or alias.name).split(".")[0])
-            if id(node) in plain and alias.asname is None and node.level < len(packages):
-                base = packages[node.level - 1] if node.level else PurePosixPath()
-                module = base.joinpath(*(node.module or "").split("."))
-                origins[alias.name] = frozenset({f"{module}.py", f"{module}/__init__.py"})
+            if id(node) in plain and alias.asname is None and (files := _origin(node, old_path)):
+                origins[alias.name] = files
     if "*" in imported:
         return {}
     return {name: files for name, files in origins.items() if imported.count(name) == 1}
+
+
+def _unsettled(path: str, source: str, names: dict[str, _Names], old_names: dict[str, _Names]) -> set[str] | None:
+    """The module's names that the new file at ``path`` also binds where no symbol's place shows it, so that moved
+    code there may read another binding at import than the one the old file imported (``_shadows``): by an
+    import, through blocks and ``match`` cases (a star import may bind any name: None), or through a new
+    symbol's ``global``. A def or an assignment in a block is a symbol of its own, whose place shows, and the
+    file's import of a name from itself binds that name to itself, or raises ImportError at import."""
+    found: set[str] = set()
+    for node in _scope_nodes(ast.parse(source).body):
+        itself = isinstance(node, ast.ImportFrom) and path in _origin(node, path)
+        for alias in node.names if isinstance(node, (ast.Import, ast.ImportFrom)) else ():
+            if itself and alias.asname in (None, alias.name):
+                continue
+            if alias.name == "*":
+                return None
+            found.add((alias.asname or alias.name).split(".")[0])
+    return found.union(*(used.declared for key, used in names.items() if key not in old_names))
 
 
 def _dunder(name: str) -> bool:
@@ -1303,8 +1336,8 @@ def _reaching(name: str, names: dict[str, _Names]) -> set[str]:
     """The names that may hold code which reads ``name`` when it runs, ``name`` among them: a def, lambda or
     class whose code (a body, a method, any nested scope) or header (a decorator, a default, an annotation,
     since what reads ``__annotations__`` may call it) loads one of them, a class one of whose members does, and
-    that member's own name, which its class body may call where it stands, and so for a def or class that a
-    class body nested in a symbol binds (``_Names.holders``: a member class's own members); and a name bound at
+    that member's own name, which its class body may call where it stands, and so for a name that a statement
+    of a class body nested in a symbol binds (``_Names.holders``: a member class's own body); and a name bound at
     import from one of them (``HANDLERS = [describe]``) or through ``global``, closed under those steps. What
     code does with a name is not followed: a reference counts as much as a call. Names are matched across
     namespaces (a member's name also stands for a module name it equals), which errs toward reporting."""
@@ -1572,6 +1605,8 @@ def compare(old_source: str, new_sources: dict[str, str], allow: frozenset[str] 
     old, old_order, _, old_names = _collect(old_source)
     origins = _imported_from(old_source, old_path) if old_path else {}
     collected = {path: _collect(src) for path, src in new_sources.items()}
+    unsettled = {path: _unsettled(PurePosixPath(path).as_posix(), src, collected[path][3], old_names)
+                 for path, src in new_sources.items()}
     before = _module(old_path, old_source, old_names)
     modules = {path: _module(path, src, collected[path][3]) for path, src in new_sources.items()}
     new_by_file = {path: texts for path, (texts, *_) in collected.items()}
@@ -1609,7 +1644,8 @@ def compare(old_source: str, new_sources: dict[str, str], allow: frozenset[str] 
         shadowed = "; ".join(
             f"{path}: {what}" for path in homes
             if (what := _shadows(name, collected[path][3], old_names, frozenset(
-                known for known, files in origins.items() if PurePosixPath(path).as_posix() in files))))
+                known for known, files in origins.items() if PurePosixPath(path).as_posix() in files
+                and unsettled[path] is not None and known not in unsettled[path]))))
         if name in allow:
             delta = _delta(name, None, homes, new_by_file)
             report.allowed[name] = f"{delta}\nshadows {shadowed}" if shadowed else delta
