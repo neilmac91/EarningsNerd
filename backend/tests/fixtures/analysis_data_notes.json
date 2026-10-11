@@ -1,0 +1,3393 @@
+{
+  "version": 1,
+  "description": "Shared notes presentation golden. Synthetic minimal quality cases; no financial source claim. Expected memberships/order/totals are explicitly authored. Known messages copied from the Phase1 reason vocabulary. Canonical keys use compact ASCII JSON and UTF-16 code-unit reason ordering.",
+  "cases": [
+    {
+      "name": "mixed_quarterly_quality_and_gaps",
+      "dataset": {
+        "mode": "quarterly",
+        "period_key": "2024Q1..2024Q3",
+        "periods": [
+          {
+            "key": "2024Q1"
+          },
+          {
+            "key": "2024Q2"
+          },
+          {
+            "key": "2024Q3"
+          }
+        ],
+        "series": [
+          {
+            "concept": "revenue",
+            "label": "revenue",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 100,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "2024Q2",
+                "value": 120,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "unit_mismatch",
+                    "source_conflict",
+                    "unit_mismatch"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                },
+                "qoq": 0,
+                "qoq_provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "source_conflict"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                },
+                "yoy": null,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "missing_source"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "2024Q3",
+                "value": 130,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "qoq": "nm",
+                "qoq_provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "future_b",
+                    "future_a",
+                    "future_a"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                },
+                "yoy": 0,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "source_conflict",
+                    "unit_mismatch"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "legacy",
+            "label": "legacy",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 5,
+                "provenance": null,
+                "reconciled": false,
+                "derived": true
+              },
+              {
+                "period": "2024Q2",
+                "value": 6,
+                "provenance": null,
+                "reconciled": true,
+                "yoy": 0,
+                "yoy_reconciled": true
+              }
+            ]
+          },
+          {
+            "concept": "eps",
+            "label": "eps",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": null,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "2024Q2",
+                "value": null,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "unavailable",
+                  "reasons": [
+                    "unsupported_eps_calculation"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "2024Q3",
+                "value": 2,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "unavailable",
+                  "reasons": [
+                    "missing_provenance"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "metadata",
+            "label": "metadata",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 1,
+                "provenance": {},
+                "reconciled": false
+              },
+              {
+                "period": "2024Q2",
+                "value": 2,
+                "provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "derived": false
+              },
+              {
+                "period": "2024Q3",
+                "value": 3
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "version": 1,
+        "notes": [
+          {
+            "key": "[\"review\",[\"source_conflict\",\"unit_mismatch\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
+            "kind": "review",
+            "reasons": [
+              "source_conflict",
+              "unit_mismatch"
+            ],
+            "message": "Available sources disagree on this figure. The source inputs use different units or currencies.",
+            "values": [
+              {
+                "concept": "revenue",
+                "label": "revenue",
+                "period": "2024Q2"
+              }
+            ],
+            "comparisons": [
+              {
+                "concept": "revenue",
+                "label": "revenue",
+                "period": "2024Q3",
+                "basis": "yoy"
+              }
+            ],
+            "counts": {
+              "qoq": 0,
+              "yoy": 1,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"source_check_needed\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
+            "kind": "review",
+            "reasons": [
+              "source_check_needed"
+            ],
+            "message": "A source check remains unresolved. Review the original filing before use.",
+            "values": [
+              {
+                "concept": "legacy",
+                "label": "legacy",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"source_conflict\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
+            "kind": "review",
+            "reasons": [
+              "source_conflict"
+            ],
+            "message": "Available sources disagree on this figure.",
+            "values": [],
+            "comparisons": [
+              {
+                "concept": "revenue",
+                "label": "revenue",
+                "period": "2024Q2",
+                "basis": "qoq"
+              }
+            ],
+            "counts": {
+              "qoq": 1,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"future_a\",\"future_b\"]]",
+            "id": "analysis-data-note-d",
+            "letter": "d",
+            "kind": "review",
+            "reasons": [
+              "future_a",
+              "future_b"
+            ],
+            "message": "The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing.",
+            "values": [],
+            "comparisons": [
+              {
+                "concept": "revenue",
+                "label": "revenue",
+                "period": "2024Q3",
+                "basis": "qoq"
+              }
+            ],
+            "counts": {
+              "qoq": 1,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"unknown\",[\"legacy_unknown\"]]",
+            "id": "analysis-data-note-e",
+            "letter": "e",
+            "kind": "unknown",
+            "reasons": [
+              "legacy_unknown"
+            ],
+            "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
+            "values": [
+              {
+                "concept": "legacy",
+                "label": "legacy",
+                "period": "2024Q2"
+              },
+              {
+                "concept": "metadata",
+                "label": "metadata",
+                "period": "2024Q1"
+              },
+              {
+                "concept": "metadata",
+                "label": "metadata",
+                "period": "2024Q3"
+              }
+            ],
+            "comparisons": [
+              {
+                "concept": "legacy",
+                "label": "legacy",
+                "period": "2024Q2",
+                "basis": "yoy"
+              }
+            ],
+            "counts": {
+              "qoq": 0,
+              "yoy": 1,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"unknown\",[\"missing_provenance\"]]",
+            "id": "analysis-data-note-f",
+            "letter": "f",
+            "kind": "unknown",
+            "reasons": [
+              "missing_provenance"
+            ],
+            "message": "Detailed source information is unavailable for this figure.",
+            "values": [
+              {
+                "concept": "eps",
+                "label": "eps",
+                "period": "2024Q3"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"unavailable\",[\"not_in_dataset\"]]",
+            "id": "analysis-data-note-g",
+            "letter": "g",
+            "kind": "unavailable",
+            "reasons": [
+              "not_in_dataset"
+            ],
+            "message": "Not available in this dataset.",
+            "values": [
+              {
+                "concept": "legacy",
+                "label": "legacy",
+                "period": "2024Q3"
+              },
+              {
+                "concept": "eps",
+                "label": "eps",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"unavailable\",[\"unsupported_eps_calculation\"]]",
+            "id": "analysis-data-note-h",
+            "letter": "h",
+            "kind": "unavailable",
+            "reasons": [
+              "unsupported_eps_calculation"
+            ],
+            "message": "This quarterly earnings-per-share calculation is not supported. Use a reported quarterly EPS figure.",
+            "values": [
+              {
+                "concept": "eps",
+                "label": "eps",
+                "period": "2024Q2"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          }
+        ],
+        "totals": {
+          "reviewValues": 2,
+          "reviewComparisons": 3,
+          "unavailable": 3,
+          "passed": 3,
+          "unknown": 4,
+          "calculated": 2,
+          "total": 12
+        }
+      },
+      "citations": [
+        {
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "needs_review",
+            "reasons": [
+              "unit_mismatch",
+              "source_conflict"
+            ],
+            "formula": null,
+            "inputs": []
+          }
+        },
+        {
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "passed",
+            "reasons": [],
+            "formula": null,
+            "inputs": []
+          }
+        },
+        {
+          "value": null,
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "unavailable",
+            "reasons": [
+              "unsupported_eps_calculation"
+            ],
+            "formula": null,
+            "inputs": []
+          }
+        },
+        {
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "unavailable",
+            "reasons": [
+              "missing_provenance"
+            ],
+            "formula": null,
+            "inputs": []
+          }
+        },
+        {
+          "reconciled": false
+        },
+        {
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "needs_review",
+            "reasons": [
+              "future_a"
+            ],
+            "formula": null,
+            "inputs": []
+          },
+          "verified": true
+        },
+        {
+          "reconciled": true
+        }
+      ],
+      "expected_citation_notes": {
+        "version": 1,
+        "notes": [
+          {
+            "key": "[\"review\",[\"source_conflict\",\"unit_mismatch\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
+            "kind": "review",
+            "reasons": [
+              "source_conflict",
+              "unit_mismatch"
+            ],
+            "message": "Available sources disagree on this figure. The source inputs use different units or currencies.",
+            "values": [
+              {
+                "concept": "revenue",
+                "label": "revenue",
+                "period": "2024Q2"
+              }
+            ],
+            "comparisons": [
+              {
+                "concept": "revenue",
+                "label": "revenue",
+                "period": "2024Q3",
+                "basis": "yoy"
+              }
+            ],
+            "counts": {
+              "qoq": 0,
+              "yoy": 1,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"source_check_needed\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
+            "kind": "review",
+            "reasons": [
+              "source_check_needed"
+            ],
+            "message": "A source check remains unresolved. Review the original filing before use.",
+            "values": [
+              {
+                "concept": "legacy",
+                "label": "legacy",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"source_conflict\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
+            "kind": "review",
+            "reasons": [
+              "source_conflict"
+            ],
+            "message": "Available sources disagree on this figure.",
+            "values": [],
+            "comparisons": [
+              {
+                "concept": "revenue",
+                "label": "revenue",
+                "period": "2024Q2",
+                "basis": "qoq"
+              }
+            ],
+            "counts": {
+              "qoq": 1,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"future_a\",\"future_b\"]]",
+            "id": "analysis-data-note-d",
+            "letter": "d",
+            "kind": "review",
+            "reasons": [
+              "future_a",
+              "future_b"
+            ],
+            "message": "The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing.",
+            "values": [],
+            "comparisons": [
+              {
+                "concept": "revenue",
+                "label": "revenue",
+                "period": "2024Q3",
+                "basis": "qoq"
+              }
+            ],
+            "counts": {
+              "qoq": 1,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"unknown\",[\"legacy_unknown\"]]",
+            "id": "analysis-data-note-e",
+            "letter": "e",
+            "kind": "unknown",
+            "reasons": [
+              "legacy_unknown"
+            ],
+            "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
+            "values": [
+              {
+                "concept": "legacy",
+                "label": "legacy",
+                "period": "2024Q2"
+              },
+              {
+                "concept": "metadata",
+                "label": "metadata",
+                "period": "2024Q1"
+              },
+              {
+                "concept": "metadata",
+                "label": "metadata",
+                "period": "2024Q3"
+              }
+            ],
+            "comparisons": [
+              {
+                "concept": "legacy",
+                "label": "legacy",
+                "period": "2024Q2",
+                "basis": "yoy"
+              }
+            ],
+            "counts": {
+              "qoq": 0,
+              "yoy": 1,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"unknown\",[\"missing_provenance\"]]",
+            "id": "analysis-data-note-f",
+            "letter": "f",
+            "kind": "unknown",
+            "reasons": [
+              "missing_provenance"
+            ],
+            "message": "Detailed source information is unavailable for this figure.",
+            "values": [
+              {
+                "concept": "eps",
+                "label": "eps",
+                "period": "2024Q3"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"unavailable\",[\"not_in_dataset\"]]",
+            "id": "analysis-data-note-g",
+            "letter": "g",
+            "kind": "unavailable",
+            "reasons": [
+              "not_in_dataset"
+            ],
+            "message": "Not available in this dataset.",
+            "values": [
+              {
+                "concept": "legacy",
+                "label": "legacy",
+                "period": "2024Q3"
+              },
+              {
+                "concept": "eps",
+                "label": "eps",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"unavailable\",[\"unsupported_eps_calculation\"]]",
+            "id": "analysis-data-note-h",
+            "letter": "h",
+            "kind": "unavailable",
+            "reasons": [
+              "unsupported_eps_calculation"
+            ],
+            "message": "This quarterly earnings-per-share calculation is not supported. Use a reported quarterly EPS figure.",
+            "values": [
+              {
+                "concept": "eps",
+                "label": "eps",
+                "period": "2024Q2"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"future_a\"]]",
+            "id": "analysis-data-note-i",
+            "letter": "i",
+            "kind": "review",
+            "reasons": [
+              "future_a"
+            ],
+            "message": "The source or calculation basis needs review. Check the original filing.",
+            "values": [],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          }
+        ],
+        "totals": {
+          "reviewValues": 2,
+          "reviewComparisons": 3,
+          "unavailable": 3,
+          "passed": 3,
+          "unknown": 4,
+          "calculated": 2,
+          "total": 12
+        }
+      }
+    },
+    {
+      "name": "annual_windows_and_comparison_only_issues",
+      "dataset": {
+        "mode": "annual",
+        "period_key": "FY2023..FY2024",
+        "periods": [
+          {
+            "key": "FY2023"
+          },
+          {
+            "key": "FY2024"
+          }
+        ],
+        "series": [
+          {
+            "concept": "income",
+            "label": "income",
+            "percent": false,
+            "cagr": 0,
+            "points": [
+              {
+                "period": "FY2023",
+                "value": 1,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "FY2024",
+                "value": 2,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "yoy": 0,
+                "yoy_reconciled": false,
+                "qoq": 1,
+                "qoq_provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "must_not_count"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ],
+            "cagr_window": null,
+            "cagr_reconciled": false,
+            "window_pp": 0,
+            "window_pp_provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "unavailable",
+              "reasons": [
+                "missing_source"
+              ],
+              "formula": null,
+              "inputs": []
+            }
+          },
+          {
+            "concept": "margin",
+            "label": "margin",
+            "percent": true,
+            "cagr": 0.1,
+            "points": [
+              {
+                "period": "FY2023",
+                "value": 10,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "FY2024",
+                "value": 8,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ],
+            "cagr_window": "FY2022..FY2024",
+            "cagr_provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "needs_review",
+              "reasons": [
+                "unit_mismatch"
+              ],
+              "formula": null,
+              "inputs": []
+            },
+            "window_pp": -2,
+            "window_pp_range": "FY2023..FY2024",
+            "window_pp_provenance": {
+              "version": 1,
+              "method": "reported",
+              "validation": "needs_review",
+              "reasons": [
+                "period_mismatch"
+              ],
+              "formula": null,
+              "inputs": []
+            }
+          }
+        ]
+      },
+      "expected": {
+        "version": 1,
+        "notes": [
+          {
+            "key": "[\"review\",[\"source_check_needed\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
+            "kind": "review",
+            "reasons": [
+              "source_check_needed"
+            ],
+            "message": "A source check remains unresolved. Review the original filing before use.",
+            "values": [],
+            "comparisons": [
+              {
+                "concept": "income",
+                "label": "income",
+                "period": "FY2024",
+                "basis": "yoy"
+              },
+              {
+                "concept": "income",
+                "label": "income",
+                "period": "FY2023..FY2024",
+                "basis": "cagr"
+              }
+            ],
+            "counts": {
+              "qoq": 0,
+              "yoy": 1,
+              "cagr": 1,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"unit_mismatch\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
+            "kind": "review",
+            "reasons": [
+              "unit_mismatch"
+            ],
+            "message": "The source inputs use different units or currencies.",
+            "values": [],
+            "comparisons": [
+              {
+                "concept": "margin",
+                "label": "margin",
+                "period": "FY2022..FY2024",
+                "basis": "cagr"
+              }
+            ],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 1,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"period_mismatch\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
+            "kind": "review",
+            "reasons": [
+              "period_mismatch"
+            ],
+            "message": "The source inputs cover incompatible reporting periods.",
+            "values": [],
+            "comparisons": [
+              {
+                "concept": "margin",
+                "label": "margin",
+                "period": "FY2023..FY2024",
+                "basis": "window_pp"
+              }
+            ],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 1
+            }
+          },
+          {
+            "key": "[\"unknown\",[\"missing_source\"]]",
+            "id": "analysis-data-note-d",
+            "letter": "d",
+            "kind": "unknown",
+            "reasons": [
+              "missing_source"
+            ],
+            "message": "The original source could not be established.",
+            "values": [],
+            "comparisons": [
+              {
+                "concept": "income",
+                "label": "income",
+                "period": "FY2023..FY2024",
+                "basis": "window_pp"
+              }
+            ],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 1
+            }
+          }
+        ],
+        "totals": {
+          "reviewValues": 0,
+          "reviewComparisons": 4,
+          "unavailable": 0,
+          "passed": 4,
+          "unknown": 0,
+          "calculated": 0,
+          "total": 4
+        }
+      }
+    },
+    {
+      "name": "portable_reason_identity_utf16_ascii",
+      "dataset": {
+        "mode": "quarterly",
+        "period_key": "2024Q1..2024Q1",
+        "periods": [
+          {
+            "key": "2024Q1"
+          }
+        ],
+        "series": [
+          {
+            "concept": "unicode",
+            "label": "unicode",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 1,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "\ue000",
+                    "\ud83d\ude00",
+                    "\u007f",
+                    "quote\"\\\n",
+                    "\ud800",
+                    "\u00e9"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "copy",
+            "label": "copy",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 2,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "\u00e9",
+                    "\ud800",
+                    "quote\"\\\n",
+                    "\u007f",
+                    "\ud83d\ude00",
+                    "\ue000",
+                    "\u00e9"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                },
+                "qoq": 0,
+                "qoq_provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "future_a"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "version": 1,
+        "notes": [
+          {
+            "key": "[\"review\",[\"quote\\\"\\\\\\n\",\"\\u007f\",\"\\u00e9\",\"\\ud800\",\"\\ud83d\\ude00\",\"\\ue000\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
+            "kind": "review",
+            "reasons": [
+              "quote\"\\\n",
+              "\u007f",
+              "\u00e9",
+              "\ud800",
+              "\ud83d\ude00",
+              "\ue000"
+            ],
+            "message": "The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing.",
+            "values": [
+              {
+                "concept": "unicode",
+                "label": "unicode",
+                "period": "2024Q1"
+              },
+              {
+                "concept": "copy",
+                "label": "copy",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"future_a\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
+            "kind": "review",
+            "reasons": [
+              "future_a"
+            ],
+            "message": "The source or calculation basis needs review. Check the original filing.",
+            "values": [],
+            "comparisons": [
+              {
+                "concept": "copy",
+                "label": "copy",
+                "period": "2024Q1",
+                "basis": "qoq"
+              }
+            ],
+            "counts": {
+              "qoq": 1,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          }
+        ],
+        "totals": {
+          "reviewValues": 2,
+          "reviewComparisons": 1,
+          "unavailable": 0,
+          "passed": 0,
+          "unknown": 0,
+          "calculated": 0,
+          "total": 2
+        }
+      },
+      "citations": [
+        {
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "unavailable",
+            "reasons": [
+              "\ue000",
+              "\ud83d\ude00",
+              "\u007f",
+              "quote\"\\\n",
+              "\ud800",
+              "\u00e9"
+            ],
+            "formula": null,
+            "inputs": []
+          }
+        }
+      ],
+      "expected_citation_notes": {
+        "version": 1,
+        "notes": [
+          {
+            "key": "[\"review\",[\"quote\\\"\\\\\\n\",\"\\u007f\",\"\\u00e9\",\"\\ud800\",\"\\ud83d\\ude00\",\"\\ue000\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
+            "kind": "review",
+            "reasons": [
+              "quote\"\\\n",
+              "\u007f",
+              "\u00e9",
+              "\ud800",
+              "\ud83d\ude00",
+              "\ue000"
+            ],
+            "message": "The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing.",
+            "values": [
+              {
+                "concept": "unicode",
+                "label": "unicode",
+                "period": "2024Q1"
+              },
+              {
+                "concept": "copy",
+                "label": "copy",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"future_a\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
+            "kind": "review",
+            "reasons": [
+              "future_a"
+            ],
+            "message": "The source or calculation basis needs review. Check the original filing.",
+            "values": [],
+            "comparisons": [
+              {
+                "concept": "copy",
+                "label": "copy",
+                "period": "2024Q1",
+                "basis": "qoq"
+              }
+            ],
+            "counts": {
+              "qoq": 1,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"unknown\",[\"quote\\\"\\\\\\n\",\"\\u007f\",\"\\u00e9\",\"\\ud800\",\"\\ud83d\\ude00\",\"\\ue000\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
+            "kind": "unknown",
+            "reasons": [
+              "quote\"\\\n",
+              "\u007f",
+              "\u00e9",
+              "\ud800",
+              "\ud83d\ude00",
+              "\ue000"
+            ],
+            "message": "The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing.",
+            "values": [],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          }
+        ],
+        "totals": {
+          "reviewValues": 2,
+          "reviewComparisons": 1,
+          "unavailable": 0,
+          "passed": 0,
+          "unknown": 0,
+          "calculated": 0,
+          "total": 2
+        }
+      }
+    },
+    {
+      "name": "all_known_reason_messages_and_supplements_after_z",
+      "dataset": {
+        "mode": "quarterly",
+        "period_key": "2024Q1..2024Q1",
+        "periods": [
+          {
+            "key": "2024Q1"
+          }
+        ],
+        "series": [
+          {
+            "concept": "reason_0",
+            "label": "reason_0",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 0,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "not_in_dataset"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_1",
+            "label": "reason_1",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 1,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "legacy_calculation"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_2",
+            "label": "reason_2",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 2,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "source_check_needed"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_3",
+            "label": "reason_3",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 3,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "unsupported_eps_calculation"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_4",
+            "label": "reason_4",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 4,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "legacy_calculation_not_supported"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_5",
+            "label": "reason_5",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 5,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "repair_rolled_back"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_6",
+            "label": "reason_6",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 6,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "incompatible_vintages"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_7",
+            "label": "reason_7",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 7,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "missing_compatible_operand"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_8",
+            "label": "reason_8",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 8,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "negative_calculated_value"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_9",
+            "label": "reason_9",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 9,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "missing_inputs"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_10",
+            "label": "reason_10",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 10,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "missing_input"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_11",
+            "label": "reason_11",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 11,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "missing_source"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_12",
+            "label": "reason_12",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 12,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "missing_provenance"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_13",
+            "label": "reason_13",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 13,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "legacy_unverified"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_14",
+            "label": "reason_14",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 14,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "legacy_unreconciled"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_15",
+            "label": "reason_15",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 15,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "legacy_unknown"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_16",
+            "label": "reason_16",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 16,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "legacy_provenance_unavailable"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_17",
+            "label": "reason_17",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 17,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "incompatible_inputs"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_18",
+            "label": "reason_18",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 18,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "mixed_vintage"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_19",
+            "label": "reason_19",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 19,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "mixed_vintages"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_20",
+            "label": "reason_20",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 20,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "unit_mismatch"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_21",
+            "label": "reason_21",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 21,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "period_mismatch"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_22",
+            "label": "reason_22",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 22,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "missing_adjacent_period"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_23",
+            "label": "reason_23",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 23,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "eps_not_additive"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_24",
+            "label": "reason_24",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 24,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "eps_requires_reported_quarter"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_25",
+            "label": "reason_25",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 25,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "rounded_share_count"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_26",
+            "label": "reason_26",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 26,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "source_conflict"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "version": 1,
+        "notes": [
+          {
+            "key": "[\"review\",[\"not_in_dataset\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
+            "kind": "review",
+            "reasons": [
+              "not_in_dataset"
+            ],
+            "message": "Not available in this dataset.",
+            "values": [
+              {
+                "concept": "reason_0",
+                "label": "reason_0",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"legacy_calculation\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
+            "kind": "review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "message": "This saved calculation predates the current source checks. Its inputs need review.",
+            "values": [
+              {
+                "concept": "reason_1",
+                "label": "reason_1",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"source_check_needed\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
+            "kind": "review",
+            "reasons": [
+              "source_check_needed"
+            ],
+            "message": "A source check remains unresolved. Review the original filing before use.",
+            "values": [
+              {
+                "concept": "reason_2",
+                "label": "reason_2",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"unsupported_eps_calculation\"]]",
+            "id": "analysis-data-note-d",
+            "letter": "d",
+            "kind": "review",
+            "reasons": [
+              "unsupported_eps_calculation"
+            ],
+            "message": "This quarterly earnings-per-share calculation is not supported. Use a reported quarterly EPS figure.",
+            "values": [
+              {
+                "concept": "reason_3",
+                "label": "reason_3",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"legacy_calculation_not_supported\"]]",
+            "id": "analysis-data-note-e",
+            "letter": "e",
+            "kind": "review",
+            "reasons": [
+              "legacy_calculation_not_supported"
+            ],
+            "message": "This saved calculation could not be reproduced from compatible source inputs and is unavailable.",
+            "values": [
+              {
+                "concept": "reason_4",
+                "label": "reason_4",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"repair_rolled_back\"]]",
+            "id": "analysis-data-note-f",
+            "letter": "f",
+            "kind": "review",
+            "reasons": [
+              "repair_rolled_back"
+            ],
+            "message": "This figure was withdrawn during a data correction and is unavailable.",
+            "values": [
+              {
+                "concept": "reason_5",
+                "label": "reason_5",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"incompatible_vintages\"]]",
+            "id": "analysis-data-note-g",
+            "letter": "g",
+            "kind": "review",
+            "reasons": [
+              "incompatible_vintages"
+            ],
+            "message": "The inputs come from incompatible versions of the company\u2019s filings.",
+            "values": [
+              {
+                "concept": "reason_6",
+                "label": "reason_6",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"missing_compatible_operand\"]]",
+            "id": "analysis-data-note-h",
+            "letter": "h",
+            "kind": "review",
+            "reasons": [
+              "missing_compatible_operand"
+            ],
+            "message": "A compatible earlier year-to-date figure is unavailable for this calculation.",
+            "values": [
+              {
+                "concept": "reason_7",
+                "label": "reason_7",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"negative_calculated_value\"]]",
+            "id": "analysis-data-note-i",
+            "letter": "i",
+            "kind": "review",
+            "reasons": [
+              "negative_calculated_value"
+            ],
+            "message": "The calculation produced an invalid negative amount and was withheld.",
+            "values": [
+              {
+                "concept": "reason_8",
+                "label": "reason_8",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"missing_inputs\"]]",
+            "id": "analysis-data-note-j",
+            "letter": "j",
+            "kind": "review",
+            "reasons": [
+              "missing_inputs"
+            ],
+            "message": "The source inputs needed for this calculation are unavailable.",
+            "values": [
+              {
+                "concept": "reason_9",
+                "label": "reason_9",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"missing_input\"]]",
+            "id": "analysis-data-note-k",
+            "letter": "k",
+            "kind": "review",
+            "reasons": [
+              "missing_input"
+            ],
+            "message": "A source input needed for this calculation is unavailable.",
+            "values": [
+              {
+                "concept": "reason_10",
+                "label": "reason_10",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"missing_source\"]]",
+            "id": "analysis-data-note-l",
+            "letter": "l",
+            "kind": "review",
+            "reasons": [
+              "missing_source"
+            ],
+            "message": "The original source could not be established.",
+            "values": [
+              {
+                "concept": "reason_11",
+                "label": "reason_11",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"missing_provenance\"]]",
+            "id": "analysis-data-note-m",
+            "letter": "m",
+            "kind": "review",
+            "reasons": [
+              "missing_provenance"
+            ],
+            "message": "Detailed source information is unavailable for this figure.",
+            "values": [
+              {
+                "concept": "reason_12",
+                "label": "reason_12",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"legacy_unverified\"]]",
+            "id": "analysis-data-note-n",
+            "letter": "n",
+            "kind": "review",
+            "reasons": [
+              "legacy_unverified"
+            ],
+            "message": "This saved figure needs a source check before use.",
+            "values": [
+              {
+                "concept": "reason_13",
+                "label": "reason_13",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"legacy_unreconciled\"]]",
+            "id": "analysis-data-note-o",
+            "letter": "o",
+            "kind": "review",
+            "reasons": [
+              "legacy_unreconciled"
+            ],
+            "message": "This saved figure needs a source check before use.",
+            "values": [
+              {
+                "concept": "reason_14",
+                "label": "reason_14",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"legacy_unknown\"]]",
+            "id": "analysis-data-note-p",
+            "letter": "p",
+            "kind": "review",
+            "reasons": [
+              "legacy_unknown"
+            ],
+            "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
+            "values": [
+              {
+                "concept": "reason_15",
+                "label": "reason_15",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"legacy_provenance_unavailable\"]]",
+            "id": "analysis-data-note-q",
+            "letter": "q",
+            "kind": "review",
+            "reasons": [
+              "legacy_provenance_unavailable"
+            ],
+            "message": "Detailed source information is unavailable for this saved figure.",
+            "values": [
+              {
+                "concept": "reason_16",
+                "label": "reason_16",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"incompatible_inputs\"]]",
+            "id": "analysis-data-note-r",
+            "letter": "r",
+            "kind": "review",
+            "reasons": [
+              "incompatible_inputs"
+            ],
+            "message": "The source inputs do not have a compatible reporting basis.",
+            "values": [
+              {
+                "concept": "reason_17",
+                "label": "reason_17",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"mixed_vintage\"]]",
+            "id": "analysis-data-note-s",
+            "letter": "s",
+            "kind": "review",
+            "reasons": [
+              "mixed_vintage"
+            ],
+            "message": "The calculation combines figures from different filing versions.",
+            "values": [
+              {
+                "concept": "reason_18",
+                "label": "reason_18",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"mixed_vintages\"]]",
+            "id": "analysis-data-note-t",
+            "letter": "t",
+            "kind": "review",
+            "reasons": [
+              "mixed_vintages"
+            ],
+            "message": "The calculation combines figures from different filing versions.",
+            "values": [
+              {
+                "concept": "reason_19",
+                "label": "reason_19",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"unit_mismatch\"]]",
+            "id": "analysis-data-note-u",
+            "letter": "u",
+            "kind": "review",
+            "reasons": [
+              "unit_mismatch"
+            ],
+            "message": "The source inputs use different units or currencies.",
+            "values": [
+              {
+                "concept": "reason_20",
+                "label": "reason_20",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"period_mismatch\"]]",
+            "id": "analysis-data-note-v",
+            "letter": "v",
+            "kind": "review",
+            "reasons": [
+              "period_mismatch"
+            ],
+            "message": "The source inputs cover incompatible reporting periods.",
+            "values": [
+              {
+                "concept": "reason_21",
+                "label": "reason_21",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"missing_adjacent_period\"]]",
+            "id": "analysis-data-note-w",
+            "letter": "w",
+            "kind": "review",
+            "reasons": [
+              "missing_adjacent_period"
+            ],
+            "message": "The immediately preceding period is unavailable.",
+            "values": [
+              {
+                "concept": "reason_22",
+                "label": "reason_22",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"eps_not_additive\"]]",
+            "id": "analysis-data-note-x",
+            "letter": "x",
+            "kind": "review",
+            "reasons": [
+              "eps_not_additive"
+            ],
+            "message": "Quarterly earnings per share cannot be obtained by subtracting annual and year-to-date EPS.",
+            "values": [
+              {
+                "concept": "reason_23",
+                "label": "reason_23",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"eps_requires_reported_quarter\"]]",
+            "id": "analysis-data-note-y",
+            "letter": "y",
+            "kind": "review",
+            "reasons": [
+              "eps_requires_reported_quarter"
+            ],
+            "message": "A reported quarterly earnings-per-share figure is unavailable.",
+            "values": [
+              {
+                "concept": "reason_24",
+                "label": "reason_24",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"rounded_share_count\"]]",
+            "id": "analysis-data-note-z",
+            "letter": "z",
+            "kind": "review",
+            "reasons": [
+              "rounded_share_count"
+            ],
+            "message": "Rounded weighted-average share counts do not establish an exact quarterly EPS figure.",
+            "values": [
+              {
+                "concept": "reason_25",
+                "label": "reason_25",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"source_conflict\"]]",
+            "id": "analysis-data-note-aa",
+            "letter": "aa",
+            "kind": "review",
+            "reasons": [
+              "source_conflict"
+            ],
+            "message": "Available sources disagree on this figure.",
+            "values": [
+              {
+                "concept": "reason_26",
+                "label": "reason_26",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          }
+        ],
+        "totals": {
+          "reviewValues": 27,
+          "reviewComparisons": 0,
+          "unavailable": 0,
+          "passed": 0,
+          "unknown": 0,
+          "calculated": 0,
+          "total": 27
+        }
+      },
+      "citations": [
+        {
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "needs_review",
+            "reasons": [
+              "new_citation_reason"
+            ],
+            "formula": null,
+            "inputs": []
+          }
+        },
+        {
+          "provenance": {
+            "version": 1,
+            "method": "reported",
+            "validation": "needs_review",
+            "reasons": [
+              "source_conflict"
+            ],
+            "formula": null,
+            "inputs": []
+          }
+        },
+        {
+          "reconciled": true
+        },
+        {
+          "value": null
+        }
+      ],
+      "expected_citation_notes": {
+        "version": 1,
+        "notes": [
+          {
+            "key": "[\"review\",[\"not_in_dataset\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
+            "kind": "review",
+            "reasons": [
+              "not_in_dataset"
+            ],
+            "message": "Not available in this dataset.",
+            "values": [
+              {
+                "concept": "reason_0",
+                "label": "reason_0",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"legacy_calculation\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
+            "kind": "review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "message": "This saved calculation predates the current source checks. Its inputs need review.",
+            "values": [
+              {
+                "concept": "reason_1",
+                "label": "reason_1",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"source_check_needed\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
+            "kind": "review",
+            "reasons": [
+              "source_check_needed"
+            ],
+            "message": "A source check remains unresolved. Review the original filing before use.",
+            "values": [
+              {
+                "concept": "reason_2",
+                "label": "reason_2",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"unsupported_eps_calculation\"]]",
+            "id": "analysis-data-note-d",
+            "letter": "d",
+            "kind": "review",
+            "reasons": [
+              "unsupported_eps_calculation"
+            ],
+            "message": "This quarterly earnings-per-share calculation is not supported. Use a reported quarterly EPS figure.",
+            "values": [
+              {
+                "concept": "reason_3",
+                "label": "reason_3",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"legacy_calculation_not_supported\"]]",
+            "id": "analysis-data-note-e",
+            "letter": "e",
+            "kind": "review",
+            "reasons": [
+              "legacy_calculation_not_supported"
+            ],
+            "message": "This saved calculation could not be reproduced from compatible source inputs and is unavailable.",
+            "values": [
+              {
+                "concept": "reason_4",
+                "label": "reason_4",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"repair_rolled_back\"]]",
+            "id": "analysis-data-note-f",
+            "letter": "f",
+            "kind": "review",
+            "reasons": [
+              "repair_rolled_back"
+            ],
+            "message": "This figure was withdrawn during a data correction and is unavailable.",
+            "values": [
+              {
+                "concept": "reason_5",
+                "label": "reason_5",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"incompatible_vintages\"]]",
+            "id": "analysis-data-note-g",
+            "letter": "g",
+            "kind": "review",
+            "reasons": [
+              "incompatible_vintages"
+            ],
+            "message": "The inputs come from incompatible versions of the company\u2019s filings.",
+            "values": [
+              {
+                "concept": "reason_6",
+                "label": "reason_6",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"missing_compatible_operand\"]]",
+            "id": "analysis-data-note-h",
+            "letter": "h",
+            "kind": "review",
+            "reasons": [
+              "missing_compatible_operand"
+            ],
+            "message": "A compatible earlier year-to-date figure is unavailable for this calculation.",
+            "values": [
+              {
+                "concept": "reason_7",
+                "label": "reason_7",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"negative_calculated_value\"]]",
+            "id": "analysis-data-note-i",
+            "letter": "i",
+            "kind": "review",
+            "reasons": [
+              "negative_calculated_value"
+            ],
+            "message": "The calculation produced an invalid negative amount and was withheld.",
+            "values": [
+              {
+                "concept": "reason_8",
+                "label": "reason_8",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"missing_inputs\"]]",
+            "id": "analysis-data-note-j",
+            "letter": "j",
+            "kind": "review",
+            "reasons": [
+              "missing_inputs"
+            ],
+            "message": "The source inputs needed for this calculation are unavailable.",
+            "values": [
+              {
+                "concept": "reason_9",
+                "label": "reason_9",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"missing_input\"]]",
+            "id": "analysis-data-note-k",
+            "letter": "k",
+            "kind": "review",
+            "reasons": [
+              "missing_input"
+            ],
+            "message": "A source input needed for this calculation is unavailable.",
+            "values": [
+              {
+                "concept": "reason_10",
+                "label": "reason_10",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"missing_source\"]]",
+            "id": "analysis-data-note-l",
+            "letter": "l",
+            "kind": "review",
+            "reasons": [
+              "missing_source"
+            ],
+            "message": "The original source could not be established.",
+            "values": [
+              {
+                "concept": "reason_11",
+                "label": "reason_11",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"missing_provenance\"]]",
+            "id": "analysis-data-note-m",
+            "letter": "m",
+            "kind": "review",
+            "reasons": [
+              "missing_provenance"
+            ],
+            "message": "Detailed source information is unavailable for this figure.",
+            "values": [
+              {
+                "concept": "reason_12",
+                "label": "reason_12",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"legacy_unverified\"]]",
+            "id": "analysis-data-note-n",
+            "letter": "n",
+            "kind": "review",
+            "reasons": [
+              "legacy_unverified"
+            ],
+            "message": "This saved figure needs a source check before use.",
+            "values": [
+              {
+                "concept": "reason_13",
+                "label": "reason_13",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"legacy_unreconciled\"]]",
+            "id": "analysis-data-note-o",
+            "letter": "o",
+            "kind": "review",
+            "reasons": [
+              "legacy_unreconciled"
+            ],
+            "message": "This saved figure needs a source check before use.",
+            "values": [
+              {
+                "concept": "reason_14",
+                "label": "reason_14",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"legacy_unknown\"]]",
+            "id": "analysis-data-note-p",
+            "letter": "p",
+            "kind": "review",
+            "reasons": [
+              "legacy_unknown"
+            ],
+            "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
+            "values": [
+              {
+                "concept": "reason_15",
+                "label": "reason_15",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"legacy_provenance_unavailable\"]]",
+            "id": "analysis-data-note-q",
+            "letter": "q",
+            "kind": "review",
+            "reasons": [
+              "legacy_provenance_unavailable"
+            ],
+            "message": "Detailed source information is unavailable for this saved figure.",
+            "values": [
+              {
+                "concept": "reason_16",
+                "label": "reason_16",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"incompatible_inputs\"]]",
+            "id": "analysis-data-note-r",
+            "letter": "r",
+            "kind": "review",
+            "reasons": [
+              "incompatible_inputs"
+            ],
+            "message": "The source inputs do not have a compatible reporting basis.",
+            "values": [
+              {
+                "concept": "reason_17",
+                "label": "reason_17",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"mixed_vintage\"]]",
+            "id": "analysis-data-note-s",
+            "letter": "s",
+            "kind": "review",
+            "reasons": [
+              "mixed_vintage"
+            ],
+            "message": "The calculation combines figures from different filing versions.",
+            "values": [
+              {
+                "concept": "reason_18",
+                "label": "reason_18",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"mixed_vintages\"]]",
+            "id": "analysis-data-note-t",
+            "letter": "t",
+            "kind": "review",
+            "reasons": [
+              "mixed_vintages"
+            ],
+            "message": "The calculation combines figures from different filing versions.",
+            "values": [
+              {
+                "concept": "reason_19",
+                "label": "reason_19",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"unit_mismatch\"]]",
+            "id": "analysis-data-note-u",
+            "letter": "u",
+            "kind": "review",
+            "reasons": [
+              "unit_mismatch"
+            ],
+            "message": "The source inputs use different units or currencies.",
+            "values": [
+              {
+                "concept": "reason_20",
+                "label": "reason_20",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"period_mismatch\"]]",
+            "id": "analysis-data-note-v",
+            "letter": "v",
+            "kind": "review",
+            "reasons": [
+              "period_mismatch"
+            ],
+            "message": "The source inputs cover incompatible reporting periods.",
+            "values": [
+              {
+                "concept": "reason_21",
+                "label": "reason_21",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"missing_adjacent_period\"]]",
+            "id": "analysis-data-note-w",
+            "letter": "w",
+            "kind": "review",
+            "reasons": [
+              "missing_adjacent_period"
+            ],
+            "message": "The immediately preceding period is unavailable.",
+            "values": [
+              {
+                "concept": "reason_22",
+                "label": "reason_22",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"eps_not_additive\"]]",
+            "id": "analysis-data-note-x",
+            "letter": "x",
+            "kind": "review",
+            "reasons": [
+              "eps_not_additive"
+            ],
+            "message": "Quarterly earnings per share cannot be obtained by subtracting annual and year-to-date EPS.",
+            "values": [
+              {
+                "concept": "reason_23",
+                "label": "reason_23",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"eps_requires_reported_quarter\"]]",
+            "id": "analysis-data-note-y",
+            "letter": "y",
+            "kind": "review",
+            "reasons": [
+              "eps_requires_reported_quarter"
+            ],
+            "message": "A reported quarterly earnings-per-share figure is unavailable.",
+            "values": [
+              {
+                "concept": "reason_24",
+                "label": "reason_24",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"rounded_share_count\"]]",
+            "id": "analysis-data-note-z",
+            "letter": "z",
+            "kind": "review",
+            "reasons": [
+              "rounded_share_count"
+            ],
+            "message": "Rounded weighted-average share counts do not establish an exact quarterly EPS figure.",
+            "values": [
+              {
+                "concept": "reason_25",
+                "label": "reason_25",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"source_conflict\"]]",
+            "id": "analysis-data-note-aa",
+            "letter": "aa",
+            "kind": "review",
+            "reasons": [
+              "source_conflict"
+            ],
+            "message": "Available sources disagree on this figure.",
+            "values": [
+              {
+                "concept": "reason_26",
+                "label": "reason_26",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"new_citation_reason\"]]",
+            "id": "analysis-data-note-ab",
+            "letter": "ab",
+            "kind": "review",
+            "reasons": [
+              "new_citation_reason"
+            ],
+            "message": "The source or calculation basis needs review. Check the original filing.",
+            "values": [],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"unknown\",[\"legacy_unknown\"]]",
+            "id": "analysis-data-note-ac",
+            "letter": "ac",
+            "kind": "unknown",
+            "reasons": [
+              "legacy_unknown"
+            ],
+            "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
+            "values": [],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"unavailable\",[\"not_in_dataset\"]]",
+            "id": "analysis-data-note-ad",
+            "letter": "ad",
+            "kind": "unavailable",
+            "reasons": [
+              "not_in_dataset"
+            ],
+            "message": "Not available in this dataset.",
+            "values": [],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          }
+        ],
+        "totals": {
+          "reviewValues": 27,
+          "reviewComparisons": 0,
+          "unavailable": 0,
+          "passed": 0,
+          "unknown": 0,
+          "calculated": 0,
+          "total": 27
+        }
+      }
+    },
+    {
+      "name": "explicit_passed_and_calculated_are_independent",
+      "dataset": {
+        "mode": "quarterly",
+        "period_key": "2024Q1..2024Q1",
+        "periods": [
+          {
+            "key": "2024Q1"
+          }
+        ],
+        "series": [
+          {
+            "concept": "reported",
+            "label": "reported",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 0,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "reconciled": false,
+                "derived": true
+              }
+            ]
+          },
+          {
+            "concept": "calculated",
+            "label": "calculated",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 1,
+                "provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "version": 1,
+        "notes": [],
+        "totals": {
+          "reviewValues": 0,
+          "reviewComparisons": 0,
+          "unavailable": 0,
+          "passed": 2,
+          "unknown": 0,
+          "calculated": 1,
+          "total": 2
+        }
+      }
+    }
+  ]
+}

@@ -191,6 +191,21 @@ persistence and narrative streaming. `narrative.py` keeps database sessions and 
 lazily imported at call time. `trend_analysis_service.py` re-exports the original public and private
 names, so the analysis router continues to resolve them through the same module.
 
+Analysis datasets carry versioned `data_notes` from the pure `trend_analysis/data_notes.py`
+builder. The web, chart downloads, PDF and Excel use the same reason groups, letters and counts;
+old snapshots without this field use a presentation-only fallback. The web admits supplied notes
+at the API boundary against the dataset's quality fields, rejecting malformed or mismatched
+metadata rather than silently falling back. Notes do not change financial values or validation.
+
+`presentation.py` formats selected observations after selection, preserving the model-facing
+catalogue and prompt. Its `narrative_presentation` completion member binds structured red-flag
+operands and UTF-16 text spans to the financial snapshot. Inline operand text remains in stored
+Markdown for PDF; the web replaces those exact spans with evidence disclosures. Citation-only
+concerns append to report notes without changing report counts or existing letters. The independent
+`NARRATIVE_FORMAT_VERSION` controls cache and PDF compatibility; both presentation fields are
+excluded from the financial fingerprint. An old format follows the existing system-invalidated
+regeneration and metering path, without a schema change or bulk cache deletion.
+
 ### The `ai/` package (behind the `openai_service` façade)
 
 `extraction` (section layouts + financial-data extraction), `json_repair`,

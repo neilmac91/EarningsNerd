@@ -11,6 +11,6 @@ def analysis_completion(
         "type": "complete", "kind": "analysis", "analysis_id": analysis_id,
         "snapshot_id": dataset.get("snapshot_id"), "narrative": narrative,
         "citations": citations, "grounded": grounded, "unverified": unverified,
-        "mismatched": mismatched, "cached": cached, "invalidated": invalidated,
-        "n_periods": len(dataset["periods"]), "usage": usage,
+        "mismatched": mismatched, "cached": cached, "invalidated": invalidated, "usage": usage,
+        "n_periods": len(dataset["periods"]), "narrative_presentation": dataset.get("narrative_presentation"),
     }

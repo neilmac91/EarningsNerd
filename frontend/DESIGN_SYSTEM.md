@@ -186,6 +186,10 @@ Ghost button     <Button variant="ghost">  — brand.strong text on transparent,
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
                  <Input> component can't wrap use inputClasses({ invalid, density, select, autoWidth }).
+                 Tone (v3.5): the border and focus ring are one tone, default or error, never one layered on
+                 the other: `invalid` (the components' `error`) picks the error border, which holds on hover,
+                 and the error ring. Each tone states its focus border even where it equals the rest border,
+                 because the forms plugin's `[type='text']:focus` border (#2563EB) outranks a bare `border-*`.
                  Toolbar fields (v3.1): density="compact" on <Select>/inputClasses = 36px from sm
                  up, phones keep the standard 42px field height; a field inside a table row is compact too.
                  `density`, not `size` (a native attribute); each density has its own EXPLICIT padding sides
@@ -335,7 +339,13 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
-                 inputClasses({ leadingIcon: true }).
+                 inputClasses({ leadingIcon: true }). A raw search field with a busy state (v3.4) reserves
+                 the trailing inset always, inputClasses({ leadingIcon: true, trailingIcon: true }), marks the
+                 input aria-busy and renders {busy && <FieldSpinner />} (16px, right-3), as <Input loading>
+                 does. Never a 20px glyph at right-4 over the 14px inset (it covered the last 17–21px of
+                 typed text), and never an inset that follows the busy flag: when the padding grows the caret
+                 stays put, so a long query loses its end under the spinner. A "/" shortcut hint sits at
+                 right-3 inside the same inset. Gate: tests/unit/inputClassesNoOverrides.spec.tsx.
 
 Password field   PasswordField  — raw input + inputClasses({ trailingIcon: true }) (v3.3): an explicit pr-10
                  (40px) trailing inset for the reveal toggle at both densities (pr-10 on top of the field's

@@ -21,6 +21,13 @@
    v3.3: inputClasses() grows `trailingIcon` (the 40px trailing inset for a control
    drawn at the field's right edge, the password reveal toggle), explicit sides
    per density like `select`.
+   v3.4: FieldSpinner is exported for raw fields (the search fields' busy state), and
+   an Input that takes `loading` reserves its trailing inset whether or not it is
+   loading, as a raw field's `trailingIcon: true` does.
+   v3.5: the border and the focus ring are a TONE, one per field: `invalid` (the
+   components' `error`) picks the error tone instead of layering it on the default
+   one, where palette order decided which border showed and a hovered invalid
+   field turned grey. The error border holds on hover.
    Assumes @tailwindcss/forms (already in the config plugins).
 ============================================================================= */
 
@@ -41,24 +48,38 @@ import { cx } from './cx'
     the client so composer auto-grow never flashes; plain effect on the server. */
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
-/** The field's look without a width: inputClasses({ autoWidth }) picks the width explicitly. */
+/** The field's look without a width or a tone: inputClasses({ autoWidth }) picks the width, and `invalid` the tone. */
 const FIELD_BASE = cx(
   'rounded-lg border text-sm transition-[border-color,box-shadow] duration-fast',
-  'border-border-light bg-white text-text-primary-light placeholder:text-text-tertiary-light',
-  'hover:border-flat-light',
-  'focus:border-brand focus:shadow-ring-brand focus:outline-none',
-  'disabled:cursor-not-allowed disabled:bg-background-light disabled:opacity-60 disabled:hover:border-border-light',
+  'bg-white text-text-primary-light placeholder:text-text-tertiary-light',
+  'focus:outline-none',
+  'disabled:cursor-not-allowed disabled:bg-background-light disabled:opacity-60',
   // dark: muted copy uses `secondary`, never `tertiary` (fails AA on navy)
-  'dark:border-border-dark dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark',
-  'dark:hover:border-flat-dark dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark',
-  'dark:disabled:bg-white/5 dark:disabled:hover:border-border-dark',
+  'dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark',
+  'dark:disabled:bg-white/5',
 )
 const FIELD = cx('w-full', FIELD_BASE)
 
-const INVALID = cx(
-  'border-error-light focus:border-error-light focus:shadow-ring-error',
-  'dark:border-error-dark dark:focus:border-error-dark dark:focus:shadow-ring-error',
-)
+/** v3.5 — the border and the focus ring, one tone per field, never one on top of the other. cx does no
+    tailwind-merge: the error classes layered on the default tone used to win by palette order (`error` after
+    `border` and `brand`), and the default `hover:` border, a later variant, turned a hovered invalid field grey.
+    `error` holds its border on hover, since the red names the problem; a disabled field's hover changes
+    nothing in either tone. Each tone states its focus border in both themes even where it equals the rest
+    border: the forms plugin's `[type='text']:focus` border (#2563EB, specificity 0,2,0) beats a bare
+    `border-*` class. The error ring is `shadow-ring-error` in dark too, until a dark ring-error token exists
+    (the focus-ring item #1178 recorded). */
+const TONE = {
+  default: cx(
+    'border-border-light hover:border-flat-light focus:border-brand focus:shadow-ring-brand disabled:hover:border-border-light',
+    'dark:border-border-dark dark:hover:border-flat-dark dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark',
+    'dark:disabled:hover:border-border-dark',
+  ),
+  error: cx(
+    'border-error-light focus:border-error-light focus:shadow-ring-error',
+    'dark:border-error-dark dark:focus:border-error-dark dark:focus:shadow-ring-error',
+  ),
+} as const
+const tone = (invalid: unknown) => TONE[invalid ? 'error' : 'default']
 
 const PAD = 'px-3.5 py-2.5'
 /** Leading-icon inset — EXPLICIT sides. px-3.5 + a pl-11 override is Tailwind
@@ -112,9 +133,12 @@ export type InputClassesOptions = InputClassesBase &
             left-3.5, centered, pointer-events-none, muted tone). */
         leadingIcon?: boolean
         /** v3.3: reserve the pr-10 (40px) trailing inset for a control you render at the field's right
-            edge (the password reveal toggle). Sized for a glyph of at most 16px whose outer edge sits 12px
-            in (`right-3`, or `right-0` with `pr-3`): it spans 12–28px from the edge and leaves 13px before
-            the text. A larger glyph, or one set further in, runs into the text. */
+            edge (the password reveal toggle, a search field's <FieldSpinner />). Sized for a glyph of at
+            most 16px whose outer edge sits 12px in (`right-3`, or `right-0` with `pr-3`): it spans 12–28px
+            from the edge and leaves 13px before the text. A larger glyph, or one set further in, runs into
+            the text. v3.4: always `true`, never the control's own condition. When the padding grows,
+            Chromium leaves the caret where it was, so a long query loses its end and caret under a spinner
+            for the whole load; when it shrinks, the line jumps. */
         trailingIcon?: boolean
         select?: false
       }
@@ -144,7 +168,7 @@ export function inputClasses({
 }: InputClassesOptions = {}): string {
   const inset = leadingIcon ? (trailingIcon ? 'both' : 'leading') : trailingIcon ? 'trailing' : 'plain'
   const pad = select ? SELECT_PAD[density] : FIELD_PAD[density][inset]
-  return cx(autoWidth ? cx('max-w-full', FIELD_BASE) : FIELD, pad, invalid && INVALID, className)
+  return cx(autoWidth ? cx('max-w-full', FIELD_BASE) : FIELD, tone(invalid), pad, className)
 }
 
 /** The field's `disabled:` look keyed to `aria-disabled`, for a field (a <select> here) that is
@@ -195,7 +219,10 @@ function Shell({
   )
 }
 
-function FieldSpinner() {
+/** The field's busy spinner: 16px at right-3, the box `trailingIcon` reserves. A raw field renders it beside the
+    input inside a `relative` wrapper, with `trailingIcon: true` and `aria-busy` on the input, as Input's
+    `loading` does. aria-hidden: the input's aria-busy carries the state. */
+export function FieldSpinner() {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -212,7 +239,8 @@ function FieldSpinner() {
 /* ---------------------------------------------------------------- Input -- */
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement>, FieldExtras {
-  /** Async lookup in flight (e.g. ticker validation) — trailing spinner + aria-busy. */
+  /** Async lookup in flight (e.g. ticker validation) — trailing spinner + aria-busy. Passing it at all,
+      `false` included, reserves the trailing inset, so the padding never moves under the caret. */
   loading?: boolean
   /** Leading glyph (16–18px — a Phosphor magnifier, a ticker mark). Swaps the
       left inset to the pl-11 icon padding; muted tone, pointer-events-none.
@@ -249,8 +277,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
             // Explicit per-side padding — no px/pl/pr conflict-order reliance.
             'py-2.5',
             icon ? 'pl-11' : 'pl-3.5',
-            loading ? 'pr-10' : 'pr-3.5',
-            error ? INVALID : undefined,
+            loading !== undefined ? 'pr-10' : 'pr-3.5',
+            tone(error),
           )}
           {...rest}
         />
@@ -332,7 +360,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
           if (composer) grow()
           onInput?.(e)
         }}
-        className={composer ? COMPOSER : cx(FIELD, PAD, 'resize-y', error ? INVALID : undefined)}
+        className={composer ? COMPOSER : cx(FIELD, tone(error), PAD, 'resize-y')}
         {...rest}
       />
     </Shell>
@@ -360,7 +388,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         id={id}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        className={cx(FIELD, SELECT_PAD[density], error ? INVALID : undefined)}
+        className={cx(FIELD, tone(error), SELECT_PAD[density])}
         {...rest}
       >
         {children}

@@ -399,11 +399,11 @@ async def test_t0_5_complete_event_key_sets(company_id):
     ]
     analysis_keys = {
         "type", "kind", "analysis_id", "narrative", "citations", "grounded", "unverified",
-        "mismatched", "cached", "invalidated", "n_periods", "usage", "snapshot_id",
+        "mismatched", "cached", "invalidated", "n_periods", "usage", "snapshot_id", "narrative_presentation",
     }
     assert set(fresh) == analysis_keys
     assert set(cached) == analysis_keys
-    assert set(sparse) == analysis_keys - {"mismatched", "snapshot_id"}
+    assert set(sparse) == analysis_keys - {"mismatched", "snapshot_id", "narrative_presentation"}
 
 
 # --- T0.6 ------------------------------------------------------------------------------------

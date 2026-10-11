@@ -487,6 +487,18 @@ _A5_CASES = [
      "Anchor Co 10-Q Filing Summary (Q4 2025)"),
     ("unparseable-date-keeps-period", "10-Q", {"reporting_period": "Q3 2025", "filing_date": "September 2025"},
      "Anchor Co 10-Q Filing Summary (Q3 2025)"),
+    *[
+        (f"{case}-date-keeps-period", "10-Q", {"reporting_period": "Q3 2025", "filing_date": value},
+         "Anchor Co 10-Q Filing Summary (Q3 2025)")
+        for case, value in [
+            ("invalid-calendar", "2025-02-30"), ("empty-string", ""),
+            ("integer", 20250930), ("float", 2025.0930), ("zero", 0),
+            ("true", True), ("false", False),
+            ("list", ["2025-09-30"]), ("object", {"date": "2025-09-30"}),
+            ("empty-list", []), ("empty-object", {}), ("null", None),
+        ]
+    ],
+    ("integer-date-without-period", "10-K", {"filing_date": 20250930}, "Anchor Co 10-K Filing Summary"),
     ("6-K-keeps-period", "6-K", {"reporting_period": "H1 2025", "filing_date": "2025-09-30"},
      "Anchor Co 6-K Filing Summary (H1 2025)"),
     ("amendment-keeps-period", "10-K/A", {"reporting_period": "FY2025", "filing_date": "2026-03-01"},
@@ -500,9 +512,9 @@ _A5_CASES = [
 @pytest.mark.parametrize(("filing_type", "metadata", "title"), [case[1:] for case in _A5_CASES],
                          ids=[case[0] for case in _A5_CASES])
 async def test_a5_summary_title_derivation(monkeypatch, filing_type, metadata, title):
-    """A5 — pins backend/app/services/openai_service.py:1039-1061: metadata company/label override the
+    """A5 — pins summary_finalize.derive_title: metadata company/label override the
     arguments, a parsed filing_date replaces the reporting period with FY<year> (10-K, 20-F only) or
-    Q<n> <year> (10-Q, quarter boundaries and a trailing Z), an unparseable date keeps the period, and
+    Q<n> <year> (10-Q, quarter boundaries and a trailing Z), a malformed/non-string date keeps the period, and
     other forms (6-K, 10-K/A) keep the period."""
     service = _injected_service(monkeypatch, {"metadata": metadata, "sections": {"the_print": _PRINT}})
     result = await service.summarize_filing("Selected filing text.", "Anchor Co", filing_type)
@@ -513,50 +525,81 @@ async def test_a5_summary_title_derivation(monkeypatch, filing_type, metadata, t
 # A6 — aliasing invariant
 # ---------------------------------------------------------------------------------------------------------
 
-# Model-supplied top-level keys: the ones discarded by name (:977-985) and two that are not discarded today.
-_A6_FORGED = {"source_unit_context_version": 1, "capital_allocation_context_version": 1,
-              "issuer_cash_disclosure_context_version": 1, "statement_relationship_context_version": 1,
-              "acquisition_period_context_version": 1, "primary_excerpt": "FORGED", "risk_source_context_version": 1,
-              "_risk_source_candidates": ["FORGED"], "_risk_source_candidate_count": 9,
-              "metric_delta_context_version": 7, "_model_note": "FORGED"}
+# These existing context fields retain their downstream cleanup; the parse boundary owns _* and metric delta.
+_A6_DOWNSTREAM = {"source_unit_context_version": 1, "capital_allocation_context_version": 1,
+                  "issuer_cash_disclosure_context_version": 1, "statement_relationship_context_version": 1,
+                  "acquisition_period_context_version": 1, "primary_excerpt": "FORGED", "risk_source_context_version": 1}
+_A6_FORGED = {**_A6_DOWNSTREAM, "_risk_source_candidates": ["FORGED"], "_risk_source_candidate_count": 9,
+              "metric_delta_context_version": 7, "_model_note": "FORGED",
+              "_risk_source_grounding": {"source": "FORGED"},
+              "_recovered_sections": ["results_that_matter", "notable_footnotes"]}
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(("extra", "structured_keys"), [
-    ({}, ["metadata", "schema_version", "sections"]),
-    (_A6_FORGED, ["_model_note", "metadata", "metric_delta_context_version", "schema_version", "sections"]),
-], ids=["clean-model-payload", "model-supplied-top-level-keys"])
-async def test_a6_sections_aliasing_and_private_keys(monkeypatch, extra, structured_keys):
-    """A6 — pins the aliasing invariant of backend/app/services/openai_service.py: one sections object is
-    shared by raw_summary["structured"], raw_summary["sections"] (:749, :1011-1012) and the legacy
-    financial_highlights/risk_factors (:760, :781, :1217-1218), which the in-place owners rely on
-    (:754-755, :787-790, :875-882); and the application's own private keys, present when assembly hands over
-    (_assemble_structured_summary :521-526, :550), are popped (:765, :832, :869, :873) so none reaches the
-    top level of raw_summary["structured"]. The nested sections["_risk_source_projection"] (:782) is the
-    sanctioned exception. Today a model-supplied top-level ``_`` key and metric_delta_context_version are
-    NOT discarded (only the named keys at :765, :832, :869, :873 and :977-985 are); the second case pins that."""
+@pytest.mark.parametrize("extra", [{}, _A6_FORGED], ids=["clean-model-payload", "model-supplied-top-level-keys"])
+@pytest.mark.parametrize("shape", ["object", "wrapped-object", "fallback-list"])
+@pytest.mark.parametrize("recover", [True, False], ids=["recovered-value-drivers", "no-recovery-result"])
+async def test_a6_sections_aliasing_and_private_keys(monkeypatch, extra, shape, recover):
+    """A6 — strip reserved model keys at parsing, before assembly authors private metadata. Preserve
+    public values and section identity, and the final raw/legacy aliases. A forged recovery marker must
+    never skip primary evidence checks, including when no recovery result would overwrite it."""
+    revenue = "Revenue rose to $1.25 billion from $1.10 billion as customer demand increased."
+    leases = "Lease commitments remained stable during 2025, with no significant changes to contract terms."
+    source = f"{revenue}\n{leases}"
     sections = _model_sections()
-    sections["value_drivers"] = {}  # empty, so recovery runs and assembly records _recovered_sections
-    service = _streaming_service(monkeypatch, {"metadata": {}, "sections": sections, **copy.deepcopy(extra)},
-                                 recovered={"value_drivers": {"source_section_ref": "Item 7. MD&A"}})
-    assembled = []
+    sections["value_drivers"] = {}
+    sections["results_that_matter"]["table"][0]["supporting_evidence"] = revenue
+    sections["notable_footnotes"][0]["supporting_evidence"] = leases
+    extension = {"_nested_note": "preserved", "metric_delta_context_version": 7}
+    model = {"model_extension": extension, **copy.deepcopy(extra)}
+    if shape != "fallback-list":
+        model.update({"metadata": {}, "sections": sections})
+    payload = {"object": model, "wrapped-object": [None, {"decoy": "ignored"}, model],
+               "fallback-list": [None, model, {"decoy": "ignored"}]}[shape]
+    recovered = {"value_drivers": {"source_section_ref": "Item 7. MD&A"}} if recover else {}
+    service = _streaming_service(monkeypatch, payload, recovered=recovered)
+    parsed, assembled = [], []
+    real_coerce = service._coerce_summary_dict
     real_assemble = service._assemble_structured_summary
+
+    def coerce_spy(data):
+        selected = data if shape == "object" else data[-1 if shape == "wrapped-object" else 1]
+        before = dict(selected)
+        summary = real_coerce(data)
+        parsed.append((before, dict(summary)))  # capture BEFORE assembly adds code-owned private keys
+        return summary
 
     async def spy(*args, **kwargs):
         summary = await real_assemble(*args, **kwargs)
-        assembled.append(sorted(summary))
+        assembled.append(dict(summary))
         return summary
 
+    monkeypatch.setattr(service, "_coerce_summary_dict", coerce_spy)
     monkeypatch.setattr(service, "_assemble_structured_summary", spy)
-    result = await service.summarize_filing("Selected filing text.", "Anchor Co", "10-K", stream_cb=_receive)
-    assert assembled == [sorted({"_capital_allocation_grounding", "_issuer_cash_disclosure_grounding",
-                                 "_recovered_sections", "_risk_source_grounding", "metadata", "sections", *extra})]
+    result = await service.summarize_filing(source, "Anchor Co", "10-K", filing_excerpt=source, stream_cb=_receive)
+    [(before, coerced)] = parsed
+    boundary_keys = {"model_extension"} | (set(_A6_DOWNSTREAM) if extra else set())
+    if shape != "fallback-list":
+        boundary_keys.update({"metadata", "sections"})
+    assert set(coerced) == boundary_keys
+    assert all(coerced[key] is before[key] for key in boundary_keys)
+    [summary] = assembled
+    assert set(summary) == boundary_keys | {"_capital_allocation_grounding", "_issuer_cash_disclosure_grounding",
+                                            "_risk_source_grounding", "metadata", "sections"} | (
+                                                {"_recovered_sections"} if recover else set())
+    assert summary["_risk_source_grounding"] == source
+    assert summary.get("_recovered_sections", []) == (["value_drivers"] if recover else [])
+    if shape != "fallback-list":
+        assert summary["sections"] is coerced["sections"]
     raw = result["raw_summary"]
     assert raw["sections"] is raw["structured"]["sections"]
     assert result["financial_highlights"] is raw["sections"]["results_that_matter"]
     assert result["risk_factors"] is raw["sections"]["risks"]
-    assert sorted(raw["structured"]) == structured_keys
-    # No application-private key survives; only a model-supplied one does (second case).
-    assert sorted(k for k in raw["structured"] if k.startswith("_")) == ([] if not extra else ["_model_note"])
+    assert sorted(raw["structured"]) == ["metadata", "model_extension", "schema_version", "sections"]
+    assert raw["structured"]["model_extension"] is coerced["model_extension"]
+    assert raw["structured"]["model_extension"] == extension
     assert raw["structured"]["schema_version"] == 2
+    assert raw["metric_delta_context_version"] == 1  # code still authors the trusted envelope
     assert [key for key in raw["sections"] if key.startswith("_")] == ["_risk_source_projection"]
+    if shape != "fallback-list":
+        assert raw["evidence_snap_audit"]["checked"] == raw["evidence_snap_audit"]["exact"] == 2

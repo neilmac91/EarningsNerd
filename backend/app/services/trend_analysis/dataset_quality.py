@@ -2,7 +2,7 @@
 from typing import Any, Callable
 
 from app.services.fact_provenance import calculated_provenance, provenance_for_fact, published_value
-
+from app.services.trend_analysis.data_notes import data_notes as data_notes
 
 def dataset_point(row: Any, period: str, cik: str | None) -> dict[str, Any]:
     provenance = provenance_for_fact(row, cik)
