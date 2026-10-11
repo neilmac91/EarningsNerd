@@ -18,6 +18,9 @@ what its new module changes (its name, package, file or docstring, a relative im
 namespace, whether its annotations are postponed, or a module dunder it binds) each fail; a disclosed delta
 passes with its diff shown.
 """
+import tomllib
+from pathlib import Path
+
 import pytest
 
 from tests.support import ast_move_proof
@@ -1271,3 +1274,21 @@ def test_an_allowed_change_still_prints_its_diff():
     rendered = render(report)
     assert "ALLOWED    LIMIT (disclosed delta)" in rendered
     assert "-LIMIT = 8000" in rendered and "+LIMIT = 9000" in rendered
+
+
+def test_the_one_line_limit_rests_on_ruff_rejecting_two_statements_on_a_line():
+    """The proof orders statements by the line they start on, so two on one line are outside it (Limits): a
+    ``del`` beside a binding, or a read beside a ``del``, may come before it or after it. Ruff's E702 (``;``) and
+    E701 (a body on its header's line), selected for every file under ``backend/`` and ignored for none, keep
+    such lines out of the code the proof reads."""
+    lint = tomllib.loads((Path(__file__).parents[2] / "ruff.toml").read_text())["lint"]
+
+    def covers(rules: list[str], code: str) -> bool:
+        return any(rule == "ALL" or code.startswith(rule) for rule in rules)
+
+    selected = [*lint["select"], *lint.get("extend-select", [])]
+    ignored = [*lint.get("ignore", []), *lint.get("extend-ignore", []),
+               *(rule for key in ("per-file-ignores", "extend-per-file-ignores")
+                 for rules in lint.get(key, {}).values() for rule in rules)]
+    for code in ("E701", "E702"):
+        assert covers(selected, code) and not covers(ignored, code), code

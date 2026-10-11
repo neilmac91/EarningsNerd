@@ -149,46 +149,51 @@ inherits (all three read from the source) is reported, as ``the old path is unkn
 
 Limits. Code that a new class runs through a BASE (an inherited metaclass, or the base's
 ``__init_subclass__``) is not visible in the AST, so a new class with bases is ADDED; read every ADDED class's
-bases. Names are followed only as written. A new symbol that loads an unbound name raises NameError at import,
-which every test that imports the module, and the app's own startup, fails on loudly. A name reached through
-an attribute is not followed: an ADDED ``Class.member`` of a moved class overrides whatever the class
-inherited under that name for ``self.name`` and for the non-dunder names a class's machinery reads (an Enum's
-``_missing_``), and an annotated one is a new field of a dataclass or a pydantic model, so read every one.
-Neither is a name reached through a string (a quoted annotation, ``globals()['name']``), a class-private
-``__name`` (compared as written, not mangled), or an import: imports are not symbols, so one that binds a name
-the moved code reads, or a dunder, to something else, a new symbol of another new file included, is outside
-the proof (the one exception: postponed annotations make annotated moved code RELOCATED); read the import
-diff. Every moved def and class takes its new module's name as ``__module__``, and so does every class,
-``NewType`` or ``TypeVar`` that a moved call creates (``namedtuple``, ``Enum('Form', ...)``, pydantic's
-``create_model``: each reads its caller's module name), and what is derived from it: its repr, pickling by
-reference, a dataclass's generated ``__doc__`` when it has none and a field's annotation names a class, a log
-record's module and path, a warnings filter keyed by module. A move changes those by design, and a façade's
-re-export keeps the old path importing. REORDERED compares the order within each new file only: moved code
-that runs at import in another file runs when that file is first imported, which for a façade's sub-module is
-before the façade's own statements it followed (a logging level or a warnings filter set above it no longer
-applies), so read the old file's import-time statements that a split separates. A moved symbol that reads a
-name its old module bound and its new module does not raises NameError, unless the name is also a builtin
-(``open``, ``eval``), which it then reaches silently, or it reads the name only in an annotation its module
-postpones, which fails only where hints are resolved (pydantic, FastAPI, ``typing.get_type_hints``); read the
-names a moved symbol takes from its old module, and every ``TYPE_CHECKING`` import a new file adds for moved
-code. A globals argument that is a name or another expression, rather than ``None``, is taken as a namespace
-of its own, though it may be ``None`` when the code runs. RELOCATED reads old symbols only, so code a PR
-decomposes into NEW functions is ADDED and not examined for these reads, and ``vars()``, ``dir()`` or
-``locals()`` without arguments at module level is not followed, nor is a builtin reached any other way
-(``getattr(builtins, ...)``, ``__builtins__``, a container, an argument passed in, a binding through
-``global`` or as a ``for`` or ``with`` target, or a second name assigned from the first), and a name bound to
-a builtin is taken for it wherever the code calls it, though a later binding in a def may replace it first
-(fail closed). Provenance is decided per symbol, not per scope, so a call is taken for the builtin though a
-nested class's own body binds its name above it, or another scope of the symbol takes the name as a parameter
-or a comprehension target or reads it in a class body; and a ``compile`` whose result cannot carry
-``annotations`` (``ast.PyCF_ONLY_AST``, an ``'eval'`` compile handed straight to ``eval``) is reported when
-only that import differs (both fail closed). A read below a module-level ``del`` of one of the names a module
-gets from where it lives falls through to ``builtins``, the same in every module, yet is reported (fail
-closed). A new annotated assignment writes its namespace's ``__annotations__`` without binding that name, so
-moved code that reads the dict, at module level too, sees one more key. And the names these rules trust
-(``property``, ``dataclass``, ``TYPE_CHECKING`` and the like) are taken at their word, so a move that rebinds
-one where no moved symbol reads it, such as an ADDED ``TYPE_CHECKING = True`` above an exempt block, is
-outside the proof.
+bases. Names are followed only as written. Statements are ordered by the line they start on, so two on one
+line (``x = v; del x``, or a body on its header's line) are outside the proof; ruff's E702 and E701, which
+``backend/ruff.toml`` selects for every file (a self-test pins it), reject both. A new symbol that loads an
+unbound name raises NameError at import, which every test that imports the module, and the app's own startup,
+fails on loudly. A name reached through an attribute is not followed: an ADDED ``Class.member`` of a moved
+class overrides whatever the class inherited under that name for ``self.name`` and for the non-dunder names a
+class's machinery reads (an Enum's ``_missing_``), and an annotated one is a new field of a dataclass or a
+pydantic model, so read every one. Neither is a name reached through a string (a quoted annotation,
+``globals()['name']``, a deletion by ``locals().pop('name')``), a class body's namespace that a metaclass's
+``__prepare__`` makes keep other values than the body binds, code Python 3.12 evaluates lazily (a ``type``
+alias's value, a type parameter's bound, constraints or default: read where it stands, but evaluated when
+first used; Python 3.11, which the backend runs, cannot parse them), a class-private ``__name`` (compared as
+written, not mangled), or an import: imports are not symbols, so one that binds a name the moved code reads,
+or a dunder, to something else, a new symbol of another new file included, is outside the proof (the one
+exception: postponed annotations make annotated moved code RELOCATED); read the import diff. Every moved def
+and class takes its new module's name as ``__module__``, and so does every class, ``NewType`` or ``TypeVar``
+that a moved call creates (``namedtuple``, ``Enum('Form', ...)``, pydantic's ``create_model``: each reads its
+caller's module name), and what is derived from it: its repr, pickling by reference, a dataclass's generated
+``__doc__`` when it has none and a field's annotation names a class, a log record's module and path, a
+warnings filter keyed by module. A move changes those by design, and a façade's re-export keeps the old path
+importing. REORDERED compares the order within each new file only: moved code that runs at import in another
+file runs when that file is first imported, which for a façade's sub-module is before the façade's own
+statements it followed (a logging level or a warnings filter set above it no longer applies), so read the old
+file's import-time statements that a split separates. A moved symbol that reads a name its old module bound
+and its new module does not raises NameError, unless the name is also a builtin (``open``, ``eval``), which it
+then reaches silently, or it reads the name only in an annotation its module postpones, which fails only where
+hints are resolved (pydantic, FastAPI, ``typing.get_type_hints``); read the names a moved symbol takes from
+its old module, and every ``TYPE_CHECKING`` import a new file adds for moved code. A globals argument that is
+a name or another expression, rather than ``None``, is taken as a namespace of its own, though it may be
+``None`` when the code runs. RELOCATED reads old symbols only, so code a PR decomposes into NEW functions is
+ADDED and not examined for these reads, and ``vars()``, ``dir()`` or ``locals()`` without arguments at module
+level is not followed, nor is a builtin reached any other way (``getattr(builtins, ...)``, ``__builtins__``, a
+container, an argument passed in, a binding through ``global`` or as a ``for`` or ``with`` target, or a second
+name assigned from the first), and a name bound to a builtin is taken for it wherever the code calls it,
+though a later binding in a def may replace it first (fail closed). Provenance is decided per symbol, not per
+scope, so a call is taken for the builtin though a nested class's own body binds its name above it, or another
+scope of the symbol takes the name as a parameter or a comprehension target or reads it in a class body; and a
+``compile`` whose result cannot carry ``annotations`` (``ast.PyCF_ONLY_AST``, an ``'eval'`` compile handed
+straight to ``eval``) is reported when only that import differs (both fail closed). A read below a
+module-level ``del`` of one of the names a module gets from where it lives falls through to ``builtins``, the
+same in every module, yet is reported (fail closed). A new annotated assignment writes its namespace's
+``__annotations__`` without binding that name, so moved code that reads the dict, at module level too, sees
+one more key. And the names these rules trust (``property``, ``dataclass``, ``TYPE_CHECKING`` and the like)
+are taken at their word, so a move that rebinds one where no moved symbol reads it, such as an ADDED
+``TYPE_CHECKING = True`` above an exempt block, is outside the proof.
 
 The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE, SIDE EFFECT, SHADOWS, REORDERED or
 RELOCATED beyond the symbols passed with ``--allow`` (for SHADOWS, the new symbol's key); each allowed symbol
