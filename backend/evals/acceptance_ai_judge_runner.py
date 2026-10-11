@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -366,21 +367,64 @@ def _stop(db: sqlite3.Connection, reason: str) -> None:
     db.commit()
 
 
-def _terminate_group(proc: subprocess.Popen[bytes]) -> None:
-    if proc.poll() is not None:
-        return
+_GROUP_GRACE_SECONDS = 5.0  # for the CLI's process group to exit on SIGTERM, and again once SIGKILLed
+_GROUP_POLL_SECONDS = 0.05
+
+
+def _group_alive(pgid: int, proc_root: Path = Path("/proc")) -> bool:
+    """Whether a member of the process group can still run. A zombie cannot, and an orphaned one lingers where PID 1
+    reaps nothing (a container whose init is not one), so where ``/proc`` exists it is read and zombies are skipped;
+    elsewhere signal 0 answers, which counts a zombie too."""
+    if not proc_root.is_dir():
+        try:
+            os.killpg(pgid, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True  # a member exists that this process may not signal
+        return True
+    for entry in proc_root.iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            fields = (entry / "stat").read_text().rpartition(")")[2].split()  # the name may hold ")"
+        except OSError:
+            continue  # it exited while the scan ran
+        if len(fields) > 2 and fields[2] == str(pgid) and fields[0] not in ("Z", "X"):  # state, ppid, pgrp
+            return True
+    return False
+
+
+def _drain_group(proc: subprocess.Popen[bytes], seconds: float) -> None:
+    """Poll until the child is reaped and nothing of its group can run, or ``seconds`` pass."""
+    deadline = time.monotonic() + seconds
+    while (proc.poll() is None or _group_alive(proc.pid)) and time.monotonic() < deadline:
+        time.sleep(_GROUP_POLL_SECONDS)
+
+
+def _terminate_group(proc: subprocess.Popen[bytes]) -> str | None:
+    """SIGTERM the CLI's process group (``start_new_session=True``: the child leads it), give the whole group the
+    grace period, SIGKILL whatever of it can still run, and reap the child. A grandchild that outlives the child is
+    killed too, so nothing still writes to the streams once they are fsynced. Returns the strongest signal sent, or
+    None when nothing of the group was left to signal. Both acceptance runners hold this code, identically (the judge
+    runner's guardian imports no repository module); test_acceptance_process_groups.py keeps the copies equal."""
+    if proc.poll() is not None and not _group_alive(proc.pid):
+        return None
     try:
         os.killpg(proc.pid, signal.SIGTERM)
     except ProcessLookupError:
-        return
-    try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
+        proc.wait()
+        return None
+    _drain_group(proc, _GROUP_GRACE_SECONDS)
+    if proc.poll() is None or _group_alive(proc.pid):
         try:
             os.killpg(proc.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
         proc.wait()
+        _drain_group(proc, _GROUP_GRACE_SECONDS)  # SIGKILL cannot be caught, but each member still has to die
+        return "SIGKILL"
+    return "SIGTERM"
 
 
 def _kill_recorded_cli(db: sqlite3.Connection, call_id: int) -> None:
