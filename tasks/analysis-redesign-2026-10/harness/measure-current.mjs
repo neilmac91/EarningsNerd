@@ -17,8 +17,9 @@
 // repository); the run reads its commit, its frontend/ tree hash, its uncommitted files under frontend/ and its
 // .next/BUILD_ID, and verifies before measuring that the server serves that build id. On any other build the run
 // needs --out naming another file (a fresh measurement of the shipped components, never a comparison with the
-// recording), and it refuses an --out that holds a recording of another commit. 97293e7 has no harness, so the
-// baseline is retaken by running this tree's harness with --build pointing at a worktree of that revision.
+// recording), and it refuses an --out that holds a recording of another commit; the baseline is written only from
+// clean trees (no uncommitted frontend or harness files). 97293e7 has no harness, so the baseline is retaken by
+// running this tree's harness with --build pointing at a worktree of that revision.
 import { readFileSync, mkdirSync, writeFileSync, existsSync, statSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import path from 'node:path'
@@ -59,6 +60,12 @@ if (existsSync(OUT)) {
   if (recorded && !sameCommit(SERVED.commit, recorded)) throw new Error(`${path.relative(ROOT, OUT)} records a run of ${recorded}; the served build is ${SERVED.commit.slice(0, 7)}: pass a different --out`)
 }
 const HARNESS_COMMIT = (git(ROOT, 'rev-parse HEAD') || '').slice(0, 7)
+const HARNESS_DIRTY = (git(ROOT, 'status --porcelain -- harness') || '').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => l.replace(/^\S+\s+/, ''))
+// The baseline is written only from clean trees, so its recorded commit and tree hashes identify the measured code.
+if (OUT === path.resolve(ROOT, BASELINE.file) && (SERVED.dirty.length || HARNESS_DIRTY.length)) {
+  const what = [SERVED.dirty.length ? `uncommitted frontend files in ${BUILD} (${SERVED.dirty.join(', ')})` : null, HARNESS_DIRTY.length ? `uncommitted harness files (${HARNESS_DIRTY.join(', ')})` : null].filter(Boolean).join(' and ')
+  throw new Error(`${BASELINE.file} is written only from clean trees: ${what}; commit or stash them, or pass --out <another file>`)
+}
 const SHOTS = args.shots || null
 const STATE = args.state || 'legacy'
 const API = 'http://localhost:8010'
@@ -216,7 +223,7 @@ async function measure(page, configuredWidth, expectedRows) {
 
 async function run() {
   const browser = await chromium.launch()
-  const results = { base: BASE, state: STATE, generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: SERVED.commit.slice(0, 7), frontendTree: SERVED.frontendTree, dirty: SERVED.dirty, buildId: SERVED.buildId, builtAt: SERVED.builtAt, harnessCommit: HARNESS_COMMIT }, configs: [] }
+  const results = { base: BASE, state: STATE, generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: SERVED.commit.slice(0, 7), frontendTree: SERVED.frontendTree, dirty: SERVED.dirty, buildId: SERVED.buildId, builtAt: SERVED.builtAt, harnessCommit: HARNESS_COMMIT, harnessDirty: HARNESS_DIRTY }, configs: [] }
   // The server must serve the build of --build: its build manifest lives under the build id.
   const manifest = await (await browser.newContext()).request.get(`${BASE}/_next/static/${SERVED.buildId}/_buildManifest.js`)
   if (manifest.status() !== 200) { await browser.close(); throw new Error(`${BASE} does not serve the build of ${BUILD} (build id ${SERVED.buildId}: ${manifest.status()} for its build manifest): start the server from that checkout's build, or pass --build <the checkout it serves>`) }

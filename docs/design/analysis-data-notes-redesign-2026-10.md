@@ -1046,8 +1046,9 @@ correction landed in this document:
   the checkout `--build` names (default: the harness's own repository): the harness reads its commit, its
   `frontend/` tree hash, its uncommitted files, its `.next/BUILD_ID` and the build's time, refuses a build
   older than that checkout's last commit touching `frontend/` (it cannot see which tree a build came from),
-  verifies before measuring that the server serves that build id, and records them with its own commit;
-  `97293e7` has no harness, so the
+  verifies before measuring that the server serves that build id, and records them with its own commit and
+  uncommitted files; the baseline is written only from clean trees, so its recorded commit and tree hashes
+  identify the measured code; `97293e7` has no harness, so the
   baseline is retaken by this tree's harness with `--build` pointing at a worktree of that revision. The
   committed recording's environment block is annotated with its revision after the fact, its measurements
   untouched.
