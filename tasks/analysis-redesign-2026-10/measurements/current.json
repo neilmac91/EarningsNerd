@@ -9,7 +9,7 @@
  },
  "state": "legacy",
  "data": "prototype/data",
- "generatedAt": "2026-10-11T18:17:07.774Z",
+ "generatedAt": "2026-10-11T18:32:40.422Z",
  "environment": {
   "chromium": "141.0.7390.37",
   "platform": "linux x64",
@@ -49,7 +49,7 @@
    },
    "stampedBy": "tasks/analysis-redesign-2026-10/harness/build-stamped.mjs"
   },
-  "harnessCommit": "f517705",
+  "harnessCommit": "84f8bb8",
   "harnessDirty": [],
   "fixtureHash": "001717037fc42562f06978020451d4e355d99ad5656aa6f478b1f20cb0b17180",
   "fixtureTree": "50e1c7d92925eaba6503a21979b556679f25760d",
