@@ -575,6 +575,11 @@ class Settings(BaseSettings):
         # This ensures we get the value from Cursor settings if available
         case_sensitive = False
         env_file_encoding = 'utf-8'
+        # A validation error must never print its input: pydantic appends each failing field's value,
+        # and a missing field's input is every environment-derived value, secrets included, so the
+        # error would carry them into a startup log, CI's public log or an agent's output.
+        # Gate: tests/unit/test_settings_errors_hide_input.py.
+        hide_input_in_errors = True
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
