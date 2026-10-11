@@ -14,12 +14,17 @@ def period_label(text: str) -> str:
     return re.sub(r"\b(\d{4})Q([1-4])\b", r"Q\2 \1", text)
 
 
-def _compact_currency(currency: str, amount: str, per_share: bool) -> str:
+def compact_currency(currency: str, amount: str, per_share: bool) -> str:
+    """Display precision shared by narrative evidence and the PDF metrics grid."""
     value = Decimal(amount.replace(",", ""))
     scale, suffix = next(((scale, suffix) for scale, suffix in _SCALES
                           if abs(value) >= scale and not per_share), (Decimal(1), ""))
     digits = 2 if per_share or abs(value) < 1 else 1
     rendered = abs(value / scale).quantize(Decimal(1).scaleb(-digits), rounding=ROUND_HALF_UP)
+    if suffix and rendered >= 1000 and scale < _SCALES[0][0]:
+        scale *= 1000
+        suffix = next(suffix for candidate, suffix in _SCALES if candidate == scale)
+        rendered = abs(value / scale).quantize(Decimal(1).scaleb(-digits), rounding=ROUND_HALF_UP)
     prefix = "$" if currency == "USD" else f"{currency}\u00a0"
     return f"{'-' if value < 0 else ''}{prefix}{rendered:,.{digits}f}{suffix}" + (
         " per share" if per_share else ""
@@ -32,7 +37,7 @@ def currency_precision_plan(text: str) -> frozenset[tuple[str, str, bool]]:
     for match in _CURRENCY_AMOUNT.finditer(text):
         currency, amount, per_share = match.groups()
         key = (currency, amount.replace(",", ""), bool(per_share))
-        display = _compact_currency(currency, amount, bool(per_share))
+        display = compact_currency(currency, amount, bool(per_share))
         displays.setdefault(display, set()).add(key)
     return frozenset(key for amounts in displays.values() if len(amounts) > 1 for key in amounts)
 
@@ -47,7 +52,7 @@ def compact_narrative_text(
     def currency(match: re.Match[str]) -> str:
         currency, amount, per_share = match.groups()
         key = (currency, amount.replace(",", ""), bool(per_share))
-        return match[0] if key in precision else _compact_currency(currency, amount, bool(per_share))
+        return match[0] if key in precision else compact_currency(currency, amount, bool(per_share))
 
     def ratio(match: re.Match[str]) -> str:
         value = Decimal(match[1])

@@ -326,6 +326,20 @@ class TestExportPdfBytes:
 class TestAnalysisPdfHtml:
     """Multi-Period Analysis export (M5): grid + narrative + citations, all escaped."""
 
+    @pytest.mark.parametrize(("currency", "value", "expected"), [
+        ("USD", 999_949_999, "$999.9M"),
+        ("USD", 999_950_000, "$1.0B"),
+        ("USD", -999_950_000_000, "-$1.0T"),
+        ("EUR", 1_234_567_890_123, "EUR\u00a01.2T"),
+        ("GBP", 9_999_999_999_999, "GBP\u00a010.0T"),
+        ("USD", 0, "$0.00"),
+    ])
+    def test_pdf_and_narrative_share_compact_money_rounding(self, currency, value, expected):
+        from app.services.trend_analysis.narrative_display import compact_narrative_text
+
+        assert ExportService._analysis_value_text(value, currency, False) == expected
+        assert compact_narrative_text(f"{currency} {value:,}") == expected
+
     def _analysis(self):
         return SimpleNamespace(
             mode="annual",
@@ -373,7 +387,7 @@ class TestAnalysisPdfHtml:
         assert "<th>FY2023</th>" in html
         assert "Revenue" in html and "$1,000" in html
         assert "—" in html
-        assert "$1,500 †" in html
+        assert "$1.5K †" in html
         assert "24.3%" in html
         # Citations appendix
         assert "Revenue = 1,000 USD (FY2022)" in html
@@ -400,7 +414,7 @@ class TestAnalysisPdfHtml:
             "reasons": ["unsupported_eps_calculation"],
         })
         html = ExportService().generate_analysis_pdf_html(analysis, self._company())
-        assert "$1,500 †</td>" in html
+        assert "$1.5K †</td>" in html
         assert "[unreconciled]" not in html
         assert '—<sup class="data-note"><a href="#analysis-data-note-b">b</a></sup>' in html
         assert "Use a reported quarterly EPS figure." in html
@@ -490,8 +504,8 @@ class TestAnalysisPdfHtml:
         assert html.count("Saved source wording &lt;retain&gt;.") == 1
         assert html.count("Saved citation-only wording.") == 1
         assert 'A precise ratio [1]<sup class="data-note"><a href="#analysis-data-note-e">e</a></sup>' in html
-        assert "1234567890123 EUR" in html and "0.999999999999 pure" in html and "1.0000000000001 pure" in html
-        assert "<th>Q2 2026</th>" in html and "EUR 1.23T" in html and "EUR 0</td>" in html
+        assert "1234567890123 EUR" in html and "As stored: 0.999999999999 pure" in html and "1.0000000000001 pure" in html
+        assert "<th>Q2 2026</th>" in html and "EUR\u00a01.2T" in html and "EUR\u00a00.00</td>" in html
         assert 'n/m fraction<sup class="data-note"><a href="#analysis-data-note-b">b</a></sup>' in html
         workbook = load_workbook(BytesIO(build_analysis_workbook(dataset)))
         assert workbook["Metrics"]["D2"].value == 1234567890123 and workbook["Metrics"]["D2"].data_type == "n"
@@ -502,7 +516,7 @@ class TestAnalysisPdfHtml:
         assert workbook["Metrics"]["D2"].comment.text.startswith("Data note a: Saved source wording <retain>.")
         assert workbook["Metrics"]["E1"].value == "Q2 2026"
         overview = "\n".join(str(c.value) for row in workbook["Overview"] for c in row if c.value)
-        assert "1 figures need review · 1 comparisons need review · 2 unavailable" in overview
+        assert "1 figure needs review (a) · 1 comparison carries note b · 2 unavailable (c, d)" in overview
         assert "Data note a: Saved source wording <retain>." in overview
         assert "Saved citation-only wording" not in overview and "raw full-precision dollars" not in overview
         sources = list(workbook["Sources & Methods"].values)
@@ -534,9 +548,9 @@ class TestAnalysisPdfHtml:
         overview = "\n".join(str(cell.value) for row in workbook["Overview"] for cell in row if cell.value)
 
         for exported in (html, overview):
-            assert "0 figures with no validation record" in exported
-            assert "1 comparison with no validation record" in exported
-            assert "0 figures need review · 4 comparisons need review" in exported
+            assert "No figures need review · 4 checked" in exported
+            assert "1 comparison has no validation record (d)" in exported
+            assert "4 comparisons carry notes a, b, c" in exported
         assert vars(analysis) == before
 
 

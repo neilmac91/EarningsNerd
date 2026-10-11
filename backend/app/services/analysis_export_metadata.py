@@ -50,7 +50,7 @@ def point_notes(point: dict[str, Any], note: dict[str, Any] | None = None) -> li
     if point_method(point) == "calculated":
         notes.append(
             "Calculated figure. See Sources & Methods for the available formula and operands."
-            if provenance else "Computed Q4 — calculation details are unavailable in this older snapshot."
+            if provenance else "Calculated Q4 — calculation details are unavailable in this older snapshot."
         )
     if provenance.get("formula"):
         notes.append(formula_text(provenance["formula"]))
@@ -83,15 +83,28 @@ def notes_summary(envelope: dict[str, Any]) -> str:
     unknown_comparisons = sum(
         len(note["comparisons"]) for note in envelope["notes"] if note["kind"] == "unknown"
     )
-    return " · ".join([
-        f"{totals['reviewValues']} figures need review",
-        f"{totals['reviewComparisons']} comparisons need review",
-        f"{totals['unavailable']} unavailable",
-        f"{totals['unknown']} {'figure' if totals['unknown'] == 1 else 'figures'} with no validation record",
-        f"{unknown_comparisons} {'comparison' if unknown_comparisons == 1 else 'comparisons'} with no validation record",
-        f"{totals['passed']} passed automated checks",
-        f"{totals['calculated']} calculated †",
-    ])
+    def letters(kind: str, scope: str) -> str:
+        return ", ".join(note["letter"] for note in envelope["notes"] if note["kind"] == kind and note[scope])
+
+    clauses = []
+    if totals["reviewValues"] == 0 and totals["unknown"] == 0 and totals["passed"] > 0:
+        clauses.extend(["No figures need review", f"{totals['passed']} checked"])
+    if count := totals["reviewValues"]:
+        clauses.append(f"{count} {'figure needs' if count == 1 else 'figures need'} review ({letters('review', 'values')})")
+    if count := totals["reviewComparisons"]:
+        marks = letters("review", "comparisons")
+        clauses.append(f"{count} {'comparison carries' if count == 1 else 'comparisons carry'} "
+                       f"{'notes' if ', ' in marks else 'note'} {marks}")
+    if count := totals["unknown"]:
+        clauses.append(f"{count} {'figure has' if count == 1 else 'figures have'} no validation record ({letters('unknown', 'values')})")
+    if unknown_comparisons:
+        clauses.append(f"{unknown_comparisons} {'comparison has' if unknown_comparisons == 1 else 'comparisons have'} "
+                       f"no validation record ({letters('unknown', 'comparisons')})")
+    if count := totals["unavailable"]:
+        clauses.append(f"{count} unavailable ({letters('unavailable', 'values')})")
+    if count := totals["calculated"]:
+        clauses.append(f"{count} calculated †")
+    return " · ".join(clauses)
 
 
 def source_urls(provenance: dict[str, Any]) -> list[str]:

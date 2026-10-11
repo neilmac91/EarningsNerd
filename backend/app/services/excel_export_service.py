@@ -119,6 +119,14 @@ def _number_format(unit: Any, percent: bool) -> str:
     return "#,##0"
 
 
+def _noted_number_format(number_format: str, note: dict[str, Any] | None) -> str:
+    """Print the admitted letter without converting a financial cell to text."""
+    if not note:
+        return number_format
+    suffix = f' ({note["letter"]})"'
+    return number_format[:-1] + suffix if number_format.endswith('"') else number_format + '"' + suffix
+
+
 def _write_point(
     ws: Worksheet, row: int, col: int, point: dict[str, Any], unit: Any, percent: bool,
     note: dict[str, Any] | None = None,
@@ -129,7 +137,7 @@ def _write_point(
     value = point.get("value")
     if value is not None:
         cell.value = value / 100 if percent else value
-    cell.number_format = _number_format(unit, percent)
+    cell.number_format = _noted_number_format(_number_format(unit, percent), note) if value is not None else _number_format(unit, percent)
     notes = point_notes(point, note)
     if notes:
         cell.comment = Comment("\n".join(notes), "EarningsNerd")
@@ -198,8 +206,8 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
     ]
     if _has_derived(dataset):
         notes.append(
-            "Calculated figures (including computed Q4) carry cell comments; calculation method "
-            "is separate from whether the source checks passed."
+            "Calculated figures (including calculated Q4) carry cell comments; calculation method "
+            "is separate from whether automated checks passed."
         )
     notes += ["Data notes", notes_summary(envelope)]
     notes.extend(f"Data note {note['letter']}: {note['message']}" for note in envelope["notes"])
@@ -273,8 +281,10 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any], indexed: dict) -> Non
             quality = series.get(f"{basis}_reconciled")
             provenance = series.get(f"{basis}_provenance")
             period = series.get("window_pp_range" if basis == "window_pp" else "cagr_window") or dataset.get("period_key", "")
-            notes = point_notes({"provenance": provenance, "reconciled": quality},
-                                indexed.get((series["concept"], period, basis))) if basis else []
+            note = indexed.get((series["concept"], period, basis)) if basis else None
+            if basis:
+                growth_cell.number_format = _noted_number_format(growth_cell.number_format, note)
+            notes = point_notes({"provenance": provenance, "reconciled": quality}, note) if basis else []
             if notes:
                 growth_cell.comment = Comment("\n".join(notes), "EarningsNerd")
 
@@ -375,15 +385,15 @@ def _add_top_line_sheet(wb: Workbook, dataset: dict[str, Any], indexed: dict) ->
         growth_cell = ws.cell(row=row_index, column=3)
         growth_cell.border = _CELL_BORDER
         yoy = point.get("yoy")
-        notes = point_notes({"provenance": point.get("yoy_provenance"), "reconciled": point.get("yoy_reconciled")},
-                            indexed.get((top["concept"], period, "yoy")))
+        note = indexed.get((top["concept"], period, "yoy"))
+        notes = point_notes({"provenance": point.get("yoy_provenance"), "reconciled": point.get("yoy_reconciled")}, note)
         if notes:
             growth_cell.comment = Comment("\n".join(notes), "EarningsNerd")
         if isinstance(yoy, (int, float)):
             growth_cell.value = yoy
-            growth_cell.number_format = "0.0%"
+            growth_cell.number_format = _noted_number_format("0.0%", note)
         elif yoy is not None:
-            growth_cell.value = "n/m"  # sign-flip sentinel — not a meaningful percentage
+            growth_cell.value = "n/m" + (f" ({note['letter']})" if note else "")
 
     ws.column_dimensions["A"].width = 12
     ws.column_dimensions["B"].width = 18

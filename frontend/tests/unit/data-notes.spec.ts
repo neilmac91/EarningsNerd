@@ -249,7 +249,7 @@ describe('analysis data notes', () => {
     expect(model.totals).toEqual({ reviewValues: 1, reviewComparisons: 0, unavailable: 0, passed: 2, unknown: 3, calculated: 2, total: 6 })
     expect(model.noteFor(rows[0].points[0])?.reasons).toEqual(['source_check_needed'])
     expect(model.noteFor(rows[0].points[1])?.kind).toBe('unknown')
-    expect(model.noteFor(rows[1].points[0])?.message).toContain('No verification claim is made')
+    expect(model.noteFor(rows[1].points[0])?.message).toContain('No automated check result is recorded')
     expect(model.noteFor(rows[1].points[1])?.kind).toBe('unknown')
     expect(model.noteFor(rows[2].points[0])).toBeNull()
   })

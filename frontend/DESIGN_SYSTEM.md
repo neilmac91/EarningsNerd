@@ -332,6 +332,9 @@ Data notes strip <DataNotes> — hairlines above and below a native details disc
                  unavailable and calculated counts remain separate. Expanded notes use two columns:
                  the letter, then its reason, affected metric/periods and distinct comparison counts.
                  Existing Sources & methods prose, source date and snapshot reference stay inside.
+                 Export summaries use the same figure/comparison distinction and admitted letters.
+                 Excel letters print through numeric formats; unavailable cells stay empty with a
+                 note comment. PDF and narrative money share compact precision and scale carry.
                  Note chips reveal and focus the same stable note ID. Citation-only supplemental
                  notes remain in the narrative and do not increase the report's figure counts.
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);

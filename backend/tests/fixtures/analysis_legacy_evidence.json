@@ -150,7 +150,7 @@
           "key": "[\"review\",[\"legacy_calculation\"]]",
           "id": "analysis-data-note-a",
           "letter": "a",
-          "message": "This saved calculation predates the current source checks. Its inputs need review.",
+          "message": "This saved calculation predates the current automated checks. Its inputs need review.",
           "values": [
             {
               "concept": "operating_margin",
@@ -319,7 +319,7 @@
             "key": "[\"review\",[\"legacy_calculation\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "This saved calculation predates the current source checks. Its inputs need review.",
+            "message": "This saved calculation predates the current automated checks. Its inputs need review.",
             "values": [
               {
                 "concept": "operating_margin",

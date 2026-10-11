@@ -230,7 +230,7 @@ describe('NarrativePane readable evidence', () => {
     expect(source).toHaveTextContent('Calculated figure')
     expect(source).not.toHaveTextContent('Calculated from filing figures')
     expect(source).not.toHaveTextContent('Calculated from recorded inputs')
-    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('This saved calculation predates the current source checks. Its inputs need review.')
+    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('This saved calculation predates the current automated checks. Its inputs need review.')
   })
 })
 
@@ -246,7 +246,7 @@ describe('NarrativePane citation chips', () => {
     const note = document.getElementById('analysis-data-note-a')!
     expect(note.closest('details')).toHaveAttribute('open')
     expect(note).toHaveFocus()
-    expect(note).toHaveTextContent('A source check remains unresolved')
+    expect(note).toHaveTextContent('This figure has not passed EarningsNerd’s automated consistency checks')
     expect(screen.getByText('Sources · SEC XBRL values and calculated figures')).toBeInTheDocument()
     rerender(<NarrativePane state={doneState()} />)
     expect(document.querySelector('[data-note-kind="review"]')).not.toBeInTheDocument()
@@ -273,7 +273,7 @@ describe('NarrativePane citation chips', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Review data notes b' }))
     expect(note.closest('details')).toHaveAttribute('open')
     expect(note).toHaveFocus()
-    expect(note).toHaveTextContent('A source check remains unresolved')
+    expect(note).toHaveTextContent('This figure has not passed EarningsNerd’s automated consistency checks')
     expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('The source inputs use different units or currencies')
     const passed = structuredClone(dataset)
     passed.series[0].points[0].provenance!.validation = 'passed'
@@ -281,7 +281,7 @@ describe('NarrativePane citation chips', () => {
     rerender(<DataNotesProvider dataset={passed}><DataNotes dataset={passed} /><NarrativePane state={state} /></DataNotesProvider>)
     expect(screen.getByText(/No figures need review · 1 checked/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Citation 1:.*data note a/ }).querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
-    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('A source check remains unresolved')
+    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('This figure has not passed EarningsNerd’s automated consistency checks')
   })
 
   beforeEach(() => {

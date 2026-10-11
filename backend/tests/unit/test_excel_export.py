@@ -161,7 +161,7 @@ class TestOverviewSheet:
     def test_conventions_are_stated(self, workbook):
         texts = self._texts(workbook)
         assert any("true Excel percentages" in t for t in texts)
-        assert any("Computed Q4" in t or "computed Q4" in t for t in texts)  # † legend (derived present)
+        assert any("calculated Q4" in t for t in texts)  # † legend (derived present)
 
     def test_brand_mark_png_is_embedded(self, workbook_bytes):
         # openpyxl does not read images back — the zip container is the proof.
@@ -185,27 +185,28 @@ class TestMetricsSheet:
     def test_number_formats_per_unit(self, workbook):
         ws = workbook["Metrics"]
         # Row order == dataset series order: 2=revenue, 3=net_margin, 4=eps, 5=current_ratio.
-        assert ws["D2"].value == 1000.0 and ws["D2"].number_format == "#,##0"
+        assert ws["D2"].value == 1000.0 and ws["D2"].number_format == '#,##0" (a)"'
         # Percent series are TRUE Excel percents: stored ÷100, formatted 0.0%.
-        assert ws["D3"].value == pytest.approx(0.20) and ws["D3"].number_format == "0.0%"
+        assert ws["D3"].value == pytest.approx(0.20) and ws["D3"].number_format == '0.0%" (a)"'
         assert ws["E3"].value is None  # missing point stays empty
-        assert ws["D4"].value == 1.11 and ws["D4"].number_format == "#,##0.00"
-        assert ws["D5"].value == 1.5 and ws["D5"].number_format == '0.00"x"'
+        assert ws["D4"].value == 1.11 and ws["D4"].number_format == '#,##0.00" (a)"'
+        assert ws["D5"].value == 1.5 and ws["D5"].number_format == '0.00"x (a)"'
+        assert all(ws[address].data_type == "n" for address in ("D2", "D3", "D4", "D5"))
 
     def test_derived_q4_gets_a_comment_never_a_fill(self, workbook):
         ws = workbook["Metrics"]
         derived = ws["F2"]  # revenue FY2024
-        assert derived.comment is not None and "Computed Q4" in derived.comment.text
+        assert derived.comment is not None and "Calculated Q4" in derived.comment.text
         assert derived.fill.patternType is None  # no fill — comments only
         assert ws["D2"].comment.text.startswith("Data note a:")  # legacy validation remains unknown
 
     def test_annual_window_figures(self, workbook):
         ws = workbook["Metrics"]
         assert ws["G1"].value == "Window growth" and ws["H1"].value == "Window"
-        assert ws["G2"].value == pytest.approx(0.2247) and ws["G2"].number_format == "0.0%"
+        assert ws["G2"].value == pytest.approx(0.2247) and ws["G2"].number_format == '0.0%" (a)"'
         assert ws["H2"].value == "FY2022..FY2024"
         # Percent series get the pp window figure instead of CAGR.
-        assert ws["G3"].value == pytest.approx(4.3) and ws["G3"].number_format == '0.0" pp"'
+        assert ws["G3"].value == pytest.approx(4.3) and ws["G3"].number_format == '0.0" pp (a)"'
         # When only CAGR exists, its comment must follow the displayed comparison's basis.
         dataset = _dataset()
         margin = dataset["series"][1]
@@ -214,7 +215,7 @@ class TestMetricsSheet:
             "method": "calculated", "validation": "needs_review", "reasons": ["source_conflict"],
         })
         alternative = load_workbook(io.BytesIO(build_analysis_workbook(dataset)))["Metrics"]["G3"]
-        assert alternative.value == 0.5 and alternative.number_format == "0.0%"
+        assert alternative.value == 0.5 and alternative.number_format == '0.0%" (a)"'
         assert alternative.comment.text.startswith("Data note a: Available sources disagree on this figure.")
 
     def test_quarterly_dataset_omits_window_columns(self):
@@ -235,16 +236,16 @@ class TestPanelSheets:
     def test_top_line_sheet_ships_growth_as_a_column(self, workbook):
         ws = workbook["Revenue & growth"]
         assert [c.value for c in ws[1]] == ["Period", "Revenue", "YoY growth"]
-        assert ws["B2"].value == 1000.0 and ws["B2"].number_format == "#,##0"
+        assert ws["B2"].value == 1000.0 and ws["B2"].number_format == '#,##0" (a)"'
         assert ws["C2"].value is None  # first period has no YoY
-        assert ws["C3"].value == pytest.approx(0.2) and ws["C3"].number_format == "0.0%"
-        assert ws["C4"].value == "n/m"  # the sign-flip sentinel is text, not a fake percentage
+        assert ws["C3"].value == pytest.approx(0.2) and ws["C3"].number_format == '0.0%" (a)"'
+        assert ws["C4"].value == "n/m (a)"  # the sign-flip sentinel is text, not a fake percentage
 
     def test_margins_sheet_writes_true_percents(self, workbook):
         ws = workbook["Margins"]
         # Only net_margin exists in the fixture — absent concepts drop their columns.
         assert [c.value for c in ws[1]] == ["Period", "Net"]
-        assert ws["B2"].value == pytest.approx(0.20) and ws["B2"].number_format == "0.0%"
+        assert ws["B2"].value == pytest.approx(0.20) and ws["B2"].number_format == '0.0%" (a)"'
 
     def test_formula_injection_is_neutralized(self):
         """SEC-sourced strings (company name, ticker, XBRL units) must never become live Excel

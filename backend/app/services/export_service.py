@@ -13,7 +13,7 @@ from app.services.analysis_export_metadata import (
 from app.services.trend_analysis.data_notes import (
     citation_data_notes, note_for_quality, resolve_data_notes,
 )
-from app.services.trend_analysis.narrative_display import compact_narrative_text
+from app.services.trend_analysis.narrative_display import compact_currency, compact_narrative_text
 from app.services.summary_sections import Block, Section, render_sections
 from app.services.provenance_service import project_summary_risks
 from app.utils.datetimes import ensure_utc, iso_z, utcnow
@@ -247,14 +247,7 @@ class ExportService:
             return f"{value:.1f}%"
         if unit == "pure":
             return f"{value:.2f}x"
-        currency = "$" if unit.upper().startswith("USD") else unit.split("/")[0] + " "
-        sign, magnitude = ("-" if value < 0 else ""), abs(value)
-        if unit.endswith("/shares"):
-            return f"{sign}{currency}{magnitude:,.2f}"
-        for scale, suffix, digits in ((1e12, "T", 2), (1e9, "B", 1), (1e6, "M", 1)):
-            if magnitude >= scale:
-                return f"{sign}{currency}{magnitude / scale:.{digits}f}{suffix}"
-        return f"{sign}{currency}{magnitude:,.0f}"
+        return compact_currency(unit.split("/")[0].upper(), str(value), unit.endswith("/shares")).removesuffix(" per share")
 
     @staticmethod
     def _analysis_note_mark(note: dict | None) -> str:
@@ -336,7 +329,7 @@ class ExportService:
             marks[str(citation.get("n"))] = mark
             provenance = citation.get("provenance") or {}
             links = self._analysis_links({**provenance, "source_url": citation.get("source_url") or provenance.get("source_url")})
-            exact = (f" · Exact value: {raw_value_text(citation['value'])} {citation.get('unit') or ''}"
+            exact = (f" · As stored: {raw_value_text(citation['value'])} {citation.get('unit') or ''}"
                      if citation.get("value") is not None else "")
             items.append(
                 f"<li><strong>[{escape(str(citation.get('n')))}]</strong>{mark} "

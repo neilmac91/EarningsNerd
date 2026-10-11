@@ -261,7 +261,7 @@
             "reasons": [
               "source_check_needed"
             ],
-            "message": "A source check remains unresolved. Review the original filing before use.",
+            "message": "This figure has not passed EarningsNerd’s automated consistency checks; check it against the filing before relying on it.",
             "values": [
               {
                 "concept": "legacy",
@@ -336,7 +336,7 @@
             "reasons": [
               "legacy_unknown"
             ],
-            "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
+            "message": "No automated check result is recorded for this figure.",
             "values": [
               {
                 "concept": "legacy",
@@ -569,7 +569,7 @@
             "reasons": [
               "source_check_needed"
             ],
-            "message": "A source check remains unresolved. Review the original filing before use.",
+            "message": "This figure has not passed EarningsNerd’s automated consistency checks; check it against the filing before relying on it.",
             "values": [
               {
                 "concept": "legacy",
@@ -644,7 +644,7 @@
             "reasons": [
               "legacy_unknown"
             ],
-            "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
+            "message": "No automated check result is recorded for this figure.",
             "values": [
               {
                 "concept": "legacy",
@@ -924,7 +924,7 @@
             "reasons": [
               "source_check_needed"
             ],
-            "message": "A source check remains unresolved. Review the original filing before use.",
+            "message": "This figure has not passed EarningsNerd’s automated consistency checks; check it against the filing before relying on it.",
             "values": [],
             "comparisons": [
               {
@@ -1944,7 +1944,7 @@
             "reasons": [
               "legacy_calculation"
             ],
-            "message": "This saved calculation predates the current source checks. Its inputs need review.",
+            "message": "This saved calculation predates the current automated checks. Its inputs need review.",
             "values": [
               {
                 "concept": "reason_1",
@@ -1968,7 +1968,7 @@
             "reasons": [
               "source_check_needed"
             ],
-            "message": "A source check remains unresolved. Review the original filing before use.",
+            "message": "This figure has not passed EarningsNerd’s automated consistency checks; check it against the filing before relying on it.",
             "values": [
               {
                 "concept": "reason_2",
@@ -2112,7 +2112,7 @@
             "reasons": [
               "negative_calculated_value"
             ],
-            "message": "The calculation produced an invalid negative amount and was withheld.",
+            "message": "The calculation produced an invalid negative amount, so this figure is unavailable.",
             "values": [
               {
                 "concept": "reason_8",
@@ -2232,7 +2232,7 @@
             "reasons": [
               "legacy_unverified"
             ],
-            "message": "This saved figure needs a source check before use.",
+            "message": "This saved figure has not passed the current automated checks; check it against the filing before relying on it.",
             "values": [
               {
                 "concept": "reason_13",
@@ -2256,7 +2256,7 @@
             "reasons": [
               "legacy_unreconciled"
             ],
-            "message": "This saved figure needs a source check before use.",
+            "message": "This saved figure has not passed the current automated checks; check it against the filing before relying on it.",
             "values": [
               {
                 "concept": "reason_14",
@@ -2280,7 +2280,7 @@
             "reasons": [
               "legacy_unknown"
             ],
-            "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
+            "message": "No automated check result is recorded for this figure.",
             "values": [
               {
                 "concept": "reason_15",
@@ -2638,7 +2638,7 @@
             "reasons": [
               "legacy_calculation"
             ],
-            "message": "This saved calculation predates the current source checks. Its inputs need review.",
+            "message": "This saved calculation predates the current automated checks. Its inputs need review.",
             "values": [
               {
                 "concept": "reason_1",
@@ -2662,7 +2662,7 @@
             "reasons": [
               "source_check_needed"
             ],
-            "message": "A source check remains unresolved. Review the original filing before use.",
+            "message": "This figure has not passed EarningsNerd’s automated consistency checks; check it against the filing before relying on it.",
             "values": [
               {
                 "concept": "reason_2",
@@ -2806,7 +2806,7 @@
             "reasons": [
               "negative_calculated_value"
             ],
-            "message": "The calculation produced an invalid negative amount and was withheld.",
+            "message": "The calculation produced an invalid negative amount, so this figure is unavailable.",
             "values": [
               {
                 "concept": "reason_8",
@@ -2926,7 +2926,7 @@
             "reasons": [
               "legacy_unverified"
             ],
-            "message": "This saved figure needs a source check before use.",
+            "message": "This saved figure has not passed the current automated checks; check it against the filing before relying on it.",
             "values": [
               {
                 "concept": "reason_13",
@@ -2950,7 +2950,7 @@
             "reasons": [
               "legacy_unreconciled"
             ],
-            "message": "This saved figure needs a source check before use.",
+            "message": "This saved figure has not passed the current automated checks; check it against the filing before relying on it.",
             "values": [
               {
                 "concept": "reason_14",
@@ -2974,7 +2974,7 @@
             "reasons": [
               "legacy_unknown"
             ],
-            "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
+            "message": "No automated check result is recorded for this figure.",
             "values": [
               {
                 "concept": "reason_15",
@@ -3280,7 +3280,7 @@
             "reasons": [
               "legacy_unknown"
             ],
-            "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
+            "message": "No automated check result is recorded for this figure.",
             "values": [],
             "comparisons": [],
             "counts": {

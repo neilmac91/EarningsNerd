@@ -1,5 +1,7 @@
 """Shared presentation contract: exact financial concerns, no new verification claims."""
+import ast
 import json
+import re
 import uuid
 from copy import deepcopy
 from datetime import date
@@ -60,6 +62,15 @@ def test_every_known_reason_has_a_pinned_message_and_supplements_continue_after_
     result = citation_data_notes(case["citations"], data_notes(case["dataset"]))
     assert [note["letter"] for note in result["notes"][-4:]] == ["aa", "ab", "ac", "ad"]
     assert all(not note["values"] and not note["comparisons"] for note in result["notes"][-3:])
+
+
+def test_frontend_fallback_reason_copy_matches_backend_and_names_checks_precisely():
+    source = (Path(__file__).parents[3] / "frontend/features/analysis/lib/provenance.ts").read_text()
+    table = source.split("const REASONS: Record<string, string> = {", 1)[1].split("\n}", 1)[0]
+    entries = re.findall(r"^  (\w+): ('.*'|\".*\"),$", table, re.MULTILINE)
+    fallback = {key: ast.literal_eval(sentence) for key, sentence in entries}
+    assert fallback == REASONS
+    assert not re.search(r"source check|\bverif|\bwithheld\b", " ".join(REASONS.values()), re.IGNORECASE)
 
 
 def test_saved_supported_notes_are_authoritative_and_detached():
