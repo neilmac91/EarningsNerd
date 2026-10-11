@@ -9,22 +9,27 @@ import type { SAMPLE_CATCH } from '@/features/marketing/lib/landing-samples'
  * fiscal years, so no chatbot is named and no wrong number is invented: the remembered figure is
  * simply last year's. The in-filing figure carries the product's XBRL chip, so the card is the
  * receipt in miniature.
+ *
+ * The pair sits side by side while both amounts fit and stacks when they do not: each item's basis
+ * is its own content, so the wrap follows the space the whole values need in any column and at any
+ * text size, not a viewport breakpoint (tests/e2e/catch-card-reflow.spec.ts). An amount wider than
+ * the card on its own, at 320px under a 200% root font, breaks inside rather than overflowing.
  */
 export default function CatchCard({ sample }: { sample: typeof SAMPLE_CATCH }) {
   return (
     <Card className="p-5">
       <CardTitle>The number you remember</CardTitle>
-      <dl className="mt-4 grid grid-cols-2 gap-4">
-        <div className="min-w-0">
+      <dl className="mt-4 flex flex-wrap gap-x-4 gap-y-3">
+        <div className="min-w-0 flex-auto">
           <dt className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">From memory</dt>
-          <dd className="mt-1 font-data text-2xl font-semibold tabular-nums text-text-tertiary-light line-through decoration-1 dark:text-text-secondary-dark">
+          <dd className="mt-1 break-words font-data text-2xl font-semibold tabular-nums text-text-tertiary-light line-through decoration-1 dark:text-text-secondary-dark">
             {sample.remembered}
           </dd>
           <dd className="mt-0.5 font-data text-xs text-text-tertiary-light dark:text-text-secondary-dark">{sample.rememberedPeriod}</dd>
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-auto">
           <dt className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">In the filing</dt>
-          <dd className="mt-1 font-data text-2xl font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
+          <dd className="mt-1 break-words font-data text-2xl font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">
             {sample.inFiling}
           </dd>
           <dd className="mt-0.5 font-data text-xs text-text-tertiary-light dark:text-text-secondary-dark">{sample.inFilingPeriod}</dd>

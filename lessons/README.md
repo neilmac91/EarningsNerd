@@ -134,6 +134,9 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## Frontend & design system
 
+- brand-a-promise-names-what-the-code-enforces.md — Before a public sentence promises a behaviour, trace each surface it covers to the code that enforces it, flag defaults included, and scope the sentence to those (partly gated by `frontend/tests/unit/brandCopyRules.spec.ts`, rules 1, 1b and 1c; a new kind of promise is review-checked)
+- brand-the-mark-is-protected.md — Never change the EN monogram or the wordmark; brand work composes around them (arrangements, clear space and minimum sizes only) (partly gated by `frontend/tests/unit/markSingleSource.spec.ts`, which holds the outlines and their placement, and `wordmarkSingleSource.spec.ts`; the colours, the wordmark's composition and the small-size rule are review-checked)
+- frontend-check-brand-layouts-at-200-percent-text.md — Check a brand layout at 390px under a 200% root font: a figure pair wraps on its own content width, and a positioned twin centres on its anchor's measured midpoint
 - frontend-busy-controls-stay-focusable.md — A control busy with its own request stays focusable: aria-disabled plus an early return, never native disabled (partly gated by `frontend/tests/unit/busyControlsStayFocusable.spec.ts` (AST scan of every .tsx); the keyboard and focus hand-off rules are not)
 - frontend-check-luminance-vs-background.md — Verify surface luminance against the actual background, not token validity
 - frontend-citation-offset-boundaries.md — Resolve citation starts to the first matched character's text node and pin the actual flash target
@@ -174,7 +177,6 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 The rule is checked by the named gate; open the lesson only when that gate fails or you change it.
 
 - arch-sweep-dead-integration-consumers.md — When an integration is declared dead, sweep every consumer in the same pass — gate: `backend/tests/unit/test_dead_integrations_allowlist.py`
-- brand-the-mark-is-protected.md — Never change the EN monogram or the wordmark; brand work composes around them (arrangements, clear space and minimum sizes only) — gate: `frontend/tests/unit/markSingleSource.spec.ts`
 - ops-a-review-you-triggered-is-a-review-you-wait-for.md — A review you triggered is a review you wait for; merging inside it discards what you asked for — gate: `.github/workflows/review-gate.yml` (required status check `review-gate`)
 - ops-deploy-detector-mirrors-the-image-context.md — Make the deploy change detector exclude exactly what `.dockerignore` excludes, and gate it with a test — gate: `backend/tests/unit/test_backend_deploy_scope.py`
 - ops-migrations-need-lock-timeout.md — Give every migration session a lock_timeout and every deploy job a timeout — idempotent is not lock-free — gate: `backend/tests/unit/test_migration_lock_safety.py`; CLAUDE.md rule 3

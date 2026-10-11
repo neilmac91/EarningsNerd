@@ -16,9 +16,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 | Hero subhead and access line | `LandingHero.tsx` | "AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company's XBRL where they can be, and quotes against the filing's own text." The scope is the server's: it checks a figure only when the metric maps to an XBRL concept of at least $1M (`backend/app/services/provenance_service.py`). The access line is unchanged ("Private beta · request an invite"). |
 | Hero example | `HeroExample.tsx` | The fallback is Apple's FY2025 10-K (filed 2025-10-31) with the verified figures; the evidence row is a `MarkedCopy` block: the claim with its `[1]` bracket, the bracket's twin in the margin, and the filing's sentence in a `.en-marked` blockquote set in the editorial face. Live data renders the same way. |
 | Founder slot | `FounderNote.tsx`, `lib/founderNote.ts` | Mounted under the hero example; renders nothing while `FOUNDER_NOTE` is `null` (see §6). |
-| Trust strip | `TrustStrip.tsx` | Four statements the product keeps, no hedges: sourced from SEC EDGAR; quoted excerpts are the filing's own words; one summary per filing, generated once and shared; not investment advice. |
-| Claims strip | `MeasuredClaims.tsx` | "Figures / Quotes / Nine parts / SEC EDGAR", each with the behaviour it names, in place of the four pseudo-statistics; the figures line says the server checks them where it can. |
-| Evidence section | `EvidenceSection.tsx`, `TraceToSourceDemo.tsx`, `CatchCard.tsx` (new) | "Figures with their receipts." over the FY2025 Financial Highlights table (the two totals read SEC XBRL; the per-share row reads Cited, as a real payload's would) and the trace demo; beneath them the catch, "The number you remember": $391.0B from memory (FY2024, struck through) beside $416.2B in the filing (FY2025) with its chip, `{ } Total net sales · SEC XBRL`. |
+| Trust strip | `TrustStrip.tsx` | Four statements the product keeps, no hedges: sourced from SEC EDGAR; risk excerpts are the filing's own words (main said "quoted excerpts"; a Forward Signals quote can stand unmatched, so the founder's review narrowed it); one summary per filing, generated once and shared; not investment advice. |
+| Claims strip | `MeasuredClaims.tsx` | "Figures / Risks / Nine parts / SEC EDGAR", each with the behaviour it names, in place of the four pseudo-statistics; the figures line says the server checks them where it can, and the risks line that unmatched excerpts are withheld and counted. |
+| Evidence section | `EvidenceSection.tsx`, `TraceToSourceDemo.tsx`, `CatchCard.tsx` (new) | "Figures with their receipts." over the FY2025 Financial Highlights table (the two totals read SEC XBRL; the per-share row reads Cited, as a real payload's would) and the trace demo; beneath them the catch, "The number you remember": $391.0B from memory (FY2024, struck through) beside $416.2B in the filing (FY2025) with its chip, `{ } Total net sales · SEC XBRL`; the two amounts share a line while they fit and stack when they do not, at 200% text and in the desktop column (`tests/e2e/catch-card-reflow.spec.ts`). |
 | Contents | `SummaryContents.tsx` | The nine parts the live schema produces, from The Print to Notable Footnotes, in reading order. |
 | How it works | `HowItWorks.tsx` | Three steps without "supported" or "selected": search any company with a ticker on SEC EDGAR (the coverage search has: SEC's ticker file), pick a filing, read the summary. |
 | Pro section | `ProDepth.tsx`, `ChangeReportDemo.tsx` | "More ways to read one filing." with the Ask, Multi-Period and Change Report demos; the Change Report sample is FY2025 against FY2024. |
@@ -131,12 +131,19 @@ new sentence) and `backend/tests/unit/test_export_service.py`.
 New gates, each with a mutation proof in the PR (CLAUDE.md rule 12):
 
 - `brandCopyRules.spec.ts`: shipped copy never says "each figure" or "every figure" without the
-  server's scope beside it; on the public surfaces no sage-coloured element renders a digit; the
+  server's scope beside it, never promises nine parts for every filing, and on the public surfaces
+  never promises that quotes are withheld or are the filing's own words unless it names risk
+  excerpts; on the public surfaces no sage-coloured element renders a digit; the
   highlight never sits on a figure or a price, the hero accents included; the margin exists only
   inside `MarkedCopy`, and every `MarkedCopy` carries a marker.
 - `markSingleSource.spec.ts`: every rendition of the EN monogram (the assets, the templates, the
-  social card, `EarningsNerdLogoIcon.tsx`, the chart export) copies the canonical outlines and
-  placements byte for byte and never stretches them.
+  social card, `EarningsNerdLogoIcon.tsx`, the chart export) copies the canonical outlines byte for
+  byte, places them through the canonical groups with nothing else moving an outline, and never
+  stretches them.
+- `markedCopy.spec.tsx`: the margin twin is anchored at its marker's midpoint and centres itself
+  there, at the default, 20px and 32px root sizes.
+- `tests/e2e/catch-card-reflow.spec.ts`: the catch card's amounts never overlap or leave the card,
+  at 390px (default and 200% text), 320px and 1280px under a 200% root font, in both themes.
 - `founderNote.spec.tsx`: the slot renders nothing until filled, then the sentence and signature.
 - `waitlistCounter.spec.tsx`: no number below the floor, no "0+" frame, the count in neutral ink.
 

@@ -26,10 +26,12 @@ check is worth more than a number you have to trust.**
    chip says "Verified in filing" or "Cited. Open the section to confirm.", never more
    (`frontend/features/filings/components/SourceTrace.tsx`).
 
-3. **We keep the filing's words in the filing's voice.** Quoted excerpts are the filing's own words
-   and are set in the filing's own face; summaries and answers never borrow it (the Source Voice
-   Rule, DESIGN.md "Typography"; `.filing-reader` in `frontend/app/globals.css`; the excerpt rows
-   in `SummaryRisks.tsx`). The reader can always tell who is speaking.
+3. **We keep the filing's words in the filing's voice.** Risk excerpts are the filing's own words,
+   located before they show, and are set in the filing's own face; summaries and answers never
+   borrow it (the Source Voice Rule, DESIGN.md "Typography"; `.filing-reader` in
+   `frontend/app/globals.css`; the excerpt rows in `SummaryRisks.tsx`). A quote the server could
+   not find in the filing reads Cited, never Verified in filing. The reader can always tell who is
+   speaking.
 
 One summary per filing, generated once and shared (CLAUDE.md rule 1), is the economics behind all
 three: the product can afford to check because it checks once.

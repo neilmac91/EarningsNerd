@@ -2,12 +2,15 @@ import SectionImpression from '@/features/marketing/components/SectionImpression
 
 /**
  * Four behaviours in the product's own words (docs/brand/03-strategy.md, S2): what a summary does
- * with a figure, a quote, its own scope and its source. No invented statistics: the lead of each
- * pair is the subject, set in the data face, and the label is the behaviour the product performs.
+ * with a figure, a risk excerpt, its own scope and its source. No invented statistics: the lead of
+ * each pair is the subject, set in the data face, and the label is the behaviour the product
+ * performs. Of a summary's quotes, only risk excerpts are withheld when the filing's text does not
+ * match them; a Forward Signals quote stays on the page, labelled Cited, while
+ * AI_FORWARD_QUOTE_GATE is off (brandCopyRules.spec.ts, rule 1c).
  */
 const CLAIMS = [
   { figure: 'Figures', label: 'Matched to the company\u2019s XBRL where the server can check them, or counted as unmatched' },
-  { figure: 'Quotes', label: 'Located in the filing text, in the filing\u2019s own words, or withheld' },
+  { figure: 'Risks', label: 'Excerpts located in the filing\u2019s own text, or withheld and counted' },
   { figure: 'Nine parts', label: 'One outline for every 10-K and 10-Q, from The Print to Notable Footnotes, skipping any part the filing has nothing for' },
   { figure: 'SEC EDGAR', label: 'Every summary links to the original filing, one click away' },
 ] as const

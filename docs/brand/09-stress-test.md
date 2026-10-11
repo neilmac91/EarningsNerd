@@ -98,7 +98,24 @@ design rules, the CI TypeScript check, the unit suites touched and the three Pla
 that run without a backend (`home-page-unauthenticated`, `not-found-page`, `text-floors`) were run
 against the same build; their results are in the handoff ([README.md](README.md)).
 
-## 5. Not done, and said so
+## 5. The founder's review
+
+The founder's review of `ab3f8f0` (an AI-assisted principal-engineer pass, review 5484603342 on
+PR #1226) found two P2s and two P3s, none in the mark's drawing, and all four are fixed (D-028):
+
+- **The quote promise.** "Quotes … or withheld" covered Forward Signals quotes, which stay on the
+  page, labelled Cited, while `AI_FORWARD_QUOTE_GATE` is off. The claims strip now names risk
+  excerpts, the trust strip likewise, and the evidence lead says a quote reads Verified in filing
+  only when its words were found; `brandCopyRules.spec.ts` rule 1c fails on the three old sites.
+- **The catch card at 200% text.** At 390px under a 32px root font the two amounts overlapped by
+  59.6px, and in the desktop column too. The pair now wraps on its own content width, and a
+  Playwright spec measures the painted text in both themes at 390px, 320px and 1280px.
+- **The margin twin.** It assumed a 16px height and sat 8px low at 200%; it now centres on its
+  marker's measured midpoint (`markedCopy.spec.tsx`).
+- **The geometry gate.** A translation on only the stacked logo's arrowhead passed every check;
+  `markSingleSource.spec.ts` now reads the transform hierarchy, and five planted moves fail it.
+
+## 6. Not done, and said so
 
 - The colour-blind pass is a simulation, not a session with a colour-blind reader.
 - The print checks are grayscale conversions of screen renders, not proofs from a printer.

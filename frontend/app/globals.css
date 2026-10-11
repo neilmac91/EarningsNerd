@@ -221,6 +221,7 @@
   font-size: 0.6875rem; /* data-xs: never smaller than the provenance chip's 12px in running copy; a twin, not copy */
   font-weight: 600;
   line-height: 1rem;
+  transform: translateY(-50%); /* centred on its marker's midpoint, whatever height it renders at */
   color: #3C6650; /* brand-strong */
 }
 .dark .en-margin-mark { color: #98C5AD; /* brand-strong-dark */ }

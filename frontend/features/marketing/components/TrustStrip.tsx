@@ -7,7 +7,7 @@ import { ShieldCheckIcon } from '@/lib/icons'
  * (MeasuredClaims), not repeated here as a hedge (docs/voice-and-style.md › Tone rules).
  */
 const STATEMENTS = [
-  'Summaries are generated; quoted excerpts are the filing’s own words',
+  'Summaries are generated; risk excerpts are the filing’s own words',
   'One summary per filing, generated once and shared',
   'Not investment advice',
 ]

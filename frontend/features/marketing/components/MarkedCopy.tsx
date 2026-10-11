@@ -10,7 +10,9 @@ import { cx } from '@/components/ui'
  * server-rendered and passed in as children; this boundary only measures. Twins are decorative
  * (`aria-hidden`): the in-text marker is the accessible one. Under SSR and before the first
  * measurement the gutter is empty and the content is unchanged, so nothing depends on it; where
- * `ResizeObserver` is missing the twins are placed once and not re-measured.
+ * `ResizeObserver` is missing the twins are placed once and not re-measured. A twin is anchored at
+ * its marker's measured midpoint and centred on it by `.en-margin-mark`'s own `translateY(-50%)`,
+ * so it stays on its line whatever height the twin renders at, a 200% root font included.
  */
 export default function MarkedCopy({ children, className }: { children: ReactNode; className?: string }) {
   const bodyRef = useRef<HTMLDivElement | null>(null)
@@ -23,7 +25,7 @@ export default function MarkedCopy({ children, className }: { children: ReactNod
       const base = body.getBoundingClientRect().top
       const next = Array.from(body.querySelectorAll<HTMLElement>('[data-en-ref]')).map((el, index) => {
         const rect = el.getBoundingClientRect()
-        return { key: `${index}-${el.dataset.enRef}`, label: el.dataset.enRef ?? el.textContent ?? '', top: rect.top - base + (rect.height - 16) / 2 }
+        return { key: `${index}-${el.dataset.enRef}`, label: el.dataset.enRef ?? el.textContent ?? '', top: rect.top - base + rect.height / 2 }
       })
       setMarks(next)
     }

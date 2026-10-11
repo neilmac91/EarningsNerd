@@ -13,7 +13,8 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    least $1M: backend/app/services/provenance_service.py, build_metric_source), so shipped copy
  *    never says "each figure" or "every figure" without the scope beside it ("checkable", "where
  *    they can be", "the server can check"). The 2026-10-11 review caught a voice pass that had
- *    deleted that scope in nine places.
+ *    deleted that scope in nine places. Two siblings keep the other scopes: 1b, the outline is "up
+ *    to nine parts"; 1c, only risk excerpts are promised as located or withheld.
  * 2. Sage never colours a number on the public surfaces (the brand brief's reading of DESIGN.md ›
  *    the Separate Signals Rule; PUBLIC_SURFACES below). Text inside an element whose own text
  *    colour is a sage token may not contain a digit, whether written inline or mapped in from a
@@ -198,6 +199,43 @@ describe('brand rule 1b: the nine-part outline keeps its scope', () => {
       })
     }
     expect(offenders, 'say "up to nine parts", or name the outline').toEqual([])
+  })
+})
+
+describe('brand rule 1c: the withholding promise names risk excerpts', () => {
+  // Of a summary's quotes, only risk excerpts are withheld when the filing's text does not match:
+  // the server projects a risk only from a whitespace-exact span and counts the rest
+  // (backend/app/services/provenance_service.py). A Forward Signals quote stays on the page,
+  // labelled Cited, while AI_FORWARD_QUOTE_GATE is off (backend/app/services/ai/
+  // forward_quote_gate.py). So a public surface may promise that risk excerpts are located or
+  // withheld, or are the filing's own words, never that quotes in general are (the founder's
+  // review of PR #1226). An object literal is read as one statement, so a claims row's subject
+  // and label are judged together.
+  const PROMISE = /\bwithheld\b|\bown words\b|\bpassage (?:it|they) came from\b/i
+  const QUOTES = /\bquot(?:e|es|ed|ation|ations)\b|\bexcerpts?\b/i
+  const SCOPE = /\brisks?\b/i
+
+  /** The statement a literal belongs to: every literal value of its object literal, or itself. */
+  function statement(n: ts.Node, text: string): string {
+    const assignment = n.parent
+    if (!assignment || !ts.isPropertyAssignment(assignment) || !ts.isObjectLiteralExpression(assignment.parent)) return text
+    return assignment.parent.properties
+      .map((p) => (ts.isPropertyAssignment(p) ? literalText(unwrap(p.initializer)) : null))
+      .filter((t): t is string => t !== null)
+      .join(' · ')
+  }
+
+  it('no text on a public surface promises that quotes are withheld or are the filing’s own words unless it names risk excerpts', () => {
+    const offenders: string[] = []
+    for (const { rel, sf } of SOURCES.filter((s) => isPublic(s.rel))) {
+      visit(sf, (n) => {
+        const text = literalText(n)
+        if (text === null || ts.isNumericLiteral(n)) return
+        const whole = statement(n, text)
+        if (PROMISE.test(text) && QUOTES.test(whole) && !SCOPE.test(whole)) offenders.push(where(rel, sf, n, whole))
+      })
+    }
+    expect(offenders, 'name what is enforced: "risk excerpts … or withheld"').toEqual([])
   })
 })
 

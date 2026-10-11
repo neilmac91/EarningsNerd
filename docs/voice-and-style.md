@@ -34,7 +34,7 @@ of one plain sentence, claims backed by a figure with its source, no throat-clea
 2. **Specific over abstract.** Name what the product does and who it's for. Prefer a real
    detail or number ("10-K and 10-Q summaries", "5 summaries a month") to a vague benefit
    ("actionable insights"). Say what was checked and against what: a figure the server
-   matched reads "SEC XBRL", a quote it could not locate is "withheld".
+   matched reads "SEC XBRL", a risk excerpt it could not locate is "withheld".
 3. **Confident and plain.** Lead with the user's outcome. State the AI plainly without
    over-explaining it. Drop the hype. No exclamation marks.
 4. **Restraint over decoration.** Cut adjectives that don't earn their place and any
@@ -67,7 +67,7 @@ of one plain sentence, claims backed by a figure with its source, no throat-clea
 |---|---|
 | "Nine-part summaries use selected filing text and available XBRL data, with source labels where a match is found." (hero subhead) | "Figures are checked against the company's XBRL where they can be, and quotes against the filing's own text." |
 | "Where the numbers come from" (section heading) | "Figures with their receipts." |
-| "Source labels show when financial metrics match filed XBRL data. Where supporting evidence is available, citations connect excerpts to the filing. The summary is built from selected filing text and available structured data." | "Each row in the highlights carries a label: SEC XBRL when its value matched the company's XBRL fact, Cited when it points to the filing without that match. Each quote carries the passage it came from." |
+| "Source labels show when financial metrics match filed XBRL data. Where supporting evidence is available, citations connect excerpts to the filing. The summary is built from selected filing text and available structured data." | "Each row in the highlights carries a label: SEC XBRL when its value matched the company's XBRL fact, Cited when it points to the filing without that match. A quote reads Verified in filing only when its words were found there." |
 | "Speed matters. Markets move fast. You need clarity before the next earnings call." (waitlist) | "Filings are long. The signal is spread across a hundred pages, and checking a number takes an afternoon. We read it with you and point at the passage." |
 | "Join 0+ others on the waitlist" | (nothing, until the count is worth saying) |
 | "Choose the plan that fits your workflow" (pricing subtitle) | "Summaries are generated once per filing and shared. That is what makes unlimited reading possible at this price." |
@@ -140,6 +140,11 @@ the business card, the footer and the merch; it is the positioning in six words.
   ticker file. A rewrite may move scope into plainer words; it never deletes it.
   `frontend/tests/unit/brandCopyRules.spec.ts` fails on "each figure" or "every figure" without
   the scope beside it, and on a promise of nine parts for every filing.
+- Of a summary's quotes, only risk excerpts are withheld when the filing's text does not match
+  them. A Forward Signals quote stays on the page, labelled Cited, while `AI_FORWARD_QUOTE_GATE`
+  is off (`backend/app/services/ai/forward_quote_gate.py`). So a public surface promises "located
+  or withheld", or "the filing's own words", of risk excerpts only; the same spec fails on that
+  promise made of quotes in general. Arming the gate is what would widen the claim.
 - A sample figure on a sales surface is verified against the filing's XBRL and carries its
   filing identity; a quoted passage is verbatim from that filing (`docs/brand/00-audit.md` §4
   records the current set).

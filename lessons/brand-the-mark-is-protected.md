@@ -21,6 +21,11 @@ rules (use the tile, not the bare mark, below 32px), not by redrawing.
 `frontend/public/assets/LOGO_README.md` ("In-app usage", "Rules");
 `frontend/tests/unit/wordmarkSingleSource.spec.ts` keeps the wordmark to one source.
 
-**Gate**: `frontend/tests/unit/markSingleSource.spec.ts` fails when any rendition (the assets, the
-templates, the social card, `EarningsNerdLogoIcon.tsx`, the chart export) redraws one of the three
-outlines, moves the N against the E, or stretches the mark.
+**Gate (partial)**: `frontend/tests/unit/markSingleSource.spec.ts` fails when any rendition (the
+assets, the templates, the social card, `EarningsNerdLogoIcon.tsx`, the chart export) redraws one of
+the three outlines, moves one outline (a transform of its own, an extra group, a style or class
+that moves it), moves the N against the E, or stretches the mark. It reads the transform hierarchy,
+not substrings: the founder's review of PR #1226 moved only the stacked logo's arrowhead and the
+first version, which checked that the strings were present, stayed green. The colours, the
+wordmark's composition and the small-size rule are not gated, so this lesson stays in session
+reading (`lessons/ops-demote-a-lesson-only-when-its-whole-rule-is-gated.md`).

@@ -122,7 +122,7 @@ describe('TrustStrip', () => {
     const items = within(screen.getByRole('list', { name: 'About the data' })).getAllByRole('listitem')
     expect(items.map((li) => li.textContent)).toEqual([
       'Data sourced from SEC EDGAR',
-      'Summaries are generated; quoted excerpts are the filing’s own words',
+      'Summaries are generated; risk excerpts are the filing’s own words',
       'One summary per filing, generated once and shared',
       'Not investment advice',
     ])

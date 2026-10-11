@@ -32,8 +32,8 @@ export default function EvidenceSection() {
             </h2>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">
               Each row in the highlights carries a label: SEC XBRL when its value matched the
-              company’s XBRL fact, Cited when it points to the filing without that match. Each quote
-              carries the passage it came from.
+              company’s XBRL fact, Cited when it points to the filing without that match. A quote
+              reads Verified in filing only when its words were found there.
             </p>
           </div>
 

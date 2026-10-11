@@ -72,7 +72,7 @@ the verified set; every colour is a token; the mark's paths are byte-identical t
 | 8 | [08-applications.md](08-applications.md) | The landing page and every other surface in code; templates; the founder slot; Notable filings dormant |
 | 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; three fixes; second score 12 of 42 |
 | 10 | this page | The handoff |
-| all | [decisions-log.md](decisions-log.md) | D-001 to D-020 |
+| all | [decisions-log.md](decisions-log.md) | D-001 to D-028 |
 
 ## The pull request
 
@@ -87,17 +87,26 @@ copy in mail and exports, and their specs. Not touched: prompts, evals, entitlem
 The review (one Opus lens, a Sonnet refuter per blocker) found three blockers, all upheld and
 all fixed: matching claims that had lost the server's scope, a widened search-coverage claim,
 and a consent clause broader than the code. The fixes and the should-fix items are recorded in
-[09-stress-test.md](09-stress-test.md) §4 and decisions D-021 to D-025.
+[09-stress-test.md](09-stress-test.md) §4 and decisions D-021 to D-025. Codex's review of the
+ready PR (D-027) and the founder's review of `ab3f8f0` (D-028: the quote promise scoped to risk
+excerpts, the catch card at 200% text, the margin twin's centring, the geometry gate's
+hierarchy check) followed, each fixed in the branch.
 
 ## Gates this work added
 
 Each fails on a deliberate break of its rule (the PR lists the mutation proofs):
 
-- `frontend/tests/unit/brandCopyRules.spec.ts`: matching claims keep the server's scope; no sage
-  number on a public surface; the highlight never on a figure or price; the margin only inside
-  `MarkedCopy`, and never without a marker.
+- `frontend/tests/unit/brandCopyRules.spec.ts`: matching claims keep the server's scope, the
+  outline is "up to nine parts", and only risk excerpts are promised as located or withheld; no
+  sage number on a public surface; the highlight never on a figure or price; the margin only
+  inside `MarkedCopy`, and never without a marker.
 - `frontend/tests/unit/markSingleSource.spec.ts`: every rendition of the EN monogram copies the
-  canonical outlines and placements byte for byte and never stretches them.
+  canonical outlines byte for byte, places them through the canonical groups and nothing else,
+  and never stretches them.
+- `frontend/tests/unit/markedCopy.spec.tsx` and `frontend/tests/e2e/catch-card-reflow.spec.ts`: the
+  margin twin centres on its marker at any root size; the catch card's amounts never overlap or
+  leave the card, at 390px and 320px under a 200% root font and in the desktop column, in both
+  themes.
 - `frontend/tests/unit/founderNote.spec.tsx` and `waitlistCounter.spec.tsx`: no placeholder in the
   founder slot, no counter below its floor or passing through "0+", the count in neutral ink.
 
@@ -129,8 +138,12 @@ and CI's backend job, on its pinned toolchain, passed on the same commit.
 ## Lessons
 
 - `lessons/brand-the-mark-is-protected.md`: never change the EN monogram or the wordmark; brand
-  work composes around them. Now held by `markSingleSource.spec.ts`, so `lessons/README.md` lists
-  it under the machine-gated lessons.
+  work composes around them. `markSingleSource.spec.ts` holds the outlines and their placement;
+  the colours and the small-size rule are review-checked, so the lesson stays in session reading.
+- `lessons/brand-a-promise-names-what-the-code-enforces.md`: trace each surface a promise covers
+  to the code that enforces it, flag defaults included, before writing it.
+- `lessons/frontend-check-brand-layouts-at-200-percent-text.md`: a figure pair wraps on its own
+  width; a positioned twin centres on its anchor's measured midpoint.
 
 ## Left for the founder
 
