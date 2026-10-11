@@ -174,7 +174,8 @@ NODE_PATH=/tmp/pw-1.56/node_modules node tasks/analysis-redesign-2026-10/harness
 # of it through symbolic or hard links, or it is the default; any other multiply linked output is refused), for the legacy state from the committed fixtures at the content hash the harness pins (retaking
 # from other fixtures needs a new pin), from clean trees (no uncommitted frontend, harness or fixture files) and
 # from a stamped build whose public variables and downloaded fonts match the pins (26 files, sha256 d7c8317fed90…;
-# two builds of 97293e7 on 2026-10-11 hashed alike, and other fonts need a new pin): a fresh measurement of any other build, state or data (--build defaults to this
+# two builds of 97293e7 on 2026-10-11 hashed alike, and other fonts need a new pin), and in the pinned browser
+# (browser-pin.mjs): a fresh measurement of any other build, state, data or browser (--build defaults to this
 # repository) needs --out naming another file, and an --out that holds a recording of another commit is refused.
 
 # prototype (no server needed). --fonts answers Google Fonts from a local directory: fonts.css is the CSS the page
@@ -195,6 +196,6 @@ the cloud image's global install provides (`NODE_PATH=/opt/node-tools/node_modul
 `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`) and the two install lines above give on any linux x64 machine. The
 frontend's own `@playwright/test` (1.63) runs Chromium 153 and serves `--out` runs. Measured in it on
 2026-10-11, the same `97293e7` build differed in all 20 configurations: the table was 2,035 px wide instead of
-2,076, the page overflowed 33 px at 390 instead of 39 and 95 px at 320 instead of 93, and no header straddled
+2,076 (4,070 instead of 4,151 with 200% text), the page overflowed 33 px at 390 instead of 39 and 95 px at 320 instead of 93, and no header straddled
 the sticky edge at 1480. A recording retaken in that browser would no longer match the numbers the proposal
 cites.

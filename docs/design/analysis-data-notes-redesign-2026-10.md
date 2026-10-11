@@ -1128,8 +1128,8 @@ correction landed in this document:
   Both harnesses write their recording only in the browser `harness/browser-pin.mjs` pins, Chromium
   141.0.7390.37 on linux x64 (Playwright 1.56.1's build), checked right after launch, since the browser sets
   every width as the fonts do: measured in Chromium 153, the frontend's own Playwright's, the same `97293e7`
-  build differs in all 20 configurations (the table 2,035 px wide instead of 2,076, and no header straddling the
-  sticky edge at 1480).
+  build differs in all 20 configurations (the table 2,035 px wide instead of 2,076, 4,070 instead of 4,151 with
+  200% text, and no header straddling the sticky edge at 1480).
 - **Moved modules**, checked against `main` at `dd7b9ce` (#1222) on 2026-10-11: `normalize_companyfacts`
   lives in `facts/companyfacts.py` (#1210) behind the `facts_service.py` facade; `build_observation_catalogue`
   and `_point_value` in `trend_analysis/observations.py`, `_ratio_threshold_value` and

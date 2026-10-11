@@ -168,7 +168,8 @@ both themes, reduced motion respected.
 <done_looks_like>
 Track A: a short verification note appended to the PR that carries this prompt (or a comment on it)
 listing falsified claims (expected: none or few), moved files, and the test pins the change will alter;
-both harness runs reproduced within a few pixels.
+both harness runs reproduced, record for record in the pinned browser (in another browser, with `--out`, expect
+other widths).
 Track B, per PR: the frontend gate green, the named spec updated, the preview checked in both themes at
 1480 and 390, the measurement harness showing 0 page overflow, 0 card-child overflow, equal period
 columns and 0 occlusion for the states the PR affects, and the PR body in the §7 format with its review
