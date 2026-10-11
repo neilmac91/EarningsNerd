@@ -21,6 +21,9 @@
    v3.3: inputClasses() grows `trailingIcon` (the 40px trailing inset for a control
    drawn at the field's right edge, the password reveal toggle), explicit sides
    per density like `select`.
+   v3.4: FieldSpinner is exported for raw fields (the search fields' busy state), and
+   an Input that takes `loading` reserves its trailing inset whether or not it is
+   loading, as a raw field's `trailingIcon: true` does.
    Assumes @tailwindcss/forms (already in the config plugins).
 ============================================================================= */
 
@@ -112,9 +115,12 @@ export type InputClassesOptions = InputClassesBase &
             left-3.5, centered, pointer-events-none, muted tone). */
         leadingIcon?: boolean
         /** v3.3: reserve the pr-10 (40px) trailing inset for a control you render at the field's right
-            edge (the password reveal toggle). Sized for a glyph of at most 16px whose outer edge sits 12px
-            in (`right-3`, or `right-0` with `pr-3`): it spans 12–28px from the edge and leaves 13px before
-            the text. A larger glyph, or one set further in, runs into the text. */
+            edge (the password reveal toggle, a search field's <FieldSpinner />). Sized for a glyph of at
+            most 16px whose outer edge sits 12px in (`right-3`, or `right-0` with `pr-3`): it spans 12–28px
+            from the edge and leaves 13px before the text. A larger glyph, or one set further in, runs into
+            the text. v3.4: always `true`, never the control's own condition. When the padding grows,
+            Chromium leaves the caret where it was, so a long query loses its end and caret under a spinner
+            for the whole load; when it shrinks, the line jumps. */
         trailingIcon?: boolean
         select?: false
       }
@@ -195,7 +201,10 @@ function Shell({
   )
 }
 
-function FieldSpinner() {
+/** The field's busy spinner: 16px at right-3, the box `trailingIcon` reserves. A raw field renders it beside the
+    input inside a `relative` wrapper, with `trailingIcon: true` and `aria-busy` on the input, as Input's
+    `loading` does. aria-hidden: the input's aria-busy carries the state. */
+export function FieldSpinner() {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -212,7 +221,8 @@ function FieldSpinner() {
 /* ---------------------------------------------------------------- Input -- */
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement>, FieldExtras {
-  /** Async lookup in flight (e.g. ticker validation) — trailing spinner + aria-busy. */
+  /** Async lookup in flight (e.g. ticker validation) — trailing spinner + aria-busy. Passing it at all,
+      `false` included, reserves the trailing inset, so the padding never moves under the caret. */
   loading?: boolean
   /** Leading glyph (16–18px — a Phosphor magnifier, a ticker mark). Swaps the
       left inset to the pl-11 icon padding; muted tone, pointer-events-none.
@@ -249,7 +259,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
             // Explicit per-side padding — no px/pl/pr conflict-order reliance.
             'py-2.5',
             icon ? 'pl-11' : 'pl-3.5',
-            loading ? 'pr-10' : 'pr-3.5',
+            loading !== undefined ? 'pr-10' : 'pr-3.5',
             error ? INVALID : undefined,
           )}
           {...rest}

@@ -3,13 +3,13 @@
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import { queryKeys } from '@/lib/queryKeys'
 import { Fragment, useState, useEffect, useRef, useMemo } from 'react'
-import { CircleNotchIcon, MagnifyingGlassIcon } from '@/lib/icons'
+import { MagnifyingGlassIcon } from '@/lib/icons'
 import { useQuery } from '@tanstack/react-query'
 import { searchCompanies, Company, type LatestFilingRef } from '@/features/companies/api/companies-api'
 import { Sep, periodPhrase } from '@/features/filings/components/FilingIdentity'
 import { tickerShaped } from '@/features/companies/lib/tickerShape'
 import CompanyLogo from '@/components/CompanyLogo'
-import { inputClasses } from '@/components/ui'
+import { FieldSpinner, inputClasses } from '@/components/ui'
 import { ApiError } from '@/lib/api/client'
 import { useRouter } from 'next/navigation'
 import { fmtCurrency, fmtPercent, formatLocalDate } from '@/lib/format'
@@ -214,17 +214,16 @@ export default function CompanySearch({
           aria-label={ariaLabel ?? undefined}
           aria-describedby={isError ? "company-search-error" : undefined}
           aria-autocomplete="list"
-          className={inputClasses({ leadingIcon: true })}
+          aria-busy={isLoading || undefined}
+          className={inputClasses({ leadingIcon: true, trailingIcon: true })}
         />
-        {isLoading && (
-          <CircleNotchIcon
-            aria-hidden="true"
-            className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong motion-reduce:animate-none dark:text-brand-strong-dark"
-          />
-        )}
+        {/* The trailing inset is always reserved, never only while the spinner shows: growing the padding
+            under a long query leaves its end and the caret behind the spinner (Chromium does not re-scroll
+            the caret), and shrinking it jumps the line. The "/" hint sits at right-3, inside the same inset. */}
+        {isLoading && <FieldSpinner />}
         {!isLoading && !query && (
           <kbd
-            className="absolute right-4 top-1/2 hidden -translate-y-1/2 rounded border border-border-light dark:border-white/15 bg-brand-weak dark:bg-white/5 px-2 py-0.5 font-mono text-xs text-text-tertiary-light dark:text-text-secondary-dark sm:block"
+            className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-border-light dark:border-white/15 bg-brand-weak dark:bg-white/5 px-2 py-0.5 font-mono text-xs text-text-tertiary-light dark:text-text-secondary-dark sm:block"
             aria-hidden="true"
           >
             /
