@@ -41,7 +41,6 @@ Engineering:
 - [ ] E1 — DO (Astra): finish the verified open Analysis review items in frontend-first groups, then exports/backend; decisions 4 (amended), 6–9 are adopted in `docs/design/analysis-data-notes-redesign-2026-10.md` §9; brief `analysis-redesign-2026-10/astra-prompt.md`, subitem record `analysis-redesign-2026-10/review-2026-10-10.md`; data repair remains held.
 - [ ] E2 — IN-FLIGHT (founder/Claude): #1243 covers #1177's move-proof false OKs and missing self-tests; resolve the current class-namespace mutation finding, then verify each clause after the founder merges.
 - [ ] E3 — IN-FLIGHT (founder/Claude): #1243 covers #1190's import/CLI/layout/new-member follow-ups; after merge, verify the self-tests and recommend retaining the directory-only and cross-file-order limits without speculative machinery.
-- [ ] E5 — DO (Engineering): apply the corrected DS focus pairs to the named page controls/inset results, replace the notification switch and extend the owning gate; coordinate MonthView with #1251 (#1178).
 - [ ] E6 — POSTPONE (CODE RED chief): read the 2026-10-12 06:00–08:00 UTC capacity window after it elapses and log ingestion settles; verify the existing chief trigger before any duplicate scheduling, and report unsupported SEC/breaker classes as unknown (`DECISIONS-19.md`, `DECISIONS-23.md`).
 - [ ] E8 — DO (Codex, sufficient context established): withhold the proxy-secret read stderr, retain disclosed job/rollback progress, and document redaction/interpreter limits using the fake-gcloud gate and high-tier review; no security-policy or production-setting change (`DECISIONS-23.md`, #1195).
 - [ ] E9 — POSTPONE (founder/page owners): P-01 needs the external Claude Design package; the three full-page spinners wait for their pages' next rework, as the design critique intended (#1146/#1147/#1148/#1150).
@@ -49,7 +48,7 @@ Engineering:
 - [ ] E11 — DO (Engineering): reproduce and repair #1135's isolation leaks 1–6 and 8 with leaker-then-victim evidence, including limiter reset outside locked tests and Windows cleanup; no speculative second gates.
 - [ ] E12 — POSTPONE (founder): supply the private WP-07+ list or confirm completion; the repository defines WP-01–WP-06 only (#1069 series).
 - [ ] E13 — DO (Engineering): fix successful-generation focus, the chip-opened desktop pane overhang and phone GenericTable; warning-only suppression is CANCEL-RECOMMENDED, and old harness repairs wait for reuse; postpone Copilot memoization without a measurement and bundle missing-prior server formatting with a backend change (EN-01/02/03).
-- [ ] E14 — DO (Engineering): fix verification refresh/429 handling, subscription-error plan labels, saved-summary Retry and async alert anchoring/ticker context; remaining page rings belong to E5; CANCEL-RECOMMENDED for the currently inapplicable Modal portal-host Escape change, and PREPARE the founder-only class-7 SQL read.
+- [ ] E14 — DO (Engineering): fix verification refresh/429 handling, subscription-error plan labels, saved-summary Retry and async alert anchoring/ticker context; CANCEL-RECOMMENDED for the currently inapplicable Modal portal-host Escape change, and PREPARE the founder-only class-7 SQL read.
 - [ ] E15 — DO (Engineering): finish FilingViewer Retry with E13; Analysis Run's locked native-disabled contract remains a founder decision.
 
 ## What to doubt first
