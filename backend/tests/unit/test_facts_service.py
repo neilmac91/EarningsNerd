@@ -899,9 +899,9 @@ class TestGetFilingFundamentals:
         from app.models import Company, Filing
 
         suffix = uuid.uuid4().hex[:8]
-        company = db.query(Company).filter_by(ticker=("F" + suffix[:4]).upper()).first()
+        company = db.query(Company).filter_by(ticker=("F" + suffix).upper()).first()
         if company is None:
-            company = Company(cik=suffix, ticker=("F" + suffix[:4]).upper(), name=f"FF {suffix}")
+            company = Company(cik=suffix, ticker=("F" + suffix).upper(), name=f"FF {suffix}")
             db.add(company)
             db.commit()
             db.refresh(company)
@@ -1008,7 +1008,7 @@ class TestRemediateIndustryFacts:
         from app.models import Company, Filing
 
         suffix = uuid.uuid4().hex[:8]
-        company = Company(cik=suffix, ticker=("R" + suffix[:4]).upper(),
+        company = Company(cik=suffix, ticker=("R" + suffix).upper(),
                           name=f"Bank {suffix}", sic="6022")
         db.add(company)
         db.commit()
@@ -1102,7 +1102,7 @@ class TestBackfillCompanySic:
     def _company(self, db, sic=None):
         from app.models import Company
         suffix = uuid.uuid4().hex[:8]
-        c = Company(cik=suffix, ticker=("S" + suffix[:4]).upper(), name=f"Co {suffix}", sic=sic)
+        c = Company(cik=suffix, ticker=("S" + suffix).upper(), name=f"Co {suffix}", sic=sic)
         db.add(c)
         db.commit()
         db.refresh(c)
