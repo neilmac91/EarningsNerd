@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Request, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import Optional
+from typing import Literal, Optional
 from datetime import datetime
 import json
 import logging
@@ -11,6 +11,7 @@ from app.models import User, Subscription
 from app.routers.auth import get_current_user
 from app.config import settings
 from starlette.concurrency import run_in_threadpool
+from app.services.billing_serving_prices import serving_pro_prices
 from app.services.subscription_webhook_service import process_stripe_event, SubscriptionEventBusy
 from app.services.stripe_subscription_reader import SubscriptionReconciliationUnavailable
 from app.services.entitlements import get_entitlements, get_plan, is_pro_user
@@ -121,6 +122,30 @@ async def get_subscription_status(
         current_period_end=sub.current_period_end if sub else None,
         cancel_at_period_end=bool(sub.cancel_at_period_end) if sub else False,
     )
+
+
+class ProPriceCharge(BaseModel):
+    """A fixed charge per period, or ``problem`` when checkout has none for the cycle."""
+    amount_cents: Optional[int] = None
+    currency: Optional[str] = None
+    interval: Optional[str] = None
+    interval_count: Optional[int] = None
+    problem: Optional[Literal["unconfigured", "unavailable", "inactive", "test_mode", "not_fixed_recurring"]] = None
+
+
+class ServingProPrices(BaseModel):
+    monthly: ProPriceCharge
+    yearly: ProPriceCharge
+
+
+@router.get("/prices", response_model=ServingProPrices, response_model_exclude_none=True)
+async def get_serving_prices():
+    """What checkout charges for Pro now: the bound Prices' amounts, never their IDs.
+
+    Public, because the amounts are the published offer. The agreement check compares this with the
+    pricing page (docs/PRICING_OFFER.md, "Machine checks").
+    """
+    return await run_in_threadpool(serving_pro_prices)
 
 @router.post("/create-checkout-session")
 async def create_checkout_session(
