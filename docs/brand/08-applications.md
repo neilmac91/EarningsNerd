@@ -40,8 +40,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `fetchSignupConfig`), so a guest under the invite gate sees "Request an invite" and goes to the
   waitlist instead of a closed sign-up form; until the mode answers, it fails closed to that invite
   copy. The Pro card's guest path is the upgrade flow's own and unchanged. The plan copy says what
-  each plan is for and that the same summaries serve every reader; the promo lines ("2 months
-  free", the trial note) are set in the ink, not sage. Prices and limits are untouched.
+  each plan is for and that the same summaries serve every reader; the annual saving label and the
+  trial note are set in the ink, not sage. Prices and limits are untouched: the prices are main's
+  (#1009, merged into this branch), and so are the Pro line and the saving label's wording.
 - **Waitlist** (`frontend/app/waitlist/page.tsx`, `features/waitlist/components/*`): the headline is
   the fourth brand headline with the mark ("The 10-K, read for you, with receipts."); the three
   cards, three of the four steps and the feature grid are rewritten (search coverage stated as

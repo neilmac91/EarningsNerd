@@ -81,6 +81,8 @@ One message, eight questions. The first six are the brief's; the last two surfac
    Recommended: the code is the brand fact until the founder changes it; the brand work will not
    touch a price, and any pricing copy it writes will read the price from `prices.ts` as the
    landing section already does. If the brief's figure is a planned change, it is its own PR.
+   Answered on main by #1009, which set Pro at $25 a month or $240 a year in its own PR; the brand
+   branch merged it and kept its prices and wording.
 
 8. **"Notable filings": curate, retitle or omit?** The audit found Delta Air Lines beside seven
    microcap 8-Ks under "High-signal SEC filings … across the whole market."
@@ -102,7 +104,7 @@ and one instruction (the mark does not change), so A1, A2 and A4 to A9 stand as 
 - **A5 (founder presence).** A first-person sentence slot is designed and built; it renders only with
   an approved sentence, like the reader-quote slot.
 - **A6 (job of the page).** Qualify, with "See a live example" primary.
-- **A7 (price).** $39 / $390 as the code states; no price copy is authored by the brand work.
+- **A7 (price).** The price is whatever the code states ($39 / $390 at the audit; $25 / $240 since main's #1009); no price copy is authored by the brand work.
 - **A8 (notable filings).** Self-omit until curated.
 - **A9 (scope).** Nothing under `backend/prompts`, `backend/evals`, entitlements, auth, billing, the
   summary pipeline or the legal pages is touched; the EN letters, the sage accent, the type roles and

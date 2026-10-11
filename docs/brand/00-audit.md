@@ -106,6 +106,8 @@ a stranger sees first.
 - Prices are `PRICE_VARIANTS.control` $39 / $390 (`frontend/app/pricing/prices.ts`), with a $29 arm
   behind the `pricing-experiment` flag. The studio brief names a different figure; it is not in the
   code and is therefore not a brand fact; it is a founder question ([01-interview.md](01-interview.md)).
+  Since the audit, main's #1009 set Pro at $25 a month or $240 a year; the code stays the price fact,
+  and this branch authors no price.
 - Access is invite-only (`ACCESS_COPY.invite`); Free is 5 summaries a month, 3 Ask questions, 3
   earnings-day alerts, 90-day history (`frontend/lib/planLimits.ts`, mirrored from
   `backend/app/services/entitlements.py`).
