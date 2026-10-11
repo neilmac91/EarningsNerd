@@ -565,7 +565,10 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
     calling = "def dataclass(cls):\n    cls.hook()\n    return cls\n\n\n"
     descriptor = ("class Descriptor:\n    def __set_name__(self, owner, name):\n        owner()\n\n\n"
                   "descriptor = Descriptor()\n\n\n")
-    consumer = "    def __init__(self):\n        self.value = normalize(' x ')\n\n    field = descriptor\n"
+    init = "    def __init__(self):\n        self.value = normalize(' x ')\n\n"
+    consumer = init + "    field = descriptor\n"
+    meta = "class Meta(type):\n    def __set_name__(cls, owner, name):\n        owner()\n\n\n"
+    deco = descriptor + "def deco(fn):\n    return Descriptor()\n\n\n"
     for reader, key in (
             ("def describe():\n    return normalize(' x ')\n\n\nDESCRIPTION = describe()\n", "DESCRIPTION"),
             ("RUN = lambda: normalize(' x ')\nDESCRIPTION = RUN()\n", "DESCRIPTION"),
@@ -637,6 +640,23 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
              "Outer.Inner"),
             (descriptor + "class Outer:\n    class Consumer:\n        def __init__(self):\n"
              "            self.value = normalize(' x ')\n\n        field = descriptor\n", "Outer.Consumer"),
+            # A def or class whose creation may run code may itself be such a value: its decorator's result, or a
+            # class whose metaclass is not ``type`` (Codex's eighth round).
+            (meta + "class Consumer:\n" + init + "    class Inner(metaclass=Meta):\n        pass\n", "Consumer.Inner"),
+            (meta + "class Base(metaclass=Meta):\n    pass\n\n\nclass Consumer:\n" + init
+             + "    class Inner(Base):\n        pass\n", "Consumer.Inner"),
+            (meta + "class Base(metaclass=Meta):\n    pass\n\n\nclass Consumer:\n" + init
+             + "    Exception = Base\n\n    class Inner(Exception):\n        pass\n", "Consumer.Exception, Consumer.Inner"),
+            (meta + "class Base(metaclass=Meta):\n    pass\n\n\nException = Base\n\n\nclass Consumer:\n" + init
+             + "    class Inner(Exception):\n        pass\n", "Consumer.Inner"),
+            (deco.replace("def deco(fn)", "def property(fn)") + "class Consumer:\n" + init
+             + "    @property\n    def size(self):\n        return 1\n", "Consumer.size"),
+            (deco + "class Consumer:\n" + init + "    @deco\n    def field(self):\n        pass\n", "Consumer.field"),
+            (deco + "class Consumer:\n" + init + "    @deco\n    async def field(self):\n        pass\n",
+             "Consumer.field"),
+            (deco + "class Consumer:\n" + init + "    @deco\n    class Inner:\n        pass\n", "Consumer.Inner"),
+            (meta + "if True:\n    class Consumer:\n        def __init__(self):\n            self.value = normalize(' x ')\n\n"
+             "        class Inner(metaclass=Meta):\n            pass\n", "Consumer.Inner"),
             ("def f(x: (lambda: normalize(' x '))()):\n    return x\n", "f"),
             ("from app.c import dataclass\n\n\n@dataclass\n" + box, "Box"),
             ("import types\n\n\n" + calling.replace("dataclass", "calling")
@@ -702,6 +722,11 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    nested + "        global hook\n",
                    "from dataclasses import dataclass\n\n\n@dataclass\n" + box,
                    "class Consumer:\n    LIMIT = 3\n\n    def __init__(self):\n        self.value = normalize(' x ')\n",
+                   "class Consumer:\n" + init + "    class Inner:\n        pass\n\n    class Error(Exception):\n        pass\n",
+                   "class Consumer:\n" + init + "    @property\n    def size(self):\n        return 1\n\n    @staticmethod\n"
+                   "    def make():\n        return 1\n\n    @classmethod\n    def build(cls):\n        return cls\n",
+                   "from dataclasses import dataclass\n\n\nclass Consumer:\n" + init + "    @dataclass\n    class Inner:\n"
+                   "        size: int = 1\n",
                    "import dataclasses\n\n\n@dataclasses.dataclass\n" + box,
                    "from dataclasses import dataclass as dataclass\n\n\n@dataclass\n" + box,
                    "class Outer:\n    class Inner:\n        hook = lambda: normalize(' x ')\n        VALUE = 1\n",
