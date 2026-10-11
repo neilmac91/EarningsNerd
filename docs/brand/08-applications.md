@@ -117,7 +117,7 @@ known-good set, a size floor, or 10-K and 10-Q only). The mount gate
   page shows FY2019 to FY2024 in that one demo until the founder runs it to FY2025.
 - A curation rule for §7.
 
-All three sit on one founder line in `tasks/todo.md`; the landing composition (tell T4) has its own line there.
+Each has its own line in `tasks/todo.md`, as does the landing composition (tell T4).
 
 ## 9. Gates touched
 

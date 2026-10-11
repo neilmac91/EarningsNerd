@@ -134,11 +134,12 @@ the business card, the footer and the merch; it is the positioning in six words.
 - If a claim can't be confirmed, leave it unchanged and flag it. Never restate an unverified
   claim more confidently.
 - Cut hedges, keep scope. "Where a match is found" is a hedge when it repeats; "where they can
-  be checked", "checkable" and "with a ticker on SEC EDGAR" are scope, because the code checks
-  only some figures (`backend/app/services/provenance_service.py`, `build_metric_source`) and
-  searches only SEC's ticker file. A rewrite may move scope into plainer words; it never deletes
-  it. `frontend/tests/unit/brandCopyRules.spec.ts` fails on "each figure" or "every figure" in
-  shipped copy without the scope beside it.
+  be checked", "checkable", "up to nine parts" and "with a ticker on SEC EDGAR" are scope, because
+  the code checks only some figures (`backend/app/services/provenance_service.py`,
+  `build_metric_source`), drops a summary part the filing has nothing for, and searches only SEC's
+  ticker file. A rewrite may move scope into plainer words; it never deletes it.
+  `frontend/tests/unit/brandCopyRules.spec.ts` fails on "each figure" or "every figure" without
+  the scope beside it, and on a promise of nine parts for every filing.
 - A sample figure on a sales surface is verified against the filing's XBRL and carries its
   filing identity; a quoted passage is verbatim from that filing (`docs/brand/00-audit.md` §4
   records the current set).

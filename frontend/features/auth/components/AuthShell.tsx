@@ -52,7 +52,7 @@ function AuthBrandPane() {
           <span className="en-mark">shows its work</span>.
         </h2>
         <p className="mt-4 text-base leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-          Nine parts per filing, with figures checked against the company’s XBRL where they can be
+          Up to nine parts per filing, with figures checked against the company’s XBRL where they can be
           and quotes against the filing’s own text.
         </p>
 

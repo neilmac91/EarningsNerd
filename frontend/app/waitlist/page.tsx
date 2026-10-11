@@ -136,7 +136,7 @@ export default function WaitlistPage() {
               {
                 step: '03',
                 title: 'Read the summary',
-                body: 'Nine parts, from The Print to Notable Footnotes, in the same order for every filing.',
+                body: 'Up to nine parts, from The Print to Notable Footnotes, in the same order for every filing.',
               },
               {
                 step: '04',
@@ -167,7 +167,7 @@ export default function WaitlistPage() {
           {[
             {
               title: 'One outline, every filing',
-              body: 'Nine parts from The Print to Notable Footnotes, in the same order, so the second filing reads faster than the first.',
+              body: 'Up to nine parts from The Print to Notable Footnotes, in the same order, so the second filing reads faster than the first.',
             },
             {
               title: 'Figures checked against XBRL',

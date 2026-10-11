@@ -38,8 +38,8 @@ export default function SummaryContents() {
             </h2>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">
               Every summary follows the same outline, so the second filing reads faster than the
-              first. A fresh summary appears part by part while it is written; a cached one loads at
-              once.
+              first, and a part the filing has nothing for is left out. A fresh summary appears part
+              by part while it is written; a cached one loads at once.
             </p>
           </div>
 

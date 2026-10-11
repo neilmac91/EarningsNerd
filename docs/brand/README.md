@@ -143,8 +143,7 @@ and CI's backend job, on its pinned toolchain, passed on the same commit.
 5. Vercel Web Analytics on the privacy page, or gated on consent: `/privacy` does not name it today.
 6. Whether sage may mark a count inside the product (three calendar sites, D-023).
 
-In `tasks/todo.md` the first three share the brand studio's founder line; the other three have a
-line each.
+Each has its own line in `tasks/todo.md`.
 
 ## Closing
 

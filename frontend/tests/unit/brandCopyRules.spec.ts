@@ -183,6 +183,24 @@ describe('brand rule 1: matching claims keep their scope', () => {
   })
 })
 
+describe('brand rule 1b: the nine-part outline keeps its scope', () => {
+  // The schema's nine sections are all optional (backend/app/services/summary_schema.py,
+  // SummaryDocSections) and the render builders drop an empty one, so a filing without segment
+  // disclosure has eight. Shipped copy may name the nine-part outline, never promise nine parts
+  // per filing (Codex review of PR #1226).
+  const PROMISE = /\bnine parts,? (?:per|for every|in every|every)\b|\bevery (?:filing|summary|10-K)\b[^.]*\bnine parts\b/i
+  it('no shipped text promises nine parts for every filing unless it says "up to"', () => {
+    const offenders: string[] = []
+    for (const { rel, sf } of SOURCES) {
+      visit(sf, (n) => {
+        const text = literalText(n)
+        if (text !== null && !ts.isNumericLiteral(n) && PROMISE.test(text) && !/\bup to nine parts\b/i.test(text)) offenders.push(where(rel, sf, n, text))
+      })
+    }
+    expect(offenders, 'say "up to nine parts", or name the outline').toEqual([])
+  })
+})
+
 describe('brand rule 2: sage never colours a number', () => {
   it('no element on a public surface whose own text colour is a sage token renders a digit', () => {
     const offenders: string[] = []

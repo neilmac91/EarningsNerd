@@ -8,7 +8,7 @@ import SectionImpression from '@/features/marketing/components/SectionImpression
 const CLAIMS = [
   { figure: 'Figures', label: 'Matched to the company\u2019s XBRL where the server can check them, or counted as unmatched' },
   { figure: 'Quotes', label: 'Located in the filing text, in the filing\u2019s own words, or withheld' },
-  { figure: 'Nine parts', label: 'The same outline for every 10-K and 10-Q, from The Print to Notable Footnotes' },
+  { figure: 'Nine parts', label: 'One outline for every 10-K and 10-Q, from The Print to Notable Footnotes, skipping any part the filing has nothing for' },
   { figure: 'SEC EDGAR', label: 'Every summary links to the original filing, one click away' },
 ] as const
 

@@ -18,7 +18,7 @@ where they are.
 | Who is it for? | The serious individual investor who already reads 10-Ks and wants the tedium removed, not the reading replaced. Secondary: prosumers and analysts who need defensible, citable facts. Not retail who never open a filing; not traders looking for a sentiment score. | `tasks/council-prep.md`, verdict #1 ("retail unanimously rejected"); the brief §0 |
 | What is the one honest positioning? | Accountability: "ChatGPT sells confidence; you sell verifiable, source-traced accuracy." | `tasks/council-prep.md`, verdict #2 (chairman) |
 | What is the activation moment? | The catch: a confident wrong number beside the verified one, with a click to the source span, then "now you test it" in the Ask box. | `tasks/council-prep.md`, verdict #4 |
-| What are the prices and limits? | Pro $39 a month or $390 a year (control arm; a $29 arm exists behind a flag); Free 5 summaries a month, 3 Ask questions, 3 earnings-day alerts, 90-day history; Pro free for beta members while the promo runs. | `frontend/app/pricing/prices.ts`; `frontend/lib/planLimits.ts`; `backend/app/services/entitlements.py` (the only source of plan truth, CLAUDE.md rule 4); `frontend/features/marketing/lib/access.ts` |
+| What are the prices and limits? | At the audit, Pro $39 a month or $390 a year (control arm; a $29 arm behind a flag), since changed by main's #1009 to $25 a month or $240 a year; Free 5 summaries a month, 3 Ask questions, 3 earnings-day alerts, 90-day history; Pro free for beta members while the promo runs. | `frontend/app/pricing/prices.ts`; `frontend/lib/planLimits.ts`; `backend/app/services/entitlements.py` (the only source of plan truth, CLAUDE.md rule 4); `frontend/features/marketing/lib/access.ts` |
 | What is access today? | Invite-only beta; the landing page never advertises a signup the API would reject. | `frontend/features/marketing/lib/access.ts` (`DEFAULT_ACCESS_MODE = 'invite'`) |
 | What must the brand never be? | A casino or a hype meter: no flashing red and green, no scores, no urgency. Sage never colours a number. | DESIGN.md "The Separate Signals Rule"; `frontend/DESIGN_SYSTEM.md` §1; `docs/competitive-strategy-roadmap-2026.md` §0 ("no flashing red/green casino meters") |
 | What is the voice today? | Short, specific, confident, plain; no exclamation marks, no emoji in headings, no em-dashes, no buzzwords; sentence case; middots for compact labels. | `docs/voice-and-style.md`; gate `frontend/tests/unit/no-em-dash-copy.spec.ts` |
@@ -75,14 +75,9 @@ One message, eight questions. The first six are the brief's; the last two surfac
    primary action stays "See a live example" (decision B). When access opens, the same page sells
    without rewriting, because the qualification is the pitch.
 
-7. **Which price is true?** The studio brief names a different monthly and annual figure from the
-   code, which shows $39 / $390 with a $29 arm behind a flag, and `/pricing` shows "$32.50 /month"
-   on the yearly default.
-   Recommended: the code is the brand fact until the founder changes it; the brand work will not
-   touch a price, and any pricing copy it writes will read the price from `prices.ts` as the
-   landing section already does. If the brief's figure is a planned change, it is its own PR.
-   Answered on main by #1009, which set Pro at $25 a month or $240 a year in its own PR; the brand
-   branch merged it and kept its prices and wording.
+7. **Price.** Settled: the price is what the code states (`frontend/app/pricing/prices.ts`; main's
+   #1009 set Pro at $25 a month or $240 a year), and the brand work authors no price copy. Any
+   pricing line it touches reads its figures from `prices.ts`, as the landing section does.
 
 8. **"Notable filings": curate, retitle or omit?** The audit found Delta Air Lines beside seven
    microcap 8-Ks under "High-signal SEC filings … across the whole market."
