@@ -626,12 +626,12 @@ function moduleKey(file: string, specifier: string): string {
 
 /** The names a file imports from the given modules (`{ 'components/ui/Input': ['inputClasses'] }`, 'default' for a
     default import), each as the predicate "this expression is that import": a reference with no local binding of the
-    name shadowing it, or a member of a namespace import of the module (`UI.Input` after `import * as UI`). A page's own
-    helper of that name, or one imported from elsewhere, is not the import. */
-function importedName(sf: ts.SourceFile, wanted: Record<string, string[]>): (callee: ts.Expression) => boolean {
+    name shadowing it, or, unless `namespaces` is false, a member of a namespace import of the module (`UI.Input` after
+    `import * as UI`). A page's own helper of that name, or one imported from elsewhere, is not the import. */
+function importedName(sf: ts.SourceFile, wanted: Record<string, string[]>, namespaces = true): (callee: ts.Expression) => boolean {
   const resolve = bindingResolver(sf)
   const imported = new Set<string>()
-  const namespaces = new Map<string, string[]>()
+  const members = new Map<string, string[]>()
   for (const st of sf.statements) {
     if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier)) continue
     const names = wanted[moduleKey(sf.fileName, st.moduleSpecifier.text)]
@@ -639,7 +639,7 @@ function importedName(sf: ts.SourceFile, wanted: Record<string, string[]>): (cal
     const clause = st.importClause
     if (clause?.name && names.includes('default')) imported.add(clause.name.text)
     const named = clause?.namedBindings
-    if (named && ts.isNamespaceImport(named)) namespaces.set(named.name.text, names)
+    if (named && ts.isNamespaceImport(named) && namespaces) members.set(named.name.text, names)
     if (named && ts.isNamedImports(named)) {
       for (const el of named.elements) if (names.includes((el.propertyName ?? el.name).text)) imported.add(el.name.text)
     }
@@ -649,7 +649,7 @@ function importedName(sf: ts.SourceFile, wanted: Record<string, string[]>): (cal
       ? imported.has(callee.text) && !resolve(callee)
       : ts.isPropertyAccessExpression(callee) &&
         ts.isIdentifier(callee.expression) &&
-        !!namespaces.get(callee.expression.text)?.includes(callee.name.text) &&
+        !!members.get(callee.expression.text)?.includes(callee.name.text) &&
         !resolve(callee.expression)
 }
 /** What a field's `style` prop does to its focus ring: nothing (no prop, or an object literal of other properties), or
@@ -694,7 +694,9 @@ function factoryBuilt(init: ts.JsxAttributeValue, isFactory: (callee: ts.Express
 function unringedFields(source: string, fileName: string): { fields: number; factory: number; findings: Finding[]; raw: RawField[] } {
   const sf = parse(source, fileName)
   const linkNames = defaultImportNames(sf, (m) => m === 'next/link')
-  const isFactory = importedName(sf, FACTORY_IMPORTS)
+  // The factory's exemption hands its classes to inputClassesNoOverrides.spec.tsx, which follows named imports only, so a
+  // namespace call (`UI.inputClasses()`) earns none: its className is read here, and fails closed as unreadable.
+  const isFactory = importedName(sf, FACTORY_IMPORTS, false)
   const isJoiner = importedName(sf, JOINER_IMPORTS)
   const isFieldComponent = importedName(sf, FIELD_COMPONENT_IMPORTS)
   const findings: Finding[] = []
@@ -1155,11 +1157,16 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     const styled = `export const F = () => <Input style={{ boxShadow: 'none' }} />`
     expect(at(`import { Input } from '@/components/ui'\n${styled}`).findings).toEqual(['2 an inline boxShadow, which outranks the DS ring'])
     expect(at(`const Input = (p: { style?: object }) => <div {...p} />\n${styled}`).findings).toEqual([])
-    // A namespace import of the DS module reaches the same component, factory and joiner.
+    // A namespace import of the DS module reaches the same component and joiner, but not the factory exemption: the
+    // override gate cannot follow `UI.inputClasses()`, so the classes beside it would go unchecked by both.
     expect(at(`import * as UI from '@/components/ui'\nexport const F = () => <UI.Input style={{ boxShadow: 'none' }} />`).findings).toEqual([
       '2 an inline boxShadow, which outranks the DS ring',
     ])
-    expect(at(`import * as UI from '@/components/ui'\nexport const F = () => <input type="text" className={UI.cx(UI.inputClasses(), 'mt-2')} />`)).toEqual({ factory: 1, findings: [] })
+    expect(at(`import * as UI from '@/components/ui'\nexport const F = () => <input type="date" className={UI.cx('border', '${ring}')} />`).findings).toEqual([])
+    expect(at(`import * as UI from '@/components/ui'\nexport const F = () => <input type="text" className={UI.cx(UI.inputClasses(), 'focus:[box-shadow:none]')} />`)).toEqual({
+      factory: 0,
+      findings: ['2 a className the scan cannot read'],
+    })
     expect(at(`import * as UI from '@/lib/ui'\nexport const F = () => <input type="text" className={UI.inputClasses()} />`).findings).toEqual(['2 a className the scan cannot read'])
   })
 
