@@ -536,24 +536,40 @@ async function loadDeclarations(tokens: string[]): Promise<void> {
     if (props) rule.walkDecls((d) => void props.add(d.prop))
   })
 }
-/** A class without its leading variants (`focus:[box-shadow:none]` → `[box-shadow:none]`), and the variants. */
-const utilityOf = (token: string) => token.replace(/^(?:[^:[\]]+:)*/, '')
-const variantsOf = (token: string) => token.slice(0, token.length - utilityOf(token).length).split(':').filter(Boolean)
-const FOCUS_STATES = new Set(['focus', 'focus-visible', 'focus-within'])
+/** A class's variants and its utility, split at the colons outside brackets and parentheses, as Tailwind reads them:
+    `supports-[selector(:focus-visible)]:focus:[box-shadow:none]` → [`supports-[selector(:focus-visible)]`, `focus`] and
+    `[box-shadow:none]`. */
+function splitClass(token: string): { variants: string[]; utility: string } {
+  const variants: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < token.length; i += 1) {
+    const c = token[i]
+    if (c === '[' || c === '(') depth += 1
+    else if (c === ']' || c === ')') depth -= 1
+    else if (c === ':' && depth === 0) {
+      variants.push(token.slice(start, i))
+      start = i + 1
+    }
+  }
+  return { variants, utility: token.slice(start) }
+}
 
 /**
- * The classes on a field that style itself which draw on its focus ring beside the reset and the DS ring: any class in a
- * focus state, or `!important`, whose compiled rule sets the box-shadow or a ring variable (`focus:ring-2`,
- * `focus:[box-shadow:none]`, `focus:shadow-none`, `dark:focus:ring-offset-2`). Read off what Tailwind declares, not the
- * class's spelling, so no arbitrary property or new utility slips past. A ring colour (`ring-brand`) sets only the
- * colour, which the zeroed ring never shows.
+ * The classes on a field that styles itself which draw on its focus ring beside the reset and the DS ring: any class in
+ * a state (any variant at all: focus, hover, a `supports-[…]` query) or marked `!important` whose compiled rule sets the
+ * box-shadow or a ring variable (`focus:ring-2`, `focus:[box-shadow:none]`, `focus-visible:shadow-none`). It fails
+ * closed rather than deciding which states can hold with focus, and reads what Tailwind declares, not the class's
+ * spelling. Only a resting shadow passes (a focus-state ring outranks it), and a ring colour (`ring-brand`) sets only
+ * the colour, which the zeroed ring never shows.
  */
 function competingRings(tokens: string[]): string[] {
   return tokens.filter((t) => {
+    const { variants, utility } = splitClass(t)
     // The reset, and a pinned DS ring token in any theme (one in the wrong theme is the ring and twin check's finding).
-    if (FORMS_RING_OFF.includes(t) || RING_TOKENS.has(utilityOf(t).replace(/^!?shadow-/, ''))) return false
-    const focused = variantsOf(t).some((v) => FOCUS_STATES.has(v)) || utilityOf(t).startsWith('!')
-    return focused && [...(declared.get(t) ?? [])].some((prop) => SHADOW_PROPS.has(prop))
+    if (FORMS_RING_OFF.includes(t) || RING_TOKENS.has(utility.replace(/^!?shadow-/, ''))) return false
+    const stated = variants.length > 0 || utility.startsWith('!')
+    return stated && [...(declared.get(t) ?? [])].some((prop) => SHADOW_PROPS.has(prop))
   })
 }
 
@@ -677,7 +693,7 @@ async function fieldFindings(source: string, fileName: string): Promise<{ fields
   await loadDeclarations(raw.flatMap((f) => f.tokens))
   const competing = raw.flatMap(({ line, tag, tokens }) => {
     const extra = competingRings(tokens)
-    return extra.length ? [{ line, tag, problem: `${extra.join(' ')} draws on the focus ring beside the reset and the DS ring` }] : []
+    return extra.length ? [{ line, tag, problem: `${extra.join(' ')} sets the box-shadow or a ring in a state, beside the reset and the DS ring` }] : []
   })
   return { fields, factory, findings: [...findings, ...competing].sort((x, y) => x.line - y.line) }
 }
@@ -1103,15 +1119,18 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <input type="date" className={\`border ${field} \${c}\`} />
             <input type="date" className={cx('border', '${field}', busy && 'opacity-50')} />
             <input type="date" className={cx('border', '${field}')} />
+            <input type="date" className="border ${field} supports-[selector(:focus-visible)]:focus:[box-shadow:none]" />
+            <input type="date" className="border ${field} hover:shadow-md" />
+            <input type="date" className="border ${field} [box-shadow:0_0_0_1px_rgba(0,0,0,0.1)]" />
           </>
         )
       }`
     const { fields, factory, findings } = await fieldFindings(src, 'page.tsx')
     const twin = 'its dark: twin in the same focus state'
-    const competing = 'draws on the focus ring beside the reset and the DS ring'
+    const competing = 'sets the box-shadow or a ring in a state, beside the reset and the DS ring'
     const ring = 'a focus:shadow-ring-* or focus-visible:shadow-ring-*'
     expect(factory).toBe(2)
-    expect(fields).toBe(26)
+    expect(fields).toBe(29)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       `7 <input> missing focus:ring-0, focus:ring-offset-0, ${twin}`,
       `9 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
@@ -1145,6 +1164,10 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       // A dynamic part could add a class that draws on the ring, so it is unreadable; a cx of literals is read (line 37).
       '35 <input> a className the scan cannot read',
       '36 <input> a className the scan cannot read',
+      // Variants are split outside brackets, so a colon inside an arbitrary query hides no state; any state counts.
+      `38 <input> supports-[selector(:focus-visible)]:focus:[box-shadow:none] ${competing}`,
+      `39 <input> hover:shadow-md ${competing}`,
+      // A resting arbitrary box-shadow (line 40) has no variant: the colon inside its brackets is not one.
     ])
   })
 })
