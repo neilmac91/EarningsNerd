@@ -28,6 +28,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
+from app.services.ai.debt_scope import build_debt_scope_view
 from app.services.edgar import instance_extractor as ie
 from app.services.edgar import xbrl_instance as xbrl_service
 from app.services.edgar.debt_concepts import classify_debt_concept
@@ -380,41 +381,52 @@ def test_i0_4_a_currency_less_duplicate_does_not_make_the_balance_ambiguous():
     assert _observations(rows, reporting_currency=None) == [_expected_observation(context_ref="c-usd")]
 
 
-@pytest.mark.parametrize("first_entity, second_entity, expected_entity", [
-    pytest.param("  0000104169\t", "0000104169", "0000104169", id="a-padded-copy-is-the-same-entity"),
-    pytest.param("0000104169", "   ", "0000104169", id="a-blank-identifier-is-not-an-entity"),
-    pytest.param(None, None, None, id="no-identifier-at-all-is-not-ambiguous"),
-    pytest.param("0000104169", "0000038777", _NO_OBSERVATION, id="two-entities-fail-closed"),
+@pytest.mark.parametrize("first_entity, second_entity, expected_entity, context", [
+    pytest.param("  0000104169\t", "0000104169", "0000104169", "c-a", id="a-padded-copy-is-the-same-entity"),
+    pytest.param("0000104169", "   ", "0000104169", "c-a", id="a-blank-identifier-is-not-an-entity"),
+    pytest.param(None, None, None, "c-a", id="no-identifier-at-all-is-not-ambiguous"),
+    pytest.param("0000104169", "0000038777", _NO_OBSERVATION, None, id="two-entities-fail-closed"),
     # pandas 3 turns None / NA in a string column into float NaN; none names a second entity.
-    pytest.param("0000104169", None, "0000104169", id="a-missing-identifier-arrives-as-nan-and-is-ignored"),
-    pytest.param("0000104169", float("nan"), "0000104169", id="a-float-nan-is-not-an-entity"),
-    pytest.param("0000104169", pd.NA, "0000104169", id="pandas-na-is-not-an-entity"),
-    pytest.param(None, "0000104169", None, id="missing-first-row-keeps-its-own-provenance"),
-    pytest.param(float("nan"), "0000104169", None, id="nan-first-row-keeps-its-own-provenance"),
-    pytest.param(pd.NA, "0000104169", None, id="pandas-na-first-row-keeps-its-own-provenance"),
-    pytest.param(float("nan"), float("nan"), None, id="all-nan-identifiers-are-not-ambiguous"),
-    pytest.param("0000104169", "nan", _NO_OBSERVATION, id="literal-nan-is-a-present-distinct-identifier"),
+    pytest.param("0000104169", None, "0000104169", "c-a", id="a-missing-identifier-arrives-as-nan-and-is-ignored"),
+    pytest.param("0000104169", float("nan"), "0000104169", "c-a", id="a-float-nan-is-not-an-entity"),
+    pytest.param("0000104169", pd.NA, "0000104169", "c-a", id="pandas-na-is-not-an-entity"),
+    pytest.param(None, "0000104169", "0000104169", "c-b", id="missing-first-selects-known-row-provenance"),
+    pytest.param(float("nan"), "0000104169", "0000104169", "c-b", id="nan-first-selects-known-row-provenance"),
+    pytest.param(pd.NA, "0000104169", "0000104169", "c-b", id="pandas-na-first-selects-known-row-provenance"),
+    pytest.param("  ", "0000104169", "0000104169", "c-b", id="blank-first-selects-known-row-provenance"),
+    pytest.param(float("nan"), float("nan"), None, "c-a", id="all-nan-identifiers-are-not-ambiguous"),
+    pytest.param("0000104169", "nan", _NO_OBSERVATION, None, id="literal-nan-is-a-present-distinct-identifier"),
 ])
-def test_i0_4_entity_identifiers_are_compared_after_normalisation(first_entity, second_entity, expected_entity):
-    """I0.4: two contexts carrying the SAME balance are one observation unless they name two
-    present entities after whitespace stripping. Missing scalars are ignored, while a literal
-    "nan" remains an identifier. The first row's identity is reported, never filled from a duplicate.
+def test_i0_4_entity_identifiers_are_compared_after_normalisation(first_entity, second_entity, expected_entity, context):
+    """I0.4: ignore missing identifiers without losing a known entity when selecting duplicates.
 
-    Pins app/services/edgar/instance/debt.py::_one_undimensioned_instant_fact (the former
-    instance_extractor.py:648-654) and debt_component_observations. Same value throughout, so the
-    entity rule is isolated (test_debt_scope_owner.py:277-283 also differs in value).
+    Select the first known-entity row with its OWN context and precision; never graft its identity
+    onto the first row. This keeps the downstream owner able to reject a mixed-entity subtotal.
+    Distinct present entities still fail closed, and literal "nan" remains a present identifier.
     """
     rows = [
         _balance_fact(34_624_000_000.0, context_ref="c-a", entity_identifier=first_entity),
-        _balance_fact(34_624_000_000.0, context_ref="c-b", entity_identifier=second_entity),
+        _balance_fact(34_624_000_000.0, context_ref="c-b", entity_identifier=second_entity, decimals="-3"),
     ]
-
     observed = _observations(rows, reporting_currency="USD")
-
     if expected_entity == _NO_OBSERVATION:
         assert observed == []
-    else:
-        assert observed == [_expected_observation(entity_identifier=expected_entity)]
+        return
+    assert observed == [_expected_observation(entity_identifier=expected_entity, context_ref=context,
+                                              decimals="-6" if context == "c-a" else "-3")]
+    if expected_entity is not None:
+        for other_entity in (expected_entity, "0000038777"):
+            components = ie.debt_component_observations(
+                _instance({"us-gaap:LongTermDebtCurrent": [_balance_fact(2.0, entity_identifier=other_entity)],
+                           "us-gaap:ShortTermBorrowings": [_balance_fact(3.0, entity_identifier=other_entity)]}),
+                POR, reporting_currency="USD", accession_number=_ACCN, form="10-K",
+            )
+            view = build_debt_scope_view({"debt_observations": [*observed, *components]})
+            if other_entity == expected_entity:
+                assert view.rejection is None and view.components_subtotal == 34_624_000_005.0
+            else:
+                assert view.rejection == "debt observations refused: different reporting entities"
+                assert view.components_subtotal is None and view.reported_total is None
 
 
 # ---------------------------------------------------------------------------

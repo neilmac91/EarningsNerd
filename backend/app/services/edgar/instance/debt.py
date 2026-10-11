@@ -6,19 +6,11 @@ from ..debt_concepts import DEBT_COMPONENT_CONCEPTS, classify_debt_concept
 from .core import _currency, _iso_date, _numeric, _text_or_none, logger
 
 # ---------------------------------------------------------------------------
-# Source-qualified DEBT COMPONENT observations (debt-scope slice).
-#
-# The consolidated `long_term_debt` series is first-candidate-wins across concepts whose
-# scopes DIFFER (`LongTermDebtNoncurrent` vs `LongTermDebt`), so one winning value can never
-# establish how much of the issuer's debt it covers. These helpers retain each ADMISSIBLE debt
-# concept independently — the `dividend_component_sum_series` precedent, because disjoint maturity
-# bands are not alternative spellings — together with the identity a downstream scope claim needs:
-# the exact qualified concept, the selected accession/form, the instant, the currency and unit, the
-# original context reference, the reporting entity and the fact's own precision.
-#
-# They read the SAME already-fetched `xb` instance as every other extraction here: no second SEC
-# request path, no companyfacts fallback, no taxonomy download. `long_term_debt` selection,
-# ordering and public shape are untouched — this is purely additive evidence.
+# Source-qualified debt components from the same already-fetched XBRL instance.
+# The consolidated long_term_debt series is first-candidate-wins across concepts with
+# DIFFERENT scopes, so its winning value cannot establish how much debt it covers.
+# Retain each admissible concept and its observed source identity for downstream scope
+# validation. Never mix identity fields across duplicate rows or change the value series.
 
 
 def _one_undimensioned_instant_fact(
@@ -72,7 +64,9 @@ def _one_undimensioned_instant_fact(
         entity = _text_or_none(row.get("entity_identifier"))
         if entity is not None:
             entities.add(entity)
-        values.setdefault(round(value, 4), row)
+        key = round(value, 4)
+        if key not in values or (entity is not None and _text_or_none(values[key].get("entity_identifier")) is None):
+            values[key] = row  # keep the first known-entity row with its own complete provenance
     if len(values) != 1 or len(entities) > 1:
         return None
     return next(iter(values.values()))

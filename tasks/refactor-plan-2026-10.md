@@ -172,7 +172,8 @@ original proposal; these notes are authoritative for what actually shipped.
        entity "nan", and the debt observation is dropped (I0.4's `a-missing-identifier-arrives-as-nan-and-counts`).
        **Fixed 2026-10-11:** the comparison uses the existing `_text_or_none` scalar normalizer;
        missing values no longer invent an entity. I0.4 now requires the observation to survive
-       missing identifiers in either row, while retaining distinct-entity rejection and first-row provenance.
+       missing identifiers in either row, selecting the first known-entity row with its own complete
+       provenance so downstream debt-scope validation cannot lose a known entity or sum mixed entities.
     2. A numeric `filing_date` from the model raises `AttributeError` out of `summarize_filing` at
        O:1051, because the handler at O:1059 catches only `ValueError` and `TypeError`.
     3. The OUTPUT REFERENCE block at O:386-391 never fires. The markers at `prompt_loader.py:50-54` do

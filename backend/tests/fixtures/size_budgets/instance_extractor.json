@@ -4,7 +4,7 @@
     "app/services/edgar/instance/__init__.py": 1,
     "app/services/edgar/instance/concepts.py": 147,
     "app/services/edgar/instance/core.py": 224,
-    "app/services/edgar/instance/debt.py": 132,
+    "app/services/edgar/instance/debt.py": 126,
     "app/services/edgar/instance/financial_profiles.py": 142,
     "app/services/edgar/instance/segments.py": 167,
     "app/services/edgar/instance/series.py": 231,
