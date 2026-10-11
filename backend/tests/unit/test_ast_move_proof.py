@@ -626,8 +626,14 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
             (descriptor + "class Consumer:\n    for field in (descriptor,):\n        pass\n\n    def __init__(self):\n"
              "        self.value = normalize(' x ')\n", "Consumer.guard:for field in (descriptor,)"),
             # Calling without binding a result, which may be a descriptor, isolates the holders and the lookups.
+            ("class Box:\n    def clean(value):\n        return normalize(value)\n\n    clean(' x ')\n",
+             "Box.expr:clean(' x ')"),
             ("class Outer:\n    class Inner:\n        def hook():\n            return normalize(' x ')\n\n"
              "        hook()\n", "Outer.Inner"),
+            # Names are matched across namespaces, failing closed: a member class on a base its class body binds
+            # may run code where it is created, and a def elsewhere that reads the name shares its name.
+            ("def FooError():\n    return normalize(' x ')\n\n\nclass Box:\n    Exception = Base\n\n"
+             "    class FooError(Exception):\n        pass\n", "Box.FooError"),
             ("class Outer:\n    class Inner:\n        class Deeper:\n            def hook():\n"
              "                return normalize(' x ')\n\n            hook()\n", "Outer.Inner"),
             ("class Outer:\n    class Inner:\n        hook = lambda: normalize(' x ')\n        hook()\n",
