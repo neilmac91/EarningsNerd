@@ -94,6 +94,16 @@ export default function PrivacyPage() {
               understand how users interact with our platform and improve the user experience.
             </li>
             <li>
+              <strong>Vercel Web Analytics:</strong> We use Vercel Web Analytics for aggregate visit and page-view
+              statistics. It uses request-derived visitor hashes instead of third-party cookies. We remove query
+              strings and fragments from page URLs before sending them and filter referring URLs to reduce the risk
+              of sending sensitive URL data. This measurement operates separately from the optional PostHog analytics
+              cookies and does not wait for that cookie choice. See{' '}
+              <a href="https://vercel.com/docs/analytics/privacy-policy" className="text-brand-strong underline underline-offset-4 hover:text-brand-emphasis focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark">
+                Vercel&apos;s Web Analytics privacy documentation
+              </a>.
+            </li>
+            <li>
               <strong>Sentry:</strong> We use Sentry for error tracking and performance monitoring to identify and fix
               technical issues quickly.
             </li>
@@ -123,7 +133,11 @@ export default function PrivacyPage() {
             </li>
           </ul>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
-            You can manage your cookie preferences at any time through our cookie consent banner (shown on first visit) or through your browser settings. Note that disabling cookies may limit certain features. We respect the &quot;Do Not Track&quot; browser setting and will not track users who have enabled it.
+            You can manage your cookie preferences through our cookie consent controls or your browser settings.
+            Disabling cookies may limit certain features. When no cookie preferences have been saved, a browser
+            &quot;Do Not Track&quot; signal sets PostHog analytics and session recording off. Saved preferences remain
+            in effect until you change them. These preferences and our Do Not Track handling do not disable our
+            Vercel Web Analytics or Sentry integrations.
           </p>
         </section>
 
@@ -138,7 +152,7 @@ export default function PrivacyPage() {
             <li>
               <strong>Service Providers:</strong> We share information with third-party service providers who perform
               services on our behalf, such as payment processing (Stripe), email delivery (Resend), analytics
-              (PostHog), and error tracking (Sentry).
+              (PostHog and Vercel Web Analytics), and error tracking (Sentry).
             </li>
             <li>
               <strong>Legal Requirements:</strong> We may disclose your information if required to do so by law or in
@@ -178,7 +192,7 @@ export default function PrivacyPage() {
               <strong>Contract:</strong> Processing is necessary to perform our contract with you (account creation, service delivery, payment processing).
             </li>
             <li>
-              <strong>Consent:</strong> You have given explicit consent for analytics tracking, marketing communications, and session recording (opt-in).
+              <strong>Consent:</strong> You have given explicit consent for PostHog product analytics, marketing communications, and session recording (opt-in).
             </li>
             <li>
               <strong>Legitimate Interest:</strong> Processing is necessary for fraud prevention, security, and improving our services.
@@ -273,7 +287,7 @@ export default function PrivacyPage() {
               .
             </li>
             <li>
-              <strong>Right to Withdraw Consent:</strong> You can withdraw consent for analytics and session recording at any time through our cookie consent banner or settings.
+              <strong>Right to Withdraw Consent:</strong> You can withdraw consent for PostHog analytics and session recording at any time through our cookie consent controls.
             </li>
             <li>
               <strong>Opt-Out of Marketing:</strong> You can opt out of receiving promotional emails by following the unsubscribe link in those emails.
@@ -322,7 +336,8 @@ export default function PrivacyPage() {
             Your information may be transferred to and processed in countries other than your own, including the United States. These countries may have data protection laws that differ from your country&apos;s laws. When we transfer data from the EEA, UK, or Switzerland to other countries, we use Standard Contractual Clauses (SCCs) approved by the European Commission or other appropriate safeguards to protect your data.
           </p>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
-            Our third-party service providers (Stripe, Resend, PostHog, Sentry) are located in the United States and have Data Processing Agreements in place that include appropriate safeguards for international data transfers.
+            Our third-party service providers include Stripe, Resend, PostHog, Sentry, and Vercel. These providers may
+            process information in the United States.
           </p>
         </section>
 
