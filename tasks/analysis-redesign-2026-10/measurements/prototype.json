@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-10-11T18:33:57.274Z",
+ "generatedAt": "2026-10-11T19:39:55.148Z",
  "environment": {
   "chromium": "141.0.7390.37",
   "platform": "linux x64",
@@ -9,8 +9,8 @@
    "files": 14,
    "hash": "4bf26761317d2d6a0e324cf36e0ba1ce88612d4cabe4844088e125ccedb13903"
   },
-  "commit": "84f8bb8",
-  "prototypeTree": "a32653281cc00f0255517b4e851712365cc50c97",
+  "commit": "4f60a65",
+  "prototypeTree": "2fa8c93ae20d4db367ddf135703abb8ae69e2f56",
   "dirty": []
  },
  "configs": [
@@ -107,6 +107,11 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 0,
+    "minVisible": 1,
+    "worst": null
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1062,
@@ -317,6 +322,11 @@
     "fill": "rgb(255, 255, 255)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 0,
+    "minVisible": 1,
+    "worst": null
    },
    "window6": {
     "rows": 20,
@@ -529,6 +539,11 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 0,
+    "minVisible": 1,
+    "worst": null
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1062,
@@ -740,6 +755,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 964,
@@ -951,6 +976,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 964,
@@ -1161,6 +1196,16 @@
     "fill": "rgb(255, 255, 255)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -1373,6 +1418,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 934,
@@ -1584,6 +1639,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 934,
@@ -1794,6 +1859,16 @@
     "fill": "rgb(255, 255, 255)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -2005,6 +2080,16 @@
     "fill": "rgb(255, 255, 255)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -2217,6 +2302,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 678,
@@ -2427,6 +2522,16 @@
     "fill": "rgb(255, 255, 255)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -2639,6 +2744,16 @@
     "fill": "rgb(255, 255, 255)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -2853,6 +2968,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 512,
@@ -3065,6 +3190,16 @@
     "fill": "rgb(255, 255, 255)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -3278,6 +3413,16 @@
     "fill": "rgb(255, 255, 255)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -3492,6 +3637,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 512,
@@ -3705,6 +3860,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 512,
@@ -3917,6 +4082,16 @@
     "fill": "rgb(255, 255, 255)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -4131,6 +4306,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 650,
@@ -4343,6 +4528,16 @@
     "fill": "rgb(255, 255, 255)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -4557,6 +4752,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1302,
@@ -4769,6 +4974,16 @@
     "fill": "rgb(255, 255, 255)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -4983,6 +5198,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1302,
@@ -5196,6 +5421,16 @@
     "fill": "rgb(255, 255, 255)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 208,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -5412,6 +5647,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 208,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1024,
@@ -5627,6 +5872,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 208,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1024,
@@ -5841,6 +6096,16 @@
     "fill": "rgb(255, 255, 255)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 208,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -6057,6 +6322,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 208,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1024,
@@ -6272,6 +6547,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 208,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1024,
@@ -6485,6 +6770,11 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 0,
+    "minVisible": 1,
+    "worst": null
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1062,
@@ -6695,6 +6985,11 @@
     "fill": "rgb(31, 41, 55)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 0,
+    "minVisible": 1,
+    "worst": null
    },
    "window6": {
     "rows": 20,
@@ -6907,6 +7202,11 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 0,
+    "minVisible": 1,
+    "worst": null
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1062,
@@ -7118,6 +7418,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 964,
@@ -7329,6 +7639,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 964,
@@ -7539,6 +7859,16 @@
     "fill": "rgb(31, 41, 55)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -7751,6 +8081,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 934,
@@ -7962,6 +8302,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 934,
@@ -8172,6 +8522,16 @@
     "fill": "rgb(31, 41, 55)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -8383,6 +8743,16 @@
     "fill": "rgb(31, 41, 55)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -8595,6 +8965,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 678,
@@ -8805,6 +9185,16 @@
     "fill": "rgb(31, 41, 55)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -9017,6 +9407,16 @@
     "fill": "rgb(31, 41, 55)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -9231,6 +9631,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 512,
@@ -9443,6 +9853,16 @@
     "fill": "rgb(31, 41, 55)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -9656,6 +10076,16 @@
     "fill": "rgb(31, 41, 55)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -9870,6 +10300,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 512,
@@ -10083,6 +10523,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 512,
@@ -10295,6 +10745,16 @@
     "fill": "rgb(31, 41, 55)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -10509,6 +10969,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 650,
@@ -10721,6 +11191,16 @@
     "fill": "rgb(31, 41, 55)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -10935,6 +11415,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1302,
@@ -11147,6 +11637,16 @@
     "fill": "rgb(31, 41, 55)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -11361,6 +11861,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 0,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1302,
@@ -11574,6 +12084,16 @@
     "fill": "rgb(31, 41, 55)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 208,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -11790,6 +12310,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 208,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1024,
@@ -12004,6 +12534,16 @@
     "fill": "rgb(31, 41, 55)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 208,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
@@ -12220,6 +12760,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 208,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1024,
@@ -12435,6 +12985,16 @@
     "opaque": true,
     "rowHovered": true
    },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 208,
+     "visible": 1
+    }
+   },
    "window6": {
     "rows": 20,
     "tableWidth": 1024,
@@ -12649,6 +13209,16 @@
     "fill": "rgb(31, 41, 55)",
     "opaque": true,
     "rowHovered": true
+   },
+   "focusReveal": {
+    "stops": 27,
+    "minVisible": 1,
+    "worst": {
+     "key": "Tab",
+     "name": "Revenue, Q3 2023",
+     "scrollLeft": 208,
+     "visible": 1
+    }
    },
    "window6": {
     "rows": 20,
