@@ -697,6 +697,9 @@ function factoryBuilt(init: ts.JsxAttributeValue, isFactory: (callee: ts.Express
  * click as much as by Tab, so `tabIndex={-1}` does not exempt one) and that its own className styles (not one built with `inputClasses(…)`, which the DS factory's gate holds): it takes the plugin's ring off
  * (FORMS_RING_OFF) and draws a DS ring in both themes. The reset without a ring would leave no focus indicator: the
  * full-text search's date inputs had no DS ring, so the plugin's blue ring was their only one in dark.
+ *
+ * What it cannot see: a DS field component, the factory or a joiner rebound to a local name (`const Field = multiline ?
+ * Textarea : Input`), as inputClassesNoOverrides.spec.tsx cannot; no file in the app rebinds one.
  */
 function unringedFields(source: string, fileName: string): { fields: number; factory: number; findings: Finding[]; raw: RawField[] } {
   const sf = parse(source, fileName)
