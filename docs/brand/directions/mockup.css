@@ -1,0 +1,57 @@
+@font-face { font-family: 'Inter'; src: url('../../../frontend/scripts/brand/fonts/Inter-Variable-latin.woff2') format('woff2'); font-weight: 100 900; font-style: normal; }
+@font-face { font-family: 'Geist Mono'; src: url('../../../backend/app/assets/fonts/GeistMono-latin.woff2') format('woff2'); font-weight: 100 900; }
+:root {
+  --bg: #F4F3EE; --panel: #FBFAF6; --ink: #1A1A17; --ink2: #374151; --ink3: #636A77;
+  --brand: #4F7A63; --brand-strong: #3C6650; --brand-weak: #ECF2EE; --brand-border: #CFE0D6;
+  --hair: #E5E7EB; --gain: #15803D; --loss: #B91C1C; --white: #fff;
+  --field: #fff;
+  --e2: 0 1px 2px rgba(26,26,23,0.04), 0 2px 8px rgba(26,26,23,0.06);
+  --sans: Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --serif: Newsreader, 'New York', ui-serif, Georgia, serif;
+  --btn-ink: #fff;
+}
+.dark {
+  --bg: #0B1120; --panel: #1F2937; --ink: #D7DADC; --ink2: #9CA3AF; --ink3: #9CA3AF;
+  --brand: #7FB295; --brand-strong: #98C5AD; --brand-weak: rgba(127,178,149,0.14); --brand-border: rgba(127,178,149,0.28);
+  --hair: rgba(255,255,255,0.10); --gain: #34D399; --loss: #FB7185; --field: rgba(255,255,255,0.05);
+  --e2: none; --btn-ink: #0B1120;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+h1, h2, h3 { font-family: var(--sans); font-weight: 600; color: var(--ink); font-optical-sizing: auto; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--ink2); }
+.tertiary { color: var(--ink3); }
+.brand { color: var(--brand-strong); }
+header { border-bottom: 1px solid var(--hair); }
+.bar { max-width: 1280px; margin: 0 auto; padding: 12px 32px; display: flex; align-items: center; justify-content: space-between; }
+.lockup { display: flex; align-items: center; gap: 10px; }
+.lockup svg { width: 36px; height: 28px; color: var(--brand-strong); }
+.wordmark { font-weight: 600; font-size: 20px; letter-spacing: -0.012em; }
+.wordmark em { font-style: italic; color: var(--brand-strong); }
+nav { display: flex; gap: 32px; font-size: 14px; font-weight: 500; color: var(--ink2); }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 12px; background: var(--brand); color: var(--btn-ink); font-weight: 600; font-size: 14px; text-decoration: none; }
+.btn.lg { height: 48px; padding: 0 20px; font-size: 16px; }
+.btn.ghost { background: transparent; color: var(--brand-strong); border: 1px solid var(--brand-border); }
+.hero { max-width: 1280px; margin: 0 auto; padding: 80px 32px 64px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: start; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3); margin-bottom: 20px; }
+h1.display { font-size: 60px; line-height: 1.05; letter-spacing: -0.025em; max-width: 12ch; }
+.sub { margin-top: 24px; font-size: 18px; line-height: 1.6; color: var(--ink2); max-width: 540px; }
+.cta { margin-top: 32px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.access { font-size: 14px; color: var(--ink2); }
+.panel { background: var(--panel); border: 1px solid var(--hair); border-radius: 16px; box-shadow: var(--e2); }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 20px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--hair); background: var(--panel); font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--ink2); }
+.chip.sel { background: var(--brand-weak); border-color: var(--brand-border); color: var(--brand-strong); }
+.up { color: var(--gain); } .down { color: var(--loss); }
+.ident { font-family: var(--mono); font-size: 12px; color: var(--ink2); display: flex; flex-wrap: wrap; gap: 0 10px; }
+.ident b { color: var(--ink); font-weight: 600; }
+.tally { font-family: var(--mono); font-size: 12px; color: var(--ink2); }
+footer.strip { max-width: 1280px; margin: 0 auto; padding: 0 32px 48px; }
+@media (max-width: 600px) {
+  .bar { padding: 10px 16px; } nav { display: none; } .wordmark { display: none; }
+  .hero { grid-template-columns: 1fr; gap: 40px; padding: 40px 16px 32px; }
+  h1.display { font-size: 36px; max-width: none; }
+  .sub { font-size: 16px; }
+  footer.strip { padding: 0 16px 32px; }
+}

@@ -1,0 +1,49 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="mockup.css"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+.mark-hl { background: linear-gradient(transparent 62%, var(--brand-weak) 62%); box-shadow: inset 0 -2px 0 var(--brand-border); }
+.copy { display: grid; grid-template-columns: 44px minmax(0,1fr); }
+.margin { border-right: 1px solid var(--brand-border); position: relative; }
+.margin .m { position: absolute; left: 0; right: 8px; font-family: var(--mono); font-size: 11px; color: var(--brand-strong); text-align: right; }
+.body { padding: 20px 22px 18px 18px; }
+.sect { display:flex; gap: 10px; align-items: baseline; margin-bottom: 8px; }
+.sect .idx { font-family: var(--mono); font-size: 12px; color: var(--ink2); }
+.sect h2 { font-size: 20px; letter-spacing: -0.012em; }
+.para { font-size: 15px; line-height: 1.6; color: var(--ink); }
+.ref { font-family: var(--mono); font-size: 11px; color: var(--brand-strong); font-weight: 600; padding: 0 2px; }
+.span { margin-top: 16px; padding: 10px 14px 10px 16px; border-left: 3px solid var(--brand); background: var(--brand-weak); border-radius: 0 8px 8px 0; font-family: var(--serif); font-size: 17px; line-height: 1.55; color: var(--ink); font-optical-sizing: auto; }
+.span-meta { margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.catch { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--hair); padding-top: 14px; gap: 16px; }
+.catch .k { font-size: 12px; color: var(--ink3); }
+.catch .v { font-family: var(--mono); font-size: 22px; font-weight: 600; margin-top: 2px; }
+.catch .v.old { color: var(--ink3); text-decoration: line-through; text-decoration-thickness: 1px; text-decoration-color: var(--ink3); }
+.catch .note { grid-column: 1 / -1; font-size: 13px; color: var(--ink2); margin-top: -4px; }
+.foot { border-top: 1px solid var(--hair); padding: 12px 22px 14px 18px; grid-column: 2; }
+.bracket { font-family: var(--mono); color: var(--brand-strong); }
+@media (max-width:600px){ .copy { grid-template-columns: 36px minmax(0,1fr);} .body { padding: 16px 16px 14px 12px; } .catch { grid-template-columns: 1fr 1fr; } }
+</style></head><body>
+<header><div class="bar"><div class="lockup"><svg viewBox="0 0 94.6 73.2" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" fill="currentColor"><g transform="translate(0,-14.8)"><path d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z"/><g transform="translate(0.92,6.98) scale(0.9193)"><path d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z"/><path d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z"/></g></g></svg><span class="wordmark">Earnings<em>Nerd</em></span></div><nav><span>Pricing</span><span>Contact</span></nav><a class="btn" href="#">Request an invite</a></div></header>
+<main class="hero">
+  <div>
+    <p class="eyebrow">AI summaries of 10-Ks and 10-Qs</p>
+    <h1 class="display">The summary that <span class="mark-hl">shows its work</span>.</h1>
+    <p class="sub">EarningsNerd reads the 10-K and writes it up in nine parts. Every figure points to the XBRL fact or the passage it came from, so checking takes a click, not an afternoon.</p>
+    <div class="cta"><a class="btn lg" href="#">See a live example →</a><span class="access">Private beta · request an invite</span></div>
+  </div>
+  <section class="panel copy" aria-label="Marked copy">
+    <div class="margin"><span class="m" style="top:66px">[F1]</span><span class="m" style="top:90px">[F2]</span><span class="m" style="top:114px">[F3]</span><span class="m" style="top:176px">[1]</span></div>
+    <div class="body">
+      <p class="ident" style="margin-bottom:14px"><b>Apple Inc.</b><span>AAPL</span><span>·</span><b>10-K</b><span>·</span><span>fiscal year ended Sep 27, 2025</span><span>·</span><span>filed Oct 31, 2025</span></p>
+      <div class="sect"><span class="idx">01</span><h2>The Print</h2></div>
+      <p class="para">Total net sales rose 6.4% to $416.2B<span class="ref">[F1]</span> and net income 19.5% to $112.0B<span class="ref">[F2]</span>, while operating cash flow declined to $111.5B from $118.3B<span class="ref">[F3]</span>.</p>
+      <blockquote class="span">“Tariffs and other measures that are applied to the Company’s products or their components can have a material adverse impact on the Company’s business, results of operations and …”</blockquote>
+      <div class="span-meta"><span class="chip sel">❞ Located in the filing</span><span class="tally">the filing's own words · <span class="bracket">[1]</span></span></div>
+      <div class="catch">
+        <div><div class="k">From memory</div><div class="v old">$391.0B</div></div>
+        <div><div class="k">In the filing</div><div class="v">$416.2B <span class="ref">[F1]</span></div></div>
+        <p class="note">The first is FY2024’s total net sales. The second is FY2025’s, with its fact. That is the whole point.</p>
+      </div>
+    </div>
+    <p class="foot tally">3 of 3 figures matched the company's XBRL · 1 of 1 excerpt located in the filing text · 0 withheld</p>
+  </section>
+</main>
+</body></html>
