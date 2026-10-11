@@ -207,8 +207,10 @@ class-body statement whose code that runs there names ``locals``, ``vars``, ``ex
 ``--allow`` takes the target's binding, which allows every report on it: list each user in the PR body. Nor
 is a name reached through a string (a quoted annotation,
 ``globals()['name']``, a deletion by ``locals().pop('name')``), a class body's namespace that a function it
-calls writes through the caller's frame (class advice through ``sys._getframe(1)``, whose descriptor's
-``__set_name__`` creating the class still calls), a class body's namespace that a metaclass's
+calls writes through the caller's frame (class advice through ``sys._getframe(1)``), or that the body reaches
+under another spelling than ``_touches_namespace`` reads (an import alias such as ``from builtins import
+locals as namespace``, ``builtins.locals()``, an assignment such as ``namespace = locals``, ``getattr``), whose
+descriptor's ``__set_name__`` creating the class still calls, a class body's namespace that a metaclass's
 ``__prepare__`` makes keep other values than the body binds, code Python 3.12 evaluates lazily (a ``type``
 alias's value, a type parameter's bound, constraints or default: read where it stands, but evaluated when
 first used; Python 3.11, which the backend runs, cannot parse them), a class-private ``__name`` (compared as
@@ -577,8 +579,9 @@ def _touches_namespace(node: ast.AST) -> bool:
     through ``locals()`` or ``vars()``, ``exec`` or ``eval``, or a frame (``f_locals``, ``sys._getframe``,
     ``inspect.currentframe``), whether it does so at once (``locals().update(field=Descriptor())``) or keeps the
     namespace for a later call (``def install(ns=locals())``). A def's or a lambda's own ``locals()`` is its
-    own. A function that reaches its caller's frame by itself (class advice through ``sys._getframe(1)``) is
-    not followed."""
+    own. These spellings are all it reads: an alias is not resolved (``from builtins import locals as namespace``,
+    ``builtins.locals()``, ``namespace = locals``, ``getattr``), nor is a function that reaches its caller's
+    frame by itself (class advice through ``sys._getframe(1)``)."""
     return any(isinstance(each, ast.Name) and each.id in _NAMESPACE_BUILTINS
                or isinstance(each, ast.Attribute) and each.attr in _FRAME_ATTRIBUTES for each in _runs_here(node))
 
