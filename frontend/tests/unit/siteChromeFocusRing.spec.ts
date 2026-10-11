@@ -523,14 +523,11 @@ function rings(tokens: string[], dark: boolean): string[] {
     return light.map((token) => `${m[1]} ${token}`)
   })
 }
-/** The focus states holding more than one DS ring, as `state: ring, ring`, from `rings()`'s `state token` pairs. */
+/** A theme's DS rings when they are more than one, from `rings()`'s `state token` pairs: `focus` and `focus-visible`
+    both match a keyboard focus, so of two rings across them, as within one, the later in the stylesheet shows. */
 function doubledRings(pairs: string[]): string[] {
-  const byState = new Map<string, Set<string>>()
-  for (const pair of pairs) {
-    const [state, token] = pair.split(' ')
-    byState.set(state, (byState.get(state) ?? new Set()).add(token))
-  }
-  return [...byState].filter(([, tokens]) => tokens.size > 1).map(([state, tokens]) => `${state}: ${[...tokens].join(', ')}`)
+  const unique = [...new Set(pairs)]
+  return new Set(unique.map((pair) => pair.split(' ')[1])).size > 1 ? [unique.join(', ')] : []
 }
 /** The properties a focus ring is drawn with: the box-shadow, the shadow `shadow-ring-*` sets, and the ring variables the
     forms plugin and Tailwind's `ring-*` set. */
@@ -624,11 +621,13 @@ function moduleKey(file: string, specifier: string): string {
 }
 
 /** The names a file imports from the given modules (`{ 'components/ui/Input': ['inputClasses'] }`, 'default' for a
-    default import), each as the predicate "this identifier is that import": a reference with no local binding of the
-    name shadowing it. A page's own helper of that name, or one imported from elsewhere, is not the import. */
+    default import), each as the predicate "this expression is that import": a reference with no local binding of the
+    name shadowing it, or a member of a namespace import of the module (`UI.Input` after `import * as UI`). A page's own
+    helper of that name, or one imported from elsewhere, is not the import. */
 function importedName(sf: ts.SourceFile, wanted: Record<string, string[]>): (callee: ts.Expression) => boolean {
   const resolve = bindingResolver(sf)
   const imported = new Set<string>()
+  const namespaces = new Map<string, string[]>()
   for (const st of sf.statements) {
     if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier)) continue
     const names = wanted[moduleKey(sf.fileName, st.moduleSpecifier.text)]
@@ -636,11 +635,18 @@ function importedName(sf: ts.SourceFile, wanted: Record<string, string[]>): (cal
     const clause = st.importClause
     if (clause?.name && names.includes('default')) imported.add(clause.name.text)
     const named = clause?.namedBindings
+    if (named && ts.isNamespaceImport(named)) namespaces.set(named.name.text, names)
     if (named && ts.isNamedImports(named)) {
       for (const el of named.elements) if (names.includes((el.propertyName ?? el.name).text)) imported.add(el.name.text)
     }
   }
-  return (callee) => ts.isIdentifier(callee) && imported.has(callee.text) && !resolve(callee)
+  return (callee) =>
+    ts.isIdentifier(callee)
+      ? imported.has(callee.text) && !resolve(callee)
+      : ts.isPropertyAccessExpression(callee) &&
+        ts.isIdentifier(callee.expression) &&
+        !!namespaces.get(callee.expression.text)?.includes(callee.name.text) &&
+        !resolve(callee.expression)
 }
 /** What a field's `style` prop does to its focus ring: nothing (no prop, or an object literal of other properties), or
     an inline box-shadow or ring variable, which outranks every class and so takes the DS ring off (`style={{ boxShadow:
@@ -718,15 +724,15 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
               ...(light.some((ring) => dark.includes(ring)) ? [] : ['its dark: twin in the same focus state']),
             ]
           : []
-        // One DS ring per focus state and theme: of two (`focus:shadow-ring-error` beside the brand ring), the later in
-        // the stylesheet shows, so a valid field would draw the error ring.
+        // One DS ring per theme across its focus states: of two (`focus:shadow-ring-error`, or a `focus-visible:` one,
+        // beside the brand ring), the later in the stylesheet shows, so a valid field would draw the error ring.
         const doubled = [...doubledRings(light), ...doubledRings(dark).map((r) => `dark: ${r}`)]
         if (spread) findings.push({ line, tag, problem: 'a props spread the scan cannot read' })
         else if (!className) findings.push({ line, tag, problem: "no className, so the forms plugin's blue ring is its focus ring" })
         else if (!Array.isArray(tokens)) findings.push({ line, tag, problem: 'a className the scan cannot read' })
         else {
           if (missing.length) findings.push({ line, tag, problem: `missing ${missing.join(', ')}` })
-          if (doubled.length) findings.push({ line, tag, problem: `more than one DS ring in a focus state (${doubled.join('; ')})` })
+          if (doubled.length) findings.push({ line, tag, problem: `more than one DS ring across its focus states (${doubled.join('; ')})` })
           raw.push({ line, tag, tokens })
         }
       }
@@ -1145,6 +1151,12 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     const styled = `export const F = () => <Input style={{ boxShadow: 'none' }} />`
     expect(at(`import { Input } from '@/components/ui'\n${styled}`).findings).toEqual(['2 an inline boxShadow, which outranks the DS ring'])
     expect(at(`const Input = (p: { style?: object }) => <div {...p} />\n${styled}`).findings).toEqual([])
+    // A namespace import of the DS module reaches the same component, factory and joiner.
+    expect(at(`import * as UI from '@/components/ui'\nexport const F = () => <UI.Input style={{ boxShadow: 'none' }} />`).findings).toEqual([
+      '2 an inline boxShadow, which outranks the DS ring',
+    ])
+    expect(at(`import * as UI from '@/components/ui'\nexport const F = () => <input type="text" className={UI.cx(UI.inputClasses(), 'mt-2')} />`)).toEqual({ factory: 1, findings: [] })
+    expect(at(`import * as UI from '@/lib/ui'\nexport const F = () => <input type="text" className={UI.inputClasses()} />`).findings).toEqual(['2 a className the scan cannot read'])
   })
 
   it('the field scan catches what it is for (a self-check on fixed sources)', async () => {
@@ -1203,6 +1215,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <Input style={{ boxShadow: 'none' }} />
             <Textarea variant="composer" style={{ maxHeight: 120, overflowY: 'auto' }} />
             <Input {...{ style: { boxShadow: 'none' } }} />
+            <input type="date" className="border ${field} focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error" />
           </>
         )
       }`
@@ -1211,7 +1224,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     const competing = 'sets the box-shadow or a ring in a state, beside the reset and the DS ring'
     const ring = 'a focus:shadow-ring-* or focus-visible:shadow-ring-*'
     expect(factory).toBe(3)
-    expect(fields).toBe(37)
+    expect(fields).toBe(38)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       `7 <input> missing focus:ring-0, focus:ring-offset-0, ${twin}`,
       `9 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
@@ -1253,7 +1266,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       `39 <input> hover:shadow-md ${competing}`,
       // A resting arbitrary box-shadow (line 40) has no variant: the colon inside its brackets is not one.
       // Two DS rings in one focus state: the later in the stylesheet shows.
-      '41 <input> more than one DS ring in a focus state (focus: ring-brand, ring-error)',
+      '41 <input> more than one DS ring across its focus states (focus ring-brand, focus ring-error)',
       // A pinned token in the other theme (a dropped or a stray `dark:`) is a shadow like any other.
       `42 <input> focus:shadow-ring-brand-dark ${competing}`,
       `43 <input> dark:focus:shadow-ring-brand ${competing}`,
@@ -1270,6 +1283,8 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       '50 <Input> an inline boxShadow, which outranks the DS ring',
       // ...as it passes on a spread, which may carry one.
       '52 <Input> a props spread the scan cannot read',
+      // `focus` and `focus-visible` both match a keyboard focus: a ring in each is two rings.
+      '53 <input> more than one DS ring across its focus states (focus ring-brand, focus-visible ring-error; dark: focus ring-brand, focus-visible ring-error)',
     ])
   })
 })
