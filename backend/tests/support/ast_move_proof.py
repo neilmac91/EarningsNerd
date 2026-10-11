@@ -202,7 +202,7 @@ run what it names (``Optional[Report]`` does not), and a decorator that is not i
 is not a builtin class, is taken to run what it is handed (a FastAPI route's decorator does not), and a
 class-body binding of a bare name or a call's result is taken to hold a descriptor whose ``__set_name__`` calls
 the class (``VALUE = other()`` need not), and so is a def or class there whose creation may run code, and a
-class-body expression that names ``locals``, ``vars``, ``exec`` or ``eval`` or a frame's ``f_locals``
+class-body statement whose code that runs there names ``locals``, ``vars``, ``exec`` or ``eval`` or a frame
 (``len(locals())`` need not).
 ``--allow`` takes the target's binding, which allows every report on it: list each user in the PR body. Nor
 is a name reached through a string (a quoted annotation,
@@ -397,6 +397,7 @@ _TRUSTED_NAMES = frozenset(spelled.split(".")[0] for spelled in _INERT_DECORATOR
 _STANDARD_DECORATORS = {"cached_property": "functools", "abstractmethod": "abc", "dataclass": "dataclasses"}
 _ACCESSORS = frozenset({"setter", "getter", "deleter"})
 _NAMESPACE_BUILTINS = frozenset({"locals", "vars", "exec", "eval"})
+_FRAME_ATTRIBUTES = frozenset({"f_locals", "_getframe", "currentframe"})
 _BUILTIN_CLASSES = frozenset(name for name, value in vars(builtins).items() if isinstance(value, type))
 
 
@@ -530,17 +531,18 @@ def _hands_class(body: list[ast.stmt]) -> bool:
     """Whether a class body may leave a value in its namespace whose ``__set_name__``, which creating the class
     calls with the class itself, may call the class's code: anything an assignment binds that an inert binding
     does not make (``_inert_binding``: a literal, a lambda, a display of them; a bare name is not), and whatever a
-    block, an import or ``:=`` binds, and an expression that may change the namespace without binding a name
-    (``_touches_namespace``). A def or a class is such a value only where what creates it may run code
-    (``_runs_on_creation``), which needs the names around it: a module-level class's member is judged by the
-    caller, and a nested class's by ``_creates_code``. ``pass``, any other expression statement, ``global``
-    and ``del`` bind nothing."""
+    block, an import or ``:=`` binds, and any statement whose code that runs in the class body may change the
+    namespace without binding a name (``_touches_namespace``). A def or a class is such a value only where what
+    creates it may run code (``_runs_on_creation``), which needs the names around it: a module-level class's
+    member is judged by the caller, and a nested class's by ``_creates_code``. ``pass``, any other expression
+    statement, ``global`` and ``del`` bind nothing."""
     for stmt in body:
+        if _touches_namespace(stmt):
+            return True
         if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Pass, ast.Global, ast.Nonlocal,
                              ast.Delete)):
             continue
-        if isinstance(stmt, ast.Expr) and not any(isinstance(each, ast.NamedExpr) for each in ast.walk(stmt)) \
-                and not _touches_namespace(stmt):
+        if isinstance(stmt, ast.Expr) and not any(isinstance(each, ast.NamedExpr) for each in ast.walk(stmt)):
             continue
         if isinstance(stmt, ast.Assign) and all(_inert_binding(target, stmt.value, True) for target in stmt.targets):
             continue
@@ -550,12 +552,35 @@ def _hands_class(body: list[ast.stmt]) -> bool:
     return False
 
 
+def _runs_here(node: ast.AST) -> list[ast.AST]:
+    """The nodes of a statement whose code runs in the namespace where it stands: a def's and a lambda's
+    decorators, defaults and annotations, and a class's decorators, bases and keywords, but not a def's or a
+    lambda's body, which runs later in a namespace of its own, nor a class's body, which runs in its own."""
+    found: list[ast.AST] = []
+    stack = [node]
+    while stack:
+        each = stack.pop()
+        found.append(each)
+        if isinstance(each, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            stack += [*each.decorator_list, each.args, *([each.returns] if each.returns else [])]
+        elif isinstance(each, ast.Lambda):
+            stack.append(each.args)
+        elif isinstance(each, ast.ClassDef):
+            stack += [*each.decorator_list, *each.bases, *each.keywords]
+        else:
+            stack += ast.iter_child_nodes(each)
+    return found
+
+
 def _touches_namespace(node: ast.AST) -> bool:
-    """Whether code may change the namespace it runs in without binding a name: through ``locals()`` or
-    ``vars()``, ``exec`` or ``eval``, or a frame's ``f_locals`` (``locals().update(field=Descriptor())``). A
-    function that writes its caller's frame (class advice through ``sys._getframe(1)``) is not followed."""
+    """Whether code that runs where it stands (``_runs_here``) may change that namespace without binding a name:
+    through ``locals()`` or ``vars()``, ``exec`` or ``eval``, or a frame (``f_locals``, ``sys._getframe``,
+    ``inspect.currentframe``), whether it does so at once (``locals().update(field=Descriptor())``) or keeps the
+    namespace for a later call (``def install(ns=locals())``). A def's or a lambda's own ``locals()`` is its
+    own. A function that reaches its caller's frame by itself (class advice through ``sys._getframe(1)``) is
+    not followed."""
     return any(isinstance(each, ast.Name) and each.id in _NAMESPACE_BUILTINS
-               or isinstance(each, ast.Attribute) and each.attr == "f_locals" for each in ast.walk(node))
+               or isinstance(each, ast.Attribute) and each.attr in _FRAME_ATTRIBUTES for each in _runs_here(node))
 
 
 def _class_stores(node: ast.ClassDef) -> set[str]:
