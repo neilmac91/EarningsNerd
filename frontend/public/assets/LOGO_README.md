@@ -21,6 +21,7 @@ The mark is the letters **E + N** with the N's final stroke rising into an arrow
 | `earningsnerd-logo-stacked-dark.svg` | Stacked lockup for navy. |
 | `earningsnerd-logo-stacked-mono.svg` | Stacked lockup in `currentColor`. |
 | `earningsnerd-mask-icon.svg` | Safari pinned-tab mask: the mark letterboxed in a square, black on transparent (Safari recolours it; `app/layout.tsx` declares it with the sage colour). |
+| `earningsnerd-mark-sage.png` | The sage mark rasterized at 256 px wide on transparent, byte-identical to the backend's Excel raster. Served at `/assets/earningsnerd-mark-sage.png` for transactional email, whose clients drop inline SVG; generated, never edited. |
 
 ## In-app usage
 
@@ -43,7 +44,9 @@ Never inline the mark by hand — compose the components:
 committed binaries from this directory: `favicon.ico`, `apple-touch-icon.png`
 (180, full-bleed — Apple applies its own corner mask), `icons/icon-{192,512}.png`
 (+ `-maskable` full-bleed variants, mark at 0.62 for the r=40% safe zone), and
-`og-image.png` (deterministic Playwright render with the committed Inter woff2).
+`og-image.png` (deterministic Playwright render with the committed Inter woff2), and the
+sage mark raster in two places, `assets/earningsnerd-mark-sage.png` here and
+`backend/app/assets/brand/earningsnerd-mark.png`.
 
 ## Rules
 

@@ -19,6 +19,9 @@
      ../backend/app/assets/brand/earningsnerd-mark.png
                                      256px-wide sage mark on TRANSPARENT — the
                                      raster the backend embeds in Excel exports
+     public/assets/earningsnerd-mark-sage.png
+                                     the same raster, served at a fixed URL for
+                                     transactional email (clients drop inline SVG)
                                      (openpyxl can't rasterize SVG)
 
    Run: npm run brand:assets
@@ -95,14 +98,20 @@ async function main() {
   // rasterized once here (committed) so the backend needs no SVG toolchain.
   const backendBrand = path.resolve(root, '..', 'backend', 'app', 'assets', 'brand')
   await fs.mkdir(backendBrand, { recursive: true })
-  await fs.writeFile(
-    path.join(backendBrand, 'earningsnerd-mark.png'),
-    await sharp(path.join(assets, 'earningsnerd-mark-sage.svg'), { density: 300 })
-      .resize({ width: 256 })
-      .png()
-      .toBuffer(),
-  )
+  const sageMark = await sharp(path.join(assets, 'earningsnerd-mark-sage.svg'), { density: 300 })
+    .resize({ width: 256 })
+    .png()
+    .toBuffer()
+  await fs.writeFile(path.join(backendBrand, 'earningsnerd-mark.png'), sageMark)
   console.log('✓ backend/app/assets/brand/earningsnerd-mark.png (256w, transparent)')
+
+  // The same raster served at a fixed URL (/assets/earningsnerd-mark-sage.png) for surfaces that
+  // cannot render SVG and have no access to the repository: transactional email. Gmail and
+  // Outlook drop inline SVG, so the mail header's lockup carries this PNG beside the text
+  // wordmark (docs/brand/templates/email-header.html). One buffer, two paths: the two files are
+  // byte-identical by construction.
+  await fs.writeFile(path.join(assets, 'earningsnerd-mark-sage.png'), sageMark)
+  console.log('✓ assets/earningsnerd-mark-sage.png (256w, transparent, served for email)')
 
   // og-image — deterministic Playwright render of the committed template
   const browser = await chromium.launch(
