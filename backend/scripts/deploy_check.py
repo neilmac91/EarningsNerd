@@ -130,8 +130,9 @@ def check_environment_variables():
                 print(f"   ⚠️  WARNING: {var_name} is set but may be invalid")
                 warnings.append(var_name)
         elif check["set"]:
-            value_preview = str(getattr(settings, var_name))[:30] + "..." if len(str(getattr(settings, var_name))) > 30 else str(getattr(settings, var_name))
-            print(f"   ✓ Set: {value_preview}")
+            # The length only: a value's characters never reach the output, secrets included
+            # (lessons/ops-never-echo-environment-values.md; gate: tests/unit/test_never_echo_environment_values.py).
+            print(f"   ✓ Set ({len(str(getattr(settings, var_name)))} characters)")
     
     # Special check for Stripe webhook secret
     if settings.STRIPE_SECRET_KEY and not settings.STRIPE_WEBHOOK_SECRET:
