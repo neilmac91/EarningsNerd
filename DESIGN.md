@@ -219,7 +219,7 @@ components:
     backgroundColor: "{colors.white}"
     textColor: "{colors.text-primary-light}"
     rounded: "{rounded.lg}"
-    padding: "0.625rem 0.875rem 0.625rem 2.75rem"
+    padding: "0.625rem 2.5rem 0.625rem 2.75rem"
   input-dark:
     textColor: "{colors.text-primary-dark}"
     rounded: "{rounded.lg}"
