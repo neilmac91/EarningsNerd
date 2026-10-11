@@ -1283,7 +1283,11 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
                                      and not _bound_at(shadowing, name, node.lineno), modules)
             class_globals = frozenset(name for each in _scope_nodes(node.body) if isinstance(each, ast.Global)
                                       for name in each.names)
-            names[node.name].declared |= class_globals & _class_stores(node)  # the class statement's own stores
+            # The class statement's own stores (``_class_stores``) and its body's imports, which are in no member, bind
+            # the module's name where the body declares it ``global``.
+            imported = {(alias.asname or alias.name).split(".")[0] for each in _flatten(node.body)
+                        if isinstance(each, (ast.Import, ast.ImportFrom)) for alias in each.names}
+            names[node.name].declared |= class_globals & (_class_stores(node) | imported)
             class_names = _bound_in(node.body)  # where a member class looks up its bases first
             for guard in _guards(node.body):
                 if not _type_checking_imports(guard):
