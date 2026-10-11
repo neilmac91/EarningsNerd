@@ -25,8 +25,10 @@ import { bindingResolver } from './astBindings'
  * `text-xs` (699) beat `text-sm` (697) by one rule. The options are `select` (a raw <select>'s chevron room),
  * `autoWidth` (sized to its content), `density`, `leadingIcon` and `trailingIcon` (the password field's reveal
  * toggle, which set `pr-10` on top until it existed); Button's twin gate is button-icon-size-gate.spec.ts. The
- * options' own padding is held to explicit sides by "the field's padding is explicit" below: the scan skips
- * Input.tsx, so nothing else would see a pad constant that sets one side twice.
+ * scan skips Input.tsx, so the module's own classes are held below: padding to explicit sides by "the field's
+ * padding is explicit", and every field (each combination of the options, and the Input, Textarea and Select
+ * components) to one class per property per variant chain, with `invalid` (the components' `error`) picking the
+ * error tone's border and ring rather than layering them, by "the field's tone is one class per state".
  *
  * The scan reads the TypeScript AST of every .ts and .tsx under app/, components/, features/, hooks/ and lib/,
  * except Input.tsx, which defines the field. For each `inputClasses(…)` call (imported from components/ui/Input
@@ -892,6 +894,12 @@ export const S = () => <div className={cx(inputClasses({ className: 'flex items-
   })
 })
 
+/** Every combination of the options, built from the gate's own lists so a new flag joins it unasked. */
+const ALL: Options[] = BOOLEAN_OPTIONS.reduce<Options[]>(
+  (combos, k) => combos.flatMap((c) => [{ ...c, [k]: false }, { ...c, [k]: true }]),
+  DENSITIES.map((density) => ({ ...DEFAULTS, density })),
+)
+
 // ------------------------------------------------------------------------------------------------- width
 
 describe("the field's width is explicit", () => {
@@ -920,11 +928,6 @@ describe("the field's width is explicit", () => {
 // ------------------------------------------------------------------------------------------------- padding
 
 describe("the field's padding is explicit", () => {
-  /** Every combination of the options, built from the gate's own lists so a new flag joins it unasked. */
-  const ALL: Options[] = BOOLEAN_OPTIONS.reduce<Options[]>(
-    (combos, k) => combos.flatMap((c) => [{ ...c, [k]: false }, { ...c, [k]: true }]),
-    DENSITIES.map((density) => ({ ...DEFAULTS, density })),
-  )
   const SIDES_OF: Record<string, string[]> = { p: ['t', 'r', 'b', 'l'], px: ['r', 'l'], py: ['t', 'b'], pt: ['t'], pr: ['r'], pb: ['b'], pl: ['l'] }
   /** Each side a combination's padding classes set: its screen (`sm:`, or '' for none), the side, the class. */
   const padding = (o: Options) =>
@@ -989,5 +992,120 @@ describe("the field's padding is explicit", () => {
     // The gate reads <FieldSpinner /> as a control at the right edge: its classes must keep it inside the inset.
     const spinner = render(<FieldSpinner />).container.querySelector('svg')!.classList
     for (const c of ['absolute', 'right-3', 'h-4', 'w-4']) expect(spinner.contains(c), c).toBe(true)
+  })
+})
+
+// ------------------------------------------------------------------------------------------------- tone
+
+describe("the field's tone is one class per state", SLOW, () => {
+  /** The fields the components draw, with and without an error (a message, or `true` for none), Input with its
+      icon and loading insets too. */
+  const componentFields = () => {
+    const { container } = render(
+      <>
+        <Input aria-label="Input" />
+        <Input aria-label="Input error" error="Required" />
+        <Input aria-label="Input boolean error" error />
+        <Input aria-label="Input icon loading error" icon="i" loading error="Required" />
+        <Textarea aria-label="Textarea" />
+        <Textarea aria-label="Textarea error" error="Required" />
+        <Select aria-label="Select">
+          <option>x</option>
+        </Select>
+        <Select aria-label="Select compact error" density="compact" error="Required">
+          <option>x</option>
+        </Select>
+      </>,
+    )
+    return [...container.querySelectorAll('input, textarea, select')].map((el) => ({
+      name: el.getAttribute('aria-label')!,
+      invalid: el.getAttribute('aria-invalid') === 'true',
+      classes: [...el.classList],
+    }))
+  }
+  /** Every field the module draws: each combination of inputClasses() options, then the components. */
+  const fields = () => [
+    ...ALL.map((o) => ({ name: JSON.stringify(o), invalid: o.invalid, classes: inputClasses(o as InputClassesOptions).split(' ') })),
+    ...componentFields(),
+  ]
+
+  /** Two of a field's own classes that set one property of one element in one variant chain: stylesheet order,
+      not the field's state, decides between them. Tailwind's `transition-*` sets the default duration that its
+      `duration-*` exists to override, the one pairing it documents and the one exempt. */
+  const layered = (classes: string[]) => {
+    const parsed = classes.map(parseClass)
+    const durationPair = (a: string, b: string) => /^transition(-|$)/.test(a) && /^duration-/.test(b)
+    return parsed.flatMap((a, i) =>
+      parsed.slice(i + 1).flatMap((b) => {
+        if (!sameSet(a.chain, b.chain)) return []
+        const props = (declCache.get(a.utility) ?? []).flatMap((ae) =>
+          (declCache.get(b.utility) ?? [])
+            .filter((be) => joinTarget(a.target, ae.target) === joinTarget(b.target, be.target))
+            .flatMap((be) => ae.decls.filter((d) => be.decls.some((x) => x.prop === d.prop && !(x.plumbing && d.plumbing))))
+            .map((d) => d.prop)
+            .filter((prop) => !(prop === 'transition-duration' && (durationPair(a.utility, b.utility) || durationPair(b.utility, a.utility)))),
+        )
+        return props.length ? [`${a.token} vs ${b.token} ${propList(props)}`] : []
+      }),
+    )
+  }
+
+  it('sets each property once per variant chain, for every combination of the options and every component', async () => {
+    const all = fields()
+    await loadDeclarations(all.flatMap((f) => f.classes).map((t) => parseClass(t).utility))
+    expect(all.length).toBe(ALL.length + 8)
+    expect(all.filter((f) => f.invalid).length, '`invalid` is one of BOOLEAN_OPTIONS, and the components take `error`').toBe(ALL.length / 2 + 5)
+    for (const f of all) expect(layered(f.classes), f.name).toEqual([])
+  })
+
+  /** Each tone's border and ring by state: the classes that set the field's border colour, then its shadow, keyed
+      by variant chain. The error border holds on hover (the red names the problem), and a disabled field's hover
+      changes nothing in either tone. Each tone states its focus border even where it equals the rest border:
+      @tailwindcss/forms draws `[type='text']:focus` and its siblings with a #2563EB border at specificity 0,2,0,
+      which a bare `border-*` class (0,1,0) loses to. Measured in Chromium, an error tone without
+      `focus:border-error-light` showed that blue border on focus in light. */
+  const TONES = {
+    default: {
+      border: {
+        '': 'border-border-light',
+        hover: 'hover:border-flat-light',
+        focus: 'focus:border-brand',
+        'disabled:hover': 'disabled:hover:border-border-light',
+        dark: 'dark:border-border-dark',
+        'dark:hover': 'dark:hover:border-flat-dark',
+        'dark:focus': 'dark:focus:border-brand-dark',
+        'dark:disabled:hover': 'dark:disabled:hover:border-border-dark',
+      },
+      ring: { focus: 'focus:shadow-ring-brand', 'dark:focus': 'dark:focus:shadow-ring-brand-dark' },
+    },
+    error: {
+      border: {
+        '': 'border-error-light',
+        focus: 'focus:border-error-light',
+        dark: 'dark:border-error-dark',
+        'dark:focus': 'dark:focus:border-error-dark',
+      },
+      // The dark ring is the light token until a dark ring-error exists (the focus-ring item #1178 recorded).
+      ring: { focus: 'focus:shadow-ring-error', 'dark:focus': 'dark:focus:shadow-ring-error' },
+    },
+  }
+  /** The classes that set `prop` on the field itself, keyed by their variant chain (sorted, `:`-joined). */
+  const setters = (classes: string[], prop: string) =>
+    Object.fromEntries(
+      classes
+        .map(parseClass)
+        .filter((c) => !c.target && (declCache.get(c.utility) ?? []).some((e) => !e.target && e.decls.some((d) => d.prop === prop)))
+        .map((c) => [[...c.chain].sort().join(':'), c.token]),
+    )
+
+  it('`invalid` and the components’ `error` pick the error tone, and every other field the default one, by state', async () => {
+    const all = fields()
+    await loadDeclarations(all.flatMap((f) => f.classes).map((t) => parseClass(t).utility))
+    for (const f of all) {
+      expect(
+        { border: setters(f.classes, 'border-top-color'), ring: setters(f.classes, '--tw-shadow') },
+        f.name,
+      ).toEqual(TONES[f.invalid ? 'error' : 'default'])
+    }
   })
 })
