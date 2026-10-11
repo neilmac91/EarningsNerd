@@ -491,20 +491,30 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
 /** The DS field module: its fields are held by tests/unit/inputClassesNoOverrides.spec.tsx (each `inputClasses()`
     combination and the Input, Textarea and Select components take the forms ring off and draw the DS ring). */
 const FIELD_FACTORY = 'components/ui/Input.tsx'
-/** The DS ring tokens, pinned: a misspelt one generates no CSS, and a `ring-*` key added to the theme later need not
-    draw a ring (`ring-none: 'none'`), so only these count, and the describe below holds each to a visible shadow in
-    tailwind.config.js. */
-const RING_TOKENS = new Set(['ring-brand', 'ring-brand-dark', 'ring-error'])
+/** The DS ring tokens, pinned, each light one with the dark token it pairs with: `ring-brand` with `ring-brand-dark`,
+    and `ring-error` with itself until a dark ring-error token exists (the focus-ring item #1178 recorded). A misspelt
+    token generates no CSS, and a `ring-*` key added to the theme later need not draw a ring (`ring-none: 'none'`), so
+    only these count; the describe below holds each to a visible shadow in tailwind.config.js. */
+const DARK_RING: Record<string, string> = { 'ring-brand': 'ring-brand-dark', 'ring-error': 'ring-error' }
+const RING_TOKENS = new Set([...Object.keys(DARK_RING), ...Object.values(DARK_RING)])
 const THEME_SHADOWS = resolveConfig(createRequire(import.meta.url)(path.join(ROOT, 'tailwind.config.js')) as Config).theme
   .boxShadow as Record<string, string>
-/** The focus states (`focus`, `focus-visible`) a field's DS ring is drawn in: in light, a ring token that is not a dark
-    one (`focus:shadow-ring-brand`); in dark, any ring token under `dark:` (`dark:focus:shadow-ring-brand-dark`). */
-function ringStates(tokens: string[], dark: boolean): string[] {
+/** A field's DS rings as `state token` pairs: in light, a pinned light token (`focus:shadow-ring-brand` → `focus
+    ring-brand`); in dark, the light token whose pinned twin it is (`dark:focus:shadow-ring-brand-dark` → `focus
+    ring-brand`), so the light token repeated under `dark:` is no twin. */
+function rings(tokens: string[], dark: boolean): string[] {
   return tokens.flatMap((t) => {
     const m = t.match(dark ? /^dark:(focus|focus-visible):!?shadow-(\S+)$/ : /^(focus|focus-visible):!?shadow-(\S+)$/)
-    return m && RING_TOKENS.has(m[2]) && (dark || !m[2].endsWith('-dark')) ? [m[1]] : []
+    if (!m) return []
+    const light = dark ? Object.keys(DARK_RING).filter((k) => DARK_RING[k] === m[2]) : m[2] in DARK_RING ? [m[2]] : []
+    return light.map((token) => `${m[1]} ${token}`)
   })
 }
+/** Tailwind's ring width and offset utilities (`ring`, `ring-2`, `ring-offset-2`, `ring-[3px]`, `ring-inset`), read
+    without their variants: beside the reset, any of them draws the plugin-coloured ring again, since it follows `ring-0`
+    in the stylesheet. A ring colour (`ring-brand`) sets only the colour, which the zeroed ring never shows. */
+const RING_WIDTH = /^!?ring(-offset)?(-(\d+(\.\d+)?|\[[^\]]+\]))?$|^!?ring-inset$/
+const utilityOf = (token: string) => token.replace(/^(?:[^:[\]]+:)*/, '')
 
 /** The modules that export the DS factory, as paths under frontend/ without extension. */
 const FACTORY_MODULES = new Set(['components/ui/Input', 'components/ui/index'])
@@ -571,19 +581,23 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
         fields += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
         const tokens = classTokens(className?.initializer)
-        const light = Array.isArray(tokens) ? ringStates(tokens, false) : []
-        const dark = Array.isArray(tokens) ? ringStates(tokens, true) : []
+        const light = Array.isArray(tokens) ? rings(tokens, false) : []
+        const dark = Array.isArray(tokens) ? rings(tokens, true) : []
         const missing = Array.isArray(tokens)
           ? [
               ...FORMS_RING_OFF.filter((t) => !tokens.includes(t)),
               ...(light.length ? [] : ['a focus:shadow-ring-* or focus-visible:shadow-ring-*']),
-              ...(light.some((state) => dark.includes(state)) ? [] : ['its dark: twin in the same focus state']),
+              ...(light.some((ring) => dark.includes(ring)) ? [] : ['its dark: twin in the same focus state']),
             ]
           : []
+        const extra = Array.isArray(tokens) ? tokens.filter((t) => !FORMS_RING_OFF.includes(t) && RING_WIDTH.test(utilityOf(t))) : []
         if (spread) findings.push({ line, tag, problem: 'a props spread the scan cannot read' })
         else if (!className) findings.push({ line, tag, problem: "no className, so the forms plugin's blue ring is its focus ring" })
         else if (!Array.isArray(tokens)) findings.push({ line, tag, problem: 'a className the scan cannot read' })
-        else if (missing.length) findings.push({ line, tag, problem: `missing ${missing.join(', ')}` })
+        else {
+          if (missing.length) findings.push({ line, tag, problem: `missing ${missing.join(', ')}` })
+          if (extra.length) findings.push({ line, tag, problem: `${extra.join(' ')} beside the reset draws the plugin's ring again` })
+        }
       }
     }
     ts.forEachChild(node, visit)
@@ -945,7 +959,12 @@ describe('every field the forms plugin styles takes its ring off and draws the D
   })
 
   it('every pinned DS ring token draws a visible ring in tailwind.config.js', () => {
-    for (const token of RING_TOKENS) expect(THEME_SHADOWS[token], token).toMatch(/^0 0 0 [1-9]\d*px rgba?\(/)
+    for (const token of RING_TOKENS) {
+      // A spread above zero in a colour that is not transparent: `0 0 0 3px rgba(79, 122, 99, 0.50)`.
+      const m = THEME_SHADOWS[token]?.match(/^0 0 0 [1-9]\d*px rgba?\(\s*\d+,\s*\d+,\s*\d+\s*(?:,\s*([\d.]+)\s*)?\)$/)
+      expect(m, token).toBeTruthy()
+      expect(m![1] === undefined ? 1 : Number(m![1]), `${token}'s alpha`).toBeGreaterThan(0)
+    }
   })
 
   it('the field scan takes only the DS factory, under any import name, for inputClasses()', () => {
@@ -999,6 +1018,10 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <input type="date" className="border focus:shadow-ring-brnad dark:focus:shadow-ring-brand-dark ${reset}" />
             <input type="text" className={inputClasses()} {...rest} />
             <input type="date" className="border focus:shadow-ring-none dark:focus:shadow-ring-none ${reset}" />
+            <input type="date" className="border focus:shadow-ring-brand dark:focus:shadow-ring-brand ${reset}" />
+            <input type="date" className="border focus:shadow-ring-error dark:focus:shadow-ring-error ${reset}" />
+            <input type="date" className="border ${field} focus:ring-2" />
+            <input type="date" className="border ${field} dark:focus:ring-offset-2 ring-brand" />
           </>
         )
       }`
@@ -1006,7 +1029,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     const twin = 'its dark: twin in the same focus state'
     const ring = 'a focus:shadow-ring-* or focus-visible:shadow-ring-*'
     expect(factory).toBe(2)
-    expect(fields).toBe(17)
+    expect(fields).toBe(21)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       `7 <input> missing focus:ring-0, focus:ring-offset-0, ${twin}`,
       `9 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
@@ -1028,6 +1051,11 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       '27 <input> a props spread the scan cannot read',
       // Only the pinned DS ring tokens count, not any `ring-*` key.
       `28 <input> missing ${ring}, ${twin}`,
+      // The light ring repeated under `dark:` is no dark twin; ring-error is its own until a dark token exists (line 30).
+      `29 <input> missing ${twin}`,
+      // A ring width or offset beside the reset draws the plugin's ring again; a ring colour does not.
+      "31 <input> focus:ring-2 beside the reset draws the plugin's ring again",
+      "32 <input> dark:focus:ring-offset-2 beside the reset draws the plugin's ring again",
     ])
   })
 })
