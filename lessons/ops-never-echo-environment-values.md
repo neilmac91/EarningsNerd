@@ -51,7 +51,8 @@ service's startup log or CI's public log. Review of the fix found four more path
 - **The repr.** A settings object's `repr()`, its `str()` and Sentry's serialization of it carry no value.
 - **Messages.** An AST walk over every function in `app/config.py` fails a raise or assert message that
   reads anything but constants, ALL_CAPS module constants and `len(...)`, directly or through a local
-  bound in the function. Local bindings include tuple targets, loop variables, `:=` and
+  bound in the function. An uppercase parameter or local is a value like any other: only a name bound at
+  module level, and not shadowed in the function, counts as a constant. Local bindings include tuple targets, loop variables, `:=` and
   `append`/`extend`. One sanctioned quotation is allowed: `REGISTRATION_MODE`'s `v`. The test also pins
   the settings class's only base, so a validator cannot move into a mixin unseen.
 - **The check.** `deploy_check`'s environment and configuration checks print no secret.

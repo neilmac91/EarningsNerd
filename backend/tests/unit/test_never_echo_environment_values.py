@@ -201,34 +201,34 @@ QUOTES_ITS_VALUE = {("_normalize_registration_mode", "v")}
 _MUTATORS = {"append", "extend", "insert", "add", "update"}
 
 
-def _quoted(node: ast.AST, assigned: dict[str, list[ast.expr]], seen: frozenset[str] = frozenset()) -> set[str]:
-    """What a message expression reads beyond constants, ALL_CAPS module constants and `len(...)`.
+def _quoted(
+    node: ast.AST, assigned: dict[str, list[ast.expr]], constants: set[str], seen: frozenset[str] = frozenset()
+) -> set[str]:
+    """What a message expression reads beyond constants, the module's ALL_CAPS constants and `len(...)`.
 
     Default deny: every other name or attribute counts (a parameter such as `v` or `info`, `self.FIELD`,
     `os.environ`, `os.getenv(...)`); a local counts through every expression assigned to it in the function.
+    `constants` holds only ALL_CAPS names bound at module level that the function does not shadow, so an
+    uppercase parameter or local is a value like any other.
     """
     if isinstance(node, ast.Constant):
         return set()
     if isinstance(node, ast.Call):
         if isinstance(node.func, ast.Name) and node.func.id == "len":
             return set()  # a length, never the value
-        called = set() if isinstance(node.func, ast.Name) else _quoted(node.func, assigned, seen)
-        return called.union(*(_quoted(arg, assigned, seen) for arg in [*node.args, *(k.value for k in node.keywords)]))
+        called = set() if isinstance(node.func, ast.Name) else _quoted(node.func, assigned, constants, seen)
+        arguments = [*node.args, *(keyword.value for keyword in node.keywords)]
+        return called.union(*(_quoted(arg, assigned, constants, seen) for arg in arguments))
     if isinstance(node, ast.Name):
-        if node.id.isupper():
-            return set()  # a module constant such as MIN_SECRET_KEY_LENGTH
         if node.id in assigned and node.id not in seen:
-            return set().union(*(_quoted(expr, assigned, seen | {node.id}) for expr in assigned[node.id]))
-        return {node.id}
+            return set().union(*(_quoted(expr, assigned, constants, seen | {node.id}) for expr in assigned[node.id]))
+        return set() if node.id in constants else {node.id}
     if isinstance(node, ast.Attribute):
         if isinstance(node.value, ast.Constant):
             return set()  # a method of a literal, such as ", ".join
-        return (
-            {ast.unparse(node)}
-            if _quoted(node.value, assigned, seen) or not isinstance(node.value, ast.Name)
-            else set()
-        )
-    return set().union(*(_quoted(child, assigned, seen) for child in ast.iter_child_nodes(node)))
+        inner = _quoted(node.value, assigned, constants, seen)
+        return {ast.unparse(node)} if inner or not isinstance(node.value, ast.Name) else set()
+    return set().union(*(_quoted(child, assigned, constants, seen) for child in ast.iter_child_nodes(node)))
 
 
 def _assignments(function: ast.AST) -> dict[str, list[ast.expr]]:
@@ -258,15 +258,42 @@ def _assignments(function: ast.AST) -> dict[str, list[ast.expr]]:
     return assigned
 
 
+def _module_constants(tree: ast.Module) -> set[str]:
+    """The ALL_CAPS names bound by an assignment at the module's top level, such as MIN_SECRET_KEY_LENGTH."""
+    targets = [
+        target
+        for node in tree.body
+        if isinstance(node, (ast.Assign, ast.AnnAssign))
+        for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
+    ]
+    return {
+        name.id for target in targets for name in ast.walk(target) if isinstance(name, ast.Name) and name.id.isupper()
+    }
+
+
 def _quotations(tree: ast.Module) -> set[tuple[str, str]]:
     """(function, what it quotes) for every raise or assert message in the module that reads a value."""
+    module_constants = _module_constants(tree)
     found = set()
     for function in (node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))):
         assigned = _assignments(function)
+        arguments = function.args
+        params = {
+            arg.arg
+            for arg in [
+                *arguments.posonlyargs,
+                *arguments.args,
+                *arguments.kwonlyargs,
+                arguments.vararg,
+                arguments.kwarg,
+            ]
+            if arg is not None
+        }
+        constants = module_constants - params - set(assigned)
         for node in ast.walk(function):
             message = node.exc if isinstance(node, ast.Raise) else node.msg if isinstance(node, ast.Assert) else None
             if message is not None:
-                found.update((function.name, name) for name in _quoted(message, assigned))
+                found.update((function.name, name) for name in _quoted(message, assigned, constants))
     return found
 
 
@@ -324,8 +351,26 @@ _CLASS = "class Settings:\n"
             _CLASS + "    def check(cls, v):\n        n = len(v)\n        raise ValueError(f'got {n} characters')\n",
             set(),
         ),
-        (_CLASS + "    def check(cls, v):\n        raise ValueError(f'at least {MIN_SECRET_KEY_LENGTH}')\n", set()),
-        (_CLASS + "    def check(cls, v):\n        raise ValueError(', '.join(sorted(MODES)))\n", set()),
+        (
+            "MIN_SECRET_KEY_LENGTH = 32\n" + _CLASS + "    def check(cls, v):\n"
+            "        raise ValueError(f'at least {MIN_SECRET_KEY_LENGTH}')\n",
+            set(),
+        ),
+        (
+            "MODES = ('public', 'invite_only')\n" + _CLASS + "    def check(cls, v):\n"
+            "        raise ValueError(', '.join(sorted(MODES)))\n",
+            set(),
+        ),
+        (_CLASS + "    def check(cls, SECRET):\n        raise ValueError(f'bad {SECRET}')\n", {("check", "SECRET")}),
+        (
+            _CLASS + "    def check(cls, v):\n        SECRET = v\n        raise ValueError(f'bad {SECRET}')\n",
+            {("check", "v")},
+        ),
+        (
+            "MIN = 1\n" + _CLASS + "    def check(cls, MIN):\n        raise ValueError(f'bad {MIN}')\n",
+            {("check", "MIN")},
+        ),
+        (_CLASS + "    def check(cls, v):\n        raise ValueError(f'bad {TOKEN}')\n", {("check", "TOKEN")}),
         (_CLASS + "    def check(cls, v):\n        raise ValueError('must be set')\n", set()),
     ],
     ids=[
@@ -346,6 +391,10 @@ _CLASS = "class Settings:\n"
         "two-step-length",
         "module-constant",
         "constant-join",
+        "uppercase-parameter",
+        "uppercase-local",
+        "shadowed-constant",
+        "undefined-uppercase",
         "plain",
     ],
 )
