@@ -2,7 +2,8 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { createRequire } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
-import { type Config } from 'tailwindcss'
+import postcss from 'postcss'
+import tailwindcss, { type Config } from 'tailwindcss'
 import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
@@ -510,11 +511,51 @@ function rings(tokens: string[], dark: boolean): string[] {
     return light.map((token) => `${m[1]} ${token}`)
   })
 }
-/** Tailwind's ring width and offset utilities (`ring`, `ring-2`, `ring-offset-2`, `ring-[3px]`, `ring-inset`), read
-    without their variants: beside the reset, any of them draws the plugin-coloured ring again, since it follows `ring-0`
-    in the stylesheet. A ring colour (`ring-brand`) sets only the colour, which the zeroed ring never shows. */
-const RING_WIDTH = /^!?ring(-offset)?(-(\d+(\.\d+)?|\[[^\]]+\]))?$|^!?ring-inset$/
+/** The properties a focus ring is drawn with: the box-shadow, the shadow `shadow-ring-*` sets, and the ring variables the
+    forms plugin and Tailwind's `ring-*` set. */
+const SHADOW_PROPS = new Set(['box-shadow', '--tw-shadow', '--tw-shadow-colored', '--tw-ring-shadow', '--tw-ring-offset-shadow', '--tw-ring-offset-width', '--tw-ring-inset'])
+const TAILWIND_CONFIG = createRequire(import.meta.url)(path.join(ROOT, 'tailwind.config.js')) as Config
+/** What each class declares, read off Tailwind's own compile of it (this config, globals.css as input): property names, by
+    class. A class Tailwind does not generate declares nothing. */
+const declared = new Map<string, Set<string>>()
+const unescapeCss = (s: string) =>
+  s.replace(/\\([0-9a-fA-F]{1,6}) ?|\\(.)/g, (_, hex: string | undefined, ch: string | undefined) => (hex ? String.fromCodePoint(parseInt(hex, 16)) : ch!))
+async function loadDeclarations(tokens: string[]): Promise<void> {
+  const missing = [...new Set(tokens)].filter((t) => !declared.has(t))
+  if (!missing.length) return
+  for (const t of missing) declared.set(t, new Set())
+  const from = path.join(ROOT, 'app/globals.css')
+  const result = await postcss([tailwindcss({ ...TAILWIND_CONFIG, content: [{ raw: missing.join(' '), extension: 'html' }], safelist: [] })]).process(
+    readFileSync(from, 'utf8'),
+    { from },
+  )
+  result.root.walkRules((rule) => {
+    // A utility's rule starts with its own class: `.focus\:ring-0:focus`, `.dark\:focus\:shadow-ring-brand-dark:focus:is(.dark *)`.
+    const m = rule.selector.match(/^\.((?:\\[0-9a-fA-F]{1,6} ?|\\.|[\w-])+)/)
+    const props = m && declared.get(unescapeCss(m[1]))
+    if (props) rule.walkDecls((d) => void props.add(d.prop))
+  })
+}
+/** A class without its leading variants (`focus:[box-shadow:none]` → `[box-shadow:none]`), and the variants. */
 const utilityOf = (token: string) => token.replace(/^(?:[^:[\]]+:)*/, '')
+const variantsOf = (token: string) => token.slice(0, token.length - utilityOf(token).length).split(':').filter(Boolean)
+const FOCUS_STATES = new Set(['focus', 'focus-visible', 'focus-within'])
+
+/**
+ * The classes on a field that style itself which draw on its focus ring beside the reset and the DS ring: any class in a
+ * focus state, or `!important`, whose compiled rule sets the box-shadow or a ring variable (`focus:ring-2`,
+ * `focus:[box-shadow:none]`, `focus:shadow-none`, `dark:focus:ring-offset-2`). Read off what Tailwind declares, not the
+ * class's spelling, so no arbitrary property or new utility slips past. A ring colour (`ring-brand`) sets only the
+ * colour, which the zeroed ring never shows.
+ */
+function competingRings(tokens: string[]): string[] {
+  return tokens.filter((t) => {
+    // The reset, and a pinned DS ring token in any theme (one in the wrong theme is the ring and twin check's finding).
+    if (FORMS_RING_OFF.includes(t) || RING_TOKENS.has(utilityOf(t).replace(/^!?shadow-/, ''))) return false
+    const focused = variantsOf(t).some((v) => FOCUS_STATES.has(v)) || utilityOf(t).startsWith('!')
+    return focused && [...(declared.get(t) ?? [])].some((prop) => SHADOW_PROPS.has(prop))
+  })
+}
 
 /** The modules that export the DS factory, as paths under frontend/ without extension. */
 const FACTORY_MODULES = new Set(['components/ui/Input', 'components/ui/index'])
@@ -564,11 +605,12 @@ function factoryBuilt(init: ts.JsxAttributeValue, isFactory: (e: ts.Node) => boo
  * (FORMS_RING_OFF) and draws a DS ring in both themes. The reset without a ring would leave no focus indicator: the
  * full-text search's date inputs had no DS ring, so the plugin's blue ring was their only one in dark.
  */
-function unringedFields(source: string, fileName: string): { fields: number; factory: number; findings: Finding[] } {
+function unringedFields(source: string, fileName: string): { fields: number; factory: number; findings: Finding[]; raw: RawField[] } {
   const sf = parse(source, fileName)
   const linkNames = defaultImportNames(sf, (m) => m === 'next/link')
   const isFactory = factoryCall(sf)
   const findings: Finding[] = []
+  const raw: RawField[] = []
   let fields = 0
   let factory = 0
   const visit = (node: ts.Node): void => {
@@ -590,20 +632,37 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
               ...(light.some((ring) => dark.includes(ring)) ? [] : ['its dark: twin in the same focus state']),
             ]
           : []
-        const extra = Array.isArray(tokens) ? tokens.filter((t) => !FORMS_RING_OFF.includes(t) && RING_WIDTH.test(utilityOf(t))) : []
         if (spread) findings.push({ line, tag, problem: 'a props spread the scan cannot read' })
         else if (!className) findings.push({ line, tag, problem: "no className, so the forms plugin's blue ring is its focus ring" })
         else if (!Array.isArray(tokens)) findings.push({ line, tag, problem: 'a className the scan cannot read' })
         else {
           if (missing.length) findings.push({ line, tag, problem: `missing ${missing.join(', ')}` })
-          if (extra.length) findings.push({ line, tag, problem: `${extra.join(' ')} beside the reset draws the plugin's ring again` })
+          raw.push({ line, tag, tokens })
         }
       }
     }
     ts.forEachChild(node, visit)
   }
   visit(sf)
-  return { fields, factory, findings }
+  return { fields, factory, findings, raw }
+}
+
+/** A field that styles itself, with its static classes, for the declaration check (competingRings). */
+interface RawField {
+  line: number
+  tag: string
+  tokens: string[]
+}
+
+/** The field scan of one source, the declaration check included: the token findings and each competing ring setter, by line. */
+async function fieldFindings(source: string, fileName: string): Promise<{ fields: number; factory: number; findings: Finding[] }> {
+  const { fields, factory, findings, raw } = unringedFields(source, fileName)
+  await loadDeclarations(raw.flatMap((f) => f.tokens))
+  const competing = raw.flatMap(({ line, tag, tokens }) => {
+    const extra = competingRings(tokens)
+    return extra.length ? [{ line, tag, problem: `${extra.join(' ')} draws on the focus ring beside the reset and the DS ring` }] : []
+  })
+  return { fields, factory, findings: [...findings, ...competing].sort((x, y) => x.line - y.line) }
 }
 
 /** The app's .tsx sources (app/, features/, components/), repository-relative. */
@@ -942,12 +1001,12 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
 })
 
 describe('every field the forms plugin styles takes its ring off and draws the DS ring, app-wide', () => {
-  it('the app’s own fields', () => {
+  it('the app’s own fields', async () => {
     let fields = 0
     let factory = 0
     const findings: string[] = []
     for (const file of appSources().filter((f) => f !== FIELD_FACTORY)) {
-      const result = unringedFields(readFileSync(path.join(ROOT, file), 'utf8'), file)
+      const result = await fieldFindings(readFileSync(path.join(ROOT, file), 'utf8'), file)
       fields += result.fields
       factory += result.factory
       findings.push(...result.findings.map((f) => `${file}:${f.line} <${f.tag}> ${f.problem}`))
@@ -986,7 +1045,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     ).toEqual({ factory: 0, findings: ['3 a className the scan cannot read'] })
   })
 
-  it('the field scan catches what it is for (a self-check on fixed sources)', () => {
+  it('the field scan catches what it is for (a self-check on fixed sources)', async () => {
     const reset = 'focus:ring-0 focus:ring-offset-0'
     const field = `focus:border-brand focus:shadow-ring-brand dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark ${reset}`
     const control = `${reset} focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark`
@@ -1022,14 +1081,17 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <input type="date" className="border focus:shadow-ring-error dark:focus:shadow-ring-error ${reset}" />
             <input type="date" className="border ${field} focus:ring-2" />
             <input type="date" className="border ${field} dark:focus:ring-offset-2 ring-brand" />
+            <input type="date" className="border ${field} focus:[box-shadow:none]" />
+            <input type="date" className="border ${field} focus-visible:shadow-none shadow-sm !shadow-none" />
           </>
         )
       }`
-    const { fields, factory, findings } = unringedFields(src, 'page.tsx')
+    const { fields, factory, findings } = await fieldFindings(src, 'page.tsx')
     const twin = 'its dark: twin in the same focus state'
+    const competing = 'draws on the focus ring beside the reset and the DS ring'
     const ring = 'a focus:shadow-ring-* or focus-visible:shadow-ring-*'
     expect(factory).toBe(2)
-    expect(fields).toBe(21)
+    expect(fields).toBe(23)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       `7 <input> missing focus:ring-0, focus:ring-offset-0, ${twin}`,
       `9 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
@@ -1054,8 +1116,12 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       // The light ring repeated under `dark:` is no dark twin; ring-error is its own until a dark token exists (line 30).
       `29 <input> missing ${twin}`,
       // A ring width or offset beside the reset draws the plugin's ring again; a ring colour does not.
-      "31 <input> focus:ring-2 beside the reset draws the plugin's ring again",
-      "32 <input> dark:focus:ring-offset-2 beside the reset draws the plugin's ring again",
+      // Any focus-state or !important class whose rule sets the box-shadow or a ring variable, read off Tailwind's compile:
+      // a ring width or offset, an arbitrary box-shadow, a shadow utility. A ring colour and a resting shadow do not.
+      `31 <input> focus:ring-2 ${competing}`,
+      `32 <input> dark:focus:ring-offset-2 ${competing}`,
+      `33 <input> focus:[box-shadow:none] ${competing}`,
+      `34 <input> focus-visible:shadow-none !shadow-none ${competing}`,
     ])
   })
 })
