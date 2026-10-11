@@ -12,9 +12,9 @@ except the pre-Settings infra-bootstrap constants in `database.py`, `redis_servi
 and `frontend/lib/featureFlags.ts`. Production uses a mix of Cloud Run environment overrides and Google Secret
 Manager mounts (see [DEPLOYMENT.md](DEPLOYMENT.md)).
 A settings validation error names the failing field and the reason but withholds the value (`REGISTRATION_MODE`'s
-own message quotes its value; it holds no secret), and a settings object prints no value
-(`lessons/ops-never-echo-environment-values.md`); to debug a value, read it from its source (Secret Manager,
-`backend/.env`).
+own message quotes its value; it holds no secret). A settings object prints no value, and `scripts/deploy_check.py`
+prints a secret's length and a database error's type only (`lessons/ops-never-echo-environment-values.md`). To debug
+a value, read it from its source (Secret Manager, `backend/.env`).
 
 > Moved out of CLAUDE.md in the July 2026 refactor (Wave 3 / M3) — this file is now the
 > canonical env reference; keep it in sync with `config.py` when adding fields.

@@ -14,16 +14,20 @@ the fix found four more, each gated here:
 - a settings object's repr carried every value, and Sentry's default local-variable capture
   serializes the repr of every frame local, so a captured error would have sent every secret;
 - a validator's own message can quote a value, which no pydantic setting hides;
-- `scripts/deploy_check.py` printed the first 30 characters of every value it checked.
+- `scripts/deploy_check.py` printed the first 30 characters of every value it checked, and its two
+  database checks printed an error message that can quote the database password.
 
-Not covered: a secret copied out of the settings object into another local or a request header still
-reaches Sentry's capture (a separate follow-up).
+Not covered: the echoes the lesson lists as ungated, such as a secret copied out of the settings object
+into another local or a request header, which still reaches Sentry's capture.
 """
 
 import ast
 import importlib
 import json
 import os
+import random
+import string
+import sys
 from pathlib import Path
 
 import pytest
@@ -94,6 +98,8 @@ def test_a_settings_object_prints_no_value():
     sent = json.dumps(serialize({"vars": {"settings": settings}}), default=str)
     for text in (repr(settings), str(settings), f"{settings!r}", f"{settings}", sent):
         assert "PRIVATE_" not in text
+    assert (repr(settings), str(settings)) == ("Settings()", "")
+    assert serialize({"vars": {"settings": settings}})["vars"]["settings"] == "Settings()"
 
 
 def _hides_input(call: ast.Call) -> bool:
@@ -137,6 +143,16 @@ def _scanned_files() -> list[Path]:
     ]
 
 
+def test_the_walk_reads_every_backend_file_outside_tests():
+    # A new directory of backend code joins the walk or fails here. Only tests/, a virtualenv and a hidden
+    # directory (a cache, a tool's state) are left out.
+    def kept(path: Path) -> bool:
+        top = path.relative_to(BACKEND_DIR).parts[0]
+        return top.endswith(".py") or (top not in {"tests", "venv"} and not top.startswith("."))
+
+    assert set(_scanned_files()) == {path for path in BACKEND_DIR.rglob("*.py") if kept(path)}
+
+
 def test_no_caught_exception_is_serialized_with_its_input():
     handled, found = set(), []
     for path in _scanned_files():
@@ -145,8 +161,8 @@ def test_no_caught_exception_is_serialized_with_its_input():
         if any(isinstance(node, ast.ExceptHandler) and node.name for node in ast.walk(tree)):
             handled.add(rel)
         found.extend(f"{rel}:{line}" for line in _structured_calls_with_input(tree))
-    # The walk reaches the one handler of a settings error, the one of a pydantic ValidationError, both
-    # entrypoints' neighbours and the evals.
+    # The walk reaches the one handler of a settings error (deploy_check), one of a pydantic ValidationError
+    # (tasks.py), an entrypoint (main.py) and the evals.
     assert {"scripts/deploy_check.py", "app/routers/tasks.py", "main.py"} <= handled
     assert any(rel.startswith("evals/") for rel in handled)
     assert not found, (
@@ -198,48 +214,53 @@ def test_the_structured_form_gate_flags_input(source, expected):
 
 # The one sanctioned quotation: REGISTRATION_MODE holds no secret, and a typo there must be visible.
 QUOTES_ITS_VALUE = {("_normalize_registration_mode", "v")}
-_MUTATORS = {"append", "extend", "insert", "add", "update"}
+_MUTATORS = {"append", "extend", "insert", "add", "update", "setdefault"}
 
 
 def _quoted(
-    node: ast.AST, assigned: dict[str, list[ast.expr]], constants: set[str], seen: frozenset[str] = frozenset()
+    node: ast.AST, assigned: dict[str, list[ast.expr]], local: frozenset[str], seen: frozenset[str] = frozenset()
 ) -> set[str]:
-    """What a message expression reads beyond constants, the module's ALL_CAPS constants and `len(...)`.
+    """What a message expression reads beyond literals, `len(...)` and names bound only to such expressions.
 
-    Default deny: every other name or attribute counts (a parameter such as `v` or `info`, `self.FIELD`,
-    `os.environ`, `os.getenv(...)`); a local counts through every expression assigned to it in the function.
-    `constants` holds only ALL_CAPS names bound at module level that the function does not shadow, so an
-    uppercase parameter or local is a value like any other.
+    Default deny: a name counts through every expression bound to it (see `_quotations`), and a name with no
+    expression bound to it counts as read: a parameter such as `v` or `info`, a `with` target, an import
+    (`getenv(...)`, `os.environ`), a builtin (`locals()`). An attribute counts unless it belongs to a literal
+    (`", ".join`) or to a name that reads nothing. The only calls that read nothing of their own are calls of a
+    name that neither the scope nor the module binds and that is an exception class (a CapWords name) or `sorted`.
     """
+
+    def read(child: ast.AST, more: frozenset[str] = frozenset()) -> set[str]:
+        return _quoted(child, assigned, local, seen | more)
+
     if isinstance(node, ast.Constant):
         return set()
     if isinstance(node, ast.Call):
-        if isinstance(node.func, ast.Name) and node.func.id == "len":
+        free = isinstance(node.func, ast.Name) and node.func.id not in local and node.func.id not in assigned
+        callee = node.func.id if free else ""
+        if callee == "len":
             return set()  # a length, never the value
-        called = set() if isinstance(node.func, ast.Name) else _quoted(node.func, assigned, constants, seen)
-        arguments = [*node.args, *(keyword.value for keyword in node.keywords)]
-        return called.union(*(_quoted(arg, assigned, constants, seen) for arg in arguments))
+        called = set() if callee[:1].isupper() or callee == "sorted" else read(node.func)
+        return called.union(*(read(arg) for arg in [*node.args, *(keyword.value for keyword in node.keywords)]))
     if isinstance(node, ast.Name):
         if node.id in assigned and node.id not in seen:
-            return set().union(*(_quoted(expr, assigned, constants, seen | {node.id}) for expr in assigned[node.id]))
-        return set() if node.id in constants else {node.id}
+            return set().union(*(read(expr, frozenset({node.id})) for expr in assigned[node.id]))
+        return {node.id}
     if isinstance(node, ast.Attribute):
         if isinstance(node.value, ast.Constant):
             return set()  # a method of a literal, such as ", ".join
-        inner = _quoted(node.value, assigned, constants, seen)
-        return {ast.unparse(node)} if inner or not isinstance(node.value, ast.Name) else set()
-    return set().union(*(_quoted(child, assigned, constants, seen) for child in ast.iter_child_nodes(node)))
+        return {ast.unparse(node)} if read(node.value) or not isinstance(node.value, ast.Name) else set()
+    return set().union(*(read(child) for child in ast.iter_child_nodes(node)))
 
 
-def _assignments(function: ast.AST) -> dict[str, list[ast.expr]]:
-    """Every expression the function binds or appends to a local name, tuple targets and loop variables included."""
+def _assignments(nodes: list[ast.AST]) -> dict[str, list[ast.expr]]:
+    """Every expression the nodes bind or add to a name: tuple targets, loop variables, `:=` and mutator calls."""
     assigned: dict[str, list[ast.expr]] = {}
 
     def bind(target: ast.AST, expr: ast.expr) -> None:
         for name in (node for node in ast.walk(target) if isinstance(node, ast.Name)):
             assigned.setdefault(name.id, []).append(expr)
 
-    for node in ast.walk(function):
+    for node in nodes:
         if isinstance(node, ast.Assign):
             for target in node.targets:
                 bind(target, node.value)
@@ -253,54 +274,69 @@ def _assignments(function: ast.AST) -> dict[str, list[ast.expr]]:
             and node.func.attr in _MUTATORS
             and isinstance(node.func.value, ast.Name)
         ):
-            for arg in node.args:
+            for arg in [*node.args, *(keyword.value for keyword in node.keywords)]:
                 bind(node.func.value, arg)
     return assigned
 
 
-def _module_constants(tree: ast.Module) -> set[str]:
-    """The ALL_CAPS names bound by an assignment at the module's top level, such as MIN_SECRET_KEY_LENGTH."""
-    targets = [
-        target
-        for node in tree.body
-        if isinstance(node, (ast.Assign, ast.AnnAssign))
-        for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
-    ]
-    return {
-        name.id for target in targets for name in ast.walk(target) if isinstance(name, ast.Name) and name.id.isupper()
-    }
+def _bound(nodes: list[ast.AST]) -> set[str]:
+    """Every name the nodes bind: a parameter, a store (an assignment, a loop, `with`, a comprehension, `:=`), an
+    `except ... as` or an import."""
+    names = set()
+    for node in nodes:
+        if isinstance(node, ast.arg):
+            names.add(node.arg)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            names.add(node.id)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            names.add(node.name)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            names.update((alias.asname or alias.name).split(".")[0] for alias in node.names)
+    return names
 
 
 def _quotations(tree: ast.Module) -> set[tuple[str, str]]:
-    """(function, what it quotes) for every raise or assert message in the module that reads a value."""
-    module_constants = _module_constants(tree)
+    """(scope, what it quotes) for every raise or assert message in the module that reads a value.
+
+    A message inside a function is read in that function's scope; one anywhere else (the module's own statements,
+    a class body) in `<module>`'s. A name counts through every expression its scope binds to it or, when the scope
+    binds it in no way at all, through every expression the module binds to it: `MIN_SECRET_KEY_LENGTH = 32`
+    reads nothing, a module name bound to `os.environ[...]` reads the environment, and an uppercase parameter is a
+    value like any other. A raise's `from` cause counts as part of its message: a traceback prints the cause too.
+    """
+    functions = [node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    in_a_function = {id(inner) for function in functions for inner in ast.walk(function)}
+    module = [node for node in ast.walk(tree) if id(node) not in in_a_function]
+    module_assigned = _assignments(module)
+    scopes = [(function.name, list(ast.walk(function))) for function in functions] + [("<module>", module)]
     found = set()
-    for function in (node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))):
-        assigned = _assignments(function)
-        arguments = function.args
-        params = {
-            arg.arg
-            for arg in [
-                *arguments.posonlyargs,
-                *arguments.args,
-                *arguments.kwonlyargs,
-                arguments.vararg,
-                arguments.kwarg,
-            ]
-            if arg is not None
-        }
-        constants = module_constants - params - set(assigned)
-        for node in ast.walk(function):
-            message = node.exc if isinstance(node, ast.Raise) else node.msg if isinstance(node, ast.Assert) else None
-            if message is not None:
-                found.update((function.name, name) for name in _quoted(message, assigned, constants))
+    for scope, nodes in scopes:
+        own = _assignments(nodes)
+        local = frozenset(_bound(nodes) | set(own))
+        assigned = {**{name: exprs for name, exprs in module_assigned.items() if name not in local}, **own}
+        for node in nodes:
+            if isinstance(node, ast.Raise):
+                messages = [node.exc, node.cause]
+            elif isinstance(node, ast.Assert):
+                messages = [node.msg]
+            else:
+                continue
+            for message in (message for message in messages if message is not None):
+                found.update((scope, name) for name in _quoted(message, assigned, local))
     return found
 
 
 def test_no_settings_message_quotes_a_value():
-    # Every validator lives in config.py's one class, whose only base is pydantic-settings' own.
+    # Every validator lives in config.py's one class, whose only base is pydantic-settings' own, and none is
+    # attached through Annotated, whose function could live in another module, outside this walk.
     assert Settings.__bases__ == (BaseSettings,)
     tree = ast.parse((BACKEND_DIR / "app" / "config.py").read_text(encoding="utf-8"))
+    used = {
+        *(node.id for node in ast.walk(tree) if isinstance(node, ast.Name)),
+        *(node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)),
+        *(alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) for alias in node.names),
+    }
+    assert not used & {"Annotated", "AfterValidator", "BeforeValidator", "PlainValidator", "WrapValidator"}
     assert _quotations(tree) == QUOTES_ITS_VALUE, (
         "A raise or assert message in app/config.py reads a value (a parameter, a field, the environment), and no "
         "pydantic setting hides a validator's own message. Report the field and the reason, or a length (`len(v)`); "
@@ -371,6 +407,37 @@ _CLASS = "class Settings:\n"
             {("check", "MIN")},
         ),
         (_CLASS + "    def check(cls, v):\n        raise ValueError(f'bad {TOKEN}')\n", {("check", "TOKEN")}),
+        (
+            "MIN = 1\n" + _CLASS + "    def check(cls, v):\n        with open(v) as MIN:\n"
+            "            raise ValueError(f'bad {MIN}')\n",
+            {("check", "MIN")},
+        ),
+        (_CLASS + "    def check(cls, v):\n        raise ValueError(f'bad {locals()}')\n", {("check", "locals")}),
+        (
+            "from os import getenv\n" + _CLASS + "    def check(self):\n        raise ValueError(f'{getenv(\"K\")}')\n",
+            {("check", "getenv")},
+        ),
+        (_CLASS + "    def check(cls, Wrap):\n        raise ValueError(Wrap())\n", {("check", "Wrap")}),
+        (
+            _CLASS + "    def check(cls, v):\n        d = {}\n        d.update(key=v)\n        raise ValueError(f'{d}')\n",
+            {("check", "v")},
+        ),
+        (
+            _CLASS + "    def check(cls, v):\n        d = {}\n        d.setdefault('key', v)\n"
+            "        raise ValueError(f'{d}')\n",
+            {("check", "v")},
+        ),
+        (_CLASS + "    def check(cls, v):\n        raise ValueError('bad') from ValueError(v)\n", {("check", "v")}),
+        ("import os\nif os.environ:\n    raise RuntimeError(f'{os.environ}')\n", {("<module>", "os.environ")}),
+        (
+            "import os\nKEY = os.environ['K']\n" + _CLASS + "    def check(cls, v):\n        raise ValueError(f'bad {KEY}')\n",
+            {("check", "os.environ")},
+        ),
+        (
+            "import os\nFetch = os.environ.get\n" + _CLASS + "    def check(cls, v):\n"
+            "        raise ValueError(f'bad {Fetch(\"K\")}')\n",
+            {("check", "os.environ.get")},
+        ),
         (_CLASS + "    def check(cls, v):\n        raise ValueError('must be set')\n", set()),
     ],
     ids=[
@@ -395,6 +462,16 @@ _CLASS = "class Settings:\n"
         "uppercase-local",
         "shadowed-constant",
         "undefined-uppercase",
+        "with-shadowed-constant",
+        "bare-call",
+        "bare-environment",
+        "parameter-callee",
+        "keyword-mutation",
+        "setdefault",
+        "cause",
+        "module-level",
+        "module-value",
+        "assigned-callee",
         "plain",
     ],
 )
@@ -402,17 +479,33 @@ def test_the_message_gate_flags_a_quoted_value(source, expected):
     assert _quotations(ast.parse(source)) == expected
 
 
+def _fabricated(name: str) -> str:
+    """A fabricated 40-character secret, the same on every run: drawn at run time, so no literal here looks like one."""
+    return "".join(random.Random(name).choices(string.ascii_letters + string.digits, k=40))
+
+
+def _fragments(secret: str, text: str) -> int:
+    """How many of the secret's 4-character windows the text holds: a prefix, a last four or the whole value."""
+    return sum(secret[i : i + 4] in text for i in range(len(secret) - 3))
+
+
+def _deploy_check(monkeypatch):
+    monkeypatch.syspath_prepend(str(BACKEND_DIR / "scripts"))
+    return importlib.import_module("deploy_check")
+
+
 def test_the_deploy_check_prints_no_secret(monkeypatch, capsys):
     # The environment and configuration checks print a secret's presence and length only. The model id and the
     # provider base URL are identifiers, not secrets, and are printed by design.
-    monkeypatch.syspath_prepend(str(BACKEND_DIR / "scripts"))
-    deploy_check = importlib.import_module("deploy_check")
+    deploy_check = _deploy_check(monkeypatch)
+    names = ("OPENAI_API_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "SECRET_KEY", "DATABASE_URL")
+    secrets = {name: _fabricated(name) for name in names}
     values = {
-        "OPENAI_API_KEY": "sk-PRIVATE_OPENAI_7c1e_" + "x" * 30,
-        "STRIPE_SECRET_KEY": "sk_live_PRIVATE_STRIPE_7c1e_" + "x" * 20,
-        "STRIPE_WEBHOOK_SECRET": "whsec_PRIVATE_HOOK_7c1e",
-        "SECRET_KEY": "PRIVATE_SIGNING_7c1e_" + "x" * MIN_SECRET_KEY_LENGTH,  # fabricated sentinel  # gitleaks:allow
-        "DATABASE_URL": "postgresql://app:PRIVATE_DB_7c1e@db/app",
+        "OPENAI_API_KEY": "sk-" + secrets["OPENAI_API_KEY"],
+        "STRIPE_SECRET_KEY": "sk_live_" + secrets["STRIPE_SECRET_KEY"],
+        "STRIPE_WEBHOOK_SECRET": "whsec_" + secrets["STRIPE_WEBHOOK_SECRET"],
+        "SECRET_KEY": secrets["SECRET_KEY"],
+        "DATABASE_URL": f"postgresql://app:{secrets['DATABASE_URL']}@db/app",
     }
     for name, value in values.items():
         monkeypatch.setattr(deploy_check.settings, name, value)
@@ -421,4 +514,24 @@ def test_the_deploy_check_prints_no_secret(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "✓ Set (" in out  # the set-and-valid branch ran
     assert "Stripe Configuration" in out  # the configuration check ran
-    assert "PRIVATE_" not in out
+    leaked = sum(_fragments(secret, out) for secret in secrets.values())
+    assert not leaked, f"{leaked} four-character fragments of a fabricated secret reached the output"
+
+
+def test_the_deploy_check_database_checks_print_no_secret(monkeypatch, capsys):
+    # A URL missing its `@host` puts the password where the port goes, and the int() that parses the port quotes
+    # it in the error both database checks catch. app.database is dropped from the module cache, so each check
+    # imports it afresh and its create_engine reads this URL; the cache entry and the package attribute are
+    # restored afterwards.
+    deploy_check = _deploy_check(monkeypatch)
+    password = _fabricated("DATABASE_URL password")
+    monkeypatch.setattr(deploy_check.settings, "DATABASE_URL", f"postgresql://app:{password}/app")
+    app_package = importlib.import_module("app")
+    monkeypatch.setattr(app_package, "database", getattr(app_package, "database", None), raising=False)
+    monkeypatch.delitem(sys.modules, "app.database", raising=False)
+    assert deploy_check.check_database() is False
+    deploy_check.check_phase2_alerts()
+    out = capsys.readouterr().out
+    assert out.count("(message withheld: it can quote DATABASE_URL)") == 2  # both handlers caught the error
+    leaked = _fragments(password, out)
+    assert not leaked, f"{leaked} four-character fragments of the fabricated password reached the output"

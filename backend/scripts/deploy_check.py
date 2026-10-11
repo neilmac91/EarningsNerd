@@ -130,7 +130,7 @@ def check_environment_variables():
                 print(f"   ⚠️  WARNING: {var_name} is set but may be invalid")
                 warnings.append(var_name)
         elif check["set"]:
-            # The length only: a value's characters never reach the output, secrets included
+            # A secret's length only, never its characters; the model id and the base URL are printed by design
             # (lessons/ops-never-echo-environment-values.md; gate: tests/unit/test_never_echo_environment_values.py).
             print(f"   ✓ Set ({len(str(getattr(settings, var_name)))} characters)")
     
@@ -206,7 +206,9 @@ def check_database():
             
             return True
     except Exception as e:
-        print(f"✗ Database connection failed: {e}")
+        # The type only: the message can quote DATABASE_URL. A URL missing its `@host` puts the password where
+        # the port goes, and the int() that parses the port quotes it (same gate as above).
+        print(f"✗ Database connection failed: {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
         return False
 
 
@@ -287,7 +289,11 @@ def check_phase2_alerts():
             else:
                 print(f"✓ {table} has alert columns")
     except Exception as e:
-        print(f"⚠️  Could not inspect DB for Phase 2 columns: {e}")
+        # The type only, as in check_database: the message can quote DATABASE_URL.
+        print(
+            f"⚠️  Could not inspect DB for Phase 2 columns: {type(e).__name__} "
+            "(message withheld: it can quote DATABASE_URL)"
+        )
         warnings.append("phase2_db_inspect_failed")
 
     # Alerts/digests send from settings.RESEND_FROM_EMAIL via Resend — both must be set.

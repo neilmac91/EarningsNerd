@@ -30,7 +30,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-job-success-needs-outcome-evidence.md — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 - ops-keep-moving-under-standing-authorization.md — Keep moving under a standing founder authorization; stop only at the boundaries still held
 - ops-mutate-only-committed-state.md — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit
-- ops-never-echo-environment-values.md — Never let a settings error, a settings object or a config check print a secret; a caught error's errors()/json() pass include_input=False, and agent probes run under env -i with no .env in reach
+- ops-never-echo-environment-values.md — Never let a settings error, a settings object or a config check print a secret; a caught error's errors()/json() pass include_input=False, and agent probes run under env -i in an export with no .env at any level
 - ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
 - ops-one-test-process-per-worktree.md — give each test process its own database, and never let a test depend on another test's order or leftovers
 - ops-release-cached-filing-reads-before-yield.md — Close completed filing reads before async dependency cleanup can be blocked by a competing checkout
