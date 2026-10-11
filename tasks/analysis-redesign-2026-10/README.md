@@ -27,7 +27,8 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   same ten configurations as the prototype harness (six widths, 200% zoom, 200% text at 1480, 390 and
   320), both themes. Output: `measurements/current.json`. By default it serves the build itself (`next start`
   through Next's own CLI, in `build-hash.mjs`'s controlled environment with `WAITLIST_MODE=false`, on `--port`,
-  default 3100), records how, and stops the server when the run ends; `--base <url>` measures a server started
+  default 3100), records how, and stops the server when the run ends; it checks the build's output and its install
+  against the stamp before it serves and again after the server stops, and writes the recording only if both hold; `--base <url>` measures a server started
   elsewhere, whose environment it cannot see, and the baseline refuses that.
   The recorded run measured `main` at `97293e7`, before #1199–#1203 replaced the labels, the cards, the
   table, the dialog, the narrative and the picker; it was retaken with the widened probes (text-node
@@ -69,16 +70,17 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   while it holds nothing but heap sizes: its other flags, such as `--require`, run code in every build process, so
   they are refused; credentials, Sentry and Vercel variables are dropped), and records the stamp's format, the
   commit, the `frontend/` tree, the build id, Node and its heap sizes, the npm version and the install's package counts, the public variables, a content hash of
-  `.next/static/media`, where the fonts `next/font` downloads at build time sit, and a content hash of the build's
-  whole output (everything under `.next` but Next's caches), so a file edited, added or removed there after the
-  stamp no longer matches it.
+  `.next/static/media`, where the fonts `next/font` downloads at build time sit, a content hash of the build's
+  whole output (everything under `.next` but Next's caches) and a content hash of `node_modules` after the build, so
+  a file edited, added or removed in either after the stamp no longer matches it.
 - `harness/build-hash.mjs` — how `build-stamped.mjs` and `measure-current.mjs` hash a build, the stamp format they
   share, and the controlled environment both run Next in (the build, and the harness's own server), so the stamp's
   writer and its checker agree: the media hash, which is reproducible across builds of one
   tree (the baseline pins it), and the output hash, which leaves out `cache/`, `next dev`'s `dev/`, the pages
   `next start` caches in `server/route-cache/` while it serves, and the stamp. It differs between two builds of one
   tree (the build id and the prerendered pages differ), so it binds the served bytes to one stamped build and is not
-  pinned. The baseline needs a stamp of the current format, `STAMP_FORMAT`, raised whenever what a stamp guarantees
+  pinned; and the install hash, everything under `node_modules` but a tool cache, which `next start` does not write.
+  The baseline needs a stamp of the current format, `STAMP_FORMAT`, raised whenever what a stamp guarantees
   changes.
 - `harness/build_states.py`, `harness/prune_states.py` — reproduce `prototype/data/` from a saved
   companyfacts payload.

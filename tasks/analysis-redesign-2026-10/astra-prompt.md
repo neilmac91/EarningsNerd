@@ -109,7 +109,7 @@ hash of its whole output) and this tree's harness with `--build ../en-97293e7`, 
 (`next start` through Next's own CLI in the same controlled environment, with `WAITLIST_MODE=false`, no backend)
 (`97293e7` has no harness; the harness verifies that the
 server serves that worktree's build id, that the stamp names it, that checkout's `frontend/` tree, the build's
-fonts and its output unchanged since the stamp, and that
+fonts, and its output and installed packages unchanged since the stamp, before the run and after it, and that
 the build's variables, fonts and fixtures match its pins, and records them). Run `measure-current.mjs` on current `main` only as a fresh measurement of the shipped
 components (its probes find that markup by data attribute), never as a comparison with the recording: the
 counts and geometry differ by design, and the harness refuses to write `measurements/current.json` for any

@@ -12,7 +12,9 @@ import path from 'node:path'
 // platform package possibly absent, no unlisted top-level package).
 // 4: and that install was made by `npm ci` from the lockfile right before the build, so the packages' contents are the
 // lockfile's tarballs (npm checks each against the lockfile's integrity hash), not an earlier or edited install.
-export const STAMP_FORMAT = 4
+// 5: and the stamp records the install's content hash right after the build, which measure-current.mjs checks before
+// it serves the build and again after, so the server runs from the install the stamp names.
+export const STAMP_FORMAT = 5
 
 // The env files Next loads, at `next build` and at `next start` alike; git ignores all four, so `git status` never
 // shows them.
@@ -66,3 +68,7 @@ export const hashOutput = (nextDir) => hashDir(nextDir, OUTPUT_SKIP)
 // The fonts next/font downloads from Google at build time and the assets the build copies: reproducible across
 // builds of one tree, so the baseline pins it.
 export const hashMedia = (nextDir) => hashDir(path.join(nextDir, 'static', 'media'))
+// The install the build ran and the server runs from: every file and link under node_modules but a tool cache
+// (.cache). `npm ci` and the build leave it as the stamp records it, and `next start` does not write there (checked
+// on Next 16.3.8: 72,258 entries, about 3 s to hash).
+export const hashInstall = (frontendDir) => hashDir(path.join(frontendDir, 'node_modules'), ['.cache'])

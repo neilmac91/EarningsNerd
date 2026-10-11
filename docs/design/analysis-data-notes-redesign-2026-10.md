@@ -1118,7 +1118,8 @@ correction landed in this document:
   lockfile describes (`node_modules` is ignored by git, so an install made for another revision or edited since
   would otherwise build silently); the baseline needs a stamp of the format that guarantees all of this, measured
   on a server the harness starts itself, `next start` through Next's own CLI in the same controlled environment,
-  which the recording describes; `97293e7` has no harness, so the baseline
+  which the recording describes, and the build's output and its `node_modules` must still hash as the stamp recorded
+  them before the run and again after it, or nothing is written; `97293e7` has no harness, so the baseline
   is retaken by this tree's harness with `--build` pointing at a worktree of that revision, built there with
   `build-stamped.mjs`. The harness compares its output and data paths as canonical paths, so a symbolic link
   to the baseline, a path through a linked directory, or a hard link on the baseline's inode (compared by device

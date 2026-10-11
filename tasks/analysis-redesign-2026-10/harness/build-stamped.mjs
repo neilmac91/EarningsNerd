@@ -24,7 +24,8 @@
 //     install, env, media, output, stampedBy } right after the build: format is build-hash.mjs's STAMP_FORMAT, node the
 //     version that ran the build, nodeOptions the heap sizes it ran with (null for none), install the npm version that
 //     ran `npm ci` with how many of the lockfile's packages were installed and checked and how many optional ones were
-//     absent, env the NEXT_PUBLIC_* set the build saw (public by design, since it ships in the client bundles), media
+//     absent and the content hash of node_modules after the build (files and hash; measure-current.mjs checks it
+//     before and after it serves the build), env the NEXT_PUBLIC_* set the build saw (public by design, since it ships in the client bundles), media
 //     the content hash of .next/static/media, where the build puts the fonts next/font downloads from Google and the
 //     assets it copies, and output the content hash of everything the build wrote under .next but Next's caches
 //     (build-hash.mjs names them), so a file edited, added or removed there later no longer matches the stamp.
@@ -35,7 +36,7 @@ import { execFileSync, execSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ENV_FILES, STAMP_FORMAT, controlledEnv, hashMedia, hashOutput, heapOptions } from './build-hash.mjs'
+import { ENV_FILES, STAMP_FORMAT, controlledEnv, hashInstall, hashMedia, hashOutput, heapOptions } from './build-hash.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const CHECKOUT = path.resolve(process.argv[2] || path.join(HERE, '..', '..', '..'))
@@ -95,7 +96,7 @@ const stamp = {
   builtAt: statSync(buildIdFile).mtime.toISOString(),
   node: process.version,
   nodeOptions: nodeOptions || null,
-  install: { by: 'npm ci', npm: npmVersion, packages: listed.length - optionalAbsent, optionalAbsent },
+  install: { by: 'npm ci', npm: npmVersion, packages: listed.length - optionalAbsent, optionalAbsent, ...hashInstall(frontend) },
   env,
   media: hashMedia(nextDir),
   output: hashOutput(nextDir),

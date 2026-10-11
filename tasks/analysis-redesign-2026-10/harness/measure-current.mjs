@@ -32,10 +32,12 @@
 // build-stamped.mjs stamped with its source tree, build inputs and output (frontend/.next/SOURCE_TREE.json; .next is
 // ignored by git, so the stamp is the only link between a build and its inputs; when present it must name the served
 // build id and the checkout's frontend/ tree, its media hash must match the build's .next/static/media, where the
-// fonts next/font downloaded sit, and its output hash must match everything the build wrote under .next but Next's
-// caches, so a file edited, added or removed there after the stamp is caught); for the baseline the stamp must be of
+// fonts next/font downloaded sit, its output hash must match everything the build wrote under .next but Next's
+// caches and its install hash the checkout's node_modules, before the run and again after it, so a file edited, added
+// or removed in either after the stamp is caught, and nothing is written then); for the baseline the stamp must be of
 // build-hash.mjs's STAMP_FORMAT (the build ran `next build` itself, not through npm, right after `npm ci` installed
-// the lockfile's packages, with no Node flags but heap sizes, and the stamp records its output), its public build
+// the lockfile's packages, with no Node flags but heap sizes, and the stamp records its output and its install's
+// content hash, both checked before and after the run), its public build
 // variables and media hash must equal the pins in BASELINE, and the harness must serve the build itself.
 // 97293e7 has no harness, so the baseline is retaken by running this tree's harness with --build pointing at a
 // worktree of that revision, built there with build-stamped.mjs.
@@ -46,7 +48,7 @@ import { createServer } from 'node:net'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
-import { ENV_FILES, STAMP_FORMAT, controlledEnv, hashMedia, hashOutput, heapOptions } from './build-hash.mjs'
+import { ENV_FILES, STAMP_FORMAT, controlledEnv, hashInstall, hashMedia, hashOutput, heapOptions } from './build-hash.mjs'
 // The cloud image ships Playwright globally (NODE_PATH, CommonJS); the frontend's own @playwright/test works too.
 const require = createRequire(import.meta.url)
 const { chromium } = require('playwright')
@@ -100,15 +102,21 @@ if (!SERVED.commit) throw new Error(`${BUILD} is not a git checkout: pass --buil
 // The build's stamp, written by build-stamped.mjs right after `npm run build` from a clean frontend tree. The
 // harness cannot see which tree a build came from (.next is ignored by git), so a stamped build is required for
 // the baseline and, whenever a stamp is present, it must name this build id and the checkout's frontend/ tree, and
-// the build's output and media must still hash as the stamp recorded them (build-hash.mjs: the server's own writes
-// while it serves, its route cache, are left out).
+// the build's output, media and install must still hash as the stamp recorded them (build-hash.mjs: the server's own
+// writes while it serves, its route cache, are left out), checked before measuring and again after the server stops,
+// so the recording is written only if the pages were served by the stamped build from the stamped install.
 const nextDir = path.join(BUILD, 'frontend', '.next')
+const verifyAgainstStamp = (when) => {
+  if (!STAMP) return
+  if (STAMP.output) { const output = hashOutput(nextDir); if (output.hash !== STAMP.output.hash) throw new Error(`${when}, the build at ${BUILD} is not the output its stamp recorded right after the build: .next outside Next's caches holds ${output.files} files hashing ${output.hash.slice(0, 12)}…, the stamp ${STAMP.output.files} files hashing ${String(STAMP.output.hash).slice(0, 12)}…, so a file there was edited, added or removed since: rebuild with harness/build-stamped.mjs`) }
+  if (STAMP.install && STAMP.install.hash) { const install = hashInstall(path.join(BUILD, 'frontend')); if (install.hash !== STAMP.install.hash) throw new Error(`${when}, ${path.join(BUILD, 'frontend', 'node_modules')} is not the install its stamp recorded right after the build: ${install.files} files hashing ${install.hash.slice(0, 12)}…, the stamp ${STAMP.install.files} files hashing ${String(STAMP.install.hash).slice(0, 12)}…, so a package there was edited, added or removed since: rebuild with harness/build-stamped.mjs`) }
+}
 const stampFile = path.join(nextDir, 'SOURCE_TREE.json')
 let STAMP = null
 if (existsSync(stampFile)) {
   try { STAMP = JSON.parse(readFileSync(stampFile, 'utf8')) } catch { throw new Error(`${stampFile} is not JSON: rebuild with harness/build-stamped.mjs`) }
   if (!STAMP || STAMP.buildId !== SERVED.buildId) throw new Error(`the stamp at ${stampFile} names build ${STAMP && STAMP.buildId}, but the build there is ${SERVED.buildId}: rebuild with harness/build-stamped.mjs`)
-  if (STAMP.output) { const output = hashOutput(nextDir); if (output.hash !== STAMP.output.hash) throw new Error(`the build at ${BUILD} is not the output its stamp recorded right after the build: .next outside Next's caches holds ${output.files} files hashing ${output.hash.slice(0, 12)}…, the stamp ${STAMP.output.files} files hashing ${String(STAMP.output.hash).slice(0, 12)}…, so a file there was edited, added or removed since: rebuild with harness/build-stamped.mjs`) }
+  verifyAgainstStamp('before measuring')
   if (STAMP.media) { const media = hashMedia(nextDir); if (media.hash !== STAMP.media.hash) throw new Error(`the build at ${BUILD} holds other fonts and assets in .next/static/media (${media.files} files, ${media.hash.slice(0, 12)}…) than its stamp records (${STAMP.media.files} files, ${String(STAMP.media.hash).slice(0, 12)}…): rebuild with harness/build-stamped.mjs`) }
   if (STAMP.frontendTree !== SERVED.frontendTree) throw new Error(`the build at ${BUILD} was stamped from frontend tree ${String(STAMP.frontendTree).slice(0, 7)}, but the checkout's frontend/ is ${String(SERVED.frontendTree).slice(0, 7)}: rebuild with harness/build-stamped.mjs from the checkout the server should serve`)
 }
@@ -166,7 +174,7 @@ if (WRITING_BASELINE) {
   if (what) throw new Error(`${BASELINE.file} is written only from clean trees: ${what}; commit or stash them, or pass --out <another file>`)
   if (!OWN_SERVER) throw new Error(`${BASELINE.file} is measured only on a server the harness starts itself, in the controlled environment it records; a server at --base ${args.base} runs in an environment the harness cannot see: drop --base (and pass --port if 3100 is taken)`)
   if (!STAMP) throw new Error(`${BASELINE.file} is written only from a stamped build: build ${BUILD} with harness/build-stamped.mjs (it writes frontend/.next/SOURCE_TREE.json from the clean checkout right after the build) and serve that build`)
-  if (STAMP.format !== STAMP_FORMAT) throw new Error(`${BASELINE.file} is written only from a stamp of format ${STAMP_FORMAT} (the build ran \`next build\` itself, not through npm, right after \`npm ci\` installed the lockfile's packages, with no Node flags but heap sizes, and the stamp records its whole output); the stamp at ${stampFile} is ${STAMP.format === undefined ? 'from an older build-stamped.mjs' : `of format ${JSON.stringify(STAMP.format)}`}: rebuild with harness/build-stamped.mjs (the README's command)`)
+  if (STAMP.format !== STAMP_FORMAT) throw new Error(`${BASELINE.file} is written only from a stamp of format ${STAMP_FORMAT} (the build ran \`next build\` itself, not through npm, right after \`npm ci\` installed the lockfile's packages, with no Node flags but heap sizes, and the stamp records its whole output and its install's content hash, both checked before and after the run); the stamp at ${stampFile} is ${STAMP.format === undefined ? 'from an older build-stamped.mjs' : `of format ${JSON.stringify(STAMP.format)}`}: rebuild with harness/build-stamped.mjs (the README's command)`)
   const env =STAMP.env ? JSON.stringify(STAMP.env) : null
   if (env !== JSON.stringify(BASELINE.buildEnv)) throw new Error(`${BASELINE.file} records a build whose public build variables were exactly ${JSON.stringify(BASELINE.buildEnv)}; the stamp at ${stampFile} records ${env || 'none (it predates recorded build inputs)'}: rebuild with harness/build-stamped.mjs and exactly those variables (the README's command)`)
   if (!STAMP.media || STAMP.media.hash !== BASELINE.media.hash) throw new Error(`${BASELINE.file} records a build whose downloaded fonts and assets hash ${BASELINE.media.hash.slice(0, 12)}… (${BASELINE.media.files} files in .next/static/media); the build at ${BUILD} has ${STAMP.media ? `${STAMP.media.hash.slice(0, 12)}… (${STAMP.media.files} files)` : 'none recorded'}: retaking the baseline with other fonts needs a new pin here and a README note`)
@@ -353,9 +361,15 @@ async function serve() {
   throw new Error(`next start for ${BUILD} did not serve its build manifest on port ${PORT} within 60 s: ${tail()}`)
 }
 
+const stop = (child) => new Promise((resolve) => { if (child.exitCode !== null) return resolve(); child.once('exit', resolve); child.kill() })
+
 async function run() {
   const server = SERVE ? await serve() : null
-  try { await measureAll() } finally { if (server) server.kill() }
+  let results
+  try { results = await measureAll() } finally { if (server) await stop(server) }
+  verifyAgainstStamp('after measuring')
+  mkdirSync(path.dirname(OUT), { recursive: true })
+  writeFileSync(OUT, JSON.stringify(results, null, 1))
 }
 
 async function measureAll() {
@@ -392,9 +406,8 @@ async function measureAll() {
       await context.close()
     }
   }
-  mkdirSync(path.dirname(OUT), { recursive: true })
-  writeFileSync(OUT, JSON.stringify(results, null, 1))
   await browser.close()
+  return results
 }
 
 run().catch((e) => { console.error(e); process.exit(1) })
