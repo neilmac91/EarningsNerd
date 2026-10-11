@@ -659,6 +659,8 @@ function inlineRing(attr: ts.JsxAttribute | undefined): string | null {
 /** The DS factory, and the class joiners a field's classes may be written with: clsx, and the DS `cx`. */
 const FACTORY_IMPORTS = { 'components/ui/Input': ['inputClasses'], 'components/ui/index': ['inputClasses'] }
 const JOINER_IMPORTS = { clsx: ['clsx', 'default'], 'components/ui/cx': ['cx'], 'components/ui/index': ['cx'] }
+/** The DS field components, which pass a `style` prop on to their field through `...rest`. */
+const FIELD_COMPONENT_IMPORTS = { 'components/ui/Input': ['Input', 'Textarea', 'Select'], 'components/ui/index': ['Input', 'Textarea', 'Select'] }
 
 /** Whether a className is built by the DS factory: `inputClasses(…)` itself, a direct argument of `cx`/`clsx`, or a
     template's `${…}`. A call nested anywhere else (a branch of a condition) leaves the other branch a field that styles
@@ -684,6 +686,7 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
   const linkNames = defaultImportNames(sf, (m) => m === 'next/link')
   const isFactory = importedName(sf, FACTORY_IMPORTS)
   const isJoiner = importedName(sf, JOINER_IMPORTS)
+  const isFieldComponent = importedName(sf, FIELD_COMPONENT_IMPORTS)
   const findings: Finding[] = []
   const raw: RawField[] = []
   let fields = 0
@@ -692,8 +695,9 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       const { tag, attr, focusable, field, spread } = classify(node, sf, linkNames)
       const className = attr('className')
-      // An inline style outranks every class, the factory's included, so it is read before the factory exemption.
-      const inline = field && focusable ? inlineRing(attr('style')) : null
+      // An inline style outranks every class, the factory's included, so it is read before the factory exemption, and
+      // on a DS field component too, which passes it on to its field (`<Input style={{ boxShadow: 'none' }} />`).
+      const inline = (field && focusable) || isFieldComponent(node.tagName as ts.Expression) ? inlineRing(attr('style')) : null
       if (inline) findings.push({ line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1, tag, problem: inline })
       // A spread may replace the className, the factory's included, so it is read before the factory exemption.
       if (field && focusable && !spread && className?.initializer && factoryBuilt(className.initializer, isFactory, isJoiner)) factory += 1
@@ -1133,6 +1137,10 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     expect(joined(`import cx from 'clsx'`)).toEqual([])
     expect(joined(`const cx = (...c: string[]) => ''`)).toEqual(['2 a className the scan cannot read'])
     expect(joined(`import { cx } from '@/lib/strings'`)).toEqual(['2 a className the scan cannot read'])
+    // And the field components: a page's own `Input` is not the DS one, so its style is its own business.
+    const styled = `export const F = () => <Input style={{ boxShadow: 'none' }} />`
+    expect(at(`import { Input } from '@/components/ui'\n${styled}`).findings).toEqual(['2 an inline boxShadow, which outranks the DS ring'])
+    expect(at(`const Input = (p: { style?: object }) => <div {...p} />\n${styled}`).findings).toEqual([])
   })
 
   it('the field scan catches what it is for (a self-check on fixed sources)', async () => {
@@ -1140,7 +1148,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     const field = `focus:border-brand focus:shadow-ring-brand dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark ${reset}`
     const control = `${reset} focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark`
     const src = `
-      import { inputClasses } from '@/components/ui/Input'
+      import { inputClasses, Input, Textarea } from '@/components/ui/Input'
       import { clsx } from 'clsx'
       export function F({ c, busy, rest }: Props) {
         return (
@@ -1188,6 +1196,8 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <input type="date" className="border ${field}" style={{ maxWidth: 200 }} />
             <input type="date" className="border ${field}" style={c} />
             <input className={inputClasses()} style={{ '--tw-shadow': '0 0 #0000' }} />
+            <Input style={{ boxShadow: 'none' }} />
+            <Textarea variant="composer" style={{ maxHeight: 120, overflowY: 'auto' }} />
           </>
         )
       }`
@@ -1251,6 +1261,8 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       '46 <input> an inline boxShadow, which outranks the DS ring',
       '48 <input> a style prop the scan cannot read',
       '49 <input> an inline --tw-shadow, which outranks the DS ring',
+      // A DS field component passes its style on to its field: read like a raw field's (the composer's passes).
+      '50 <Input> an inline boxShadow, which outranks the DS ring',
     ])
   })
 })
