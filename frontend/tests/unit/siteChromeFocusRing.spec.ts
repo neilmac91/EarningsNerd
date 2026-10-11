@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
+import { bindingResolver } from './astBindings'
 
 /**
  * Every control in the site chrome shows the brand focus ring, never the browser's default outline
@@ -493,12 +494,41 @@ const DS_RING = /^(focus|focus-visible):!?shadow-ring-(?!\S*-dark$)/
 const DS_RING_DARK = /^dark:(focus|focus-visible):!?shadow-ring-/
 const ringStates = (tokens: string[], pattern: RegExp) => tokens.flatMap((t) => t.match(pattern)?.[1] ?? [])
 
+/** The modules that export the DS factory, as paths under frontend/ without extension. */
+const FACTORY_MODULES = new Set(['components/ui/Input', 'components/ui/index'])
+
+/** `@/components/ui` and `../ui/Input` alike, as a path under frontend/ without extension; a package stays as is. */
+function moduleKey(file: string, specifier: string): string {
+  let key = specifier
+  if (specifier.startsWith('@/')) key = specifier.slice(2)
+  else if (specifier.startsWith('.')) key = path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier))
+  else return specifier
+  key = key.replace(/\.(tsx?|js)$/, '')
+  return key === 'components/ui' ? 'components/ui/index' : key
+}
+
+/** Whether a call is the DS factory: a reference to `inputClasses` imported (under any name) from components/ui/Input or
+    the components/ui barrel, with no local binding of that name shadowing the import. A page's own helper of that name,
+    or one imported from elsewhere, is not the factory, so its field is read like any other. */
+function factoryCall(sf: ts.SourceFile): (e: ts.Node) => boolean {
+  const resolve = bindingResolver(sf)
+  const imported = new Set<string>()
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier)) continue
+    if (!FACTORY_MODULES.has(moduleKey(sf.fileName, st.moduleSpecifier.text))) continue
+    const named = st.importClause?.namedBindings
+    if (named && ts.isNamedImports(named)) {
+      for (const el of named.elements) if ((el.propertyName ?? el.name).text === 'inputClasses') imported.add(el.name.text)
+    }
+  }
+  return (e) => ts.isCallExpression(e) && ts.isIdentifier(e.expression) && imported.has(e.expression.text) && !resolve(e.expression)
+}
+
 /** Whether a className is built by the DS factory: `inputClasses(…)` itself, a direct argument of `cx`/`clsx`, or a
     template's `${…}`. A call nested anywhere else (a branch of a condition) leaves the other branch a field that styles
     itself, so that className is read like any other (and a condition is unreadable). */
-function factoryBuilt(init: ts.JsxAttributeValue): boolean {
+function factoryBuilt(init: ts.JsxAttributeValue, isFactory: (e: ts.Node) => boolean): boolean {
   const expr = ts.isJsxExpression(init) ? init.expression : init
-  const isFactory = (e: ts.Node) => ts.isCallExpression(e) && ts.isIdentifier(e.expression) && e.expression.text === 'inputClasses'
   if (!expr) return false
   if (isFactory(expr)) return true
   if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression) && ['cx', 'clsx'].includes(expr.expression.text)) return expr.arguments.some(isFactory)
@@ -515,6 +545,7 @@ function factoryBuilt(init: ts.JsxAttributeValue): boolean {
 function unringedFields(source: string, fileName: string): { fields: number; factory: number; findings: Finding[] } {
   const sf = parse(source, fileName)
   const linkNames = defaultImportNames(sf, (m) => m === 'next/link')
+  const isFactory = factoryCall(sf)
   const findings: Finding[] = []
   let fields = 0
   let factory = 0
@@ -522,7 +553,7 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       const { tag, attr, tabbable, field, spread } = classify(node, sf, linkNames)
       const className = attr('className')
-      if (field && tabbable && className?.initializer && factoryBuilt(className.initializer)) factory += 1
+      if (field && tabbable && className?.initializer && factoryBuilt(className.initializer, isFactory)) factory += 1
       else if (field && tabbable) {
         fields += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
@@ -898,6 +929,25 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     expect(fields, 'fields that style themselves').toBeGreaterThanOrEqual(5)
     expect(factory, 'fields built with inputClasses()').toBeGreaterThanOrEqual(15)
     expect(findings).toEqual([])
+  })
+
+  it('the field scan takes only the DS factory, under any import name, for inputClasses()', () => {
+    const at = (source: string, fileName = 'features/fixture/Page.tsx') => {
+      const { factory, findings } = unringedFields(source, fileName)
+      return { factory, findings: findings.map((f) => `${f.line} ${f.problem}`) }
+    }
+    const field = 'export const F = () => <input type="text" className={inputClasses()} />'
+    // The factory under its own name, an alias, from the barrel, and through a relative path.
+    expect(at(`import { inputClasses } from '@/components/ui/Input'\n${field}`)).toEqual({ factory: 1, findings: [] })
+    expect(at(`import { inputClasses as field } from '@/components/ui'\nexport const F = () => <input className={field()} />`)).toEqual({ factory: 1, findings: [] })
+    expect(at(`import { inputClasses } from '../../components/ui/Input'\n${field}`)).toEqual({ factory: 1, findings: [] })
+    // A page's own helper of that name, one imported from elsewhere, and a local binding shadowing the import are not.
+    const unread = { factory: 0, findings: ['2 a className the scan cannot read'] }
+    expect(at(`const inputClasses = () => 'border'\n${field}`)).toEqual(unread)
+    expect(at(`import { inputClasses } from '@/lib/forms'\n${field}`)).toEqual(unread)
+    expect(
+      at(`import { inputClasses } from '@/components/ui/Input'\nexport function F({ inputClasses }: { inputClasses: () => string }) {\n  return <input className={inputClasses()} />\n}`),
+    ).toEqual({ factory: 0, findings: ['3 a className the scan cannot read'] })
   })
 
   it('the field scan catches what it is for (a self-check on fixed sources)', () => {
