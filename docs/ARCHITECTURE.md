@@ -176,8 +176,8 @@ frontend/
 | `user_data_export_service.py` | Read-only assembly of the account's personal-data export; the users router records the export and returns the download |
 | `admin_account_service.py` | Provision a new Free account, send its password-setup link and audit the admin action; existing accounts are never changed |
 | `admin_feedback_service.py` | Feedback listing, status updates and submitter-email lookup for admin triage; the router owns authorization and audit events |
-| `admin_filing_service.py` | Per-filing summary/XBRL resets and stale-XBRL audit/bulk reset; the router owns authorization, error responses and logs |
-| `admin_summary_service.py` | Select and delete reset candidates or regenerate stale summaries through the single headless generation path; the router owns authorization, batch limits and audit events |
+| `admin_filing_service.py` | Per-filing summary/XBRL resets and stale-XBRL audit/bulk reset; the router owns authorization and error responses |
+| `admin_summary_service.py` | Select and delete reset candidates or regenerate stale summaries through the single headless generation path; the router owns authorization, batch limits and responses |
 | `copilot_service.py` / `copilot_tools.py` | "Ask this Filing" Pro Q&A with verifiable deep-linked citations; numeric tool-use from `financial_fact` |
 | `provenance_service.py` | Trace-to-Source: verifies AI excerpts, builds deep-link citations |
 | `facts_service.py` | Normalized XBRL metrics (`financial_fact`) + SEC **companyfacts** multi-period ingest (duration-window Q1–Q4 labelling, derived Q4, latest-filed-wins) |
