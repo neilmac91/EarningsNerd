@@ -1,7 +1,14 @@
-// How build-stamped.mjs and measure-current.mjs hash a frontend build, so the stamp's writer and its checker agree.
+// How build-stamped.mjs and measure-current.mjs hash a frontend build, and which stamp format they share, so the
+// stamp's writer and its checker agree.
 import { createHash } from 'node:crypto'
 import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync } from 'node:fs'
 import path from 'node:path'
+
+// The stamp's format: build-stamped.mjs writes it, and measure-current.mjs writes the baseline only from a stamp of
+// this format, so a stamp from an older script is refused. Raise it whenever what a stamp guarantees changes.
+// 2: the build ran `next build` itself, not through npm, with no Node flags but heap sizes (recorded), and the stamp
+// records the build's whole output. (Stamps without a format predate it.)
+export const STAMP_FORMAT = 2
 
 // A directory's regular files and symbolic links, recursively, by relative path and by bytes (a link by its target),
 // leaving out the entries `skip` names relative to `dir` (a directory with everything under it).

@@ -1109,7 +1109,11 @@ correction landed in this document:
   the served build and, for the baseline, against the pinned pair of variables and the pinned font hash; the
   stamp also hashes the build's whole output (everything under `.next` but Next's caches, among them the pages
   `next start` caches while it serves), which the harness checks on every run, so a bundle or server file
-  edited, added or removed after the stamp is refused rather than measured as `97293e7`; `97293e7` has no harness, so the baseline
+  edited, added or removed after the stamp is refused rather than measured as `97293e7`; and no unrecorded code
+  runs inside the build: `build-stamped.mjs` runs `next build` itself rather than through npm, whose npmrc files
+  and `npm_config_*` variables can add Node options to every script it runs, and passes `NODE_OPTIONS` only while
+  it holds nothing but heap sizes, which the stamp records (a `--require` or `--import` preload would run in every
+  build process), and the baseline needs a stamp of the format that guarantees all of this; `97293e7` has no harness, so the baseline
   is retaken by this tree's harness with `--build` pointing at a worktree of that revision, built there with
   `build-stamped.mjs`. The harness compares its output and data paths as canonical paths, so a symbolic link
   to the baseline, a path through a linked directory, or a hard link on the baseline's inode (compared by device

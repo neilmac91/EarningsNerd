@@ -53,17 +53,23 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   the occlusion mutation proof (at 1024 the probe then reports the Q4 ’23 column straddling the edge).
 - `harness/build-stamped.mjs` — builds a checkout's frontend for `measure-current.mjs` and stamps the build
   with its inputs (`frontend/.next/SOURCE_TREE.json`): it refuses uncommitted frontend files and the untracked
-  env files `next build` loads (git ignores all four, so `git status` never shows them), runs the build with an
-  allowlisted environment (what the toolchain needs to run and reach the network, plus the caller's
-  `NEXT_PUBLIC_*` variables; credentials, Sentry and Vercel variables are dropped), and records the commit, the
-  `frontend/` tree, the build id, Node, the public variables, a content hash of `.next/static/media`, where
-  the fonts `next/font` downloads at build time sit, and a content hash of the build's whole output (everything
-  under `.next` but Next's caches), so a file edited, added or removed there after the stamp no longer matches it.
-- `harness/build-hash.mjs` — how `build-stamped.mjs` and `measure-current.mjs` hash a build, shared so the stamp's
-  writer and its checker agree: the media hash, which is reproducible across builds of one tree (the baseline pins
-  it), and the output hash, which leaves out `cache/`, `next dev`'s `dev/`, the pages `next start` caches in
-  `server/route-cache/` while it serves, and the stamp. It differs between two builds of one tree (the build id and
-  the prerendered pages differ), so it binds the served bytes to one stamped build and is not pinned.
+  env files `next build` loads (git ignores all four, so `git status` never shows them), runs `next build` itself
+  on the Node running the script rather than through npm (npm's own configuration, its npmrc files and
+  `npm_config_*` variables, can add Node options to everything it runs), with an allowlisted environment (what the
+  toolchain needs to run and reach the network, the caller's `NEXT_PUBLIC_*` variables, and `NODE_OPTIONS` only
+  while it holds nothing but heap sizes: its other flags, such as `--require`, run code in every build process, so
+  they are refused; credentials, Sentry and Vercel variables are dropped), and records the stamp's format, the
+  commit, the `frontend/` tree, the build id, Node and its heap sizes, the public variables, a content hash of
+  `.next/static/media`, where the fonts `next/font` downloads at build time sit, and a content hash of the build's
+  whole output (everything under `.next` but Next's caches), so a file edited, added or removed there after the
+  stamp no longer matches it.
+- `harness/build-hash.mjs` — how `build-stamped.mjs` and `measure-current.mjs` hash a build, and the stamp format
+  they share, so the stamp's writer and its checker agree: the media hash, which is reproducible across builds of one
+  tree (the baseline pins it), and the output hash, which leaves out `cache/`, `next dev`'s `dev/`, the pages
+  `next start` caches in `server/route-cache/` while it serves, and the stamp. It differs between two builds of one
+  tree (the build id and the prerendered pages differ), so it binds the served bytes to one stamped build and is not
+  pinned. The baseline needs a stamp of the current format, `STAMP_FORMAT`, raised whenever what a stamp guarantees
+  changes.
 - `harness/build_states.py`, `harness/prune_states.py` — reproduce `prototype/data/` from a saved
   companyfacts payload.
 - `measurements/` — the two recorded runs the proposal cites.
@@ -121,10 +127,11 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
 # components instead, and the counts and geometry differ by design.
 git worktree add ../en-97293e7 97293e7
 (cd ../en-97293e7/frontend && npm ci)
-# build-stamped.mjs runs `npm run build` from the clean checkout with an allowlisted environment and stamps
-# frontend/.next/SOURCE_TREE.json with its commit, frontend/ tree, build id, public variables, downloaded fonts and
-# the hash of its whole output; the harness requires that stamp for the baseline, with exactly these two variables
-# (.next is ignored by git)
+# build-stamped.mjs runs `next build` itself (not through npm) from the clean checkout with an allowlisted
+# environment, refusing NODE_OPTIONS flags other than heap sizes, and stamps frontend/.next/SOURCE_TREE.json with
+# its format, commit, frontend/ tree, build id, Node and heap sizes, public variables, downloaded fonts and the hash
+# of its whole output; the harness requires that stamp for the baseline, with exactly these two variables (.next is
+# ignored by git)
 NEXT_PUBLIC_ENABLE_ANALYSIS=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8010 node tasks/analysis-redesign-2026-10/harness/build-stamped.mjs ../en-97293e7
 (cd ../en-97293e7/frontend && WAITLIST_MODE=false npx next start -p 3000 &)
 # then, from this repository's root, with Playwright resolvable (the frontend's install, or the cloud image's global one)
@@ -135,7 +142,7 @@ NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harn
 # the server serves that build id, and records them with its own commit. A stamp (SOURCE_TREE.json, written by
 # build-stamped.mjs) must name the served build id and the checkout's frontend/ tree, its media hash must match
 # the build's .next/static/media and its output hash everything under .next but Next's caches, whenever one is
-# present, and is recorded; the baseline needs a stamp that records the output hash. The fixtures --data names (default: prototype/data) are recorded by a content hash of their .js
+# present, and is recorded; the baseline needs a stamp of the current format (build-hash.mjs's STAMP_FORMAT). The fixtures --data names (default: prototype/data) are recorded by a content hash of their .js
 # files and, inside this repository, by their tree hash with their uncommitted files. It writes
 # measurements/current.json only for a served build of 97293e7 (enforced whether --out names that file, an alias
 # of it through symbolic or hard links, or it is the default; any other multiply linked output is refused), for the legacy state from the committed fixtures at the content hash the harness pins (retaking
