@@ -15,7 +15,9 @@ every hit). Two AST checks over every ``@<router>.get`` handler in ``app/routers
    ``bulk_update_mappings`` on a name called ``db``/``session``, or ``.update()``/``.delete()`` on
    a ``db.query(...)`` chain or on a local the function binds to one), a ``BackgroundTasks``
    parameter or ``.add_task(`` call, or ``asyncio.create_task(``. An engine (a name called
-   ``engine``, or one bound from ``create_engine()``) and a Connection (bound from
+   ``engine``, one bound from ``create_engine()``, and ``app.database``'s ``engine`` however the
+   file imports it: ``from app.database import engine as db_engine`` or ``database.engine``) and a
+   Connection (bound from
    ``engine.connect()``, ``engine.begin()`` or ``db.connection()``, or written through directly:
    ``db.connection().execute(...)``) write as a session does, so ``engine.begin()``,
    ``conn.execute(...)`` and ``conn.exec_driver_sql(...)`` count. ``execute`` runs reads as well as
@@ -248,6 +250,15 @@ def _opens_session(expr: ast.AST) -> bool:
     )
 
 
+def _dotted(expr: ast.AST) -> str | None:
+    """``a.b.c`` for a name or a chain of attributes on one; None for anything else."""
+    parts: list[str] = []
+    while isinstance(expr, ast.Attribute):
+        parts.insert(0, expr.attr)
+        expr = expr.value
+    return ".".join([expr.id, *parts]) if isinstance(expr, ast.Name) else None
+
+
 def _pairs(target: ast.AST, value: ast.AST):
     """(name, value) for a name target, and pair by pair for a tuple or list target that unpacks a
     literal of the same length (``q, n = db.query(X), 0``); no other unpacking is traced."""
@@ -282,13 +293,14 @@ def _local_bindings(fn: ast.AST):
             yield from _literal_items(node.target, node.iter)
 
 
-def _session_names_in(fn: ast.AST) -> set[str]:
+def _session_names_in(fn: ast.AST, engines: frozenset[str] = frozenset()) -> set[str]:
     """``db``/``session``, plus every ``Session``-annotated parameter of ``fn`` or a def nested in
     it, and every name bound from a session factory (``s = SessionLocal()``, annotated or ``:=``
     alike, and ``with ... as s``). An engine and a Connection write as a session does, so they are
     in the set too: ``engine``, a name bound from ``create_engine()``, and one bound (``=`` or
     ``with``/``async with ... as``) from ``engine.connect()``, ``engine.begin()`` or
-    ``db.connection()``. A copy of any of them (``conn = original``) is one as well."""
+    ``db.connection()``. A copy of any of them (``conn = original``) is one as well. ``engines``: the
+    names the function's file gives ``app.database``'s engine (``_engine_names``)."""
     names = set(_SESSION_NAMES)
     for node in ast.walk(fn):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
@@ -302,7 +314,7 @@ def _session_names_in(fn: ast.AST) -> set[str]:
                     names.add(item.optional_vars.id)
     names.update(name for name, value in _local_bindings(fn) if _opens_session(value))
     # An engine and a Connection write as a session does (``engine.begin()``, ``conn.execute(...)``).
-    names |= _ENGINE_NAMES | {
+    names |= _ENGINE_NAMES | set(engines) | {
         name for name, value in _local_bindings(fn)
         if isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id == "create_engine"
     }
@@ -313,7 +325,7 @@ def _session_names_in(fn: ast.AST) -> set[str]:
     while True:  # a Connection opened on a copy, and a copy of a copy, need another round
         bound = {name for name, value in opened if _opens_connection(value, names)} | {
             name for name, value in bindings
-            if _opens_connection(value, names) or (isinstance(value, ast.Name) and value.id in names)
+            if _opens_connection(value, names) or _dotted(value) in names
         }
         if bound <= names:
             return names
@@ -321,11 +333,10 @@ def _session_names_in(fn: ast.AST) -> set[str]:
 
 
 def _opens_connection(expr: ast.AST, sessions: set[str]) -> bool:
-    """``engine.connect()``, ``engine.begin()`` or ``db.connection()``: a Connection, on a name the
-    function holds as an engine or a session."""
+    """``engine.connect()``, ``engine.begin()`` or ``db.connection()``: a Connection, on a name (or a
+    dotted name: ``database.engine``) the function holds as an engine or a session."""
     return isinstance(expr, ast.Call) and isinstance(expr.func, ast.Attribute) \
-        and expr.func.attr in {"connect", "begin", "connection"} \
-        and isinstance(expr.func.value, ast.Name) and expr.func.value.id in sessions
+        and expr.func.attr in {"connect", "begin", "connection"} and _dotted(expr.func.value) in sessions
 
 
 def _query_root(expr: ast.AST, sessions: set[str], queries: set[str]) -> str | None:
@@ -373,7 +384,7 @@ def _comprehension_names(comp: ast.AST, sessions: set[str], queries: set[str]) -
     while True:
         known = sessions | local_sessions
         new_sessions = {name for name, value in pairs if _opens_session(value) or _opens_connection(value, known)
-                        or (isinstance(value, ast.Name) and value.id in known)}
+                        or _dotted(value) in known}
         new_queries = {name for name, value in pairs if _binds_query(value, known, queries | local_queries)}
         if new_sessions <= local_sessions and new_queries <= local_queries:
             return local_sessions, local_queries
@@ -381,13 +392,13 @@ def _comprehension_names(comp: ast.AST, sessions: set[str], queries: set[str]) -
         local_queries |= new_queries
 
 
-def _side_effect_markers(fn: ast.AST) -> list[tuple[str, str]]:
+def _side_effect_markers(fn: ast.AST, engines: frozenset[str] = frozenset()) -> list[tuple[str, str]]:
     """(kind, ``label@line``) for every side-effect construct in ``fn``. The kind (``commit``,
     ``query.delete``, ``add_task``, ``BackgroundTasks`` …) is what a write-site pin counts. A write
     or spawn counts wherever it is named, called or not: ``db.commit()``,
     ``run_in_threadpool(db.commit)`` and ``commit = db.commit`` are one marker each."""
     markers: list[tuple[str, str]] = []
-    sessions = _session_names_in(fn)
+    sessions = _session_names_in(fn, engines)
     queries = _query_names_in(fn, sessions)
     args = fn.args
     for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs]:
@@ -398,8 +409,8 @@ def _side_effect_markers(fn: ast.AST) -> list[tuple[str, str]]:
     def marker(node: ast.Attribute, sessions: set[str], queries: set[str]) -> tuple[str, str] | None:
         how = "()" if id(node) in called else " (uncalled)"
         receiver = node.value
-        if isinstance(receiver, ast.Name) and receiver.id in sessions and node.attr in _SESSION_WRITES:
-            return node.attr, f"{receiver.id}.{node.attr}{how}@{node.lineno}"
+        if (name := _dotted(receiver)) in sessions and node.attr in _SESSION_WRITES:
+            return node.attr, f"{name}.{node.attr}{how}@{node.lineno}"
         if _opens_connection(receiver, sessions) and node.attr in _SESSION_WRITES:
             return node.attr, f"{ast.unparse(receiver)}.{node.attr}{how}@{node.lineno}"
         if node.attr in _QUERY_WRITES and (root := _query_root(receiver, sessions, queries)):
@@ -499,6 +510,16 @@ def _targets(path: Path | None, name: str, depth: int = 0) -> list[_Target]:
     return []
 
 
+def _engine_names(path: Path) -> frozenset[str]:
+    """What ``path`` calls ``app.database``'s engine besides ``engine`` itself: an alias (``from
+    app.database import engine as db_engine``) or an attribute of the module (``database.engine``,
+    and ``app.database.engine`` after an unaliased ``import app.database``)."""
+    names = {local if symbol == "engine" else f"{local}.engine"
+             for local, (module, symbol) in _bindings(path).items()
+             if module == "app.database" and symbol in ("engine", None)}
+    return frozenset(names | ({"app.database.engine"} if _imports_app(path) else set()))
+
+
 def _imports_app(path: Path) -> bool:
     """Whether ``path`` has an unaliased ``import app.x`` anywhere, which binds the package ``app``
     in the scope it stands in."""
@@ -564,7 +585,8 @@ _Marker = tuple[str, str, str]  # (site ``file::qualname``, kind, ``label@line``
 
 def _handler_markers(path: Path, handler: ast.AST) -> list[_Marker]:
     """(site, kind, label) for the handler body and every app function it reaches, transitively."""
-    found = [(_site(path, handler.name), kind, label) for kind, label in _side_effect_markers(handler)]
+    found = [(_site(path, handler.name), kind, label)
+             for kind, label in _side_effect_markers(handler, _engine_names(path))]
     seen = {(path, handler.lineno)}
     stack = _referenced_functions(path, handler)
     while stack:
@@ -572,7 +594,8 @@ def _handler_markers(path: Path, handler: ast.AST) -> list[_Marker]:
         if (fn_path, fn.lineno) in seen:
             continue
         seen.add((fn_path, fn.lineno))
-        found.extend((_site(fn_path, qualname), kind, label) for kind, label in _side_effect_markers(fn))
+        found.extend((_site(fn_path, qualname), kind, label)
+                     for kind, label in _side_effect_markers(fn, _engine_names(fn_path)))
         stack.extend(_referenced_functions(fn_path, fn))
     return sorted(found)
 
@@ -735,6 +758,10 @@ _SYNTHETIC_TREE = {
     "app/services/spawns.py": "import asyncio\ndef spawn(bg):\n    asyncio.create_task(bg())\n",
     "app/services/reader.py": "def read(db):\n    return db.query(1).all()\n",
     "app/services/built.py": "import app.services.svc\nbuilt = app.services.svc.Svc()\n",
+    "app/services/raw.py": (
+        "from app.database import engine as raw_engine\n\n\n"
+        "def purge():\n    with raw_engine.begin() as conn:\n        conn.exec_driver_sql('DELETE FROM t')\n"
+    ),
     "app/routers/alias.py": (
         "from fastapi import APIRouter\nfrom app.services import w as app\n\nrouter = APIRouter()\n\n\n"
         "@router.get('/v')\ndef module_alias_named_app(db):\n    app.write(db)\n\n\n"
@@ -874,6 +901,12 @@ def unaliased_instance(db):
 def unaliased_factory(db):
     from app.services.built import built
     built.run(db)
+
+
+@router.get("/w")
+def reaches_aliased_engine():
+    from app.services.raw import purge
+    purge()
 """,
 }
 
@@ -904,7 +937,7 @@ def test_walk_follows_every_documented_form(tmp_path, monkeypatch):
         "relative_module", "package_reexport", "function_local_import", "factory_assignment",
         "threadpool", "dependency", "singleton", "class_instance", "nested_annotated",
         "passed_uncalled", "spawns_task", "api_route_get", "unaliased_import", "unaliased_instance",
-        "unaliased_factory", "module_alias_named_app",
+        "unaliased_factory", "module_alias_named_app", "reaches_aliased_engine",
     }
     assert flagged == expected, f"missed: {sorted(expected - flagged)}; unexpected: {sorted(flagged - expected)}"
     assert {site for site, _, _ in found[("app/routers/r.py", "singleton")]} == {"app/services/svc.py::Svc._go"}
@@ -919,7 +952,9 @@ from sqlalchemy import create_engine, delete, select, update
 from sqlalchemy.orm import Query, Session
 from starlette.concurrency import run_in_threadpool
 
+from app import database
 from app.database import SessionLocal, engine
+from app.database import engine as db_engine
 
 router = APIRouter()
 
@@ -1158,6 +1193,18 @@ def set_for_query_deletes(db):
         stale.delete()
 
 
+@router.get("/ao")
+def aliased_engine_runs_driver_sql():
+    with db_engine.begin() as conn:
+        conn.exec_driver_sql("DELETE FROM t")
+
+
+@router.get("/ap")
+def module_engine_begins():
+    with database.engine.begin() as conn:
+        conn.execute(delete(T))
+
+
 @router.get("/ab")
 def connects_iterates_and_unpacks_rows(db):
     with engine.connect() as conn:
@@ -1182,7 +1229,8 @@ def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
     writes nothing. Every ``execute`` counts unless its function is pinned read-only with exactly
     its count; with any of these dropped, this fails."""
     _use_tree(tmp_path, monkeypatch, {
-        "app/__init__.py": "", "app/routers/__init__.py": "", "app/routers/w.py": _WRITE_KINDS_ROUTER,
+        "app/__init__.py": "", "app/database.py": "engine = SessionLocal = None\n",
+        "app/routers/__init__.py": "", "app/routers/w.py": _WRITE_KINDS_ROUTER,
     })
     monkeypatch.setattr(sys.modules[__name__], "READ_ONLY_EXECUTE_SITES", {
         "app/routers/w.py::pinned_read": (1, "fixture: its one execute is a SELECT"),
@@ -1201,13 +1249,19 @@ def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
         "engine_begin_connection_executes", "async_connection_executes", "set_for_query_deletes",
         "driver_sql_executes", "copied_connection_commits", "tuple_copied_connection_executes",
         "loop_copied_connection_executes", "tuple_session_commits", "loop_session_commits",
-        "tuple_connection_executes", "comprehension_session_commits",
+        "tuple_connection_executes", "comprehension_session_commits", "aliased_engine_runs_driver_sql",
+        "module_engine_begins",
     }
     assert flagged == expected, f"missed: {sorted(expected - flagged)}; unexpected: {sorted(flagged - expected)}"
     # The Connection that engine.begin() opens counts its own writes, as a pin's per-kind count needs;
     # exec_driver_sql is a kind of its own, so no read-only execute pin covers it.
     kinds = Counter(kind for _, kind, _ in found[("app/routers/w.py", "engine_begin_connection_executes")])
     assert kinds == {"begin": 1, "execute": 1, "exec_driver_sql": 1}, kinds
+    # app.database's engine counts however the file names it, an alias or the module's attribute.
+    for handler, expected_kinds in (("aliased_engine_runs_driver_sql", {"begin": 1, "exec_driver_sql": 1}),
+                                    ("module_engine_begins", {"begin": 1, "execute": 1})):
+        kinds = Counter(kind for _, kind, _ in found[("app/routers/w.py", handler)])
+        assert kinds == expected_kinds, (handler, kinds)
 
 
 _AUDIT_PINS = {
