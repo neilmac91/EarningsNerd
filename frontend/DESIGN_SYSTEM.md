@@ -184,6 +184,10 @@ Ghost button     <Button variant="ghost">  — brand.strong text on transparent,
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
                  <Input> component can't wrap use inputClasses({ invalid, density, select, autoWidth }).
+                 Tone (v3.5): the border and focus ring are one tone, default or error, never one layered on
+                 the other: `invalid` (the components' `error`) picks the error border, which holds on hover,
+                 and the error ring. Each tone states its focus border even where it equals the rest border,
+                 because the forms plugin's `[type='text']:focus` border (#2563EB) outranks a bare `border-*`.
                  Toolbar fields (v3.1): density="compact" on <Select>/inputClasses = 36px from sm
                  up, phones keep the standard 42px field height; a field inside a table row is compact too.
                  `density`, not `size` (a native attribute); each density has its own EXPLICIT padding sides

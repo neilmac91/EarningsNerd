@@ -28,7 +28,9 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: review-gate-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.event_name }}
+  # PR updates cancel stale-head waits. Comment runs have unique groups so a bot's
+  # ignored boilerplate cannot cancel a human's rerun request before it reaches the API.
+  group: review-gate-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -58,7 +60,12 @@ jobs:
         run: python backend/scripts/review_gate.py
 
   rerun-on-review-request:
-    if: github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@codex review')
+    # Only a human's explicit request starts another wait. Codex's own summary includes
+    # this command as boilerplate; re-running on that summary wastes another runner.
+    if: >-
+      github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+      github.event.comment.user.type == 'User' &&
+      startsWith(github.event.comment.body, '@codex review')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

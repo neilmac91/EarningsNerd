@@ -64,8 +64,8 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `STRIPE_WEBHOOK_SECRET` | `""` | Stripe webhook signature secret. |
 | `STRIPE_RECONCILIATION_CONNECT_TIMEOUT_SECONDS` | `2.0` | Dedicated current-subscription read connect limit; finite, > 0 and ≤ 10 seconds. |
 | `STRIPE_RECONCILIATION_READ_TIMEOUT_SECONDS` | `3.0` | Dedicated current-subscription read inactivity limit; finite, > 0 and ≤ 10 seconds. |
-| `STRIPE_PRICE_MONTHLY_ID` | `""` | Monthly checkout price ID; empty default makes configured checkout validation fail. |
-| `STRIPE_PRICE_YEARLY_ID` | `""` | Yearly checkout price ID; empty default makes configured checkout validation fail. |
+| `STRIPE_PRICE_MONTHLY_ID` | `""` | Monthly checkout price ID; empty default makes configured checkout validation fail. Must be a USD Price recurring once a month at the advertised `PRO_PRICING.monthly` (`frontend/app/pricing/prices.ts`), in the same Stripe mode as `STRIPE_SECRET_KEY`; production changes follow [PRICING_OFFER.md](PRICING_OFFER.md) (backend first, checked with `npm run check:pricing`). |
+| `STRIPE_PRICE_YEARLY_ID` | `""` | Yearly checkout price ID; empty default makes configured checkout validation fail. Must be a USD Price recurring once a year at the advertised `PRO_PRICING.yearly` (`frontend/app/pricing/prices.ts`), in the same Stripe mode as `STRIPE_SECRET_KEY`; production changes follow [PRICING_OFFER.md](PRICING_OFFER.md) (backend first, checked with `npm run check:pricing`). |
 | `STRIPE_BETA_PROMO_CODE_ID` | `""` | Stripe Promotion Code ID for eligible beta invites; unset disables the discount. |
 | `PRO_TRIAL_DAYS` | `0` | Card-required monthly trial; 0 disables; validated 0–30. Enable only with the matching frontend flag after the Stripe checklist. |
 | `REVERSE_TRIAL_ENABLED` | `false` | Retired no-card signup trial; keep off. Cannot coexist with a positive PRO_TRIAL_DAYS. |

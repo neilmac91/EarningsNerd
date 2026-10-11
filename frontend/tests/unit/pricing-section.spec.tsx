@@ -1,18 +1,13 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { PRICE_VARIANTS } from '@/app/pricing/prices'
 import PricingSection from '@/features/marketing/components/PricingSection'
 import { ACCESS_COPY } from '@/features/marketing/lib/access'
 
 /**
  * The landing pricing section shows the SAME numbers as the pricing page (one price source, one
- * PostHog arm), never the design's placeholders; the toggle is an accessible radio group; and the
+ * approved offer), never the design's placeholders; the toggle is an accessible radio group; and the
  * beta line, account CTA and trial copy each follow their one deciding source.
  */
-
-// The pricing A/B arm, per test. Default (undefined) = the $39 control, as on the pricing page.
-const mockVariant = vi.hoisted(() => ({ value: undefined as unknown }))
-vi.mock('posthog-js/react', () => ({ useFeatureFlagVariantKey: () => mockVariant.value }))
 
 // Live mutable flag so a test can flip ENABLE_PRO_TRIAL without re-importing the component.
 const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false }))
@@ -35,24 +30,21 @@ const renderSection = (props: Partial<React.ComponentProps<typeof PricingSection
 
 describe('PricingSection', () => {
   beforeEach(() => {
-    mockVariant.value = undefined
     flags.ENABLE_PRO_TRIAL = false
   })
 
-  it('defaults to monthly at the control price and shows the annual per-month equivalent when selected', () => {
+  it('opens on annual at the $20 per month headline with its full charge, and shows $25 on monthly', () => {
     renderSection()
-    const { monthlyDisplay, yearlyDisplay } = PRICE_VARIANTS.control
 
-    expect(screen.getByText(monthlyDisplay)).toBeInTheDocument()
-    expect(screen.getByText(`Billed monthly. Or ${yearlyDisplay} a year, 2 months free.`)).toBeInTheDocument()
+    expect(screen.getByText('$20')).toBeInTheDocument()
+    expect(screen.getByText('per month')).toBeInTheDocument()
+    expect(screen.getByText('Billed annually at $240, saving $60 a year.')).toBeInTheDocument()
+    expect(screen.getByText('· save 20%')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('radio', { name: /annual/i }))
-    // $390 / 12, formatted like the pricing page.
-    expect(screen.getByText('$32.50')).toBeInTheDocument()
-    expect(screen.queryByText(monthlyDisplay)).not.toBeInTheDocument()
-    expect(
-      screen.getByText(`Billed annually at ${yearlyDisplay}. Two months free against monthly.`),
-    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
+    expect(screen.getByText('$25')).toBeInTheDocument()
+    expect(screen.queryByText('$20')).not.toBeInTheDocument()
+    expect(screen.getByText('Billed monthly. Or $20 a month, billed annually at $240.')).toBeInTheDocument()
   })
 
   it('is a two-option radio group whose checked state and roving focus follow clicks and arrow keys', () => {
@@ -62,13 +54,17 @@ describe('PricingSection', () => {
     expect(radios).toHaveLength(2)
     const [monthly, annual] = radios
 
-    expect(monthly).toHaveAttribute('aria-checked', 'true')
-    expect(annual).toHaveAttribute('aria-checked', 'false')
-    expect(monthly).toHaveAttribute('tabindex', '0')
-    expect(annual).toHaveAttribute('tabindex', '-1')
-
-    fireEvent.click(annual)
+    expect(annual).toHaveAttribute('aria-checked', 'true')
     expect(monthly).toHaveAttribute('aria-checked', 'false')
+    expect(annual).toHaveAttribute('tabindex', '0')
+    expect(monthly).toHaveAttribute('tabindex', '-1')
+
+    fireEvent.click(monthly)
+    expect(annual).toHaveAttribute('aria-checked', 'false')
+    expect(monthly).toHaveAttribute('aria-checked', 'true')
+    expect(monthly).toHaveFocus()
+
+    fireEvent.keyDown(group, { key: 'ArrowRight' })
     expect(annual).toHaveAttribute('aria-checked', 'true')
     expect(annual).toHaveFocus()
 
@@ -79,6 +75,10 @@ describe('PricingSection', () => {
     fireEvent.keyDown(group, { key: 'End' })
     expect(annual).toHaveAttribute('aria-checked', 'true')
     expect(annual).toHaveFocus()
+
+    fireEvent.keyDown(group, { key: 'Home' })
+    expect(monthly).toHaveAttribute('aria-checked', 'true')
+    expect(monthly).toHaveFocus()
   })
 
   it('shows the beta line only when showBeta is set', () => {
@@ -103,6 +103,8 @@ describe('PricingSection', () => {
 
   it('preserves the selected cycle and advertises a trial only on monthly when enabled', () => {
     const { unmount } = renderSection()
+    expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing?billing=yearly')
+    fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing?billing=monthly')
     expect(screen.queryByRole('link', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
     expect(screen.queryByText(TRIAL_LINE)).not.toBeInTheDocument()
@@ -110,37 +112,25 @@ describe('PricingSection', () => {
 
     flags.ENABLE_PRO_TRIAL = true
     renderSection()
-    expect(screen.getByRole('link', { name: 'Start 7-day free trial' })).toHaveAttribute('href', '/pricing?billing=monthly')
-    expect(screen.queryByRole('link', { name: 'Upgrade to Pro' })).not.toBeInTheDocument()
-    expect(screen.getByText(TRIAL_LINE)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('radio', { name: /annual/i }))
+    // Annual, the default, carries no trial.
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing?billing=yearly')
     expect(screen.queryByRole('link', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
     expect(screen.queryByText(TRIAL_LINE)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
+    expect(screen.getByRole('link', { name: 'Start 7-day free trial' })).toHaveAttribute('href', '/pricing?billing=monthly')
+    expect(screen.queryByRole('link', { name: 'Upgrade to Pro' })).not.toBeInTheDocument()
+    expect(screen.getByText(TRIAL_LINE)).toBeInTheDocument()
   })
 
   it('does not pair the free beta offer with a card-required trial promise', () => {
     flags.ENABLE_PRO_TRIAL = true
     renderSection({ showBeta: true })
+    // Monthly is the cycle that would otherwise carry the trial.
+    fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
     expect(screen.getByText('Free for beta members')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing')
     expect(screen.queryByRole('link', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
     expect(screen.queryByText(TRIAL_LINE)).not.toBeInTheDocument()
-  })
-
-  it('lowers the displayed price on the price_29 arm, in both billing periods', () => {
-    mockVariant.value = 'price_29'
-    renderSection()
-    const { monthlyDisplay, yearlyDisplay } = PRICE_VARIANTS.price_29
-
-    expect(screen.getByText(monthlyDisplay)).toBeInTheDocument()
-    expect(screen.queryByText(PRICE_VARIANTS.control.monthlyDisplay)).not.toBeInTheDocument()
-    expect(screen.getByText(`Billed monthly. Or ${yearlyDisplay} a year, 2 months free.`)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('radio', { name: /annual/i }))
-    // $290 / 12.
-    expect(screen.getByText('$24.17')).toBeInTheDocument()
-    expect(screen.queryByText('$32.50')).not.toBeInTheDocument()
   })
 })
