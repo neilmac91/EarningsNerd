@@ -548,10 +548,14 @@ async function loadDeclarations(tokens: string[]): Promise<void> {
     { from },
   )
   result.root.walkRules((rule) => {
-    // A utility's rule starts with its own class: `.focus\:ring-0:focus`, `.dark\:focus\:shadow-ring-brand-dark:focus:is(.dark *)`.
-    const m = rule.selector.match(/^\.((?:\\[0-9a-fA-F]{1,6} ?|\\.|[\w-])+)/)
-    const props = m && declared.get(unescapeCss(m[1]))
-    if (props) rule.walkDecls((d) => void props.add(d.prop))
+    // A utility's own class can sit anywhere in its rule's selector: first in `.focus\:ring-0:focus`, last in
+    // `.group:focus-within .group-focus-within\:\!shadow-none` and `.peer:focus ~ .peer-focus\:shadow-none`. Every class
+    // in it that is a requested token takes the rule's declarations; a bare marker (`group`) declares nothing of its
+    // own, carries no variant, and so never competes.
+    for (const m of rule.selector.matchAll(/\.((?:\\[0-9a-fA-F]{1,6} ?|\\.|[\w-])+)/g)) {
+      const props = declared.get(unescapeCss(m[1]))
+      if (props) rule.walkDecls((d) => void props.add(d.prop))
+    }
   })
 }
 /** A class's variants and its utility, split at the colons outside brackets and parentheses, as Tailwind reads them:
@@ -1216,6 +1220,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <Textarea variant="composer" style={{ maxHeight: 120, overflowY: 'auto' }} />
             <Input {...{ style: { boxShadow: 'none' } }} />
             <input type="date" className="border ${field} focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error" />
+            <input type="date" className="border ${field} group-focus-within:!shadow-none peer-focus:shadow-none" />
           </>
         )
       }`
@@ -1224,7 +1229,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     const competing = 'sets the box-shadow or a ring in a state, beside the reset and the DS ring'
     const ring = 'a focus:shadow-ring-* or focus-visible:shadow-ring-*'
     expect(factory).toBe(3)
-    expect(fields).toBe(38)
+    expect(fields).toBe(39)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       `7 <input> missing focus:ring-0, focus:ring-offset-0, ${twin}`,
       `9 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
@@ -1285,6 +1290,8 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       '52 <Input> a props spread the scan cannot read',
       // `focus` and `focus-visible` both match a keyboard focus: a ring in each is two rings.
       '53 <input> more than one DS ring across its focus states (focus ring-brand, focus-visible ring-error; dark: focus ring-brand, focus-visible ring-error)',
+      // A group or peer variant's selector leads with the marker, not the utility's own class.
+      `54 <input> group-focus-within:!shadow-none peer-focus:shadow-none ${competing}`,
     ])
   })
 })
