@@ -56,8 +56,14 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   env files `next build` loads (git ignores all four, so `git status` never shows them), runs the build with an
   allowlisted environment (what the toolchain needs to run and reach the network, plus the caller's
   `NEXT_PUBLIC_*` variables; credentials, Sentry and Vercel variables are dropped), and records the commit, the
-  `frontend/` tree, the build id, Node, the public variables and a content hash of `.next/static/media`, where
-  the fonts `next/font` downloads at build time sit.
+  `frontend/` tree, the build id, Node, the public variables, a content hash of `.next/static/media`, where
+  the fonts `next/font` downloads at build time sit, and a content hash of the build's whole output (everything
+  under `.next` but Next's caches), so a file edited, added or removed there after the stamp no longer matches it.
+- `harness/build-hash.mjs` — how `build-stamped.mjs` and `measure-current.mjs` hash a build, shared so the stamp's
+  writer and its checker agree: the media hash, which is reproducible across builds of one tree (the baseline pins
+  it), and the output hash, which leaves out `cache/`, `next dev`'s `dev/`, the pages `next start` caches in
+  `server/route-cache/` while it serves, and the stamp. It differs between two builds of one tree (the build id and
+  the prerendered pages differ), so it binds the served bytes to one stamped build and is not pinned.
 - `harness/build_states.py`, `harness/prune_states.py` — reproduce `prototype/data/` from a saved
   companyfacts payload.
 - `measurements/` — the two recorded runs the proposal cites.
@@ -116,8 +122,9 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
 git worktree add ../en-97293e7 97293e7
 (cd ../en-97293e7/frontend && npm ci)
 # build-stamped.mjs runs `npm run build` from the clean checkout with an allowlisted environment and stamps
-# frontend/.next/SOURCE_TREE.json with its commit, frontend/ tree, build id, public variables and downloaded fonts;
-# the harness requires that stamp for the baseline, with exactly these two variables (.next is ignored by git)
+# frontend/.next/SOURCE_TREE.json with its commit, frontend/ tree, build id, public variables, downloaded fonts and
+# the hash of its whole output; the harness requires that stamp for the baseline, with exactly these two variables
+# (.next is ignored by git)
 NEXT_PUBLIC_ENABLE_ANALYSIS=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8010 node tasks/analysis-redesign-2026-10/harness/build-stamped.mjs ../en-97293e7
 (cd ../en-97293e7/frontend && WAITLIST_MODE=false npx next start -p 3000 &)
 # then, from this repository's root, with Playwright resolvable (the frontend's install, or the cloud image's global one)
@@ -126,8 +133,9 @@ NODE_PATH="$PWD/frontend/node_modules" node tasks/analysis-redesign-2026-10/harn
 # .next/BUILD_ID and the build's time, refuses a build older than that checkout's last commit touching frontend/
 # (it cannot see which tree a build came from, so build right before measuring), verifies before measuring that
 # the server serves that build id, and records them with its own commit. A stamp (SOURCE_TREE.json, written by
-# build-stamped.mjs) must name the served build id and the checkout's frontend/ tree, and its media hash must match
-# the build's .next/static/media, whenever one is present, and is recorded. The fixtures --data names (default: prototype/data) are recorded by a content hash of their .js
+# build-stamped.mjs) must name the served build id and the checkout's frontend/ tree, its media hash must match
+# the build's .next/static/media and its output hash everything under .next but Next's caches, whenever one is
+# present, and is recorded; the baseline needs a stamp that records the output hash. The fixtures --data names (default: prototype/data) are recorded by a content hash of their .js
 # files and, inside this repository, by their tree hash with their uncommitted files. It writes
 # measurements/current.json only for a served build of 97293e7 (enforced whether --out names that file, an alias
 # of it through symbolic or hard links, or it is the default; any other multiply linked output is refused), for the legacy state from the committed fixtures at the content hash the harness pins (retaking
