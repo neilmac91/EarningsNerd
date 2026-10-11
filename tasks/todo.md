@@ -7,9 +7,9 @@ not a queue. Format: `AGENTS.md` §7. Founder rows stay until the founder closes
 ## Where things stand — 2026-10-11, Codex
 
 - Production read 22:43 UTC: `earningsnerd-backend-00502-vs7` serves 100%, image `86aafb7`; [Ops 38181518055](https://github.com/neilmac91/EarningsNerd/actions/runs/38181518055) passed. [Main CI 38176749830](https://github.com/neilmac91/EarningsNerd/actions/runs/38176749830) deployed with `applied=0 skipped=43`; detailed health was healthy at 22:41 UTC.
-- Provider balance: USD 13.60 at 22:42:03 UTC ([38181452020](https://github.com/neilmac91/EarningsNerd/actions/runs/38181452020)); sweep cost/reservations USD 0; USD 8.046150 available under the USD 10 ceiling after the USD 5 floor and [USD 0.553850 retained hold](refactor-closeout-2026-10.md#spend-ledger).
-- Repository API reports public; current workflows use standard Ubuntu runners (free public runner minutes). Account-wide Actions usage is UNVERIFIED (billing API 403); the 18:34 UTC USD 30.06/40 alert is historical. Budgets and stop-usage are unchanged.
-- Open PRs at this reconciliation: #1252, #1251, #1250, #1249, #1248, #1243, #1223, #1121, #1035. Founder owns the merges of #1243/#1248; their latest review findings remain with their authors. #1197/#1226 are merged.
+- Provider balance and account-budget observations are retained in the private sweep ledger; no paid evaluation has run. Refresh the balance and reserve cost before paid work, retaining the wallet floor, programme ceiling and [refactor hold](refactor-closeout-2026-10.md#spend-ledger).
+- Repository API reports public; workflows use standard Ubuntu runners. Account-wide current billing remains UNVERIFIED; budgets and stop-usage are unchanged. The shared scan flags two fictional fixture accessions; the founder-approved exact exceptions are under separate review.
+- Sweep drafts: [#1255 records](https://github.com/neilmac91/EarningsNerd/pull/1255), [#1256 catalog](https://github.com/neilmac91/EarningsNerd/pull/1256), [#1257 ceilings](https://github.com/neilmac91/EarningsNerd/pull/1257), [#1258 stderr](https://github.com/neilmac91/EarningsNerd/pull/1258), [#1259 isolation](https://github.com/neilmac91/EarningsNerd/pull/1259), [#1260 focus](https://github.com/neilmac91/EarningsNerd/pull/1260); none merged. Founder owns #1243/#1248 merges; #1251 remains owner-held. #1197/#1226 are merged.
 - Holds: [September 19 §5](handover-astra-2026-09-19.md#5-what-remains--reconciled-open-list) and September 28 checkpoint in `continuation-plan-2026-09-26.md`; E7/R1/H20 custody remains separate. The sweep adopts the Analysis recommendations for decisions 4 (amended), 6, 7, 8 and 9; that authorizes implementation, not a claim it is shipped.
 
 ## Open items
@@ -49,9 +49,9 @@ Engineering:
 - [ ] E10 — DO (Engineering): add the eight Lane B service-catalog rows and prune proven zero ceilings; read-only GET work is IN-FLIGHT in founder-owned #1248; postpone further router moves until #1243's proof findings are settled and release capacity is reserved.
 - [ ] E11 — DO (Engineering): reproduce and repair #1135's isolation leaks 1–6 and 8 with leaker-then-victim evidence, including limiter reset outside locked tests and Windows cleanup; no speculative second gates.
 - [ ] E12 — POSTPONE (founder): supply the private WP-07+ list or confirm completion; the repository defines WP-01–WP-06 only (#1069 series).
-- [ ] E13 — DO (Engineering): fix successful-generation focus, the chip-opened desktop pane overhang and phone GenericTable; named detector/doc defects are already closed, warning-only suppression is CANCEL-RECOMMENDED, and old harness repairs wait for reuse; postpone Copilot memoization without a measurement and bundle missing-prior server formatting with a backend change (EN-01/02/03).
+- [ ] E13 — DO (Engineering): fix successful-generation focus, the chip-opened desktop pane overhang and phone GenericTable; warning-only suppression is CANCEL-RECOMMENDED, and old harness repairs wait for reuse; postpone Copilot memoization without a measurement and bundle missing-prior server formatting with a backend change (EN-01/02/03).
 - [ ] E14 — DO (Engineering): fix disabled Button tint, verification refresh/429 handling, subscription-error plan labels, saved-summary Retry and async alert anchoring/ticker context; ring tokens belong to E4/E5; CANCEL-RECOMMENDED for the currently inapplicable Modal portal-host Escape change, and PREPARE the founder-only class-7 SQL read.
-- [ ] E15 — DO (Engineering): fix InsiderActivityPanel's 600-level gain/loss labels and assess FilingViewer Retry with E13; Analysis Run's locked native-disabled contract remains a founder decision; the resend-success focus clause is already fixed by #1082.
+- [ ] E15 — DO (Engineering): fix InsiderActivityPanel's 600-level gain/loss labels and assess FilingViewer Retry with E13; Analysis Run's locked native-disabled contract remains a founder decision.
 
 ## What to doubt first
 
