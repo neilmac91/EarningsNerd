@@ -45,7 +45,8 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   companyfacts payload.
 - `measurements/` — the two recorded runs the proposal cites.
 - `astra-prompt.md` — the hand-over prompt for the implementing agent (GPT-6 Astra / Codex), with the
-  founder's §9 decisions recorded.
+  founder's five §9 decisions recorded and the review's amendment to decision 4 and decisions 6–9 marked
+  as awaiting the founder's confirmation.
 - `review-2026-10-10.md` — the comprehensive review's findings, ranked, with what each changed in this
   folder and in the proposal and what remains open for the implementation.
 

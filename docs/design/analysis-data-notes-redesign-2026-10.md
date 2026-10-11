@@ -1,8 +1,8 @@
 # Multi-Period Analysis: data notes, aligned figures, a compact table — design proposal and implementation brief
 
 Date: 2026-10-10 · Scope: `/analysis` results surface (KPI strip, Sources & methods, charts, narrative,
-metrics table, period picker) and the PDF, Excel and PNG exports that mirror it · Status: the §9
-decisions are taken (2026-10-10); Phase 1 items 1–10 and 11 of §7 are merged (#1199, #1200, #1202, #1203, #1206);
+metrics table, period picker) and the PDF, Excel and PNG exports that mirror it · Status: the five original §9
+decisions are taken (2026-10-10), the amended decision 4 and decisions 6–9 await the founder's confirmation; Phase 1 items 1–10 and 11 of §7 are merged (#1199, #1200, #1202, #1203, #1206);
 the follow-ups in §11 and Phase 2 are open; this document itself ships nothing · Support
 material:
 [`tasks/analysis-redesign-2026-10/`](../../tasks/analysis-redesign-2026-10/README.md) (runnable
@@ -267,7 +267,8 @@ note. An open note lists the metrics and periods of its values and, on a second 
 comparisons ("Comparisons: Revenue (Q2 2026)"), so a comparison-only note still says where it is. The
 counts of comparisons are the dataset's (every comparison the backend computed from an
 affected figure, which the exports carry), and the note says where on the page they appear rather than
-claiming a surface that does not show them (the charts plot values, never comparisons). The strip
+claiming a surface that does not show them (the charts plot values; the one comparison a chart shows is
+revenue's YoY growth line, which the locator counts when it carries the note). The strip
 `DataNotes.tsx` shipped in #1200 prints "10 figures need review · 24 comparisons need review"; the
 letters, the "carry note a" wording and the locator sentence are the open copy change (§11).
 
@@ -853,6 +854,9 @@ operational action and is not part of this brief.
 Taken on 2026-10-10: the founder aligned with all five recommendations below ("regarding decisions for
 founder - i'm aligned with your recommendations"). They are recorded here and in
 `tasks/analysis-redesign-2026-10/astra-prompt.md`, the hand-over prompt for the implementing agent.
+The amendment to decision 4 and decisions 6–9, under "Amended and added by the comprehensive review"
+below, are not yet confirmed: each is a founder pause until confirmed in writing (the hand-over says so,
+and the Engineering row in `tasks/todo.md` does not pre-authorize them).
 
 1. Letters (a, b, c) as the note mark, or one warning glyph for all notes. Recommended: letters.
 2. `scroll-snap-type: x mandatory` (every rest position whole columns) or `proximity` (gentler
@@ -949,8 +953,8 @@ correction landed in this document:
   focus list must include `summary`.
 - **Warning ink only for review notes**; the muted pair for no-record and unavailable letters (§4.2);
   chart letters in the chart label ink as SVG attributes (§4.7); filled bars.
-- **The strip's locator was wrong** ("in the headline figures and charts" for YoY comparisons the charts
-  never show) and the resting line named no letters (§4.1).
+- **The strip's locator was wrong** ("in the headline figures and charts" for YoY comparisons that only
+  the revenue growth line shows, and only revenue's) and the resting line named no letters (§4.1).
 - **Annual mode, the teaser and the landing demo** render the same table and were unspecified (§4.5).
 - **Accessibility**: figure names in display form (shipped in #1203); Home/End guarded by the event
   target; regions tabbable only while they overflow; status regions for the window and the clamp;
