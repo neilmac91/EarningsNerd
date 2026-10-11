@@ -1,9 +1,10 @@
 // Pro offer: $25 per month, or $240 per year billed annually, advertised as $20 per month. Checkout
-// must never charge more than the page shows. Lower a price on the backend first: bind the lower
-// Stripe Prices, then change it here. Raise one here first, then bind the higher Prices only
-// under a verified checkout pause. docs/PRICING_OFFER.md has the steps and existing-customer
-// protections; ci.yml's price-agreement job checks a change to this file against production's
-// charge report.
+// must never charge more than the live page shows. Lower a price on the backend first: bind the
+// lower Stripe Prices, then change it here. Raise one by publishing the higher page first (this
+// change merged and deployed), then bind the higher Prices only under a verified checkout pause:
+// a cached tab of the lower page can still submit checkout. docs/PRICING_OFFER.md has the steps
+// and existing-customer protections; ci.yml's price-agreement job checks a change to this file
+// against production's charge report.
 // Keep this a plain module: the client pages and server Product/Offer JSON-LD share it. Every
 // displayed amount and saving derives from here (gate: tests/unit/pricingFollowsModule.spec.tsx).
 const usd = (amount: number) => (Number.isInteger(amount) ? `$${amount}` : `$${amount.toFixed(2)}`)
