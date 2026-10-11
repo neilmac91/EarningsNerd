@@ -306,7 +306,8 @@ def _session_names_in(fn: ast.AST, engines: frozenset[str] = frozenset()) -> set
     ``with``/``async with ... as``) from ``engine.connect()``, ``engine.begin()`` or
     ``db.connection()``. A copy of any of them (``conn = original``) is one as well. ``engines``: the
     names the function's file gives ``app.database``'s engine (``_engine_names``)."""
-    names = set(_SESSION_NAMES)
+    # An engine and a Connection write as a session does (``engine.begin()``, ``conn.execute(...)``).
+    names = set(_SESSION_NAMES) | _ENGINE_NAMES | set(engines)
     for node in ast.walk(fn):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
             args = node.args
@@ -318,23 +319,25 @@ def _session_names_in(fn: ast.AST, engines: frozenset[str] = frozenset()) -> set
                 if isinstance(item.optional_vars, ast.Name) and _opens_session(item.context_expr):
                     names.add(item.optional_vars.id)
     bindings = list(_local_bindings(fn))
-    names.update(name for name, value in bindings if _opens_session(value))
-    # An engine and a Connection write as a session does (``engine.begin()``, ``conn.execute(...)``).
-    names |= _ENGINE_NAMES | set(engines) | {
-        name for name, value in bindings
-        if isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id == "create_engine"
-    }
     opened = [(item.optional_vars.id, item.context_expr) for node in ast.walk(fn)
               if isinstance(node, (ast.With, ast.AsyncWith)) for item in node.items
               if isinstance(item.optional_vars, ast.Name)]
     while True:  # a Connection opened on a copy, and a copy of a copy, need another round
         bound = {name for name, value in opened if _opens_connection(value, names)} | {
-            name for name, value in bindings
-            if _opens_connection(value, names) or _dotted(value) in names
+            name for name, value in bindings if _binds_session(value, names)
         }
         if bound <= names:
             return names
         names |= bound
+
+
+def _binds_session(value: ast.AST, sessions: set[str]) -> bool:
+    """Whether a value bound to a name is a session, an engine or a Connection: a session factory
+    (``SessionLocal()``), ``create_engine()``, a Connection opened on a name in ``sessions``, or a
+    copy of one. A local binding and a comprehension's target are judged by this one test."""
+    return _opens_session(value) or (
+        isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id == "create_engine"
+    ) or _opens_connection(value, sessions) or _dotted(value) in sessions
 
 
 def _opens_connection(expr: ast.AST, sessions: set[str]) -> bool:
@@ -382,13 +385,13 @@ def _binds_query(value: ast.AST, sessions: set[str], queries: set[str]) -> bool:
 
 def _comprehension_target(generator: ast.comprehension, sessions: set[str],
                           queries: set[str]) -> tuple[set[str], set[str]]:
-    """The sessions (Connections included) and Queries in scope after one ``for`` of a comprehension:
-    its target's names shadow what they meant before, then take what a literal tuple, list or set
-    gives them, read with the names in scope before the ``for``. Python keeps a comprehension's
-    targets in its own scope, so these names count only inside it."""
+    """The sessions (engines and Connections included) and Queries in scope after one ``for`` of a
+    comprehension: its target's names shadow what they meant before, then take what a literal tuple,
+    list or set gives them (``_binds_session``, ``_binds_query``), read with the names in scope
+    before the ``for``. Python keeps a comprehension's targets in its own scope, so these names
+    count only inside it."""
     pairs = list(_literal_items(generator.target, generator.iter))
-    bound_sessions = {name for name, value in pairs
-                      if _opens_session(value) or _opens_connection(value, sessions) or _dotted(value) in sessions}
+    bound_sessions = {name for name, value in pairs if _binds_session(value, sessions)}
     bound_queries = {name for name, value in pairs if _binds_query(value, sessions, queries)}
     shadowed = {node.id for node in ast.walk(generator.target)
                 if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)}  # not ``q`` in ``for q.x in``
@@ -1217,6 +1220,11 @@ def later_for_copies_a_query(db):
     return [copy.delete() for stale in [db.query(T)] for copy in [stale]]
 
 
+@router.get("/aw")
+def comprehension_engine_begins():
+    return [e.begin() for e in [create_engine("sqlite://")]]
+
+
 @router.get("/at")
 def comprehension_targets_shadow_outer_names(db):
     q = db.query(T)
@@ -1323,7 +1331,7 @@ def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
         "loop_copied_connection_executes", "tuple_session_commits", "loop_session_commits",
         "tuple_connection_executes", "comprehension_session_commits", "aliased_engine_runs_driver_sql",
         "module_engine_begins", "nested_comprehension_query_deletes", "engine_imported_under_a_reused_name",
-        "later_for_copies_a_query", "attribute_target_keeps_the_query",
+        "later_for_copies_a_query", "attribute_target_keeps_the_query", "comprehension_engine_begins",
     }
     assert flagged == expected, f"missed: {sorted(expected - flagged)}; unexpected: {sorted(flagged - expected)}"
     # The Connection that engine.begin() opens counts its own writes, as a pin's per-kind count needs;
