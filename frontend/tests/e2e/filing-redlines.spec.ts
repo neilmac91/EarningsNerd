@@ -84,6 +84,12 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/)
       await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /\bdark\b/ : /^(?!.*\bdark\b)/)
       await expect(page.getByRole('main')).toHaveCount(1)
+      // Exercise client state before screenshot's caret-hiding style touches an input.
+      await page.getByLabel('Find in changed paragraphs').fill('impairment')
+      await expect(page.getByText('1 of 3 shown')).toBeVisible()
+      await expect(page.getByText('0 of 2 shown')).toBeVisible()
+      await page.getByRole('button', { name: 'Clear search' }).click()
+      await page.evaluate(() => window.scrollTo(0, 0))
       await page.screenshot({ path: testInfo.outputPath(`example-${theme}-${width}.png`), fullPage: true })
 
       await page.getByRole('button', { name: 'Cached filings', exact: true }).click()
@@ -125,6 +131,7 @@ for (const theme of ['light', 'dark'] as const) {
       await clear.press('Enter')
       await expect(clear).toBeFocused()
       await expect(page.getByLabel('Find in changed paragraphs')).toHaveValue('')
+      await page.evaluate(() => window.scrollTo(0, 0))
       await page.screenshot({ path: testInfo.outputPath(`cached-${theme}-${width}.png`), fullPage: true })
 
       missing = true
@@ -134,6 +141,7 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page.getByText(literal, { exact: true })).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Download all changes (JSON)' })).toHaveCount(0)
       await expect(page.getByRole('link', { name: 'Open earlier original' })).toBeVisible()
+      await page.evaluate(() => window.scrollTo(0, 0))
       await page.screenshot({ path: testInfo.outputPath(`unavailable-${theme}-${width}.png`), fullPage: true })
       missing = false
       await compare.press('Enter')
