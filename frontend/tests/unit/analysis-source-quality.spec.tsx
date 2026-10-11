@@ -79,11 +79,12 @@ describe('Financial origin and source checks', () => {
   })
 
   it.each([
-    { reconciled: true, status: 'No validation record' },
-    { reconciled: false, status: 'Needs review' },
-    { reconciled: undefined, status: 'No validation record' },
-  ])('retains legacy reconciled=$reconciled as $status without a passed-check claim', async ({ reconciled, status }) => {
-    render(<SourceValue point={{ period: '2024Q4', value: 8.02, reconciled }} label="EPS">$8.02</SourceValue>)
+    { label: 'legacy true', quality: { reconciled: true }, status: 'No validation record' },
+    { label: 'legacy false', quality: { reconciled: false }, status: 'Needs review' },
+    { label: 'absent validation', quality: {}, status: 'No validation record' },
+    { label: 'populated figure with unavailable validation', quality: { provenance: { ...calculated, method: 'unknown' as const, validation: 'unavailable' as const, reasons: ['legacy_unknown'], formula: null, inputs: [] } }, status: 'No validation record' },
+  ])('retains $label as $status without a passed-check claim', async ({ quality, status }) => {
+    render(<SourceValue point={{ period: '2024Q4', value: 8.02, ...quality }} label="EPS">$8.02</SourceValue>)
     await userEvent.click(screen.getByRole('button', { name: /View source/ }))
     expect(screen.getByText(status)).toBeInTheDocument()
     expect(screen.queryByText(/Automated checks passed/)).not.toBeInTheDocument()

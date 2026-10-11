@@ -16,7 +16,7 @@ const legacyLineage = (value: number | null) => value == null
   : 'Source lineage is not recorded for this saved calculation. The figure is shown as stored. Check the original filing before relying on it.'
 
 function Checks({ value, note, unavailable = false }: { value: QualityValue; note?: DataNote | null; unavailable?: boolean }) {
-  const missing = unavailable || note?.kind === 'unavailable' || value.provenance?.validation === 'unavailable'
+  const missing = unavailable || note?.kind === 'unavailable'
   const review = !missing && (note ? note.kind === 'review' : needsSourceCheck(value))
   const passed = !missing && !note && value.provenance?.validation === 'passed'
   const status = missing ? 'Unavailable' : review ? 'Needs review' : passed ? 'Automated checks passed' : 'No validation record'
