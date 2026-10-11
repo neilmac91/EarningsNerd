@@ -19,6 +19,7 @@ from app import database
 from app.models import Base, Company, Filing, FinancialFact
 from app.services import facts_service, filing_amendment_service as amendments
 from app.services import trend_analysis_service as analysis
+from app.services.trend_analysis.data_notes import REASONS
 from app.services.edgar import xbrl_instance
 from app.services.edgar import xbrl_service as xbrl
 from app.services.edgar.fiscal_periods import fiscal_label
@@ -213,9 +214,9 @@ def test_growth_citations_and_excel_keep_input_reconciliation(sessions):
     citations = analysis.resolve_narrative_citations("Revenue [F1]. Growth [F3].", index)[1]
     assert all(c["reconciled"] is False and c["verified"] for c in citations)
     wb = load_workbook(BytesIO(build_analysis_workbook(dataset)))
-    assert wb["Metrics"]["D2"].comment.text.startswith("Data note a: A source check remains unresolved.")
-    assert wb["Metrics"]["F2"].comment.text.startswith("Data note a: A source check remains unresolved.")
-    assert wb["Revenue & growth"]["C3"].comment.text.startswith("Data note a: A source check remains unresolved.")
+    assert wb["Metrics"]["D2"].comment.text.startswith(f"Data note a: {REASONS['source_check_needed']}")
+    assert wb["Metrics"]["F2"].comment.text.startswith(f"Data note a: {REASONS['source_check_needed']}")
+    assert wb["Revenue & growth"]["C3"].comment.text.startswith(f"Data note a: {REASONS['source_check_needed']}")
 
 
 def test_universe_seed_previews_then_is_idempotent_without_generation(sessions, monkeypatch):
@@ -374,9 +375,9 @@ def test_pdf_retains_value_and_citation_quality():
         "unit": "USD", "points": [{"period": "FY2025", "value": 123, "reconciled": False}]}]},
         citations_json=[{"n": 1, "excerpt": "Revenue = 123", "verified": True, "reconciled": False}])
     html = export_service.generate_analysis_pdf_html(record, SimpleNamespace(name="A", ticker="A"))
-    assert '$123<sup class="data-note"><a href="#analysis-data-note-a">a</a></sup>' in html
+    assert '$123.0<sup class="data-note"><a href="#analysis-data-note-a">a</a></sup>' in html
     assert 'Revenue grew [1]<sup class="data-note"><a href="#analysis-data-note-a">a</a></sup>' in html
-    assert html.count("A source check remains unresolved. Review the original filing before use.") == 1
+    assert html.count(REASONS['source_check_needed']) == 1
     assert "Citation verification confirms traceability, not financial reconciliation." in html
 
 

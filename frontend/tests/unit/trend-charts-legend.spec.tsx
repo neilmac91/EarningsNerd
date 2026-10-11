@@ -24,6 +24,7 @@ vi.mock('@/lib/analytics', () => ({ default: { exportGenerated: vi.fn() } }))
 
 import TrendCharts from '@/features/analysis/components/TrendCharts'
 import { exportPanelPng } from '@/features/analysis/lib/chartExport'
+import { reasonText } from '@/features/analysis/lib/provenance'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 
 const dataset: AnalysisDataset = {
@@ -118,7 +119,7 @@ describe('TrendCharts legends', () => {
     expect(within(panel).getByRole('button', { name: 'Review data notes a, b' })).toBeInTheDocument()
     fireEvent.click(within(panel).getByRole('button', { name: 'Download chart as PNG' }))
     expect(exportPanelPng).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
-      header: expect.objectContaining({ title: 'Revenue & growth', notes: expect.arrayContaining([expect.stringContaining('Note a: A source check remains unresolved')]) }),
+      header: expect.objectContaining({ title: 'Revenue & growth', notes: expect.arrayContaining([expect.stringContaining(`Note a: ${reasonText('source_check_needed')}`)]) }),
     }))
     rerender(<TrendCharts dataset={dataset} />)
     expect(within(panel).queryByRole('button', { name: 'Review data notes a, b' })).not.toBeInTheDocument()
