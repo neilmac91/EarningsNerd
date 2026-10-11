@@ -98,15 +98,23 @@ Track A, always: verify the proposal against the code before building. Re-read �
 moved, and every test the brief names that pins text the change will alter (`kpi-strip.spec.tsx`,
 `metrics-table.spec.tsx`, `analysis-source-quality.spec.tsx`, `narrative-pane.spec.tsx`,
 `trend-charts-annotation.spec.tsx`, `chart-export.spec.ts`, `period-picker-helpers.spec.ts`). None of them
-is a locked contract test (CLAUDE.md rule 6 lists those); say so explicitly in your notes. Run both
-harnesses once to confirm the recorded numbers reproduce on your machine (the README has the commands; the
-current-components harness needs `next build` with `NEXT_PUBLIC_ENABLE_ANALYSIS=true` and `next start`
-with `WAITLIST_MODE=false`, no backend).
+is a locked contract test (CLAUDE.md rule 6 lists those); say so explicitly in your notes. Run the
+prototype harness once to confirm `measurements/prototype.json` reproduces on your machine (the README has
+the commands). `measurements/current.json` is a recording of `main` at `97293e7`, before Phase 1 landed, so
+it reproduces only on a checkout of that revision: `git worktree add ../en-97293e7 97293e7`, then the
+README's build and start commands in that worktree (`next build` with `NEXT_PUBLIC_ENABLE_ANALYSIS=true`,
+`next start` with `WAITLIST_MODE=false`, no backend). Run `measure-current.mjs` on current `main` only as a
+fresh measurement of the shipped components (its probes find that markup by data attribute), never as a
+comparison with the recording: the counts and geometry differ by design.
 
 Track B, after Track A: implement what is open in proposal §7 (the P1 follow-ups of the review file, the
 gate's leftovers among them, then Phase 2), one PR per numbered item or grouped as the brief allows, each as a draft, each verified with
-the full frontend gate from `CLAUDE.md` (`npm run lint && npx tsc -p tsconfig.ci.json && npm run test --
---run && npm run build`) and the e2e gate (`tests/e2e/analysis-layout.spec.ts`, #1206). Order: items 1–2 (model and mark, with the allowlist gate and the design-doc updates of item 11
+the gates its files call for (`CLAUDE.md`, `AGENTS.md` §8): the frontend follow-ups with the full frontend
+gate (`npm run lint && npx tsc -p tsconfig.ci.json && npm run test -- --run && npm run build`) and the e2e
+gate (`tests/e2e/analysis-layout.spec.ts`, #1206); the Phase 2 PRs, which change backend services, with the
+full backend gate from `backend/` (`ruff check . && bandit -r app -ll && python -m pytest`) as well, plus
+the frontend gate whenever they touch `frontend/` (the exports' letters, the narrative's rendering) and the
+offline fidelity test and observation-selector gate §7 Phase 2 names. Order: items 1–2 (model and mark, with the allowlist gate and the design-doc updates of item 11
 in the same PR; done in #1199), then 3–4 (KPI strip, Data notes strip; done in #1200), then 5 (DataTable
 options + MetricsTable; done in #1202), then 6–9 (done in #1203), then 10 (done in #1206), then the review file's follow-ups. Phase 2 (backend `data_notes`, exports, narrative rendering)
 follows after Phase 1 is on production; it changes `trend_analysis/*` and the export services only, never

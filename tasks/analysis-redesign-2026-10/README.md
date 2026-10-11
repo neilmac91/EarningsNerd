@@ -89,7 +89,10 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
 ## Running the harnesses
 
 ```bash
-# current components: build and serve the frontend from frontend/ (the critique environment's flags; no backend)
+# current components: build and serve the frontend from frontend/ (the critique environment's flags; no backend).
+# measurements/current.json records main at 97293e7, before Phase 1 landed: to reproduce it, run these
+# commands in a worktree of that revision (git worktree add ../en-97293e7 97293e7); on current main the
+# harness measures the shipped components instead, and the counts and geometry differ by design.
 (cd frontend && NEXT_PUBLIC_ENABLE_ANALYSIS=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8010 npm run build)
 (cd frontend && WAITLIST_MODE=false npx next start -p 3000 &)
 # then, from the repository root, with Playwright resolvable (the frontend's install, or the cloud image's global one)
