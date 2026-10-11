@@ -4,12 +4,12 @@ import { formatCompanyName } from '@/lib/formatCompanyName'
 import { queryKeys } from '@/lib/queryKeys'
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { CheckIcon, CircleNotchIcon, MagnifyingGlassIcon, PlusIcon } from '@/lib/icons'
+import { CheckIcon, MagnifyingGlassIcon, PlusIcon } from '@/lib/icons'
 import { searchCompanies, Company } from '@/features/companies/api/companies-api'
 import { addToWatchlist } from '@/features/watchlist/api/watchlist-api'
 import analytics from '@/lib/analytics'
 import CompanyLogo from '@/components/CompanyLogo'
-import { inputClasses } from '@/components/ui'
+import { FieldSpinner, inputClasses } from '@/components/ui'
 
 /**
  * Add-from-search for the watchlist page: type a company, pick it, and it's tracked — without
@@ -94,11 +94,11 @@ export default function WatchlistAddSearch() {
           onFocus={() => setOpen(true)}
           placeholder="Add a company to your watchlist (e.g., AAPL, Apple)…"
           aria-label="Search for a company to add to your watchlist"
-          className={inputClasses({ leadingIcon: true })}
+          aria-busy={isLoading || addMutation.isPending || undefined}
+          className={inputClasses({ leadingIcon: true, trailingIcon: true })}
         />
-        {(isLoading || addMutation.isPending) && (
-          <CircleNotchIcon className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
-        )}
+        {/* Inset always reserved, not only while busy: see CompanySearch. */}
+        {(isLoading || addMutation.isPending) && <FieldSpinner />}
       </div>
 
       {justAdded && (

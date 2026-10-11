@@ -10,7 +10,7 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import * as uiBarrel from '@/components/ui'
 import * as inputModule from '@/components/ui/Input'
-import { Input, Select, Textarea, inputClasses, type FieldDensity, type InputClassesOptions } from '@/components/ui/Input'
+import { FieldSpinner, Input, Select, Textarea, inputClasses, type FieldDensity, type InputClassesOptions } from '@/components/ui/Input'
 import { bindingResolver } from './astBindings'
 
 /**
@@ -52,6 +52,15 @@ import { bindingResolver } from './astBindings'
  *  (d) a <select> without `select` (PAD's 14px right inset leaves the forms plugin's chevron no room, and a
  *      select that sizes to its content puts its text under it; a list box, `multiple` or a literal `size` over
  *      1, draws no chevron and is exempt), or `select` on anything but a <select>.
+ *  (e) a control drawn at an edge of the field without that edge's inset, reserved always. A sibling (beside the
+ *      field in its parent, through `{cond && …}`, ternaries and fragments) that is `absolute` or `fixed` with a
+ *      `right-*`/`end-*` class, or a <FieldSpinner />, needs `trailingIcon: true` (or `select: true`); one with
+ *      `left-*`/`start-*` needs `leadingIcon: true`. A flag that follows the control's condition fails: when the
+ *      padding grows, Chromium leaves the caret where it was, so a long query loses its end and the caret under
+ *      the spinner for the whole load, and when it shrinks the line jumps. On main the three search fields drew a
+ *      20px spinner at right-4 over the 14px inset, over the last 17–21px of typed text. `inset-y-*` is vertical
+ *      (the reveal toggle's `inset-y-0 right-0`); a popover at `top-full` or with no horizontal anchor is not at an
+ *      edge; `inset-*`, `inset-x-*`, both sides at once, or a sibling it cannot enumerate fails closed.
  *
  * A state layer passes: `aria-disabled:bg-background-light` over the field's `bg-white` (with its
  * `dark:aria-disabled:` twin), `focus-within:border-brand` on the composer shell. A position the scan cannot
@@ -66,7 +75,8 @@ import { bindingResolver } from './astBindings'
  * What it cannot see: two different state chains of one specificity that Tailwind's variant order decides (the
  * composer shell's `focus-within:` border loses to the field's `hover:` border while both hold); a class reaching
  * the field through a props spread or another component; a namespace import, a dynamic import, or a re-export
- * other than the components/ui barrel; a member-tag select (`<motion.select>`) reads as not a select.
+ * other than the components/ui barrel; a member-tag select (`<motion.select>`) reads as not a select; a positioned
+ * control nested in an unpositioned sibling wrapper, or a component other than FieldSpinner that positions itself.
  */
 
 const FRONTEND_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -115,7 +125,9 @@ const DEFAULTS: Options = { invalid: false, leadingIcon: false, trailingIcon: fa
 const BOOLEAN_OPTIONS = ['invalid', 'leadingIcon', 'trailingIcon', 'select', 'autoWidth'] as const
 const DENSITIES: FieldDensity[] = ['comfortable', 'compact']
 
-interface Site { file: string; line: number; tag: string; listBox: boolean; combos: Options[]; added: string[] }
+/** A sibling drawn at one edge of the field: it needs that side's inset, reserved always. */
+interface Edge { tag: string; side: 'left' | 'right'; anchor: string }
+interface Site { file: string; line: number; tag: string; listBox: boolean; combos: Options[]; added: string[]; edges: Edge[] }
 interface Scan { calls: number; sites: Site[]; unreadable: string[] }
 
 class Unreadable extends Error {}
@@ -273,6 +285,72 @@ function scanSource(file: string, text: string): Scan {
     return { combos, className }
   }
 
+  /** <FieldSpinner /> positions itself: absolute right-3, the box `trailingIcon` reserves. */
+  const isFieldSpinner = (tag: ts.JsxTagNameExpression): boolean => {
+    if (!ts.isIdentifier(tag)) return false
+    const imp = importOf(tag)
+    return !!imp && imp.name === 'FieldSpinner' && imp.module in DS_MODULES
+  }
+  const holdsInputClasses = (n: ts.Node): boolean =>
+    (ts.isCallExpression(n) && isInputClasses(n.expression)) || !!ts.forEachChild(n, (c) => holdsInputClasses(c) || undefined)
+
+  /** The edge a sibling element is drawn at, from its classes; undefined when it sits at no edge of the field. */
+  const edgeOf = (el: ts.JsxOpeningLikeElement): Edge | undefined => {
+    const tag = el.tagName.getText(sf)
+    if (isFieldSpinner(el.tagName)) return { tag, side: 'right', anchor: 'absolute right-3' }
+    const attr = el.attributes.properties.find((x): x is ts.JsxAttribute => ts.isJsxAttribute(x) && x.name.getText(sf) === 'className')
+    const init = attr?.initializer
+    const expr = init && (ts.isStringLiteral(init) ? init : ts.isJsxExpression(init) ? init.expression : undefined)
+    // Another field beside this one is a site of its own.
+    if (!expr || holdsInputClasses(expr)) return undefined
+    const utilities = classSource(expr).map((t) => parseClass(t).utility.replace(/^-/, ''))
+    if (!utilities.some((u) => u === 'absolute' || u === 'fixed')) return undefined
+    // Outside the field's box: a popover below (`top-full`) or above it.
+    if (utilities.some((u) => /^(top|bottom)-(full|\[100%\])$/.test(u))) return undefined
+    const right = utilities.filter((u) => /^(right|end)-/.test(u))
+    const left = utilities.filter((u) => /^(left|start)-/.test(u))
+    // `inset-y-*` is vertical only (the reveal toggle's `absolute inset-y-0 right-0`); `inset-*` and `inset-x-*` span both edges.
+    const both = utilities.filter((u) => /^inset-(?!y-)/.test(u))
+    if (both.length || (right.length && left.length)) {
+      throw new Unreadable(`a <${tag}> beside the field anchored to both of its edges (${[...both, ...left, ...right].join(' ')})`)
+    }
+    if (right.length) return { tag, side: 'right', anchor: right.join(' ') }
+    if (left.length) return { tag, side: 'left', anchor: left.join(' ') }
+    return undefined // no horizontal anchor: it sits at its static position, after the field
+  }
+
+  /** The elements a field's parent renders beside it, through {cond && X}, ternaries and fragments. */
+  const siblingsOf = (field: ts.Node): ts.JsxOpeningLikeElement[] => {
+    let node: ts.Node = field
+    let p = node.parent
+    for (;;) {
+      if (ts.isParenthesizedExpression(p) || ts.isJsxExpression(p)) node = p
+      else if (ts.isBinaryExpression(p) && node === p.right && p.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) node = p
+      else if (ts.isConditionalExpression(p) && node !== p.condition) node = p
+      else break
+      p = node.parent
+    }
+    if (!ts.isJsxElement(p) && !ts.isJsxFragment(p)) return [] // the root of what a component returns: nothing beside it
+    const out: ts.JsxOpeningLikeElement[] = []
+    const walk = (n: ts.Node): void => {
+      if (ts.isJsxText(n) || n.kind === ts.SyntaxKind.NullKeyword || n.kind === ts.SyntaxKind.FalseKeyword) return
+      if (ts.isStringLiteral(n) || ts.isNumericLiteral(n) || (ts.isIdentifier(n) && n.text === 'undefined')) return
+      if (ts.isJsxSelfClosingElement(n)) out.push(n)
+      else if (ts.isJsxElement(n)) out.push(n.openingElement)
+      else if (ts.isJsxFragment(n)) n.children.forEach(walk)
+      else if (ts.isJsxExpression(n)) {
+        if (n.expression) walk(n.expression)
+      } else if (ts.isParenthesizedExpression(n)) walk(n.expression)
+      else if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) walk(n.right)
+      else if (ts.isConditionalExpression(n)) {
+        walk(n.whenTrue)
+        walk(n.whenFalse)
+      } else throw new Unreadable(`a sibling of the field the gate cannot read (a ${ts.SyntaxKind[n.kind]})`)
+    }
+    for (const c of p.children) if (c !== node) walk(c)
+    return out
+  }
+
   /** Follows a call up to the className attribute that takes it, collecting what it is combined with. */
   const readSite = (call: ts.CallExpression): Site => {
     const { combos, className } = readOptions(call)
@@ -294,7 +372,8 @@ function scanSource(file: string, text: string): Scan {
         node = p
       } else if (ts.isJsxExpression(p) && ts.isJsxAttribute(p.parent) && p.parent.name.getText(sf) === 'className') {
         const element = p.parent.parent.parent
-        return { file, line: lineOf(call), tag: element.tagName.getText(sf), listBox: isListBox(element), combos, added }
+        const edges = siblingsOf(ts.isJsxOpeningElement(element) ? element.parent : element).flatMap((el) => edgeOf(el) ?? [])
+        return { file, line: lineOf(call), tag: element.tagName.getText(sf), listBox: isListBox(element), combos, added, edges }
       } else throw new Unreadable(`inputClasses() inside a ${ts.SyntaxKind[p.kind]}, which the gate cannot follow to a className`)
     }
   }
@@ -499,6 +578,12 @@ async function check(scan: Scan): Promise<{ file: string; line: number; finding:
       }
       if (site.tag !== 'select' && combo.select) found.add(`select: true on a <${site.tag}>`)
     }
+    // An inset that follows its control's condition moves under the caret, so every combination must reserve it.
+    for (const edge of site.edges) {
+      const reserved = site.combos.every((c) => (edge.side === 'right' ? c.select || c.trailingIcon : c.leadingIcon && !c.select))
+      const option = edge.side === 'right' ? 'trailingIcon' : 'leadingIcon'
+      if (!reserved) found.add(`a <${edge.tag}> at the field's ${edge.side} edge (${edge.anchor}) without ${option}: true`)
+    }
     for (const finding of [...found].sort()) out.push({ file: site.file, line: site.line, finding })
   }
   return out
@@ -567,6 +652,9 @@ describe('a raw field takes inputClasses() options, never a competing class on t
     const scan = scanApp()
     expect(scan.files).toBeGreaterThan(100)
     expect(scan.calls).toBeGreaterThanOrEqual(10)
+    // The controls drawn at a field's edge today: three search fields' glyphs and spinners, CompanySearch's "/" hint,
+    // the password reveal toggle and the feedback row's pending spinner over its select. Fewer means the walk broke.
+    expect(scan.sites.flatMap((site) => site.edges).length).toBeGreaterThanOrEqual(9)
   })
 })
 
@@ -689,6 +777,58 @@ export const S = () => <div className={cx(inputClasses({ className: 'flex items-
     // A flag it cannot read is checked both ways.
     expect(await findingsOf(`${IMPORTS}export const S = ({ on }: { on: boolean }) => <select className={inputClasses({ select: on })} />`)).toEqual([
       NO_CHEVRON_ROOM,
+    ])
+  })
+
+  it('holds a control drawn at the field’s edge to that inset, reserved always', async () => {
+    const beside = (options: string, sibling: string, extra = '') =>
+      findingsOf(
+        `import { FieldSpinner, inputClasses } from '@/components/ui'\n${extra}export const F = ({ busy }: { busy: boolean }) => (\n` +
+          `  <div className="relative">\n    <input className={inputClasses({ ${options} })} />\n    ${sibling}\n  </div>\n)`,
+      )
+    // The search fields on main: a 20px spinner at right-4 over the 14px inset.
+    const spinner = `{busy && <CircleNotchIcon className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin" />}`
+    expect(await beside('leadingIcon: true', spinner)).toEqual(["a <CircleNotchIcon> at the field's right edge (right-4) without trailingIcon: true"])
+    // An inset that follows the control's condition is still a finding: it moves under the caret.
+    expect(await beside('leadingIcon: true, trailingIcon: busy', spinner)).toEqual([
+      "a <CircleNotchIcon> at the field's right edge (right-4) without trailingIcon: true",
+    ])
+    expect(await beside('leadingIcon: true, trailingIcon: true', spinner)).toEqual([])
+    expect(await beside('leadingIcon: true', '{busy && <FieldSpinner />}')).toEqual([
+      "a <FieldSpinner> at the field's right edge (absolute right-3) without trailingIcon: true",
+    ])
+    expect(await beside('leadingIcon: true, trailingIcon: true', '{busy && <FieldSpinner />}')).toEqual([])
+    // The reveal toggle: `inset-y-0` anchors it vertically only.
+    const reveal = '<button type="button" className="absolute inset-y-0 right-0 flex items-center pr-3" />'
+    expect(await beside('', reveal)).toEqual(["a <button> at the field's right edge (right-0) without trailingIcon: true"])
+    expect(await beside('trailingIcon: true', reveal)).toEqual([])
+    // The leading glyph, and a select's chevron inset under the admin feedback row's pending spinner.
+    const glyph = '<MagnifyingGlassIcon className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2" />'
+    expect(await beside('', glyph)).toEqual(["a <MagnifyingGlassIcon> at the field's left edge (left-3.5) without leadingIcon: true"])
+    expect(await beside('leadingIcon: true, trailingIcon: true', glyph)).toEqual([])
+    expect(
+      await findingsOf(
+        `${IMPORTS}export const S = ({ busy }: { busy: boolean }) => <div className="relative"><select className={inputClasses({ select: true })} />{busy ? <CircleNotchIcon className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5" /> : null}</div>`,
+      ),
+    ).toEqual([])
+    // Not at an edge of the field: no horizontal anchor, a popover below it, a relative sibling, another field.
+    for (const other of [
+      '<ul className="absolute z-10 mt-2 w-full rounded-xl" />',
+      '<ul className="absolute left-0 right-0 top-full mt-2" />',
+      '<p className="relative mt-1 text-xs">hint</p>',
+      '<select className={inputClasses({ select: true, autoWidth: true })} />',
+    ]) {
+      expect(await beside('', other), other).toEqual([])
+    }
+    // Fails closed: an overlay on both edges, and siblings it cannot enumerate or read.
+    const unreadable = async (sibling: string, extra = '') => (await beside('', sibling, extra)).map((f) => f.replace(/ \(.*$/, ''))
+    expect(await unreadable('<span className="absolute inset-0" />')).toEqual(['unreadable: a <span> beside the field anchored to both of its edges'])
+    expect(await unreadable('{children}', 'declare const children: React.ReactNode\n')).toEqual([
+      'unreadable: a sibling of the field the gate cannot read',
+    ])
+    expect(await unreadable('{[1, 2].map((n) => <i key={n} />)}')).toEqual(['unreadable: a sibling of the field the gate cannot read'])
+    expect(await unreadable('<i className={tone} />', 'declare const tone: string\n')).toEqual([
+      'unreadable: a class from `tone`, which is not a const with an initializer',
     ])
   })
 
@@ -833,5 +973,21 @@ describe("the field's padding is explicit", () => {
         height: compact ? ['sm:h-9'] : [],
       })
     }
+  })
+  it('the Input component reserves its trailing inset whenever it takes `loading`, and FieldSpinner fits that inset', () => {
+    const { container } = render(
+      <>
+        <Input aria-label="plain" />
+        <Input aria-label="idle" loading={false} />
+        <Input aria-label="busy" loading />
+      </>,
+    )
+    const [plain, idle, busy] = [...container.querySelectorAll('input')].map((el) => el.classList)
+    expect(plain.contains('pr-3.5')).toBe(true)
+    // The padding never moves under the caret when the lookup starts or ends.
+    expect(idle.contains('pr-10') && busy.contains('pr-10')).toBe(true)
+    // The gate reads <FieldSpinner /> as a control at the right edge: its classes must keep it inside the inset.
+    const spinner = render(<FieldSpinner />).container.querySelector('svg')!.classList
+    for (const c of ['absolute', 'right-3', 'h-4', 'w-4']) expect(spinner.contains(c), c).toBe(true)
   })
 })

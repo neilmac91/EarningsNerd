@@ -333,7 +333,13 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
-                 inputClasses({ leadingIcon: true }).
+                 inputClasses({ leadingIcon: true }). A raw search field with a busy state (v3.4) reserves
+                 the trailing inset always, inputClasses({ leadingIcon: true, trailingIcon: true }), marks the
+                 input aria-busy and renders {busy && <FieldSpinner />} (16px, right-3), as <Input loading>
+                 does. Never a 20px glyph at right-4 over the 14px inset (it covered the last 17–21px of
+                 typed text), and never an inset that follows the busy flag: when the padding grows the caret
+                 stays put, so a long query loses its end under the spinner. A "/" shortcut hint sits at
+                 right-3 inside the same inset. Gate: tests/unit/inputClassesNoOverrides.spec.tsx.
 
 Password field   PasswordField  — raw input + inputClasses({ trailingIcon: true }) (v3.3): an explicit pr-10
                  (40px) trailing inset for the reveal toggle at both densities (pr-10 on top of the field's
