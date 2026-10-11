@@ -310,11 +310,16 @@ Analysis reading <NarrativePane> — compact monetary amounts and quarter labels
                  beside compact display and distinctly named filing links. A quiet source count
                  and Notes control replace repeated status labels.
 
-Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly, recent-period
-                 presets, compact From/To Select fields, and one availability/range summary.
-                 Moving an endpoint keeps the range ordered and within the server-provided cap.
-                 Unavailable annual years remain visible but disabled; Quarterly is disabled when
-                 there are no quarterly options. Table windows never alter this report selection.
+Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly; unavailable modes
+                 opt into focusable aria-disabled with visible described reasons. Other callers keep
+                 native disabled. The unavailable segment retains the full-strength focus ring.
+                 Recent-period presets are ghost Button actions, not pressed toggles. Visible From/To
+                 labels wrap raw compact selects using inputClasses({ select: true, autoWidth: true });
+                 font-data and tabular-nums belong to the select itself. Fields fill phones and use
+                 intrinsic/em widths on desktop. The range comes before its count in the summary.
+                 Moving an endpoint keeps the range ordered and within the server-provided cap and
+                 announces an automatically moved other endpoint through role=status. Unavailable
+                 annual years remain visible but disabled options. Table windows never alter selection.
 
 Analysis KPI     <KpiStrip> — a definition list, two cards across at phone widths and four from lg.
                  Each Card groups a metric-only dt and two dd rows: the 24px data-face value/source

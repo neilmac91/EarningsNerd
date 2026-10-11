@@ -35,6 +35,8 @@ export interface SegmentedOption<T extends string> {
   mono?: boolean
   /** Unavailable before selection (for example, a mode with no data). */
   disabled?: boolean
+  /** ID of visible explanatory copy, useful when an unavailable option stays focusable. */
+  descriptionId?: string
 }
 
 export interface SegmentedControlProps<T extends string> {
@@ -47,6 +49,8 @@ export interface SegmentedControlProps<T extends string> {
   /** Stretch the segments across the row below sm (phone toolbars), wrapping onto another row when
    *  they do not fit, so every option stays visible; one auto-width row from sm up. */
   fullWidth?: boolean
+  /** Keep unavailable modes in the Tab order so their explanation can be read. Defaults to native disabled. */
+  focusableDisabled?: boolean
   className?: string
 }
 
@@ -71,6 +75,7 @@ const RESTING = cx(
   'text-text-secondary-light hover:text-text-primary-light',
   'dark:text-text-secondary-dark dark:hover:text-text-primary-dark',
 )
+const UNAVAILABLE = 'cursor-not-allowed bg-background-light text-text-secondary-light dark:bg-background-dark dark:text-text-secondary-dark'
 
 export function SegmentedControl<T extends string>({
   label,
@@ -79,6 +84,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   size = 'sm',
   fullWidth = false,
+  focusableDisabled = false,
   className,
 }: SegmentedControlProps<T>) {
   return (
@@ -90,7 +96,9 @@ export function SegmentedControl<T extends string>({
             key={option.value}
             type="button"
             aria-pressed={selected}
-            disabled={option.disabled}
+            disabled={option.disabled && !focusableDisabled}
+            aria-disabled={option.disabled && focusableDisabled ? true : undefined}
+            aria-describedby={option.descriptionId}
             onClick={() => {
               if (!selected && !option.disabled) onChange(option.value)
             }}
@@ -99,7 +107,7 @@ export function SegmentedControl<T extends string>({
               SIZE[size],
               fullWidth && 'flex-1 sm:flex-none',
               option.mono && 'font-data tabular-nums',
-              selected ? SELECTED : RESTING,
+              option.disabled && focusableDisabled ? UNAVAILABLE : selected ? SELECTED : RESTING,
             )}
           >
             {option.label}
