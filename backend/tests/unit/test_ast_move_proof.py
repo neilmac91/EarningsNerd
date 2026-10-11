@@ -561,6 +561,8 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
     report_class = "class Report:\n    def render(self):\n        return normalize(' x ')\n\n\n"
     error = "class FooError(Exception):\n    def __str__(self):\n        return normalize(' boom ')\n"
     nested = "def hook():\n    return normalize(' x ')\n\n\nclass Outer:\n    class Inner:\n"
+    box = "class Box:\n    @classmethod\n    def hook(cls):\n        return normalize(' x ')\n"
+    calling = "def dataclass(cls):\n    cls.hook()\n    return cls\n\n\n"
     for reader, key in (
             ("def describe():\n    return normalize(' x ')\n\n\nDESCRIPTION = describe()\n", "DESCRIPTION"),
             ("RUN = lambda: normalize(' x ')\nDESCRIPTION = RUN()\n", "DESCRIPTION"),
@@ -611,6 +613,15 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
             ("class Outer:\n    class Inner:\n        Exception = Base\n\n        class Deep(Exception):\n"
              "            def __str__(self):\n                return normalize(' boom ')\n", "Outer.Inner"),
             (nested + "        value: hook()\n", "Outer.Inner"),
+            (calling + "@dataclass\n" + box, "Box"),
+            ("from app.c import dataclass\n\n\n@dataclass\n" + box, "Box"),
+            ("import types\n\n\n" + calling.replace("dataclass", "calling")
+             + "dataclasses = types.SimpleNamespace(dataclass=calling)\n\n\n@dataclasses.dataclass\n" + box, "Box"),
+            ("class Outer:\n    def dataclass(cls):\n        cls.hook()\n        return cls\n\n    @dataclass\n"
+             "    class Inner:\n        @classmethod\n        def hook(cls):\n            return normalize(' x ')\n",
+             "Outer.Inner"),
+            ("def property(fn):\n    fn(None)\n    return fn\n\n\nclass Box:\n    @property\n    def value(self):\n"
+             "        return normalize(' x ')\n", "Box.value"),
             ("class Outer:\n    class Inner:\n        hook = lambda: normalize(' x ')\n        VALUE = hook()\n",
              "Outer.Inner"),
             ("class Outer:\n    class Inner:\n        hook: object = lambda: normalize(' x ')\n"
@@ -663,6 +674,9 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    "            self._v = normalize(raw)\n",
                    nested + "        value: hook\n",
                    nested + "        global hook\n",
+                   "from dataclasses import dataclass\n\n\n@dataclass\n" + box,
+                   "import dataclasses\n\n\n@dataclasses.dataclass\n" + box,
+                   "from dataclasses import dataclass as dataclass\n\n\n@dataclass\n" + box,
                    "class Outer:\n    class Inner:\n        hook = lambda: normalize(' x ')\n        VALUE = 1\n",
                    "class Outer:\n    class Inner:\n        hook = lambda: 1\n"
                    "        other = lambda: normalize(' x ')\n        VALUE = hook()\n",
