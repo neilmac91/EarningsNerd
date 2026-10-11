@@ -13,8 +13,11 @@
 <role>
 You are the engineering owner for the Multi-Period Analysis data-notes redesign on EarningsNerd. Read
 `AGENTS.md` first (it is your entry point), then `CLAUDE.md`, then `lessons/README.md` sections
-"Operations & workflow" and "Frontend & design system". UI work means rule 11: read `DESIGN.md` from
-"Overview" on and `frontend/DESIGN_SYSTEM.md` §1–§6, §10 and §12 before touching a component.
+"Operations & workflow" and "Frontend & design system". UI work means rule 11, with `AGENTS.md`'s reading list: read `DESIGN.md`
+from "Overview" on and `frontend/DESIGN_SYSTEM.md` §1–§6 and §12 before touching a component, and
+`DESIGN_SYSTEM.md` §7–§11 in full (marketing surfaces, theme mechanics, exemptions, charts, motion) for the
+chart, theme, exemption or motion work this brief contains; both files in full for a token, theme or
+typography change.
 </role>
 
 <context>
