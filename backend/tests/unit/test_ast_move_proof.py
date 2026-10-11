@@ -611,6 +611,21 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
             ("class Outer:\n    class Inner:\n        Exception = Base\n\n        class Deep(Exception):\n"
              "            def __str__(self):\n                return normalize(' boom ')\n", "Outer.Inner"),
             (nested + "        value: hook()\n", "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        hook = lambda: normalize(' x ')\n        VALUE = hook()\n",
+             "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        hook: object = lambda: normalize(' x ')\n"
+             "        VALUE = hook()\n", "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        for hook in (lambda: normalize(' x '),):\n            pass\n\n"
+             "        VALUE = hook()\n", "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        FIRST = (hook := lambda: normalize(' x '))\n"
+             "        VALUE = hook()\n", "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        RULES = {'name': lambda value: normalize(value)}\n"
+             "        VALUE = RULES['name'](' x ')\n", "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        def run(value, clean=lambda value: normalize(value)):\n"
+             "            return clean(value)\n\n        VALUE = run(' x ')\n", "Outer.Inner"),
+            ("class Outer:\n    class Inner:\n        class Report:\n            def __init__(self):\n"
+             "                normalize(' x ')\n\n        def build(value: Report):\n            return value\n\n"
+             "        CHECK = build.__annotations__['value']()\n", "Outer.Inner"),
             ("class Outer:\n    class Inner:\n        value: normalize\n", "Outer.Inner"),
             (report_init + "def build(value: Report()):\n    return value\n", "build"),
             (report_init + "def build() -> Report():\n    return 1\n", "build"),
@@ -648,6 +663,12 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    "            self._v = normalize(raw)\n",
                    nested + "        value: hook\n",
                    nested + "        global hook\n",
+                   "class Outer:\n    class Inner:\n        hook = lambda: normalize(' x ')\n        VALUE = 1\n",
+                   "class Outer:\n    class Inner:\n        hook = lambda: 1\n"
+                   "        other = lambda: normalize(' x ')\n        VALUE = hook()\n",
+                   "def hook():\n    return 1\n\n\nclass Outer:\n    class Inner:\n        def make():\n"
+                   "            class Made:\n                hook = lambda: normalize(' x ')\n\n"
+                   "            return Made\n\n        VALUE = hook()\n",
                    "def hook():\n    return 1\n\n\nclass Outer:\n    class Inner:\n        def make():\n"
                    "            def hook():\n                return normalize(' x ')\n\n            return hook\n\n"
                    "        VALUE = hook()\n",
@@ -673,7 +694,9 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
                    hooking + "match 1:\n    case _:\n        class Deep(Base):\n            @classmethod\n"
                    "            def hook(cls):\n                return normalize(' x ')\n",
                    "match 1:\n    case _:\n        class Box:\n            def hook():\n                return normalize(' x ')\n\n"
-                   "            VALUE = hook()\n"):
+                   "            VALUE = hook()\n",
+                   "match 1:\n    case _:\n        class Box:\n            clean = lambda value: normalize(value)\n"
+                   "            VALUE = clean(' x ')\n"):
         old = "from app.b import normalize\n\n\n" + reader
         above = compare(old, {"app/a.py": "", "app/b.py": reader + "\n\n" + target}, old_path="app/a.py")
         assert above.shadows.get("normalize", "").startswith(
@@ -711,6 +734,25 @@ def test_code_that_runs_at_import_above_the_target_binding_and_reaches_a_body_th
         above = compare(old, {"app/a.py": "", "app/b.py": reader + "\n\n" + count}, old_path="app/a.py")
         assert above.shadows == {"COUNT": f"app/b.py: binds COUNT, read above it at import by {key}"}, reader
         assert compare(old, {"app/a.py": "", "app/b.py": count + "\n\n" + reader}, old_path="app/a.py").ok, reader
+    # The settlement rests on the target's binding being the one the old file imported, the target's last. An
+    # import, a star import or a new symbol's ``global`` binds the name where no symbol's place shows it, so
+    # moved code below the def may read it before that binding: it is not settled. A def in a new block is a
+    # symbol of its own, whose place shows.
+    fast = "def normalize(value):\n    return value.strip()\n\n\n"
+    reader = "X = normalize(' a ')\n"
+    old = "from app.b import normalize\n\n\n" + reader
+    for rebinding in ("try:\n    from fastnorm import normalize\nexcept ImportError:\n    pass\n",
+                      "from fastnorm import normalize\n",
+                      "from fastnorm import *\n",
+                      "def install():\n    global normalize\n    normalize = str.upper\n\n\ninstall()\n"):
+        report = compare(old, {"app/a.py": "", "app/b.py": fast + reader + "\n\n" + rebinding}, old_path="app/a.py")
+        assert report.shadows == {"normalize": "app/b.py: binds normalize, read by X"}, rebinding
+    blocked = compare(old, {"app/a.py": "", "app/b.py": fast + reader + "\n\nif FAST:\n    def normalize(value):\n"
+                                                         "        return value\n"}, old_path="app/a.py")
+    assert blocked.shadows == {"normalize": "app/b.py: binds normalize, read above it at import by X"}
+    settled = compare(old, {"app/a.py": "", "app/b.py": fast + reader + "\n\nfrom fastnorm import other\n"},
+                      old_path="app/a.py")
+    assert settled.ok, render(settled)
 
 
 def test_python_reads_a_dunder_the_old_file_imported_from_the_target_where_moved_code_stands():
