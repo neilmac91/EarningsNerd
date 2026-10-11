@@ -179,12 +179,16 @@ original proposal; these notes are authoritative for what actually shipped.
        **Fixed 2026-10-11:** `derive_title` parses only nonempty strings. A5 now requires
        numeric, boolean, container and null dates to preserve the reporting-period fallback;
        valid annual/quarterly dates and malformed-string handling retain their existing behavior.
-    3. The OUTPUT REFERENCE block at O:386-391 never fires. The markers at `prompt_loader.py:50-54` do
-       not match the prompts' "## CRITICAL: Output Format" headings, so each prompt loads whole into
-       the system message, its format section included (`prompt_loader.py:61`), and the user-message
-       reference is never appended. A1 pins today's bytes. The model still sees the format, so this is a
-       dead branch, not a lost instruction. Reviving or deleting it changes prompt bytes, which makes it
-       a RUNBOOK event with an `eval-baseline` run, for the founder.
+    3. The OUTPUT REFERENCE block at O:386-391 never fired: the loader's markers did not match
+       the analyst prompts' "## CRITICAL: Output Format" headings. O2 preserved that behavior.
+       **Closed 2026-10-11, founder-authorized cleanup:** remove the unused splitter, template
+       `user` field and reference interpolation, preserving the empty slot's whitespace. Analyst
+       text remains whole in the user-message preamble when structured output is off; structured
+       mode retains its separate schema-first prompt. The trends caller still uses raw text.
+       Correction: deleting this unused plumbing does not require changing request bytes. A1's
+       existing snapshots and prompt files remain unchanged, with an offline before/after request
+       comparison across forms, 6-K variants, fallbacks and both structured-output modes. Normal PR
+       evals still apply; no prompt experiment or baseline re-pin is part of this cleanup.
     4. Model-supplied top-level `_`-prefixed keys survive into `raw_summary["structured"]`, as does
        `metric_delta_context_version`, the one context key the pop list at O:977-985 skips. A6's second
        case pins this. Rule 9 says to validate AI output where it enters.
@@ -926,11 +930,10 @@ backend/app/services/openai_service.py        ← façade + OpenAIService; summa
   `backend/tests/fixtures/summarize_filing_anchors/`. O2 is a pure move and leaves those fixtures
   untouched. A prompt change regenerates them as a RUNBOOK event, with the command in the test's
   docstring, and never inside a refactor PR.
-- The OUTPUT REFERENCE block at O:386-391 never fires. The markers at `prompt_loader.py:50-54` miss
-  the prompts' "## CRITICAL: Output Format" headings, so each prompt loads whole into the system
-  message instead (`prompt_loader.py:61`). O2 moves the dead branch as it is, and A1 pins today's
-  bytes. Reviving or deleting it is a prompt change, so it stays out of O2 (Implementation Notes,
-  follow-up 3).
+- O2 preserved the unused OUTPUT REFERENCE branch and A1's exact request snapshots. The
+  founder-authorized 2026-10-11 follow-up removes it without changing request bytes, including
+  whitespace (Implementation Notes, follow-up 3). Correcting the old markers to start splitting
+  prompts would change requests and remains a separate prompt experiment, not this cleanup.
 
 **Estimated diff size.** O0 +250–350 test lines and 2–4 JSON fixtures. O1: façade −480/+75
 (O:735–1231 moved, orchestrator ≈ 70 lines), +520 new module, `test_evidence_snap.py:231-239`

@@ -142,6 +142,10 @@ This records it as a standing authorization (`lessons/ops-keep-moving-under-stan
   - the OUTPUT REFERENCE branch is dead. The loader's markers (`prompt_loader.py:50-54`) never match,
     so each prompt loads whole into the system message, and the model still sees the format.
     Reviving or deleting the branch changes prompt bytes, a RUNBOOK event for the founder.
+    **Correction 2026-10-11:** the founder authorized removing the unused plumbing while retaining
+    every request byte and snapshot. The analyst text is in the user-message preamble, not the
+    provider system message; deletion can preserve it exactly. See the current refactor plan,
+    Implementation Notes, follow-up 3.
 
 ## 2026-10-08 — EN-04: wide filing tables stay inside the in-app filing reader (frontend)
 
