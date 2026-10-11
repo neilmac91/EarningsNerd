@@ -70,7 +70,7 @@ function expectCounts(m, headers, key) {
 async function run() {
   const browser = await chromium.launch()
   const git = (cmd) => { try { return execSync(cmd, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { return null } }
-  const dirty = (git('git status --porcelain -- prototype harness') || '').split('\n').filter(Boolean).map((l) => l.slice(3))
+  const dirty = (git('git status --porcelain -- prototype harness') || '').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => l.replace(/^\S+\s+/, ''))
   if (dirty.length && !('allow-dirty' in args)) { await browser.close(); throw new Error(`uncommitted prototype or harness files; commit them first, or pass --allow-dirty to record them: ${dirty.join(', ')}`) }
   const results = { generatedAt: new Date().toISOString(), environment: { chromium: browser.version(), platform: `${process.platform} ${process.arch}`, node: process.version, commit: git('git rev-parse --short HEAD'), prototypeTree: git('git rev-parse HEAD:./prototype'), dirty }, configs: [] }
   for (const theme of ['light', 'dark']) {
