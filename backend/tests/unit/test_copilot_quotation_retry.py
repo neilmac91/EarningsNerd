@@ -286,8 +286,12 @@ async def test_retry_cancellation_closes_the_active_provider_without_terminal_pr
 @pytest.mark.asyncio
 @pytest.mark.parametrize("limit", ["caller", "wrapper", "expired"])
 async def test_native_sdk_retry_deadline_is_the_earlier_caller_or_75s_budget(monkeypatch, limit):
+    # The deadline the wrapper must honour is 0.08s away (or already past); the one it must not
+    # honour is 2s away. The elapsed bound sits between them, so a loaded xdist runner may spend
+    # most of a second scheduling before the test confuses the two (#1241 saw 0.34s against 0.2s).
+    honoured, decoy = 0.08, 2.0
     calls, closed = [], []
-    monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", 0.08 if limit == "wrapper" else 0.35)
+    monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", honoured if limit == "wrapper" else decoy)
 
     class Body(httpx2.AsyncByteStream):
         async def __aiter__(self):
@@ -305,13 +309,16 @@ async def test_native_sdk_retry_deadline_is_the_earlier_caller_or_75s_budget(mon
         # Build the SDK client before starting the caller's budget. First-client setup
         # is outside this streaming method's ownership and may exceed a tiny deadline.
         before = asyncio.get_running_loop().time()
-        deadline = before + (0.08 if limit == "caller" else 1000 if limit == "wrapper" else -1)
+        deadline = before + (honoured if limit == "caller" else decoy if limit == "wrapper" else -1)
         async def receive():
             return [piece async for piece in service.stream_chat_with_tools(
                 [], [], lambda *_args: {}, deadline=deadline,
             )]
-        output = await asyncio.wait_for(receive(), 0.5)
-    assert asyncio.get_running_loop().time() - before < 0.2
+        # Outlasts the decoy, so honouring the wrong deadline fails the elapsed bound below with
+        # its measured time rather than as a bare cancellation.
+        output = await asyncio.wait_for(receive(), decoy + 1.0)
+    elapsed = asyncio.get_running_loop().time() - before
+    assert elapsed < 1.0, elapsed
     assert output[-1].startswith(STREAM_ERROR_SENTINEL)
     assert len(calls) == (0 if limit == "expired" else 1)
     assert len(closed) == len(calls)
