@@ -8,8 +8,10 @@
   the line its footer row would carry. Port the markup into _wrap_html; do not link this file.
 
   Client notes. Gmail and Outlook drop inline SVG: the mark is wrapped so Outlook skips it, and
-  where it is dropped the text wordmark carries the brand alone (a hosted PNG of the mark would
-  replace the <svg> if the mark must show everywhere; none is published at a fixed URL today).
+  where it is dropped the text wordmark carries the brand alone. The hosted raster for the port is
+  https://www.earningsnerd.io/assets/earningsnerd-mark-sage.png (256 px wide, transparent, the
+  same bytes as the Excel export's mark; frontend/scripts/generate-brand-assets.mjs writes both),
+  so email_service.py can carry it as an <img> in place of this <svg>.
   The @font-face rule points at the repository's Inter for this preview only (the email uses no
   data face); a sent email falls back through the inline font stacks. The highlight under "shows its work" is two nested spans:
   the outer span's own font box is the lower 38% of the tagline's line box (tint, with the 2px
