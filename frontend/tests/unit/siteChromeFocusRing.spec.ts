@@ -491,13 +491,12 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
 /** The DS field module: its fields are held by tests/unit/inputClassesNoOverrides.spec.tsx (each `inputClasses()`
     combination and the Input, Textarea and Select components take the forms ring off and draw the DS ring). */
 const FIELD_FACTORY = 'components/ui/Input.tsx'
-/** The DS ring tokens tailwind.config.js defines (`ring-brand`, `ring-brand-dark`, `ring-error`): a misspelt one
-    generates no CSS, so it draws no ring and must not count as one. */
-const RING_TOKENS = new Set(
-  Object.keys(
-    resolveConfig(createRequire(import.meta.url)(path.join(ROOT, 'tailwind.config.js')) as Config).theme.boxShadow as Record<string, unknown>,
-  ).filter((k) => k.startsWith('ring-')),
-)
+/** The DS ring tokens, pinned: a misspelt one generates no CSS, and a `ring-*` key added to the theme later need not
+    draw a ring (`ring-none: 'none'`), so only these count, and the describe below holds each to a visible shadow in
+    tailwind.config.js. */
+const RING_TOKENS = new Set(['ring-brand', 'ring-brand-dark', 'ring-error'])
+const THEME_SHADOWS = resolveConfig(createRequire(import.meta.url)(path.join(ROOT, 'tailwind.config.js')) as Config).theme
+  .boxShadow as Record<string, string>
 /** The focus states (`focus`, `focus-visible`) a field's DS ring is drawn in: in light, a ring token that is not a dark
     one (`focus:shadow-ring-brand`); in dark, any ring token under `dark:` (`dark:focus:shadow-ring-brand-dark`). */
 function ringStates(tokens: string[], dark: boolean): string[] {
@@ -566,7 +565,8 @@ function unringedFields(source: string, fileName: string): { fields: number; fac
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       const { tag, attr, tabbable, field, spread } = classify(node, sf, linkNames)
       const className = attr('className')
-      if (field && tabbable && className?.initializer && factoryBuilt(className.initializer, isFactory)) factory += 1
+      // A spread may replace the className, the factory's included, so it is read before the factory exemption.
+      if (field && tabbable && !spread && className?.initializer && factoryBuilt(className.initializer, isFactory)) factory += 1
       else if (field && tabbable) {
         fields += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
@@ -944,6 +944,10 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     expect(findings).toEqual([])
   })
 
+  it('every pinned DS ring token draws a visible ring in tailwind.config.js', () => {
+    for (const token of RING_TOKENS) expect(THEME_SHADOWS[token], token).toMatch(/^0 0 0 [1-9]\d*px rgba?\(/)
+  })
+
   it('the field scan takes only the DS factory, under any import name, for inputClasses()', () => {
     const at = (source: string, fileName = 'features/fixture/Page.tsx') => {
       const { factory, findings } = unringedFields(source, fileName)
@@ -993,6 +997,8 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <input type="date" className="border focus:shadow-ring-brand-dark dark:focus:shadow-ring-brand-dark ${reset}" />
             <input type="date" className="border focus:shadow-ring-brand dark:focus:shadow-ring-brnad-dark ${reset}" />
             <input type="date" className="border focus:shadow-ring-brnad dark:focus:shadow-ring-brand-dark ${reset}" />
+            <input type="text" className={inputClasses()} {...rest} />
+            <input type="date" className="border focus:shadow-ring-none dark:focus:shadow-ring-none ${reset}" />
           </>
         )
       }`
@@ -1000,7 +1006,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     const twin = 'its dark: twin in the same focus state'
     const ring = 'a focus:shadow-ring-* or focus-visible:shadow-ring-*'
     expect(factory).toBe(2)
-    expect(fields).toBe(15)
+    expect(fields).toBe(17)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       `7 <input> missing focus:ring-0, focus:ring-offset-0, ${twin}`,
       `9 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
@@ -1018,6 +1024,10 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       // A misspelt token generates no CSS, so it is no ring, in either theme.
       `25 <input> missing ${twin}`,
       `26 <input> missing ${ring}, ${twin}`,
+      // A spread may replace the factory's className, so the factory does not exempt it.
+      '27 <input> a props spread the scan cannot read',
+      // Only the pinned DS ring tokens count, not any `ring-*` key.
+      `28 <input> missing ${ring}, ${twin}`,
     ])
   })
 })
