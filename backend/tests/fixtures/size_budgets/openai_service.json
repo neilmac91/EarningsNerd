@@ -2,7 +2,7 @@
   "files": {
     "app/services/openai_service.py": 574,
     "app/services/ai/summary_finalize.py": 596,
-    "app/services/ai/summary_prompt.py": 223
+    "app/services/ai/summary_prompt.py": 216
   },
   "functions": {
     "app/services/openai_service.py::OpenAIService._assemble_structured_summary": 87
