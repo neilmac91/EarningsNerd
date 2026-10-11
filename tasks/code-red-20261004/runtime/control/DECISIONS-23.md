@@ -3,7 +3,7 @@
 Recorded 2026-10-11T09:02Z, by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
 Context: record 22 merged to main as `322e12d8` (PR #1184, 2026-10-10T15:11:22Z) and the read-back follow-ups PR as `f64d6040`
 (PR #1195, 2026-10-11T08:31:21Z); GitHub deleted the records branch `claude/stoic-wright-6jeujo` at #1184's merge, and it was
-recreated at main `f64d6040` (2026-10-11T08:35:53Z) before this record's first commit. This PR: this record, closure 174, the
+recreated at main `f64d6040` (2026-10-11T08:35:52Z) before this record's first commit. This PR: this record, closure 174, the
 checkpoint, the appointments file, the archive ledger's record-23 entry and `tasks/todo.md` (one CODE RED line extended and one
 added; the standing, another writer's, untouched): no application code, workflow, migration, cloud, IAM or production change (nothing
 under `backend/`, so the merge deploys nothing); no provider call; no reservation; nothing opened under
@@ -26,8 +26,8 @@ overstated the gap), none on `2b38435`, one on `b6dc9f7` (the checkpoint's row c
 three), two on `25c09db` (the lesson's UNVERIFIED pass-through read as universal; its class set left out `error (gcloud not
 executable)`), one on `34bd90d` (the lesson's closed-class claim covered describe-service's shell read, which printed gcloud's
 stderr) and none on `6e1fa34` (a manual run at 15:04:11Z and the ready run's thumbs-up at 15:10:35Z) — six P2s, each fixed in the next
-head. Two heads were not reviewed: `d0925d5`, superseded 89 s after its push by `0f8a860` (the PR-number fill), before the first
-request (13:55:47Z); and `6dd8f69`, requested at 14:59:55Z and superseded at 15:01:34Z by `6e1fa34` before a result was posted; each
+head. Two heads were not reviewed: `d0925d5`, superseded 89 s later by `0f8a860` (the PR-number fill), before the first request
+(13:55:47Z); and `6dd8f69`, requested at 14:59:55Z and superseded when `6e1fa34` was pushed at 15:01:35Z, before a result was posted; each
 was covered by its successor's review. Marked ready 15:07:26Z; `review-gate` passed at 15:10:38Z, on the ready run; the merge train
 (session `018w7VWiSMYqGddE2thede6V`) was told first; squash-merged `322e12d8` at 15:11:22Z with an explicit title and message; main
 CI run 38062599862 green (15:11:25–15:16:51Z); `deploy-backend` job 114244745447 (15:16:40–15:16:50Z): the detector step ran, steps
@@ -171,7 +171,8 @@ expected jobs use one release image with the production pool budget, both SEC pi
 release image tagged `dd7b9ce`, `taskCount` 1, both pins `'1'`, `DB_POOL_SIZE` 3 (pregenerate) or 1 (the seven others);
 `command/args`: backfill-facts "matches the committed entrypoint", the seven others "override present (values withheld)". The
 first describe-jobs dispatch (ops run 38125886125) was cancelled by the workflow's concurrency group (disclosure 1); this run is its
-re-dispatch, and #1224 merged between the two (08:44:59Z): its CI was in its test jobs throughout this read and its `deploy-backend`
+re-dispatch, and #1224 merged between the two (08:44:57Z; its main CI run 38125902280 started 08:44:59Z): that CI was in its test jobs
+throughout this read and its `deploy-backend`
 job had not started, so the read saw `dd7b9ce`'s jobs, not a deploy in progress.
 
 **`logs-probe`** (ops run 38125887768, job 114430111359, 08:45:09–08:45:35Z, on main `f64d6040`): `logs-probe: logging.read
@@ -228,7 +229,8 @@ PERMITTED (3 recent entries visible)`; the denied branch, now a closed class, st
    recreated from main; a local throwaway merge branch for the pre-merge gate, never pushed and deleted; agent and workflow launches as
    closure 174 registers; scratchpad only otherwise (the chief deleted the finished review workflow's 13 GB of per-agent copies).
 7. **Other writers' read-only dispatches:** ops run 38088527035 (2026-10-10T21:40:32Z, `describe-service` on main `a74df3b2`) was not
-   this session's; its dispatches are the four above and record 22's.
+   this session's, nor were the 71 `deepseek-balance` dispatches on main between 2026-10-10T14:07:04Z and 2026-10-11T08:54:14Z (all
+   from the founder's account, which every session uses); this session's dispatches are the four above and record 22's.
 
 ## Plan
 
@@ -265,9 +267,10 @@ earlier identity and adverse history is retained.
 
 No paid run and no ledger event (the ledger stands at event 45): recorded use against the authority 1.513044 (1,153 calls);
 retained holds 1.881713; headroom 21.605243; cumulative 3,212 calls / USD 5.297293; 0 active reservations. Latest balance reading
-in the ledger USD 21.83 at 2026-10-10T12:10:15Z, above the floor; the latest reading this record saw, USD 17.97 at
-2026-10-11T02:47:28Z (another writer's, in the standing of `tasks/todo.md`), was above it too; the refactor programme's own
-spend is accounted in its closeout, not in this ledger.
+in the ledger USD 21.83 at 2026-10-10T12:10:15Z, above the floor; the latest reading in the standing of `tasks/todo.md`, USD 17.97 at
+2026-10-11T02:47:28Z (another writer's), was above it too; GitHub lists other writers' later `deepseek-balance` dispatches on main,
+up to 08:54:14Z, whose values this record did not read. The refactor programme's own spend is accounted in its closeout, not in
+this ledger.
 
 ## Founder actions this record needs
 
