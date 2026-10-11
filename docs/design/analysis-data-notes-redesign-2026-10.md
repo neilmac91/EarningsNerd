@@ -262,6 +262,11 @@ What a reader sees in the three states (the strip's summary line; state 2 is the
   page: state 2 with Newest 6 reads "14 quarter-over-quarter changes in the table (8 in the 6 quarters
   shown)", state 3 with Earliest 6 "3 quarter-over-quarter changes in the table (none in the 6 quarters
   shown)"; with the full window the clause is unchanged.
+- A year-over-year change the table shows as the labelled fallback of a cell without a quarter-over-quarter
+  change (§4.5) is counted among the places that show it: "…, of which the headline cards show one, the
+  table shows one as its labelled fallback, … and the exports carry all". None of the three fixture states
+  has a noted fallback (their four fallback cells, EPS in Q1 2025 and Q1 2026, pass their checks), so the
+  clause appears only with a dataset that has one.
 
 The summary names each note's letter beside its count, so the resting line is the key to the marks on
 the page: each clause names the letters of the notes it counts, so a note with values and comparisons
@@ -1029,7 +1034,10 @@ correction landed in this document:
   cells change fill) before it judges the header's fill. The picker's presets are plain buttons, without
   `aria-pressed` or a selected tint (§4.9, as decision 8 recommends; the summary line states the range);
   the open note's table clause says how many of its quarter-over-quarter changes are in the quarters
-  shown when the table window is narrower than the report (§4.1).
+  shown when the table window is narrower than the report, and counts the year-over-year changes the
+  table shows as its labelled fallback (§4.1); the evidence dialog's status follows the notes model's own
+  resolution, so a stored figure without a provenance record whose reconciled flag is false reads "Needs
+  review" with its reason, as its affix and its note do, instead of "No validation record".
 - **Moved modules**, checked against `main` at `dd7b9ce` (#1222) on 2026-10-11: `normalize_companyfacts`
   lives in `facts/companyfacts.py` (#1210) behind the `facts_service.py` facade; `build_observation_catalogue`
   and `_point_value` in `trend_analysis/observations.py`, `_ratio_threshold_value` and

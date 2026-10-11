@@ -286,7 +286,9 @@
         const onCards = g.comparisons.filter((x) => x.basis === 'yoy' && ['revenue', 'net_income', 'free_cash_flow', 'net_margin'].includes(x.series.concept) && latestPoint(x.series) === x.point).length
         // The chart draws a growth marker only for a numeric YoY ("nm" comparisons have no marker or letter).
         const onChart = g.comparisons.filter((x) => x.basis === 'yoy' && x.series.concept === 'revenue' && typeof x.point.yoy === 'number').length
-        c.append(`${g.values.length} figure${g.values.length === 1 ? '' : 's'}`, g.comparisons.length ? ` · ${g.comparisons.length} comparison${g.comparisons.length === 1 ? '' : 's'} carry this note: ${qoq} quarter-over-quarter change${qoq === 1 ? '' : 's'} in the table${windowClause} and ${yoy} year-over-year change${yoy === 1 ? '' : 's'}, of which the headline cards show ${count(onCards)}${onChart ? `, the revenue growth chart shows ${count(onChart)}` : ''} and the exports carry all` : '')
+        // The table shows a YoY change only as the labelled fallback of a cell without a QoQ change (§4.5), within the quarters shown.
+        const onTable = g.comparisons.filter((x) => x.basis === 'yoy' && x.point.qoq == null && shownKeys.has(x.point.period)).length
+        c.append(`${g.values.length} figure${g.values.length === 1 ? '' : 's'}`, g.comparisons.length ? ` · ${g.comparisons.length} comparison${g.comparisons.length === 1 ? '' : 's'} carry this note: ${qoq} quarter-over-quarter change${qoq === 1 ? '' : 's'} in the table${windowClause} and ${yoy} year-over-year change${yoy === 1 ? '' : 's'}, of which the headline cards show ${count(onCards)}${onTable ? `, the table shows ${count(onTable)} as its labelled fallback` : ''}${onChart ? `, the revenue growth chart shows ${count(onChart)}` : ''} and the exports carry all` : '')
         if (g.reasons.includes('legacy_calculation')) c.append(' · figures are shown as stored; their source lineage is not recorded')
         if (g.reasons.includes('source_conflict')) c.append(' · review the original filing before relying on these figures')
       } else if (g.kind === 'unknown') {
@@ -661,7 +663,9 @@
     const noteMark = note ? el('span', { class: 'mark' }, ` · Note ${note.letter}`) : null
     if (point.value == null) checks.append(el('div', { class: 'status' }, 'Unavailable', noteMark), el('p', { style: 'margin:.25rem 0 0' }, note ? note.reasons.map(reasonText).join(' ') : reasonText('not_in_dataset'), ' Changes that need this quarter are not shown.'))
     else if (prov.validation === 'passed') checks.append(el('div', { class: 'status passed' }, el('span', { class: 'mark' }, '✓'), 'Automated checks passed'), el('p', { class: 'fine', style: 'margin:.25rem 0 0' }, calc ? 'Calculated from reported figures with compatible periods and units. This is not an audit of the company’s accounts.' : 'Taken from the company’s XBRL data as filed with the SEC. This is not an audit of the company’s accounts.'))
-    else if (prov.validation === 'needs_review') checks.append(el('div', { class: 'status review' }, 'Needs review', noteMark), el('p', { style: 'margin:.25rem 0 0' }, (prov.reasons || []).map(reasonText).join(' ')))
+    // The status follows the notes model's own resolution (kindOf): a record without provenance whose
+    // reconciled flag is false needs review, as its affix and its note already say.
+    else if (prov.validation === 'needs_review' || kindOf(point) === 'review') checks.append(el('div', { class: 'status review' }, 'Needs review', noteMark), el('p', { style: 'margin:.25rem 0 0' }, (prov.reasons && prov.reasons.length ? prov.reasons : note ? note.reasons : ['source_check_needed']).map(reasonText).join(' ')))
     else if (prov.validation === 'unavailable') checks.append(el('div', { class: 'status review' }, 'Unavailable', noteMark), el('p', { style: 'margin:.25rem 0 0' }, (prov.reasons || []).map(reasonText).join(' ')))
     else checks.append(el('div', { class: 'status' }, 'No validation record', noteMark), el('p', { class: 'fine', style: 'margin:.25rem 0 0' }, 'No automated check result is recorded for this figure. No verification claim is made.'))
     body.append(checks)
