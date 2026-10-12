@@ -496,7 +496,8 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  `BOTTOM_CHROME_OFFSET`, the workspace / rail sheets through `bottom-[var(--consent-inset,0px)]`
                  (and the same subtraction from their vh cap), the desktop pane's sticky height likewise, and
                  the document's `scroll-padding-bottom` (globals.css) reserves it so a focus or scrollIntoView
-                 never lands a control behind the bar (the desktop pane's composer scrolls clear on open). The
+                 never lands a control behind the bar. The desktop source pane measures its actual top
+                 before and after it sticks, so its footer and composer fit without scrolling the page. The
                  coachmark is deferred, not dismissed, while the bar shows (`hooks/useConsentLayer`); the
                  saved confirmation is a sonner toast, never a fixed corner element. Real modals cover the
                  bar: beneath the settings dialog (z-modal) and beneath an open workspace / rail bottom sheet
