@@ -277,7 +277,10 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  recompute rendered widths without accumulating padding or losing the prior column.
                  Focused figure controls are scrolled wholly into view using the active sticky inset.
                  Phones below 640px start at
-                 the newest period, with a visible scrolling hint when columns are off-screen.
+                 the newest period. “← Earlier quarters” (or years) appears only on phones while
+                 earlier columns are off-screen; the hidden hint line retains its height at the
+                 start so native keyboard scrolling does not shift the page. Generic table hints
+                 keep their existing static behavior.
                  A table-only segmented window defaults to All, with Newest 6 and Earliest 6 when
                  more than six periods exist. Charts, KPI cards, data-note totals and full exports
                  retain the complete selected dataset. A status region announces the visible count.

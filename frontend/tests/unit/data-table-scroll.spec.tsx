@@ -37,7 +37,7 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 function Table({ snap = true, newest = false }: { snap?: boolean; newest?: boolean }) {
   return <DataTable columns={columns} rows={rows} rowKey={(row) => row.id}
     layout="fixed" colWidths={['6.5rem', ...Array(12).fill('4.25rem')]}
-    stickyFirstColumn snapColumns={snap} scrollRegion={{ label: 'Quarterly metrics', hint: 'Use arrows to scroll', startAtEndOnMobile: newest }} />
+    stickyFirstColumn snapColumns={snap} scrollRegion={{ label: 'Quarterly metrics', hint: newest ? '← Earlier quarters' : 'Use arrows to scroll', startAtEndOnMobile: newest }} />
 }
 
 describe('DataTable opt-in column scrolling', () => {
@@ -118,10 +118,20 @@ describe('DataTable opt-in column scrolling', () => {
     render(<Table newest />)
     const region = screen.getByRole('region')
     expect(region.scrollLeft).toBe(612)
+    expect(region).toHaveAccessibleDescription('← Earlier quarters')
+    region.scrollLeft = 0
+    fireEvent.scroll(region)
+    expect(region).not.toHaveAttribute('aria-describedby')
+    expect(screen.getByText('← Earlier quarters')).toHaveAttribute('aria-hidden', 'true')
     region.scrollLeft = 68
     fireEvent.scroll(region)
+    expect(region).toHaveAccessibleDescription('← Earlier quarters')
     act(() => resize())
     expect(region.scrollLeft).toBe(68)
+    vi.mocked(window.matchMedia).mockReturnValue({ ...media, matches: false })
+    act(() => resize())
+    expect(screen.queryByText('← Earlier quarters')).not.toBeInTheDocument()
+    expect(region).not.toHaveAttribute('aria-describedby')
   })
 
   it('scrolls a focused source clear of the sticky row header', () => {

@@ -217,7 +217,7 @@ export default function MetricsTable({
         snapColumns
         scrollRegion={{
           label: `Metrics by period, scrollable table of ${periods.length} ${periodUnit}`,
-          hint: `Scroll for earlier or later ${periodUnit}, or use the arrow keys. Snaps to whole columns.`,
+          hint: `← Earlier ${periodUnit}`,
           startAtEndOnMobile: true,
         }}
         caption={`Metrics by period, ${periods.length} of ${dataset.periods.length} ${periodUnit}: value and change versus ${basis}. ${dataset.mode === 'quarterly' ? 'YoY labels identify comparisons versus the prior year when a quarterly comparison is unavailable.' : 'The final column shows the full selected window CAGR, or percentage-point change for margins.'}`}

@@ -99,7 +99,8 @@ export interface DataTableProps<T> {
   colWidths?: readonly string[]
   /** Narrow horizontal insets for dense, fixed-width columns; independent of row density. */
   cellPadding?: 'standard' | 'compact'
-  /** Opt-in, named keyboard scroll region; child controls retain their own keys. */
+  /** Opt-in, named keyboard scroll region; child controls retain their own keys.
+   *  startAtEndOnMobile also limits the hint to phones with earlier columns off-screen. */
   scrollRegion?: { label: string; hint?: string; startAtEndOnMobile?: boolean }
   /** Equal data columns after the optional sticky label column snap to their full width. */
   snapColumns?: boolean
@@ -161,6 +162,7 @@ export function DataTable<T extends Record<string, unknown>>({
   const geometry = useRef({ step: 0, inset: 0, range: 0, stops: [] as number[], column: 0 })
   const initialized = useRef(false)
   const [overflows, setOverflows] = useState(false)
+  const [mobileHint, setMobileHint] = useState<'absent' | 'hidden' | 'visible'>('absent')
   const [stickyFits, setStickyFits] = useState(true)
   const stickyColumn = stickyFirstColumn && (!snapColumns || stickyFits)
   const hintId = useId()
@@ -168,11 +170,19 @@ export function DataTable<T extends Record<string, unknown>>({
     ? `max(100%, calc(${colWidths.join(' + ')}))` : undefined
   const startAtEndOnMobile = scrollRegion?.startAtEndOnMobile
   const hasScrollRegion = !!scrollRegion
+  const renderHint = !!scrollRegion?.hint && overflows && (!startAtEndOnMobile || mobileHint !== 'absent')
+  const showHint = renderHint && (!startAtEndOnMobile || mobileHint === 'visible')
 
   useLayoutEffect(() => {
     const scroll = scrollRef.current
     const table = tableRef.current
     if (!scroll || !table || (!snapColumns && !hasScrollRegion)) return
+    const rememberColumn = () => {
+      const current = geometry.current
+      current.column = nearestColumn(current.stops, scroll.scrollLeft)
+      setMobileHint(!window.matchMedia('(max-width: 639px)').matches ? 'absent'
+        : scroll.scrollLeft > 1 ? 'visible' : 'hidden')
+    }
     const measure = () => {
       const previous = geometry.current
       // Remove the old pad before measuring: resize and text-size changes must never compound it.
@@ -199,12 +209,8 @@ export function DataTable<T extends Record<string, unknown>>({
       setOverflows(range > 0)
       const newest = !initialized.current && startAtEndOnMobile && window.matchMedia('(max-width: 639px)').matches
       if (snapColumns) scroll.scrollLeft = newest ? wholeRange : stops[Math.min(previous.column, stops.length - 1)] ?? 0
-      geometry.current.column = nearestColumn(stops, scroll.scrollLeft)
+      rememberColumn()
       initialized.current = true
-    }
-    const rememberColumn = () => {
-      const current = geometry.current
-      current.column = nearestColumn(current.stops, scroll.scrollLeft)
     }
     measure()
     const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
@@ -233,13 +239,13 @@ export function DataTable<T extends Record<string, unknown>>({
 
   return (
     <>
-    {scrollRegion?.hint && overflows && <p id={hintId} className="mb-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">{scrollRegion.hint}</p>}
+    {renderHint && <p id={hintId} aria-hidden={!showHint || undefined} className={cx('mb-2 text-xs text-text-secondary-light dark:text-text-secondary-dark', !showHint && 'invisible')}>{scrollRegion!.hint}</p>}
     <div
       ref={scrollRef}
       role={scrollRegion && overflows ? 'region' : undefined}
       tabIndex={scrollRegion && overflows ? 0 : undefined}
       aria-label={overflows ? scrollRegion?.label : undefined}
-      aria-describedby={scrollRegion?.hint && overflows ? hintId : undefined}
+      aria-describedby={showHint ? hintId : undefined}
       className={cx(
         (scrollRegion || snapColumns) && 'relative',
         stickyHeader ? 'overflow-auto' : 'overflow-x-auto',

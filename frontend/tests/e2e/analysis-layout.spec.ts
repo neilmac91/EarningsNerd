@@ -528,6 +528,17 @@ for (const theme of THEMES) for (const profile of [
     if (profile.width < 640) expect(initial.max - initial.left, 'phones initially show the newest period').toBeLessThanOrEqual(EPSILON)
     const section = page.locator('[data-analysis-metrics]')
     const region = section.getByRole('region', { name: /Metrics by period/ })
+    const assertEarlierHint = async (left: number) => {
+      const hint = section.getByText('← Earlier quarters', { exact: true })
+      if (profile.width < 640 && left > EPSILON) {
+        await expect(hint).toBeVisible()
+        await expect(region).toHaveAccessibleDescription('← Earlier quarters')
+      } else {
+        await expect(hint).toBeHidden()
+        await expect(region).not.toHaveAttribute('aria-describedby')
+      }
+    }
+    await assertEarlierHint(initial.left)
     await section.getByRole('button', { name: 'Earliest 6', exact: true }).focus()
     await page.keyboard.press('Tab')
     await expect(region).toBeFocused()
@@ -536,6 +547,7 @@ for (const theme of THEMES) for (const profile of [
       const before = await settleTable(page)
       await page.keyboard.press(key)
       const after = await settleTable(page)
+      await assertEarlierHint(after.left)
       expect(after.y, `${key} belongs to the table, not the page`).toBe(baseline.y)
       if (key === 'Home' || key === 'ArrowLeft') expect(after.left).toBe(0)
       else if (key === 'End' || key === 'PageDown') expect(after.left).toBeCloseTo(after.max, 0)
