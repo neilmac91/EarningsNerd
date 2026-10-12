@@ -503,7 +503,7 @@ for (const theme of THEMES) for (const width of [390, 1480]) for (const textScal
       const annual = page.getByRole('button', { name: 'Annual', exact: true })
       const quarterly = page.getByRole('button', { name: 'Quarterly', exact: true })
       await expect(quarterly).toHaveAttribute('aria-disabled', 'true')
-      await expect(quarterly).not.toBeDisabled()
+      await expect(quarterly).toHaveJSProperty('disabled', false)
       await expect(quarterly).toHaveAccessibleDescription("Quarterly data isn't available for this company.")
       await annual.focus()
       await page.keyboard.press('Tab')
