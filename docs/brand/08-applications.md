@@ -67,7 +67,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Calendar** (`frontend/features/calendar/components/EarningsCalendarPage.tsx`, `MonthView.tsx`,
   `WeekView.tsx`): the coverage chip and the "+N more" and "Show top 5" controls rest in the ink,
   sage only under the pointer or focus (D-030); `brandCopyRules.spec.ts` rule 2 now scans the whole
-  app, a ui Button whose variant sets sage ink included, so no sage element anywhere renders a digit.
+  app, a ui Button (or RetryButton or MarketingCta) whose variant sets sage ink included, so no sage element
+  anywhere renders a digit.
   `tests/unit/calendarCoverageChip.spec.tsx` renders the page on a bounded payload under the known universe
   and holds the chip in the neutral pill and the week view's "+N more" in the secondary ink.
 - **Exports and mail** (`backend/app/services/export_service.py`, `excel_export_service.py`,

@@ -35,7 +35,7 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    inside MarkedCopy, and every MarkedCopy carries at least one marker (`EnRef`).
  */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const SCAN_DIRS = ['app', 'components', 'features', 'lib']
+const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -138,9 +138,12 @@ const NOT_COLOUR = /^text-(?:xs|sm|base|lg|xl|[2-9]xl|data-[a-z]+|left|center|ri
 const PASSIVE_VARIANTS = new Set(['dark', 'sm', 'md', 'lg', 'xl', '2xl'])
 const CITATION = /^\[F?\d+\]$/
 
-/** 'sage' when the element's own resting text colour is a sage token, 'other' for any other colour. */
 /** The Button variants whose label is sage at rest (components/ui/Button.tsx); primary and destructive set white. */
 const SAGE_VARIANTS = new Set(['secondary', 'ghost', 'tertiary'])
+/** The components that render a ui Button's treatment, with the variant each takes when the call site sets none:
+    Button itself, RetryButton (hooks/useRetainedFailure.tsx, secondary by default) and MarketingCta
+    (features/marketing/components/MarketingCta.tsx, which forwards variant into buttonVariants). */
+const BUTTON_LIKE: Record<string, string> = { Button: 'primary', RetryButton: 'secondary', MarketingCta: 'primary' }
 function variantLiterals(e: ts.Expression): string[] {
   const x = unwrap(e)
   const text = literalText(x)
@@ -149,14 +152,20 @@ function variantLiterals(e: ts.Expression): string[] {
   if (ts.isBinaryExpression(x)) return [...variantLiterals(x.left), ...variantLiterals(x.right)]
   return []
 }
-/** Whether a <Button>, or an element whose className comes from buttonVariants(), takes a sage variant. */
+/** Whether a Button-like element, or an element whose className comes from buttonVariants(), takes a sage
+    variant. A variant the scan cannot read (an identifier, a spread) counts as sage, since it may be. */
 function sageButtonVariant(opening: ts.JsxOpeningLikeElement): boolean {
   let variants: string[] = []
-  if (opening.tagName.getText() === 'Button') {
+  const tag = opening.tagName.getText()
+  if (tag in BUTTON_LIKE) {
     const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'variant')
-    if (!attr) variants = ['primary']
+    if (opening.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p))) variants = ['unknown']
+    else if (!attr) variants = [BUTTON_LIKE[tag]]
     else if (attr.initializer && ts.isStringLiteral(attr.initializer)) variants = [attr.initializer.text]
-    else if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) variants = variantLiterals(attr.initializer.expression)
+    else if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
+      variants = variantLiterals(attr.initializer.expression)
+      if (variants.length === 0) variants = ['unknown']
+    } else variants = ['unknown']
   } else {
     const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className')
     if (attr?.initializer && ts.isJsxExpression(attr.initializer)) {
@@ -166,12 +175,15 @@ function sageButtonVariant(opening: ts.JsxOpeningLikeElement): boolean {
         const variant = options && ts.isObjectLiteralExpression(options)
           ? options.properties.find((p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && p.name.getText() === 'variant')
           : undefined
-        variants.push(...(variant ? variantLiterals(variant.initializer) : ['primary']))
+        const read = variant ? variantLiterals(variant.initializer) : ['primary']
+        variants.push(...(read.length ? read : ['unknown']))
       })
     }
   }
-  return variants.some((v) => SAGE_VARIANTS.has(v))
+  return variants.some((v) => SAGE_VARIANTS.has(v) || v === 'unknown')
 }
+/** 'sage' when the element's own resting text colour is a sage token, or it is a Button-like element with a
+    sage variant; 'other' for any other colour. */
 function textColour(opening: ts.JsxOpeningLikeElement): 'sage' | 'other' | null {
   if (sageButtonVariant(opening)) return 'sage'
   let colour: 'sage' | 'other' | null = null

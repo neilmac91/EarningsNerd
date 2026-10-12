@@ -363,7 +363,9 @@ Analysis reading <NarrativePane> — compact monetary amounts and quarter labels
 Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly; unavailable modes
                  opt into focusable aria-disabled with visible described reasons. Other callers keep
                  native disabled. The unavailable segment retains the full-strength focus ring.
-                 Recent-period presets are ghost Button actions, not pressed toggles. Visible From/To
+                 Recent-period presets are plain actions in the secondary ink that turn sage under the
+                 pointer or focus, with Button sm's shape and weight (not ghost Buttons, whose label is
+                 sage at rest on a count, D-030), not pressed toggles. Visible From/To
                  labels wrap raw compact selects using inputClasses({ select: true, autoWidth: true });
                  font-data and tabular-nums belong to the select itself. Fields fill phones and use
                  intrinsic/em widths on desktop. Analysis's full-width route wrapper is an inline-size

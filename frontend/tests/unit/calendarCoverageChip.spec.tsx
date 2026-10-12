@@ -56,7 +56,8 @@ async function renderPage() {
       <EarningsCalendarPage />
     </QueryClientProvider>,
   )
-  await waitFor(() => expect(screen.getAllByRole('button', { name: /^\+\d+ more$/ }).length).toBeGreaterThan(0))
+  // The first render of the page in a cold multi-file run can take over a second to transform; the wait allows it.
+  await waitFor(() => expect(screen.getAllByRole('button', { name: /^\+\d+ more$/ }).length).toBeGreaterThan(0), { timeout: 5000 })
 }
 
 const SAGE_INK = /(^|\s)(dark:)?text-brand-strong(-dark)?(\s|$)/
