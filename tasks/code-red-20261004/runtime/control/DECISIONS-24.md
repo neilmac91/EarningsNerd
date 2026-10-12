@@ -8,14 +8,16 @@ appointments file, the archive ledger's record-24 entry and `tasks/todo.md` (eng
 writer's #1255 wrote; E16 added; founder line F9 updated; the standing, another writer's, untouched): no application code, workflow, migration, cloud, IAM or production change
 (nothing under `backend/`, so the merge deploys nothing); no provider call; no reservation; nothing opened under
 `tasks/readiness-2026-09-21/acceptance/` or `tasks/review-evidence/`. The one `ops.yml` dispatch of this record (`capacity-readout`)
-and the four `deepseek-balance` dispatches are read-only operations run from `main` by the founder's account; they changed nothing.
+and the four `deepseek-balance` dispatches are read-only operations the chief dispatched from `main` (GitHub shows every action
+under the one login, the founder's account); they changed nothing.
 
 ## Record 23 merged (PR #1229): review record closed; nineteenth deploy-skip proof
 
 A fact-check workflow ran over the draft first (`record-23-factcheck-01`, closure 174; workflow `wf_30c9bb79-12e`,
 09:06:17–09:12:07Z): four read-only checkers (production, PRs, integrity, live) verified the record's claims against primary sources
 and the chief applied their corrections. `record-23-reviewer-01` (closure 173; agent `abeee916ea8a93455`, launched 09:14:55Z; one
-context for the review and its deltas) then bound **no blocker** to `f7b8634` (two items open there), to `a80bd2f` (no should-fix;
+context for the review and its deltas) then bound **no blocker** to all five heads it reviewed: `e61a7b4` and `8886084` (four and
+three should-fixes, applied), `f7b8634` (two items open there), to `a80bd2f` (no should-fix;
 nits on disclosure 6's wording and the body's time for `f7b8634`) and to `165a39f`, the merged head (one body should-fix, the
 `a80bd2f` Codex row, fixed in the body; a body-only check after it found nothing inaccurate; one optional wording nit applied).
 Codex reviewed all seven heads on `@codex review` requests: no findings on `76465b0` (09:07:21Z); a P2 on `e61a7b4` (09:17:39Z:
@@ -35,7 +37,7 @@ proof**); `eval-baseline` skipped by the path filter; no `copilot-eval` run.
 Record 23's founder action 1 (a truncated fragment of one AI-provider API key reached a review agent's own tool output; nothing left
 the session) is decided. After the #1229 report the founder wrote, at 2026-10-11T10:40:55Z: "ok please proceed with the next steps.
 no need to rotate the key just yet". The key stays; the founder can revisit it at any time, and the founder line in `tasks/todo.md`
-now says so. The cause is removed by #1238 (below).
+now says so. The settings-error route that caused it is closed by #1238 (below); Sentry's other routes are plan item 2.
 
 ## The settings hardening PR (#1238, `settings-errors-hide-input-pr-01`): reviewed, merged, deployed
 
@@ -97,7 +99,8 @@ would have waited for: the delta reviewer's second check had not returned; #1242
 deploys the backend); and the merge-train heads-up had not been sent. The chief did not merge it, and both merge trains replied
 that they did not (session `01XCLCs7hHjZamJ3x4bQMaCL` at 15:23:24Z, session `018w7VWiSMYqGddE2thede6V` at 15:25:45Z); both held
 their backend merges until the deploy below was verified. The merged head is `2330977`, the head CI, Codex and the gates had cleared.
-**The deploy.** Deploys run one at a time (the `deploy-backend` concurrency group), so #1238's waited for #1242's (below). Main CI
+**The deploy.** Deploys run one at a time (the `deploy-backend` concurrency group); #1242's (15:22:44–15:25:30Z, below) ended
+before #1238's own tests did (its deploy job was created at 15:33:06Z), so #1238's deploy did not wait. Main CI
 run 38150959340 (15:21:51–15:35:54Z) green; `deploy-backend` job 114506446319 (15:33:08–15:35:53Z) deployed: migrations
 `applied=0 skipped=43`; the worker `earningsnerd-task-worker-00049-sh7` (15:34:32Z) and the service
 `earningsnerd-backend-00499-hpz` (15:35:01Z), each serving 100%; the five allow-listed env-pair lines unchanged; "Deployed 8d92dfb
@@ -110,8 +113,9 @@ share: a module name stored or mutated inside a function, and names bound by an 
 library call inside a validator can raise a message quoting the value (S2′), and that the configuration check's short-key warning
 branches are never driven by the test (S3′). Nits: the gate file is no longer formatted, the PR body was stale after the merge, and
 the walk pin trips on a local virtualenv with another name. Nothing in today's `app/config.py` uses any of these shapes: the
-reviewer's per-field behaviour test passes 133 of 133 on `2330977`. So no secret leaks today; the fixes are this record's plan item
-2.
+reviewer's per-field behaviour test passes on `2330977` for all 133 fields it covers (every field but `REGISTRATION_MODE`). So none
+of these findings leaks a settings value from today's code; Sentry's other routes (FL-1) stay open until plan item 2, which is
+why founder action 2 asks for the second search. The fixes are this record's plan item 2.
 
 ## Production after record 23: twenty-four main runs classified; ten deploys read back
 
@@ -207,7 +211,7 @@ closes E6.
 ## Spend (ledger events 46–52)
 
 All seven events were written by the chief as the ledger's sole writer, each read back at the SHA-256 it was published with
-(artifact versions 47 to 52; the private ledger is not linked here). Reservations before every paid trigger the chief made, each
+(artifact versions 47 to 52: events 50 and 51 were published together as version 51; the private ledger is not linked here). Reservations before every paid trigger the chief made, each
 with a fresh `deepseek-balance` reading above the founder's USD 5 floor (USD 15.57, 15.51 and 15.14). One run was not the chief's
 trigger: the founder's account marked the PR ready (event 47, recorded after it).
 
@@ -229,20 +233,24 @@ usage 5.297293 → 5.809257 (3,212 → 3,510 calls); **0 active reservations**. 
 
 ## Disclosures
 
+No classifier denial this record. Two of the chief's misses are numbered chief defects, (a) and (b) below: defects 13 and 14 in
+`APPOINTMENTS.json`, the classes of defects 9 and 8. The rest are process misses.
 1. **The chief's own misses** (no production effect; each corrected):
-   (a) **A transcript-hygiene slip.** At about 09:52Z on 2026-10-11 the chief read the last 3,000 bytes of `record-23-reviewer-01`'s
+   (a) **A transcript-hygiene slip (chief defect 13).** At about 09:52Z on 2026-10-11 the chief read the last 3,000 bytes of `record-23-reviewer-01`'s
    running output file to check its progress, against the rule to read agent timings only through the timing helper. The bytes
    showed one of the reviewer's own commands; nothing from the excluded directories.
-   (b) **Excluded path names printed twice in the chief's own tool output, no content opened.** A local all-branches gitleaks scan
+   (b) **Excluded path names printed twice in the chief's own tool output (chief defect 14).** A local all-branches gitleaks scan
    (to mirror CI's secret-scan) printed about eight path names under `tasks/review-evidence/` with rule ids and line numbers
-   (matches redacted); its report was deleted at once. A `git diff --stat` without the exclusion pathspecs printed two truncated
+   (matches redacted); its report was deleted at once. The chief opened no file there; the scanner read the blobs, as CI's scan
+   does. A `git diff --stat` without the exclusion pathspecs printed two truncated
    path names under `tasks/readiness-2026-09-21/acceptance/` (files #1236 changed on main). Every later diff carried the
    exclusions.
    (c) **Two of Codex's #1229 comments missed on first reading** (09:53:17Z and 09:56:18Z); the body's rows were corrected after the
    reviewer flagged them.
    (d) **#1238's secret-scan sentinels broke another writer's CI.** They were reachable on the branch from the opening push
    (13:48:39Z) until the rewrite above (14:04:32Z); the other writer's CI run 38145316651 failed its `secret-scan` at 13:59:18Z
-   and stayed red until that writer's own re-run passed at 14:27:02Z. The merge trains were told.
+   and stayed red until a re-run of it passed at 14:27:02Z (GitHub shows the one login on both attempts). The merge trains were
+   told.
    (e) **One gate run overlapped live edits** and was re-run on the committed head; mutation proofs ran on committed state only.
    (f) **A moot question to the founder** about removing the out-of-CI admin routes (#1237 had already deployed over them),
    corrected in the chat.
@@ -260,7 +268,8 @@ usage 5.297293 → 5.809257 (3,212 → 3,510 calls); **0 active reservations**. 
    the delta reviewer's exact wording; that log is the chief's own, not an agent's transcript.
 2. **Actions by the founder's account that the chief did not take:** marking #1238 ready (13:55:46Z, which fired the ready-time paid
    run that event 47 records), re-running its blocked CI (13:56:34Z), and merging it (15:21:49Z) before the delta reviewer's second
-   check and while #1242's CI ran. Neither merge train took them. No rule was breached by them; the chief records them because each
+   check and while #1242's CI ran. Both merge trains replied that they did not merge it; their replies do not cover the ready
+   marking or the re-run. No rule was breached by them; the chief records them because each
    changed what its own process expected. GitHub records them, like the chief's own actions, under the one login `neilmac91`;
    the attribution rests on the chief's own tool history (it made none of these calls) and the merge trains' replies.
 3. **`record-23-reviewer-01`'s deviations:** three single-file `show` and `diff` reads, and some path-scoped `diff` and `ls-tree`
@@ -279,8 +288,9 @@ usage 5.297293 → 5.809257 (3,212 → 3,510 calls); **0 active reservations**. 
    probe tests in agents' pytest temp directories, on 2026-10-12. None held a real value.
 6. **The delta reviewer's:** writes only in its own work directory; read-only git, the `git archive` exports it was asked for, GitHub
    GETs; application imports only inside pytest; ad-hoc Python under `env -i` with fabricated values only.
-7. **External events:** GitHub Actions refused every job that tried to start from about 13:48:49Z until 13:55:50Z (billing);
-   jobs already running, such as main's CI run 38144561673, continued. Other writers' read-only `ops.yml` dispatches at
+7. **External events:** GitHub Actions refused every job that tried to start between about 13:48:43Z and 13:53:01Z, the first and
+   last refusals seen (billing); jobs ran again from 13:55:50Z, and jobs already running, such as main's CI run 38144561673,
+   continued. Other writers' read-only `ops.yml` dispatches at
    2026-10-11T22:42:59Z and 2026-10-12T01:28:21Z (`describe-service`) and 12:03:51Z (a second `capacity-readout`, run
    38246665877) were not this session's (GitHub shows each under the one login); this record's only `ops.yml` dispatch is the
    readout above.
@@ -296,9 +306,11 @@ usage 5.297293 → 5.809257 (3,212 → 3,510 calls); **0 active reservations**. 
 ## Plan
 
 1. **This record's PR:** a fact-check workflow over the draft (`record-24-factcheck-01`, closure 175), then `record-24-reviewer-01`
-   (closure 174; records-only rule: one reviewer context bound to the final head, with same-context delta checks); Codex; an explicit
+   (closure 174; records-only rule: one reviewer context bound to the final head, with same-context delta checks); Codex is out of
+   review credits (its reply on #1277), so a `Review override:` line names the substitute review (AGENTS.md §5); an explicit
    squash title and message; then the twentieth deploy-skip proof.
-2. **The secret-output follow-ups** (`secret-output-followups-pr-01`, closure 175; high tier; the merge deploys the backend): the
+2. **The secret-output follow-ups** (`secret-output-followups-pr-01`, closure 175; high tier, its review workflow the substitute
+   while Codex cannot review; the merge deploys the backend): the
    message gate's holes from #1238's second delta check; Sentry's other routes from its first delta review (FL-1); and the three
    echoes the lesson lists as ungated (`smoke_resend`'s last four characters, the Redis URL log, `create_engine` at import).
 3. **The `INHERITED` residue** (`inherited-residue-pr-01`, closure 174): another writer's #1258 (`aeb966c`, merged
@@ -320,7 +332,9 @@ as unexercised. It annotates `settings-errors-hide-input-pr-01` with its scope a
 23), `record-24-reviewer-01` as covering this record's reviewer, and `inherited-residue-pr-01` as not yet exercised. It
 pre-registers, before any launch, `record-24-factcheck-01` (plan item 1), `record-25-reviewer-01` and
 `secret-output-followups-pr-01` (plan item 2). No context gains source, reconciliation or judging eligibility; every earlier
-identity and adverse history is retained.
+identity and adverse history is retained. The `workflow_lens_labels` convention it carries names only the review form
+(`-review-lens-`); its delta-review ids (`-delta-review-lens-`, `-delta-review-refute-`) and fact-check ids (`-factcheck-`) follow
+the same form, which closure 176 states.
 
 ## Founder actions this record needs
 
@@ -340,3 +354,5 @@ identity and adverse history is retained.
 6. **Custody step A** (optional, recommended; carried from record 20): send the prepared relay (`DECISIONS-20.md`'s appendix) once to
    the custody side; if you agree, also tell the chief, in your own words, "If the answer is outcome B, I adopt record 16's form (b)
    for R1".
+7. **Codex credits** (optional): Codex replied on #1277 that its code-review usage limit is reached. Until credits are added, each
+   PR carries a `Review override:` line naming its substitute review (AGENTS.md §5).

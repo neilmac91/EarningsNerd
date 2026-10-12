@@ -6653,7 +6653,7 @@ Full local and hosted verification plus independent exact-head review precede re
 - 2026-10-11 to 2026-10-12 (record 24, `runtime/control/DECISIONS-24.md`): PR #1229 (record 23) merged `1268e8ee`
   (nineteenth deploy-skip proof). The settings hardening (`settings-errors-hide-input-pr-01`) reviewed in draft (two review
   workflows with refuters and a delta reviewer over two checks: no blocker) and merged as PR #1238 → `8d92dfb4` under the
-  founder's account, deployed and verified healthy: a settings secret no longer reaches an output through five gated
+  founder's account (one login with the chief's), deployed and verified healthy: a settings secret no longer reaches an output through five gated
   paths; Sentry's other routes and the gate's late findings go to `secret-output-followups-pr-01`. The founder keeps the
   AI-provider key for now. The Monday 06:00–08:00Z readout clean at near-idle load. Twenty-four main runs classified; ten
   deploys read back (healthy; every pin in place). Ledger events 46–52 (USD 0.511964). Closure 175.
@@ -6699,8 +6699,9 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] Chief: the read-back follow-ups (`readback-followups-pr-01`, record 22): describe-service's shell read and logs-probe's
       denied branch print no gcloud error text, the receipt's message is address-redacted, both heredocs are committed
       modules, the not-executable class is pinned; a rule-12 gate. Merged `f64d6040` (PR #1195), deploying nothing (record 23).
-- [x] Chief: the settings hardening (`settings-errors-hide-input-pr-01`, record 23): settings validation errors carry no input
-      value and four more paths are closed and gated. Merged `8d92dfb4` (PR #1238), deployed and verified (record 24).
+- [x] Chief: the settings hardening (`settings-errors-hide-input-pr-01`, record 23): a settings validation error's rendered
+      text carries no input value, and four more paths are closed and gated (the structured form at call sites, the settings
+      object's repr, config.py's messages, deploy_check's checks). Merged `8d92dfb4` (PR #1238), deployed and verified (record 24).
 - [x] Founder (record 23): the key fragment — decided 2026-10-11: no rotation for now (record 24).
 - [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", including Codex's own
       summary boilerplate, which cancelled a required run on PR #1131 (record 17); exclude the Codex connector's comments.
