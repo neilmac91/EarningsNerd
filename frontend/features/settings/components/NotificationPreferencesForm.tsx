@@ -70,7 +70,7 @@ function Toggle({
           'mt-1 aria-disabled:cursor-not-allowed',
           checked
             ? 'aria-disabled:bg-brand-strong/50 dark:aria-disabled:bg-brand-dark/50'
-            : 'aria-disabled:bg-border-light/50 dark:aria-disabled:bg-white/10',
+            : 'aria-disabled:bg-border-light/50 dark:aria-disabled:bg-white/[0.075]',
         )}
       />
     </div>
