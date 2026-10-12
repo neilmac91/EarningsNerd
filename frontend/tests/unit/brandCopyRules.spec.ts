@@ -121,15 +121,33 @@ function mappedValues(access: ts.PropertyAccessExpression, sf: ts.SourceFile): s
   return values
 }
 
-/** Every string a className attribute can produce, split into tokens. */
-function classTokens(opening: ts.JsxOpeningLikeElement): string[] {
+/** The nodes a className attribute is read from: its initializer, and the same-file const behind an
+    identifier written as the whole expression or as a direct argument of its call (`className={cls}`,
+    `className={cx(cls, '…')}`), so a class string held in a const is read as if written inline. */
+function classNameNodes(opening: ts.JsxOpeningLikeElement): ts.Node[] {
   const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className')
   if (!attr?.initializer) return []
+  const nodes: ts.Node[] = [attr.initializer]
+  if (ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
+    const e = unwrap(attr.initializer.expression)
+    const ids = ts.isIdentifier(e) ? [e] : ts.isCallExpression(e) ? e.arguments.map(unwrap).filter(ts.isIdentifier) : []
+    for (const id of ids) {
+      const init = localInitializer(id, opening.getSourceFile())
+      if (init) nodes.push(init)
+    }
+  }
+  return nodes
+}
+
+/** Every string a className attribute can produce, split into tokens. */
+function classTokens(opening: ts.JsxOpeningLikeElement): string[] {
   const parts: string[] = []
-  visit(attr.initializer, (n) => {
-    const text = ts.isJsxText(n) ? null : literalText(n)
-    if (text !== null) parts.push(text)
-  })
+  for (const node of classNameNodes(opening)) {
+    visit(node, (n) => {
+      const text = ts.isJsxText(n) ? null : literalText(n)
+      if (text !== null) parts.push(text)
+    })
+  }
   return parts.join(' ').split(/\s+/).filter(Boolean)
 }
 
@@ -167,9 +185,8 @@ function sageButtonVariant(opening: ts.JsxOpeningLikeElement): boolean {
       if (variants.length === 0) variants = ['unknown']
     } else variants = ['unknown']
   } else {
-    const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className')
-    if (attr?.initializer && ts.isJsxExpression(attr.initializer)) {
-      visit(attr.initializer, (n) => {
+    for (const node of classNameNodes(opening)) {
+      visit(node, (n) => {
         if (!ts.isCallExpression(n) || n.expression.getText() !== 'buttonVariants') return
         const options = n.arguments[0]
         // No options: the factory's default, primary. Options the scan cannot read (an identifier, a

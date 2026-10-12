@@ -137,7 +137,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## Frontend & design system
 
-- brand-a-colour-rule-recolours-a-value-and-never-deletes-it.md — When a colour, type or device rule forbids a value's styling, restyle the value in the secondary ink and keep it rendered; remove a value only as a named copy decision, never to turn a gate green
+- brand-a-colour-rule-recolours-a-value-and-never-deletes-it.md — When a colour, type or device rule forbids a value's styling, restyle the value in the secondary ink and keep it rendered; remove a value only as a named copy decision, never to turn a gate green (partly gated by frontend/tests/unit/filingFeedOverflowCount.spec.tsx and narrative-pane.spec.tsx, which pin the two counts the founder sent back; the general rule is review-checked)
 - brand-a-promise-names-what-the-code-enforces.md — Before a public sentence promises a behaviour, trace each surface it covers to the code that enforces it, flag defaults included, and scope the sentence to those (partly gated by `frontend/tests/unit/brandCopyRules.spec.ts`, rules 1, 1b and 1c; a new kind of promise is review-checked)
 - brand-the-mark-is-protected.md — Never change the EN monogram or the wordmark; brand work composes around them (arrangements, clear space and minimum sizes only) (partly gated by `frontend/tests/unit/markSingleSource.spec.ts`, which holds the outlines and their placement, and `wordmarkSingleSource.spec.ts`; the colours, the wordmark's composition and the small-size rule are review-checked)
 - frontend-check-brand-layouts-at-200-percent-text.md — Check a brand layout at 390px under a 200% root font: a figure pair wraps on its own content width, and a positioned twin centres on its anchor's measured midpoint
