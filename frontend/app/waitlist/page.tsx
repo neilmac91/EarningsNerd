@@ -10,7 +10,7 @@ import WaitlistExample, { WaitlistExamplePending } from '@/features/waitlist/com
 // While the waitlist gate is up, this page is the de-facto homepage — it needs
 // its own metadata and a self-canonical so search engines index something real.
 export const metadata: Metadata = {
-  title: 'EarningsNerd | Read a 10-K in 5 minutes, not 5 hours',
+  title: 'EarningsNerd | The 10-K, read for you, with receipts',
   description:
     'Join the EarningsNerd waitlist. AI summaries of SEC filings: financials, risks, and trends, sourced directly from SEC EDGAR.',
   alternates: {
@@ -25,12 +25,12 @@ export default function WaitlistPage() {
         <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
           <div className="text-center lg:text-left">
             <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark sm:text-5xl md:text-6xl">
-              Read a 10-K in{' '}
-              <span className="text-brand-strong dark:text-brand-strong-dark">5 minutes</span>, not 5 hours.
+              The 10-K, read for you, <span className="en-mark">with receipts</span>.
             </h1>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark sm:mt-6">
-              EarningsNerd turns SEC filings into clear summaries of business performance,
-              risks, and trends. Built for investors who want the signal without the slog.
+              AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are
+              checked against the company’s XBRL where they can be, and quotes against the filing’s
+              own text.
             </p>
 
             <div className="mt-6 flex justify-center lg:justify-start">
@@ -76,16 +76,16 @@ export default function WaitlistPage() {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {[
             {
-              title: 'Filings are long and dense.',
-              body: '10-Ks average 100+ pages. Most investors skim or skip the details entirely.',
+              title: 'Filings are long.',
+              body: 'A 10-K runs past a hundred pages, and the part you want is spread across six of its sections.',
             },
             {
-              title: 'The signal is buried.',
-              body: 'Material risks, margin shifts, and strategic pivots are spread across sections.',
+              title: 'Checking takes an afternoon.',
+              body: 'A figure in a summary is only useful once you know where it came from. We point at the fact or the passage.',
             },
             {
-              title: 'Speed matters.',
-              body: 'Markets move fast. You need clarity before the next earnings call.',
+              title: 'You still read the filing.',
+              body: 'We remove the tedium, not the reading. The summary is the map; the original is one click away.',
             },
           ].map((item) => (
             <div
@@ -109,7 +109,7 @@ export default function WaitlistPage() {
                 How it works
               </h2>
               <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                From SEC filing to summary in minutes.
+                From the filing to its summary, with the receipts.
               </p>
             </div>
             {/* Server component — buttonVariants() can't be called here (it's a client export),
@@ -126,7 +126,7 @@ export default function WaitlistPage() {
               {
                 step: '01',
                 title: 'Search a company',
-                body: 'Find any public company by name or ticker.',
+                body: 'Any company with a ticker on SEC EDGAR, by name or ticker.',
               },
               {
                 step: '02',
@@ -135,20 +135,21 @@ export default function WaitlistPage() {
               },
               {
                 step: '03',
-                title: 'Get the summary',
-                body: 'Read business, financials, risks, and MD&A highlights.',
+                title: 'Read the summary',
+                body: 'Up to nine parts, from The Print to Notable Footnotes, in the same order for every filing.',
               },
               {
                 step: '04',
-                title: 'Act with clarity',
-                body: 'Use the summary to ask sharper questions and move faster.',
+                title: 'Check what you like',
+                body: 'Risk excerpts open at their passage, and every summary links to the original on SEC EDGAR.',
               },
             ].map((item) => (
               <div
                 key={item.step}
                 className="rounded-2xl border border-border-light bg-background-light px-5 py-4 dark:border-border-dark dark:bg-background-dark"
               >
-                <div className="text-xs font-semibold uppercase tracking-eyebrow text-brand-strong dark:text-brand-strong-dark">
+                {/* A step number is a number: neutral ink, never sage (the Separate Signals Rule). */}
+                <div className="font-data text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                   {item.step}
                 </div>
                 <h3 className="mt-2 text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -165,20 +166,20 @@ export default function WaitlistPage() {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {[
             {
-              title: 'Structured AI summaries',
-              body: 'Business overview, financials, risks, and outlook in every report.',
+              title: 'One outline, every filing',
+              body: 'Up to nine parts from The Print to Notable Footnotes, in the same order, so the second filing reads faster than the first.',
             },
             {
-              title: 'Consistent structure',
-              body: 'The same sections in the same order, so you can scan any filing fast.',
+              title: 'Figures checked against XBRL',
+              body: 'Figures the server can check are matched to the company’s XBRL fact, or counted as unmatched.',
             },
             {
-              title: 'Risk factor signals',
-              body: 'Track new or evolving disclosures before the market reacts.',
+              title: 'Risks in the filing’s own words',
+              body: 'Risk excerpts are quoted, located in the filing text, and withheld when they cannot be.',
             },
             {
-              title: 'Grounded in XBRL',
-              body: 'Key metrics and highlights grounded in SEC filing data.',
+              title: 'The original, one click away',
+              body: 'Every summary links to the filing on SEC EDGAR, and each risk excerpt to its passage.',
             },
           ].map((item) => (
             <div

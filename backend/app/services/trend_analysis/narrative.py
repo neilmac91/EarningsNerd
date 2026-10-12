@@ -6,7 +6,8 @@ Event contract (the Copilot shapes, so frontend consumers share plumbing):
   {"type": "progress", "stage", "message", "percent"}
   {"type": "token", "text"}                              (fresh generations only)
   {"type": "complete", "kind": "analysis" | "not_enough_data", "analysis_id", "narrative",
-   "citations", "grounded", "cached", "n_periods", "usage", "narrative_presentation" (analysis only)}
+   "citations", "grounded", "unverified", "cached", "invalidated", "n_periods", "usage",
+   and for an analysis only "snapshot_id", "mismatched", "narrative_presentation"}
   {"type": "error", "message"}
 
 Cache-first (D4): if a row matches (company, mode, period_key) with the same prompt_version

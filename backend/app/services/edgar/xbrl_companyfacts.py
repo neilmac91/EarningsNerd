@@ -48,8 +48,8 @@ async def fallback_to_company_facts(
         # Route through the SEC rate limiter with a SINGLE token wait (execute, NOT
         # execute_with_backoff): this fallback runs inside user-facing summary generation, so it
         # fail-fasts rather than sleeping through the full backoff ladder (S4 review #3).
-        # raise_for_status turns a non-200 into an exception, preserving "non-200 -> None" via the
-        # outer except.
+        # raise_for_status turns a non-2xx status into an exception, preserving "non-2xx -> None" via the
+        # outer except; any 2xx body (a 203 or 206 too) is parsed, and one that is not JSON is None too.
         async with httpx.AsyncClient() as client:
             async def _do_request() -> httpx.Response:
                 resp = await client.get(

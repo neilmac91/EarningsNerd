@@ -87,17 +87,17 @@ export default function ProDepth() {
         <SectionImpression section="pro_depth">
           <div className="max-w-2xl">
             <h2 id="pro-h" className="text-3xl lg:text-4xl">
-              What Pro adds
+              More ways to read one filing.
             </h2>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">
-              Three ways to work with filing data beyond one summary.
+              Ask it a question, read its periods side by side, see what changed since the last one.
             </p>
           </div>
 
           <div className="mt-12 space-y-12 lg:space-y-16">
             <FeatureRow
               title="Ask this Filing"
-              description={`Ask a question of one filing. Answers can include source chips for filing passages and XBRL figures; each chip indicates whether a source match was found or the item is only cited. Free accounts get ${FREE_COPILOT_QUESTIONS} questions.`}
+              description={`Ask a question of one filing. The answer cites the XBRL figures and passages it used, and each chip says whether we matched the source or only cited it. Free accounts get ${FREE_COPILOT_QUESTIONS} questions.`}
             >
               <AskFilingDemo />
             </FeatureRow>

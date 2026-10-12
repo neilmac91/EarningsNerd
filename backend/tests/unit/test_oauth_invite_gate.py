@@ -14,9 +14,9 @@ mocked, mirroring test_apple_signin.py):
 
 Structural gate (CLAUDE.md rule 12): every ``User(`` construction anywhere in app/ sits in a
 function that calls the gate helper, or is services/auth_account_service.py::create_password_account,
-which has no gate of its own: its gate is the REGISTRATION_MODE check at the top of register(), so
-register() must be its only caller anywhere in app/. A fourth creation path cannot appear silently,
-in whichever module it lands.
+which has no gate of its own: registration checks REGISTRATION_MODE, while the explicit admin
+provisioning path requires an authenticated admin before entering admin_account_service. Their
+caller chains are closed below, so another creation path cannot appear silently in any module.
 """
 import ast
 import inspect
@@ -37,7 +37,7 @@ from app.services import invite_service
 
 APP_DIR = Path(__file__).resolve().parents[2] / "app"
 GATE_HELPER = "oauth_new_account_gate"
-# register()'s insert. Ungated by design: register() runs the invite gate before calling it.
+# Shared password insert. Its public and admin entry points must pass their explicit gates.
 PASSWORD_ACCOUNT_CREATOR = "create_password_account"
 PASSWORD_ACCOUNT_SITE = ("services/auth_account_service.py", PASSWORD_ACCOUNT_CREATOR)
 # The social sign-in insert, behind the gate.
@@ -441,7 +441,7 @@ def test_every_user_construction_in_app_is_gated():
     assert not ungated, (
         f"User(...) constructed outside the gate: {ungated}. Every account creation path must call "
         f"{GATE_HELPER}() (REGISTRATION_MODE + email_verified) in the same function, or be "
-        f"{'::'.join(PASSWORD_ACCOUNT_SITE)} (reached only from register(), which gates it)."
+        f"{'::'.join(PASSWORD_ACCOUNT_SITE)} (reached only through the gated public/admin routes)."
     )
 
     assert len(gates) == 1, f"expected one {GATE_HELPER} definition, found {len(gates)}"
@@ -451,24 +451,57 @@ def test_every_user_construction_in_app_is_gated():
     )
 
 
-def test_password_account_creation_is_reached_only_through_the_register_gate():
-    """``create_password_account`` inserts an account without checking REGISTRATION_MODE, because
-    register() validates the invite first. Any other reference to it would be an ungated way in."""
-    references: list[tuple[str, str]] = []
+def _function_references_to(symbol: str) -> list[tuple[str, str]]:
+    """Find references, including passed helpers and aliases, anywhere in the app.
+
+    Imported symbols are module references too: importing an ungated creator under another name
+    must not hide a new entry point from this gate. Definitions themselves are not references.
+    """
+    references: set[tuple[str, str]] = set()
     for py in sorted(APP_DIR.rglob("*.py")):
         rel = py.relative_to(APP_DIR).as_posix()
-        tree = ast.parse(py.read_text(encoding="utf-8"))
-        for fn in ast.walk(tree):
-            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) or fn.name == PASSWORD_ACCOUNT_CREATOR:
-                continue
-            for node in ast.walk(fn):
-                named = node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
-                if named == PASSWORD_ACCOUNT_CREATOR:
-                    references.append((rel, fn.name))
-    assert sorted(set(references)) == [("routers/auth.py", "register")], (
-        f"{PASSWORD_ACCOUNT_CREATOR} is referenced from {sorted(set(references))}; only "
-        "routers/auth.py::register may call it, after its REGISTRATION_MODE + validate_invite gate."
+
+        class ReferenceFinder(ast.NodeVisitor):
+            def __init__(self) -> None:
+                self.stack: list[str] = []
+
+            def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+                self.stack.append(node.name)
+                self.generic_visit(node)
+                self.stack.pop()
+
+            visit_AsyncFunctionDef = visit_FunctionDef
+
+            def generic_visit(self, node: ast.AST) -> None:
+                named = (
+                    node.id if isinstance(node, ast.Name) else
+                    node.attr if isinstance(node, ast.Attribute) else
+                    node.name if isinstance(node, ast.alias) else None
+                )
+                if named == symbol:
+                    references.add((rel, self.stack[-1] if self.stack else "<module>"))
+                super().generic_visit(node)
+
+        ReferenceFinder().visit(ast.parse(py.read_text(encoding="utf-8")))
+    return sorted(references)
+
+
+def test_password_account_creation_is_reached_only_through_explicit_gates():
+    """Password creation has two entry points: invite-gated registration and admin provisioning.
+    Pin the complete admin service chain as well as the authorization at its HTTP boundary."""
+    references = _function_references_to(PASSWORD_ACCOUNT_CREATOR)
+    assert references == [
+        ("routers/auth.py", "register"), ("services/admin_account_service.py", "_provision_account"),
+    ], (
+        f"{PASSWORD_ACCOUNT_CREATOR} is referenced from {references}; only invite-gated register "
+        "and the admin service's provisioning helper may call it."
     )
+    assert _function_references_to("_provision_account") == [
+        ("services/admin_account_service.py", "create_free_account"),
+    ], "only the admin service entry point may reach password provisioning"
+    assert _function_references_to("create_free_account") == [
+        ("routers/admin.py", "create_free_account"),
+    ], "only the authenticated admin handler may reach free-account provisioning"
 
     (register,) = _function_defs(ast.parse((APP_DIR / "routers" / "auth.py").read_text(encoding="utf-8")), "register")
     body = ast.unparse(register)
@@ -477,6 +510,18 @@ def test_password_account_creation_is_reached_only_through_the_register_gate():
     )
     assert body.index("invite_service.validate_invite(") < body.index(PASSWORD_ACCOUNT_CREATOR), (
         "register() must validate the invite before it creates the account"
+    )
+
+    (admin_create,) = _function_defs(
+        ast.parse((APP_DIR / "routers" / "admin.py").read_text(encoding="utf-8")), "create_free_account",
+    )
+    defaults = dict(zip(admin_create.args.args[-len(admin_create.args.defaults):], admin_create.args.defaults))
+    assert any(
+        arg.arg == "current_user" and ast.unparse(default) == "Depends(get_current_user)"
+        for arg, default in defaults.items()
+    ), "admin account creation must authenticate the caller"
+    assert ast.unparse(admin_create.body[0]) == "_require_admin(current_user)", (
+        "admin account creation must require admin before lookup, hashing, or any write"
     )
 
 

@@ -238,6 +238,19 @@ def test_t0_1_required_flags_on_the_seeded_history(session_factory, company_id):
     ], _CATALOGUE_CHANGED
 
 
+def test_t0_1_every_catalogue_id_is_unique(session_factory, company_id):
+    """``build_observation_catalogue`` keeps every observation it adds, with no duplicate-id guard: an id is
+    unique by construction, since each part an ``add()`` site passes cleans to a non-empty string that differs
+    where the site varies it (a concept, a period of the fiscal years SEC reports, a position). Pinned on the
+    plan's fixture, the seeded history and the fixture with no inflections (``red_flags.no-signals``), so a new
+    colliding site fails here, not only where a snapshot that may be re-pinned catches it."""
+    quiet = _observation_dataset()
+    quiet["inflections"] = []
+    for dataset in (_observation_dataset(), _seeded_dataset(session_factory, company_id), quiet):
+        ids = [item.id for item in svc.build_observation_catalogue(dataset)]
+        assert len(ids) == len(set(ids)), sorted({each for each in ids if ids.count(each) > 1})
+
+
 # --- T0.2 ------------------------------------------------------------------------------------
 
 

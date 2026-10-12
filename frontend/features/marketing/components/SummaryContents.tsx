@@ -3,17 +3,19 @@ import HowItWorks from '@/features/marketing/components/HowItWorks'
 import SectionImpression from '@/features/marketing/components/SectionImpression'
 import { SAMPLE_FILING } from '@/features/marketing/lib/landing-samples'
 
-/** The nine summary sections, verbatim and in the order the summary renders them. */
+/** The nine summary sections as the schema names them (backend/app/services/summary_schema.py,
+ *  SECTION_META), in its order. The live page adds "What changed" from the change report and omits a
+ *  part the filing has nothing for (Segments), so this list is the outline, not one filing's rail. */
 const SECTIONS = [
-  'Executive Assessment',
-  'Financial Highlights',
-  'Investment Risks & Concerns',
-  'Management Strategy & Execution',
-  'Business Segment Analysis',
-  'Liquidity & Capital Structure',
-  'Forward Outlook & Investment Implications',
+  'The Print',
+  'Results That Matter',
+  'Earnings Quality & Cash Conversion',
+  'Value Drivers & Capital Allocation',
+  'Forward Signals',
+  'Risks',
+  'Segments',
+  'Balance Sheet & Liquidity',
   'Notable Footnotes',
-  '3-Year Investment Perspective',
 ] as const
 
 // The contents card is labelled with the same sample filing every product screen on the page uses.
@@ -32,11 +34,12 @@ export default function SummaryContents() {
         <SectionImpression section="summary_contents">
           <div className="max-w-2xl">
             <h2 id="contents-h" className="text-3xl lg:text-4xl">
-              What a summary contains
+              Nine parts, in the order you would read them.
             </h2>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">
-              The summary follows a nine-part structure. Fresh results appear section by section while
-              generation runs. A cached filing loads at once.
+              Every summary follows the same outline, so the second filing reads faster than the
+              first, and a part the filing has nothing for is left out. A fresh summary appears part
+              by part while it is written; a cached one loads at once.
             </p>
           </div>
 

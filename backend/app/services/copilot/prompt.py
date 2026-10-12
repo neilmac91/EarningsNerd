@@ -171,7 +171,7 @@ def _without_source_durations(xbrl_data: Any) -> Any:
 
 
 def _compact_xbrl_block(xbrl_data: Any) -> str:
-    """Render the filing's XBRL JSON compactly for context, or "" when absent/oversized.
+    """Render the filing's XBRL JSON compactly for context, cut at 8,000 characters; "" if absent or unserializable.
 
     Numeric tools provide exact accession-scoped facts independently. This compact reference
     cannot crowd out the section excerpt.

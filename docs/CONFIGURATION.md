@@ -11,6 +11,10 @@ except the pre-Settings infra-bootstrap constants in `database.py`, `redis_servi
 `edgar/config.py`)
 and `frontend/lib/featureFlags.ts`. Production uses a mix of Cloud Run environment overrides and Google Secret
 Manager mounts (see [DEPLOYMENT.md](DEPLOYMENT.md)).
+A settings validation error names the failing field and the reason but withholds the value (`REGISTRATION_MODE`'s
+own message quotes its value; it holds no secret). A settings object prints no value, and `scripts/deploy_check.py`
+prints a secret's length and a database error's type only (`lessons/ops-never-echo-environment-values.md`). To debug
+a value, read it from its source (Secret Manager, `backend/.env`).
 
 > Moved out of CLAUDE.md in the July 2026 refactor (Wave 3 / M3) — this file is now the
 > canonical env reference; keep it in sync with `config.py` when adding fields.
@@ -62,10 +66,10 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `STRIPE_SECRET_KEY` | `""` | Stripe server credential; match test/live mode to environment. |
 | `STRIPE_PUBLISHABLE_KEY` | `""` | Backend validation of Stripe publishable/secret mode consistency; frontend has its own public variable. |
 | `STRIPE_WEBHOOK_SECRET` | `""` | Stripe webhook signature secret. |
-| `STRIPE_RECONCILIATION_CONNECT_TIMEOUT_SECONDS` | `2.0` | Dedicated current-subscription read connect limit; finite, > 0 and ≤ 10 seconds. |
-| `STRIPE_RECONCILIATION_READ_TIMEOUT_SECONDS` | `3.0` | Dedicated current-subscription read inactivity limit; finite, > 0 and ≤ 10 seconds. |
-| `STRIPE_PRICE_MONTHLY_ID` | `""` | Monthly checkout price ID; empty default makes configured checkout validation fail. Must be a USD Price recurring once a month at the advertised `PRO_PRICING.monthly` (`frontend/app/pricing/prices.ts`), in the same Stripe mode as `STRIPE_SECRET_KEY`; production changes follow [PRICING_OFFER.md](PRICING_OFFER.md) (backend first, checked with `npm run check:pricing`). |
-| `STRIPE_PRICE_YEARLY_ID` | `""` | Yearly checkout price ID; empty default makes configured checkout validation fail. Must be a USD Price recurring once a year at the advertised `PRO_PRICING.yearly` (`frontend/app/pricing/prices.ts`), in the same Stripe mode as `STRIPE_SECRET_KEY`; production changes follow [PRICING_OFFER.md](PRICING_OFFER.md) (backend first, checked with `npm run check:pricing`). |
+| `STRIPE_RECONCILIATION_CONNECT_TIMEOUT_SECONDS` | `2.0` | Dedicated exact-ID Stripe read (current subscription, invoice, serving Price) connect limit; finite, > 0 and ≤ 10 seconds. |
+| `STRIPE_RECONCILIATION_READ_TIMEOUT_SECONDS` | `3.0` | Dedicated exact-ID Stripe read (current subscription, invoice, serving Price) inactivity limit; finite, > 0 and ≤ 10 seconds. |
+| `STRIPE_PRICE_MONTHLY_ID` | `""` | Monthly checkout price ID; empty default makes configured checkout validation fail. Must be a USD Price recurring once a month at the advertised `PRO_PRICING.monthly` (`frontend/app/pricing/prices.ts`), in the same Stripe mode as `STRIPE_SECRET_KEY`; production changes follow [PRICING_OFFER.md](PRICING_OFFER.md) (backend first; its [machine checks](PRICING_OFFER.md#machine-checks) compare the bound amount with the page). |
+| `STRIPE_PRICE_YEARLY_ID` | `""` | Yearly checkout price ID; empty default makes configured checkout validation fail. Must be a USD Price recurring once a year at the advertised `PRO_PRICING.yearly` (`frontend/app/pricing/prices.ts`), in the same Stripe mode as `STRIPE_SECRET_KEY`; production changes follow [PRICING_OFFER.md](PRICING_OFFER.md) (backend first; its [machine checks](PRICING_OFFER.md#machine-checks) compare the bound amount with the page). |
 | `STRIPE_BETA_PROMO_CODE_ID` | `""` | Stripe Promotion Code ID for eligible beta invites; unset disables the discount. |
 | `PRO_TRIAL_DAYS` | `0` | Card-required monthly trial; 0 disables; validated 0–30. Enable only with the matching frontend flag after the Stripe checklist. |
 | `REVERSE_TRIAL_ENABLED` | `false` | Retired no-card signup trial; keep off. Cannot coexist with a positive PRO_TRIAL_DAYS. |

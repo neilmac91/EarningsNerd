@@ -102,7 +102,6 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
     """
     by = _series_map(dataset)
     observations: list[TrendObservation] = []
-    seen: set[str] = set()
 
     def add(
         section: str,
@@ -111,11 +110,7 @@ def build_observation_catalogue(dataset: dict[str, Any]) -> list[TrendObservatio
         *parts: str,
         required: bool = False,
     ) -> None:
-        obs_id = _observation_id(section, kind, *parts)
-        if obs_id in seen:
-            return
-        seen.add(obs_id)
-        observations.append(TrendObservation(obs_id, section, markdown, required))
+        observations.append(TrendObservation(_observation_id(section, kind, *parts), section, markdown, required))
 
     top, top_points = _add_top_line_observations(dataset, by, add)
     net_income, ni_points = _add_net_income_observations(dataset, by, add)

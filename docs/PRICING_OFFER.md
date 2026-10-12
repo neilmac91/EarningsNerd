@@ -1,7 +1,9 @@
-# Pro offer — activation held
+# Pro offer
 
 Pro is **$25 per month**, or **$240 per year** billed annually, advertised as **$20 per month**.
-Publishing and activating it are production price changes, which stay on the founder-held list
+It has been live since 2026-10-11: the backend bindings were switched and verified before #1009
+published the pages, and that PR's merge commit records the readbacks. Any change to the offer is a
+production price change, which stays on the founder-held list
 ([handover §5](../tasks/handover-astra-2026-09-19.md#5-what-remains--reconciled-open-list)).
 Implementation and catalog preparation do not establish launch readiness.
 
@@ -25,10 +27,10 @@ charge (25 or 240), while the server remains authoritative for the actual charge
 
 ## Catalog preparation
 
-The Pro product needs live USD Prices of **2,500 cents a month** and **24,000 cents a year**,
-created inactive until step 3; until then the serving bindings select the previous Prices. Leave
-every other inactive Pro Price inactive. Catalog identifiers and readbacks belong in the private
-operator receipt, never in this repository or frontend code.
+The Pro product needed live USD Prices of **2,500 cents a month** and **24,000 cents a year**,
+created inactive until step 3, while the serving bindings still selected the previous Prices; both
+are now active and bound. Leave every other inactive Pro Price inactive. Catalog identifiers and
+readbacks belong in the private operator receipt, never in this repository or frontend code.
 
 The pricing introduction and FAQ describe the billing controls the default Customer Portal offers
 (period-end cancellation, payment method and invoices) without promising immediate plan changes.
@@ -77,15 +79,59 @@ an unreadable file, invalid JSON or incorrect invocation. The command does not a
 snapshot, establish freshness, inspect a real Checkout Session, determine tax/discount/trial totals,
 or prove existing customers' renewal terms. Those remain separate activation checks below.
 
-Until step 3 the new Prices are inactive and the serving bindings select the previous offer, so a
-snapshot taken now must fail. Passing this local check does not release the activation hold. Do
-not change catalog activity or backend bindings merely to make it pass.
+#1009's merge commit records that this check passed on the serving bindings at activation. Passing
+it never authorizes a price change by itself. Do not change catalog activity or backend bindings
+merely to make it pass. The [machine checks](#machine-checks) below compare the bound amounts with
+the page daily and on every offer change; this readback stays the evidence for what they omit.
+
+## Machine checks
+
+The step order and the rollback rule below protect one invariant: checkout never charges more than
+the live page shows, and at rest the two agree. The backend reports what its bindings charge, so
+the invariant is checked without Stripe credentials in CI:
+
+- **The serving charge report.** `GET https://api.earningsnerd.io/api/subscriptions/prices`
+  returns, per cycle, the bound Price's fixed charge (`amount_cents`, `currency`, `interval`,
+  `interval_count`) or the `problem` that leaves it without one: `unconfigured`, `unavailable`,
+  `inactive`, `test_mode` or `not_fixed_recurring`. It carries no Price or Product ID. Each backend
+  process keeps a report of two charges for ten minutes and reads anything less again after a
+  minute. One read runs at a time, and no request waits on another request's read
+  (`backend/app/services/billing_serving_prices.py`).
+- **Before a page is published.** The `price-agreement` job in `.github/workflows/ci.yml` runs on
+  every pull request that changes `frontend/app/pricing/prices.ts`. It fails while production
+  checkout charges more than the new page would show: bind the lower Prices (step 3), then re-run
+  it. A raise passes, because the page then shows at least the charge. An unreachable production
+  API fails the job. On a pull request that leaves the offer alone it is skipped, which a required
+  check counts as passing, so it can be made required; if `ci-scope` itself fails, the job fails
+  with it. Pushes and manual runs skip it, so don't dispatch CI on a pricing pull request's branch.
+  Until the job is required, a red run holds back an agent, which never merges a red pull request,
+  but not a person's merge.
+- **Every day.** `prod-smoke.yml` compares the report with the offer the live pricing page
+  publishes (its Product/Offer JSON-LD) and fails on a disagreement in either direction, opening or
+  updating its failure issue. Reading the live page means it also sees a Vercel rollback, a deploy
+  from outside `main` or a failed frontend deploy. It finds a higher Price bound under the lower
+  pages, a raise whose bindings were never moved and an archived Price.
+- **By hand, after any binding change.** From `frontend/`:
+  `curl -fsS https://api.earningsnerd.io/api/subscriptions/prices -o serving.json` and
+  `curl -fsSL https://www.earningsnerd.io/pricing -o pricing.html`, then
+  `npm run check:pricing -- --serving --page pricing.html serving.json` (exit 0 agree, 1 disagree,
+  2 no evidence). Without `--page` it compares with this checkout's `PRO_PRICING`;
+  `--serving --publishing` applies the pre-publication rule instead.
+
+Limits. A binding change is an operator action outside CI, so nothing prevents a higher Price
+under a lower page, and the same holds for a frontend rollback: the daily run finds either within a
+day, the manual check at once. The report proves the bound Prices' amount, currency, cadence and
+state only; the operator readback above remains the evidence that the bindings name the intended
+Pro Product, and neither proves tax, discount or trial totals, the beta promotion or existing
+customers' renewal terms. Making `price-agreement` a required check is a founder setting. Gate:
+`backend/tests/unit/test_price_agreement_checks.py`.
 
 ## Activation checklist
 
-Keep this change a draft until the founder releases it after quality acceptance and
-controlled-beta readiness are recorded. The set price does not waive those gates or authorize
-customer recruitment.
+This checklist was written for #1009, which merged after step 3 was completed and verified; it
+remains the order for a future price change. Keep this change a draft until the founder releases
+it after quality acceptance and controlled-beta readiness are recorded. The set price does not
+waive those gates or authorize customer recruitment.
 
 1. Record quality acceptance and controlled-beta readiness, and review the final combined source
    and deployment gates.
@@ -98,7 +144,8 @@ customer recruitment.
 3. Activate the new catalog prices and update the backend's `STRIPE_PRICE_MONTHLY_ID` and
    `STRIPE_PRICE_YEARLY_ID` through the normal deployment/configuration process. Retain the
    effective serving bindings and verification that new checkouts select the set amounts.
-   **Complete and verify this step before publishing the lower frontend prices.**
+   **Complete and verify this step before publishing the lower frontend prices.** The
+   `price-agreement` CI job fails the publishing pull request until it is done.
 4. Publish the reviewed frontend and verify the exact deployment: the homepage and pricing page
    open on annual at $20/month billed $240 with the $60 saving, monthly shows $25, the JSON-LD
    carries 25 and 240, and checkout agrees. The backend-first transition is not atomic: an old
@@ -126,7 +173,8 @@ customer preservation; the public price is not evidence of that customer's renew
 ## Rollback
 
 A frontend rollback must retain the lower backend bindings while a lower-price page or cached
-tab can still submit checkout. Do not restore higher charge bindings underneath those pages.
+tab can still submit checkout. Do not restore higher charge bindings underneath those pages; the
+daily agreement check reports it if that happens, but cannot prevent it.
 If a higher-price restoration is required, first establish and verify an explicit checkout
 pause procedure; no such pause switch is introduced or assumed by this change. Existing
 subscriptions and beta entitlements remain untouched during rollback.
@@ -138,9 +186,12 @@ with a stale `price_29` flag, both cycles and checkout analytics. `pricingFollow
 renders the same surfaces, the beta strike-through and checkout analytics under other amounts, and
 fails on any figure of the real offer (read from the unmocked module) or a typed "months free"
 claim. `pricing-section.spec.tsx` keeps billing-toggle, access-mode, beta and trial-copy coverage.
-`pricingAgreement.spec.ts` covers the read-only agreement check and runs `npm run check:pricing`
-itself for exit codes 0, 1 and 2. The server-render guard and the
-full lint, TypeScript, Vitest and Next build gates remain required. Exact gate and mutation-proof
-tails for each reviewed head belong in the PR body (`AGENTS.md` §4, §7), not in this document.
-These checks establish frontend consistency; effective Stripe configuration remains an operator
-verification at activation.
+`pricingAgreement.spec.ts` covers the read-only agreement check and the `--serving` comparison in
+both modes, and runs `npm run check:pricing` itself for exit codes 0, 1 and 2.
+`test_serving_prices.py` pins the serving charge report (fields, problems, no identifiers, caching
+and the bounded Stripe read); `test_price_agreement_checks.py` pins both workflows. The
+server-render guard and the full lint, TypeScript, Vitest and Next build gates remain required.
+Exact gate and mutation-proof tails for each reviewed head belong in the PR body (`AGENTS.md` §4,
+§7), not in this document.
+These checks establish frontend consistency and, through the serving charge report, agreement with
+the bound amounts; the rest of the effective Stripe configuration remains an operator verification.

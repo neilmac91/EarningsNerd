@@ -66,6 +66,8 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
   data-role rule).
 - **Editorial serif (Newsreader)** is wired to exactly ONE surface: the real filing viewer
   (**`.filing-reader`**, 19/1.7, opsz auto — Item 1A, MD&A, notes). Serif = the filing's own words.
+  On a public page the serif appears only inside a quoted passage the product located (the hero
+  example's evidence row, the social card's excerpt), never for a headline, tagline or a claim of ours.
   **`.markdown-body` is NOT serif**: it carries the reader's list + heading + table manners on the
   **body sans**, but FILLS its pane with no measure cap (it renders inside a card/pane, where any
   capped measure reads as dead space — field-tested twice) — its app consumer is
@@ -111,7 +113,8 @@ A control that is busy, or unavailable as a result of its own activation, never 
 `<body>`. Busy is `<Button loading>`. Unavailable is `aria-disabled` plus an early return in the
 handler, styled with `primaryUnavailableClass` (primary Button), `secondaryUnavailableClass` (secondary
 Button; it fades the label and hairline, not the element, so the focus ring keeps its strength) or
-`fieldUnavailableClass` (field; it fades the text ink and leaves the hairline to the focus and invalid states).
+`fieldUnavailableClass` (field; it fades the text ink and leaves the hairline to the focus and invalid states,
+hovered or not: v3.7 restates the focus border under `aria-disabled:hover:`, which outranked it).
 A form that locks its text fields while it submits uses `readOnly`, never native `disabled` (`ContactForm` does;
 the login and register forms leave their fields editable). Gate: `tests/unit/busyControlsStayFocusable.spec.ts`;
 rules in `lessons/frontend-busy-controls-stay-focusable.md`.
@@ -187,7 +190,8 @@ Link as button   buttonVariants({ variant, size })  — the class-string factory
                  Tone (v3.5): the border and focus ring are one tone, default or error, never one layered on
                  the other: `invalid` (the components' `error`) picks the error border, which holds on hover,
                  and the error ring. Each tone states its focus border even where it equals the rest border,
-                 because the forms plugin's `[type='text']:focus` border (#2563EB) outranks a bare `border-*`.
+                 because the forms plugin's `input:where([type='text']):focus` border (#2563EB, 0,1,1)
+                 outranks a bare `border-*` (0,1,0).
                  Toolbar fields (v3.1): density="compact" on <Select>/inputClasses = 36px from sm
                  up, phones keep the standard 42px field height; a field inside a table row is compact too.
                  `density`, not `size` (a native attribute); each density has its own EXPLICIT padding sides
@@ -207,7 +211,10 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  (`rounded-lg`) so the ring follows its shape. A field the forms plugin styles (a text
                  input, textarea, select, checkbox or radio) also takes `focus:ring-0
                  focus:ring-offset-0`: @tailwindcss/forms rings it blue on any focus, and the
-                 shadow utilities draw the brand ring inside that ring rather than instead of it. Every Tab stop
+                 shadow utilities draw the brand ring inside that ring rather than instead of it. Every DS field
+                 carries the reset (Input.tsx FIELD_BASE, v3.6; gate tests/unit/inputClassesNoOverrides.spec.tsx),
+                 and a field that styles itself, on any page, takes it with a DS ring and its dark twin (gate: the
+                 app-wide field describe in tests/unit/siteChromeFocusRing.spec.ts). Every Tab stop
                  in the site chrome carries it (the skip link the same triple on `focus:`): gate
                  tests/unit/siteChromeFocusRing.spec.ts reads the AST of every chrome file, discovered from
                  app/layout.tsx, every route layout, template or error boundary under app/ (the admin
@@ -360,8 +367,11 @@ Search option    <CompanySearch> results (2026-10 critique 1d) — an option is 
                  open" hint sit under it, aria-hidden, the hint from sm up.
 
 Chat composer    <Textarea variant="composer">  — transparent, auto-growing, chrome-free field; the
-                 app-owned shell carries inputClasses() + focus-within:border-brand +
-                 focus-within:shadow-ring-brand (never double chrome).
+                 app-owned shell carries inputClasses({ shell: true }) (v3.7): the field's tone with its
+                 focus border and ring keyed to focus-within, the border restated under hover
+                 (`hover:focus-within:border-brand`, both themes), since Tailwind emits focus-within before
+                 hover and the hover border won while both held (never double chrome). Gate: rule (f) in
+                 tests/unit/inputClassesNoOverrides.spec.tsx.
 
 Semantic card    <Card as="section">  — same recipe on a semantic element.
 
@@ -766,7 +776,8 @@ contrast + hairline with `shadow-none`. `brand-weak` is an accent/hover/tint col
 ## 7. Marketing surfaces
 
 Flat **solid** surfaces — no decorative gradients anywhere; the only glow is the theme-aware hero
-search glow. The hero accent word is solid `text-brand-strong dark:text-brand-strong-dark`.
+search glow. The hero accent phrase sits on the primary ink and carries the brand device's mark
+(`.en-mark`, below), not sage ink; sage ink stays for links and the wordmark's italic.
 `.mockup-frame` is flat navy (the decorative slate gradient is retired), 16px radius, paired with
 `shadow-e3`; its title-bar traffic-light dots are gone. Marketing cards use the `<Card>` recipe
 (panel + hairline + e2, brighten on hover); the popular-company chips and the reporting tiles are
@@ -779,6 +790,21 @@ ground; copy the reader must read stays secondary, including the point-of-use AI
 (`AiDisclaimer`) and the footer's "Data sourced from SEC EDGAR … Not investment advice" line. Gate:
 `tests/e2e/text-floors.spec.ts` measures every tertiary-ink text on the main routes against its
 rendered ground.
+
+**The brand device: the margin and the mark** (2026-10 brand studio; `DESIGN.md` › Graphic device;
+`docs/brand/06-system.md` §6). Four classes in `globals.css`, each a light/dark pair:
+`.en-mark` (a phrase highlight: pale sage tint from 62% of the line box, a 2px `brand-border`
+inset hairline at the baseline, `box-decoration-break: clone` so a wrapped phrase marks per line),
+`.en-marked` (a located passage: 3px `brand` bar on the left, tint behind, square corners because a
+stripe never sits on a rounded container, the filing's words inside it in `.filing-reader`'s face), `.en-margin` (a gutter with a hairline on its
+inner edge; `w-11` from `sm`, `w-9` on phones) and `.en-margin-mark` (an 11px data-face bracket,
+`brand-strong`, absolutely positioned on the line of the in-text marker it twins; the twin is
+measured by `features/marketing/components/MarkedCopy.tsx`, never hard-coded). Rules: a mark means
+"located" and a bracket means "cited"; one `.en-mark` per surface may sit under a phrase of ours as
+the signature; none on a figure, a price, a status, a competitor's name or an unverified claim; no
+margin without a marker; the hairline never scales with the type. The 11px mark is the one
+sanctioned sub-12px text beside copy because it is a twin of a 12px marker, not copy; it still
+carries no claim and is `aria-hidden` (the in-text marker is the accessible one).
 
 ## 8. Theme mechanics
 

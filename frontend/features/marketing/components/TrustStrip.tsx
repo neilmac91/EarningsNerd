@@ -2,13 +2,13 @@ import { ShieldCheckIcon } from '@/lib/icons'
 
 /**
  * The hero's trust strip (2026-10 critique, homepage 1d): plain statements of what the product does
- * and does not do, set as chrome under the hero rather than as a footnote. Each claim is scoped to
- * what the implementation establishes ("where a match is found"), and "generated" stays distinct
- * from "the filing's own words".
+ * and does not do, set as chrome under the hero rather than as a footnote. "Generated" stays distinct
+ * from "the filing's own words"; the matching behaviour is stated once, on the claims strip below
+ * (MeasuredClaims), not repeated here as a hedge (docs/voice-and-style.md › Tone rules).
  */
 const STATEMENTS = [
-  'Figures cite their XBRL fact or filing passage where a match is found',
-  'Summaries are generated; quoted excerpts are the filing’s own words',
+  'Summaries are generated; risk excerpts are the filing’s own words',
+  'One summary per filing, generated once and shared',
   'Not investment advice',
 ]
 

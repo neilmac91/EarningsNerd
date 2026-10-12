@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-10T23:22:31+00:00",
+  "generatedAt": "2026-10-11T12:00:00+00:00",
   "title": "Design System: EarningsNerd",
   "extensions": {
     "colorMeta": {
@@ -487,7 +487,7 @@
       "name": "Search input",
       "refersTo": "input-search",
       "kind": "input",
-      "description": "The search field recipe, inputClasses({ leadingIcon: true, trailingIcon: true }) as the company search uses it: 12px radius, 14/20 type, 10px vertical padding, 44px leading inset, and a 40px trailing inset reserved, busy or not, for its 16px busy spinner (FieldSpinner, right-3), so the spinner never covers typed text. At rest no spinner shows. An invalid field (aria-invalid) takes the error tone: an error border that holds on hover, and the error ring on focus. Sample label/hint and preview padding are illustrative. Native input is editable; no search backend is implied.",
+      "description": "The search field recipe, inputClasses({ leadingIcon: true, trailingIcon: true }) as the company search uses it: 12px radius, 14/20 type, 10px vertical padding, 44px leading inset, and a 40px trailing inset reserved, busy or not, for its 16px busy spinner (FieldSpinner, right-3), so the spinner never covers typed text. At rest no spinner shows. Focus shows the brand border and ring alone: the field resets the forms plugin's own blue focus ring. An invalid field (aria-invalid) takes the error tone: an error border that holds on hover, and the error ring on focus. Sample label/hint and preview padding are illustrative. Native input is editable; no search backend is implied.",
       "html": "<div class=\"ds-stage\"><div class=\"ds-field-shell\"><label class=\"ds-label\" for=\"ds-company-search\">Find a company</label><div class=\"ds-input-wrap\"><span class=\"ds-leading\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\"><circle cx=\"10.5\" cy=\"10.5\" r=\"6.5\" stroke=\"currentColor\" stroke-width=\"1.7\"/><path d=\"m16 16 4.5 4.5\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\"/></svg></span><input class=\"ds-input\" id=\"ds-company-search\" type=\"search\" placeholder=\"Company name or ticker\" aria-describedby=\"ds-search-hint\"></div><p class=\"ds-hint\" id=\"ds-search-hint\">Search SEC filings by company.</p></div></div>",
       "css": ":host{display:block;width:100%}.ds-stage{--ds-page:#F4F3EE;--ds-ink:#1A1A17;--ds-muted:#636A77;--ds-line:#E5E7EB;--ds-brand:#4F7A63;--ds-ring:0 0 0 3px rgba(79, 122, 99, 0.50);--ds-field:#FFFFFF;--ds-field-disabled:#F4F3EE;--ds-error:#B91C1C;--ds-flat:#6B7280;padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}@container style(--heading-color: #D7DADC) or style(--heading-color: #d7dadc){.ds-stage{--ds-page:#0B1120;--ds-ink:#D7DADC;--ds-muted:#9CA3AF;--ds-line:#374151;--ds-brand:#7FB295;--ds-ring:0 0 0 3px rgba(127, 178, 149, 0.55);--ds-field:rgba(255,255,255,.05);--ds-field-disabled:rgba(255,255,255,.05);--ds-error:#F87171;--ds-flat:#9CA3AF}}.ds-field-shell{display:flex;flex-direction:column;gap:6px}.ds-label{font-size:14px;line-height:20px;font-weight:500}.ds-input-wrap{position:relative}.ds-leading{pointer-events:none;position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--ds-muted)}.ds-leading svg{display:block}.ds-input{display:block;box-sizing:border-box;width:100%;appearance:none;border:1px solid var(--ds-line);border-radius:12px;padding:10px 40px 10px 44px;background:var(--ds-field);color:var(--ds-ink);font-family:inherit;font-size:14px;line-height:20px;letter-spacing:0;transition-property:border-color,box-shadow;transition-duration:var(--duration-fast,150ms);transition-timing-function:var(--ease-standard,cubic-bezier(.4,0,.2,1))}.ds-input::placeholder{color:var(--ds-muted);opacity:1}.ds-input:hover{border-color:var(--ds-flat)}.ds-input:focus{outline:none;border-color:var(--ds-brand);box-shadow:var(--ds-ring)}.ds-input:disabled{cursor:not-allowed;background:var(--ds-field-disabled);opacity:.6;border-color:var(--ds-line)}.ds-input[aria-invalid=\"true\"]{border-color:var(--ds-error)}.ds-input[aria-invalid=\"true\"]:focus{box-shadow:0 0 0 3px rgba(185, 28, 28, 0.45)}.ds-hint{margin:0;font-size:12px;line-height:16px;letter-spacing:var(--track-caption,.01em);color:var(--ds-muted)}"
     },
@@ -542,13 +542,14 @@
   ],
   "narrative": {
     "northStar": "The Investor’s Research Desk",
-    "overview": "EarningsNerd is calm, precise and evidence-led. Warm cream and espresso give the light interface the familiarity of a working document; deep navy carries the same structure into dark mode. Sage identifies actions, links and the product itself. Financial direction, status and chart series have separate color vocabularies so the interface can express their different meanings clearly.\n\nThe system is refined, readable and quietly confident. Inter headings organize the work, system-first body text supports scanning, and Geist Mono makes figures and evidence recognizable. Newsreader is reserved for the original filing reader. Depth is structural and restrained: light cards lift from the page, while dark cards separate through fill and hairlines. Decorative gradients remain outside the established visual language.",
+    "overview": "EarningsNerd is calm, precise and evidence-led. Warm cream and espresso give the light interface the familiarity of a working document; deep navy carries the same structure into dark mode. Sage identifies actions, links and the product itself. Financial direction, status and chart series have separate color vocabularies so the interface can express their different meanings clearly.\n\nThe system is refined, readable and quietly confident. Inter headings organize the work, system-first body text supports scanning, and Geist Mono makes figures and evidence recognizable. Newsreader is reserved for the original filing reader. Depth is structural and restrained: light cards lift from the page, while dark cards separate through fill and hairlines. Decorative gradients remain outside the established visual language. One graphic device, the margin and the mark, makes a surface recognisable without the logo: a located passage is highlighted and a cited figure carries a bracketed marker whose twin sits in a margin on the same line.",
     "keyCharacteristics": [
       "One sage brand accent, with explicit light and dark treatments.",
       "Warm page grounds, brighter light panels and low-noise dark panels.",
       "Type roles that distinguish interface, data and original filing prose.",
       "Compact controls and data tables within more generous page layouts.",
-      "Source context, visible focus and truthful state feedback."
+      "Source context, visible focus and truthful state feedback.",
+      "One graphic device, the margin and the mark, that only ever means \"located\" and \"cited\"."
     ],
     "rules": [
       {
@@ -572,6 +573,11 @@
         "section": "elevation"
       },
       {
+        "name": "The Marked Copy Rule",
+        "body": "A mark means \"located in the filing\" and a bracket means \"cited\"; one highlight per surface may sit under a phrase of ours as the brand's signature, and none ever sits on a figure, a price, an unverified claim or a competitor's name. The margin appears only beside text that carries at least one marker, never as decoration, and the filing's words inside a marked block keep the filing's voice.",
+        "section": "graphic device"
+      },
+      {
         "name": "The Calculation Provenance Rule",
         "body": "A calculation describes a figure’s origin, not a failed check. Multi-period analysis uses a neutral † for calculated figures and lettered data notes grouped by their underlying reasons. A figure opens its source, calculation and applicable note in the shared Modal. Only unresolved source concerns use warning ink; missing validation makes no passed-check claim. An unavailable table value is — with its note letter, explained as “Unavailable” in the evidence view and exports. Values and comparisons are counted separately, including inherited concerns. A hairline Data notes disclosure places each note’s letter beside its reason, affected periods and counts. Headline metrics form a two-up phone and four-up desktop definition list: shared rows align the metric labels, source-linked values and independently wrapping period/delta line. An older populated metric states its actual period and “latest available”. Analysis tables keep equal rem-based period columns, semantic sticky row headers and a named keyboard scroll region. Dark sticky row headers retain their opaque panel fill during hover. Mandatory column snapping includes trailing space for a whole-column scroll range. The reader can show all periods, the newest six or the earliest six without changing charts, headline figures or exports. Table figures use compact display precision when needed to keep amounts and note marks together; the rounding disclosure directs readers to full-precision evidence. Charts mark affected observations with hollow points or outlined bars and note letters, and their PNG notes use the same grouped reasons. Chart lines break at gaps. Evidence dialogs separate display precision, exact supplied values, methods, checks and recorded lineage. Narrative amounts use financial display forms while preserving meaningful differences; operand lists live in expandable evidence disclosures. A compact period selector offers presets and bounded From/To ranges. Source dates, definitions and material gaps travel with exports.",
         "section": "components"
@@ -585,7 +591,8 @@
       "**Do** use mono/tabular numerals for data while preserving the filing reader's distinct serif voice.",
       "**Do** keep keyboard focus visible and controls focusable during their own pending action.",
       "**Do** scope claims about source matching to what the implementation actually establishes.",
-      "**Do** regenerate the Markdown and sidecar together after relevant implementation changes."
+      "**Do** regenerate the Markdown and sidecar together after relevant implementation changes.",
+      "**Do** use the margin and the mark where a passage was located or a figure cited, and keep the filing's words in the filing's face inside a marked block."
     ],
     "donts": [
       "**Don't** restore retired mint branding, decorative gradients or general-purpose glow effects.",
@@ -595,7 +602,8 @@
       "**Don't** apply the filing reader's serif to AI summaries or cap pane-filling summaries to a prose rail.",
       "**Don't** treat illustrative sidecar markup as production tokens or behavior, or add synthetic tonal ramps to the sidecar.",
       "**Don't** create another dialog primitive or remove existing reduced-motion fallbacks.",
-      "**Don't** put a thick left stripe on a rounded container or set a form code as a chip; callouts are inset wells and forms are data-face text."
+      "**Don't** put a thick left stripe on a rounded container or set a form code as a chip; callouts are inset wells and forms are data-face text.",
+      "**Don't** put the mark on a figure or a status, draw a margin without a marker, or scale the device's hairline with the type."
     ]
   }
 }

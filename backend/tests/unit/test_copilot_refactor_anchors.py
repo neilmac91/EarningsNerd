@@ -68,9 +68,9 @@ def test_c0_1_compact_xbrl_block_caps_at_8000_chars(length):
     """C0.1 pins backend/app/services/copilot_service.py:289-309 (the cap is :309).
 
     A compact rendering of up to 8,000 chars comes back whole; a longer one is cut to its first
-    8,000 chars: a bare prefix, neither "" (which the function's docstring promises for an
-    oversized payload) nor a re-serialized smaller payload. ``_build_context_message`` hands the
-    model exactly that block (copilot_service.py:322, :342-348). The payload has two keys in
+    8,000 chars: a bare prefix, as the function's docstring says, neither "" nor a re-serialized
+    smaller payload. ``_build_context_message`` hands the model exactly that block
+    (copilot_service.py:322, :342-348). The payload has two keys in
     non-alphabetical order, so the pinned bytes also cover both compact separators (",", ":") and
     the insertion order (no sort_keys) at every length, the cut ones included.
     """

@@ -3,6 +3,11 @@ import SectionImpression from '@/features/marketing/components/SectionImpression
 import type { NotableFilingsResponse } from '@/lib/serverApi'
 
 /**
+ * DORMANT since 2026-10-11 (brand studio, docs/brand/01-interview.md A8): unmounted from app/page.tsx
+ * because the week's list read as microcap 8-Ks under a "high-signal" heading. It returns when a
+ * curation rule exists (a known-good set, a size floor, or 10-K / 10-Q only); the fetcher, the
+ * card and the spec stay for that day.
+ *
  * Market-wide notable SEC filings from the past week (EDGAR-native; replaces the retired
  * "Trending Filings" section — tasks/homepage-sections-review-findings.md). Renders nothing at
  * all when there's nothing honest to show: the backend already enforces the contract (flag off,

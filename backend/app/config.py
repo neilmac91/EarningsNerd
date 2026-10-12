@@ -59,7 +59,9 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""  # Webhook signing secret from Stripe dashboard
-    # One current-state read under the account lock; phase/inactivity limits, NOT a total deadline.
+    # Each exact-ID Stripe read (the current subscription under the account lock, a paid invoice before
+    # that lock is taken, the serving Prices for GET /api/subscriptions/prices); phase/inactivity
+    # limits, NOT a total deadline.
     STRIPE_RECONCILIATION_CONNECT_TIMEOUT_SECONDS: float = Field(default=2.0, gt=0, le=10, allow_inf_nan=False)
     STRIPE_RECONCILIATION_READ_TIMEOUT_SECONDS: float = Field(default=3.0, gt=0, le=10, allow_inf_nan=False)
     # Price IDs from Stripe Dashboard > Products > Pricing
@@ -575,6 +577,20 @@ class Settings(BaseSettings):
         # This ensures we get the value from Cursor settings if available
         case_sensitive = False
         env_file_encoding = 'utf-8'
+        # A validation error's text must never print its input: pydantic appends each failing field's
+        # value, and a missing field's input is every environment-derived value, secrets included, so
+        # the error would carry them into a startup log, CI's public log or an agent's output. This hides
+        # the input from str() and repr() only: errors() and json() still return it unless called with
+        # include_input=False, which the gate requires of every except block that calls them.
+        # Gate: tests/unit/test_never_echo_environment_values.py.
+        hide_input_in_errors = True
+
+    def __repr_args__(self) -> tuple[()]:
+        # A settings object prints no value: repr() is "Settings()" and str() is empty. Sentry's default
+        # local-variable capture serializes the repr of every frame local, so a captured error in any frame
+        # holding `settings` would otherwise send every secret. The values themselves are untouched.
+        # Gate: tests/unit/test_never_echo_environment_values.py.
+        return ()
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

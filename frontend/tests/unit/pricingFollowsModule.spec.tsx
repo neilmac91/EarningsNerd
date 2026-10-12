@@ -88,7 +88,7 @@ describe('pricing surfaces follow PRO_PRICING', () => {
     expect(home.getByText('· save 25%')).toBeInTheDocument()
     expectNoShippedFigure()
 
-    fireEvent.click(page.getByRole('switch', { name: /billing cycle/i }))
+    fireEvent.click(page.getByRole('switch', { name: /^yearly/i }))
     fireEvent.click(home.getByRole('radio', { name: /monthly/i }))
     expect(page.getByText('$30')).toBeInTheDocument()
     expect(home.getByText('$30')).toBeInTheDocument()
@@ -101,7 +101,7 @@ describe('pricing surfaces follow PRO_PRICING', () => {
     ['monthly', 30],
   ] as const)('checkout analytics carry the module charge on %s', async (cycle, price) => {
     const page = renderPage()
-    if (cycle === 'monthly') fireEvent.click(page.getByRole('switch', { name: /billing cycle/i }))
+    if (cycle === 'monthly') fireEvent.click(page.getByRole('switch', { name: /^yearly/i }))
     await page.findByRole('button', { name: /current plan/i })
     fireEvent.click(page.getByRole('button', { name: /upgrade to pro/i }))
     await waitFor(() => expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', price, cycle))
@@ -111,7 +111,7 @@ describe('pricing surfaces follow PRO_PRICING', () => {
     account.isBeta = true
     const page = renderPage()
     expect(await page.findByText('$22.50/mo')).toBeInTheDocument()
-    fireEvent.click(page.getByRole('switch', { name: /billing cycle/i }))
+    fireEvent.click(page.getByRole('switch', { name: /^yearly/i }))
     expect(screen.getByText('$30/mo')).toBeInTheDocument()
     expectNoShippedFigure()
   })

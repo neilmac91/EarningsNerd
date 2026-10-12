@@ -1,8 +1,13 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
+import postcss from 'postcss'
+import tailwindcss, { type Config } from 'tailwindcss'
+import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
+import { bindingResolver } from './astBindings'
 
 /**
  * Every control in the site chrome shows the brand focus ring, never the browser's default outline
@@ -31,7 +36,11 @@ import { describe, expect, it } from 'vitest'
  * @tailwindcss/forms' own focus ring (`focus:ring-0 focus:ring-offset-0`):
  * the plugin's base style draws a blue (#2563eb) ring with a white offset on any focus, and the shadow
  * utilities compose with it, so the triple alone shows the brand ring inside a blue one. A control that
- * is statically `disabled` is not a Tab stop.
+ * is statically `disabled` is not a Tab stop. That field clause also runs app-wide, beyond the chrome (the
+ * last describe): every field the plugin styles that a page styles itself, and that can take focus (a
+ * `tabIndex={-1}` field still takes a click's), takes the plugin's ring off and draws a DS ring with its dark
+ * twin. Fields built with `inputClasses(…)` and the DS components are held by
+ * tests/unit/inputClassesNoOverrides.spec.tsx instead.
  *
  * Scope: the chrome a keyboard user tabs through on every route, discovered rather than listed (see
  * CHROME_ROOTS): everything app/layout.tsx mounts (the site header with its menus, the footer, the
@@ -399,6 +408,76 @@ function unstylableStop(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, s
   return null
 }
 
+/** The display utilities that show an element a `hidden` class hides. */
+const DISPLAY = /^(block|inline-block|inline|flex|inline-flex|grid|inline-grid|table|inline-table|table-\S+|flow-root|contents|list-item)$/
+/** What both scans need to know about one JSX element: whether a user can Tab to it, whether it can take focus at
+    all (a `tabIndex={-1}` element still takes a click's or a script's), and whether @tailwindcss/forms styles it. `linkNames` are next/link's default export under the names the file imports it as. */
+function classify(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.SourceFile, linkNames: Set<string>) {
+  const tag = node.tagName.getText(sf)
+  const attrs = node.attributes.properties.filter(ts.isJsxAttribute)
+  const attr = (name: string) => attrs.find((a) => a.name.getText(sf) === name)
+  // A tabIndex is read branch by branch (see tabIndexBranches): it removes a stop only when every
+  // branch is negative (`tabIndex={-1}`), and makes one when any branch may be 0 or more, a dynamic
+  // value included (`tabIndex={selected ? 0 : -1}`, a roving stop), just as a dynamic `disabled` may
+  // leave a control enabled. `tabIndex={ref ? -1 : undefined}` on a focus target is neither.
+  const tabIndex = attr('tabIndex')?.initializer
+  const branches = tabIndex && ts.isJsxExpression(tabIndex) && tabIndex.expression ? tabIndexBranches(tabIndex.expression) : []
+  // An attribute written before a props spread is the spread's to override (`<button disabled {...rest}>`
+  // rendered with `disabled={false}`), so only one no spread follows takes a control out of the order.
+  const settled = (a: ts.JsxAttribute | undefined) => !!a && !node.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p) && p.pos > a.pos)
+  const removed = branches.length > 0 && branches.every((b) => b === 'negative') && settled(attr('tabIndex'))
+  const indexed = branches.some((b) => b === 'stop')
+  // An editable region is a Tab stop of its own, unless provably off (`false`, "false", "inherit");
+  // a bare or dynamic contentEditable may be on.
+  const editable = attr('contentEditable') ?? attr('contenteditable')
+  const editableOff =
+    !!editable?.initializer &&
+    ((ts.isStringLiteral(editable.initializer) && ['false', 'inherit'].includes(editable.initializer.text)) ||
+      (ts.isJsxExpression(editable.initializer) && editable.initializer.expression?.kind === ts.SyntaxKind.FalseKeyword))
+  const editableStop = editable !== undefined && !editableOff
+  // `disabled` or `disabled={true}`; a dynamic value may be enabled, so it still counts.
+  const disabled = attr('disabled')
+  const staticallyDisabled =
+    disabled !== undefined &&
+    settled(disabled) &&
+    (!disabled.initializer ||
+      (ts.isJsxExpression(disabled.initializer) && disabled.initializer.expression?.kind === ts.SyntaxKind.TrueKeyword))
+  // A props spread (`<div {...getButtonProps()}>`, `<Menu {...menuProps} />`) can supply a tabIndex and a
+  // ringless className the scan cannot see, so the element counts as a stop and fails unread, a component
+  // included, since it may pass the spread on to an element of its own. The one spread the scan reads is
+  // a component's own rest props on the element that takes its className (ownRestProps).
+  const spread = node.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p) && !ownRestProps(p, node, sf))
+  const unstylable = unstylableStop(node, sf, removed)
+  const tabbable =
+    unstylable !== null ||
+    spread ||
+    ((INTRINSIC.has(tag) || linkNames.has(tag) || indexed || editableStop) && !removed && !staticallyDisabled)
+  // Out of the Tab order, an element still takes a click's focus, unless it is display:none: a static `hidden`
+  // attribute, or a literal className whose only display class is `hidden`, as the waitlist honeypot's is. Any other
+  // display class (`md:block`, `!block`, `[display:block]`) may show it, and a className read any other way may hold
+  // one, so either fails the exemption.
+  const hiddenAttr = attr('hidden')
+  const init = attr('className')?.initializer
+  const expr = init && ts.isJsxExpression(init) ? init.expression : init
+  const literal = expr && (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) ? expr.text : ''
+  const classes = literal.split(/\s+/).filter(Boolean)
+  const shows = (t: string) => {
+    const utility = splitClass(t).utility.replace(/^!/, '')
+    return t !== 'hidden' && (DISPLAY.test(utility) || utility.startsWith('[display:'))
+  }
+  const displayNone = (!!hiddenAttr && settled(hiddenAttr) && !hiddenAttr.initializer) || (classes.includes('hidden') && !classes.some(shows))
+  // A display:none element takes no focus at all, in the Tab order or out of it (`<input hidden />`).
+  const focusable = !displayNone && (tabbable || (removed && !staticallyDisabled))
+  const typeAttr = attr('type')?.initializer
+  // Every field @tailwindcss/forms styles: a textarea, a select, and an input that is not a button or
+  // a hidden, file, range or colour control (a missing or dynamic type counts as a field).
+  const field =
+    tag === 'textarea' ||
+    tag === 'select' ||
+    (tag === 'input' && !(typeAttr && ts.isStringLiteral(typeAttr) && NOT_FORMS_STYLED.includes(typeAttr.text)))
+  return { tag, attr, tabbable, focusable, field, spread, unstylable }
+}
+
 function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Finding[] } {
   // next/link's default export under whatever name the file imports it as.
   const linkNames = defaultImportNames(sf, (m) => m === 'next/link')
@@ -406,52 +485,7 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
   let stops = 0
   const visit = (node: ts.Node): void => {
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
-      const tag = node.tagName.getText(sf)
-      const attrs = node.attributes.properties.filter(ts.isJsxAttribute)
-      const attr = (name: string) => attrs.find((a) => a.name.getText(sf) === name)
-      // A tabIndex is read branch by branch (see tabIndexBranches): it removes a stop only when every
-      // branch is negative (`tabIndex={-1}`), and makes one when any branch may be 0 or more, a dynamic
-      // value included (`tabIndex={selected ? 0 : -1}`, a roving stop), just as a dynamic `disabled` may
-      // leave a control enabled. `tabIndex={ref ? -1 : undefined}` on a focus target is neither.
-      const tabIndex = attr('tabIndex')?.initializer
-      const branches = tabIndex && ts.isJsxExpression(tabIndex) && tabIndex.expression ? tabIndexBranches(tabIndex.expression) : []
-      // An attribute written before a props spread is the spread's to override (`<button disabled {...rest}>`
-      // rendered with `disabled={false}`), so only one no spread follows takes a control out of the order.
-      const settled = (a: ts.JsxAttribute | undefined) => !!a && !node.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p) && p.pos > a.pos)
-      const removed = branches.length > 0 && branches.every((b) => b === 'negative') && settled(attr('tabIndex'))
-      const indexed = branches.some((b) => b === 'stop')
-      // An editable region is a Tab stop of its own, unless provably off (`false`, "false", "inherit");
-      // a bare or dynamic contentEditable may be on.
-      const editable = attr('contentEditable') ?? attr('contenteditable')
-      const editableOff =
-        !!editable?.initializer &&
-        ((ts.isStringLiteral(editable.initializer) && ['false', 'inherit'].includes(editable.initializer.text)) ||
-          (ts.isJsxExpression(editable.initializer) && editable.initializer.expression?.kind === ts.SyntaxKind.FalseKeyword))
-      const editableStop = editable !== undefined && !editableOff
-      // `disabled` or `disabled={true}`; a dynamic value may be enabled, so it still counts.
-      const disabled = attr('disabled')
-      const staticallyDisabled =
-        disabled !== undefined &&
-        settled(disabled) &&
-        (!disabled.initializer ||
-          (ts.isJsxExpression(disabled.initializer) && disabled.initializer.expression?.kind === ts.SyntaxKind.TrueKeyword))
-      // A props spread (`<div {...getButtonProps()}>`, `<Menu {...menuProps} />`) can supply a tabIndex and a
-      // ringless className the scan cannot see, so the element counts as a stop and fails unread, a component
-      // included, since it may pass the spread on to an element of its own. The one spread the scan reads is
-      // a component's own rest props on the element that takes its className (ownRestProps).
-      const spread = node.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p) && !ownRestProps(p, node, sf))
-      const unstylable = unstylableStop(node, sf, removed)
-      const tabbable =
-        unstylable !== null ||
-        spread ||
-        ((INTRINSIC.has(tag) || linkNames.has(tag) || indexed || editableStop) && !removed && !staticallyDisabled)
-      const typeAttr = attr('type')?.initializer
-      // Every field @tailwindcss/forms styles: a textarea, a select, and an input that is not a button or
-      // a hidden, file, range or colour control (a missing or dynamic type counts as a field).
-      const field =
-        tag === 'textarea' ||
-        tag === 'select' ||
-        (tag === 'input' && !(typeAttr && ts.isStringLiteral(typeAttr) && NOT_FORMS_STYLED.includes(typeAttr.text)))
+      const { tag, attr, tabbable, field, spread, unstylable } = classify(node, sf, linkNames)
       if (tabbable) {
         stops += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
@@ -472,6 +506,275 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
   }
   visit(root)
   return { stops, findings }
+}
+
+/** The DS field module: its fields are held by tests/unit/inputClassesNoOverrides.spec.tsx (each `inputClasses()`
+    combination and the Input, Textarea and Select components take the forms ring off and draw the DS ring). */
+const FIELD_FACTORY = 'components/ui/Input.tsx'
+/** The DS ring tokens, pinned, each light one with the dark token it pairs with: `ring-brand` with `ring-brand-dark`,
+    and `ring-error` with itself until a dark ring-error token exists (the focus-ring item #1178 recorded). A misspelt
+    token generates no CSS, and a `ring-*` key added to the theme later need not draw a ring (`ring-none: 'none'`), so
+    only these count; the describe below holds each to a visible shadow in tailwind.config.js. */
+const DARK_RING: Record<string, string> = { 'ring-brand': 'ring-brand-dark', 'ring-error': 'ring-error' }
+const RING_TOKENS = new Set([...Object.keys(DARK_RING), ...Object.values(DARK_RING)])
+const THEME_SHADOWS = resolveConfig(createRequire(import.meta.url)(path.join(ROOT, 'tailwind.config.js')) as Config).theme
+  .boxShadow as Record<string, string>
+/** A field's DS rings as `state token` pairs: in light, a pinned light token (`focus:shadow-ring-brand` → `focus
+    ring-brand`); in dark, the light token whose pinned twin it is (`dark:focus:shadow-ring-brand-dark` → `focus
+    ring-brand`), so the light token repeated under `dark:` is no twin. */
+function rings(tokens: string[], dark: boolean): string[] {
+  return tokens.flatMap((t) => {
+    const m = t.match(dark ? /^dark:(focus|focus-visible):!?shadow-(\S+)$/ : /^(focus|focus-visible):!?shadow-(\S+)$/)
+    if (!m) return []
+    const light = dark ? Object.keys(DARK_RING).filter((k) => DARK_RING[k] === m[2]) : m[2] in DARK_RING ? [m[2]] : []
+    return light.map((token) => `${m[1]} ${token}`)
+  })
+}
+/** A theme's DS rings when they are more than one, from `rings()`'s `state token` pairs: `focus` and `focus-visible`
+    both match a keyboard focus, so of two rings across them, as within one, the later in the stylesheet shows. */
+function doubledRings(pairs: string[]): string[] {
+  const unique = [...new Set(pairs)]
+  return new Set(unique.map((pair) => pair.split(' ')[1])).size > 1 ? [unique.join(', ')] : []
+}
+/** The properties a focus ring is drawn with: the box-shadow, the shadow `shadow-ring-*` sets, and the ring variables the
+    forms plugin and Tailwind's `ring-*` set. */
+const SHADOW_PROPS = new Set(['box-shadow', '--tw-shadow', '--tw-shadow-colored', '--tw-ring-shadow', '--tw-ring-offset-shadow', '--tw-ring-offset-width', '--tw-ring-inset'])
+const TAILWIND_CONFIG = createRequire(import.meta.url)(path.join(ROOT, 'tailwind.config.js')) as Config
+/** What each class declares, read off Tailwind's own compile of it (this config, globals.css as input): property names, by
+    class. A class Tailwind does not generate declares nothing. */
+const declared = new Map<string, Set<string>>()
+const unescapeCss = (s: string) =>
+  s.replace(/\\([0-9a-fA-F]{1,6}) ?|\\(.)/g, (_, hex: string | undefined, ch: string | undefined) => (hex ? String.fromCodePoint(parseInt(hex, 16)) : ch!))
+async function loadDeclarations(tokens: string[]): Promise<void> {
+  const missing = [...new Set(tokens)].filter((t) => !declared.has(t))
+  if (!missing.length) return
+  for (const t of missing) declared.set(t, new Set())
+  const from = path.join(ROOT, 'app/globals.css')
+  const result = await postcss([tailwindcss({ ...TAILWIND_CONFIG, content: [{ raw: missing.join(' '), extension: 'html' }], safelist: [] })]).process(
+    readFileSync(from, 'utf8'),
+    { from },
+  )
+  result.root.walkRules((rule) => {
+    // A utility's own class can sit anywhere in its rule's selector: first in `.focus\:ring-0:focus`, last in
+    // `.group:focus-within .group-focus-within\:\!shadow-none` and `.peer:focus ~ .peer-focus\:shadow-none`. Every class
+    // in it that is a requested token takes the rule's declarations; a bare marker (`group`) declares nothing of its
+    // own, carries no variant, and so never competes.
+    for (const m of rule.selector.matchAll(/\.((?:\\[0-9a-fA-F]{1,6} ?|\\.|[\w-])+)/g)) {
+      const props = declared.get(unescapeCss(m[1]))
+      if (props) rule.walkDecls((d) => void props.add(d.prop))
+    }
+  })
+}
+/** A class's variants and its utility, split at the colons outside brackets and parentheses, as Tailwind reads them:
+    `supports-[selector(:focus-visible)]:focus:[box-shadow:none]` → [`supports-[selector(:focus-visible)]`, `focus`] and
+    `[box-shadow:none]`. */
+function splitClass(token: string): { variants: string[]; utility: string } {
+  const variants: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < token.length; i += 1) {
+    const c = token[i]
+    if (c === '[' || c === '(') depth += 1
+    else if (c === ']' || c === ')') depth -= 1
+    else if (c === ':' && depth === 0) {
+      variants.push(token.slice(start, i))
+      start = i + 1
+    }
+  }
+  return { variants, utility: token.slice(start) }
+}
+
+/**
+ * The classes on a field that styles itself which draw on its focus ring beside the reset and the DS ring: any class in
+ * a state (any variant at all: focus, hover, a `supports-[…]` query) or marked `!important` whose compiled rule sets the
+ * box-shadow or a ring variable (`focus:ring-2`, `focus:[box-shadow:none]`, `focus-visible:shadow-none`). It fails
+ * closed rather than deciding which states can hold with focus, and reads what Tailwind declares, not the class's
+ * spelling. Only a resting shadow passes (a focus-state ring outranks it), and a ring colour (`ring-brand`) sets only
+ * the colour, which the zeroed ring never shows.
+ */
+function competingRings(tokens: string[]): string[] {
+  return tokens.filter((t) => {
+    const { variants, utility } = splitClass(t)
+    // The reset, and a DS ring rings() counts: a pinned token in its own theme. One in the other theme
+    // (`focus:shadow-ring-brand-dark`, a dropped `dark:`) draws over the ring like any other shadow.
+    if (FORMS_RING_OFF.includes(t) || rings([t], false).length || rings([t], true).length) return false
+    const stated = variants.length > 0 || utility.startsWith('!')
+    return stated && [...(declared.get(t) ?? [])].some((prop) => SHADOW_PROPS.has(prop))
+  })
+}
+
+/** A self-styled field's classes, read strictly: a string, a template with no `${…}`, or `cx`/`clsx` of those. Unlike the
+    chrome scan, which ignores a dynamic part, a `${…}`, a condition or a variable here could add a class that draws on the
+    ring (`focus:[box-shadow:none]`), so the className is unreadable. Every field in the app writes its classes this way. */
+function strictTokens(init: ts.JsxAttributeValue | undefined, isJoiner: (callee: ts.Expression) => boolean): string[] | null {
+  const read = (e: ts.Expression): string[] | null => {
+    if (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) return e.text.split(/\s+/).filter(Boolean)
+    if (ts.isParenthesizedExpression(e)) return read(e.expression)
+    if (ts.isCallExpression(e) && isJoiner(e.expression)) {
+      const parts = e.arguments.map(read)
+      return parts.every((part): part is string[] => part !== null) ? parts.flat() : null
+    }
+    return null
+  }
+  const expr = init && (ts.isJsxExpression(init) ? init.expression : init)
+  return expr ? read(expr) : null
+}
+
+
+/** `@/components/ui` and `../ui/Input` alike, as a path under frontend/ without extension; a package stays as is. */
+function moduleKey(file: string, specifier: string): string {
+  let key = specifier
+  if (specifier.startsWith('@/')) key = specifier.slice(2)
+  else if (specifier.startsWith('.')) key = path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier))
+  else return specifier
+  key = key.replace(/\.(tsx?|js)$/, '')
+  return key === 'components/ui' ? 'components/ui/index' : key
+}
+
+/** The names a file imports from the given modules (`{ 'components/ui/Input': ['inputClasses'] }`, 'default' for a
+    default import), each as the predicate "this expression is that import": a reference with no local binding of the
+    name shadowing it, or, unless `namespaces` is false, a member of a namespace import of the module (`UI.Input` after
+    `import * as UI`). A page's own helper of that name, or one imported from elsewhere, is not the import. */
+function importedName(sf: ts.SourceFile, wanted: Record<string, string[]>, namespaces = true): (callee: ts.Expression) => boolean {
+  const resolve = bindingResolver(sf)
+  const imported = new Set<string>()
+  const members = new Map<string, string[]>()
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier)) continue
+    const names = wanted[moduleKey(sf.fileName, st.moduleSpecifier.text)]
+    if (!names) continue
+    const clause = st.importClause
+    if (clause?.name && names.includes('default')) imported.add(clause.name.text)
+    const named = clause?.namedBindings
+    if (named && ts.isNamespaceImport(named) && namespaces) members.set(named.name.text, names)
+    if (named && ts.isNamedImports(named)) {
+      for (const el of named.elements) if (names.includes((el.propertyName ?? el.name).text)) imported.add(el.name.text)
+    }
+  }
+  return (callee) =>
+    ts.isIdentifier(callee)
+      ? imported.has(callee.text) && !resolve(callee)
+      : ts.isPropertyAccessExpression(callee) &&
+        ts.isIdentifier(callee.expression) &&
+        !!members.get(callee.expression.text)?.includes(callee.name.text) &&
+        !resolve(callee.expression)
+}
+/** What a field's `style` prop does to its focus ring: nothing (no prop, or an object literal of other properties), or
+    an inline box-shadow or ring variable, which outranks every class and so takes the DS ring off (`style={{ boxShadow:
+    'none' }}`). Anything the scan cannot read key by key (a variable, a spread, a shorthand) fails closed. */
+function inlineRing(attr: ts.JsxAttribute | undefined): string | null {
+  if (!attr) return null
+  const expr = attr.initializer && ts.isJsxExpression(attr.initializer) ? attr.initializer.expression : undefined
+  if (!expr || !ts.isObjectLiteralExpression(expr)) return 'a style prop the scan cannot read'
+  for (const p of expr.properties) {
+    if (!ts.isPropertyAssignment(p) || !(ts.isIdentifier(p.name) || ts.isStringLiteral(p.name))) return 'a style prop the scan cannot read'
+    if (p.name.text === 'boxShadow' || p.name.text.startsWith('--tw-')) return `an inline ${p.name.text}, which outranks the DS ring`
+  }
+  return null
+}
+
+/** The DS factory, and the class joiners a field's classes may be written with: clsx, and the DS `cx`. */
+const FACTORY_IMPORTS = { 'components/ui/Input': ['inputClasses'], 'components/ui/index': ['inputClasses'] }
+const JOINER_IMPORTS = { clsx: ['clsx', 'default'], 'components/ui/cx': ['cx'], 'components/ui/index': ['cx'] }
+/** The DS field components, which pass a `style` prop on to their field through `...rest`. */
+const FIELD_COMPONENT_IMPORTS = { 'components/ui/Input': ['Input', 'Textarea', 'Select'], 'components/ui/index': ['Input', 'Textarea', 'Select'] }
+
+/** Whether a className is built by the DS factory: `inputClasses(…)` itself, a direct argument of `cx`/`clsx`, or a
+    template's `${…}`. A call nested anywhere else (a branch of a condition) leaves the other branch a field that styles
+    itself, so that className is read like any other (and a condition is unreadable). */
+function factoryBuilt(init: ts.JsxAttributeValue, isFactory: (callee: ts.Expression) => boolean, isJoiner: (callee: ts.Expression) => boolean): boolean {
+  const expr = ts.isJsxExpression(init) ? init.expression : init
+  const factory = (e: ts.Expression) => ts.isCallExpression(e) && isFactory(e.expression)
+  if (!expr) return false
+  if (factory(expr)) return true
+  if (ts.isCallExpression(expr) && isJoiner(expr.expression)) return expr.arguments.some(factory)
+  if (ts.isTemplateExpression(expr)) return expr.templateSpans.some((span) => factory(span.expression))
+  return false
+}
+
+/**
+ * Every field @tailwindcss/forms styles, anywhere in a page, that can take focus (the plugin rings a field focused by a
+ * click as much as by Tab, so `tabIndex={-1}` does not exempt one) and that its own className styles (not one built with `inputClasses(…)`, which the DS factory's gate holds): it takes the plugin's ring off
+ * (FORMS_RING_OFF) and draws a DS ring in both themes. The reset without a ring would leave no focus indicator: the
+ * full-text search's date inputs had no DS ring, so the plugin's blue ring was their only one in dark.
+ *
+ * What it cannot see: a DS field component, the factory or a joiner rebound to a local name (`const Field = multiline ?
+ * Textarea : Input`), as inputClassesNoOverrides.spec.tsx cannot; no file in the app rebinds one.
+ */
+function unringedFields(source: string, fileName: string): { fields: number; factory: number; findings: Finding[]; raw: RawField[] } {
+  const sf = parse(source, fileName)
+  const linkNames = defaultImportNames(sf, (m) => m === 'next/link')
+  // The factory's exemption hands its classes to inputClassesNoOverrides.spec.tsx, which follows named imports only, so a
+  // namespace call (`UI.inputClasses()`) earns none: its className is read here, and fails closed as unreadable.
+  const isFactory = importedName(sf, FACTORY_IMPORTS, false)
+  const isJoiner = importedName(sf, JOINER_IMPORTS)
+  const isFieldComponent = importedName(sf, FIELD_COMPONENT_IMPORTS)
+  const findings: Finding[] = []
+  const raw: RawField[] = []
+  let fields = 0
+  let factory = 0
+  const visit = (node: ts.Node): void => {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const { tag, attr, focusable, field, spread } = classify(node, sf, linkNames)
+      const className = attr('className')
+      // An inline style outranks every class, the factory's included, so it is read before the factory exemption, and
+      // on a DS field component too, which passes it on to its field (`<Input style={{ boxShadow: 'none' }} />`), as it
+      // does a props spread, which may carry one: on a component, a spread fails as on a raw field.
+      const component = isFieldComponent(node.tagName as ts.Expression)
+      const inline = (field && focusable) || component ? inlineRing(attr('style')) : null
+      const at = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
+      if (inline) findings.push({ line: at, tag, problem: inline })
+      if (component && spread) findings.push({ line: at, tag, problem: 'a props spread the scan cannot read' })
+      // A spread may replace the className, the factory's included, so it is read before the factory exemption.
+      if (field && focusable && !spread && className?.initializer && factoryBuilt(className.initializer, isFactory, isJoiner)) factory += 1
+      else if (field && focusable) {
+        fields += 1
+        const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
+        const tokens = strictTokens(className?.initializer, isJoiner)
+        const light = Array.isArray(tokens) ? rings(tokens, false) : []
+        const dark = Array.isArray(tokens) ? rings(tokens, true) : []
+        const missing = Array.isArray(tokens)
+          ? [
+              ...FORMS_RING_OFF.filter((t) => !tokens.includes(t)),
+              ...(light.length ? [] : ['a focus:shadow-ring-* or focus-visible:shadow-ring-*']),
+              ...(light.some((ring) => dark.includes(ring)) ? [] : ['its dark: twin in the same focus state']),
+            ]
+          : []
+        // One DS ring per theme across its focus states: of two (`focus:shadow-ring-error`, or a `focus-visible:` one,
+        // beside the brand ring), the later in the stylesheet shows, so a valid field would draw the error ring.
+        const doubled = [...doubledRings(light), ...doubledRings(dark).map((r) => `dark: ${r}`)]
+        if (spread) findings.push({ line, tag, problem: 'a props spread the scan cannot read' })
+        else if (!className) findings.push({ line, tag, problem: "no className, so the forms plugin's blue ring is its focus ring" })
+        else if (!Array.isArray(tokens)) findings.push({ line, tag, problem: 'a className the scan cannot read' })
+        else {
+          if (missing.length) findings.push({ line, tag, problem: `missing ${missing.join(', ')}` })
+          if (doubled.length) findings.push({ line, tag, problem: `more than one DS ring across its focus states (${doubled.join('; ')})` })
+          raw.push({ line, tag, tokens })
+        }
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return { fields, factory, findings, raw }
+}
+
+/** A field that styles itself, with its static classes, for the declaration check (competingRings). */
+interface RawField {
+  line: number
+  tag: string
+  tokens: string[]
+}
+
+/** The field scan of one source, the declaration check included: the token findings and each competing ring setter, by line. */
+async function fieldFindings(source: string, fileName: string): Promise<{ fields: number; factory: number; findings: Finding[] }> {
+  const { fields, factory, findings, raw } = unringedFields(source, fileName)
+  await loadDeclarations(raw.flatMap((f) => f.tokens))
+  const competing = raw.flatMap(({ line, tag, tokens }) => {
+    const extra = competingRings(tokens)
+    return extra.length ? [{ line, tag, problem: `${extra.join(' ')} sets the box-shadow or a ring in a state, beside the reset and the DS ring` }] : []
+  })
+  return { fields, factory, findings: [...findings, ...competing].sort((x, y) => x.line - y.line) }
 }
 
 /** The app's .tsx sources (app/, features/, components/), repository-relative. */
@@ -805,6 +1108,215 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       "video: the browser's own controls take focus, each with the browser's ring",
       "audio: the browser's own controls take focus, each with the browser's ring",
       'details: no <summary> of its own, so the browser\'s "Details" summary takes focus with the default outline',
+    ])
+  })
+})
+
+describe('every field the forms plugin styles takes its ring off and draws the DS ring, app-wide', () => {
+  it('the app’s own fields', async () => {
+    let fields = 0
+    let factory = 0
+    const findings: string[] = []
+    for (const file of appSources().filter((f) => f !== FIELD_FACTORY)) {
+      const result = await fieldFindings(readFileSync(path.join(ROOT, file), 'utf8'), file)
+      fields += result.fields
+      factory += result.factory
+      findings.push(...result.findings.map((f) => `${file}:${f.line} <${f.tag}> ${f.problem}`))
+    }
+    // A reader that finds nothing must not pass: the app styles a handful of fields itself and builds the rest with inputClasses().
+    expect(fields, 'fields that style themselves').toBeGreaterThanOrEqual(5)
+    expect(factory, 'fields built with inputClasses()').toBeGreaterThanOrEqual(15)
+    expect(findings).toEqual([])
+  })
+
+  it('every pinned DS ring token draws a visible ring in tailwind.config.js', () => {
+    for (const token of RING_TOKENS) {
+      // A spread above zero in a colour that is not transparent: `0 0 0 3px rgba(79, 122, 99, 0.50)`.
+      const m = THEME_SHADOWS[token]?.match(/^0 0 0 [1-9]\d*px rgba?\(\s*\d+,\s*\d+,\s*\d+\s*(?:,\s*([\d.]+)\s*)?\)$/)
+      expect(m, token).toBeTruthy()
+      expect(m![1] === undefined ? 1 : Number(m![1]), `${token}'s alpha`).toBeGreaterThan(0)
+    }
+  })
+
+  it('the field scan takes only the DS factory, under any import name, for inputClasses()', () => {
+    const at = (source: string, fileName = 'features/fixture/Page.tsx') => {
+      const { factory, findings } = unringedFields(source, fileName)
+      return { factory, findings: findings.map((f) => `${f.line} ${f.problem}`) }
+    }
+    const field = 'export const F = () => <input type="text" className={inputClasses()} />'
+    // The factory under its own name, an alias, from the barrel, and through a relative path.
+    expect(at(`import { inputClasses } from '@/components/ui/Input'\n${field}`)).toEqual({ factory: 1, findings: [] })
+    expect(at(`import { inputClasses as field } from '@/components/ui'\nexport const F = () => <input className={field()} />`)).toEqual({ factory: 1, findings: [] })
+    expect(at(`import { inputClasses } from '../../components/ui/Input'\n${field}`)).toEqual({ factory: 1, findings: [] })
+    // A page's own helper of that name, one imported from elsewhere, and a local binding shadowing the import are not.
+    const unread = { factory: 0, findings: ['2 a className the scan cannot read'] }
+    expect(at(`const inputClasses = () => 'border'\n${field}`)).toEqual(unread)
+    expect(at(`import { inputClasses } from '@/lib/forms'\n${field}`)).toEqual(unread)
+    expect(
+      at(`import { inputClasses } from '@/components/ui/Input'\nexport function F({ inputClasses }: { inputClasses: () => string }) {\n  return <input className={inputClasses()} />\n}`),
+    ).toEqual({ factory: 0, findings: ['3 a className the scan cannot read'] })
+    // The joiners too: a page's own `cx` (which may drop every class) is not the DS joiner, nor is one from elsewhere.
+    const ring = 'focus:border-brand focus:shadow-ring-brand dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark focus:ring-0 focus:ring-offset-0'
+    const joined = (imp: string) => at(`${imp}\nexport const F = () => <input type="date" className={cx('border', '${ring}')} />`).findings
+    expect(joined(`import { cx } from '@/components/ui/cx'`)).toEqual([])
+    expect(joined(`import { cx } from '@/components/ui'`)).toEqual([])
+    expect(joined(`import cx from 'clsx'`)).toEqual([])
+    expect(joined(`const cx = (...c: string[]) => ''`)).toEqual(['2 a className the scan cannot read'])
+    expect(joined(`import { cx } from '@/lib/strings'`)).toEqual(['2 a className the scan cannot read'])
+    // And the field components: a page's own `Input` is not the DS one, so its style is its own business.
+    const styled = `export const F = () => <Input style={{ boxShadow: 'none' }} />`
+    expect(at(`import { Input } from '@/components/ui'\n${styled}`).findings).toEqual(['2 an inline boxShadow, which outranks the DS ring'])
+    expect(at(`const Input = (p: { style?: object }) => <div {...p} />\n${styled}`).findings).toEqual([])
+    // A namespace import of the DS module reaches the same component and joiner, but not the factory exemption: the
+    // override gate cannot follow `UI.inputClasses()`, so the classes beside it would go unchecked by both.
+    expect(at(`import * as UI from '@/components/ui'\nexport const F = () => <UI.Input style={{ boxShadow: 'none' }} />`).findings).toEqual([
+      '2 an inline boxShadow, which outranks the DS ring',
+    ])
+    expect(at(`import * as UI from '@/components/ui'\nexport const F = () => <input type="date" className={UI.cx('border', '${ring}')} />`).findings).toEqual([])
+    expect(at(`import * as UI from '@/components/ui'\nexport const F = () => <input type="text" className={UI.cx(UI.inputClasses(), 'focus:[box-shadow:none]')} />`)).toEqual({
+      factory: 0,
+      findings: ['2 a className the scan cannot read'],
+    })
+    expect(at(`import * as UI from '@/lib/ui'\nexport const F = () => <input type="text" className={UI.inputClasses()} />`).findings).toEqual(['2 a className the scan cannot read'])
+  })
+
+  it('the field scan catches what it is for (a self-check on fixed sources)', async () => {
+    const reset = 'focus:ring-0 focus:ring-offset-0'
+    const field = `focus:border-brand focus:shadow-ring-brand dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark ${reset}`
+    const control = `${reset} focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark`
+    const src = `
+      import { inputClasses, Input, Textarea } from '@/components/ui/Input'
+      import { clsx } from 'clsx'
+      export function F({ c, busy, rest }: Props) {
+        return (
+          <>
+            <input type="checkbox" className="h-4 w-4 focus:shadow-ring-brand" />
+            <input type="checkbox" className="h-4 w-4 ${control}" />
+            <input type="date" className="border focus:border-brand focus:outline-none" />
+            <input type="date" className="border ${field}" />
+            <input type="date" className="border ${reset}" />
+            <textarea className="focus:shadow-ring-brand ${reset}" />
+            <select className={clsx(inputClasses({ select: true }), c)} />
+            <input className={\`\${inputClasses()} mt-2\`} />
+            <input type="text" className={c} />
+            <input type="email" />
+            <input type="text" {...rest} />
+            <input type="submit" className="p-2" />
+            <input type="checkbox" disabled className="h-4 w-4" />
+            <input type="text" tabIndex={-1} className="hidden" />
+            <input type="radio" disabled={busy} className="h-4 w-4" />
+            <input type="date" className={busy ? inputClasses() : 'border px-2'} />
+            <input type="date" className="border focus-visible:shadow-ring-brand dark:focus:shadow-ring-brand-dark ${reset}" />
+            <input type="date" className="border focus:shadow-ring-brand-dark dark:focus:shadow-ring-brand-dark ${reset}" />
+            <input type="date" className="border focus:shadow-ring-brand dark:focus:shadow-ring-brnad-dark ${reset}" />
+            <input type="date" className="border focus:shadow-ring-brnad dark:focus:shadow-ring-brand-dark ${reset}" />
+            <input type="text" className={inputClasses()} {...rest} />
+            <input type="date" className="border focus:shadow-ring-none dark:focus:shadow-ring-none ${reset}" />
+            <input type="date" className="border focus:shadow-ring-brand dark:focus:shadow-ring-brand ${reset}" />
+            <input type="date" className="border focus:shadow-ring-error dark:focus:shadow-ring-error ${reset}" />
+            <input type="date" className="border ${field} focus:ring-2" />
+            <input type="date" className="border ${field} dark:focus:ring-offset-2 ring-brand" />
+            <input type="date" className="border ${field} focus:[box-shadow:none]" />
+            <input type="date" className="border ${field} focus-visible:shadow-none shadow-sm !shadow-none" />
+            <input type="date" className={\`border ${field} \${c}\`} />
+            <input type="date" className={clsx('border', '${field}', busy && 'opacity-50')} />
+            <input type="date" className={clsx('border', '${field}')} />
+            <input type="date" className="border ${field} supports-[selector(:focus-visible)]:focus:[box-shadow:none]" />
+            <input type="date" className="border ${field} hover:shadow-md" />
+            <input type="date" className="border ${field} [box-shadow:0_0_0_1px_rgba(0,0,0,0.1)]" />
+            <input type="date" className="border ${field} focus:shadow-ring-error" />
+            <input type="date" className="border ${field} focus:shadow-ring-brand-dark" />
+            <input type="date" className="border ${field} dark:focus:shadow-ring-brand" />
+            <input type="date" tabIndex={-1} className="border focus:border-brand" />
+            <input type="date" tabIndex={-1} className="hidden md:block" />
+            <input type="date" className="border ${field}" style={{ boxShadow: 'none' }} />
+            <input type="date" className="border ${field}" style={{ maxWidth: 200 }} />
+            <input type="date" className="border ${field}" style={c} />
+            <input className={inputClasses()} style={{ '--tw-shadow': '0 0 #0000' }} />
+            <Input style={{ boxShadow: 'none' }} />
+            <Textarea variant="composer" style={{ maxHeight: 120, overflowY: 'auto' }} />
+            <Input {...{ style: { boxShadow: 'none' } }} />
+            <input type="date" className="border ${field} focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error" />
+            <input type="date" className="border ${field} group-focus-within:!shadow-none peer-focus:shadow-none" />
+            <input type="date" tabIndex={-1} className="hidden !block" />
+            <input type="date" tabIndex={-1} className={\`hidden \${c}\`} />
+            <input hidden type="text" />
+          </>
+        )
+      }`
+    const { fields, factory, findings } = await fieldFindings(src, 'page.tsx')
+    const twin = 'its dark: twin in the same focus state'
+    const competing = 'sets the box-shadow or a ring in a state, beside the reset and the DS ring'
+    const ring = 'a focus:shadow-ring-* or focus-visible:shadow-ring-*'
+    expect(factory).toBe(3)
+    expect(fields).toBe(41)
+    expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
+      `7 <input> missing focus:ring-0, focus:ring-offset-0, ${twin}`,
+      `9 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
+      `11 <input> missing ${ring}, ${twin}`,
+      `12 <textarea> missing ${twin}`,
+      '15 <input> a className the scan cannot read',
+      "16 <input> no className, so the forms plugin's blue ring is its focus ring",
+      '17 <input> a props spread the scan cannot read',
+      `21 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
+      // An inputClasses() call in one branch of a condition leaves the other branch styling the field itself.
+      '22 <input> a className the scan cannot read',
+      // A dark ring in another focus state than the light one, and a dark token standing in for the light ring.
+      `23 <input> missing ${twin}`,
+      `24 <input> missing ${ring}, ${twin}`,
+      // ...and the dark token in light draws over whatever ring the field does have.
+      `24 <input> focus:shadow-ring-brand-dark ${competing}`,
+      // A misspelt token generates no CSS, so it is no ring, in either theme.
+      `25 <input> missing ${twin}`,
+      `26 <input> missing ${ring}, ${twin}`,
+      // A spread may replace the factory's className, so the factory does not exempt it.
+      '27 <input> a props spread the scan cannot read',
+      // Only the pinned DS ring tokens count, not any `ring-*` key.
+      `28 <input> missing ${ring}, ${twin}`,
+      // The light ring repeated under `dark:` is no dark twin; ring-error is its own until a dark token exists (line 30).
+      `29 <input> missing ${twin}`,
+      `29 <input> dark:focus:shadow-ring-brand ${competing}`,
+      // A ring width or offset beside the reset draws the plugin's ring again; a ring colour does not.
+      // Any focus-state or !important class whose rule sets the box-shadow or a ring variable, read off Tailwind's compile:
+      // a ring width or offset, an arbitrary box-shadow, a shadow utility. A ring colour and a resting shadow do not.
+      `31 <input> focus:ring-2 ${competing}`,
+      `32 <input> dark:focus:ring-offset-2 ${competing}`,
+      `33 <input> focus:[box-shadow:none] ${competing}`,
+      `34 <input> focus-visible:shadow-none !shadow-none ${competing}`,
+      // A dynamic part could add a class that draws on the ring, so it is unreadable; a cx of literals is read (line 37).
+      '35 <input> a className the scan cannot read',
+      '36 <input> a className the scan cannot read',
+      // Variants are split outside brackets, so a colon inside an arbitrary query hides no state; any state counts.
+      `38 <input> supports-[selector(:focus-visible)]:focus:[box-shadow:none] ${competing}`,
+      `39 <input> hover:shadow-md ${competing}`,
+      // A resting arbitrary box-shadow (line 40) has no variant: the colon inside its brackets is not one.
+      // Two DS rings in one focus state: the later in the stylesheet shows.
+      '41 <input> more than one DS ring across its focus states (focus ring-brand, focus ring-error)',
+      // A pinned token in the other theme (a dropped or a stray `dark:`) is a shadow like any other.
+      `42 <input> focus:shadow-ring-brand-dark ${competing}`,
+      `43 <input> dark:focus:shadow-ring-brand ${competing}`,
+      // Out of the Tab order, but a click still focuses it, and the plugin rings it blue.
+      `44 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
+      // `hidden` shows again from md, so it can take focus there; the honeypot's bare `hidden` (line 24) never can.
+      `45 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
+      // An inline style outranks every class: a box-shadow or ring variable in it takes the ring off, the factory's
+      // included (line 49); other properties pass (line 47), and a style the scan cannot read fails closed.
+      '46 <input> an inline boxShadow, which outranks the DS ring',
+      '48 <input> a style prop the scan cannot read',
+      '49 <input> an inline --tw-shadow, which outranks the DS ring',
+      // A DS field component passes its style on to its field: read like a raw field's (the composer's passes).
+      '50 <Input> an inline boxShadow, which outranks the DS ring',
+      // ...as it passes on a spread, which may carry one.
+      '52 <Input> a props spread the scan cannot read',
+      // `focus` and `focus-visible` both match a keyboard focus: a ring in each is two rings.
+      '53 <input> more than one DS ring across its focus states (focus ring-brand, focus-visible ring-error; dark: focus ring-brand, focus-visible ring-error)',
+      // A group or peer variant's selector leads with the marker, not the utility's own class.
+      `54 <input> group-focus-within:!shadow-none peer-focus:shadow-none ${competing}`,
+      // An important display class shows a hidden field as a variant does (line 45).
+      `55 <input> missing focus:ring-0, focus:ring-offset-0, ${ring}, ${twin}`,
+      // A dynamic part may show it too, so a hidden className read any way but as a literal earns no exemption.
+      '56 <input> a className the scan cannot read',
+      // A static `hidden` attribute (line 57) takes the field out of focus whatever its tabIndex: no finding.
     ])
   })
 })
