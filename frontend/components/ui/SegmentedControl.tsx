@@ -61,7 +61,7 @@ const SHELL = cx(
 
 const SEGMENT = cx(
   'inline-flex items-center justify-center whitespace-nowrap rounded font-semibold transition-colors duration-fast',
-  'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark disabled:cursor-not-allowed disabled:opacity-40',
+  'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark aria-disabled:cursor-not-allowed disabled:cursor-not-allowed disabled:opacity-40',
 )
 
 const SIZE: Record<SegmentedControlSize, string> = {
@@ -75,7 +75,7 @@ const RESTING = cx(
   'text-text-secondary-light hover:text-text-primary-light',
   'dark:text-text-secondary-dark dark:hover:text-text-primary-dark',
 )
-const UNAVAILABLE = 'cursor-not-allowed bg-background-light text-text-secondary-light dark:bg-background-dark dark:text-text-secondary-dark'
+const UNAVAILABLE = 'bg-background-light text-text-secondary-light dark:bg-background-dark dark:text-text-secondary-dark'
 
 export function SegmentedControl<T extends string>({
   label,
@@ -107,7 +107,7 @@ export function SegmentedControl<T extends string>({
               SIZE[size],
               fullWidth && 'flex-1 sm:flex-none',
               option.mono && 'font-data tabular-nums',
-              option.disabled && focusableDisabled ? UNAVAILABLE : selected ? SELECTED : RESTING,
+              selected ? SELECTED : option.disabled && focusableDisabled ? UNAVAILABLE : RESTING,
             )}
           >
             {option.label}

@@ -79,6 +79,39 @@ describe('PeriodPicker controls', () => {
     expect(onModeChange).not.toHaveBeenCalled()
   })
 
+  it('preserves a controlled unavailable selection until the reader chooses an available mode', async () => {
+    const user = userEvent.setup()
+    const onModeChange = vi.fn()
+    const unavailableAnnual = { ...coverage, annual: coverage.annual.map((period) => ({ ...period, has_core: false })) }
+    function ControlledPicker() {
+      const [mode, setMode] = useState<'annual' | 'quarterly'>('annual')
+      return <PeriodPicker coverage={unavailableAnnual} mode={mode} range={null} onModeChange={(next) => { onModeChange(next); setMode(next) }} onRangeChange={vi.fn()} />
+    }
+    render(<ControlledPicker />)
+    const annual = screen.getByRole('button', { name: 'Annual' })
+    const quarterly = screen.getByRole('button', { name: 'Quarterly' })
+    expect(annual).toHaveAttribute('aria-pressed', 'true')
+    expect(annual).toHaveAttribute('aria-disabled', 'true')
+    expect(annual).not.toBeDisabled()
+    expect(annual).toHaveClass('bg-brand', 'text-white', 'dark:bg-brand-dark', 'dark:text-background-dark')
+    expect(annual).toHaveAccessibleDescription("Annual data isn't available for this company.")
+    expect(quarterly).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('group', { name: 'Recent period presets' })).not.toBeInTheDocument()
+    expect(onModeChange).not.toHaveBeenCalled()
+    annual.focus()
+    await user.keyboard('{Enter} ')
+    fireEvent.click(annual)
+    expect(annual).toHaveFocus()
+    expect(onModeChange).not.toHaveBeenCalled()
+    await user.tab()
+    expect(quarterly).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(onModeChange).toHaveBeenCalledExactlyOnceWith('quarterly')
+    expect(quarterly).toHaveAttribute('aria-pressed', 'true')
+    expect(annual).toHaveAttribute('aria-pressed', 'false')
+    expect(annual).not.toHaveClass('bg-brand')
+  })
+
   it('retains native disabled semantics for other segmented-control callers', () => {
     render(<SegmentedControl label="Other view" value="one" onChange={vi.fn()} options={[{ value: 'one', label: 'One' }, { value: 'two', label: 'Two', disabled: true }]} />)
     expect(screen.getByRole('button', { name: 'Two' })).toBeDisabled()

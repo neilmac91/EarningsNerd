@@ -76,6 +76,8 @@ export default function PeriodPicker({ coverage, mode, range, onModeChange, onRa
   const noun = mode === 'quarterly' ? selected.length === 1 ? 'quarter' : 'quarters' : selected.length === 1 ? 'year' : 'years'
   const limitNoun = mode === 'quarterly' ? cap === 1 ? 'quarter' : 'quarters' : cap === 1 ? 'year' : 'years'
   const selectionKey = (selection: PeriodRange | null) => `${coverage.ticker}:${mode}:${selection?.start}:${selection?.end}`
+  // The parent can retain Annual while freshly loaded coverage has no usable annual data.
+  // Preserve its controlled selection and explanation; the reader chooses an available mode.
   const unavailableModes = {
     annual: !coverage.annual.some((period) => period.has_core),
     quarterly: coverage.quarterly.length === 0,

@@ -403,7 +403,11 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  `fullWidth` stretches the segments across a phone row and wraps them onto another row when
                  they do not fit (a form filter with amendments), so every option stays visible; from sm up
                  it is one auto-width row. Optional disabled options remain visible and use native
-                 disabled semantics when unavailable before selection; this is not a busy-state API.
+                 disabled semantics by default. `focusableDisabled` keeps unavailable options in
+                 the Tab order with aria-disabled and `descriptionId`; activation is refused.
+                 The controlled selected option keeps its primary colourway even if unavailable,
+                 so newly loaded coverage never silently changes the selected mode. This is not
+                 a busy-state API.
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
