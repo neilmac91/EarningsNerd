@@ -69,6 +69,7 @@ export const queryKeys = {
   tickerCompany: (ticker: string) => ['ticker-company', ticker] as const,
   tickerFilings: (ticker: string) => ['ticker-filings', ticker] as const,
   filing: (filingId: string | number) => ['filing', filingId] as const,
+  filingContent: (filingId: number) => ['filing-content', filingId] as const,
   summary: (filingId: string | number) => ['summary', filingId] as const,
   summaryProgress: (filingId: string | number) => ['summary-progress', filingId] as const,
   whatChanged: (filingId: string | number) => ['what-changed', filingId] as const,

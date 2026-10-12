@@ -136,7 +136,7 @@ for (const theme of ['light', 'dark'] as const) {
     })
     expect(look.focusVisible).toBe(true)
     expect(look.opacity).toBe('1')
-    expect(look.shadow).toContain(theme === 'dark' ? 'rgba(127, 178, 149, 0.55)' : 'rgba(79, 122, 99, 0.5)')
+    expect(look.shadow).toContain(theme === 'dark' ? 'rgb(127, 178, 149)' : 'rgb(79, 122, 99)')
     if (theme === 'dark') expect(look.border).toBe('rgba(127, 178, 149, 0.14)')
 
     expect(await sendsAnother(page, () => page.keyboard.press('Enter'))).toBe(false)
