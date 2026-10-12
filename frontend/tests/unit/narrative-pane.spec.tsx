@@ -233,7 +233,7 @@ describe('NarrativePane citation chips', () => {
     passed.series[0].points[0].provenance!.validation = 'passed'
     passed.series[0].points[0].provenance!.reasons = []
     rerender(<DataNotesProvider dataset={passed}><DataNotes dataset={passed} /><NarrativePane state={state} /></DataNotesProvider>)
-    expect(screen.getByText(/1 figure passed automated checks/)).toBeInTheDocument()
+    expect(screen.getByText(/No figures need review · 1 checked/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Citation 1:.*data note a/ }).querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
     expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('A source check remains unresolved')
   })

@@ -193,7 +193,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
             role="region"
             aria-label={`${filingLabel} · filing text`}
             tabIndex={0}
-            className="filing-reader min-h-0 flex-1 overflow-y-auto break-words px-4 py-4 focus-visible:outline-none focus-visible:shadow-[inset_0_0_0_3px_rgba(79,122,99,0.5)] dark:focus-visible:shadow-[inset_0_0_0_3px_rgba(127,178,149,0.55)]"
+            className="filing-reader min-h-0 flex-1 overflow-y-auto break-words px-4 py-4 focus-visible:outline-none focus-visible:shadow-ring-brand-inset dark:focus-visible:shadow-ring-brand-inset-dark"
           >
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={READER_COMPONENTS}>
               {content || ''}

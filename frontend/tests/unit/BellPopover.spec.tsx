@@ -64,8 +64,8 @@ describe('BellPopover', () => {
 
   it('announces the async error as an alert with the API message verbatim — no alertdialog role', async () => {
     await openFromBell('error', 'Pro includes 50 earnings alerts.')
-    const group = screen.getByRole('group', { name: 'Alert not enabled' })
-    expect(screen.getByRole('alert')).toHaveTextContent('Alert not enabled' + 'Pro includes 50 earnings alerts.')
+    const group = screen.getByRole('group', { name: 'Alert not enabled for AAPL' })
+    expect(screen.getByRole('alert')).toHaveTextContent('Alert not enabled for AAPL' + 'Pro includes 50 earnings alerts.')
     // Focus moving in can cut the alert's speech off; the description keeps the message reachable.
     expect(group).toHaveAccessibleDescription('Pro includes 50 earnings alerts.')
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
@@ -123,7 +123,7 @@ describe('BellPopover', () => {
     const message = screen.getByRole('textbox', { name: 'Feedback message' })
     expect(message).toHaveFocus()
     view.rerender(<PageWithDelayedError failed />)
-    const popover = screen.getByRole('group', { name: 'Alert not enabled' })
+    const popover = screen.getByRole('group', { name: 'Alert not enabled for AAPL' })
     expect(message).toHaveFocus()
 
     fireEvent.keyDown(message, { key: 'Escape' })
@@ -279,7 +279,7 @@ describe('BellPopover', () => {
       act(() => {
         render(<BellPopover blocked={blockedFor('error', pageBell, 'Try again later.')} onClose={() => {}} />)
       })
-      expect(dialog).toContainElement(screen.getByRole('group', { name: 'Alert not enabled' }))
+      expect(dialog).toContainElement(screen.getByRole('group', { name: 'Alert not enabled for AAPL' }))
     } finally {
       pageBell.remove()
     }

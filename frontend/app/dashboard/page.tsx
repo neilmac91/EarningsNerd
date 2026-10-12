@@ -363,7 +363,7 @@ export default function DashboardPage() {
                           }}
                           aria-disabled={deleteSummaryMutation.isPending || undefined}
                           aria-busy={pendingDeleteId === item.id || undefined}
-                          className="text-error-light hover:bg-error-light/10 inline-flex min-h-11 min-w-11 items-center justify-center p-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-error aria-disabled:text-error-light/50 dark:text-error-dark dark:hover:bg-error-dark/15 dark:aria-disabled:text-error-dark/50"
+                          className="text-error-light hover:bg-error-light/10 inline-flex min-h-11 min-w-11 items-center justify-center p-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark aria-disabled:text-error-light/50 dark:text-error-dark dark:hover:bg-error-dark/15 dark:aria-disabled:text-error-dark/50"
                           title="Delete"
                           aria-label={`Delete summary for ${formatCompanyName(item.company.name)}`}
                         >
