@@ -17,8 +17,8 @@ A fact-check workflow ran over the draft first (`record-23-factcheck-01`, closur
 09:06:17–09:12:07Z): four read-only checkers (production, PRs, integrity, live) verified the record's claims against primary sources
 and the chief applied their corrections. `record-23-reviewer-01` (closure 173; agent `abeee916ea8a93455`, launched 09:14:55Z; one
 context for the review and its deltas) then bound **no blocker** to all five heads it reviewed: `e61a7b4` and `8886084` (four and
-three should-fixes, applied), `f7b8634` (two items open there), to `a80bd2f` (no should-fix;
-nits on disclosure 6's wording and the body's time for `f7b8634`) and to `165a39f`, the merged head (one body should-fix, the
+three should-fixes, applied), `f7b8634` (two items open there), `a80bd2f` (no should-fix;
+nits on disclosure 6's wording and the body's time for `f7b8634`) and `165a39f`, the merged head (one body should-fix, the
 `a80bd2f` Codex row, fixed in the body; a body-only check after it found nothing inaccurate; one optional wording nit applied).
 Codex reviewed all seven heads on `@codex review` requests: no findings on `76465b0` (09:07:21Z); a P2 on `e61a7b4` (09:17:39Z:
 the fix would not reach a validation error's structured form; answered, and `9b9c5db` narrowed plan item 3 to the rendered
@@ -233,8 +233,9 @@ usage 5.297293 → 5.809257 (3,212 → 3,510 calls); **0 active reservations**. 
 
 ## Disclosures
 
-No classifier denial this record. Two of the chief's misses are numbered chief defects, (a) and (b) below: defects 13 and 14 in
-`APPOINTMENTS.json`, the classes of defects 9 and 8. The rest are process misses.
+No classifier denial of the chief's this record. Two of the chief's misses are numbered chief defects, (a) and (b) below: defects
+13 and 14 in `APPOINTMENTS.json`; (a) is a new class (an agent's running output file read), (b) the class of defects 8 and 9. The
+rest are process misses.
 1. **The chief's own misses** (no production effect; each corrected):
    (a) **A transcript-hygiene slip (chief defect 13).** At about 09:52Z on 2026-10-11 the chief read the last 3,000 bytes of `record-23-reviewer-01`'s
    running output file to check its progress, against the rule to read agent timings only through the timing helper. The bytes
@@ -288,7 +289,7 @@ No classifier denial this record. Two of the chief's misses are numbered chief d
    probe tests in agents' pytest temp directories, on 2026-10-12. None held a real value.
 6. **The delta reviewer's:** writes only in its own work directory; read-only git, the `git archive` exports it was asked for, GitHub
    GETs; application imports only inside pytest; ad-hoc Python under `env -i` with fabricated values only.
-7. **External events:** GitHub Actions refused every job that tried to start between about 13:48:43Z and 13:53:01Z, the first and
+7. **External events:** GitHub Actions refused every job that tried to start between about 13:48:43Z and 13:53:05Z, the first and
    last refusals seen (billing); jobs ran again from 13:55:50Z, and jobs already running, such as main's CI run 38144561673,
    continued. Other writers' read-only `ops.yml` dispatches at
    2026-10-11T22:42:59Z and 2026-10-12T01:28:21Z (`describe-service`) and 12:03:51Z (a second `capacity-readout`, run
