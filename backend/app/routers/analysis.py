@@ -90,7 +90,8 @@ async def _ingest_with_own_session(company_id: int) -> dict:
     """Run companyfacts ingest in short DB units so it can safely outlive the request."""
 
     return await analysis_data_access.ingest_with_own_session(
-        company_id, facts_service=facts_service
+        company_id,
+        ingest_companyfacts_by_id=facts_service.ingest_companyfacts_by_id,
     )
 
 

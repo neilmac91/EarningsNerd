@@ -1,10 +1,9 @@
 """Analysis database reads and short-session units; HTTP policy stays in the router."""
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from logging import Logger
-from types import ModuleType
 from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
@@ -37,11 +36,15 @@ def find_company_by_id(db: Session, company_id: int) -> Company | None:
     return db.get(Company, company_id)
 
 
-async def ingest_with_own_session(company_id: int, *, facts_service: ModuleType) -> dict:
+async def ingest_with_own_session(
+    company_id: int,
+    *,
+    ingest_companyfacts_by_id: Callable[..., Awaitable[dict]],
+) -> dict:
     """Run companyfacts ingest in short DB units so it can safely outlive the request."""
     from app.database import SessionLocal
 
-    return await facts_service.ingest_companyfacts_by_id(
+    return await ingest_companyfacts_by_id(
         company_id, session_factory=SessionLocal
     )
 
