@@ -114,9 +114,18 @@ export const EXPECTED_TABLE_COMPARISON_REVIEWS = {
   discrepancy: { all: 3, earliest: 0, newest: 3 },
 } as const
 
-export async function openAnalysis(page: Page, baseURL: string, state: AnalysisState, theme: AnalysisTheme, textScale = 1) {
+export async function openAnalysis(page: Page, baseURL: string, state: AnalysisState, theme: AnalysisTheme, textScale = 1, legacyEvidenceNote = false) {
   const origin = new URL(baseURL).origin
   const fixture = fixtureFor(state)
+  if (legacyEvidenceNote) {
+    expect(state).toBe('legacy')
+    // The archived long FCF/net-income group has only passed citations. Give one
+    // operand the existing legacy concern for the folded-letter browser case;
+    // retain its financial value, calculation and source fields unchanged.
+    const operand = fixture.completion.citations.find(citation => citation.n === 23)!
+    operand.reconciled = false
+    operand.provenance = { ...operand.provenance!, validation: 'needs_review', reasons: ['legacy_calculation'] }
+  }
   const traffic = { dataset: 0, stream: 0, unexpectedApi: [] as string[], submittedRanges: [] as unknown[] }
   await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
   await page.addInitScript(({ theme, textScale }) => {

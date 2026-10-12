@@ -31,7 +31,7 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
     test.use({ viewport: { width, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
     test('keeps short evidence visible and restores disclosures after printing', async ({ page, baseURL }) => {
       test.setTimeout(60_000)
-      await openAnalysis(page, baseURL!, 'legacy', theme)
+      await openAnalysis(page, baseURL!, 'legacy', theme, 1, true)
       const prose = page.locator('.markdown-body')
       const lists = prose.getByRole('list', { name: 'Figures behind this finding', includeHidden: true })
       await expect(lists).toHaveCount(3)
@@ -45,7 +45,7 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
       await expect(fold).not.toHaveAttribute('open')
       await expect(fold.locator('summary')).toContainText('Show the 20 source figures behind this · figures carry note a')
       const notes = page.locator(`${NOTES} > details`)
-      await notes.locator('summary').click()
+      await notes.locator(':scope > summary').click()
       const prior = await page.locator('[data-analysis-print-scope] details').evaluateAll(items => items.map(item => (item as HTMLDetailsElement).open))
       expect(prior).toContain(true)
       expect(prior).toContain(false)
