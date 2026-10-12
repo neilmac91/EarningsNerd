@@ -35,6 +35,9 @@
    :focus-within and hold while the shell is hovered, where Tailwind's variant
    order let the hover border win. fieldUnavailableClass likewise keeps a focused
    field's brand border under hover.
+   v3.8: raw destructive-confirm fields use `tone: 'danger'` for an error-toned
+   focus only. Their resting border stays neutral; `invalid` still means an
+   invalid value and takes precedence over this focus treatment.
    Assumes @tailwindcss/forms (already in the config plugins).
 ============================================================================= */
 
@@ -55,7 +58,7 @@ import { cx } from './cx'
     the client so composer auto-grow never flashes; plain effect on the server. */
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
-/** The field's look without a width or a tone: inputClasses({ autoWidth }) picks the width, and `invalid` the tone. */
+/** The field's look without a width or a tone: inputClasses() picks them through its options. */
 const FIELD_BASE = cx(
   'rounded-lg border text-sm transition-[border-color,box-shadow] duration-fast',
   'bg-white text-text-primary-light placeholder:text-text-tertiary-light',
@@ -76,17 +79,21 @@ const FIELD = cx('w-full', FIELD_BASE)
     `error` holds its border on hover, since the red names the problem; a disabled field's hover changes
     nothing in either tone. Each tone states its focus border in both themes even where it equals the rest
     border: the forms plugin's `input:where([type='text']):focus` border (#2563EB, specificity 0,1,1) beats a
-    bare `border-*` class (0,1,0). The error ring is `shadow-ring-error` in dark too, until a dark ring-error
-    token exists (the focus-ring item #1178 recorded). */
+    bare `border-*` class (0,1,0). Error focus uses the error ring's light/dark pair. */
 const TONE = {
   default: cx(
     'border-border-light hover:border-flat-light focus:border-brand focus:shadow-ring-brand disabled:hover:border-border-light',
     'dark:border-border-dark dark:hover:border-flat-dark dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark',
     'dark:disabled:hover:border-border-dark',
   ),
+  danger: cx(
+    'border-border-light hover:border-flat-light focus:border-error-light focus:shadow-ring-error disabled:hover:border-border-light',
+    'dark:border-border-dark dark:hover:border-flat-dark dark:focus:border-error-dark dark:focus:shadow-ring-error-dark',
+    'dark:disabled:hover:border-border-dark',
+  ),
   error: cx(
     'border-error-light focus:border-error-light focus:shadow-ring-error',
-    'dark:border-error-dark dark:focus:border-error-dark dark:focus:shadow-ring-error',
+    'dark:border-error-dark dark:focus:border-error-dark dark:focus:shadow-ring-error-dark',
   ),
 } as const
 /** v3.7 — the tone of a field SHELL: a wrapper that draws the field around a chrome-free control (the chat composer's
@@ -100,12 +107,18 @@ const SHELL_TONE = {
     'dark:border-border-dark dark:hover:border-flat-dark dark:focus-within:border-brand-dark dark:focus-within:shadow-ring-brand-dark',
     'dark:hover:focus-within:border-brand-dark',
   ),
+  danger: cx(
+    'border-border-light hover:border-flat-light focus-within:border-error-light focus-within:shadow-ring-error hover:focus-within:border-error-light',
+    'dark:border-border-dark dark:hover:border-flat-dark dark:focus-within:border-error-dark dark:focus-within:shadow-ring-error-dark',
+    'dark:hover:focus-within:border-error-dark',
+  ),
   error: cx(
     'border-error-light focus-within:border-error-light focus-within:shadow-ring-error',
-    'dark:border-error-dark dark:focus-within:border-error-dark dark:focus-within:shadow-ring-error',
+    'dark:border-error-dark dark:focus-within:border-error-dark dark:focus-within:shadow-ring-error-dark',
   ),
 } as const
-const tone = (invalid: unknown, shell = false) => (shell ? SHELL_TONE : TONE)[invalid ? 'error' : 'default']
+type FieldTone = 'default' | 'danger'
+const fieldTone = (invalid: unknown, shell = false, tone: FieldTone = 'default') => (shell ? SHELL_TONE : TONE)[invalid ? 'error' : tone]
 
 const PAD = 'px-3.5 py-2.5'
 /** Leading-icon inset — EXPLICIT sides. px-3.5 + a pl-11 override is Tailwind
@@ -138,8 +151,10 @@ const FIELD_PAD = {
 } as const
 
 interface InputClassesBase {
-  /** Renders the error-ring treatment (mirrors what the `error` prop wires). */
+  /** An invalid value: error border at rest/hover and error focus ring. Wire aria-invalid on the raw field. */
   invalid?: boolean
+  /** Destructive confirmation: neutral at rest, error border/ring on focus only. `invalid` takes precedence. */
+  tone?: FieldTone
   /** v3.1: `compact` = the 36px toolbar field from sm up (phones keep the standard 42px). */
   density?: FieldDensity
   /** v3.2: the field sizes to its content instead of filling its container: a select beside its
@@ -189,6 +204,7 @@ export type InputClassesOptions = InputClassesBase &
     below compose the same pieces — one source of truth. */
 export function inputClasses({
   invalid = false,
+  tone = 'default',
   leadingIcon = false,
   trailingIcon = false,
   select = false,
@@ -199,7 +215,7 @@ export function inputClasses({
 }: InputClassesOptions = {}): string {
   const inset = leadingIcon ? (trailingIcon ? 'both' : 'leading') : trailingIcon ? 'trailing' : 'plain'
   const pad = select ? SELECT_PAD[density] : FIELD_PAD[density][inset]
-  return cx(autoWidth ? cx('max-w-full', FIELD_BASE) : FIELD, tone(invalid, shell), pad, className)
+  return cx(autoWidth ? cx('max-w-full', FIELD_BASE) : FIELD, fieldTone(invalid, shell, tone), pad, className)
 }
 
 /** The field's `disabled:` look keyed to `aria-disabled`, for a field (a <select> here) that is
@@ -311,7 +327,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
             'py-2.5',
             icon ? 'pl-11' : 'pl-3.5',
             loading !== undefined ? 'pr-10' : 'pr-3.5',
-            tone(error),
+            fieldTone(error),
           )}
           {...rest}
         />
@@ -390,7 +406,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
           if (composer) grow()
           onInput?.(e)
         }}
-        className={composer ? COMPOSER : cx(FIELD, tone(error), PAD, 'resize-y')}
+        className={composer ? COMPOSER : cx(FIELD, fieldTone(error), PAD, 'resize-y')}
         {...rest}
       />
     </Shell>
@@ -418,7 +434,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         id={id}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        className={cx(FIELD, tone(error), SELECT_PAD[density])}
+        className={cx(FIELD, fieldTone(error), SELECT_PAD[density])}
         {...rest}
       >
         {children}

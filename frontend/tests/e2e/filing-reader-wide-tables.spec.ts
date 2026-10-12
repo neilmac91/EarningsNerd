@@ -277,7 +277,7 @@ test.describe('desktop 1440x900: the reader stays in its pane', () => {
       // the reader itself, still at its top (Chromium made the scroller a tab stop on its own only while
       // nothing in it was focusable; a table's region is), then the first scrolling table's region. Both
       // show the brand ring (the reader's inset), in both themes.
-      const brand = theme === 'light' ? 'rgba(79, 122, 99' : 'rgba(127, 178, 149'
+      const brand = theme === 'light' ? 'rgb(79, 122, 99' : 'rgb(127, 178, 149'
       const reader = page.locator(PANE).getByRole('region', { name: 'AAPL 10-K · filing text' })
       const region = page.locator(PANE).getByRole('region', { name: 'Scrollable table: Segment Operating Performance' })
       await expect(region).toHaveCount(1)
