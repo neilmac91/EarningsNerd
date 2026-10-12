@@ -83,7 +83,7 @@ export function MonthView({
                   openable && 'cursor-pointer hover:bg-white dark:hover:bg-white/5',
                   // Inset ring (the outer shadow-ring-brand would clip inside the sheet's
                   // overflow-hidden); rgba values mirror the ring-brand tokens exactly.
-                  'focus-visible:outline-none focus-visible:shadow-[inset_0_0_0_3px_rgba(79,122,99,0.5)] dark:focus-visible:shadow-[inset_0_0_0_3px_rgba(127,178,149,0.55)]',
+                  'focus-visible:outline-none focus-visible:shadow-ring-brand-inset dark:focus-visible:shadow-ring-brand-inset-dark',
                   !inMonth && 'opacity-40',
                 )}
               >

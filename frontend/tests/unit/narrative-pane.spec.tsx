@@ -9,6 +9,7 @@ import type { AnalysisCitation, AnalysisCompletion, AnalysisDataset } from '@/fe
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import DataNotes from '@/features/analysis/components/DataNotes'
 import type { NarrativePresentation } from '@/features/analysis/lib/narrativePresentation'
+import { groupQualityNotes } from '@/features/analysis/lib/dataNotes'
 
 const citation: AnalysisCitation = {
   n: 1,
@@ -54,20 +55,19 @@ describe('NarrativePane readable evidence', () => {
     expect(renderer).toContain(`f"${SOURCE_OPERANDS_PREFIX}{operands}."`)
   })
 
-  it('folds each finding without swallowing the next sentence, preserving its same source chips', () => {
+  it('keeps short findings inline without swallowing the next sentence or hiding their source chips', () => {
     const text = 'Cash conversion fell. Source operands: Free cash flow USD 1,746,000,000 in 2026Q2 [1]; Net income USD 15,848,000,000 in 2026Q2 [2]. Net income declined. Source operands: Net income USD 15,848,000,000 in 2026Q2 [2]. Watch cash next.'
     const { container } = renderText(text)
     expect(screen.getByText('Cash conversion fell.')).toBeInTheDocument()
     expect(screen.getByText('Net income declined.')).toBeInTheDocument()
     expect(screen.getByText('Watch cash next.')).toBeInTheDocument()
     const disclosures = Array.from(container.querySelectorAll('details')).filter((element) => element.textContent?.includes('behind this'))
-    expect(disclosures).toHaveLength(2)
-    expect(disclosures[0]).not.toHaveAttribute('open')
-    fireEvent.click(screen.getByText('Show the 2 source figures behind this'))
-    expect(within(disclosures[0]).getByRole('list', { hidden: true })).toHaveAccessibleName('Figures behind this finding')
-    expect(within(disclosures[0]).getAllByRole('button', { hidden: true })).toHaveLength(2)
-    expect(disclosures[0]).toHaveTextContent('Q2 2026')
-    expect(disclosures[0]).toHaveTextContent('$1.7B')
+    expect(disclosures).toHaveLength(0)
+    const evidence = screen.getAllByRole('list', { name: 'Figures behind this finding' })
+    expect(evidence).toHaveLength(2)
+    expect(within(evidence[0]).getAllByRole('button')).toHaveLength(2)
+    expect(evidence[0]).toHaveTextContent('Free cash flow $1.7B, Q2 2026')
+    expect(evidence[0].querySelectorAll('[data-note-letter]')).toHaveLength(2)
     expect(document.getElementById('analysis-source-1')).toHaveTextContent('1.7B (1,746,000,000)')
     expect(document.getElementById('analysis-source-2')).toHaveTextContent('15.8B (15,848,000,000)')
   })
@@ -130,6 +130,52 @@ describe('NarrativePane readable evidence', () => {
     expect(evidence).toHaveTextContent('$1.746B')
     expect(evidence).toHaveTextContent('Q2 2026')
     expect(within(evidence).getByRole('button', { hidden: true })).toHaveAccessibleName(/Citation 1:/)
+    expect(evidence.closest('details')).toBeNull()
+  })
+
+  it('names original filing links by their source, figure and period', () => {
+    const sources = operands.map((operand) => ({ ...operand, source_url: 'https://www.sec.gov/Archives/edgar/data/1326801/000132680126000001/meta-20260630.htm' }))
+    render(<NarrativePane state={doneState({ completion: doneCompletion({ citations: sources }) })} />)
+    expect(screen.getByRole('link', { name: 'Original filing for source 1: free cash flow, Q2 2026' })).toHaveAttribute('href', sources[0].source_url)
+    expect(screen.getByRole('link', { name: 'Original filing for source 2: net income, Q2 2026' })).toHaveAttribute('href', sources[1].source_url)
+  })
+
+  it.each(['legacy', 'structured'] as const)('keeps every letter in a long %s evidence summary and restores disclosures after print', (mode) => {
+    const sources: AnalysisCitation[] = [
+      { ...operands[0], n: 1 },
+      { ...operands[1], n: 2, reconciled: false },
+      { ...operands[0], n: 3, provenance: { version: 1, method: 'reported', validation: 'needs_review', reasons: ['source_conflict'], formula: null, inputs: [] } },
+      { ...operands[1], n: 4 },
+    ]
+    const lead = 'Watch the cash conversion pattern.'
+    const tail = `${SOURCE_OPERANDS_PREFIX}${sources.map((source) => `${source.concept} USD ${source.value} in ${source.period} [${source.n}]`).join('; ')}.`
+    const text = `${lead}${tail}`
+    const presentation: NarrativePresentation = {
+      format_version: 'analysis-narrative-v1', snapshot_id: 'snapshot-1', data_notes_version: 1, offset_encoding: 'utf-16',
+      notes: { version: 1, notes: groupQualityNotes(sources).notes, totals: { reviewValues: 2, reviewComparisons: 0, unavailable: 0, passed: 0, unknown: 2, calculated: 0, total: 4 } },
+      evidence: [{ observation_id: 'cash_conversion', section: 'red_flags', tail: { start: lead.length, end: text.length, text: tail },
+        operands: sources.map((source) => ({ marker: `F${source.n}`, concept: source.concept!, label: source.concept!, value: source.value!, unit: 'USD', percent: false, period: source.period!, citation_id: source.n, derived: false, display_value: `$${source.value}` })),
+      }],
+    }
+    const completion = doneCompletion({ narrative: text, citations: sources, ...(mode === 'structured' ? { narrative_presentation: presentation } : {}) })
+    const empty: AnalysisDataset = { ticker: 'META', company_name: 'Meta Platforms', mode: 'quarterly', period_key: '2026Q2', periods: [], series: [], inflections: [] }
+    const { container } = render(<><DataNotes dataset={empty} /><NarrativePane state={doneState({ text, completion })} /></>)
+    const evidence = container.querySelector('.markdown-body details')!
+    expect(evidence).not.toHaveAttribute('open')
+    const summary = evidence.querySelector('summary')!
+    expect(summary).toHaveTextContent('Show the 4 source figures behind this · figures carry notes a, b, c')
+    expect(summary).not.toHaveClass('text-brand-strong')
+    expect(within(evidence).getAllByRole('button', { hidden: true })).toHaveLength(4)
+    const notes = container.querySelector<HTMLDetailsElement>('[data-analysis-data-notes] > details')!
+    notes.open = true
+    const prior = [...container.querySelectorAll('details')].map((details) => details.open)
+    expect(prior).toContain(false)
+    expect(prior).toContain(true)
+    fireEvent(window, new Event('beforeprint'))
+    fireEvent(window, new Event('beforeprint'))
+    expect([...container.querySelectorAll('details')].every((details) => details.open)).toBe(true)
+    fireEvent(window, new Event('afterprint'))
+    expect([...container.querySelectorAll('details')].map((details) => details.open)).toEqual(prior)
   })
 
   it.each(['legacy', 'structured'] as const)('folds the backend-produced compatibility fixture in %s tabs', (mode) => {
@@ -201,7 +247,7 @@ describe('NarrativePane citation chips', () => {
     expect(note.closest('details')).toHaveAttribute('open')
     expect(note).toHaveFocus()
     expect(note).toHaveTextContent('A source check remains unresolved')
-    expect(screen.getByText('Sources · SEC XBRL values and computed figures')).toBeInTheDocument()
+    expect(screen.getByText('Sources · SEC XBRL values and calculated figures')).toBeInTheDocument()
     rerender(<NarrativePane state={doneState()} />)
     expect(document.querySelector('[data-note-kind="review"]')).not.toBeInTheDocument()
     expect(document.querySelector('[data-note-kind="unknown"]')).toBeInTheDocument()
@@ -233,7 +279,7 @@ describe('NarrativePane citation chips', () => {
     passed.series[0].points[0].provenance!.validation = 'passed'
     passed.series[0].points[0].provenance!.reasons = []
     rerender(<DataNotesProvider dataset={passed}><DataNotes dataset={passed} /><NarrativePane state={state} /></DataNotesProvider>)
-    expect(screen.getByText(/1 figure passed automated checks/)).toBeInTheDocument()
+    expect(screen.getByText(/No figures need review · 1 checked/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Citation 1:.*data note a/ }).querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
     expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('A source check remains unresolved')
   })

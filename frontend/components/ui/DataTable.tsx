@@ -26,11 +26,14 @@
        would expose the values scrolling beneath the label. Composes cleanly
        with stickyHeader — the header's first cell (the "corner") gets a
        higher z-index than both plain sticky-header cells and the sticky
-       column's body cells, so it is never overlapped by either.
+       column's body cells, so it is never overlapped by either. With snapColumns,
+       release the sticky label when it cannot fit beside one whole period;
+       the label then scrolls with the table and has its own snap stop.
 ============================================================================= */
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useContentIn } from '../../hooks/useContentIn'
+import { useOverflowRegion } from '../../hooks/useOverflowRegion'
 import { cx } from './cx'
 import { Skeleton } from './Skeleton'
 
@@ -99,7 +102,8 @@ export interface DataTableProps<T> {
   colWidths?: readonly string[]
   /** Narrow horizontal insets for dense, fixed-width columns; independent of row density. */
   cellPadding?: 'standard' | 'compact'
-  /** Opt-in, named keyboard scroll region; child controls retain their own keys. */
+  /** Opt-in, named keyboard scroll region; child controls retain their own keys.
+   *  startAtEndOnMobile also limits the hint to phones with earlier columns off-screen. */
   scrollRegion?: { label: string; hint?: string; startAtEndOnMobile?: boolean }
   /** Equal data columns after the optional sticky label column snap to their full width. */
   snapColumns?: boolean
@@ -128,6 +132,8 @@ const STICKY_COL_BASE =
 const headerZIndex = (isFirstCol: boolean, stickyHeader: boolean): string | undefined =>
   isFirstCol && stickyHeader ? 'z-20' : isFirstCol || stickyHeader ? 'z-10' : undefined
 const bodyZIndex = (isFirstCol: boolean): string | undefined => (isFirstCol ? 'z-[5]' : undefined)
+const nearestColumn = (stops: number[], position: number) => stops.reduce((best, stop, index) =>
+  Math.abs(stop - position) < Math.abs(stops[best] - position) ? index : best, 0)
 
 export function DataTable<T extends Record<string, unknown>>({
   columns,
@@ -156,50 +162,88 @@ export function DataTable<T extends Record<string, unknown>>({
   const inset = cellPadding === 'compact' ? 'px-px md:px-1' : 'px-3'
   const scrollRef = useRef<HTMLDivElement>(null)
   const tableRef = useRef<HTMLTableElement>(null)
-  const geometry = useRef({ step: 0, inset: 0, range: 0 })
+  const geometry = useRef({ step: 0, labelWidth: 0, viewportWidth: 0, inset: 0, range: 0, stops: [] as number[], column: 0 })
   const initialized = useRef(false)
-  const [overflows, setOverflows] = useState(false)
+  const [mobileHint, setMobileHint] = useState<'absent' | 'hidden' | 'visible'>('absent')
+  const [stickyFits, setStickyFits] = useState(true)
+  const stickyColumn = stickyFirstColumn && (!snapColumns || stickyFits)
   const hintId = useId()
   const fixedWidth = layout === 'fixed' && colWidths?.length === columns.length
     ? `max(100%, calc(${colWidths.join(' + ')}))` : undefined
   const startAtEndOnMobile = scrollRegion?.startAtEndOnMobile
+  const hasScrollRegion = !!scrollRegion
+  const { overflowing: overflows, regionProps } = useOverflowRegion(scrollRef, {
+    enabled: hasScrollRegion,
+    label: scrollRegion?.label,
+    describedBy: scrollRegion?.hint && (!startAtEndOnMobile || mobileHint === 'visible') ? hintId : undefined,
+  })
+  const renderHint = !!scrollRegion?.hint && overflows && (!startAtEndOnMobile || mobileHint !== 'absent')
+  const showHint = renderHint && (!startAtEndOnMobile || mobileHint === 'visible')
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const scroll = scrollRef.current
     const table = tableRef.current
-    if (!scroll || !table || !snapColumns) return
+    if (!scroll || !table || (!snapColumns && !hasScrollRegion)) return
+    const dimensions = () => {
+      const headers = table.tHead?.rows[0]?.cells
+      return {
+        headers,
+        labelWidth: stickyFirstColumn ? headers?.[0]?.getBoundingClientRect().width ?? 0 : 0,
+        step: headers?.[stickyFirstColumn ? 1 : 0]?.getBoundingClientRect().width ?? 0,
+        viewportWidth: scroll.clientWidth,
+      }
+    }
+    const rememberColumn = () => {
+      const current = geometry.current
+      const { step, labelWidth, viewportWidth } = dimensions()
+      // Native snapping can emit scroll before ResizeObserver reports enlarged text.
+      // Keep the prior column until its old stops have been replaced by this geometry.
+      if (step === current.step && labelWidth === current.labelWidth && viewportWidth === current.viewportWidth) {
+        current.column = nearestColumn(current.stops, scroll.scrollLeft)
+      }
+      setMobileHint(!window.matchMedia('(max-width: 639px)').matches ? 'absent'
+        : scroll.scrollLeft > 1 ? 'visible' : 'hidden')
+    }
     const measure = () => {
       const previous = geometry.current
-      const columnIndex = previous.step ? Math.round(scroll.scrollLeft / previous.step) : 0
       // Remove the old pad before measuring: resize and text-size changes must never compound it.
-      scroll.style.paddingInlineEnd = '0px'
-      const headers = table.tHead?.rows[0]?.cells
-      const insetWidth = stickyFirstColumn ? headers?.[0]?.getBoundingClientRect().width ?? 0 : 0
-      const step = headers?.[stickyFirstColumn ? 1 : 0]?.getBoundingClientRect().width ?? 0
+      if (snapColumns) scroll.style.paddingInlineEnd = '0px'
+      const { headers, labelWidth, step, viewportWidth } = dimensions()
       if (!step || !scroll.clientWidth) return
+      const fits = scroll.clientWidth >= labelWidth + step
+      setStickyFits(fits)
+      const insetWidth = stickyFirstColumn && (!snapColumns || fits) ? labelWidth : 0
       const range = Math.max(0, scroll.scrollWidth - scroll.clientWidth)
-      const pad = range > 0 ? (step - range % step) % step : 0
-      scroll.style.paddingInlineEnd = `${pad}px`
-      scroll.style.scrollPaddingInlineStart = `${insetWidth}px`
+      // The unstuck label has its own stop; period stops then start after its width.
+      const firstStop = labelWidth - insetWidth
+      const pad = snapColumns && range > 0 ? ((step - (range - firstStop) % step) % step + step) % step : 0
+      if (snapColumns) {
+        scroll.style.paddingInlineEnd = `${pad}px`
+        scroll.style.scrollPaddingInlineStart = `${insetWidth}px`
+      }
       const wholeRange = range + pad
-      geometry.current = { step, inset: insetWidth, range: wholeRange }
-      setOverflows(range > 0)
-      const newest = !initialized.current && startAtEndOnMobile && window.matchMedia('(max-width: 767px)').matches
-      scroll.scrollLeft = newest ? wholeRange : Math.min(columnIndex * step, wholeRange)
+      const stops = Array.from(headers ?? [], (_, index) => Math.min(wholeRange,
+        index === 0 ? 0 : Math.max(0, firstStop + (index - Number(stickyFirstColumn)) * step)))
+      geometry.current = { step, labelWidth, viewportWidth, inset: insetWidth, range: wholeRange, stops, column: previous.column }
+      const newest = !initialized.current && startAtEndOnMobile && window.matchMedia('(max-width: 639px)').matches
+      if (snapColumns) scroll.scrollLeft = newest ? wholeRange : stops[Math.min(previous.column, stops.length - 1)] ?? 0
+      rememberColumn()
       initialized.current = true
     }
     measure()
     const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
     observer?.observe(scroll)
     observer?.observe(table)
+    scroll.addEventListener('scroll', rememberColumn)
     window.addEventListener('resize', measure)
     return () => {
       observer?.disconnect()
+      scroll.removeEventListener('scroll', rememberColumn)
       window.removeEventListener('resize', measure)
       scroll.style.paddingInlineEnd = ''
       scroll.style.scrollPaddingInlineStart = ''
     }
-  }, [snapColumns, stickyFirstColumn, fixedWidth, startAtEndOnMobile])
+  }, [snapColumns, stickyFirstColumn, stickyFits, fixedWidth, startAtEndOnMobile, hasScrollRegion])
 
   // Skeleton→content handoff: when `loading` flips false, whatever replaces the
   // skeleton rows (data, empty, error) crossfades in; tables that never load
@@ -213,13 +257,10 @@ export function DataTable<T extends Record<string, unknown>>({
 
   return (
     <>
-    {scrollRegion?.hint && overflows && <p id={hintId} className="mb-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">{scrollRegion.hint}</p>}
+    {renderHint && <p id={hintId} aria-hidden={!showHint || undefined} className={cx('mb-2 text-xs text-text-secondary-light dark:text-text-secondary-dark', !showHint && 'invisible')}>{scrollRegion!.hint}</p>}
     <div
       ref={scrollRef}
-      role={scrollRegion ? 'region' : undefined}
-      tabIndex={scrollRegion ? 0 : undefined}
-      aria-label={scrollRegion?.label}
-      aria-describedby={scrollRegion?.hint && overflows ? hintId : undefined}
+      {...regionProps}
       className={cx(
         (scrollRegion || snapColumns) && 'relative',
         stickyHeader ? 'overflow-auto' : 'overflow-x-auto',
@@ -233,26 +274,37 @@ export function DataTable<T extends Record<string, unknown>>({
         const step = geometry.current.step || scroll.clientWidth
         if (!step) return
         const range = Math.max(0, scroll.scrollWidth - scroll.clientWidth)
-        const position = Math.round(scroll.scrollLeft / step) * step
-        const target = event.key === 'ArrowRight' ? position + step : event.key === 'ArrowLeft' ? position - step
-          : event.key === 'Home' ? 0 : event.key === 'End' ? range : undefined
+        const stops = [...new Set(geometry.current.stops)]
+        const pageSize = Math.max(step, scroll.clientWidth - geometry.current.inset)
+        const target = event.key === 'ArrowRight' ? stops.find(stop => stop > scroll.scrollLeft + 1) ?? range
+          : event.key === 'ArrowLeft' ? stops.findLast(stop => stop < scroll.scrollLeft - 1) ?? 0
+            : event.key === 'PageDown' ? stops.find(stop => stop >= scroll.scrollLeft + pageSize) ?? range
+              : event.key === 'PageUp' ? stops.findLast(stop => stop <= scroll.scrollLeft - pageSize) ?? 0
+                : event.key === 'Home' ? 0 : event.key === 'End' ? range : undefined
         if (target == null) return
         event.preventDefault()
         scroll.scrollLeft = Math.max(0, Math.min(target, range))
+        geometry.current.column = nearestColumn(geometry.current.stops, scroll.scrollLeft)
       } : undefined}
       onFocusCapture={snapColumns ? (event) => {
         if (event.target === event.currentTarget) return
         const cell = (event.target as HTMLElement).closest('td, th')
         const scroll = event.currentTarget
-        const { step, inset: stickyWidth } = geometry.current
-        if (!cell || !scroll.contains(cell) || !step || (cell === cell.parentElement?.firstElementChild && stickyFirstColumn)) return
+        const { step, inset: stickyWidth, stops } = geometry.current
+        if (!cell || !scroll.contains(cell) || !step || (cell === cell.parentElement?.firstElementChild && stickyColumn)) return
         const bounds = cell.getBoundingClientRect()
         const viewport = scroll.getBoundingClientRect()
-        // Native focus scrolling does not consistently reserve an overlaid sticky column.
-        if (bounds.left < viewport.left + stickyWidth) {
-          scroll.scrollLeft = Math.max(0, Math.round((scroll.scrollLeft + bounds.left - viewport.left - stickyWidth) / step) * step)
-        } else if (bounds.right > viewport.right) {
-          scroll.scrollLeft = Math.ceil((scroll.scrollLeft + bounds.right - viewport.right) / step) * step
+        // Choose an actual snap stop that contains the whole cell. Native focus scrolling
+        // alone may snap again and put the control back beneath the label or past the edge.
+        const first = scroll.scrollLeft + bounds.right - viewport.right
+        const last = scroll.scrollLeft + bounds.left - viewport.left - stickyWidth
+        if (bounds.left < viewport.left + stickyWidth - 1 || bounds.right > viewport.right + 1) {
+          const available = stops.filter(stop => stop >= first - 1 && stop <= last + 1)
+          const target = bounds.left < viewport.left + stickyWidth ? available.at(-1) : available[0]
+          if (target != null) {
+            scroll.scrollLeft = target
+            geometry.current.column = stops.indexOf(target)
+          }
         }
       } : undefined}
     >
@@ -274,7 +326,7 @@ export function DataTable<T extends Record<string, unknown>>({
           <tr className="text-left text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
             {columns.map((c, colIndex) => {
               const sorted = sort && sort.key === c.key ? sort.dir : undefined
-              const isFirstCol = colIndex === 0 && stickyFirstColumn
+              const isFirstCol = colIndex === 0 && stickyColumn
               return (
                 <th
                   key={c.key}
@@ -329,7 +381,7 @@ export function DataTable<T extends Record<string, unknown>>({
                     // Skeleton rows keep the same sticky first-column treatment as real rows, so
                     // a loading table scrolled right doesn't snap the label column into place
                     // when data lands.
-                    const isFirstCol = colIndex === 0 && stickyFirstColumn
+                    const isFirstCol = colIndex === 0 && stickyColumn
                     return (
                       <td
                         key={c.key}
@@ -380,7 +432,7 @@ export function DataTable<T extends Record<string, unknown>>({
                 >
                   {columns.map((c, colIndex) => {
                     const tone = c.tone?.(row)
-                    const isFirstCol = colIndex === 0 && stickyFirstColumn
+                    const isFirstCol = colIndex === 0 && stickyColumn
                     const Cell = c.rowHeader ? 'th' : 'td'
                     return (
                       <Cell
@@ -390,6 +442,7 @@ export function DataTable<T extends Record<string, unknown>>({
                           inset,
                           c.rowHeader && cx('font-normal', c.align !== 'right' && 'text-left'),
                           snapColumns && !isFirstCol && 'snap-start',
+                          snapColumns && 'align-top',
                           d.cellY,
                           rowBorder(i),
                           c.align === 'right' && 'text-right',
