@@ -170,7 +170,12 @@ export function SummaryBlocks({ sections, summary, whatChanged, firstHeadingRef 
                   <span aria-hidden="true" className={`font-data text-xs tabular-nums ${MUTED}`}>
                     {sectionIndex(i)}
                   </span>
-                  <h2 ref={i === 0 ? firstHeadingRef : undefined} tabIndex={i === 0 && firstHeadingRef ? -1 : undefined} id={`${section.id}-heading`} className="min-w-0 text-xl font-semibold outline-none">
+                  <h2
+                    ref={i === 0 ? firstHeadingRef : undefined}
+                    tabIndex={i === 0 && firstHeadingRef ? -1 : undefined}
+                    id={`${section.id}-heading`}
+                    className={`min-w-0 text-xl font-semibold${i === 0 && firstHeadingRef ? ' outline-none' : ''}`}
+                  >
                     {section.title}
                   </h2>
                   {toneVariant && (
