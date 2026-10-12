@@ -167,7 +167,7 @@ export default function EmailChipsInput({
                 onClick={() => removeChip(chip.email)}
                 disabled={disabled}
                 aria-label={`Remove ${chip.email}`}
-                className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-black/10 disabled:opacity-50 dark:hover:bg-white/10"
+                className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ml-0.5 rounded-full p-0.5 transition-colors hover:bg-black/10 disabled:opacity-50 dark:hover:bg-white/10"
               >
                 <XIcon className="h-3 w-3" />
               </button>

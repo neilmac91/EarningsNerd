@@ -150,7 +150,7 @@ export default function YourCompanies({ insights, isLoading, failure }: YourComp
                       }}
                       aria-disabled={removeMutation.isPending || undefined}
                       aria-busy={pendingTicker === insight.company.ticker || undefined}
-                      className="rounded-lg p-2 text-error-light hover:bg-error-light/10 focus-visible:outline-none focus-visible:shadow-ring-error aria-disabled:text-error-light/50 dark:text-error-dark dark:hover:bg-error-dark/15 dark:aria-disabled:text-error-dark/50"
+                      className="rounded-lg p-2 text-error-light hover:bg-error-light/10 focus-visible:outline-none focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark aria-disabled:text-error-light/50 dark:text-error-dark dark:hover:bg-error-dark/15 dark:aria-disabled:text-error-dark/50"
                       title="Remove from watchlist"
                       aria-label={`Remove ${formatCompanyName(insight.company.name)} from watchlist`}
                     >
