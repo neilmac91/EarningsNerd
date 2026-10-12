@@ -704,11 +704,13 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
           expect(await viewport.locator('[tabindex]').evaluateAll(elements =>
             elements.filter(element => (element as HTMLElement).tabIndex >= 0).length
           ), 'each chart has one named value-navigation stop').toBe(1)
+          // Start before the chart and enter with a real Tab. Programmatic focus after a
+          // pointer download deliberately does not acquire the browser's :focus-visible.
+          await viewport.locator('xpath=ancestor::section[1]').getByRole('button', { name: /^(Expand|Collapse) chart$/ }).focus()
+          await page.keyboard.press('Tab')
           if (overflow) {
-            await viewport.focus()
+            await expect(viewport).toBeFocused()
             await page.keyboard.press('Tab')
-          } else {
-            await values.focus()
           }
           await expect(values).toBeFocused()
           expect(await viewport.evaluate(element => getComputedStyle(element).boxShadow)).not.toBe('none')
