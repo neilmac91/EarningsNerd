@@ -90,4 +90,3 @@ def release_reservation_best_effort(
         logger.warning("Could not release an analysis admission reservation", exc_info=True)
     finally:
         db.close()
-
