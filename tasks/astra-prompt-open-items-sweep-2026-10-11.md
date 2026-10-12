@@ -11,9 +11,11 @@
 > this file; the instructions here still bind as the founder's message.
 >
 > **Status (2026-10-12): executed.** This prompt ran on 2026-10-11/12. Its Track A result is PR #1255,
-> which reconciles every row and rewrites `tasks/todo.md` (the Engineering row this file's PR first
-> added to that page was dropped in review; #1255 owns the file). Its Track B drafts are PRs #1256 to
-> #1275, open and unmerged at this writing. The founder's filled `<founder_answers>` were given in the
+> merged on 2026-10-12, which reconciles every row and rewrites `tasks/todo.md` (the Engineering row
+> this file's PR first added to that page was dropped in review; #1255 owns the file). Its Track B
+> drafts are PRs #1256 to #1275; by 14:00 UTC on 2026-10-12 seven of them had merged (#1256 to #1260,
+> #1262 and #1264), with #1261's scan fingerprints and the follow-up #1276, and the rest were open. The
+> founder's filled `<founder_answers>` were given in the
 > founder's message to that session, which delegated the Multi-Period decisions (amended 4, and 6 to 9)
 > to Astra's recommendation; the defaults below are the pre-run text, kept for the record. Codex's
 > review quota was exhausted on 2026-10-11 (#1255's thread), so the `<environment>` line that Codex
