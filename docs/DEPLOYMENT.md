@@ -154,6 +154,16 @@ API service's own describe included, prints only its closed class (`permission_d
 `error (gcloud not executable)`), never gcloud's error text, which can name the acting principal, a
 host or a URL; `describe-jobs`' shell loop discards gcloud's stderr and prints its own closed line.
 
+The Cloud SQL proxy step used by `capacity-readout`, `detection-sql` and the repair-ticker
+operations captures the `DATABASE_URL` secret read's stderr, including success-path warnings.
+A failed read stops setup with its exit status and only `permission_denied`, `not_found`,
+`unavailable` or `error (gcloud exit N)`, using the same classifier order as `logs-probe`.
+The five existing jobs-channel steps and the rollback step retain gcloud's progress output as
+operator evidence; their six step/command pairs (eight call sites) remain explicitly listed in
+[the stderr gate](../backend/tests/unit/test_ops_stderr_withheld.py)'s `INHERITED` map.
+These mutating actions are not live-test probes. The gate's stdin-program check does not
+recognise an interpreter invoked through a variable or another name (`$INTERPRETER -`, `pypy3 -`).
+
 `describe-service` reports, for the API service, traffic (100 % on the latest ready revision, no
 tags, revision names and percentages only), the serving revision image, `SENTRY_RELEASE`, pool
 values, the allow-listed flag and SEC-pin values (`SEC_RATE_LIMIT_PER_SECOND`,
@@ -223,7 +233,8 @@ be read or parsed, only `body` (`non_json_or_unreadable` or `truncated_or_non_js
 leaves none. The redaction is shape-based: a dotted name is withheld whenever its last label could
 end a host name, except an IAM permission name ending in `.get`, `.list` or `.use`; a single-label
 host name, a host name followed by a label that cannot end one (`.1`, `_1`), a name dotted with a
-non-ASCII dot (U+3002, U+FF0E), an IPv4 address glued to a letter, digit, `_` or `-` and an IPv6
+non-ASCII dot (U+3002, U+FF0E) or encoded dots (`%2E`), an IPv4 address glued to a letter, digit,
+`_` or `-`, an integer or hexadecimal IPv4 address (`3221225991`, `0xc0000207`) and an IPv6
 address after a `label:` prefix are kept, and a host name in a script written with combining marks
 (Indic) is not covered.
 The response body itself is never kept.
