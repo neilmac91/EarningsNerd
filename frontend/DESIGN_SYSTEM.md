@@ -181,6 +181,11 @@ Secondary button <Button variant="secondary">  — brand hairline on transparent
                  dark:hover:bg-brand-weak-dark dark:active:bg-brand-border-dark
                  (never hover:opacity — it darkens)
 
+Wrapping button  <Button wrap> (or buttonVariants({ wrap: true })) lets a text label wrap and replaces
+                 its fixed height with min-h-8 / min-h-10 / min-h-12 plus size-owned vertical padding.
+                 Constrain width at the call site; never override its height or whitespace.
+                 Default buttons keep their fixed height; icon-sm stays a 32px square.
+
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
 
@@ -274,8 +279,12 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  query container; the label width is capped to that content width, keeping labels
                  readable at Home without an oversized free-panning snap area. The scroll region
                  itself is not the container: its trailing snap padding must not shrink the cap.
-                 While actually overflowing,
-                 the named region is a Tab stop supporting Left/Right by one measured column,
+                 useOverflowRegion(ref, { label, describedBy, enabled }) owns measurement and the
+                 optional region props: role, Tab stop, name and description exist only while content
+                 exceeds the box by more than one CSS pixel. It observes the box and first child,
+                 rebinds replaced children and measures window resizes without ResizeObserver. Start
+                 disabled while the box is not rendered. Hints and scroll behavior remain surface-owned.
+                 The named region supports Left/Right by one measured column,
                  Home/End, PageUp/PageDown and mandatory snapping. Child controls retain their keys. Inline-end padding makes the entire scroll range a whole
                  number of columns. A layout effect measures before paint; resize and enlarged text
                  recompute rendered widths without accumulating padding or losing the prior column.
@@ -330,8 +339,8 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  its input identity is absent, say so instead of inventing an operand or fiscal period.
 
 Analysis reflow  The page title and selected-company rows wrap. Narrative cards use p-4 sm:p-6;
-                 export/refresh Buttons keep min-h-8 and grow to wrap their labels inside max-w-full.
-                 These Analysis-only overrides preserve shared Button behavior and icon size.
+                 export/refresh Buttons use size="sm" wrap and max-w-full. The shared wrap state
+                 keeps min-h-8 and lets labels grow within the card without conflicting utilities.
 
 Analysis reading <NarrativePane> — compact monetary amounts and quarter labels in prose, without
                  changing link destinations, code or source excerpts. Preserve enough precision

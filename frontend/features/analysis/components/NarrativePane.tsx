@@ -282,7 +282,7 @@ export default function NarrativePane({
         {state.status === 'done' && !notEnoughData && (
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {onExport && completion?.analysis_id != null && (
-              <Button size="sm" variant="secondary" className="max-w-full !h-auto min-h-8 !whitespace-normal py-1.5" onClick={onExport}>
+              <Button size="sm" variant="secondary" wrap className="max-w-full" onClick={onExport}>
                 <DownloadSimpleIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 Export PDF
               </Button>
@@ -295,7 +295,8 @@ export default function NarrativePane({
               <Button
                 size="sm"
                 variant="secondary"
-                className="max-w-full !h-auto min-h-8 !whitespace-normal py-1.5"
+                wrap
+                className="max-w-full"
                 onClick={(e) => {
                   if (document.activeElement === e.currentTarget) headingRef.current?.focus({ preventScroll: true })
                   onRefresh()

@@ -8,7 +8,8 @@ const columns: Column<Row>[] = [
   ...Array.from({ length: 12 }, (_, index) => ({ key: String(index), header: `Q${index}`, render: () => <button type="button">Source {index}</button> })),
 ]
 const rows: Row[] = [{ id: 'r' }]
-let resize: () => void
+let resizes: Set<() => void>
+const resize = () => [...resizes].forEach(callback => callback())
 let viewport: number
 let periodWidth: number
 let metricWidth: number
@@ -17,10 +18,12 @@ beforeEach(() => {
   viewport = 316
   periodWidth = 68
   metricWidth = 104
+  resizes = new Set()
   vi.stubGlobal('ResizeObserver', class {
-    constructor(callback: () => void) { resize = callback }
+    constructor(private callback: () => void) { resizes.add(callback) }
     observe() {}
-    disconnect() {}
+    unobserve() {}
+    disconnect() { resizes.delete(this.callback) }
   })
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) { return viewport })
   vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {

@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import type { DataNote } from '@/features/analysis/lib/dataNotes'
 import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
@@ -60,7 +61,8 @@ export default function DataNotes({ dataset, sample = false }: { dataset: Analys
   const printScope = usePrintDetails()
   const model = useDataNotes(dataset)
   const { window } = useAnalysisTableWindow(dataset)
-  const locations = sample ? undefined : comparisonLocations(dataset, tablePeriods(dataset, window), model)
+  const locations = useMemo(() => sample ? undefined : comparisonLocations(dataset, tablePeriods(dataset, window), model),
+    [dataset, window, model, sample])
   const { totals } = model
   const unknownComparisons = model.notes.filter((note) => note.kind === 'unknown').reduce((count, note) => count + note.comparisons.length, 0)
   const allPopulatedPassed = totals.reviewValues === 0 && totals.unknown === 0 && totals.passed > 0
