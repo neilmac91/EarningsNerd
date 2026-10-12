@@ -16,7 +16,8 @@ class InviteCode(Base):
     __tablename__ = "invite_codes"
 
     id = Column(Integer, primary_key=True, index=True)
-    # SHA-256 hex digest of the raw token (mirrors the email-verification pattern in auth.py).
+    # SHA-256 hex digest of the raw token (mirrors the email-verification pattern in
+    # services/auth_account_service.py).
     code_hash = Column(String(64), unique=True, nullable=False, index=True)
     # Optional binding: when set, only this address may redeem the invite.
     email = Column(String(255), nullable=True, index=True)

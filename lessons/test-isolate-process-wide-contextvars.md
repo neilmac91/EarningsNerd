@@ -13,9 +13,12 @@ review of the #953 SDK refresh, from a hand-picked file order.
 
 **Rule**: Treat a module-level `ContextVar` that an entrypoint sets as process state. Isolate it in
 `backend/tests/conftest.py` with an autouse set/reset fixture, like the existing table resets.
-Do not rely on each test that runs an entrypoint to clean up. Pin the isolation with an in-file
-probe pair: one test leaves the state set, and the next test in definition order asserts the
-default. That runs deterministically in CI's order. A cross-file pair does not.
+Do not rely on each test that runs an entrypoint to clean up. Pin the isolation with a probe
+pair: one test leaves the state set, and the next test in definition order asserts the default.
+Since 2026-10-09 the gate runs under `-n auto`, where xdist can split an in-file pair across
+workers and a local random-order run can reverse it, so a pair alone proves nothing. Add both node
+ids to `_ORDERED_PROBES` in `backend/tests/unit/test_suite_isolation.py`, which runs them in order
+in a fresh serial process.
 
 **Evidence**: `backend/tests/conftest.py::_isolate_ai_call_trigger`;
 `backend/tests/unit/test_ai_metrics.py::test_isolation_probe_leaves_the_trigger_set_like_a_script_entrypoint`

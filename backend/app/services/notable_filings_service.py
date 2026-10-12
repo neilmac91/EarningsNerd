@@ -269,7 +269,8 @@ async def run_scan(db: Session, *, efts_client=None, days: Optional[int] = None)
 
     Provider failures retain partial work and return error counters; the CLI records failure
     and exits nonzero, while API callers keep best-effort returns. Request budget: worst case (peak
-    earnings/10-K season) ≈ 56 requests ≈ 6s of the job's own 10 req/s bucket; typical ≈ 25.
+    earnings/10-K season) ≈ 56 requests ≈ 56 s of the job's own 1 req/s bucket (deploy-pinned; 10 locally);
+    typical ≈ 25.
     """
     stats = ScanStats()
     if efts_client is None:

@@ -19,7 +19,7 @@ import logging
 
 import anyio
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi import Response as FastAPIResponse
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
@@ -34,9 +34,11 @@ from app.schemas.analysis import (
     CoverageLimits,
     CoverageResponse,
     DatasetRequest,
+    ExportDatasetRequest,
     StreamRequest,
 )
 from app.services import facts_service, trend_analysis_service
+from app.services.durable_tasks import enqueue_task
 from app.services.posthog_client import capture_analysis_inference
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.subscription_service import (
@@ -63,8 +65,8 @@ XLSX_LIMITER = RateLimiter(limit=10, window_seconds=60)
 # `syncing: true` and letting the fetch finish in the background (frontend budget is ~30s).
 COVERAGE_SYNC_WAIT_SECONDS = 20.0
 
-# Strong references to background sync tasks (the summary_pipeline._spawn_background pattern) so
-# the event loop can't garbage-collect one mid-fetch after we answer `syncing: true`.
+# Strong references for the legacy mode's syncs that outlive `syncing: true` responses.
+# Durable mode instead cancels request-owned work before handing it to the queue.
 _background_syncs: set[asyncio.Task] = set()
 
 
@@ -119,18 +121,41 @@ async def get_coverage(
     db.close()
 
     task = asyncio.create_task(_ingest_with_own_session(company_id))
-    _background_syncs.add(task)
-    task.add_done_callback(_background_syncs.discard)
-    done, _pending = await asyncio.wait({task}, timeout=COVERAGE_SYNC_WAIT_SECONDS)
+    if settings.DURABLE_TASKS_ENABLED:
+        # The request owns this attempt until it finishes or reaches the frontend's wait budget.
+        # Stop it before durable delivery takes over; a disconnect must not leave a local sync
+        # running without a request to keep Cloud Run's CPU allocated.
+        try:
+            done, _pending = await asyncio.wait({task}, timeout=COVERAGE_SYNC_WAIT_SECONDS)
+        finally:
+            with anyio.CancelScope(shield=True):
+                if not task.done():
+                    task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+    else:
+        _background_syncs.add(task)
+        task.add_done_callback(_background_syncs.discard)
+        done, _pending = await asyncio.wait({task}, timeout=COVERAGE_SYNC_WAIT_SECONDS)
 
     sync: dict = {"synced": False}
+    handoff_pending = task not in done
     if task in done:
         try:
             sync = task.result()
         except Exception:  # noqa: BLE001 - a failed sync degrades to whatever the DB already has
             logger.exception("companyfacts sync failed inside coverage for %s", company_ticker)
-    else:
-        # First-touch sync still running — serve what exists and tell the client to retry.
+        if settings.DURABLE_TASKS_ENABLED and sync.get("waited") and not sync.get("synced"):
+            # Cancelling a timed-out local leader wakes followers before its queue handoff finishes.
+            # They must join durable delivery instead of reporting missing facts as final coverage.
+            handoff_pending = True
+    if handoff_pending:
+        if settings.DURABLE_TASKS_ENABLED:
+            await enqueue_task(
+                "companyfacts", {"company_id": company_id},
+                dedupe_key=f"companyfacts:{company_id}", dedupe_seconds=60,
+            )
+        # First-touch sync is continuing through durable delivery (or the legacy local task).
+        # Serve what exists and tell the client to retry only after delivery was accepted.
         periods = trend_analysis_service.available_periods(db, company_id)
         return CoverageResponse(
             ticker=company_ticker,
@@ -191,15 +216,15 @@ async def get_dataset(
 @router.post("/{ticker}/export/xlsx")
 async def export_analysis_xlsx(
     ticker: str,
-    body: DatasetRequest,
+    body: ExportDatasetRequest,
     request: Request,
     current_user: User = Depends(require_entitlement("can_export", "Excel export")),
     db: Session = Depends(get_db),
 ):
     """Branded Excel workbook over the deterministic dataset (Pro ``can_export``).
 
-    Takes the same ``DatasetRequest`` as ``/dataset`` and rebuilds server-side — so it works
-    pre-narrative, exactly like the CSV download it replaces (no analysis_id involved).
+    Rebuilds the selected range server-side and checks the optional client snapshot ID before
+    rendering. Works before narrative generation; no analysis_id is required.
     """
     enforce_rate_limit(
         request,
@@ -215,6 +240,12 @@ async def export_analysis_xlsx(
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    if body.snapshot_id is not None and body.snapshot_id != trend_analysis_service.dataset_fingerprint(dataset):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The financial data changed. Refresh the analysis before exporting.",
+        )
 
     # Local import: openpyxl is heavy and only this route needs it (the export_analysis_pdf
     # pattern below). Building + zipping the workbook is CPU-bound — off the event loop.
@@ -298,7 +329,7 @@ async def stream_analysis(
 ):
     """Streamed (SSE) AI trend narrative over the deterministic dataset.
 
-    Cache-first: a stored narrative whose prompt_version + dataset fingerprint still match is
+    Cache-first: a stored narrative whose prompt, display format and financial snapshot match is
     re-served instantly (no model call, no meter); ``force`` regenerates. Metering counts only
     fresh "analysis" completions against the monthly fair-use cap — a failed or aborted generation
     never burns quota. Excluded from the timeout middleware by the ``*stream*`` name rule.
@@ -398,6 +429,7 @@ async def stream_analysis(
 @router.get("/export/{analysis_id}/pdf")
 async def export_analysis_pdf(
     analysis_id: int,
+    snapshot_id: str | None = Query(default=None, pattern=r"^[a-f0-9]{64}$"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -405,6 +437,7 @@ async def export_analysis_pdf(
     from app.models import TrendAnalysis
     from app.services.entitlements import get_entitlements
     from app.services.export_service import export_service
+    from app.services.trend_analysis.presentation import presentation_is_current
 
     if not get_entitlements(current_user).can_export:
         raise HTTPException(
@@ -425,6 +458,38 @@ async def export_analysis_pdf(
     company = db.get(Company, analysis.company_id)
     if company is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
+
+    # Saved narratives and current facts must describe the same snapshot. A data correction
+    # invalidates the PDF as well as the on-page narrative, even without a prompt-version bump.
+    saved_dataset = analysis.dataset_json or {}
+    if not presentation_is_current(saved_dataset):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This analysis uses an older presentation format. Re-run it before exporting.",
+        )
+    try:
+        start_period, end_period = analysis.period_key.split("..")
+        current_dataset = trend_analysis_service.build_dataset(
+            db, company, analysis.mode, start_period, end_period
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This analysis no longer matches available data. Re-run it before exporting.",
+        )
+    saved_fingerprint = trend_analysis_service.dataset_fingerprint(saved_dataset)
+    if (
+        not saved_dataset.get("dataset_version")
+        or saved_dataset.get("dataset_version") != current_dataset.get("dataset_version")
+        or saved_dataset.get("snapshot_id") != saved_fingerprint
+        or saved_fingerprint != trend_analysis_service.dataset_fingerprint(current_dataset)
+        or analysis.dataset_fingerprint != saved_fingerprint
+        or (snapshot_id is not None and snapshot_id != saved_fingerprint)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The financial data changed. Re-run the analysis before exporting.",
+        )
 
     try:
         pdf_bytes = await export_service.export_analysis_pdf(analysis, company)

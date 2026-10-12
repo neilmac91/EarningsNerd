@@ -25,3 +25,28 @@ def is_summary_placeholder(text: Optional[str]) -> bool:
     """True when a summary body is interim/error placeholder filler (case-insensitive substring)."""
     lowered = (text or "").lower()
     return any(token in lowered for token in SUMMARY_PLACEHOLDER_TOKENS)
+
+
+# Whether the filing page shows a stored summary's body: the rule its display, its metadata
+# (noindex, description), the sitemap and the company search apply, mirrored by the frontend's
+# features/summaries/lib/summaryPlaceholder.ts (summaryPlaceholder.spec holds the two equal).
+#
+# The in-progress marker an earlier pipeline stored mid-run, matched case-sensitively as the filing
+# page and the sitemap always have, so prose about "generating summary reports" stays content.
+IN_PROGRESS_MARKER = "Generating summary"
+# The other tokens mark a stored failure, which the page shows as its "Summary temporarily
+# unavailable" card. Real analysis never carries them.
+SUMMARY_FAILURE_TOKENS = tuple(token for token in SUMMARY_PLACEHOLDER_TOKENS if token != "generating summary")
+
+
+def is_summary_ready(overview: Optional[str], writer_error: object = None) -> bool:
+    """True when the filing page shows this stored summary's body: a non-empty body that is neither the
+    in-progress marker nor failure filler, with no ``raw_summary.writer_error``."""
+    text = (overview or "").strip()
+    lowered = text.lower()
+    return (
+        bool(text)
+        and IN_PROGRESS_MARKER not in text
+        and not any(token in lowered for token in SUMMARY_FAILURE_TOKENS)
+        and not writer_error
+    )

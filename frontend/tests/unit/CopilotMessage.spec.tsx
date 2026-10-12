@@ -146,13 +146,6 @@ describe('CopilotMessage citation chips', () => {
     expect(screen.queryByRole('link', { name: /citation 2/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /citation 2/i })).not.toBeInTheDocument()
   })
-
-  it('does not inject chips while streaming (markers stay plain text)', () => {
-    const streaming = doneMessage({ status: 'streaming', content: 'Revenue grew [1]', citations: undefined })
-    render(<CopilotMessage message={streaming} />)
-    expect(screen.getByText(/\[1\]/)).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /citation 1/i })).not.toBeInTheDocument()
-  })
 })
 
 describe('CopilotMessage not-disclosed redirect', () => {

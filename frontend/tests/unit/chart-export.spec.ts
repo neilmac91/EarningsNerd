@@ -1,14 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  chartDataNotes,
   EXPORT_TEXT,
   HEADER_STAMP,
   exportFilename,
   exportPanelPng,
   headerHeight,
   layoutLegend,
+  layoutExportNotes,
 } from '@/features/analysis/lib/chartExport'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
+import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
+import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import tailwindConfig from '../../tailwind.config.js'
 
 vi.mock('@/lib/downloadBlob', () => ({ downloadBlob: vi.fn() }))
@@ -55,6 +59,39 @@ describe('exportFilename', () => {
     expect(exportFilename(quarterly, `${quarterly.mode}-metrics`, 'xlsx')).toBe(
       'TST_2024Q3-2024Q4_quarterly-metrics.xlsx'
     )
+  })
+})
+
+describe('chartDataNotes', () => {
+  it('keeps report letters and reason sentences while limiting references to plotted values and YoY', () => {
+    const dataset = structuredClone(quarterly)
+    const series = dataset.series[0]
+    const passed = { version: 1 as const, method: 'reported' as const, validation: 'passed' as const, reasons: [], formula: null, inputs: [] }
+    series.points[0].provenance = passed
+    series.points[1].provenance = { ...passed, validation: 'needs_review', reasons: ['source_conflict'] }
+    series.points[1].yoy = 0.2
+    series.points[1].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }
+    series.points.push({ period: 'FY1999', value: 1, reconciled: false })
+    const grouped = groupDataNotes(dataset)
+    const panel = chartDataNotes(dataset, [series], grouped, true)
+    expect(panel.panelNotes.map((note) => note.letter)).toEqual(['a', 'b'])
+    expect(panel.exportNotes).toContain(`Note a: ${grouped.notes[0].message} Revenue, net (Q4 2024).`)
+    expect(panel.exportNotes).toContain(`Note b: ${grouped.notes[1].message} Revenue, net YoY (Q4 2024).`)
+    expect(panel.exportNotes.join(' ')).not.toContain('1999')
+    expect(chartDataNotes(dataset, [series], grouped, false).panelNotes.map((note) => note.letter)).toEqual(['a'])
+  })
+
+  it('preserves gaps, legacy calculation labels and the cash-flow definition in standalone exports', () => {
+    const dataset = structuredClone(quarterly)
+    const series = dataset.series[0]
+    series.concept = 'free_cash_flow'
+    series.label = 'Free cash flow'
+    series.points = [{ period: '2024Q4', value: 1_700_000_000, derived: true }]
+    const panel = chartDataNotes(dataset, [series], groupDataNotes(dataset), false)
+    expect(panel.unavailable).toEqual(['Free cash flow: unavailable for Q3 2024.'])
+    expect(panel.exportNotes).toContain('Includes figures calculated by EarningsNerd.')
+    expect(panel.exportNotes).toContain(FCF_DEFINITION)
+    expect(panel.exportNotes.some((note) => note.includes('Not available in this dataset.'))).toBe(true)
   })
 })
 
@@ -127,6 +164,21 @@ describe('headerHeight', () => {
   })
 })
 
+describe('standalone export qualification layout', () => {
+  it('preserves source, gaps and disclaimer when they wrap on narrow charts', () => {
+    const notes = ['Source: SEC filings. Cash flow unavailable for 2024Q2.', 'Not investment advice.']
+    const lines = layoutExportNotes((text) => text.length * 7, notes, 140)
+    expect(lines.join(' ')).toBe(notes.join(' '))
+    expect(lines.every((line) => line.length * 7 <= 140)).toBe(true)
+  })
+  it('keeps long source references inside the image without dropping characters', () => {
+    const text = '000132680124000012'
+    const lines = layoutExportNotes((value) => value.length * 7, [text], 35)
+    expect(lines.join('')).toBe(text)
+    expect(lines.every((line) => line.length <= 5)).toBe(true)
+  })
+})
+
 /* -------------------------------------------------------------------------
    exportPanelPng — the regression guard for the "no legend / no identity in
    exports" bug. The Recharts SVG carries the plot only; the export must redraw
@@ -146,12 +198,14 @@ const HEADER = {
 }
 
 describe('exportPanelPng header', () => {
+  let imageSources: string[]
   // A fake <img> whose src setter resolves the decode (jsdom never fires onload).
   class FakeImage {
     onload: (() => void) | null = null
     onerror: (() => void) | null = null
     decoding = 'auto'
-    set src(_value: string) {
+    set src(value: string) {
+      imageSources.push(value)
       Promise.resolve().then(() => this.onload?.())
     }
   }
@@ -161,6 +215,7 @@ describe('exportPanelPng header', () => {
   let ctx: Record<string, unknown>
 
   beforeEach(() => {
+    imageSources = []
     vi.stubGlobal('Image', FakeImage)
     fillTexts = []
     fillArgs = []
@@ -228,6 +283,46 @@ describe('exportPanelPng header', () => {
     // Two-tone wordmark: "Earnings" (ink) + "Nerd" (sage), so the source is obvious.
     expect(fillTexts).toContain('Earnings')
     expect(fillTexts).toContain('Nerd')
+  })
+
+  it('carries resolved text and tspan font stacks into the isolated SVG image', async () => {
+    const container = makeContainer()
+    const svg = container.querySelector('svg')!
+    svg.setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns', 'http://www.w3.org/2000/svg')
+    svg.innerHTML = '<text font-family="var(--font-geist-mono), ui-monospace, monospace" style="font-family: var(--font-geist-mono), ui-monospace, monospace">$10B<tspan style="font-family: var(--font-geist-mono), Menlo, monospace">a</tspan></text>'
+    const sourceMarkup = svg.outerHTML
+    const originalComputedStyle = window.getComputedStyle.bind(window)
+    const families = ['"Geist Mono", ui-monospace, monospace', '"Geist Mono", Menlo, monospace']
+    const sourceText = [...svg.querySelectorAll('text, tspan')]
+    // jsdom does not resolve custom-property inheritance. Supply the browser's computed
+    // result, then inspect what the real export passes across the isolated-image boundary.
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const style = originalComputedStyle(element, pseudo)
+      const index = sourceText.indexOf(element)
+      if (index >= 0) Object.defineProperty(style, 'fontFamily', { value: families[index] })
+      return style
+    })
+    expect(await exportPanelPng(container, 'font.png')).toBe(true)
+    const markup = decodeURIComponent(imageSources[0].split(',').slice(1).join(','))
+    const isolated = new DOMParser().parseFromString(markup, 'image/svg+xml')
+    expect(isolated.querySelector('parsererror')?.textContent).toBeUndefined()
+    expect([...isolated.querySelectorAll('text, tspan')].map(text => (text as SVGTextContentElement).style.fontFamily)).toEqual(families)
+    expect([...isolated.querySelectorAll('text, tspan')].map(text => text.getAttribute('font-family'))).toEqual(families)
+    expect(markup).not.toContain('var(')
+    expect(isolated.documentElement.textContent).toBe('$10Ba')
+    expect(svg.outerHTML).toBe(sourceMarkup)
+  })
+
+  it('renders source, missing periods and disclaimer into the downloaded image', async () => {
+    await exportPanelPng(makeContainer(), 'x.png', { header: { ...HEADER,
+      sourceNote: 'Source: SEC filings · data as of 2024-02-02',
+      notes: ['Operating cash flow: unavailable for 2024Q2.'],
+      disclosure: 'Research only. Not investment advice.',
+    } })
+    expect(fillTexts.join(' ')).toContain('Source: SEC filings · data as of 2024-02-02')
+    expect(fillTexts.join(' ')).toContain('Operating cash flow: unavailable for 2024Q2.')
+    expect(fillTexts.join(' ')).toContain('Research only. Not investment advice.')
+    expect(downloadBlob).toHaveBeenCalledOnce()
   })
 
   it('maxWidth-guards all three header tiers (company, subtitle, legend labels)', async () => {

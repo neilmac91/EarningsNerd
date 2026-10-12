@@ -13,8 +13,8 @@ import {
 /**
  * The H1 (the page's LCP element). Server HTML always carries the default variant (A), which is
  * also what `<title>` / `og:title` state; once PostHog resolves the `landing-headline-experiment`
- * flag on the client, B or C swap in and the document title follows (the same
- * display-only flag pattern as the pricing page's price experiment, with the control arm C).
+ * flag on the client, B or C swap in and the document title follows (a display-only flag, with
+ * the control arm C).
  */
 export default function HeroHeadline() {
   const variant = resolveHeadlineVariant(useFeatureFlagVariantKey(HEADLINE_FLAG))
@@ -31,7 +31,8 @@ export default function HeroHeadline() {
       className="text-4xl font-semibold leading-[1.1] text-text-primary-light dark:text-text-primary-dark sm:text-5xl lg:text-6xl"
     >
       {headline.pre}
-      <span className="text-brand-strong dark:text-brand-strong-dark">{headline.accent}</span>
+      {/* The brand device: the accent phrase carries the mark on the primary ink (DESIGN.md › Graphic device). */}
+      <span className="en-mark">{headline.accent}</span>
       {headline.post}
     </h1>
   )

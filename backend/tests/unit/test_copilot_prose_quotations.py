@@ -40,6 +40,7 @@ import unicodedata
 import pytest
 
 from app.services import copilot_service
+from app.services.copilot import quotations as copilot_quotations
 from app.services.copilot_service import (
     _MAX_QUOTE_MARKS,
     _MAX_QUOTED_ANSWER_CHARS,
@@ -179,7 +180,7 @@ def test_the_prose_floor_is_its_own_and_citations_keep_theirs():
     """The prose floor is a separate constant read in one place; citation excerpts are verified by
     the citation verifier with its own 24-character floor, so a 23-character excerpt of the filing
     still does not verify."""
-    reads = [node for node in ast.walk(ast.parse(inspect.getsource(copilot_service)))
+    reads = [node for node in ast.walk(ast.parse(inspect.getsource(copilot_quotations)))
              if isinstance(node, ast.Name) and node.id == "_MIN_QUOTED_LEN" and isinstance(node.ctx, ast.Load)]
     assert _MIN_QUOTED_LEN == 8 and len(reads) == 1
     assert _MIN_VERIFIABLE_LEN == 24 and copilot_service.verify_whole_excerpt_in_text is verify_whole_excerpt_in_text
@@ -837,8 +838,8 @@ def _adversarial_answers():
 def test_quotation_work_is_bounded(monkeypatch):
     """The work per text is bounded by the character and mark caps, not by its readings or marks."""
     normalized = []
-    normalize = copilot_service.normalize_for_match
-    monkeypatch.setattr(copilot_service, "normalize_for_match",
+    normalize = copilot_quotations.normalize_for_match
+    monkeypatch.setattr(copilot_quotations, "normalize_for_match",
                         lambda text: normalized.append(len(text)) or normalize(text))
     for answer in _adversarial_answers():
         for check in (unsupported_prose_quotations, unsupported_plain_quotations):
@@ -1216,7 +1217,7 @@ def test_what_always_fails_closed_is_found_before_parsing(monkeypatch, answer):
     def parse(_answer):
         raise AssertionError("parsed")
 
-    monkeypatch.setattr(copilot_service, "_rendered_text", parse)
+    monkeypatch.setattr(copilot_quotations, "_rendered_text", parse)
     assert unsupported_prose_quotations(answer, SOURCE) == [AMBIGUOUS]
 
 
@@ -1226,7 +1227,7 @@ def test_block_tokens_outside_the_allowlist_fail_closed(monkeypatch):
     thematic break taken out of it) makes the answer fail closed rather than read it."""
     answer = f'The filing says "{NI}" [1].\n\n---\n\nThat is all.'
     assert copilot_service._rendered_text(answer) is not None
-    monkeypatch.setattr(copilot_service, "_MARKDOWN_BLOCKS", copilot_service._MARKDOWN_BLOCKS - {"hr"})
+    monkeypatch.setattr(copilot_quotations, "_MARKDOWN_BLOCKS", copilot_quotations._MARKDOWN_BLOCKS - {"hr"})
     assert copilot_service._rendered_text(answer) is None
 
 
@@ -1289,7 +1290,7 @@ def test_link_normalization_is_warmed_at_import(monkeypatch):
 
 
 def _fresh_service_module():
-    spec = importlib.util.spec_from_file_location("copilot_service_fresh", copilot_service.__file__)
+    spec = importlib.util.spec_from_file_location("copilot_quotations_fresh", copilot_quotations.__file__)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -1315,7 +1316,7 @@ def test_first_parses_in_concurrent_threads_agree(monkeypatch):
     try:
         results = []
         for _ in range(60):
-            monkeypatch.setattr(copilot_service, "_MARKDOWN", copilot_service._markdown_parser())
+            monkeypatch.setattr(copilot_quotations, "_MARKDOWN", copilot_quotations._markdown_parser())
             barrier = threading.Barrier(8)
 
             def parse():

@@ -120,7 +120,7 @@ export default function AskCopilotRail({
     controller?.abort()
     if (clearPending && controller) {
       const next = messagesRef.current.map((m): CopilotMessageData =>
-        m.role === 'assistant' && (m.status === 'reading' || m.status === 'streaming')
+        m.role === 'assistant' && m.status === 'reading'
           ? { ...m, content: '', citations: [], followups: [], grounded: undefined, kind: undefined,
               status: 'error', error: 'The question was cancelled. Please try again.' }
           : m,

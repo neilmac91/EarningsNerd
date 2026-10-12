@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Company, Filing, Summary
 from app.services.company_coverage import unsupported_foreign_name
+from app.services.summary_placeholders import IN_PROGRESS_MARKER, SUMMARY_FAILURE_TOKENS
 
 router = APIRouter()
 
@@ -128,12 +129,15 @@ def _build_sitemap(db: Session) -> str:
         .join(Summary, Summary.filing_id == Filing.id)
         .filter(Summary.business_overview.isnot(None))
         .filter(Summary.business_overview != "")
-        # Match serverApi.ts::summaryHasDisplayableContent before applying the cap.
+        # The filing page's readiness rule (summary_placeholders.is_summary_ready, which
+        # serverApi.ts::summaryHasDisplayableContent mirrors for noindex), before applying the cap.
         # REPLACE is case-sensitive on SQLite and PostgreSQL, unlike SQLite LIKE.
         .filter(
-            func.replace(Summary.business_overview, "Generating summary", "")
+            func.replace(Summary.business_overview, IN_PROGRESS_MARKER, "")
             == Summary.business_overview
         )
+        .filter(*(func.lower(Summary.business_overview).notlike(f"%{token}%") for token in SUMMARY_FAILURE_TOKENS))
+        .filter(Summary.raw_summary["writer_error"].as_string().is_(None))
         .order_by(Filing.filing_date.desc(), Filing.id.desc())
         .limit(budget)
         .all()

@@ -135,7 +135,8 @@ export default function ConnectedAccounts() {
                 {/* aria-disabled + an early return, never native `disabled` — a focused button
                     that turns disabled is blurred to <body> in Chromium. That covers `pending` (its
                     own request) and `isLast`, which a sibling row's unlink can flip on while this
-                    button holds focus. */}
+                    button holds focus. Unavailable fades the label's ink, not the element, so the
+                    focus indicator keeps its strength. */}
                 <button
                   type="button"
                   onClick={() => {
@@ -145,7 +146,7 @@ export default function ConnectedAccounts() {
                   aria-disabled={isLast || pending || undefined}
                   aria-busy={pending || undefined}
                   title={isLast ? 'Set a password first so you keep a way to sign in' : undefined}
-                  className="text-sm font-medium text-error-light underline-offset-4 hover:underline dark:text-error-dark aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:no-underline"
+                  className="text-sm font-medium text-error-light underline-offset-4 hover:underline dark:text-error-dark aria-disabled:cursor-not-allowed aria-disabled:text-error-light/40 aria-disabled:no-underline dark:aria-disabled:text-error-dark/40"
                 >
                   {pending ? 'Unlinking…' : 'Unlink'}
                 </button>

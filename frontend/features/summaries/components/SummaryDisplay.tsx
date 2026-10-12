@@ -7,20 +7,19 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import AiDisclaimer from '@/components/AiDisclaimer'
 import type { Filing } from '@/features/filings/api/filings-api'
-import { getWhatChanged, type Summary } from '@/features/summaries/api/summaries-api'
-import { WhatChanged } from '@/features/filings/components/WhatChanged'
+import { getWhatChanged, type ChangeReport, type Summary } from '@/features/summaries/api/summaries-api'
 import AskFilingCallout from '@/features/filings/components/copilot/AskFilingCallout'
 import { SummaryBlocks } from '@/features/summaries/components/SummaryBlocks'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { Button } from '@/components/ui/Button'
 import { Badge, Card, CardBody, GuidanceCard } from '@/components/ui'
-import { FileTextIcon, SparkleIcon } from '@/lib/icons'
-import { stripInternalNotices } from '@/lib/stripInternalNotices'
-import { stripLeadingExecutiveHeading } from '@/lib/stripLeadingExecutiveHeading'
+import { ChatCircleTextIcon } from '@/lib/icons'
 import { ENABLE_QUALITY_BADGE, ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
+import { ChangeReportCard } from './ChangeReportCard'
 import { SummaryActionsBar, type SaveMutation } from './SummaryActionsBar'
 import { useSummaryExports } from '../hooks/useSummaryExports'
+import { SUMMARY_FALLBACK_MESSAGE, cleanSummaryMarkdown, isSummaryFailure } from '../lib/summaryPlaceholder'
 
 // Multi-period fundamentals trend (item 2.5), filing-scoped only — the company page no longer shows
 // a company-wide trend (it would "refresh" on every new filing rather than reflect this document).
@@ -58,6 +57,8 @@ export interface SummaryDisplayProps {
   onRetry?: () => void
   /** Opens the Copilot rail with an optional pre-filled question; `surface` attributes the entry point. */
   onAsk: (prefill: string, surface: string) => void
+  /** The server-read change report: What changed renders with the summary, not after it. */
+  initialChangeReport?: ChangeReport
 }
 
 export function SummaryDisplay({
@@ -71,6 +72,7 @@ export function SummaryDisplay({
   isAuthenticated,
   onRetry,
   onAsk,
+  initialChangeReport,
 }: SummaryDisplayProps) {
   const markdownContent = summary.business_overview || ''
   // S4 honest degradation, decoupled: ALWAYS strip internal failure notices (they're not
@@ -79,7 +81,7 @@ export function SummaryDisplay({
   const cleanedMarkdown = useMemo(
     // Strip internal notices first (drops the optional leading disclaimer), then the now-leading
     // "## Executive Summary" H2 so the card shows ONE header — the DS CardTitle (T1.7).
-    () => stripLeadingExecutiveHeading(stripInternalNotices(markdownContent)),
+    () => cleanSummaryMarkdown(markdownContent),
     [markdownContent]
   )
   const rawSummary = summary.raw_summary && typeof summary.raw_summary === 'object' ? summary.raw_summary : null
@@ -90,22 +92,27 @@ export function SummaryDisplay({
 
   // A5 "What Changed": deterministic period-over-period diff (metric deltas, risk changes, key
   // changes). DB-only/cheap on the backend; only renders when there's something material to report.
+  // Seeded from the server read, so the section is in the first render: a late insert pushed every
+  // later section down and renumbered the table of contents.
   const { data: changeReport } = useQuery({
     queryKey: queryKeys.whatChanged(filing.id),
     queryFn: () => getWhatChanged(filing.id),
     staleTime: 10 * 60 * 1000,
+    initialData: initialChangeReport,
   })
 
-  const fallbackMessage = 'Summary temporarily unavailable. Please retry.'
-  const writerError = rawSummary?.writer_error
+  const fallbackMessage = SUMMARY_FALLBACK_MESSAGE
   const writerFallback = rawSummary?.writer?.fallback_used === true
-  const trimmedMarkdown = cleanedMarkdown.trim()
-  const isFallbackMessage = trimmedMarkdown === fallbackMessage
-  const hasPolishedMarkdown = trimmedMarkdown.length > 0 && !isFallbackMessage && !writerError
+  // A stored summary that failed (placeholder filler, a writer error, the fallback body, nothing left
+  // once the notices are stripped) shows the error card, not its body. The company page's "summary
+  // ready" reads the same rule (isSummaryReady), so its lead never offers a summary this page will not
+  // show, and its "Summarize latest filing" lands on this card's Retry.
+  const isError = isSummaryFailure(summary)
+  const hasPolishedMarkdown = !isError
 
   const isPartial = rawSummary?.status === 'partial'
-
-  const isError = Boolean(writerError) || isFallbackMessage || (!hasPolishedMarkdown && trimmedMarkdown.length === 0)
+  const showQualityBadge = !demoMode && ENABLE_QUALITY_BADGE && Boolean(quality?.tier)
+  const showRegenerate = Boolean(!demoMode && isPro && (isPartial || writerFallback || isPartialQuality) && onRetry)
 
   // T2: the single structured projection the page renders (metrics, risks-with-provenance, prose,
   // tables — one home per number). Computed on read by the backend from the enriched raw_summary.
@@ -139,67 +146,76 @@ export function SummaryDisplay({
       />
 
       {isError ? (
-        <GuidanceCard
-          variant="error"
-          title="Summary temporarily unavailable"
-          description={fallbackMessage}
-          action={
-            onRetry ? (
-              <Button variant="secondary" onClick={onRetry}>
-                Retry
-              </Button>
-            ) : undefined
-          }
-        />
+        <>
+          <GuidanceCard
+            variant="error"
+            title="Summary temporarily unavailable"
+            headingLevel="h2"
+            description={fallbackMessage}
+            action={
+              onRetry ? (
+                <Button variant="secondary" onClick={onRetry}>
+                  Retry
+                </Button>
+              ) : undefined
+            }
+          />
+          {/* A stored summary that failed holds no sections, but the change report needs none. */}
+          <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} />
+        </>
       ) : (
         <>
-          {/* Summary header: title + honest quality badge + Pro Regenerate affordance. The body is
-              the structured page below (T2) — a number has exactly one home there, so no leading
-              markdown card or duplicate metrics table renders anymore. */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <FileTextIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-              <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Summary</h2>
+          {/* Honest quality badge + Pro Regenerate affordance, when either applies. No "Summary"
+              heading of its own: the numbered sections below are the document's headings under the
+              page's h1 (2026-10 critique P-05). The body is the structured page (T2) — a number has
+              exactly one home there, so no leading markdown card or duplicate metrics table renders. */}
+          {(showQualityBadge || showRegenerate) && (
+            <div className="flex flex-wrap items-center justify-between gap-3">
               {/* S4 quality badge: honest signal of full vs partial output. Suppressed in demo mode
                   so a first-time visitor never meets "Partial" on the curated example (plan 1.3). */}
-              {!demoMode && ENABLE_QUALITY_BADGE && quality?.tier && (
+              {showQualityBadge && quality?.tier ? (
                 <Badge
                   variant={quality.tier === 'full' ? 'brand' : 'warning'}
                   title={quality.reasons && quality.reasons.length ? quality.reasons.join('; ') : undefined}
                 >
                   {quality.tier === 'full' ? 'Full summary' : partialBadgeLabel(quality.reasons)}
                 </Badge>
+              ) : (
+                <span />
+              )}
+              {/* Pro-only force-regeneration (backend gates it to Pro); hidden in demo mode. */}
+              {showRegenerate && (
+                <Button variant="secondary" onClick={onRetry}>
+                  Regenerate summary
+                </Button>
               )}
             </div>
-            {/* Pro-only force-regeneration (backend gates it to Pro); hidden in demo mode. */}
-            {!demoMode && isPro && (isPartial || writerFallback || isPartialQuality) && onRetry && (
-              <Button variant="secondary" onClick={onRetry}>
-                Regenerate Analysis
-              </Button>
-            )}
-          </div>
+          )}
 
           {/* The ONE structured surface (T2): render_sections projection → per-section Cards + a
               sticky TOC. A legacy summary that produced no structured sections falls back to the
               derived markdown (belt-and-suspenders for the corpus-refresh cutover). */}
+          {/* A5 "What changed" vs the prior comparable filing rides inside the structured page as a
+              numbered section (2026-10 critique P-07); a legacy markdown summary keeps it as a card
+              under the markdown, the card the page shows wherever no section holds it. */}
           {hasSections ? (
-            <SummaryBlocks sections={renderedSections} summary={summary} />
+            <SummaryBlocks sections={renderedSections} summary={summary} whatChanged={changeReport} />
           ) : hasPolishedMarkdown ? (
-            <Card as="section" className="overflow-hidden">
-              <CardBody className="markdown-body text-text-secondary-light dark:text-text-secondary-dark">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {cleanedMarkdown}
-                </ReactMarkdown>
-              </CardBody>
-            </Card>
+            <>
+              <Card as="section" className="overflow-hidden">
+                <CardBody className="markdown-body text-text-secondary-light dark:text-text-secondary-dark">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {cleanedMarkdown}
+                  </ReactMarkdown>
+                </CardBody>
+              </Card>
+              <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} />
+            </>
           ) : null}
 
           {/* Turn the just-finished read into the next action — placed high, directly under the
               summary (T1.7 defect f). */}
           <AskFilingCallout filingType={filing.filing_type} subjectLabel={askSubjectLabel} onAsk={onAsk} />
-
-          {/* A5: What Changed vs the prior comparable filing */}
-          {changeReport?.has_changes && <WhatChanged report={changeReport} />}
 
           {/* 2.5 + roadmap B: multi-period trend of the standardized fundamentals (revenue/NI/EPS/…)
               *as reported in this filing* — the filing's own comparative years, an immutable snapshot
@@ -228,7 +244,8 @@ export function SummaryDisplay({
 
       {metadata?.action_items && Array.isArray(metadata.action_items) && metadata.action_items.length > 0 && (
         <Card as="section" className="p-6">
-          <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">Suggested follow-ups</h3>
+          {/* h2, like the summary's sections: it follows them as a sibling, not inside the last one. */}
+          <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">Suggested follow-ups</h2>
           <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-3">Tap a question to ask the Copilot.</p>
           <ul className="space-y-2">
             {metadata.action_items.map((item: string, index: number) => (
@@ -238,7 +255,7 @@ export function SummaryDisplay({
                   onClick={() => onAsk(item, 'followup')}
                   className="group flex w-full items-start gap-2 rounded-lg border border-border-light dark:border-white/10 bg-background-light/60 dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 >
-                  <SparkleIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
+                  <ChatCircleTextIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
                   <span>{item}</span>
                 </button>
               </li>

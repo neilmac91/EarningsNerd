@@ -1,5 +1,7 @@
 import next from 'eslint-config-next'
 import { RAW_FETCH_ALLOWLIST_FILES } from './eslint.rawFetchAllowlist.mjs'
+import gridBaseTrackPlugin from './eslint.gridBaseTrack.mjs'
+import designRulesPlugin from './eslint.designRules.mjs'
 
 // Flat config (ESLint 9). Replaces the legacy .eslintrc.json:
 //   extends ["next/core-web-vitals", "next/typescript"]  ->  ...next
@@ -238,6 +240,25 @@ const config = [
         ...CALENDAR_FIELD_RULES,
         ...DESIGN_RULES,
       ],
+    },
+  },
+  // Every grid that sets its columns under a variant also sets its base track
+  // (lessons/frontend-variable-text-must-not-size-a-wrapping-row.md). A custom rule, not a selector:
+  // it evaluates a whole class string (the text that always renders together, each conditional
+  // branch with that text only) and parses variant prefixes. It is its own rule, so it covers the
+  // design-exempt files too. The 2026-10 critique's gates ride the same plugin and the same class-
+  // string walker (eslint.designRules.mjs): no side-tab stripe on a rounded container (P-08), no
+  // form code inside a Badge (P-04), and no animation utility that keeps moving under reduced motion
+  // (P-09).
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    ignores: TEST_FILES,
+    plugins: { earningsnerd: { rules: { ...gridBaseTrackPlugin.rules, ...designRulesPlugin.rules } } },
+    rules: {
+      'earningsnerd/responsive-grid-base-track': 'error',
+      'earningsnerd/no-side-stripe': 'error',
+      'earningsnerd/no-form-code-badge': 'error',
+      'earningsnerd/no-unguarded-animation': 'error',
     },
   },
   // The JS color mirrors + the brand-mandated GoogleSignInButton: every gate except the two color rules.

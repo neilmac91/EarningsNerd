@@ -109,6 +109,32 @@ async def test_company_route_network_phases_release_pool(monkeypatch, tmp_path):
     with sessions() as verify:
         assert verify.query(Company).filter(Company.ticker.like("MISS%")).count() == 4
 
+    # The four tickers are stored now, so the same route takes its hit path: no SEC call, and the
+    # stored row's SELECT is released before the Yahoo wait.
+    async def must_not_search(_query):
+        raise AssertionError("a stored ticker must not reach SEC")
+
+    hit_quote_stall = _Stall(4, None)
+    monkeypatch.setattr(companies.sec_edgar_service, "search_company", must_not_search)
+    monkeypatch.setattr(companies, "get_stock_quote", hit_quote_stall)
+    hit_sessions = [sessions() for _ in range(4)]
+    hit_tasks = [
+        asyncio.create_task(companies.get_company(f"MISS{index}", db=hit_sessions[index]))
+        for index in range(4)
+    ]
+    try:
+        await _wait_for_released_pool(hit_quote_stall, engine, sessions, anchor_id)
+        hit_quote_stall.release.set()
+        hit_responses = await asyncio.gather(*hit_tasks)
+        assert [response.ticker for response in hit_responses] == [
+            "MISS0", "MISS1", "MISS2", "MISS3",
+        ]
+    finally:
+        hit_quote_stall.release.set()
+        await asyncio.gather(*hit_tasks, return_exceptions=True)
+        for db in hit_sessions:
+            db.close()
+
     # Search preserves SEC result order and releases its completed read/upsert transaction before
     # the bounded quote fan-out.
     async def search_results(_query):

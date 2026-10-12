@@ -4,8 +4,10 @@ Maintain API and service behavior with explicit contracts, filing provenance and
 
 ## Working agreement
 
-Read [AGENTS.md](../../../AGENTS.md), [CLAUDE.md](../../../CLAUDE.md), the
-[lessons index](../../../lessons/README.md), current handover and todo before editing.
+Read [AGENTS.md](../../../AGENTS.md), [CLAUDE.md](../../../CLAUDE.md) and the
+[lessons index](../../../lessons/README.md) sections for this area before editing. Open
+`tasks/todo.md` only when continuing an open item there; do not read handovers or the archived
+ledger for an isolated change.
 [Stack truth](../README.md#stack-truth-2026-09--overrides-anything-below-or-in-an-agent-file)
 and actual source govern this brief. Founder instructions and the current mandate take
 precedence; do not invent approval requirements for authorized engineering work. Secrets,
@@ -27,7 +29,7 @@ Use asynchronous I/O around the existing synchronous database ownership; do not 
 - `backend/app/services/entitlements.py`: the only plan/limit authority.
 - `backend/app/services/edgar/`: SEC services; selected fetches use the breaker, local parsing does not.
   Existing EFTS in `backend/app/integrations/sec_api.py` and companyfacts fetching in
-  `backend/app/services/facts_service.py` use shared limiter/backoff without the breaker;
+  `backend/app/services/facts/transport.py` use shared limiter/backoff without the breaker;
   the in-layer XBRL companyfacts fallback uses a single limiter wait without the breaker.
   Follow existing transport ownership and pacing; do not add new bypasses.
 - `backend/app/services/summary_pipeline.py`: the single summary orchestrator.

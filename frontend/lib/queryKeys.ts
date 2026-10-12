@@ -39,6 +39,10 @@ export const queryKeys = {
   notifications: () => ['notifications'] as const,
   notificationPreferences: () => ['notification-preferences'] as const,
   authConnections: () => ['auth-connections'] as const,
+  /** The public registration gate (/api/auth/registration): invite-only or public, read by surfaces
+   *  that offer an account CTA on the client (the pricing page), so none advertises a signup the
+   *  API would reject (features/marketing/lib/access.ts). */
+  registrationConfig: () => ['registration-config'] as const,
 
   // Same prefix as the library: save/delete invalidation refreshes every saved-state consumer.
   savedSummaryStatus: (summaryId: number | undefined, userId: number | undefined) =>
@@ -58,6 +62,10 @@ export const queryKeys = {
     list: (filters: unknown) => ['admin-feedback', filters] as const,
   },
   analysisCoverage: (ticker: string | null) => ['analysis-coverage', ticker] as const,
+  // /analysis?ticker= resolves its link under its own key, as TickerFilingsView does with tickerCompany.
+  // On `company` the company page's loading gate would read a query two modules observe
+  // (spinnerGateHoldsFailure.spec.ts), although the two pages never mount together.
+  analysisCompany: (ticker: string) => ['analysis-company', ticker] as const,
   tickerCompany: (ticker: string) => ['ticker-company', ticker] as const,
   tickerFilings: (ticker: string) => ['ticker-filings', ticker] as const,
   filing: (filingId: string | number) => ['filing', filingId] as const,

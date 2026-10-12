@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 
 import KpiStrip from '@/features/analysis/components/KpiStrip'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
@@ -74,13 +74,13 @@ describe('KpiStrip', () => {
     flagged.series[0].cagr_reconciled = false
     flagged.series[3].window_pp_reconciled = false
     const { rerender } = render(<KpiStrip dataset={flagged} />)
-    expect(screen.getAllByText('Unverified growth')).toHaveLength(2)
-    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /comparison carries data note a/ })).toHaveLength(2)
+    expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
     flagged.mode = 'quarterly'
     flagged.series[0].points[1].yoy = 0.2
     flagged.series[0].points[1].yoy_reconciled = false
     rerender(<KpiStrip dataset={flagged} />)
-    expect(screen.getAllByText('Unverified growth')).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: /comparison carries data note a/ })).toHaveLength(1)
   })
 
   it('retains reconciliation on the latest populated KPI point', () => {
@@ -89,10 +89,13 @@ describe('KpiStrip', () => {
     flagged.series[0].points.push({ period: 'FY2026', value: null, reconciled: true })
     flagged.series[1].points[1].reconciled = true
     const { rerender } = render(<KpiStrip dataset={flagged} />)
-    expect(screen.getAllByText('Unverified')).toHaveLength(1)
-    expect(screen.getByText('Unverified').parentElement).toHaveTextContent('Revenue (FY2025)')
+    const revenue = screen.getByRole('button', { name: /Revenue, FY2025:.*data note a/ })
+    expect(revenue.querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
+    const card = revenue.closest('[data-analysis-kpi]') as HTMLElement
+    expect(within(card).getByRole('term')).toHaveTextContent(/^Revenue$/)
+    expect(within(card).getByText('FY2025')).toBeInTheDocument()
     rerender(<KpiStrip dataset={annualDataset} />)
-    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Revenue, FY2025:/ }).querySelector('[data-note-kind="review"]')).not.toBeInTheDocument()
   })
 
   it('shows CAGR for monetary KPI cards in annual mode', () => {
@@ -127,5 +130,33 @@ describe('KpiStrip', () => {
     expect(screen.getByText(/YoY \+18\.3%/)).toBeInTheDocument()
     // The percent-unit card's quarterly YoY is a pp delta too.
     expect(screen.getByText(/YoY \+4\.0pp/)).toBeInTheDocument()
+  })
+
+  it('names the actual period of an older available metric and retains zero in the selected latest period', () => {
+    const quarterly: AnalysisDataset = {
+      ...structuredClone(annualDataset), mode: 'quarterly', period_key: '2026Q1..2026Q2',
+      periods: [
+        { key: '2026Q1', fiscal_year: 2026, fiscal_period: 'Q1', period_end: '2026-03-31' },
+        { key: '2026Q2', fiscal_year: 2026, fiscal_period: 'Q2', period_end: '2026-06-30' },
+      ],
+    }
+    quarterly.series.forEach((series) => {
+      series.points[0].period = '2026Q1'
+      series.points[1].period = '2026Q2'
+    })
+    quarterly.series[0].points[1].value = 0
+    quarterly.series[0].points.push({ period: '2026Q3', value: 900 })
+    quarterly.series[2].points[0].yoy = 0.2
+    quarterly.series[2].points[1].value = null
+    render(<KpiStrip dataset={quarterly} />)
+    const cash = screen.getAllByRole('term').find((term) => term.textContent === 'Free cash flow')!.parentElement!
+    expect(within(cash).getByText('Q1 2026', { exact: false })).toHaveTextContent('Q1 2026 · latest available')
+    expect(within(cash).getByText(/YoY \+20\.0%/)).toBeInTheDocument()
+    expect(within(cash).getByRole('button', { name: /Free cash flow, Q1 2026:/ })).toBeInTheDocument()
+    const revenue = screen.getAllByRole('term').find((term) => term.textContent === 'Revenue')!.parentElement!
+    expect(within(revenue).getByText('Q2 2026')).toBeInTheDocument()
+    expect(within(revenue).queryByText(/latest available/)).not.toBeInTheDocument()
+    expect(within(revenue).getByRole('button', { name: /Revenue, Q2 2026: \$0\.00,/ })).toBeInTheDocument()
+    expect(screen.queryByText('Q3 2026')).not.toBeInTheDocument()
   })
 })

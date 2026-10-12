@@ -73,15 +73,17 @@ export default function VerificationBanner() {
         </p>
         {!resent && (
           // aria-disabled while its own request is in flight (handleResend returns early), not
-          // native `disabled`: Chromium blurs a focused button that turns disabled.
+          // native `disabled`: Chromium blurs a focused button that turns disabled. Busy fades the
+          // label's ink (the spinner and the underline draw in it), not the element: an element opacity
+          // would fade the focus ring too (DESIGN_SYSTEM §4).
           <button
             type="button"
             onClick={handleResend}
             aria-disabled={loading || undefined}
             aria-busy={loading || undefined}
-            className="inline-flex shrink-0 items-center gap-1.5 font-semibold underline-offset-2 hover:underline aria-disabled:opacity-50"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg font-semibold underline-offset-2 hover:underline aria-disabled:text-warning-light/50 dark:aria-disabled:text-warning-dark/50 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
-            {loading && <CircleNotchIcon className="h-3.5 w-3.5 animate-spin" />}
+            {loading && <CircleNotchIcon className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />}
             Resend link
           </button>
         )}
@@ -89,7 +91,7 @@ export default function VerificationBanner() {
           type="button"
           onClick={handleDismiss}
           aria-label="Dismiss"
-          className="shrink-0 rounded p-1 transition-colors hover:bg-warning-dark/15"
+          className="shrink-0 rounded p-1 transition-colors hover:bg-warning-dark/15 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
         >
           <XIcon className="h-4 w-4" />
         </button>

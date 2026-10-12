@@ -16,13 +16,16 @@ Conventions (also stated on the Overview sheet, where users see them):
 - Percent series (margins, YoY growth) are written as TRUE Excel percentages: the cell stores
   the fraction (0.558) and formats as ``0.0%``. Dataset margin values arrive ×100 and are divided
   back down on write; growth ratios arrive as fractions and are written as-is.
-- Derived Q4 estimates carry a cell Comment, never a fill (a fill reads as data emphasis).
+- Calculated figures carry a cell Comment, never a fill (a fill reads as data emphasis).
+- Sources & Methods carries the output values, calculation operands and source links, plus
+  explicit reasons for missing or limited figures. Missing values remain blank numeric cells.
 """
 from __future__ import annotations
 
 import io
 import re
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Optional
 
@@ -36,7 +39,12 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from app.services.pdf_branding import PALETTE
-from app.utils.datetimes import utcnow
+from app.services.analysis_export_metadata import (
+    ANALYSIS_DISCLAIMER, FCF_DEFINITION, export_points, formula_text, note_index, notes_summary,
+    operand_records, period_label, point_method, point_notes,
+)
+from app.services.trend_analysis.data_notes import resolve_data_notes
+from app.utils.datetimes import iso_z, utcnow
 
 # 256px-wide sage mark on transparent, rasterized by frontend/scripts/generate-brand-assets.mjs
 # (openpyxl can't rasterize SVG; the PNG is committed so the backend needs no SVG toolchain).
@@ -54,12 +62,6 @@ _LABEL_FONT = Font(bold=True, color=PALETTE["brand_strong"].lstrip("#"))
 _FOOTNOTE_FONT = Font(color=PALETTE["ink_tertiary"].lstrip("#"), size=9)
 _HAIRLINE = Side(style="thin", color=PALETTE["border"].lstrip("#"))
 _CELL_BORDER = Border(left=_HAIRLINE, right=_HAIRLINE, top=_HAIRLINE, bottom=_HAIRLINE)
-
-_DERIVED_COMMENT = (
-    "Computed Q4 — derived from the annual report: full year minus the reported year-to-date "
-    "quarters (EPS: Q4 net income ÷ Q4 weighted shares). This estimate does not appear in the "
-    "filings themselves."
-)
 
 # The three line panels from TrendCharts.tsx (the bar panel is built separately — its top-line
 # concept is dataset-dependent). Panels whose concepts are all absent are skipped, mirroring the
@@ -118,21 +120,19 @@ def _number_format(unit: Any, percent: bool) -> str:
 
 
 def _write_point(
-    ws: Worksheet, row: int, col: int, point: dict[str, Any], unit: Any, percent: bool
+    ws: Worksheet, row: int, col: int, point: dict[str, Any], unit: Any, percent: bool,
+    note: dict[str, Any] | None = None,
 ) -> None:
     """One dataset point → one typed, formatted, bordered cell (comment for derived Q4)."""
     cell = ws.cell(row=row, column=col)
     cell.border = _CELL_BORDER
     value = point.get("value")
-    if value is None:
-        return
-    cell.value = value / 100 if percent else value
+    if value is not None:
+        cell.value = value / 100 if percent else value
     cell.number_format = _number_format(unit, percent)
-    warnings = [_DERIVED_COMMENT] if point.get("derived") else []
-    if point.get("reconciled") is False:
-        warnings.append("Unreconciled value: check the source filing before relying on this figure.")
-    if warnings:
-        cell.comment = Comment("\n".join(warnings), "EarningsNerd")
+    notes = point_notes(point, note)
+    if notes:
+        cell.comment = Comment("\n".join(notes), "EarningsNerd")
 
 
 def _write_header_row(ws: Worksheet, headers: list[str]) -> None:
@@ -146,13 +146,13 @@ def _write_header_row(ws: Worksheet, headers: list[str]) -> None:
 
 def _has_derived(dataset: dict[str, Any]) -> bool:
     return any(
-        point.get("derived")
+        point_method(point) == "calculated"
         for series in dataset.get("series", [])
         for point in series.get("points", [])
     )
 
 
-def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetime) -> None:
+def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetime, envelope: dict) -> None:
     ws.sheet_properties.tabColor = _TAB_COLOR
     ws.sheet_view.showGridLines = False
     ws.column_dimensions["A"].width = 14
@@ -169,15 +169,19 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
 
     title = _write_text(ws, 7, 1, f"{dataset.get('company_name', '')} — Multi-Period Analysis")
     title.font = Font(bold=True, size=15, color=PALETTE["ink"].lstrip("#"))
-    subtitle = ws.cell(row=8, column=1, value="Chart & metrics data export · EarningsNerd — AI-Powered SEC Filing Analysis")
+    subtitle = ws.cell(row=8, column=1, value="Chart & metrics data export · EarningsNerd · AI summaries of SEC filings")
     subtitle.font = _FOOTNOTE_FONT
 
     facts: list[tuple[str, str]] = [
         ("Ticker", str(dataset.get("ticker", ""))),
         ("Mode", mode_label),
-        ("Periods", f"{dataset.get('period_key', '')} ({len(periods)} periods)"),
+        ("Periods", f"{period_label(dataset.get('period_key', ''))} ({len(periods)} periods)"),
         ("Exported", exported_at.strftime("%B %d, %Y")),
-        ("Source", "SEC XBRL (companyfacts) via EarningsNerd — earningsnerd.io"),
+        ("Exported UTC", iso_z(exported_at)),
+        ("Data as of", str(dataset.get("data_as_of") or "Not recorded")),
+        ("Dataset version", str(dataset.get("dataset_version") or "Legacy snapshot")),
+        ("Snapshot", str(dataset.get("snapshot_id") or "Not recorded")),
+        ("Source", "SEC filings and calculations via EarningsNerd — earningsnerd.io"),
     ]
     row = 10
     for label, value in facts:
@@ -187,33 +191,32 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
 
     notes = [
         "Percent series (margins, growth) are true Excel percentages: a cell showing 55.8% stores 0.558.",
-        "Monetary values are raw full-precision dollars — apply your own scaling as needed.",
+        "Monetary values retain the supplied numeric precision and reporting currencies shown in Metrics and Sources & Methods; no currency conversion is applied.",
+        "Sources & Methods lists reported inputs, formulas, source links and any limitations for each figure.",
+        "Sources & Methods preserves raw dataset values: a margin of 55.8% is recorded there as 55.8 with unit percent.",
+        FCF_DEFINITION,
     ]
     if _has_derived(dataset):
         notes.append(
-            "Cells with a comment marker are computed Q4 estimates (full year minus reported "
-            "year-to-date quarters; EPS shares-based) — shown as † in the product."
+            "Calculated figures (including computed Q4) carry cell comments; calculation method "
+            "is separate from whether the source checks passed."
         )
-    if any(p.get("reconciled") is False for s in dataset.get("series", []) for p in s.get("points", [])):
-        notes.append("Unreconciled values and growth based on them carry cell comments; verify against the source filing.")
+    notes += ["Data notes", notes_summary(envelope)]
+    notes.extend(f"Data note {note['letter']}: {note['message']}" for note in envelope["notes"])
     row += 1
     for note in notes:
-        ws.cell(row=row, column=1, value=note).font = _FOOTNOTE_FONT
+        cell = _write_text(ws, row, 1, note)
+        cell.font = _FOOTNOTE_FONT
+        cell.alignment = Alignment(wrap_text=True, vertical="top")
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=2)
+        ws.row_dimensions[row].height = max(30, 15 * (len(note) // 110 + 1))
         row += 1
 
     row += 1
     disclaimer = ws.cell(
         row=row,
         column=1,
-        value=(
-            "This export is for general informational and research purposes only. It is not "
-            "investment, financial, legal, accounting, or tax advice, and not a recommendation to "
-            "buy, sell, or hold any security. All underlying figures come from the company's XBRL "
-            "filings with the U.S. SEC (EDGAR companyfacts); growth rates, margins, ratios, and "
-            "computed-Q4 values are calculated by EarningsNerd and do not appear in the filings "
-            "themselves. Use is subject to the EarningsNerd Terms of Service "
-            "(earningsnerd.io/terms). EarningsNerd is not affiliated with or endorsed by the SEC."
-        ),
+        value=ANALYSIS_DISCLAIMER,
     )
     disclaimer.font = _FOOTNOTE_FONT
     disclaimer.alignment = Alignment(wrap_text=True, vertical="top")
@@ -221,7 +224,7 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
     ws.row_dimensions[row].height = 78
 
 
-def _build_metrics(ws: Worksheet, dataset: dict[str, Any]) -> None:
+def _build_metrics(ws: Worksheet, dataset: dict[str, Any], indexed: dict) -> None:
     """The full grid: one row per series, one typed column per period (+ annual window figures)."""
     ws.sheet_properties.tabColor = _TAB_COLOR
     periods = [p.get("key", "") for p in dataset.get("periods", [])]
@@ -231,7 +234,7 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any]) -> None:
         s.get("cagr") is not None or s.get("window_pp") is not None for s in series_list
     )
 
-    headers = ["Metric", "Concept", "Unit", *periods]
+    headers = ["Metric", "Concept", "Unit", *(period_label(period) for period in periods)]
     if has_window:
         headers += ["Window growth", "Window"]
     _write_header_row(ws, headers)
@@ -248,24 +251,32 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any]) -> None:
 
         by_period = {p.get("period"): p for p in series.get("points", [])}
         for offset, period in enumerate(periods):
-            _write_point(ws, row_index, 4 + offset, by_period.get(period) or {}, unit, percent)
+            note = indexed.get((series["concept"], period, "value"))
+            _write_point(ws, row_index, 4 + offset, by_period.get(period) or {}, unit, percent, note)
 
         if has_window:
             growth_cell = ws.cell(row=row_index, column=4 + len(periods))
             growth_cell.border = _CELL_BORDER
             window_cell = ws.cell(row=row_index, column=5 + len(periods))
             window_cell.border = _CELL_BORDER
+            basis = None
             if percent and series.get("window_pp") is not None:
+                basis = "window_pp"
                 growth_cell.value = series["window_pp"]
                 growth_cell.number_format = '0.0" pp"'
-                window_cell.value = series.get("window_pp_range") or ""
+                _write_text(ws, row_index, 5 + len(periods), period_label(series.get("window_pp_range")))
             elif series.get("cagr") is not None:
+                basis = "cagr"
                 growth_cell.value = series["cagr"]
                 growth_cell.number_format = "0.0%"
-                window_cell.value = series.get("cagr_window") or ""
-            quality = series.get("window_pp_reconciled" if percent else "cagr_reconciled")
-            if quality is False:
-                growth_cell.comment = Comment("Growth uses an unreconciled endpoint; verify the source filing.", "EarningsNerd")
+                _write_text(ws, row_index, 5 + len(periods), period_label(series.get("cagr_window")))
+            quality = series.get(f"{basis}_reconciled")
+            provenance = series.get(f"{basis}_provenance")
+            period = series.get("window_pp_range" if basis == "window_pp" else "cagr_window") or dataset.get("period_key", "")
+            notes = point_notes({"provenance": provenance, "reconciled": quality},
+                                indexed.get((series["concept"], period, basis))) if basis else []
+            if notes:
+                growth_cell.comment = Comment("\n".join(notes), "EarningsNerd")
 
     ws.freeze_panes = "B2"
     ws.column_dimensions["A"].width = 24
@@ -276,6 +287,58 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any]) -> None:
     if has_window:
         ws.column_dimensions[get_column_letter(4 + len(periods))].width = 14
         ws.column_dimensions[get_column_letter(5 + len(periods))].width = 17
+
+
+def _build_sources(ws: Worksheet, dataset: dict[str, Any], indexed: dict) -> None:
+    """A visible audit table, independent of cell-comment support in the viewer."""
+    ws.sheet_properties.tabColor = _TAB_COLOR
+    headers = [
+        "Metric", "Period", "Entry", "Concept", "Value (raw)", "Unit", "Method", "Validation",
+        "Reason codes", "Formula", "Period start", "Period end", "Accession", "Filed", "Source tag", "Source URL", "Note",
+    ]
+    _write_header_row(ws, headers)
+    row = 2
+    periods = [p.get("key", "") for p in dataset.get("periods", [])]
+    bases = {"Value": "value", "YOY": "yoy", "QOQ": "qoq", "CAGR": "cagr", "Window change": "window_pp"}
+    for series in dataset.get("series", []):
+        for measure, point, unit in export_points(series, periods, dataset.get("period_key", "")):
+            provenance = point.get("provenance") or {}
+            records = [(measure, {
+                **point, "concept": series.get("concept"),
+                "unit": unit,
+                "provenance": provenance,
+                "source_url": point.get("source_url") or provenance.get("source_url"),
+            }), *operand_records(provenance)]
+            for label, record in records:
+                record_provenance = record.get("provenance") or {}
+                note = indexed.get((series["concept"], point.get("period"), bases[measure])) if label == measure else None
+                values = [
+                    series.get("label", series.get("concept")), period_label(point.get("period")), label,
+                    record.get("concept"), record.get("value"), record.get("unit"),
+                    point_method(record), record_provenance.get("validation", "unknown"),
+                    "; ".join(record_provenance.get("reasons") or []), formula_text(record_provenance.get("formula")),
+                    record.get("period_start"), record.get("period_end"), record.get("accession"),
+                    record.get("filed_at") or record_provenance.get("filed_at"), record.get("raw_tag"),
+                    record.get("source_url"),
+                    f"Data note {note['letter']}" if note else "",
+                ]
+                for column, value in enumerate(values, start=1):
+                    # Only the numeric data column is typed as a number. Every source/formula
+                    # string is inert, including strings beginning with spreadsheet operators.
+                    cell = (ws.cell(row=row, column=column, value=value)
+                            if column == 5 and (value is None or isinstance(value, (int, float, Decimal)))
+                            else _write_text(ws, row, column, value))
+                    cell.border = _CELL_BORDER
+                    cell.alignment = Alignment(vertical="top", wrap_text=True)
+                    if column == 16 and value and str(value).startswith("https://"):
+                        cell.hyperlink = str(value)
+                row += 1
+    ws.freeze_panes = "E2"
+    ws.auto_filter.ref = ws.dimensions
+    for column in range(1, len(headers) + 1):
+        ws.column_dimensions[get_column_letter(column)].width = {
+            1: 25, 4: 25, 5: 21, 9: 40, 10: 50, 15: 45, 16: 60, 17: 16,
+        }.get(column, 19)
 
 
 def _style_line_series(chart: LineChart) -> None:
@@ -290,7 +353,7 @@ def _anchor_for(ws: Worksheet, header_count: int) -> str:
     return f"{get_column_letter(header_count + 2)}2"
 
 
-def _add_top_line_sheet(wb: Workbook, dataset: dict[str, Any]) -> None:
+def _add_top_line_sheet(wb: Workbook, dataset: dict[str, Any], indexed: dict) -> None:
     """The bar panel: top line (revenue, else net interest income) + YoY growth as a column."""
     by_concept = {s.get("concept"): s for s in dataset.get("series", [])}
     top = by_concept.get("revenue") or by_concept.get("net_interest_income")
@@ -305,14 +368,17 @@ def _add_top_line_sheet(wb: Workbook, dataset: dict[str, Any]) -> None:
     by_period = {p.get("period"): p for p in top.get("points", [])}
     periods = [p.get("key", "") for p in dataset.get("periods", [])]
     for row_index, period in enumerate(periods, start=2):
-        _write_text(ws, row_index, 1, period).border = _CELL_BORDER
+        _write_text(ws, row_index, 1, period_label(period)).border = _CELL_BORDER
         point = by_period.get(period) or {}
-        _write_point(ws, row_index, 2, point, unit, percent=False)
+        _write_point(ws, row_index, 2, point, unit, percent=False,
+                     note=indexed.get((top["concept"], period, "value")))
         growth_cell = ws.cell(row=row_index, column=3)
         growth_cell.border = _CELL_BORDER
         yoy = point.get("yoy")
-        if point.get("yoy_reconciled") is False:
-            growth_cell.comment = Comment("Growth uses an unreconciled value; verify the source filing.", "EarningsNerd")
+        notes = point_notes({"provenance": point.get("yoy_provenance"), "reconciled": point.get("yoy_reconciled")},
+                            indexed.get((top["concept"], period, "yoy")))
+        if notes:
+            growth_cell.comment = Comment("\n".join(notes), "EarningsNerd")
         if isinstance(yoy, (int, float)):
             growth_cell.value = yoy
             growth_cell.number_format = "0.0%"
@@ -335,7 +401,7 @@ def _add_top_line_sheet(wb: Workbook, dataset: dict[str, Any]) -> None:
     ws.add_chart(chart, _anchor_for(ws, len(headers)))
 
 
-def _add_line_panel_sheets(wb: Workbook, dataset: dict[str, Any]) -> None:
+def _add_line_panel_sheets(wb: Workbook, dataset: dict[str, Any], indexed: dict) -> None:
     by_concept = {s.get("concept"): s for s in dataset.get("series", [])}
     periods = [p.get("key", "") for p in dataset.get("periods", [])]
 
@@ -357,9 +423,10 @@ def _add_line_panel_sheets(wb: Workbook, dataset: dict[str, Any]) -> None:
             for concept, _ in present
         ]
         for row_index, period in enumerate(periods, start=2):
-            _write_text(ws, row_index, 1, period).border = _CELL_BORDER
+            _write_text(ws, row_index, 1, period_label(period)).border = _CELL_BORDER
             for col_offset, (by_period, unit, percent) in enumerate(maps):
-                _write_point(ws, row_index, 2 + col_offset, by_period.get(period) or {}, unit, percent)
+                note = indexed.get((present[col_offset][0], period, "value"))
+                _write_point(ws, row_index, 2 + col_offset, by_period.get(period) or {}, unit, percent, note)
 
         ws.column_dimensions["A"].width = 12
         for col_offset in range(len(present)):
@@ -383,13 +450,16 @@ def build_analysis_workbook(
     ``exported_at`` is injectable for deterministic tests; the route leaves it defaulted.
     """
     exported = exported_at or utcnow()
+    envelope = resolve_data_notes(dataset)
+    indexed = note_index(envelope)
     workbook = Workbook()
     overview = workbook.active
     overview.title = "Overview"
-    _build_overview(overview, dataset, exported)
-    _build_metrics(workbook.create_sheet("Metrics"), dataset)
-    _add_top_line_sheet(workbook, dataset)
-    _add_line_panel_sheets(workbook, dataset)
+    _build_overview(overview, dataset, exported, envelope)
+    _build_metrics(workbook.create_sheet("Metrics"), dataset, indexed)
+    _build_sources(workbook.create_sheet("Sources & Methods"), dataset, indexed)
+    _add_top_line_sheet(workbook, dataset, indexed)
+    _add_line_panel_sheets(workbook, dataset, indexed)
 
     buffer = io.BytesIO()
     workbook.save(buffer)

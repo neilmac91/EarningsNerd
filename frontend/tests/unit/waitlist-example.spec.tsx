@@ -53,6 +53,10 @@ describe('waitlist grounded example', () => {
     expect(!!screen.queryByText('Full summary')).toBe(tier === 'full')
     expect(!!screen.queryByText('Partial')).toBe(tier === 'partial')
     expect(screen.getByRole('link', { name: /SEC EDGAR/ })).toHaveAttribute('href', filing.sec_url)
+    // Ticker, form and filed date are one data-face line; assistive tech hears commas, not "ASML20-F".
+    const form = screen.getByText('20-F')
+    expect(form.parentElement).toHaveTextContent(/^ASML\s*·\s*,\s*20-F\s*·\s*,\s*filed Feb 11, 2026$/)
+    expect(form.className).toContain('font-semibold')
     const cta = screen.getByRole('link', { name: 'Read this filing summary' })
     expect(cta).toHaveAttribute('href', '/filing/42')
     cta.addEventListener('click', event => event.preventDefault())
@@ -71,7 +75,7 @@ describe('waitlist grounded example', () => {
     expect(await screen.findByText('ASML Holding N.V.')).toBeInTheDocument()
     expect(screen.getByText('Partial')).toBeInTheDocument()
     expect(screen.queryByText('Revenue')).not.toBeInTheDocument()
-    expect(screen.queryByText('$394.3B')).not.toBeInTheDocument()
+    expect(screen.queryByText('$416.2B')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Source filing/ })).toHaveAttribute('href', filing.sec_url)
   })
   it.each(['unreachable', 'placeholder', 'empty'])('keeps %s examples neutral and signup available', async state => {
@@ -100,7 +104,7 @@ describe('waitlist grounded example', () => {
   it('preserves shared homepage fallback and default CTA', () => {
     render(<HeroExample example={null} />)
     expect(screen.getByText('Apple Inc.')).toBeInTheDocument()
-    expect(screen.getByText('$394.3B')).toBeInTheDocument()
+    expect(screen.getByText('$416.2B')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Read the full example summary' }))
       .toHaveAttribute('href', '/filing/42?entry=hero_visual_example&demo=1')
   })

@@ -259,8 +259,9 @@ class SECEdgarServiceCompat:
         """
         Search for companies by ticker or name.
 
-        Uses fast local search on cached SEC ticker data. Falls back to
-        EdgarTools fuzzy search only if local search yields no results.
+        Local search on the cached SEC ticker file only; a query it cannot match returns []. (The
+        old EdgarTools fuzzy fallback is gone: it always failed after up to ten submissions
+        downloads on the event loop, so it never returned a company — CODE RED record 17.)
 
         Returns legacy format:
         [{"ticker": "AAPL", "name": "Apple Inc.", "cik": "0000320193", "exchange": None}]
@@ -268,21 +269,9 @@ class SECEdgarServiceCompat:
         Raises:
             EdgarError: If there's a network or API error
         """
-        # Primary: fast local search on cached data (<1ms)
         try:
             tickers_data = await self._get_cached_tickers()
-            results = self._local_search(tickers_data, query)
-            if results:
-                return results
-        except EdgarError:
-            raise
-        except Exception as e:
-            logger.warning(f"Local search failed, trying EdgarTools: {e}")
-
-        # Fallback: EdgarTools fuzzy search (for queries local search can't match)
-        try:
-            companies = await edgar_client.search_company(query)
-            return [c.to_dict() for c in companies]
+            return self._local_search(tickers_data, query)
         except EdgarError:
             raise
         except Exception as e:

@@ -66,6 +66,22 @@ jobs:
           fi
           # The fresh unauthenticated browser reads a cached summary; it never clicks generation/chat.
           npx playwright test prod-smoke
+      - name: Probe price agreement
+        # Whatever the browser probe found: checkout must charge what the live pricing page shows.
+        # The backend's public charge report against the offer the deployed page publishes (its
+        # JSON-LD), so a frontend rollback or a deploy that skipped main is compared too
+        # (docs/PRICING_OFFER.md, "Machine checks"); no credentials. Gate:
+        # tests/unit/test_price_agreement_checks.py.
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: |
+          mkdir -p ../smoke-evidence
+          curl -fsS --connect-timeout 10 --max-time 30 \
+            https://api.earningsnerd.io/api/subscriptions/prices -o ../smoke-evidence/serving-prices.json
+          curl -fsSL --connect-timeout 10 --max-time 30 \
+            https://www.earningsnerd.io/pricing -o ../smoke-evidence/pricing.html
+          cat ../smoke-evidence/serving-prices.json
+          npm run -s check:pricing -- --serving --page ../smoke-evidence/pricing.html ../smoke-evidence/serving-prices.json
       - name: Retain smoke evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -98,9 +114,10 @@ jobs:
           The daily production smoke finished with result $SMOKE_RESULT: $RUN_URL
 
           Inspect the failed or cancelled job and any retained API/browser artifacts. Artifacts may be
-          unavailable after a timeout. The smoke checks API availability
-          and the public filing summary plus Ask this Filing launcher; it does not generate a summary
-          or send a Copilot question. A missing cached example is a failed prerequisite.
+          unavailable after a timeout. The smoke checks API availability, the public filing summary
+          plus Ask this Filing launcher, and that checkout charges what the live pricing page shows
+          (docs/PRICING_OFFER.md, "Machine checks"); it does not generate a summary or send a
+          Copilot question. A missing cached example is a failed prerequisite.
           EOF_BODY
           EXISTING="$(gh issue list --state open --search '"Production smoke failed" in:title' --json number,title \
             --jq '[.[] | select(.title | startswith("Production smoke failed"))] | .[0].number // empty')"

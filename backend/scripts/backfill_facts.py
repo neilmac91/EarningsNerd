@@ -76,7 +76,7 @@ def _remediate(*, tickers: list[str] | None, limit: int | None, dry_run: bool) -
     os.environ["USE_STATEMENT_FINANCIALS"] = "true"  # force the fix on for the re-extraction
     from app.database import SessionLocal
     from app.services import facts_service
-    from app.services.edgar.xbrl_service import _extract_from_filing_instance_sync
+    from app.services.edgar.xbrl_instance import _extract_from_filing_instance_sync
 
     def refetch(company, filing):
         cik = str(getattr(company, "cik", "") or "").strip()

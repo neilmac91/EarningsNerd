@@ -1,0 +1,118 @@
+[
+  {
+    "metric": "Total net sales",
+    "current_period": "$416,161M",
+    "prior_period": "$391,035M",
+    "change": "up 6.4% YoY",
+    "commentary": "The increase was attributed by management to higher net sales of iPhone and Services in the Americas, higher net sales of Services, iPhone and Mac in Europe, higher net sales of iPhone, Services and iPad in Japan, and higher net sales of iPhone, Services and Mac in Rest of Asia Pacific, partially offset by lower net sales of iPhone in Greater China.",
+    "source_section_ref": "Item 8. Financial Statements",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+    "source_verified": true,
+    "xbrl_concept": "Revenue",
+    "commentary_evidence": {
+      "excerpt": "Americas net sales increased during 2025 compared to 2024 primarily due to higher net sales of iPhone and Services.",
+      "section_ref": "Item 8. Financial Statements",
+      "verified": true,
+      "fragment_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm#:~:text=Americas%20net%20sales%20increased%20during%202025%20compared%20to%202024%20primarily"
+    },
+    "change_display": "+6.4%",
+    "change_direction": "up",
+    "change_tone": "gain"
+  },
+  {
+    "metric": "Products net sales",
+    "current_period": "$307,003M",
+    "prior_period": "$294,866M",
+    "change": "up 4.1% YoY",
+    "commentary": "Products net sales increased 4.1% YoY.",
+    "source_section_ref": "Item 8. Financial Statements",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+    "source_verified": false,
+    "xbrl_concept": null,
+    "change_display": "+4.1%",
+    "change_direction": "up",
+    "change_tone": "gain"
+  },
+  {
+    "metric": "Services net sales",
+    "current_period": "$109,158M",
+    "prior_period": "$96,169M",
+    "change": "up 13.5% YoY",
+    "commentary": "Management attributed the increase primarily to higher net sales from advertising, the App Store and cloud services.",
+    "source_section_ref": "Item 8. Financial Statements",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+    "source_verified": false,
+    "xbrl_concept": null,
+    "commentary_evidence": {
+      "excerpt": "Services net sales increased during 2025 compared to 2024 primarily due to higher net sales from advertising, the App Store and cloud services.",
+      "section_ref": "Item 8. Financial Statements",
+      "verified": true,
+      "fragment_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm#:~:text=Services%20net%20sales%20increased%20during%202025%20compared%20to%202024%20primarily"
+    },
+    "change_display": "+13.5%",
+    "change_direction": "up",
+    "change_tone": "gain"
+  },
+  {
+    "metric": "Total gross margin",
+    "current_period": "$195,201M",
+    "prior_period": "$180,683M",
+    "change": "up 8.0% YoY",
+    "commentary": "Total gross margin percentage was 46.9% in 2025 versus 46.2% in 2024.",
+    "source_section_ref": "Item 8. Financial Statements",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+    "source_verified": false,
+    "xbrl_concept": null,
+    "change_display": "+8.0%",
+    "change_direction": "up",
+    "change_tone": "gain"
+  },
+  {
+    "metric": "Operating income",
+    "current_period": "$133,050M",
+    "prior_period": "$123,216M",
+    "change": "up 8.0% YoY",
+    "commentary": "Operating income increased 8.0% YoY.",
+    "source_section_ref": "Item 8. Financial Statements",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+    "source_verified": true,
+    "xbrl_concept": "Operating income",
+    "change_display": "+8.0%",
+    "change_direction": "up",
+    "change_tone": "gain"
+  },
+  {
+    "metric": "Net income",
+    "current_period": "$112,010M",
+    "prior_period": "$93,736M",
+    "change": "up 19.5% YoY",
+    "commentary": "The increase was accompanied by a lower effective tax rate of 15.6% in 2025 versus 24.1% in 2024, which management attributed to a $10.7 billion year-over-year decrease in the provision for income taxes related to the State Aid Decision and the impact of changes in unrecognized tax benefits, partially offset by a change in valuation allowance and a higher effective tax rate on foreign earnings.",
+    "source_section_ref": "Item 8. Financial Statements",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+    "source_verified": true,
+    "xbrl_concept": "Net income",
+    "commentary_evidence": {
+      "excerpt": "The Company’s effective tax rate for 2025 was lower compared to 2024 due to a $10.7 billion year-over-year decrease in the provision for income taxes related to the State Aid Decision",
+      "section_ref": "Item 8. Financial Statements",
+      "verified": true,
+      "fragment_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm#:~:text=The%20Company%E2%80%99s%20effective%20tax%20rate%20for%202025%20was%20lower%20compared"
+    },
+    "change_display": "+19.5%",
+    "change_direction": "up",
+    "change_tone": "gain"
+  },
+  {
+    "metric": "Diluted earnings per share",
+    "current_period": "$7.46",
+    "prior_period": "$6.08",
+    "change": "up 22.7% YoY",
+    "commentary": "Diluted EPS increased 22.7% YoY, with weighted-average diluted shares declining to 15,004,697 thousand from 15,408,095 thousand.",
+    "source_section_ref": "Item 8. Financial Statements",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+    "source_verified": false,
+    "xbrl_concept": null,
+    "change_display": "+22.7%",
+    "change_direction": "up",
+    "change_tone": "gain"
+  }
+]

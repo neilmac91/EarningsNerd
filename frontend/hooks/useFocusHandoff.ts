@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, type MouseEvent, type PointerEvent, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent, type RefObject } from 'react'
 
 export interface FocusHandoff {
   /** The control's callback ref: it sees the control leave. */
@@ -37,6 +37,11 @@ export interface FocusHandoff {
  * keyboard focus, hands off. `:focus-visible` cannot stand in: it reflects how the control got focus, not
  * how it was activated.
  *
+ * `keyboardOnly`: the same skip for a target that is not a text field, when a pointer's press should leave
+ * focus to the pointer: the research pane's selected tab, which would take the arrow keys and Space from
+ * someone who clicked the control that opened the pane (FilingWorkspace's launcher and the coachmark's Try,
+ * EN-05). `textField` implies it.
+ *
  * Limit: a pointerdown that starts no focus and no click (a touch scroll that begins on the control, or a
  * Safari mouse press on a busy control, since Safari does not focus buttons on click) leaves its mark for
  * the next focus, so a keyboard focus right after it skips the hand-off once. That errs toward no touch
@@ -44,7 +49,7 @@ export interface FocusHandoff {
  */
 export function useFocusHandoff(
   target: RefObject<HTMLElement | null>,
-  { textField = false }: { textField?: boolean } = {},
+  { textField = false, keyboardOnly = textField }: { textField?: boolean; keyboardOnly?: boolean } = {},
 ): FocusHandoff {
   const node = useRef<HTMLElement | null>(null)
   /** The last press since the control took focus came from a pointer. */
@@ -60,7 +65,7 @@ export function useFocusHandoff(
       const left = node.current
       node.current = null
       if (!left || document.activeElement !== left) return
-      if (textField && pointerPress.current) return
+      if (keyboardOnly && pointerPress.current) return
       queueMicrotask(() => {
         if (left.isConnected) return
         const active = document.activeElement
@@ -68,7 +73,7 @@ export function useFocusHandoff(
         target.current?.focus({ preventScroll: true })
       })
     },
-    [target, textField],
+    [target, keyboardOnly],
   )
   const onPointerDown = useCallback((e: PointerEvent<HTMLElement>) => {
     pointerPress.current = true
@@ -85,4 +90,27 @@ export function useFocusHandoff(
     pointerFocus.current = false
   }, [])
   return { attach, onFocus, onPointerDown, onPress }
+}
+
+/**
+ * The other direction: a surface the user has to act on arrives (a failed generation's card), and focus
+ * goes to `target`, its heading with tabIndex={-1}, when `shown` turns true. Only if nobody holds focus
+ * (it is on <body>), the same check the hand-off makes: focus in a field or on a link is never moved. Nor
+ * is focus taken from behind an open modal dialog (`aria-modal="true"`) the target is not in: a focused
+ * control unmounting inside a dialog also drops focus to <body>, and the dialog still owns the keyboard.
+ * The arrival is read after the commit, so a focused element the same commit removed (the progress
+ * card's heading the error card replaced) has already dropped focus to <body>. The heading, not the
+ * card's button: a key pressed as the card lands (Space to scroll, Enter) never activates its action, and
+ * the target's type (a heading) holds every caller to that. Once per arrival: a re-render while shown never
+ * takes focus back.
+ */
+export function useFocusOnArrival(target: RefObject<HTMLHeadingElement | null>, shown: boolean): void {
+  useEffect(() => {
+    const node = target.current
+    if (!shown || !node) return
+    const active = document.activeElement
+    if (active !== null && active !== document.body) return
+    for (const dialog of document.querySelectorAll('[aria-modal="true"]')) if (!dialog.contains(node)) return
+    node.focus({ preventScroll: true })
+  }, [target, shown])
 }

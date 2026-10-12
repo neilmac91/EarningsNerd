@@ -50,7 +50,7 @@ function FeatureRow({
   children: ReactNode
 }) {
   return (
-    <div className="grid items-center gap-6 lg:grid-cols-2 lg:gap-12">
+    <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-2 lg:gap-12">
       <div className="min-w-0 max-w-[420px]">
         <div className="flex items-center gap-2.5">
           <Badge variant="pro" className="shrink-0">
@@ -87,17 +87,17 @@ export default function ProDepth() {
         <SectionImpression section="pro_depth">
           <div className="max-w-2xl">
             <h2 id="pro-h" className="text-3xl lg:text-4xl">
-              What Pro adds
+              More ways to read one filing.
             </h2>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">
-              Three ways to work with filing data beyond one summary.
+              Ask it a question, read its periods side by side, see what changed since the last one.
             </p>
           </div>
 
           <div className="mt-12 space-y-12 lg:space-y-16">
             <FeatureRow
               title="Ask this Filing"
-              description={`Ask a question of one filing. Answers can include source chips for filing passages and XBRL figures; each chip indicates whether a source match was found or the item is only cited. Free accounts get ${FREE_COPILOT_QUESTIONS} questions.`}
+              description={`Ask a question of one filing. The answer cites the XBRL figures and passages it used, and each chip says whether we matched the source or only cited it. Free accounts get ${FREE_COPILOT_QUESTIONS} questions.`}
             >
               <AskFilingDemo />
             </FeatureRow>
@@ -132,7 +132,7 @@ export default function ProDepth() {
                 Watchlists are unlimited on both plans.
               </span>
             </div>
-            <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {EXTRAS.map((extra) => {
                 const Icon = extra.icon
                 return (
@@ -149,7 +149,7 @@ export default function ProDepth() {
                     </span>
                     <div>
                       <h4 className="text-base leading-5">{extra.title}</h4>
-                      <p className="mt-1 text-sm leading-[18px] text-text-secondary-light dark:text-text-secondary-dark">
+                      <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                         {extra.description}
                       </p>
                     </div>

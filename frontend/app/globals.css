@@ -179,6 +179,53 @@
   box-shadow: 0 0 0 2px rgba(127, 178, 149, 0.50), 0 0 40px -5px rgba(127, 178, 149, 0.28);
 }
 
+/* Brand device — the margin and the mark (DESIGN.md › Graphic device; docs/brand/06-system.md).
+   The product's own behaviour made visible: a located passage is highlighted, a cited figure
+   carries a bracketed marker, and the marker's twin sits in a margin on the line it belongs to.
+   Theme pairs switch on .dark (DESIGN_SYSTEM.md §2). A mark never sits on a figure (the Separate
+   Signals Rule); the tint is a surface, never a text fill. */
+.en-mark {
+  background: linear-gradient(transparent 62%, #ECF2EE 62%); /* brand-weak */
+  box-shadow: inset 0 -2px 0 #CFE0D6; /* brand-border */
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.dark .en-mark {
+  background: linear-gradient(transparent 62%, rgba(127, 178, 149, 0.14) 62%); /* brand-weak-dark */
+  box-shadow: inset 0 -2px 0 rgba(127, 178, 149, 0.28); /* brand-border-dark */
+}
+/* A marked block: the located passage, in the filing's voice, with the bar on its left edge. */
+.en-marked {
+  border-left: 3px solid #4F7A63; /* brand */
+  background: #ECF2EE; /* brand-weak */
+  /* Square corners: a stripe never sits on a rounded container (DESIGN.md, the side-tab stripe). */
+  border-radius: 0;
+}
+.dark .en-marked {
+  border-left-color: #7FB295; /* brand-dark */
+  background: rgba(127, 178, 149, 0.14); /* brand-weak-dark */
+}
+/* The margin: a gutter with a hairline on its inner edge; marks are absolutely positioned on
+   the line of the marker they twin (features/marketing/components/MarkedCopy.tsx measures them). */
+.en-margin {
+  position: relative;
+  border-right: 1px solid #CFE0D6; /* brand-border */
+}
+.dark .en-margin { border-right-color: rgba(127, 178, 149, 0.28); /* brand-border-dark */ }
+.en-margin-mark {
+  position: absolute;
+  left: 0;
+  right: 0.5rem;
+  text-align: right;
+  font-family: var(--font-data);
+  font-size: 0.6875rem; /* data-xs: never smaller than the provenance chip's 12px in running copy; a twin, not copy */
+  font-weight: 600;
+  line-height: 1rem;
+  transform: translateY(-50%); /* centred on its marker's midpoint, whatever height it renders at */
+  color: #3C6650; /* brand-strong */
+}
+.dark .en-margin-mark { color: #98C5AD; /* brand-strong-dark */ }
+
 /* Hero accent word — solid sage ink, not a gradient. Tokenized: brand.strong
    in light, brand.strong-dark on navy. The legacy `.text-gradient-mint` alias
    is PURGED (v2.1 census) — re-point any straggler to this class. */
@@ -298,6 +345,13 @@
   font-optical-sizing: auto;
   font-size: 1.1875rem;       /* 19px — Newsreader's x-height needs the bump */
   line-height: 1.7;
+  /* As wide as its pane, never wider (EN-04). In the pane the reader is a column flex item, and
+     the auto inline margins above turn off stretch, so with no width it took its widest table's
+     width (the 9-column segment table, ~770px): it spilled out of the 420px pane, the page scrolled
+     sideways on a desktop and the phone sheet clipped it. 100% restores the block layout this
+     rule assumes: the pane's width up to the 88ch rail. Reader-only: .markdown-body fills its
+     parent already, and its tables keep their own rules. */
+  width: 100%;
 }
 /* .markdown-body stays on the body sans (the AI summary is not the filing's words). */
 .markdown-body {
@@ -310,6 +364,14 @@
 :is(.markdown-body, .filing-reader) > table,
 :is(.markdown-body, .filing-reader) > figure,
 :is(.markdown-body, .filing-reader) > pre { max-width: none; }
+/* A reader table scrolls sideways in a box of its own (FilingViewer → ReaderTable, EN-04). The box
+   takes the table's 2rem rhythm wherever it sits, a blockquote or list item included (keeping the
+   box's focus ring tight to the table), and at the reader's top level the table's escape from the
+   68ch measure; the table inside fills the box with no margin. Reader-only: the AI summary's tables
+   are not boxed. */
+.filing-reader .filing-table-scroll { margin-top: 2rem; margin-bottom: 2rem; }
+.filing-reader > .filing-table-scroll { max-width: none; }
+.filing-reader .filing-table-scroll > table { margin-top: 0; margin-bottom: 0; }
 :is(.markdown-body, .filing-reader) > :first-child { margin-top: 0; }
 
 :is(.markdown-body, .filing-reader) p { @apply text-text-secondary-light dark:text-text-secondary-dark; margin-top: 0; margin-bottom: 1em; }

@@ -35,6 +35,30 @@ reference is [`docs/CONFIGURATION.md`](./CONFIGURATION.md).
 
 ## How a summary is generated (the ONE orchestrator)
 
+### Durable after-response work
+
+With `DURABLE_TASKS_ENABLED`, on-visit filing refresh/history and timed-out coverage syncs hand
+identifier-only control messages to Cloud Tasks before claiming delivery. A private task-only
+Cloud Run service runs one delivery at a time. Its `task_worker_main:app` entrypoint verifies
+Google-signed OIDC audience and the dedicated service-account email; queue headers grant no access.
+It executes existing services in a fresh Python child, killing and reaping that process at 480
+seconds or on cancellation. Task acknowledgement follows successful persistence, before the
+540-second dispatch and 600-second service deadlines. This bounds native threads as well as async
+work. An application guard admits only one native child per worker process and rejects overlapping
+delivery promptly for retry, holding that permit through kill/reap. [HTTP/1.1 client disconnects do
+not reach Cloud Run containers](https://docs.cloud.google.com/run/docs/troubleshooting#client_disconnect_does_not_propagate_to_cloud_run); cleanup guarantees cover the work deadline or handler cancellation,
+not all transport loss. At-least-once delivery can still repeat completed work, so existing
+cache/upsert and notification ownership remain necessary. The parent opens no SQL pool or startup
+schema path. Existing scheduled jobs remain primary
+for fleet work; manual HTTP cohorts fan out at most 50 identifiers/pairs with stable retry names.
+Forced paid precompute is rejected in durable mode because it cannot be safely replayed.
+
+The API keeps its warm instance. Coverage retains its 20-second fast path and `syncing` polling;
+the local attempt is cancelled/drained before durable handoff. Summary generation retains its
+single pipeline and SSE contract. Its synchronous workers are owned and drained before releasing
+generation leadership. A valid cached excerpt no longer launches a redundant document download.
+
+
 There is a single generation pipeline — `app/services/summary_pipeline.py`
 (`stream_filing_summary`, a transport-agnostic async generator yielding plain event dicts).
 Every consumer drains it:
@@ -64,6 +88,23 @@ stream_filing_summary(filing_id, ...)
                                          Pro — count full results here instead)
   → events: progress → chunk → (partial|complete) | error
 ```
+
+The generator itself is a short stage map (`_stage_sequence()` in `summary_pipeline.py`) over
+`app/services/summary_stages/`, one shared `GenerationRun` per generation:
+
+| stage module | owns |
+|---|---|
+| `generation_run.py` | the run state (timings, lease/charge, owned tasks, filing snapshot) and the former closures: `run_sync_db`, `settle_charge`, `refund_charge`, `begin_charge`/`charge_lease` (metering at provider start), `release()` (the `finally`) |
+| `admission.py` | `load_filing` (snapshot + existing-summary short-circuit), `join_or_lead` (A3 in-flight dedup), `admit` (24h cache validity, usage/fair-use gate, generation slot) |
+| `fetch.py` | `fetch_document` (starts the XBRL/section tasks; cached text, 6-K exhibits, or the SEC fetch with heartbeats) |
+| `enrichment.py` | `start_enrichment_tasks`, `parse_and_enrich` (progress, excerpt, bounded join) |
+| `generation.py` | `generate` (provider task under the metering signal, heartbeats/previews, 75s fallback, error payload) |
+| `finalize.py` | `finalize` (projection, quality verdict + measurement logs, persist, usage, telemetry, terminal events) |
+| `failure.py` | `timed_out`, `failed` (the two `except` bodies) |
+
+The stage modules reach every collaborator as `summary_pipeline.<name>` at call time (the patch
+seams the tests rely on); `tests/unit/test_summary_stages_seams.py` gates that, the terminal-event
+protocol and the orchestrator's length.
 
 Product invariant: summaries are **filing-only** — no content from outside the chosen
 filing (including prior filings) enters user-visible output. Cross-filing insight lives in
@@ -117,7 +158,7 @@ frontend/
 
 | Service | Purpose |
 |---|---|
-| `summary_pipeline.py` | THE summary orchestrator (see above) |
+| `summary_pipeline.py` + `summary_stages/` | THE summary orchestrator (see above): the stage map, its stages and the patch seams the tests rely on |
 | `summary_generation_service.py` | Headless drain for batch callers + quality verdict helpers (`assess_quality`, `calculate_section_coverage`) |
 | `openai_service.py` | Façade over `app/services/ai/*` — orchestration core (`summarize_filing`, `generate_structured_summary`) stays here |
 | `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` |
@@ -125,13 +166,14 @@ frontend/
 | `login_lockout.py` | Atomic failed-login upserts keyed by peppered email hash; existing reset/lock windows; success clear stays in the caller transaction |
 | `subscription_sync.py` | Stripe identity/state mapping and event-ledger helpers |
 | `subscription_webhook_service.py` | Worker-owned webhook transactions, per-account PostgreSQL locks, current-bound-ID created/updated reconciliation and post-commit analytics; cross-ID chronology remains separate |
-| `stripe_subscription_reader.py` | Dedicated exact-ID provider read, validated identity/status/consumed optional fields, zero retries and connect/read inactivity limits; failure rolls back the event |
+| `stripe_subscription_reader.py` | Dedicated exact-ID provider read, validated identity/status/consumed optional fields, zero retries and connect/read inactivity limits; a failed reconciliation read rolls back the event, a failed serving-Price read reports `unavailable` |
+| `billing_serving_prices.py` | The public serving-charge report (`GET /api/subscriptions/prices`): what the bound Pro Prices charge, without IDs, cached per process; one read at a time, and no request waits on another's; the price-agreement checks compare it with the page (`docs/PRICING_OFFER.md`) |
 | `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage |
 | `oauth_verify.py` / `password_utils.py` | Google/Apple JWKS + id-token verification; bcrypt + policy (extracted from the auth router) |
 | `copilot_service.py` / `copilot_tools.py` | "Ask this Filing" Pro Q&A with verifiable deep-linked citations; numeric tool-use from `financial_fact` |
 | `provenance_service.py` | Trace-to-Source: verifies AI excerpts, builds deep-link citations |
 | `facts_service.py` | Normalized XBRL metrics (`financial_fact`) + SEC **companyfacts** multi-period ingest (duration-window Q1–Q4 labelling, derived Q4, latest-filed-wins) |
-| `trend_analysis_service.py` | Multi-Period Analysis engine: deterministic YoY/QoQ/CAGR grid, `F#` citation markers, cached streamed narrative |
+| `trend_analysis_service.py` + `trend_analysis/` | Compatibility façade over domain modules: deterministic YoY/QoQ/CAGR datasets and `F#` markers, code-owned observations, validated selection and cached narrative streaming |
 | `precompute_service.py` | Idempotent per-ticker filing resolution + summary precompute (cron + internal job) |
 | `change_report_service.py` | Period-over-period change report (financial deltas + risk diffs) |
 | `peers_service.py` / `insider_service.py` | Peer comparison by SIC; Form 4 insider activity (`ownership_extractor.py` parses the Form 4 tables DEFENSIVELY — EdgarTools' DataFrame column casing varies across versions; don't "simplify" the guards) |
@@ -144,25 +186,50 @@ frontend/
 | `content_cache.py` / `summary_placeholders.py` | Shared FilingContentCache upsert; the summary-not-ready detector |
 | `redis_service.py` / `logging_service.py` / `metrics_service.py` / `audit_service.py` | Cache helpers + event-loop safety; correlation-ID logging; app metrics; GDPR audit trail |
 
+The `trend_analysis/` package separates period coverage, formatting, series helpers, inflection
+detectors, dataset construction, observation selection, citation resolution, numeric fidelity, cache
+persistence and narrative streaming. `narrative.py` keeps database sessions and the provider singleton
+lazily imported at call time. `trend_analysis_service.py` re-exports the original public and private
+names, so the analysis router continues to resolve them through the same module.
+
+Analysis datasets carry versioned `data_notes` from the pure `trend_analysis/data_notes.py`
+builder. The web, chart downloads, PDF and Excel use the same reason groups, letters and counts;
+old snapshots without this field use a presentation-only fallback. The web admits supplied notes
+at the API boundary against the dataset's quality fields, rejecting malformed or mismatched
+metadata rather than silently falling back. Notes do not change financial values or validation.
+
+`presentation.py` formats selected observations after selection, preserving the model-facing
+catalogue and prompt. Its `narrative_presentation` completion member binds structured red-flag
+operands and UTF-16 text spans to the financial snapshot. Inline operand text remains in stored
+Markdown for PDF; the web replaces those exact spans with evidence disclosures. Citation-only
+concerns append to report notes without changing report counts or existing letters. The independent
+`NARRATIVE_FORMAT_VERSION` controls cache and PDF compatibility; both presentation fields are
+excluded from the financial fingerprint. An old format follows the existing system-invalidated
+regeneration and metering path, without a schema change or bulk cache deletion.
+
 ### The `ai/` package (behind the `openai_service` façade)
 
 `extraction` (section layouts + financial-data extraction), `json_repair`,
 `section_recovery` (targeted LLM re-ask), `markdown_render` (deterministic non-LLM
-render), `xbrl_narrative`, `bank_guards`, `normalize`, `copilot_chat`, `model_flags`.
+render), `xbrl_narrative`, `bank_guards`, `normalize`, `copilot_chat`, `model_flags`,
+`summary_finalize` (ordered post-provider phases), and `summary_prompt` (primary request
+assembly and the raw schema template). Prompt assembly receives the live façade module,
+so its prompt loaders, settings and schema bindings remain patchable at call time.
 All external imports go through `app.services.openai_service` (re-export surface pinned
 by `__all__`); a pkgutil-walking test asserts no submodule can see the `User` model.
 
 ### The `edgar/` layer
 
 `client.py` (EdgarTools calls, breaker-wrapped), `xbrl_service.py` (persisted accession snapshot first, then two-tier cached XBRL),
+`xbrl_companyfacts.py` (companyfacts fallback transport and parser, delegated by the service class),
 `compat.py` (ticker cache + document fetch), `circuit_breaker.py`, `async_executor.py`
 (dedicated thread pool; `run_with_circuit_breaker` is the standard wrapper),
 `instance_extractor.py` (**accession-aware**: selects facts for the filing's own reporting
 period), `statement_parser.py` (pure DataFrame helpers), `sixk_extractor.py`, plus
 `config.py`/`exceptions.py`/`models.py`. Breaker coverage is selective: the XBRL primary path
-uses plain timeouts for local parsing, and its raw companyfacts fallback uses a single limiter
-wait without the breaker. Existing raw-HTTP paths outside the layer — `SECFullTextSearchClient`
-in `app/integrations/sec_api.py` and companyfacts fetching in `app/services/facts_service.py` —
+uses plain timeouts for local parsing, and the raw companyfacts fallback in `xbrl_companyfacts.py`
+uses a single limiter wait without the breaker. Existing raw-HTTP paths outside the layer — `SECFullTextSearchClient`
+in `app/integrations/sec_api.py` and companyfacts fetching in `app/services/facts/transport.py` —
 use shared limiter/backoff without the breaker. Preserve the existing transport owners;
 do not add raw-HTTP SEC bypasses outside them, even if paced.
 `test_sec_gov_importers_allowlist.py` checks URL-literal homes and pure-builder/Settings HTTP
@@ -186,7 +253,7 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
 | `peers.py` / `insiders.py` | `/api/companies` | `/{ticker}/peers`, `/{ticker}/insiders` |
 | `analysis.py` | `/api/analysis` | Multi-Period Analysis: coverage (auth), dataset + SSE narrative + PDF (Pro `can_analyze_trends` gate) |
 | `auth.py` / `users.py` | `/api/auth`, `/api/users` | login/register/refresh/OAuth; profile/export/deletion |
-| `subscriptions.py` | `/api/subscriptions` | management + **signature-verified** Stripe webhook |
+| `subscriptions.py` | `/api/subscriptions` | management + **signature-verified** Stripe webhook; public `GET /prices`, what checkout charges (no IDs) |
 | `watchlist.py` | `/api/watchlist` + `/api/waitlist` | exports both routers |
 | `dashboard.py` / `calendar.py` | `/api/dashboard`, `/api/calendar` | feed, upcoming calendar |
 | `search.py` | `/api/search` | SEC full-text search (EFTS) |
@@ -311,11 +378,15 @@ unused since generation became account-required in #619; kept because migrations
 
 - `FilingContentCache.markdown_*` columns are inert legacy (dropping needs a destructive
   migration).
-- Recorded follow-ups from the 2026-07 refactor (see `tasks/architecture-refactor-plan.md`
-  delta log): unify the two companyfacts fetchers on the async+limiter pattern; the
-  concept-list registries stay deliberately separate (orderings encode tag priority);
-  `_parse_company_facts` never populates its `total_liabilities`/`cash_and_equivalents`
-  buckets (pinned as characterization, fix pending).
+- Recorded follow-up from the 2026-07 refactor (see `tasks/architecture-refactor-plan.md`
+  delta log): the three concept-list registries (`facts_service`, `edgar/xbrl_service`,
+  `edgar/instance_extractor`) stay deliberately separate, because their orderings encode tag
+  priority; unifying them would change which tag wins. The other two follow-ups on that list are
+  done: both companyfacts fetchers run on the shared SEC limiter (WS-8, 2026-09-04, made
+  `facts_service`'s sync fetcher a bridge onto the rate-limited async one; the `xbrl_service`
+  fallback was already limiter-wired), and `_parse_company_facts` has filled its
+  `total_liabilities`/`cash_and_equivalents` buckets since 2026-09-05, pinned by
+  `backend/tests/unit/test_companyfacts_fixture.py`.
 
 ## Decision records
 

@@ -47,7 +47,21 @@ const NOPRICE = company({
   cik: '0000789019',
   ticker: 'MSFT',
   name: 'Microsoft Corporation',
-  // no stock_quote yet — price still loading
+  // The search answered without a quote: none arrives later.
+})
+const WITH_FILING = company({
+  id: 4,
+  cik: '0000320193',
+  ticker: 'AAPL',
+  name: 'Apple Inc.',
+  exchange: 'Nasdaq',
+  latest_filing: {
+    id: 11,
+    filing_type: '10-K',
+    filing_date: '2025-10-31T00:00:00+00:00',
+    report_date: '2025-09-27T00:00:00+00:00',
+    summary_ready: true,
+  },
 })
 
 const renderSearch = () => {
@@ -98,7 +112,7 @@ describe('CompanySearch dropdown', () => {
     expect(screen.getByText('Apple Inc.').className).toContain('dark:text-text-primary-dark')
   })
 
-  it("shows a 'Loading price…' placeholder when a result has no quote yet (same row layout)", async () => {
+  it('shows no price when the search answered without one, never a loading line that cannot resolve', async () => {
     vi.mocked(searchCompanies).mockResolvedValue([NOPRICE])
     renderSearch()
     type('msft')
@@ -107,7 +121,36 @@ describe('CompanySearch dropdown', () => {
       () => expect(screen.getByText('Microsoft Corporation')).toBeInTheDocument(),
       { timeout: 3000 },
     )
-    expect(screen.getByText('Loading price...')).toBeInTheDocument()
+    // The quote comes with the search response or not at all: no "Loading price..." that never ends.
+    expect(screen.queryByText(/loading price/i)).toBeNull()
+    expect(screen.getByRole('option').textContent).not.toContain('$')
+  })
+
+  it('names the filing a pick lands on, in the filing identity strip vocabulary (critique 1d)', async () => {
+    vi.mocked(searchCompanies).mockResolvedValue([WITH_FILING])
+    renderSearch()
+    type('apple')
+
+    const option = await screen.findByRole('option', {}, { timeout: 3000 })
+    expect(within(option).getByText('AAPL', { exact: false }).className).toContain('font-data')
+    expect(option).toHaveTextContent(/AAPL · , Nasdaq/)
+    const line = within(option).getByText(/^Latest/).closest('p') as HTMLElement
+    expect(line.className).toContain('font-data')
+    expect(line).toHaveTextContent(/^Latest 10-K\s*·\s*,\s*fiscal year ended Sep 27, 2025\s*·\s*,\s*filed Oct 31, 2025\s*·\s*,\s*summary ready$/)
+  })
+
+  it('leaves the identity line out when no filing is stored yet, and keeps the keyboard hint visual only', async () => {
+    vi.mocked(searchCompanies).mockResolvedValue([APPLE, NOPRICE])
+    renderSearch()
+    type('a')
+
+    await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(2), { timeout: 3000 })
+    expect(screen.queryByText(/^Latest/)).toBeNull()
+    const hint = screen.getByText('2 companies').parentElement as HTMLElement
+    expect(hint).toHaveAttribute('aria-hidden', 'true')
+    expect(hint).toHaveTextContent('↑↓ to move · ↵ to open')
+    // The hint sits beside the listbox, not inside it: a listbox holds options only.
+    expect(within(screen.getByRole('listbox')).queryByText('2 companies')).toBeNull()
   })
 
   it('does NOT render the removed instant-matches block (no second style)', async () => {

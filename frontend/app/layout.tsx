@@ -6,7 +6,7 @@ import { SiteHeader, SiteFooter } from '@/components/SiteChrome'
 import VerificationBanner from '@/features/auth/components/VerificationBanner'
 import EmailVerificationModal from '@/features/auth/components/EmailVerificationModal'
 import CookieConsent from '@/components/CookieConsent'
-import { Analytics } from '@vercel/analytics/next'
+import { PrivateAnalytics } from './private-analytics'
 import { fetchSignupConfig } from '@/lib/serverApi'
 import { resolveAccessMode } from '@/features/marketing/lib/access'
 
@@ -42,28 +42,28 @@ const THEME_BOOTSTRAP = `(function(){try{
 
 export const metadata: Metadata = {
   title: 'EarningsNerd | AI-powered SEC filing analysis',
-  description: 'AI-assisted summaries of SEC filings, with financials, risks, trends, and source context from SEC EDGAR.',
+  description: 'The summary that shows its work. AI summaries of 10-Ks and 10-Qs from SEC EDGAR, with figures checked against the company’s XBRL where they can be.',
   keywords: ['SEC filings', '10-K', '10-Q', 'financial analysis', 'earnings', 'stock analysis', 'AI summaries', 'SEC EDGAR'],
   metadataBase: new URL('https://www.earningsnerd.io'),
   openGraph: {
     title: 'EarningsNerd | AI-powered SEC filing analysis',
-    description: 'Explore SEC filings with AI-assisted summaries and source context from SEC EDGAR.',
+    description: 'The summary that shows its work. AI summaries of 10-Ks and 10-Qs, with figures checked against the company’s XBRL where they can be.',
     type: 'website',
     images: [
       {
         // Bump when the committed card changes so social scrapers fetch the current pixels.
-        url: '/og-image.png?v=3',
+        url: '/og-image.png?v=4',
         width: 1200,
         height: 630,
-        alt: 'EarningsNerd - AI-assisted SEC filing summaries with source context',
+        alt: 'EarningsNerd: the summary that shows its work',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'EarningsNerd | AI-powered SEC filing analysis',
-    description: 'Explore SEC filings with AI-assisted summaries and source context from SEC EDGAR.',
-    images: ['/og-image.png?v=3'],
+    description: 'The summary that shows its work. AI summaries of 10-Ks and 10-Qs, with figures checked against the company’s XBRL where they can be.',
+    images: ['/og-image.png?v=4'],
   },
   icons: {
     // favicon.ico carries 16/32/48; the self-backgrounded appicon SVG scales
@@ -74,6 +74,8 @@ export const metadata: Metadata = {
     ],
     // Apple ignores SVG touch icons — this must be the PNG tile.
     apple: '/apple-touch-icon.png',
+    // Safari pinned tabs recolour a one-colour mask; the mark is letterboxed in a square.
+    other: [{ rel: 'mask-icon', url: '/assets/earningsnerd-mask-icon.svg', color: '#4F7A63' }],
   },
 }
 
@@ -124,7 +126,7 @@ export default async function RootLayout({
           <SiteFooter />
           <EmailVerificationModal />
           <CookieConsent />
-          <Analytics />
+          <PrivateAnalytics />
         </Providers>
       </body>
     </html>

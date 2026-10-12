@@ -175,6 +175,7 @@ const TYPE_ROLES: Record<string, { family: string; size?: string; tracking?: str
   display: { family: 'heading', size: '6xl' },
   headline: { family: 'heading', size: '3xl' },
   title: { family: 'heading', size: '2xl' },
+  'section-title': { family: 'heading', size: 'xl' }, // the filing summary's section headings (2026-10 critique P-05)
   'card-title': { family: 'heading', size: 'sm' },
   body: { family: 'body' }, // root browser sample (16px / 1.5), not a configured size
   'body-base': { family: 'body', size: 'base' },

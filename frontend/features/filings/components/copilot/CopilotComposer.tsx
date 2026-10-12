@@ -71,17 +71,14 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
         e.preventDefault()
         submit()
       }}
-      className="border-t border-border-light bg-panel-light dark:border-white/10 dark:bg-panel-dark p-3"
+      // px-4: the rail's own 16px inset (its header, messages and notes), so on a phone the sheet's
+      // composer and privacy note keep the page's 16px gutter instead of 12px plus the sheet's border.
+      className="border-t border-border-light bg-panel-light dark:border-white/10 dark:bg-panel-dark px-4 py-3"
     >
-      {/* DS "Chat composer" pattern: the shell carries the field recipe + focus-within
-          ring; the composer-variant Textarea inside stays chrome-free. */}
-      <div
-        className={cx(
-          inputClasses({ className: 'flex items-end gap-2' }),
-          'focus-within:border-brand focus-within:shadow-ring-brand',
-          'dark:focus-within:border-brand-dark dark:focus-within:shadow-ring-brand-dark',
-        )}
-      >
+      {/* DS "Chat composer" pattern: the shell carries the field recipe, its focus
+          border and ring keyed to focus-within (`shell: true`); the composer-variant
+          Textarea inside stays chrome-free. */}
+      <div className={inputClasses({ shell: true, className: 'flex items-end gap-2' })}>
         <Textarea
           variant="composer"
           ref={textareaRef}

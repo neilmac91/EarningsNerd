@@ -9,14 +9,10 @@ Usage:
 
     client = EdgarClient()
 
-    # Get company info
-    company = await client.get_company("AAPL")
-
     # Get latest 10-K filing
     filing = await client.get_latest_filing("AAPL", FilingType.FORM_10K)
 """
 
-import asyncio
 import logging
 import threading
 import weakref
@@ -25,33 +21,25 @@ from itertools import islice
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urljoin
 
-from edgar import Company as EdgarCompany, set_identity, find as edgar_find
+from edgar import Company as EdgarCompany, set_identity
 
 from app.utils.datetimes import utcnow
 from app.utils.sec_urls import build_sec_archive_url
 
 from .async_executor import run_with_circuit_breaker
-from .config import EDGAR_IDENTITY, FilingType, EDGAR_DEFAULT_TIMEOUT_SECONDS, EDGAR_THREAD_POOL_SIZE
+from .config import EDGAR_IDENTITY, FilingType, EDGAR_DEFAULT_TIMEOUT_SECONDS
 from .exceptions import (
     CompanyNotFoundError,
     FilingNotFoundError,
-    EdgarError,
-    EdgarNetworkError,
-    EdgarTimeoutError,
-    EdgarRateLimitError,
     translate_edgartools_exception,
 )
-from .models import Company, Filing
+from .models import Filing
 
 logger = logging.getLogger(__name__)
 
 # Initialize EdgarTools identity on module load
 set_identity(EDGAR_IDENTITY)
 logger.info(f"EdgarTools initialized with identity: {EDGAR_IDENTITY}")
-
-# Semaphore for search concurrency control
-# Python 3.10+ allows creating Semaphore at module level without active event loop
-_edgar_search_semaphore = asyncio.Semaphore(EDGAR_THREAD_POOL_SIZE)
 
 # Default cap on filings materialized from the recent submissions window when no explicit limit is
 # given (the company filings-list path). The recent window is already SEC-bounded (~1 year or ~1000
@@ -184,7 +172,6 @@ class EdgarClient:
     Async client for SEC EDGAR operations using EdgarTools.
 
     This client provides:
-    - Company lookup and search
     - Filing retrieval by type
     - XBRL financial data extraction
     - Clean, typed return values
@@ -200,107 +187,6 @@ class EdgarClient:
             timeout: Default timeout for operations in seconds
         """
         self.timeout = timeout
-
-    async def get_company(self, ticker: str) -> Company:
-        """
-        Get company information by ticker symbol.
-
-        Args:
-            ticker: Stock ticker symbol (e.g., "AAPL")
-
-        Returns:
-            Company object with CIK, name, and other metadata
-
-        Raises:
-            CompanyNotFoundError: If the ticker is not found
-            EdgarError: For other errors
-        """
-        ticker = ticker.upper().strip()
-        logger.debug(f"Getting company info for {ticker}")
-
-        try:
-            edgar_company = await run_with_circuit_breaker(
-                lambda: EdgarCompany(ticker),
-                timeout=self.timeout,
-            )
-
-            return self._transform_company(edgar_company, ticker)
-
-        except Exception as exc:
-            if "not found" in str(exc).lower():
-                raise CompanyNotFoundError(ticker, cause=exc)
-            raise translate_edgartools_exception(exc) from exc
-
-    async def search_company(self, query: str, limit: int = 10) -> List[Company]:
-        """
-        Search for companies by name or ticker.
-
-        Uses EdgarTools' find() function for fuzzy company name search,
-        which matches against company names and tickers in the SEC database.
-
-        Args:
-            query: Search query (ticker, partial name, etc.)
-            limit: Maximum number of results to return (default 10)
-
-        Returns:
-            List of matching Company objects
-        """
-        query = query.strip()
-        if not query:
-            return []
-
-        logger.debug(f"Searching companies for query: {query}")
-
-        # Try exact ticker lookup first (faster for exact matches)
-        try:
-            company = await self.get_company(query)
-            logger.debug(f"Found exact ticker match: {query}")
-            return [company]
-        except CompanyNotFoundError:
-            pass  # Fall through to fuzzy search
-        except EdgarRateLimitError:
-            raise  # Don't fallback for rate limits - propagate to caller
-        except (EdgarTimeoutError, EdgarNetworkError) as e:
-            logger.warning(f"Exact ticker lookup failed for '{query}': {e}, trying fuzzy search")
-            pass  # Fall through to fuzzy search
-
-        # Use EdgarTools find() for fuzzy company name search
-        try:
-            search_results = await run_with_circuit_breaker(
-                lambda: edgar_find(query),
-                timeout=self.timeout,
-            )
-
-            if not search_results or len(search_results) == 0:
-                logger.debug(f"No companies found for query: {query}")
-                return []
-
-            # Get tickers from search results and fetch company details in parallel
-            tickers = search_results.tickers if hasattr(search_results, 'tickers') else []
-            logger.debug(f"Found {len(tickers)} matches for '{query}': {tickers[:5]}")
-
-            async def fetch_company_details(ticker: str) -> Optional[Company]:
-                """Fetch company details, returning None on error."""
-                async with _edgar_search_semaphore:
-                    try:
-                        return await self.get_company(ticker)
-                    except (CompanyNotFoundError, EdgarError) as e:
-                        logger.warning(f"Could not fetch details for ticker {ticker}: {e}")
-                        return None
-
-            # Fetch all companies in parallel using asyncio.gather
-            tasks = [fetch_company_details(ticker) for ticker in tickers[:limit]]
-            company_results = await asyncio.gather(*tasks)
-
-            # Filter out None results (failed fetches)
-            companies = [company for company in company_results if company is not None]
-            return companies
-
-        except EdgarError:
-            raise  # Already translated, don't double-wrap
-        except Exception as exc:
-            logger.error(f"Error searching companies for '{query}': {exc}")
-            raise translate_edgartools_exception(exc) from exc
 
     async def get_filings(
         self,
@@ -531,20 +417,6 @@ class EdgarClient:
         return filings[0]
 
     # Private transformation methods
-
-    def _transform_company(self, edgar_company: EdgarCompany, ticker: str) -> Company:
-        """Transform EdgarTools Company to our Company model."""
-        return Company(
-            cik=edgar_company.cik,
-            ticker=ticker,
-            name=edgar_company.name,
-            # NOTE: the model columns are `sic`/`industry`. The previous `sic_code`/`sic_description`
-            # kwargs were not valid columns, so this raised and SIC was never populated — which broke
-            # the Peers cohort and the financial-remediation SIC selection. Write the real columns.
-            sic=str(edgar_company.sic) if getattr(edgar_company, 'sic', None) else None,
-            industry=edgar_company.industry if getattr(edgar_company, 'industry', None) else None,
-            exchange=None,  # EdgarTools doesn't provide this directly
-        )
 
     def _transform_filing(self, edgar_filing, ticker: str, cik: str) -> Filing:
         """Transform EdgarTools Filing to our Filing model."""

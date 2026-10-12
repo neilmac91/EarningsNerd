@@ -55,25 +55,29 @@ function Toggle({
       </div>
       {/* While a save is in flight the switch is aria-disabled, never natively disabled: the switch
           the user just flipped holds focus, and a focused button that turns disabled is blurred to
-          <body> in Chromium. */}
+          <body> in Chromium. Busy fades the track's fill and the knob, not the element, so the focus
+          indicator keeps its strength. A locked switch is natively disabled already and is not marked
+          busy as well, or it would fade twice. */}
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         aria-label={label}
         disabled={disabled}
-        aria-disabled={busy || undefined}
+        aria-disabled={(busy && !disabled) || undefined}
         aria-busy={busy || undefined}
         onClick={() => {
           if (busy) return
           onChange(!checked)
         }}
-        className={`relative mt-1 inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:cursor-not-allowed ${
-          checked ? 'bg-brand-strong dark:bg-brand-dark' : 'bg-border-light dark:bg-border-dark'
+        className={`group relative mt-1 inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:cursor-not-allowed ${
+          checked
+            ? 'bg-brand-strong aria-disabled:bg-brand-strong/50 dark:bg-brand-dark dark:aria-disabled:bg-brand-dark/50'
+            : 'bg-border-light aria-disabled:bg-border-light/50 dark:bg-border-dark dark:aria-disabled:bg-border-dark/50'
         }`}
       >
         <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform group-aria-disabled:opacity-50 ${
             checked ? 'translate-x-6' : 'translate-x-1'
           }`}
         />
@@ -109,7 +113,7 @@ export default function NotificationPreferencesForm() {
           <BellIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
           Filing Alerts
         </h2>
-        {mutation.isPending && <CircleNotchIcon className="h-4 w-4 animate-spin text-text-tertiary-light dark:text-text-secondary-dark" />}
+        {mutation.isPending && <CircleNotchIcon className="h-4 w-4 animate-spin motion-reduce:animate-none text-text-tertiary-light dark:text-text-secondary-dark" />}
       </div>
       <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
         Get notified when companies on your watchlist file with the SEC.
@@ -202,8 +206,10 @@ function PreferenceRows({
           </p>
         </div>
         {/* aria-disabled while saving, not `disabled`: the select that just changed holds focus. A
-            controlled select whose handler returns early keeps its value. */}
+            controlled select whose handler returns early keeps its value. Named like the switches
+            above, by aria-label: the row's text is a span, not a <label>. */}
         <select
+          aria-label="Digest frequency"
           value={prefs.digest}
           aria-disabled={busy || undefined}
           aria-busy={busy || undefined}
@@ -211,7 +217,7 @@ function PreferenceRows({
             if (busy) return
             save({ digest: e.target.value })
           }}
-          className={clsx(inputClasses(), 'w-auto py-1.5 text-sm', fieldUnavailableClass)}
+          className={clsx(inputClasses({ select: true, autoWidth: true }), fieldUnavailableClass)}
         >
           <option value="immediate">Immediate</option>
           <option value="daily">Daily</option>

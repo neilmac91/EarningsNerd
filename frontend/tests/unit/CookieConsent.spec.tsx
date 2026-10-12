@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 import CookieConsent, { type CookiePreferences } from '@/components/CookieConsent'
+import CookieSettingsButton from '@/components/CookieSettingsButton'
 
 // The "Cookie preferences saved" confirmation is a sonner toast (top-centre Toaster in app/providers.tsx)
 // since EN-02: it must not share the bottom-right corner with the "Ask this Filing" launcher.
@@ -50,7 +51,7 @@ describe('CookieConsent settings dialog', () => {
     const { dialog } = await openSettings()
     expect(dialog).toHaveAttribute('aria-modal', 'true')
     expect(dialog).toContainElement(document.activeElement as HTMLElement)
-    expect(screen.getByText('We value your privacy')).toBeInTheDocument() // the banner stays beneath it
+    expect(screen.getByText('Cookies on this site')).toBeInTheDocument() // the banner stays beneath it
     expect(screen.getByRole('checkbox', { name: 'Essential Cookies' })).toBeDisabled()
     expect(screen.getByRole('checkbox', { name: 'Analytics Cookies' })).not.toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Session Recording' })).not.toBeChecked()
@@ -62,7 +63,7 @@ describe('CookieConsent settings dialog', () => {
     await user.click(screen.getByRole('button', { name: 'Save Preferences' }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.queryByText('We value your privacy')).not.toBeInTheDocument() // Save dismisses both
+    expect(screen.queryByText('Cookies on this site')).not.toBeInTheDocument() // Save dismisses both
     expect(stored()).toMatchObject({ essential: true, analytics: true, sessionRecording: false })
     expect(consentEvents).toHaveLength(1)
     expect(consentEvents[0]).toMatchObject({ essential: true, analytics: true, sessionRecording: false })
@@ -84,7 +85,7 @@ describe('CookieConsent settings dialog', () => {
     await close(user)
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByText('We value your privacy')).toBeInTheDocument()
+    expect(screen.getByText('Cookies on this site')).toBeInTheDocument()
     expect(document.activeElement).toBe(customize)
     expect(stored()).toBeNull()
     expect(consentEvents).toHaveLength(0)
@@ -111,5 +112,38 @@ describe('CookieConsent settings dialog', () => {
     expect(stored()).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
     expect(consentEvents.map((e) => e.analytics)).toEqual([true, false])
     expect(toast.success).toHaveBeenCalledTimes(2)
+  })
+
+  it('reopens saved choices after the banner is gone and lets the user withdraw consent', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      essential: true, analytics: true, sessionRecording: true, timestamp: '2026-10-01T00:00:00Z',
+    }))
+    const user = userEvent.setup()
+    render(<><CookieConsent /><CookieSettingsButton /></>)
+    expect(screen.queryByText('We value your privacy')).not.toBeInTheDocument()
+
+    const reopen = screen.getByRole('button', { name: 'Cookie settings' })
+    await user.click(reopen)
+    expect(screen.getByRole('dialog', { name: 'Cookie Preferences' })).toContainElement(document.activeElement as HTMLElement)
+    expect(screen.getByRole('checkbox', { name: 'Analytics Cookies' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Session Recording' })).toBeChecked()
+    await user.click(screen.getByRole('checkbox', { name: 'Analytics Cookies' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(stored()).toMatchObject({ analytics: true, sessionRecording: true })
+    expect(consentEvents).toHaveLength(0)
+    expect(document.activeElement).toBe(reopen)
+
+    await user.click(reopen)
+    expect(screen.getByRole('checkbox', { name: 'Analytics Cookies' })).toBeChecked()
+    await user.click(screen.getByRole('checkbox', { name: 'Analytics Cookies' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Session Recording' }))
+    await user.click(screen.getByRole('button', { name: 'Save Preferences' }))
+    expect(stored()).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
+    expect(consentEvents).toHaveLength(1)
+    expect(consentEvents[0]).toMatchObject({ analytics: false, sessionRecording: false })
+
+    await user.click(reopen)
+    expect(screen.getByRole('checkbox', { name: 'Analytics Cookies' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Session Recording' })).not.toBeChecked()
   })
 })

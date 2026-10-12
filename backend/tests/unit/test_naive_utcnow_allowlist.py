@@ -24,8 +24,8 @@ APP_DIR = Path(__file__).resolve().parents[2] / "app"
 # The ONLY sanctioned stdlib-naive `datetime.utcnow()` call sites in app/, as (file, function) pairs
 # — the deliberately-naive OAuthState/RefreshToken token-expiry cluster.
 ALLOWED_NAIVE_UTCNOW = {
-    ("routers/auth.py", "_store_oauth_state"),     # OAuthState.expires_at write + GC compare
-    ("routers/auth.py", "_consume_oauth_state"),   # OAuthState.expires_at compare
+    ("services/oauth_account_service.py", "store_oauth_state"),     # OAuthState.expires_at write + GC compare
+    ("services/oauth_account_service.py", "consume_oauth_state"),   # OAuthState.expires_at compare
     ("services/refresh_token_service.py", "create_refresh_token"),
     ("services/refresh_token_service.py", "rotate_refresh_token"),
     ("services/refresh_token_service.py", "revoke_refresh_token"),
@@ -68,6 +68,16 @@ def test_naive_utcnow_calls_match_the_allowlist():
         rel = py.relative_to(APP_DIR).as_posix()
         for func in _naive_utcnow_sites(py):
             found.add((rel, func))
+
+    for relative in (
+        "services/edgar/xbrl_service.py", "services/edgar/xbrl_cache.py",
+        "services/facts/ingest.py", "services/facts/upsert.py",
+    ):
+        tree = ast.parse((APP_DIR / relative).read_text(encoding="utf-8"))
+        assert not any(
+            isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "now" for node in ast.walk(tree)
+        ), f"{relative}: use app.utils.datetimes.utcnow for the Rule-7 follow-up sites"
 
     assert found == ALLOWED_NAIVE_UTCNOW, (
         "Naive `datetime.utcnow()` call sites in app/ drifted from the allow-list.\n"

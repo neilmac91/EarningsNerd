@@ -20,7 +20,7 @@ colors:
   text-primary-dark: "#D7DADC"
   text-secondary-light: "#374151"
   text-secondary-dark: "#9CA3AF"
-  text-tertiary-light: "#6B7280"
+  text-tertiary-light: "#636A77"
   border-light: "#E5E7EB"
   border-dark: "#374151"
   white: "#FFFFFF"
@@ -71,6 +71,12 @@ typography:
     fontSize: "1.5rem"
     fontWeight: 600
     lineHeight: "2rem"
+    letterSpacing: "-0.012em"
+  section-title:
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
+    fontSize: "1.25rem"
+    fontWeight: 600
+    lineHeight: "1.75rem"
     letterSpacing: "-0.012em"
   card-title:
     fontFamily: "Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
@@ -213,11 +219,35 @@ components:
     backgroundColor: "{colors.white}"
     textColor: "{colors.text-primary-light}"
     rounded: "{rounded.lg}"
-    padding: "0.625rem 0.875rem 0.625rem 2.75rem"
+    padding: "0.625rem 2.5rem 0.625rem 2.75rem"
   input-dark:
     textColor: "{colors.text-primary-dark}"
     rounded: "{rounded.lg}"
     backgroundColor: "rgba(255,255,255,0.05)"
+  input-compact:
+    backgroundColor: "{colors.white}"
+    textColor: "{colors.text-primary-light}"
+    rounded: "{rounded.lg}"
+    padding: "0.375rem 0.75rem"
+    height: "2.25rem"
+  segmented-control:
+    backgroundColor: "{colors.panel-light}"
+    textColor: "{colors.text-secondary-light}"
+    rounded: "{rounded.lg}"
+    padding: "0.25rem"
+  segmented-control-selected:
+    backgroundColor: "{colors.brand}"
+    textColor: "{colors.white}"
+    rounded: "{rounded.DEFAULT}"
+    padding: "0 0.875rem"
+    height: "1.625rem"
+  segmented-control-dark:
+    backgroundColor: "{colors.panel-dark}"
+    textColor: "{colors.text-secondary-dark}"
+    rounded: "{rounded.lg}"
+  segmented-control-selected-dark:
+    backgroundColor: "{colors.brand-dark}"
+    textColor: "{colors.background-dark}"
   card:
     backgroundColor: "{colors.panel-light}"
     textColor: "{colors.text-primary-light}"
@@ -264,7 +294,7 @@ components:
 
 EarningsNerd is calm, precise and evidence-led. Warm cream and espresso give the light interface the familiarity of a working document; deep navy carries the same structure into dark mode. Sage identifies actions, links and the product itself. Financial direction, status and chart series have separate color vocabularies so the interface can express their different meanings clearly.
 
-The system is refined, readable and quietly confident. Inter headings organize the work, system-first body text supports scanning, and Geist Mono makes figures and evidence recognizable. Newsreader is reserved for the original filing reader. Depth is structural and restrained: light cards lift from the page, while dark cards separate through fill and hairlines. Decorative gradients remain outside the established visual language.
+The system is refined, readable and quietly confident. Inter headings organize the work, system-first body text supports scanning, and Geist Mono makes figures and evidence recognizable. Newsreader is reserved for the original filing reader. Depth is structural and restrained: light cards lift from the page, while dark cards separate through fill and hairlines. Decorative gradients remain outside the established visual language. One graphic device, the margin and the mark, makes a surface recognisable without the logo: a located passage is highlighted and a cited figure carries a bracketed marker whose twin sits in a margin on the same line.
 
 **Key Characteristics:**
 - One sage brand accent, with explicit light and dark treatments.
@@ -272,10 +302,13 @@ The system is refined, readable and quietly confident. Inter headings organize t
 - Type roles that distinguish interface, data and original filing prose.
 - Compact controls and data tables within more generous page layouts.
 - Source context, visible focus and truthful state feedback.
+- One graphic device, the margin and the mark, that only ever means "located" and "cited".
 
-This document records the implementation at [`1a79637e4094f8f6ceeb9802014a6a1172283416`](https://github.com/neilmac91/EarningsNerd/tree/1a79637e4094f8f6ceeb9802014a6a1172283416); the links below open the current files. Token definitions remain in [`frontend/tailwind.config.js`](frontend/tailwind.config.js) and [`frontend/app/globals.css`](frontend/app/globals.css); the frontmatter is their portable snapshot, and [`designSnapshotParity.spec.ts`](frontend/tests/unit/designSnapshotParity.spec.ts) checks it against them. [`frontend/DESIGN_SYSTEM.md`](frontend/DESIGN_SYSTEM.md) retains current implementation conventions and verification gates. [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md#design-documentation) route UI work through both documents and define maintenance. Actual token definitions and component code take precedence over a stale snapshot. Refresh affected visual content and [its sidecar](.impeccable/design.json) together when the documented system changes; routing-only edits can leave an unchanged sidecar intact. The descriptive language above was confirmed by the project owner.
+The October 2026 brand studio ([`docs/brand/`](docs/brand/README.md)) added the graphic device, the icon and imagery rules and the public-page clause of the Source Voice Rule; tokens and type roles are unchanged and the mark is untouched. This document records the implementation at [`1a79637e4094f8f6ceeb9802014a6a1172283416`](https://github.com/neilmac91/EarningsNerd/tree/1a79637e4094f8f6ceeb9802014a6a1172283416), updated for the October 2026 design critique's filing-page changes (tertiary ink `#636A77`, the section-title role, the callout well, evidence rows, the filing identity strip and the Source pane), its company-page changes (the segmented control, the compact toolbar field, the filings index, the company lead and the Compare periods card) and its homepage changes (the search option's filing line, the one-surface example and the trust strip) and its loading and motion changes (pages that load as their own frame over destination-shaped bones, and every animation stopping under reduced motion), with the earlier changes folded in by the pull requests that made them: the consent and scrim layers ([#1107](https://github.com/neilmac91/EarningsNerd/pull/1107)), stacked metric cards below `md` ([#1108](https://github.com/neilmac91/EarningsNerd/pull/1108)), the site chrome's focus ring ([#1142](https://github.com/neilmac91/EarningsNerd/pull/1142)), content-width selects with their chevron inset ([#1180](https://github.com/neilmac91/EarningsNerd/pull/1180)), the password field's trailing inset ([#1188](https://github.com/neilmac91/EarningsNerd/pull/1188)), the search fields' busy spinner ([#1228](https://github.com/neilmac91/EarningsNerd/pull/1228)), the invalid field's error tone ([#1233](https://github.com/neilmac91/EarningsNerd/pull/1233)), the field focus ring without the forms plugin's ([#1234](https://github.com/neilmac91/EarningsNerd/pull/1234)) and the composer shell's focus border under hover ([#1241](https://github.com/neilmac91/EarningsNerd/pull/1241)); the links below open the current files. Token definitions remain in [`frontend/tailwind.config.js`](frontend/tailwind.config.js) and [`frontend/app/globals.css`](frontend/app/globals.css); the frontmatter is their portable snapshot, and [`designSnapshotParity.spec.ts`](frontend/tests/unit/designSnapshotParity.spec.ts) checks it against them. [`frontend/DESIGN_SYSTEM.md`](frontend/DESIGN_SYSTEM.md) retains current implementation conventions and verification gates. [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md#design-documentation) route UI work through both documents and define maintenance. Actual token definitions and component code take precedence over a stale snapshot. Refresh affected visual content and [its sidecar](.impeccable/design.json) together when the documented system changes; routing-only edits can leave an unchanged sidecar intact. The descriptive language above was confirmed by the project owner.
 
 The public homepage was inspected visually and sampled for computed styles in light mode on 2026-10-04. Dark treatments and responsive rules below were extracted from source; this pass does not claim a visual audit of authenticated routes or dark mode. Sidecar component samples illustrate appearance without reproducing application behavior; their dark treatment follows the app's own `html.dark` theme signal and their responsive rules follow the space available to them. The sidecar carries no tonal ramps: the project defines no tonal scale, and Impeccable's detector accepts every ramp step as a palette color.
+
+The sticky-column hover guidance was refreshed from [`DataTable.tsx` at `4903ae55`](https://github.com/neilmac91/EarningsNerd/blob/4903ae5501f62f507ed19efd1b06a9e8551802ef/frontend/components/ui/DataTable.tsx) on 2026-10-10. Its analysis-page hover was inspected in both themes on the protected preview with mocked identity and data; this does not establish authenticated production behavior. The sidecar's ordinary-row table specimen remains unchanged.
 
 ## Colors
 
@@ -297,7 +330,7 @@ The palette combines sage, warm cream, espresso and deep navy with distinct sema
 - **Warm Paper** (`panel-light`) and **Slate Panel** (`panel-dark`): card/container surfaces.
 - **Espresso** (`text-primary-light`) and **Soft Chalk** (`text-primary-dark`): both body and heading ink. Hierarchy does not introduce another heading color.
 - **Secondary Ink** (`text-secondary-light`, `text-secondary-dark`): supporting copy. Dark-mode muted labels use the secondary token.
-- **Tertiary Ink** (`text-tertiary-light`): small labels on sufficiently bright panels; use secondary ink for muted copy on bare cream.
+- **Tertiary Ink** (`text-tertiary-light`): captions, counts and micro-labels. At 4.9:1 on cream, 5.2:1 on panel and 4.8:1 in the pale sage tint it passes AA on every light ground; secondary ink still carries anything the reader must read.
 - **Light Hairline** and **Dark Hairline** (`border-light`, `border-dark`): separators. Dark cards specifically use white at 10% opacity rather than the general dark border.
 - **White** (`white`): field fill, light primary-action label, and interactive light-card hover fill. **Modal Scrim** (`overlay`) uses translucent navy in both themes.
 
@@ -330,17 +363,20 @@ Chart series follow the configured order: **Teal → Honey → Cornflower → Co
 | Display | 600; 36px base, 48px from `sm`, 60px from `lg`; live desktop sample 60/63px | Homepage headline; responsive sizes belong to this surface |
 | Headline | 600; 30/36px with −0.016em tracking; marketing section headings step up to 36/40px (−0.02em) from `lg` | Large section/page heading role |
 | Title | 600; 24/32px; tighter tracking | Section headings; smaller component titles follow their own recipe |
+| Section title | 600; 20/28px, −0.012em; a 12px data-face index (`01`) beside it that the table of contents repeats | The filing summary's section headings, set on the page without a card; subheadings under them are 14/600 |
 | Card title | 600; 14/20px; sentence case | Compact container headings |
 | Body | 400; root browser sample 16/24px; `text-base` explicitly sets 16/25.6px | General prose; local leading utilities can override the scale |
 | UI | 14/20px, commonly 500 or 600 for controls | Navigation, forms and medium buttons |
 | Metric label | 12/16px; 600; uppercase with 0.08em eyebrow tracking | Table headers and metric labels |
 | Data | Geist Mono; tabular figures; size follows context | Financial values, tickers and evidence output |
-| Dense data annotation | 11/16px | Compact chart annotations and in-card micro-labels |
+| Dense data annotation | 11/16px | Compact chart annotations and in-card micro-labels; never a provenance chip, which is 12px |
 | Filing reader | Newsreader 19px, line-height 1.7, optical sizing | Original filing prose |
 
-The frontmatter `display` token records the large desktop step and `headline` the base step; neither is a universal heading size. Frontmatter font stacks leave out the app-only `var(--font-*)` entries so they resolve outside the app. The source tracking ramp progresses from +0.01em for captions through zero for body text to −0.025em for large display text. Use the existing type scale and CSS tracking variables rather than inventing new tracking utilities.
+The frontmatter `display` token records the large desktop step and `headline` the base step; neither is a universal heading size. Frontmatter font stacks leave out the app-only `var(--font-*)` entries so they resolve outside the app. The source tracking ramp progresses from +0.01em for captions through zero for body text to −0.025em for large display text. Use the existing type scale and CSS tracking variables rather than inventing new tracking utilities. A role is a treatment, not an element: pick the heading element for its place in the page outline and never skip a level, so one Card title is an h3 inside an h2 section and an h2 where its card stands in for a page's content under the page h1 ([`GuidanceCard`](frontend/components/ui/GuidanceCard.tsx)'s `headingLevel`; [`frontend/DESIGN_SYSTEM.md`](frontend/DESIGN_SYSTEM.md) §5).
 
 **The Source Voice Rule.** Newsreader means original filing prose. AI summaries use body sans; Ask answers use the mono evidence register. `.tabular` supplies mono plus tabular digits; `.tnum` preserves the current face and only aligns digits.
+
+On a public page, Newsreader appears only inside a quoted passage that the product located in a filing (the hero example's evidence row, the social card's excerpt), never for a headline, a tagline or a claim of ours; the italic "Nerd" of the wordmark is Inter and is the brand's only typographic flourish.
 
 In the filing reader, prose children have a 68ch measure and tables/figures can use the 88ch outer rail. AI `.markdown-body` content fills its pane with no measure cap. Summary paragraphs are justified and hyphenated at viewport widths of 640px and above. Below that breakpoint, summary paragraphs remain ragged-right; the original filing reader stays ragged-right at every width. Preserve underlined sage links in both reading surfaces.
 
@@ -384,6 +420,12 @@ The established radius scale is 4 / 8 / 12 / 16 / 24px, with fully rounded pills
 
 Borders are thin separators and control boundaries. Tables use row hairlines rather than full cell grids. Shape should follow the component recipe: avoid adding conflicting utility classes to simulate a variant that the component already exposes.
 
+## Graphic device
+
+The margin and the mark are the brand's one device, and they are the product's own behaviour made visible ([`docs/brand/06-system.md`](docs/brand/06-system.md) §6). The mark is a highlight under a phrase or beside a passage: the pale sage tint from 62% of the line box down with a sage hairline at the baseline (`.en-mark` in [`globals.css`](frontend/app/globals.css)); on a block it is a 3px sage bar on the left edge with the tint behind (`.en-marked`). The margin is a fixed gutter with a sage hairline on its inner edge holding bracketed marks (`[F1]`, `[1]`) in the data face, each positioned on the line of the in-text marker it twins (`.en-margin`, `.en-margin-mark`; the landing page's [`MarkedCopy`](frontend/features/marketing/components/MarkedCopy.tsx) measures the markers). In dark the tint, hairline, bar and marks take their dark tokens. The hairline stays 2px at every size; the margin is 44px from `sm` and 36px on phones; marks are 11px, the one place the dense annotation size is allowed beside copy, because a mark is a twin of a marker and never carries a claim of its own.
+
+**The Marked Copy Rule.** A mark means "located in the filing" and a bracket means "cited"; one highlight per surface may sit under a phrase of ours as the brand's signature, and none ever sits on a figure, a price, an unverified claim or a competitor's name. The margin appears only beside text that carries at least one marker, never as decoration, and the filing's words inside a marked block keep the filing's voice.
+
 ## Components
 
 Components are **refined, readable and quietly confident**. Reuse [`components/ui`](frontend/components/ui) and its supported variants. The sidecar's ten samples are static, dependency-free visual translations; they do not replace the React components, form guards, routing, sorting or dialog focus management.
@@ -396,27 +438,37 @@ Components are **refined, readable and quietly confident**. Reuse [`components/u
 - **Destructive:** error fill with white label; darker error hover and active states. Preserve its error focus ring.
 - **Focus and busy:** use the shared focus recipe. Loading keeps the resting appearance, adds a spinner and `aria-busy`, and refuses repeated activation. Controls made unavailable by their own request stay focusable using the established `aria-disabled`/handler guards. A form that locks its text fields while submitting uses `readOnly` rather than native `disabled`; the contact form does, while login and registration leave fields editable. Native disabled styles exist for other unavailable states.
 
+A single-choice toggle group is the [`SegmentedControl`](frontend/components/ui/SegmentedControl.tsx): a panel shell with a hairline, 8px segments with semibold labels (12px at the 26px height, 14px at 36px), the pressed segment in the primary colorway (navy label on light sage in dark mode), and codes such as 10-K in the data face. Its options are all visible, so it is a group of pressed buttons rather than tabs or radios. On a phone, a full-width control spans its row with 36px segments and wraps whole segments onto another row when they do not fit; a label never breaks. Options unavailable before selection can remain visible in the native disabled state.
+
 [`Button.tsx`](frontend/components/ui/Button.tsx) also exports `buttonVariants` for real links styled as buttons. Standard color feedback uses the fast motion token. Spinner animation remains the existing utility with a reduced-motion fallback; this document introduces no new timing for it.
 
 ### Chips
 
-Pill-shaped, 12px semibold labels with 10px horizontal and 2px vertical padding. Brand/pro variants use the sage tint and hairline; only pro uppercases its label. Solid chips use deep sage with white labels in light mode and navy labels on light sage in dark mode. Quiet chips, info/warning tints and gain/loss chips keep their distinct meanings. `new` adds the existing warning-tint pulse dot, which becomes static for reduced motion.
+Pill-shaped, 12px semibold labels with 10px horizontal and 2px vertical padding. Brand/pro variants use the sage tint and hairline; only pro uppercases its label. Solid chips use deep sage with white labels in light mode and navy labels on light sage in dark mode. Quiet chips, info/warning tints and gain/loss chips keep their distinct meanings. `new` adds the existing warning-tint pulse dot, which becomes static for reduced motion. A form code (10-K, 10-Q, 6-K) is never a chip: it is text in the data face.
+
+Icons are Phosphor through `lib/icons`, in `currentColor`; three glyphs are reserved: the quotes glyph for a filing passage, the braces for an XBRL fact, and the sparkle for the AI summary chip alone. Section headings carry no icon. The brand uses no photography and no illustration: its images are the filing's identity line, a figure with its fact, a quoted passage with its mark, a tally, and real product components fed verified data ([`docs/brand/06-system.md`](docs/brand/06-system.md) §4 and §5).
+
+The provenance chip ([`SourceTrace`](frontend/features/filings/components/SourceTrace.tsx)) is its own recipe: 12px/500 in the data face, 20px tall, a hairline on the panel fill with secondary ink, a quotes glyph for a filing passage and braces for an XBRL figure. The chip the open research pane is answering takes the sage tint, whether the pane shows its passage or says why it cannot.
 
 ### Cards / Containers
 
 The base [`Card`](frontend/components/ui/Card.tsx) supplies shape, fill, border and elevation, but **no internal padding**. `CardHeader` and `CardBody` add 20px horizontal / 16px vertical padding; `CardFooter` uses 20px / 12px. Titles are sentence-case 14px semibold headings. Set `as`, `interactive`, `elevation` and `radius` through the API; an interactive appearance alone does not supply link or button semantics.
 
+The filing summary is a document rather than a stack of cards: its sections sit on the page ground under section titles, and hairlines live inside the content. A callout inside a section is an inset well ([`Callout`](frontend/features/summaries/components/Callout.tsx)): panel fill, one hairline, the 8px radius and no shadow, with its tone carried by the label word. A thick left border on a rounded container, the side-tab stripe, is not part of the system.
+
+A list of primary documents is one surface ([`FilingIndex`](frontend/features/filings/components/FilingIndex.tsx)): hairline rows and year groups inside the section card, one link per row named by its form, period and filed date, the original on EDGAR as a sibling link, and no per-form color. The company page leads with the filing page's identity vocabulary ([`CompanyIdentity`](frontend/features/companies/components/CompanyIdentity.tsx)) and its one primary action, opening the latest filing; the watchlist sits beside it as a secondary button. Beside the filings, the Compare periods card ([`ComparePeriodsCard`](frontend/features/filings/components/ComparePeriodsCard.tsx)) previews the newest annual report's change report in that report's own vocabulary and links to it. The hero headline's accent phrase carries the mark (`.en-mark`) on primary ink, not sage ink; the hero example's evidence row is a marked block in the filing's face with its margin mark. The homepage example ([`HeroExample`](frontend/features/marketing/components/HeroExample.tsx)) is the product on one surface: the filing's identity, the summary's opening, a hairline strip of figures and one evidence row, with no frame mockup or card inside the card; plain trust statements sit under the hero.
+
 ### Inputs / Fields
 
-[`Input.tsx`](frontend/components/ui/Input.tsx) shares a bright white light fill and translucent white dark fill, 12px radius, hairline and 14px text. Standard padding is 10px vertical / 14px horizontal. Search fields explicitly reserve 44px on the leading side for their icon. Hover strengthens the border; focus shows the brand border/ring. Invalid fields use the error treatment with an associated error message. The composer textarea is transparent inside its own field shell to avoid double borders.
+[`Input.tsx`](frontend/components/ui/Input.tsx) shares a bright white light fill and translucent white dark fill, 12px radius, hairline and 14px text. Standard padding is 10px vertical / 14px horizontal. Search fields explicitly reserve 44px on the leading side for their icon. The password field reserves 40px on the trailing side for its reveal toggle. A search field reserves the same 40px for its 16px busy spinner, whether or not it is busy, and marks itself busy while it loads; the spinner never covers typed text. A company search result names the filing a pick lands on: under the company and its ticker, one data-face line in the filing identity's vocabulary ("Latest 10-K · fiscal year ended … · filed … · summary ready"). Hover strengthens the border; focus shows the brand border/ring, and only that ring: every field resets the forms plugin's own blue focus ring. An invalid field takes the error tone in place of that one, with an associated error message: an error border that holds on hover, and the error ring on focus. A toolbar field beside a segmented control, and a field inside a table row, use the compact density: 36px tall from `sm` up, keeping the standard 42px field height on phones. A select reserves 36px on its trailing side for its chevron. A select beside its label, in a toolbar or in a table cell sizes to its content, capped at its container, rather than filling the row. The composer textarea is transparent inside its own field shell to avoid double borders; the shell shows the brand border and ring while anything in it has focus, hovered or not.
 
 ### Navigation
 
-[`Header.tsx`](frontend/components/Header.tsx) uses a sticky, translucent page-ground strip and hairline with 14px medium-weight links. Desktop links have a 32px gap, secondary ink at rest, primary ink on hover and a visible brand focus ring. The header currently does not implement a route-active link color; do not invent one in this snapshot. Below `lg`, links move into the collapsible menu and the menu trigger maintains a 44px minimum target. Logo and theme toggle belong to the shared header.
+[`Header.tsx`](frontend/components/Header.tsx) uses a sticky, translucent page-ground strip and hairline with 14px medium-weight links. Desktop links have a 32px gap, secondary ink at rest, primary ink on hover and a visible brand focus ring. Every header control (logo, links, theme toggle, the account and notification menus and their items, the mobile menu button and its links) shows that ring on keyboard focus, never the browser's outline. The header currently does not implement a route-active link color; do not invent one in this snapshot. Below `lg`, links move into the collapsible menu and the menu trigger maintains a 44px minimum target. Logo and theme toggle belong to the shared header.
 
 ### Data tables and charts
 
-[`DataTable.tsx`](frontend/components/ui/DataTable.tsx) supports comfortable and compact density, row hairlines, optional sticky columns, right-aligned mono numeric cells, sorting, loading, empty and error states. Sort controls are buttons; `aria-sort` belongs to the header cell. Financial tones come from the existing helpers. Chart captions, axes and tooltips keep their theme-aware styles; use the categorical sequence described in Colors.
+[`DataTable.tsx`](frontend/components/ui/DataTable.tsx) supports comfortable and compact density, row hairlines, optional sticky columns, right-aligned mono numeric cells, sorting, loading, empty and error states. Ordinary rows brighten to white on light hover and use a translucent white tint on dark hover. With the sticky first column enabled, its body cells retain the opaque dark panel fill on hover so scrolled values cannot show through; their light hover still brightens to white. Sort controls are buttons; `aria-sort` belongs to the header cell. Financial tones come from the existing helpers. Chart captions, axes and tooltips keep their theme-aware styles; use the categorical sequence described in Colors. The summary's Financial Highlights ([`FinancialMetricsTable.tsx`](frontend/features/summaries/components/FinancialMetricsTable.tsx)) stacks each metric into one card below `md` (768px) — name with its XBRL chip, the current, prior and change figures under eyebrow labels in the data face, then the takeaway with its chip — and keeps the DataTable unchanged from `md` up; both presentations are rendered and switched by CSS, so the inactive one is `display:none` (out of the accessibility tree and the tab order) and the active one carries the caption (the table's `<caption>`, the list's `aria-label`).
 
 ### Dialogs and evidence
 
@@ -424,7 +476,13 @@ Use [`Modal.tsx`](frontend/components/ui/Modal.tsx) for ordinary dialogs: transl
 
 The signature evidence treatment is a compact citation/source chip attached to a figure or passage, with a route to inspect its source. [`CopilotMessage.tsx`](frontend/features/filings/components/copilot/CopilotMessage.tsx) is the production Ask answer renderer. A source match describes attribution within its stated scope; it must not imply that every claim in an answer was verified. Keep citation labels and evidence states faithful to the renderer.
 
-Motion supports state changes and reading continuity. The source has fast (150ms), base (200ms), slow (600ms) and ambient (1800ms) timings; standard easing is the default and pop easing is reserved for the success check. These live in CSS variables with a JS mirror. The convention is a reduced-motion fallback for every animation: the `globals.css` animation classes guard themselves, and shimmer, count-up, citation highlighting and chart drawing have fallbacks. Some Tailwind animation utilities are not yet guarded, notably the `animate-fade-up` entrances on the login form, registration form and auth shell, the Copilot streaming `animate-pulse` indicators and standalone `animate-spin` loaders. Give new animation a fallback and keep the existing ones. Motion values and breakpoints belong in the sidecar, not new frontmatter groups.
+**The Calculation Provenance Rule.** A calculation describes a figure’s origin, not a failed check. Multi-period analysis uses a neutral † for calculated figures and lettered data notes grouped by their underlying reasons. A figure opens its source, calculation and applicable note in the shared Modal. Only unresolved source concerns use warning ink; missing validation makes no passed-check claim. An unavailable table value is — with its note letter, explained as “Unavailable” in the evidence view and exports. Values and comparisons are counted separately, including inherited concerns. A hairline Data notes disclosure places each note’s letter beside its reason, affected periods and counts. Headline metrics form a two-up phone and four-up desktop definition list: shared rows align the metric labels, source-linked values and independently wrapping period/delta line. An older populated metric states its actual period and “latest available”. Analysis tables keep equal rem-based period columns, semantic sticky row headers and a named keyboard scroll region. Dark sticky row headers retain their opaque panel fill during hover. Mandatory column snapping includes trailing space for a whole-column scroll range. The reader can show all periods, the newest six or the earliest six without changing charts, headline figures or exports. Table figures use compact display precision when needed to keep amounts and note marks together; the rounding disclosure directs readers to full-precision evidence. Charts mark affected observations with hollow points or outlined bars and note letters, and their PNG notes use the same grouped reasons. Chart lines break at gaps. Evidence dialogs separate display precision, exact supplied values, methods, checks and recorded lineage. Narrative amounts use financial display forms while preserving meaningful differences; operand lists live in expandable evidence disclosures. A compact period selector offers presets and bounded From/To ranges. Source dates, definitions and material gaps travel with exports.
+
+The calculation states above were added from source in October 2026; their focused component and export tests do not by themselves establish visual acceptance in both themes.
+
+The filing page states its filing once, as a signpost ([`FilingIdentity`](frontend/features/filings/components/FilingIdentity.tsx)): company and ticker, then one data-face line of form, period of report (an 8-K's event date), filed date, exchange and the original on SEC EDGAR, followed by a verification tally in scoped words that counts only what the server could check ("checkable figures matched the company's XBRL", "located in the filing text", "withheld"). Risks are evidence rows: a heading cut from the excerpt, the excerpt in blockquote manners and its chip. The research pane is named for the source: "Source", with the tabs Filing · Ask; it is a dialog only where it is a bottom sheet, below `lg`, and a complementary pane beside the summary from `lg` up.
+
+Motion supports state changes and reading continuity. The source has fast (150ms), base (200ms), slow (600ms) and ambient (1800ms) timings; standard easing is the default and pop easing is reserved for the success check. These live in CSS variables with a JS mirror. Every animation stops under reduced motion: the `globals.css` animation classes guard themselves, each Tailwind animation utility carries its reduced-motion guard (a lint rule holds new ones to it), and count-up, citation highlighting and chart drawing have their own fallbacks. A spinner becomes its static glyph, a skeleton a static bone, an entrance shows at once. A loading page is never a full-page spinner: it renders its own header over bones in the shapes of the cards that will replace them, and the content crossfades in on arrival. Motion values and breakpoints belong in the sidecar, not new frontmatter groups.
 
 ## Do's and Don'ts
 
@@ -438,6 +496,7 @@ Motion supports state changes and reading continuity. The source has fast (150ms
 - **Do** keep keyboard focus visible and controls focusable during their own pending action.
 - **Do** scope claims about source matching to what the implementation actually establishes.
 - **Do** regenerate the Markdown and sidecar together after relevant implementation changes.
+- **Do** use the margin and the mark where a passage was located or a figure cited, and keep the filing's words in the filing's face inside a marked block.
 
 ### Don't:
 
@@ -448,3 +507,5 @@ Motion supports state changes and reading continuity. The source has fast (150ms
 - **Don't** apply the filing reader's serif to AI summaries or cap pane-filling summaries to a prose rail.
 - **Don't** treat illustrative sidecar markup as production tokens or behavior, or add synthetic tonal ramps to the sidecar.
 - **Don't** create another dialog primitive or remove existing reduced-motion fallbacks.
+- **Don't** put a thick left stripe on a rounded container or set a form code as a chip; callouts are inset wells and forms are data-face text.
+- **Don't** put the mark on a figure or a status, draw a margin without a marker, or scale the device's hairline with the type.

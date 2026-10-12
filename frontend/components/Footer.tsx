@@ -1,6 +1,7 @@
 import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import Link from 'next/link'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
+import CookieSettingsButton from '@/components/CookieSettingsButton'
 import { ENABLE_ANALYSIS, ENABLE_CALENDAR } from '@/lib/featureFlags'
 
 type FooterLink = { label: string; href: string }
@@ -33,12 +34,15 @@ export default function Footer() {
   return (
     <footer className="border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid gap-10 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
+        {/* The footer opens its own outline section, so its column titles (h3) never follow a page
+            whose content ends at h1 (the 404, /analysis, /search) with a skipped level. */}
+        <h2 className="sr-only">Site links</h2>
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
           {/* Brand column */}
           <div>
             <EarningsNerdLogo variant="icon-only" iconClassName="h-8 w-8" mode="auto" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-              Explore SEC filings with AI-assisted summaries.
+              The summary that shows its work.
             </p>
           </div>
 
@@ -59,6 +63,11 @@ export default function Footer() {
                     </Link>
                   </li>
                 ))}
+                {category === 'Legal' && (
+                  <li>
+                    <CookieSettingsButton />
+                  </li>
+                )}
               </ul>
             </div>
           ))}
@@ -69,7 +78,7 @@ export default function Footer() {
           <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
             &copy; {CURRENT_YEAR} EarningsNerd. All rights reserved.
           </p>
-          <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
             Data sourced from SEC EDGAR. AI-generated content, for informational purposes only.
             Not investment advice. Not affiliated with the SEC.
           </p>
@@ -81,7 +90,7 @@ export default function Footer() {
             href="https://logo.dev"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline underline-offset-2 hover:text-text-secondary-light dark:hover:text-text-primary-dark"
+            className="underline underline-offset-2 hover:text-text-secondary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             Logo.dev
           </a>

@@ -165,7 +165,7 @@ def _statement_capture():
 def test_unread_count_is_one_aggregate_statement_and_loads_no_rows(client):
     """E10c: with `seen` set, the count is a single SQL aggregate over notification_log; no
     log rows are fetched into Python. (The list itself is bounded by `limit` and loads rows.)"""
-    from app.routers.users import _unread_count
+    from app.services.user_notification_feed_service import unread_count as _unread_count
 
     with _seeded() as s:
         from app.database import SessionLocal
@@ -190,7 +190,7 @@ def test_unread_boundary_is_strict_at_microsecond_precision(client, offset_us, e
     for a naive `seen` (the SQLite shape) and an aware one (the PostgreSQL shape)."""
     from datetime import timezone
 
-    from app.routers.users import _unread_count
+    from app.services.user_notification_feed_service import unread_count as _unread_count
 
     with _seeded() as s:
         from app.database import SessionLocal

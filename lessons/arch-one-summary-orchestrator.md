@@ -61,3 +61,18 @@ pipeline-local asyncio proxy preserves provider deadlines and all cleanup assert
 `test_summary_provider_lifecycle.py::test_pipeline_stops_owned_sdk_task_before_releasing_slot`.
 PR #741's original CI failure and a controlled 150 ms preparation-delay reproduction establish
 the fixture defect; the same delay passes after correction. Production timeouts are unchanged.
+
+**Stage decomposition (2026-10-09)**: `stream_filing_summary` is now a ~60-line stage map over
+`app/services/summary_stages/` (`generation_run.GenerationRun` carries the shared state and the
+former closures; `admission` → `fetch` → `enrichment` → `generation` → `finalize` are the stages,
+`failure` holds the two `except` bodies). This is still ONE orchestrator: the stages are not
+callable generation paths, every consumer drains the same generator, and a stage's terminal event
+(`complete`/`partial`/`error`) ends the pipeline exactly where the inline `yield …; return` did.
+Zero observable change was proven two ways: the characterization anchors
+(`tests/unit/test_summary_pipeline_anchors_*.py`, written against the inline body first) and the
+AST-normalized pure-move proof (`backend/scripts/prove_summary_pipeline_move.py`, residual = the
+prelude reorder only). Add behavior to the owning stage, not to the orchestrator; the collaborator
+seams stay on the pipeline module (`lessons/arch-moved-code-resolves-seams-through-the-patched-module.md`).
+
+Gate: `backend/tests/unit/test_summary_stages_seams.py` (seams, import order, terminal-event
+protocol, orchestrator length, logger identity).

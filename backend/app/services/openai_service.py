@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 from openai import AsyncOpenAI
 from typing import Any, Dict, List, Optional
 from app.config import settings
 from app.schemas.summary import attach_normalized_facts
-from app.services.prompt_loader import get_prompt, get_structured_prompt
+from app.services.prompt_loader import get_prompt, get_structured_prompt  # noqa: F401 - live prompt seams
 import json
 
 # Cohesive helpers/mixins extracted from this module (roadmap S2 façade split). Imported here so
@@ -17,7 +18,7 @@ from app.services.ai.provider_requests import (
     _ProviderRequestsMixin, bounded_summary, close_stream, fallback_client,
 )
 from app.services.ai.recovery_context import RecoveryBlock, clean_filing_source, recovery_blocks
-from app.services.ai.normalize import _normalize_risk_factors, _section_has_content
+from app.services.ai.normalize import _normalize_risk_factors, _section_has_content  # noqa: F401 - retained facade imports
 from app.services.ai.xbrl_narrative import (
     build_xbrl_narrative_section,
     _XBRL_NARRATIVE_SPEC,
@@ -36,14 +37,15 @@ from app.services.ai.acquisition_period import (
     CONTEXT_KEY as ACQUISITION_CONTEXT_KEY, CONTEXT_VERSION as ACQUISITION_CONTEXT_VERSION,
     bind_acquisition_period, clear_model_acquisition_context,
 )
-from app.services.ai.attribution_gate import apply_attributions, find_attributions
-from app.services.ai import attribution_verify
-from app.services.ai.forward_quote_gate import gate_forward_quotes
-from app.services.ai.statement_relationship import (
+from app.services.ai.attribution_gate import apply_attributions, find_attributions  # noqa: F401 - retained facade imports
+from app.services.ai import attribution_verify, summary_finalize, summary_prompt
+from app.services.ai.summary_finalize import _segments_not_applicable as _segments_not_applicable
+from app.services.ai.forward_quote_gate import gate_forward_quotes  # noqa: F401 - retained facade imports
+from app.services.ai.statement_relationship import (  # noqa: F401 - retained facade imports
     CONTEXT_KEY as STATEMENT_CONTEXT_KEY, CONTEXT_VERSION as STATEMENT_CONTEXT_VERSION,
     OWNED_FIELD as STATEMENT_OWNED_FIELD, bind_statement_relationship, display_statement_paragraphs,
 )
-from app.services.ai.issuer_cash_disclosure import (
+from app.services.ai.issuer_cash_disclosure import (  # noqa: F401 - retained facade imports
     CONTEXT_KEY as ISSUER_CASH_CONTEXT_KEY, CONTEXT_VERSION as ISSUER_CASH_CONTEXT_VERSION,
     SOURCE_KEY as ISSUER_CASH_SOURCE_KEY, OWNED_FIELD as ISSUER_CASH_OWNED_FIELD, bind_issuer_cash_disclosure,
 )
@@ -54,10 +56,10 @@ from app.services.ai.source_units import (
     attach_quote_unit_context, build_table_unit_index, capital_plan_proposition,
     restore_authored_plan_units, restore_table_cell_units,
 )
-from app.services.ai.reconciliation_directions import (
+from app.services.ai.reconciliation_directions import (  # noqa: F401 - retained facade imports
     AUDIT_KEY as RECONCILIATION_AUDIT_KEY, strip_reconciliation_metadata, withhold_reconciliation_directions,
 )
-from app.services.ai.tax_rate_explanation import (
+from app.services.ai.tax_rate_explanation import (  # noqa: F401 - retained facade imports
     AUDIT_KEY as TAX_EXPLANATION_AUDIT_KEY, strip_tax_explanation_metadata, withhold_tax_rate_explanation,
 )
 from app.services.ai.json_repair import _JsonRepairMixin
@@ -69,7 +71,7 @@ from app.services.metric_delta_service import (
     bind_exact_xbrl_deltas,
 )
 from app.services.summary_sections import render_sections, sections_to_markdown
-from app.services.provenance_service import (
+from app.services.provenance_service import (  # noqa: F401 - retained facade imports
     RISK_PROJECTION_KEY,
     RISK_SOURCE_CONTEXT_KEY,
     RISK_SOURCE_CONTEXT_VERSION,
@@ -81,7 +83,7 @@ from app.services.provenance_service import (
 # V2): the badge counts a stored row against ITS OWN schema_version, so this generation-side constant
 # moving to v2 must not retroactively change how a legacy v1 row is scored. Single source of truth
 # for the v2 names lives in summary_schema.
-from app.services.summary_schema import (
+from app.services.summary_schema import (  # noqa: F401 - retained facade imports
     EARNINGS_RECONCILIATION, FINANCIAL_DRIVER, FINANCIAL_EXPLANATION_SUPPORT, REPORTED_METRIC_LABEL,
     SOURCE_UNIT_CONTEXT_KEY, SOURCE_UNIT_CONTEXT_VERSION,
 )
@@ -89,22 +91,6 @@ from app.services.summary_schema import TRACKED_SECTIONS_V2 as _TRACKED_STRUCTUR
 from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
 
 logger = logging.getLogger(__name__)
-
-
-def _segments_not_applicable(coverage_map: Dict[str, bool], xbrl_metrics: Optional[Dict]) -> List[str]:
-    """T5.2b N/A marker (staff-review rider on #616): `segments` is machine-authored — code is its ONLY
-    author — so an empty segments section post-fallback means the filing has no reportable segment table
-    BY DESIGN (single-segment / undimensioned / bank), and the quality verdict may exclude it from the
-    badge DENOMINATOR (a genuinely single-segment filer reads 8/8, not a misleading 8/9).
-
-    Claimed ONLY when standardized XBRL actually arrived (staff review #617): `not covered` is also true
-    when the XBRL fetch collapsed (the recurring EdgarTools-timeout mode) — a world where the filer may
-    well HAVE reportable segments we simply could not author. Marking that N/A would UPGRADE a degraded
-    run's badge to a clean 8/8 (the mirror image of the misleading-badge problem this fixes) and shrink
-    the tail the P0-2 partial-verdict counter measures. No XBRL → no claim → total stays 9."""
-    if xbrl_metrics and not coverage_map.get("segments"):
-        return ["segments"]
-    return []
 
 
 class OpenAIService(
@@ -238,7 +224,7 @@ class OpenAIService(
         in; the COMPLETE content is then assembled through the same path as the non-streaming branch,
         so both use the same assembly. Transient streaming failures discard buffered content and
         retry non-streaming within the shared deadline; callback errors remain best-effort."""
-        from fastapi.concurrency import run_in_threadpool
+        from app.services.request_work import run_owned_sync as run_in_threadpool
 
         filing_type_key = (filing_type or "10-K").upper()
         
@@ -258,201 +244,9 @@ class OpenAIService(
         # Explicit clean up
         del parsing_result
 
-        config = self._get_type_config(filing_type_key)
-        # W3-8b: a 6-K carries the deterministic pre-classifier's class so the class variant prompt
-        # is used; other forms ignore it.
-        prompt_template = get_prompt(filing_type_key, sixk_class=sixk_class)
-
-        # Roadmap 2.6 Phase B: the grounding block is built by the module-level
-        # `build_xbrl_narrative_section` (testable, behavior-preserving). It now also surfaces the
-        # full cash-flow statement (investing/financing) + working-capital lines when present.
-        xbrl_section = build_xbrl_narrative_section(xbrl_metrics)
-
-        data_summary = f"""
-EXTRACTED FINANCIAL SIGNALS:
-- Revenue figures: {', '.join(financial_data['revenue'][:3]) if financial_data['revenue'] else 'Not observed'}
-- Net income figures: {', '.join(financial_data['net_income'][:3]) if financial_data['net_income'] else 'Not observed'}
-- Cash flow figures: {', '.join(financial_data['cash_flow'][:3]) if financial_data['cash_flow'] else 'Not observed'}
-- Key segments: {', '.join([f"{seg[0]}: {seg[1]}" for seg in financial_data['segments'][:3]]) if financial_data['segments'] else 'Not observed'}
-- Guidance references: {', '.join(financial_data['guidance'][:2]) if financial_data['guidance'] else 'Not observed'}
-{xbrl_section if xbrl_section else ''}
-""".strip()
-
-        focus_guidance = {
-            "10-Q": [
-                "- Highlight sequential and year-on-year momentum for this quarter.",
-                "- Connect quarterly execution to full-year guidance and structural themes.",
-                "- Call out liquidity, leverage, and any covenant or contingency disclosures that are material to near-term risk."
-            ],
-            "10-K": [
-                "- Evaluate year-long shifts in growth, profitability, cash generation, and capital allocation."
-            ]
-        }
-        analysis_focus_lines = focus_guidance.get(filing_type_key, focus_guidance["10-K"])
-
-        schema_template = """{
-  "metadata": {
-    "company_name": "<non-empty string>",
-    "filing_type": "<non-empty string>",
-    "reporting_period": "<non-empty string>",
-    "filing_date": "<non-empty string>",
-    "currency": "<non-empty string>",
-    "has_prior_period": <bool>
-  },
-  "sections": {
-    "the_print": {
-      "headline": "<one sentence: the single most important takeaway, leading with the headline figure; apply the supported financial-driver condition below>",
-      "key_takeaways": [
-        "<2-4 high-signal takeaways; echo AT MOST the 2-3 headline figures (revenue, net income, EPS); apply the supported financial-driver condition below>",
-        "... (use ['Not disclosed—explain why'] if no validated bullets)"
-      ],
-      "what_changed": "<financial_driver>",
-      "tone": "<positive|neutral|cautious>",
-      "source_section_ref": "<e.g., 'Cover page' or 'Item 2. MD&A'>"
-    },
-    "results_that_matter": {
-      "table": [
-        {
-          "metric": "<reported_metric_label>",
-          "current_period": "<non-empty string>",
-          "prior_period": "<non-empty string>",
-          "change": "<non-empty string; state margin changes in percentage points>",
-          "commentary": "<financial_driver>",
-          "supporting_evidence": "<a SHORT VERBATIM quote of NARRATIVE PROSE from the filing that backs this driver — a sentence or contiguous sentence fragment, copied CHARACTER-FOR-CHARACTER so it can be located in the text; NEVER a transcription of table rows or cells (the columns above already carry the figures), and NEVER a sentence you compose yourself to restate figures — the span must exist in the filing; use '' if the filing has no prose line to quote>"
-        }
-      ],
-      "source_section_ref": "<e.g., 'Item 1. Financial Statements'>"
-    },
-    "earnings_quality": {
-      "operating_vs_one_time": "<earnings_reconciliation>",
-      "red_flags": ["<a specific quality flag, e.g. receivables growing faster than sales; leave empty if none>"],
-      "source_section_ref": "<e.g., 'Item 8' or 'Statements of Cash Flows'>"
-    },
-    "value_drivers": {
-      "capital_allocation": {"filing_statements": ["<copy a complete, contiguous VERBATIM passage explaining financing or capital allocation; no inferred funding/comparison claims. Monetary amounts must include their explicit thousand/million/billion scale in the passage; otherwise select qualitative prose. Leave empty if none>"]},
-      "highlights": ["<copy a contiguous VERBATIM passage about a newly authorized repurchase program, dividend policy change or announced acquisition; preserve explicit amount scales; no paraphrase. Leave empty if none>"],
-      "source_section_ref": "<e.g., 'Item 7' or 'Statements of Cash Flows'>"
-    },
-    "forward_signals": {
-      "guidance": "<guidance exactly as the filing states it (raised/cut/maintained/not given); if none, say so and why it matters>",
-      "known_trends": ["<an Item 303 known trend or uncertainty>"],
-      "subsequent_events": ["<a material event after period end>"],
-      "quotes": [
-        {
-          "speaker": "<non-empty string>",
-          "quote": "<copied CHARACTER-FOR-CHARACTER from the filing so it can be located by exact search — never substitute, add, drop, or re-tense a word; to shorten, choose a shorter CONTIGUOUS span, never remove words inside it; forward-looking or unusual statements only; include a quote ONLY if you can copy it exactly — leave the quotes array empty otherwise>",
-          "context": "<e.g., 'MD&A, Item 2'>"
-        }
-      ],
-      "tone": "<positive|neutral|cautious>",
-      "source_section_ref": "<e.g., 'Item 7. MD&A - Outlook'>"
-    },
-    "risks": [
-      {
-        "summary": "<non-empty string, tied to a specific line item or disclosed fact>",
-        "supporting_evidence": "<non-empty excerpt or citation>",
-        "materiality": "<low|medium|high>",
-        "source_section_ref": "<e.g., 'Item 1A. Risk Factors'>"
-      }
-    ],
-    "segments": [
-      {
-        "segment": "<copy a segment name EXACTLY as listed under REPORTABLE SEGMENTS in the data summary>",
-        "commentary": "<supported one-line interpretation for that segment, or the supported movement alone when the filing states no cause — NEVER restate this segment's own revenue, operating income, or YoY change (the deterministic figure table carries them); finer-grained product/sub-segment facts are welcome as the filing discloses them>"
-      }
-    ],
-    "balance_sheet_liquidity": {
-      "leverage": "<total debt vs cash / equity; net position>",
-      "liquidity": "<cash + available credit; runway>",
-      "working_capital": "<current ratio / working-capital dynamics with YoY direction; skip for unclassified (bank) balance sheets. <financial_driver>>",
-      "maturities_covenants": ["<a debt maturity or covenant detail>"],
-      "source_section_ref": "<e.g., 'Liquidity and Capital Resources'>"
-    },
-    "notable_footnotes": [
-      {
-        "item": "<non-empty string>",
-        "impact": "<non-empty string>",
-        "supporting_evidence": "<a SHORT VERBATIM quote of NARRATIVE PROSE from the footnote text — a sentence or contiguous sentence fragment, copied CHARACTER-FOR-CHARACTER so it can be located in the filing; NEVER a transcription of a footnote table's rows or cells, and NEVER a sentence you compose yourself to restate figures — the span must exist in the footnote; use '' if the footnote has no prose line to quote>",
-        "source_section_ref": "<relevant note reference where possible>"
-      }
-    ]
-  }
-}"""
-
-        schema_template = (schema_template.replace("<reported_metric_label>", REPORTED_METRIC_LABEL)
-                           .replace("<financial_driver>", FINANCIAL_DRIVER)
-                           .replace("<earnings_reconciliation>", EARNINGS_RECONCILIATION))
-
-        output_reference = ""
-        if prompt_template.user:
-            output_reference = (
-                "\n\nOUTPUT REFERENCE (use for content coverage; respond in JSON schema below):\n"
-                f"{prompt_template.user}\n"
-            )
-
-        # Roadmap S1 (flagged): in structured-output mode use the schema-first prompt (which
-        # omits the narrative "produce a cohesive markdown summary / 600-1000 words" block that
-        # contradicts the JSON demand). Off → current behavior, unchanged.
-        structured_mode = settings.USE_STRUCTURED_OUTPUT
-        analyst_preamble = (
-            get_structured_prompt(filing_type_key) if structured_mode else prompt_template.system
-        )
-
-        prompt = f"""{analyst_preamble}
-
-You are a forensic financial analyst preparing structured briefing materials for newsroom editors.
-
-Company: {company_name}
-Filing type: {filing_type}
-
-Use the extracted context below to populate quantitative and qualitative data. Focus on concrete, verifiable metrics and management disclosures. Avoid prose paragraphs; capture facts in concise data fields.
-
-Guidance for emphasis:
-- {" ".join(analysis_focus_lines)}
-- {FINANCIAL_EXPLANATION_SUPPORT}
-- If prior-period data is unavailable, set related fields to "Not disclosed" and mark "has_prior_period": false.
-
-{data_summary}
-
-CRITICAL FILING EXCERPTS:
-{filing_sample}
-
-{output_reference}
-
-Return ONLY valid JSON (no markdown fences) that matches this schema (replace placeholders with actual values or meaningful nulls). Every string must contain substantive content—never emit blank strings or placeholder tokens, except `results_that_matter.table[].supporting_evidence` and `notable_footnotes[].supporting_evidence`, which must be "" when no exactly-copyable prose span exists. Arrays must never be empty (exceptions: `results_that_matter.table` is empty when no reported metric is substantiated; `segments` is OMITTED entirely when no segments are listed, and `red_flags` / `highlights` / `quotes` are left EMPTY when nothing qualifies — a quote you cannot copy exactly does NOT qualify; no filler); otherwise, if no verifiable bullet exists, supply a single-element array with "Not disclosed—<concise reason>":
-{schema_template}
-
-Rules:
-- OBJECTIVITY: Use neutral, factual language. Do NOT use promotional or subjective adjectives (e.g. strong, robust, solid, healthy, surged, soared, plunged, record, exceptional, impressive, fortress); state magnitude and direction with figures instead (e.g. "increased 14% YoY"). Such words are permitted ONLY inside a direct, attributed management quote.
-- Populate ONLY the nine sections defined in the schema above (the_print, results_that_matter, earnings_quality, value_drivers, forward_signals, risks, segments, balance_sheet_liquidity, notable_footnotes). Do not invent additional section keys. `segments` is COMMENTARY-ONLY: its figure table (revenue, operating income) is filled deterministically from XBRL — emit one row per segment listed under REPORTABLE SEGMENTS in the data summary (name copied EXACTLY; a row whose name is not on that list is discarded), and omit the section entirely when no segments are listed.
-- ONE HOME PER NUMBER — do not restate the same figure across sections. Each specific $-amount or %-change belongs in ONE home: reported P&L figures in results_that_matter ({REPORTED_METRIC_LABEL}); earnings-quality figures (supported reported/adjusted earnings description) in earnings_quality — the cash-conversion read (NI-vs-CFO, free cash flow) is filled deterministically from XBRL, so do NOT restate the cash-flow $ legs here; the cash-flow statement bridge (operating/investing/financing cash flow) and balance-sheet/liquidity figures (working capital, current ratio) in balance_sheet_liquidity; capital-allocation figures belong to value_drivers, where the shareholder-returns line (dividends, buybacks, capex) and the returns read (ROE/ROA) are filled deterministically from XBRL — do NOT restate those $ amounts or ratios; give the value read qualitatively; the per-segment table (segment revenue / operating income) is filled deterministically from XBRL — segment commentary must never restate the segment's own $ figures or YoY %-change (the table carries them); finer-grained product/sub-segment facts as the filing states them are permitted. the_print may echo AT MOST the 2-3 headline figures (revenue, net income, EPS). Every OTHER section may add a driver, significance or inflection only when the filing supports it on the same basis; otherwise retain the supported movement without an invented explanation. Reference a number qualitatively (e.g. "margins widened on the services mix") rather than re-quoting a $-amount or %-change already stated in its home section. Never drop a figure to comply; relocate it to its home. Figures inside a direct, attributed management quote are exempt — never alter or truncate a quote to comply.
-- Keep monetary values human-readable (e.g., "$17.7B", "$425M", "$912M").
-- Express percentage changes with one decimal place where available (e.g., "up 8.3% YoY").
-- For arrays, include 1-4 high-signal, evidence-backed bullets ordered by materiality. If nothing qualifies, return ["Not disclosed—<concise reason>"] instead of leaving the array empty — EXCEPT `results_that_matter.table` when no reported metric is substantiated, and `red_flags`, `highlights`, and `quotes`, which are left empty when nothing qualifies (a "Not disclosed" bullet under populated figures reads self-contradictory, and a quote you cannot copy character-for-character never qualifies).
-- Empty sections are unacceptable (except `segments`, omitted entirely when none are listed, and `results_that_matter.table` when no reported metric is substantiated). Do not fabricate data; explain the absence using the Not disclosed pattern when required.
-- VERBATIM COPYING — applies to every `quotes[].quote` and to `supporting_evidence` in `results_that_matter` and `notable_footnotes` (risks `supporting_evidence` keeps its own contract: a verbatim excerpt OR a citation/XBRL reference — never empty): copy the span CHARACTER-FOR-CHARACTER from the filing text so it can be located by exact search. Never substitute, add, drop, or re-tense a word; shorten ONLY by choosing a shorter contiguous span. Example (illustrative only — NOT from the filing you are summarizing): a filing says "We anticipate the Meridian platform will enter volume production in fiscal 2028." RIGHT: "We anticipate the Meridian platform will enter volume production" (a shorter contiguous span). WRONG: "We expect the Meridian platform to enter volume production" (words substituted). WRONG: "We anticipate the Meridian platform will enter production" (a word removed inside the span). If no exactly-copyable line exists, leave `quotes` empty and set that `supporting_evidence` to "".
-- EVIDENCE IS PROSE — `supporting_evidence` in `results_that_matter` and `notable_footnotes` must be NARRATIVE PROSE: a sentence or a contiguous sentence fragment, never a transcription of table rows or cells (a bare metric label followed only by its figures). A table has no single linear text form, so a row transcription can never be located by exact search and is discarded downstream; the table columns already carry those figures. A prose sentence that contains figures is fine — that is exactly the desired evidence. COPY, don't COMPOSE: the `supporting_evidence` span must EXIST in the filing text — never write a sentence of your own that restates figures, however accurate; a composed sentence cannot be located by exact search, making it fabricated evidence — worse than the honest "". Example (illustrative only — NOT from the filing you are summarizing): a filing says "Demand for the Meridian platform exceeded our production capacity during the period." RIGHT: "Demand for the Meridian platform exceeded our production capacity" (an existing span, shortened only to a contiguous span). WRONG: "Meridian demand exceeded capacity" (a sentence you composed — it does not exist in the filing and cannot be located by exact search).
-- Provide supporting evidence excerpts for each risk factor (direct quote or XBRL tag reference), and when possible populate `source_section_ref` with the most relevant 10-Q section (for example: "Item 1A. Risk Factors", "Item 2. MD&A")."""
-
-        create_kwargs: Dict[str, Any] = dict(
-            model=self.get_model_for_filing(filing_type_key),
-            messages=[
-                {"role": "system", "content": (
-                    "You are a structured data extraction engine for financial journalism. "
-                    "You never write narrative prose. You output STRICT RFC8259 COMPLIANT JSON. "
-                    "ALL keys and strings must use DOUBLE QUOTES. No trailing commas. "
-                    "Adhere strictly to the requested schema. "
-                    "Fill in 'Not disclosed' when data is missing, except "
-                    "results_that_matter.table[].supporting_evidence and "
-                    "notable_footnotes[].supporting_evidence: use an empty string "
-                    "when no exactly-copyable prose span exists. "
-                    "Never invent prior-period figures."
-                )},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.1 if structured_mode else 0.2,
-            max_tokens=config.get("max_tokens", 1500),
-            response_format={"type": "json_object"},
+        create_kwargs: Dict[str, Any] = summary_prompt.build_primary_request(
+            self, sys.modules[__name__], filing_type_key, sixk_class, xbrl_metrics,
+            financial_data, company_name, filing_type, filing_sample,
         )
         # Only the supplied excerpt owns this correction on both preview and final paths.
         layout = self._SECTION_LAYOUT.get(filing_type_key.removesuffix("/A"), self._SECTION_LAYOUT["10-K"])
@@ -691,7 +485,7 @@ Rules:
         sixk_class: Optional[str] = None,
         sixk_class_audit: Optional[Dict] = None,
     ) -> Dict:
-        """Generate newsroom-ready summary using structured extraction + editorial writer phases.
+        """Generate a newsroom-ready summary: one structured extraction, rendered without a second provider call.
 
         ``stream_cb`` opts into progressive previews. The provider request policy owns bounded
         transient retries; exhausted/authentication failures retain the existing error contract.
@@ -707,529 +501,57 @@ Rules:
                 **({"statement_source": statement_source} if statement_source else {}),
                 **({"sixk_class": sixk_class} if sixk_class else {}),
             )
-
         except asyncio.TimeoutError:
             # The single orchestrator owns deterministic partial fallback on deadline exhaustion.
             raise
         except Exception as extraction_error:
-            error_msg = str(extraction_error)
-            logger.error(f"Structured extraction error: {error_msg}")
-            return {
-                "status": "error",
-                "message": "We couldn't generate this summary just now. Please try again shortly.",
-                "summary_title": f"{company_name} {filing_type_key} Filing Summary",
-                "sections": [],
-                "insights": {
-                    "sentiment": "Neutral",
-                    "growth_drivers": [],
-                    "risk_signals": []
-                },
-                # Legacy fields
-                "business_overview": "Unable to retrieve this filing at the moment — please try again shortly.",
-                "financial_highlights": {},
-                "risk_factors": [],
-                "management_discussion": "",
-                "key_changes": "",
-                "raw_summary": {"error": "structured_extraction_failed", "detail": error_msg[:500]},
-            }
+            return summary_finalize.extraction_failure(extraction_error, company_name, filing_type_key, logger)
 
-        strip_tax_explanation_metadata(structured_summary)
-        strip_reconciliation_metadata(structured_summary)
-        sections_info = structured_summary.get("sections", {}) or {}
-        # Deterministic taxonomy guard: the model has a strong prior for "standard" sections and will
-        # emit legacy/extra keys (executive_snapshot, three_year_trend, …) alongside the v2 schema no
-        # matter how the prompt forbids it. Keep ONLY the current taxonomy so the stored payload,
-        # coverage snapshot, and render never carry strays — structure enforced by code, not by model
-        # compliance. (The render already ignores non-v2 keys; this also stops the token/JSON waste.)
-        if isinstance(sections_info, dict):
-            sections_info = {
-                key: value for key, value in sections_info.items()
-                if key in _TRACKED_STRUCTURED_SECTIONS
-            }
-            structured_summary["sections"] = sections_info
-        # v2 taxonomy (Tier-3.1): the P&L table lives in `results_that_matter`; risks in `risks`.
-        financial_section = sections_info.get("results_that_matter")
-        # Deterministic guard: for a bank that reports no single revenue line, drop any LLM-authored
-        # conflated "Revenue" row so it can never ship in the table, prose, or stored payload.
-        # `sections_info` is the same object every downstream consumer reads, so reassigning it here
-        # covers the markdown, "Financial Overview", raw payload, and the response column at once.
-        financial_section = _sanitize_bank_financial_highlights(financial_section, xbrl_metrics)
-        financial_section = attach_normalized_facts(financial_section, xbrl_metrics)
-        financial_section = bind_exact_xbrl_deltas(financial_section, xbrl_metrics)
-        if isinstance(sections_info, dict):
-            sections_info["results_that_matter"] = financial_section
+        run = summary_finalize.SummaryRun(
+            structured_summary=structured_summary, company_name=company_name,
+            filing_type_key=filing_type_key, filing_text=filing_text,
+            xbrl_metrics=xbrl_metrics, filing_excerpt=filing_excerpt,
+            statement_source=statement_source, sixk_class=sixk_class, sixk_class_audit=sixk_class_audit,
+        )
+        summary_finalize.prepare_sections(run)
+        summary_finalize.project_risks(run)
+        summary_finalize.measure_forward_quotes(run)
+        summary_finalize.find_summary_attributions(run)
+        run.attribution_verdicts, run.verify_note = await self._verify_attributions(
+            run.attribution_candidates, filing_type_key,
+        )
+        summary_finalize.apply_summary_attributions(run)
+        await summary_finalize.snap_primary_evidence(run, snap_evidence)
+        summary_finalize.bind_final_sources(
+            run, self._SECTION_LAYOUT.get(filing_type_key.removesuffix("/A"), self._SECTION_LAYOUT["10-K"]),
+        )
+        summary_finalize.measure_coverage(run, logger)
+        summary_finalize.build_compatibility_strings(run)
+        summary_finalize.render_summary(run, self._build_structured_markdown)
+        summary_finalize.build_raw_payload(run)
+        summary_finalize.derive_title(run)
+        summary_finalize.build_legacy_cards(run)
+        summary_finalize.build_insights(run)
+        summary_finalize.determine_status(run)
 
-        # A supplied critical excerpt remains the retained decoded-text authority.  On the degraded
-        # no-excerpt path, use the exact bounded, tag-cleaned sample that the model actually saw.
-        # Never compare model evidence with the raw SEC HTML supplied to the parser.
-        prepared_risk_source = structured_summary.pop("_risk_source_grounding", "")
-        risk_source = (
-            filing_excerpt
-            if isinstance(filing_excerpt, str) and filing_excerpt.strip()
-            else prepared_risk_source
-        )
-        raw_risk_section = sections_info.get("risks")
-        if isinstance(raw_risk_section, str):
-            raw_risk_section = [raw_risk_section]
-        risk_candidates = _normalize_risk_factors(raw_risk_section)
-        risk_section, risk_projection = project_risk_list(
-            risk_candidates,
-            sources=[risk_source] if isinstance(risk_source, str) and risk_source.strip() else [],
-            base_url=None,
-        )
-        sections_info.pop("risk_factors", None)
-        sections_info["risks"] = risk_section
-        sections_info[RISK_PROJECTION_KEY] = risk_projection
-
-        # T5.4 forward-quote gate: verify every §5 quote against the same text the model generated
-        # from; failures are always audited — the pipeline logs the greppable
-        # forward_quote_unverified counter from the audit key attached below — and dropped only
-        # when AI_FORWARD_QUOTE_GATE is armed. MUST run before the coverage snapshot and the
-        # render: sections_info is the same object structured_summary/render/coverage all read, so
-        # the drop here keeps stored sections, per_section coverage, and the persisted
-        # business_overview markdown agreeing about a dropped quote.
-        # Grounding basis is the EXCERPT ONLY — never raw filing_text (adversarial review on the
-        # T5.4 slice, blocking finding): when the excerpt is absent, _parse_and_clean_text builds
-        # the model's prompt sample from tag-STRIPPED section text, while filing_text here is the
-        # raw fetched document (HTML source). Grepping raw HTML for quotes the model copied from
-        # cleaned text false-fails them with fabrication-class scores — biasing the arming readout
-        # and, once armed, silently dropping genuine quotes on exactly the degraded population.
-        # No excerpt → no grounding basis → measure and drop NOTHING (the figure-trace posture).
-        forward_quote_audit = gate_forward_quotes(
-            sections_info, filing_excerpt or "", settings.AI_FORWARD_QUOTE_GATE
-        )
-        # Attribution gate (#805 path, steps 4-5): causal clauses in the model-authored explanation
-        # slots are measured against the same excerpt, then judged by ONE bounded model call when
-        # AI_ATTRIBUTION_VERIFY is on, and the clause (only the clause) is removed when that verdict
-        # says the filing does not state it AND AI_ATTRIBUTION_GATE is armed. The lexical measurement
-        # alone is 47% precise, so it never deletes text by itself. Same placement and grounding
-        # rules as the quote gate above.
-        attribution_checked, attribution_candidates = find_attributions(sections_info, filing_excerpt or "")
-        attribution_verdicts, verify_note = await self._verify_attributions(
-            attribution_candidates, filing_type_key,
-        )
-        attribution_audit = apply_attributions(
-            attribution_checked, attribution_candidates, attribution_verdicts,
-            settings.AI_ATTRIBUTION_GATE,
-        )
-        if attribution_audit is not None and verify_note is not None:
-            attribution_audit["verification"] = verify_note
-
-        # Evidence auto-snap (post-#631): the -j/-k slices measured composed supporting_evidence
-        # at the model's prompt-tuning floor, so a confident REAL-sentence counterpart is
-        # computed in code for the two verbatim-contracted evidence surfaces. Measure-always,
-        # act-when-armed (the figure-trace / quote-gate pattern): unarmed runs record every
-        # would-snap decision (original + candidate) in the audit; the text is mutated only when
-        # AI_EVIDENCE_SNAP is armed — a fuzzy repair on the trust surface can attach a
-        # real-but-WRONG-fact sentence under a Verified badge (skeptic F1, executed), so arming
-        # is the founder's call on the fleet would_snap forensics. Same placement rules as the
-        # quote gate: the same sections_info object, BEFORE the coverage snapshot and render,
-        # EXCERPT-ONLY grounding; recovery-authored sections are skipped (their context is
-        # separately selected context, potentially different from the exact primary excerpt); and the candidate scan
-        # (~0.5s on a 320k excerpt) runs off the event loop (skeptic F5).
-        from fastapi.concurrency import run_in_threadpool
-
-        recovered_keys = frozenset(structured_summary.pop("_recovered_sections", []) or [])
-        # Bind original primary evidence before auto-snap can replace its bytes.
-        clear_model_acquisition_context(structured_summary)
-        acquisition_owned = bind_acquisition_period(
-            sections_info, filing_excerpt or "", xbrl_metrics, filing_type=filing_type_key,
-            recovered="notable_footnotes" in recovered_keys,
-        )
-        unit_index = build_table_unit_index(filing_text or "")
-        # Like preview, decide from authored evidence before any fuzzy evidence repair.
-        # The selector uses the complete native document, including for recovered notes;
-        # it neither assumes the primary excerpt nor emits a source assertion.
-        tax_explanation_audit = withhold_tax_rate_explanation(sections_info, unit_index)
-        reconciliation_audit = withhold_reconciliation_directions(
-            sections_info, unit_index, filing_type=filing_type_key,
-            recovered="earnings_quality" in recovered_keys,
-        )
-        evidence_snap_audit = await run_in_threadpool(
-            snap_evidence,
-            sections_info,
-            filing_excerpt or "",
-            settings.EVIDENCE_SNAP_MIN_SCORE,
-            settings.AI_EVIDENCE_SNAP,
-            recovered_keys,
-        )
-
-        # Final primary quotes only: use the same supplied excerpt's cleaned representation.
-        # Recovery windows and previews are not certified by the primary source context.
-        layout = self._SECTION_LAYOUT.get(filing_type_key.removesuffix("/A"), self._SECTION_LAYOUT["10-K"])
-        attach_quote_unit_context(
-            sections_info, filing_excerpt or "", layout,
-            recovered="forward_signals" in recovered_keys,
-        )
-
-        if "forward_signals" not in recovered_keys:
-            restore_authored_plan_units(
-                sections_info, capital_plan_proposition(filing_excerpt or "", layout),
-            )
-        capital_source = structured_summary.pop("_capital_allocation_grounding", "")
-        statement_owned = bind_statement_relationship(sections_info, statement_source)
-        bind_capital_allocation(sections_info, xbrl_metrics, capital_source)
-        issuer_cash_owned = bind_issuer_cash_disclosure(
-            sections_info, structured_summary.pop(ISSUER_CASH_SOURCE_KEY, ""),
-        )
-        # Declared table-cell scales for bare model dollar figures (source_units): the filing's own
-        # source document, in place on sections_info AFTER the source binders above have replaced
-        # or removed the model prose they own (statement relationship, capital allocation,
-        # issuer cash) and before the coverage snapshot and render, so the audit describes only
-        # prose that survives into the stored sections, exports and persisted markdown. Verified
-        # source-envelope bytes are not policed slots. Recovery-authored sections are skipped
-        # (separately selected context). Measure-always: the audit carries total counts beside its
-        # capped detail lists.
-        table_cell_unit_audit = restore_table_cell_units(
-            sections_info, unit_index,
-            xbrl_metrics=xbrl_metrics, recovered=recovered_keys,
-        )
-
-        coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)
-        # The projection record is application-private provenance metadata, not a summary section.
-        # It may be nonempty even when every model-authored risk was withheld, so including it here
-        # would inflate both the numerator and denominator used by completion/progress decisions.
-        coverage_keys.update(
-            key for key in sections_info.keys() if key != RISK_PROJECTION_KEY
-        )
-        coverage_map = {
-            section: _section_has_content(sections_info.get(section))
-            for section in sorted(coverage_keys)
-        }
-        total_sections = len(coverage_map)
-        covered_sections = sum(1 for covered in coverage_map.values() if covered)
-        missing_sections = [key for key, covered in coverage_map.items() if not covered]
-        coverage_snapshot = {
-            "per_section": coverage_map,
-            "covered": [key for key, covered in coverage_map.items() if covered],
-            "missing": missing_sections,
-            "covered_count": covered_sections,
-            "total_count": total_sections,
-            "coverage_ratio": (covered_sections / total_sections) if total_sections else None,
-            # The raw counts above stay raw (this snapshot records what exists; the verdict applies
-            # the N/A semantics — see _segments_not_applicable).
-            "not_applicable": _segments_not_applicable(coverage_map, xbrl_metrics),
-        }
-
-        logger.info(
-            "Structured coverage for %s %s: %s/%s sections populated. Missing: %s",
-            company_name,
-            filing_type_key,
-            covered_sections,
-            total_sections,
-            ", ".join(missing_sections) if missing_sections else "None",
-        )
-
-        def _stringify(value: Any) -> Optional[str]:
-            if value is None:
-                return None
-            if isinstance(value, str):
-                return value.strip()
-            if isinstance(value, list):
-                formatted_items = []
-                for item in value:
-                    item_str = _stringify(item)
-                    if item_str:
-                        formatted_items.append(f"- {item_str}")
-                return "\n".join(formatted_items) if formatted_items else None
-            if isinstance(value, dict):
-                lines = []
-                for key, content in value.items():
-                    content_str = _stringify(content)
-                    if content_str:
-                        pretty_key = key.replace("_", " ").title()
-                        lines.append(f"{pretty_key}: {content_str}")
-                return "\n".join(lines) if lines else None
-            return str(value)
-
-        # v2 (Tier-3.1): MD&A dissolved into §1/§3/§5. The legacy `management_discussion` compat field
-        # (and the eval's canonical management_discussion) maps to earnings_quality — the analytical
-        # prose that absorbed the MD&A read; `key_changes`/outlook maps to forward_signals.
-        management_section_structured = sections_info.get("earnings_quality")
-        management_for_compat = management_section_structured
-        if isinstance(management_section_structured, dict):
-            management_for_compat = dict(management_section_structured)
-            management_for_compat.pop(ISSUER_CASH_OWNED_FIELD, None)
-            if statement_owned:
-                owned_statement = management_for_compat.pop(STATEMENT_OWNED_FIELD, {})
-                management_for_compat["operating_vs_one_time"] = "\n".join(display_statement_paragraphs(owned_statement))
-        management_section = _stringify(management_for_compat)
-        guidance_structured = sections_info.get("forward_signals")
-        guidance_section = _stringify(guidance_structured)
-
-        # P1.4: render markdown deterministically from the structured data — no second editorial-
-        # writer LLM call. The structured render is rich and objective; the separate writer added
-        # cost, latency and a recurring failure mode (it kept failing the length gate) plus a
-        # journalistic voice at odds with the objective-summary goal (approved decision 3a).
-        writer_result = None
-        writer_error: Optional[str] = None
-        writer_fallback_reason: Optional[str] = None
-        # T2.2: derive business_overview from the ONE projection (summary_sections.render_sections) so
-        # the web markdown, PDF and CSV can never diverge. _build_structured_markdown is retained only
-        # as a fallback for the rare empty-sections case (thin/degraded summaries), where render_sections
-        # produces nothing to flatten.
-        # render_sections dispatches on schema_version; stamp the model output with the current
-        # generation version so the v2 builders (not the v1 default) render the v2 sections.
-        structured_summary["schema_version"] = SUMMARY_SCHEMA_VERSION
-        # Discard any model envelope claim. Only this explicit final envelope, after source
-        # association above, authorizes displaying code-owned units. Older persisted envelopes
-        # only contain their explicit raw-summary keys, never arbitrary model top-level keys.
-        structured_summary.pop(SOURCE_UNIT_CONTEXT_KEY, None)
-        structured_summary.pop(CAPITAL_CONTEXT_KEY, None)
-        structured_summary.pop(ISSUER_CASH_CONTEXT_KEY, None)
-        structured_summary.pop(STATEMENT_CONTEXT_KEY, None)
-        structured_summary.pop(ACQUISITION_CONTEXT_KEY, None)
-        structured_summary.pop("primary_excerpt", None)
-        structured_summary.pop(RISK_SOURCE_CONTEXT_KEY, None)
-        structured_summary.pop("_risk_source_candidates", None)
-        structured_summary.pop("_risk_source_candidate_count", None)
-        render_envelope = {
-            "schema_version": SUMMARY_SCHEMA_VERSION,
-            "sections": sections_info,
-            SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
-            CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
-            METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
-            RISK_SOURCE_CONTEXT_KEY: RISK_SOURCE_CONTEXT_VERSION,
-            **({ISSUER_CASH_CONTEXT_KEY: ISSUER_CASH_CONTEXT_VERSION} if issuer_cash_owned else {}),
-            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_owned else {}),
-            **({ACQUISITION_CONTEXT_KEY: ACQUISITION_CONTEXT_VERSION} if acquisition_owned else {}),
-        }
-        rendered = render_sections(render_envelope)
-        final_markdown = (
-            sections_to_markdown(rendered) if rendered
-            else self._build_structured_markdown(structured_summary)
-        )
-
-        raw_summary_payload = {
-            **({ACQUISITION_CONTEXT_KEY: ACQUISITION_CONTEXT_VERSION} if acquisition_owned else {}),
-            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_owned else {}),
-            SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
-            CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
-            METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
-            RISK_SOURCE_CONTEXT_KEY: RISK_SOURCE_CONTEXT_VERSION,
-            **({ISSUER_CASH_CONTEXT_KEY: ISSUER_CASH_CONTEXT_VERSION} if issuer_cash_owned else {}),
-            "structured": structured_summary,
-            "sections": sections_info,
-            "section_coverage": coverage_snapshot,
-        }
-        if forward_quote_audit:
-            raw_summary_payload["forward_quote_audit"] = forward_quote_audit
-        if attribution_audit:
-            raw_summary_payload["attribution_audit"] = attribution_audit
-        if evidence_snap_audit:
-            raw_summary_payload["evidence_snap_audit"] = evidence_snap_audit
-        if table_cell_unit_audit:
-            raw_summary_payload["table_cell_unit_audit"] = table_cell_unit_audit
-        if tax_explanation_audit:
-            raw_summary_payload[TAX_EXPLANATION_AUDIT_KEY] = tax_explanation_audit
-        if reconciliation_audit:
-            raw_summary_payload[RECONCILIATION_AUDIT_KEY] = reconciliation_audit
-        if writer_result:
-            raw_summary_payload["writer"] = writer_result
-        if writer_fallback_reason:
-            raw_summary_payload["writer_fallback_reason"] = writer_fallback_reason
-        if writer_error:
-            raw_summary_payload["writer_error"] = writer_error[:500]
-        if sixk_class:
-            # W3-8b audit: which pre-classified 6-K variant produced this summary, and why.
-            raw_summary_payload["sixk_class"] = sixk_class
-            if sixk_class_audit:
-                raw_summary_payload["sixk_class_audit"] = sixk_class_audit
-
-        # Build new format response
-        metadata = structured_summary.get("metadata", {})
-        company_name = metadata.get("company_name", company_name)
-        filing_type_label = metadata.get("filing_type", filing_type_key)
-        reporting_period = metadata.get("reporting_period", "")
-        filing_date = metadata.get("filing_date", "")
-        
-        # Generate summary title
-        period_suffix = f" ({reporting_period})" if reporting_period else ""
-        if filing_date:
-            try:
-                from datetime import datetime
-                date_obj = datetime.fromisoformat(filing_date.replace("Z", "+00:00"))
-                year = date_obj.year
-                if filing_type_key in {"10-K", "20-F"}:
-                    # 20-F is a foreign annual report — label as a fiscal year like a 10-K.
-                    period_suffix = f" (FY{year})"
-                elif filing_type_key == "10-Q":
-                    quarter = (date_obj.month - 1) // 3 + 1
-                    period_suffix = f" (Q{quarter} {year})"
-            except (ValueError, TypeError):
-                pass
-        summary_title = f"{company_name} {filing_type_label} Filing Summary{period_suffix}"
-        
-        # Build sections array
-        sections = []
-        
-        # Key Risks section
-        if risk_section:
-            risk_content_parts = []
-            for risk in risk_section[:10]:  # Limit to top 10 risks
-                if isinstance(risk, dict):
-                    summary = risk.get("summary", "")
-                    evidence = risk.get("supporting_evidence", "")
-                    if summary:
-                        bullet = f"• {summary}"
-                        if evidence:
-                            bullet += f" (Evidence: {evidence[:200]})"
-                        risk_content_parts.append(bullet)
-            if risk_content_parts:
-                sections.append({
-                    "title": "Key Risks",
-                    "content": "\n".join(risk_content_parts)
-                })
-        
-        # Financial Overview section
-        if financial_section:
-            financial_content_parts = []
-            table = financial_section.get("table", [])
-            if table:
-                for row in table[:10]:  # Limit to top 10 metrics
-                    if isinstance(row, dict):
-                        metric = row.get("metric", "")
-                        current = row.get("current_period", "")
-                        prior = row.get("prior_period", "")
-                        change = row.get("change", "")
-                        commentary = row.get("commentary", "")
-                        if metric:
-                            line = f"• {metric}: {current}"
-                            if prior and prior != "Not disclosed":
-                                line += f" (vs. {prior})"
-                            if change and change != "Not disclosed":
-                                line += f" — {change}"
-                            if commentary:
-                                line += f" — {commentary[:150]}"
-                            financial_content_parts.append(line)
-            if financial_content_parts:
-                sections.append({
-                    "title": "Financial Overview",
-                    "content": "\n".join(financial_content_parts)
-                })
-        
-        # Management Commentary section
-        if management_section:
-            sections.append({
-                "title": "Management Commentary",
-                "content": management_section[:2000]  # Limit length
-            })
-        
-        # Strategic Developments section (from guidance and management discussion)
-        strategic_parts = []
-        if guidance_section:
-            strategic_parts.append(guidance_section[:1000])
-        guidance_structured = sections_info.get("forward_signals", {})
-        if isinstance(guidance_structured, dict):
-            guidance_text = guidance_structured.get("guidance", "")
-            drivers = guidance_structured.get("known_trends", [])
-            if guidance_text and guidance_text != "Not disclosed":
-                strategic_parts.append(f"Forward Guidance: {guidance_text}")
-            if drivers:
-                strategic_parts.append("Known trends: " + "; ".join(str(d) for d in drivers[:5]))
-        if strategic_parts:
-            sections.append({
-                "title": "Strategic Developments",
-                "content": "\n".join(strategic_parts)
-            })
-        
-        # Build insights object
-        insights = {
-            "sentiment": "Neutral",
-            "growth_drivers": [],
-            "risk_signals": []
-        }
-        
-        # Extract sentiment from the print (v2 §1; was executive_snapshot)
-        exec_snapshot = sections_info.get("the_print", {})
-        if isinstance(exec_snapshot, dict):
-            tone = exec_snapshot.get("tone", "neutral")
-            if tone:
-                # Format sentiment based on tone (e.g., "positive" -> "Positive", "neutral" -> "Neutral", "cautious" -> "Cautious")
-                # Support compound sentiments like "neutral to positive"
-                if isinstance(tone, str):
-                    if " to " in tone.lower():
-                        # Already a compound sentiment
-                        insights["sentiment"] = tone.title()
-                    else:
-                        insights["sentiment"] = tone.capitalize()
-                else:
-                    insights["sentiment"] = "Neutral"
-        
-        # Enhance sentiment with guidance tone if available
-        if guidance_structured and isinstance(guidance_structured, dict):
-            guidance_tone = guidance_structured.get("tone", "")
-            if guidance_tone and guidance_tone != insights["sentiment"].lower():
-                # Combine sentiment if different (e.g., "Neutral to Positive")
-                current_sentiment = insights["sentiment"].lower()
-                if current_sentiment != guidance_tone:
-                    insights["sentiment"] = f"{insights['sentiment']} to {guidance_tone.capitalize()}"
-        
-        # Extract growth drivers from forward signals (v2 known_trends; was guidance drivers)
-        if guidance_structured and isinstance(guidance_structured, dict):
-            drivers = guidance_structured.get("known_trends", [])
-            if drivers:
-                insights["growth_drivers"] = [str(d) for d in drivers[:5]]
-        
-        # Extract risk signals from risk factors
-        if risk_section:
-            insights["risk_signals"] = [
-                risk.get("summary", "")[:100] 
-                for risk in risk_section[:5] 
-                if isinstance(risk, dict) and risk.get("summary")
-            ]
-        
-        # Determine status and message
-        # Step 6: Graceful Failure Handling
-        status = "complete"
-        message = None
-        coverage_ratio = coverage_snapshot.get("coverage_ratio", 1.0)
-        missing_sections_list = coverage_snapshot.get("missing", [])
-        
-        # If coverage is low or writer had issues, mark as partial
-        if coverage_ratio < 0.5 or writer_error or writer_fallback_reason:
-            status = "partial"
-            message = "Some sections may not have loaded fully."
-            if missing_sections_list:
-                message += f" Missing sections: {', '.join(missing_sections_list[:3])}"
-        
-        # A source owner may withhold every presentation card from otherwise valid structured
-        # output (for example, an ungrounded Risks item). Treat the response as unusable only when
-        # the provider returned no covered structured section at all.
-        if not sections and covered_sections == 0:
-            status = "error"
-            message = "Unable to retrieve this filing at the moment — please try again shortly."
-        
-        # If processing stopped mid-way but we have some sections, mark as partial
-        if len(sections) > 0 and coverage_ratio < 0.7:
-            status = "partial"
-            if not message:
-                message = "Some sections may not have loaded fully."
-        
-        # Build response
         response = {
-            "summary_title": summary_title,
-            "sections": sections,
-            "insights": insights,
-            "status": status,
+            "summary_title": run.summary_title, "sections": run.sections,
+            "insights": run.insights, "status": run.status,
             # Keep legacy fields for backward compatibility
-            "business_overview": final_markdown,
-            "financial_highlights": financial_section,
-            "risk_factors": risk_section,
-            "management_discussion": management_section,
-            "key_changes": guidance_section,
-            "raw_summary": raw_summary_payload,
-            # Private application-constructed handoff to the shared finalizer. This preserves the
-            # parsed candidates when excerpt enrichment was unavailable but the model used the
-            # cleaned filing sample; the finalizer pops it before persistence.
-            "_risk_source_candidates": risk_candidates,
-            "_risk_source_grounding": risk_source,
+            "business_overview": run.final_markdown,
+            "financial_highlights": run.financial_section,
+            "risk_factors": run.risk_section,
+            "management_discussion": run.management_section,
+            "key_changes": run.guidance_section,
+            "raw_summary": run.raw_summary_payload,
+            # Private source candidates/grounding survive to the shared pipeline finalizer.
+            "_risk_source_candidates": run.risk_candidates,
+            "_risk_source_grounding": run.risk_source,
         }
-        
-        # Add message if status is error or partial
-        if message:
-            response["message"] = message
-        
+
+        if run.message:
+            response["message"] = run.message
+
         return response
 
 openai_service = OpenAIService()

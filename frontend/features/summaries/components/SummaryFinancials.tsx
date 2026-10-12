@@ -1,5 +1,5 @@
 import React from 'react'
-import { SummaryBlock } from '@/features/summaries/components/SummaryBlock'
+import { Callout } from '@/features/summaries/components/Callout'
 import { SectionEmpty } from './SectionEmpty'
 import { MetricSourceLink } from '@/features/filings/components/MetricSourceLink'
 import { PerAdsNote } from '@/features/summaries/components/PerAdsNote'
@@ -32,9 +32,7 @@ export function SummaryFinancials({ notes, metrics }: SummaryFinancialsProps) {
   return (
     <div className="space-y-4">
       {notes && (
-        <SummaryBlock type="neutral" title="Analyst Notes">
-           {notes}
-        </SummaryBlock>
+        <Callout label="Analyst notes">{notes}</Callout>
       )}
       {validMetrics.length > 0 && (
         <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark">

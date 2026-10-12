@@ -1,10 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import CompanySearch from '@/features/companies/components/CompanySearch'
+import { getCompany } from '@/features/companies/api/companies-api'
+import { tickerShaped } from '@/features/companies/lib/tickerShape'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge, Button, Card, Notice, Skeleton } from '@/components/ui'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
@@ -34,6 +37,9 @@ import MetricsTable from './MetricsTable'
 import NarrativePane, { type NarrativeState } from './NarrativePane'
 import PeriodPicker, { defaultRange, type PeriodRange } from './PeriodPicker'
 import TrendCharts from './TrendCharts'
+import DataNotes from './DataNotes'
+import { DataNotesProvider } from './DataNotesContext'
+import { ANALYSIS_DISCLOSURE } from '@/features/analysis/lib/provenance'
 
 /**
  * Multi-Period Analysis — the Pro flagship page.
@@ -44,9 +50,48 @@ import TrendCharts from './TrendCharts'
  * instantly, then the AI narrative streams in with source-linked citations. Free users get the full
  * picker plus the PeekLocked sample instead of live results (zero AI cost, maximum clarity about
  * what Pro unlocks).
+ *
+ * `?ticker=` (the homepage's "Try it on Apple" links to /analysis?ticker=AAPL) preselects that
+ * company and nothing more: a run costs AI, so only the user's "Run analysis" starts one.
  */
+/**
+ * Reports the page's ticker-shaped `?ticker=` (or null), and again whenever it changes: the App Router
+ * keeps this page mounted across a search-param-only navigation (the Header's and Footer's /analysis
+ * links, or a link to another `?ticker=`). It renders nothing inside its own Suspense boundary, since
+ * useSearchParams() on a statically rendered page suspends to the nearest one, and so the page's
+ * server HTML keeps everything else.
+ */
+function LinkedTicker({ onChange }: { onChange: (ticker: string | null) => void }) {
+  const linked = tickerShaped(useSearchParams()?.get('ticker'))
+  useEffect(() => {
+    onChange(linked)
+  }, [linked, onChange])
+  return null
+}
+
+function exportErrorMessage(error: unknown, format: 'PDF' | 'Excel'): string {
+  // Blob responses do not preserve JSON detail in the shared axios interceptor. Status 409
+  // still identifies an out-of-date source snapshot and must give a useful recovery action.
+  if (error instanceof ApiError && error.status === 409) return 'Source data changed. Run analysis again before exporting.'
+  return error instanceof ApiError ? error.detail : `${format} export failed. Please try again.`
+}
+
 export default function AnalysisPageClient() {
-  const [ticker, setTicker] = useState<string | null>(null)
+  // The linked ticker comes from LinkedTicker, after hydration. A malformed value is never sent; a
+  // ticker-shaped one is resolved through the company API before the page trusts it, so an unknown
+  // ticker leaves the empty picker.
+  const [linkedTicker, setLinkedTicker] = useState<string | null>(null)
+  const lastLink = useRef<string | null | undefined>(undefined)
+  const { data: linkedCompany } = useQuery({
+    queryKey: queryKeys.analysisCompany(linkedTicker ?? ''),
+    queryFn: () => getCompany(linkedTicker as string),
+    enabled: !!linkedTicker,
+    retry: false,
+    staleTime: 10 * 60 * 1000,
+  })
+  // The user's own pick always wins, including one made while the link resolves.
+  const [pickedTicker, setPickedTicker] = useState<string | null>(null)
+  const ticker = pickedTicker ?? (linkedCompany?.ticker ? linkedCompany.ticker.toUpperCase() : null)
   const [mode, setMode] = useState<AnalysisMode>('annual')
   const [range, setRange] = useState<PeriodRange | null>(null)
   const [dataset, setDataset] = useState<AnalysisDataset | null>(null)
@@ -101,18 +146,35 @@ export default function AnalysisPageClient() {
     setRunning(false)
   }, [])
 
+  // The first report is the link the page opened with. A later, different one is a navigation that kept
+  // the page mounted, so the page starts over from it: no pick, no results, the new link (or none), as
+  // a reload of that URL would show.
+  const followLink = useCallback(
+    (next: string | null) => {
+      if (lastLink.current !== undefined && lastLink.current !== next) {
+        resetResults()
+        setMode('annual')
+        setPickedTicker(null)
+      }
+      lastLink.current = next
+      setLinkedTicker(next)
+    },
+    [resetResults]
+  )
+
   const selectCompany = useCallback(
     (nextTicker: string) => {
       resetResults()
       setMode('annual')
-      setTicker(nextTicker.toUpperCase())
+      setPickedTicker(nextTicker.toUpperCase())
     },
     [resetResults]
   )
 
   const startNarrative = useCallback(
-    (force: boolean) => {
+    (force: boolean, report = dataset) => {
       if (!ticker || !range) return
+      const expectedSnapshot = report?.snapshot_id
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller
@@ -127,10 +189,16 @@ export default function AnalysisPageClient() {
             if (isCurrent()) setNarrative((s) => (s.status === 'streaming' ? { ...s, stage } : s))
           },
           onToken: (text) => {
-            if (isCurrent()) setNarrative((s) => ({ ...s, status: 'streaming', text: s.text + text }))
+            // Keep commentary private until its completed snapshot matches the displayed figures.
+            if (isCurrent() && !expectedSnapshot) setNarrative((s) => ({ ...s, status: 'streaming', text: s.text + text }))
           },
           onComplete: (completion) => {
             if (!isCurrent()) return
+            if (expectedSnapshot && completion.snapshot_id !== expectedSnapshot) {
+              setNarrative({ status: 'error', text: '', error: 'Source data changed while this analysis was running. Run analysis again to refresh the figures and commentary together.' })
+              setRunning(false)
+              return
+            }
             setNarrative({ status: 'done', text: completion.narrative, completion })
             setRunning(false)
             // A fresh generation consumed quota — keep the settings usage meter honest.
@@ -142,10 +210,11 @@ export default function AnalysisPageClient() {
             setRunning(false)
           },
         },
-        controller.signal
+        controller.signal,
+        report ?? undefined,
       )
     },
-    [ticker, range, mode, queryClient]
+    [ticker, range, mode, queryClient, dataset]
   )
 
   const run = useCallback(async () => {
@@ -168,7 +237,7 @@ export default function AnalysisPageClient() {
       }, controller.signal)
       if (!isCurrent()) return
       setDataset(result)
-      startNarrative(false)
+      startNarrative(false, result)
     } catch (err) {
       if (!isCurrent()) return
       setRunning(false)
@@ -188,7 +257,7 @@ export default function AnalysisPageClient() {
     const analysisId = narrative.completion?.analysis_id
     if (analysisId == null || !ticker) return
     setDatasetError(null)
-    void exportAnalysisPdf(analysisId)
+    void exportAnalysisPdf(analysisId, narrative.completion?.snapshot_id)
       .then((blob) => {
         downloadBlob(blob, `${ticker}_multi_period_analysis.pdf`)
         analytics.exportGenerated({
@@ -200,9 +269,9 @@ export default function AnalysisPageClient() {
         })
       })
       .catch((err) =>
-        setDatasetError(err instanceof ApiError ? err.detail : 'PDF export failed. Please try again.')
+        setDatasetError(exportErrorMessage(err, 'PDF'))
       )
-  }, [narrative.completion?.analysis_id, ticker, dataset?.mode, dataset?.period_key])
+  }, [narrative.completion?.analysis_id, narrative.completion?.snapshot_id, ticker, dataset?.mode, dataset?.period_key])
 
   // Excel replaces the old client-side CSV (owner decision D1). The request range comes from the
   // DATASET on screen — not the picker state, which the user may have changed since running —
@@ -217,6 +286,7 @@ export default function AnalysisPageClient() {
       mode: dataset.mode,
       start_period: dataset.periods[0].key,
       end_period: dataset.periods[dataset.periods.length - 1].key,
+      ...(dataset.snapshot_id ? { snapshot_id: dataset.snapshot_id } : {}),
     })
       .then((blob) => {
         downloadBlob(blob, exportFilename(dataset, `${dataset.mode}-metrics`, 'xlsx'))
@@ -230,7 +300,7 @@ export default function AnalysisPageClient() {
       })
       // Surface the server detail (e.g. the rate limiter's "retry in a minute") over a generic line.
       .catch((err) =>
-        setDatasetError(err instanceof ApiError ? err.detail : 'Excel export failed. Please try again.')
+        setDatasetError(exportErrorMessage(err, 'Excel'))
       )
       .finally(() => setExportingXlsx(false))
   }, [dataset, exportingXlsx])
@@ -239,7 +309,11 @@ export default function AnalysisPageClient() {
   const paywalled = narrative.status === 'error' && isAnalysisPaywallError(narrative.error || '')
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
+    // The page's one <main> landmark (the root layout's #main is a non-landmark skip-link target).
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
+      <Suspense fallback={null}>
+        <LinkedTicker onChange={followLink} />
+      </Suspense>
       <header className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -249,8 +323,7 @@ export default function AnalysisPageClient() {
         </div>
         <p className="max-w-2xl text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Pick a company and up to 10 fiscal years or 12 quarters. Growth, margins, cash, and
-          balance sheet, plus an AI narrative with cited figures checked against SEC XBRL and
-          source warnings shown for review.
+          balance sheet, plus AI-assisted commentary with sources and calculation methods.
         </p>
       </header>
 
@@ -362,35 +435,31 @@ export default function AnalysisPageClient() {
       )}
 
       {isPro && dataset && (
-        <div className="flex flex-col gap-4">
-          <KpiStrip dataset={dataset} />
-          <TrendCharts dataset={dataset} exportEnabled />
-          <NarrativePane
-            state={narrative}
-            onRefresh={() => startNarrative(true)}
-            refreshDisabled={narrative.status === 'streaming'}
-            onExport={exportPdf}
-          />
-          <MetricsTable dataset={dataset} onExportXlsx={exportXlsx} exporting={exportingXlsx} />
-          <AiDisclaimer lead={false}>
-            Cited figures are checked against SEC XBRL (companyfacts), and source warnings are
-            shown for review. Growth rates, margins and ratios are computed server-side. † =
-            computed Q4.
-          </AiDisclaimer>
-        </div>
+        <DataNotesProvider dataset={dataset}>
+          <div className="flex flex-col gap-4">
+            <KpiStrip dataset={dataset} />
+            <DataNotes dataset={dataset} />
+            <TrendCharts dataset={dataset} exportEnabled />
+            <NarrativePane
+              state={narrative}
+              onRefresh={() => startNarrative(true)}
+              refreshDisabled={narrative.status === 'streaming'}
+              onExport={exportPdf}
+            />
+            <MetricsTable dataset={dataset} onExportXlsx={exportXlsx} exporting={exportingXlsx} />
+          </div>
+        </DataNotesProvider>
       )}
 
       {/* Legal one-liner: outside every result/Pro gate so guests, free users viewing the sample,
           and Pro users all see it (drafted in the audit's legal review; pending counsel polish). */}
       <AiDisclaimer lead={false}>
-        This analysis is AI-generated, for informational purposes only, and is not investment
-        advice or a recommendation; past performance does not predict future results. Verify
-        against the original filings on SEC EDGAR. See our{' '}
+        {ANALYSIS_DISCLOSURE} See our{' '}
         <Link href="/terms" className="underline">
           Terms
         </Link>
         .
       </AiDisclaimer>
-    </div>
+    </main>
   )
 }

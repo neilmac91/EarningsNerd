@@ -6,7 +6,7 @@ from datetime import date, datetime
 import re
 from typing import Any
 
-from app.services.edgar.instance_extractor import duration_in_window
+from app.services.edgar.instance.core import duration_in_window
 
 CONTEXT_KEY = "acquisition_period_context_version"
 CONTEXT_VERSION = 1

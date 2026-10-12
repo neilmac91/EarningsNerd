@@ -22,12 +22,11 @@ export default function SecurityPage() {
 
         <section className="mt-8">
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-            Our Commitment to Security
+            A Note from Neil
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            At EarningsNerd, we take the security of your data seriously. We implement industry-standard security
-            measures to protect your personal information and ensure the integrity of our platform. This page outlines
-            our security practices and how we safeguard your data.
+            I run EarningsNerd as an individual founder. This page describes the security controls used by the
+            product and how to contact me about a concern.
           </p>
         </section>
 
@@ -36,28 +35,19 @@ export default function SecurityPage() {
             Data Protection
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            We employ multiple layers of security to protect your data:
+            EarningsNerd uses the following controls for connections and accounts:
           </p>
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
-              <strong>Encryption in Transit:</strong> All data transmitted between your browser and our servers is
-              encrypted using TLS (Transport Layer Security) protocols.
+              <strong>HTTPS:</strong> Browser connections to EarningsNerd use HTTPS to encrypt traffic in transit.
             </li>
             <li>
-              <strong>Encryption at Rest:</strong> Sensitive data stored in our databases is encrypted to protect
-              against unauthorized access.
+              <strong>Passwords:</strong> Passwords created for EarningsNerd are stored as bcrypt hashes.
             </li>
             <li>
-              <strong>Password Security:</strong> User passwords are hashed using industry-standard cryptographic
-              algorithms. We never store passwords in plain text.
-            </li>
-            <li>
-              <strong>Database Security:</strong> Our PostgreSQL databases are configured with strict access controls
-              and are regularly backed up to prevent data loss.
-            </li>
-            <li>
-              <strong>API Security:</strong> All API endpoints are protected with authentication and authorization
-              mechanisms to ensure only authorized users can access data.
+              <strong>Account Access:</strong> Account settings, account data export and account deletion require
+              you to sign in. Public filing data, login, contact and security contact endpoints are available
+              without an account.
             </li>
           </ul>
         </section>
@@ -67,23 +57,24 @@ export default function SecurityPage() {
             Authentication and Access Control
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            We implement robust authentication and access control measures:
+            Protected requests check the account session and its permissions:
           </p>
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
-              <strong>JWT (JSON Web Tokens):</strong> We use JWT-based authentication to securely manage user sessions.
+              <strong>Signed Tokens:</strong> Access tokens are signed and checked when accessing protected
+              account actions.
             </li>
             <li>
-              <strong>Token Expiration:</strong> Authentication tokens have limited lifespans and must be renewed
-              periodically to maintain access.
+              <strong>Token Expiration:</strong> Access and refresh tokens expire. A session must be renewed to
+              continue accessing protected actions.
             </li>
             <li>
-              <strong>Role-Based Access:</strong> User permissions are managed through role-based access control (RBAC)
-              to ensure users only have access to appropriate resources.
+              <strong>Permission Checks:</strong> Account, administrator and subscription checks apply to the
+              actions that require them.
             </li>
             <li>
-              <strong>Session Management:</strong> We implement secure session management practices to prevent session
-              hijacking and fixation attacks.
+              <strong>Browser Sessions:</strong> Session cookies use HttpOnly and SameSite settings to limit
+              access from scripts and cross-site requests.
             </li>
           </ul>
         </section>
@@ -93,39 +84,28 @@ export default function SecurityPage() {
             Payment Security
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            We use Stripe, a PCI-DSS compliant payment processor, to handle all payment transactions. We do not store
-            complete credit card numbers on our servers. All payment information is processed securely through Stripe&apos;s
-            infrastructure, which maintains the highest level of payment security certification.
+            Stripe processes card payments. Card details entered during checkout are handled by Stripe.
           </p>
         </section>
 
         <section className="mt-8">
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-            Infrastructure Security
+            Hosting and Monitoring
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            Our infrastructure is designed with security in mind:
+            I use managed hosting and monitoring services to operate EarningsNerd:
           </p>
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
-              <strong>Hosting:</strong> Our application is hosted on secure, enterprise-grade cloud infrastructure with
-              99.9% uptime guarantees.
+              <strong>Hosting:</strong> The website runs on Vercel and the backend runs on Google Cloud.
             </li>
             <li>
-              <strong>Network Security:</strong> We implement firewalls, intrusion detection systems, and other network
-              security measures to protect against unauthorized access.
+              <strong>Dependency Checks:</strong> Automated build checks include reports of known dependency
+              vulnerabilities to support maintenance.
             </li>
             <li>
-              <strong>Regular Updates:</strong> We keep our systems and dependencies up to date with the latest
-              security patches.
-            </li>
-            <li>
-              <strong>Monitoring:</strong> We use Sentry for real-time error tracking and monitoring to quickly
-              identify and address potential security issues.
-            </li>
-            <li>
-              <strong>Redis Security:</strong> Our Redis cache is configured with authentication and access controls to
-              prevent unauthorized access.
+              <strong>Monitoring:</strong> Sentry provides error and performance reports. Application logs record
+              selected account and security events to help investigate issues.
             </li>
           </ul>
         </section>
@@ -135,46 +115,30 @@ export default function SecurityPage() {
             Application Security
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            We follow secure coding practices to prevent common vulnerabilities:
+            The product uses input checks, browser headers and request limits:
           </p>
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
-              <strong>Input Validation:</strong> All user inputs are validated and sanitized to prevent injection
-              attacks (SQL injection, XSS, etc.).
+              <strong>Input Validation:</strong> Account and contact forms check supported fields and formats.
             </li>
             <li>
-              <strong>CSRF Protection:</strong> We implement Cross-Site Request Forgery (CSRF) protection mechanisms.
+              <strong>Browser Headers:</strong> Response headers restrict page framing and content sniffing.
             </li>
             <li>
-              <strong>Content Security Policy:</strong> We use Content Security Policy (CSP) headers to prevent XSS
-              attacks.
-            </li>
-            <li>
-              <strong>Rate Limiting:</strong> API endpoints are rate-limited to prevent abuse and denial-of-service
-              attacks.
-            </li>
-            <li>
-              <strong>Dependency Scanning:</strong> We regularly scan our dependencies for known vulnerabilities and
-              update them promptly.
+              <strong>Request Limits:</strong> Selected actions, including sign-in, contact submissions and AI
+              generation, limit request rates to reduce abuse.
             </li>
           </ul>
         </section>
 
         <section className="mt-8">
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-            Data Privacy and Compliance
+            Privacy and Account Data
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            We are committed to protecting your privacy and complying with applicable data protection regulations:
-          </p>
-          <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
-            <li>We implement data minimization principles, collecting only necessary information</li>
-            <li>We provide transparency about data collection and usage through our Privacy Policy</li>
-            <li>We honor user rights including data access, correction, and deletion requests</li>
-            <li>We maintain detailed audit logs for security and compliance purposes</li>
-          </ul>
-          <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            For more information about how we handle your data, please see our{' '}
+            Account settings provide data export and account deletion controls. Some billing, security and provider
+            records can remain after account deletion. For how information is handled and how to make a privacy
+            request, see the{' '}
             <Link href="/privacy" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
               Privacy Policy
             </Link>
@@ -187,14 +151,9 @@ export default function SecurityPage() {
             Incident Response
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            In the event of a security incident:
+            I investigate reported security concerns. If an incident requires notification, I will inform affected
+            users in accordance with the applicable requirements.
           </p>
-          <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
-            <li>We have an incident response plan to quickly identify, contain, and remediate security issues</li>
-            <li>We will notify affected users promptly in accordance with applicable regulations</li>
-            <li>We conduct post-incident reviews to improve our security practices</li>
-            <li>We work with security researchers and experts to address vulnerabilities</li>
-          </ul>
         </section>
 
         <section className="mt-8">
@@ -210,7 +169,7 @@ export default function SecurityPage() {
             <li>Log out of your account when using shared or public computers</li>
             <li>Keep your browser and operating system up to date</li>
             <li>Be cautious of phishing attempts and verify the URL before entering credentials</li>
-            <li>Report any suspicious activity or security concerns to us immediately</li>
+            <li>Report suspicious activity or security concerns to me</li>
           </ul>
         </section>
 
@@ -232,13 +191,10 @@ export default function SecurityPage() {
                 {CONTACT_ADDRESSES.security}
               </a>
             </li>
-            <li>Provide detailed information about the vulnerability, including steps to reproduce</li>
-            <li>Allow us reasonable time to address the issue before public disclosure</li>
+            <li>Include the affected page or feature and steps to reproduce the vulnerability</li>
+            <li>Allow me time to investigate before public disclosure</li>
             <li>Do not access or modify data that does not belong to you</li>
           </ul>
-          <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            We appreciate the work of security researchers and will acknowledge responsible disclosures.
-          </p>
         </section>
 
         <section className="mt-8">
@@ -246,27 +202,30 @@ export default function SecurityPage() {
             Third-Party Services
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            We use trusted third-party services that maintain their own security standards:
+            These services support the product:
           </p>
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
-              <strong>Stripe:</strong> PCI-DSS Level 1 certified payment processing
+              <strong>Stripe:</strong> Payment processing
             </li>
             <li>
-              <strong>Resend:</strong> Secure email delivery service
+              <strong>Resend:</strong> Transactional email delivery
             </li>
             <li>
-              <strong>DeepSeek:</strong> AI provider (OpenAI-compatible API) powering summaries and Copilot; only public filing text and the questions you type are sent
+              <strong>DeepSeek:</strong> AI processing of filing material and financial context, the questions you
+              type, and recent conversation history. Financial facts retrieved from filings to answer a question
+              may also be included.
             </li>
             <li>
-              <strong>Sentry:</strong> Error tracking and monitoring with data encryption
+              <strong>Sentry:</strong> Error and performance reporting
             </li>
             <li>
-              <strong>PostHog:</strong> Product analytics with privacy-focused data handling
+              <strong>PostHog:</strong> Product usage analytics, including events associated with an account
             </li>
           </ul>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            We carefully vet all third-party services to ensure they meet our security standards.
+            Information you include in a question can be part of the AI request. Avoid entering passwords,
+            sign-in codes or other sensitive personal information.
           </p>
         </section>
 
@@ -275,7 +234,7 @@ export default function SecurityPage() {
             Contact Us
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            If you have questions about our security practices or need to report a security concern:
+            If you have a question about these practices or need to report a concern, contact me:
           </p>
           <ul className="list-none space-y-2 text-text-secondary-light dark:text-text-secondary-dark">
             <li>

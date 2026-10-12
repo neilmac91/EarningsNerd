@@ -48,6 +48,7 @@ from app.services.summary_generation_service import (
     mark_stale_progress_as_error,
     progress_as_dict,
 )
+from app.services.summary_placeholders import is_summary_ready
 from app.services.summary_request_evidence import SummaryRequestEvidence
 from app.services.summary_pipeline import (
     stream_filing_summary, to_sse, snapshot_generation_user, load_generation_user,
@@ -194,8 +195,9 @@ async def generate_summary_stream(
     generation requires an account.
 
     Args:
-        force: If True, delete existing summary and regenerate from scratch.
-               Use this for "Regenerate Analysis" functionality.
+        force: If True, regenerate a stored summary in place ("Regenerate Analysis"; Pro-only
+               while the stored summary is one the filing page shows). A stored row the page
+               cannot show is regenerated in place for any caller, with or without force.
         entry_point: Where the visitor entered the funnel (forwarded by the
                      frontend for activation analytics, e.g. "homepage").
         ph_id: Legacy client hint, accepted for compatibility but never used as account identity.
@@ -233,14 +235,31 @@ async def generate_summary_stream(
 
         # Check if summary already exists
         summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
+        refresh_unready = False
         if summary:
-            if force:
+            # The body this route would replay, judged by the filing page's readiness rule
+            # (is_summary_ready). A row the page cannot show as a summary (failure filler, a writer
+            # error, an empty body, an earlier pipeline's in-progress marker) is not one: replaying it
+            # hands back the failure card, or a page that never leaves "generating".
+            served_overview = source_safe_business_overview(summary, filing)
+            stored_raw = summary.raw_summary if isinstance(summary.raw_summary, dict) else {}
+            refresh_unready = not is_summary_ready(served_overview, stored_raw.get("writer_error"))
+            if refresh_unready:
+                # Such a row counts as a missing summary: any signed-in user regenerates it, with or
+                # without force, metered as a fresh generation, and nothing is cleared here. The
+                # pipeline updates the row in place (force_regenerate below) and re-checks it once it
+                # owns the generation (replace_unready_only). A row another request makes ready in
+                # between is served or kept, along with the XBRL and progress that request wrote.
+                logger.info(f"[stream:{filing_id}] Stored summary is not ready (failure or stale marker) - regenerating in place")
+            elif force:
                 # Force regeneration triggers a fresh, paid LLM run, so it's Pro-only (Free 403; anyone
                 # unauthenticated already got 401 at the endpoint) — otherwise it's a denial-of-wallet /
                 # "wipe a popular filing for everyone" vector. Resolved via the entitlements SSoT (not
                 # the is_pro mirror) so a lagging mirror can't wrongly grant/deny it. NB this gate sits
-                # inside `if summary`: when no summary exists yet, force is a harmless no-op, so a
-                # failed-generation retry stays open to Free users.
+                # inside `if summary`, past a row the page cannot show: when no summary the page shows
+                # exists yet, force waives nothing, so a failed-generation retry stays open to Free users.
+                # The pipeline then serves or keeps any summary another request saves meanwhile
+                # (replace_unready_only below).
                 if not is_pro_user(current_user):
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
@@ -270,7 +289,7 @@ async def generate_summary_stream(
                 # Capture the response before closing the dependency's read transaction.
                 payload = {
                     'type': 'complete',
-                    'summary': source_safe_business_overview(summary, filing),
+                    'summary': served_overview,
                     'summary_id': summary.id,
                 }
                 db.close()
@@ -317,7 +336,11 @@ async def generate_summary_stream(
                 telemetry_entry_point=telemetry_entry_point,
                 telemetry_ctx=telemetry_ctx,
                 emit_funnel_telemetry=analytics_consent,
-                force_regenerate=force,
+                force_regenerate=force or refresh_unready,
+                # Admitted with no row the page shows (an unready row, or force with no row at all): the
+                # pipeline re-checks the row, so one another request has since saved and made ready is
+                # served or kept, never regenerated or replaced under the waived Pro gate.
+                replace_unready_only=refresh_unready or (force and summary is None),
                 request_evidence=evidence,
             )) as events:
                 async for event in events:

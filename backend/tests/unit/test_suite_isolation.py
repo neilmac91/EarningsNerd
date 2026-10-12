@@ -1,0 +1,156 @@
+"""Each pytest process owns a private, PostgreSQL-like SQLite database, and process state set by one
+test never reaches the next (gates for the parallel, order-independent suite).
+
+``backend/tests/conftest.py`` points ``DATABASE_URL`` at a fresh temp directory before any app import:
+one per session, and one per pytest-xdist worker, because every worker is its own process. Without it
+the suite shares the CWD-relative default ``sqlite:///./earningsnerd.db`` (``backend/earningsnerd.db``):
+parallel workers, or a second run in the same worktree, read and rewrite one file, and that file
+outlives every schema change (lessons/ops-one-test-process-per-worktree.md). Because that database
+starts empty, conftest also creates the schema once per process: no test may depend on an earlier
+test (or the app lifespan of an earlier ``TestClient``) having created its tables.
+
+The same conftest gives SQLite tables AUTOINCREMENT ids. PostgreSQL never hands out a sequence value
+twice; SQLite's default max(rowid)+1 re-issues a deleted test's id to the next test, where a child row
+the first test left behind (SQLite here enforces no foreign keys) silently joins the new parent.
+
+Conftest's autouse resets are pinned by probe pairs: one test leaves the state dirty, the next asserts
+the clean default. Under ``-n auto`` and random order a pair can land on two workers or run reversed,
+which proves nothing, so ``test_ordered_probes_hold_in_a_fresh_serial_process`` runs every probe in
+a fixed order in one fresh process.
+"""
+import ast
+import os
+import platform
+import stat
+import subprocess  # nosec B404 - runs this repo's own pytest on fixed nodes of the suite
+import sys
+import tempfile
+from pathlib import Path
+
+from sqlalchemy import create_engine
+from sqlalchemy.engine import make_url
+from sqlalchemy.orm import Session
+
+from app.config import settings
+from app.database import Base, SessionLocal, engine
+from app.models import Company
+from tests.support.summary_stream_harness import CANONICAL_PAYLOAD
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+_THIS = Path(__file__).relative_to(BACKEND_DIR).as_posix()
+_AI_METRICS = "tests/unit/test_ai_metrics.py"
+# Order matters: the first two probes must run before any other test in the process; each dirtying
+# probe precedes the probe that asserts the reset.
+_ORDERED_PROBES = [
+    f"{_THIS}::test_probe_the_sdk_request_path_is_warm_before_the_first_test",
+    f"{_THIS}::test_probe_reads_the_schema_without_creating_it",
+    f"{_THIS}::test_probe_mutates_the_canonical_payload_like_the_pipeline",
+    f"{_THIS}::test_probe_next_test_sees_the_pristine_canonical_payload",
+    f"{_AI_METRICS}::test_isolation_probe_leaves_the_trigger_set_like_a_script_entrypoint",
+    f"{_AI_METRICS}::test_isolation_next_test_starts_from_the_default_trigger",
+]
+
+
+def test_the_suite_database_is_a_private_temp_file_per_process():
+    assert engine.url.get_backend_name() == "sqlite"
+    assert make_url(settings.DATABASE_URL).database == engine.url.database
+    db = Path(engine.url.database).resolve()
+    assert db != BACKEND_DIR / "earningsnerd.db" and BACKEND_DIR not in db.parents, (
+        f"the suite database {db} is inside backend/: tests would share one file across runs and workers"
+    )
+    assert db.parent.parent == Path(tempfile.gettempdir()).resolve(), db
+    worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
+    assert db.parent.name.startswith(f"earningsnerd-tests-{worker}-"), db
+    # mkdtemp creates an owner-only directory; a fixed shared path would not be 0o700.
+    assert stat.S_IMODE(db.parent.stat().st_mode) == 0o700, db.parent
+
+
+def test_probe_the_sdk_request_path_is_warm_before_the_first_test():
+    # As a fresh process's first test this passes only if conftest made an SDK request first: a
+    # client's first request probes the platform, and nothing else here fills platform's cache.
+    # Without the warm-up, whichever test made the process's first request paid ~60 ms inside its
+    # own real-time budget.
+    assert platform._platform_cache
+
+
+def test_probe_reads_the_schema_without_creating_it():
+    # Creates nothing: as a fresh process's first test it passes only if conftest gave the new
+    # database the schema before any test ran.
+    with SessionLocal() as db:
+        assert db.query(Company).filter(Company.cik == "probe-never-seeded").count() == 0
+
+
+def test_probe_mutates_the_canonical_payload_like_the_pipeline():
+    # The pipeline finalizes the provider's payload in place; with the harness that is this dict.
+    CANONICAL_PAYLOAD["raw_summary"]["quality"] = {"tier": "probe"}
+    CANONICAL_PAYLOAD["status"] = "probe"
+
+
+def test_probe_next_test_sees_the_pristine_canonical_payload():
+    assert CANONICAL_PAYLOAD["status"] == "complete"
+    assert "quality" not in CANONICAL_PAYLOAD["raw_summary"]
+
+
+def _fresh_pytest(*args):
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("PYTEST_", "DATABASE_URL"))}
+    return subprocess.run(  # nosec B603 - fixed argv: this interpreter running pytest on fixed nodes
+        [sys.executable, "-m", "pytest", "-q", "-n", "0", "-p", "no:cacheprovider", "-p", "no:randomly", *args],
+        cwd=BACKEND_DIR, env=env, capture_output=True, text=True, timeout=120,
+    )
+
+
+def test_ordered_probes_hold_in_a_fresh_serial_process():
+    result = _fresh_pytest(*_ORDERED_PROBES)
+    assert result.returncode == 0 and f"{len(_ORDERED_PROBES)} passed" in result.stdout, (
+        result.stdout[-3000:] + result.stderr[-2000:]
+    )
+
+
+def test_every_isolation_probe_runs_in_the_ordered_process():
+    # Under -n auto a probe pair outside _ORDERED_PROBES holds only when xdist keeps it together.
+    probes = set()
+    for path in sorted((BACKEND_DIR / "tests").rglob("test_*.py")):
+        source = path.read_text(encoding="utf-8")
+        if "probe" in source:
+            probes |= {
+                f"{path.relative_to(BACKEND_DIR).as_posix()}::{node.name}"
+                for node in ast.parse(source).body
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and node.name.startswith(("test_probe_", "test_isolation_probe"))
+            }
+    assert probes and probes <= set(_ORDERED_PROBES), sorted(probes - set(_ORDERED_PROBES))
+
+
+def test_a_mock_left_on_a_generation_singleton_fails_the_leaking_test(tmp_path):
+    # The leak this guards: the function-scoped monkeypatch re-installing a stream_boundaries mock
+    # after the harness exited. conftest loads as a plugin because the probe lives outside tests/.
+    probe = tmp_path / "test_leak_probe.py"
+    probe.write_text(
+        "from unittest.mock import AsyncMock\n"
+        "from app.services import summary_pipeline\n\n"
+        "def test_leaves_a_mock_behind():\n"
+        "    summary_pipeline.sec_edgar_service.get_filing_document = AsyncMock()\n",
+        encoding="utf-8",
+    )
+    result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe))
+    summary = result.stdout.strip().splitlines()[-1]
+    assert result.returncode == 1 and "1 passed" in summary and "1 error" in summary, result.stdout[-3000:]
+    assert "mock left on a shared generation singleton after the test: " in result.stdout
+    assert "get_filing_document" in result.stdout
+
+
+def test_sqlite_never_reissues_a_deleted_id():
+    probe = create_engine("sqlite://")
+    Base.metadata.create_all(probe)
+    with Session(probe) as db:
+        first = Company(cik="0000000001", ticker="IDREUSEA", name="Id Reuse A")
+        db.add(first)
+        db.commit()
+        first_id = first.id
+        db.delete(first)
+        db.commit()
+        second = Company(cik="0000000002", ticker="IDREUSEB", name="Id Reuse B")
+        db.add(second)
+        db.commit()
+        assert second.id != first_id
+    probe.dispose()

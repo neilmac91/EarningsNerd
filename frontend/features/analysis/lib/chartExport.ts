@@ -1,5 +1,46 @@
-import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
+import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import { downloadBlob } from '@/lib/downloadBlob'
+import type { DataNotesModel } from './dataNotes'
+import { formatAnalysisPeriod } from './periodLabels'
+import { FCF_DEFINITION } from './provenance'
+
+/** Notes for the plotted series only, with the report's stable letters and reason sentences. */
+export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: AnalysisSeries[], notes: DataNotesModel, includeYoY: boolean) {
+  const references = new Map<string, Map<string, string[]>>()
+  const addReference = (key: string, label: string, period: string) => {
+    const metrics = references.get(key) ?? new Map<string, string[]>()
+    metrics.set(label, [...(metrics.get(label) ?? []), formatAnalysisPeriod(period)])
+    references.set(key, metrics)
+  }
+  const unavailable: string[] = []
+  let hasCalculated = false
+  for (const series of plottedSeries) {
+    const missing: string[] = []
+    for (const period of dataset.periods) {
+      const point = series.points.find((entry) => entry.period === period.key) ?? { period: period.key, value: null }
+      const note = notes.noteFor(point)
+      if (note) addReference(note.key, series.label, period.key)
+      if (point.value == null) missing.push(formatAnalysisPeriod(period.key))
+      else if (point.provenance ? point.provenance.method === 'calculated' : point.derived) hasCalculated = true
+      if (includeYoY && typeof point.yoy === 'number') {
+        const comparison = notes.noteForComparison(point, 'yoy')
+        if (comparison) addReference(comparison.key, `${series.label} YoY`, period.key)
+      }
+    }
+    if (missing.length) unavailable.push(`${series.label}: unavailable for ${missing.join(', ')}.`)
+  }
+  const panelNotes = notes.notes.filter((note) => references.has(note.key))
+  return {
+    panelNotes,
+    unavailable,
+    exportNotes: [
+      ...panelNotes.map((note) => `Note ${note.letter}: ${note.message} ${[...references.get(note.key)!].map(([label, periods]) => `${label} (${periods.join(', ')})`).join('; ')}.`),
+      ...unavailable,
+      ...(hasCalculated ? ['Includes figures calculated by EarningsNerd.'] : []),
+      ...(plottedSeries.some((series) => series.concept === 'free_cash_flow') ? [FCF_DEFINITION] : []),
+    ],
+  }
+}
 
 /**
  * Dependency-free chart PNG export (audit enhancement 2): SVG serialization → canvas
@@ -141,7 +182,7 @@ async function drawBrandFooter(
 /* ---------------------------------------------------------------------------
    Header strip — company, ticker · metric, and the series legend. The Recharts
    <svg> carries the plot only; the company/metric/legend live outside it (the
-   page picker + TrendCharts' <h3>/PanelLegend), so an exported PNG that
+   page picker + TrendCharts' <h2>/PanelLegend), so an exported PNG that
    serializes the SVG alone is unidentifiable. Redraw them onto the canvas from
    the same data that drives the UI, so a shared image says which company, which
    metric, and which series — with no drift from what the user saw.
@@ -163,6 +204,9 @@ export interface ChartExportHeader {
   /** The panel/metric title (e.g. "Cash generation"). */
   title: string
   legend: ChartLegendItem[]
+  sourceNote?: string
+  disclosure?: string
+  notes?: string[]
 }
 
 /** Header geometry — exported for tests. Three tiers mirroring a captioned financial chart:
@@ -233,6 +277,29 @@ export function headerHeight(numRows: number): number {
     h += HEADER_STAMP.legendGap + numRows * LEGEND_ROW_H + (numRows - 1) * HEADER_STAMP.rowGap
   }
   return h + HEADER_STAMP.padBottom
+}
+
+/** Wrap export qualifications without dropping words, even on a narrow mobile chart. */
+export function layoutExportNotes(measure: (text: string) => number, paragraphs: string[], maxWidth: number): string[] {
+  const lines: string[] = []
+  for (const paragraph of paragraphs) {
+    let line = ''
+    for (const word of paragraph.trim().split(/\s+/)) {
+      if (line && measure(`${line} ${word}`) > maxWidth) { lines.push(line); line = '' }
+      // Long source dates/identifiers must not run off the edge either.
+      let part = word
+      while (measure(part) > maxWidth && part.length > 1) {
+        let length = 1
+        while (length < part.length && measure(part.slice(0, length + 1)) <= maxWidth) length += 1
+        if (line) { lines.push(line); line = '' }
+        lines.push(part.slice(0, length))
+        part = part.slice(length)
+      }
+      line = line ? `${line} ${part}` : part
+    }
+    if (line) lines.push(line)
+  }
+  return lines
 }
 
 /** Fill a rounded swatch (falls back to a square where roundRect is unavailable — a 2px radius on
@@ -317,8 +384,9 @@ function drawHeader(
  * omit it and the export degrades to the bare plot + footer.
  *
  * Known limitation (documented in the audit): the SVG plot is rasterized in an isolated image
- * document, where webfonts (Geist Mono) don't load — axis labels fall back to the system
- * monospace in CHART_FONT's stack. The header/footer text is drawn directly on the canvas (main
+ * document, where webfonts (Geist Mono) don't load. Resolve each text node's font stack before
+ * serialization so its system monospace fallback survives without the page's CSS variables.
+ * The header/footer text is drawn directly on the canvas (main
  * document), so it uses the system sans immediately — no webfont wait. Metrics are close;
  * embedding the font as a data URI is the upgrade path if pixel-identical axis text ever matters.
  */
@@ -337,6 +405,15 @@ export async function exportPanelPng(
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
   clone.setAttribute('width', String(width))
   clone.setAttribute('height', String(height))
+  const sourceText = svg.querySelectorAll('text, tspan')
+  clone.querySelectorAll<SVGTextContentElement>('text, tspan').forEach((text, index) => {
+    const computedFamily = getComputedStyle(sourceText[index]).fontFamily
+    const family = computedFamily && !computedFamily.includes('var(') ? computedFamily : 'monospace'
+    // Inline styles override existing presentation attributes. Replace both so the isolated
+    // SVG, including nested tspans, contains no unresolved font variable or inherited page CSS.
+    text.style.fontFamily = family
+    text.setAttribute('font-family', family)
+  })
 
   const image = await loadSvgImage(new XMLSerializer().serializeToString(clone))
   if (!image) return false
@@ -360,15 +437,24 @@ export async function exportPanelPng(
     )
     headH = headerHeight(legendRows.length)
   }
+  ctx.font = font(400, HEADER_STAMP.subtitleSize)
+  const notes = header ? [header.sourceNote, ...(header.notes ?? []), header.disclosure].filter((note): note is string => !!note) : []
+  const noteLines = layoutExportNotes((label) => ctx.measureText(label).width, notes, Math.max(1, width - 2 * HEADER_STAMP.padX))
+  const noteLineHeight = 18
+  const noteHeight = noteLines.length ? 16 + noteLines.length * noteLineHeight : 0
 
   canvas.width = width * scale
-  canvas.height = (headH + height + MARK_STAMP.stripHeight) * scale
+  canvas.height = (headH + height + noteHeight + MARK_STAMP.stripHeight) * scale
   ctx.fillStyle = resolveBackground(container)
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.scale(scale, scale)
   if (header) drawHeader(ctx, header, legendRows, width, dark)
   ctx.drawImage(image, 0, headH, width, height)
-  await drawBrandFooter(ctx, width, headH + height, dark)
+  ctx.font = font(400, HEADER_STAMP.subtitleSize)
+  ctx.fillStyle = dark ? EXPORT_TEXT.secondary.dark : EXPORT_TEXT.secondary.light
+  ctx.textBaseline = 'top'
+  noteLines.forEach((line, index) => ctx.fillText(line, HEADER_STAMP.padX, headH + height + 8 + index * noteLineHeight))
+  await drawBrandFooter(ctx, width, headH + height + noteHeight, dark)
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
   if (!blob) return false

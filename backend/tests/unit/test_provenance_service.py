@@ -324,6 +324,7 @@ class TestBuildMetricSource:
         row = {"metric": "Total Revenue", "current_period": "$391.0B", "prior_period": "$383.3B"}
         out = prov.build_metric_source(row, _filing(), self.XBRL, "Item 8. Financial Statements")
         assert out["source_verified"] is True
+        assert out["source_checkable"] is True
         assert out["xbrl_concept"] == "Revenue"
         assert out["source_section_ref"] == "Item 8. Financial Statements"
         assert out["source_url"].endswith("aapl.htm")
@@ -332,6 +333,8 @@ class TestBuildMetricSource:
         row = {"metric": "Revenue", "current_period": "$999.9B"}
         out = prov.build_metric_source(row, _filing(), self.XBRL, None)
         assert out["source_verified"] is False
+        # Checked and not matched: this row counts against the tally's matched share.
+        assert out["source_checkable"] is True
         assert out["xbrl_concept"] is None
         assert out["source_url"].endswith("aapl.htm")  # still linked, just not "verified"
 
@@ -339,12 +342,15 @@ class TestBuildMetricSource:
         row = {"metric": "Diluted EPS", "current_period": "$6.13"}
         out = prov.build_metric_source(row, _filing(), self.XBRL, None)
         assert out["source_verified"] is False
+        # Never checked (per-share figures are unmapped): no tally may count it as a failed match.
+        assert out["source_checkable"] is False
         assert out["source_url"].endswith("aapl.htm")
 
     def test_no_xbrl_data(self):
         row = {"metric": "Total Revenue", "current_period": "$391.0B"}
         out = prov.build_metric_source(row, _filing(), None, None)
         assert out["source_verified"] is False
+        assert out["source_checkable"] is False
 
     def test_small_value_not_verified(self):
         # Below the million threshold the rendering match is ambiguous -> never claimed verified.
@@ -352,6 +358,7 @@ class TestBuildMetricSource:
         row = {"metric": "Net income", "current_period": "1,234"}
         out = prov.build_metric_source(row, _filing(), xbrl, None)
         assert out["source_verified"] is False
+        assert out["source_checkable"] is False
 
 
 class TestEnrichFinancialHighlights:

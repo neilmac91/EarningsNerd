@@ -60,7 +60,9 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""  # Webhook signing secret from Stripe dashboard
-    # One current-state read under the account lock; phase/inactivity limits, NOT a total deadline.
+    # Each exact-ID Stripe read (the current subscription under the account lock, a paid invoice before
+    # that lock is taken, the serving Prices for GET /api/subscriptions/prices); phase/inactivity
+    # limits, NOT a total deadline.
     STRIPE_RECONCILIATION_CONNECT_TIMEOUT_SECONDS: float = Field(default=2.0, gt=0, le=10, allow_inf_nan=False)
     STRIPE_RECONCILIATION_READ_TIMEOUT_SECONDS: float = Field(default=3.0, gt=0, le=10, allow_inf_nan=False)
     # Price IDs from Stripe Dashboard > Products > Pricing
@@ -102,6 +104,16 @@ class Settings(BaseSettings):
     # Shared secret for token-gated internal job endpoints (e.g. Cloud Scheduler → /internal/jobs/*).
     # Unset disables those endpoints (they 503). Set to a long random string in prod.
     INTERNAL_JOB_TOKEN: str = ""
+
+    # Opt-in rollout: queue delivery must be verified before enabling request-based CPU billing.
+    DURABLE_TASKS_ENABLED: bool = False
+    TASKS_PROJECT_ID: str = ""
+    TASKS_LOCATION: str = "us-west1"
+    TASKS_QUEUE: str = "earningsnerd-background"
+    TASKS_WORKER_URL: str = ""
+    TASKS_INVOKER_EMAIL: str = ""
+    TASKS_WORKER_PROCESS: bool = False
+    TASKS_WORK_TIMEOUT_SECONDS: float = Field(default=480, gt=0, le=480)
 
     # PostHog (server-side tracking)
     POSTHOG_API_KEY: str = ""
@@ -418,6 +430,13 @@ class Settings(BaseSettings):
     # their own form sets until a later phase. Toggle with ENABLE_FPI_FILINGS=true.
     ENABLE_FPI_FILINGS: bool = False
 
+    # Insider-activity endpoint (GET /api/companies/{ticker}/insiders). A cold load is a live
+    # edgartools fan-out of about two SEC requests per Form 4 (up to 60 Form 4s), which cannot fit the
+    # deploy-pinned 1 req/s budget (CODE RED D3, docs/OPERATIONS.md), so the endpoint answers 404
+    # unless this is set. Its company-page panel is dark too (frontend NEXT_PUBLIC_ENABLE_INSIDER_
+    # ACTIVITY); turning both on needs a budget-aware insider scan first (decision record 17).
+    ENABLE_INSIDER_ACTIVITY: bool = False
+
     # Restrict the public earnings calendar (and homepage "Reporting This Week" strip) to companies
     # in the S&P 500 or Nasdaq 100 — a tight, defensible, high-signal universe (~515 tickers) instead
     # of the full Alpha Vantage long tail. Membership is the committed app/data/index_membership.json
@@ -564,6 +583,20 @@ class Settings(BaseSettings):
         # This ensures we get the value from Cursor settings if available
         case_sensitive = False
         env_file_encoding = 'utf-8'
+        # A validation error's text must never print its input: pydantic appends each failing field's
+        # value, and a missing field's input is every environment-derived value, secrets included, so
+        # the error would carry them into a startup log, CI's public log or an agent's output. This hides
+        # the input from str() and repr() only: errors() and json() still return it unless called with
+        # include_input=False, which the gate requires of every except block that calls them.
+        # Gate: tests/unit/test_never_echo_environment_values.py.
+        hide_input_in_errors = True
+
+    def __repr_args__(self) -> tuple[()]:
+        # A settings object prints no value: repr() is "Settings()" and str() is empty. Sentry's default
+        # local-variable capture serializes the repr of every frame local, so a captured error in any frame
+        # holding `settings` would otherwise send every secret. The values themselves are untouched.
+        # Gate: tests/unit/test_never_echo_environment_values.py.
+        return ()
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -715,4 +748,3 @@ class Settings(BaseSettings):
         return (not warnings), warnings
 
 settings = Settings()
-

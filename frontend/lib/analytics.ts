@@ -1,6 +1,7 @@
 import posthog from 'posthog-js'
 import * as Sentry from '@sentry/nextjs'
 import { getCookiePreferences } from '@/components/CookieConsent'
+import { sanitizeTelemetry } from './telemetryPrivacy'
 
 export type SummaryViewIdentity =
   | { state: 'authenticated'; accountId: string }
@@ -10,14 +11,14 @@ const safeCapture = (event: string, properties?: Record<string, unknown>) => {
   if (typeof window === 'undefined') {
     return
   }
-  posthog.capture(event, properties)
+  posthog.capture(event, sanitizeTelemetry(properties))
 }
 
 const safeIdentify = (userId: string, traits?: Record<string, unknown>) => {
   if (typeof window === 'undefined') {
     return
   }
-  posthog.identify(userId, traits)
+  posthog.identify(userId, sanitizeTelemetry(traits))
   // Mirror the identity into Sentry so client errors are attributable to the same user id the
   // backend tags (str(user.id)). Id only — no PII beyond the internal id. Never let it throw.
   try {
@@ -376,14 +377,9 @@ export const analytics = {
     safeCapture('billing_cycle_toggled', { from, to })
   },
 
-  checkoutStarted: (plan: string, price: number, billingCycle: string, variant?: string) => {
-    safeCapture('checkout_started', {
-      plan,
-      price,
-      billing_cycle: billingCycle,
-      // Pricing A/B arm (roadmap 2.3) — present so the exposed→checkout funnel can split by variant.
-      ...(variant ? { variant } : {}),
-    })
+  checkoutStarted: (plan: string, price: number, billingCycle: string) => {
+    // price is the selected cycle's full charge in dollars; the server decides the actual charge.
+    safeCapture('checkout_started', { plan, price, billing_cycle: billingCycle })
   },
 
   errorOccurred: (error: string, context?: Record<string, unknown>) => {

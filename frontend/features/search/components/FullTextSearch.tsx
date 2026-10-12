@@ -3,9 +3,9 @@
 import { queryKeys } from '@/lib/queryKeys'
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
-import { ArrowSquareOutIcon, CircleNotchIcon, MagnifyingGlassIcon, WarningIcon } from '@/lib/icons'
+import { ArrowSquareOutIcon, MagnifyingGlassIcon, WarningIcon } from '@/lib/icons'
 import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
-import { inputClasses } from '@/components/ui'
+import { FieldSpinner, inputClasses } from '@/components/ui'
 
 // EFTS is a global SEC index (independent of our ENABLE_FPI_FILINGS discovery flag), so the
 // foreign-issuer forms are always searchable. EFTS matches on root_form, which folds amendments
@@ -124,11 +124,11 @@ export default function FullTextSearch() {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Search the full text of filings…"
           aria-label="Search the full text of SEC filings"
-          className={inputClasses({ leadingIcon: true })}
+          aria-busy={isFetching || undefined}
+          className={inputClasses({ leadingIcon: true, trailingIcon: true })}
         />
-        {isFetching && (
-          <CircleNotchIcon className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
-        )}
+        {/* Inset always reserved, not only while fetching: see CompanySearch. */}
+        {isFetching && <FieldSpinner />}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -160,7 +160,7 @@ export default function FullTextSearch() {
           max={endDate || undefined}
           onChange={(e) => setStartDate(e.target.value)}
           aria-label="Filed on or after"
-          className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand focus:outline-none"
+          className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand focus:shadow-ring-brand focus:outline-none focus:ring-0 focus:ring-offset-0 dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark"
         />
         <span>and</span>
         <input
@@ -169,7 +169,7 @@ export default function FullTextSearch() {
           min={startDate || undefined}
           onChange={(e) => setEndDate(e.target.value)}
           aria-label="Filed on or before"
-          className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand focus:outline-none"
+          className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand focus:shadow-ring-brand focus:outline-none focus:ring-0 focus:ring-offset-0 dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark"
         />
         {(startDate || endDate) && (
           <button

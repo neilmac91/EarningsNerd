@@ -68,8 +68,9 @@ export default function PasswordField({
       </div>
 
       <div className="relative">
-        {/* Raw input + inputClasses(): pr-10 must pad the field itself so typed
-            text clears the eye toggle — the v2 <Input> shell owns className. */}
+        {/* Raw input + inputClasses(): the field itself takes the trailing inset so
+            typed text clears the eye toggle — the v2 <Input> shell owns className.
+            `trailingIcon`, not pr-10 on top: that would resolve by stylesheet order. */}
         <input
           type={show ? 'text' : 'password'}
           id={id}
@@ -79,7 +80,7 @@ export default function PasswordField({
           minLength={minLength}
           autoComplete={autoComplete}
           autoFocus={autoFocus}
-          className={inputClasses({ className: 'pr-10' })}
+          className={inputClasses({ trailingIcon: true })}
         />
         <button
           type="button"

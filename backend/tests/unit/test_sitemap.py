@@ -135,6 +135,33 @@ def test_only_summarized_filings_are_listed(client):
     assert f"/filing/{empty_id}</loc>" not in xml
 
 
+@pytest.mark.parametrize(
+    ("body", "raw_summary"),
+    [
+        ("Summary generation requires OpenAI API key. Please configure OPENAI_API_KEY in your .env file.", None),
+        ("## Executive Summary\n\nSummary temporarily unavailable. Please retry.", None),
+        ("A real generated summary.", {"writer_error": "timeout"}),
+    ],
+)
+def test_a_stored_failure_is_excluded_as_the_page_noindexes_it(client, body, raw_summary):
+    """The filing page shows a stored failure as its "Summary temporarily unavailable" card and noindexes it
+    (summary_placeholders.is_summary_ready), so the sitemap does not advertise it; a real summary stays."""
+    test_client, TestingSession = client
+    with TestingSession() as session:
+        company = _seed_company(session, "ACME", "0000000002")
+        failed = _seed_filing(session, company, "acc-failed", year=2026)
+        stored = _seed_summary(session, failed, business_overview=body)
+        stored.raw_summary = raw_summary
+        real = _seed_filing(session, company, "acc-real", year=2025)
+        _seed_summary(session, real)
+        session.commit()
+        failed_id, real_id = failed.id, real.id
+
+    xml = test_client.get("/sitemap.xml").text
+    assert f"/filing/{failed_id}</loc>" not in xml
+    assert f"/filing/{real_id}</loc>" in xml
+
+
 @pytest.mark.parametrize("placeholder", ["Generating summary", "Please wait: Generating summary…"])
 def test_placeholder_is_excluded_before_cap_but_partial_content_remains(client, monkeypatch, placeholder):
     test_client, TestingSession = client

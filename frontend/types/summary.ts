@@ -49,6 +49,9 @@ export interface MetricItem {
   // Trace-to-Source provenance (added by the backend at serialization time).
   source_url?: string | null
   source_verified?: boolean | null
+  // Whether the XBRL check could run on this row at all (a mapped concept of at least $1M);
+  // per-share figures, ratios, margins and segment lines are never checked.
+  source_checkable?: boolean | null
   source_section_ref?: string | null
   xbrl_concept?: string | null
   // Per-ADS EPS, added by the backend for ratio != 1 ADRs (see PerAdsValue).

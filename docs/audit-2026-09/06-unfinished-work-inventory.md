@@ -13,6 +13,8 @@ Read-only archaeology. Every row cites repo evidence (file:line at e8ea339) or a
 
 ## Inventory
 
+> **Correction, 2026-10-09:** rows 34–36 keep the original snapshot, but three of their items are done. Row 35's S4-followup-b: WS-8 (`d517ef19`, 2026-09-04) routed `facts_service._fetch_companyfacts_sync` through `sec_rate_limiter` (a bridge onto the async fetcher; no `sleep(0.2)`); S4-followup-a, the concept-list unification, stays open by design (`docs/ARCHITECTURE.md`, "Known residual debt"). Row 34's first item: `_parse_company_facts` has filled both buckets since `499648e6` (2026-09-05), pinned by `backend/tests/unit/test_companyfacts_fixture.py:116-127`; the row's other items are not re-checked here. Row 36 (PS5): since the same commit, `get_xbrl_data` reads the persisted `Filing.xbrl_data` before L1, L2 or SEC (`backend/app/services/edgar/xbrl_service.py:680`), so a deploy or scale event no longer forces a live re-fetch of a filing whose data is persisted.
+
 Size: S <1 day · M 1–3 days · L >3 days. Status: not started / partial / built-but-dark / blocked. Area: AI quality / data / frontend / SEO-growth / ops / billing.
 
 | # | Item | Source (file:line or PR/branch) | Area | Status | Still relevant? | Size |

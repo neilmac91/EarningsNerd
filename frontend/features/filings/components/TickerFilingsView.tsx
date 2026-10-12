@@ -35,7 +35,7 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
     return (
       <div className="min-h-screen bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
         <div className="flex h-full min-h-screen items-center justify-center">
-          <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+          <CircleNotchIcon className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
         </div>
       </div>
     )

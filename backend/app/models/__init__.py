@@ -13,6 +13,7 @@ from app.models.subscription import Subscription, StripeEvent, ACTIVE_STATUSES
 from app.models.notifications import NotificationPreferences, NotificationLog
 from app.models.earnings import EarningsEvent, EarningsAlertLog
 from app.models.financial_fact import FinancialFact
+from app.models.financial_fact_revision import FinancialFactRevision
 from app.models.notable_filing import NotableFiling
 from app.models.trend_analysis import TrendAnalysis
 from app.models.invite import InviteCode
@@ -128,7 +129,8 @@ class OAuthState(Base):
     nonce = Column(String(64), nullable=False)
     expires_at = Column(DateTime, nullable=False)
     # SHA-256 hash of a closed-beta invite carried through a social sign-in (auth.google_login /
-    # apple_login store it; the callback validates and redeems it when it creates the account).
+    # apple_login store it through services/oauth_account_service.py; the callback validates and
+    # redeems it when it creates the account).
     # NULL for a plain sign-in. Additive: self-healed by database.ensure_additive_columns.
     invite_code_hash = Column(String(64), nullable=True)
 

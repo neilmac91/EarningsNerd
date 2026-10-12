@@ -80,7 +80,7 @@ def render_welcome_email(
     greeting = _greeting(name)
     html_body = f"""
     <p style="margin:0 0 16px;">{greeting}</p>
-    <p style="margin:0 0 16px;">You're officially on the EarningsNerd waitlist! 🎉</p>
+    <p style="margin:0 0 16px;">You're on the EarningsNerd waitlist.</p>
     <p style="margin:0 0 16px;">Your current position: <strong>#{position}</strong></p>
     <p style="margin:0 0 20px;">
       Share your referral link to move up the list. Each successful referral bumps you up <strong>5 spots</strong>.
@@ -115,7 +115,7 @@ def render_referral_success_email(
     greeting = _greeting(name)
     html_body = f"""
     <p style="margin:0 0 16px;">{greeting}</p>
-    <p style="margin:0 0 16px;">You just moved up the EarningsNerd waitlist!</p>
+    <p style="margin:0 0 16px;">You moved up the EarningsNerd waitlist.</p>
     <p style="margin:0 0 16px;">Your new position: <strong>#{new_position}</strong></p>
     <p style="margin:0 0 20px;">
       Keep sharing your referral link to climb even faster:
@@ -125,7 +125,7 @@ def render_referral_success_email(
     """
     text_body = (
         f"{greeting}\n\n"
-        "You just moved up the EarningsNerd waitlist!\n"
+        "You moved up the EarningsNerd waitlist.\n"
         f"Your new position: #{new_position}\n\n"
         "Keep sharing your referral link to climb even faster:\n"
         f"{referral_link}\n\n"
@@ -150,7 +150,7 @@ async def send_waitlist_welcome_email(
     )
     await send_email(
         to=[to_email],
-        subject="You're on the EarningsNerd waitlist! 🎉",
+        subject="You're on the EarningsNerd waitlist",
         html=f"{html}{_hidden_text(text)}",
     )
 
@@ -169,7 +169,7 @@ async def send_referral_success_email(
     )
     await send_email(
         to=[to_email],
-        subject="You just moved up the EarningsNerd waitlist!",
+        subject="You moved up the EarningsNerd waitlist",
         html=f"{html}{_hidden_text(text)}",
     )
 
@@ -183,7 +183,7 @@ async def send_verification_email(
     greeting = _greeting(name)
     html_body = f"""
     <p style="margin:0 0 16px;">{greeting}</p>
-    <p style="margin:0 0 16px;">Thanks for creating an EarningsNerd account. Please verify your email address to unlock AI-powered SEC filing summaries.</p>
+    <p style="margin:0 0 16px;">Thanks for creating an EarningsNerd account. Verify your email address and you can start reading.</p>
     <p style="margin:0 0 24px;">
       <a href="{verification_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Verify my email</a>
     </p>
@@ -191,7 +191,7 @@ async def send_verification_email(
     <p style="margin:0;font-size:12px;color:#6B7280;">Can&apos;t click the button? Copy this link:<br>{verification_link}</p>
     """
     text_body = (
-        f"{greeting}\n\nPlease verify your email address to unlock EarningsNerd.\n\n"
+        f"{greeting}\n\nVerify your email address and you can start reading.\n\n"
         f"{verification_link}\n\nThis link expires in 24 hours."
     )
     await send_email(

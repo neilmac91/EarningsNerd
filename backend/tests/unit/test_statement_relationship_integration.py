@@ -617,9 +617,12 @@ async def test_real_pipeline_only_acquires_from_already_fetched_primary(tmp_path
         observed.append((args, kwargs))
         return acquire(*args, **kwargs)
 
-    with stream_boundaries() as summarize:
-        monkeypatch.setattr(pipeline.sec_edgar_service, "get_filing_document", fetch)
-        monkeypatch.setattr(pipeline, "acquire_statement_context", inspect_acquire)
+    # The inner overrides replace a seam ``stream_boundaries`` installed, so they are undone first
+    # (exit order is right to left). The function-scoped monkeypatch would undo them after the
+    # harness restored production, putting the harness AsyncMock back on the shared singleton.
+    with stream_boundaries() as summarize, monkeypatch.context() as scoped:
+        scoped.setattr(pipeline.sec_edgar_service, "get_filing_document", fetch)
+        scoped.setattr(pipeline, "acquire_statement_context", inspect_acquire)
         events = [e async for e in pipeline.stream_filing_summary(
             filing_id=fid, current_user=None, user_id=None, telemetry_distinct_id="offline",
             telemetry_entry_point="offline", telemetry_ctx={},

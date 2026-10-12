@@ -104,6 +104,29 @@ def test_in_instance_comparative_used_when_no_prior_filing():
     assert out["items"][0]["pct"] == 20.0
 
 
+def test_prior_filing_in_another_reporting_currency_is_never_differenced():
+    # An issuer that switched to EUR restates its comparatives in EUR, so the delta comes from its
+    # own filing's comparative (96), never from the prior filing's USD amount (100).
+    current = {"reporting_currency": "EUR", "revenue": _series(("2024-12-31", 120.0), ("2023-12-31", 96.0))}
+    prior = {"reporting_currency": "USD", "revenue": _series(("2023-12-31", 100.0))}
+    item = compute_what_changed(current, prior)["items"][0]
+    assert (item["current"], item["prior"], item["pct"]) == (120.0, 96.0, 25.0)
+    # With no comparative of its own, the metric is withheld rather than compared across currencies.
+    assert compute_what_changed({**current, "revenue": _series(("2024-12-31", 120.0))}, prior) is None
+
+
+def test_currency_guard_needs_two_known_and_different_currencies():
+    current = {"revenue": _series(("2024-12-31", 120.0), ("2023-12-31", 96.0))}
+    prior = {"revenue": _series(("2023-12-31", 100.0))}
+    for current_currency, prior_currency in (
+        ("USD", "usd"), ("CNY", "RMB"), ("EUR", None), (None, "USD"), ("EUR", "pure"), ("EUR", "US Dollars"),
+    ):
+        out = compute_what_changed(
+            {**current, "reporting_currency": current_currency}, {**prior, "reporting_currency": prior_currency}
+        )
+        assert out["items"][0]["prior"] == 100.0, (current_currency, prior_currency)
+
+
 def test_missing_xbrl_returns_none():
     assert compute_what_changed(None, None) is None
     assert compute_what_changed({}, {}) is None

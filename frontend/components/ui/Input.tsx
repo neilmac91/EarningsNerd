@@ -12,6 +12,29 @@
    conflict-order reliance; also inputClasses({ leadingIcon }) for raw fields),
    and Textarea grows variant="composer" (transparent auto-growing field for a
    focus-within shell — the chat composer, no double chrome).
+   v3.2: inputClasses() grows `select` (a raw <select> takes the Select
+   component's padding, so its chevron has room) and `autoWidth` (the field sizes
+   to its content instead of filling its container). A raw field never takes a
+   class on top that sets what the field already sets: cx does no tailwind-merge,
+   so stylesheet order, not class order, decides (gate:
+   tests/unit/inputClassesNoOverrides.spec.tsx).
+   v3.3: inputClasses() grows `trailingIcon` (the 40px trailing inset for a control
+   drawn at the field's right edge, the password reveal toggle), explicit sides
+   per density like `select`.
+   v3.4: FieldSpinner is exported for raw fields (the search fields' busy state), and
+   an Input that takes `loading` reserves its trailing inset whether or not it is
+   loading, as a raw field's `trailingIcon: true` does.
+   v3.5: the border and the focus ring are a TONE, one per field: `invalid` (the
+   components' `error`) picks the error tone instead of layering it on the default
+   one, where palette order decided which border showed and a hovered invalid
+   field turned grey. The error border holds on hover.
+   v3.6: every field resets the forms plugin's focus ring (`focus:ring-0
+   focus:ring-offset-0`), which painted a 1px #2563EB line over the DS ring.
+   v3.7: inputClasses() grows `shell` (the field drawn on a wrapper around a
+   chrome-free control, the chat composer): its focus border and ring key on
+   :focus-within and hold while the shell is hovered, where Tailwind's variant
+   order let the hover border win. fieldUnavailableClass likewise keeps a focused
+   field's brand border under hover.
    Assumes @tailwindcss/forms (already in the config plugins).
 ============================================================================= */
 
@@ -32,22 +55,57 @@ import { cx } from './cx'
     the client so composer auto-grow never flashes; plain effect on the server. */
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
-const FIELD = cx(
-  'w-full rounded-lg border text-sm transition-[border-color,box-shadow] duration-fast',
-  'border-border-light bg-white text-text-primary-light placeholder:text-text-tertiary-light',
-  'hover:border-flat-light',
-  'focus:border-brand focus:shadow-ring-brand focus:outline-none',
-  'disabled:cursor-not-allowed disabled:bg-background-light disabled:opacity-60 disabled:hover:border-border-light',
+/** The field's look without a width or a tone: inputClasses({ autoWidth }) picks the width, and `invalid` the tone. */
+const FIELD_BASE = cx(
+  'rounded-lg border text-sm transition-[border-color,box-shadow] duration-fast',
+  'bg-white text-text-primary-light placeholder:text-text-tertiary-light',
+  // v3.6: the forms plugin's `:focus` rule sets --tw-ring-shadow (a 1px #2563EB ring; 2px past a 2px white offset on
+  // a checkbox or radio), and the shadow-ring-* tokens composite it without resetting it, listed first, so it painted
+  // over the DS ring. ring-0 zeroes its spread and ring-offset-0 its offset; `focus:`, since the plugin's rule is too.
+  'focus:outline-none focus:ring-0 focus:ring-offset-0',
+  'disabled:cursor-not-allowed disabled:bg-background-light disabled:opacity-60',
   // dark: muted copy uses `secondary`, never `tertiary` (fails AA on navy)
-  'dark:border-border-dark dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark',
-  'dark:hover:border-flat-dark dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark',
-  'dark:disabled:bg-white/5 dark:disabled:hover:border-border-dark',
+  'dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark',
+  'dark:disabled:bg-white/5',
 )
+const FIELD = cx('w-full', FIELD_BASE)
 
-const INVALID = cx(
-  'border-error-light focus:border-error-light focus:shadow-ring-error',
-  'dark:border-error-dark dark:focus:border-error-dark dark:focus:shadow-ring-error',
-)
+/** v3.5 — the border and the focus ring, one tone per field, never one on top of the other. cx does no
+    tailwind-merge: the error classes layered on the default tone used to win by palette order (`error` after
+    `border` and `brand`), and the default `hover:` border, a later variant, turned a hovered invalid field grey.
+    `error` holds its border on hover, since the red names the problem; a disabled field's hover changes
+    nothing in either tone. Each tone states its focus border in both themes even where it equals the rest
+    border: the forms plugin's `input:where([type='text']):focus` border (#2563EB, specificity 0,1,1) beats a
+    bare `border-*` class (0,1,0). The error ring is `shadow-ring-error` in dark too, until a dark ring-error
+    token exists (the focus-ring item #1178 recorded). */
+const TONE = {
+  default: cx(
+    'border-border-light hover:border-flat-light focus:border-brand focus:shadow-ring-brand disabled:hover:border-border-light',
+    'dark:border-border-dark dark:hover:border-flat-dark dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark',
+    'dark:disabled:hover:border-border-dark',
+  ),
+  error: cx(
+    'border-error-light focus:border-error-light focus:shadow-ring-error',
+    'dark:border-error-dark dark:focus:border-error-dark dark:focus:shadow-ring-error',
+  ),
+} as const
+/** v3.7 — the tone of a field SHELL: a wrapper that draws the field around a chrome-free control (the chat composer's
+    <Textarea variant="composer"> beside its send button), so its focus states key on :focus-within. Tailwind emits
+    `focus-within` BEFORE `hover` (one specificity, 0,2,0), so the default tone's hover border beat a focus-within one
+    and a hovered, focused shell turned grey; `hover:focus-within:` restates the focus border one pseudo-class up, in
+    both themes. A shell is a <div>, never :focus or :disabled, so it takes no `focus:` or `disabled:hover:` border. */
+const SHELL_TONE = {
+  default: cx(
+    'border-border-light hover:border-flat-light focus-within:border-brand focus-within:shadow-ring-brand hover:focus-within:border-brand',
+    'dark:border-border-dark dark:hover:border-flat-dark dark:focus-within:border-brand-dark dark:focus-within:shadow-ring-brand-dark',
+    'dark:hover:focus-within:border-brand-dark',
+  ),
+  error: cx(
+    'border-error-light focus-within:border-error-light focus-within:shadow-ring-error',
+    'dark:border-error-dark dark:focus-within:border-error-dark dark:focus-within:shadow-ring-error',
+  ),
+} as const
+const tone = (invalid: unknown, shell = false) => (shell ? SHELL_TONE : TONE)[invalid ? 'error' : 'default']
 
 const PAD = 'px-3.5 py-2.5'
 /** Leading-icon inset — EXPLICIT sides. px-3.5 + a pl-11 override is Tailwind
@@ -55,31 +113,106 @@ const PAD = 'px-3.5 py-2.5'
     class order, wins) — the two search fields hand-rolled that gamble (v2.2). */
 const PAD_ICON = 'py-2.5 pl-11 pr-3.5'
 
-export interface InputClassesOptions {
+/** v3.1 — field density. `comfortable` (default) is the form field (42px: 10px padding, a 20px line,
+    1px borders). `compact` is the TOOLBAR field (the filings index's year filter, beside a
+    SegmentedControl) and the field inside a table row (the admin feedback status): 36px from sm
+    up, while phones keep the standard 42px. Named `density`
+    (DataTable's vocabulary), not `size` — `size` is a native <input>/<select> attribute. EXPLICIT
+    sides per density, never an override on top of PAD: cx does no tailwind-merge, so two padding
+    utilities resolve by stylesheet order, not class order. */
+export type FieldDensity = 'comfortable' | 'compact'
+const PAD_COMPACT = 'px-3.5 py-2.5 sm:h-9 sm:px-3 sm:py-1.5'
+const PAD_ICON_COMPACT = 'py-2.5 pl-11 pr-3.5 sm:h-9 sm:py-1.5 sm:pl-10 sm:pr-3'
+const SELECT_PAD = { comfortable: 'py-2.5 pl-3.5 pr-9', compact: 'py-2.5 pl-3.5 pr-9 sm:h-9 sm:py-1.5 sm:pl-3' } as const
+/** v3.3 — trailing inset: pr-10 (40px) in both densities, as SELECT_PAD keeps pr-9, because the control does
+    not move with density. EXPLICIT sides, never pr-10 on top of PAD: that pair resolves by stylesheet order
+    (the padding plugin emits sides after axes), the conflict the leading inset already avoids. */
+const PAD_TRAILING = 'py-2.5 pl-3.5 pr-10'
+const PAD_ICON_TRAILING = 'py-2.5 pl-11 pr-10'
+const PAD_TRAILING_COMPACT = 'py-2.5 pl-3.5 pr-10 sm:h-9 sm:py-1.5 sm:pl-3'
+const PAD_ICON_TRAILING_COMPACT = 'py-2.5 pl-11 pr-10 sm:h-9 sm:py-1.5 sm:pl-10'
+/** A field's padding by density and inset: one explicit literal each. */
+const FIELD_PAD = {
+  comfortable: { plain: PAD, leading: PAD_ICON, trailing: PAD_TRAILING, both: PAD_ICON_TRAILING },
+  compact: { plain: PAD_COMPACT, leading: PAD_ICON_COMPACT, trailing: PAD_TRAILING_COMPACT, both: PAD_ICON_TRAILING_COMPACT },
+} as const
+
+interface InputClassesBase {
   /** Renders the error-ring treatment (mirrors what the `error` prop wires). */
   invalid?: boolean
-  /** Reserve the pl-11 leading-icon inset (you render the icon — absolute,
-      left-3.5, centered, pointer-events-none, muted tone). */
-  leadingIcon?: boolean
+  /** v3.1: `compact` = the 36px toolbar field from sm up (phones keep the standard 42px). */
+  density?: FieldDensity
+  /** v3.2: the field sizes to its content instead of filling its container: a select beside its
+      label in a flex row, a toolbar filter, a table cell. Capped at its container (`max-w-full`)
+      for options that come from data. Never `w-auto` on top of the default: the stylesheet emits
+      `.w-full` after `.w-auto`, so that override loses. */
+  autoWidth?: boolean
+  /** v3.7: the field drawn on a wrapper around a chrome-free control (<Textarea variant="composer"> and its send
+      button): the tone's focus border and ring key on :focus-within, and hold while the shell is hovered. */
+  shell?: boolean
   className?: string
 }
+
+/** `select` sets the whole padding (its chevron holds the trailing side), so a select takes neither
+    inset; `leadingIcon` and `trailingIcon` combine. */
+export type InputClassesOptions = InputClassesBase &
+  (
+    | {
+        /** Reserve the pl-11 leading-icon inset (you render the icon — absolute,
+            left-3.5, centered, pointer-events-none, muted tone). */
+        leadingIcon?: boolean
+        /** v3.3: reserve the pr-10 (40px) trailing inset for a control you render at the field's right
+            edge (the password reveal toggle, a search field's <FieldSpinner />). Sized for a glyph of at
+            most 16px whose outer edge sits 12px in (`right-3`, or `right-0` with `pr-3`): it spans 12–28px
+            from the edge and leaves 13px before the text. A larger glyph, or one set further in, runs into
+            the text. v3.4: always `true`, never the control's own condition. When the padding grows,
+            Chromium leaves the caret where it was, so a long query loses its end and caret under a spinner
+            for the whole load; when it shrinks, the line jumps. */
+        trailingIcon?: boolean
+        select?: false
+      }
+    | {
+        /** v3.2: a raw <select> takes the Select component's padding (SELECT_PAD, per density):
+            its pr-9 clears the forms plugin's chevron, where PAD's 14px right inset lets a
+            content-width select's text run under it. */
+        select: true
+        leadingIcon?: never
+        trailingIcon?: never
+        shell?: never
+      }
+  )
 
 /** Class-string factory — the full field treatment for raw <input>/<select>
     elements the component can't wrap (third-party pickers, combobox libs).
     Mirrors the kept repo Input's inputClasses export (7 importers), so the
     port is mechanical: `inputClasses` → `inputClasses()`. The components
     below compose the same pieces — one source of truth. */
-export function inputClasses({ invalid = false, leadingIcon = false, className }: InputClassesOptions = {}): string {
-  return cx(FIELD, leadingIcon ? PAD_ICON : PAD, invalid && INVALID, className)
+export function inputClasses({
+  invalid = false,
+  leadingIcon = false,
+  trailingIcon = false,
+  select = false,
+  density = 'comfortable',
+  autoWidth = false,
+  shell = false,
+  className,
+}: InputClassesOptions = {}): string {
+  const inset = leadingIcon ? (trailingIcon ? 'both' : 'leading') : trailingIcon ? 'trailing' : 'plain'
+  const pad = select ? SELECT_PAD[density] : FIELD_PAD[density][inset]
+  return cx(autoWidth ? cx('max-w-full', FIELD_BASE) : FIELD, tone(invalid, shell), pad, className)
 }
 
 /** The field's `disabled:` look keyed to `aria-disabled`, for a field (a <select> here) that is
     unavailable while its own save runs but must keep keyboard focus: aria-disabled plus a guarded
     change handler, never native `disabled` (Chromium blurs a focused control that turns disabled).
-    lessons/frontend-busy-controls-stay-focusable.md */
+    It fades the text ink, not the element: the native look's `opacity-60` would fade the focus ring
+    this focusable state still shows. The hairline keeps its strength, since it carries the field's
+    focus and invalid states. lessons/frontend-busy-controls-stay-focusable.md (e) */
 export const fieldUnavailableClass = cx(
-  'aria-disabled:cursor-not-allowed aria-disabled:bg-background-light aria-disabled:opacity-60 aria-disabled:hover:border-border-light',
-  'dark:aria-disabled:bg-white/5 dark:aria-disabled:hover:border-border-dark',
+  'aria-disabled:cursor-not-allowed aria-disabled:bg-background-light aria-disabled:text-text-primary-light/60 aria-disabled:hover:border-border-light',
+  'dark:aria-disabled:bg-white/5 dark:aria-disabled:text-text-primary-dark/60 dark:aria-disabled:hover:border-border-dark',
+  // v3.7: hover holds a focused field's brand border; `aria-disabled:hover:` alone (0,3,0) beat `focus:border-brand` (0,2,0).
+  'aria-disabled:hover:focus:border-brand dark:aria-disabled:hover:focus:border-brand-dark',
 )
 
 interface FieldExtras {
@@ -119,7 +252,10 @@ function Shell({
   )
 }
 
-function FieldSpinner() {
+/** The field's busy spinner: 16px at right-3, the box `trailingIcon` reserves. A raw field renders it beside the
+    input inside a `relative` wrapper, with `trailingIcon: true` and `aria-busy` on the input, as Input's
+    `loading` does. aria-hidden: the input's aria-busy carries the state. */
+export function FieldSpinner() {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -136,7 +272,8 @@ function FieldSpinner() {
 /* ---------------------------------------------------------------- Input -- */
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement>, FieldExtras {
-  /** Async lookup in flight (e.g. ticker validation) — trailing spinner + aria-busy. */
+  /** Async lookup in flight (e.g. ticker validation) — trailing spinner + aria-busy. Passing it at all,
+      `false` included, reserves the trailing inset, so the padding never moves under the caret. */
   loading?: boolean
   /** Leading glyph (16–18px — a Phosphor magnifier, a ticker mark). Swaps the
       left inset to the pl-11 icon padding; muted tone, pointer-events-none.
@@ -173,8 +310,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
             // Explicit per-side padding — no px/pl/pr conflict-order reliance.
             'py-2.5',
             icon ? 'pl-11' : 'pl-3.5',
-            loading ? 'pr-10' : 'pr-3.5',
-            error ? INVALID : undefined,
+            loading !== undefined ? 'pr-10' : 'pr-3.5',
+            tone(error),
           )}
           {...rest}
         />
@@ -188,20 +325,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 
 /** Composer chrome — the transparent field for a focus-within shell. The SHELL
     (app-owned: send button, attachments) carries border + ring so there is no
-    double chrome:
+    double chrome, through `shell: true` (v3.7), never focus-within classes on top:
+    a bare `focus-within:` border loses to the field's `hover:` one.
 
-      <div className={cx(
-        inputClasses({ className: 'flex items-end gap-2' }),
-        'focus-within:border-brand focus-within:shadow-ring-brand',
-        'dark:focus-within:border-brand-dark dark:focus-within:shadow-ring-brand-dark',
-      )}>
+      <div className={inputClasses({ shell: true, className: 'flex items-end gap-2' })}>
         <Textarea variant="composer" aria-label="Ask this filing" placeholder="Ask this filing…" />
         <Button size="sm">Ask</Button>
       </div> */
 const COMPOSER = cx(
   'w-full resize-none border-0 bg-transparent p-0 text-sm',
   'text-text-primary-light placeholder:text-text-tertiary-light',
-  'focus:outline-none focus:ring-0 focus:shadow-none',
+  'focus:outline-none focus:ring-0 focus:ring-offset-0 focus:shadow-none',
   'disabled:cursor-not-allowed disabled:opacity-60',
   'dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark',
 )
@@ -256,7 +390,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
           if (composer) grow()
           onInput?.(e)
         }}
-        className={composer ? COMPOSER : cx(FIELD, PAD, 'resize-y', error ? INVALID : undefined)}
+        className={composer ? COMPOSER : cx(FIELD, tone(error), PAD, 'resize-y')}
         {...rest}
       />
     </Shell>
@@ -265,10 +399,13 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
 
 /* --------------------------------------------------------------- Select -- */
 
-export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement>, FieldExtras {}
+export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement>, FieldExtras {
+  /** v3.1: `compact` = the 36px toolbar select from sm up (phones keep the standard 42px). */
+  density?: FieldDensity
+}
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { label, hint, error, className, id: idProp, children, ...rest },
+  { label, hint, error, className, id: idProp, density = 'comfortable', children, ...rest },
   ref,
 ) {
   const autoId = useId()
@@ -281,7 +418,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         id={id}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        className={cx(FIELD, 'py-2.5 pl-3.5 pr-9', error ? INVALID : undefined)}
+        className={cx(FIELD, tone(error), SELECT_PAD[density])}
         {...rest}
       >
         {children}

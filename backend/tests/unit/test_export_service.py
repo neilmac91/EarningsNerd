@@ -179,7 +179,7 @@ class TestCsv:
         csv_out = service.generate_csv(summary, filing)
         assert csv_out.startswith("\ufeff")
         lines = csv_out.removeprefix("\ufeff").splitlines()
-        assert lines[0] == "EarningsNerd — AI-Powered SEC Filing Analysis"
+        assert lines[0] == "EarningsNerd · AI summaries of SEC filings"
         assert lines[1] == "earningsnerd.io"
         assert lines[2] == ""
         assert "BIOGEN INC." in lines[3]
@@ -339,6 +339,7 @@ class TestAnalysisPdfHtml:
                 {"n": 2, "excerpt": "Revenue = 1,500 USD (FY2024)", "section_ref": "XBRL · us-gaap:Revenues"},
             ],
             dataset_json={
+                "mode": "annual", "period_key": "FY2022..FY2024",
                 "periods": [{"key": "FY2022"}, {"key": "FY2023"}, {"key": "FY2024"}],
                 "series": [
                     {
@@ -379,6 +380,222 @@ class TestAnalysisPdfHtml:
         # Untrusted text is escaped (the narrative's <b> must not survive as markup)
         assert "<b>" not in html
         assert "Test &amp; Co" in html
+
+    def test_snapshot_lineage_and_specific_unavailable_reason_survive_pdf(self):
+        analysis = self._analysis()
+        analysis.dataset_json.update(
+            dataset_version="quarterly-v2", snapshot_id="a" * 64, data_as_of="2026-07-01T09:00:00Z",
+        )
+        point = analysis.dataset_json["series"][0]["points"][2]
+        point.update(reconciled=False, provenance={
+            "method": "calculated", "validation": "passed", "reasons": [],
+            "formula": "annual_minus_ytd", "inputs": [{
+                "concept": "revenue", "value": 2500, "unit": "USD",
+                "period_start": "2024-01-01", "period_end": "2024-12-31",
+                "source_url": "https://example.com/filing?x=1&y=2",
+            }],
+        })
+        analysis.dataset_json["series"][0]["points"][1].update(provenance={
+            "method": "unknown", "validation": "unavailable", "inputs": [],
+            "reasons": ["unsupported_eps_calculation"],
+        })
+        html = ExportService().generate_analysis_pdf_html(analysis, self._company())
+        assert "$1,500 †</td>" in html
+        assert "[unreconciled]" not in html
+        assert '—<sup class="data-note"><a href="#analysis-data-note-b">b</a></sup>' in html
+        assert "Use a reported quarterly EPS figure." in html
+        assert 'href="https://example.com/filing?x=1&amp;y=2"' in html
+        assert "annual_minus_ytd" in html
+        assert "2500 USD (2024-01-01 to 2024-12-31)" in html
+        assert "a" * 64 in html and "quarterly-v2" in html
+        assert "2026-07-01T09:00:00Z" in html
+        assert "finance-lease principal" in html
+        assert "do not appear in the filings" not in html
+        assert "This analysis was generated" not in html
+
+    def test_pdf_compacts_raw_compatibility_tail_without_mutating_saved_evidence(self):
+        from copy import deepcopy
+
+        from app.services.trend_analysis.data_notes import resolve_data_notes
+
+        analysis = self._analysis()
+        tail = (
+            " Source operands: Revenue USD 5,600,000,000 in 2026Q2 [1]; "
+            "Net income EUR 1,500,000,000 in 2026Q2 [2]; "
+            "Cash USD 1,010,000,000 in 2026Q1 [3]; Cash USD 1,040,000,000 in 2026Q2 [4]; "
+            "Current ratio 1.0001x in 2026Q2 [5]."
+        )
+        lead = "## Red flags\nRevenue was $5.6B in Q2 2026 [1]."
+        analysis.narrative_md = lead + tail
+        analysis.dataset_json["snapshot_id"] = "a" * 64
+        for citation in analysis.citations_json:
+            citation["provenance"] = {"method": "reported", "validation": "passed", "reasons": []}
+        analysis.dataset_json["narrative_presentation"] = {
+            "notes": resolve_data_notes(analysis.dataset_json),
+            "evidence": [{"tail": {"start": len(lead), "end": len(lead + tail), "text": tail}}],
+        }
+        before = deepcopy(vars(analysis))
+
+        html = ExportService().generate_analysis_pdf_html(analysis, self._company())
+
+        assert "Revenue was $5.6B in Q2 2026 [1]. Source operands: Revenue $5.6B in Q2 2026 [1]" in html
+        assert "Net income EUR\u00a01.5B in Q2 2026 [2]" in html
+        assert "Cash USD 1,010,000,000 in Q1 2026 [3]" in html
+        assert "Cash USD 1,040,000,000 in Q2 2026 [4]" in html
+        assert "$1.0B" not in html  # Distinct inputs must not collapse to one displayed amount.
+        assert "Current ratio 1.0001× in Q2 2026 [5]" in html
+        assert vars(analysis) == before  # Stored text, offsets and financial snapshot are immutable.
+
+    def test_shared_saved_notes_and_exact_values_survive_both_exports(self):
+        from copy import deepcopy
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        from app.services.excel_export_service import build_analysis_workbook
+        from app.services.trend_analysis.data_notes import citation_data_notes, data_notes
+
+        passed = {"method": "reported", "validation": "passed", "reasons": []}
+        conflict = {"method": "reported", "validation": "needs_review", "reasons": ["source_conflict"]}
+        dataset = {
+            "mode": "quarterly", "period_key": "2026Q1..2026Q2", "periods": [{"key": "2026Q1"}, {"key": "2026Q2"}],
+            "series": [
+                {"concept": "revenue", "label": "Revenue", "unit": "EUR", "points": [
+                    {"period": "2026Q1", "value": 1234567890123, "provenance": conflict},
+                    {"period": "2026Q2", "value": 0, "provenance": passed, "qoq": "nm",
+                     "qoq_provenance": {**conflict, "reasons": ["missing_adjacent_period"]}},
+                ]},
+                {"concept": "current_ratio", "label": "Current ratio", "unit": "pure", "points": [
+                    {"period": "2026Q1", "value": 0.999999999999, "provenance": passed},
+                    {"period": "2026Q2", "value": 1.0000000000001, "provenance": passed},
+                ]},
+                {"concept": "eps_diluted", "label": "EPS", "unit": "EUR/shares", "points": [
+                    {"period": "2026Q2", "value": None, "provenance": {
+                        "method": "unknown", "validation": "unavailable", "reasons": ["unsupported_eps_calculation"]}},
+                ]},
+            ],
+        }
+        dataset["data_notes"] = data_notes(dataset)
+        dataset["data_notes"]["notes"][0]["message"] = "Saved source wording <retain>."
+        citations = [{"n": 1, "excerpt": "Precise ratio (2026Q1)", "value": 0.999999999999,
+                      "unit": "pure", "provenance": {**conflict, "reasons": ["missing_source"]}}]
+        notes = citation_data_notes(citations, dataset["data_notes"])
+        notes["notes"][-1]["message"] = "Saved citation-only wording."
+        dataset["narrative_presentation"] = {"notes": notes}
+        before = deepcopy(dataset)
+        analysis = SimpleNamespace(mode="quarterly", period_key=dataset["period_key"], dataset_json=dataset,
+                                   narrative_md="A precise ratio [1].", citations_json=citations)
+        html = ExportService().generate_analysis_pdf_html(analysis, self._company())
+        assert html.count("<h2>Data notes</h2>") == 1
+        assert html.count("Saved source wording &lt;retain&gt;.") == 1
+        assert html.count("Saved citation-only wording.") == 1
+        assert 'A precise ratio [1]<sup class="data-note"><a href="#analysis-data-note-e">e</a></sup>' in html
+        assert "1234567890123 EUR" in html and "0.999999999999 pure" in html and "1.0000000000001 pure" in html
+        assert "<th>Q2 2026</th>" in html and "EUR 1.23T" in html and "EUR 0</td>" in html
+        assert 'n/m fraction<sup class="data-note"><a href="#analysis-data-note-b">b</a></sup>' in html
+        workbook = load_workbook(BytesIO(build_analysis_workbook(dataset)))
+        assert workbook["Metrics"]["D2"].value == 1234567890123 and workbook["Metrics"]["D2"].data_type == "n"
+        assert workbook["Metrics"]["E2"].value == 0 and workbook["Metrics"]["E2"].comment is None
+        assert workbook["Metrics"]["D4"].value is None and workbook["Metrics"]["D4"].data_type == "n"
+        assert workbook["Metrics"]["D4"].comment.text.startswith("Data note c:")
+        assert workbook["Metrics"]["E4"].comment.text.startswith("Data note d:")
+        assert workbook["Metrics"]["D2"].comment.text.startswith("Data note a: Saved source wording <retain>.")
+        assert workbook["Metrics"]["E1"].value == "Q2 2026"
+        overview = "\n".join(str(c.value) for row in workbook["Overview"] for c in row if c.value)
+        assert "1 figures need review · 1 comparisons need review · 2 unavailable" in overview
+        assert "Data note a: Saved source wording <retain>." in overview
+        assert "Saved citation-only wording" not in overview and "raw full-precision dollars" not in overview
+        sources = list(workbook["Sources & Methods"].values)
+        assert next(row for row in sources if row[2] == "QOQ")[16] == "Data note b"
+        assert any(row[0] == "EPS" and row[1] == "Q1 2026" and row[4] is None and row[16] == "Data note c" for row in sources)
+        assert dataset == before
+
+    def test_comparison_only_unknown_status_is_counted_in_pdf_and_workbook(self):
+        from copy import deepcopy
+        from io import BytesIO
+        import json
+        from pathlib import Path
+
+        from openpyxl import load_workbook
+
+        from app.services.excel_export_service import build_analysis_workbook
+
+        fixture = json.loads((Path(__file__).parents[1] / "fixtures" / "analysis_data_notes.json").read_text())
+        case = next(case for case in fixture["cases"] if case["name"] == "annual_windows_and_comparison_only_issues")
+        dataset = deepcopy(case["dataset"])
+        dataset["data_notes"] = deepcopy(case["expected"])
+        assert dataset["data_notes"]["totals"]["unknown"] == 0
+        analysis = SimpleNamespace(mode="annual", period_key=dataset["period_key"], dataset_json=dataset,
+                                   narrative_md="Annual comparisons.", citations_json=[])
+        before = deepcopy(vars(analysis))
+
+        html = ExportService().generate_analysis_pdf_html(analysis, self._company())
+        workbook = load_workbook(BytesIO(build_analysis_workbook(dataset)))
+        overview = "\n".join(str(cell.value) for row in workbook["Overview"] for cell in row if cell.value)
+
+        for exported in (html, overview):
+            assert "0 figures with no validation record" in exported
+            assert "1 comparison with no validation record" in exported
+            assert "0 figures need review · 4 comparisons need review" in exported
+        assert vars(analysis) == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("changed", ["facts", "version", "saved_fingerprint", "saved_snapshot", "requested_snapshot", "prompt", None])
+async def test_analysis_pdf_refuses_stale_or_replaced_snapshots(monkeypatch, changed):
+    from copy import deepcopy
+    from unittest.mock import AsyncMock
+
+    from fastapi import HTTPException
+
+    from app.models import TrendAnalysis
+    from app.routers import analysis as router
+    from app.services import entitlements
+    from app.services.export_service import export_service
+    from app.services.trend_analysis.data_notes import resolve_data_notes
+    from app.services.trend_analysis.presentation import NARRATIVE_FORMAT_VERSION
+
+    record = TestAnalysisPdfHtml()._analysis()
+    record.company_id = 123
+    record.dataset_json.update(dataset_version="quarterly-v2")
+    record.dataset_fingerprint = router.trend_analysis_service.dataset_fingerprint(record.dataset_json)
+    record.dataset_json["snapshot_id"] = record.dataset_fingerprint
+    record.dataset_json["data_notes"] = resolve_data_notes(record.dataset_json)
+    record.dataset_json["narrative_presentation"] = {
+        "format_version": NARRATIVE_FORMAT_VERSION, "snapshot_id": record.dataset_fingerprint,
+        "data_notes_version": 1, "notes": record.dataset_json["data_notes"],
+        "offset_encoding": "utf-16", "evidence": [],
+    }
+    record.prompt_version = router.trend_analysis_service.PROMPT_VERSION
+    current = deepcopy(record.dataset_json)
+    requested_snapshot = record.dataset_fingerprint
+    if changed == "facts":
+        current["series"][0]["points"][0]["value"] = 2000
+    elif changed == "version":
+        record.dataset_json["dataset_version"] = "legacy"
+    elif changed == "saved_fingerprint":
+        record.dataset_fingerprint = "0" * 64
+    elif changed == "saved_snapshot":
+        record.dataset_json["snapshot_id"] = "0" * 64
+    elif changed == "requested_snapshot":
+        requested_snapshot = "0" * 64
+    elif changed == "prompt":
+        record.prompt_version = "older-prompt"
+    company = TestAnalysisPdfHtml()._company()
+    db = SimpleNamespace(get=lambda model, identifier: record if model is TrendAnalysis else company)
+    monkeypatch.setattr(entitlements, "get_entitlements", lambda user: SimpleNamespace(can_export=True))
+    monkeypatch.setattr(router.trend_analysis_service, "build_dataset", lambda *args: current)
+    render = AsyncMock(return_value=b"%PDF-test")
+    monkeypatch.setattr(export_service, "export_analysis_pdf", render)
+    if changed:
+        with pytest.raises(HTTPException) as exc:
+            await router.export_analysis_pdf(1, snapshot_id=requested_snapshot, current_user=SimpleNamespace(), db=db)
+        assert exc.value.status_code == 409
+        render.assert_not_awaited()
+    else:
+        response = await router.export_analysis_pdf(1, snapshot_id=requested_snapshot, current_user=SimpleNamespace(), db=db)
+        assert response.body == b"%PDF-test"
+        render.assert_awaited_once()
 
 
 class TestBrandedShell:

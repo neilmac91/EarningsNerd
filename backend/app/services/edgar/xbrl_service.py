@@ -20,12 +20,13 @@ Usage:
 """
 
 import asyncio
-import logging
-from collections import OrderedDict
-from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+import logging  # noqa: F401 - preserve the facade import surface
+from collections import OrderedDict  # noqa: F401 - preserve the facade import surface
+from datetime import date, datetime, timedelta  # noqa: F401 - preserve the facade import surface
+from typing import Any, Dict, List, Optional, Tuple  # noqa: F401 - preserve the facade import surface
 
 from edgar import set_identity
+from app.utils.datetimes import utcnow
 
 # The XBRL primary-path calls use a plain timeout, NOT run_with_circuit_breaker: large filings
 # legitimately parse for 20-40s (BAC/JPM/BABA 20-F), so their dominant failure mode is local parse
@@ -34,601 +35,61 @@ from edgar import set_identity
 # detector reporting the opposite of the truth. The fetch-shaped calls in edgar/client.py +
 # edgar/compat.py give the breaker its clean SEC-health signal (S4 review, finding #2).
 from .async_executor import run_in_executor_with_timeout
-from .client import resolve_filing_by_accession
-from app.services.sec_rate_limiter import sec_rate_limiter
-from app.utils.sec_urls import companyfacts_url
+from app.services.request_work import run_owned_sync
+from .client import resolve_filing_by_accession  # noqa: F401 - preserve the facade import surface
+from app.services.sec_rate_limiter import sec_rate_limiter  # noqa: F401 - preserve the facade import surface
+from app.utils.sec_urls import companyfacts_url  # noqa: F401 - preserve the facade import surface
 from .config import EDGAR_IDENTITY, EDGAR_DEFAULT_TIMEOUT_SECONDS
-from .ads_ratios import ads_ratio_for_cik, build_per_ads_eps
-from .instance_extractor import (
+from .ads_ratios import ads_ratio_for_cik, build_per_ads_eps  # noqa: F401 - preserve the facade import surface
+from .instance.concepts import (  # noqa: F401 - preserve the facade import surface
     DURATION_CONCEPTS,
-    DURATION_WINDOWS,
     INSTANT_CONCEPTS,
     RICHER_DURATION_CONCEPTS,
     RICHER_INSTANT_CONCEPTS,
-    cash_financial_classification,
-    debt_component_observations,
+)
+from .instance.core import DURATION_WINDOWS, normalize_form  # noqa: F401 - preserve the facade import surface
+from .instance.debt import debt_component_observations  # noqa: F401 - preserve the facade import surface
+from .instance.financial_profiles import cash_financial_classification  # noqa: F401 - preserve the facade import surface
+from .instance.segments import segment_series_by_member  # noqa: F401 - preserve the facade import surface
+from .instance.series import (  # noqa: F401 - preserve the facade import surface
     dividend_component_sum_series,
     duration_series_with_starts,
-    extract_financial_statement_metrics,
     instant_series_with_currency,
     instant_series_currency_concept,
-    normalize_form,
-    segment_series_by_member,
 )
-from .financing_source import financing_comparison_source
-from .models import MetricChange
+from .instance.statements import extract_financial_statement_metrics  # noqa: F401 - preserve the facade import surface
+from .financing_source import financing_comparison_source  # noqa: F401 - preserve the facade import surface
+from .models import MetricChange  # noqa: F401 - preserve the facade import surface
+from . import xbrl_companyfacts as _companyfacts
+from . import xbrl_standardized as _standardize
+from .xbrl_companyfacts import CASH_TAG_CANDIDATES
+from .xbrl_instance import _extract_from_filing_instance_sync, _extract_segments, _source_duration
+from .xbrl_sections import _SECTION_MIN_CHARS, _extract_sections_sync
+from .xbrl_cache import (
+    _XBRL_CACHE_VERSION,
+    _cache_max_size,
+    _cache_set_sync,
+    _cache_ttl,
+    _get_cache_lock,
+    _xbrl_cache,
+    async_clear_xbrl_cache,
+    clear_xbrl_cache,
+    get_xbrl_cache_stats,
+    logger,
+    record_hit,
+    record_miss,
+)
 
-logger = logging.getLogger(__name__)
-
-# Cash concept candidates for the single-filing statement path, in priority order. The
-# ASU 2016-18 restricted-cash total sits LAST (lowest priority): it only resolves when no
-# unrestricted-cash tag is present — the JPM-class bank case whose only cash line is the
-# migrated tag (data-quality plan P0-3). test_cash_registry_consistency.py pins this ordering
-# across all three cash registries.
-CASH_TAG_CANDIDATES: List[str] = [
-    "CashAndCashEquivalentsAtCarryingValue",
-    "Cash",
-    "CashAndCashEquivalents",
-    "CashCashEquivalentsAndShortTermInvestments",
-    "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+__all__ = [
+    "CASH_TAG_CANDIDATES", "EdgarXBRLService", "_SECTION_MIN_CHARS",
+    "_XBRL_CACHE_VERSION", "_cache_max_size", "_cache_set_sync", "_cache_ttl",
+    "_extract_from_filing_instance_sync", "_extract_sections_sync", "_extract_segments",
+    "_get_cache_lock", "_source_duration", "_xbrl_cache", "async_clear_xbrl_cache",
+    "clear_xbrl_cache", "edgar_xbrl_service", "get_xbrl_cache_stats", "logger",
 ]
 
 # Ensure identity is set
 set_identity(EDGAR_IDENTITY)
-
-# Cache key version — bump whenever extraction semantics change so stale
-# entries written by the previous logic cannot be served under the same key.
-# v2: accession-aware primary path (issue #240); v1 entries could hold the
-# latest 10-K's figures for any accession and must age out unread.
-# v3: financial-institution revenue via the as-reported income statement (filing 528 / MCB fix) —
-# v2 entries can hold a bank's fee-income-only "revenue" subset and must age out unread.
-# v4: T5.3 shareholder-returns concepts (dividends_paid, share_repurchases) — v3 entries lack the
-# new keys and must age out so the §4 deterministic feed sees them without a manual refresh.
-# v5: retain fiscal-quarter metadata in newly extracted snapshots.
-# v6: fallback facts must originate in the selected accession; no latest-filing surrogate.
-_XBRL_CACHE_VERSION = "v6"
-
-# Module-level cache for XBRL data (L1 - in-memory with LRU eviction)
-# Key: "{cik}:{accession_number}"
-# Value: (cached_datetime, data_dict)
-# Using OrderedDict for LRU eviction - most recently accessed items at end
-_xbrl_cache: OrderedDict[str, Tuple[datetime, Optional[Dict]]] = OrderedDict()
-_cache_ttl = timedelta(hours=24)
-_cache_max_size = 1000  # Maximum entries before LRU eviction
-
-# Cache operation counters for structured logging and metrics
-_cache_hits = 0
-_cache_misses = 0
-_cache_evictions = 0
-
-# Async lock to protect cache operations from concurrent coroutine access.
-# WHY lazy initialization: asyncio.Lock must be created within an event loop context.
-# If created at module import time (outside of async context), it binds to no loop
-# or the wrong loop, causing "attached to a different loop" errors.
-# By creating it lazily on first use, we ensure it binds to the correct running loop.
-_cache_lock: asyncio.Lock | None = None
-
-
-def _get_cache_lock() -> asyncio.Lock:
-    """
-    Get or create the cache lock (lazy initialization for event loop safety).
-
-    This pattern ensures the asyncio.Lock is created within the context of the
-    event loop that will actually use it, avoiding "attached to a different loop" errors.
-    """
-    global _cache_lock
-    if _cache_lock is None:
-        _cache_lock = asyncio.Lock()
-    return _cache_lock
-
-
-def clear_xbrl_cache() -> int:
-    """
-    Clear the XBRL cache. Returns number of entries cleared.
-
-    Note: For async contexts, prefer async_clear_xbrl_cache() for thread safety.
-    """
-    global _xbrl_cache
-    count = len(_xbrl_cache)
-    _xbrl_cache.clear()
-    logger.info(f"Cleared {count} XBRL cache entries")
-    return count
-
-
-async def async_clear_xbrl_cache() -> int:
-    """Clear the XBRL cache (async-safe). Returns number of entries cleared."""
-    global _xbrl_cache
-    async with _get_cache_lock():
-        count = len(_xbrl_cache)
-        _xbrl_cache.clear()
-        logger.info(f"Cleared {count} XBRL cache entries")
-        return count
-
-
-def _cache_set_sync(key: str, value: Tuple[datetime, Optional[Dict]]) -> None:
-    """
-    Set a value in L1 cache with LRU eviction (sync version, call within lock).
-
-    If cache exceeds max size, evicts oldest entries (least recently used).
-    Tracks eviction count for metrics and uses structured logging.
-    """
-    global _xbrl_cache, _cache_evictions
-
-    # If key exists, move to end (most recently used)
-    if key in _xbrl_cache:
-        _xbrl_cache.move_to_end(key)
-        _xbrl_cache[key] = value
-        return
-
-    # Add new entry
-    _xbrl_cache[key] = value
-
-    # Evict oldest entries if over max size
-    evicted_this_call = 0
-    while len(_xbrl_cache) > _cache_max_size:
-        oldest_key, (cached_time, _) = _xbrl_cache.popitem(last=False)
-        _cache_evictions += 1
-        evicted_this_call += 1
-        # Structured log with key details for debugging cache pressure
-        logger.info(
-            "XBRL L1 cache eviction",
-            extra={
-                "event": "cache_eviction",
-                "cache_type": "xbrl_l1",
-                "evicted_key": oldest_key,
-                "entry_age_hours": round((datetime.now() - cached_time).total_seconds() / 3600, 2),
-                "cache_size": len(_xbrl_cache),
-                "total_evictions": _cache_evictions,
-            }
-        )
-
-    # Log batch eviction summary if multiple entries evicted
-    if evicted_this_call > 1:
-        logger.warning(
-            f"XBRL L1 cache batch eviction: {evicted_this_call} entries",
-            extra={
-                "event": "cache_batch_eviction",
-                "cache_type": "xbrl_l1",
-                "evicted_count": evicted_this_call,
-                "new_key": key,
-                "cache_size": len(_xbrl_cache),
-            }
-        )
-
-
-def get_xbrl_cache_stats() -> Dict[str, Any]:
-    """
-    Get cache statistics for monitoring (L1 in-memory cache).
-
-    Returns dict with both new (l1_*) and legacy (total_entries, valid_entries)
-    keys for backward compatibility.
-    """
-    now = datetime.now()
-    total = len(_xbrl_cache)
-    valid_count = sum(
-        1 for cached_time, _ in _xbrl_cache.values()
-        if now - cached_time < _cache_ttl
-    )
-    expired_count = total - valid_count
-
-    # Calculate hit rate
-    total_ops = _cache_hits + _cache_misses
-    hit_rate = round(_cache_hits / total_ops * 100, 2) if total_ops > 0 else 0.0
-
-    return {
-        # New L1-prefixed keys for two-tier caching clarity
-        "l1_total_entries": total,
-        "l1_valid_entries": valid_count,
-        "l1_expired_entries": expired_count,
-        "l1_max_size": _cache_max_size,
-        "l1_utilization_percent": round(total / _cache_max_size * 100, 1) if _cache_max_size > 0 else 0,
-        "l1_hits": _cache_hits,
-        "l1_misses": _cache_misses,
-        "l1_hit_rate": hit_rate,
-        "l1_evictions": _cache_evictions,
-        "cache_ttl_hours": _cache_ttl.total_seconds() / 3600,
-        # Backward compatibility aliases (deprecated)
-        "total_entries": total,
-        "valid_entries": valid_count,
-        "expired_entries": expired_count,
-    }
-
-
-def _extract_segments(
-    xb: Any, base_form: str, period_of_report: str, consolidated_revenue: Optional[float]
-) -> List[Dict[str, Any]]:
-    """Assemble the reportable-segment table from the same ``xb`` instance (zero extra SEC traffic).
-
-    Per-segment current+prior revenue and current operating income from the ASC-280
-    ``StatementBusinessSegmentsAxis``, reusing the consolidated revenue / operating-income concept
-    lists (their ordering encodes tag priority). Ordered by current revenue descending. Returns [] —
-    degrading gracefully — for single-segment / undimensioned / financial-institution filers (which
-    tag no generic segment revenue), when fewer than two reportable segments survive, or when the
-    segment revenue sum is not the same order of magnitude as consolidated (a mis-tag / wrong-axis /
-    unit guard, rule 9; intersegment eliminations legitimately push the sum modestly ABOVE
-    consolidated, so the band is wide).
-    """
-    rev_by_member, rev_ccy = segment_series_by_member(
-        xb, DURATION_CONCEPTS["revenue"], base_form, period_of_report
-    )
-    inc_by_member, inc_ccy = segment_series_by_member(
-        xb, DURATION_CONCEPTS["operating_income"], base_form, period_of_report
-    )
-    if not rev_by_member and not inc_by_member:
-        return []
-    currency = rev_ccy or inc_ccy
-    members = list(dict.fromkeys([*rev_by_member, *inc_by_member]))
-    rows: List[Dict[str, Any]] = []
-    for member in members:
-        rev = rev_by_member.get(member, [])
-        inc = inc_by_member.get(member, [])
-        rows.append(
-            {
-                "name": member,
-                "revenue": rev[0][1] if rev else None,
-                "revenue_prior": rev[1][1] if len(rev) > 1 else None,
-                "operating_income": inc[0][1] if inc else None,
-                "period": (rev[0][0] if rev else inc[0][0] if inc else None),
-                "currency": currency,
-            }
-        )
-    # A single reportable segment == the consolidated total; only a multi-segment breakdown adds signal.
-    if len(rows) < 2:
-        return []
-    revenue_sum = sum(r["revenue"] for r in rows if r["revenue"])
-    if consolidated_revenue and revenue_sum:
-        if not (0.5 <= revenue_sum / consolidated_revenue <= 2.0):
-            logger.warning(
-                f"Segment revenue sum {revenue_sum:.0f} not coherent with consolidated "
-                f"{consolidated_revenue:.0f}; dropping segment table"
-            )
-            return []
-    elif revenue_sum:
-        # No consolidated revenue to validate against (the generic revenue path was suppressed/failed).
-        # Surface the table rather than drop real segment data, but log so a coherence miss here is not
-        # mistaken for a passed check.
-        logger.info("Segment table surfaced without a consolidated-revenue coherence check")
-    rows.sort(key=lambda r: (r["revenue"] is not None, r["revenue"] or 0.0), reverse=True)
-    return rows
-
-
-def _source_duration(start: Optional[str]) -> Dict[str, str]:
-    """The source fact's own start, or nothing at all when it is unknown.
-
-    Emitted as a key only when a real start exists, so an undated point keeps exactly the shape it
-    has always had. Never synthesised: an instant fact, a computed aggregate, or a period whose
-    equal-valued source facts disagreed on their start all stay absent, and every consumer treats
-    absence as "duration unknown" rather than guessing one.
-    """
-    return {"period_start": start} if isinstance(start, str) and start else {}
-
-
-def _extract_from_filing_instance_sync(
-    cik_padded: str,
-    accession_number: str,
-) -> Optional[Dict[str, Any]]:
-    """Extract metrics from the requested filing's OWN XBRL instance.
-
-    Synchronous on purpose: the whole chain (company lookup -> filing
-    resolution -> instance parse) runs as ONE executor call, sharing a single
-    timeout budget and occupying a single thread-pool slot.
-
-    Returns the legacy result-dict shape, or None when the filing cannot be
-    resolved or has no usable instance (callers then fall back).
-    """
-    company, filings = resolve_filing_by_accession(cik_padded, accession_number)
-    if not filings:
-        logger.info(f"Filing {accession_number} not found by accession for CIK {cik_padded}")
-        return None
-    filing = filings[0]
-
-    form = str(filing.form or "")
-    base_form = normalize_form(form)
-    if base_form not in DURATION_WINDOWS:
-        logger.info(f"Form {form!r} has no standard duration window; skipping instance extraction")
-        return None
-
-    period_of_report = str(filing.period_of_report or "")
-    if not period_of_report:
-        logger.info(f"Filing {accession_number} has no period_of_report")
-        return None
-
-    xb = filing.xbrl()
-    if xb is None:
-        logger.info(f"Filing {accession_number} has no XBRL instance")
-        return None
-
-    result: Dict[str, Any] = {
-        "revenue": [],
-        "net_income": [],
-        "total_assets": [],
-        "total_liabilities": [],
-        "cash_and_equivalents": [],
-        "earnings_per_share": [],
-    }
-    # Track the currency of monetary metrics so the filing's reporting currency (e.g. CNY for a
-    # 20-F that also tags a USD convenience translation) can be surfaced and never rendered as USD.
-    currency_votes: Dict[str, int] = {}
-
-    def _record_currency(currency: Optional[str], weight: int) -> None:
-        if currency:
-            currency_votes[currency] = currency_votes.get(currency, 0) + weight
-
-    # Roadmap 2.6 (Phase A): when enabled, also extract the full cash-flow statement (investing +
-    # financing flows) and working-capital lines (current assets/liabilities). Flag-gated, so the
-    # default concept set — and the eval baseline — stays byte-for-byte unchanged until flipped on.
-    from app.config import settings
-
-    duration_concepts = DURATION_CONCEPTS
-    instant_concepts = INSTANT_CONCEPTS
-    if settings.RICHER_FINANCIALS_ENABLED:
-        duration_concepts = {**DURATION_CONCEPTS, **RICHER_DURATION_CONCEPTS}
-        instant_concepts = {**INSTANT_CONCEPTS, **RICHER_INSTANT_CONCEPTS}
-
-    # Financial institutions: "revenue" has no single generic tag (a bank's ASC-606 fee-income tag
-    # is only a subset). Read the industry-correct revenue/component lines from the AS-REPORTED
-    # income statement and suppress the generic keys they replace. Non-financial filers are
-    # untouched, and any failure falls back to the generic fact-query path below.
-    fin_suppress = set()
-    fin_metrics = {}
-    profile_key = None
-    if settings.USE_STATEMENT_FINANCIALS:
-        sic = getattr(company, "sic", None)
-        try:
-            fin = extract_financial_statement_metrics(xb, company, sic, base_form, period_of_report)
-        except Exception as exc:  # noqa: BLE001 - never let the statement path break extraction
-            logger.warning(f"Financial statement extraction failed for {accession_number}: {exc}")
-            fin = None
-        if fin is not None:
-            profile_key, fin_metrics, suppress = fin
-            fin_suppress = set(suppress)
-            logger.info(
-                f"Statement-based financial revenue for {accession_number} (profile={profile_key}, "
-                f"metrics={sorted(fin_metrics)})"
-            )
-
-    for metric, concepts in duration_concepts.items():
-        if metric in fin_suppress or metric in fin_metrics:
-            continue  # the as-reported statement supplies (or intentionally omits) this metric
-        if metric == "revenue":
-            # Record the winning concept as raw_tag so a revenue concept that FLIPS between filings
-            # can be detected downstream (the −53.8% apples-to-oranges class of bug).
-            series, currency, raw_tag = duration_series_with_starts(
-                xb, concepts, base_form, period_of_report, qualified_concept=True
-            )
-            result[metric] = [
-                {"period": end, "value": value, "form": form, "accn": accession_number,
-                 "currency": currency, "raw_tag": raw_tag, **_source_duration(start)}
-                for end, value, start in series
-            ]
-        elif metric in {"capital_expenditures", "net_income", "operating_cash_flow"}:
-            # Preserve the winning basis for cash comparisons; selection and precedence stay fixed.
-            series, currency, raw_tag = duration_series_with_starts(
-                xb, concepts, base_form, period_of_report, qualified_concept=True
-            )
-            result[metric] = [
-                {"period": end, "value": value, "form": form, "accn": accession_number,
-                 "currency": currency, "raw_tag": raw_tag, **_source_duration(start)}
-                for end, value, start in series
-            ]
-        else:
-            financing_sources = [] if metric == "financing_cash_flow" else None
-            series, currency, _concept = duration_series_with_starts(
-                xb, concepts, base_form, period_of_report, selected_sources=financing_sources
-            )
-            if financing_sources:
-                source = financing_comparison_source(
-                    filing, financing_sources, accession=accession_number, form=form,
-                    period_of_report=period_of_report, cik=cik_padded,
-                )
-                if source is not None:
-                    result["financing_comparison_source"] = source
-            result[metric] = [
-                {"period": end, "value": value, "form": form, "accn": accession_number,
-                 "currency": currency, **_source_duration(start)}
-                for end, value, start in series
-            ]
-        # EPS is per-share (currency-per-share), so it shouldn't sway the headline reporting
-        # currency vote; weight revenue/net_income (true monetary totals) instead.
-        if metric not in ("earnings_per_share", "eps_diluted"):
-            _record_currency(currency, len(series))
-
-    # T5.3 review (WFC class): dividends component fallback. Filers with NO total dividends tag
-    # emit common/preferred payments as separate components; first-candidate-wins over a component
-    # would report the common-only subset as the unqualified total. Sum the explicitly-tagged
-    # components per period instead. Crash-safe: a failure here never breaks the metrics path.
-    if not result.get("dividends_paid"):
-        try:
-            div_series, div_currency = dividend_component_sum_series(xb, base_form, period_of_report)
-            if div_series:
-                result["dividends_paid"] = [
-                    {"period": end, "value": value, "form": form, "accn": accession_number,
-                     "currency": div_currency}
-                    for end, value in div_series
-                ]
-                _record_currency(div_currency, len(div_series))
-        except Exception as exc:  # noqa: BLE001
-            logger.debug(f"Dividend component fallback failed: {exc}")
-
-    # Emit the statement-derived financial metrics (revenue and/or bank components), each carrying
-    # its raw_tag. Values are in the filer's own reporting currency (domestic financials = USD).
-    for key, (fin_series, raw_tag) in fin_metrics.items():
-        result[key] = [
-            {"period": end, "value": value, "form": form, "accn": accession_number,
-             "currency": None, "raw_tag": raw_tag}
-            for end, value in fin_series
-        ]
-    for metric, concepts in instant_concepts.items():
-        provenance = {}
-        if metric in ("cash_and_equivalents", "long_term_debt"):
-            series, currency, raw_tag = instant_series_currency_concept(xb, concepts, period_of_report)
-            provenance = {"raw_tag": raw_tag}
-        else:
-            series, currency = instant_series_with_currency(xb, concepts, period_of_report)
-        result[metric] = [
-            {"period": end, "value": value, "form": form, "accn": accession_number,
-             "currency": currency, **provenance}
-            for end, value in series
-        ]
-        _record_currency(currency, len(series))
-
-    # Filing-level reporting currency = the currency carried by the most monetary facts.
-    if currency_votes:
-        result["reporting_currency"] = max(currency_votes.items(), key=lambda kv: kv[1])[0]
-
-    # Source-qualified DEBT observations from the SAME `xb` instance (no extra SEC round-trip;
-    # rule 5 — these are in-memory queries over the already-parsed instance). Additive evidence
-    # beside the `long_term_debt` series above, which stays exactly as selected: one
-    # first-candidate-wins value cannot say WHICH obligations it covers, so a scope claim needs
-    # each admissible concept retained separately with its own concept/instant/currency/context/
-    # entity identity. Filtered to the reporting currency resolved just above, so a foreign
-    # issuer's USD convenience translation is not mistaken for a conflicting balance. Absent for a
-    # filer tagging none of the admissible concepts — which downstream reads as "not separately
-    # reported", never as zero. Best-effort: this must never break the metrics path.
-    try:
-        debt_observations = debt_component_observations(
-            xb, period_of_report,
-            reporting_currency=result.get("reporting_currency"),
-            accession_number=accession_number, form=form,
-        )
-    except Exception as exc:  # noqa: BLE001 - debt evidence must never break metric extraction
-        logger.warning(f"Debt observation extraction failed for {accession_number}: {exc}")
-        debt_observations = []
-    if debt_observations:
-        result["debt_observations"] = debt_observations
-
-    # Item A: attach the issuer's locked ADS ratio (ratio != 1 ADRs only) so the standardized
-    # metrics can surface a per-ADS EPS alongside the as-filed per-ordinary-share figure. Absent
-    # for 1:1 ADRs and domestic filers, in which case no per-ADS normalization is applied.
-    ads_ratio = ads_ratio_for_cik(cik_padded)
-    if ads_ratio is not None:
-        result["ads_ratio"] = ads_ratio.as_dict()
-
-    # Reportable-segment disaggregation (T5.2) — per-segment revenue + operating income from the SAME
-    # `xb` instance (no extra SEC round-trip; rule 5). Best-effort: never let it break the metrics path.
-    # Empty for single-segment / undimensioned / financial-institution filers (degrade gracefully).
-    revenue_series = result.get("revenue") or []
-    consolidated_revenue = revenue_series[0].get("value") if revenue_series else None
-    try:
-        segments = _extract_segments(xb, base_form, period_of_report, consolidated_revenue)
-    except Exception as exc:  # noqa: BLE001 - segment extraction must never break metric extraction
-        logger.warning(f"Segment extraction failed for {accession_number}: {exc}")
-        segments = []
-    if segments:
-        result["segments"] = segments
-
-    # Anchor requirement: at least one income-statement metric for the
-    # filing's own period — otherwise this instance is unusable and the
-    # accession-aware companyfacts fallback should take over. Banks report no single "revenue"
-    # (it is suppressed), so their net-interest/non-interest income components anchor instead.
-    anchor_keys = ("revenue", "net_income", "earnings_per_share",
-                   "net_interest_income", "noninterest_income")
-    if not any(result.get(key) for key in anchor_keys):
-        logger.info(f"No usable consolidated facts in instance for {accession_number}")
-        return None
-    if base_form == "10-Q":
-        from .fiscal_periods import fiscal_label
-        entity = getattr(xb, "entity_info", None)
-        if isinstance(entity, dict):
-            for values in result.values():
-                if isinstance(values, list):
-                    for point in values:
-                        if isinstance(point, dict) and point.get("period"):
-                            point.update(fiscal_label(
-                                point["period"], period_of_report,
-                                entity.get("fiscal_year"), entity.get("fiscal_period"),
-                            ))
-    result["financial_classification"] = cash_financial_classification(
-        company, getattr(company, "sic", None), profile_key
-    )
-    return result
-
-
-# Minimum length (chars) for an edgartools-parsed section to count as real content
-# rather than an empty/placeholder stub.
-_SECTION_MIN_CHARS = 200
-
-
-def _extract_sections_sync(
-    cik_padded: str,
-    accession_number: str,
-    base_form: str,
-) -> Optional[Dict[str, str]]:
-    """Pull the critical narrative/financial sections via edgartools' own document parser.
-
-    edgartools (``filing.obj()``) resolves real section boundaries from the filing's
-    structure/inline-XBRL, which is robust to the element-fragmented HTML that defeats the
-    legacy regex extractor in ``openai_service.extract_critical_sections``.
-
-    Synchronous on purpose: the whole chain (company lookup -> filing resolution -> document
-    parse) runs as ONE executor call, sharing a single timeout budget and thread-pool slot,
-    mirroring ``_extract_from_filing_instance_sync``.
-
-    Returns a dict keyed by canonical section ("financials" / "mda" / "risk") mapped to clean
-    text, or None when the filing can't be resolved or yields no usable sections (callers then
-    fall back to the legacy regex extractor).
-    """
-    _, filings = resolve_filing_by_accession(cik_padded, accession_number)
-    if not filings:
-        logger.info(f"Filing {accession_number} not found by accession for CIK {cik_padded}")
-        return None
-
-    obj = filings[0].obj()
-    if obj is None:
-        logger.info(f"Filing {accession_number} has no parsable document object")
-        return None
-
-    out: Dict[str, str] = {}
-    if base_form == "10-K":
-        # 10-K items are unique across parts, so label lookup via __getitem__ is unambiguous
-        # and returns clean section text (verified: AAPL Item 1A/7/8 -> 68k/18k/61k chars).
-        for canonical, label in (("risk", "Item 1A"), ("mda", "Item 7"), ("financials", "Item 8")):
-            try:
-                text = obj[label]
-            except Exception:  # noqa: BLE001 — a single missing/odd section must not abort the rest
-                text = None
-            if text and len(text.strip()) >= _SECTION_MIN_CHARS:
-                out[canonical] = text.strip()
-    elif base_form == "10-Q":
-        # 10-Q items repeat across parts (e.g. Item 2 is MD&A in Part I but Unregistered Sales
-        # in Part II), so __getitem__ by label is ambiguous — obj['Item 2'] returns the WRONG
-        # Part II section. Use the new parser's part-prefixed section keys to disambiguate.
-        sections = getattr(obj, "sections", None) or {}
-        for canonical, skey in (
-            ("financials", "part_i_item_1"),
-            ("mda", "part_i_item_2"),
-            ("risk", "part_ii_item_1a"),
-        ):
-            # edgartools' Sections is dict-like (.get); Section.text is a method in 5.36.0, but
-            # guard against it being a plain str/property in other versions.
-            section = sections.get(skey) if hasattr(sections, "get") else None
-            text_attr = getattr(section, "text", None) if section is not None else None
-            text = text_attr() if callable(text_attr) else text_attr
-            if text and len(text.strip()) >= _SECTION_MIN_CHARS:
-                out[canonical] = text.strip()
-    elif base_form == "20-F":
-        # 20-F (foreign private issuer annual report) uses Part/Item numbering distinct from a
-        # 10-K: Item 3 (Key Information) carries the Risk Factors, Item 5 (Operating & Financial
-        # Review and Prospects) is the MD&A equivalent, and the audited statements live under
-        # Item 18 (or the older Item 17). Items repeat across parts, so use the part-prefixed
-        # section keys like the 10-Q path. Each canonical maps to ordered candidate keys —
-        # first one that yields real content wins (handles the Item 18-vs-17 filer choice).
-        sections = getattr(obj, "sections", None) or {}
-        for canonical, candidate_keys in (
-            ("risk", ("part_i_item_3",)),
-            ("mda", ("part_i_item_5",)),
-            ("financials", ("part_iii_item_18", "part_iii_item_17", "part_i_item_8")),
-        ):
-            for skey in candidate_keys:
-                section = sections.get(skey) if hasattr(sections, "get") else None
-                text_attr = getattr(section, "text", None) if section is not None else None
-                text = text_attr() if callable(text_attr) else text_attr
-                if text and len(text.strip()) >= _SECTION_MIN_CHARS:
-                    out[canonical] = text.strip()
-                    break
-
-    return out or None
-
 
 class EdgarXBRLService:
     """
@@ -672,11 +133,9 @@ class EdgarXBRLService:
                 "earnings_per_share": [...],
             }
         """
-        global _xbrl_cache, _cache_hits, _cache_misses
-
         # Persisted data is accession-specific and survives process/cache eviction. Release the
         # short read session before touching Redis or SEC; parsing/generation never holds it open.
-        persisted = await asyncio.to_thread(self._persisted_xbrl, accession_number, cik)
+        persisted = await run_owned_sync(self._persisted_xbrl, accession_number, cik)
         if persisted is not None:
             return persisted
 
@@ -688,20 +147,20 @@ class EdgarXBRLService:
         async with _get_cache_lock():
             if memory_key in _xbrl_cache:
                 cached_time, cached_data = _xbrl_cache[memory_key]
-                if datetime.now() - cached_time < _cache_ttl:
+                if utcnow() - cached_time < _cache_ttl:
                     # Move to end for LRU ordering (most recently used)
                     _xbrl_cache.move_to_end(memory_key)
-                    _cache_hits += 1
+                    record_hit()
                     logger.debug(f"XBRL L1 cache hit for {memory_key}")
                     return cached_data
                 else:
                     logger.debug(f"XBRL L1 cache expired for {memory_key}")
                     del _xbrl_cache[memory_key]
                     # L1 cache miss (expired) - track inside lock for thread safety
-                    _cache_misses += 1
+                    record_miss()
             else:
                 # L1 cache miss (not found) - track inside lock for thread safety
-                _cache_misses += 1
+                record_miss()
 
         # L2: Check Redis cache (persistent, shared)
         redis_data = await self._get_from_redis(redis_key)
@@ -709,7 +168,7 @@ class EdgarXBRLService:
             logger.debug(f"XBRL L2 cache hit for {redis_key}")
             # Populate L1 cache from L2 with LRU eviction
             async with _get_cache_lock():
-                _cache_set_sync(memory_key, (datetime.now(), redis_data))
+                _cache_set_sync(memory_key, (utcnow(), redis_data))
             return redis_data
 
         # Cache miss - fetch from EdgarTools
@@ -718,7 +177,7 @@ class EdgarXBRLService:
         # Cache successful results in both tiers
         if result is not None:
             async with _get_cache_lock():
-                _cache_set_sync(memory_key, (datetime.now(), result))
+                _cache_set_sync(memory_key, (utcnow(), result))
             await self._set_to_redis(redis_key, result)
             logger.debug(f"XBRL cached (L1+L2) for {memory_key}")
         else:
@@ -857,35 +316,7 @@ class EdgarXBRLService:
         This replicates the logic from the legacy xbrl_service.py for cases
         where EdgarTools doesn't have the data.
         """
-        import httpx
-
-        logger.info(f"Falling back to SEC company facts API for CIK {cik}")
-
-        try:
-            facts_url = companyfacts_url(cik)
-
-            # Route through the SEC rate limiter with a SINGLE token wait (execute, NOT
-            # execute_with_backoff): this fallback runs inside user-facing summary generation, so it
-            # fail-fasts rather than sleeping through the full backoff ladder (S4 review #3).
-            # raise_for_status turns a non-200 into an exception, preserving "non-200 -> None" via the
-            # outer except.
-            async with httpx.AsyncClient() as client:
-                async def _do_request() -> httpx.Response:
-                    resp = await client.get(
-                        facts_url,
-                        headers={"User-Agent": EDGAR_IDENTITY},
-                        timeout=30.0,
-                    )
-                    resp.raise_for_status()
-                    return resp
-
-                response = await sec_rate_limiter.execute(_do_request)
-                data = response.json()
-                return self._parse_company_facts(data, accession_number)
-
-        except Exception as e:
-            logger.error(f"Error in company facts fallback: {e}")
-            return None
+        return await _companyfacts.fallback_to_company_facts(self, cik, accession_number)
 
     def _parse_company_facts(
         self,
@@ -893,162 +324,8 @@ class EdgarXBRLService:
         target_accession: str,
     ) -> Dict[str, List[Dict]]:
         """Parse SEC company facts API response."""
-        result = {
-            "revenue": [],
-            "net_income": [],
-            "total_assets": [],
-            "total_liabilities": [],
-            "cash_and_equivalents": [],
-            "earnings_per_share": [],
-        }
+        return _companyfacts.parse_company_facts(facts_data, target_accession)
 
-        normalized_accession = target_accession.replace("-", "") if target_accession else None
-
-        def _is_target(item: Dict) -> bool:
-            return bool(
-                normalized_accession
-                and isinstance(item.get("accn"), str)
-                and item["accn"].replace("-", "") == normalized_accession
-            )
-
-        def _duration_penalty(item: Dict) -> int:
-            """Distance from the standard duration for the item's form.
-
-            Companyfacts reports several durations sharing one period end
-            (Q4 + FY both end on the fiscal year end; Q3 + 9-month YTD both
-            end on the quarter end). The standard statement value is the
-            12-month figure for a 10-K and the 3-month figure for a 10-Q.
-            Instant facts (no start) have a single duration; penalty 0.
-            """
-            start, end = item.get("start"), item.get("end")
-            if not start:
-                return 0
-            try:
-                days = (date.fromisoformat(end) - date.fromisoformat(start)).days
-            except (ValueError, TypeError):
-                return 0
-            target_days = 365 if (item.get("form") or "").startswith("10-K") else 91
-            return abs(days - target_days)
-
-        def filter_and_sort(data_list: list, max_items: int = 5) -> list:
-            if not isinstance(data_list, list):
-                return []
-
-            valid_items = [
-                item for item in data_list
-                if isinstance(item, dict) and item.get("end")
-            ]
-
-            # Dedupe by period end: prefer the standard duration for the form,
-            # then the most recently filed restatement.
-            best_by_end: Dict[str, Dict] = {}
-            for item in valid_items:
-                incumbent = best_by_end.get(item["end"])
-                if incumbent is None:
-                    best_by_end[item["end"]] = item
-                    continue
-                key = (_duration_penalty(item), item.get("filed") or "")
-                incumbent_key = (_duration_penalty(incumbent), incumbent.get("filed") or "")
-                # Lower penalty wins; on a tie, later filed date wins.
-                if key[0] < incumbent_key[0] or (key[0] == incumbent_key[0] and key[1] > incumbent_key[1]):
-                    best_by_end[item["end"]] = item
-
-            sorted_items = sorted(
-                best_by_end.values(),
-                key=lambda x: x.get("end", ""),
-                reverse=True
-            )
-            return sorted_items[:max_items]
-
-        def select_fact_data_with_concept(
-            fields: List[str], unit_keys: Tuple[str, ...] = ("USD",),
-        ) -> Tuple[list, Optional[str]]:
-            """Pick the candidate concept actually used by recent filings.
-
-            Taking the first concept present is wrong: issuers retire tags over
-            time (e.g. AAPL last reported `Revenues` in FY2018 and has used
-            `RevenueFromContractWithCustomerExcludingAssessedTax` since), so a
-            stale concept would shadow the live one and surface years-old
-            values as "current". Prefer a concept with facts from the target
-            filing; concepts absent from that accession are unavailable.
-            """
-            best_end: Optional[str] = None
-            best_data: list = []
-            best_tag: Optional[str] = None
-            for field in fields:
-                fact = us_gaap.get(field)
-                if not (isinstance(fact, dict) and isinstance(fact.get("units"), dict)):
-                    continue
-                for unit_key in unit_keys:
-                    data = fact["units"].get(unit_key) or []
-                    # No match means unavailable, not permission to use another filing.
-                    valid = [i for i in data if isinstance(i, dict) and i.get("end") and _is_target(i)]
-                    if not valid:
-                        continue
-                    latest_end = max(i["end"] for i in valid)
-                    if best_end is None or latest_end > best_end:
-                        best_end, best_data = latest_end, valid
-                        best_tag = f"us-gaap:{field}"
-                    break  # first unit key with data for this concept
-            return best_data, best_tag
-
-        def select_fact_data(fields: List[str], unit_keys: Tuple[str, ...] = ("USD",)) -> list:
-            data, _raw_tag = select_fact_data_with_concept(fields, unit_keys)
-            return data
-
-        def append_items(metric: str, data: list, raw_tag: Optional[str] = None) -> None:
-            from .fiscal_periods import fiscal_label
-            from app.services.facts_service import _classify_duration
-
-            target = [item for item in data if _is_target(item)]
-            anchor = max(target, key=lambda item: item.get("end", "")) if target else {}
-            for item in filter_and_sort(data):
-                label = {}
-                # Classify the actual duration before treating the filing focus as a quarter.
-                # Instant facts share the selected filing's report-period anchor.
-                try:
-                    discrete = not item.get("start") or _classify_duration(
-                        date.fromisoformat(item["start"]), date.fromisoformat(item["end"])
-                    ) == "Q"
-                except (ValueError, TypeError):
-                    discrete = False
-                if discrete and (item.get("form") or "").removesuffix("/A") == "10-Q" and _is_target(item):
-                    label = fiscal_label(item["end"], anchor.get("end"), anchor.get("fy"), anchor.get("fp"))
-                result[metric].append({
-                    **label,
-                    "period": item.get("end"),
-                    "value": item.get("val"),
-                    "form": item.get("form"),
-                    "accn": item.get("accn"),
-                    # Preserve the selected source's duration; instant facts have no start.
-                    **({"period_start": item["start"]} if item.get("start") else {}),
-                    **({"raw_tag": raw_tag} if raw_tag is not None else {}),
-                })
-
-        try:
-            facts = facts_data.get("facts", {})
-            us_gaap = facts.get("us-gaap", {})
-
-            if not isinstance(us_gaap, dict):
-                return result
-
-            append_items("revenue", select_fact_data(
-                ["Revenues", "Revenue", "RevenueFromContractWithCustomerExcludingAssessedTax",
-                 "SalesRevenueNet", "NetSales", "TotalRevenue"]))
-            append_items("net_income", select_fact_data(
-                ["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"]))
-            append_items("total_assets", select_fact_data(["Assets"]))
-            append_items("total_liabilities", select_fact_data(["Liabilities"]))
-            cash_data, cash_tag = select_fact_data_with_concept(CASH_TAG_CANDIDATES)
-            append_items("cash_and_equivalents", cash_data, cash_tag)
-            append_items("earnings_per_share", select_fact_data(
-                ["EarningsPerShareBasic", "EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"],
-                unit_keys=("USD/shares", "USD", "pure")))
-
-        except Exception as e:
-            logger.warning(f"Error parsing company facts: {e}")
-
-        return result
 
     def extract_standardized_metrics(self, xbrl_data: Optional[Dict]) -> Dict[str, Any]:
         """
@@ -1064,251 +341,7 @@ class EdgarXBRLService:
             change calculations, and series data. Returns empty dict if
             xbrl_data is None or empty.
         """
-        # Handle None or empty input
-        if not xbrl_data:
-            return {}
-
-        def normalise_series(entries: List[Dict]) -> List[Dict]:
-            cleaned = []
-            seen_periods = set()
-            sorted_entries = sorted(
-                (e for e in entries if e.get("period") and e.get("value") is not None),
-                key=lambda x: x.get("period"),
-                reverse=True,
-            )
-            for entry in sorted_entries:
-                period = entry.get("period")
-                if period in seen_periods:
-                    continue
-                seen_periods.add(period)
-                cleaned.append({
-                    "period": period,
-                    "value": entry.get("value"),
-                    "form": entry.get("form"),
-                    "currency": entry.get("currency"),
-                    **{key: entry[key] for key in ("fiscal_year", "fiscal_period", "period_start")
-                       if entry.get(key) is not None},
-                    # raw_tag rides through so financial_fact records which XBRL concept a value came
-                    # from (audit trail) and the change report can detect a concept that flips
-                    # between filings. None for legacy/pre-fix series.
-                    "raw_tag": entry.get("raw_tag"),
-                })
-            return cleaned
-
-        def build_metric_entry(series: List[Dict]) -> Dict:
-            entry = {}
-            if series:
-                entry["current"] = series[0]
-            if len(series) > 1:
-                entry["prior"] = series[1]
-                current_val = series[0].get("value")
-                prior_val = series[1].get("value")
-                entry["change"] = MetricChange.compute(current_val, prior_val).to_dict()
-            if series:
-                entry["series"] = series
-            return entry
-
-        metrics = {}
-
-        revenue_series = normalise_series(xbrl_data.get("revenue", []))
-        net_income_series = normalise_series(xbrl_data.get("net_income", []))
-        eps_series = normalise_series(xbrl_data.get("earnings_per_share", []))
-
-        if revenue_series:
-            metrics["revenue"] = build_metric_entry(revenue_series)
-
-        if net_income_series:
-            metrics["net_income"] = build_metric_entry(net_income_series)
-
-        if eps_series:
-            metrics["earnings_per_share"] = build_metric_entry(eps_series)
-
-        # Calculate net margin
-        if revenue_series and net_income_series:
-            income_by_period = {e["period"]: e for e in net_income_series}
-            margin_series = []
-            for rev_entry in revenue_series:
-                period = rev_entry["period"]
-                inc_entry = income_by_period.get(period)
-                rev_value = rev_entry.get("value")
-                inc_value = inc_entry.get("value") if inc_entry else None
-                if rev_value and inc_value and rev_value != 0:
-                    margin_series.append({
-                        "period": period,
-                        "value": (inc_value / rev_value) * 100,
-                        "form": rev_entry.get("form"),
-                    })
-            if margin_series:
-                metrics["net_margin"] = build_metric_entry(margin_series)
-
-        # P1.1 depth + roadmap 2.6: surface cash-flow + balance-sheet metrics the pipeline collects.
-        # The 2.6 keys (investing/financing CF, current assets/liabilities) only carry a series when
-        # RICHER_FINANCIALS_ENABLED was on at extraction, so listing them here is inert until then.
-        for key in ("eps_diluted", "operating_cash_flow", "capital_expenditures", "gross_profit",
-                    "operating_income", "total_assets", "total_liabilities", "cash_and_equivalents",
-                    "shareholders_equity", "long_term_debt",
-                    "investing_cash_flow", "financing_cash_flow",
-                    "current_assets", "current_liabilities",
-                    # Financial-institution revenue components/totals (filing 528 / MCB fix). Only
-                    # present for banks/insurers/BDCs; inert (empty series → skipped) otherwise.
-                    "net_interest_income", "noninterest_income",
-                    "premiums_earned", "net_investment_income",
-                    # T5.3 shareholder returns (cash paid, as-tagged positive magnitudes).
-                    "dividends_paid", "share_repurchases"):
-            series = normalise_series(xbrl_data.get(key, []))
-            if series:
-                metrics[key] = build_metric_entry(series)
-
-        # Roadmap 2.6 derived liquidity (per period): working capital = current assets − current
-        # liabilities; current ratio = current assets ÷ current liabilities. Self-gating — both
-        # require the 2.6 balance-sheet lines, which only exist when the flag is on.
-        ca_series = normalise_series(xbrl_data.get("current_assets", []))
-        cl_series = normalise_series(xbrl_data.get("current_liabilities", []))
-        if ca_series and cl_series:
-            cl_by_period = {e["period"]: e for e in cl_series}
-            wc_series, cr_series = [], []
-            for ca in ca_series:
-                cl = cl_by_period.get(ca["period"])
-                ca_v = ca.get("value")
-                cl_v = cl.get("value") if cl else None
-                # Guard on non-negative components: a negative current-assets/liabilities total is a
-                # parse error (the base fact is hard-rejected by the reconciliation gate). The derived
-                # metrics aren't in NON_NEGATIVE_CONCEPTS (working_capital CAN be negative), so without
-                # this guard a corrupt component would persist an invalid working_capital / negative
-                # current_ratio. Only derive from clean inputs.
-                if ca_v is not None and cl_v is not None and ca_v >= 0 and cl_v >= 0:
-                    wc_series.append({"period": ca["period"], "value": ca_v - cl_v, "form": ca.get("form")})
-                    if cl_v > 0:
-                        cr_series.append({"period": ca["period"], "value": ca_v / cl_v, "form": ca.get("form")})
-            if wc_series:
-                metrics["working_capital"] = build_metric_entry(wc_series)
-            if cr_series:
-                metrics["current_ratio"] = build_metric_entry(cr_series)
-
-        # Derived: free cash flow = operating cash flow - capital expenditures (per period).
-        # abs(capex) handles filers that tag the outflow as negative.
-        ocf_series = normalise_series(xbrl_data.get("operating_cash_flow", []))
-        capex_series = normalise_series(xbrl_data.get("capital_expenditures", []))
-        if ocf_series and capex_series:
-            capex_by_period = {e["period"]: e for e in capex_series}
-            fcf_series = []
-            for ocf in ocf_series:
-                capex = capex_by_period.get(ocf["period"])
-                ocf_v = ocf.get("value")
-                capex_v = capex.get("value") if capex else None
-                if ocf_v is not None and capex_v is not None:
-                    fcf_series.append({"period": ocf["period"],
-                                       "value": ocf_v - abs(capex_v), "form": ocf.get("form")})
-            if fcf_series:
-                metrics["free_cash_flow"] = build_metric_entry(fcf_series)
-
-        # Derived margins (gross/operating). Same issuer-type caveat as net_margin (hardened in P1.3).
-        for margin_key, numerator_key in (("gross_margin", "gross_profit"),
-                                          ("operating_margin", "operating_income")):
-            num_series = normalise_series(xbrl_data.get(numerator_key, []))
-            if revenue_series and num_series:
-                num_by_period = {e["period"]: e for e in num_series}
-                m_series = []
-                for rev in revenue_series:
-                    num = num_by_period.get(rev["period"])
-                    rev_v = rev.get("value")
-                    num_v = num.get("value") if num else None
-                    if rev_v and num_v is not None and rev_v != 0:
-                        m_series.append({"period": rev["period"],
-                                         "value": (num_v / rev_v) * 100, "form": rev.get("form")})
-                if m_series:
-                    metrics[margin_key] = build_metric_entry(m_series)
-
-        # P1.3 issuer-relevant returns: ROE and ROA — the right profitability read where gross
-        # margin doesn't apply (banks, insurers, REITs). Net income (period) over equity / assets.
-        # Denominator must be POSITIVE, not merely non-zero ("only derive from clean inputs", the
-        # working-capital precedent above): a NEGATIVE-equity filer (buyback-driven deficits — SBUX,
-        # MCD, BA) sign-flips the ratio, rendering a profitable company deeply negative and a
-        # loss-maker confidently positive — a machine-authored wrong statement on both the grounding
-        # and the T5.3 §4 surface. Skip those periods; ROA is unaffected in practice (total_assets
-        # is hard-rejected when negative).
-        equity_series = normalise_series(xbrl_data.get("shareholders_equity", []))
-        assets_series = normalise_series(xbrl_data.get("total_assets", []))
-        for ratio_key, denom_series in (("return_on_equity", equity_series),
-                                        ("return_on_assets", assets_series)):
-            if net_income_series and denom_series:
-                denom_by_period = {e["period"]: e for e in denom_series}
-                r_series = []
-                for ni in net_income_series:
-                    denom = denom_by_period.get(ni["period"])
-                    ni_v = ni.get("value")
-                    denom_v = denom.get("value") if denom else None
-                    if ni_v is not None and denom_v is not None and denom_v > 0:
-                        r_series.append({
-                            "period": ni["period"],
-                            "value": (ni_v / denom_v) * 100,
-                            "form": ni.get("form"),
-                            # Bind the formula to these selected operands. The ratio's prior
-                            # may differ from the standalone NI prior when an instant is absent.
-                            "numerator": dict(ni),
-                            "denominator": dict(denom),
-                        })
-                if r_series:
-                    metrics[ratio_key] = build_metric_entry(r_series)
-
-        # Surface the filing's reporting currency (e.g. "CNY") so the UI can label monetary values
-        # in the as-filed currency instead of implying USD. Derived in the instance extractor;
-        # falls back to the currency carried on the revenue series when only that is available.
-        reporting_currency = xbrl_data.get("reporting_currency")
-        if not reporting_currency and revenue_series:
-            reporting_currency = revenue_series[0].get("currency")
-        if reporting_currency:
-            metrics["reporting_currency"] = reporting_currency
-
-        # Item A: additive per-ADS EPS for ADRs with a locked ratio (ratio != 1). The as-filed
-        # per-ordinary-share EPS is left untouched; this only ADDS a `per_ads` block (value +
-        # ratio + auditable arithmetic) so the ADR investor sees the figure they actually trade on.
-        ads_info = xbrl_data.get("ads_ratio")
-        if ads_info:
-            for eps_key in ("earnings_per_share", "eps_diluted"):
-                entry = metrics.get(eps_key)
-                if entry:  # explicit: only annotate an EPS metric that was actually built
-                    per_ads = build_per_ads_eps(
-                        entry.get("current", {}).get("value"), ads_info, reporting_currency
-                    )
-                    if per_ads:
-                        entry["per_ads"] = per_ads
-
-        # Reportable-segment table (T5.2): pass the raw per-segment rows through unchanged (like
-        # reporting_currency — an annotation, not a standardized metric). The summary filler formats
-        # them into the §7 table; absent for single-segment / undimensioned / bank filers.
-        segments = xbrl_data.get("segments")
-        if isinstance(segments, list) and segments:
-            metrics["segments"] = segments
-
-        # Source-qualified debt observations (debt-scope slice): passed through unchanged, like
-        # `segments` — an evidence annotation, not a standardized metric, so it deliberately does
-        # NOT get a current/prior/series entry. The shared debt-scope owner (`ai/debt_scope.py`)
-        # turns these into the grounding label and the visible leverage statement. Absent on rows
-        # extracted before this slice; that absence is unknown scope, never zero debt.
-        debt_observations = xbrl_data.get("debt_observations")
-        if isinstance(debt_observations, list) and debt_observations:
-            metrics["debt_observations"] = debt_observations
-
-        # Same-period derived ratios/flows inherit the fiscal label of their source values.
-        labels = {}
-        for entry in metrics.values():
-            if isinstance(entry, dict):
-                for point in entry.get("series", []):
-                    if point.get("fiscal_period"):
-                        labels[point["period"]] = {k: point[k] for k in ("fiscal_year", "fiscal_period")}
-        for entry in metrics.values():
-            if isinstance(entry, dict):
-                for point in entry.get("series", []):
-                    if point["period"] in labels and not point.get("fiscal_period"):
-                        point.update(labels[point["period"]])
-        source = xbrl_data.get("financing_comparison_source")
-        if isinstance(source, dict):
-            metrics["financing_comparison_source"] = source
-        classification = xbrl_data.get("financial_classification")
-        if isinstance(classification, dict):
-            metrics["financial_classification"] = classification
-        return metrics
+        return _standardize.extract_standardized_metrics(xbrl_data)
 
 
 # Singleton instance for backward compatibility

@@ -18,6 +18,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    JSON,
     Integer,
     Numeric,
     String,
@@ -48,6 +49,8 @@ class FinancialFact(Base):
     accession = Column(String, nullable=False, index=True)
     source = Column(String, nullable=False, default="edgar_xbrl")  # edgar_xbrl|companyfacts|frames|fsds
     reconciled = Column(Boolean, nullable=False, default=False)
+    # Versioned source/calculation lineage. NULL marks legacy rows pending re-normalization.
+    provenance = Column(JSON, nullable=True)
     is_latest = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

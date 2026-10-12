@@ -112,7 +112,7 @@ export default function NotificationBell() {
                     href={`/filing/${item.filing_id}`}
                     role="menuitem"
                     onClick={() => setOpen(false)}
-                    className="flex items-start gap-2.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-white/5"
+                    className="flex items-start gap-2.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                   >
                     <span
                       aria-hidden="true"
@@ -140,7 +140,7 @@ export default function NotificationBell() {
               href="/dashboard/settings"
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="block rounded-lg px-3 py-2 text-center text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark"
+              className="block rounded-lg px-3 py-2 text-center text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             >
               Manage alert settings
             </Link>

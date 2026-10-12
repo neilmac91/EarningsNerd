@@ -189,134 +189,13 @@ jobs:
       # ------------------------------------------------------------------ read-only inspection
       - name: Describe service env (values only for known feature flags)
         if: steps.request.outputs.operation == 'describe-service'
-        run: |
-          set -euo pipefail
-          gcloud run services describe "$SERVICE" --region="$REGION" --format=json > /tmp/svc.json
-          python3 - <<'PY'
-          import json
-          import os
-          import re
-          import subprocess
-          svc = json.load(open("/tmp/svc.json"))
-          status = svc["status"]
-          latest = status.get("latestReadyRevisionName")
-          tagged = [target.get("revisionName") for target in status.get("traffic", []) if target.get("tag")]
-          if tagged:
-              # A tagged revision stays routable at its own URL whatever its traffic share, so a
-              # leftover tag keeps a retired image serving beside the release.
-              raise SystemExit(f"Unresolved production configuration: tagged traffic targets {tagged}; remove stale revision tags.")
-          traffic = [target for target in status.get("traffic", []) if target.get("percent", 0) > 0]
-          print("Serving traffic:", traffic)
-          if (not latest or status.get("latestCreatedRevisionName") != latest
-                  or len(traffic) != 1 or traffic[0].get("percent") != 100
-                  or traffic[0].get("revisionName") != latest):
-              raise SystemExit("Unresolved production configuration: require 100% traffic on the latest ready revision.")
-          def describe(kind, name):
-              return json.loads(subprocess.check_output([
-                  "gcloud", "run", kind, "describe", name,
-                  "--region=" + os.environ["REGION"], "--format=json",
-              ], text=True))
-          revision = describe("revisions", latest)
-          pregenerate = describe("jobs", "earningsnerd-pregenerate")
-          # Only these non-sensitive flag/config values are echoed; everything else is name-only.
-          allow = {
-              "USE_STATEMENT_FINANCIALS", "ENABLE_FPI_FILINGS",
-              "STREAM_SECTION_REVEAL", "AI_DEFAULT_MODEL", "OPENAI_BASE_URL", "ENVIRONMENT",
-              "TRUSTED_PROXY_HOPS", "COOKIE_DOMAIN",
-              "NOTABLE_FILINGS_ENABLED", "AI_EVIDENCE_SNAP", "AI_FIGURE_TRACE_GATE",
-              "AI_FORWARD_QUOTE_GATE", "AI_ATTRIBUTION_GATE", "AI_ATTRIBUTION_VERIFY",
-              "USE_STRUCTURED_OUTPUT", "CALENDAR_INDEX_FILTER_ENABLED",
-              "REGISTRATION_MODE", "AI_FALLBACK_MODEL", "AI_FALLBACK_BASE_URL",
-              "SENTRY_RELEASE", "DB_POOL_SIZE", "DB_MAX_OVERFLOW",
-          }
-          # Defaults from app/config.py; never include credentials in this allow-list.
-          flag_defaults = {
-              "USE_STATEMENT_FINANCIALS": True,
-              "ENABLE_FPI_FILINGS": False,
-              "STREAM_SECTION_REVEAL": False,
-              "NOTABLE_FILINGS_ENABLED": False,
-              "AI_EVIDENCE_SNAP": False,
-              "AI_FIGURE_TRACE_GATE": False,
-              "AI_FORWARD_QUOTE_GATE": False,
-              "AI_ATTRIBUTION_GATE": False,
-              "AI_ATTRIBUTION_VERIFY": False,
-              "USE_STRUCTURED_OUTPUT": False,
-              "CALENDAR_INDEX_FILTER_ENABLED": False,
-              "REGISTRATION_MODE": "public",
-              "AI_FALLBACK_MODEL": "",
-              "AI_FALLBACK_BASE_URL": "",
-          }
-          def show(label, containers):
-              if len(containers) != 1:
-                  raise SystemExit(f"Unresolved production configuration: {label} needs one application container.")
-              print(label)
-              print("image:", containers[0]["image"])
-              print("Absent values below use checkout Settings defaults; verify these against the reported image before pinning.")
-              seen = set()
-              for e in containers[0].get("env", []):
-                  name = e.get("name", "?")
-                  seen.add(name)
-                  if "valueFrom" in e or "valueSource" in e:
-                      print(f"{name} = <secret-ref>")
-                  elif name in allow:
-                      print(f"{name} = {e.get('value')!r}")
-                  else:
-                      print(f"{name} = <set; value withheld>")
-              for flag, default in flag_defaults.items():
-                  if flag not in seen:
-                      message = "Settings default applies (True)" if default is True else f"Settings default applies ({default!r})"
-                      print(f"{flag} = <NOT SET -> {message}>")
-          show("Serving revision: " + latest, revision["spec"]["containers"])
-          show("Job: earningsnerd-pregenerate", pregenerate["spec"]["template"]["spec"]["template"]["spec"]["containers"])
-          service_max = svc.get("metadata", {}).get("annotations", {}).get("run.googleapis.com/maxScale")
-          revision_max = revision.get("metadata", {}).get("annotations", {}).get("autoscaling.knative.dev/maxScale")
-          print("Service maxScale:", service_max)
-          print("Revision maxScale:", revision_max)
-          # Capacity inputs only: never print arbitrary command arguments or worker env text.
-          # An absent override is not evidence of the image's effective command or worker count.
-          container = revision["spec"]["containers"][0]
-          command = container.get("command") or []
-          args = container.get("args") or []
-          command_evidence = {"state": "image_default_unresolved"}
-          if command or args:
-              command_evidence = {"state": "override_present_values_withheld"}
-          env_by_name = {entry.get("name"): entry for entry in container.get("env", [])}
-          worker_env = {}
-          for name in ("WEB_CONCURRENCY", "UVICORN_WORKERS"):
-              entry = env_by_name.get(name)
-              if entry is None:
-                  worker_env[name] = {"state": "not_set"}
-              elif "valueFrom" in entry or "valueSource" in entry:
-                  worker_env[name] = {"state": "secret_ref_unresolved"}
-              elif re.fullmatch(r"[1-9][0-9]{0,2}", str(entry.get("value", ""))):
-                  worker_env[name] = {"state": "literal", "value": int(entry["value"])}
-              else:
-                  worker_env[name] = {"state": "present_unresolved_value_withheld"}
-          annotations = revision.get("metadata", {}).get("annotations", {})
-          egress = annotations.get("run.googleapis.com/vpc-access-egress")
-          ingress = svc.get("metadata", {}).get("annotations", {}).get("run.googleapis.com/ingress")
-          def bounded_integer(value, maximum):
-              return value if type(value) is int and 1 <= value <= maximum else None
-          capacity_config = {
-              "revision": latest,
-              "container_command": command_evidence,
-              "worker_environment": worker_env,
-              "gunicorn_args_present_value_withheld": "GUNICORN_CMD_ARGS" in env_by_name,
-              "container_concurrency": bounded_integer(revision["spec"].get("containerConcurrency"), 1000),
-              "request_timeout_seconds": bounded_integer(revision["spec"].get("timeoutSeconds"), 3600),
-              "vpc_egress": egress if egress in ("all-traffic", "private-ranges-only") else "unset_or_unresolved",
-              "vpc_connector_annotation_present": "run.googleapis.com/vpc-access-connector" in annotations,
-              "direct_vpc_annotation_present": "run.googleapis.com/network-interfaces" in annotations,
-              "ingress": ingress if ingress in ("all", "internal", "internal-and-cloud-load-balancing") else "unset_or_unresolved",
-              "effective_worker_count": None,
-              "egress_ip_identity": None,
-              "limit": "Configured inputs only; image defaults, running process count, egress IP and instantaneous rollout overlap are not measured.",
-          }
-          print("Capacity configuration:", json.dumps(capacity_config, sort_keys=True))
-          PY
+        timeout-minutes: 10
+        # The module makes every gcloud read itself, the service describe included, and classifies a failed read.
+        run: python3 ops/describe/service.py
 
       - name: Describe expected job release configuration
         if: steps.request.outputs.operation == 'describe-jobs'
+        timeout-minutes: 10
         run: |
           set -euo pipefail
           JOB_DIR="$(mktemp -d /tmp/earningsnerd-expected-jobs.XXXXXX)"
@@ -331,80 +210,13 @@ jobs:
             earningsnerd-retention-purge
           )
           for job in "${jobs[@]}"; do
-            if ! gcloud run jobs describe "$job" --region="$REGION" --format=json > "$JOB_DIR/$job.json"; then
+            if ! gcloud run jobs describe "$job" --region="$REGION" --format=json > "$JOB_DIR/$job.json" 2>/dev/null; then
               echo "::error::expected Cloud Run job '$job' is missing or unreadable"
               exit 1
             fi
           done
           export JOB_DIR
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          expected_pools = {
-              "earningsnerd-pregenerate": "3",
-              "earningsnerd-filing-scan": "1",
-              "earningsnerd-filing-digest": "1",
-              "earningsnerd-backfill-facts": "1",
-              "earningsnerd-earnings-calendar-refresh": "1",
-              "earningsnerd-earnings-day-alerts": "1",
-              "earningsnerd-notable-filings": "1",
-              "earningsnerd-retention-purge": "1",
-          }
-          images = set()
-          for name, expected_pool in expected_pools.items():
-              path = Path(os.environ["JOB_DIR"]) / f"{name}.json"
-              try:
-                  job = json.loads(path.read_text())
-                  task_spec = job["spec"]["template"]["spec"]
-                  containers = task_spec["template"]["spec"]["containers"]
-              except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
-                  raise SystemExit(f"Unresolved production configuration: cannot read {name}: {exc}") from exc
-              if job.get("metadata", {}).get("name") not in (None, name):
-                  raise SystemExit(f"Unresolved production configuration: response name does not match {name}.")
-              if len(containers) != 1:
-                  raise SystemExit(f"Unresolved production configuration: {name} needs one application container.")
-              container = containers[0]
-              env = {}
-              env_kinds = []
-              for entry in container.get("env", []):
-                  env_name = entry.get("name")
-                  if not env_name or env_name in env:
-                      raise SystemExit(f"Unresolved production configuration: {name} has a missing or duplicate env name.")
-                  env[env_name] = entry
-                  kind = "secret-ref" if ("valueFrom" in entry or "valueSource" in entry) else "plain"
-                  env_kinds.append(f"{env_name}({kind})")
-              values = {}
-              for env_name in ("DB_POOL_SIZE", "DB_MAX_OVERFLOW"):
-                  entry = env.get(env_name)
-                  if not entry or "valueFrom" in entry or "valueSource" in entry or "value" not in entry:
-                      raise SystemExit(f"Unresolved production configuration: {name} needs plain {env_name}.")
-                  values[env_name] = str(entry["value"])
-              if values != {"DB_POOL_SIZE": expected_pool, "DB_MAX_OVERFLOW": "0"}:
-                  raise SystemExit(
-                      f"Unresolved production configuration: {name} pool must be "
-                      f"{expected_pool}+0, got {values['DB_POOL_SIZE']}+{values['DB_MAX_OVERFLOW']}."
-                  )
-              task_count = task_spec.get("taskCount")
-              if str(task_count) != "1":
-                  raise SystemExit(f"Unresolved production configuration: {name} taskCount must be 1.")
-              image = container.get("image")
-              if not isinstance(image, str) or not image:
-                  raise SystemExit(f"Unresolved production configuration: {name} image is missing.")
-              images.add(image)
-              print(f"== {name}")
-              print("  image:", image)
-              print("  taskCount:", task_count)
-              print("  DB_POOL_SIZE:", values["DB_POOL_SIZE"])
-              print("  DB_MAX_OVERFLOW:", values["DB_MAX_OVERFLOW"])
-              print("  command:", container.get("command"))
-              print("  args:", container.get("args"))
-              print("  env:", ", ".join(env_kinds) if env_kinds else "(none)")
-          if len(images) != 1:
-              raise SystemExit("Unresolved production configuration: expected jobs do not share one release image.")
-          print("All expected jobs use one release image with the production pool budget and taskCount=1.")
-          PY
+          python3 ops/describe/jobs.py
 
       - name: Logs read probe (safeguard-2 alert feasibility)
         if: steps.request.outputs.operation == 'logs-probe'
@@ -416,7 +228,14 @@ jobs:
           if [ $RC -eq 0 ]; then
             echo "logs-probe: logging.read PERMITTED ($(wc -l < /tmp/probe.out) recent entries visible)"
           else
-            echo "logs-probe: logging.read DENIED (rc=$RC)"; cat /tmp/probe.err
+            echo "logs-probe: logging.read DENIED (rc=$RC)"
+            # gcloud's error text can name the acting principal: print its closed class, never the text,
+            # in the order gcloud_json() in ops/describe/service.py classifies.
+            if grep -qsF PERMISSION_DENIED /tmp/probe.err; then CLASS=permission_denied
+            elif grep -qsF NOT_FOUND /tmp/probe.err; then CLASS=not_found
+            elif grep -qsF -e UNAVAILABLE -e DEADLINE_EXCEEDED /tmp/probe.err; then CLASS=unavailable
+            else CLASS="error (gcloud exit $RC)"; fi
+            echo "logs-probe: failure class $CLASS (gcloud's error text withheld)"
           fi
           set +e
           gcloud logging read 'jsonPayload.event="company_upsert_conflict" OR textPayload:"company_upsert_conflict"' \
@@ -435,7 +254,7 @@ jobs:
 
       - name: Read historical capacity evidence
         if: steps.request.outputs.operation == 'capacity-readout'
-        timeout-minutes: 12
+        timeout-minutes: 16
         env:
           CAPACITY_START: ${{ inputs.capacity_start }}
           CAPACITY_END: ${{ inputs.capacity_end }}

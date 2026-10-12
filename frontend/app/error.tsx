@@ -47,7 +47,7 @@ export default function Error({
 
         <p className="mt-4 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
           If the problem continues, email{' '}
-          <a href={contactMailto('support')} className="break-all text-brand-strong underline dark:text-brand-strong-dark">{CONTACT_ADDRESSES.support}</a>.
+          <a href={contactMailto('support')} className="break-all text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.support}</a>.
         </p>
 
         {process.env.NODE_ENV === 'development' && (

@@ -1,4 +1,5 @@
 import api from '@/lib/api/client'
+import type { FactProvenance } from '@/features/analysis/lib/provenance'
 
 // Mirrors the backend `FundamentalsResponse` (backend/app/schemas/fundamentals.py),
 // served by GET /api/filings/{id}/fundamentals from the financial_fact table.
@@ -12,6 +13,8 @@ export interface FundamentalPoint {
   accession: string
   // false when the backend's reconciliation gate flagged this value (shown with a badge).
   reconciled: boolean
+  provenance?: FactProvenance | null
+  source_url?: string | null
 }
 
 export interface FundamentalSeries {

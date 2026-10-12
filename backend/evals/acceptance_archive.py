@@ -360,7 +360,7 @@ class FrozenArchiveBinding:
         from edgar.entity import submissions as edgar_submissions
         from edgar.sgml import sgml_common
         from app.services import summary_pipeline
-        from app.services.edgar import sixk_extractor, xbrl_service
+        from app.services.edgar import sixk_extractor, xbrl_instance, xbrl_sections, xbrl_service
 
         accession = str(self.spec["accession_number"])
         original_sgml = EdgarFiling.sgml
@@ -602,6 +602,8 @@ class FrozenArchiveBinding:
 
         with ExitStack() as stack:
             stack.enter_context(patch.object(xbrl_service, "resolve_filing_by_accession", resolve_frozen))
+            stack.enter_context(patch.object(xbrl_instance, "resolve_filing_by_accession", resolve_frozen))
+            stack.enter_context(patch.object(xbrl_sections, "resolve_filing_by_accession", resolve_frozen))
             stack.enter_context(patch.object(sixk_extractor, "resolve_filing_by_accession", resolve_frozen))
             stack.enter_context(patch.object(EdgarFiling, "sgml", frozen_sgml))
             stack.enter_context(patch.object(edgar_attachments, "download_file", frozen_download))

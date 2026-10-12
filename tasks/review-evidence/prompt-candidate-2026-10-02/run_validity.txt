@@ -1,0 +1,64 @@
+$ python tasks/review-evidence/prompt-candidate-2026-10-02/run_validity.py main-37049387017=copilot-37049387017/copilot-eval.json main-37052760996=copilot-37052760996/copilot-eval.json main-37063120532=copilot-37063120532/copilot-eval.json armB-37029156902=copilot-37029156902/copilot-eval.json
+(artifacts: retained copies, paths relative to the lane scratch directory)
+
+main-37049387017: INVALID; rows 18; source_sha ef333c2e30b8390de3057e8e38a1ffe98d4ce8c6; runtime {"flags": {"ENABLE_FPI_FILINGS": true, "ENABLE_HISTORY_BACKFILL_ON_VISIT": false, "USE_EDGARTOOLS_SECTIONS": true, "USE_STATEMENT_FINANCIALS": true}, "versions": {"edgartools": "5.58.0", "openai": "3.19.2", "sqlalchemy": "2.0.54"}}
+  system prompts seen: a88b6fb1de5b7f31/5057 chars x18
+  fingerprints (reported, not validity): {'aeb56401ca74e127821c4f9126dcb669': 28}
+  MISMATCH AAPL sales-gross-profit-2025 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+  MISMATCH TSLA sales-operating-income-2024 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+  MISMATCH MSFT sales-diluted-eps-2025 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+  MISMATCH BABA native-revenue-2026 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+  MISMATCH BABA viewed-native-revenue-2025 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+  MISMATCH ASML us-gaap-sales-net-income-2025 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+main-37052760996: INVALID; rows 18; source_sha 0066e2585a5ecb2ca28a603fb5d52aeb5e37d456; runtime {"flags": {"ENABLE_FPI_FILINGS": true, "ENABLE_HISTORY_BACKFILL_ON_VISIT": false, "USE_EDGARTOOLS_SECTIONS": true, "USE_STATEMENT_FINANCIALS": true}, "versions": {"edgartools": "5.58.0", "openai": "3.19.2", "sqlalchemy": "2.0.54"}}
+  system prompts seen: a88b6fb1de5b7f31/5057 chars x18
+  fingerprints (reported, not validity): {'aeb56401ca74e127821c4f9126dcb669': 29}
+  MISMATCH AAPL sales-gross-profit-2025 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+  MISMATCH TSLA sales-operating-income-2024 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+  MISMATCH MSFT sales-diluted-eps-2025 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+  MISMATCH BABA native-revenue-2026 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+  MISMATCH BABA viewed-native-revenue-2025 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+  MISMATCH ASML us-gaap-sales-net-income-2025 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+main-37063120532: INVALID; rows 18; source_sha 8960e5c3723d0fbfc52d8499e4541f18388cca44; runtime {"flags": {"ENABLE_FPI_FILINGS": true, "ENABLE_HISTORY_BACKFILL_ON_VISIT": false, "USE_EDGARTOOLS_SECTIONS": true, "USE_STATEMENT_FINANCIALS": true}, "versions": {"edgartools": "5.58.0", "openai": "3.19.2", "sqlalchemy": "2.0.54"}}
+  system prompts seen: a88b6fb1de5b7f31/5057 chars x18
+  fingerprints (reported, not validity): {'aeb56401ca74e127821c4f9126dcb669': 29}
+  MISMATCH AAPL sales-gross-profit-2025 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+  MISMATCH TSLA sales-operating-income-2024 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+  MISMATCH MSFT sales-diluted-eps-2025 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+  MISMATCH BABA native-revenue-2026 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+  MISMATCH BABA viewed-native-revenue-2025 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+  MISMATCH ASML us-gaap-sales-net-income-2025 d0: system prompt a88b6fb1de5b7f31 / 5057 chars
+armB-37029156902: INVALID; rows 18; source_sha 80b944165f1ef4f2078a98fe1a72237e1ba05af5; runtime {"flags": {"ENABLE_FPI_FILINGS": true, "ENABLE_HISTORY_BACKFILL_ON_VISIT": false, "USE_EDGARTOOLS_SECTIONS": true, "USE_STATEMENT_FINANCIALS": true}, "versions": {"edgartools": "5.58.0", "openai": "3.19.2", "sqlalchemy": "2.0.54"}}
+  system prompts seen: 164570555f40de62/5006 chars x18
+  fingerprints (reported, not validity): {'aeb56401ca74e127821c4f9126dcb669': 36}
+  MISMATCH AAPL sales-gross-profit-2025 d0: system prompt 164570555f40de62 / 5006 chars
+  MISMATCH TSLA sales-operating-income-2024 d0: system prompt 164570555f40de62 / 5006 chars
+  MISMATCH MSFT sales-diluted-eps-2025 d0: system prompt 164570555f40de62 / 5006 chars
+  MISMATCH BABA native-revenue-2026 d0: system prompt 164570555f40de62 / 5006 chars
+  MISMATCH BABA viewed-native-revenue-2025 d0: system prompt 164570555f40de62 / 5006 chars
+  MISMATCH ASML us-gaap-sales-net-income-2025 d0: system prompt 164570555f40de62 / 5006 chars
+exit 1 (INVALID is expected: these runs used other prompts; d1/d2 system-prompt MISMATCH lines omitted, each identical to its d0 line)
+
+$ python tasks/review-evidence/prompt-candidate-2026-10-02/run_validity.py --control-prompt a88b6fb1de5b7f3103088f0795b04bea9b3216627e59dcb8bb9ebfd98ecd88cd:5057 main-37049387017=... main-37052760996=... main-37063120532=...
+(artifacts: retained copies, paths relative to the lane scratch directory)
+
+CONTROL: expected system prompt replaced by a88b6fb1de5b7f31/5057 chars (not a qualification check)
+main-37049387017: VALID; rows 18; source_sha ef333c2e30b8390de3057e8e38a1ffe98d4ce8c6; runtime {"flags": {"ENABLE_FPI_FILINGS": true, "ENABLE_HISTORY_BACKFILL_ON_VISIT": false, "USE_EDGARTOOLS_SECTIONS": true, "USE_STATEMENT_FINANCIALS": true}, "versions": {"edgartools": "5.58.0", "openai": "3.19.2", "sqlalchemy": "2.0.54"}}
+  system prompts seen: a88b6fb1de5b7f31/5057 chars x18
+  fingerprints (reported, not validity): {'aeb56401ca74e127821c4f9126dcb669': 28}
+main-37052760996: VALID; rows 18; source_sha 0066e2585a5ecb2ca28a603fb5d52aeb5e37d456; runtime {"flags": {"ENABLE_FPI_FILINGS": true, "ENABLE_HISTORY_BACKFILL_ON_VISIT": false, "USE_EDGARTOOLS_SECTIONS": true, "USE_STATEMENT_FINANCIALS": true}, "versions": {"edgartools": "5.58.0", "openai": "3.19.2", "sqlalchemy": "2.0.54"}}
+  system prompts seen: a88b6fb1de5b7f31/5057 chars x18
+  fingerprints (reported, not validity): {'aeb56401ca74e127821c4f9126dcb669': 29}
+main-37063120532: VALID; rows 18; source_sha 8960e5c3723d0fbfc52d8499e4541f18388cca44; runtime {"flags": {"ENABLE_FPI_FILINGS": true, "ENABLE_HISTORY_BACKFILL_ON_VISIT": false, "USE_EDGARTOOLS_SECTIONS": true, "USE_STATEMENT_FINANCIALS": true}, "versions": {"edgartools": "5.58.0", "openai": "3.19.2", "sqlalchemy": "2.0.54"}}
+  system prompts seen: a88b6fb1de5b7f31/5057 chars x18
+  fingerprints (reported, not validity): {'aeb56401ca74e127821c4f9126dcb669': 29}
+exit 0
+
+$ python tasks/review-evidence/prompt-candidate-2026-10-02/run_validity.py --control-prompt 164570555f40de62e102c5b24e6fc6a80361aeb5767e37f80019faebc7c90087:5006 armB-37029156902=...
+(artifacts: retained copies, paths relative to the lane scratch directory)
+
+CONTROL: expected system prompt replaced by 164570555f40de62/5006 chars (not a qualification check)
+armB-37029156902: VALID; rows 18; source_sha 80b944165f1ef4f2078a98fe1a72237e1ba05af5; runtime {"flags": {"ENABLE_FPI_FILINGS": true, "ENABLE_HISTORY_BACKFILL_ON_VISIT": false, "USE_EDGARTOOLS_SECTIONS": true, "USE_STATEMENT_FINANCIALS": true}, "versions": {"edgartools": "5.58.0", "openai": "3.19.2", "sqlalchemy": "2.0.54"}}
+  system prompts seen: 164570555f40de62/5006 chars x18
+  fingerprints (reported, not validity): {'aeb56401ca74e127821c4f9126dcb669': 36}
+exit 0

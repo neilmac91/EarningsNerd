@@ -24,6 +24,14 @@ function UserIdentificationSync() {
 // value is referentially stable and never re-renders consumers.
 const ICON_DEFAULTS: IconProps = { size: 24, weight: 'regular' }
 
+// The DS focus ring on Sonner's focusable toasts and their buttons. Sonner injects its own grey
+// `:focus-visible` shadow at runtime with equal or higher specificity, so the shadow needs `!`.
+// siteChromeFocusRing.spec.ts pins every class slot below.
+const TOAST_RING = 'focus-visible:outline-none focus-visible:!shadow-ring-brand dark:focus-visible:!shadow-ring-brand-dark'
+const TOAST_OPTIONS = {
+  classNames: { toast: TOAST_RING, closeButton: TOAST_RING, actionButton: TOAST_RING, cancelButton: TOAST_RING },
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
@@ -48,7 +56,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
               <FeedbackWidget />
               {/* Transient action feedback. theme="system" follows the .dark class set by
                   ThemeProvider; richColors gives semantic success/error styling. */}
-              <Toaster theme="system" richColors closeButton position="top-center" />
+              <Toaster theme="system" richColors closeButton position="top-center" toastOptions={TOAST_OPTIONS} />
             </ThemeProvider>
           </QueryClientProvider>
         </PostHogProvider>

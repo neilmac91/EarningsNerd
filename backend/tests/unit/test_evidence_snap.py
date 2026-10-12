@@ -229,11 +229,11 @@ def test_malformed_shapes_are_tolerated():
 # recovery keys threaded.
 # ---------------------------------------------------------------------------
 def test_generation_wiring():
-    src = (
-        Path(__file__).resolve().parents[2] / "app" / "services" / "openai_service.py"
-    ).read_text()
-    assert "evidence_snap_audit = await run_in_threadpool(" in src  # F5: off the event loop
-    assert "settings.AI_EVIDENCE_SNAP,\n            recovered_keys,\n        )" in src
-    assert 'structured_summary.pop("_recovered_sections", [])' in src  # F3 threading
-    assert 'summary_data["_recovered_sections"] = sorted(recovered.keys())' in src
-    assert 'raw_summary_payload["evidence_snap_audit"] = evidence_snap_audit' in src
+    services = Path(__file__).resolve().parents[2] / "app" / "services"
+    src = (services / "ai" / "summary_finalize.py").read_text()
+    facade = (services / "openai_service.py").read_text()
+    assert "run.evidence_snap_audit = await run_in_threadpool(" in src  # F5: off the event loop
+    assert "settings.AI_EVIDENCE_SNAP,\n        run.recovered_keys,\n    )" in src
+    assert 'run.structured_summary.pop("_recovered_sections", [])' in src  # F3 threading
+    assert 'summary_data["_recovered_sections"] = sorted(recovered.keys())' in facade
+    assert 'run.raw_summary_payload["evidence_snap_audit"] = run.evidence_snap_audit' in src

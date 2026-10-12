@@ -6,7 +6,7 @@ import ChangeReportDemo from '@/features/marketing/components/ChangeReportDemo'
 import ProDepth from '@/features/marketing/components/ProDepth'
 import RevenueBars from '@/features/marketing/components/RevenueBars'
 import {
-  AAPL_FY22_EDGAR_URL,
+  AAPL_FY25_EDGAR_URL,
   SAMPLE_ANALYSIS_DATASET,
   SAMPLE_ASK,
   SAMPLE_CHANGE_REPORT,
@@ -66,7 +66,7 @@ describe('AskFilingDemo', () => {
     const fact = screen.getByRole('link', { name: /^Citation F1:/ })
     const passage = screen.getByRole('link', { name: /^Citation 1:/ })
     for (const chip of [fact, passage]) {
-      expect(chip).toHaveAttribute('href', AAPL_FY22_EDGAR_URL)
+      expect(chip).toHaveAttribute('href', AAPL_FY25_EDGAR_URL)
       expect(chip).toHaveAttribute('target', '_blank')
     }
     expect(fact).toHaveAttribute('data-citation-kind', 'xbrl')
@@ -105,10 +105,12 @@ describe('AnalysisDemo', () => {
     const last = SAMPLE_ANALYSIS_DATASET.periods[SAMPLE_ANALYSIS_DATASET.periods.length - 1].key
     expect(screen.getByText(`Apple Inc. · Annual · ${first}–${last}`)).toBeInTheDocument()
 
-    // KpiStrip labels the latest point of each sample series.
-    expect(screen.getByText(`Revenue (${last})`)).toBeInTheDocument()
-    expect(screen.getByText(`Net income (${last})`)).toBeInTheDocument()
-    expect(screen.getByText(`Net margin (${last})`)).toBeInTheDocument()
+    // The definitions name each metric; its actual reporting period accompanies the value.
+    for (const label of ['Revenue', 'Net income', 'Net margin']) {
+      const card = screen.getAllByRole('term').find((term) => term.textContent === label)!.parentElement!
+      expect(within(card).getByText(last)).toBeInTheDocument()
+      expect(within(card).getByRole('button', { name: new RegExp(`^${label}, ${last}:`) })).toBeInTheDocument()
+    }
 
     expect(screen.getByRole('img', { name: new RegExp(`^Revenue by fiscal year, ${first} to ${last}:`) })).toBeInTheDocument()
 
@@ -121,26 +123,26 @@ describe('AnalysisDemo', () => {
 })
 
 describe('ChangeReportDemo', () => {
-  it('renders the real WhatChanged report flattened into the frame, with skeleton risk columns', () => {
+  it('renders the real WhatChanged report flattened into the frame, with no fake loading state', () => {
     const { container } = render(<ChangeReportDemo />)
     expect(screen.getByRole('heading', { name: 'What changed' })).toBeInTheDocument()
     expect(screen.getByText(SAMPLE_CHANGE_REPORT.comparison_basis as string)).toBeInTheDocument()
     expect(screen.getByText(SAMPLE_CHANGE_REPORT.metrics!.headline as string)).toBeInTheDocument()
-    for (const item of SAMPLE_CHANGE_REPORT.metrics!.items) {
-      expect(screen.getByText(item.display)).toBeInTheDocument()
+    // The table (sm+) and the stacked rows (below sm) both carry every served change.
+    for (const layout of ['table', 'rows']) {
+      const scope = within(container.querySelector<HTMLElement>(`[data-change-layout="${layout}"]`)!)
+      for (const item of SAMPLE_CHANGE_REPORT.metrics!.items) {
+        expect(scope.getByText(item.display as string)).toBeInTheDocument()
+      }
     }
-
     // The chrome-neutralising wrapper targets `[&>section]`: WhatChanged's section must stay its
     // direct child, or the frame grows a second border.
     const frame = container.querySelector('[data-capture="change-report"]')
     expect(frame).not.toBeNull()
     expect(frame!.querySelector(':scope > div > section')).not.toBeNull()
-
-    // Raw skeleton bones are aria-hidden; each column's wrapper carries role + label (DS §4).
-    const groups = screen.getAllByRole('status', { name: 'Risk factor text loads from the live report' })
-    expect(groups).toHaveLength(2)
-    expect(screen.getByText('New risk factors')).toBeInTheDocument()
-    expect(screen.getByText('No longer cited')).toBeInTheDocument()
+    // The sample carries no risk lines, so nothing on the sales surface pretends to load.
+    expect(screen.queryAllByRole('status')).toHaveLength(0)
+    expect(screen.queryByText('New risk factors')).toBeNull()
   })
 })
 
@@ -151,10 +153,10 @@ describe('ProDepth', () => {
 
   it('is a labelled section with the three Pro rows, the extras grid and mirror-driven caps', () => {
     render(<ProDepth />)
-    const section = screen.getByRole('region', { name: 'What Pro adds' })
+    const section = screen.getByRole('region', { name: 'More ways to read one filing.' })
     expect(section.id).toBe('pro')
     expect(
-      within(section).getByText('Three ways to work with filing data beyond one summary.'),
+      within(section).getByText('Ask it a question, read its periods side by side, see what changed since the last one.'),
     ).toBeInTheDocument()
 
     for (const title of ['Ask this Filing', 'Multi-Period Analysis', 'Change Report']) {

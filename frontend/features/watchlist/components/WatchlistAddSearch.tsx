@@ -4,12 +4,12 @@ import { formatCompanyName } from '@/lib/formatCompanyName'
 import { queryKeys } from '@/lib/queryKeys'
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { CheckIcon, CircleNotchIcon, MagnifyingGlassIcon, PlusIcon } from '@/lib/icons'
+import { CheckIcon, MagnifyingGlassIcon, PlusIcon } from '@/lib/icons'
 import { searchCompanies, Company } from '@/features/companies/api/companies-api'
 import { addToWatchlist } from '@/features/watchlist/api/watchlist-api'
 import analytics from '@/lib/analytics'
 import CompanyLogo from '@/components/CompanyLogo'
-import { inputClasses } from '@/components/ui'
+import { FieldSpinner, inputClasses } from '@/components/ui'
 
 /**
  * Add-from-search for the watchlist page: type a company, pick it, and it's tracked — without
@@ -94,11 +94,12 @@ export default function WatchlistAddSearch() {
           onFocus={() => setOpen(true)}
           placeholder="Add a company to your watchlist (e.g., AAPL, Apple)…"
           aria-label="Search for a company to add to your watchlist"
-          className={inputClasses({ leadingIcon: true })}
+          aria-busy={isLoading || undefined}
+          className={inputClasses({ leadingIcon: true, trailingIcon: true })}
         />
-        {(isLoading || addMutation.isPending) && (
-          <CircleNotchIcon className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
-        )}
+        {/* Inset always reserved, not only while busy: see CompanySearch. The input is busy only for its own
+            search; during an add the picked option carries aria-busy, and the spinner still shows here. */}
+        {(isLoading || addMutation.isPending) && <FieldSpinner />}
       </div>
 
       {justAdded && (
@@ -127,16 +128,16 @@ export default function WatchlistAddSearch() {
               onClick={() => handleSelect(company)}
               aria-disabled={addMutation.isPending || undefined}
               aria-busy={pendingTicker === company.ticker || undefined}
-              className="flex w-full items-center justify-between gap-3 border-b border-border-light dark:border-border-dark px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-brand-weak dark:hover:bg-white/5 aria-disabled:opacity-50"
+              className="group flex w-full items-center justify-between gap-3 border-b border-border-light dark:border-border-dark px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-brand-weak dark:hover:bg-white/5"
             >
-              <span className="flex min-w-0 items-center gap-2.5">
+              <span className="flex min-w-0 items-center gap-2.5 group-aria-disabled:opacity-50">
                 <CompanyLogo decorative ticker={company.ticker} name={formatCompanyName(company.name)} size={28} />
                 <span className="min-w-0">
                   <span className="block truncate font-medium text-text-primary-light dark:text-text-primary-dark">{formatCompanyName(company.name)}</span>
                   <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">{company.ticker}</span>
                 </span>
               </span>
-              <PlusIcon className="h-4 w-4 flex-shrink-0 text-brand-strong dark:text-brand-strong-dark" />
+              <PlusIcon className="h-4 w-4 flex-shrink-0 text-brand-strong group-aria-disabled:opacity-50 dark:text-brand-strong-dark" />
             </button>
           ))}
         </div>

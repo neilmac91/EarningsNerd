@@ -74,7 +74,7 @@ headroom measurement is established by the code releases alone.
 One runtime must-fix and one historical contract-authorization defect were resolved as described
 above. A **should-fix remains open**: chat admission releases its slot before the prior provider
 transport finishes closing, permitting bounded cleanup overlap. It is tracked explicitly in
-[todo](todo.md#astra-audit-and-remaining-plan--2026-09-08), as instructed, rather than included
+[todo](archive/todo-ledger-through-2026-10-07.md#astra-audit-and-remaining-plan--2026-09-08), as instructed, rather than included
 in unrelated dependency work. Historical production impact of the crash scenario was not
 measured; no replay or live email/job test was performed.
 
@@ -86,6 +86,6 @@ The actual strong-judge report is still unavailable (latest inspected artifact `
 0/24 scored). Routine judge-off regressions do not replace it.
 
 The next engineering work follows the named prerequisites, not an open-ended new feature queue.
-Use the [live ordered checklist](todo.md#remaining-master-plan--astra-checkpoint-2026-09-08)
+Use the [live ordered checklist](archive/todo-ledger-through-2026-10-07.md#remaining-master-plan--astra-checkpoint-2026-09-08)
 and [continuation handover](handover-astra-continuation-2026-09-08.md) for exact release points
 and remaining decisions. No completion percentage is assigned to workstreams of unequal scope.

@@ -850,9 +850,6 @@ class TestBuildDataset:
         assert cagr_entry["kind"] == "cagr"
         assert cagr_entry["period"] == dataset["period_key"]  # full-coverage series
 
-        # The prompt header carries the marker next to the CAGR figure.
-        text = svc.compact_dataset_for_prompt(dataset)
-        assert f"[{cagr_markers[0]}] CAGR" in text
         db.close()
 
     def test_cagr_window_is_valued_endpoints_not_selected_range(self):
@@ -880,8 +877,6 @@ class TestBuildDataset:
         citation = svc._point_citation(1, entry)
         assert "(FY2022..FY2023)" in citation["excerpt"]
 
-        text = svc.compact_dataset_for_prompt(dataset)
-        assert f"[{ocf['cagr_marker']}] CAGR" in text and "(FY2022..FY2023)" in text
         db.close()
 
     def test_dataset_flags_and_values_are_ingest_order_independent(self):
@@ -958,49 +953,6 @@ class TestBuildDataset:
 
 
 class TestPromptRendering:
-    def test_compact_rendering_carries_markers_and_signals(self):
-        dataset = {
-            "ticker": "TST", "company_name": "Test Co", "mode": "annual",
-            "period_key": "FY2022..FY2024",
-            "periods": [],
-            "series": [{
-                "concept": "revenue", "label": "Revenue", "unit": "USD", "percent": False,
-                "cagr": 0.10,
-                "points": [
-                    {"period": "FY2022", "value": 1000.0, "marker": "F1"},
-                    {"period": "FY2023", "value": 1200.0, "marker": "F2", "yoy": 0.20},
-                    {"period": "FY2024", "value": None},
-                ],
-            }],
-            "inflections": [{"kind": "debt_build", "detail": "Debt grew.", "markers": ["F9"]}],
-        }
-        text = svc.compact_dataset_for_prompt(dataset)
-        assert "[F1] FY2022: 1,000" in text
-        assert "YoY +20.0%" in text
-        assert "CAGR +10.0%" in text
-        assert "FY2024: not reported" in text
-        assert "debt_build" in text and "[F9]" in text
-
-    def test_signal_markers_render_one_per_bracket(self):
-        """A comma-joined signal line ("[F1, F2, F3]") modeled the exact multi-reference form the
-        resolver cannot parse — the prompt must only ever show separate single brackets."""
-        dataset = {
-            "ticker": "TST", "company_name": "Test Co", "mode": "quarterly",
-            "period_key": "2025Q1..2025Q3", "periods": [],
-            "series": [{
-                "concept": "operating_margin", "label": "Operating margin", "unit": "pure",
-                "percent": True, "cagr": None,
-                "points": [{"period": "2025Q1", "value": 48.9, "marker": "F1"}],
-            }],
-            "inflections": [{
-                "kind": "margin_compression", "detail": "Operating margin compressed 2.5pp.",
-                "markers": ["F1", "F2", "F3"],
-            }],
-        }
-        text = svc.compact_dataset_for_prompt(dataset)
-        assert "[F1] [F2] [F3]" in text
-        assert "[F1, F2" not in text
-
     def test_marker_index_resolves_points(self):
         dataset = {
             "series": [{

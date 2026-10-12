@@ -9,7 +9,7 @@ never writes `period_start`, and both retained #825 Copilot assessments show `pe
 on every successful `get_financial_fact` result. The first implementation substituted an
 annual-report form, `period_of_report` equality and the `FY` label. Review showed that is not a
 substitute, and the actual production path proves it end to end: a three-month revenue point
-ending on the fiscal year end survives `edgar/xbrl_service.py`'s `filter_and_sort`, which only
+ending on the fiscal year end survives `edgar/xbrl_companyfacts.py`'s `filter_and_sort`, which only
 *ranks* the durations sharing a period end and never rejects a lone quarterly one; `append_items`
 then drops its `start`; and `facts_service._fiscal_period` stamps `FY` from the FORM. A Q4 figure
 therefore reaches the fact table wearing an annual label with no duration, and passes
@@ -26,7 +26,7 @@ reporting the mechanism as a fix. The selected-instance path DOES filter duratio
 nothing, so downstream the two paths are indistinguishable — carrying duration forward is the
 real repair.
 
-**Evidence**: `backend/app/services/edgar/xbrl_service.py` (`_duration_penalty`, `filter_and_sort`,
+**Evidence**: `backend/app/services/edgar/xbrl_companyfacts.py` (`_duration_penalty`, `filter_and_sort`,
 `append_items`); `backend/app/services/edgar/instance_extractor.py::duration_in_window`;
 `backend/app/services/facts_service.py::_fiscal_period` and `normalize_standardized_to_facts`;
 `backend/app/services/copilot_service.py::_fact_certifies_claim`;

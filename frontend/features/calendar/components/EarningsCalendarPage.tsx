@@ -11,7 +11,7 @@
 ============================================================================= */
 
 import { useMemo, useState } from 'react'
-import { Button, GuidanceCard, Skeleton } from '@/components/ui'
+import { Button, GuidanceCard, SegmentedControl, Skeleton, type SegmentedOption } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
 import { BellIcon, CaretLeftIcon, CaretRightIcon, ClockIcon } from '@/lib/icons'
 import { formatLocalDate } from '@/lib/format'
@@ -24,6 +24,12 @@ import { DayDetailDialog } from './DayDetailDialog'
 import { BellPopover } from './AlertBell'
 
 type CalendarView = 'week' | 'month'
+
+// v3.1: the view switch is the shared SegmentedControl (same recipe it was lifted from).
+const VIEW_OPTIONS: SegmentedOption<CalendarView>[] = [
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: 'Month' },
+]
 
 export default function EarningsCalendarPage() {
   const todayIso = useMemo(() => todayEasternIso(), [])
@@ -138,29 +144,12 @@ export default function EarningsCalendarPage() {
             <ClockIcon aria-hidden="true" className="h-3.5 w-3.5" />
             U.S. Eastern
           </span>
-          <div
-            role="group"
-            aria-label="Calendar view"
-            className="inline-flex rounded-lg border border-border-light bg-panel-light p-1 shadow-e1 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
-          >
-            {(['week', 'month'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={view === v}
-                onClick={() => { setOpenDay(null); setView(v) }}
-                className={cx(
-                  'h-[26px] rounded px-3.5 text-xs font-semibold capitalize transition-colors duration-fast',
-                  'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
-                  view === v
-                    ? 'bg-brand text-white shadow-e1 dark:bg-brand-dark dark:text-background-dark'
-                    : 'text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark',
-                )}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label="Calendar view"
+            options={VIEW_OPTIONS}
+            value={view}
+            onChange={(v) => { setOpenDay(null); setView(v) }}
+          />
         </div>
       </div>
 

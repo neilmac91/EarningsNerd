@@ -2,11 +2,9 @@
 
 import { useId, useState } from 'react'
 import { Card, CardTitle } from '@/components/ui/Card'
-import { CheckCircleIcon } from '@/lib/icons'
-import {
-  SourceTracePanelBody,
-  sourceTraceChipClass,
-} from '@/features/filings/components/SourceTrace'
+import { QuotesIcon } from '@/lib/icons'
+import { SourceTracePanelBody } from '@/features/filings/components/SourceTrace'
+import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
 
 /**
  * Landing-page demo of the product's Trace-to-Source chip with its provenance panel open, so a
@@ -32,7 +30,7 @@ export default function TraceToSourceDemo({ trace }: { trace: TraceSample }) {
     <Card className="p-5">
       <CardTitle>Trace to Source</CardTitle>
       <p className="mt-1.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        Where a source chip is available, hover or tap it to see the section, the passage, and a link
+        Hover or tap the chip to see the section, the passage in the filing’s own words, and a link
         into SEC EDGAR.
       </p>
       <div className="mt-4 rounded-lg border border-border-light bg-white px-4 py-3.5 dark:border-white/10 dark:bg-white/5">
@@ -44,9 +42,11 @@ export default function TraceToSourceDemo({ trace }: { trace: TraceSample }) {
             aria-expanded={open}
             aria-controls={panelId}
             onClick={() => setOpen((value) => !value)}
-            className={sourceTraceChipClass(true)}
+            className={sourceTraceChipClass()}
           >
-            <CheckCircleIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+            {/* The product chip's glyph for a filing passage; the selected tint belongs to the
+                research pane, which the landing demo does not have. */}
+            <QuotesIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
             Verified in filing
           </button>
         </p>

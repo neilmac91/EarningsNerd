@@ -25,7 +25,7 @@ class QuarterlyCoveragePeriod(BaseModel):
     fiscal_period: str
     period_end: str
     # True when EVERY value in the column is Q4-derived (from the annual report: FY − YTD9 or
-    # FY − ΣQ1–3; EPS shares-based) — badged in the picker.
+    # FY − ΣQ1–3) — badged in the picker.
     derived: bool
 
 
@@ -59,3 +59,8 @@ class DatasetRequest(BaseModel):
 class StreamRequest(DatasetRequest):
     # Regenerate even when a cached narrative matches (metered; the "Refresh analysis" button).
     force: bool = False
+
+
+class ExportDatasetRequest(DatasetRequest):
+    # Bind a download to the figures displayed by the client. Omitted by older clients.
+    snapshot_id: Optional[str] = Field(default=None, pattern=r"^[a-f0-9]{64}$")

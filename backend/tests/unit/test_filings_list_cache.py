@@ -1,4 +1,4 @@
-"""Offline tests for the B2 filings-list freshness cache (app.routers.filings).
+"""Offline tests for the B2 filings-list freshness cache (app.services.filing_list_service).
 
 Pure logic — no DB/network: they prove the (ticker, types) freshness + eviction behavior that lets
 a recently-synced ticker skip the SEC round-trip."""
@@ -6,7 +6,7 @@ from datetime import timedelta
 
 import pytest
 
-from app.routers import filings as f
+from app.services import filing_list_service as f
 from app.utils.datetimes import utcnow
 
 
@@ -18,31 +18,31 @@ def _clear_cache():
 
 
 def test_cold_key_is_not_fresh():
-    assert f._filings_cache_fresh("AAPL", ["10-K", "10-Q"]) is False
+    assert f.filings_cache_fresh("AAPL", ["10-K", "10-Q"]) is False
 
 
 def test_marked_key_is_fresh():
     f._mark_filings_synced("AAPL", ["10-K", "10-Q"])
-    assert f._filings_cache_fresh("AAPL", ["10-K", "10-Q"]) is True
+    assert f.filings_cache_fresh("AAPL", ["10-K", "10-Q"]) is True
 
 
 def test_freshness_is_types_sensitive():
     f._mark_filings_synced("AAPL", ["10-K", "10-Q"])
     # A different type set is a different cache key — must not be served as fresh.
-    assert f._filings_cache_fresh("AAPL", ["10-K"]) is False
-    assert f._filings_cache_fresh("AAPL", ["10-K", "10-Q", "20-F"]) is False
+    assert f.filings_cache_fresh("AAPL", ["10-K"]) is False
+    assert f.filings_cache_fresh("AAPL", ["10-K", "10-Q", "20-F"]) is False
 
 
 def test_stale_key_past_ttl_is_not_fresh():
     key = ("AAPL", ("10-K", "10-Q"))
     f._filings_synced_at[key] = utcnow() - (f.FILINGS_LIST_TTL + timedelta(minutes=1))
-    assert f._filings_cache_fresh("AAPL", ["10-K", "10-Q"]) is False
+    assert f.filings_cache_fresh("AAPL", ["10-K", "10-Q"]) is False
 
 
 def test_key_just_within_ttl_is_fresh():
     key = ("AAPL", ("10-K", "10-Q"))
     f._filings_synced_at[key] = utcnow() - (f.FILINGS_LIST_TTL - timedelta(minutes=1))
-    assert f._filings_cache_fresh("AAPL", ["10-K", "10-Q"]) is True
+    assert f.filings_cache_fresh("AAPL", ["10-K", "10-Q"]) is True
 
 
 def test_eviction_bounds_memory(monkeypatch):

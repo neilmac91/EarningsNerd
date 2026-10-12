@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import TraceToSourceDemo from '@/features/marketing/components/TraceToSourceDemo'
 import { SAMPLE_TRACE } from '@/features/marketing/lib/landing-samples'
+import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
 
 describe('TraceToSourceDemo (landing evidence section)', () => {
   it('renders the claim with its provenance panel open and a real EDGAR link', () => {
@@ -19,6 +20,13 @@ describe('TraceToSourceDemo (landing evidence section)', () => {
     expect(panel).toHaveTextContent('Verified against the original SEC filing')
 
     expect(screen.getByRole('link', { name: /open in sec edgar/i })).toHaveAttribute('href', SAMPLE_TRACE.url)
+  })
+
+  it('wears the product chip at rest: no selected tint (that belongs to the research pane)', () => {
+    render(<TraceToSourceDemo trace={SAMPLE_TRACE} />)
+    const trigger = screen.getByRole('button', { name: 'Source: Verified in filing' })
+    expect(trigger.className).toBe(sourceTraceChipClass())
+    expect(trigger.className).not.toContain('bg-brand-weak')
   })
 
   it('toggles the panel closed and open again from the chip', () => {

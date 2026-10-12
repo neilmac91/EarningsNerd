@@ -493,15 +493,19 @@ def build_metric_source(
 ) -> dict[str, Any]:
     """Compute provenance for a single financial-metric row.
 
-    Returns ``{source_section_ref, source_url, source_verified, xbrl_concept}``. ``source_verified``
-    is True only when the metric maps to a standardized XBRL concept whose SEC-verified value (a
-    large dollar figure) actually appears in the row's ``current_period`` rendering.
+    Returns ``{source_section_ref, source_url, source_verified, source_checkable, xbrl_concept}``.
+    ``source_verified`` is True only when the metric maps to a standardized XBRL concept whose
+    SEC-verified value (a large dollar figure) actually appears in the row's ``current_period``
+    rendering. ``source_checkable`` says the check could run at all (a mapped concept with a value of
+    at least ``_MIN_VERIFIABLE_XBRL_VALUE``): per-share figures, ratios, margins and segment lines are
+    never checked, so a tally of matched figures counts its denominator from these rows only.
     """
     base_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
     out: dict[str, Any] = {
         "source_section_ref": section_ref,
         "source_url": base_url or None,
         "source_verified": False,
+        "source_checkable": False,
         "xbrl_concept": None,
     }
 
@@ -515,6 +519,7 @@ def build_metric_source(
     if not isinstance(value, (int, float)) or abs(value) < _MIN_VERIFIABLE_XBRL_VALUE:
         return out
 
+    out["source_checkable"] = True
     displayed = str(metric_row.get("current_period") or "").lower()
     if _value_appears_in_text(float(value), displayed):
         out["source_verified"] = True

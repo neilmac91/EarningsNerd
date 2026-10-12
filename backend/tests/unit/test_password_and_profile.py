@@ -133,3 +133,13 @@ def test_clear_profile_name(client):
         assert resp.status_code == 200
         assert resp.json()["full_name"] is None
         assert _reload_name(uid) is None
+
+
+@pytest.mark.requires_db
+def test_empty_profile_patch_keeps_name(client):
+    # Only the fields the client sent are applied: leaving full_name out must not clear it.
+    with _auth_as(has_password=True) as uid:
+        resp = client.patch("/api/users/me", json={})
+        assert resp.status_code == 200
+        assert resp.json()["full_name"] == "Original Name"
+        assert _reload_name(uid) == "Original Name"

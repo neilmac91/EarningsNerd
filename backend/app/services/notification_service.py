@@ -4,11 +4,12 @@ Keeps the "what should this user be alerted about, and how" logic in one place:
 - ``get_or_create_preferences`` — every user has well-defined defaults even without a row.
 - ``coerce_to_entitlement`` — Pro-gated toggles (realtime, 8-K) are silently forced off for
   non-Pro users so the API never grants what billing doesn't allow.
+- ``apply_preference_update`` — the prefs API's write: apply the change, coerce, commit.
 - ``evaluate_delivery`` — given prefs + entitlements + a filing type, decide (eligible, realtime).
 """
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Any, Dict, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -40,6 +41,21 @@ def coerce_to_entitlement(prefs: NotificationPreferences, ent: Entitlements) -> 
     if not ent.eightk_coverage:
         prefs.notify_8k = False
     return prefs
+
+
+def apply_preference_update(
+    db: Session, prefs: NotificationPreferences, data: Dict[str, Any], current_user: User
+) -> Entitlements:
+    """Write already-validated preference changes, force Pro-only toggles off when the plan does
+    not allow them, and commit. Returns the entitlements the response reports."""
+    for field, value in data.items():
+        setattr(prefs, field, value)
+
+    ent = get_entitlements(current_user)
+    coerce_to_entitlement(prefs, ent)  # force Pro-only toggles off if not entitled
+    db.commit()
+    db.refresh(prefs)
+    return ent
 
 
 def _is_six_k(filing_type: str) -> bool:

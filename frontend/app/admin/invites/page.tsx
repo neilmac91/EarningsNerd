@@ -201,7 +201,7 @@ export default function AdminInvitesPage() {
             disabled={sending}
           />
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label
                 htmlFor="cohort"
@@ -230,7 +230,7 @@ export default function AdminInvitesPage() {
                 value={expiryHours}
                 onChange={(e) => setExpiryHours(Number(e.target.value))}
                 disabled={sending}
-                className={inputClasses()}
+                className={inputClasses({ select: true })}
               >
                 {EXPIRY_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -247,7 +247,7 @@ export default function AdminInvitesPage() {
               checked={sendEmail}
               onChange={(e) => setSendEmail(e.target.checked)}
               disabled={sending}
-              className="h-4 w-4 rounded border-border-light text-brand-strong focus:shadow-ring-brand dark:border-white/10 dark:bg-panel-dark"
+              className="h-4 w-4 rounded border-border-light text-brand-strong focus:ring-0 focus:ring-offset-0 focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-white/10 dark:bg-panel-dark dark:focus-visible:shadow-ring-brand-dark"
             />
             <span className="inline-flex items-center gap-1.5">
               <EnvelopeSimpleIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
@@ -303,7 +303,9 @@ export default function AdminInvitesPage() {
             <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
               Invites
             </h2>
-            <div className="flex flex-wrap items-center gap-2">
+            {/* min-w-0: the cohort filter is as wide as its longest cohort name, which is data; as a
+                flex item this row would otherwise grow to that width and push the card past a phone. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <label htmlFor="filter-status" className="sr-only">
                 Filter by status
               </label>
@@ -311,7 +313,7 @@ export default function AdminInvitesPage() {
                 id="filter-status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as 'all' | InviteStatus)}
-                className={`${inputClasses()} w-auto`}
+                className={inputClasses({ select: true, autoWidth: true })}
               >
                 <option value="all">All statuses</option>
                 <option value="pending">Pending</option>
@@ -327,7 +329,7 @@ export default function AdminInvitesPage() {
                 id="filter-cohort"
                 value={cohortFilter}
                 onChange={(e) => setCohortFilter(e.target.value)}
-                className={`${inputClasses()} w-auto`}
+                className={inputClasses({ select: true, autoWidth: true })}
               >
                 <option value="all">All cohorts</option>
                 {cohorts.map((c) => (

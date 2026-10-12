@@ -5,6 +5,7 @@ backend/tests/ before testing for ^backend/, and every deploy step is gated on t
 (lessons/ops-deploy-detector-mirrors-the-image-context.md).
 """
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -75,6 +76,17 @@ def test_backend_test_only_changes_do_not_deploy(tmp_path):
         (["docs/DEPLOYMENT.md", ".github/workflows/ci.yml"], False),
         (tracked_tests, False),
         (["backend/tests/new.fixture", "backend/tests/future/deep/unknown.ext"], False),
+        # An Ops read-back change: workflow, repository-root ops/ script, docs and a backend unit test.
+        (["ops/capacity/readout.py", ".github/workflows/ops.yml", "docs/OPERATIONS.md",
+          "backend/tests/unit/test_ops_describe_jobs.py"], False),
+        # The read-back follow-ups: new ops/describe/ modules, the workflow, docs, two lessons, todo and backend tests.
+        ([".github/workflows/ops.yml", "backend/tests/unit/test_backend_deploy_scope.py",
+          "backend/tests/unit/test_capacity_projection_privacy.py", "backend/tests/unit/test_capacity_readout.py",
+          "backend/tests/unit/test_job_reporting.py", "backend/tests/unit/test_ops_describe_jobs.py",
+          "backend/tests/unit/test_ops_stderr_withheld.py", "backend/tests/unit/test_prod_flag_visibility.py",
+          "docs/DEPLOYMENT.md", "lessons/ops-capacity-projection-withholds-command-values.md",
+          "lessons/ops-denied-reads-report-unverified.md",
+          "ops/capacity/readout.py", "ops/describe/jobs.py", "ops/describe/service.py", "tasks/todo.md"], False),
         (["backend/app/config.py"], True),
         (["backend/migrations/new.sql", "backend/scripts/apply_migrations.sh"], True),
         (["backend/Dockerfile", "backend/.dockerignore", "backend/requirements.txt"], True),
@@ -123,3 +135,54 @@ def test_detector_sees_both_sides_of_a_rename(tmp_path):
     (repo / "backend/tests/test_helper.py").write_text("def test_value():\n    assert 1 == 1\n")
     git("commit", "-q", "-am", "change confined to tests")
     assert _run_detector(detect, repo, env, tmp_path / "github-output-tests") == "backend=false"
+
+
+REPORT_STEP = "Report variable-driven rollout switches"
+# `vars.NAME` and the index form `vars['NAME']` / `vars["NAME"]`.
+VAR_REF = re.compile(r"\bvars(?:\.([A-Za-z_]\w*)|\[\s*['\"]([A-Za-z_]\w*)['\"]\s*\])")
+AUTH_IDENTITY = {"GCP_WIF_PROVIDER", "GCP_DEPLOYER_SA"}  # who deploys, not what the deploy applies
+
+
+def _var_names(node):
+    """Every repository variable a parsed workflow fragment reads, from its raw keys and values."""
+    if isinstance(node, dict):
+        return set().union(*(_var_names(key) | _var_names(value) for key, value in node.items()))
+    if isinstance(node, list):
+        return set().union(*(_var_names(item) for item in node))
+    return {name for match in VAR_REF.findall(str(node)) for name in match if name}
+
+
+def test_deploy_reports_every_variable_driven_switch(tmp_path):
+    """Repository variables change without a commit, so a deploy can roll out more than its diff: PR
+    #1131's merge rolled out durable tasks switched on hours earlier (CODE RED decision record 17).
+    Every deploy-backend env entry set from a repository variable is printed by an ungated step that
+    runs before the detector, so every main push, deploying or not, shows what a deploy would apply.
+    A variable read anywhere else in the job (a step's env, `with` or `run`, the job `if`) or in the
+    workflow-level env fails, apart from the deploy identity, so every switch goes through the reported
+    job env. The gate makes the values readable; reading them before a merge stays a review rule."""
+    workflow = _workflow()
+    deploy = workflow["jobs"]["deploy-backend"]
+    names = [step.get("name") for step in deploy["steps"]]
+    report = next(step for step in deploy["steps"] if step.get("name") == REPORT_STEP)
+    assert "if" not in report and names.index(REPORT_STEP) < names.index("Detect backend changes")
+    switches = [key for key, value in deploy["env"].items() if VAR_REF.search(value)]
+    assert switches, "deploy-backend reads no repository variable: update this gate"
+    outside = {**deploy, "env": {key: value for key, value in deploy["env"].items() if key not in switches},
+               "workflow-level env": workflow.get("env", {})}
+    stray = _var_names(outside) - AUTH_IDENTITY
+    assert not stray, f"repository variables read outside the reported job env: {sorted(stray)}"
+    sentinels = {key: f"sentinel-{index}" for index, key in enumerate(switches)}
+    probe = subprocess.run(["bash", "-e", "-c", report["run"]], capture_output=True, text=True, timeout=30,
+                           env={**os.environ, **sentinels, "GITHUB_STEP_SUMMARY": str(tmp_path / "probe")})
+    assert probe.returncode == 0, probe.stderr
+    printed = probe.stdout.split()
+    for key, sentinel in sentinels.items():  # what the step prints, not what its source mentions
+        assert f"{key}={sentinel}" in printed or f"{key}=set" in printed, f"the deploy does not report {key}"
+    summary = tmp_path / "summary"
+    env = {**os.environ, "DURABLE_TASKS_ENABLED": "true", "TASKS_WORKER_URL": "https://worker.example",
+           "GITHUB_STEP_SUMMARY": str(summary)}
+    result = subprocess.run(["bash", "-e", "-c", report["run"]], capture_output=True, text=True, env=env,
+                            timeout=30, check=False)
+    assert result.returncode == 0, result.stderr
+    line = "Variable-driven rollout switches: DURABLE_TASKS_ENABLED=true TASKS_WORKER_URL=set"
+    assert result.stdout.strip() == line and summary.read_text().strip() == line

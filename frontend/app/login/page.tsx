@@ -148,7 +148,7 @@ function LoginContent() {
             Continue with email
           </Button>
         ) : (
-          <form onSubmit={handleSubmit} className="animate-fade-up space-y-4">
+          <form onSubmit={handleSubmit} className="animate-fade-up motion-reduce:animate-none space-y-4">
             <div>
               <label
                 htmlFor="email"

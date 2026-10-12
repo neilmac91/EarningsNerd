@@ -1,0 +1,35 @@
+# Run 1: hermetic synthetic env, SENTRY_DSN unset
+⚠️  SENTRY_DSN not configured - error tracking disabled
+{
+ "fastapi": "0.142.2",
+ "opentelemetry_api": "1.45.0",
+ "otel_env": [],
+ "telemetry_config_auto_configure": true,
+ "native_telemetry_enabled_at_import": false,
+ "otel_sdk_installed": false,
+ "providers": {
+  "trace": "ProxyTracerProvider",
+  "metrics": "_ProxyMeterProvider",
+  "logs": "ProxyLoggerProvider"
+ }
+}
+FASTAPI_TELEMETRY_INERT 0.142.2
+exit=0
+
+# Run 2: same env plus synthetic SENTRY_DSN=https://public@sentry.invalid/1 (Sentry initialized; sockets blocked)
+✓ Sentry error tracking initialized
+{
+ "fastapi": "0.142.2",
+ "opentelemetry_api": "1.45.0",
+ "otel_env": [],
+ "telemetry_config_auto_configure": true,
+ "native_telemetry_enabled_at_import": false,
+ "otel_sdk_installed": false,
+ "providers": {
+  "trace": "ProxyTracerProvider",
+  "metrics": "_ProxyMeterProvider",
+  "logs": "ProxyLoggerProvider"
+ }
+}
+FASTAPI_TELEMETRY_INERT 0.142.2
+exit=0

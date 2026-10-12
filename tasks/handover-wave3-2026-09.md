@@ -15,7 +15,7 @@ deploy job `101438839055`, succeeded with `apply_migrations: applied=0 skipped=3
 `c0261e7f337fdc5bd9bd6a70ea6449847c7ee3edca8b387642e85b30c957b41b` matches;
 independent detailed health is healthy (DB 7.05 ms, SEC closed, Redis disabled/healthy).
 Final CI 34014981345 and Copilot 34015323793 passed; exact tails, artifacts and the corrected
-review finding are in the [active W3-3 checkpoint](todo.md#w3-3-public-source-replacement--2026-09-06).
+review finding are in the [active W3-3 checkpoint](archive/todo-ledger-through-2026-10-07.md#w3-3-public-source-replacement--2026-09-06).
 Notable remains absent and its skipped update does not clear the founder provisioning hold.
 [Public refresh 34016016776](https://github.com/neilmac91/EarningsNerd/actions/runs/34016016776),
 job `101439794997`, succeeded: `sp500=503 nasdaq100=102 union=518`, validated 518 members
@@ -43,7 +43,7 @@ SEC closed. Notable provisioning/activation remains held; its absent job update 
 W3-0, W3-1, W3-2, W3-4, W3-5 and W3-6 are complete. W3-6
 [#716](https://github.com/neilmac91/EarningsNerd/pull/716) merged
 `a7bc78be791d188f4f36d399dd117ee4282a84bd`; final CI 34009654771 and Copilot 34010025095
-are verified (exact tails and artifacts in the [current todo checkpoint](todo.md#current-checkpoint--2026-09-06)).
+are verified (exact tails and artifacts in the [current todo checkpoint](archive/todo-ledger-through-2026-10-07.md#current-checkpoint--2026-09-06)).
 [Production run 34010252813](https://github.com/neilmac91/EarningsNerd/actions/runs/34010252813),
 deploy job 101424963044, succeeded: `applied=0 skipped=34`, revision
 `earningsnerd-backend-00274-fgq` at 100% traffic, image digest
