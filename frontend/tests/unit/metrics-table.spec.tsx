@@ -306,8 +306,8 @@ describe('MetricsTable period windows', () => {
     expect(headers[8]).not.toHaveTextContent('†')
     expect(headers[12]).not.toHaveTextContent('†')
     expect(screen.getByRole('rowheader', { name: 'Revenue' })).toHaveAttribute('scope', 'row')
-    expect(screen.getByRole('table')).toHaveAccessibleName(/value and change versus prior quarter.*YoY labels/)
-    expect(screen.getByText(/Fiscal quarters follow/)).toHaveTextContent('A Q4 header † means some flow figures are calculated from annual totals less the first nine months; it does not mark the column’s balance-sheet figures as calculated.')
+    expect(screen.getByRole('table')).toHaveAccessibleName(/value and change versus prior quarter\. Fiscal quarters follow the company’s reporting calendar\. YoY labels/)
+    expect(screen.getByText(/^n\/m means not meaningful\./)).toHaveTextContent('A Q4 header † means some flow figures are calculated from annual totals less the first nine months; it does not mark the column’s balance-sheet figures as calculated.')
   })
 
   it('shows every period and suppresses window controls for an explicit illustrative sample', async () => {
