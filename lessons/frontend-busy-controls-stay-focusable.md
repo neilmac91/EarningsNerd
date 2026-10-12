@@ -215,9 +215,7 @@ move focus a mouse user did not lose.
 
 (h) The scan cannot see post-success flips outside its names, unmounts, or a busy flag under another
 name. Those stay per-site specs plus a real-browser keyboard pass. Known open cases, same class, not
-yet fixed: the filing page's summary Retry ("Summary temporarily unavailable") and Regenerate Analysis, and
-focus after a generation that succeeds (the progress heading a keyboard Retry focused leaves with the run, and
-focus falls to `<body>`, where it always ended after a finished generation); FeedbackRow's status
+yet fixed: the filing page's summary Retry ("Summary temporarily unavailable") and Regenerate Analysis; FeedbackRow's status
 select when the list is filtered by status (its own update removes the row); the dashboard header's
 Log out (no in-flight guard); PopularTickerChips' add when the insights refetch after it fails (the
 chip goes live again, and with no row to prune it needs the added ticker remembered); YourCompanies'
@@ -234,7 +232,7 @@ CompanySearch's "Try again" (a tap on it busy no longer raises the keyboard when
 page's three and BillingPanel's two (`busyControls.dashboard.spec.tsx`, `busyControls.watchlist.spec.tsx`,
 `CompanySearch.spec.tsx`, `busyControls.forms.spec.tsx`, `busyControls.settings.spec.tsx`,
 `useRetainedFailure.spec.tsx`); the filing page's Retry generation and the arrival of its failure card
-(`StreamingSummaryDisplay.spec.tsx`, `useRetainedFailure.spec.tsx`, e2e `summary-generation-focus.spec.ts`); and
+(`StreamingSummaryDisplay.spec.tsx`, `useRetainedFailure.spec.tsx`, e2e `summary-generation-focus.spec.ts`); the completed-generation arrival in the persistent filing shell (first summary heading, only after a run, preserving held focus and modal ownership; the same e2e); and
 EmailVerificationModal's Resend (`busyControls.admin-auth.spec.tsx`
 plus the e2e `email-verification-resend.spec.ts`). The dashboard's saved-summary Delete and Manage
 subscription are fixed too (`busyControls.dashboard.spec.tsx`).

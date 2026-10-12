@@ -90,7 +90,7 @@ function CheckEmailContent() {
           disabled={!email}
           aria-disabled={resendLoading || cooldown > 0 || undefined}
           aria-busy={resendLoading || undefined}
-          className="inline-flex items-center gap-1 font-medium text-brand-strong hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline aria-disabled:cursor-not-allowed aria-disabled:text-brand-strong/50 aria-disabled:no-underline dark:text-brand-strong-dark dark:aria-disabled:text-brand-strong-dark/50"
+          className="rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1 font-medium text-brand-strong hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline aria-disabled:cursor-not-allowed aria-disabled:text-brand-strong/50 aria-disabled:no-underline dark:text-brand-strong-dark dark:aria-disabled:text-brand-strong-dark/50"
         >
           {resendLoading && <CircleNotchIcon className="h-3 w-3 animate-spin motion-reduce:animate-none" />}
           {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend email'}
@@ -100,7 +100,7 @@ function CheckEmailContent() {
       <p className="mt-4 text-center text-sm">
         <Link
           href={loginHrefWithRedirect(redirect)}
-          className="text-text-secondary-light hover:underline dark:text-text-secondary-dark"
+          className="rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark text-text-secondary-light hover:underline dark:text-text-secondary-dark"
         >
           Back to login
         </Link>

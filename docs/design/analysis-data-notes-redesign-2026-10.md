@@ -943,6 +943,14 @@ on `main` at `dd7b9ce` (2026-10-11), decision 6 was merged in #1202 and was rati
 checkpoint does not describe later implementation branches. Branch updates below record code
 available for review, separately from a verified merge and deployment.
 
+**Branch implementation (2026-10-12).** Decision 9 is implemented on this branch in #1264: evidence dialogs say "Unavailable" and
+clean reports say "No figures need review", independently of comparison concerns. Merge and
+deployment verification remain pending.
+
+**Branch implementation (2026-10-12).** Decision 4 (amended) is implemented on this branch in #1273:
+the KPI cards remain two-up at ordinary phone text and become one-up below 17 em of their own
+text size. Merge and deployment verification for this geometry change remain pending.
+
 **Branch implementation (2026-10-12).** Decision 7 is implemented on this branch in #1274: affected bars retain their series fill
 and carry the note letter above, with SVG/PNG halos. Merge and deployment verification
 remain pending.

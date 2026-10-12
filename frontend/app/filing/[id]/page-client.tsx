@@ -33,6 +33,8 @@ import { SummaryDisplay } from '@/features/summaries/components/SummaryDisplay'
 import { GenerateSignupGate } from '@/features/summaries/components/GenerateSignupGate'
 import { ChangeReportCard } from '@/features/summaries/components/ChangeReportCard'
 import { useSummaryGeneration } from '@/features/summaries/hooks/useSummaryGeneration'
+import { useFocusOnArrival } from '@/hooks/useFocusHandoff'
+import { isSummaryFailure } from '@/features/summaries/lib/summaryPlaceholder'
 
 // StreamingSummaryDisplay + its stage constants live in ./StreamingSummaryDisplay.
 // The summary-generation state machine lives in features/summaries/hooks/useSummaryGeneration;
@@ -66,6 +68,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
   // "Ask about this" text selection → open the rail + pre-fill the composer.
   const [copilotPrefill, setCopilotPrefill] = useState<{ text: string; nonce: number } | null>(null)
   const summaryContentRef = useRef<HTMLElement>(null)
+  const completedSummaryHeadingRef = useRef<HTMLHeadingElement>(null)
   const hasTrackedFilingView = useRef(false)
   const hasTrackedSummaryGenerated = useRef(false)
   const hasTrackedSummaryViewed = useRef(false)
@@ -106,6 +109,14 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
     hasSummaryContent,
     handleRegenerateSummary,
   } = useSummaryGeneration({ filingId, filing, isAuthenticated, isAuthResolved, entryPoint, initialSummary })
+
+  // This owner survives the progress-to-summary swap. Cached reads never claim focus, and a
+  // failed regeneration must not announce the retained previous summary as a completed run.
+  useFocusOnArrival(
+    completedSummaryHeadingRef,
+    hasStartedGeneration && !isStreaming && !generationError && hasSummaryContent
+      && Boolean(summary && !isSummaryFailure(summary)),
+  )
 
   // Single entry point for every "Ask" affordance (callout CTA, starter chips, tappable follow-ups,
   // coachmark, text selection): open the rail, optionally pre-fill, and attribute the surface. FREE
@@ -343,6 +354,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
               onRetry={handleRegenerateSummary}
               onAsk={handleAskCopilot}
               initialChangeReport={initialChangeReport}
+              headingRef={completedSummaryHeadingRef}
             />
           ) : isAuthResolved && !isAuthenticated && filing && !summaryLoading ? (
             // No displayable summary (query settled) + signed out: generation requires an account,

@@ -26,11 +26,14 @@
        would expose the values scrolling beneath the label. Composes cleanly
        with stickyHeader — the header's first cell (the "corner") gets a
        higher z-index than both plain sticky-header cells and the sticky
-       column's body cells, so it is never overlapped by either.
+       column's body cells, so it is never overlapped by either. With snapColumns,
+       release the sticky label when it cannot fit beside one whole period;
+       the label then scrolls with the table and has its own snap stop.
 ============================================================================= */
 
 import { useLayoutEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useContentIn } from '../../hooks/useContentIn'
+import { useOverflowRegion } from '../../hooks/useOverflowRegion'
 import { cx } from './cx'
 import { Skeleton } from './Skeleton'
 
@@ -161,7 +164,6 @@ export function DataTable<T extends Record<string, unknown>>({
   const tableRef = useRef<HTMLTableElement>(null)
   const geometry = useRef({ step: 0, labelWidth: 0, viewportWidth: 0, inset: 0, range: 0, stops: [] as number[], column: 0 })
   const initialized = useRef(false)
-  const [overflows, setOverflows] = useState(false)
   const [mobileHint, setMobileHint] = useState<'absent' | 'hidden' | 'visible'>('absent')
   const [stickyFits, setStickyFits] = useState(true)
   const stickyColumn = stickyFirstColumn && (!snapColumns || stickyFits)
@@ -170,6 +172,11 @@ export function DataTable<T extends Record<string, unknown>>({
     ? `max(100%, calc(${colWidths.join(' + ')}))` : undefined
   const startAtEndOnMobile = scrollRegion?.startAtEndOnMobile
   const hasScrollRegion = !!scrollRegion
+  const { overflowing: overflows, regionProps } = useOverflowRegion(scrollRef, {
+    enabled: hasScrollRegion,
+    label: scrollRegion?.label,
+    describedBy: scrollRegion?.hint && (!startAtEndOnMobile || mobileHint === 'visible') ? hintId : undefined,
+  })
   const renderHint = !!scrollRegion?.hint && overflows && (!startAtEndOnMobile || mobileHint !== 'absent')
   const showHint = renderHint && (!startAtEndOnMobile || mobileHint === 'visible')
 
@@ -218,7 +225,6 @@ export function DataTable<T extends Record<string, unknown>>({
       const stops = Array.from(headers ?? [], (_, index) => Math.min(wholeRange,
         index === 0 ? 0 : Math.max(0, firstStop + (index - Number(stickyFirstColumn)) * step)))
       geometry.current = { step, labelWidth, viewportWidth, inset: insetWidth, range: wholeRange, stops, column: previous.column }
-      setOverflows(range > 0)
       const newest = !initialized.current && startAtEndOnMobile && window.matchMedia('(max-width: 639px)').matches
       if (snapColumns) scroll.scrollLeft = newest ? wholeRange : stops[Math.min(previous.column, stops.length - 1)] ?? 0
       rememberColumn()
@@ -254,10 +260,7 @@ export function DataTable<T extends Record<string, unknown>>({
     {renderHint && <p id={hintId} aria-hidden={!showHint || undefined} className={cx('mb-2 text-xs text-text-secondary-light dark:text-text-secondary-dark', !showHint && 'invisible')}>{scrollRegion!.hint}</p>}
     <div
       ref={scrollRef}
-      role={scrollRegion && overflows ? 'region' : undefined}
-      tabIndex={scrollRegion && overflows ? 0 : undefined}
-      aria-label={overflows ? scrollRegion?.label : undefined}
-      aria-describedby={showHint ? hintId : undefined}
+      {...regionProps}
       className={cx(
         (scrollRegion || snapColumns) && 'relative',
         stickyHeader ? 'overflow-auto' : 'overflow-x-auto',
