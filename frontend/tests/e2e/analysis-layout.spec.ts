@@ -698,7 +698,16 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
             await expect(viewport).not.toHaveAttribute('role')
             await expect(viewport).not.toHaveAttribute('tabindex')
           }
-          await expect(viewport.locator('[tabindex]')).toHaveCount(0)
+          expect(await viewport.locator('[tabindex]').evaluateAll(elements =>
+            elements.every(element => (element as HTMLElement).tabIndex < 0)
+          ), 'inner chart elements stay out of sequential Tab order').toBe(true)
+          if (overflow) {
+            await viewport.focus()
+            await page.keyboard.press('Tab')
+            expect(await page.evaluate(() => document.activeElement?.closest('[data-analysis-chart-scroll]'))).toBeNull()
+            await page.keyboard.press('Shift+Tab')
+            await expect(viewport).toBeFocused()
+          }
         }
       }
       await assertViewport()
