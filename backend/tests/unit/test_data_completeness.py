@@ -19,6 +19,8 @@ from app import database
 from app.models import Base, Company, Filing, FinancialFact
 from app.services import facts_service, filing_amendment_service as amendments
 from app.services import trend_analysis_service as analysis
+# Import before sessions patches database.SessionLocal; importing inside a test makes seed
+# retain that temporary factory after teardown.
 from app.services import universe_seed_service
 from app.services.edgar import xbrl_instance
 from app.services.edgar import xbrl_service as xbrl
