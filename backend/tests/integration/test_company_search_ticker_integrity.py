@@ -76,8 +76,8 @@ def fixture_tickers(monkeypatch):
     # fixture's FIXTURE_TICKERS drives it and nothing leaks in/out across tests.
     from app.services.edgar.compat import SECEdgarServiceCompat
 
-    SECEdgarServiceCompat._primary_map = None
-    SECEdgarServiceCompat._primary_map_built_at = None
+    monkeypatch.setattr(SECEdgarServiceCompat, "_primary_map", None)
+    monkeypatch.setattr(SECEdgarServiceCompat, "_primary_map_built_at", None)
     import app.routers.companies as companies_router
 
     monkeypatch.setattr(companies_router, "_get_stock_quote_with_timeout", fake_quote)

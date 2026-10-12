@@ -379,13 +379,15 @@ async function assertNotes(page: Page, state: AnalysisState) {
   await expect(summary).toContainText(`${expected.unavailable} unavailable`)
   await expect(summary).toContainText(`${expected.calculated} calculated`)
   if (state === 'clean') {
-    await expect(summary).toContainText(`${expected.passed} figures passed automated checks`)
-    await expect(summary).not.toContainText('need review')
+    await expect(summary).toContainText(`No figures need review · ${expected.passed} checked`)
+    await expect(summary).toContainText(`${expected.unavailable} unavailable (a)`)
   } else {
-    await expect(summary).toContainText(`${expected.reviewValues} figures need review`)
-    await expect(summary).toContainText(`${expected.reviewComparisons} comparisons need review`)
-    await expect(summary).not.toContainText('passed automated checks')
+    await expect(summary).toContainText(`${expected.reviewValues} figures need review (a)`)
+    await expect(summary).toContainText(`${expected.reviewComparisons} comparisons carry note a`)
+    await expect(summary).toContainText(`${expected.unavailable} unavailable (b)`)
+    await expect(summary).not.toContainText('No figures need review')
   }
+  await expect(summary).not.toContainText('passed automated checks')
   await expect(summary).not.toContainText('no validation record')
 }
 
