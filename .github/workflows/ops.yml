@@ -273,8 +273,18 @@ jobs:
             "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/${CLOUD_SQL_PROXY_VERSION}/cloud-sql-proxy.linux.amd64"
           echo "${CLOUD_SQL_PROXY_SHA256}  cloud-sql-proxy" | sha256sum -c -
           chmod +x cloud-sql-proxy
-          DB_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL)"
-          echo "::add-mask::$DB_URL"
+          if DB_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL 2>/tmp/proxy-secret.err)"; then
+            echo "::add-mask::$DB_URL"
+          else
+            RC=$?
+            # Match logs-probe and gcloud_json(): report a closed class, never the diagnostic text.
+            if grep -qsF PERMISSION_DENIED /tmp/proxy-secret.err; then CLASS=permission_denied
+            elif grep -qsF NOT_FOUND /tmp/proxy-secret.err; then CLASS=not_found
+            elif grep -qsF -e UNAVAILABLE -e DEADLINE_EXCEEDED /tmp/proxy-secret.err; then CLASS=unavailable
+            else CLASS="error (gcloud exit $RC)"; fi
+            echo "::error::Cloud SQL proxy: cannot read DATABASE_URL ($CLASS; gcloud's error text withheld)"
+            exit "$RC"
+          fi
           CONN="${DB_URL##*host=/cloudsql/}"; CONN="${CONN%%&*}"
           USERPASS="${DB_URL#*://}"; USERPASS="${USERPASS%%@*}"
           PGUSER="${USERPASS%%:*}"

@@ -46,6 +46,8 @@ _ORDERED_PROBES = [
     f"{_THIS}::test_probe_reads_the_schema_without_creating_it",
     f"{_THIS}::test_probe_mutates_the_canonical_payload_like_the_pipeline",
     f"{_THIS}::test_probe_next_test_sees_the_pristine_canonical_payload",
+    f"{_THIS}::test_probe_exhausts_a_shared_summary_account",
+    f"{_THIS}::test_probe_next_test_starts_with_an_empty_summary_limiter",
     f"{_AI_METRICS}::test_isolation_probe_leaves_the_trigger_set_like_a_script_entrypoint",
     f"{_AI_METRICS}::test_isolation_next_test_starts_from_the_default_trigger",
 ]
@@ -89,6 +91,21 @@ def test_probe_mutates_the_canonical_payload_like_the_pipeline():
 def test_probe_next_test_sees_the_pristine_canonical_payload():
     assert CANONICAL_PAYLOAD["status"] == "complete"
     assert "quality" not in CANONICAL_PAYLOAD["raw_summary"]
+
+
+def test_probe_exhausts_a_shared_summary_account():
+    from app.routers.summaries import SUMMARY_LIMITER
+
+    key = "summary:987654321"
+    for _ in range(SUMMARY_LIMITER.limit):
+        assert SUMMARY_LIMITER.allow(key)
+    assert not SUMMARY_LIMITER.allow(key)
+
+
+def test_probe_next_test_starts_with_an_empty_summary_limiter():
+    from app.routers.summaries import SUMMARY_LIMITER
+
+    assert not SUMMARY_LIMITER._hits
 
 
 def _fresh_pytest(*args):

@@ -14,6 +14,7 @@ import {
 import { fieldUnavailableClass, inputClasses } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { SkeletonText } from '@/components/ui/Skeleton'
+import { Switch } from '@/components/ui/Switch'
 
 type BoolPref = 'notify_10k' | 'notify_10q' | 'notify_8k' | 'notify_20f' | 'notify_6k' | 'realtime'
 
@@ -44,7 +45,7 @@ function Toggle({
           {locked && (
             <Link
               href="/pricing"
-              className="inline-flex items-center gap-1 rounded-full bg-brand-strong px-2 py-0.5 text-xs font-semibold text-white dark:bg-brand-dark dark:text-background-dark"
+              className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1 rounded-full bg-brand-strong px-2 py-0.5 text-xs font-semibold text-white dark:bg-brand-dark dark:text-background-dark"
             >
               <LockSimpleIcon className="h-3 w-3" />
               Pro
@@ -53,35 +54,25 @@ function Toggle({
         </div>
         <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">{description}</p>
       </div>
-      {/* While a save is in flight the switch is aria-disabled, never natively disabled: the switch
-          the user just flipped holds focus, and a focused button that turns disabled is blurred to
-          <body> in Chromium. Busy fades the track's fill and the knob, not the element, so the focus
-          indicator keeps its strength. A locked switch is natively disabled already and is not marked
-          busy as well, or it would fade twice. */}
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
+      {/* Busy fades only the track; the shared switch's focus ring remains opaque.
+          Plan-locked switches retain native disabled because their own press cannot flip that state. */}
+      <Switch
+        checked={checked}
         aria-label={label}
         disabled={disabled}
         aria-disabled={(busy && !disabled) || undefined}
         aria-busy={busy || undefined}
-        onClick={() => {
+        onCheckedChange={(next) => {
           if (busy) return
-          onChange(!checked)
+          onChange(next)
         }}
-        className={`group relative mt-1 inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:cursor-not-allowed ${
+        className={clsx(
+          'mt-1 aria-disabled:cursor-not-allowed',
           checked
-            ? 'bg-brand-strong aria-disabled:bg-brand-strong/50 dark:bg-brand-dark dark:aria-disabled:bg-brand-dark/50'
-            : 'bg-border-light aria-disabled:bg-border-light/50 dark:bg-border-dark dark:aria-disabled:bg-border-dark/50'
-        }`}
-      >
-        <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform group-aria-disabled:opacity-50 ${
-            checked ? 'translate-x-6' : 'translate-x-1'
-          }`}
-        />
-      </button>
+            ? 'aria-disabled:bg-brand-strong/50 dark:aria-disabled:bg-brand-dark/50'
+            : 'aria-disabled:bg-border-light/50 dark:aria-disabled:bg-white/[0.075]',
+        )}
+      />
     </div>
   )
 }
