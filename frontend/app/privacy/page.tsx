@@ -95,7 +95,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Vercel Web Analytics:</strong> We use Vercel Web Analytics for aggregate visit and page-view
-              statistics. It uses request-derived visitor hashes instead of third-party cookies. We remove query
+              statistics. It uses request-derived visitor hashes instead of cookies. We remove query
               strings and fragments from page URLs before sending them and filter referring URLs to reduce the risk
               of sending sensitive URL data. This measurement operates separately from the optional PostHog analytics
               cookies and does not wait for that cookie choice. See{' '}
