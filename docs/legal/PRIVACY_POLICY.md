@@ -2,7 +2,7 @@
 
 Reviewed **12 October 2026**. This is a working review companion, not a separate customer privacy notice or a statement of full legal compliance.
 
-The proposed website policy lives in [frontend/app/privacy/page.tsx](../../frontend/app/privacy/page.tsx); related controls are described in [the security page source](../../frontend/app/security/page.tsx). Those files are the maintained copy for the website routes. The changes in draft PR #1121 remain unmerged and undeployed. Final local lint/type checking, 1,991 frontend tests, build, Ruff/Bandit and 7,075 backend tests pass. Revised-page/Cookie settings browser checks remain pending while the Mac is locked; earlier email/preview results do not establish the new rendering.
+The proposed website policy lives in [frontend/app/privacy/page.tsx](../../frontend/app/privacy/page.tsx); related controls are described in [the security page source](../../frontend/app/security/page.tsx). Those files are the maintained copy for the website routes. The changes in draft PR #1121 remain unmerged and undeployed. Final local lint/type checking, 1,991 frontend tests, build, Ruff/Bandit and 7,075 backend tests pass. The revised privacy/security pages and Cookie settings controls were verified in the in-app preview in light/dark and mobile views; saved-choice cancellation/withdrawal and focus restoration passed.
 
 ## What the 12 October correction describes
 
@@ -19,7 +19,7 @@ The proposed website policy lives in [frontend/app/privacy/page.tsx](../../front
 2. **Provider arrangements:** verify each actual recipient, processing destination, accepted agreement and applicable transfer arrangement. Do not assert executed DPAs/SCCs or lawful safeguards without evidence. This review did not accept terms, change providers or establish every provider's retention/training settings.
 3. **Retention:** confirm category-specific billing, audit, usage, waitlist, provider-log and backup periods or meaningful deletion criteria. Scheduled cleanup code is not proof of every production purge outcome. No single seven-year tax deadline, universal 90-day log limit or 12-month backup limit is claimed.
 4. **Legal scope:** assess applicable jurisdictions, processing grounds and any representative duties from actual operations. No country of establishment, representative appointment or blanket GDPR/FADP/CCPA compliance is inferred.
-5. **Verification/release:** complete the changed-page and Cookie Settings browser checks, then update their results separately; final local frontend/backend gates pass. No merge, deployment, data deletion or account change is authorised by this document.
+5. **Verification/release:** final local frontend/backend gates and changed-page/Cookie settings browser checks pass; hosted CI remains blocked by two fictional-identifier matches on an unrelated prototype branch, pending its separate exception integration. No merge, deployment, data deletion or account change is authorised by this document.
 
 ## Primary references
 

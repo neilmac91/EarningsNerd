@@ -18,6 +18,6 @@ Authentication cookies and functional storage support sign-in, session state and
 
 ## Verification and further review
 
-The new reopening/withdrawal regression test covers saved choices, Cancel, focus return, saving both optional choices off and persistence on reopening. Final local lint/type checking, 1,991 frontend tests, build and backend gates pass. Actual revised preview rendering remains pending while the Mac is locked. No existing cookies, privacy settings, account data or provider settings are changed by this document.
+The new reopening/withdrawal regression test covers saved choices, Cancel, focus return, saving both optional choices off and persistence on reopening. Final local lint/type checking, 1,991 frontend tests, build and backend gates pass. Revised preview rendering and saved-choice cancellation/withdrawal passed in the in-app browser in both themes and mobile views. No existing cookies, privacy settings, account data or provider settings are changed by this document.
 
 Confirm applicable consent/notice duties, actual production cookies and provider retention settings before asserting a complete cookie inventory. Privacy questions go to **privacy@earningsnerd.io**. Full personal identity details, an address, an entity or jurisdiction are not added.
