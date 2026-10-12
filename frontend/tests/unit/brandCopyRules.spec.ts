@@ -172,9 +172,13 @@ function sageButtonVariant(opening: ts.JsxOpeningLikeElement): boolean {
       visit(attr.initializer, (n) => {
         if (!ts.isCallExpression(n) || n.expression.getText() !== 'buttonVariants') return
         const options = n.arguments[0]
-        const variant = options && ts.isObjectLiteralExpression(options)
-          ? options.properties.find((p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && p.name.getText() === 'variant')
-          : undefined
+        // No options: the factory's default, primary. Options the scan cannot read (an identifier, a
+        // spread, a shorthand `variant`) count as sage, as an unreadable variant attribute does above.
+        if (!options) { variants.push('primary'); return }
+        const opaque = !ts.isObjectLiteralExpression(options)
+          || options.properties.some((p) => ts.isSpreadAssignment(p) || (ts.isShorthandPropertyAssignment(p) && p.name.text === 'variant'))
+        if (opaque) { variants.push('unknown'); return }
+        const variant = options.properties.find((p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && p.name.getText() === 'variant')
         const read = variant ? variantLiterals(variant.initializer) : ['primary']
         variants.push(...(read.length ? read : ['unknown']))
       })

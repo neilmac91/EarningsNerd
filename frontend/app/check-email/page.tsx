@@ -94,12 +94,13 @@ function CheckEmailContent() {
         >
           {resendLoading && <CircleNotchIcon className="h-3 w-3 animate-spin motion-reduce:animate-none" />}
           {cooldown > 0 ? (
-            <>
+            // One flex item beside the spinner, so the space stays a space and the underline runs across it.
+            <span>
               Resend in{' '}
               <span className="tabular-nums text-text-secondary-light group-aria-disabled:text-text-secondary-light/50 dark:text-text-secondary-dark dark:group-aria-disabled:text-text-secondary-dark/50">
                 {cooldown}s
               </span>
-            </>
+            </span>
           ) : (
             'Resend email'
           )}

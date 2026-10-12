@@ -146,7 +146,7 @@ export default function PeriodPicker({ coverage, mode, range, onModeChange, onRa
                 onClick={() => { if (preset) { setAnnouncement(null); onRangeChange(preset) } }}
                 // A count rests in the ink and turns sage only under the pointer or focus (D-030), so
                 // this is Button sm's shape and weight without the ghost variant, whose label is sage at rest.
-                className="inline-flex h-8 select-none items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-text-secondary-light transition-colors duration-fast hover:bg-brand-weak hover:text-brand-strong active:bg-brand-border/60 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark dark:hover:text-brand-strong-dark dark:active:bg-brand-border-dark dark:focus-visible:shadow-ring-brand-dark"
+                className="inline-flex h-8 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-xs font-semibold text-text-secondary-light transition-colors duration-fast hover:bg-brand-weak hover:text-brand-strong active:bg-brand-border/60 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark dark:hover:text-brand-strong-dark dark:active:bg-brand-border-dark dark:focus-visible:shadow-ring-brand-dark"
               >
                 Last {count}
               </button>

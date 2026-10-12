@@ -43,12 +43,14 @@ export default function FilingFeed({
   // following 30. When the true count isn't known, drop the number rather than show a wrong one.
   const hasMore =
     watchlistCount != null ? watchlistCount > visible.length : (data?.length ?? 0) > MAX_CARDS
-  // The count rests in the secondary ink inside the sage link: sage never colours a number (D-030).
+  // The count rests in the secondary ink inside the sage link: sage never colours a number (D-030). The
+  // label is one flex item of the inline-flex link, so its spaces stay spaces and the hover underline
+  // runs across it.
   const overflowLabel =
     watchlistCount != null ? (
-      <>
+      <span>
         See all <span className="text-text-secondary-light dark:text-text-secondary-dark">{watchlistCount}</span> companies
-      </>
+      </span>
     ) : (
       'See all companies'
     )
