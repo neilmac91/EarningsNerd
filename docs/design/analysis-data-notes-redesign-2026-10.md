@@ -942,9 +942,10 @@ decision 6 was shipped (#1202) and is now ratified by the 2026-10-11 sweep;
 the amended 4, 7, 8 and 9 had not shipped at that dated revision. That is a historical baseline,
 not the current implementation-branch status. On the #1273 branch (2026-10-12), decision 4
 (amended) is implemented: the KPI cards remain two-up at ordinary phone text and become one-up
-below 17 em of their own text size. This stack also implements decision 9’s neutral all-clear
-wording and retains decision 6’s ratified “Unavailable” presentation. Decisions 7 and 8 remain
-separate chart and period-selector work. These branch changes are not yet merged or deployed.
+below 17 em of their own text size. This stack also implements decision 9’s “Unavailable”
+presentation and neutral all-clear wording, and retains decision 6’s ratified glyph-budget
+rounding with full-precision evidence one click away. Decisions 7 and 8 remain separate chart
+and period-selector work. These branch changes are not yet merged or deployed.
 
 4 (amended). Decision 4 was measured at 100% text only. At 200% text a 390 px phone shows 55 px of
    card overflow two-up and 90 px at 320. Recommended and implemented: two-up stays at 320 px and 100%
