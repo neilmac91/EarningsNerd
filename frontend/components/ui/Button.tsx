@@ -58,11 +58,11 @@ const WRAP_SIZE = { sm: 'min-h-8 py-1.5', md: 'min-h-10 py-2', lg: 'min-h-12 py-
 // under a 200% text setting (a 390px phone wraps the label instead of scrolling the page sideways).
 // The wrapped lines centre on tight leading. Written as an arbitrary variant: Tailwind drops
 // `max-[24rem]:` because the screens are in px. Gate: tests/e2e/reflow-200.spec.ts.
-const NARROW = '[@media(max-width:24rem)]:'
+// Each class is written out whole: Tailwind generates only the class names it finds in the source.
 const WRAP_WHEN_NARROW: Record<Exclude<ButtonSize, 'icon-sm'>, string> = {
-  sm: `${NARROW}h-auto ${NARROW}min-h-8 ${NARROW}py-1.5 ${NARROW}whitespace-normal ${NARROW}text-center ${NARROW}leading-tight`,
-  md: `${NARROW}h-auto ${NARROW}min-h-10 ${NARROW}py-2 ${NARROW}whitespace-normal ${NARROW}text-center ${NARROW}leading-tight`,
-  lg: `${NARROW}h-auto ${NARROW}min-h-12 ${NARROW}py-2.5 ${NARROW}whitespace-normal ${NARROW}text-center ${NARROW}leading-tight`,
+  sm: '[@media(max-width:24rem)]:h-auto [@media(max-width:24rem)]:min-h-8 [@media(max-width:24rem)]:py-1.5 [@media(max-width:24rem)]:whitespace-normal [@media(max-width:24rem)]:text-center [@media(max-width:24rem)]:leading-tight',
+  md: '[@media(max-width:24rem)]:h-auto [@media(max-width:24rem)]:min-h-10 [@media(max-width:24rem)]:py-2 [@media(max-width:24rem)]:whitespace-normal [@media(max-width:24rem)]:text-center [@media(max-width:24rem)]:leading-tight',
+  lg: '[@media(max-width:24rem)]:h-auto [@media(max-width:24rem)]:min-h-12 [@media(max-width:24rem)]:py-2.5 [@media(max-width:24rem)]:whitespace-normal [@media(max-width:24rem)]:text-center [@media(max-width:24rem)]:leading-tight',
 }
 
 const VARIANT: Record<Exclude<ButtonVariant, 'tertiary'>, string> = {
