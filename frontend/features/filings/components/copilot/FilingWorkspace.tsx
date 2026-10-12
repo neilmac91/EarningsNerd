@@ -118,6 +118,7 @@ export default function FilingWorkspace({
   const viewer = useFilingViewer()
   const activeView = viewer?.activeView ?? 'copilot'
   const shellRef = useRef<HTMLDivElement>(null)
+  const desktopCellRef = useRef<HTMLDivElement>(null)
   const launcherRef = useRef<HTMLButtonElement | null>(null)
 
   // Hydrate the persisted width after mount (keeps SSR markup deterministic, avoids hydration drift).
@@ -178,6 +179,36 @@ export default function FilingWorkspace({
   }, [])
 
   const paneOpen = open && summaryAvailable
+  // Before this cell reaches its sticky top, the filing identity block still occupies viewport
+  // space above it. Size from the cell's actual top so opening a source never needs to scroll the
+  // page just to reveal its footer/composer. Once stuck, the same measurement is the header inset.
+  useLayoutEffect(() => {
+    const cell = desktopCellRef.current
+    if (!paneOpen || isMobile || !cell) return
+    let frame = 0
+    const measure = () => {
+      frame = 0
+      const top = `${Math.max(0, cell.getBoundingClientRect().top)}px`
+      if (cell.style.getPropertyValue('--source-pane-top') !== top) {
+        cell.style.setProperty('--source-pane-top', top)
+      }
+    }
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(measure)
+    }
+    measure()
+    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule)
+    const observer = new ResizeObserver(schedule)
+    observer.observe(document.body)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+      observer.disconnect()
+      cell.style.removeProperty('--source-pane-top')
+    }
+  }, [paneOpen, isMobile])
   // When closed, collapse the second track to 0 so the summary spans the full width.
   const style = { '--copilot-w': paneOpen ? `${width}px` : '0px' } as CSSProperties
 
@@ -321,8 +352,8 @@ export default function FilingWorkspace({
   return (
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_var(--copilot-w)]" style={style}>
       <div className="min-w-0">{children}</div>
-      {/* The desktop pane is sticky under the 4rem header and ends where the consent bar begins. */}
-      <div className="relative min-w-0 lg:sticky lg:top-16 lg:h-[calc(100vh_-_4rem_-_var(--consent-inset,0px))]">
+      {/* The desktop pane ends above the consent bar both before and after it sticks to the header. */}
+      <div ref={desktopCellRef} className="relative min-w-0 lg:sticky lg:top-16 lg:h-[max(0px,calc(100dvh_-_var(--source-pane-top,4rem)_-_var(--consent-inset,0px)))]">
         {summaryAvailable && (
           <>
             {/* Launcher (closed) */}

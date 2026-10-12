@@ -120,9 +120,8 @@ the login and register forms leave their fields editable). Gate: `tests/unit/bus
 rules in `lessons/frontend-busy-controls-stay-focusable.md`.
 
 An aria-disabled control never takes an element `opacity`. It is still focusable, and the opacity fades its
-focus indicator with everything else it paints: under `opacity-50` the brand ring on panel fell from 1.97:1 to
-1.37:1 in light and from 2.87:1 to 1.68:1 in dark, and the browser's own outline on an unringed control from
-5.73:1 to 2.26:1 and from 2.45:1 to 1.51:1 (Chromium 141, computed and painted). A hand-rolled busy or
+focus indicator with everything else it paints. The opaque ring's 3:1 floor is held by
+`tests/unit/siteChromeFocusRing.spec.ts`. A hand-rolled busy or
 unavailable look fades what the control draws in, at the fraction the opacity had, on the tokens it already
 uses and as a light/dark pair: the label's ink (`aria-disabled:text-error-light/50
 dark:aria-disabled:text-error-dark/50`; a glyph or spinner in `currentColor` follows it), the hairline
@@ -179,19 +178,24 @@ Secondary button <Button variant="secondary">  — brand hairline on transparent
                  border border-brand-border bg-transparent text-brand-strong hover:bg-brand-weak
                  active:bg-brand-border/60  dark:border-brand-border-dark dark:text-brand-strong-dark
                  dark:hover:bg-brand-weak-dark dark:active:bg-brand-border-dark
-                 (never hover:opacity — it darkens)
+                 (never hover:opacity — it darkens). Native disabled secondary/ghost controls keep their
+                 transparent fill under hover and active in both themes; loading keeps the resting look.
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
 
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
-                 <Input> component can't wrap use inputClasses({ invalid, density, select, autoWidth }).
+                 <Input> component can't wrap use inputClasses({ invalid, tone, density, select, autoWidth }).
                  Tone (v3.5): the border and focus ring are one tone, default or error, never one layered on
                  the other: `invalid` (the components' `error`) picks the error border, which holds on hover,
                  and the error ring. Each tone states its focus border even where it equals the rest border,
                  because the forms plugin's `input:where([type='text']):focus` border (#2563EB, 0,1,1)
                  outranks a bare `border-*` (0,1,0).
+                 Destructive-confirm fields use tone="danger" (v3.8): the same neutral border at rest and
+                 on hover, with an error border and ring only on focus (focus-within for a shell).
+                 Danger describes the action, not the value; it does not imply aria-invalid. An actual
+                 invalid value takes precedence and the raw field wires aria-invalid to match it.
                  Toolbar fields (v3.1): density="compact" on <Select>/inputClasses = 36px from sm
                  up, phones keep the standard 42px field height; a field inside a table row is compact too.
                  `density`, not `size` (a native attribute); each density has its own EXPLICIT padding sides
@@ -205,7 +209,9 @@ Link as button   buttonVariants({ variant, size })  — the class-string factory
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
-                 destructive + invalid fields use shadow-ring-error. There is no global :focus-visible rule, so
+                 destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
+                 hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
+                 shadow-ring-brand-inset / shadow-ring-brand-inset-dark. There is no global :focus-visible rule, so
                  a control without the recipe draws the browser's own outline (`auto`), unlike its neighbours.
                  A control that is a block of its own (a logo link, an icon button, a menu row) takes a radius
                  (`rounded-lg`) so the ring follows its shape. A field the forms plugin styles (a text
@@ -215,7 +221,9 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  carries the reset (Input.tsx FIELD_BASE, v3.6; gate tests/unit/inputClassesNoOverrides.spec.tsx),
                  and a field that styles itself, on any page, takes it with a DS ring and its dark twin (gate: the
                  app-wide field describe in tests/unit/siteChromeFocusRing.spec.ts). Every Tab stop
-                 in the site chrome carries it (the skip link the same triple on `focus:`): gate
+                 in the site chrome carries it (the skip link the same triple on `focus:`). The same gate
+                 covers raw controls in check-email, settings, invites and watchlist pages and their feature
+                 modules, plus the shared Switch; field recipes retain their app-wide gates: gate
                  tests/unit/siteChromeFocusRing.spec.ts reads the AST of every chrome file, discovered from
                  app/layout.tsx, every route layout, template or error boundary under app/ (the admin
                  nav, global-error's fallback), AuthShell and SecondaryHeader through their imports (a lazy
@@ -289,8 +297,11 @@ Analysis table   <MetricsTable> — equal rem period columns with a semantic sti
                  DataTable's layout, colWidths, compact cellPadding, named scrollRegion, snapColumns
                  and Column.rowHeader options are opt-in; other consumers retain their geometry.
 
-Analysis evidence <SourceValue> — the shared Modal presents financial display form, exact supplied
-                 value and human-readable units, then Method, Checks, and recorded source lineage.
+Analysis evidence <SourceValue> — the shared Modal presents financial display form, the supplied
+                 value labelled “As stored” and human-readable units, then Checks, Method and recorded
+                 source lineage. Checks distinguish SEC XBRL admission from compatible-input calculations;
+                 neither claims an audit. Missing figures read “Unavailable”, with the effect of a gap
+                 stated. Quarterly dialogs name the quarter end; source links name their figure and period.
                  Formula substitution uses operand identity, not list position; it only asserts an
                  equality for a passed calculation. Missing lineage is stated explicitly, never
                  represented as recorded inputs or a scheduled repair. Original SEC links and
@@ -320,7 +331,9 @@ Analysis KPI     <KpiStrip> — a definition list, two cards across at phone wid
 
 Data notes strip <DataNotes> — hairlines above and below a native details disclosure on the page
                  ground, below the KPIs. The title uses primary ink; counts use the data face, with
-                 review counts in warning ink and an all-passed count in sage. Unknown validation,
+                 review counts in warning ink and every count beside its relevant note letters. When all
+                 populated figures passed, “No figures need review” and a neutral checked count remain
+                 independent of concerns on comparisons. Unknown validation,
                  unavailable and calculated counts remain separate. Expanded notes use two columns:
                  the letter, then its reason, affected metric/periods and distinct comparison counts.
                  Existing Sources & methods prose, source date and snapshot reference stay inside.
@@ -483,7 +496,8 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  `BOTTOM_CHROME_OFFSET`, the workspace / rail sheets through `bottom-[var(--consent-inset,0px)]`
                  (and the same subtraction from their vh cap), the desktop pane's sticky height likewise, and
                  the document's `scroll-padding-bottom` (globals.css) reserves it so a focus or scrollIntoView
-                 never lands a control behind the bar (the desktop pane's composer scrolls clear on open). The
+                 never lands a control behind the bar. The desktop source pane measures its actual top
+                 before and after it sticks, so its footer and composer fit without scrolling the page. The
                  coachmark is deferred, not dismissed, while the bar shows (`hooks/useConsentLayer`); the
                  saved confirmation is a sonner toast, never a fixed corner element. Real modals cover the
                  bar: beneath the settings dialog (z-modal) and beneath an open workspace / rail bottom sheet

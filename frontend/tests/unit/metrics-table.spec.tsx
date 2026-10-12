@@ -107,7 +107,7 @@ describe('MetricsTable', () => {
     expect(screen.getByText('Figures are rounded for display. Select a value for full precision.')).toBeVisible()
     await userEvent.click(figure)
     const detail = screen.getByRole('dialog')
-    expect(within(detail).getByText('Exact -15,154 USD per share')).toBeVisible()
+    expect(within(detail).getByText('As stored: -15,154 USD per share')).toBeVisible()
     expect(within(detail).getAllByText('+123,456.7%')[0]).toBeVisible()
     expect(large.series[1].points[0].value).toBe(-15154)
   })
@@ -122,7 +122,7 @@ describe('MetricsTable', () => {
     expect(figure).toHaveTextContent('-15.2K')
     expect(figure).not.toHaveTextContent('$')
     await userEvent.click(figure)
-    expect(within(screen.getByRole('dialog')).getByText('Exact -15,154 CAD per share')).toBeVisible()
+    expect(within(screen.getByRole('dialog')).getByText('As stored: -15,154 CAD per share')).toBeVisible()
   })
 
   it('shows the Export Excel button only when the handler is passed, and fires it', async () => {
@@ -226,7 +226,7 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     expect(window).toHaveTextContent('+123.5K%')
     await userEvent.click(window)
     const detail = screen.getByRole('dialog')
-    expect(within(detail).getByText('Exact 1,234.567 (growth fraction)')).toBeVisible()
+    expect(within(detail).getByText('As stored: 1,234.567 (growth fraction)')).toBeVisible()
     expect(within(detail).getAllByText('+123,456.7%')[0]).toBeVisible()
   })
 
