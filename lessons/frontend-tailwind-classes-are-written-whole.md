@@ -21,7 +21,7 @@ emitted-CSS check.
 **Evidence**: `frontend/components/ui/Button.tsx` (`NARROW_WRAP`, `NARROW_MIN_H`, `NARROW_PY`: whole
 literal strings) and `frontend/tests/e2e/reflow-200.spec.ts` on the reflow-200 branch, 2026-10-12.
 Gate: `frontend/tests/unit/tailwindClassesWrittenWhole.spec.ts` fails, under `app`, `components`,
-`features` or `lib`, on an interpolation or a `+` operand that resolves to a variant prefix (a whole
+`features`, `hooks` or `lib`, on an interpolation or a `+` operand that resolves to a variant prefix (a whole
 `token:` chain, read through a same-file const, a conditional or a concatenation), on an
 interpolation or a non-literal operand that runs straight into a utility token (hyphenated or
 single-word), and on a utility stem that runs straight into one; a conditional between whole tokens

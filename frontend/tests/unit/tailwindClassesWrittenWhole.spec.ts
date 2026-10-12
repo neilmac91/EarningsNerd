@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
  * prefix (`${NARROW}h-auto`), a suffix (`text-${tone}`), a concatenation (`NARROW + 'h-auto'`) or a
  * map over fragments (`['h-auto'].map((c) => `${NARROW}${c}`)`) looks right in a class string, passes
  * every test that reads the string, and emits no CSS. This gate fails, anywhere under app,
- * components, features or lib, on: a template interpolation or a `+` operand that resolves to a
+ * components, features, hooks or lib, on: a template interpolation or a `+` operand that resolves to a
  * variant prefix (a string ending in ":", read through a same-file const, a conditional or a
  * concatenation); an interpolation or a non-literal `+` operand that runs straight into a utility
  * token (hyphenated, or one of the single-word utilities); and a utility stem (`text-`, `bg-`, …)
@@ -46,12 +46,14 @@ const SINGLE_UTILITIES = new Set([
     key (`${ticker}:summary-v1`, `${ns}:cache:summary-v1`) is not one. */
 function utilityHead(text: string): string | null {
   const colon = text.startsWith(':')
-  const chain = colon ? /^:(?:[a-z0-9[\]().@=/-]+:)*/.exec(text)![0] : ''
-  const rest = colon ? text.slice(chain.length) : text
+  const chain = colon ? /^:(?:[a-z0-9[\]().@=/&>_!-]+:)*/.exec(text)![0] : ''
+  const after = colon ? text.slice(chain.length) : text
+  const bang = after.startsWith('!') ? '!' : ''
+  const rest = after.slice(bang.length)
   const hyphenated = UTILITY_AFTER.exec(rest)
-  if (hyphenated && (!colon || KNOWN_FAMILY.test(hyphenated[0]))) return chain + hyphenated[0]
+  if (hyphenated && (!colon || KNOWN_FAMILY.test(hyphenated[0]))) return chain + bang + hyphenated[0]
   const word = /^[a-z][a-z0-9-]*(?=\s|$)/.exec(rest)
-  return word && SINGLE_UTILITIES.has(word[0]) ? chain + word[0] : null
+  return word && SINGLE_UTILITIES.has(word[0]) ? chain + bang + word[0] : null
 }
 
 /** Whether an interpolation can only end in a space or nothing, so the literal after it stays a whole token. */
@@ -98,7 +100,7 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 describe('every Tailwind class is written whole', () => {
-  it('nothing under app, components, features or lib composes a class from an interpolation or a concatenation', () => {
+  it('nothing under app, components, features, hooks or lib composes a class from an interpolation or a concatenation', () => {
     const offenders: string[] = []
     for (const file of SCAN_DIRS.flatMap((dir) => walk(path.join(ROOT, dir)))) {
       const rel = path.relative(ROOT, file)
