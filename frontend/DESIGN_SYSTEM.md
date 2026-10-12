@@ -360,11 +360,20 @@ Analysis reading <NarrativePane> — compact monetary amounts and quarter labels
                  beside compact display and distinctly named filing links. A quiet source count
                  and Notes control replace repeated status labels.
 
-Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly, recent-period
-                 presets, compact From/To Select fields, and one availability/range summary.
-                 Moving an endpoint keeps the range ordered and within the server-provided cap.
-                 Unavailable annual years remain visible but disabled; Quarterly is disabled when
-                 there are no quarterly options. Table windows never alter this report selection.
+Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly; unavailable modes
+                 opt into focusable aria-disabled with visible described reasons. Other callers keep
+                 native disabled. The unavailable segment retains the full-strength focus ring.
+                 Recent-period presets are ghost Button actions, not pressed toggles. Visible From/To
+                 labels wrap raw compact selects using inputClasses({ select: true, autoWidth: true });
+                 font-data and tabular-nums belong to the select itself. Fields fill phones and use
+                 intrinsic/em widths on desktop. Analysis's full-width route wrapper is an inline-size
+                 query container. Below 13em of its actual text size, main uses px-2 and the control
+                 Card uses px-1.5, preserving full selected tokens at enlarged phone text. The shared
+                 field padding and font stay unchanged; ordinary 320px+ layouts retain their spacing.
+                 The range comes before its count in the summary.
+                 Moving an endpoint keeps the range ordered and within the server-provided cap and
+                 announces an automatically moved other endpoint through role=status. Unavailable
+                 annual years remain visible but disabled options. Table windows never alter selection.
 
 Analysis KPI     <KpiStrip> — a definition list, two cards across at phone widths and four from lg.
                  An inline-size container query collapses it to one card below 17em of the
@@ -453,7 +462,11 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  `fullWidth` stretches the segments across a phone row and wraps them onto another row when
                  they do not fit (a form filter with amendments), so every option stays visible; from sm up
                  it is one auto-width row. Optional disabled options remain visible and use native
-                 disabled semantics when unavailable before selection; this is not a busy-state API.
+                 disabled semantics by default. `focusableDisabled` keeps unavailable options in
+                 the Tab order with aria-disabled and `descriptionId`; activation is refused.
+                 The controlled selected option keeps its primary colourway even if unavailable,
+                 so newly loaded coverage never silently changes the selected mode. This is not
+                 a busy-state API.
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
