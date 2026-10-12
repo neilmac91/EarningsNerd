@@ -27,7 +27,9 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    a number formatter's own call ("n.toLocaleString()"), a same-file constant holding one, or a
  *    JSX child returned from a callback ("rows.map(...)"), through conditionals and JSX branches.
  *    A citation whose bracket is its whole text ("[{n}]") and a link that renders its own address
- *    are text. The waitlist counter's own spec covers the one on the public pages.
+ *    are text. A ui Button whose variant sets sage ink (secondary, ghost, tertiary), and a link
+ *    styled by buttonVariants with one of those, is a sage element even though its className says
+ *    nothing of the colour. The waitlist counter's own spec covers the one on the public pages.
  * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
  *    figure or a price, the hero's accent phrases included; the margin (`en-margin`) exists only
  *    inside MarkedCopy, and every MarkedCopy carries at least one marker (`EnRef`).
@@ -137,7 +139,41 @@ const PASSIVE_VARIANTS = new Set(['dark', 'sm', 'md', 'lg', 'xl', '2xl'])
 const CITATION = /^\[F?\d+\]$/
 
 /** 'sage' when the element's own resting text colour is a sage token, 'other' for any other colour. */
+/** The Button variants whose label is sage at rest (components/ui/Button.tsx); primary and destructive set white. */
+const SAGE_VARIANTS = new Set(['secondary', 'ghost', 'tertiary'])
+function variantLiterals(e: ts.Expression): string[] {
+  const x = unwrap(e)
+  const text = literalText(x)
+  if (text !== null) return [text]
+  if (ts.isConditionalExpression(x)) return [...variantLiterals(x.whenTrue), ...variantLiterals(x.whenFalse)]
+  if (ts.isBinaryExpression(x)) return [...variantLiterals(x.left), ...variantLiterals(x.right)]
+  return []
+}
+/** Whether a <Button>, or an element whose className comes from buttonVariants(), takes a sage variant. */
+function sageButtonVariant(opening: ts.JsxOpeningLikeElement): boolean {
+  let variants: string[] = []
+  if (opening.tagName.getText() === 'Button') {
+    const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'variant')
+    if (!attr) variants = ['primary']
+    else if (attr.initializer && ts.isStringLiteral(attr.initializer)) variants = [attr.initializer.text]
+    else if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) variants = variantLiterals(attr.initializer.expression)
+  } else {
+    const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className')
+    if (attr?.initializer && ts.isJsxExpression(attr.initializer)) {
+      visit(attr.initializer, (n) => {
+        if (!ts.isCallExpression(n) || n.expression.getText() !== 'buttonVariants') return
+        const options = n.arguments[0]
+        const variant = options && ts.isObjectLiteralExpression(options)
+          ? options.properties.find((p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && p.name.getText() === 'variant')
+          : undefined
+        variants.push(...(variant ? variantLiterals(variant.initializer) : ['primary']))
+      })
+    }
+  }
+  return variants.some((v) => SAGE_VARIANTS.has(v))
+}
 function textColour(opening: ts.JsxOpeningLikeElement): 'sage' | 'other' | null {
+  if (sageButtonVariant(opening)) return 'sage'
   let colour: 'sage' | 'other' | null = null
   for (const token of classTokens(opening)) {
     const parts = token.split(':')

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import EarningsCalendarPage from '@/features/calendar/components/EarningsCalendarPage'
@@ -15,6 +15,16 @@ import type { CalendarEvent, CalendarUniverse } from '@/features/calendar/api/ca
  */
 
 let universe: CalendarUniverse = 'sp500_nasdaq100'
+
+// The page takes its week from the clock. Pinned to a week with no market holiday, since a holiday
+// Monday renders "Market closed" in place of the reports (and of the "+N more" control) this spec waits for.
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-03-10T15:00:00Z'))
+})
+afterAll(() => {
+  vi.useRealTimers()
+})
 
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: async () => null }))
 vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({ getUsage: async () => ({ is_pro: false }) }))
