@@ -278,6 +278,8 @@ async def test_timeout_routes_alternate_before_total_budget_expires(monkeypatch,
         return httpx2.Response(200, json=completion())
 
     def recorded_timeout(seconds):
+        if deadlines:
+            assert seconds == attempt_seconds
         timeout = asyncio.timeout(seconds)
         timeout_seconds.append(seconds)
         deadlines.append(timeout)
