@@ -159,7 +159,7 @@ function RegisterContent({ inviteOnly }: RegisterFormProps) {
             type="button"
             variant="ghost"
             onClick={() => setShowEmail(true)}
-            className="w-full py-3 active:scale-[0.99]"
+            className="w-full active:scale-[0.99]"
           >
             <EnvelopeSimpleIcon className="h-4 w-4" />
             Sign up with email

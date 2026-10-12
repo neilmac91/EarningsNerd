@@ -184,6 +184,17 @@ Secondary button <Button variant="secondary">  — brand hairline on transparent
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
 
+Button size      sm, md and lg set a minimum height (min-h-8 / min-h-10 / min-h-12: 32, 40 and 48px), never a
+                 fixed one; icon-sm stays a fixed 32px square. A label stays on one line (whitespace-nowrap)
+                 and wraps, centred on tight leading, only in a viewport narrower than 24rem, where the button
+                 grows with it. A media query's rem is the browser's text size, so that is 384px at the default
+                 size (a 390px phone keeps one line) and 768px under a 200% text setting, where a 390px phone
+                 would otherwise scroll sideways. The variant is `[@media(max-width:24rem)]:`, since Tailwind drops
+                 `max-[24rem]:` while the screens are in px. A caller's vertical padding now counts toward
+                 the height (on md, anything past py-2.5 makes the button taller than 40px), and a
+                 `whitespace-normal` className loses to the base `whitespace-nowrap` (stylesheet order).
+                 Gate: tests/e2e/reflow-200.spec.ts.
+
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
                  <Input> component can't wrap use inputClasses({ invalid, density, select, autoWidth }).

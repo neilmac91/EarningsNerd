@@ -124,7 +124,8 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
     a responsive grid's base track, a side-tab stripe on a rounded container, a form code inside a `Badge`)
     `tests/unit/dialogAllowlist.spec.ts`, `tests/unit/bottomChromeLadder.spec.ts` (no fixed bottom chrome
     outranks the workspace layers; the consent bar's inset), `tests/e2e/text-floors.spec.ts` (muted text clears
-    4.5:1 on what is behind it; no checked route skips a heading level) and
+    4.5:1 on what is behind it; no checked route skips a heading level), `tests/e2e/reflow-200.spec.ts` (no
+    checked route scrolls sideways at 390px under a 200% text setting) and
     `tests/unit/siteChromeFocusRing.spec.ts` (every site-chrome Tab stop carries the brand ring); the 700-level
     and surface clauses are review-checked.
 12. **Rules become gates.** When a review or plan produces a "never do X again" rule, land the

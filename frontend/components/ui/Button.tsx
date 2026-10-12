@@ -39,11 +39,21 @@ const BASE = cx(
   'focus-visible:outline-none',
 )
 
+// A label stays on one line, except in a viewport narrower than 24rem. A media query's rem is the
+// browser's text size, so that is 384px at the default size (a 390px phone keeps one line) and 768px
+// under a 200% text setting (a 390px phone wraps the label instead of scrolling the page sideways).
+// The wrapped lines centre on tight leading. Written as an arbitrary variant: Tailwind drops
+// `max-[24rem]:` because the screens are in px. Gate: tests/e2e/reflow-200.spec.ts.
+const WRAP_WHEN_NARROW =
+  '[@media(max-width:24rem)]:whitespace-normal [@media(max-width:24rem)]:text-center [@media(max-width:24rem)]:leading-tight'
+
 const SIZE: Record<ButtonSize, string> = {
   // Radius snaps to 12 (rounded-lg) at EVERY size — buttons + inputs are 12 on the 4/8/12/16/24 scale.
-  sm: 'h-8 gap-1.5 rounded-lg px-3 text-xs',
-  md: 'h-10 rounded-lg px-4 text-sm',
-  lg: 'h-12 rounded-lg px-5 text-base',
+  // The labelled sizes set a minimum height, never a fixed one, so a wrapped label grows the control
+  // instead of spilling out of it.
+  sm: 'min-h-8 gap-1.5 rounded-lg px-3 text-xs',
+  md: 'min-h-10 rounded-lg px-4 text-sm',
+  lg: 'min-h-12 rounded-lg px-5 text-base',
   // Icon-only square. A first-class size, NOT a zero-padding className override on `sm`: cx
   // does no tailwind-merge, so two conflicting padding utilities in one class attribute resolve
   // by STYLESHEET order and the size's px-3 wins — which crushed 20px glyphs to a 6px content
@@ -111,7 +121,7 @@ export interface ButtonVariantsOptions {
 
     <Button> itself composes this same factory — one source of truth. */
 export function buttonVariants({ variant = 'primary', size = 'md', className }: ButtonVariantsOptions = {}): string {
-  return cx(BASE, SIZE[size], VARIANT[resolveVariant(variant)], className)
+  return cx(BASE, WRAP_WHEN_NARROW, SIZE[size], VARIANT[resolveVariant(variant)], className)
 }
 
 /** The primary variant's `disabled:` look keyed to `aria-disabled`, for a primary <Button> that is

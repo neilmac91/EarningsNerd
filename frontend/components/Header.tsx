@@ -80,7 +80,7 @@ export default function Header({
 
   return (
     <header className="sticky top-0 z-50 border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
         {/* Left: Logo */}
         <div className="flex items-center">
           {/* Design sizes: 36px mark, 20px wordmark. Below `sm` the bar also carries the theme
@@ -138,11 +138,13 @@ export default function Header({
         </div>
 
         {/* Mobile actions: 44px touch targets on the icon controls; the short account CTA sits in
-            the bar (not only inside the menu) so a logged-out visitor always has the next step. */}
-        <div className="flex items-center gap-1 lg:hidden">
+            the bar (not only inside the menu) so a logged-out visitor always has the next step. When
+            enlarged text leaves no room beside the logo, the bar wraps and this group takes its own
+            row at the right (tests/e2e/reflow-200.spec.ts). */}
+        <div className="ml-auto flex min-w-0 items-center gap-1 lg:hidden">
           <ThemeToggle className="min-h-11 min-w-11" />
           {(user === null || isError) && (
-            <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'min-h-11' })}>
+            <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'min-h-11 min-w-0 py-2' })}>
               {account.ctaShort}
             </Link>
           )}

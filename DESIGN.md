@@ -432,7 +432,7 @@ Components are **refined, readable and quietly confident**. Reuse [`components/u
 
 ### Buttons
 
-- **Shape and size:** 12px radius. Small: 32px high, 12px horizontal padding, 12px label. Medium: 40px high, 16px horizontal padding, 14px label. Large: 48px high, 20px horizontal padding, 16px label. `icon-sm` is 32px square with zero padding.
+- **Shape and size:** 12px radius. Small: at least 32px high, 12px horizontal padding, 12px label. Medium: at least 40px high, 16px horizontal padding, 14px label. Large: at least 48px high, 20px horizontal padding, 16px label. `icon-sm` is a fixed 32px square with zero padding. A label stays on one line and wraps, centred, only in a viewport narrower than 24rem: 384px at the default text size and 768px under a 200% browser text setting, so a phone with enlarged text does not scroll sideways to reach a button. A wrapped label grows the button, since its height is a minimum.
 - **Primary:** sage fill and white label in light mode; light sage fill and navy label in dark mode. Hover and active use the corresponding named brand states.
 - **Secondary / Ghost:** transparent ground and sage text; secondary adds a sage hairline. Hover adds a tint; active strengthens it. `tertiary` is only a deprecated alias of ghost.
 - **Destructive:** error fill with white label; darker error hover and active states. Preserve its error focus ring.

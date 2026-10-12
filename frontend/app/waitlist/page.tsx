@@ -197,7 +197,7 @@ export default function WaitlistPage() {
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="rounded-3xl border border-border-light bg-panel-light p-8 shadow-e2 dark:shadow-none dark:border-border-dark dark:bg-panel-dark md:p-10">
-          <h2 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+          <h2 className="break-words text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Built for trust and transparency
           </h2>
           <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
