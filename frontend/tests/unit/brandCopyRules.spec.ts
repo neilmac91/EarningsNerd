@@ -22,9 +22,12 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    array. Activity variants (hover:, focus:, group-hover:) are sage's other job and are not
  *    read, so a control may turn sage under the pointer while its count rests in the ink; the
  *    device's citation brackets ("[1]", "[F1]") are not numbers. A value computed at runtime is
- *    out of a source scan's reach: the waitlist counter's own spec covers the one on the public
- *    pages, and the calendar's "+N more" controls, whose N is computed, rest in the ink by the
- *    same rule.
+ *    read through the type checker: one program is built from tsconfig.json, and an expression
+ *    rendered in sage ink fails the rule when it is number-typed, a template or formatter fed one,
+ *    a number formatter's own call ("n.toLocaleString()"), a same-file constant holding one, or a
+ *    JSX child returned from a callback ("rows.map(...)"), through conditionals and JSX branches.
+ *    A citation whose bracket is its whole text ("[{n}]") and a link that renders its own address
+ *    are text. The waitlist counter's own spec covers the one on the public pages.
  * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
  *    figure or a price, the hero's accent phrases included; the margin (`en-margin`) exists only
  *    inside MarkedCopy, and every MarkedCopy carries at least one marker (`EnRef`).
@@ -196,19 +199,29 @@ function rendersValue(e: ts.Expression, sf: ts.SourceFile, depth = 0): boolean {
   if (literalText(x) !== null) return false
   if (ts.isConditionalExpression(x)) return rendersValue(x.whenTrue, sf, depth + 1) || rendersValue(x.whenFalse, sf, depth + 1)
   if (ts.isBinaryExpression(x)) return rendersValue(x.left, sf, depth + 1) || rendersValue(x.right, sf, depth + 1)
-  if (ts.isCallExpression(x)) return isNumberTyped(x) || x.arguments.some((a) => isNumberTyped(a))
+  if (ts.isCallExpression(x)) {
+    // A number's own method ("n.toLocaleString()"), a call that returns one, a formatter fed one
+    // (a literal argument such as "slice(0, 20)" is not a value), or a callback that renders JSX.
+    if (isNumberTyped(x)) return true
+    if (ts.isPropertyAccessExpression(x.expression) && isNumberTyped(x.expression.expression)) return true
+    return x.arguments.some((a) => {
+      const arg = unwrap(a)
+      if (ts.isArrowFunction(arg) && !ts.isBlock(arg.body)) return rendersValue(arg.body, sf, depth + 1)
+      return literalText(arg) === null && isNumberTyped(a)
+    })
+  }
   if (ts.isIdentifier(x)) {
     const init = localInitializer(x, sf)
-    if (init) return rendersValue(init, sf, depth + 1)
+    if (init) return rendersValue(init, sf, depth + 1) || isNumberTyped(x)
   }
   return isNumberTyped(x)
 }
 
-/** The device's citation marker: an expression set between a "[" and a "]" of its own line of text ("[{n}]"). */
+/** The device's citation marker: an expression whose bracket is the whole of the text around it ("[{n}]"). */
 function citationBracket(children: ts.NodeArray<ts.JsxChild>, i: number): boolean {
   const before = children[i - 1]
   const after = children[i + 1]
-  return !!before && !!after && ts.isJsxText(before) && ts.isJsxText(after) && /\[\s*$/.test(before.text) && /^\s*\]/.test(after.text)
+  return !!before && !!after && ts.isJsxText(before) && ts.isJsxText(after) && /^\s*\[\s*$/.test(before.text) && /^\s*\]\s*$/.test(after.text)
 }
 
 /** The expression a link renders as its own address (`<a href={url}>{url}</a>`): text, not a value. */
@@ -223,7 +236,7 @@ function inkValues(children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile, out: 
     if (ts.isJsxExpression(child) && child.expression) {
       if (citationBracket(children, i) || ownAddress(opening, child.expression)) return
       const x = unwrap(child.expression)
-      if (ts.isTemplateExpression(x) && /\[\s*$/.test(x.head.text) && x.templateSpans.length === 1 && /^\s*\]/.test(x.templateSpans[0].literal.text)) return
+      if (ts.isTemplateExpression(x) && /^\s*\[\s*$/.test(x.head.text) && x.templateSpans.length === 1 && /^\s*\]\s*$/.test(x.templateSpans[0].literal.text)) return
       if (ts.isJsxElement(x) || ts.isJsxFragment(x)) { if (ts.isJsxElement(x) ? textColour(x.openingElement) === null : true) inkValues(x.children, sf, out); return }
       if (rendersValue(child.expression, sf)) out.push(child.expression)
     } else if (ts.isJsxFragment(child)) inkValues(child.children, sf, out)

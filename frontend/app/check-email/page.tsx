@@ -90,12 +90,15 @@ function CheckEmailContent() {
           disabled={!email}
           aria-disabled={resendLoading || cooldown > 0 || undefined}
           aria-busy={resendLoading || undefined}
-          className="inline-flex items-center gap-1 font-medium text-brand-strong hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline aria-disabled:cursor-not-allowed aria-disabled:text-brand-strong/50 aria-disabled:no-underline dark:text-brand-strong-dark dark:aria-disabled:text-brand-strong-dark/50"
+          className="group inline-flex items-center gap-1 font-medium text-brand-strong hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline aria-disabled:cursor-not-allowed aria-disabled:text-brand-strong/50 aria-disabled:no-underline dark:text-brand-strong-dark dark:aria-disabled:text-brand-strong-dark/50"
         >
           {resendLoading && <CircleNotchIcon className="h-3 w-3 animate-spin motion-reduce:animate-none" />}
           {cooldown > 0 ? (
             <>
-              Resend in <span className="tabular-nums text-text-secondary-light dark:text-text-secondary-dark">{cooldown}s</span>
+              Resend in{' '}
+              <span className="tabular-nums text-text-secondary-light group-aria-disabled:text-text-secondary-light/50 dark:text-text-secondary-dark dark:group-aria-disabled:text-text-secondary-dark/50">
+                {cooldown}s
+              </span>
             </>
           ) : (
             'Resend email'

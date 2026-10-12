@@ -322,7 +322,7 @@ The palette combines sage, warm cream, espresso and deep navy with distinct sema
 - **Light Sage** (`brand-dark`), **Bright Sage** (`brand-strong-dark`) and **Pressed Dark Sage** (`brand-fill-dark`): dark-mode action states. Primary labels use navy ink throughout these states.
 - **Dark Sage Tint** and **Dark Sage Hairline** (`brand-weak-dark`, `brand-border-dark`): translucent accents on dark surfaces.
 
-**The Separate Signals Rule.** Sage signals brand and activity, never a value: a count, a date, an index name or a price rests in the ink everywhere in the app, and a control that carries one turns sage only under the pointer or focus. Gain/loss signals financial direction; status colors signal actual UI states. Progress indicators use sage until a terminal confirmation warrants success green.
+**The Separate Signals Rule.** Sage signals brand and activity, never a value: a count, a date, an index name or a price rests in the ink everywhere in the app, and a control that carries one turns sage only under the pointer or focus (rule 2 of `brandCopyRules.spec.ts` holds the digits and the number-typed expressions; a date set as text or an index name is review-checked). Gain/loss signals financial direction; status colors signal actual UI states. Progress indicators use sage until a terminal confirmation warrants success green.
 
 ### Neutral
 

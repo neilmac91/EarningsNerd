@@ -38,9 +38,9 @@ export default function FilingFeed({
   const isLoading = feedQuery.isLoading && !failure.failed
 
   const visible = data ? data.slice(0, MAX_CARDS) : []
-  // Overflow count comes from the watchlist (companies followed), never data.length — the feed array
-  // is capped at the fetch limit, so data.length would misreport "See all 20 companies" for a user
-  // following 30. When the true count isn't known, drop the number rather than show a wrong one.
+  // Whether more exist comes from the watchlist (companies followed), never data.length: the feed
+  // array is capped at the fetch limit, so data.length alone would hide the overflow for a user
+  // following more than the cap.
   const hasMore =
     watchlistCount != null ? watchlistCount > visible.length : (data?.length ?? 0) > MAX_CARDS
   // The link names the action without the count: sage never colours a number (D-030), and the
