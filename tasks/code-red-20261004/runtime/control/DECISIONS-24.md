@@ -2,10 +2,10 @@
 
 Recorded 2026-10-12, by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
 Context: record 23 merged to main as `1268e8ee` (PR #1229, 2026-10-11T10:24:26Z) and the settings hardening PR as `8d92dfb4`
-(PR #1238, 15:21:49Z). The records branch `claude/stoic-wright-6jeujo` was recreated at main `40abf9a0` (2026-10-11T13:55:14Z) and
-fast-forwarded to main `ffb450d3` (2026-10-12) before this record's first commit. This PR: this record, closure 175, the checkpoint, the
-appointments file, the archive ledger's record-24 entry and `tasks/todo.md` (one engineering line closed and one added, one founder
-line updated; the standing, another writer's, untouched): no application code, workflow, migration, cloud, IAM or production change
+(PR #1238, 15:21:49Z). The records branch `claude/stoic-wright-6jeujo` was recreated at main `40abf9a0` (2026-10-11T13:55:07Z) and
+fast-forwarded to main `ffb450df` (2026-10-12) before this record's first commit. This PR: this record, closure 175, the checkpoint, the
+appointments file, the archive ledger's record-24 entry and `tasks/todo.md` (engineering line E6 closed, the readout line another
+writer's #1255 wrote; E16 added; founder line F9 updated; the standing, another writer's, untouched): no application code, workflow, migration, cloud, IAM or production change
 (nothing under `backend/`, so the merge deploys nothing); no provider call; no reservation; nothing opened under
 `tasks/readiness-2026-09-21/acceptance/` or `tasks/review-evidence/`. The one `ops.yml` dispatch of this record (`capacity-readout`)
 and the four `deepseek-balance` dispatches are read-only operations run from `main` by the founder's account; they changed nothing.
@@ -18,8 +18,10 @@ and the chief applied their corrections. `record-23-reviewer-01` (closure 173; a
 context for the review and its deltas) then bound **no blocker** to `f7b8634` (two items open there), to `a80bd2f` (no should-fix;
 nits on disclosure 6's wording and the body's time for `f7b8634`) and to `165a39f`, the merged head (one body should-fix, the
 `a80bd2f` Codex row, fixed in the body; a body-only check after it found nothing inaccurate; one optional wording nit applied).
-Codex reviewed four heads on `@codex review` requests: a P1 on `8886084` (answered and resolved), no findings on `f7b8634`
-(09:53:17Z) and `a80bd2f` (09:56:18Z), and a P2 on `165a39f` (10:01:08Z): closure 174's role text for
+Codex reviewed all seven heads on `@codex review` requests: no findings on `76465b0` (09:07:21Z); a P2 on `e61a7b4` (09:17:39Z:
+the fix would not reach a validation error's structured form; answered, and `9b9c5db` narrowed plan item 3 to the rendered
+text); no findings on `9b9c5db` (09:25:23Z); a P1 on `8886084` (09:47:20Z; answered and resolved); no findings on `f7b8634`
+(09:53:17Z) and `a80bd2f` (09:56:18Z); and a P2 on `165a39f` (10:01:08Z): closure 174's role text for
 `settings-errors-hide-input-pr-01` said the PR would make errors "carry no input value", wider than plan item 3. The answer kept the
 closure as hashed (registration was in effect at each launch) and promised the annotation that closure 175 now carries. Marked
 ready 10:03:18Z; the ready-time Codex review ended with a thumbs-up at 10:05:23Z; `review-gate` passed at 10:05:41Z. Both merge
@@ -70,8 +72,8 @@ commit in `.gitleaksignore` (a pin would leave the lines reachable on this branc
 cancelled attempt 2's `eval-baseline` job 114486916316 after 52 logged calls; ledger event 49 settled events 46 and 47 at their
 telemetry cost (USD 0.132952, of which 0.006406 is an upper estimate for up to two calls in flight at the cancellation, and USD
 0.006381).
-**Codex and the delta reviewer.** Codex found nothing on `f73730c` (13:52:27Z; the ready-time review a thumbs-up at 13:58:42Z) and
-one P2 on `218b52f` (14:08:08Z): the message gate's `isupper()` exemption let an uppercase parameter or local through. The label's
+**Codex and the delta reviewer.** Codex found nothing on `f73730c` (13:52:27Z; the ready-time review a thumbs-up at 13:58:42Z, observed at
+the time: GitHub keeps only Codex's latest reaction) and one P2 on `218b52f` (14:08:08Z): the message gate's `isupper()` exemption let an uppercase parameter or local through. The label's
 single delta reviewer (agent `ac962c7c7c0bb4bca`, launched 13:49:36Z; one context for both checks) bound **no blocker** to
 `218b52f`, with seven should-fixes and four nits: the message gate was not default-deny (bare callees, module-level raises, mutator
 keyword arguments, `from` causes, the Annotated-validator limit; S1); exact repr pins and fabricated-secret fragment checks (S2);
@@ -151,9 +153,9 @@ identical, read from the log itself: the worker `DURABLE_TASKS_ENABLED=true`, `T
 service pool 4 / overflow 0, `TASKS_WORKER_PROCESS=false`, `ENABLE_INSIDER_ACTIVITY=false`; pregenerate 3 / 0; the six-job loop and
 backfill-facts 1 / 0; both SEC pins at 1 everywhere; both services serving 100%; healthy, the SEC EDGAR circuit closed. Fourteen
 runs skipped every deploy step. All twenty-four CI runs concluded success.
-**Revisions outside CI.** The service revisions `00491` and `00494` appear in no deploy log. #1235 (another writer) records that
-the API served `earningsnerd-backend-00495-vpq` from 12:22Z, deployed by Astra from the founder's computer outside CI: main's API
-plus two uncommitted admin routes. #1237's deploy replaced it with `00496-8hn` at 13:32:14Z, so the uncommitted routes left
+**Revisions outside CI.** The service revisions `00491` and `00494` appear in no deploy log. #1235 (another writer) records that,
+read at 12:22Z, the API served `earningsnerd-backend-00495-vpq` at 100%, deployed by Astra from the founder's computer outside CI:
+main's API plus two uncommitted admin routes. #1237's deploy replaced it with `00496-8hn` at 13:32:14Z, so the uncommitted routes left
 production then (the chief's question to the founder about removing them was moot and was corrected in the chat). #1242 then landed
 Free-account creation through the account service, reviewed and through CI; this record does not compare it with the out-of-CI
 routes. Production at the readout: service `earningsnerd-backend-00502-vs7` and worker `earningsnerd-task-worker-00052-xwg`
@@ -193,11 +195,14 @@ p90 ≤ 158.7, p95 ≤ 174.5, p99 ≤ 255.5 ms; 3–4 application backends; no e
 17 × `200` at a mean of about 7.1 s; 17 queue attempts, all `ok`, depth 0. So this first Monday with every process pinned to 1 + 1
 SEC requests a second and backfill-facts at 07:30 ran clean: every job succeeded on its first attempt, the 07:30 move removed the
 second overlap, no error, the database flat at 3 backends. API volume was about twelve times record 10's Monday and close to record
-20's evening (the receipt does not say where it came from), with latency at or below both earlier windows except p99 (281 against
-255.5 ms). The durable-task path was busier than on Saturday (50 against 17) and faster per task. The jobs did almost no SEC work,
+20's evening (the receipt does not say where it came from), with latency at or below both earlier windows except p99 (281.0 against
+record 20's 255.5 ms; record 10's window states none). The durable-task path was busier than on Saturday (50 against 17) and faster per task. The jobs did almost no SEC work,
 though: pregenerate found its 15 filings cached, filing-scan upserted nothing and backfill-facts processed no filing. So the window
 shows the pinned fleet clean at near-idle load; it does not prove capacity under load, which stays B32's qualifying window. No
 analysis context was launched: the chief read the receipt itself, so the label stays unexercised (closure 175).
+Another writer's #1255 (merged 11:00:47Z) had already summarised this run in `tasks/todo.md` E6 (16 complete channels, one
+partial filing-scan channel, four successful jobs), which agrees with the receipt; this record's read supersedes it, and this PR
+closes E6.
 
 ## Spend (ledger events 46–52)
 
@@ -211,12 +216,13 @@ trigger: the founder's account marked the PR ready (event 47, recorded after it)
 | 46 | reservation | 0.730000 | the opening push's `eval-baseline` |
 | 47 | reservation, recorded after the founder-account trigger | 0.060000 | the ready-time `copilot-eval` |
 | 48 | reservation | 0.790000 | the force-push's `eval-baseline` and `copilot-eval` |
-| 49 | settles 46 and 47 | 0.139333 (88 calls) | 0.597048 and 0.053619 released |
+| 49 | settles 46 and 47 | 0.139333 (88 calls, 2 of them estimated) | 0.597048 and 0.053619 released |
 | 50 | settles 48 | 0.185051 (104 calls) | 0.604949 released |
 | 51 | reservation | 0.790000 | the push of `2330977` |
 | 52 | settles 51 | 0.187580 (106 calls) | 0.602420 released |
 
-Spend this record: **USD 0.511964, 298 DeepSeek calls** (telemetry estimates, not invoices); recorded use against the authority
+Spend this record: **USD 0.511964, 298 DeepSeek calls** (296 logged and 2 estimated as in flight at a cancellation;
+telemetry estimates, not invoices); recorded use against the authority
 1.513044 → 2.025008 (1,153 → 1,451 calls); retained holds unchanged (1.881713); headroom 21.605243 → 21.093279; cumulative recorded
 usage 5.297293 → 5.809257 (3,212 → 3,510 calls); **0 active reservations**. No excess over any reservation. Other writers'
 `deepseek-balance` dispatches (for example run 176 at 14:40:37Z) are not this session's; their values were not read.
@@ -234,8 +240,9 @@ usage 5.297293 → 5.809257 (3,212 → 3,510 calls); **0 active reservations**. 
    exclusions.
    (c) **Two of Codex's #1229 comments missed on first reading** (09:53:17Z and 09:56:18Z); the body's rows were corrected after the
    reviewer flagged them.
-   (d) **#1238's secret-scan sentinels broke another writer's CI** for about eight minutes (13:56–14:04Z), fixed by the branch
-   rewrite above; the merge trains were told.
+   (d) **#1238's secret-scan sentinels broke another writer's CI.** They were reachable on the branch from the opening push
+   (13:48:39Z) until the rewrite above (14:04:32Z); the other writer's CI run 38145316651 failed its `secret-scan` at 13:59:18Z
+   and stayed red until that writer's own re-run passed at 14:27:02Z. The merge trains were told.
    (e) **One gate run overlapped live edits** and was re-run on the committed head; mutation proofs ran on committed state only.
    (f) **A moot question to the founder** about removing the out-of-CI admin routes (#1237 had already deployed over them),
    corrected in the chat.
@@ -254,7 +261,8 @@ usage 5.297293 → 5.809257 (3,212 → 3,510 calls); **0 active reservations**. 
 2. **Actions by the founder's account that the chief did not take:** marking #1238 ready (13:55:46Z, which fired the ready-time paid
    run that event 47 records), re-running its blocked CI (13:56:34Z), and merging it (15:21:49Z) before the delta reviewer's second
    check and while #1242's CI ran. Neither merge train took them. No rule was breached by them; the chief records them because each
-   changed what its own process expected.
+   changed what its own process expected. GitHub records them, like the chief's own actions, under the one login `neilmac91`;
+   the attribution rests on the chief's own tool history (it made none of these calls) and the merge trains' replies.
 3. **`record-23-reviewer-01`'s deviations:** three single-file `show` and `diff` reads, and some path-scoped `diff` and `ls-tree`
    runs, without the exclusion pathspecs (each on files outside the excluded directories, so none could reach them); its gate runs
    created and removed a temporary SQLite directory under the system temp directory.
@@ -271,15 +279,18 @@ usage 5.297293 → 5.809257 (3,212 → 3,510 calls); **0 active reservations**. 
    probe tests in agents' pytest temp directories, on 2026-10-12. None held a real value.
 6. **The delta reviewer's:** writes only in its own work directory; read-only git, the `git archive` exports it was asked for, GitHub
    GETs; application imports only inside pytest; ad-hoc Python under `env -i` with fabricated values only.
-7. **External events:** GitHub Actions refused every job across the account from about 13:48Z to 13:55Z (billing). Other writers'
-   read-only `ops.yml` dispatches at 2026-10-11T22:42:59Z and 2026-10-12T01:28:21Z were not this session's; this record's only
-   `ops.yml` dispatch is the readout above.
+7. **External events:** GitHub Actions refused every job that tried to start from about 13:48:49Z until 13:55:50Z (billing);
+   jobs already running, such as main's CI run 38144561673, continued. Other writers' read-only `ops.yml` dispatches at
+   2026-10-11T22:42:59Z and 2026-10-12T01:28:21Z (`describe-service`) and 12:03:51Z (a second `capacity-readout`, run
+   38246665877) were not this session's (GitHub shows each under the one login); this record's only `ops.yml` dispatch is the
+   readout above.
 8. **Side effects of this record:** read-only GitHub requests; downloads through the platform's REST API, each raw copy deleted:
    the ten deploy job logs above (through the redacting filter), seven `eval-baseline` and `copilot-eval` job logs (six of #1238's
    runs and the one other writer's, through a field filter) and four balance logs (the balance line only), plus the readout's receipt
-   artifact; four `deepseek-balance` dispatches and one `ops.yml` dispatch; PR #1229 merged with an explicit message; PR #1238
-   opened as a draft, its body and title edited, three `@codex review` requests, one Codex thread answered and resolved, one
-   force-push with lease on the branch the chief created; seven ledger events published to the private ledger; eight cross-session
+   artifact; four `deepseek-balance` dispatches and one `ops.yml` dispatch; on PR #1229 seven `@codex review` requests, three
+   Codex threads answered, the ready marking and the merge with an explicit message; PR #1238 opened as a draft, its body and
+   title edited, two PR comments (the standing-down note and the force-push notice), three `@codex review` requests, one Codex
+   thread answered and resolved, one force-push with lease on the branch the chief created; seven ledger events published to the private ledger; eight cross-session
    messages to the merge trains (two each at about 10:09Z, 14:05Z, 15:23Z and 15:37Z); this PR.
 
 ## Plan
