@@ -275,6 +275,8 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  Home/End, PageUp/PageDown and mandatory snapping. Child controls retain their keys. Inline-end padding makes the entire scroll range a whole
                  number of columns. A layout effect measures before paint; resize and enlarged text
                  recompute rendered widths without accumulating padding or losing the prior column.
+                 Scroll events from native resize snapping wait for current measurements before
+                 updating the retained column.
                  Focused figure controls are scrolled wholly into view using the active sticky inset.
                  Phones below 640px start at
                  the newest period. “← Earlier quarters” (or years) appears only on phones while
@@ -322,6 +324,10 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  growth fractions and percentage-point changes retain their distinct units.
                  A noted comparison names the recorded input and period carrying its concern; if
                  its input identity is absent, say so instead of inventing an operand or fiscal period.
+
+Analysis reflow  The page title and selected-company rows wrap. Narrative cards use p-4 sm:p-6;
+                 export/refresh Buttons keep min-h-8 and grow to wrap their labels inside max-w-full.
+                 These Analysis-only overrides preserve shared Button behavior and icon size.
 
 Analysis reading <NarrativePane> — compact monetary amounts and quarter labels in prose, without
                  changing link destinations, code or source excerpts. Preserve enough precision

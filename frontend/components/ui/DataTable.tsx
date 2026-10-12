@@ -159,7 +159,7 @@ export function DataTable<T extends Record<string, unknown>>({
   const inset = cellPadding === 'compact' ? 'px-px md:px-1' : 'px-3'
   const scrollRef = useRef<HTMLDivElement>(null)
   const tableRef = useRef<HTMLTableElement>(null)
-  const geometry = useRef({ step: 0, inset: 0, range: 0, stops: [] as number[], column: 0 })
+  const geometry = useRef({ step: 0, labelWidth: 0, viewportWidth: 0, inset: 0, range: 0, stops: [] as number[], column: 0 })
   const initialized = useRef(false)
   const [overflows, setOverflows] = useState(false)
   const [mobileHint, setMobileHint] = useState<'absent' | 'hidden' | 'visible'>('absent')
@@ -177,9 +177,23 @@ export function DataTable<T extends Record<string, unknown>>({
     const scroll = scrollRef.current
     const table = tableRef.current
     if (!scroll || !table || (!snapColumns && !hasScrollRegion)) return
+    const dimensions = () => {
+      const headers = table.tHead?.rows[0]?.cells
+      return {
+        headers,
+        labelWidth: stickyFirstColumn ? headers?.[0]?.getBoundingClientRect().width ?? 0 : 0,
+        step: headers?.[stickyFirstColumn ? 1 : 0]?.getBoundingClientRect().width ?? 0,
+        viewportWidth: scroll.clientWidth,
+      }
+    }
     const rememberColumn = () => {
       const current = geometry.current
-      current.column = nearestColumn(current.stops, scroll.scrollLeft)
+      const { step, labelWidth, viewportWidth } = dimensions()
+      // Native snapping can emit scroll before ResizeObserver reports enlarged text.
+      // Keep the prior column until its old stops have been replaced by this geometry.
+      if (step === current.step && labelWidth === current.labelWidth && viewportWidth === current.viewportWidth) {
+        current.column = nearestColumn(current.stops, scroll.scrollLeft)
+      }
       setMobileHint(!window.matchMedia('(max-width: 639px)').matches ? 'absent'
         : scroll.scrollLeft > 1 ? 'visible' : 'hidden')
     }
@@ -187,9 +201,7 @@ export function DataTable<T extends Record<string, unknown>>({
       const previous = geometry.current
       // Remove the old pad before measuring: resize and text-size changes must never compound it.
       if (snapColumns) scroll.style.paddingInlineEnd = '0px'
-      const headers = table.tHead?.rows[0]?.cells
-      const labelWidth = stickyFirstColumn ? headers?.[0]?.getBoundingClientRect().width ?? 0 : 0
-      const step = headers?.[stickyFirstColumn ? 1 : 0]?.getBoundingClientRect().width ?? 0
+      const { headers, labelWidth, step, viewportWidth } = dimensions()
       if (!step || !scroll.clientWidth) return
       const fits = scroll.clientWidth >= labelWidth + step
       setStickyFits(fits)
@@ -205,7 +217,7 @@ export function DataTable<T extends Record<string, unknown>>({
       const wholeRange = range + pad
       const stops = Array.from(headers ?? [], (_, index) => Math.min(wholeRange,
         index === 0 ? 0 : Math.max(0, firstStop + (index - Number(stickyFirstColumn)) * step)))
-      geometry.current = { step, inset: insetWidth, range: wholeRange, stops, column: previous.column }
+      geometry.current = { step, labelWidth, viewportWidth, inset: insetWidth, range: wholeRange, stops, column: previous.column }
       setOverflows(range > 0)
       const newest = !initialized.current && startAtEndOnMobile && window.matchMedia('(max-width: 639px)').matches
       if (snapColumns) scroll.scrollLeft = newest ? wholeRange : stops[Math.min(previous.column, stops.length - 1)] ?? 0

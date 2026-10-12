@@ -53,6 +53,10 @@ describe('DataTable opt-in column scrolling', () => {
     expect(region.scrollLeft).toBe(68)
     periodWidth = 136
     metricWidth = 208
+    // Chromium can re-snap and emit scroll before ResizeObserver runs. That
+    // new pixel offset must not be interpreted using the previous 68px stops.
+    region.scrollLeft = 136
+    fireEvent.scroll(region)
     act(() => resize())
     expect(region.style.scrollPaddingInlineStart).toBe('0px')
     expect(screen.getByRole('rowheader')).not.toHaveClass('sticky')
