@@ -25,6 +25,7 @@ from app.database import Base, get_db
 import app.models  # noqa: F401 — register models on Base.metadata
 from app.models import Company, Filing, Summary
 from app.routers import sitemap as sitemap_mod
+from app.services import sitemap_service
 
 
 @pytest.fixture
@@ -165,7 +166,7 @@ def test_a_stored_failure_is_excluded_as_the_page_noindexes_it(client, body, raw
 @pytest.mark.parametrize("placeholder", ["Generating summary", "Please wait: Generating summary…"])
 def test_placeholder_is_excluded_before_cap_but_partial_content_remains(client, monkeypatch, placeholder):
     test_client, TestingSession = client
-    monkeypatch.setattr(sitemap_mod, "MAX_SITEMAP_URLS", len(sitemap_mod.STATIC_PAGES) + 2)  # one company + one filing
+    monkeypatch.setattr(sitemap_service, "MAX_SITEMAP_URLS", len(sitemap_service.STATIC_PAGES) + 2)  # one company + one filing
     with TestingSession() as session:
         company = _seed_company(session, "ACME", "0000000002")
         pending = _seed_filing(session, company, "acc-pending", year=2026)
@@ -260,7 +261,7 @@ def test_whole_document_is_bounded_newest_first_across_companies_and_filings(
     """E15b: the bound covers the WHOLE document (companies were unbounded before), and it
     drops the least-recently-changed pages first so a crawler always sees the freshest set."""
     test_client, TestingSession = client
-    monkeypatch.setattr(sitemap_mod, "MAX_SITEMAP_URLS", len(sitemap_mod.STATIC_PAGES) + extra)
+    monkeypatch.setattr(sitemap_service, "MAX_SITEMAP_URLS", len(sitemap_service.STATIC_PAGES) + extra)
     with TestingSession() as session:
         filing_ids = {
             year: _seed_summarized_company(session, ticker, cik, year)
@@ -270,8 +271,8 @@ def test_whole_document_is_bounded_newest_first_across_companies_and_filings(
         }
     xml = test_client.get("/sitemap.xml").text
     locs = re.findall(r"<loc>(.*?)</loc>", xml)
-    assert len(locs) == len(sitemap_mod.STATIC_PAGES) + len(expected_companies) + len(expected_filings)
-    assert len(locs) <= max(sitemap_mod.MAX_SITEMAP_URLS, len(sitemap_mod.STATIC_PAGES))
+    assert len(locs) == len(sitemap_service.STATIC_PAGES) + len(expected_companies) + len(expected_filings)
+    assert len(locs) <= max(sitemap_service.MAX_SITEMAP_URLS, len(sitemap_service.STATIC_PAGES))
     assert [loc.rsplit("/", 1)[1] for loc in locs if "/company/" in loc] == expected_companies
     listed_filings = [int(loc.rsplit("/", 1)[1]) for loc in locs if "/filing/" in loc]
     assert listed_filings == [filing_ids[year] for year in expected_filings]
