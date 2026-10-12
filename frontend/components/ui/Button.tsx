@@ -129,7 +129,7 @@ export const primaryUnavailableClass = cx(
     unavailable but must keep keyboard focus: aria-disabled plus the caller's own guard, never native
     `disabled`. Apply it only while the button is unavailable, never while `loading`. It fades the
     label and the hairline, not the element: the native `opacity-50` would fade the focus ring with
-    them below the intended focus contrast. Dark's hairline is
+    them below the 3:1 focus floor held by tests/unit/siteChromeFocusRing.spec.ts. Dark's hairline is
     brand-weak-dark (0.14), exactly half of brand-border-dark (0.28): `/50` on that rgba token would
     REPLACE its alpha with 0.5, not halve it. Dark repeats the transparent fill because dark:hover: and
     dark:active: out-specify a bare aria-disabled:. lessons/frontend-busy-controls-stay-focusable.md (e) */
