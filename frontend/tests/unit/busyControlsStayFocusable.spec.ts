@@ -550,13 +550,9 @@ const ALLOW_RETRY_LABEL: Record<string, { sites: string[]; reason: string }> = {
     sites: ['button "Retry"'],
     reason: 'The full-text search Retry: open in rule (h) (also in ALLOW_RETRY).',
   },
-  'features/filings/components/copilot/FilingViewer.tsx': {
-    sites: ['Button "Try again"'],
-    reason: '"Try again" for the filing text, a hand-rolled fetch, not a query: open in rule (h).',
-  },
 }
-const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 10
-const MAX_RETRY_LABEL_PINNED_SITES = 10
+const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 9
+const MAX_RETRY_LABEL_PINNED_SITES = 9
 
 /** Sites not covered by their file's pins, as `file:line: expr`. Each pin covers one site. */
 function unpinned(foundSites: Map<string, Site[]>, allow: Record<string, { sites: string[] }>): string[] {

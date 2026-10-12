@@ -1,6 +1,6 @@
 'use client'
 
-import { useContext, useMemo, useRef, useState } from 'react'
+import { useContext, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   Bar,
   CartesianGrid,
@@ -19,6 +19,7 @@ import {
 } from 'recharts'
 
 import { ThemeContext } from '@/components/ThemeProvider'
+import { useOverflowRegion } from '@/hooks/useOverflowRegion'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import {
   AxisSeriesTag,
@@ -52,6 +53,7 @@ import { useDataNotes } from './DataNotesContext'
 import type { DataNote, DataNotesModel } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { layoutChartNotes, type ChartNotePosition } from '@/features/analysis/lib/chartNoteLayout'
+import { topLineConcept } from '@/features/analysis/lib/reportPresentation'
 
 const bySeries = (dataset: AnalysisDataset): Record<string, AnalysisSeries> =>
   Object.fromEntries(dataset.series.map((s) => [s.concept, s]))
@@ -64,6 +66,7 @@ const pct = (v: number) => fmtPercent(v, { digits: 1 })
 const BAR_COLOR = seriesColor(0)
 const GROWTH_LINE_COLOR = seriesColor(1)
 const GROWTH_LINE_LABEL = 'YoY growth'
+const MAX_BAR_SIZE = 44
 
 // Dual-axis sanity (P1-8): anchor BOTH value axes to zero so the two independent scales share a
 // baseline — a right-axis series sitting near its own min can't read as "at the bottom" when it is
@@ -112,7 +115,7 @@ function NoteDot({ cx, cy, value, color, dark, note, position }: NoteDotProps & 
   return (
     <g aria-label={`Data note ${note.letter}`}>
       <circle cx={cx} cy={cy} r={4} fill={chartTheme(dark).tipBg} stroke={color} strokeWidth={2} />
-      <text x={position?.x ?? cx} y={position?.y ?? cy! - 9} textAnchor="middle" fill={chartTheme(dark).label} fontFamily={CHART_FONT} fontSize={11}>{note.letter}</text>
+      <text x={position?.x ?? cx} y={position?.y ?? cy! - 9} textAnchor="middle" fill={chartTheme(dark).label} stroke={chartTheme(dark).tipBg} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke" fontFamily={CHART_FONT} fontSize={11}>{note.letter}</text>
     </g>
   )
 }
@@ -157,10 +160,9 @@ function NoteBar({ x, y, width, height, color, dark, note, position }: NoteBarPr
   return (
     <g aria-label={note ? `Data note ${note.letter}` : undefined}>
       <Rectangle x={x} y={y} width={width} height={height} radius={[4, 4, 0, 0]}
-        fill={note ? chartTheme(dark).tipBg : color} stroke={note ? color : undefined}
-        strokeWidth={note ? 2 : undefined} strokeDasharray={note ? '4 3' : undefined} />
+        fill={color} />
       {/* Recharts supplies y at the value endpoint and signed height back to the baseline. */}
-      {note && <text x={position?.x ?? x + width / 2} y={position?.y ?? y + (height < 0 ? 18 : -10)} textAnchor="middle" fill={chartTheme(dark).label} fontFamily={CHART_FONT} fontSize={11}>{note.letter}</text>}
+      {note && <text x={position?.x ?? x + width / 2} y={position?.y ?? y + (height < 0 ? 18 : -10)} textAnchor="middle" fill={chartTheme(dark).label} stroke={chartTheme(dark).tipBg} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke" fontFamily={CHART_FONT} fontSize={11}>{note.letter}</text>}
     </g>
   )
 }
@@ -170,6 +172,82 @@ function PositionedNoteBar({ anchors, anchorKey, ...props }: NoteBarProps & {
 }) {
   const position = useChartNotePosition(anchors, anchorKey)
   return <NoteBar {...props} position={position} />
+}
+
+/** A keyboard stop is useful only while there is more plot to scroll into view. */
+function ChartViewport({ label, children, onKeyboardNavigationChange }: {
+  label: string
+  children: React.ReactNode
+  onKeyboardNavigationChange: (active: boolean) => void
+}) {
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const { regionProps } = useOverflowRegion(viewportRef, {
+    label: `${label} chart. Scroll horizontally to view all periods.`,
+  })
+  const takeKeyboardNavigation = (surface: SVGElement, viewport: HTMLDivElement) => {
+    onKeyboardNavigationChange(true)
+    // Recharts prioritizes a retained hover over its keyboard index. An ordinary scoped
+    // mouse leave releases that hover; the real key event then selects the next period.
+    surface.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: viewport }))
+  }
+  return <div ref={viewportRef} data-analysis-chart-scroll {...regionProps}
+    onFocusCapture={(event) => {
+      if (event.target instanceof SVGElement && event.target.getAttribute('role') === 'application'
+        && event.target.matches(':focus-visible')) takeKeyboardNavigation(event.target, event.currentTarget)
+    }}
+    onBlurCapture={() => onKeyboardNavigationChange(false)}
+    onPointerMoveCapture={() => onKeyboardNavigationChange(false)}
+    onPointerDownCapture={() => onKeyboardNavigationChange(false)}
+    onKeyDownCapture={(event) => {
+      // Recharts moves one period per arrow. Native pixel scrolling on that same key can
+      // drift away from the selected period; the outer region keeps its native scrolling.
+      if (event.target instanceof SVGElement && event.target.getAttribute('role') === 'application'
+        && ['ArrowLeft', 'ArrowRight', 'Enter'].includes(event.key)) {
+        takeKeyboardNavigation(event.target, event.currentTarget)
+        if (event.key !== 'Enter') event.preventDefault()
+      }
+    }}
+    className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark has-[:focus-visible]:shadow-ring-brand dark:has-[:focus-visible]:shadow-ring-brand-dark [&_svg[role=application]:focus-visible]:outline-none">
+    {children}
+  </div>
+}
+
+/** Keep a keyboard-selected mark and its live tooltip inside the horizontal viewport. */
+function ChartTooltipStatus({ active, keyboardNavigation, coordinateX, plotRef, children }: {
+  active: boolean
+  keyboardNavigation: boolean
+  coordinateX?: number
+  plotRef: React.RefObject<HTMLDivElement>
+  children: React.ReactNode
+}) {
+  const statusRef = useRef<HTMLDivElement>(null)
+  // Recharts repositions the wrapper after measuring its contents. Measure each render,
+  // including that second layout pass, rather than retaining a stale tooltip rectangle.
+  useLayoutEffect(() => {
+    const status = statusRef.current
+    const plot = plotRef.current
+    const viewport = plot?.parentElement
+    if (!active || !status || !plot || !viewport) return
+    let frame = viewport.getBoundingClientRect()
+    const focused = document.activeElement
+    if (keyboardNavigation && focused instanceof SVGElement && focused.getAttribute('role') === 'application'
+      && plot.contains(focused) && coordinateX != null) {
+      const pointX = plot.getBoundingClientRect().left + coordinateX
+      const halfMark = MAX_BAR_SIZE / 2
+      if (pointX - halfMark < frame.left || pointX + halfMark > frame.right) {
+        viewport.scrollBy({ left: pointX - frame.left - frame.width / 2, behavior: 'instant' })
+        frame = viewport.getBoundingClientRect()
+      }
+    }
+    // A wide tooltip may need to wrap on phones. Only its presentation moves; its series,
+    // period, note identities and values still come directly from Recharts' active payload.
+    status.style.maxWidth = `${viewport.clientWidth}px`
+    status.style.transform = 'none'
+    const tip = status.getBoundingClientRect()
+    const shift = Math.max(frame.left - tip.left, Math.min(0, frame.right - tip.right))
+    status.style.transform = `translateX(${shift}px)`
+  })
+  return <div ref={statusRef} role="status" style={{ width: 'max-content' }}>{children}</div>
 }
 
 interface PanelSpec {
@@ -236,7 +314,10 @@ function PanelCard({
   const dark = useContext(ThemeContext)?.theme === 'dark'
   const reduced = usePrefersReducedMotion()
   const [expanded, setExpanded] = useState(false)
+  const [keyboardNavigation, setKeyboardNavigation] = useState(false)
   const plotRef = useRef<HTMLDivElement>(null)
+  // The quarterly table usually shows QoQ, so it cannot replace keyboard access to chart YoY.
+  const keyboardLabel = `${panel.title} chart values. Use Left and Right arrows to inspect periods.`
 
   // One series→(concept, label, color, axis) mapping drives the legend AND the plotted <Line>s —
   // built once so the two can't disagree on color/label pairing.
@@ -305,25 +386,32 @@ function PanelCard({
   // Route by SERIES, not by value magnitude: the growth line always formats as a percent and
   // everything else with the panel's formatter — a micro-cap's $850 bar or a +1,400% growth
   // spike must never fall through a magnitude heuristic to the wrong formatter.
-  const formatTooltip = (v: number | string | undefined, name?: string) => {
+  const formatTooltip = (v: number | string | undefined, growth: boolean) => {
     const num = Number(v)
     if (!Number.isFinite(num)) return String(v ?? '')
-    if (name === GROWTH_LINE_LABEL) return pct(num)
+    if (growth) return pct(num)
     return panel.format(num)
   }
 
-  const renderTooltip = ({ active, label, payload }: TooltipContentProps) => (
-    <ChartTooltip
-      dark={dark}
-      active={active}
-      label={formatAnalysisPeriod(String(label ?? ''))}
-      payload={payload?.map((entry) => ({
-        name: String(entry.name ?? ''),
-        value: typeof entry.value === 'number' ? entry.value : String(entry.value ?? ''),
-        color: entry.color,
-      }))}
-      formatValue={formatTooltip}
-    />
+  const renderTooltip = ({ active, label, payload, coordinate }: TooltipContentProps) => (
+    <ChartTooltipStatus active={active} keyboardNavigation={keyboardNavigation} coordinateX={coordinate?.x} plotRef={plotRef}>
+      <ChartTooltip
+        dark={dark}
+        active={active}
+        label={formatAnalysisPeriod(String(label ?? ''))}
+        payload={payload?.map((entry) => {
+          const growth = entry.dataKey === 'growth'
+          const concept = growth ? barSeries?.concept : String(entry.dataKey ?? '')
+          const note = concept ? noteAt(concept, String(label ?? ''), growth) : null
+          return {
+            name: `${entry.name ?? ''}${note ? ` · note ${note.letter}` : ''}`,
+            // Format by the original data key before the display name gains a note letter.
+            value: formatTooltip(typeof entry.value === 'number' ? entry.value : String(entry.value ?? ''), growth),
+            color: entry.color,
+          }
+        })}
+      />
+    </ChartTooltipStatus>
   )
 
   const legendItems = barSeries
@@ -403,7 +491,7 @@ function PanelCard({
           </PanelControl>
         </div>
       </div>
-      <div className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark" tabIndex={0} role="region" aria-label={`${panel.title} chart. Scroll horizontally to view all periods.`}>
+      <ChartViewport label={panel.title} onKeyboardNavigationChange={setKeyboardNavigation}>
       <div
         ref={plotRef}
         data-analysis-chart={panel.title}
@@ -417,7 +505,7 @@ function PanelCard({
       >
         <ResponsiveContainer width="100%" height="100%">
           {barSeries ? (
-            <ComposedChart data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
+            <ComposedChart accessibilityLayer aria-label={keyboardLabel} data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
               <CartesianGrid {...gridProps(dark)} />
               <XAxis
                 dataKey="period"
@@ -441,6 +529,7 @@ function PanelCard({
               <Tooltip
                 cursor={barCursorProps(dark)}
                 content={renderTooltip}
+                isAnimationActive={false}
               />
               <Bar
                 yAxisId="value"
@@ -448,7 +537,7 @@ function PanelCard({
                 name={barSeries.label}
                 fill={BAR_COLOR}
                 radius={[4, 4, 0, 0]}
-                maxBarSize={44}
+                maxBarSize={MAX_BAR_SIZE}
                 isAnimationActive={!reduced}
                 animationDuration={lineProps(reduced).animationDuration}
                 shape={(props: unknown) => {
@@ -474,7 +563,7 @@ function PanelCard({
             </ComposedChart>
           ) : (
             // Dual-axis panels reserve top room for the right axis's head-tag (the named scale).
-            <LineChart data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
+            <LineChart accessibilityLayer aria-label={keyboardLabel} data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
               <CartesianGrid {...gridProps(dark)} />
               <XAxis
                 dataKey="period"
@@ -511,7 +600,7 @@ function PanelCard({
                   label={<AxisSeriesTag color={rightEntry.color} label={rightEntry.label} dark={dark} />}
                 />
               )}
-              <Tooltip content={renderTooltip} />
+              <Tooltip content={renderTooltip} isAnimationActive={false} />
               {lineEntries.map(({ concept, label, color, right }) => (
                 <Line
                   key={concept}
@@ -528,7 +617,7 @@ function PanelCard({
           )}
         </ResponsiveContainer>
       </div>
-      </div>
+      </ChartViewport>
       {unavailableNotes.length > 0 && (
         <p className="mt-2 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
           {unavailableNotes.join(' ')}
@@ -556,7 +645,7 @@ export default function TrendCharts({
   const notes = useDataNotes(dataset)
   const series = useMemo(() => bySeries(dataset), [dataset])
 
-  const topLine = series['revenue'] ? 'revenue' : 'net_interest_income'
+  const topLine = topLineConcept(dataset)
 
   const panels: PanelSpec[] = [
     {

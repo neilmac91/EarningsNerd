@@ -128,7 +128,7 @@ export default function WatchlistAddSearch() {
               onClick={() => handleSelect(company)}
               aria-disabled={addMutation.isPending || undefined}
               aria-busy={pendingTicker === company.ticker || undefined}
-              className="group flex w-full items-center justify-between gap-3 border-b border-border-light dark:border-border-dark px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-brand-weak dark:hover:bg-white/5"
+              className="focus-visible:outline-none focus-visible:shadow-ring-brand-inset dark:focus-visible:shadow-ring-brand-inset-dark group flex w-full items-center justify-between gap-3 border-b border-border-light dark:border-border-dark px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-brand-weak dark:hover:bg-white/5"
             >
               <span className="flex min-w-0 items-center gap-2.5 group-aria-disabled:opacity-50">
                 <CompanyLogo decorative ticker={company.ticker} name={formatCompanyName(company.name)} size={28} />

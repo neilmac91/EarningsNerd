@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ArrowClockwiseIcon, ArrowSquareOutIcon, FileTextIcon, XIcon } from '@/lib/icons'
@@ -9,7 +10,9 @@ import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
 import { clearCitationHighlight, highlightExcerptInDom } from './highlightInDom'
 import ReaderTable from './ReaderTable'
-import { Button, buttonVariants, SkeletonText } from '@/components/ui'
+import { buttonVariants, SkeletonText } from '@/components/ui'
+import { queryKeys } from '@/lib/queryKeys'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 
 // The reader's own markdown renderers: each table scrolls sideways in a box of its own (EN-04).
 // Module-level, so ReactMarkdown sees the same object on every render.
@@ -38,41 +41,36 @@ type Status = 'idle' | 'loading' | 'ready' | 'empty' | 'error'
 export default function FilingViewer({ filingId, filingLabel, secUrl, embedded = false }: FilingViewerProps) {
   const viewer = useFilingViewer()
   const [localOpen, setLocalOpen] = useState(false)
-  const [status, setStatus] = useState<Status>('idle')
-  const [content, setContent] = useState<string | null>(null)
   const [passageMissing, setPassageMissing] = useState(false)
+  // The mounted text or status box is the retry's destination: success focuses the loaded reader
+  // (or empty result); another failure keeps the focused Retry inside its retained alert.
   const contentRef = useRef<HTMLDivElement>(null)
   const handledNonce = useRef(0)
-  const statusRef = useRef<Status>('idle')
-  // eslint-disable-next-line react-hooks/refs -- deliberate render-time mirror so effects read the latest status without taking it as a dep (avoids re-running load on every status change)
-  statusRef.current = status
 
   // Embedded: visibility follows the shared view state. Standalone: local citation-driven open state.
   const active = embedded ? viewer?.activeView === 'filing' : localOpen
 
-  // One request at a time. `statusRef` mirrors state, which the effects below read in the same pass
-  // before a `setStatus('loading')` lands, so a chip activation on a closed pane (the request effect
-  // and the first-activation effect both see 'idle') would otherwise fetch twice in parallel, and
-  // whichever answer settled last would win (EN-01).
-  const inFlight = useRef(false)
-  const load = useCallback(async () => {
-    if (inFlight.current) return
-    inFlight.current = true
-    setStatus('loading')
-    try {
-      const c = await fetchFilingContent(filingId)
-      if (c.hasContent && c.markdownContent) {
-        setContent(c.markdownContent)
-        setStatus('ready')
-      } else {
-        setStatus('empty')
-      }
-    } catch {
-      setStatus('error')
-    } finally {
-      inFlight.current = false
-    }
-  }, [filingId])
+  // The content query owns the single in-flight request for this filing, including a tab activation
+  // and a citation in the same commit. Loaded text stays fresh across view switches; a failed read
+  // stays visible and focusable throughout Retry or any other refetch until data replaces it.
+  // An initial errored query has no data, so re-enabling it refetches even with staleTime: Infinity.
+  const contentQuery = useQuery({
+    queryKey: queryKeys.filingContent(filingId),
+    queryFn: () => fetchFilingContent(filingId),
+    enabled: active,
+    retry: false,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  })
+  const failure = useRetainedFailure(contentQuery, queryKeys.filingContent(filingId))
+  const { refetch } = contentQuery
+  const content = contentQuery.data?.markdownContent ?? null
+  const status: Status = failure.failed ? 'error' : contentQuery.data
+    ? contentQuery.data.hasContent && content ? 'ready' : 'empty'
+    : contentQuery.isFetching ? 'loading' : 'idle'
+  const failedRef = useRef(false)
+  // eslint-disable-next-line react-hooks/refs -- event-like citation effect reads the latest failure without restarting on every query transition
+  failedRef.current = failure.failed
 
   const request = viewer?.request ?? null
 
@@ -83,14 +81,9 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs the standalone drawer open in response to an external citation request (nonce-gated, runs once per click)
     if (!embedded) setLocalOpen(true)
     setPassageMissing(false)
-    // Retry on 'error' too, so a transient fetch failure isn't permanent (a fresh click re-loads).
-    if (statusRef.current === 'idle' || statusRef.current === 'error') void load()
-  }, [request, load, embedded])
-
-  // Embedded "Filing" tab opened with no citation: load the full filing on first activation.
-  useEffect(() => {
-    if (embedded && active && statusRef.current === 'idle') void load()
-  }, [embedded, active, load])
+    // A fresh citation also retries a failed read. Join any request already started by activation.
+    if (failedRef.current) void refetch({ cancelRefetch: false })
+  }, [request, refetch, embedded])
 
   // Once content is rendered and a citation is pending, locate + highlight the passage.
   const activeExcerpt = request?.citation.excerpt
@@ -139,7 +132,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
       )}
 
       {(status === 'empty' || status === 'error') && (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+        <div ref={contentRef} tabIndex={-1} role={status === 'error' ? 'alert' : 'status'} className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center outline-none">
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
             {status === 'error'
               ? 'Could not load the filing text.'
@@ -147,9 +140,9 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             {status === 'error' && (
-              <Button variant="secondary" size="sm" onClick={() => void load()} leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" />}>
+              <RetryButton failures={[failure]} focusTarget={contentRef} variant="secondary" size="sm" leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" />}>
                 Try again
-              </Button>
+              </RetryButton>
             )}
             {isHttpUrl(secUrl) && (
               <a href={secUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: 'primary', size: 'sm' })}>

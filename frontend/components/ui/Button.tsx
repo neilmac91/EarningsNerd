@@ -34,22 +34,25 @@ function resolveVariant(variant: ButtonVariant): Exclude<ButtonVariant, 'tertiar
 }
 
 const BASE = cx(
-  'inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-semibold',
+  'inline-flex select-none items-center justify-center gap-2 font-semibold',
   'transition-colors duration-fast',
   'focus-visible:outline-none',
 )
 
 const SIZE: Record<ButtonSize, string> = {
   // Radius snaps to 12 (rounded-lg) at EVERY size — buttons + inputs are 12 on the 4/8/12/16/24 scale.
-  sm: 'h-8 gap-1.5 rounded-lg px-3 text-xs',
-  md: 'h-10 rounded-lg px-4 text-sm',
-  lg: 'h-12 rounded-lg px-5 text-base',
+  sm: 'gap-1.5 rounded-lg px-3 text-xs',
+  md: 'rounded-lg px-4 text-sm',
+  lg: 'rounded-lg px-5 text-base',
   // Icon-only square. A first-class size, NOT a zero-padding className override on `sm`: cx
   // does no tailwind-merge, so two conflicting padding utilities in one class attribute resolve
   // by STYLESHEET order and the size's px-3 wins — which crushed 20px glyphs to a 6px content
   // box (the AAPL "tiny icons" bug; gate: tests/unit/button-icon-size-gate.spec.ts).
-  'icon-sm': 'h-8 w-8 rounded-lg p-0 text-xs',
+  'icon-sm': 'w-8 rounded-lg p-0 text-xs',
 }
+
+const HEIGHT: Record<ButtonSize, string> = { sm: 'h-8', md: 'h-10', lg: 'h-12', 'icon-sm': 'h-8' }
+const WRAP_SIZE = { sm: 'min-h-8 py-1.5', md: 'min-h-10 py-2', lg: 'min-h-12 py-2.5' }
 
 const VARIANT: Record<Exclude<ButtonVariant, 'tertiary'>, string> = {
   primary: cx(
@@ -99,6 +102,8 @@ const SPINNER_SIZE: Record<ButtonSize, string> = {
 export interface ButtonVariantsOptions {
   variant?: ButtonVariant
   size?: ButtonSize
+  /** Let a text label wrap, preserving the size's minimum height. Icon sizes stay square. */
+  wrap?: boolean
   className?: string
 }
 
@@ -110,8 +115,10 @@ export interface ButtonVariantsOptions {
       <Link href="/pricing" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
 
     <Button> itself composes this same factory — one source of truth. */
-export function buttonVariants({ variant = 'primary', size = 'md', className }: ButtonVariantsOptions = {}): string {
-  return cx(BASE, SIZE[size], VARIANT[resolveVariant(variant)], className)
+export function buttonVariants({ variant = 'primary', size = 'md', wrap = false, className }: ButtonVariantsOptions = {}): string {
+  return cx(BASE, SIZE[size],
+    wrap && size !== 'icon-sm' ? cx(WRAP_SIZE[size], 'whitespace-normal') : cx(HEIGHT[size], 'whitespace-nowrap'),
+    VARIANT[resolveVariant(variant)], className)
 }
 
 /** The primary variant's `disabled:` look keyed to `aria-disabled`, for a primary <Button> that is
@@ -155,6 +162,8 @@ function Spinner({ className }: { className?: string }) {
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
   size?: ButtonSize
+  /** Let a text label wrap, preserving the size's minimum height. Icon sizes stay square. */
+  wrap?: boolean
   loading?: boolean
   /** Optional label swap while loading, e.g. "Generating…" */
   loadingText?: string
@@ -163,7 +172,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', size = 'md', loading = false, loadingText, leftIcon, rightIcon, className, children, onClick, type = 'button', ...rest },
+  { variant = 'primary', size = 'md', wrap = false, loading = false, loadingText, leftIcon, rightIcon, className, children, onClick, type = 'button', ...rest },
   ref,
 ) {
   const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
@@ -184,7 +193,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       onClick={handleClick}
       aria-busy={loading || undefined}
       aria-disabled={loading || undefined}
-      className={cx(buttonVariants({ variant, size }), loading && 'cursor-progress', className)}
+      className={cx(buttonVariants({ variant, size, wrap }), loading && 'cursor-progress', className)}
       {...rest}
     >
       {loading ? <Spinner className={SPINNER_SIZE[size]} /> : leftIcon}
