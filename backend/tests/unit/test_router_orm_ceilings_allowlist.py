@@ -57,7 +57,7 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 ROUTER_ORM_CEILINGS: dict[str, int] = {
     "app/routers/analysis.py": 0,
 
-    "app/routers/contact.py": 5,
+    "app/routers/contact.py": 0,
 
     "app/routers/feedback.py": 5,
 
