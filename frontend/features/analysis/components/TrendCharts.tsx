@@ -1,6 +1,6 @@
 'use client'
 
-import { useContext, useMemo, useRef, useState } from 'react'
+import { useContext, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   Bar,
   CartesianGrid,
@@ -66,6 +66,7 @@ const pct = (v: number) => fmtPercent(v, { digits: 1 })
 const BAR_COLOR = seriesColor(0)
 const GROWTH_LINE_COLOR = seriesColor(1)
 const GROWTH_LINE_LABEL = 'YoY growth'
+const MAX_BAR_SIZE = 44
 
 // Dual-axis sanity (P1-8): anchor BOTH value axes to zero so the two independent scales share a
 // baseline — a right-axis series sitting near its own min can't read as "at the bottom" when it is
@@ -180,9 +181,52 @@ function ChartViewport({ label, children }: { label: string; children: React.Rea
     label: `${label} chart. Scroll horizontally to view all periods.`,
   })
   return <div ref={viewportRef} data-analysis-chart-scroll {...regionProps}
+    onKeyDownCapture={(event) => {
+      // Recharts moves one period per arrow. Native pixel scrolling on that same key can
+      // drift away from the selected period; the outer region keeps its native scrolling.
+      if (event.target instanceof SVGElement && event.target.getAttribute('role') === 'application'
+        && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) event.preventDefault()
+    }}
     className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark has-[:focus-visible]:shadow-ring-brand dark:has-[:focus-visible]:shadow-ring-brand-dark [&_svg[role=application]:focus-visible]:outline-none">
     {children}
   </div>
+}
+
+/** Keep a keyboard-selected mark and its live tooltip inside the horizontal viewport. */
+function ChartTooltipStatus({ active, coordinateX, plotRef, children }: {
+  active: boolean
+  coordinateX?: number
+  plotRef: React.RefObject<HTMLDivElement>
+  children: React.ReactNode
+}) {
+  const statusRef = useRef<HTMLDivElement>(null)
+  // Recharts repositions the wrapper after measuring its contents. Measure each render,
+  // including that second layout pass, rather than retaining a stale tooltip rectangle.
+  useLayoutEffect(() => {
+    const status = statusRef.current
+    const plot = plotRef.current
+    const viewport = plot?.parentElement
+    if (!active || !status || !plot || !viewport) return
+    let frame = viewport.getBoundingClientRect()
+    const focused = document.activeElement
+    if (focused instanceof SVGElement && focused.getAttribute('role') === 'application'
+      && plot.contains(focused) && coordinateX != null) {
+      const pointX = plot.getBoundingClientRect().left + coordinateX
+      const halfMark = MAX_BAR_SIZE / 2
+      if (pointX - halfMark < frame.left || pointX + halfMark > frame.right) {
+        viewport.scrollLeft += pointX - frame.left - frame.width / 2
+        frame = viewport.getBoundingClientRect()
+      }
+    }
+    // A wide tooltip may need to wrap on phones. Only its presentation moves; its series,
+    // period, note identities and values still come directly from Recharts' active payload.
+    status.style.maxWidth = `${viewport.clientWidth}px`
+    status.style.transform = 'none'
+    const tip = status.getBoundingClientRect()
+    const shift = Math.max(frame.left - tip.left, Math.min(0, frame.right - tip.right))
+    status.style.transform = `translateX(${shift}px)`
+  })
+  return <div ref={statusRef} role="status" style={{ width: 'max-content' }}>{children}</div>
 }
 
 interface PanelSpec {
@@ -327,8 +371,8 @@ function PanelCard({
     return panel.format(num)
   }
 
-  const renderTooltip = ({ active, label, payload }: TooltipContentProps) => (
-    <div role="status">
+  const renderTooltip = ({ active, label, payload, coordinate }: TooltipContentProps) => (
+    <ChartTooltipStatus active={active} coordinateX={coordinate?.x} plotRef={plotRef}>
       <ChartTooltip
         dark={dark}
         active={active}
@@ -345,7 +389,7 @@ function PanelCard({
           }
         })}
       />
-    </div>
+    </ChartTooltipStatus>
   )
 
   const legendItems = barSeries
@@ -463,6 +507,7 @@ function PanelCard({
               <Tooltip
                 cursor={barCursorProps(dark)}
                 content={renderTooltip}
+                isAnimationActive={false}
               />
               <Bar
                 yAxisId="value"
@@ -470,7 +515,7 @@ function PanelCard({
                 name={barSeries.label}
                 fill={BAR_COLOR}
                 radius={[4, 4, 0, 0]}
-                maxBarSize={44}
+                maxBarSize={MAX_BAR_SIZE}
                 isAnimationActive={!reduced}
                 animationDuration={lineProps(reduced).animationDuration}
                 shape={(props: unknown) => {
@@ -533,7 +578,7 @@ function PanelCard({
                   label={<AxisSeriesTag color={rightEntry.color} label={rightEntry.label} dark={dark} />}
                 />
               )}
-              <Tooltip content={renderTooltip} />
+              <Tooltip content={renderTooltip} isAnimationActive={false} />
               {lineEntries.map(({ concept, label, color, right }) => (
                 <Line
                   key={concept}

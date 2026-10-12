@@ -732,6 +732,17 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
       const tooltip = revenue.locator('.recharts-tooltip-wrapper').getByRole('status')
       const assertPeriodVisible = async (index: number) => {
         await expect(tooltip).toContainText(PERIODS[index].replace(/^(\d{4})(Q\d)$/, '$2 $1'))
+        const settled = await viewport.evaluate(async element => {
+          let previous = element.scrollLeft
+          let stable = 0
+          for (let frame = 0; frame < 90 && stable < 5; frame++) {
+            await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+            stable = Math.abs(element.scrollLeft - previous) < 0.1 ? stable + 1 : 0
+            previous = element.scrollLeft
+          }
+          return stable >= 5
+        })
+        expect(settled, 'keyboard scrolling settles before checking the selected period').toBe(true)
         // DOM text alone does not prove keyboard access: the selected mark and its tooltip
         // must remain inside the horizontal viewport in both directions and after re-entry.
         await expect.poll(async () => {
