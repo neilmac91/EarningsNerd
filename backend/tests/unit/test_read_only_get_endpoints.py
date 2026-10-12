@@ -15,7 +15,8 @@ every hit). Two AST checks over every ``@<router>.get`` handler in ``app/routers
    ``bulk_update_mappings`` on a name called ``db``/``session``, or ``.update()``/``.delete()`` on
    a ``db.query(...)`` chain or on a local the function binds to one), a ``BackgroundTasks``
    parameter or ``.add_task(`` call, or ``asyncio.create_task(``. An engine (a name called
-   ``engine``, one bound from ``create_engine()``, and ``app.database``'s ``engine`` however the
+   ``engine``, one bound from ``create_engine()`` however it is called (``sa.create_engine(...)``, or
+   under a name the file imports it as), and ``app.database``'s ``engine`` however the
    file imports it: ``from app.database import engine as db_engine`` or ``database.engine``) and a
    Connection (bound from
    ``engine.connect()``, ``engine.begin()`` or ``db.connection()``, or written through directly:
@@ -356,12 +357,22 @@ def _alternatives(expr: ast.AST):
 
 def _binds_session(value: ast.AST, sessions: set[str]) -> bool:
     """Whether a value bound to a name is a session, an engine or a Connection: a session factory
-    (``SessionLocal()``), ``create_engine()``, a Connection opened on a name in ``sessions``, or a
-    copy of one; a conditional is one if any value it may take is (``_alternatives``). A local
-    binding and a comprehension's target are judged by this one test."""
-    return any(_opens_session(alt) or (
-        isinstance(alt, ast.Call) and isinstance(alt.func, ast.Name) and alt.func.id == "create_engine"
-    ) or _opens_connection(alt, sessions) or _dotted(alt) in sessions for alt in _alternatives(value))
+    (``SessionLocal()``), ``create_engine()`` (``_creates_engine``), a Connection opened on a name in
+    ``sessions``, or a copy of one; a conditional is one if any value it may take is
+    (``_alternatives``). A local binding and a comprehension's target are judged by this one test."""
+    return any(_opens_session(alt) or _creates_engine(alt, sessions) or _opens_connection(alt, sessions)
+               or _dotted(alt) in sessions for alt in _alternatives(value))
+
+
+def _creates_engine(expr: ast.AST, sessions: set[str]) -> bool:
+    """A call that builds an engine: ``create_engine(...)`` however qualified (``sa.create_engine(...)``),
+    or a call to a name the file imports it as, which ``sessions`` holds as ``name()``
+    (``_engine_names``)."""
+    if not isinstance(expr, ast.Call):
+        return False
+    func = expr.func
+    name = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else None
+    return name == "create_engine" or f"{_dotted(func)}()" in sessions
 
 
 def _opens_connection(expr: ast.AST, sessions: set[str]) -> bool:
@@ -485,6 +496,7 @@ def _side_effect_markers(fn: ast.AST, engines: frozenset[str] = frozenset()) -> 
 _PARSED: dict[Path, ast.Module] = {}
 _BINDINGS: dict[Path, dict[str, list[tuple[str, str | None]]]] = {}
 _IMPORTS_APP: dict[Path, bool] = {}
+_FACTORIES: dict[Path, frozenset[str]] = {}
 _Target = tuple[Path, ast.AST, str]  # (file, function node, qualified name in that file)
 
 
@@ -565,11 +577,23 @@ def _targets(path: Path | None, name: str, depth: int = 0) -> list[_Target]:
 def _engine_names(path: Path) -> frozenset[str]:
     """What ``path`` calls ``app.database``'s engine besides ``engine`` itself: an alias (``from
     app.database import engine as db_engine``) or an attribute of the module (``database.engine``,
-    and ``app.database.engine`` after an unaliased ``import app.database``)."""
+    and ``app.database.engine`` after an unaliased ``import app.database``). It also holds, written
+    ``name()``, each name the file imports ``create_engine`` as (``_engine_factories``)."""
     names = {local if symbol == "engine" else f"{local}.engine"
              for local, entries in _bindings(path).items() for module, symbol in entries
              if module == "app.database" and symbol in ("engine", None)}
-    return frozenset(names | ({"app.database.engine"} if _imports_app(path) else set()))
+    return frozenset(names | _engine_factories(path) | ({"app.database.engine"} if _imports_app(path) else set()))
+
+
+def _engine_factories(path: Path) -> frozenset[str]:
+    """``name()`` for each name ``path`` imports ``create_engine`` as (``from sqlalchemy import
+    create_engine as make_engine``), anywhere in the file: a call to it builds an engine."""
+    if path not in _FACTORIES:
+        _FACTORIES[path] = frozenset(
+            f"{alias.asname}()" for node in ast.walk(_module(path)) if isinstance(node, ast.ImportFrom)
+            for alias in node.names if alias.name == "create_engine" and alias.asname
+        )
+    return _FACTORIES[path]
 
 
 def _imports_app(path: Path) -> bool:
@@ -977,6 +1001,7 @@ def _use_tree(tmp_path: Path, monkeypatch, tree: dict[str, str]) -> None:
     monkeypatch.setattr(module, "_PARSED", {})
     monkeypatch.setattr(module, "_BINDINGS", {})
     monkeypatch.setattr(module, "_IMPORTS_APP", {})
+    monkeypatch.setattr(module, "_FACTORIES", {})
 
 
 def test_walk_follows_every_documented_form(tmp_path, monkeypatch):
@@ -1388,6 +1413,21 @@ def conditional_rows_stay_rows(db):
     first.update({})
 
 
+@router.get("/bm")
+def qualified_factory_engine_begins():
+    import sqlalchemy as sa
+    other = sa.create_engine("sqlite://")
+    with other.begin() as conn:
+        conn.execute(delete(T))
+
+
+@router.get("/bn")
+def aliased_factory_engine_begins():
+    from sqlalchemy import create_engine as make_engine
+    other = make_engine("sqlite://")
+    other.begin()
+
+
 @router.get("/ab")
 def connects_iterates_and_unpacks_rows(db):
     with engine.connect() as conn:
@@ -1459,6 +1499,7 @@ def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
         "conditional_query_deletes", "loop_conditional_query_deletes", "fallback_query_deletes",
         "walrus_value_query_deletes", "conditional_session_commits", "conditional_receiver_deletes",
         "conditional_session_receiver_commits", "conditional_connection_receiver_executes",
+        "qualified_factory_engine_begins", "aliased_factory_engine_begins",
     }
     assert flagged == expected, f"missed: {sorted(expected - flagged)}; unexpected: {sorted(flagged - expected)}"
     # The Connection that engine.begin() opens counts its own writes, as a pin's per-kind count needs;
