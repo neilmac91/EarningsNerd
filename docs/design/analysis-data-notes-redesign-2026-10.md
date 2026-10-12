@@ -955,6 +955,9 @@ text size. Merge and deployment verification for this geometry change remain pen
 and carry the note letter above, with SVG/PNG halos. Merge and deployment verification
 remain pending.
 
+**Branch implementation (2026-10-12).** Decision 8 is implemented on this branch in #1275: recent-period presets are plain buttons
+without a second pressed selection state. Merge and deployment verification remain pending.
+
 4 (amended). Decision 4 was measured at 100% text only. At 200% text a 390 px phone shows 55 px of
    card overflow two-up and 90 px at 320. Recommended and implemented: two-up stays at 320 px and 100%
    text; the cards go one-up when the page is narrower than 17 em of its own text size (§4.4).

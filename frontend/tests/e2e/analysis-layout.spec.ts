@@ -835,3 +835,56 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
     })
   })
 }
+
+for (const theme of THEMES) for (const width of [320, 390, 1480]) for (const textScale of [1, 2]) {
+  test.describe(`analysis period controls / ${theme} / ${width}px / ${textScale * 100}% text`, () => {
+    test.use({ viewport: { width, height: 1000 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+    test('keeps range changes readable and explains unavailable modes in the Tab order', async ({ page, baseURL }) => {
+      await openAnalysis(page, baseURL!, 'clean', theme, textScale)
+      const from = page.getByRole('combobox', { name: 'From', exact: true })
+      const to = page.getByRole('combobox', { name: 'To', exact: true })
+      await from.selectOption('2022Q1')
+      await expect(to).toHaveValue('2024Q4')
+      await expect(page.getByRole('status').filter({ hasText: 'To moved' })).toHaveText('To moved to Q4 2024 to keep at most 12 quarters.')
+      await expect(page.getByText('Q1 2022 – Q4 2024 · 12 quarters', { exact: true })).toBeVisible()
+      for (const select of [from, to]) {
+        const geometry = await select.evaluate((element) => {
+          const field = element as HTMLSelectElement
+          const style = getComputedStyle(field)
+          const box = field.getBoundingClientRect()
+          const canvas = document.createElement('canvas')
+          const context = canvas.getContext('2d')!
+          context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+          return { left: box.left, right: box.right, font: style.fontFamily, available: field.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight), selectedWidth: context.measureText(field.selectedOptions[0].text).width }
+        })
+        expect(geometry.font).toMatch(/geist.?mono/i)
+        expect(geometry.left).toBeGreaterThanOrEqual(0)
+        expect(geometry.right).toBeLessThanOrEqual(width + EPSILON)
+        expect(geometry.selectedWidth, 'the full selected period token fits beside the native chevron').toBeLessThanOrEqual(geometry.available + EPSILON)
+      }
+      for (const preset of await page.getByRole('group', { name: 'Recent period presets' }).getByRole('button').all()) {
+        await expect(preset).not.toHaveAttribute('aria-pressed')
+      }
+      await page.route('**/api/analysis/META/coverage', route => route.fulfill({ json: {
+        ticker: 'META', company_name: 'Meta Platforms, Inc.', supported: true, reason: null, syncing: false, synced_at: null,
+        limits: { annual: 10, quarterly: 12 },
+        annual: [{ key: 'FY2025', fiscal_year: 2025, period_end: '2025-12-31', has_core: true }], quarterly: [],
+      }, headers: { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'GET,OPTIONS' } }))
+      await page.reload()
+      const annual = page.getByRole('button', { name: 'Annual', exact: true })
+      const quarterly = page.getByRole('button', { name: 'Quarterly', exact: true })
+      await expect(quarterly).toHaveAttribute('aria-disabled', 'true')
+      await expect(quarterly).toHaveJSProperty('disabled', false)
+      await expect(quarterly).toHaveAccessibleDescription("Quarterly data isn't available for this company.")
+      await annual.focus()
+      await page.keyboard.press('Tab')
+      await expect(quarterly).toBeFocused()
+      await page.keyboard.press('Enter')
+      await page.keyboard.press('Space')
+      await expect(annual).toHaveAttribute('aria-pressed', 'true')
+      const focus = await quarterly.evaluate(element => ({ opacity: getComputedStyle(element).opacity, shadow: getComputedStyle(element).boxShadow }))
+      expect(focus.opacity).toBe('1')
+      expect(focus.shadow).not.toBe('none')
+    })
+  })
+}
