@@ -221,7 +221,9 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  carries the reset (Input.tsx FIELD_BASE, v3.6; gate tests/unit/inputClassesNoOverrides.spec.tsx),
                  and a field that styles itself, on any page, takes it with a DS ring and its dark twin (gate: the
                  app-wide field describe in tests/unit/siteChromeFocusRing.spec.ts). Every Tab stop
-                 in the site chrome carries it (the skip link the same triple on `focus:`): gate
+                 in the site chrome carries it (the skip link the same triple on `focus:`). The same gate
+                 covers raw controls in check-email, settings, invites and watchlist pages and their feature
+                 modules, plus the shared Switch; field recipes retain their app-wide gates: gate
                  tests/unit/siteChromeFocusRing.spec.ts reads the AST of every chrome file, discovered from
                  app/layout.tsx, every route layout, template or error boundary under app/ (the admin
                  nav, global-error's fallback), AuthShell and SecondaryHeader through their imports (a lazy
