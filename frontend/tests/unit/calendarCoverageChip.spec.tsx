@@ -1,0 +1,74 @@
+import { describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import EarningsCalendarPage from '@/features/calendar/components/EarningsCalendarPage'
+import type { CalendarEvent, CalendarUniverse } from '@/features/calendar/api/calendar-api'
+
+/**
+ * The calendar's coverage chip renders only when the backend reports the index universe
+ * (`universe: 'sp500_nasdaq100'`), which the page's fixture mode never does, so the chip is proven
+ * here on a bounded payload instead: seven reports on the week's Monday (so the week view also shows
+ * its "+N more" control) under the known universe. Sage never colours a number (DESIGN.md, the
+ * Separate Signals Rule; D-030): the chip, which carries "500" and "100", rests in the neutral pill
+ * (panel fill, hairline, secondary ink), and the "+N more" control rests in the secondary ink and
+ * turns sage only under the pointer. The chip is absent while the universe is 'all'.
+ */
+
+let universe: CalendarUniverse = 'sp500_nasdaq100'
+
+vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: async () => null }))
+vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({ getUsage: async () => ({ is_pro: false }) }))
+vi.mock('@/features/calendar/api/calendar-api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/calendar/api/calendar-api')>()
+  const day = (from: string): CalendarEvent[] =>
+    Array.from({ length: 7 }, (_, i) => ({
+      ticker: `T${i}X`,
+      company_name: `Company ${i}`,
+      event_date: from,
+      event_time: i % 2 ? 'amc' : 'bmo',
+      status: 'estimated',
+      confidence: 'high',
+      eps_estimate: 1,
+      eps_actual: null,
+      anticipation_score: 100 - i,
+    }))
+  return {
+    ...actual,
+    getCalendar: async (from: string) => ({ events: day(from), universe }),
+    getEarningsAlertTickers: async () => [],
+  }
+})
+
+async function renderPage() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <EarningsCalendarPage />
+    </QueryClientProvider>,
+  )
+  await waitFor(() => expect(screen.getAllByRole('button', { name: /^\+\d+ more$/ }).length).toBeGreaterThan(0))
+}
+
+const SAGE_INK = /(^|\s)(dark:)?text-brand-strong(-dark)?(\s|$)/
+const SAGE_FILL = /(^|\s)(dark:)?bg-brand-weak(-dark)?(\s|$)/
+
+describe('the calendar coverage chip under the known universe', () => {
+  it('rests in the neutral pill, never in sage, while the week view shows its "+N more" in the secondary ink', async () => {
+    universe = 'sp500_nasdaq100'
+    await renderPage()
+    const chip = await screen.findByText(/^Covering the S&P 500 & Nasdaq 100$/)
+    expect(chip).toHaveClass('text-text-secondary-light', 'dark:text-text-secondary-dark', 'bg-panel-light', 'dark:bg-panel-dark', 'border')
+    expect(chip.className).not.toMatch(SAGE_INK)
+    expect(chip.className).not.toMatch(SAGE_FILL)
+    for (const more of screen.getAllByRole('button', { name: /^\+\d+ more$/ })) {
+      expect(more).toHaveClass('text-text-secondary-light', 'dark:text-text-secondary-dark', 'hover:text-brand-strong', 'dark:hover:text-brand-strong-dark')
+      expect(more.className).not.toMatch(SAGE_INK)
+    }
+  })
+
+  it('is absent while the backend serves every company', async () => {
+    universe = 'all'
+    await renderPage()
+    expect(screen.queryByText(/^Covering the S&P 500/)).not.toBeInTheDocument()
+  })
+})
