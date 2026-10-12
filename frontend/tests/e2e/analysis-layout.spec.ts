@@ -286,6 +286,7 @@ async function tableGeometry(page: Page) {
     const targets = [...new Set([...stops, ...stops.map(stop => stop + step * 0.4), maximum])]
     const rests: Array<{ target: number; left: number; stable: boolean; partialColumns: number; visibleColumns: number }> = []
     const lastColumnClipped: Array<{ row: number; text: string }> = []
+    const labelClippedAtHome: Array<{ row: number; text: string }> = []
     for (const target of targets) {
       scroll.scrollTo({ left: target, behavior: 'instant' })
       let stableFrames = 0, previous = -1, frame = 0
@@ -306,6 +307,11 @@ async function tableGeometry(page: Page) {
         return box.left >= boundary - 1 && box.right <= scrollBox.right + 1
       }).length
       rests.push({ target, left: scroll.scrollLeft, stable: stableFrames >= 5, partialColumns, visibleColumns })
+      if (target === 0) for (const [rowIndex, row] of rows.entries()) {
+        for (const text of textRects(row.firstElementChild!)) if (text.left < scrollBox.left - 1 || text.right > scrollBox.right + 1) {
+          labelClippedAtHome.push({ row: rowIndex, text: text.text })
+        }
+      }
       if (target === maximum) for (const [rowIndex, row] of rows.entries()) {
         const cell = row.lastElementChild!
         for (const text of textRects(cell)) if (text.left < boundary - 1 || text.right > scrollBox.right + 1) {
@@ -318,7 +324,7 @@ async function tableGeometry(page: Page) {
       return Math.max(...tops) - Math.min(...tops)
     })
     return {
-      widths, clippedCells, lastColumnClipped, valueSpreads, rests, sticky, inset, initial, stops,
+      widths, clippedCells, lastColumnClipped, labelClippedAtHome, valueSpreads, rests, sticky, inset, initial, stops,
       scrollLeft: scroll.scrollLeft, maximum, viewport: scroll.clientWidth,
       role: scroll.getAttribute('role'), tabIndex: scroll.getAttribute('tabindex'), label: scroll.getAttribute('aria-label'),
     }
@@ -383,6 +389,7 @@ async function assertTableGeometry(page: Page, expectedColumns: number) {
   expect(Math.min(...geometry.widths), 'period columns cannot collapse').toBeGreaterThan(0)
   expect(Math.max(...geometry.widths) - Math.min(...geometry.widths), 'every period receives the same width').toBeLessThanOrEqual(EPSILON)
   expect(geometry.clippedCells, 'actual glyph ranges fit every header and body cell, including hidden-by-overflow descendants').toEqual([])
+  expect(geometry.labelClippedAtHome, 'every label glyph is readable at the Home stop').toEqual([])
   expect(geometry.maximum - geometry.scrollLeft, 'last period remains reachable at the far-right endpoint').toBeLessThanOrEqual(EPSILON)
   for (const rest of geometry.rests) {
     expect(rest.stable, `native snap settles after aiming at ${rest.target}`).toBe(true)

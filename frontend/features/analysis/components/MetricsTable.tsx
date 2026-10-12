@@ -161,7 +161,7 @@ export default function MetricsTable({
   const hasDerived = dataset.series.some((s) => s.points.some((p) => p.provenance?.method === 'calculated' || (!p.provenance && p.derived)) || s.cagr_provenance?.method === 'calculated' || s.window_pp_provenance?.method === 'calculated')
 
   return (
-    <Card as="section" className="min-w-0 p-4 sm:p-6" data-analysis-metrics>
+    <Card as="section" className="@container min-w-0 p-4 sm:p-6" data-analysis-metrics>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Heading className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -213,7 +213,7 @@ export default function MetricsTable({
         cellPadding="compact"
         layout="fixed"
         colWidths={columns.map((column) => column.key === 'metric' ? 'var(--metric-col)' : 'var(--period-col)')}
-        className="[--metric-col:6.5rem] [--period-col:4.25rem] md:[--metric-col:8.25rem] md:[--period-col:4.75rem]"
+        className="[--metric-col:min(6.5rem,100cqi)] [--period-col:4.25rem] md:[--metric-col:min(8.25rem,100cqi)] md:[--period-col:4.75rem]"
         snapColumns
         scrollRegion={{
           label: `Metrics by period, scrollable table of ${periods.length} ${periodUnit}`,

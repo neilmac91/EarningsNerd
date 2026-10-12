@@ -270,7 +270,11 @@ Data table hover <DataTable> — ordinary rows use hover:bg-white dark:hover:bg-
 
 Analysis table   <MetricsTable> — equal rem period columns with semantic row headers. The label
                  column sticks only when the scrollport can also show one whole period; otherwise
-                 it scrolls with the table and has its own snap stop. While actually overflowing,
+                 it scrolls with the table and has its own snap stop. The MetricsTable Card is its
+                 query container; the label width is capped to that content width, keeping labels
+                 readable at Home without an oversized free-panning snap area. The scroll region
+                 itself is not the container: its trailing snap padding must not shrink the cap.
+                 While actually overflowing,
                  the named region is a Tab stop supporting Left/Right by one measured column,
                  Home/End, PageUp/PageDown and mandatory snapping. Child controls retain their keys. Inline-end padding makes the entire scroll range a whole
                  number of columns. A layout effect measures before paint; resize and enlarged text
