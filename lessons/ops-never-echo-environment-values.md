@@ -56,7 +56,8 @@ The follow-up review (todo E16) found the rest:
 - Sentry sends no frame's local variables (`include_local_variables=False` in `main._sentry_options`), and its
   event scrubber withholds the `X-Internal-Token` header, every outbound request's `http.query` and a request body's
   `new_password`, `current_password`, `refresh_token`, `invite`, `invite_code`, `code` and `id_token` (beside the SDK's
-  own `password` and `token`), on errors and transactions alike. Never configure
+  own `password` and `token`), on errors and transactions alike; every request body key in the API that names a
+  credential is in that list and at the body's top level, where the scrubber looks. Never configure
   `data_collection` (nor `_experiments.data_collection`): the SDK then drops the event scrubber and brings frame
   variables back, whatever `include_local_variables` says. What an event still carries: the exception type,
   message and chain; every frame's file, function, line and five source lines either side; breadcrumbs (log
@@ -65,10 +66,11 @@ The follow-up review (todo E16) found the rest:
 - Nothing prints or logs a secret. An output reports a secret's presence and length, never a character; a
   connection URL's parse error is reported by its type, and an HTTP error from a keyed URL by its status, never
   their messages; a database URL whose host holds an `@` is refused; httpx's request log stays at WARNING where a
-  key travels in a query string. No print, log,
-  warn or write call and no raise or assert message reads a secret field, or the settings object beyond a
-  printable field (`model_dump()`, `__dict__`), directly.
-- `hmac.compare_digest` and `secrets.compare_digest` compare bytes (`.encode()` both sides).
+  key travels in a query string. No output call (a print, log, warn or write call, `click.echo`, `pprint`, a
+  Sentry message, tag, context, extra or breadcrumb) and no raise or assert message reads a secret field directly,
+  the settings object beyond a printable field (`model_dump()`, `__dict__`) or whole (`dict(settings)`,
+  `vars(settings)`, `str.format`, unpacking, iteration), or a secret's environment variable.
+- `hmac.compare_digest` and `secrets.compare_digest` compare bytes (`.encode()` both sides, or a `.digest()`).
 - `scripts/deploy_check.py` prints a secret's presence and length, never its characters, and a database
   error's type, never its message. The model id and the provider base URL are identifiers, not secrets, and
   are printed by design.
@@ -114,8 +116,12 @@ The follow-up review (todo E16) found the rest:
   only base and the absence of an `Annotated` validator, so a validator cannot move out of the walk unseen.
 - **Library messages.** Every settings field but `REGISTRATION_MODE` is built from four values shaped to break a
   parse (the value alone, a URL missing its `@host`, a URL whose every part is the value, a `host:port` pair),
-  each carrying a sentinel; no error's full traceback, chained exceptions included, may hold it. A control
-  class whose validator parses a port shows the shapes reach such a call and that pydantic prints its message.
+  and from one value per prefix a validator might check before it parses: each prefix `app/config.py` checks with
+  `startswith`, the `sk_live_`, `whsec_` and `re_` credential prefixes, and a URL of each scheme a field's default
+  or a connection uses, with the value where the port goes. Each carries a sentinel; no error's full traceback,
+  chained exceptions included, may hold it. A control class whose validators parse a port, one on every value
+  and one only past a `redis://` check, shows the shapes reach both calls (the second only through its scheme's
+  shape) and that pydantic prints the message.
 - **The checks.** `deploy_check`'s environment and configuration checks print no 4-character fragment of a
   fabricated secret on any branch: long keys, 12-character keys (the "appears too short" warnings), and
   production with a `sk_test_` secret key and a `pk_live_` publishable key (the mode warnings); each case
@@ -127,11 +133,14 @@ The follow-up review (todo E16) found the rest:
   host and database only (a query-string password included in the test) and its errors by type; an Alpha Vantage 503 is
   logged and raised as `HTTP 503`; the calendar job's logging setup and the service's `configure_logging` keep httpx's request log off. None prints
   or logs a 4-character fragment of the fabricated secret. An AST walk over every backend file outside `tests/`
-  fails a print, log, warn or write call's argument, or a raise or assert message, that reads `settings.X` or
-  `getattr(settings, ...)` for anything but a printable field, `self.X` for a secret field, or
-  `getattr(obj, "X")` for a secret field, outside `len()`, `bool()`, a comparison and a conditional
-  expression's condition. A secret field is one whose name ends in `_KEY`, `_SECRET`, `_TOKEN`, `_SALT` or
-  `_DSN`, and the two connection URLs.
+  fails an output call's argument (a print, log, warn or write call, `echo`, `pprint`, a Sentry message, tag,
+  context, extra or breadcrumb, by function or method name), or a raise or assert message, that reads
+  `settings.X` or `getattr(settings, ...)` for anything but a printable field, hands the settings object whole to
+  a call other than `repr`, `str`, `getattr`, `hasattr` and `isinstance` or unpacks or iterates it, reads
+  `self.X` or `getattr(obj, "X")` for a secret field, or reads the environment whole or a variable that a
+  secret field, a secret suffix or `PASSWORD` names or that an expression computes; all outside `len()`,
+  `bool()`, a comparison and a conditional expression's condition. A secret field is one whose name ends in
+  `_KEY`, `_SECRET`, `_TOKEN`, `_SALT` or `_DSN`, and the two connection URLs.
 - **Sentry.** Built from `main._sentry_options()` with a fabricated DSN and a transport that keeps each
   envelope, a fixture fails if the options turn local variables back on, send PII or pass `data_collection`.
   An `/internal/` request whose enqueue fails (a 500 whose frames hold the token in a copied local and in every
@@ -139,14 +148,19 @@ The follow-up review (todo E16) found the rest:
   with the header `[Filtered]`, no `vars` and no 8-character fragment of the token; a non-ASCII header is a
   401. An Alpha Vantage request's breadcrumb and span carry `http.query` as `[Filtered]` and no fragment of the
   key. Routes that fail on a JSON body and on a form body holding a fabricated credential under each withheld key
-  send each as `[Filtered]`, on the errors and the transactions. main.py's one init call takes `_sentry_options()`
-  and nothing else.
-- **compare_digest.** An AST walk fails any `compare_digest` call in the backend whose two arguments are not
-  both `.encode(...)` calls or bytes literals.
+  send each as `[Filtered]`, on the errors and the transactions. A walk of the API's request body schemas (JSON and
+  form, through references, unions and lists) fails a key that names a credential (`password`, `token`, `secret`,
+  `invite`, `code`, `key`, `otp`, `nonce`, `credential`; `referral_code` is shared by design) unless the denylist
+  holds it and it sits at the body's top level. The backend's one `sentry_sdk.init` call, through any import, is
+  main.py's, and it takes `_sentry_options()` and nothing else.
+- **compare_digest.** An AST walk fails any `compare_digest` call in the backend, by its name or a name
+  `from hmac|secrets import compare_digest as ...` gives it, whose two arguments are not both bytes by their
+  form: an `.encode(...)`, a `.digest()`, a `bytes(...)` or a bytes literal.
 
 The agent clause is not machine-gated and stays session reading.
 
-**Known ungated echoes**, each a follow-up:
+**Known ungated echoes.** Two are open follow-ups in `tasks/todo.md` (E17, E18); the rest are accepted limits, each
+with its reason:
 - `scripts/refresh_index_membership.py --source fmp` logs an HTTP error's message (the FMP URL with its key) and
   lets httpx log each request URL at INFO; the monthly workflow uses the keyless Wikipedia source (todo E17);
 - a provider's own error text can quote a masked key's last four characters (Stripe's and the AI providers'
@@ -158,12 +172,14 @@ The agent clause is not machine-gated and stays session reading.
   port, user and database; it carries no password once the URL parses with a clean host;
 - `main.py`'s Sentry init-failure line prints a malformed DSN's parse message (its scheme, its project path, or
   the port segment of a legacy key pair without a host); the DSN's key is public by Sentry's design;
-- Sentry scrubs keys, not values: a secret in a log message (a breadcrumb), an exception message or an extra is
-  kept out only at its source. The output walk sees only a direct read, not an alias
-  (`url = settings.REDIS_URL`), a helper the value is handed to or an object holding it (`stripe.api_key`), and
+- Sentry scrubs keys, not values (todo E16 proposed a `before_send` value scrubber; turning frame variables off
+  replaced it): a secret in a log message (a breadcrumb), an exception message or an extra is kept out only at its
+  source. The output walk sees only a direct read in a call it names as an output, not an
+  alias (`url = settings.REDIS_URL`), a helper the value is handed to or an object holding it (`stripe.api_key`), and
   the message walk reads `app/config.py` only and does not follow `globals()`, `setattr` or `sys.modules`;
-- the library-message test drives four shapes, one field at a time, as constructor arguments: a parse that
-  fails only on other input, on two fields together or only from the environment is not exercised.
+- the library-message test drives its shapes one field at a time, as constructor arguments: a parse behind a
+  check other than `startswith` or a known prefix, one that fails only on other input, on two fields together
+  or only from the environment is not exercised.
 
 **Evidence.** `backend/app/config.py` (`class Config`, `__repr_args__`); `backend/main.py` (`_sentry_options`);
 `backend/app/routers/internal.py` (`_require_internal_token`); `backend/app/database.py` (`_database_url`);

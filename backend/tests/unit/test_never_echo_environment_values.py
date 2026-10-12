@@ -23,8 +23,8 @@ each gated here:
   holding a request, the database driver's connect arguments), the `X-Internal-Token` header and each outbound
   request's query string, and the exact-name scrubber left `new_password` and `current_password` in a request
   body; the compare_digest checks raised on a non-ASCII value, a 500 whose frame held the secret;
-- and, for every route at once, no print, log, warn or write call and no raise or assert message in the
-  backend reads a secret directly.
+- and, for every route at once, no output call and no raise or assert message in the backend reads a secret
+  directly, from the settings object or the environment, and every credential a request body names is scrubbed.
 
 Not covered: the echoes the lesson lists as ungated.
 """
@@ -36,6 +36,7 @@ import json
 import logging
 import os
 import random
+import re
 import string
 import sys
 import traceback
@@ -115,8 +116,9 @@ def test_a_settings_object_prints_no_value():
 
 
 class _Parsing(Settings):
-    """The control for the per-field test: a validator whose library call quotes its input, as a URL's port parse
-    does, so the malformed values are shown to reach such a call and its message is shown to print whole."""
+    """The control for the per-field test: validators whose library call quotes its input, as a URL's port parse
+    does, one on every value and one only past a scheme check, so the malformed values are shown to reach both calls
+    and their messages are shown to print whole."""
 
     @field_validator("DATABASE_URL")
     @classmethod
@@ -124,10 +126,37 @@ class _Parsing(Settings):
         urlsplit(v).port
         return v
 
+    @field_validator("REDIS_URL")
+    @classmethod
+    def _checked_port(cls, v):
+        if v.startswith(("redis://", "rediss://")):
+            urlsplit(v).port
+        return v
+
 
 # Shaped to break what a validator would parse: the value alone, a URL whose missing `@host` puts the password where
 # the port goes, a URL whose every part is the value, and a host:port pair.
 _MALFORMED = ("{s}", "postgresql://app:{s}/db", "https://{s}@{s}:{s}/", "{s}:{s}")
+# A validator that parses only past a prefix or scheme check is reached only by a value carrying it: the value behind
+# every prefix app/config.py checks with `startswith` and every prefix a credential carries, and a URL of every scheme
+# a field's default or a connection uses with the value where the port goes.
+_CHECKED_PREFIXES = {
+    constant.value
+    for node in ast.walk(ast.parse((BACKEND_DIR / "app" / "config.py").read_text(encoding="utf-8")))
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "startswith"
+    for arg in node.args
+    for constant in ast.walk(arg)
+    if isinstance(constant, ast.Constant) and isinstance(constant.value, str)
+}
+_SCHEMES = {
+    str(field.default).split("://")[0] for field in Settings.model_fields.values() if "://" in str(field.default)
+}
+_PREFIXED = tuple(
+    sorted(
+        {f"{prefix}{{s}}" for prefix in _CHECKED_PREFIXES | {"sk_live_", "whsec_", "re_"}}
+        | {f"{scheme}://default:{{s}}/0" for scheme in _SCHEMES | {"postgresql", "postgres", "rediss"}}
+    )
+)
 
 
 def _construction_error(model: type[Settings], **values: str) -> str:
@@ -142,12 +171,20 @@ def _construction_error(model: type[Settings], **values: str) -> str:
 def test_a_validators_library_message_prints_whole():
     # hide_input_in_errors hides the input pydantic appends, not the message of an error raised inside a validator.
     assert SHORT_SENTINEL in _construction_error(_Parsing, DATABASE_URL=_MALFORMED[1].format(s=SHORT_SENTINEL))
+    # A parse past a scheme check is reached by a shape carrying the scheme, and by no generic shape.
+    quoted = [
+        shape
+        for shape in (*_MALFORMED, *_PREFIXED)
+        if SHORT_SENTINEL in _construction_error(_Parsing, REDIS_URL=shape.format(s=SHORT_SENTINEL))
+    ]
+    assert quoted == ["redis://default:{s}/0", "rediss://default:{s}/0"]
+    assert {"promo_", "sk_live_", "sqlite"} <= _CHECKED_PREFIXES and {"redis", "sqlite", "https"} <= _SCHEMES
 
 
 @pytest.mark.parametrize("field", sorted(set(Settings.model_fields) - {"REGISTRATION_MODE"}))
 def test_no_field_error_quotes_a_malformed_value(field):
     # REGISTRATION_MODE quotes its value by design (QUOTES_ITS_VALUE).
-    for shape in _MALFORMED:
+    for shape in (*_MALFORMED, *_PREFIXED):
         text = _construction_error(Settings, **{field: shape.format(s=SHORT_SENTINEL)})
         assert SHORT_SENTINEL not in text, f"An error for {field}={shape!r} quotes the value"
 
@@ -800,12 +837,44 @@ def sentry_envelopes():
         sentry_sdk.get_global_scope().set_client(None)
 
 
+def _sentry_inits(tree: ast.Module) -> list[str]:
+    """Each call of sentry_sdk's `init` in the module, through any import of it: `sentry_sdk.init`, the module under
+    another name, or `init` imported from it under any name."""
+    modules, functions = {"sentry_sdk"}, set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules |= {alias.asname or alias.name for alias in node.names if alias.name == "sentry_sdk"}
+        elif isinstance(node, ast.ImportFrom) and node.module == "sentry_sdk":
+            functions |= {alias.asname or alias.name for alias in node.names if alias.name == "init"}
+    names = {f"{module}.init" for module in modules} | functions
+    return [
+        ast.unparse(node) for node in ast.walk(tree) if isinstance(node, ast.Call) and ast.unparse(node.func) in names
+    ]
+
+
 def test_main_passes_sentry_only_its_options():
     # The fixture checks what `_sentry_options` returns; a keyword added at the call itself (`data_collection`, a hook)
-    # would escape it, so main.py's one init call takes those options and nothing else.
-    tree = ast.parse((BACKEND_DIR / "main.py").read_text(encoding="utf-8"))
-    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call) and ast.unparse(node.func).endswith(".init")]
-    assert [ast.unparse(call) for call in calls] == ["sentry_sdk.init(**_sentry_options())"]
+    # or a second init anywhere else would escape it, so the backend's one init call is main.py's, and it takes those
+    # options and nothing else.
+    found = [
+        f"{path.relative_to(BACKEND_DIR).as_posix()}: {call}"
+        for path in _scanned_files()
+        for call in _sentry_inits(ast.parse(path.read_text(encoding="utf-8")))
+    ]
+    assert found == ["main.py: sentry_sdk.init(**_sentry_options())"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import sentry_sdk as sdk\nsdk.init(dsn=x)",
+        "from sentry_sdk import init as start\nstart(dsn=x)",
+        "from sentry_sdk import init\ninit(dsn=x)",
+    ],
+    ids=["module-alias", "function-alias", "function"],
+)
+def test_the_sentry_init_scan_follows_imports(source):
+    assert _sentry_inits(ast.parse(source)) == [source.splitlines()[1]]
 
 
 def _of(items: list, kind: str) -> list[dict]:
@@ -890,6 +959,67 @@ def test_sentry_sends_no_credential_from_a_request_body(sentry_envelopes):
     assert {**dict.fromkeys(form, "[Filtered]"), "state": "fabricated-state"} in data  # so was the form
     leaked = _fragments(credential, json.dumps(sentry_envelopes), width=8)
     assert not leaked, f"{leaked} eight-character fragments of the fabricated credential reached Sentry"
+
+
+# Body keys whose names match a credential's but which carry none: a referral code is shared by design.
+_NOT_CREDENTIALS = {"referral_code"}
+
+
+def _body_keys(schema: dict, components: dict, depth: int = 0, seen: frozenset = frozenset()) -> set[tuple[str, int]]:
+    """Each property a request body schema names, with its depth below the body's top-level object (a list's items
+    count as nested), through references and unions."""
+    if "$ref" in schema:
+        name = schema["$ref"].rsplit("/", 1)[-1]
+        if name in seen:
+            return set()
+        schema, seen = components[name], seen | {name}
+    properties = schema.get("properties", {})
+    keys = {(name, depth) for name in properties}
+    for sub in properties.values():
+        keys |= _body_keys(sub, components, depth + 1, seen)
+    for sub in (*schema.get("anyOf", []), *schema.get("oneOf", []), *schema.get("allOf", [])):
+        keys |= _body_keys(sub, components, depth, seen)
+    if "items" in schema:
+        keys |= _body_keys(schema["items"], components, depth + 1, seen)
+    return keys
+
+
+def test_every_credential_in_a_request_body_is_withheld():
+    # The scrubber matches exact key names at the top of a body only (it is not recursive): a new body key naming a
+    # credential (`reset_code`, `api_token`) would reach Sentry with the request's error and its sampled transaction
+    # unless the denylist names it, and a nested one would reach it anyway.
+    import main
+
+    spec = main.app.openapi()
+    components = spec.get("components", {}).get("schemas", {})
+    keys = {
+        key
+        for operations in spec["paths"].values()
+        for operation in operations.values()
+        for content in operation.get("requestBody", {}).get("content", {}).values()
+        for key in _body_keys(content["schema"], components)
+    }
+    credentials = {
+        (name, depth)
+        for name, depth in keys
+        if re.search("password|token|secret|invite|code|key|otp|nonce|credential", name.lower())
+        and name not in _NOT_CREDENTIALS
+    }
+    assert {("new_password", 0), ("refresh_token", 0), ("invite", 0), ("id_token", 0)} <= credentials  # JSON and form
+    denylist = set(main._sentry_options()["event_scrubber"].denylist)
+    exposed = sorted(f"{name} (depth {depth})" for name, depth in credentials if depth or name.lower() not in denylist)
+    assert not exposed, f"Request body credentials Sentry would receive: {exposed}. Add each to main._sentry_options."
+
+
+def test_the_body_walk_follows_references_unions_and_lists():
+    components = {
+        "Login": {"properties": {"password": {}, "profile": {"$ref": "#/components/schemas/Profile"}}},
+        "Profile": {"properties": {"api_key": {}, "owner": {"$ref": "#/components/schemas/Login"}}},
+    }
+    schema = {
+        "anyOf": [{"$ref": "#/components/schemas/Login"}, {"type": "array", "items": {"properties": {"otp": {}}}}]
+    }
+    assert _body_keys(schema, components) == {("password", 0), ("profile", 0), ("api_key", 1), ("owner", 1), ("otp", 1)}
 
 
 def _alpha_vantage(monkeypatch, status: int, body: str = "", alphabet: str = string.ascii_letters + string.digits):
@@ -1074,21 +1204,36 @@ def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
 
 # Settings fields that hold a secret, by name: keys, secrets, tokens, salts and the DSN, and the two connection URLs,
 # whose names do not say they carry a password. Every other field is printable.
-SECRET_FIELDS = frozenset(
-    name for name in Settings.model_fields if name.endswith(("_KEY", "_SECRET", "_TOKEN", "_SALT", "_DSN"))
-) | {"DATABASE_URL", "REDIS_URL"}
+_SECRET_SUFFIXES = ("_KEY", "_SECRET", "_TOKEN", "_SALT", "_DSN")
+SECRET_FIELDS = frozenset(name for name in Settings.model_fields if name.endswith(_SECRET_SUFFIXES)) | {
+    "DATABASE_URL",
+    "REDIS_URL",
+}
 _PRINTABLE = frozenset(Settings.model_fields) - SECRET_FIELDS
-_OUTPUT_METHODS = {"debug", "info", "warning", "warn", "error", "exception", "critical", "fatal", "log", "write"}
+# Calls that print, log, warn, write or send to Sentry what they are given, by function or method name.
+_OUTPUT_CALLS = {"print", "pprint", "echo", "debug", "info", "warning", "warn", "error", "exception", "critical"} | {
+    "fatal",
+    "log",
+    "write",
+    "capture_message",
+    "set_tag",
+    "set_context",
+    "set_extra",
+    "add_breadcrumb",
+}
+# Calls the settings object may be handed whole: none reads a value (`repr()` and `str()` print `Settings()` and
+# nothing), and `getattr` is judged by the field it names.
+_TAKE_SETTINGS = {"repr", "str", "getattr", "hasattr", "isinstance"}
 
 
 def _outputs(tree: ast.Module) -> list[ast.expr]:
-    """What the module prints: a print call's arguments, a log, warn or write call's, and every raise or assert
-    message."""
+    """What the module prints: an output call's arguments (`print`, a log, warn or write call, `click.echo`,
+    `pprint`, a Sentry message, tag, context, extra or breadcrumb), and every raise or assert message."""
     found = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Call) and (
-            (isinstance(node.func, ast.Name) and node.func.id == "print")
-            or (isinstance(node.func, ast.Attribute) and node.func.attr in _OUTPUT_METHODS)
+            (isinstance(node.func, ast.Name) and node.func.id in _OUTPUT_CALLS)
+            or (isinstance(node.func, ast.Attribute) and node.func.attr in _OUTPUT_CALLS)
         ):
             found.extend([*node.args, *(keyword.value for keyword in node.keywords)])
         elif isinstance(node, ast.Raise):
@@ -1105,23 +1250,51 @@ def _is_settings(node: ast.AST) -> bool:
     )
 
 
+def _is_environ(node: ast.AST) -> bool:
+    """The process environment, by any path: `os.environ`, `environ`."""
+    return (isinstance(node, ast.Name) and node.id == "environ") or (
+        isinstance(node, ast.Attribute) and node.attr == "environ"
+    )
+
+
+def _names_a_secret(name: ast.expr | None) -> bool:
+    """An environment variable's name, read: a secret field's, a password's, or any an expression computes."""
+    if isinstance(name, ast.Constant) and isinstance(name.value, str):
+        return name.value in SECRET_FIELDS or name.value.endswith((*_SECRET_SUFFIXES, "PASSWORD"))
+    return True
+
+
 def _secret_reads(node: ast.AST) -> list[str]:
     """Each read an output expression makes of a secret: on the settings object, anything but a printable field (a
-    secret field, or what is no field at all: `model_dump()`, `__dict__`), as an attribute or through `getattr`; on
-    `self`, a secret field (the class's own methods); through `getattr` on anything, a secret field named as a
-    literal. Not a read: inside `len()` or `bool()`, a comparison, or a conditional expression's condition, none of
-    which prints the value."""
+    secret field, or what is no field at all: `model_dump()`, `__dict__`), as an attribute or through `getattr`, and
+    the object itself handed whole to a call (`dict(settings)`, `vars(settings)`, `"{0.SECRET_KEY}".format(settings)`),
+    unpacked or iterated; on `self`, a secret field (the class's own methods); through `getattr` on anything, a secret
+    field named as a literal; in the environment, the mapping whole or a variable `_names_a_secret` names. Not a read:
+    inside `len()` or `bool()`, a comparison, or a conditional expression's condition, none of which prints the value,
+    and the settings object as an output's own argument or inside the calls `_TAKE_SETTINGS` names."""
     if isinstance(node, ast.IfExp):
         return _secret_reads(node.body) + _secret_reads(node.orelse)
     if isinstance(node, ast.Compare):
         return []
-    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-        if node.func.id in {"len", "bool"}:
+    if isinstance(node, ast.Call):
+        function = ast.unparse(node.func)
+        if function in {"len", "bool"}:
             return []
-        if node.func.id == "getattr" and len(node.args) > 1:
+        if function == "getattr" and len(node.args) > 1:
             name = node.args[1].value if isinstance(node.args[1], ast.Constant) else None
             if name in SECRET_FIELDS or (_is_settings(node.args[0]) and name not in _PRINTABLE):
                 return [ast.unparse(node)]
+        if function.endswith("getenv") or (function.endswith(".get") and _is_environ(node.func.value)):
+            return [ast.unparse(node)] if _names_a_secret(node.args[0] if node.args else None) else []
+        arguments = [*node.args, *(keyword.value for keyword in node.keywords)]
+        if function not in _TAKE_SETTINGS and any(_is_settings(argument) for argument in arguments):
+            return [ast.unparse(node)]
+    if isinstance(node, ast.Subscript) and _is_environ(node.value):
+        return [ast.unparse(node)] if _names_a_secret(node.slice) else []
+    if _is_environ(node) or (isinstance(node, ast.Starred) and _is_settings(node.value)):
+        return [ast.unparse(node)]
+    if isinstance(node, ast.comprehension) and _is_settings(node.iter):
+        return [f"for {ast.unparse(node.target)} in {ast.unparse(node.iter)}"]
     if isinstance(node, ast.Attribute) and (
         (_is_settings(node.value) and node.attr not in _PRINTABLE)
         or (isinstance(node.value, ast.Name) and node.value.id == "self" and node.attr in SECRET_FIELDS)
@@ -1169,6 +1342,23 @@ def test_no_output_reads_a_settings_secret():
         ("print(f'{len(settings.RESEND_API_KEY)}' if settings.RESEND_API_KEY else 'NOT SET')", []),
         ("print(settings.RESEND_API_KEY if settings.RESEND_API_KEY else 'NOT SET')", ["settings.RESEND_API_KEY"]),
         ("print(settings)", []),
+        ("print(repr(settings), str(settings), getattr(settings, 'AI_DEFAULT_MODEL'))", []),
+        ("print(dict(settings))", ["dict(settings)"]),
+        ("print(vars(settings))", ["vars(settings)"]),
+        ("logger.info('%s', list(settings))", ["list(settings)"]),
+        ("print('{0.SECRET_KEY}'.format(settings))", ["'{0.SECRET_KEY}'.format(settings)"]),
+        ("print(*settings)", ["*settings"]),
+        ("print({k: v for k, v in settings})", ["for (k, v) in settings"]),
+        ("print(os.environ.get('DATABASE_URL'))", ["os.environ.get('DATABASE_URL')"]),
+        ("logger.info(os.environ['OPENAI_API_KEY'])", ["os.environ['OPENAI_API_KEY']"]),
+        ("print(os.getenv(name), environ['PGPASSWORD'])", ["os.getenv(name)", "environ['PGPASSWORD']"]),
+        ("print(dict(os.environ))", ["os.environ"]),
+        ("print(os.environ.get('ENVIRONMENT'), os.environ['PORT'])", []),
+        ("console.print(settings.STRIPE_SECRET_KEY)", ["settings.STRIPE_SECRET_KEY"]),
+        ("click.echo(settings.RESEND_API_KEY)", ["settings.RESEND_API_KEY"]),
+        ("pprint(settings.SECRET_KEY)", ["settings.SECRET_KEY"]),
+        ("sentry_sdk.set_tag('token', settings.INTERNAL_JOB_TOKEN)", ["settings.INTERNAL_JOB_TOKEN"]),
+        ("sentry_sdk.capture_message(f'url {settings.DATABASE_URL}')", ["settings.DATABASE_URL"]),
     ],
     ids=[
         "log",
@@ -1188,6 +1378,23 @@ def test_no_output_reads_a_settings_secret():
         "condition",
         "conditional-value",
         "repr",
+        "repr-str-printable-getattr",
+        "dict",
+        "vars",
+        "list",
+        "format",
+        "unpacked",
+        "iterated",
+        "environment-get",
+        "environment-subscript",
+        "environment-computed-and-password",
+        "environment-whole",
+        "environment-printable",
+        "console-print",
+        "echo",
+        "pprint",
+        "sentry-tag",
+        "sentry-message",
     ],
 )
 def test_the_output_gate_flags_a_secret_read(source, expected):
@@ -1195,18 +1402,28 @@ def test_the_output_gate_flags_a_secret_read(source, expected):
 
 
 def _compare_digest_calls(tree: ast.Module) -> list[tuple[int, list[ast.expr]]]:
+    """Each compare_digest call, by its own name or a name `from hmac|secrets import compare_digest as ...` gives it."""
+    names = {"compare_digest"} | {
+        alias.asname
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module in {"hmac", "secrets"}
+        for alias in node.names
+        if alias.name == "compare_digest" and alias.asname
+    }
     return [
         (node.lineno, node.args)
         for node in ast.walk(tree)
         if isinstance(node, ast.Call)
-        and (getattr(node.func, "attr", None) == "compare_digest" or getattr(node.func, "id", None) == "compare_digest")
+        and (getattr(node.func, "attr", None) == "compare_digest" or getattr(node.func, "id", None) in names)
     ]
 
 
 def _not_bytes(args: list[ast.expr]) -> bool:
-    """compare_digest raises TypeError on a non-ASCII str: each argument must be an `.encode(...)` or a bytes literal."""
+    """compare_digest raises TypeError on a non-ASCII str: each argument must be bytes by its form, an `.encode(...)`,
+    a `.digest()`, a `bytes(...)` or a bytes literal."""
     return len(args) != 2 or not all(
-        (isinstance(arg, ast.Call) and isinstance(arg.func, ast.Attribute) and arg.func.attr == "encode")
+        (isinstance(arg, ast.Call) and isinstance(arg.func, ast.Attribute) and arg.func.attr in {"encode", "digest"})
+        or (isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name) and arg.func.id == "bytes")
         or (isinstance(arg, ast.Constant) and isinstance(arg.value, bytes))
         for arg in args
     )
@@ -1232,8 +1449,11 @@ def test_compare_digest_takes_bytes():
         ("secrets.compare_digest(header.encode(), expected)", True),
         ("compare_digest(header.encode(), expected.encode())", False),
         ("hmac.compare_digest(header.encode('utf-8'), b'x')", False),
+        ("from hmac import compare_digest as same\nsame(header, expected.encode())", True),
+        ("hmac.compare_digest(mac.digest(), bytes(header, 'utf-8'))", False),
+        ("hmac.compare_digest(mac.hexdigest(), header.encode())", True),
     ],
-    ids=["str", "one-str", "bytes", "bytes-literal"],
+    ids=["str", "one-str", "bytes", "bytes-literal", "aliased-str", "digest-and-bytes", "hexdigest"],
 )
 def test_the_compare_digest_gate_flags_a_str(source, flagged):
     ((_, args),) = _compare_digest_calls(ast.parse(source))
