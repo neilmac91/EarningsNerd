@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { expect, type Page } from '@playwright/test'
 import type { AnalysisCompletion, AnalysisCoverage, AnalysisDataset } from '../../../features/analysis/api/analysis-api'
+import type { DataNotesDataset, DataNoteQuality } from '../../../features/analysis/lib/dataNotes'
+import type { FactProvenance } from '../../../features/analysis/lib/provenance'
 
 /**
  * Approved redesign VISUAL fixtures (reference commit and source hashes in the JSON).
@@ -36,9 +38,17 @@ function fixtureFor(state: AnalysisState): Fixture {
 }
 
 // The captured projection remains separate from the historical prototype fixtures above.
-// Only display metadata (unit, tone and period fields) is filled from the archived map.
+// Display metadata (unit, tone and period fields) comes from the archived map.
+// The quality-only projection omits lineage: complete the API envelope with
+// synthetic structural defaults, never archived or invented source operands.
 const captureBytes = readFileSync(path.join(__dirname, '../../unit/fixtures/meta-data-notes.json'))
-const capture = JSON.parse(captureBytes.toString()) as { dataset: AnalysisDataset }
+const capture = JSON.parse(captureBytes.toString()) as {
+  source: { snapshot_id: string; dataset_version: string }
+  dataset: DataNotesDataset
+}
+const projectedProvenance = (value: DataNoteQuality['provenance']): FactProvenance | null | undefined => value
+  ? { version: 1, formula: null, inputs: [], ...structuredClone(value) }
+  : value
 
 function geometryFixture(state: AnalysisGeometryState): Fixture {
   expect(createHash('sha256').update(captureBytes).digest('hex')).toBe('67c83050dfd78bab0dd379f3e98806e429dbde024f412574091d595b85e33cad')
@@ -48,9 +58,20 @@ function geometryFixture(state: AnalysisGeometryState): Fixture {
     series: capture.dataset.series.map(series => ({
       ...structuredClone(archive.legacy.dataset.series.find(item => item.concept === series.concept)!),
       ...structuredClone(series),
+      cagr_provenance: projectedProvenance(series.cagr_provenance),
+      window_pp_provenance: projectedProvenance(series.window_pp_provenance),
+      points: series.points.map(point => ({
+        ...structuredClone(point),
+        provenance: projectedProvenance(point.provenance),
+        qoq_provenance: projectedProvenance(point.qoq_provenance),
+        yoy_provenance: projectedProvenance(point.yoy_provenance),
+      })),
     })),
     periods: structuredClone(archive.legacy.dataset.periods),
     inflections: [],
+    snapshot_id: state === 'captured' ? capture.source.snapshot_id : `geometry-${state}`,
+    dataset_version: state === 'captured' ? capture.source.dataset_version : `geometry-${state}`,
+    data_as_of: null,
   }
   // These cases test presentation only; no prose from another state claims these values.
   fixture.completion = { ...fixture.completion, narrative: '## The trajectory\nSynthetic geometry fixture.', citations: [], grounded: 0 }
@@ -89,6 +110,7 @@ function geometryFixture(state: AnalysisGeometryState): Fixture {
     }
   }
   fixture.completion.n_periods = dataset.periods.length
+  fixture.completion.snapshot_id = dataset.snapshot_id!
   return fixture
 }
 
