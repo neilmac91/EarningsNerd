@@ -148,6 +148,32 @@ const why = ({ scrollWidth, clientWidth, widest }: Overflow) =>
 
 test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
 
+/** Below 24rem at the default text size (a 360px phone) the Button's narrow state is already on; a
+    caller's own min-h must still win there, so the header's account link keeps its 44px target. */
+test.describe('a 360px phone at the default text size', () => {
+  test.use({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true })
+  test('home (/) keeps the header account link a 44px target and does not scroll sideways', async ({ page, baseURL }) => {
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem('theme', 'light')
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+      } catch {}
+    })
+    await answerGuest(page, baseURL!)
+    await page.goto('/')
+    await h1(page)
+    const link = siteHeader.chrome(page)
+    await expect(link).toBeVisible()
+    await page.evaluate(() => document.fonts.ready)
+    expect(await page.evaluate(() => matchMedia('(max-width: 24rem)').matches), 'the narrow state is on at 360px').toBe(true)
+    const box = await link.boundingBox()
+    expect(box?.height ?? 0, 'the account link keeps its 44px target (min-h-11) inside the narrow state').toBeGreaterThanOrEqual(44)
+    const at360 = await measure(page)
+    expect(at360.scrollWidth, `/ at 360px: ${why(at360)}`).toBeLessThanOrEqual(at360.clientWidth)
+    expect(await collisions(siteHeader.bar(page)), '/ at 360px: the bar\'s controls').toEqual([])
+  })
+})
+
 for (const route of ROUTES) {
   test(`${route.name} (${route.path}) does not scroll sideways at 390px, at the default text size and at 200%`, async ({ page, baseURL }) => {
     await page.addInitScript(() => {

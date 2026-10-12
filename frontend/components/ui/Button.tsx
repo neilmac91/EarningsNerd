@@ -59,10 +59,23 @@ const WRAP_SIZE = { sm: 'min-h-8 py-1.5', md: 'min-h-10 py-2', lg: 'min-h-12 py-
 // The wrapped lines centre on tight leading. Written as an arbitrary variant: Tailwind drops
 // `max-[24rem]:` because the screens are in px. Gate: tests/e2e/reflow-200.spec.ts.
 // Each class is written out whole: Tailwind generates only the class names it finds in the source.
-const WRAP_WHEN_NARROW: Record<Exclude<ButtonSize, 'icon-sm'>, string> = {
-  sm: '[@media(max-width:24rem)]:h-auto [@media(max-width:24rem)]:min-h-8 [@media(max-width:24rem)]:py-1.5 [@media(max-width:24rem)]:whitespace-normal [@media(max-width:24rem)]:text-center [@media(max-width:24rem)]:leading-tight',
-  md: '[@media(max-width:24rem)]:h-auto [@media(max-width:24rem)]:min-h-10 [@media(max-width:24rem)]:py-2 [@media(max-width:24rem)]:whitespace-normal [@media(max-width:24rem)]:text-center [@media(max-width:24rem)]:leading-tight',
-  lg: '[@media(max-width:24rem)]:h-auto [@media(max-width:24rem)]:min-h-12 [@media(max-width:24rem)]:py-2.5 [@media(max-width:24rem)]:whitespace-normal [@media(max-width:24rem)]:text-center [@media(max-width:24rem)]:leading-tight',
+const NARROW_WRAP = '[@media(max-width:24rem)]:h-auto [@media(max-width:24rem)]:whitespace-normal [@media(max-width:24rem)]:text-center [@media(max-width:24rem)]:leading-tight'
+const NARROW_MIN_H: Record<Exclude<ButtonSize, 'icon-sm'>, string> = {
+  sm: '[@media(max-width:24rem)]:min-h-8',
+  md: '[@media(max-width:24rem)]:min-h-10',
+  lg: '[@media(max-width:24rem)]:min-h-12',
+}
+const NARROW_PY: Record<Exclude<ButtonSize, 'icon-sm'>, string> = {
+  sm: '[@media(max-width:24rem)]:py-1.5',
+  md: '[@media(max-width:24rem)]:py-2',
+  lg: '[@media(max-width:24rem)]:py-2.5',
+}
+/** The narrow state, keeping a caller's own min-h and py. The media block sits after every base
+    utility in the stylesheet, so the size's narrow min-h would otherwise beat a caller's min-h-11 and
+    shrink a 44px touch target to the size's height on a 360px or 375px phone at the default text size. */
+function wrapWhenNarrow(size: Exclude<ButtonSize, 'icon-sm'>, className?: string): string {
+  const own = (utility: string) => new RegExp(`(^|\\s)${utility}`).test(className ?? '')
+  return cx(NARROW_WRAP, !own('min-h-') && NARROW_MIN_H[size], !own('py-') && NARROW_PY[size])
 }
 
 const VARIANT: Record<Exclude<ButtonVariant, 'tertiary'>, string> = {
@@ -130,7 +143,7 @@ export function buttonVariants({ variant = 'primary', size = 'md', wrap = false,
   return cx(BASE, SIZE[size],
     size === 'icon-sm' ? cx(HEIGHT[size], 'whitespace-nowrap')
       : wrap ? cx(WRAP_SIZE[size], 'whitespace-normal')
-      : cx(HEIGHT[size], 'whitespace-nowrap', WRAP_WHEN_NARROW[size]),
+      : cx(HEIGHT[size], 'whitespace-nowrap', wrapWhenNarrow(size, className)),
     VARIANT[resolveVariant(variant)], className)
 }
 

@@ -184,7 +184,8 @@ Secondary button <Button variant="secondary">  — brand hairline on transparent
 Wrapping button  <Button wrap> (or buttonVariants({ wrap: true })) lets a text label wrap and replaces
                  its fixed height with min-h-8 / min-h-10 / min-h-12 plus size-owned vertical padding.
                  Constrain width at the call site; never override its height or whitespace.
-                 Default buttons keep their fixed height; icon-sm stays a 32px square.
+                 Default buttons keep their fixed height above a 24rem viewport (below it, the Button
+                 size row); icon-sm stays a 32px square.
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
@@ -196,10 +197,11 @@ Button size      sm, md and lg keep a fixed height (h-8 / h-10 / h-12: 32, 40 an
                  query's rem is the browser's text size, so that is 384px at the default size (a 390px
                  phone keeps one line) and 768px under a 200% text setting, where a 390px phone would
                  otherwise scroll sideways. The variant is `[@media(max-width:24rem)]:`, since Tailwind
-                 drops `max-[24rem]:` while the screens are in px. In that state a caller's vertical
-                 padding counts toward the height, and a `whitespace-normal` className still loses to the
+                 drops `max-[24rem]:` while the screens are in px. In that state a caller's own min-h or
+                 vertical padding wins over the size's (the header's account link keeps its 44px target
+                 from min-h-11 on a 360px phone), while a `whitespace-normal` className still loses to the
                  base `whitespace-nowrap` above 24rem (stylesheet order): use `wrap`.
-                 Gate: tests/e2e/reflow-200.spec.ts.
+                 Gate: tests/e2e/reflow-200.spec.ts (390px at both text sizes; 360px at the default).
 
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
