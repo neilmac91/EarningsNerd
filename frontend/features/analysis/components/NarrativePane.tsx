@@ -16,6 +16,7 @@ import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { prefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { groupQualityNotes, qualityNotesModelFromWire, type QualityNotesModel } from '@/features/analysis/lib/dataNotes'
 import { structuredNarrativeParts } from '@/features/analysis/lib/narrativePresentation'
+import { usePrintDetails } from '@/features/analysis/lib/usePrintDetails'
 import { useReportDataNotes } from './DataNotesContext'
 import DataNoteMark, { dataNoteDescription } from './DataNoteMark'
 import DataNotesLink from './DataNotesLink'
@@ -77,18 +78,31 @@ function buildNarrativeComponents(citations: AnalysisCitation[], notes: QualityN
   return { p: wrap('p'), li: wrap('li'), strong: wrap('strong'), em: wrap('em'), td: wrap('td') }
 }
 
-/** The finding remains in the reading line; its same source figures live in a disclosure. */
+/** Short evidence stays readable; a longer list names its notes even while folded. */
 function NarrativeEvidence({ operands, citations, notes, preciseAmounts }: { operands: NarrativeOperand[]; citations: AnalysisCitation[]; notes: QualityNotesModel; preciseAmounts: ReadonlySet<string> }) {
+  const figures = operands.map((operand) => ({
+    ...operand,
+    source: citations.find((citation) => citation.n === operand.citation)!,
+    display: operand.formatted ? operand.value : compactNarrativeText(operand.value, preciseAmounts),
+  }))
+  if (figures.length <= 3) return <ul role="list" className="my-3 list-none !pl-0 text-sm" aria-label="Figures behind this finding">
+    {figures.map((figure, index) => <li key={index} className="!m-0 inline">
+      {figure.label} <span className="tnum">{figure.display}</span>, {formatAnalysisPeriod(figure.period)}{figure.derived && <DataNoteMark calculated announce />}{' '}
+      <NarrativeCitationChip citation={figure.source} notes={notes} /><span aria-hidden="true">{index < figures.length - 1 ? '; ' : '.'}</span>
+    </li>)}
+  </ul>
+  const noteKeys = new Set(figures.map((figure) => notes.noteForQuality(figure.source)?.key))
+  const letters = notes.notes.filter((note) => noteKeys.has(note.key)).map((note) => note.letter)
   return <details className="my-3 text-sm">
-    <summary className="cursor-pointer rounded text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark">
-      Show the {operands.length} {operands.length === 1 ? 'figure' : 'figures'} behind this
+    <summary className="cursor-pointer rounded text-text-secondary-light hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark">
+      Show the {figures.length} source figures behind this{letters.length > 0 && <> · figures carry {letters.length === 1 ? 'note' : 'notes'} {letters.join(', ')}</>}
     </summary>
     <ul role="list" className="mt-2 list-none !pl-0" aria-label="Figures behind this finding">
-      {operands.map((operand, index) => <li key={index} className="!m-0 grid grid-cols-1 gap-x-3 gap-y-1 border-t border-border-light py-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] dark:border-white/10">
-        <span className="font-data text-xs text-text-tertiary-light dark:text-text-secondary-dark">{formatAnalysisPeriod(operand.period)}{operand.derived && ' †'}</span>
-        <span>{operand.label}</span>
-        <span className="font-data">{operand.formatted ? operand.value : compactNarrativeText(operand.value, preciseAmounts)}</span>
-        <span><NarrativeCitationChip citation={citations.find((citation) => citation.n === operand.citation)!} notes={notes} /></span>
+      {figures.map((figure, index) => <li key={index} className="!m-0 grid grid-cols-1 gap-x-3 gap-y-1 border-t border-border-light py-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] dark:border-white/10">
+        <span className="font-data text-xs text-text-tertiary-light dark:text-text-secondary-dark">{formatAnalysisPeriod(figure.period)}{figure.derived && ' †'}</span>
+        <span>{figure.label}</span>
+        <span className="font-data">{figure.display}</span>
+        <span><NarrativeCitationChip citation={figure.source} notes={notes} /></span>
       </li>)}
     </ul>
   </details>
@@ -138,7 +152,7 @@ function CitationList({ citations, sample, notes }: { citations: AnalysisCitatio
       <div className="mb-2 text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
         {sample
           ? 'Sources · sample data (approximate figures)'
-          : 'Sources · SEC XBRL values and computed figures'}
+          : 'Sources · SEC XBRL values and calculated figures'}
       </div>
       <ul className="space-y-1">
         {citations.map((citation) => (
@@ -156,7 +170,7 @@ function CitationList({ citations, sample, notes }: { citations: AnalysisCitatio
             <span className="min-w-0 break-words">
               {citationDisplay(citation)}
               <DataNoteMark note={notes.noteForQuality(citation)} calculated={citation.provenance?.method === 'calculated' || (!citation.provenance && citation.derived)} announce />
-              {sourceUrl(citation.source_url ?? citation.provenance?.source_url) && <a className="ml-2 rounded text-brand-strong underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark" href={sourceUrl(citation.source_url ?? citation.provenance?.source_url)!} target="_blank" rel="noopener noreferrer">Original filing</a>}
+              {sourceUrl(citation.source_url ?? citation.provenance?.source_url) && <a className="ml-2 rounded text-brand-strong underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark" href={sourceUrl(citation.source_url ?? citation.provenance?.source_url)!} target="_blank" rel="noopener noreferrer" aria-label={`Original filing for source ${citation.n}: ${citation.concept?.replaceAll('_', ' ') || 'figure'}, ${citation.period ? formatAnalysisPeriod(citation.period) : 'period not recorded'}`}>Original filing</a>}
               {citation.section_ref && (
                 <span className="ml-1 text-text-tertiary-light dark:text-text-secondary-dark">
                   · {citation.provenance?.method === 'calculated' ? (citation.provenance.inputs.length ? 'Calculated from recorded inputs' : 'Calculated figure') : citation.provenance?.method === 'reported' ? 'SEC filing' : citation.section_ref}
@@ -191,6 +205,7 @@ export default function NarrativePane({
    *  verified/cached badges would overclaim, so a "Sample data" badge replaces them (F3). */
   sample?: boolean
 }) {
+  const printScope = usePrintDetails()
   const completion = state.completion
   const reportNotes = useReportDataNotes()
   // A citation can retain its own concern even when the corresponding report value has a
@@ -229,7 +244,7 @@ export default function NarrativePane({
       : ''
 
   return (
-    <Card as="section" className="p-6">
+    <Card as="section" className="p-4 sm:p-6" data-analysis-print-scope={printScope}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h2
@@ -267,8 +282,8 @@ export default function NarrativePane({
         {state.status === 'done' && !notEnoughData && (
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {onExport && completion?.analysis_id != null && (
-              <Button size="sm" variant="secondary" onClick={onExport}>
-                <DownloadSimpleIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              <Button size="sm" variant="secondary" wrap className="max-w-full" onClick={onExport}>
+                <DownloadSimpleIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 Export PDF
               </Button>
             )}
@@ -280,12 +295,14 @@ export default function NarrativePane({
               <Button
                 size="sm"
                 variant="secondary"
+                wrap
+                className="max-w-full"
                 onClick={(e) => {
                   if (document.activeElement === e.currentTarget) headingRef.current?.focus({ preventScroll: true })
                   onRefresh()
                 }}
                 loading={refreshDisabled}
-                leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" aria-hidden="true" />}
+                leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
               >
                 Refresh analysis
               </Button>

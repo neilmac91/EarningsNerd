@@ -131,9 +131,13 @@ describe('TrendCharts legends', () => {
     expect(screen.getByText('Operating')).toBeInTheDocument()
   })
 
-  it('shows the growth-line legend entry for the top-line bar panel', () => {
-    render(<TrendCharts dataset={dataset} />)
-    expect(screen.getByText('Revenue')).toBeInTheDocument()
+  it.each([{ concept: 'revenue', label: 'Revenue' }, { concept: 'net_interest_income', label: 'Net interest income' }])('shows the growth-line legend entry for the $concept top-line panel', ({ concept, label }) => {
+    const data = structuredClone(dataset)
+    data.series[0].concept = concept
+    data.series[0].label = label
+    render(<TrendCharts dataset={data} />)
+    expect(screen.getByText(label)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: `${label} & growth` })).toBeInTheDocument()
     expect(screen.getByText('YoY growth')).toBeInTheDocument()
   })
 

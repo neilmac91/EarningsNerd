@@ -91,6 +91,29 @@ const ROUTES: Route[] = [
   { name: 'filing', path: '/filing/3', open: (p, b) => answerApi(p, b, 'anon'), ready: (p) => expect(p.getByText('On this page')).toBeVisible() },
   { name: 'dashboard', path: '/dashboard', open: (p, b) => answerSiteApi(p, b, true), ready: (p) => expect(p.getByRole('heading', { level: 2, name: 'Your companies' })).toBeVisible() },
   { name: 'not found', path: '/no-such-page', status: 404, open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible() },
+  {
+    name: 'legacy markdown filing',
+    path: '/filing/3',
+    open: async (p, b) => {
+      await answerApi(p, b, 'anon')
+      await p.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/summaries/filing/3', (r) =>
+        r.fulfill({
+          status: 200,
+          headers: corsFor(b),
+          json: {
+            ...SUMMARY,
+            rendered_sections: [],
+            business_overview: '## Executive Summary\n\nThe retained summary introduces the filing.\n\n## Financial highlights\n\nRevenue grew during the period.\n\n### Revenue context\n\nThe filing describes the sources of that growth.',
+          },
+        }),
+      )
+    },
+    ready: async (p) => {
+      await expect(p.getByRole('heading', { level: 2, name: 'Summary', exact: true })).toBeVisible()
+      await expect(p.getByRole('heading', { level: 2, name: 'Financial highlights', exact: true })).toBeVisible()
+      await expect(p.getByRole('heading', { level: 3, name: 'Revenue context', exact: true })).toBeVisible()
+    },
+  },
 ]
 
 async function visit(page: Page, baseURL: string, route: Route) {

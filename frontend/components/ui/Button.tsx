@@ -15,7 +15,7 @@
      - ghost:       brand.strong text on transparent, same tint hover.
      - destructive: error fill + white label; hover error.emphasis.
    Focus-visible = shadow-ring-brand (light) / shadow-ring-brand-dark (navy);
-   destructive uses shadow-ring-error.
+   destructive uses shadow-ring-error / shadow-ring-error-dark.
    States: default / hover / active / focus-visible / disabled / loading.
    Loading is NOT the disabled look — it keeps the resting fill, shows a
    spinner, sets aria-busy, and refuses activation until the work settles.
@@ -34,31 +34,35 @@ function resolveVariant(variant: ButtonVariant): Exclude<ButtonVariant, 'tertiar
 }
 
 const BASE = cx(
-  'inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-semibold',
+  'inline-flex select-none items-center justify-center gap-2 font-semibold',
   'transition-colors duration-fast',
   'focus-visible:outline-none',
 )
 
-// A label stays on one line, except in a viewport narrower than 24rem. A media query's rem is the
-// browser's text size, so that is 384px at the default size (a 390px phone keeps one line) and 768px
-// under a 200% text setting (a 390px phone wraps the label instead of scrolling the page sideways).
-// The wrapped lines centre on tight leading. Written as an arbitrary variant: Tailwind drops
-// `max-[24rem]:` because the screens are in px. Gate: tests/e2e/reflow-200.spec.ts.
-const WRAP_WHEN_NARROW =
-  '[@media(max-width:24rem)]:whitespace-normal [@media(max-width:24rem)]:text-center [@media(max-width:24rem)]:leading-tight'
-
 const SIZE: Record<ButtonSize, string> = {
   // Radius snaps to 12 (rounded-lg) at EVERY size — buttons + inputs are 12 on the 4/8/12/16/24 scale.
-  // The labelled sizes set a minimum height, never a fixed one, so a wrapped label grows the control
-  // instead of spilling out of it.
-  sm: 'min-h-8 gap-1.5 rounded-lg px-3 text-xs',
-  md: 'min-h-10 rounded-lg px-4 text-sm',
-  lg: 'min-h-12 rounded-lg px-5 text-base',
+  sm: 'gap-1.5 rounded-lg px-3 text-xs',
+  md: 'rounded-lg px-4 text-sm',
+  lg: 'rounded-lg px-5 text-base',
   // Icon-only square. A first-class size, NOT a zero-padding className override on `sm`: cx
   // does no tailwind-merge, so two conflicting padding utilities in one class attribute resolve
   // by STYLESHEET order and the size's px-3 wins — which crushed 20px glyphs to a 6px content
   // box (the AAPL "tiny icons" bug; gate: tests/unit/button-icon-size-gate.spec.ts).
-  'icon-sm': 'h-8 w-8 rounded-lg p-0 text-xs',
+  'icon-sm': 'w-8 rounded-lg p-0 text-xs',
+}
+
+const HEIGHT: Record<ButtonSize, string> = { sm: 'h-8', md: 'h-10', lg: 'h-12', 'icon-sm': 'h-8' }
+const WRAP_SIZE = { sm: 'min-h-8 py-1.5', md: 'min-h-10 py-2', lg: 'min-h-12 py-2.5' }
+// Below a 24rem viewport a labelled button takes the wrap state on its own: a media query's rem is the
+// browser's text size, so that is 384px at the default size (a 390px phone keeps one line) and 768px
+// under a 200% text setting (a 390px phone wraps the label instead of scrolling the page sideways).
+// The wrapped lines centre on tight leading. Written as an arbitrary variant: Tailwind drops
+// `max-[24rem]:` because the screens are in px. Gate: tests/e2e/reflow-200.spec.ts.
+const NARROW = '[@media(max-width:24rem)]:'
+const WRAP_WHEN_NARROW: Record<Exclude<ButtonSize, 'icon-sm'>, string> = {
+  sm: `${NARROW}h-auto ${NARROW}min-h-8 ${NARROW}py-1.5 ${NARROW}whitespace-normal ${NARROW}text-center ${NARROW}leading-tight`,
+  md: `${NARROW}h-auto ${NARROW}min-h-10 ${NARROW}py-2 ${NARROW}whitespace-normal ${NARROW}text-center ${NARROW}leading-tight`,
+  lg: `${NARROW}h-auto ${NARROW}min-h-12 ${NARROW}py-2.5 ${NARROW}whitespace-normal ${NARROW}text-center ${NARROW}leading-tight`,
 }
 
 const VARIANT: Record<Exclude<ButtonVariant, 'tertiary'>, string> = {
@@ -76,18 +80,18 @@ const VARIANT: Record<Exclude<ButtonVariant, 'tertiary'>, string> = {
     'hover:bg-brand-weak',
     'active:bg-brand-border/60',
     'focus-visible:shadow-ring-brand',
-    'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent',
+    'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:active:bg-transparent',
     'dark:border-brand-border-dark dark:text-brand-strong-dark dark:hover:bg-brand-weak-dark dark:active:bg-brand-border-dark',
-    'dark:focus-visible:shadow-ring-brand-dark',
+    'dark:focus-visible:shadow-ring-brand-dark dark:disabled:hover:bg-transparent dark:disabled:active:bg-transparent',
   ),
   ghost: cx(
     'bg-transparent text-brand-strong',
     'hover:bg-brand-weak',
     'active:bg-brand-border/60',
     'focus-visible:shadow-ring-brand',
-    'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent',
+    'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:active:bg-transparent',
     'dark:text-brand-strong-dark dark:hover:bg-brand-weak-dark dark:active:bg-brand-border-dark',
-    'dark:focus-visible:shadow-ring-brand-dark',
+    'dark:focus-visible:shadow-ring-brand-dark dark:disabled:hover:bg-transparent dark:disabled:active:bg-transparent',
   ),
   destructive: cx(
     'bg-error-light text-white shadow-e1',
@@ -95,7 +99,7 @@ const VARIANT: Record<Exclude<ButtonVariant, 'tertiary'>, string> = {
     'active:bg-error-emphasis active:shadow-none',
     'focus-visible:shadow-ring-error',
     'disabled:cursor-not-allowed disabled:bg-error-light/40 disabled:shadow-none',
-    'dark:hover:bg-error-emphasis',
+    'dark:hover:bg-error-emphasis dark:disabled:bg-error-light/40 dark:focus-visible:shadow-ring-error-dark',
   ),
 }
 
@@ -109,6 +113,8 @@ const SPINNER_SIZE: Record<ButtonSize, string> = {
 export interface ButtonVariantsOptions {
   variant?: ButtonVariant
   size?: ButtonSize
+  /** Let a text label wrap, preserving the size's minimum height. Icon sizes stay square. */
+  wrap?: boolean
   className?: string
 }
 
@@ -120,8 +126,12 @@ export interface ButtonVariantsOptions {
       <Link href="/pricing" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
 
     <Button> itself composes this same factory — one source of truth. */
-export function buttonVariants({ variant = 'primary', size = 'md', className }: ButtonVariantsOptions = {}): string {
-  return cx(BASE, WRAP_WHEN_NARROW, SIZE[size], VARIANT[resolveVariant(variant)], className)
+export function buttonVariants({ variant = 'primary', size = 'md', wrap = false, className }: ButtonVariantsOptions = {}): string {
+  return cx(BASE, SIZE[size],
+    size === 'icon-sm' ? cx(HEIGHT[size], 'whitespace-nowrap')
+      : wrap ? cx(WRAP_SIZE[size], 'whitespace-normal')
+      : cx(HEIGHT[size], 'whitespace-nowrap', WRAP_WHEN_NARROW[size]),
+    VARIANT[resolveVariant(variant)], className)
 }
 
 /** The primary variant's `disabled:` look keyed to `aria-disabled`, for a primary <Button> that is
@@ -139,7 +149,7 @@ export const primaryUnavailableClass = cx(
     unavailable but must keep keyboard focus: aria-disabled plus the caller's own guard, never native
     `disabled`. Apply it only while the button is unavailable, never while `loading`. It fades the
     label and the hairline, not the element: the native `opacity-50` would fade the focus ring with
-    them, from 1.97:1 to 1.39:1 on panel in light and from 2.85:1 to 1.66:1 in dark. Dark's hairline is
+    them below the 3:1 focus floor held by tests/unit/siteChromeFocusRing.spec.ts. Dark's hairline is
     brand-weak-dark (0.14), exactly half of brand-border-dark (0.28): `/50` on that rgba token would
     REPLACE its alpha with 0.5, not halve it. Dark repeats the transparent fill because dark:hover: and
     dark:active: out-specify a bare aria-disabled:. lessons/frontend-busy-controls-stay-focusable.md (e) */
@@ -165,6 +175,8 @@ function Spinner({ className }: { className?: string }) {
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
   size?: ButtonSize
+  /** Let a text label wrap, preserving the size's minimum height. Icon sizes stay square. */
+  wrap?: boolean
   loading?: boolean
   /** Optional label swap while loading, e.g. "Generating…" */
   loadingText?: string
@@ -173,7 +185,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', size = 'md', loading = false, loadingText, leftIcon, rightIcon, className, children, onClick, type = 'button', ...rest },
+  { variant = 'primary', size = 'md', wrap = false, loading = false, loadingText, leftIcon, rightIcon, className, children, onClick, type = 'button', ...rest },
   ref,
 ) {
   const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
@@ -194,7 +206,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       onClick={handleClick}
       aria-busy={loading || undefined}
       aria-disabled={loading || undefined}
-      className={cx(buttonVariants({ variant, size }), loading && 'cursor-progress', className)}
+      className={cx(buttonVariants({ variant, size, wrap }), loading && 'cursor-progress', className)}
       {...rest}
     >
       {loading ? <Spinner className={SPINNER_SIZE[size]} /> : leftIcon}

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, EXPECTED_TABLE_VALUE_DAGGERS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme } from './fixtures/analysisLayoutApi'
+import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, EXPECTED_TABLE_VALUE_DAGGERS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme, type AnalysisGeometryState } from './fixtures/analysisLayoutApi'
 
 /**
  * The one browser geometry gate for the analysis redesign (proposal Phase 1, item 10).
@@ -20,11 +20,45 @@ const PROFILES = [
   { name: '768px', width: 768, height: 1024 },
   { name: '1024px', width: 1024, height: 1000 },
   { name: '1480px', width: 1480, height: 1000 },
+  { name: '200% text at 320px', width: 320, height: 1000, textScale: 2 },
+  { name: '200% text at 390px', width: 390, height: 1000, textScale: 2 },
   { name: '200% text at 1480px', width: 1480, height: 1000, textScale: 2 },
   { name: '200% viewport/DPR zoom emulation', width: 740, height: 500, deviceScaleFactor: 2 },
 ]
 const TABLE = '[data-analysis-metrics] table'
 const NOTES = '[data-analysis-data-notes]'
+
+for (const theme of THEMES) for (const width of [390, 1480]) {
+  test.describe(`analysis evidence / ${theme} / ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+    test('keeps short evidence visible and restores disclosures after printing', async ({ page, baseURL }) => {
+      test.setTimeout(60_000)
+      await openAnalysis(page, baseURL!, 'legacy', theme, 1, true)
+      const prose = page.locator('.markdown-body')
+      const lists = prose.getByRole('list', { name: 'Figures behind this finding', includeHidden: true })
+      await expect(lists).toHaveCount(3)
+      for (const index of [0, 2]) {
+        await expect(lists.nth(index)).toBeVisible()
+        await expect(lists.nth(index).locator('button').first()).toBeVisible()
+        expect(await lists.nth(index).evaluate(el => !!el.closest('details'))).toBe(false)
+      }
+      const fold = prose.locator('details')
+      await expect(fold).toHaveCount(1)
+      await expect(fold).not.toHaveAttribute('open')
+      await expect(fold.locator('summary')).toContainText('Show the 20 source figures behind this · figures carry note a')
+      const notes = page.locator(`${NOTES} > details`)
+      await notes.locator(':scope > summary').click()
+      const prior = await page.locator('[data-analysis-print-scope] details').evaluateAll(items => items.map(item => (item as HTMLDetailsElement).open))
+      expect(prior).toContain(true)
+      expect(prior).toContain(false)
+      await page.evaluate(() => { window.dispatchEvent(new Event('beforeprint')); window.dispatchEvent(new Event('beforeprint')) })
+      expect(await page.locator('[data-analysis-print-scope] details').evaluateAll(items => items.every(item => (item as HTMLDetailsElement).open))).toBe(true)
+      await expect(lists.nth(1)).toBeVisible()
+      await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
+      expect(await page.locator('[data-analysis-print-scope] details').evaluateAll(items => items.map(item => (item as HTMLDetailsElement).open))).toEqual(prior)
+    })
+  })
+}
 
 async function pageAndCardGeometry(page: Page) {
   return page.evaluate(() => {
@@ -63,6 +97,7 @@ async function pageAndCardGeometry(page: Page) {
     return {
       clientWidth: document.documentElement.clientWidth,
       scrollWidth: document.documentElement.scrollWidth,
+      kpiWidth: document.querySelector('[data-analysis-kpi]')!.parentElement!.getBoundingClientRect().width,
       rootFontSize: parseFloat(getComputedStyle(document.documentElement).fontSize),
       cards,
       rows: rows.map(row => ({ values: row.valueTops.length, spread: Math.max(...row.valueTops) - Math.min(...row.valueTops) })),
@@ -104,7 +139,9 @@ async function assertPageAndCards(page: Page, width: number, textScale: number, 
     expect(card.spills, `KPI ${card.index} child/text containment`).toEqual([])
   }
   expect(geometry.rows.length).toBeGreaterThan(0)
+  const columns = geometry.kpiWidth < 17 * geometry.rootFontSize ? 1 : width >= 1024 ? 4 : 2
   for (const row of geometry.rows) {
+    expect(row.values, 'KPI count follows its own width at the active text size').toBe(columns)
     // Compare only cards in the same physical row; a phone's second row is independent.
     expect(row.values).toBeGreaterThan(0)
     expect(row.spread, 'numeric value tops align within each physical KPI row').toBeLessThanOrEqual(EPSILON)
@@ -233,41 +270,63 @@ async function tableGeometry(page: Page) {
     }
     const clippedCells = rows.flatMap((row, rowIndex) => [...row.children].flatMap((cell, column) => {
       const box = rect(cell)
-      const outside = textRects(cell).filter(text => text.left < box.left - 1 || text.right > box.right + 1 || text.clippedBy.length)
+      const style = getComputedStyle(cell)
+      const outside = textRects(cell).filter(text => text.left < box.left + parseFloat(style.paddingLeft) - 1 || text.right > box.right - parseFloat(style.paddingRight) + 1 || text.clippedBy.length)
       return outside.length ? [{ row: rowIndex, column, outside }] : []
     }))
-    const widths = [...table.querySelectorAll('thead th')].slice(1).map(cell => rect(cell).width)
-    scroll.scrollTo({ left: scroll.scrollWidth, behavior: 'instant' })
-    let stableFrames = 0, previous = -1, frame = 0
-    while (stableFrames < 5 && frame++ < 120) {
-      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
-      const next = scroll.scrollLeft
-      stableFrames = Math.abs(next - previous) < 0.1 ? stableFrames + 1 : 0
-      previous = next
-    }
-    const scrollBox = rect(scroll)
-    const partialColumns: Array<{ row: number; column: number; left: number; stickyRight: number }> = []
-    const occludedText: Array<{ row: number; column: number; text: string }> = []
+    const headers = [...table.querySelectorAll('thead th')]
+    const widths = headers.slice(1).map(cell => rect(cell).width)
+    const step = widths[0]
+    const sticky = getComputedStyle(headers[0]).position === 'sticky'
+    const inset = sticky ? rect(headers[0]).width : 0
+    const maximum = scroll.scrollWidth - scroll.clientWidth
+    const initial = scroll.scrollLeft
+    const offset = sticky ? 0 : rect(headers[0]).width
+    const stops = [0, ...widths.map((_, index) => offset + index * step)].filter(stop => stop <= maximum + 1)
+    const targets = [...new Set([...stops, ...stops.map(stop => stop + step * 0.4), maximum])]
+    const rests: Array<{ target: number; left: number; stable: boolean; partialColumns: number; visibleColumns: number }> = []
     const lastColumnClipped: Array<{ row: number; text: string }> = []
-    for (const [rowIndex, row] of rows.entries()) {
-      const cells = [...row.children]
-      const sticky = cells[0]
-      if (!sticky) continue
-      if (getComputedStyle(sticky).position !== 'sticky') throw new Error('The metric labels must remain sticky while periods scroll')
-      const boundary = Math.max(scrollBox.left, rect(sticky).right)
-      for (let column = 1; column < cells.length; column++) {
-        const cell = cells[column]; const box = rect(cell)
-        if (box.right > boundary + 1 && box.left < boundary - 1 && box.left < scrollBox.right - 1) partialColumns.push({ row: rowIndex, column, left: box.left, stickyRight: boundary })
-        for (const text of textRects(cell)) {
-          if (text.left < boundary - 1 && text.right > boundary + 1) occludedText.push({ row: rowIndex, column, text: text.text })
-          if (column === cells.length - 1 && (text.left < boundary - 1 || text.right > scrollBox.right + 1)) lastColumnClipped.push({ row: rowIndex, text: text.text })
+    const labelClippedAtHome: Array<{ row: number; text: string }> = []
+    for (const target of targets) {
+      scroll.scrollTo({ left: target, behavior: 'instant' })
+      let stableFrames = 0, previous = -1, frame = 0
+      while (stableFrames < 5 && frame++ < 120) {
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+        const next = scroll.scrollLeft
+        stableFrames = Math.abs(next - previous) < 0.1 ? stableFrames + 1 : 0
+        previous = next
+      }
+      const scrollBox = rect(scroll)
+      const boundary = scrollBox.left + inset
+      const partialColumns = headers.slice(1).filter(cell => {
+        const box = rect(cell)
+        return box.right > boundary + 1 && box.left < boundary - 1
+      }).length
+      const visibleColumns = headers.slice(1).filter(cell => {
+        const box = rect(cell)
+        return box.left >= boundary - 1 && box.right <= scrollBox.right + 1
+      }).length
+      rests.push({ target, left: scroll.scrollLeft, stable: stableFrames >= 5, partialColumns, visibleColumns })
+      if (target === 0) for (const [rowIndex, row] of rows.entries()) {
+        for (const text of textRects(row.firstElementChild!)) if (text.left < scrollBox.left - 1 || text.right > scrollBox.right + 1) {
+          labelClippedAtHome.push({ row: rowIndex, text: text.text })
+        }
+      }
+      if (target === maximum) for (const [rowIndex, row] of rows.entries()) {
+        const cell = row.lastElementChild!
+        for (const text of textRects(cell)) if (text.left < boundary - 1 || text.right > scrollBox.right + 1) {
+          lastColumnClipped.push({ row: rowIndex, text: text.text })
         }
       }
     }
+    const valueSpreads = rows.slice(1).map(row => {
+      const tops = [...row.querySelectorAll('td')].map(cell => rect(cell.querySelector('button') ?? cell.firstElementChild!).top)
+      return Math.max(...tops) - Math.min(...tops)
+    })
     return {
-      widths, clippedCells, partialColumns, occludedText, lastColumnClipped,
-      stable: stableFrames >= 5, scrollLeft: scroll.scrollLeft, maximum: scroll.scrollWidth - scroll.clientWidth,
-      role: scroll.getAttribute('role'), tabIndex: scroll.tabIndex, label: scroll.getAttribute('aria-label'),
+      widths, clippedCells, lastColumnClipped, labelClippedAtHome, valueSpreads, rests, sticky, inset, initial, stops,
+      scrollLeft: scroll.scrollLeft, maximum, viewport: scroll.clientWidth,
+      role: scroll.getAttribute('role'), tabIndex: scroll.getAttribute('tabindex'), label: scroll.getAttribute('aria-label'),
     }
   })
 }
@@ -277,8 +336,9 @@ async function assertTable(page: Page, expectedPeriods: string[], state: Analysi
   const headers = table.locator('thead th')
   await expect(headers).toHaveCount(expectedPeriods.length + 1)
   await expect(table.locator('tbody tr')).toHaveCount(METRICS)
-  const labels = await headers.allTextContents()
+  const labels = await headers.evaluateAll(cells => cells.map(cell => (cell.querySelector('[data-period-label]') ?? cell).textContent ?? ''))
   expect(labels.slice(1).map(label => label.replace(/[\s†]/g, ''))).toEqual(expectedPeriods.map(period => `${period.slice(4)}’${period.slice(2, 4)}`))
+  for (const [index, period] of expectedPeriods.entries()) await expect(headers.nth(index + 1)).toHaveAccessibleName(new RegExp(`^${period.slice(4)} ${period.slice(0, 4)}(?:,|$)`))
   for (const row of await table.locator('tbody tr').all()) await expect(row.locator(':scope > th, :scope > td')).toHaveCount(expectedPeriods.length + 1)
   const sourceControls = table.locator('tbody button[aria-label$="View source and calculation"]')
   let unavailableCount = 0
@@ -316,25 +376,40 @@ async function assertTable(page: Page, expectedPeriods: string[], state: Analysi
     })
   ))
   expect(actualCells, 'each financial cell retains its exact value/comparison note, including cells with no note').toEqual(expectedCells)
+  const letters = [...new Set(expectedCells.flat().flatMap(cell => [...cell.value, ...cell.comparison].map(mark => mark.letter)))].sort()
+  await expect(page.locator('[data-analysis-metrics]').getByRole('button', { name: `Review data notes ${letters.join(', ')}`, exact: true })).toBeVisible()
   await assertPaintedMarks(page, TABLE)
-  const geometry = await tableGeometry(page)
   await assertSourceControls(page, `${TABLE} tbody`, METRICS * expectedPeriods.length)
-  expect(geometry.widths).toHaveLength(expectedPeriods.length)
+  await assertTableGeometry(page, expectedPeriods.length)
+}
+
+async function assertTableGeometry(page: Page, expectedColumns: number) {
+  const geometry = await tableGeometry(page)
+  expect(geometry.widths).toHaveLength(expectedColumns)
   expect(Math.min(...geometry.widths), 'period columns cannot collapse').toBeGreaterThan(0)
   expect(Math.max(...geometry.widths) - Math.min(...geometry.widths), 'every period receives the same width').toBeLessThanOrEqual(EPSILON)
   expect(geometry.clippedCells, 'actual glyph ranges fit every header and body cell, including hidden-by-overflow descendants').toEqual([])
-  expect(geometry.stable, 'wait for native snap to settle before evaluating the far-right endpoint').toBe(true)
+  expect(geometry.labelClippedAtHome, 'every label glyph is readable at the Home stop').toEqual([])
   expect(geometry.maximum - geometry.scrollLeft, 'last period remains reachable at the far-right endpoint').toBeLessThanOrEqual(EPSILON)
-  expect(geometry.partialColumns, 'no partly visible period sits beneath the sticky metric column at rest').toEqual([])
-  expect(geometry.occludedText, 'no actual text straddles the sticky boundary in any row').toEqual([])
+  for (const rest of geometry.rests) {
+    expect(rest.stable, `native snap settles after aiming at ${rest.target}`).toBe(true)
+    expect(geometry.stops.some(stop => Math.abs(stop - rest.left) <= EPSILON), `rest ${rest.left} is a whole-column boundary`).toBe(true)
+    expect(rest.partialColumns, `no period straddles the active sticky inset at ${rest.left}`).toBe(0)
+    if (rest.left > 0 || geometry.sticky) expect(rest.visibleColumns, 'at least one entire period is visible').toBeGreaterThan(0)
+  }
+  expect(geometry.stops.some(stop => Math.abs(stop - geometry.maximum) <= EPSILON), 'the far endpoint is a real column stop').toBe(true)
   expect(geometry.lastColumnClipped, 'the complete last period remains readable at the far-right endpoint').toEqual([])
-  expect(geometry.role).toBe('region')
-  expect(geometry.tabIndex).toBe(0)
-  expect(geometry.label).toContain('Metrics by period')
+  for (const spread of geometry.valueSpreads) expect(spread, 'missing values and mixed-height growth rows share the value top').toBeLessThanOrEqual(EPSILON)
+  if (geometry.sticky) expect(geometry.viewport - geometry.inset).toBeGreaterThanOrEqual(geometry.widths[0] - EPSILON)
+  expect(geometry.role).toBe(geometry.maximum > 0 ? 'region' : null)
+  expect(geometry.tabIndex).toBe(geometry.maximum > 0 ? '0' : null)
+  if (geometry.maximum > 0) expect(geometry.label).toContain('Metrics by period')
+  else expect(geometry.label).toBeNull()
 
   // A correctly positioned sticky label can still leak scrolled text through a
   // translucent hover background. Measure its actual painted background, not a class.
   const rowHeader = page.locator(`${TABLE} tbody th[scope="row"]`).first()
+  if (!geometry.sticky) return
   await rowHeader.hover()
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
   await expect.poll(async () => rowHeader.evaluate(cell => {
@@ -379,13 +454,15 @@ async function assertNotes(page: Page, state: AnalysisState) {
   await expect(summary).toContainText(`${expected.unavailable} unavailable`)
   await expect(summary).toContainText(`${expected.calculated} calculated`)
   if (state === 'clean') {
-    await expect(summary).toContainText(`${expected.passed} figures passed automated checks`)
-    await expect(summary).not.toContainText('need review')
+    await expect(summary).toContainText(`No figures need review · ${expected.passed} checked`)
+    await expect(summary).toContainText(`${expected.unavailable} unavailable (a)`)
   } else {
-    await expect(summary).toContainText(`${expected.reviewValues} figures need review`)
-    await expect(summary).toContainText(`${expected.reviewComparisons} comparisons need review`)
-    await expect(summary).not.toContainText('passed automated checks')
+    await expect(summary).toContainText(`${expected.reviewValues} figures need review (a)`)
+    await expect(summary).toContainText(`${expected.reviewComparisons} comparisons carry note a`)
+    await expect(summary).toContainText(`${expected.unavailable} unavailable (b)`)
+    await expect(summary).not.toContainText('No figures need review')
   }
+  await expect(summary).not.toContainText('passed automated checks')
   await expect(summary).not.toContainText('no validation record')
 }
 
@@ -415,18 +492,346 @@ for (const theme of THEMES) for (const profile of PROFILES) {
       for (const [index, selection] of selections.entries()) {
         if (index > 0) await window.getByRole('button', { name: selection.label, exact: true }).click()
         await expect(window.getByRole('button', { name: selection.label, exact: true })).toHaveAttribute('aria-pressed', 'true')
-        await expect(section.getByText(`Showing ${selection.periods.length} of 12 quarters`, { exact: true })).toBeVisible()
+        await expect(section.getByRole('status')).toHaveText(`Showing ${selection.periods.length} of 12 quarters`)
+        if (index > 0) await expect(window.getByRole('button', { name: selection.label, exact: true })).toBeFocused()
         await assertTable(page, selection.periods, state)
         await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
         expect(await stableAnalysisOutsideTable(page), 'table windows do not change KPI, note totals, or chart data').toEqual(baseline)
       }
       // Disclosure content is also part of the responsive page, not an overflow escape hatch.
-      await page.locator(`${NOTES} > details > summary`).click()
+      await section.getByRole('button', { name: /^Review data notes/ }).focus()
+      await page.keyboard.press('Enter')
       await expect(page.locator(`${NOTES} > details`)).toHaveAttribute('open', '')
+      await expect(page.locator(`${NOTES} li`).first()).toBeFocused()
       await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
       expect(traffic.dataset, 'table windows reuse the selected dataset').toBe(1)
       expect(traffic.stream, 'table windows never regenerate analysis').toBe(1)
       expect(traffic.unexpectedApi).toEqual([])
+    })
+  })
+}
+
+async function settleTable(page: Page) {
+  return page.locator(TABLE).evaluate(async table => {
+    const scroll = table.parentElement!
+    let stable = 0, previous = -1
+    for (let frame = 0; stable < 5 && frame < 120; frame++) {
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+      stable = Math.abs(scroll.scrollLeft - previous) < 0.1 ? stable + 1 : 0
+      previous = scroll.scrollLeft
+    }
+    return { left: scroll.scrollLeft, max: scroll.scrollWidth - scroll.clientWidth, y: window.scrollY }
+  })
+}
+
+for (const theme of THEMES) for (const profile of [
+  { width: 390, textScale: 1 }, { width: 1024, textScale: 1 }, { width: 320, textScale: 2 },
+]) test.describe(`analysis keyboard / ${theme} / ${profile.width}px / text ${profile.textScale}`, () => {
+  test.use({ viewport: { width: profile.width, height: 1000 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  test('keeps native table keys and every tabbed period inside the active scrollport', async ({ page, baseURL }) => {
+    test.setTimeout(90_000)
+    await openAnalysis(page, baseURL!, 'legacy', theme, profile.textScale)
+    const initial = await settleTable(page)
+    if (profile.width < 640) expect(initial.max - initial.left, 'phones initially show the newest period').toBeLessThanOrEqual(EPSILON)
+    const section = page.locator('[data-analysis-metrics]')
+    const region = section.getByRole('region', { name: /Metrics by period/ })
+    const assertEarlierHint = async (left: number) => {
+      const hint = section.getByText('← Earlier quarters', { exact: true })
+      if (profile.width < 640 && left > EPSILON) {
+        await expect(hint).toBeVisible()
+        await expect(region).toHaveAccessibleDescription('← Earlier quarters')
+      } else {
+        await expect(hint).toBeHidden()
+        await expect(region).not.toHaveAttribute('aria-describedby')
+      }
+    }
+    await assertEarlierHint(initial.left)
+    await section.getByRole('button', { name: 'Earliest 6', exact: true }).focus()
+    await page.keyboard.press('Tab')
+    await expect(region).toBeFocused()
+    const baseline = await settleTable(page)
+    for (const key of ['Home', 'ArrowRight', 'ArrowLeft', 'End', 'PageUp', 'PageDown']) {
+      const before = await settleTable(page)
+      await page.keyboard.press(key)
+      const after = await settleTable(page)
+      await assertEarlierHint(after.left)
+      expect(after.y, `${key} belongs to the table, not the page`).toBe(baseline.y)
+      if (key === 'Home' || key === 'ArrowLeft') expect(after.left).toBe(0)
+      else if (key === 'End' || key === 'PageDown') expect(after.left).toBeCloseTo(after.max, 0)
+      else if (key === 'ArrowRight') expect(after.left).toBeGreaterThan(before.left)
+      else expect(after.left).toBeLessThan(before.left)
+    }
+    await page.keyboard.press('Home')
+    // Start from the scroll region and follow the browser's actual Tab sequence across
+    // two whole rows, including the wrap from the final period back to the earliest.
+    const sources = section.locator('tbody button[aria-label$="View source and calculation"]')
+    const forward = Array.from({ length: PERIODS.length * 2 }, (_, index) => ({ index, key: 'Tab' }))
+    const backward = forward.slice(0, -1).reverse().map(step => ({ ...step, key: 'Shift+Tab' }))
+    for (const { index, key } of [...forward, ...backward]) {
+      await page.keyboard.press(key)
+      await expect(sources.nth(index)).toBeFocused()
+      await settleTable(page)
+      const fraction = await sources.nth(index).evaluate(button => {
+        const cell = button.closest('td')!
+        const scroll = button.closest('table')!.parentElement!
+        const box = cell.getBoundingClientRect(), viewport = scroll.getBoundingClientRect()
+        const header = cell.parentElement!.firstElementChild!
+        const inset = getComputedStyle(header).position === 'sticky' ? header.getBoundingClientRect().width : 0
+        return Math.max(0, Math.min(box.right, viewport.right) - Math.max(box.left, viewport.left + inset)) / box.width
+      })
+      expect(fraction, `${key} cell ${index} is fully visible after native snapping`).toBeGreaterThanOrEqual(0.99)
+    }
+    const source = sources.first()
+    await source.evaluate(button => {
+      button.addEventListener('keydown', event => {
+        queueMicrotask(() => button.setAttribute('data-key-prevented', String(event.defaultPrevented)))
+      })
+    })
+    const beforeChild = await settleTable(page)
+    await page.keyboard.press('Home')
+    await expect(source).toHaveAttribute('data-key-prevented', 'false')
+    expect((await settleTable(page)).left, 'a child control retains its own Home key').toBe(beforeChild.left)
+
+    await page.keyboard.press('Enter')
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    const close = dialog.getByRole('button', { name: 'Close', exact: true })
+    await expect(close).toBeFocused()
+    const technical = dialog.locator('summary').last()
+    await expect(technical).toHaveText('Technical source details')
+    await page.keyboard.press('Shift+Tab')
+    await expect(technical, 'the last technical disclosure participates in the dialog trap').toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(close, 'Tab wraps from the last disclosure to Close').toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    const portalled = await settleTable(page)
+    for (const key of ['Home', 'End', 'ArrowLeft', 'ArrowRight']) {
+      await page.keyboard.press(key)
+      expect((await settleTable(page)).left, `${key} in a portalled dialog cannot move its table`).toBe(portalled.left)
+    }
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await expect(source).toBeFocused()
+
+    // Preserve the same leading period as the viewport and actual text size change.
+    await region.focus()
+    await page.keyboard.press('Home')
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('ArrowRight')
+    await settleTable(page)
+    const leading = () => region.evaluate(scroll => {
+      const headers = [...scroll.querySelectorAll('thead th')]
+      const inset = getComputedStyle(headers[0]).position === 'sticky' ? headers[0].getBoundingClientRect().width : 0
+      const left = scroll.getBoundingClientRect().left + inset
+      return headers.slice(1).find(header => Math.abs(header.getBoundingClientRect().left - left) < 1)?.textContent
+    })
+    const prior = await leading()
+    expect(prior).toBeTruthy()
+    await page.setViewportSize({ width: profile.width === 1024 ? 768 : 390, height: 1000 })
+    await settleTable(page)
+    expect(await leading()).toBe(prior)
+    await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
+    await settleTable(page)
+    expect(await leading()).toBe(prior)
+    const pad = await region.evaluate(scroll => scroll.style.paddingInlineEnd)
+    await page.evaluate(() => window.dispatchEvent(new Event('resize')))
+    await settleTable(page)
+    expect(await region.evaluate(scroll => scroll.style.paddingInlineEnd)).toBe(pad)
+  })
+})
+
+for (const theme of THEMES) for (const state of ['captured', 'edge', 'annual'] as AnalysisGeometryState[]) {
+  test.describe(`analysis geometry fixtures / ${theme} / ${state}`, () => {
+    test.use({ viewport: { width: 320, height: 1000 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+    test('keeps captured and edge-case values whole at enlarged phone text', async ({ page, baseURL }) => {
+      test.setTimeout(90_000)
+      await openAnalysis(page, baseURL!, state, theme, 2)
+      const geometry = await pageAndCardGeometry(page)
+      expect(geometry.scrollWidth).toBeLessThanOrEqual(320 + EPSILON)
+      expect(geometry.cards).toHaveLength(4)
+      for (const card of geometry.cards) expect(card.spills).toEqual([])
+      for (const row of geometry.rows) expect(row.values).toBe(1)
+      const columns = state === 'annual' ? 11 : 12
+      await assertTableGeometry(page, columns)
+      const count = await page.locator(`${TABLE} tbody button[aria-label$="View source and calculation"]`).count()
+      expect(count).toBeGreaterThanOrEqual(METRICS * (state === 'annual' ? 10 : 12))
+      await assertSourceControls(page, `${TABLE} tbody`, count)
+      await assertPaintedMarks(page, TABLE)
+      if (state === 'annual') {
+        await expect(page.getByRole('columnheader', { name: 'FY2016–FY2025 CAGR', exact: true })).toBeAttached()
+        await page.locator('[data-analysis-metrics]').getByRole('button', { name: 'Newest 6', exact: true }).click()
+        await expect(page.getByRole('columnheader', { name: 'FY2016–FY2025 CAGR', exact: true })).toBeAttached()
+        await expect(page.locator('[data-analysis-metrics]').getByRole('status')).toHaveText('Showing 6 of 10 years')
+        await assertTableGeometry(page, 7)
+      }
+      if (state === 'edge') {
+        await expect(page.locator(`${TABLE} [data-note-letter="aa"]`).first()).toHaveAttribute('data-note-kind', 'review')
+        await expect(page.locator(`${TABLE} tbody`)).toContainText('n/m')
+        await expect(page.getByRole('rowheader', { name: 'EPS (diluted) CAD per share' })).toBeAttached()
+        await expect(page.locator('[data-analysis-kpi]').filter({ hasText: 'Free cash flow' })).toContainText('latest available')
+        const fallback = page.getByRole('button', { name: /EPS \(diluted\) \(CAD per share\), Q3 2023:/ }).locator('xpath=ancestor::td')
+        await expect(fallback).toContainText('YoY')
+        expect(await fallback.getByText('YoY', { exact: true }).evaluate(label => {
+          const value = label.nextElementSibling!
+          return label.getBoundingClientRect().bottom <= value.getBoundingClientRect().top + 1
+        }), 'the fallback basis has its own line above the complete change token').toBe(true)
+      }
+    })
+  })
+}
+
+for (const theme of THEMES) for (const width of [390, 1480]) {
+  test.describe(`analysis chart notes / ${theme} / ${width}px`, () => {
+    test.use({ viewport: { width, height: 1000 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+    test('keeps filled bars and legible notes with named keyboard values and scrolling', async ({ page, baseURL }, testInfo) => {
+      await openAnalysis(page, baseURL!, 'discrepancy', theme)
+      const plots = page.locator('[data-analysis-chart]')
+      await expect(plots).toHaveCount(4)
+      const assertViewport = async () => {
+        for (const viewport of await page.locator('[data-analysis-chart-scroll]').all()) {
+          const overflow = await viewport.evaluate(element => element.scrollWidth > element.clientWidth + 1)
+          if (overflow) {
+            await expect(viewport).toHaveAttribute('role', 'region')
+            await expect(viewport).toHaveAttribute('tabindex', '0')
+            await expect(viewport).toHaveAccessibleName(/chart\. Scroll horizontally to view all periods\./)
+          } else {
+            await expect(viewport).not.toHaveAttribute('role')
+            await expect(viewport).not.toHaveAttribute('tabindex')
+          }
+          const values = viewport.getByRole('application', { name: /chart values\. Use Left and Right arrows to inspect periods\./ })
+          await expect(values).toHaveCount(1)
+          await expect(values).toHaveAttribute('tabindex', '0')
+          expect(await viewport.locator('[tabindex]').evaluateAll(elements =>
+            elements.filter(element => (element as HTMLElement).tabIndex >= 0).length
+          ), 'each chart has one named value-navigation stop').toBe(1)
+          // Start before the chart and enter with a real Tab. Programmatic focus after a
+          // pointer download deliberately does not acquire the browser's :focus-visible.
+          await viewport.locator('xpath=ancestor::section[1]').getByRole('button', { name: /^(Expand|Collapse) chart$/ }).focus()
+          await page.keyboard.press('Tab')
+          if (overflow) {
+            await expect(viewport).toBeFocused()
+            await page.keyboard.press('Tab')
+          }
+          await expect(values).toBeFocused()
+          expect(await viewport.evaluate(element => getComputedStyle(element).boxShadow)).not.toBe('none')
+          await page.keyboard.press('Tab')
+          expect(await page.evaluate(() => document.activeElement?.closest('[data-analysis-chart-scroll]'))).toBeNull()
+          await page.keyboard.press('Shift+Tab')
+          await expect(values).toBeFocused()
+          if (overflow) {
+            await page.keyboard.press('Shift+Tab')
+            await expect(viewport).toBeFocused()
+          }
+        }
+      }
+      await assertViewport()
+      const revenue = plots.first()
+      const viewport = revenue.locator('..')
+      const allBars = revenue.locator('.recharts-bar-rectangle path')
+      await expect(allBars).toHaveCount(12)
+      const revenueValues = revenue.getByRole('application', { name: 'Revenue & growth chart values. Use Left and Right arrows to inspect periods.' })
+      await revenueValues.focus()
+      const tooltip = revenue.locator('.recharts-tooltip-wrapper').getByRole('status')
+      const settleViewport = async () => {
+        const settled = await viewport.evaluate(async element => {
+          let previous = element.scrollLeft
+          let stable = 0
+          for (let frame = 0; frame < 90 && stable < 5; frame++) {
+            await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+            stable = Math.abs(element.scrollLeft - previous) < 0.1 ? stable + 1 : 0
+            previous = element.scrollLeft
+          }
+          return stable >= 5
+        })
+        expect(settled, 'keyboard scrolling settles before checking the selected period').toBe(true)
+      }
+      const assertPeriodVisible = async (index: number) => {
+        await expect(tooltip).toContainText(PERIODS[index].replace(/^(\d{4})(Q\d)$/, '$2 $1'))
+        await settleViewport()
+        // DOM text alone does not prove keyboard access: the selected mark and its tooltip
+        // must remain inside the horizontal viewport in both directions and after re-entry.
+        await expect.poll(async () => {
+          const [frame, tip, bar] = await Promise.all([viewport.boundingBox(), tooltip.boundingBox(), allBars.nth(index).boundingBox()])
+          if (!frame || !tip || !bar) return Number.POSITIVE_INFINITY
+          return Math.max(frame.x - tip.x, tip.x + tip.width - frame.x - frame.width,
+            frame.x - bar.x, bar.x + bar.width - frame.x - frame.width)
+        }, { message: `${PERIODS[index]} value and tooltip stay inside the chart viewport` }).toBeLessThanOrEqual(EPSILON)
+      }
+      for (let index = 1; index < PERIODS.length; index++) {
+        await page.keyboard.press('ArrowRight')
+        await assertPeriodVisible(index)
+      }
+      await expect(tooltip).toContainText('Q2 2026')
+      await expect(tooltip).toContainText('YoY growth')
+      await expect(tooltip).toContainText('28.0%')
+      // The quarterly metrics table uses QoQ here; these YoY values need the chart's own path.
+      // Leave at the newest period, then return after the outer viewport has moved. Recharts
+      // retains its index on blur; the next arrow must reveal the expected adjacent period.
+      await page.keyboard.press('Tab')
+      if (width === 390) {
+        await viewport.evaluate(element => { element.scrollLeft = 24 })
+        expect(await viewport.evaluate(element => element.scrollLeft)).toBeGreaterThan(0)
+      }
+      await page.keyboard.press('Shift+Tab')
+      await expect(revenueValues).toBeFocused()
+      for (let index = PERIODS.length - 2; index >= 0; index--) {
+        await page.keyboard.press('ArrowLeft')
+        await assertPeriodVisible(index)
+        if (index === PERIODS.length - 2) await expect(tooltip).toContainText('33.1%')
+      }
+      // Moving the pointer does not blur the SVG. Hover a different period near a clipped
+      // edge, then return to the retained keyboard index without moving the pointer away.
+      const hover = await viewport.evaluate(element => {
+        const bar = element.querySelectorAll('.recharts-bar-rectangle path')[8]
+        const frame = element.getBoundingClientRect()
+        if (element.scrollWidth > element.clientWidth + 1) {
+          const before = bar.getBoundingClientRect()
+          const centerInContent = before.x + before.width / 2 - frame.x + element.scrollLeft
+          element.scrollLeft = centerInContent - element.clientWidth + 4
+        }
+        const target = bar.getBoundingClientRect()
+        return { x: target.x + target.width / 2, y: frame.y + 80, left: element.scrollLeft }
+      })
+      await page.mouse.move(hover.x, hover.y)
+      await expect(revenueValues).toBeFocused()
+      await expect(tooltip).toContainText('Q3 2025')
+      await settleViewport()
+      expect(Math.abs(await viewport.evaluate(element => element.scrollLeft) - hover.left),
+        'pointer inspection cannot scroll a still-focused chart').toBeLessThanOrEqual(EPSILON)
+      await page.keyboard.press('ArrowRight')
+      await assertPeriodVisible(1)
+      await page.keyboard.press('ArrowLeft')
+      await assertPeriodVisible(0)
+      const cleanFill = await allBars.first().getAttribute('fill')
+      const affectedBar = revenue.locator('g[aria-label="Data note a"] path')
+      await expect(affectedBar).toHaveCount(1)
+      await expect(affectedBar).toHaveAttribute('fill', cleanFill!)
+      await expect(affectedBar).not.toHaveAttribute('stroke-dasharray')
+      const letters = page.locator('[data-analysis-chart] g[aria-label^="Data note "] text')
+      expect(await letters.count()).toBeGreaterThan(0)
+      const panel = await revenue.evaluate(element => getComputedStyle(element.closest('section')!).backgroundColor)
+      for (const letter of await letters.all()) {
+        await expect(letter).toHaveAttribute('stroke-width', '3')
+        await expect(letter).toHaveAttribute('paint-order', 'stroke')
+        expect(await letter.evaluate(element => getComputedStyle(element).stroke)).toBe(panel)
+        expect(await letter.evaluate(element => {
+          const bounds = (element as SVGGraphicsElement).getBBox()
+          return bounds.width > 0 && bounds.height > 0 && getComputedStyle(element).fill !== 'none'
+        })).toBe(true)
+      }
+      if (width === 390) {
+        await viewport.focus()
+        await page.keyboard.press('ArrowRight')
+        await expect.poll(() => viewport.evaluate(element => element.scrollLeft)).toBeGreaterThan(0)
+      }
+      const downloadPromise = page.waitForEvent('download')
+      await revenue.locator('xpath=ancestor::section[1]').getByRole('button', { name: 'Download chart as PNG' }).click()
+      const download = await downloadPromise
+      expect(download.suggestedFilename()).toMatch(/\.png$/)
+      await download.saveAs(testInfo.outputPath(`revenue-notes-${theme}-${width}.png`))
+      await page.setViewportSize({ width: width === 390 ? 1480 : 390, height: 1000 })
+      await expect.poll(() => viewport.evaluate(element => element.hasAttribute('tabindex'))).toBe(width !== 390)
+      await assertViewport()
     })
   })
 }

@@ -8,7 +8,8 @@ const columns: Column<Row>[] = [
   ...Array.from({ length: 12 }, (_, index) => ({ key: String(index), header: `Q${index}`, render: () => <button type="button">Source {index}</button> })),
 ]
 const rows: Row[] = [{ id: 'r' }]
-let resize: () => void
+let resizes: Set<() => void>
+const resize = () => [...resizes].forEach(callback => callback())
 let viewport: number
 let periodWidth: number
 let metricWidth: number
@@ -17,10 +18,12 @@ beforeEach(() => {
   viewport = 316
   periodWidth = 68
   metricWidth = 104
+  resizes = new Set()
   vi.stubGlobal('ResizeObserver', class {
-    constructor(callback: () => void) { resize = callback }
+    constructor(private callback: () => void) { resizes.add(callback) }
     observe() {}
-    disconnect() {}
+    unobserve() {}
+    disconnect() { resizes.delete(this.callback) }
   })
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) { return viewport })
   vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
@@ -37,11 +40,11 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 function Table({ snap = true, newest = false }: { snap?: boolean; newest?: boolean }) {
   return <DataTable columns={columns} rows={rows} rowKey={(row) => row.id}
     layout="fixed" colWidths={['6.5rem', ...Array(12).fill('4.25rem')]}
-    stickyFirstColumn snapColumns={snap} scrollRegion={{ label: 'Quarterly metrics', hint: 'Use arrows to scroll', startAtEndOnMobile: newest }} />
+    stickyFirstColumn snapColumns={snap} scrollRegion={{ label: 'Quarterly metrics', hint: newest ? '← Earlier quarters' : 'Use arrows to scroll', startAtEndOnMobile: newest }} />
 }
 
 describe('DataTable opt-in column scrolling', () => {
-  it('pads the far end to a whole measured column and recalculates after text resize', () => {
+  it('pads whole-column stops, unsticks narrow labels, and preserves a period after text resize', () => {
     render(<Table />)
     const region = screen.getByRole('region', { name: 'Quarterly metrics' })
     expect(region).toHaveAttribute('tabindex', '0')
@@ -49,13 +52,28 @@ describe('DataTable opt-in column scrolling', () => {
     expect(region.style.paddingInlineEnd).toBe('8px')
     expect(region.style.scrollPaddingInlineStart).toBe('104px')
     expect((region.scrollWidth - region.clientWidth) % periodWidth).toBe(0)
+    fireEvent.keyDown(region, { key: 'ArrowRight' })
+    expect(region.scrollLeft).toBe(68)
     periodWidth = 136
     metricWidth = 208
+    // Chromium can re-snap and emit scroll before ResizeObserver runs. That
+    // new pixel offset must not be interpreted using the previous 68px stops.
+    region.scrollLeft = 136
+    fireEvent.scroll(region)
     act(() => resize())
-    expect(region.style.scrollPaddingInlineStart).toBe('208px')
-    expect((region.scrollWidth - region.clientWidth) % periodWidth).toBe(0)
+    expect(region.style.scrollPaddingInlineStart).toBe('0px')
+    expect(screen.getByRole('rowheader')).not.toHaveClass('sticky')
+    expect(screen.getByRole('columnheader', { name: 'Metric' })).toHaveClass('snap-start')
+    expect((region.scrollWidth - region.clientWidth - metricWidth) % periodWidth).toBe(0)
+    expect(region.scrollLeft).toBe(344)
+    const padding = region.style.paddingInlineEnd
+    act(() => resize())
+    expect(region.style.paddingInlineEnd).toBe(padding)
+    expect(region.scrollLeft).toBe(344)
+    fireEvent.keyDown(region, { key: 'Home' })
+    expect(region.scrollLeft).toBe(0)
     fireEvent.keyDown(region, { key: 'ArrowRight' })
-    expect(region.scrollLeft).toBe(136)
+    expect(region.scrollLeft).toBe(metricWidth)
   })
 
   it('moves by measured columns with arrows/Home/End without stealing child keys', () => {
@@ -63,13 +81,23 @@ describe('DataTable opt-in column scrolling', () => {
     const region = screen.getByRole('region')
     fireEvent.keyDown(region, { key: 'ArrowRight' })
     expect(region.scrollLeft).toBe(68)
-    fireEvent.keyDown(screen.getByRole('button', { name: 'Source 1' }), { key: 'Home' })
-    expect(region.scrollLeft).toBe(68)
+    for (const key of ['ArrowLeft', 'Home', 'End', 'PageUp', 'PageDown']) {
+      expect(fireEvent.keyDown(screen.getByRole('button', { name: 'Source 1' }), { key })).toBe(true)
+      expect(region.scrollLeft).toBe(68)
+    }
+    for (const modifier of ['altKey', 'ctrlKey', 'metaKey']) {
+      expect(fireEvent.keyDown(region, { key: 'Home', [modifier]: true })).toBe(true)
+      expect(region.scrollLeft).toBe(68)
+    }
     fireEvent.keyDown(region, { key: 'End' })
     expect(region.scrollLeft).toBe(612)
     fireEvent.keyDown(region, { key: 'ArrowLeft' })
     expect(region.scrollLeft).toBe(544)
     fireEvent.keyDown(region, { key: 'Home' })
+    expect(region.scrollLeft).toBe(0)
+    expect(fireEvent.keyDown(region, { key: 'PageDown' })).toBe(false)
+    expect(region.scrollLeft).toBe(272)
+    expect(fireEvent.keyDown(region, { key: 'PageUp' })).toBe(false)
     expect(region.scrollLeft).toBe(0)
   })
 
@@ -79,6 +107,11 @@ describe('DataTable opt-in column scrolling', () => {
     const region = screen.getByRole('region')
     expect(region.style.paddingInlineEnd).toBe('')
     expect(region.style.scrollPaddingInlineStart).toBe('')
+    viewport = 2000
+    act(() => resize())
+    expect(screen.queryByRole('region')).not.toBeInTheDocument()
+    expect(region).not.toHaveAttribute('aria-label')
+    expect(region).not.toHaveAttribute('tabindex')
     rerender(<DataTable columns={[{ key: 'id', header: 'ID' }]} rows={rows} rowKey={(row) => row.id} />)
     expect(screen.queryByRole('region')).not.toBeInTheDocument()
     expect(screen.queryByRole('rowheader')).not.toBeInTheDocument()
@@ -92,9 +125,20 @@ describe('DataTable opt-in column scrolling', () => {
     render(<Table newest />)
     const region = screen.getByRole('region')
     expect(region.scrollLeft).toBe(612)
+    expect(region).toHaveAccessibleDescription('← Earlier quarters')
+    region.scrollLeft = 0
+    fireEvent.scroll(region)
+    expect(region).not.toHaveAttribute('aria-describedby')
+    expect(screen.getByText('← Earlier quarters')).toHaveAttribute('aria-hidden', 'true')
     region.scrollLeft = 68
+    fireEvent.scroll(region)
+    expect(region).toHaveAccessibleDescription('← Earlier quarters')
     act(() => resize())
     expect(region.scrollLeft).toBe(68)
+    vi.mocked(window.matchMedia).mockReturnValue({ ...media, matches: false })
+    act(() => resize())
+    expect(screen.queryByText('← Earlier quarters')).not.toBeInTheDocument()
+    expect(region).not.toHaveAttribute('aria-describedby')
   })
 
   it('scrolls a focused source clear of the sticky row header', () => {
