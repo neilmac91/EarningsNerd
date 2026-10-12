@@ -25,10 +25,11 @@ import { describe, expect, it } from 'vitest'
  * icon-sm is exempt); and, in any class expression that composes buttonVariants() (under its import
  * name or an alias; in the attribute itself or in the same-file const the attribute names), a
  * literal `h-<n>`, `min-h-` or `py-` token outside the call, or a forwarded binding (a parameter
- * such as `className`) outside the call, which would carry a caller's min-h or py where the narrow
- * state cannot see it; the condition of `cond && 'class'` is not a class. An identifier bound by an
- * enclosing function (a parameter, a destructured prop) is never resolved to a const of the same
- * name elsewhere in the file; a const imported from another file is not read.
+ * such as `className`, also as `props.className`, `className as string`, `className!`, or either
+ * side of `||` and `??`) outside the call, which would carry a caller's min-h or py where the narrow
+ * state cannot see it; the condition of `cond && 'class'` and `undefined` are not classes. An
+ * identifier bound by an enclosing function (a parameter, a destructured prop) is never resolved to
+ * a const of the same name elsewhere in the file; a const imported from another file is not read.
  */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
@@ -59,6 +60,10 @@ function factoryNames(sf: ts.SourceFile): Set<string> {
 const isFactoryCall = (n: ts.Node, names: Set<string>): n is ts.CallExpression =>
   ts.isCallExpression(n) && ts.isIdentifier(n.expression) && names.has(n.expression.text)
 
+/** An expression without its parentheses, `as`, `satisfies` or non-null wrappers. */
+const unwrapExpression = (e: ts.Expression): ts.Expression =>
+  ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isSatisfiesExpression(e) || ts.isNonNullExpression(e) ? unwrapExpression(e.expression) : e
+
 const bindsName = (name: ts.BindingName, text: string): boolean =>
   ts.isIdentifier(name) ? name.text === text : name.elements.some((el) => !ts.isOmittedExpression(el) && bindsName(el.name, text))
 
@@ -80,7 +85,8 @@ function componentFunction(node: ts.Node): ts.SignatureDeclaration | undefined {
 
 function functionName(fn: ts.SignatureDeclaration): string | undefined {
   if ((ts.isFunctionDeclaration(fn) || ts.isFunctionExpression(fn)) && fn.name) return fn.name.text
-  const holder = ts.isCallExpression(fn.parent) ? fn.parent.parent : fn.parent
+  let holder: ts.Node = fn.parent
+  while (ts.isCallExpression(holder)) holder = holder.parent
   return ts.isVariableDeclaration(holder) && ts.isIdentifier(holder.name) ? holder.name.text : undefined
 }
 
@@ -91,11 +97,18 @@ function reachesProps(e: ts.Expression): boolean {
   const component = componentFunction(e)
   if (!component) return false
   const param = (text: string) => component.parameters.some((p) => bindsName(p.name, text))
-  const bodyBound = (text: string): boolean => {
+  const rootIdentifier = (x: ts.Expression): ts.Identifier | undefined => {
+    const y = unwrapExpression(x)
+    return ts.isIdentifier(y) ? y : ts.isPropertyAccessExpression(y) ? rootIdentifier(y.expression) : undefined
+  }
+  const bodyBound = (text: string, depth = 0): boolean => {
+    if (depth > 3) return false
     let found = false
     const look = (n: ts.Node) => {
-      if (!found && ts.isVariableDeclaration(n) && !ts.isIdentifier(n.name) && bindsName(n.name, text) && n.initializer && ts.isIdentifier(n.initializer) && param(n.initializer.text)) found = true
-      if (!found) ts.forEachChild(n, look)
+      if (found || !ts.isVariableDeclaration(n) || !bindsName(n.name, text) || !n.initializer) { if (!found) ts.forEachChild(n, look); return }
+      const root = rootIdentifier(n.initializer)
+      if (root && (param(root.text) || bodyBound(root.text, depth + 1))) found = true
+      else ts.forEachChild(n, look)
     }
     look(component)
     return found
@@ -142,14 +155,13 @@ function literals(e: ts.Expression, sf: ts.SourceFile, depth = 0): string[] {
     forwarded bindings (identifiers the file does not resolve to a const). */
 function beside(e: ts.Expression, sf: ts.SourceFile, names: Set<string>): { literals: string[]; forwarded: string[] } {
   const out = { literals: [] as string[], forwarded: [] as string[] }
-  const go = (x: ts.Expression, depth: number): void => {
+  const go = (raw: ts.Expression, depth: number): void => {
+    const x = unwrapExpression(raw)
     if (depth > 4 || isFactoryCall(x, names)) return
-    if (ts.isParenthesizedExpression(x)) return go(x.expression, depth + 1)
     if (ts.isConditionalExpression(x)) { go(x.whenTrue, depth + 1); go(x.whenFalse, depth + 1); return }
     if (ts.isBinaryExpression(x)) {
-      const k = x.operatorToken.kind
-      const guard = k === ts.SyntaxKind.AmpersandAmpersandToken || k === ts.SyntaxKind.BarBarToken || k === ts.SyntaxKind.QuestionQuestionToken
-      if (!guard) go(x.left, depth + 1)
+      // The left of `&&` is a condition, never a class; either side of `||`, `??` or `+` can be the value.
+      if (x.operatorToken.kind !== ts.SyntaxKind.AmpersandAmpersandToken) go(x.left, depth + 1)
       go(x.right, depth + 1)
       return
     }
@@ -159,7 +171,14 @@ function beside(e: ts.Expression, sf: ts.SourceFile, names: Set<string>): { lite
       x.templateSpans.forEach((s) => go(s.expression, depth + 1))
       return
     }
+    if (ts.isPropertyAccessExpression(x)) {
+      let root: ts.Expression = x
+      while (ts.isPropertyAccessExpression(root)) root = unwrapExpression(root.expression)
+      if (ts.isIdentifier(root) && root.text !== 'undefined') out.forwarded.push(x.getText(sf))
+      return
+    }
     if (ts.isIdentifier(x)) {
+      if (x.text === 'undefined') return
       const init = localInitializer(x, sf)
       if (init) go(init, depth + 1)
       else out.forwarded.push(x.text)
