@@ -906,8 +906,22 @@ Legacy concerns remain until their stored validation changes; missing metadata m
 claim. Do not remove inherited concerns from growth. Unavailable table values use — with a note
 letter and read “Unavailable” in the evidence view, never zero or a claim that the company did not
 report them. Affected chart points use hollow series-colour markers with a 2px stroke and 11px note letters;
-affected bars have dashed outlines. Value and YoY concerns are independent. PNG notes use the
-same grouped reason sentences beneath the plot, with explicit SVG ink/fonts preserving the marks. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
+affected bars keep their series fill. Note letters use the neutral chart label ink, a 3px panel-colour
+stroke and paint-order=stroke so growth letters remain legible over bars; those are SVG attributes
+retained in PNG export. Value and YoY concerns are independent. PNG notes use the same grouped
+reason sentences beneath the plot and list each recorded gap once. The plot is a named keyboard
+region only while overflowing, measured by `useOverflowRegion` before paint and on resize.
+Inside it, Recharts retains one named chart-values keyboard stop: Left/Right reads each period's
+tooltip, including the YoY growth series that the quarterly metrics table's QoQ column does not
+replace. Each tooltip row names its applicable value or YoY note independently; clean rows carry
+no letter. Formatting follows the original data key before adding the note to the display name, so
+growth remains a percentage. Inner Left/Right keys reveal the selected mark without competing
+native pixel scrolling. Tooltips update without positional animation, wrap to the measured viewport
+width and stay within its horizontal bounds. Pointer inspection clears keyboard ownership even
+when the SVG remains focused, and does not scroll the chart. The next keyboard arrow releases
+the retained hover through the chart’s normal mouse-leave event and resumes its keyboard period.
+Outer arrow keys keep native scrolling. Tooltip changes use a live status; Tab leaves and Shift+Tab
+returns without a trap. The viewport carries the brand focus ring for either keyboard stop. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
 source dates, material gaps and a concise disclosure. Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
