@@ -7,6 +7,7 @@ import { directionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth, windowRange } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
+import { selectHeadlineFigures } from '@/features/analysis/lib/reportPresentation'
 import DataNoteMark from './DataNoteMark'
 import SourceValue from './SourceValue'
 import { useDataNotes } from './DataNotesContext'
@@ -14,7 +15,6 @@ import type { DataNote } from '@/features/analysis/lib/dataNotes'
 import type { FactProvenance } from '@/features/analysis/lib/provenance'
 import type {
   AnalysisDataset,
-  AnalysisSeries,
   AnalysisPoint,
   GrowthValue,
   SeriesTone,
@@ -41,15 +41,6 @@ interface Kpi {
   growthTitle?: string
 }
 
-const latestPoint = (series: AnalysisSeries | undefined, periods: AnalysisDataset['periods']) => {
-  if (!series) return null
-  for (let i = periods.length - 1; i >= 0; i -= 1) {
-    const point = series.points.find((value) => value.period === periods[i].key)
-    if (point?.value != null) return point
-  }
-  return null
-}
-
 function KpiTile({ kpi }: { kpi: Kpi }) {
   const animated = useCountUp(kpi.value, { format: kpi.format })
   const { text, direction } = formatGrowth(kpi.growth, kpi.isPercent)
@@ -67,7 +58,7 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
           {formatAnalysisPeriod(kpi.point.period)}{kpi.latestAvailable && <span> · latest available</span>}
         </span>
         {text && <span className={`${directionText[tone]}${kpi.growthTitle ? ' cursor-help' : ''}`} title={kpi.growthTitle}>
-          {kpi.growthLabel} {text}<DataNoteMark note={kpi.growthNote} announce />
+          {kpi.growthLabel} {text}<DataNoteMark note={kpi.growthNote} />
         </span>}
       </dd>
     </Card>
@@ -78,20 +69,8 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
  *  (or, for the percent-unit net-margin card, the window's pp change — CAGR doesn't apply). */
 export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
   const notes = useDataNotes(dataset)
-  const byConcept = Object.fromEntries(dataset.series.map((s) => [s.concept, s]))
-
-  const specs: { concept: string; label?: string; format?: (v: number) => string }[] = [
-    { concept: byConcept['revenue'] ? 'revenue' : 'net_interest_income' },
-    { concept: 'net_income' },
-    { concept: 'free_cash_flow' },
-    { concept: 'net_margin', format: (v) => fmtPercent(v, { digits: 1 }) },
-  ]
-
   const kpis: Kpi[] = []
-  for (const spec of specs) {
-    const series = byConcept[spec.concept]
-    const point = latestPoint(series, dataset.periods)
-    if (!series || !point) continue
+  for (const { series, point } of selectHeadlineFigures(dataset)) {
     const isAnnual = dataset.mode === 'annual'
     // Shared window-growth rule (growth.ts) — same resolution as the metrics table's window column.
     const win = windowGrowth(series)
@@ -107,7 +86,7 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
       growthNote: isAnnual ? notes.noteForWindow(series) : notes.noteForComparison(point, 'yoy'),
       value: point.value as number,
       latestAvailable: point.period !== dataset.periods.at(-1)?.key,
-      format: spec.format ?? ((v: number) => fmtCurrency(v, { compact: true, currency: series.unit.split('/')[0] })),
+      format: series.concept === 'net_margin' ? (v) => fmtPercent(v, { digits: 1 }) : (v) => fmtCurrency(v, { compact: true, currency: series.unit.split('/')[0] }),
       tone: series.tone,
       isPercent: series.percent,
       growth,

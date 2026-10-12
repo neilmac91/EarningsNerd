@@ -330,8 +330,9 @@ async function assertTable(page: Page, expectedPeriods: string[], state: Analysi
   const headers = table.locator('thead th')
   await expect(headers).toHaveCount(expectedPeriods.length + 1)
   await expect(table.locator('tbody tr')).toHaveCount(METRICS)
-  const labels = await headers.allTextContents()
+  const labels = await headers.evaluateAll(cells => cells.map(cell => (cell.querySelector('[data-period-label]') ?? cell).textContent ?? ''))
   expect(labels.slice(1).map(label => label.replace(/[\s†]/g, ''))).toEqual(expectedPeriods.map(period => `${period.slice(4)}’${period.slice(2, 4)}`))
+  for (const [index, period] of expectedPeriods.entries()) await expect(headers.nth(index + 1)).toHaveAccessibleName(new RegExp(`^${period.slice(4)} ${period.slice(0, 4)}(?:,|$)`))
   for (const row of await table.locator('tbody tr').all()) await expect(row.locator(':scope > th, :scope > td')).toHaveCount(expectedPeriods.length + 1)
   const sourceControls = table.locator('tbody button[aria-label$="View source and calculation"]')
   let unavailableCount = 0
@@ -369,6 +370,8 @@ async function assertTable(page: Page, expectedPeriods: string[], state: Analysi
     })
   ))
   expect(actualCells, 'each financial cell retains its exact value/comparison note, including cells with no note').toEqual(expectedCells)
+  const letters = [...new Set(expectedCells.flat().flatMap(cell => [...cell.value, ...cell.comparison].map(mark => mark.letter)))].sort()
+  await expect(page.locator('[data-analysis-metrics]').getByRole('button', { name: `Review data notes ${letters.join(', ')}`, exact: true })).toBeVisible()
   await assertPaintedMarks(page, TABLE)
   await assertSourceControls(page, `${TABLE} tbody`, METRICS * expectedPeriods.length)
   await assertTableGeometry(page, expectedPeriods.length)
@@ -482,14 +485,17 @@ for (const theme of THEMES) for (const profile of PROFILES) {
       for (const [index, selection] of selections.entries()) {
         if (index > 0) await window.getByRole('button', { name: selection.label, exact: true }).click()
         await expect(window.getByRole('button', { name: selection.label, exact: true })).toHaveAttribute('aria-pressed', 'true')
-        await expect(section.getByText(`Showing ${selection.periods.length} of 12 quarters`, { exact: true })).toBeVisible()
+        await expect(section.getByRole('status')).toHaveText(`Showing ${selection.periods.length} of 12 quarters`)
+        if (index > 0) await expect(window.getByRole('button', { name: selection.label, exact: true })).toBeFocused()
         await assertTable(page, selection.periods, state)
         await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
         expect(await stableAnalysisOutsideTable(page), 'table windows do not change KPI, note totals, or chart data').toEqual(baseline)
       }
       // Disclosure content is also part of the responsive page, not an overflow escape hatch.
-      await page.locator(`${NOTES} > details > summary`).click()
+      await section.getByRole('button', { name: /^Review data notes/ }).focus()
+      await page.keyboard.press('Enter')
       await expect(page.locator(`${NOTES} > details`)).toHaveAttribute('open', '')
+      await expect(page.locator(`${NOTES} li`).first()).toBeFocused()
       await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
       expect(traffic.dataset, 'table windows reuse the selected dataset').toBe(1)
       expect(traffic.stream, 'table windows never regenerate analysis').toBe(1)
@@ -609,6 +615,13 @@ for (const theme of THEMES) for (const state of ['captured', 'edge', 'annual'] a
       expect(count).toBeGreaterThanOrEqual(METRICS * (state === 'annual' ? 10 : 12))
       await assertSourceControls(page, `${TABLE} tbody`, count)
       await assertPaintedMarks(page, TABLE)
+      if (state === 'annual') {
+        await expect(page.getByRole('columnheader', { name: 'FY2016–FY2025 CAGR', exact: true })).toBeAttached()
+        await page.locator('[data-analysis-metrics]').getByRole('button', { name: 'Newest 6', exact: true }).click()
+        await expect(page.getByRole('columnheader', { name: 'FY2016–FY2025 CAGR', exact: true })).toBeAttached()
+        await expect(page.locator('[data-analysis-metrics]').getByRole('status')).toHaveText('Showing 6 of 10 years')
+        await assertTableGeometry(page, 7)
+      }
       if (state === 'edge') {
         await expect(page.locator(`${TABLE} [data-note-letter="aa"]`).first()).toHaveAttribute('data-note-kind', 'review')
         await expect(page.locator(`${TABLE} tbody`)).toContainText('n/m')

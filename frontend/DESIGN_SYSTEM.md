@@ -253,7 +253,9 @@ Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated orig
                  line-height, and does not size its row. Warning ink belongs only to unresolved review
                  concerns; unavailable values and missing validation use secondary ink. The mark is
                  aria-hidden inside the figure's source button; its accessible name states the note
-                 and any inherited comparison note. Letters are snapshot-local, review notes first.
+                 and any inherited comparison note once; a shared figure/comparison note is named
+                 once with its scope. The separate visual change mark does not repeat the spoken
+                 note. Letters are snapshot-local, review notes first.
                  Data notes counts distinguish values, QoQ, YoY and annual window comparisons;
                  a missing validation record is never counted as a passed check. Preserve every
                  reason, including comparison-only concerns. Full-width status Badges and nowrap
@@ -278,11 +280,22 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  the newest period, with a visible scrolling hint when columns are off-screen.
                  A table-only segmented window defaults to All, with Newest 6 and Earliest 6 when
                  more than six periods exist. Charts, KPI cards, data-note totals and full exports
-                 retain the complete selected dataset. A new report resets the table window.
-                 Headers show quarter/year on two lines. The change basis is stated once, while
+                 retain the complete selected dataset. A status region announces the visible count.
+                 Report context shares the table window with note locators; a new snapshot or report
+                 resets it to All, and standalone tables retain local selection. Illustrative demo
+                 and teaser tables use an explicit sample prop to suppress the window controls.
+                 Headers show quarter/year on two lines with the complete quarter/year accessible name.
+                 The annual final column names the full report range and CAGR; visible prose explains
+                 that percent-unit rows instead show the recorded window’s percentage-point change.
+                 The table's Notes chip lists only letters present in its visible cells, including
+                 unavailable values and annual window comparisons, in report note order.
+                 The change basis is stated once, while
                  a fallback YoY label sits on its own line above the complete change and note.
                  Data cells align at the top so missing values and mixed growth heights stay aligned. Only a period-derived Q4
                  receives a column dagger; ordinary arithmetic ratios do not create one.
+                 The legend explains n/m and the fiscal-quarter basis. A Q4 header dagger applies
+                 to flow figures calculated from annual totals less nine months, without labelling
+                 the column's balance-sheet figures as calculated.
                  Table-only formatting keeps complete amounts and affixes together: normal precision
                  first, then fewer decimals, compact scale or scientific notation for large tokens.
                  Signs and percent/ratio units remain. USD keeps its dollar symbol; other currency
@@ -304,6 +317,8 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  represented as recorded inputs or a scheduled repair. Original SEC links and
                  nested inputs remain accessible; raw tags sit in technical disclosures. Annual
                  growth fractions and percentage-point changes retain their distinct units.
+                 A noted comparison names the recorded input and period carrying its concern; if
+                 its input identity is absent, say so instead of inventing an operand or fiscal period.
 
 Analysis reading <NarrativePane> — compact monetary amounts and quarter labels in prose, without
                  changing link destinations, code or source excerpts. Preserve enough precision
@@ -338,6 +353,13 @@ Data notes strip <DataNotes> — hairlines above and below a native details disc
                  independent of concerns on comparisons. Unknown validation,
                  unavailable and calculated counts remain separate. Expanded notes use two columns:
                  the letter, then its reason, affected metric/periods and distinct comparison counts.
+                 Per-basis locators count actual latest-available headline membership, the revenue
+                 or net-interest-income numeric YoY chart, and the table's QoQ-else-YoY fallback or
+                 annual window column. Headline and locator membership share one selection helper.
+                 A narrowed table window adds the number currently shown without changing distinct
+                 report totals or counting repeated appearances. Annual window comparisons retain
+                 their recorded range. Dataset-free citation supplements and illustrative sample notes
+                 make no report-surface claims.
                  Existing Sources & methods prose, source date and snapshot reference stay inside.
                  Note chips reveal and focus the same stable note ID. Citation-only supplemental
                  notes remain in the narrative and do not increase the report's figure counts.
