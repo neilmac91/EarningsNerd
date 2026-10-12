@@ -315,7 +315,7 @@ export default function AnalysisPageClient() {
         <LinkedTicker onChange={followLink} />
       </Suspense>
       <header className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Multi-Period Analysis
           </h1>
@@ -333,7 +333,7 @@ export default function AnalysisPageClient() {
         </div>
         <CompanySearch onSelect={selectCompany} />
         {ticker && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             <CompanyLogo decorative ticker={ticker} name={coverage?.company_name || ticker} size={20} />
             <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
               {coverage?.company_name || ticker}

@@ -120,9 +120,8 @@ the login and register forms leave their fields editable). Gate: `tests/unit/bus
 rules in `lessons/frontend-busy-controls-stay-focusable.md`.
 
 An aria-disabled control never takes an element `opacity`. It is still focusable, and the opacity fades its
-focus indicator with everything else it paints: under `opacity-50` the brand ring on panel fell from 1.97:1 to
-1.37:1 in light and from 2.87:1 to 1.68:1 in dark, and the browser's own outline on an unringed control from
-5.73:1 to 2.26:1 and from 2.45:1 to 1.51:1 (Chromium 141, computed and painted). A hand-rolled busy or
+focus indicator with everything else it paints. The opaque ring's 3:1 floor is held by
+`tests/unit/siteChromeFocusRing.spec.ts`. A hand-rolled busy or
 unavailable look fades what the control draws in, at the fraction the opacity had, on the tokens it already
 uses and as a light/dark pair: the label's ink (`aria-disabled:text-error-light/50
 dark:aria-disabled:text-error-dark/50`; a glyph or spinner in `currentColor` follows it), the hairline
@@ -179,19 +178,29 @@ Secondary button <Button variant="secondary">  — brand hairline on transparent
                  border border-brand-border bg-transparent text-brand-strong hover:bg-brand-weak
                  active:bg-brand-border/60  dark:border-brand-border-dark dark:text-brand-strong-dark
                  dark:hover:bg-brand-weak-dark dark:active:bg-brand-border-dark
-                 (never hover:opacity — it darkens)
+                 (never hover:opacity — it darkens). Native disabled secondary/ghost controls keep their
+                 transparent fill under hover and active in both themes; loading keeps the resting look.
+
+Wrapping button  <Button wrap> (or buttonVariants({ wrap: true })) lets a text label wrap and replaces
+                 its fixed height with min-h-8 / min-h-10 / min-h-12 plus size-owned vertical padding.
+                 Constrain width at the call site; never override its height or whitespace.
+                 Default buttons keep their fixed height; icon-sm stays a 32px square.
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
 
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
-                 <Input> component can't wrap use inputClasses({ invalid, density, select, autoWidth }).
+                 <Input> component can't wrap use inputClasses({ invalid, tone, density, select, autoWidth }).
                  Tone (v3.5): the border and focus ring are one tone, default or error, never one layered on
                  the other: `invalid` (the components' `error`) picks the error border, which holds on hover,
                  and the error ring. Each tone states its focus border even where it equals the rest border,
                  because the forms plugin's `input:where([type='text']):focus` border (#2563EB, 0,1,1)
                  outranks a bare `border-*` (0,1,0).
+                 Destructive-confirm fields use tone="danger" (v3.8): the same neutral border at rest and
+                 on hover, with an error border and ring only on focus (focus-within for a shell).
+                 Danger describes the action, not the value; it does not imply aria-invalid. An actual
+                 invalid value takes precedence and the raw field wires aria-invalid to match it.
                  Toolbar fields (v3.1): density="compact" on <Select>/inputClasses = 36px from sm
                  up, phones keep the standard 42px field height; a field inside a table row is compact too.
                  `density`, not `size` (a native attribute); each density has its own EXPLICIT padding sides
@@ -205,7 +214,9 @@ Link as button   buttonVariants({ variant, size })  — the class-string factory
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
-                 destructive + invalid fields use shadow-ring-error. There is no global :focus-visible rule, so
+                 destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
+                 hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
+                 shadow-ring-brand-inset / shadow-ring-brand-inset-dark. There is no global :focus-visible rule, so
                  a control without the recipe draws the browser's own outline (`auto`), unlike its neighbours.
                  A control that is a block of its own (a logo link, an icon button, a menu row) takes a radius
                  (`rounded-lg`) so the ring follows its shape. A field the forms plugin styles (a text
@@ -215,7 +226,9 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  carries the reset (Input.tsx FIELD_BASE, v3.6; gate tests/unit/inputClassesNoOverrides.spec.tsx),
                  and a field that styles itself, on any page, takes it with a DS ring and its dark twin (gate: the
                  app-wide field describe in tests/unit/siteChromeFocusRing.spec.ts). Every Tab stop
-                 in the site chrome carries it (the skip link the same triple on `focus:`): gate
+                 in the site chrome carries it (the skip link the same triple on `focus:`). The same gate
+                 covers raw controls in check-email, settings, invites and watchlist pages and their feature
+                 modules, plus the shared Switch; field recipes retain their app-wide gates: gate
                  tests/unit/siteChromeFocusRing.spec.ts reads the AST of every chrome file, discovered from
                  app/layout.tsx, every route layout, template or error boundary under app/ (the admin
                  nav, global-error's fallback), AuthShell and SecondaryHeader through their imports (a lazy
@@ -253,7 +266,9 @@ Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated orig
                  line-height, and does not size its row. Warning ink belongs only to unresolved review
                  concerns; unavailable values and missing validation use secondary ink. The mark is
                  aria-hidden inside the figure's source button; its accessible name states the note
-                 and any inherited comparison note. Letters are snapshot-local, review notes first.
+                 and any inherited comparison note once; a shared figure/comparison note is named
+                 once with its scope. The separate visual change mark does not repeat the spoken
+                 note. Letters are snapshot-local, review notes first.
                  Data notes counts distinguish values, QoQ, YoY and annual window comparisons;
                  a missing validation record is never counted as a passed check. Preserve every
                  reason, including comparison-only concerns. Full-width status Badges and nowrap
@@ -266,18 +281,47 @@ Data table hover <DataTable> — ordinary rows use hover:bg-white dark:hover:bg-
                  group-hover:bg-white; dark hover retains dark:group-hover:bg-panel-dark. The
                  ordinary row tint must not replace that opaque fill and reveal scrolled values.
 
-Analysis table   <MetricsTable> — equal rem period columns with a semantic sticky row-header column.
-                 The named scroll region supports Left/Right by one measured column, Home/End,
-                 and mandatory snapping. Inline-end padding makes the entire scroll range a whole
-                 number of columns; resize and enlarged text recompute the actual rendered widths.
-                 Focused figure controls are scrolled clear of the sticky labels. Phones start at
-                 the newest period, with a visible scrolling hint when columns are off-screen.
+Analysis table   <MetricsTable> — equal rem period columns with semantic row headers. The label
+                 column sticks only when the scrollport can also show one whole period; otherwise
+                 it scrolls with the table and has its own snap stop. The MetricsTable Card is its
+                 query container; the label width is capped to that content width, keeping labels
+                 readable at Home without an oversized free-panning snap area. The scroll region
+                 itself is not the container: its trailing snap padding must not shrink the cap.
+                 useOverflowRegion(ref, { label, describedBy, enabled }) owns measurement and the
+                 optional region props: role, Tab stop, name and description exist only while content
+                 exceeds the box by more than one CSS pixel. It observes the box and first child,
+                 rebinds replaced children and measures window resizes without ResizeObserver. Start
+                 disabled while the box is not rendered. Hints and scroll behavior remain surface-owned.
+                 The named region supports Left/Right by one measured column,
+                 Home/End, PageUp/PageDown and mandatory snapping. Child controls retain their keys. Inline-end padding makes the entire scroll range a whole
+                 number of columns. A layout effect measures before paint; resize and enlarged text
+                 recompute rendered widths without accumulating padding or losing the prior column.
+                 Scroll events from native resize snapping wait for current measurements before
+                 updating the retained column.
+                 Focused figure controls are scrolled wholly into view using the active sticky inset.
+                 Phones below 640px start at
+                 the newest period. “← Earlier quarters” (or years) appears only on phones while
+                 earlier columns are off-screen; the hidden hint line retains its height at the
+                 start so native keyboard scrolling does not shift the page. Generic table hints
+                 keep their existing static behavior.
                  A table-only segmented window defaults to All, with Newest 6 and Earliest 6 when
                  more than six periods exist. Charts, KPI cards, data-note totals and full exports
-                 retain the complete selected dataset. A new report resets the table window.
-                 Headers show quarter/year on two lines. The change basis is stated once, while
-                 a fallback YoY comparison retains its explicit prefix. Only a period-derived Q4
+                 retain the complete selected dataset. A status region announces the visible count.
+                 Report context shares the table window with note locators; a new snapshot or report
+                 resets it to All, and standalone tables retain local selection. Illustrative demo
+                 and teaser tables use an explicit sample prop to suppress the window controls.
+                 Headers show quarter/year on two lines with the complete quarter/year accessible name.
+                 The annual final column names the full report range and CAGR; visible prose explains
+                 that percent-unit rows instead show the recorded window’s percentage-point change.
+                 The table's Notes chip lists only letters present in its visible cells, including
+                 unavailable values and annual window comparisons, in report note order.
+                 The change basis is stated once, while
+                 a fallback YoY label sits on its own line above the complete change and note.
+                 Data cells align at the top so missing values and mixed growth heights stay aligned. Only a period-derived Q4
                  receives a column dagger; ordinary arithmetic ratios do not create one.
+                 The legend explains n/m and the fiscal-quarter basis. A Q4 header dagger applies
+                 to flow figures calculated from annual totals less nine months, without labelling
+                 the column's balance-sheet figures as calculated.
                  Table-only formatting keeps complete amounts and affixes together: normal precision
                  first, then fewer decimals, compact scale or scientific notation for large tokens.
                  Signs and percent/ratio units remain. USD keeps its dollar symbol; other currency
@@ -299,6 +343,12 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  represented as recorded inputs or a scheduled repair. Original SEC links and
                  nested inputs remain accessible; raw tags sit in technical disclosures. Annual
                  growth fractions and percentage-point changes retain their distinct units.
+                 A noted comparison names the recorded input and period carrying its concern; if
+                 its input identity is absent, say so instead of inventing an operand or fiscal period.
+
+Analysis reflow  The page title and selected-company rows wrap. Narrative cards use p-4 sm:p-6;
+                 export/refresh Buttons use size="sm" wrap and max-w-full. The shared wrap state
+                 keeps min-h-8 and lets labels grow within the card without conflicting utilities.
 
 Analysis reading <NarrativePane> — compact monetary amounts and quarter labels in prose, without
                  changing link destinations, code or source excerpts. Preserve enough precision
@@ -326,6 +376,8 @@ Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly
                  annual years remain visible but disabled options. Table windows never alter selection.
 
 Analysis KPI     <KpiStrip> — a definition list, two cards across at phone widths and four from lg.
+                 An inline-size container query collapses it to one card below 17em of the
+                 component’s actual text size; 320px at ordinary text still has two cards.
                  Each Card groups a metric-only dt and two dd rows: the 24px data-face value/source
                  button, then the actual reporting period and delta. Cards span three subgrid rows,
                  so wrapped labels do not move neighbouring values. The period and delta wrap as
@@ -340,6 +392,13 @@ Data notes strip <DataNotes> — hairlines above and below a native details disc
                  independent of concerns on comparisons. Unknown validation,
                  unavailable and calculated counts remain separate. Expanded notes use two columns:
                  the letter, then its reason, affected metric/periods and distinct comparison counts.
+                 Per-basis locators count actual latest-available headline membership, the revenue
+                 or net-interest-income numeric YoY chart, and the table's QoQ-else-YoY fallback or
+                 annual window column. Headline and locator membership share one selection helper.
+                 A narrowed table window adds the number currently shown without changing distinct
+                 report totals or counting repeated appearances. Annual window comparisons retain
+                 their recorded range. Dataset-free citation supplements and illustrative sample notes
+                 make no report-surface claims.
                  Existing Sources & methods prose, source date and snapshot reference stay inside.
                  Note chips reveal and focus the same stable note ID. Citation-only supplemental
                  notes remain in the narrative and do not increase the report's figure counts.
@@ -504,7 +563,8 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  `BOTTOM_CHROME_OFFSET`, the workspace / rail sheets through `bottom-[var(--consent-inset,0px)]`
                  (and the same subtraction from their vh cap), the desktop pane's sticky height likewise, and
                  the document's `scroll-padding-bottom` (globals.css) reserves it so a focus or scrollIntoView
-                 never lands a control behind the bar (the desktop pane's composer scrolls clear on open). The
+                 never lands a control behind the bar. The desktop source pane measures its actual top
+                 before and after it sticks, so its footer and composer fit without scrolling the page. The
                  coachmark is deferred, not dismissed, while the bar shows (`hooks/useConsentLayer`); the
                  saved confirmation is a sonner toast, never a fixed corner element. Real modals cover the
                  bar: beneath the settings dialog (z-modal) and beneath an open workspace / rail bottom sheet
@@ -859,8 +919,22 @@ Legacy concerns remain until their stored validation changes; missing metadata m
 claim. Do not remove inherited concerns from growth. Unavailable table values use — with a note
 letter and read “Unavailable” in the evidence view, never zero or a claim that the company did not
 report them. Affected chart points use hollow series-colour markers with a 2px stroke and 11px note letters;
-affected bars have dashed outlines. Value and YoY concerns are independent. PNG notes use the
-same grouped reason sentences beneath the plot, with explicit SVG ink/fonts preserving the marks. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
+affected bars keep their series fill. Note letters use the neutral chart label ink, a 3px panel-colour
+stroke and paint-order=stroke so growth letters remain legible over bars; those are SVG attributes
+retained in PNG export. Value and YoY concerns are independent. PNG notes use the same grouped
+reason sentences beneath the plot and list each recorded gap once. The plot is a named keyboard
+region only while overflowing, measured by `useOverflowRegion` before paint and on resize.
+Inside it, Recharts retains one named chart-values keyboard stop: Left/Right reads each period's
+tooltip, including the YoY growth series that the quarterly metrics table's QoQ column does not
+replace. Each tooltip row names its applicable value or YoY note independently; clean rows carry
+no letter. Formatting follows the original data key before adding the note to the display name, so
+growth remains a percentage. Inner Left/Right keys reveal the selected mark without competing
+native pixel scrolling. Tooltips update without positional animation, wrap to the measured viewport
+width and stay within its horizontal bounds. Pointer inspection clears keyboard ownership even
+when the SVG remains focused, and does not scroll the chart. The next keyboard arrow releases
+the retained hover through the chart’s normal mouse-leave event and resumes its keyboard period.
+Outer arrow keys keep native scrolling. Tooltip changes use a live status; Tab leaves and Shift+Tab
+returns without a trap. The viewport carries the brand focus ring for either keyboard stop. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
 source dates, material gaps and a concise disclosure. Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the

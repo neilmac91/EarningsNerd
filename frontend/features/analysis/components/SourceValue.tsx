@@ -7,7 +7,7 @@ import type { AnalysisPoint } from '@/features/analysis/api/analysis-api'
 import { FCF_DEFINITION, needsSourceCheck, qualityReasons, sourceUrl, type FactInput, type QualityValue } from '@/features/analysis/lib/provenance'
 import { compactFigure, exactFigure, formulaWords, substitutedFormula } from '@/features/analysis/lib/figureDisplay'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
-import type { DataNote } from '@/features/analysis/lib/dataNotes'
+import { dataNoteIssue, type DataNote } from '@/features/analysis/lib/dataNotes'
 import DataNoteMark, { dataNoteDescription } from './DataNoteMark'
 
 const sourceLinkClass = 'rounded text-brand-strong underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark'
@@ -61,6 +61,28 @@ export interface SourceComparison extends QualityValue {
   note?: DataNote | null
 }
 
+function inheritedComparisonNote(comparison: SourceComparison) {
+  const note = comparison.note
+  if (!note) return null
+  const affected = new Map<string, FactInput>()
+  const visit = (input: FactInput) => {
+    const issue = dataNoteIssue(input)
+    if (issue?.kind === note.kind && issue.reasons.some(reason => note.reasons.includes(reason))) {
+      affected.set(JSON.stringify([input.concept, input.period_start, input.period_end]), input)
+    }
+    input.provenance?.inputs.forEach(visit)
+  }
+  comparison.provenance?.inputs.forEach(visit)
+  if (!affected.size) return `Carries note ${note.letter}. The recorded inputs do not identify which input carries this note.`
+  const status = note.kind === 'review' ? 'needs review' : note.kind === 'unavailable' ? 'is unavailable' : 'has no validation record'
+  const inputs = [...affected.values()].map(input => {
+    const label = input.concept.replaceAll('_', ' ')
+    const period = input.period_end ? ` (period ended ${formatLocalDate(input.period_end, 'd MMM yyyy')})` : ''
+    return `${label}${period}, which ${status}`
+  })
+  return `Carries note ${note.letter}: it uses ${inputs.join('; ')}.`
+}
+
 export default function SourceValue({ point, label, concept, children, note, comparison, compactMarks = false }: {
   point: Pick<AnalysisPoint, 'provenance' | 'reconciled' | 'source_url' | 'derived' | 'period' | 'period_end' | 'accession' | 'raw_tag' | 'unit' | 'value'>
   label: string
@@ -79,7 +101,8 @@ export default function SourceValue({ point, label, concept, children, note, com
   const display = compactFigure(point.value, figure)
   const period = formatAnalysisPeriod(point.period)
   const arithmetic = substitutedFormula(provenance)
-  const description = [calculated ? 'calculated' : '', dataNoteDescription(note), comparison?.note ? `comparison carries ${dataNoteDescription(comparison.note)}` : ''].filter(Boolean).join(', ')
+  const sharedNote = note && comparison?.note?.key === note.key
+  const description = [calculated ? 'calculated' : '', dataNoteDescription(note), sharedNote ? 'also applies to the comparison' : comparison?.note ? `comparison carries ${dataNoteDescription(comparison.note)}` : ''].filter(Boolean).join(', ')
   return (
     <>
       <button
@@ -121,6 +144,7 @@ export default function SourceValue({ point, label, concept, children, note, com
             <h3 className="font-semibold">{comparison.label} comparison</h3>
             <p className="font-data">{comparison.display}</p>
             <Checks value={comparison} note={comparison.note} />
+            {comparison.note && <p>{inheritedComparisonNote(comparison)}</p>}
             {comparison.provenance?.formula && <p>Calculation: {formulaWords(comparison.provenance.formula)}</p>}
             {!!comparison.provenance?.inputs.length && <ul className="space-y-3">{comparison.provenance.inputs.map((input, index) => <SourceInput key={index} input={input} />)}</ul>}
           </section>}

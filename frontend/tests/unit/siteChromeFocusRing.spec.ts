@@ -50,8 +50,9 @@ import { bindingResolver } from './astBindings'
  * DS primitives they render included (Modal's close ✕ is one of their stops). The page header also
  * renders the controls a page passes into its `actions` slot (the dashboard's "Log out"), so every
  * `<SecondaryHeader actions={…}>` in the app is scanned too, and its controls must be written inline. A
- * page's other controls are not chrome: the filing identity strip's breadcrumb carries the recipe but
- * is outside this gate. This is the rule's one gate (AGENTS.md §4): no e2e walk repeats it.
+ * page's other controls are not chrome. The named PAGE_CONTROL_ROOTS extend the same gate to check-email,
+ * settings, invites and watchlist (their fields already have app-wide coverage). Other pages, including
+ * the filing identity strip, remain outside that scope. This is the rule's one gate (AGENTS.md §4): no e2e walk repeats it.
  */
 const ROOT = path.resolve(__dirname, '../..')
 
@@ -65,6 +66,9 @@ const ROOT = path.resolve(__dirname, '../..')
  * widget or primitive the chrome imports is scanned without anyone listing it.
  */
 const CHROME_ROOTS = ['app/layout.tsx', 'features/auth/components/AuthShell.tsx', 'components/SecondaryHeader.tsx']
+/** The page-control follow-up owns these routes and their feature modules’ raw controls. Field recipes
+    already have app-wide coverage below and in inputClassesNoOverrides; this adds their other Tab stops. */
+const PAGE_CONTROL_ROOTS = ['app/check-email/page.tsx', 'app/dashboard/settings/page.tsx', 'app/admin/invites/page.tsx', 'app/dashboard/watchlist/page.tsx']
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the
@@ -226,6 +230,8 @@ function importedNames(clause: ts.ImportClause | undefined): Set<string> | '*' {
 const RINGS = [
   ['focus-visible:outline-none', 'focus-visible:shadow-ring-brand', 'dark:focus-visible:shadow-ring-brand-dark'],
   ['focus:outline-none', 'focus:shadow-ring-brand', 'dark:focus:shadow-ring-brand-dark'],
+  ['focus-visible:outline-none', 'focus-visible:shadow-ring-brand-inset', 'dark:focus-visible:shadow-ring-brand-inset-dark'],
+  ['focus-visible:outline-none', 'focus-visible:shadow-ring-error', 'dark:focus-visible:shadow-ring-error-dark'],
 ]
 /** @tailwindcss/forms rings a focused field (text input, textarea, select, checkbox, radio) itself; these take that ring off. */
 const FORMS_RING_OFF = ['focus:ring-0', 'focus:ring-offset-0']
@@ -338,9 +344,9 @@ function defaultImportNames(sf: ts.SourceFile, matches: (module: string) => bool
 const parse = (source: string, fileName: string) => ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
 
 /** Every Tab stop in `source` whose className does not carry the brand ring. */
-function missingRings(source: string, fileName = 'chrome.tsx'): { stops: number; findings: Finding[] } {
+function missingRings(source: string, fileName = 'chrome.tsx', fieldsSeparately = false): { stops: number; findings: Finding[] } {
   const sf = parse(source, fileName)
-  return scan(sf, sf)
+  return scan(sf, sf, fieldsSeparately)
 }
 
 /** The same check on the controls `source` passes into a `<SecondaryHeader actions={…}>` slot. */
@@ -478,7 +484,7 @@ function classify(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.
   return { tag, attr, tabbable, focusable, field, spread, unstylable }
 }
 
-function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Finding[] } {
+function scan(root: ts.Node, sf: ts.SourceFile, fieldsSeparately = false): { stops: number; findings: Finding[] } {
   // next/link's default export under whatever name the file imports it as.
   const linkNames = defaultImportNames(sf, (m) => m === 'next/link')
   const findings: Finding[] = []
@@ -486,7 +492,7 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
   const visit = (node: ts.Node): void => {
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       const { tag, attr, tabbable, field, spread, unstylable } = classify(node, sf, linkNames)
-      if (tabbable) {
+      if (tabbable && !(fieldsSeparately && field)) {
         stops += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
         const className = attr('className')
@@ -512,10 +518,10 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
     combination and the Input, Textarea and Select components take the forms ring off and draw the DS ring). */
 const FIELD_FACTORY = 'components/ui/Input.tsx'
 /** The DS ring tokens, pinned, each light one with the dark token it pairs with: `ring-brand` with `ring-brand-dark`,
-    and `ring-error` with itself until a dark ring-error token exists (the focus-ring item #1178 recorded). A misspelt
+    and `ring-error` with `ring-error-dark`. A misspelt
     token generates no CSS, and a `ring-*` key added to the theme later need not draw a ring (`ring-none: 'none'`), so
     only these count; the describe below holds each to a visible shadow in tailwind.config.js. */
-const DARK_RING: Record<string, string> = { 'ring-brand': 'ring-brand-dark', 'ring-error': 'ring-error' }
+const DARK_RING: Record<string, string> = { 'ring-brand': 'ring-brand-dark', 'ring-error': 'ring-error-dark' }
 const RING_TOKENS = new Set([...Object.keys(DARK_RING), ...Object.values(DARK_RING)])
 const THEME_SHADOWS = resolveConfig(createRequire(import.meta.url)(path.join(ROOT, 'tailwind.config.js')) as Config).theme
   .boxShadow as Record<string, string>
@@ -899,6 +905,19 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
     })
   }
 
+  it('check-email, settings, invites and watchlist controls carry a ring in both themes', () => {
+    // Page/feature markup is the added scope. Shared composition helpers (Card, CompanyLogo,
+    // RetryButton) accept props and are not raw page controls; their existing owning gates remain.
+    const pages = chromeFiles(PAGE_CONTROL_ROOTS).filter((file) => !discovered.includes(file)
+      && (file.startsWith('app/') || file.startsWith('features/') || file === 'components/ui/Switch.tsx'))
+    for (const file of ['features/settings/components/ConnectedAccounts.tsx', 'features/settings/components/NotificationPreferencesForm.tsx', 'features/admin/components/InviteRow.tsx', 'features/watchlist/components/WatchlistAddSearch.tsx', 'components/ui/Switch.tsx']) {
+      expect(pages, 'the page-control graph must reach its controls').toContain(file)
+    }
+    const findings = pages.flatMap((file) => missingRings(readFileSync(path.join(ROOT, file), 'utf8'), file, true)
+      .findings.map((f) => `${file}:${f.line} <${f.tag}> ${f.problem}`))
+    expect(findings).toEqual([])
+  })
+
   it('controls a page passes into the page header\'s actions slot', () => {
     const consumers = appSources().filter((f) => /from ['"]@\/components\/SecondaryHeader['"]/.test(readFileSync(path.join(ROOT, f), 'utf8')))
     expect(consumers.length, 'no page renders SecondaryHeader any more: drop this case').toBeGreaterThan(0)
@@ -962,6 +981,7 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       expect(block(variant), variant).toContain('dark:focus-visible:shadow-ring-brand-dark')
     }
     expect(block('destructive')).toContain('focus-visible:shadow-ring-error')
+    expect(block('destructive')).toContain('dark:focus-visible:shadow-ring-error-dark')
   })
 
   it('the scan catches what it is for (a self-check on fixed sources)', () => {
@@ -1129,12 +1149,32 @@ describe('every field the forms plugin styles takes its ring off and draws the D
     expect(findings).toEqual([])
   })
 
-  it('every pinned DS ring token draws a visible ring in tailwind.config.js', () => {
-    for (const token of RING_TOKENS) {
-      // A spread above zero in a colour that is not transparent: `0 0 0 3px rgba(79, 122, 99, 0.50)`.
-      const m = THEME_SHADOWS[token]?.match(/^0 0 0 [1-9]\d*px rgba?\(\s*\d+,\s*\d+,\s*\d+\s*(?:,\s*([\d.]+)\s*)?\)$/)
+  it('every DS ring draws at least 3:1 focus ink on its theme’s page, panel and tinted controls', () => {
+    const colors = resolveConfig(TAILWIND_CONFIG).theme.colors as Record<string, Record<string, string>>
+    const rgba = (color: string): number[] => color.startsWith('#')
+      ? [...color.slice(1).match(/../g)!.map((v) => parseInt(v, 16)), 1]
+      : color.match(/[\d.]+/g)!.map(Number)
+    const over = (ink: number[], ground: number[]): number[] => ink.slice(0, 3).map((v, i) => v * (ink[3] ?? 1) + ground[i] * (1 - (ink[3] ?? 1)))
+    const luminance = (rgb: number[]) => rgb.slice(0, 3).map((v) => {
+      const s = v / 255
+      return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+    }).reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0)
+    for (const token of [...RING_TOKENS, 'ring-brand-inset', 'ring-brand-inset-dark']) {
+      const m = THEME_SHADOWS[token]?.match(/^(?:inset )?0 0 0 [1-9]\d*px (rgba?\([\d.,\s]+\))$/)
       expect(m, token).toBeTruthy()
-      expect(m![1] === undefined ? 1 : Number(m![1]), `${token}'s alpha`).toBeGreaterThan(0)
+      const dark = token.endsWith('-dark')
+      const theme = dark ? 'dark' : 'light'
+      const page = rgba(colors.background[theme])
+      const panel = rgba(colors.panel[theme])
+      const grounds = [page, panel, ...(dark ? [page, panel].flatMap((ground) => [
+        over(rgba('rgba(255,255,255,0.05)'), ground),
+        over(rgba(colors.brand['weak-dark']), ground),
+        over(rgba(colors.brand['border-dark']), ground),
+      ]) : [rgba('#FFFFFF'), rgba(colors.brand.weak), over(rgba('rgba(207,224,214,0.6)'), panel)])]
+      for (const ground of grounds) {
+        const levels = [luminance(over(rgba(m![1]), ground)), luminance(ground)].sort((a, b) => b - a)
+        expect((levels[0] + 0.05) / (levels[1] + 0.05), `${token} on ${ground.join(',')}`).toBeGreaterThanOrEqual(3)
+      }
     }
   })
 
@@ -1213,7 +1253,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <input type="text" className={inputClasses()} {...rest} />
             <input type="date" className="border focus:shadow-ring-none dark:focus:shadow-ring-none ${reset}" />
             <input type="date" className="border focus:shadow-ring-brand dark:focus:shadow-ring-brand ${reset}" />
-            <input type="date" className="border focus:shadow-ring-error dark:focus:shadow-ring-error ${reset}" />
+            <input type="date" className="border focus:shadow-ring-error dark:focus:shadow-ring-error-dark ${reset}" />
             <input type="date" className="border ${field} focus:ring-2" />
             <input type="date" className="border ${field} dark:focus:ring-offset-2 ring-brand" />
             <input type="date" className="border ${field} focus:[box-shadow:none]" />
@@ -1236,7 +1276,7 @@ describe('every field the forms plugin styles takes its ring off and draws the D
             <Input style={{ boxShadow: 'none' }} />
             <Textarea variant="composer" style={{ maxHeight: 120, overflowY: 'auto' }} />
             <Input {...{ style: { boxShadow: 'none' } }} />
-            <input type="date" className="border ${field} focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error" />
+            <input type="date" className="border ${field} focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark" />
             <input type="date" className="border ${field} group-focus-within:!shadow-none peer-focus:shadow-none" />
             <input type="date" tabIndex={-1} className="hidden !block" />
             <input type="date" tabIndex={-1} className={\`hidden \${c}\`} />

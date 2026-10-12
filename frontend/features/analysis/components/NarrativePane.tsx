@@ -88,7 +88,7 @@ function NarrativeEvidence({ operands, citations, notes, preciseAmounts }: { ope
   if (figures.length <= 3) return <ul role="list" className="my-3 list-none !pl-0 text-sm" aria-label="Figures behind this finding">
     {figures.map((figure, index) => <li key={index} className="!m-0 inline">
       {figure.label} <span className="tnum">{figure.display}</span>, {formatAnalysisPeriod(figure.period)}{figure.derived && <DataNoteMark calculated announce />}{' '}
-      <NarrativeCitationChip citation={figure.source} notes={notes} />{index < figures.length - 1 ? '; ' : '.'}
+      <NarrativeCitationChip citation={figure.source} notes={notes} /><span aria-hidden="true">{index < figures.length - 1 ? '; ' : '.'}</span>
     </li>)}
   </ul>
   const noteKeys = new Set(figures.map((figure) => notes.noteForQuality(figure.source)?.key))
@@ -244,7 +244,7 @@ export default function NarrativePane({
       : ''
 
   return (
-    <Card as="section" className="p-6" data-analysis-print-scope={printScope}>
+    <Card as="section" className="p-4 sm:p-6" data-analysis-print-scope={printScope}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h2
@@ -282,8 +282,8 @@ export default function NarrativePane({
         {state.status === 'done' && !notEnoughData && (
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {onExport && completion?.analysis_id != null && (
-              <Button size="sm" variant="secondary" onClick={onExport}>
-                <DownloadSimpleIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              <Button size="sm" variant="secondary" wrap className="max-w-full" onClick={onExport}>
+                <DownloadSimpleIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 Export PDF
               </Button>
             )}
@@ -295,12 +295,14 @@ export default function NarrativePane({
               <Button
                 size="sm"
                 variant="secondary"
+                wrap
+                className="max-w-full"
                 onClick={(e) => {
                   if (document.activeElement === e.currentTarget) headingRef.current?.focus({ preventScroll: true })
                   onRefresh()
                 }}
                 loading={refreshDisabled}
-                leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" aria-hidden="true" />}
+                leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
               >
                 Refresh analysis
               </Button>

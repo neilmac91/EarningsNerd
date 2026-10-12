@@ -110,7 +110,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
               aria-disabled={resendDisabled || undefined}
               aria-busy={resendMutation.isPending || undefined}
               aria-label={`Resend invite to ${emailLabel}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light shadow-e1 transition hover:bg-brand-weak hover:shadow-e2 aria-disabled:cursor-not-allowed aria-disabled:border-border-light/50 aria-disabled:text-text-primary-light/50 dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5 dark:aria-disabled:border-white/5 dark:aria-disabled:text-text-primary-dark/50"
+              className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light shadow-e1 transition hover:bg-brand-weak hover:shadow-e2 aria-disabled:cursor-not-allowed aria-disabled:border-border-light/50 aria-disabled:text-text-primary-light/50 dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5 dark:aria-disabled:border-white/5 dark:aria-disabled:text-text-primary-dark/50"
             >
               {resendMutation.isPending ? (
                 <CircleNotchIcon className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
@@ -132,7 +132,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
               type="button"
               onClick={() => setConfirmOpen(true)}
               aria-label={`Revoke invite to ${emailLabel}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-1.5 text-xs font-medium text-error-light transition-colors hover:bg-error-light/10 dark:text-error-dark dark:hover:bg-error-dark/15"
+              className="focus-visible:outline-none focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-1.5 text-xs font-medium text-error-light transition-colors hover:bg-error-light/10 dark:text-error-dark dark:hover:bg-error-dark/15"
             >
               <ProhibitIcon className="h-3.5 w-3.5" />
               Revoke
