@@ -87,7 +87,7 @@ export default function BillingPanel() {
         />
         <p className="mt-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Need help? Email{' '}
-          <a href={contactMailto('billing')} className="break-all text-brand-strong underline dark:text-brand-strong-dark">{CONTACT_ADDRESSES.billing}</a>.
+          <a href={contactMailto('billing')} className="break-all text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.billing}</a>.
         </p>
       </Card>
     )
@@ -213,7 +213,7 @@ export default function BillingPanel() {
       )}
       <p className="mt-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
         Billing questions? Email{' '}
-        <a href={contactMailto('billing')} className="break-all text-brand-strong underline dark:text-brand-strong-dark">{CONTACT_ADDRESSES.billing}</a>.
+        <a href={contactMailto('billing')} className="break-all text-brand-strong underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.billing}</a>.
       </p>
     </Card>
   )

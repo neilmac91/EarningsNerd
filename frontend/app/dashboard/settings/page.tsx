@@ -195,7 +195,7 @@ export default function SettingsPage() {
               <div className="mt-4 flex items-center text-sm text-error-light dark:text-error-dark">
                 <WarningCircleIcon className="h-4 w-4 mr-2" />
                 <span>Failed to export data. Please try again or email{' '}
-                    <a href={contactMailto('privacy')} className="underline">{CONTACT_ADDRESSES.privacy}</a>.</span>
+                    <a href={contactMailto('privacy')} className="underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.privacy}</a>.</span>
               </div>
             )}
           </Card>
@@ -293,7 +293,7 @@ export default function SettingsPage() {
                   <div className="flex items-center text-sm text-error-light dark:text-error-dark">
                     <WarningCircleIcon className="h-4 w-4 mr-2" />
                     <span>Failed to delete account. Please email{' '}
-                      <a href={contactMailto('privacy')} className="underline">{CONTACT_ADDRESSES.privacy}</a>.</span>
+                      <a href={contactMailto('privacy')} className="underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">{CONTACT_ADDRESSES.privacy}</a>.</span>
                   </div>
                 )}
               </div>
