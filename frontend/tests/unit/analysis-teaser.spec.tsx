@@ -23,7 +23,7 @@ vi.mock('remark-gfm', () => ({ default: () => null }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 // More than six periods makes the sample contract observable at both real call sites.
 vi.mock('@/features/analysis/demo/demo-analysis.json', async importOriginal => {
-  const original = await importOriginal<typeof import('@/features/analysis/demo/demo-analysis.json')>()
+  const original = await importOriginal<{ default: typeof import('@/features/analysis/demo/demo-analysis.json') }>()
   return { default: { ...original.default, dataset: { ...original.default.dataset,
     periods: [...original.default.dataset.periods, { key: 'FY2025', fiscal_year: 2025, fiscal_period: 'FY', period_end: '2025-12-31' }],
   } } }
