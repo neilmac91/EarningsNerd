@@ -15,8 +15,8 @@ A settings validation error names the failing field and the reason but withholds
 own message quotes its value; it holds no secret). A settings object prints no value; `scripts/deploy_check.py` and
 `scripts/smoke_resend.py` print a secret's presence and length only; a malformed `DATABASE_URL` or `REDIS_URL` is
 reported by its error's type, never the parser's message, which can quote the password. Sentry receives no frame's
-local variables, and the `X-Internal-Token` header and every outbound request's query string reach it as `[Filtered]`
-(`main._sentry_options`). The rules, their gates and the echoes not yet gated:
+local variables, and the `X-Internal-Token` header, every outbound request's query string and the credential keys of a
+request body reach it as `[Filtered]` (`main._sentry_options`). The rules, their gates and the echoes not yet gated:
 `lessons/ops-never-echo-environment-values.md`. To debug a value, read it from its source (Secret Manager,
 `backend/.env`).
 

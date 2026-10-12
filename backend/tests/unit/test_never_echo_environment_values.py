@@ -800,6 +800,14 @@ def sentry_envelopes():
         sentry_sdk.get_global_scope().set_client(None)
 
 
+def test_main_passes_sentry_only_its_options():
+    # The fixture checks what `_sentry_options` returns; a keyword added at the call itself (`data_collection`, a hook)
+    # would escape it, so main.py's one init call takes those options and nothing else.
+    tree = ast.parse((BACKEND_DIR / "main.py").read_text(encoding="utf-8"))
+    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call) and ast.unparse(node.func).endswith(".init")]
+    assert [ast.unparse(call) for call in calls] == ["sentry_sdk.init(**_sentry_options())"]
+
+
 def _of(items: list, kind: str) -> list[dict]:
     return [payload for item_type, payload in items if item_type == kind]
 
@@ -848,28 +856,40 @@ def test_sentry_sends_no_internal_token(monkeypatch, sentry_envelopes):
     assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry"
 
 
-def test_sentry_sends_no_password_from_a_request_body(sentry_envelopes):
-    # The FastAPI integration attaches a JSON request body to the request's error event and transaction, and the
-    # scrubber matches exact key names: `password` and `token` were withheld, a password reset's `new_password` and
-    # `current_password` were not.
+def test_sentry_sends_no_credential_from_a_request_body(sentry_envelopes):
+    # The FastAPI integration attaches a request body, JSON or form, to the request's error event and to its sampled
+    # transaction, and the scrubber matches exact key names: `password` and `token` were withheld, but a password
+    # change's `new_password` and `current_password`, a `refresh_token`, an `invite` or `invite_code`, and Apple's
+    # form-posted `code` and `id_token` were not.
     import sentry_sdk
-    from fastapi import FastAPI
+    from fastapi import FastAPI, Form
     from fastapi.testclient import TestClient
 
-    password = _fabricated("a user's new password", string.ascii_uppercase)
+    credential = _fabricated("a user's credential", string.ascii_uppercase)
     app = FastAPI()
 
     @app.post("/reset")
     async def reset(body: dict):
         raise RuntimeError("database down")
 
-    body = {"new_password": password, "current_password": password, "password": password, "token": password}
-    assert TestClient(app, raise_server_exceptions=False).post("/reset", json=body).status_code == 500
+    @app.post("/apple")
+    async def apple(code: str = Form(None), id_token: str = Form(None), state: str = Form(None)):
+        raise RuntimeError("database down")
+
+    names = ("new_password", "current_password", "password", "token", "refresh_token", "invite", "invite_code")
+    body = dict.fromkeys(names, credential)
+    form = {"code": credential, "id_token": credential}
+    client = TestClient(app, raise_server_exceptions=False)
+    assert client.post("/reset", json=body).status_code == 500
+    assert client.post("/apple", data={**form, "state": "fabricated-state"}).status_code == 500
     sentry_sdk.flush()
-    (event,) = _of(sentry_envelopes, "event")
-    assert event["request"]["data"] == dict.fromkeys(body, "[Filtered]")  # the body was attached, then withheld
-    leaked = _fragments(password, json.dumps(sentry_envelopes), width=8)
-    assert not leaked, f"{leaked} eight-character fragments of the fabricated password reached Sentry"
+    events, transactions = _of(sentry_envelopes, "event"), _of(sentry_envelopes, "transaction")
+    assert len(events) == 2 and len(transactions) == 2
+    data = [event["request"]["data"] for event in events]
+    assert dict.fromkeys(body, "[Filtered]") in data  # the JSON body was attached, then withheld
+    assert {**dict.fromkeys(form, "[Filtered]"), "state": "fabricated-state"} in data  # so was the form
+    leaked = _fragments(credential, json.dumps(sentry_envelopes), width=8)
+    assert not leaked, f"{leaked} eight-character fragments of the fabricated credential reached Sentry"
 
 
 def _alpha_vantage(monkeypatch, status: int, body: str = "", alphabet: str = string.ascii_letters + string.digits):
@@ -923,23 +943,38 @@ def test_an_alpha_vantage_error_carries_no_key(monkeypatch, caplog):
     assert not leaked, f"{leaked} four-character fragments of the fabricated key reached the log or the traceback"
 
 
-def test_the_calendar_job_logs_no_request_url(monkeypatch, caplog):
-    # httpx logs each request's URL at INFO, and the daily calendar job logs at INFO and fetches Alpha Vantage.
+@pytest.mark.parametrize("setup", ["calendar-job", "service"])
+def test_the_alpha_vantage_url_stays_out_of_the_request_log(monkeypatch, caplog, setup):
+    # httpx logs each request's URL at INFO, and Alpha Vantage's query carries the key. Two setups log at INFO and fetch
+    # it: the daily calendar job (its own logging setup) and the service and task worker (configure_logging; the
+    # durable earnings-calendar task runs there).
+    from app.services import logging_service
+
     monkeypatch.setattr(sys, "path", list(sys.path))
     monkeypatch.syspath_prepend(str(BACKEND_DIR / "scripts"))
     monkeypatch.setattr(logging, "basicConfig", lambda **kwargs: None)  # the test's own handlers stay
-    httpx_logger = logging.getLogger("httpx")
-    level = httpx_logger.level  # main.py's configure_logging may have set it already in this process
-    httpx_logger.setLevel(logging.NOTSET)
+    root = logging.getLogger()
+    handlers, root_level = root.handlers[:], root.level
+    quieted = ("httpx", "httpcore", "urllib3", "edgar", "markdown_it")
+    levels = {name: logging.getLogger(name).level for name in quieted}  # configure_logging may have set them already
+    for name in quieted:
+        logging.getLogger(name).setLevel(logging.NOTSET)
     try:
-        importlib.import_module("earnings_calendar_job")._configure_logging()
+        if setup == "calendar-job":
+            importlib.import_module("earnings_calendar_job")._configure_logging()
+        else:
+            logging_service.configure_logging(level="INFO")
+            root.handlers[:] = handlers  # it replaces the root handlers; caplog's comes back
         client, key = _alpha_vantage(monkeypatch, 200, "symbol,reportDate\n")
         caplog.set_level(logging.INFO)
         asyncio.run(client.fetch_earnings_calendar())
     finally:
-        httpx_logger.setLevel(level)  # setLevel, not an attribute write: it clears the loggers' level cache
+        root.handlers[:] = handlers
+        root.setLevel(root_level)
+        for name, level in levels.items():
+            logging.getLogger(name).setLevel(level)  # setLevel, not an attribute write: it clears the level cache
     leaked = _fragments(key, caplog.text)
-    assert not leaked, f"{leaked} four-character fragments of the fabricated key reached the job's log"
+    assert not leaked, f"{leaked} four-character fragments of the fabricated key reached the {setup}'s log"
 
 
 def test_the_resend_smoke_prints_no_key(monkeypatch, capsys):
@@ -983,20 +1018,26 @@ def test_redis_logs_no_url(monkeypatch, caplog):
     assert not leaked, f"{leaked} four-character fragments of the fabricated password were logged"
 
 
-def test_a_malformed_database_url_is_not_quoted(monkeypatch):
-    # app.database builds its engine at import, before any handler can withhold a message, so a URL missing its
-    # `@host` put the password into a service's startup traceback (and Sentry, which main.py starts first).
+@pytest.mark.parametrize(
+    ("shape", "reported"),
+    [("postgresql://app:{p}/app", "(ValueError"), ("postgresql://app:{p}@{p}@db.invalid/app", "(an '@' in the host")],
+    ids=["host-missing", "at-in-password"],
+)
+def test_a_malformed_database_url_is_not_quoted(monkeypatch, shape, reported):
+    # app.database builds its engine at import, before any handler can withhold a message: a URL missing its `@host`
+    # put the password into a service's startup traceback (and Sentry, which main.py starts first), and an unescaped
+    # "@" in the password parses, its tail becoming the host that the driver's connection error quotes at startup.
     from app import config
 
     password = _fabricated("DATABASE_URL password")
-    monkeypatch.setattr(config.settings, "DATABASE_URL", f"postgresql://app:{password}/app")
+    monkeypatch.setattr(config.settings, "DATABASE_URL", shape.format(p=password))
     app_package = importlib.import_module("app")
     monkeypatch.setattr(app_package, "database", getattr(app_package, "database", None), raising=False)
     monkeypatch.delitem(sys.modules, "app.database", raising=False)
     with pytest.raises(RuntimeError) as info:
         importlib.import_module("app.database")
     text = "".join(traceback.format_exception(info.value))
-    assert "DATABASE_URL could not be parsed (ValueError" in text
+    assert f"DATABASE_URL could not be parsed {reported}" in text
     leaked = _fragments(password, text)
     assert not leaked, f"{leaked} four-character fragments of the fabricated password reached the traceback"
 
@@ -1012,13 +1053,21 @@ def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
     monkeypatch.delitem(sys.modules, "validate_db_performance", raising=False)
     script = importlib.import_module("validate_db_performance")
     password = _fabricated("benchmark password")
-    for url in (f"postgresql://app:{password}/app", f"postgresql://app:{password}@127.0.0.1:1/app"):
+    urls = (
+        f"postgresql://app:{password}/app",  # the host missing: the password sits where the port goes
+        f"postgresql://app:{password}@{password}@127.0.0.1:1/app",  # an unescaped "@" in the password
+        f"postgresql://app:{password}@127.0.0.1:1/app",  # well-formed
+        f"postgresql://127.0.0.1:1/app?user=app&password={password}",  # a password in the query string
+    )
+    for url in urls:
         monkeypatch.setenv("DATABASE_URL", url)
         with pytest.raises(SystemExit):
             script.run_validation()
     out = capsys.readouterr().out
-    assert "could not be parsed (ValueError" in out  # the malformed URL's branch ran
-    assert "Database: postgresql://app:***@127.0.0.1:1/app" in out  # and the well-formed one's
+    assert "could not be parsed (ValueError" in out  # the host-missing branch ran
+    assert "could not be parsed (an '@' in the host" in out  # so did the "@" branch
+    assert out.count("Database: postgresql at 127.0.0.1:1/app") == 2  # and the two well-formed URLs'
+    assert out.count("FAILED (connection error): OperationalError (message withheld") == 2  # each connect refused
     leaked = _fragments(password, out)
     assert not leaked, f"{leaked} four-character fragments of the fabricated password were printed"
 

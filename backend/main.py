@@ -41,10 +41,22 @@ def _sentry_options() -> dict:
         "include_local_variables": False,
         # The scrubber matches exact key names, and the SDK withholds only its own short list of headers: the
         # internal-job header carries INTERNAL_JOB_TOKEN, an outbound request's query string (on breadcrumbs and
-        # spans) carries Alpha Vantage's key, and a password change's JSON body carries the user's passwords. Never
-        # pass `data_collection`: it drops this scrubber and brings frame variables back.
+        # spans) carries Alpha Vantage's key, and request bodies (on errors and sampled transactions) carry users'
+        # credentials: a password change's passwords, a refresh token, an invite, Apple's form-posted code and
+        # id_token. Never pass `data_collection`: it drops this scrubber and brings frame variables back.
         "event_scrubber": EventScrubber(
-            denylist=[*DEFAULT_DENYLIST, "x-internal-token", "http.query", "new_password", "current_password"]
+            denylist=[
+                *DEFAULT_DENYLIST,
+                "x-internal-token",
+                "http.query",
+                "new_password",
+                "current_password",
+                "refresh_token",
+                "invite",
+                "invite_code",
+                "code",
+                "id_token",
+            ]
         ),
     }
 

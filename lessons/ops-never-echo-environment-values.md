@@ -24,18 +24,21 @@ The follow-up review (todo E16) found the rest:
   database driver's connect frames on a connection failure (SQLAlchemy's `cparams`, psycopg2's `dsn`: the
   decoded password), and a user's password in an auth request's frames. Sentry also sent the `X-Internal-Token`
   header (its own header filter and its default scrubber match exact names only), on transactions too, each
-  outbound request's query string, unsanitized, where the Alpha Vantage key travels, and a JSON request body,
-  where the scrubber withheld `password` and `token` but not a password reset's `new_password` and
-  `current_password`;
+  outbound request's query string, unsanitized, where the Alpha Vantage key travels, and a request body, JSON or
+  form, on the error and on every sampled transaction, where the scrubber withheld `password` and `token` but not a
+  password change's `new_password` and `current_password`, a `refresh_token`, an `invite` or `invite_code`, or
+  Apple's form-posted `code` and `id_token`;
 - `hmac.compare_digest` raises `TypeError` on a non-ASCII `str`, and Starlette decodes headers as latin-1: a
   non-ASCII `X-Internal-Token` was a 500 whose captured frame held the token, and the Resend webhook's
   signature, the Google state and the Apple nonce checks had the same shape;
 - an Alpha Vantage HTTP error's message quotes the request URL with the key, and the daily calendar job, which
   logs at INFO with the key mounted, let httpx log every request URL;
 - `app/database.py` parses `DATABASE_URL` at import, so a URL missing its `@host` put the password into a
-  service's startup traceback (and into Sentry, which `main.py` starts first); `redis_service` logged
+  service's startup traceback (and into Sentry, which `main.py` starts first), and an unescaped `@` in the password
+  parsed, its tail becoming the host that the driver's connection error quotes at startup; `redis_service` logged
   `REDIS_URL` whole and its parse error's message; `scripts/smoke_resend.py` printed the key's last four
-  characters; `scripts/validate_db_performance.py` printed a URL without an `@` whole.
+  characters; `scripts/validate_db_performance.py` printed a URL without an `@` whole, and a password passed in the URL's
+  query string survived SQLAlchemy's masked rendering.
 
 **Rule.**
 - The settings class sets `hide_input_in_errors`, so a validation error's text (`str`, `repr`, and so a
@@ -51,16 +54,18 @@ The follow-up review (todo E16) found the rest:
 - A settings object prints no value: the class overrides `__repr_args__`, so `repr()` is `Settings()` and
   `str()` is empty.
 - Sentry sends no frame's local variables (`include_local_variables=False` in `main._sentry_options`), and its
-  event scrubber withholds the `X-Internal-Token` header, every outbound request's `http.query` and a request
-  body's `new_password` and `current_password`, on errors and transactions alike. Never configure
+  event scrubber withholds the `X-Internal-Token` header, every outbound request's `http.query` and a request body's
+  `new_password`, `current_password`, `refresh_token`, `invite`, `invite_code`, `code` and `id_token` (beside the SDK's
+  own `password` and `token`), on errors and transactions alike. Never configure
   `data_collection` (nor `_experiments.data_collection`): the SDK then drops the event scrubber and brings frame
   variables back, whatever `include_local_variables` says. What an event still carries: the exception type,
   message and chain; every frame's file, function, line and five source lines either side; breadcrumbs (log
-  lines at INFO and above, SQL statements, HTTP calls without their query string); the request's method, URL,
-  other headers and body; the user id, tags, release and environment.
+  lines at INFO and above, SQL statements, HTTP calls without their query string); the request's method, URL
+  and query string, other headers and body; the user id, tags, release and environment.
 - Nothing prints or logs a secret. An output reports a secret's presence and length, never a character; a
   connection URL's parse error is reported by its type, and an HTTP error from a keyed URL by its status, never
-  their messages; httpx's request log stays at WARNING where a key travels in a query string. No print, log,
+  their messages; a database URL whose host holds an `@` is refused; httpx's request log stays at WARNING where a
+  key travels in a query string. No print, log,
   warn or write call and no raise or assert message reads a secret field, or the settings object beyond a
   printable field (`model_dump()`, `__dict__`), directly.
 - `hmac.compare_digest` and `secrets.compare_digest` compare bytes (`.encode()` both sides).
@@ -81,8 +86,8 @@ The follow-up review (todo E16) found the rest:
 - **The structured form.** An AST walk over every backend Python file outside `tests/` (the entrypoints,
   the application, its scripts and its evals) fails any `except ... as name` block, whatever it catches,
   that calls `name.errors()` or `name.json()` without `include_input=False`; a pin fails when a new
-  directory of backend code is left out of the walk (a virtualenv is skipped by its `pyvenv.cfg`, whatever
-  its name). It reads only the block's own direct calls on the bound name. Outside it: an alias
+  directory of backend code is left out of the walk (a top-level virtualenv is skipped by its `pyvenv.cfg`,
+  whatever its name). It reads only the block's own direct calls on the bound name. Outside it: an alias
   (`f = exc.errors`), or `getattr`; a helper the exception is handed to; a FastAPI exception-handler function;
   an except* group's members. None exists today.
 - **The repr.** A settings object's `repr()` is `Settings()`, its `str()` is empty, and Sentry's
@@ -117,9 +122,10 @@ The follow-up review (todo E16) found the rest:
   asserts its branch ran. Its two database checks, fed a URL that puts a fabricated password where the port
   goes, print the error's type and no fragment.
 - **Outputs.** `smoke_resend` prints the key's length; `redis_service` builds a pool from a URL holding a
-  password and refuses a URL missing its `@host`; importing `app.database` with such a URL raises a
-  `RuntimeError`; the database benchmark stops on that URL and masks a well-formed one; an Alpha Vantage 503 is
-  logged and raised as `HTTP 503`; the calendar job's logging setup keeps httpx's request log off. None prints
+  password and refuses a URL missing its `@host`; importing `app.database` with such a URL, or with an `@`
+  in its host, raises a `RuntimeError`; the database benchmark stops on both, prints a well-formed URL's backend,
+  host and database only (a query-string password included in the test) and its errors by type; an Alpha Vantage 503 is
+  logged and raised as `HTTP 503`; the calendar job's logging setup and the service's `configure_logging` keep httpx's request log off. None prints
   or logs a 4-character fragment of the fabricated secret. An AST walk over every backend file outside `tests/`
   fails a print, log, warn or write call's argument, or a raise or assert message, that reads `settings.X` or
   `getattr(settings, ...)` for anything but a printable field, `self.X` for a secret field, or
@@ -132,8 +138,9 @@ The follow-up review (todo E16) found the rest:
   framework frame) and one whose background job fails after the 202 send their errors and three transactions
   with the header `[Filtered]`, no `vars` and no 8-character fragment of the token; a non-ASCII header is a
   401. An Alpha Vantage request's breadcrumb and span carry `http.query` as `[Filtered]` and no fragment of the
-  key. A route that fails on a JSON body holding a fabricated password under `new_password`, `current_password`,
-  `password` and `token` sends each as `[Filtered]`.
+  key. Routes that fail on a JSON body and on a form body holding a fabricated credential under each withheld key
+  send each as `[Filtered]`, on the errors and the transactions. main.py's one init call takes `_sentry_options()`
+  and nothing else.
 - **compare_digest.** An AST walk fails any `compare_digest` call in the backend whose two arguments are not
   both `.encode(...)` calls or bytes literals.
 
@@ -141,10 +148,14 @@ The agent clause is not machine-gated and stays session reading.
 
 **Known ungated echoes**, each a follow-up:
 - `scripts/refresh_index_membership.py --source fmp` logs an HTTP error's message (the FMP URL with its key) and
-  lets httpx log each request URL at INFO; the monthly workflow uses the keyless Wikipedia source;
+  lets httpx log each request URL at INFO; the monthly workflow uses the keyless Wikipedia source (todo E17);
 - a provider's own error text can quote a masked key's last four characters (Stripe's and the AI providers'
   invalid-key messages): callers log it, and `app/routers/subscriptions.py` returns Stripe's message as the
-  checkout and portal error detail;
+  checkout and portal error detail (todo E18);
+- an incoming request's query string reaches Sentry unscrubbed: the Google OAuth callback's single-use `code`
+  (a user's, not a settings secret);
+- `main.py`'s startup database check and `/health/detailed` log a driver's connection error, which names the host,
+  port, user and database; it carries no password once the URL parses with a clean host;
 - `main.py`'s Sentry init-failure line prints a malformed DSN's parse message (its scheme, its project path, or
   the port segment of a legacy key pair without a host); the DSN's key is public by Sentry's design;
 - Sentry scrubs keys, not values: a secret in a log message (a breadcrumb), an exception message or an extra is

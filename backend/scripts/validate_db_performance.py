@@ -58,7 +58,7 @@ def measure_operation(operation_func, description: str) -> tuple[float, any]:
         return elapsed_ms, result
     except Exception as e:
         elapsed_ms = (time.perf_counter() - start) * 1000
-        print(f"  {description}: FAILED after {elapsed_ms:.2f}ms - {e}")
+        print(f"  {description}: FAILED after {elapsed_ms:.2f}ms - {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
         raise
 
 
@@ -80,14 +80,21 @@ def run_validation():
         print("ERROR: SQLAlchemy not installed. Run: pip install sqlalchemy")
         sys.exit(1)
 
-    # SQLAlchemy renders the URL with its password masked. Its parse error can quote the password (a URL missing its
-    # `@host` puts it where the port goes, and the int() that parses the port quotes it), so only its type is printed.
+    # The parse error can quote the password (a URL missing its `@host` puts it where the port goes, and the int() that
+    # parses the port quotes it), so only its type is printed. A host holding an "@" is refused too: an unescaped "@"
+    # in the password ends it there and the rest becomes the host, which a driver's error quotes.
     try:
         url = make_url(database_url)
     except Exception as e:  # noqa: BLE001 — any parse failure
-        print(f"ERROR: DATABASE_URL could not be parsed ({type(e).__name__}; message withheld: it can quote the password)")
+        problem = type(e).__name__
+    else:
+        problem = "an '@' in the host; percent-encode the password" if url.host and "@" in url.host else None
+    if problem:
+        print(f"ERROR: DATABASE_URL could not be parsed ({problem}; message withheld: it can quote the password)")
         sys.exit(1)
-    print(f"Database: {url.render_as_string(hide_password=True)}")
+    # The backend, host, port and database only: SQLAlchemy's masked rendering hides the URL's password but not a
+    # password passed in its query string (?password=...).
+    print(f"Database: {url.get_backend_name()} at {url.host or 'localhost'}:{url.port or 'default'}/{url.database or ''}")
     print()
 
     # Create engine with production-like settings
@@ -122,13 +129,13 @@ def run_validation():
             print("  ⚠️  SLOW (> 100ms)")
         conn.close()
     except OperationalError as e:
-        print(f"  ❌ FAILED (connection error): {e}")
+        print(f"  ❌ FAILED (connection error): {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
         sys.exit(1)
     except InterfaceError as e:
-        print(f"  ❌ FAILED (interface error): {e}")
+        print(f"  ❌ FAILED (interface error): {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
         sys.exit(1)
     except SQLAlchemyError as e:
-        print(f"  ❌ FAILED (database error): {e}")
+        print(f"  ❌ FAILED (database error): {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
         sys.exit(1)
 
     print()
@@ -148,7 +155,7 @@ def run_validation():
             print("  ⚠️  SLOW (> 5ms)")
         session.close()
     except SQLAlchemyError as e:
-        print(f"  ❌ FAILED (database error): {e}")
+        print(f"  ❌ FAILED (database error): {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
 
     print()
     print("3. Table Count Query")
@@ -187,7 +194,7 @@ def run_validation():
 
         session.close()
     except SQLAlchemyError as e:
-        print(f"  ❌ FAILED (database error): {e}")
+        print(f"  ❌ FAILED (database error): {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
 
     print()
     print("4. Connection Pool Health")
@@ -219,7 +226,7 @@ def run_validation():
 
         results["pool_health"] = pool_time
     except SQLAlchemyError as e:
-        print(f"  ❌ FAILED (database error): {e}")
+        print(f"  ❌ FAILED (database error): {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
 
     print()
     print("5. Index Check")
@@ -241,7 +248,7 @@ def run_validation():
 
         session.close()
     except SQLAlchemyError as e:
-        print(f"  ❌ FAILED (database error): {e}")
+        print(f"  ❌ FAILED (database error): {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
 
     print()
     print("=" * 60)
