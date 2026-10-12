@@ -297,8 +297,11 @@ Analysis table   <MetricsTable> — equal rem period columns with a semantic sti
                  DataTable's layout, colWidths, compact cellPadding, named scrollRegion, snapColumns
                  and Column.rowHeader options are opt-in; other consumers retain their geometry.
 
-Analysis evidence <SourceValue> — the shared Modal presents financial display form, exact supplied
-                 value and human-readable units, then Method, Checks, and recorded source lineage.
+Analysis evidence <SourceValue> — the shared Modal presents financial display form, the supplied
+                 value labelled “As stored” and human-readable units, then Checks, Method and recorded
+                 source lineage. Checks distinguish SEC XBRL admission from compatible-input calculations;
+                 neither claims an audit. Missing figures read “Unavailable”, with the effect of a gap
+                 stated. Quarterly dialogs name the quarter end; source links name their figure and period.
                  Formula substitution uses operand identity, not list position; it only asserts an
                  equality for a passed calculation. Missing lineage is stated explicitly, never
                  represented as recorded inputs or a scheduled repair. Original SEC links and
@@ -328,7 +331,9 @@ Analysis KPI     <KpiStrip> — a definition list, two cards across at phone wid
 
 Data notes strip <DataNotes> — hairlines above and below a native details disclosure on the page
                  ground, below the KPIs. The title uses primary ink; counts use the data face, with
-                 review counts in warning ink and an all-passed count in sage. Unknown validation,
+                 review counts in warning ink and every count beside its relevant note letters. When all
+                 populated figures passed, “No figures need review” and a neutral checked count remain
+                 independent of concerns on comparisons. Unknown validation,
                  unavailable and calculated counts remain separate. Expanded notes use two columns:
                  the letter, then its reason, affected metric/periods and distinct comparison counts.
                  Existing Sources & methods prose, source date and snapshot reference stay inside.

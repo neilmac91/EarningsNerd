@@ -358,6 +358,49 @@ describe('Plan and usage Retry', () => {
   })
 })
 
+describe('Saved summaries Retry and unresolved plan', () => {
+  it('does not label a failed subscription lookup Free', async () => {
+    healthyApi()
+    api.getSubscriptionStatus.mockRejectedValue(new Error('billing down'))
+    renderDashboard()
+    await screen.findByText('Unable to load plan details')
+    const plan = screen.getByRole('heading', { name: 'Plan and usage' }).parentElement!
+    expect(within(plan).getByText('Unavailable')).toBeInTheDocument()
+    expect(within(plan).queryByText('Free')).not.toBeInTheDocument()
+  })
+
+  it.each([true, false])('keeps the failed saved query and focused Retry until recovery (has rows: %s)', async (hasRows) => {
+    healthyApi()
+    const response = deferred<SavedSummary[]>()
+    api.getSavedSummaries.mockRejectedValueOnce(new Error('saved down')).mockReturnValueOnce(response.promise)
+    renderDashboard()
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => expect(api.getSavedSummaries).toHaveBeenCalledTimes(2))
+    expectBusyAndFocused(retry)
+    expect(screen.getByText('Unable to load saved summaries')).toBeInTheDocument()
+    fireEvent.click(retry)
+    expect(api.getSavedSummaries).toHaveBeenCalledTimes(2)
+    await act(async () => response.resolve(hasRows ? [saved(1, 'Apple Inc.')] : []))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: hasRows ? 'Saved summaries' : 'Plan and usage' }))
+  })
+
+  it('keeps a saved Retry live and focused when another attempt fails', async () => {
+    healthyApi()
+    api.getSavedSummaries.mockRejectedValue(new Error('saved down'))
+    renderDashboard()
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => expect(api.getSavedSummaries).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-disabled'))
+    expect(retry).toHaveFocus()
+    expect(screen.getByText('Unable to load saved summaries')).toBeInTheDocument()
+  })
+})
+
 describe('Your companies Retry', () => {
   const errorCard = async () => {
     await screen.findByText('Unable to load your companies')
