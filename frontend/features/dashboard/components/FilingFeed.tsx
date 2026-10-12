@@ -38,14 +38,20 @@ export default function FilingFeed({
   const isLoading = feedQuery.isLoading && !failure.failed
 
   const visible = data ? data.slice(0, MAX_CARDS) : []
-  // Whether more exist comes from the watchlist (companies followed), never data.length: the feed
-  // array is capped at the fetch limit, so data.length alone would hide the overflow for a user
-  // following more than the cap.
+  // Overflow count comes from the watchlist (companies followed), never data.length: the feed array
+  // is capped at the fetch limit, so data.length would misreport "See all 20 companies" for a user
+  // following 30. When the true count isn't known, drop the number rather than show a wrong one.
   const hasMore =
     watchlistCount != null ? watchlistCount > visible.length : (data?.length ?? 0) > MAX_CARDS
-  // The link names the action without the count: sage never colours a number (D-030), and the
-  // watchlist page it opens carries the list.
-  const overflowLabel = 'See all companies'
+  // The count rests in the secondary ink inside the sage link: sage never colours a number (D-030).
+  const overflowLabel =
+    watchlistCount != null ? (
+      <>
+        See all <span className="text-text-secondary-light dark:text-text-secondary-dark">{watchlistCount}</span> companies
+      </>
+    ) : (
+      'See all companies'
+    )
 
   // The onboarding panel leaves once an add succeeds (the watchlist count or the feed changes), taking
   // the focused chip or search option with it. Hand focus to the section heading, but only when it

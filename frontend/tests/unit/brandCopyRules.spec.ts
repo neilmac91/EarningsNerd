@@ -46,7 +46,10 @@ function walk(dir: string, out: string[] = []): string[] {
 
 const FILES = SCAN_DIRS.flatMap((dir) => walk(path.join(ROOT, dir)))
 /** One program over the scanned files, so rule 2 can ask the checker what an expression renders (a
- *  number, a template with a number in it, a formatter fed a number), not only what its literals say. */
+ *  number, a template with a number in it, a formatter fed a number), not only what its literals say.
+ *  This build is the suite's slowest import (about 11 s on a laptop, outside any test's timeout): the
+ *  price of seeing a runtime count a source scan cannot; skipLibCheck is set, and nothing else trims
+ *  it without losing the checker, so do not fold it back into a regex. */
 const TSCONFIG = ts.readConfigFile(path.join(ROOT, 'tsconfig.json'), ts.sys.readFile)
 const PARSED = ts.parseJsonConfigFileContent(TSCONFIG.config, ts.sys, ROOT)
 const PROGRAM = ts.createProgram(FILES, { ...PARSED.options, noEmit: true, skipLibCheck: true })

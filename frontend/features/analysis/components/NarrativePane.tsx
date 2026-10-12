@@ -80,8 +80,8 @@ function buildNarrativeComponents(citations: AnalysisCitation[], notes: QualityN
 /** The finding remains in the reading line; its same source figures live in a disclosure. */
 function NarrativeEvidence({ operands, citations, notes, preciseAmounts }: { operands: NarrativeOperand[]; citations: AnalysisCitation[]; notes: QualityNotesModel; preciseAmounts: ReadonlySet<string> }) {
   return <details className="my-3 text-sm">
-    <summary className="cursor-pointer rounded text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark">
-      Show the {operands.length === 1 ? 'figure' : 'figures'} behind this
+    <summary className="cursor-pointer rounded text-text-secondary-light hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark">
+      Show the {operands.length} source figures behind this
     </summary>
     <ul role="list" className="mt-2 list-none !pl-0" aria-label="Figures behind this finding">
       {operands.map((operand, index) => <li key={index} className="!m-0 grid grid-cols-1 gap-x-3 gap-y-1 border-t border-border-light py-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] dark:border-white/10">
