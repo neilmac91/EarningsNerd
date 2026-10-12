@@ -51,7 +51,7 @@ Engineering:
 - [ ] E12 — POSTPONE (founder): supply the private WP-07+ list or confirm completion; the repository defines WP-01–WP-06 only (#1069 series).
 - [ ] E13 — DO (Engineering): fix successful-generation focus, the chip-opened desktop pane overhang and phone GenericTable; warning-only suppression is CANCEL-RECOMMENDED, and old harness repairs wait for reuse; postpone Copilot memoization without a measurement and bundle missing-prior server formatting with a backend change (EN-01/02/03).
 - [ ] E14 — DO (Engineering): fix disabled Button tint, verification refresh/429 handling, subscription-error plan labels, saved-summary Retry and async alert anchoring/ticker context; ring tokens belong to E4/E5; CANCEL-RECOMMENDED for the currently inapplicable Modal portal-host Escape change, and PREPARE the founder-only class-7 SQL read.
-- [ ] E15 — DO (Engineering): fix InsiderActivityPanel's 600-level gain/loss labels and assess FilingViewer Retry with E13; Analysis Run's locked native-disabled contract remains a founder decision.
+- [ ] E15 — DO (Engineering): fix InsiderActivityPanel's 600-level gain/loss labels; Analysis Run's locked native-disabled contract remains a founder decision.
 
 ## What to doubt first
 
