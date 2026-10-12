@@ -1,6 +1,6 @@
 # Never let a settings error, an output or Sentry carry a secret
 
-Date: 2026-10-11 (follow-ups 2026-10-12, todo E16) · Area: ops / secrets
+Date: 2026-10-11 (follow-ups 2026-10-12, #1281) · Area: ops / secrets
 
 **Context.** On two consecutive days a review agent imported `app.config` outside the test harness to
 probe a detail, and environment values reached its own tool output (CODE RED records 22 and 23). The
@@ -16,7 +16,7 @@ service's startup log or CI's public log. Review of the fix found four more path
 - `scripts/deploy_check.py` printed the first 30 characters of every value it checked, secrets included, and
   its two database checks printed an error message that can quote the database password.
 
-The follow-up review (todo E16) found the rest:
+The follow-up review (#1281) found the rest:
 - an error a library raises inside a validator (a URL or port parse) prints whole: `hide_input_in_errors` hides
   the input pydantic appends, not the message of an error raised inside a validator;
 - Sentry serialized every captured frame's local variables. A secret copied out of `settings` into a local
@@ -37,8 +37,8 @@ The follow-up review (todo E16) found the rest:
   service's startup traceback (and into Sentry, which `main.py` starts first), and an unescaped `@` in the password
   parsed, its tail becoming the host that the driver's connection error quotes at startup; `redis_service` logged
   `REDIS_URL` whole and its parse error's message; `scripts/smoke_resend.py` printed the key's last four
-  characters; `scripts/validate_db_performance.py` printed a URL without an `@` whole, and a password passed in the URL's
-  query string survived SQLAlchemy's masked rendering.
+  characters; `scripts/validate_db_performance.py` printed a URL without an `@` whole, and a password passed in
+  the URL's query string survived SQLAlchemy's masked rendering.
 
 **Rule.**
 - The settings class sets `hide_input_in_errors`, so a validation error's text (`str`, `repr`, and so a
@@ -130,9 +130,10 @@ The follow-up review (todo E16) found the rest:
 - **Outputs.** `smoke_resend` prints the key's length; `redis_service` builds a pool from a URL holding a
   password and refuses a URL missing its `@host`; importing `app.database` with such a URL, or with an `@`
   in its host, raises a `RuntimeError`; the database benchmark stops on both, prints a well-formed URL's backend,
-  host and database only (a query-string password included in the test) and its errors by type; an Alpha Vantage 503 is
-  logged and raised as `HTTP 503`; the calendar job's logging setup and the service's `configure_logging` keep httpx's request log off. None prints
-  or logs a 4-character fragment of the fabricated secret. An AST walk over every backend file outside `tests/`
+  host and database only (a query-string password included in the test) and its errors by type; an Alpha Vantage
+  503 is logged and raised as `HTTP 503`; the calendar job's logging setup and the service's `configure_logging`
+  keep httpx's request log off. None prints or logs a 4-character fragment of the fabricated secret. An AST walk
+  over every backend file outside `tests/`
   fails an output call's argument (a print, log, warn or write call, `echo`, `pprint`, a Sentry message, tag,
   context, extra or breadcrumb, by function or method name), or a raise or assert message, that reads
   `settings.X` or `getattr(settings, ...)` for anything but a printable field, hands the settings object whole to
@@ -172,11 +173,12 @@ with its reason:
   port, user and database; it carries no password once the URL parses with a clean host;
 - `main.py`'s Sentry init-failure line prints a malformed DSN's parse message (its scheme, its project path, or
   the port segment of a legacy key pair without a host); the DSN's key is public by Sentry's design;
-- Sentry scrubs keys, not values (todo E16 proposed a `before_send` value scrubber; turning frame variables off
-  replaced it): a secret in a log message (a breadcrumb), an exception message or an extra is kept out only at its
-  source. The output walk sees only a direct read in a call it names as an output, not an
-  alias (`url = settings.REDIS_URL`), a helper the value is handed to or an object holding it (`stripe.api_key`), and
-  the message walk reads `app/config.py` only and does not follow `globals()`, `setattr` or `sys.modules`;
+- Sentry scrubs keys, not values (the follow-up's plan named a `before_send` value scrubber; #1281 turned frame
+  variables off instead, and turning them back on would need that scrubber): a secret in a log message (a
+  breadcrumb), an exception message or an extra is kept out only at its source. The output walk sees only a direct
+  read in a call it names as an output, not an alias (`url = settings.REDIS_URL`), a helper the value is handed to
+  or an object holding it (`stripe.api_key`), and the message walk reads `app/config.py` only and does not follow
+  `globals()`, `setattr` or `sys.modules`;
 - the library-message test drives its shapes one field at a time, as constructor arguments: a parse behind a
   check other than `startswith` or a known prefix, one that fails only on other input, on two fields together
   or only from the environment is not exercised.

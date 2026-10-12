@@ -1,4 +1,4 @@
-"""A settings secret never reaches an output (rule 12; CODE RED records 22 and 23; todo E16;
+"""A settings secret never reaches an output (rule 12; CODE RED records 22 and 23; #1281;
 lessons/ops-never-echo-environment-values.md).
 
 pydantic appends each failing field's input to its error message (`input_value=...`), and a missing
