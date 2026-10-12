@@ -120,9 +120,8 @@ the login and register forms leave their fields editable). Gate: `tests/unit/bus
 rules in `lessons/frontend-busy-controls-stay-focusable.md`.
 
 An aria-disabled control never takes an element `opacity`. It is still focusable, and the opacity fades its
-focus indicator with everything else it paints: under `opacity-50` the brand ring on panel fell from 1.97:1 to
-1.37:1 in light and from 2.87:1 to 1.68:1 in dark, and the browser's own outline on an unringed control from
-5.73:1 to 2.26:1 and from 2.45:1 to 1.51:1 (Chromium 141, computed and painted). A hand-rolled busy or
+focus indicator with everything else it paints. The opaque ring's 3:1 floor is held by
+`tests/unit/siteChromeFocusRing.spec.ts`. A hand-rolled busy or
 unavailable look fades what the control draws in, at the fraction the opacity had, on the tokens it already
 uses and as a light/dark pair: the label's ink (`aria-disabled:text-error-light/50
 dark:aria-disabled:text-error-dark/50`; a glyph or spinner in `currentColor` follows it), the hairline
@@ -179,19 +178,24 @@ Secondary button <Button variant="secondary">  — brand hairline on transparent
                  border border-brand-border bg-transparent text-brand-strong hover:bg-brand-weak
                  active:bg-brand-border/60  dark:border-brand-border-dark dark:text-brand-strong-dark
                  dark:hover:bg-brand-weak-dark dark:active:bg-brand-border-dark
-                 (never hover:opacity — it darkens)
+                 (never hover:opacity — it darkens). Native disabled secondary/ghost controls keep their
+                 transparent fill under hover and active in both themes; loading keeps the resting look.
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
 
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
-                 <Input> component can't wrap use inputClasses({ invalid, density, select, autoWidth }).
+                 <Input> component can't wrap use inputClasses({ invalid, tone, density, select, autoWidth }).
                  Tone (v3.5): the border and focus ring are one tone, default or error, never one layered on
                  the other: `invalid` (the components' `error`) picks the error border, which holds on hover,
                  and the error ring. Each tone states its focus border even where it equals the rest border,
                  because the forms plugin's `input:where([type='text']):focus` border (#2563EB, 0,1,1)
                  outranks a bare `border-*` (0,1,0).
+                 Destructive-confirm fields use tone="danger" (v3.8): the same neutral border at rest and
+                 on hover, with an error border and ring only on focus (focus-within for a shell).
+                 Danger describes the action, not the value; it does not imply aria-invalid. An actual
+                 invalid value takes precedence and the raw field wires aria-invalid to match it.
                  Toolbar fields (v3.1): density="compact" on <Select>/inputClasses = 36px from sm
                  up, phones keep the standard 42px field height; a field inside a table row is compact too.
                  `density`, not `size` (a native attribute); each density has its own EXPLICIT padding sides
@@ -205,7 +209,9 @@ Link as button   buttonVariants({ variant, size })  — the class-string factory
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
-                 destructive + invalid fields use shadow-ring-error. There is no global :focus-visible rule, so
+                 destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
+                 hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
+                 shadow-ring-brand-inset / shadow-ring-brand-inset-dark. There is no global :focus-visible rule, so
                  a control without the recipe draws the browser's own outline (`auto`), unlike its neighbours.
                  A control that is a block of its own (a logo link, an icon button, a menu row) takes a radius
                  (`rounded-lg`) so the ring follows its shape. A field the forms plugin styles (a text
