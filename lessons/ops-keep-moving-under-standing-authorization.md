@@ -44,3 +44,13 @@ the founder's quality acceptance or permission to release universe spend. See
 [the implementation plan](../tasks/ceo-implementation-plan-2026-09-08.md) for the proposed evidence
 program and the remaining specific decisions. This is an operator authorization record, not a
 claim that a new software budget/quality gate has already been implemented.
+
+**Release queue exception — 2026-10-12.** Neil authorized the existing `AGENTS.md` §5
+per-PR review exception for this coordinated release queue when hosted Codex review allowance
+is exhausted and every Claude finding has a concrete fix or a reasoned disposition. Verify the
+quota response, bind the substitute review to the actual head and obtain a successful required
+review gate. This queue-specific authorization changes neither required application/security
+checks nor branch protection, budgets, purchases, owner merges or founder holds; it creates no
+standing exception for later work. The existing review-gate parser enforces the documented
+mechanism. First execution: [#1261](https://github.com/neilmac91/EarningsNerd/pull/1261), all seven
+checks successful before normal squash `55b2d557`, with the future #1253 fixture obligation retained.
