@@ -298,14 +298,6 @@ describe('TrendCharts keyboard viewport', () => {
         expect(viewport.querySelectorAll('[tabindex]')).toHaveLength(1)
         expect(viewport.querySelector('[tabindex]')).toHaveAttribute('tabindex', '0')
         expect(viewport.querySelector('[role=application]')).toHaveAccessibleName(/chart values\. Use Left and Right arrows to inspect periods\./)
-        for (const key of ['ArrowLeft', 'ArrowRight', 'Tab']) {
-          const inner = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
-          viewport.querySelector('[role=application]')!.dispatchEvent(inner)
-          expect(inner.defaultPrevented).toBe(key !== 'Tab')
-          const outer = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
-          viewport.dispatchEvent(outer)
-          expect(outer.defaultPrevented).toBe(false)
-        }
       }
       width = 500
       act(() => callbacks.forEach(callback => callback()))

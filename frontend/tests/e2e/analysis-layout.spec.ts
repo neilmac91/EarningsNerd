@@ -730,8 +730,7 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
       const revenueValues = revenue.getByRole('application', { name: 'Revenue & growth chart values. Use Left and Right arrows to inspect periods.' })
       await revenueValues.focus()
       const tooltip = revenue.locator('.recharts-tooltip-wrapper').getByRole('status')
-      const assertPeriodVisible = async (index: number) => {
-        await expect(tooltip).toContainText(PERIODS[index].replace(/^(\d{4})(Q\d)$/, '$2 $1'))
+      const settleViewport = async () => {
         const settled = await viewport.evaluate(async element => {
           let previous = element.scrollLeft
           let stable = 0
@@ -743,6 +742,10 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
           return stable >= 5
         })
         expect(settled, 'keyboard scrolling settles before checking the selected period').toBe(true)
+      }
+      const assertPeriodVisible = async (index: number) => {
+        await expect(tooltip).toContainText(PERIODS[index].replace(/^(\d{4})(Q\d)$/, '$2 $1'))
+        await settleViewport()
         // DOM text alone does not prove keyboard access: the selected mark and its tooltip
         // must remain inside the horizontal viewport in both directions and after re-entry.
         await expect.poll(async () => {
@@ -774,6 +777,29 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
         await assertPeriodVisible(index)
         if (index === PERIODS.length - 2) await expect(tooltip).toContainText('33.1%')
       }
+      // Moving the pointer does not blur the SVG. Hover a different period near a clipped
+      // edge, then return to the retained keyboard index without moving the pointer away.
+      const hover = await viewport.evaluate(element => {
+        const bar = element.querySelectorAll('.recharts-bar-rectangle path')[8]
+        const frame = element.getBoundingClientRect()
+        if (element.scrollWidth > element.clientWidth + 1) {
+          const before = bar.getBoundingClientRect()
+          const centerInContent = before.x + before.width / 2 - frame.x + element.scrollLeft
+          element.scrollLeft = centerInContent - element.clientWidth + 4
+        }
+        const target = bar.getBoundingClientRect()
+        return { x: target.x + target.width / 2, y: frame.y + 80, left: element.scrollLeft }
+      })
+      await page.mouse.move(hover.x, hover.y)
+      await expect(revenueValues).toBeFocused()
+      await expect(tooltip).toContainText('Q3 2025')
+      await settleViewport()
+      expect(Math.abs(await viewport.evaluate(element => element.scrollLeft) - hover.left),
+        'pointer inspection cannot scroll a still-focused chart').toBeLessThanOrEqual(EPSILON)
+      await page.keyboard.press('ArrowRight')
+      await assertPeriodVisible(1)
+      await page.keyboard.press('ArrowLeft')
+      await assertPeriodVisible(0)
       const cleanFill = await allBars.first().getAttribute('fill')
       const affectedBar = revenue.locator('g[aria-label="Data note a"] path')
       await expect(affectedBar).toHaveCount(1)

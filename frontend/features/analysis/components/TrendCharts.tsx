@@ -175,17 +175,37 @@ function PositionedNoteBar({ anchors, anchorKey, ...props }: NoteBarProps & {
 }
 
 /** A keyboard stop is useful only while there is more plot to scroll into view. */
-function ChartViewport({ label, children }: { label: string; children: React.ReactNode }) {
+function ChartViewport({ label, children, onKeyboardNavigationChange }: {
+  label: string
+  children: React.ReactNode
+  onKeyboardNavigationChange: (active: boolean) => void
+}) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const { regionProps } = useOverflowRegion(viewportRef, {
     label: `${label} chart. Scroll horizontally to view all periods.`,
   })
+  const takeKeyboardNavigation = (surface: SVGElement, viewport: HTMLDivElement) => {
+    onKeyboardNavigationChange(true)
+    // Recharts prioritizes a retained hover over its keyboard index. An ordinary scoped
+    // mouse leave releases that hover; the real key event then selects the next period.
+    surface.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: viewport }))
+  }
   return <div ref={viewportRef} data-analysis-chart-scroll {...regionProps}
+    onFocusCapture={(event) => {
+      if (event.target instanceof SVGElement && event.target.getAttribute('role') === 'application'
+        && event.target.matches(':focus-visible')) takeKeyboardNavigation(event.target, event.currentTarget)
+    }}
+    onBlurCapture={() => onKeyboardNavigationChange(false)}
+    onPointerMoveCapture={() => onKeyboardNavigationChange(false)}
+    onPointerDownCapture={() => onKeyboardNavigationChange(false)}
     onKeyDownCapture={(event) => {
       // Recharts moves one period per arrow. Native pixel scrolling on that same key can
       // drift away from the selected period; the outer region keeps its native scrolling.
       if (event.target instanceof SVGElement && event.target.getAttribute('role') === 'application'
-        && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) event.preventDefault()
+        && ['ArrowLeft', 'ArrowRight', 'Enter'].includes(event.key)) {
+        takeKeyboardNavigation(event.target, event.currentTarget)
+        if (event.key !== 'Enter') event.preventDefault()
+      }
     }}
     className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark has-[:focus-visible]:shadow-ring-brand dark:has-[:focus-visible]:shadow-ring-brand-dark [&_svg[role=application]:focus-visible]:outline-none">
     {children}
@@ -193,8 +213,9 @@ function ChartViewport({ label, children }: { label: string; children: React.Rea
 }
 
 /** Keep a keyboard-selected mark and its live tooltip inside the horizontal viewport. */
-function ChartTooltipStatus({ active, coordinateX, plotRef, children }: {
+function ChartTooltipStatus({ active, keyboardNavigation, coordinateX, plotRef, children }: {
   active: boolean
+  keyboardNavigation: boolean
   coordinateX?: number
   plotRef: React.RefObject<HTMLDivElement>
   children: React.ReactNode
@@ -209,7 +230,7 @@ function ChartTooltipStatus({ active, coordinateX, plotRef, children }: {
     if (!active || !status || !plot || !viewport) return
     let frame = viewport.getBoundingClientRect()
     const focused = document.activeElement
-    if (focused instanceof SVGElement && focused.getAttribute('role') === 'application'
+    if (keyboardNavigation && focused instanceof SVGElement && focused.getAttribute('role') === 'application'
       && plot.contains(focused) && coordinateX != null) {
       const pointX = plot.getBoundingClientRect().left + coordinateX
       const halfMark = MAX_BAR_SIZE / 2
@@ -293,6 +314,7 @@ function PanelCard({
   const dark = useContext(ThemeContext)?.theme === 'dark'
   const reduced = usePrefersReducedMotion()
   const [expanded, setExpanded] = useState(false)
+  const [keyboardNavigation, setKeyboardNavigation] = useState(false)
   const plotRef = useRef<HTMLDivElement>(null)
   // The quarterly table usually shows QoQ, so it cannot replace keyboard access to chart YoY.
   const keyboardLabel = `${panel.title} chart values. Use Left and Right arrows to inspect periods.`
@@ -372,7 +394,7 @@ function PanelCard({
   }
 
   const renderTooltip = ({ active, label, payload, coordinate }: TooltipContentProps) => (
-    <ChartTooltipStatus active={active} coordinateX={coordinate?.x} plotRef={plotRef}>
+    <ChartTooltipStatus active={active} keyboardNavigation={keyboardNavigation} coordinateX={coordinate?.x} plotRef={plotRef}>
       <ChartTooltip
         dark={dark}
         active={active}
@@ -469,7 +491,7 @@ function PanelCard({
           </PanelControl>
         </div>
       </div>
-      <ChartViewport label={panel.title}>
+      <ChartViewport label={panel.title} onKeyboardNavigationChange={setKeyboardNavigation}>
       <div
         ref={plotRef}
         data-analysis-chart={panel.title}

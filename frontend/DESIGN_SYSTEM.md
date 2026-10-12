@@ -899,8 +899,10 @@ replace. Each tooltip row names its applicable value or YoY note independently; 
 no letter. Formatting follows the original data key before adding the note to the display name, so
 growth remains a percentage. Inner Left/Right keys reveal the selected mark without competing
 native pixel scrolling. Tooltips update without positional animation, wrap to the measured viewport
-width and stay within its horizontal bounds. Pointer inspection does not scroll the chart; outer
-arrow keys keep native scrolling. Tooltip changes use a live status; Tab leaves and Shift+Tab
+width and stay within its horizontal bounds. Pointer inspection clears keyboard ownership even
+when the SVG remains focused, and does not scroll the chart. The next keyboard arrow releases
+the retained hover through the chart’s normal mouse-leave event and resumes its keyboard period.
+Outer arrow keys keep native scrolling. Tooltip changes use a live status; Tab leaves and Shift+Tab
 returns without a trap. The viewport carries the brand focus ring for either keyboard stop. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
 source dates, material gaps and a concise disclosure. Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
