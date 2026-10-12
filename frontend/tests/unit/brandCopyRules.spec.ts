@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { HEADLINES } from '@/features/marketing/lib/headline'
+import { routeFiles, walkImports } from './importWalk'
 
 /**
  * Three brand rules as gates (CLAUDE.md rule 12; docs/brand/06-system.md §6; docs/voice-and-style.md
@@ -16,7 +17,7 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    deleted that scope in nine places. Two siblings keep the other scopes: 1b, the outline is "up
  *    to nine parts"; 1c, only risk excerpts are promised as located or withheld.
  * 2. Sage never colours a number on the public surfaces (the brand brief's reading of DESIGN.md ›
- *    the Separate Signals Rule; PUBLIC_SURFACES below). Text inside an element whose own text
+ *    the Separate Signals Rule; PUBLIC_FILES below, walked from the public routes). Text inside an element whose own text
  *    colour is a sage token may not contain a digit, whether written inline or mapped in from a
  *    literal array. Activity variants (hover:, focus:, group-hover:) are sage's other job and are
  *    not read; the device's citation brackets ("[1]", "[F1]") are not numbers. A value computed at
@@ -40,13 +41,17 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 const FILES = SCAN_DIRS.flatMap((dir) => walk(path.join(ROOT, dir)))
-/** The surfaces a stranger meets before signing in, where the brand brief's strict reading holds. */
-const PUBLIC_SURFACES = [
-  'app/page.tsx', 'app/not-found.tsx', 'app/waitlist/', 'app/pricing/', 'app/login/', 'app/register/', 'app/forgot-password/',
-  'features/marketing/', 'features/waitlist/', 'features/auth/components/',
-  'components/Header.tsx', 'components/Footer.tsx', 'components/CookieConsent.tsx',
-]
-const isPublic = (rel: string) => PUBLIC_SURFACES.some((prefix) => (prefix.endsWith('/') ? rel.startsWith(prefix) : rel === prefix))
+/** The routes a stranger can open before signing in, where the brand brief's strict reading holds: the
+    root layout (header, footer, consent bar), the root boundaries, and each public route's own page and
+    layout. Derived, not listed: PUBLIC_FILES is every module these reach through the import graph
+    (tests/unit/importWalk.ts), so a product component the landing or a public route renders (SourceTrace,
+    FinancialMetricsTable, CompanySearch) is held to the public rules without anyone naming it (BG-16). */
+const PUBLIC_ROUTES = ['app', 'app/waitlist', 'app/pricing', 'app/login', 'app/register', 'app/forgot-password', 'app/contact', 'app/security',
+  'app/check-email', 'app/verify-email', 'app/reset-password', 'app/search', 'app/company/[ticker]', 'app/filing/[id]']
+const ROUTE_FILES = ['page.tsx', 'layout.tsx', 'not-found.tsx', 'error.tsx', 'global-error.tsx']
+const PUBLIC_ROOTS = PUBLIC_ROUTES.flatMap((dir) => routeFiles(dir, ROUTE_FILES, ROOT).filter((file) => path.posix.dirname(file) === dir))
+const PUBLIC_FILES = new Set(walkImports(PUBLIC_ROOTS, ROOT))
+const isPublic = (rel: string) => PUBLIC_FILES.has(rel)
 const SOURCES = FILES.map((file) => ({
   rel: path.relative(ROOT, file).split(path.sep).join('/'),
   sf: ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS),
@@ -294,7 +299,19 @@ describe('brand rule 3: the Marked Copy Rule', () => {
   })
 
   it('the scan sees the surfaces it guards (the rules above stay meaningful)', () => {
-    expect(PUBLIC_SURFACES.every((prefix) => SOURCES.some((s) => (prefix.endsWith('/') ? s.rel.startsWith(prefix) : s.rel === prefix))), 'every public surface prefix matches a file').toBe(true)
+    // Every public route has a root, and the walk reaches the chrome and the product components a stranger meets.
+    for (const dir of PUBLIC_ROUTES) expect(PUBLIC_ROOTS.some((file) => path.posix.dirname(file) === dir), `${dir} has a page`).toBe(true)
+    for (const rel of ['app/global-error.tsx', 'app/error.tsx', 'app/not-found.tsx', 'components/Header.tsx', 'components/Footer.tsx', 'components/CookieConsent.tsx',
+      'features/auth/components/AuthShell.tsx', 'features/marketing/components/HeroHeadline.tsx', 'features/filings/components/SourceTrace.tsx',
+      'features/summaries/components/FinancialMetricsTable.tsx', 'features/companies/components/CompanySearch.tsx', 'app/check-email/page.tsx',
+      // Reached only through their routes: the company page's peers panel, the filing page's summary.
+      'features/peers/components/PeerComparisonPanel.tsx', 'features/summaries/components/SummaryBlocks.tsx']) {
+      expect(PUBLIC_FILES.has(rel), `${rel} is public`).toBe(true)
+    }
+    // The signed-in product stays out of the public reading (D-030 holds it in-app separately).
+    for (const rel of ['app/dashboard/page.tsx', 'features/calendar/components/MonthView.tsx', 'features/admin/components/InviteRow.tsx']) {
+      expect(PUBLIC_FILES.has(rel), `${rel} is not public`).toBe(false)
+    }
     const rels = new Set(SOURCES.map((s) => s.rel))
     for (const rel of ['features/marketing/components/HeroHeadline.tsx', 'features/marketing/components/HeroExample.tsx', 'app/waitlist/page.tsx', 'app/pricing/page.tsx', 'features/auth/components/AuthShell.tsx']) {
       expect(rels.has(rel), rel).toBe(true)

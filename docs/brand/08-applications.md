@@ -147,6 +147,34 @@ New gates, each with a mutation proof in the PR (CLAUDE.md rule 12):
 - `founderNote.spec.tsx`: the slot renders nothing until filled, then the sentence and signature.
 - `waitlistCounter.spec.tsx`: no number below the floor, no "0+" frame, the count in neutral ink.
 
+Seven gates added or widened by the copy and signal gates PR (D-031), each with a mutation proof in
+that PR:
+
+- `no-em-dash-copy.spec.ts`: a literal is exempt only when it is exactly the bare missing-value
+  token (a lone em-dash), and a JSX text trimming to it only as the sole child of its element; the
+  summary's quote attribution loses its dash.
+- `brandCopyRules.spec.ts`: the public scope is walked from the public routes through the import
+  graph (`tests/unit/importWalk.ts`), not listed, so a product component a public page renders
+  (SourceTrace, FinancialMetricsTable, CompanySearch) is held to rules 1c and 2.
+- `brandVoiceRules.spec.ts` (new): sentence case on headings, card and dialog titles, button labels
+  and meta titles; no exclamation mark, emoji or banned buzzword in copy; no icon inside a heading;
+  no developer wording ("backend", an API path, "reader", an HTTP status) in `lib/` and `hooks/`.
+- `reservedGlyphs.spec.ts` (new): the quotes glyph marks a filing passage, the braces an XBRL fact
+  and the sparkle the AI summary, nowhere else; a hand-drawn stand-in or the ✨ emoji counts.
+- `backendMessageMatches.spec.ts` (new): every phrase the frontend routes paywall, sign-in or
+  verification UI on is written by the code that raises the message, and no other literal match on
+  a message exists under the api modules.
+- ESLint: the raw-colour rule reads `rgb()`, `rgba()`, `hsl()` and `hsla()` as well as hex, in an
+  arbitrary utility too; `earningsnerd/locale-pinned-numbers` (new) bans an unpinned
+  `toLocaleString()` or `Intl.NumberFormat` outside `lib/format.ts` (`fmtCount`, `fmtDecimal`).
+- `siteChromeFocusRing.spec.ts`: the page scan discovers every route's page and the feature
+  modules it reaches, in place of four named routes.
+
+Four of them carry a shrink-only residue: `VOICE_RESIDUE`, the glyphs' `RESIDUE`, `RING_RESIDUE`
+and the matchers' `UNSOURCED`. Each holds what the audit found when its gate landed, counted per
+file, with the PR that clears each entry; a fixed entry fails until its count is lowered, and each
+list's size is capped at its seed. A PR that adds an entry needs a reason in its body.
+
 The design gates
 (`designSnapshotParity.spec.ts`, the ESLint design rules, `no-em-dash-copy.spec.ts`,
 `wordmarkSingleSource.spec.ts`) run unchanged against the new surfaces; their tails are in the

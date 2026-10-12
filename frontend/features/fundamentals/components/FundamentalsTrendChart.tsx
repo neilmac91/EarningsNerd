@@ -10,7 +10,7 @@ import {
   FundamentalsResponse,
 } from '@/features/fundamentals/api/fundamentals-api'
 import { ApiError } from '@/lib/api/client'
-import { fmtCurrency, fmtPercent } from '@/lib/format'
+import { fmtCurrency, fmtDecimal, fmtPercent } from '@/lib/format'
 import { ThemeContext } from '@/components/ThemeProvider'
 import { Card, seriesColor, CHART_SERIES, gridProps, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton } from '@/components/ui'
 import { needsSourceCheck } from '@/features/analysis/lib/provenance'
@@ -62,7 +62,7 @@ const formatValue = (value: number, fmt: FmtKind, currency = 'USD'): string => {
   if (fmt === 'pct') return fmtPercent(value, { digits: 1 })
   // A ratio (e.g. current ratio 2.5) is a dimensionless multiple — never a "$" or "%".
   if (fmt === 'ratio')
-    return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}×`
+    return `${fmtDecimal(value, { minDigits: 2, maxDigits: 2 })}×`
   if (fmt === 'eps') return fmtCurrency(value, { currency, digits: 2, compact: false })
   return fmtCurrency(value, { currency, compact: true })
 }

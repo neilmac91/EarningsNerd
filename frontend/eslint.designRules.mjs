@@ -27,6 +27,11 @@
 //                       shows at once. The globals.css classes that stop themselves in a
 //                       reduced-motion block (SELF_GUARDED_ANIMATIONS) need no guard; the spec holds
 //                       each of them, and every other animation globals.css declares, to that block.
+//   locale-pinned-numbers  A number reads in one locale (en-US) whatever the viewer's browser says, so
+//                       `x.toLocaleString()` and `new Intl.NumberFormat()` with no locale, or with
+//                       `undefined` for it, are banned outside lib/format.ts (eslint.config.mjs turns
+//                       the rule off there). Use fmtCount, fmtDecimal or another lib/format helper,
+//                       or pass 'en-US'. A locale the scan cannot read (a variable) passes.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), a
@@ -194,11 +199,49 @@ export const noUnguardedAnimation = {
   },
 }
 
+/** Whether a call's locale argument is missing or the literal `undefined` (the browser's own locale). */
+const unpinnedLocale = (args) => args.length === 0 || (args[0].type === 'Identifier' && args[0].name === 'undefined')
+
+export const localePinnedNumbers = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'Numbers are formatted in a pinned locale, through lib/format.' },
+    schema: [],
+    messages: {
+      unpinned:
+        '{{call}} with no locale renders in the viewer\'s browser locale. Use fmtCount or fmtDecimal from ' +
+        "lib/format.ts (or pass 'en-US').",
+    },
+  },
+  create(context) {
+    return {
+      CallExpression(node) {
+        const callee = node.callee
+        if (callee.type !== 'MemberExpression' || callee.computed || callee.property.name !== 'toLocaleString') return
+        if (unpinnedLocale(node.arguments)) context.report({ node, messageId: 'unpinned', data: { call: 'toLocaleString()' } })
+      },
+      NewExpression(node) {
+        const callee = node.callee
+        const isNumberFormat =
+          callee.type === 'MemberExpression' &&
+          !callee.computed &&
+          callee.object.type === 'Identifier' &&
+          callee.object.name === 'Intl' &&
+          callee.property.name === 'NumberFormat'
+        if (isNumberFormat && unpinnedLocale(node.arguments)) {
+          context.report({ node, messageId: 'unpinned', data: { call: 'new Intl.NumberFormat()' } })
+        }
+      },
+    }
+  },
+}
+
 const plugin = {
   rules: {
     'no-side-stripe': noSideStripe,
     'no-form-code-badge': noFormCodeBadge,
     'no-unguarded-animation': noUnguardedAnimation,
+    'locale-pinned-numbers': localePinnedNumbers,
   },
 }
 export default plugin

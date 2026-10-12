@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { ESLint, RuleTester } from 'eslint'
 import { describe, expect, it } from 'vitest'
 import {
+  localePinnedNumbers,
   noFormCodeBadge,
   noSideStripe,
   noUnguardedAnimation,
@@ -22,6 +23,10 @@ import {
  *    motion-safe: or a motion-reduce:animate-none with the same variants that always renders with it.
  *    The globals.css classes it exempts must stop themselves there, and so must every other animation
  *    globals.css declares.
+ *  - locale-pinned-numbers: a number is formatted in a pinned locale (lib/format's helpers, or 'en-US'),
+ *    never the browser's; lib/format.ts, which owns the formatters, is the one file it is off for.
+ *  - the raw-colour selector (eslint.config.mjs DESIGN_HEX_RULE, BG-19) reads rgb[a]()/hsl[a]() as well
+ *    as a 6-digit hex, in a string, a template chunk or an arbitrary utility.
  */
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -173,6 +178,25 @@ ruleTester.run('no-unguarded-animation', noUnguardedAnimation, {
   ],
 })
 
+ruleTester.run('locale-pinned-numbers', localePinnedNumbers, {
+  valid: [
+    "n.toLocaleString('en-US')",
+    "n.toLocaleString('en-US', { maximumFractionDigits: 2 })",
+    'n.toLocaleString(locale)',
+    "new Intl.NumberFormat('en-US', { style: 'percent' })",
+    "fmtCount(n)",
+    // A computed member is not the method by name.
+    'n[method]()',
+  ],
+  invalid: [
+    { code: 'n.toLocaleString()', errors: [{ messageId: 'unpinned' }] },
+    { code: 'Math.round(v).toLocaleString()', errors: [{ messageId: 'unpinned' }] },
+    { code: 'value.toLocaleString(undefined, { maximumFractionDigits: 2 })', errors: [{ messageId: 'unpinned' }] },
+    { code: 'new Intl.NumberFormat()', errors: [{ messageId: 'unpinned' }] },
+    { code: 'new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 })', errors: [{ messageId: 'unpinned' }] },
+  ],
+})
+
 /** Every style rule in a stylesheet, with whether a `prefers-reduced-motion: reduce` query holds it. */
 function cssRules(css: string, reduced = false): Array<{ selector: string; body: string; reduced: boolean }> {
   const rules: Array<{ selector: string; body: string; reduced: boolean }> = []
@@ -251,5 +275,30 @@ describe('the repository config', SLOW, () => {
       'earningsnerd/no-unguarded-animation',
     ])
     expect(result.messages.every((m) => m.severity === 2)).toBe(true)
+  })
+
+  it('reads a raw colour in rgba()/hsla() and an unpinned number format on app code, and spares lib/format.ts', async () => {
+    const eslint = new ESLint({ cwd: frontendRoot })
+    const probe = [
+      'export function Probe({ n }: { n: number }) {',
+      '  return (',
+      '    <div className="shadow-e3 dark:shadow-[0_20px_50px_rgba(15,23,42,0.45)]">',
+      '      <span style={{ color: `hsla(120, 20%, 40%, 0.5)` }}>{n.toLocaleString()}</span>',
+      '    </div>',
+      '  )',
+      '}',
+      '',
+    ].join('\n')
+    const [app] = await eslint.lintText(probe, { filePath: path.join(frontendRoot, 'app/design-rules-probe.tsx') })
+    expect(app.messages.map((m) => `${m.line} ${m.ruleId}`).sort()).toEqual([
+      '3 no-restricted-syntax',
+      '4 earningsnerd/locale-pinned-numbers',
+      '4 no-restricted-syntax',
+    ])
+    // The formatter module is the one place a formatter is built; it pins en-US itself.
+    const [format] = await eslint.lintText('export const raw = (n: number) => n.toLocaleString()\n', {
+      filePath: path.join(frontendRoot, 'lib/format.ts'),
+    })
+    expect(format.messages.map((m) => m.ruleId)).toEqual([])
   })
 })

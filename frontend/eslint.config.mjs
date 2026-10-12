@@ -123,9 +123,13 @@ const CALENDAR_FIELD_RULES = ['Date', 'parseISO'].flatMap((ctor) => {
 // with `${…}` is held to the same rules. A class name assembled from fragments at runtime is not.
 // aria-hidden glyphs below the type scale (Badge ▲▼, DataTable ▲▼) and the 40px pricing display
 // figure (its own tracking-[…]) carry an eslint-disable with a reason.
+// The raw-colour rule reads a 6-digit hex (8-digit included) and an rgb(), rgba(), hsl() or hsla()
+// call, in a string, a template chunk or an arbitrary utility (`shadow-[0_20px_50px_rgba(…)]`), since
+// each is a colour no token governs (BG-19). A 3-digit hex is not read: copy such as "PR #619" is one.
+// The mirrors above keep their exemption.
 const DESIGN_HEX_RULE = {
-  selector: 'Literal[value=/#[0-9a-fA-F]{6}/]',
-  message: 'Raw hex — use a token (mirrors: motion.ts, financialTone, Chart, chartExport).',
+  selector: 'Literal[value=/#[0-9a-fA-F]{6}|(?:rgba?|hsla?)\\(/]',
+  message: 'Raw colour (hex, rgb[a]() or hsl[a]()): use a token (mirrors: motion.ts, financialTone, Chart, chartExport).',
 }
 const DESIGN_PALETTE_RULE = {
   selector:
@@ -259,7 +263,14 @@ const config = [
       'earningsnerd/no-side-stripe': 'error',
       'earningsnerd/no-form-code-badge': 'error',
       'earningsnerd/no-unguarded-animation': 'error',
+      'earningsnerd/locale-pinned-numbers': 'error',
     },
+  },
+  // lib/format.ts owns the pinned formatters (fmtCount, fmtDecimal and the rest), so it is the one
+  // place a number formatter is built; it pins en-US itself (getFormatter).
+  {
+    files: ['lib/format.ts'],
+    rules: { 'earningsnerd/locale-pinned-numbers': 'off' },
   },
   // The JS color mirrors + the brand-mandated GoogleSignInButton: every gate except the two color rules.
   {

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
@@ -8,6 +8,7 @@ import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { bindingResolver } from './astBindings'
+import { isLocal, lazyImport, routeFiles, walkImports } from './importWalk'
 
 /**
  * Every control in the site chrome shows the brand focus ring, never the browser's default outline
@@ -50,9 +51,9 @@ import { bindingResolver } from './astBindings'
  * DS primitives they render included (Modal's close ✕ is one of their stops). The page header also
  * renders the controls a page passes into its `actions` slot (the dashboard's "Log out"), so every
  * `<SecondaryHeader actions={…}>` in the app is scanned too, and its controls must be written inline. A
- * page's other controls are not chrome. The named PAGE_CONTROL_ROOTS extend the same gate to check-email,
- * settings, invites and watchlist (their fields already have app-wide coverage). Other pages, including
- * the filing identity strip, remain outside that scope. This is the rule's one gate (AGENTS.md §4): no e2e walk repeats it.
+ * page's other controls are held by the page scan instead: every page.tsx under app/ and the feature modules it
+ * reaches (PAGE_ROOTS), with the ringless stops found when it widened counted in a shrink-only residue
+ * (RING_RESIDUE). This is the rule's one gate (AGENTS.md §4): no e2e walk repeats it.
  */
 const ROOT = path.resolve(__dirname, '../..')
 
@@ -66,9 +67,75 @@ const ROOT = path.resolve(__dirname, '../..')
  * widget or primitive the chrome imports is scanned without anyone listing it.
  */
 const CHROME_ROOTS = ['app/layout.tsx', 'features/auth/components/AuthShell.tsx', 'components/SecondaryHeader.tsx']
-/** The page-control follow-up owns these routes and their feature modules’ raw controls. Field recipes
-    already have app-wide coverage below and in inputClassesNoOverrides; this adds their other Tab stops. */
-const PAGE_CONTROL_ROOTS = ['app/check-email/page.tsx', 'app/dashboard/settings/page.tsx', 'app/admin/invites/page.tsx', 'app/dashboard/watchlist/page.tsx']
+/** Every route's page (each page.tsx under app/), discovered: with the feature modules they reach, their raw Tab
+    stops are held to the same ring (field recipes already have app-wide coverage below and in
+    inputClassesNoOverrides). A new page is scanned without anyone listing it. */
+const PAGE_ROOTS = routeFiles('app', ['page.tsx'], ROOT)
+
+/**
+ * The ringless page and feature Tab stops found when the page scan widened from four routes to every route
+ * (2026-10), counted per file. Shrink-only: a surface PR that rings a file's controls lowers its count or
+ * deletes its line; a new ringless stop fails, in a listed file (its count rises) or an unlisted one. The
+ * counts and the number of files are capped at the seed (RING_RESIDUE_MAX), so the list cannot grow
+ * without this spec's cap being raised in review. A PR that must raise it says why in its body.
+ */
+const RING_RESIDUE: Record<string, number> = {
+  // Each line names the sweep PR that owns the file, or why it waits. A "props spread" finding in a chart
+  // or Markdown renderer is the scan's limit (it cannot read what the spread holds), not always a stop.
+  'app/contact/page.tsx': 2, // brand-contact-security-presentation
+  'app/dashboard/page.tsx': 1, // brand-dashboard-watchlist
+  'app/delete-account/page.tsx': 4, // auth-adjacent page with no sweep owner yet
+  'app/filing/[id]/page-client.tsx': 1, // brand-filing-page
+  'app/forgot-password/page.tsx': 1, // brand-auth-pages-presentation
+  'app/login/page.tsx': 2, // brand-auth-pages-presentation
+  'app/privacy/page.tsx': 10, // legal page: waits on the founder (presentation follow-up)
+  'app/reset-password/page.tsx': 2, // brand-auth-pages-presentation
+  'app/security/page.tsx': 5, // brand-contact-security-presentation
+  'app/terms/page.tsx': 4, // legal page: waits on the founder (presentation follow-up)
+  'app/verify-email/page.tsx': 3, // brand-auth-pages-presentation
+  'app/waitlist/page.tsx': 1, // brand-public-pages
+  'features/admin/components/FeedbackRow.tsx': 1, // brand-admin
+  'features/analysis/components/AnalysisPageClient.tsx': 3, // brand-analysis
+  'features/analysis/components/DataNotesLink.tsx': 1, // brand-analysis
+  'features/analysis/components/NarrativePane.tsx': 1, // brand-analysis
+  'features/analysis/components/SourceValue.tsx': 4, // brand-analysis
+  'features/analysis/components/TrendCharts.tsx': 17, // chart props spreads the scan cannot read
+  'features/analysis/lib/periodAxis.tsx': 2, // brand-analysis
+  'features/auth/components/OAuthStartControl.tsx': 2, // brand-auth-pages-presentation
+  'features/auth/components/RegisterForm.tsx': 5, // brand-auth-pages-presentation
+  'features/companies/components/CompanyIdentity.tsx': 2, // brand-company-page
+  'features/companies/components/CompanySearch.tsx': 1, // brand-company-page
+  'features/contact/components/ContactForm.tsx': 1, // brand-contact-security-presentation
+  'features/filings/components/FilingIdentity.tsx': 3, // brand-company-page
+  'features/filings/components/FilingsHistoryNote.tsx': 1, // brand-company-page
+  'features/filings/components/SourceTrace.tsx': 6, // brand-filing-page
+  'features/filings/components/SupersededFilingNotice.tsx': 1, // brand-filing-page
+  'features/filings/components/TickerFilingsView.tsx': 3, // brand-filing-page
+  'features/filings/components/copilot/AskCopilotRail.tsx': 3, // brand-copilot
+  'features/filings/components/copilot/CitationChip.tsx': 4, // brand-copilot
+  'features/filings/components/copilot/CopilotMessage.tsx': 15, // brand-copilot
+  'features/filings/components/copilot/CopilotTeaser.tsx': 1, // brand-copilot
+  'features/filings/components/copilot/FilingViewer.tsx': 3, // brand-copilot
+  'features/filings/components/copilot/PaneResizer.tsx': 1, // brand-copilot
+  'features/filings/components/copilot/ReaderTable.tsx': 2, // brand-copilot (Markdown renderer props spreads)
+  'features/filings/components/copilot/SecondaryPaneTabs.tsx': 1, // brand-copilot
+  'features/fundamentals/components/FundamentalsTrendChart.tsx': 4, // brand-company-page
+  'features/insiders/components/InsiderActivityPanel.tsx': 1, // brand-company-page
+  'features/marketing/components/CatchCard.tsx': 1, // brand-public-pages
+  'features/marketing/components/ExampleCtaLink.tsx': 1, // brand-public-pages
+  'features/marketing/components/HeroExample.tsx': 2, // brand-public-pages
+  'features/marketing/components/PricingSection.tsx': 2, // brand-public-pages
+  'features/marketing/components/TraceToSourceDemo.tsx': 1, // brand-public-pages
+  'features/peers/components/PeerComparisonPanel.tsx': 3, // brand-company-page
+  'features/search/components/FullTextSearch.tsx': 4, // brand-calendar-search
+  'features/subscriptions/components/PeekLocked.tsx': 1, // brand-settings-subscriptions
+  'features/subscriptions/components/TrialBanner.tsx': 1, // brand-settings-subscriptions
+  'features/summaries/components/FinancialMetricsTable.tsx': 2, // brand-filing-page
+  'features/summaries/components/SummaryActionsBar.tsx': 1, // brand-filing-page
+  'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
+  'features/watchlist/components/PopularTickerChips.tsx': 1, // brand-dashboard-watchlist
+}
+const RING_RESIDUE_MAX = { files: 52, stops: 146 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the
@@ -105,14 +172,6 @@ const THIRD_PARTY: Record<string, string> = {
   '@tanstack/react-query QueryClientProvider': 'a provider: renders no control',
   'sonner Toaster': 'its focusable toasts and their buttons take the ring through toastOptions.classNames (pinned below)',
 }
-
-/** The specifier of an `import('…')` call, the lazy form of an import (`dynamic(() => import('…'))`). */
-const lazyImport = (node: ts.Node): string | undefined =>
-  ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments[0] && ts.isStringLiteralLike(node.arguments[0])
-    ? node.arguments[0].text
-    : undefined
-
-const isLocal = (spec: string) => spec.startsWith('@/') || spec.startsWith('.')
 
 /** The third-party components `source` renders, as `module Tag`. */
 function thirdPartyTags(source: string, fileName: string): string[] {
@@ -165,66 +224,7 @@ function thirdPartyTags(source: string, fileName: string): string[] {
  * `export *` passes the names on. Only the .tsx modules are returned; a .ts module renders nothing itself.
  */
 function chromeFiles(roots: string[] = CHROME_ROOTS, root: string = ROOT): string[] {
-  const resolveImport = (from: string, spec: string): string | null => {
-    let base: string
-    if (spec.startsWith('@/')) base = path.join(root, spec.slice(2))
-    else if (spec.startsWith('.')) base = path.resolve(path.dirname(path.join(root, from)), spec)
-    else return null
-    for (const candidate of [`${base}.tsx`, `${base}.ts`, path.join(base, 'index.tsx'), path.join(base, 'index.ts')]) {
-      if (existsSync(candidate)) return path.relative(root, candidate)
-    }
-    return null
-  }
-  // What the chrome takes from each module it reaches: all of it ('*') or the names it imports. A module
-  // reached again for a name it was not taken for is read again, for the re-exports that name leads to.
-  const taken = new Map<string, Set<string> | '*'>()
-  const queue: string[] = []
-  const take = (file: string | null, names: Set<string> | '*') => {
-    if (!file || (names !== '*' && names.size === 0)) return
-    const had = taken.get(file)
-    if (had === '*' || (had && names !== '*' && [...names].every((name) => had.has(name)))) return
-    taken.set(file, names === '*' || !had ? names : new Set([...had, ...names]))
-    queue.push(file)
-  }
-  for (const file of roots) take(file, '*')
-  while (queue.length) {
-    const file = queue.shift()!
-    const names = taken.get(file)!
-    const sf = parse(readFileSync(path.join(root, file), 'utf8'), file)
-    for (const stmt of sf.statements) {
-      if (ts.isImportDeclaration(stmt) && !stmt.importClause?.isTypeOnly && ts.isStringLiteral(stmt.moduleSpecifier)) {
-        take(resolveImport(file, stmt.moduleSpecifier.text), importedNames(stmt.importClause))
-      } else if (ts.isExportDeclaration(stmt) && !stmt.isTypeOnly && stmt.moduleSpecifier && ts.isStringLiteral(stmt.moduleSpecifier)) {
-        const target = resolveImport(file, stmt.moduleSpecifier.text)
-        const clause = stmt.exportClause
-        if (!clause) take(target, names)
-        else if (ts.isNamespaceExport(clause)) take(target, names === '*' || names.has(clause.name.text) ? '*' : new Set())
-        else {
-          const picked = clause.elements.filter((el) => !el.isTypeOnly && (names === '*' || names.has(el.name.text)))
-          take(target, new Set(picked.map((el) => (el.propertyName ?? el.name).text)))
-        }
-      }
-    }
-    // A module loaded lazily, wherever in the file its import() sits, is rendered all the same: taken whole.
-    const lazy = (node: ts.Node): void => {
-      const spec = lazyImport(node)
-      if (spec !== undefined) take(resolveImport(file, spec), '*')
-      ts.forEachChild(node, lazy)
-    }
-    lazy(sf)
-  }
-  return [...taken.keys()].filter((file) => file.endsWith('.tsx')).sort()
-}
-
-/** The names an import takes from its module: '*' for a namespace or side-effect import, 'default' for a default one. */
-function importedNames(clause: ts.ImportClause | undefined): Set<string> | '*' {
-  if (!clause || (clause.namedBindings && ts.isNamespaceImport(clause.namedBindings))) return '*'
-  const names = new Set<string>()
-  if (clause.name) names.add('default')
-  if (clause.namedBindings && ts.isNamedImports(clause.namedBindings)) {
-    for (const el of clause.namedBindings.elements) if (!el.isTypeOnly) names.add((el.propertyName ?? el.name).text)
-  }
-  return names
+  return walkImports(roots, root).filter((file) => file.endsWith('.tsx'))
 }
 
 const RINGS = [
@@ -905,17 +905,33 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
     })
   }
 
-  it('check-email, settings, invites and watchlist controls carry a ring in both themes', () => {
+  it('every page and the feature modules it reaches: each control carries a ring in both themes, but the residue', () => {
     // Page/feature markup is the added scope. Shared composition helpers (Card, CompanyLogo,
     // RetryButton) accept props and are not raw page controls; their existing owning gates remain.
-    const pages = chromeFiles(PAGE_CONTROL_ROOTS).filter((file) => !discovered.includes(file)
+    const pages = chromeFiles(PAGE_ROOTS).filter((file) => !discovered.includes(file)
       && (file.startsWith('app/') || file.startsWith('features/') || file === 'components/ui/Switch.tsx'))
-    for (const file of ['features/settings/components/ConnectedAccounts.tsx', 'features/settings/components/NotificationPreferencesForm.tsx', 'features/admin/components/InviteRow.tsx', 'features/watchlist/components/WatchlistAddSearch.tsx', 'components/ui/Switch.tsx']) {
-      expect(pages, 'the page-control graph must reach its controls').toContain(file)
+    for (const file of ['app/pricing/page.tsx', 'app/company/[ticker]/page-client.tsx', 'features/settings/components/ConnectedAccounts.tsx', 'features/settings/components/NotificationPreferencesForm.tsx', 'features/admin/components/InviteRow.tsx', 'features/watchlist/components/WatchlistAddSearch.tsx', 'features/filings/components/copilot/AskCopilotRail.tsx', 'components/ui/Switch.tsx']) {
+      expect(pages, 'the page graph must reach its controls').toContain(file)
     }
-    const findings = pages.flatMap((file) => missingRings(readFileSync(path.join(ROOT, file), 'utf8'), file, true)
-      .findings.map((f) => `${file}:${f.line} <${f.tag}> ${f.problem}`))
-    expect(findings).toEqual([])
+    const found = new Map<string, string[]>()
+    for (const file of pages) {
+      const findings = missingRings(readFileSync(path.join(ROOT, file), 'utf8'), file, true).findings
+      if (findings.length) found.set(file, findings.map((f) => `${file}:${f.line} <${f.tag}> ${f.problem}`))
+    }
+    const problems: string[] = []
+    for (const [file, lines] of found) {
+      const allowed = RING_RESIDUE[file] ?? 0
+      if (lines.length > allowed) problems.push(`${allowed ? `${file} has ${lines.length} ringless stops, ${allowed} listed` : `${file} is not in RING_RESIDUE`}:\n  ${lines.join('\n  ')}`)
+      else if (lines.length < allowed) problems.push(`${file} has ${lines.length} ringless stops, ${allowed} listed: lower its RING_RESIDUE count`)
+    }
+    for (const file of Object.keys(RING_RESIDUE)) if (!found.has(file)) problems.push(`${file} has no ringless stop left: delete its RING_RESIDUE line`)
+    expect(problems).toEqual([])
+  })
+
+  it('the ring residue only shrinks', () => {
+    const stops = Object.values(RING_RESIDUE).reduce((sum, n) => sum + n, 0)
+    expect(Object.keys(RING_RESIDUE).length, 'RING_RESIDUE gained a file').toBeLessThanOrEqual(RING_RESIDUE_MAX.files)
+    expect(stops, 'RING_RESIDUE gained a stop').toBeLessThanOrEqual(RING_RESIDUE_MAX.stops)
   })
 
   it('controls a page passes into the page header\'s actions slot', () => {

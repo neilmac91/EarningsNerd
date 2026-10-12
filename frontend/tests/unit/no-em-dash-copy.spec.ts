@@ -11,7 +11,10 @@ import { describe, expect, it } from 'vitest'
  * this spec keeps them out. Comments are naturally exempt (the AST walk never
  * sees them), and the ONE sanctioned use — the bare '—' missing-value token
  * rendered in tables and detail rows (lib/format.ts MISSING_TOKENS) — is
- * exempted as an exact-match literal.
+ * exempted as an exact-match literal: a string or template literal whose text
+ * is exactly '—', or a JSX text node whose trim is '—' standing as the sole
+ * child of its element (`<td>—</td>`). A spaced dash inside copy, such as
+ * `— {speaker}` beside an expression, is copy and fails (BG-02).
  *
  * If you're writing copy and want a dash: restructure the sentence (split it,
  * use a colon, or a middot separator for compact labels). En-dashes (–) in
@@ -36,6 +39,17 @@ function sourceFiles(dir: string): string[] {
   return out
 }
 
+/** The bare missing-value token is the one sanctioned em-dash: a literal that is exactly '—', or a
+    JSX text node trimming to '—' that is the only child of its element (whitespace-only text aside). */
+function isBareMissingToken(node: ts.Node, literalText: string): boolean {
+  if (!ts.isJsxText(node)) return literalText === EM_DASH
+  if (literalText.trim() !== EM_DASH) return false
+  const parent = node.parent
+  if (!ts.isJsxElement(parent) && !ts.isJsxFragment(parent)) return false
+  const meaningful = parent.children.filter((child) => !(ts.isJsxText(child) && child.containsOnlyTriviaWhiteSpaces))
+  return meaningful.length === 1 && meaningful[0] === node
+}
+
 function emDashViolations(file: string): string[] {
   const text = readFileSync(file, 'utf8')
   if (!text.includes(EM_DASH)) return []
@@ -43,8 +57,7 @@ function emDashViolations(file: string): string[] {
   const violations: string[] = []
 
   const record = (node: ts.Node, literalText: string) => {
-    // The bare missing-value token ('—' alone) is the one sanctioned literal.
-    if (!literalText.includes(EM_DASH) || literalText.trim() === EM_DASH) return
+    if (!literalText.includes(EM_DASH) || isBareMissingToken(node, literalText)) return
     const { line } = source.getLineAndCharacterOfPosition(node.getStart())
     violations.push(`${path.relative(FRONTEND_ROOT, file)}:${line + 1} ${literalText.trim().slice(0, 80)}`)
   }

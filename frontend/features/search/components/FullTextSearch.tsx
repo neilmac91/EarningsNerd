@@ -6,6 +6,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { ArrowSquareOutIcon, MagnifyingGlassIcon, WarningIcon } from '@/lib/icons'
 import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
 import { FieldSpinner, inputClasses } from '@/components/ui'
+import { fmtCount } from '@/lib/format'
 
 // EFTS is a global SEC index (independent of our ENABLE_FPI_FILINGS discovery flag), so the
 // foreign-issuer forms are always searchable. EFTS matches on root_form, which folds amendments
@@ -215,7 +216,7 @@ export default function FullTextSearch() {
         data.hits.length > 0 ? (
           <div className="space-y-2">
             <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-              {data.total.toLocaleString()} filing{data.total === 1 ? '' : 's'} match · showing{' '}
+              {fmtCount(data.total)} filing{data.total === 1 ? '' : 's'} match · showing{' '}
               {data.count}
             </p>
             <FullTextSearchResults hits={data.hits} />
