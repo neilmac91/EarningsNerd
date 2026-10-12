@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
-import { PANE, answerApi, type Theme } from './fixtures/filing3Api'
+import { API_ORIGIN, DOCUMENT, EXCERPT, PANE, SUMMARY, answerApi, type Theme } from './fixtures/filing3Api'
 
 /**
  * EN-02: the cookie-consent bar yields to the research chrome, in a real Chromium.
@@ -23,12 +23,9 @@ import { PANE, answerApi, type Theme } from './fixtures/filing3Api'
  * Consent semantics are unchanged: nothing is accepted or dismissed by the layout, and a choice
  * persists and fires `cookieConsentChanged` exactly as before.
  *
- * Desktop note: the pane is a static column that sticks under the header once the page has scrolled
- * past its own header; unscrolled, its bottom overhangs the viewport (on main too: 152px at
- * 1440x900). Opening the pane focuses its composer, and the document's scroll-padding-bottom
- * (the bar's inset) makes that focus scroll the pane into its stuck position, clear of the bar —
- * before, the focus scroll stopped at the viewport edge and left the composer 9px under the bar.
- * The composer checks below perform no scroll of their own.
+ * Desktop note: the pane measures its actual top before and after it sticks under the header, so
+ * its footer and composer fit above the bar even when a source chip opens it on an unscrolled page.
+ * Opening a source must not scroll the page to compensate for an oversized pane.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API is answered inside
  * the browser with page.route (the summary fixture is a trimmed copy of the public Apple FY2025 10-K
@@ -53,12 +50,26 @@ interface OpenOptions {
   consented?: boolean
   /** Do Not Track: defaults are saved silently and the bar must not show. */
   dnt?: boolean
+  /** A cited opening quote keeps the pointer target in view at scroll zero. */
+  earlySource?: boolean
 }
 
 /** Fresh storage by default: no consent choice, first-run coachmark not yet seen, logged in (feedback launcher shown). */
-async function openFiling(page: Page, baseURL: string, { theme = 'light', consented = false, dnt = false }: OpenOptions = {}) {
+async function openFiling(page: Page, baseURL: string, { theme = 'light', consented = false, dnt = false, earlySource = false }: OpenOptions = {}) {
   // A Pro session: the Answer tab then carries the composer textarea the sheet checks are about.
   await answerApi(page, baseURL, 'pro')
+  if (earlySource) {
+    await page.route(`${API_ORIGIN}/api/summaries/filing/3`, (route) => route.fulfill({
+      headers: { 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' },
+      json: {
+        ...SUMMARY,
+        rendered_sections: [{ id: 'opening-source', title: 'Opening source', blocks: [{
+          kind: 'quote', text: EXCERPT,
+          evidence: { verified: true, excerpt: EXCERPT, section_ref: 'Net sales', fragment_url: DOCUMENT },
+        }] }, ...(SUMMARY.rendered_sections as unknown[])],
+      },
+    }))
+  }
   await page.addInitScript(
     ({ theme, consented, dnt }: { theme: Theme; consented: boolean; dnt: boolean }) => {
       try {
@@ -172,7 +183,7 @@ async function expectComposerClear(page: Page) {
   const vp = await viewport(page)
   const barRect = await rectOf(bar(page))
   await expect(composer(page)).toBeVisible()
-  // Desktop: the focus scroll on open is smooth; wait for it to settle before reading rects.
+  // Desktop geometry settles after the resize/scroll measurement frame.
   if (vp.w >= 1024) await expect.poll(() => rectOf(page.locator(PANE)).then((r) => Math.round(r.y + r.h))).toBeLessThanOrEqual(Math.round(barRect.y) + 1)
   const c = await rectOf(composer(page))
   expect(inside(c, vp), 'composer outside the viewport').toBe(true)
@@ -186,6 +197,46 @@ async function expectComposerClear(page: Page) {
 for (const theme of ['light', 'dark'] as const) {
   test.describe(`desktop 1440x900, ${theme}`, () => {
     test.use({ viewport: { width: 1440, height: 900 } })
+
+    for (const consented of [false, true]) {
+      test(`a chip-opened source fits its actual top without page scrolling, consented=${consented}`, async ({ page, baseURL }) => {
+        await openFiling(page, baseURL!, { theme, consented, earlySource: true })
+        const chip = page.getByRole('button', { name: 'Source: Verified in filing' }).first()
+        await expect(chip).toBeVisible()
+        expect(await page.evaluate(() => window.scrollY)).toBe(0)
+        await chip.click()
+        const pane = page.locator(PANE)
+        await expect(pane.getByRole('tab', { name: 'Filing', exact: true })).toHaveAttribute('aria-selected', 'true')
+        expect(await page.evaluate(() => window.scrollY), 'opening a citation scrolls the page').toBe(0)
+        expect((await rectOf(pane)).y, 'the first check must exercise the unstuck pane').toBeGreaterThan(64)
+
+        const expectFooterClear = async () => {
+          const vp = await viewport(page)
+          const bottom = consented ? vp.h : (await rectOf(bar(page))).y
+          await expect.poll(async () => {
+            const rect = await rectOf(pane)
+            return rect.y + rect.h
+          }).toBeLessThanOrEqual(bottom + 0.5)
+          const original = pane.getByRole('link', { name: 'Original on SEC EDGAR' })
+          expect(inside(await rectOf(original), vp), 'source footer outside the viewport').toBe(true)
+          expect(await hitsItself(original), 'source footer is covered').toBe(true)
+        }
+        await expectFooterClear()
+        await page.evaluate(() => window.scrollTo({ top: 400, behavior: 'instant' }))
+        await expect.poll(() => rectOf(pane).then((rect) => Math.round(rect.y))).toBe(64)
+        await expectFooterClear()
+        await page.setViewportSize({ width: 1440, height: 640 })
+        await expectFooterClear()
+        await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
+        await page.setViewportSize({ width: 1280, height: 900 })
+        await expectFooterClear()
+        await pane.getByRole('tab', { name: 'Ask', exact: true }).click()
+        const vp = await viewport(page)
+        expect(inside(await rectOf(composer(page)), vp), 'composer outside the viewport').toBe(true)
+        expect(await hitsItself(composer(page)), 'composer is covered').toBe(true)
+        expect(await page.evaluate(() => window.scrollY), 'switching source tabs scrolls the page').toBe(0)
+      })
+    }
 
     test('consent choices and research controls are usable together; a modal makes the page inert only while open; a choice persists and clears the layer', async ({ page, baseURL }) => {
       await openFiling(page, baseURL!, { theme })

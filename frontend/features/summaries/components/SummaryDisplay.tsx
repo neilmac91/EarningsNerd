@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, type Ref } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 import ReactMarkdown from 'react-markdown'
@@ -59,6 +59,8 @@ export interface SummaryDisplayProps {
   onAsk: (prefill: string, surface: string) => void
   /** The server-read change report: What changed renders with the summary, not after it. */
   initialChangeReport?: ChangeReport
+  /** The first content heading; the filing shell owns focus after a completed generation. */
+  headingRef?: Ref<HTMLHeadingElement>
 }
 
 export function SummaryDisplay({
@@ -73,6 +75,7 @@ export function SummaryDisplay({
   onRetry,
   onAsk,
   initialChangeReport,
+  headingRef,
 }: SummaryDisplayProps) {
   const markdownContent = summary.business_overview || ''
   // S4 honest degradation, decoupled: ALWAYS strip internal failure notices (they're not
@@ -199,11 +202,12 @@ export function SummaryDisplay({
               numbered section (2026-10 critique P-07); a legacy markdown summary keeps it as a card
               under the markdown, the card the page shows wherever no section holds it. */}
           {hasSections ? (
-            <SummaryBlocks sections={renderedSections} summary={summary} whatChanged={changeReport} />
+            <SummaryBlocks sections={renderedSections} summary={summary} whatChanged={changeReport} firstHeadingRef={headingRef} />
           ) : hasPolishedMarkdown ? (
             <>
               <Card as="section" className="overflow-hidden">
                 <CardBody className="markdown-body text-text-secondary-light dark:text-text-secondary-dark">
+                  <h2 ref={headingRef} tabIndex={headingRef ? -1 : undefined} className="outline-none">Summary</h2>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {cleanedMarkdown}
                   </ReactMarkdown>
