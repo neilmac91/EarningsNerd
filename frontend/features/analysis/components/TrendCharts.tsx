@@ -52,6 +52,7 @@ import { useDataNotes } from './DataNotesContext'
 import type { DataNote, DataNotesModel } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { layoutChartNotes, type ChartNotePosition } from '@/features/analysis/lib/chartNoteLayout'
+import { topLineConcept } from '@/features/analysis/lib/reportPresentation'
 
 const bySeries = (dataset: AnalysisDataset): Record<string, AnalysisSeries> =>
   Object.fromEntries(dataset.series.map((s) => [s.concept, s]))
@@ -578,7 +579,7 @@ export default function TrendCharts({
   const notes = useDataNotes(dataset)
   const series = useMemo(() => bySeries(dataset), [dataset])
 
-  const topLine = series['revenue'] ? 'revenue' : 'net_interest_income'
+  const topLine = topLineConcept(dataset)
 
   const panels: PanelSpec[] = [
     {
