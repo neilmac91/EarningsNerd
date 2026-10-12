@@ -12,9 +12,13 @@ except the pre-Settings infra-bootstrap constants in `database.py`, `redis_servi
 and `frontend/lib/featureFlags.ts`. Production uses a mix of Cloud Run environment overrides and Google Secret
 Manager mounts (see [DEPLOYMENT.md](DEPLOYMENT.md)).
 A settings validation error names the failing field and the reason but withholds the value (`REGISTRATION_MODE`'s
-own message quotes its value; it holds no secret). A settings object prints no value, and `scripts/deploy_check.py`
-prints a secret's length and a database error's type only (`lessons/ops-never-echo-environment-values.md`). To debug
-a value, read it from its source (Secret Manager, `backend/.env`).
+own message quotes its value; it holds no secret). A settings object prints no value; `scripts/deploy_check.py` and
+`scripts/smoke_resend.py` print a secret's presence and length only; a malformed `DATABASE_URL` or `REDIS_URL` is
+reported by its error's type, never the parser's message, which can quote the password. Sentry receives no frame's
+local variables, and the `X-Internal-Token` header and every outbound request's query string reach it as `[Filtered]`
+(`main._sentry_options`). The rules, their gates and the echoes not yet gated:
+`lessons/ops-never-echo-environment-values.md`. To debug a value, read it from its source (Secret Manager,
+`backend/.env`).
 
 > Moved out of CLAUDE.md in the July 2026 refactor (Wave 3 / M3) — this file is now the
 > canonical env reference; keep it in sync with `config.py` when adding fields.
@@ -87,7 +91,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `TASKS_WORK_TIMEOUT_SECONDS` | `480` | Hard child work deadline, greater than zero and at most 480 seconds; child is killed and reaped before HTTP completion on timeout or disconnect. |
 | `POSTHOG_API_KEY` | `""` | Server-side PostHog credential. |
 | `POSTHOG_HOST` | `"https://us.i.posthog.com"` | Server-side PostHog ingestion origin. |
-| `SENTRY_DSN` | `""` | Error tracking DSN; empty disables SDK setup. |
+| `SENTRY_DSN` | `""` | Error tracking DSN; empty disables SDK setup. Events carry stack frames, source lines, messages and breadcrumbs, not local variables (`main._sentry_options`). Never set the SDK's `data_collection` option: it disables the event scrubber and turns local variables back on. |
 | `SENTRY_RELEASE` | `""` | Release tag; CI supplies the Git SHA; empty allows SDK detection. |
 | `RESEND_API_KEY` | `""` | Outbound email credential; required for sending. |
 | `RESEND_BASE_URL` | `"https://api.resend.com"` | Resend API origin. |
