@@ -316,7 +316,11 @@ Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly
                  Recent-period presets are ghost Button actions, not pressed toggles. Visible From/To
                  labels wrap raw compact selects using inputClasses({ select: true, autoWidth: true });
                  font-data and tabular-nums belong to the select itself. Fields fill phones and use
-                 intrinsic/em widths on desktop. The range comes before its count in the summary.
+                 intrinsic/em widths on desktop. Analysis's full-width route wrapper is an inline-size
+                 query container. Below 13em of its actual text size, main uses px-2 and the control
+                 Card uses px-1.5, preserving full selected tokens at enlarged phone text. The shared
+                 field padding and font stay unchanged; ordinary 320px+ layouts retain their spacing.
+                 The range comes before its count in the summary.
                  Moving an endpoint keeps the range ordered and within the server-provided cap and
                  announces an automatically moved other endpoint through role=status. Unavailable
                  annual years remain visible but disabled options. Table windows never alter selection.

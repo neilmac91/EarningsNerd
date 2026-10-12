@@ -465,7 +465,7 @@ for (const theme of THEMES) for (const profile of PROFILES) {
   })
 }
 
-for (const theme of THEMES) for (const width of [390, 1480]) for (const textScale of [1, 2]) {
+for (const theme of THEMES) for (const width of [320, 390, 1480]) for (const textScale of [1, 2]) {
   test.describe(`analysis period controls / ${theme} / ${width}px / ${textScale * 100}% text`, () => {
     test.use({ viewport: { width, height: 1000 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
     test('keeps range changes readable and explains unavailable modes in the Tab order', async ({ page, baseURL }) => {
@@ -489,7 +489,7 @@ for (const theme of THEMES) for (const width of [390, 1480]) for (const textScal
         expect(geometry.font).toMatch(/geist.?mono/i)
         expect(geometry.left).toBeGreaterThanOrEqual(0)
         expect(geometry.right).toBeLessThanOrEqual(width + EPSILON)
-        expect(geometry.selectedWidth).toBeLessThanOrEqual(geometry.available + EPSILON)
+        expect(geometry.selectedWidth, 'the full selected period token fits beside the native chevron').toBeLessThanOrEqual(geometry.available + EPSILON)
       }
       for (const preset of await page.getByRole('group', { name: 'Recent period presets' }).getByRole('button').all()) {
         await expect(preset).not.toHaveAttribute('aria-pressed')
