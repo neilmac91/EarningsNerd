@@ -257,10 +257,18 @@ async def test_timeout_routes_alternate_before_total_budget_expires(monkeypatch,
     monkeypatch.setattr(settings, "AI_FALLBACK_MODEL", "alternate")
     monkeypatch.setattr(settings, "AI_FALLBACK_BASE_URL", "https://alternate.invalid/v1")
     calls = []
+    attempt_seconds = 10
+    timeout_seconds = []
+    deadlines = []
+    armed_deadlines = []
 
     async def primary(req):
         calls.append("primary")
-        await asyncio.sleep(10)
+        # Pin the actual attempt cap before expiring its real timeout after transport entry.
+        assert timeout_seconds[1] == attempt_seconds
+        assert armed_deadlines[1] < armed_deadlines[0] - 30
+        deadlines[1].reschedule(asyncio.get_running_loop().time())
+        await asyncio.Event().wait()
 
     def fallback(req):
         body = json.loads(req.content)
@@ -269,11 +277,12 @@ async def test_timeout_routes_alternate_before_total_budget_expires(monkeypatch,
         assert req.headers["authorization"] == "Bearer offline-alternate"
         return httpx2.Response(200, json=completion())
 
-    deadlines = []
-
     def recorded_timeout(seconds):
-        deadlines.append(asyncio.timeout(seconds))
-        return deadlines[-1]
+        timeout = asyncio.timeout(seconds)
+        timeout_seconds.append(seconds)
+        deadlines.append(timeout)
+        armed_deadlines.append(timeout.when())
+        return timeout
 
     monkeypatch.setattr(requests, "asyncio", SimpleNamespace(**{**vars(asyncio), "timeout": recorded_timeout}))
     async with service_for(primary) as service:
@@ -284,19 +293,21 @@ async def test_timeout_routes_alternate_before_total_budget_expires(monkeypatch,
             http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(fallback)),
         ) as alternate:
             service.fallback_client = alternate
-            # A shared budget the fallback cannot race: 0.15 s left it ~70 ms after the 0.08 s
-            # attempt timeout, which ran out under parallel load. The hanging primary still times
-            # out on its own 0.08 s, which the deadline assertion below pins.
+            # Leave time for real SDK setup, then expire the attempt only once the primary is
+            # in flight. Its configured cap is pinned separately from this controlled expiry;
+            # neither primary entry nor successful fallback must race an 80 ms setup margin.
             budget = requests.RequestBudget(asyncio.get_running_loop().time() + 60)
             token = requests._budget.set(budget)
             try:
-                assert await service._request_content(KW, timeout=0.08) == '{"fresh":true}'
+                assert await service._request_content(KW, timeout=attempt_seconds) == '{"fresh":true}'
             finally:
                 requests._budget.reset(token)
     assert calls == ["primary", "fallback"] and observations[-1]["provider"] == "fallback"
     # deadlines[0] is the shared budget's timeout, deadlines[1] the primary attempt's: the attempt is
     # bounded by its own timeout, far inside the budget, not by what remains of the budget.
     assert deadlines[1].when() < deadlines[0].when() - 30
+    assert timeout_seconds[1:] == [attempt_seconds, attempt_seconds]
+    assert deadlines[1].expired() and not deadlines[0].expired()
 
 
 @pytest.mark.asyncio
