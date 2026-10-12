@@ -819,8 +819,14 @@ for (const theme of ['light', 'dark'] as const) {
         await page.keyboard.press('Escape')
         await expect(source).toBeFocused()
         await page.evaluate(() => { document.documentElement.style.fontSize = '125%' })
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+        // As in the enlarged-card case above, the existing anonymous header exceeds 320px at a
+        // 20px root font. Each summary section must still fit; only its table region scrolls.
         for (const section of GENERIC_SECTIONS) {
+          const sectionRoot = page.locator(`#${section.id}`)
+          const bounds = await rectOf(sectionRoot)
+          expect(bounds.x).toBeGreaterThanOrEqual(0)
+          expect(bounds.x + bounds.w).toBeLessThanOrEqual(width + 0.5)
+          expect(await sectionRoot.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
           const region = page.getByRole('region', { name: `Scrollable table: ${section.title}`, exact: true })
           await expect(region).toBeVisible()
           expect(await region.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true)
