@@ -724,22 +724,45 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
       }
       await assertViewport()
       const revenue = plots.first()
+      const viewport = revenue.locator('..')
+      const allBars = revenue.locator('.recharts-bar-rectangle path')
+      await expect(allBars).toHaveCount(12)
       const revenueValues = revenue.getByRole('application', { name: 'Revenue & growth chart values. Use Left and Right arrows to inspect periods.' })
       await revenueValues.focus()
       const tooltip = revenue.locator('.recharts-tooltip-wrapper').getByRole('status')
-      for (const period of PERIODS.slice(1)) {
+      const assertPeriodVisible = async (index: number) => {
+        await expect(tooltip).toContainText(PERIODS[index].replace(/^(\d{4})(Q\d)$/, '$2 $1'))
+        // DOM text alone does not prove keyboard access: the selected mark and its tooltip
+        // must remain inside the horizontal viewport in both directions and after re-entry.
+        await expect.poll(async () => {
+          const [frame, tip, bar] = await Promise.all([viewport.boundingBox(), tooltip.boundingBox(), allBars.nth(index).boundingBox()])
+          if (!frame || !tip || !bar) return Number.POSITIVE_INFINITY
+          return Math.max(frame.x - tip.x, tip.x + tip.width - frame.x - frame.width,
+            frame.x - bar.x, bar.x + bar.width - frame.x - frame.width)
+        }, { message: `${PERIODS[index]} value and tooltip stay inside the chart viewport` }).toBeLessThanOrEqual(EPSILON)
+      }
+      for (let index = 1; index < PERIODS.length; index++) {
         await page.keyboard.press('ArrowRight')
-        await expect(tooltip).toContainText(period.replace(/^(\d{4})(Q\d)$/, '$2 $1'))
+        await assertPeriodVisible(index)
       }
       await expect(tooltip).toContainText('Q2 2026')
       await expect(tooltip).toContainText('YoY growth')
       await expect(tooltip).toContainText('28.0%')
       // The quarterly metrics table uses QoQ here; these YoY values need the chart's own path.
-      await page.keyboard.press('ArrowLeft')
-      await expect(tooltip).toContainText('Q1 2026')
-      await expect(tooltip).toContainText('33.1%')
-      const allBars = revenue.locator('.recharts-bar-rectangle path')
-      await expect(allBars).toHaveCount(12)
+      // Leave at the newest period, then return after the outer viewport has moved. Recharts
+      // retains its index on blur; the next arrow must reveal the expected adjacent period.
+      await page.keyboard.press('Tab')
+      if (width === 390) {
+        await viewport.evaluate(element => { element.scrollLeft = 24 })
+        expect(await viewport.evaluate(element => element.scrollLeft)).toBeGreaterThan(0)
+      }
+      await page.keyboard.press('Shift+Tab')
+      await expect(revenueValues).toBeFocused()
+      for (let index = PERIODS.length - 2; index >= 0; index--) {
+        await page.keyboard.press('ArrowLeft')
+        await assertPeriodVisible(index)
+        if (index === PERIODS.length - 2) await expect(tooltip).toContainText('33.1%')
+      }
       const cleanFill = await allBars.first().getAttribute('fill')
       const affectedBar = revenue.locator('g[aria-label="Data note a"] path')
       await expect(affectedBar).toHaveCount(1)
@@ -757,7 +780,6 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
           return bounds.width > 0 && bounds.height > 0 && getComputedStyle(element).fill !== 'none'
         })).toBe(true)
       }
-      const viewport = revenue.locator('..')
       if (width === 390) {
         await viewport.focus()
         await page.keyboard.press('ArrowRight')

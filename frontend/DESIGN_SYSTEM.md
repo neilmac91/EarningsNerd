@@ -895,8 +895,10 @@ reason sentences beneath the plot and list each recorded gap once. The plot is a
 region only while overflowing, measured by `useOverflowRegion` before paint and on resize.
 Inside it, Recharts retains one named chart-values keyboard stop: Left/Right reads each period's
 tooltip, including the YoY growth series that the quarterly metrics table's QoQ column does not
-replace. Tooltip changes use a live status; Tab leaves the chart and Shift+Tab returns without a
-trap. The viewport carries the brand focus ring for either keyboard stop. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
+replace. Each tooltip row names its applicable value or YoY note independently; clean rows carry
+no letter. Formatting follows the original data key before adding the note to the display name, so
+growth remains a percentage. Tooltip changes use a live status; Tab leaves and Shift+Tab returns
+without a trap. The viewport carries the brand focus ring for either keyboard stop. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
 source dates, material gaps and a concise disclosure. Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the

@@ -320,26 +320,31 @@ function PanelCard({
   // Route by SERIES, not by value magnitude: the growth line always formats as a percent and
   // everything else with the panel's formatter — a micro-cap's $850 bar or a +1,400% growth
   // spike must never fall through a magnitude heuristic to the wrong formatter.
-  const formatTooltip = (v: number | string | undefined, name?: string) => {
+  const formatTooltip = (v: number | string | undefined, growth: boolean) => {
     const num = Number(v)
     if (!Number.isFinite(num)) return String(v ?? '')
-    if (name === GROWTH_LINE_LABEL) return pct(num)
+    if (growth) return pct(num)
     return panel.format(num)
   }
 
   const renderTooltip = ({ active, label, payload }: TooltipContentProps) => (
     <div role="status">
-    <ChartTooltip
-      dark={dark}
-      active={active}
-      label={formatAnalysisPeriod(String(label ?? ''))}
-      payload={payload?.map((entry) => ({
-        name: String(entry.name ?? ''),
-        value: typeof entry.value === 'number' ? entry.value : String(entry.value ?? ''),
-        color: entry.color,
-      }))}
-      formatValue={formatTooltip}
-    />
+      <ChartTooltip
+        dark={dark}
+        active={active}
+        label={formatAnalysisPeriod(String(label ?? ''))}
+        payload={payload?.map((entry) => {
+          const growth = entry.dataKey === 'growth'
+          const concept = growth ? barSeries?.concept : String(entry.dataKey ?? '')
+          const note = concept ? noteAt(concept, String(label ?? ''), growth) : null
+          return {
+            name: `${entry.name ?? ''}${note ? ` · note ${note.letter}` : ''}`,
+            // Format by the original data key before the display name gains a note letter.
+            value: formatTooltip(typeof entry.value === 'number' ? entry.value : String(entry.value ?? ''), growth),
+            color: entry.color,
+          }
+        })}
+      />
     </div>
   )
 

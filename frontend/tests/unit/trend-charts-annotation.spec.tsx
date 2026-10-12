@@ -1,5 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, render, screen, within } from '@testing-library/react'
+
+const tooltipContent = vi.hoisted(() => ({
+  entries: [] as Array<(props: { active: boolean; label: string; payload: Array<{ dataKey: string; name: string; value: number }> }) => React.ReactNode>,
+}))
+beforeEach(() => { tooltipContent.entries = [] })
 
 // recharts measures the DOM, which jsdom can't do — stub it (same pattern as trend-charts-legend).
 vi.mock('recharts', async () => {
@@ -34,7 +39,10 @@ vi.mock('recharts', async () => {
     XAxis: () => null,
     YAxis: () => null,
     CartesianGrid: () => null,
-    Tooltip: () => null,
+    Tooltip: ({ content }: { content: typeof tooltipContent.entries[number] }) => {
+      tooltipContent.entries.push(content)
+      return null
+    },
   }
 })
 
@@ -111,6 +119,28 @@ describe('TrendCharts cash-generation dual axis (P1-8)', () => {
 
 describe('TrendCharts source note marks', () => {
   const passed = { version: 1 as const, method: 'reported' as const, validation: 'passed' as const, reasons: [], formula: null, inputs: [] }
+
+  it('names each tooltip value and independent YoY note without changing its units or marking a clean period', () => {
+    const revenue = series('revenue', 'Revenue', [100, 110, 120])
+    revenue.points.forEach((point) => { point.provenance = passed; point.yoy = 0.125; point.yoy_provenance = passed })
+    revenue.points[1].provenance = { ...passed, validation: 'needs_review', reasons: ['source_conflict'] }
+    revenue.points[1].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }
+    render(<TrendCharts dataset={{ ...dataset, series: [revenue] }} />)
+    const content = tooltipContent.entries[0]
+    const payload = [
+      { dataKey: 'revenue', name: 'Revenue', value: 110 },
+      { dataKey: 'growth', name: 'YoY growth', value: 12.5 },
+    ]
+    const tooltip = render(content({ active: true, label: 'FY2023', payload }))
+    const status = within(tooltip.getByRole('status'))
+    expect(status.getByText('Revenue · note a').parentElement).toHaveTextContent('$110.0')
+    expect(status.getByText('YoY growth · note b').parentElement).toHaveTextContent('12.5%')
+
+    tooltip.rerender(content({ active: true, label: 'FY2022', payload }))
+    expect(status.getByText('Revenue')).toBeInTheDocument()
+    expect(status.getByText('YoY growth')).toBeInTheDocument()
+    expect(status.queryByText(/note [ab]/)).not.toBeInTheDocument()
+  })
 
   it('marks affected bars and inherited growth independently, leaving clean points unmarked', () => {
     const revenue = series('revenue', 'Revenue', [100, 110, 120])
