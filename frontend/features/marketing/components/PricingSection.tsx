@@ -61,7 +61,9 @@ const PRICE_CLASS =
 const MUTED_CLASS = 'text-text-secondary-light dark:text-text-secondary-dark'
 // Design: 44px tall, full card width. buttonVariants' md size sets h-10; h-11 is emitted later in
 // the height scale, so it wins (verified against the built stylesheet, not assumed).
-const CTA_CLASS = 'mt-5 h-11 w-full'
+// min-h, not h: below a 24rem viewport the Button's narrow state sets h-auto so a label can wrap, and a
+// caller's own min-h is the one height it keeps (tests/unit/buttonHeightIsAMinimum.spec.ts).
+const CTA_CLASS = 'mt-5 min-h-11 w-full'
 
 function FeatureList({ items }: { items: readonly string[] }) {
   return (

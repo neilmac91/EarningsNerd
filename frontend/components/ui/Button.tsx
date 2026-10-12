@@ -219,7 +219,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       onClick={handleClick}
       aria-busy={loading || undefined}
       aria-disabled={loading || undefined}
-      className={cx(buttonVariants({ variant, size, wrap }), loading && 'cursor-progress', className)}
+      // className goes through buttonVariants so the narrow state can see a caller's own min-h or py.
+      className={cx(buttonVariants({ variant, size, wrap, className }), loading && 'cursor-progress')}
       {...rest}
     >
       {loading ? <Spinner className={SPINNER_SIZE[size]} /> : leftIcon}

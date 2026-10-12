@@ -25,7 +25,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'lib']
 const UTILITY_AFTER = /^[a-z][a-z0-9]*(?:-[a-z0-9.[\]/%]+)+(?=\s|$)/
 const STEM_BEFORE =
-  /(?:^|\s)(?:[a-z0-9[\]().:@-]+:)?(?:h|w|min-h|min-w|max-w|max-h|p[xytblr]?|m[xytblr]?|gap|space-[xy]|text|bg|border|rounded|ring|shadow|font|leading|tracking|whitespace|opacity|z|inset|top|left|right|bottom|translate-[xy]|scale|rotate|grid-cols|grid-rows|col|row|order|basis|flex|justify|items|self|place|content|duration|delay|ease|fill|stroke|outline|decoration|underline-offset|aspect|object|overflow|cursor|select|pointer-events|transition|animate|divide|from|via|to|line-clamp|indent|columns|size)-$/
+  /(?:^|\s)-?(?:[a-z0-9[\]().:@-]+:)?(?:h|w|min-h|min-w|max-w|max-h|p[xytblr]?|m[xytblr]?|gap|space-[xy]|text|bg|border|rounded|ring|shadow|font|leading|tracking|whitespace|opacity|z|inset|top|left|right|bottom|translate-[xy]|scale|rotate|grid-cols|grid-rows|col|row|order|basis|flex|justify|items|self|place|content|duration|delay|ease|fill|stroke|outline|decoration|underline-offset|aspect|object|overflow|cursor|select|pointer-events|transition|animate|divide|from|via|to|line-clamp|indent|columns|size)-\[?$/
 
 const SINGLE_UTILITIES = new Set([
   'hidden', 'flex', 'grid', 'block', 'inline', 'contents', 'relative', 'absolute', 'fixed', 'sticky', 'static', 'visible',
@@ -33,12 +33,14 @@ const SINGLE_UTILITIES = new Set([
   'isolate', 'container', 'rounded', 'border', 'shadow', 'ring', 'outline', 'transition', 'resize', 'table', 'grow',
   'shrink', 'collapse', 'tabular-nums', 'sr-only',
 ])
-/** Whether text begins with a utility token: a hyphenated one, or a single-word one followed by a space or the end. */
+/** Whether text begins with a utility token: a hyphenated one, a single-word one followed by a space or
+    the end, or either behind a ":" (an interpolated variant name, `${bp}:flex`). */
 function utilityHead(text: string): string | null {
-  const hyphenated = UTILITY_AFTER.exec(text)
-  if (hyphenated) return hyphenated[0]
-  const word = /^[a-z][a-z0-9-]*(?=\s|$)/.exec(text)
-  return word && SINGLE_UTILITIES.has(word[0]) ? word[0] : null
+  const rest = text.startsWith(':') ? text.slice(1) : text
+  const hyphenated = UTILITY_AFTER.exec(rest)
+  if (hyphenated) return (text.startsWith(':') ? ':' : '') + hyphenated[0]
+  const word = /^[a-z][a-z0-9-]*(?=\s|$)/.exec(rest)
+  return word && SINGLE_UTILITIES.has(word[0]) ? (text.startsWith(':') ? ':' : '') + word[0] : null
 }
 
 /** Whether an interpolation can only end in a space or nothing, so the literal after it stays a whole token. */
