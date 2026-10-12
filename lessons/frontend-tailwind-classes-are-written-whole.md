@@ -18,9 +18,12 @@ strings. A class string that passes a unit test proves only that the string exis
 CSS does; a change to a variant or a composed class is proven in a browser or by the done gate's
 emitted-CSS check.
 
-**Evidence**: `frontend/components/ui/Button.tsx` (`WRAP_WHEN_NARROW`, three literal strings) and
-`frontend/tests/e2e/reflow-200.spec.ts` on the reflow-200 branch, 2026-10-12. Gate:
-`frontend/tests/unit/tailwindClassesWrittenWhole.spec.ts` fails on any template literal under
-`app`, `components`, `features` or `lib` whose interpolation is followed, with no separator, by a
-hyphenated utility token; with `WRAP_WHEN_NARROW` put back as the template literal it names
-`components/ui/Button.tsx` and the three tokens.
+**Evidence**: `frontend/components/ui/Button.tsx` (`NARROW_WRAP`, `NARROW_MIN_H`, `NARROW_PY`: whole
+literal strings) and `frontend/tests/e2e/reflow-200.spec.ts` on the reflow-200 branch, 2026-10-12.
+Gate: `frontend/tests/unit/tailwindClassesWrittenWhole.spec.ts` fails, under `app`, `components`,
+`features` or `lib`, on an interpolation or a `+` operand that resolves to a variant prefix (a whole
+`token:` chain, read through a same-file const, a conditional or a concatenation), on an
+interpolation or a non-literal operand that runs straight into a utility token (hyphenated or
+single-word), and on a utility stem that runs straight into one; a conditional between whole tokens
+and prose that ends in a colon are left alone. With the Button's narrow classes put back as a
+template literal, the gate names `components/ui/Button.tsx` and each token.
