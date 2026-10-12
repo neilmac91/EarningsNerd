@@ -6,6 +6,13 @@ Date: 2026-07-04   Area: arch
 
 **Rule**: For a discovery/listing surface, prefer a committed, auditable universe over a live API feed, and make the filter fail OPEN (serve unfiltered if the list is missing/short) so it can only ever hide tail names, never empty the page. Gate it behind ONE flag controlling BOTH ingest and serve so it's reversible within a refresh cycle. Before trusting the filter, verify the membership tickers match the event source's exact format against live data — a format mismatch silently HIDES a mega-cap, the inverse of the bug you're preventing.
 
+**Scope clarification (2026-10-12)**: The fail-open and shared ingest/serve flag describe the
+calendar's optional filter. The explicit `homepage_only` Notable view instead promises index
+members' 10-K/10-Q filings and may omit an empty section, so missing membership must return an
+empty curated list. Widening it would contradict its label. The default Notable feed and scan
+remain market-wide, with separate serving caches; `test_homepage_curation_filters_the_full_window_and_keeps_default_feed`
+owns that distinction, including ticker aliases, minimum count and pre-limit selection.
+
 **Evidence**: S&P 500 ∪ Nasdaq 100 (~515 names); AV emits `BRK.B` (dot) while FMP uses `BRK-B` (dash); normalize `-`→`.`; the initial AV comparison led to excluding FDXF/HONA. That exclusion became stale: by 2026-09-06 both traded and appeared in the current index holdings. The public-source repair removes the unconditional exclusion; do not treat an old nontrading observation as a permanent membership rule.
 
 **Correction (2026-09-06)**: A failed provider or missing table at one URL does not establish a

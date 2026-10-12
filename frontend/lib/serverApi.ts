@@ -195,9 +195,10 @@ export interface NotableFilingsResponse {
   timestamp: string
 }
 
-/** Market-wide notable filings (EDGAR-native). Server-rendered only — the section self-omits
+/** Homepage-curated 10-K/10-Q filings from the committed index universe (EDGAR-native).
+ * Server-rendered only — the section self-omits
  * when the list is empty, so there is no client query. Dormant since 2026-10-11: unmounted from
- * `/` until a curation rule exists (features/filings/components/NotableFilings.tsx); when it
+ * `/` until the complete stored-window curation comparison is reviewed; when it
  * returns it renders nothing until NOTABLE_FILINGS_ENABLED is on, because the API answers 200
  * with an empty list.
  *
@@ -209,7 +210,7 @@ export interface NotableFilingsResponse {
  * 08:30 and 18:30 America/New_York (docs/DEPLOYMENT.md §12), so sub-hourly polling buys no
  * freshness at any flag state. Do not "restore" 900 when the section goes live. */
 export const fetchNotableFilings = (): Promise<NotableFilingsResponse | null> =>
-  fetchJson<NotableFilingsResponse>('/api/notable_filings?limit=8', 3600)
+  fetchJson<NotableFilingsResponse>('/api/notable_filings?limit=8&homepage_only=true', 3600)
 
 export interface ReportingCompany {
   ticker: string

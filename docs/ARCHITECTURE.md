@@ -192,7 +192,7 @@ frontend/
 | `change_report_service.py` | Period-over-period change report (financial deltas + risk diffs) |
 | `peers_service.py` / `insider_service.py` | Peer comparison by SIC; Form 4 insider activity (`ownership_extractor.py` parses the Form 4 tables DEFENSIVELY — EdgarTools' DataFrame column casing varies across versions; don't "simplify" the guards) |
 | `dashboard_feed_service.py` / `calendar_service.py` / `filing_scan_service.py` / `notification_service.py` | Personalized feed; earnings calendar; new-filing alerts (dedup); alert prefs |
-| `notable_filings_service.py` | Homepage "Notable filings": market-wide EFTS scan (8-K item materiality + form weights + owned demand), serve-from-Postgres, self-omitting |
+| `notable_filings_service.py` | Market-wide EFTS scan (8-K item materiality + form weights + owned demand), serve-from-Postgres; optional homepage index + 10-K/10-Q curation before ranking, separately cached and self-omitting |
 | `pulse_service.py` | Filing Pulse gauge (pure scoring; kept for roadmap A3). Its original producer — the FMP/Finnhub-backed hot-filings scorer — and the Stocktwits/FMP trending pipeline were torn down 2026-09 (WS-8a) |
 | `turnstile.py` / `pwned_passwords.py` | Turnstile bot defense (dark when unset, fails OPEN on Cloudflare infra errors); breached-password screening |
 | `fallback_summary.py` | Deterministic summary when AI fails |

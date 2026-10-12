@@ -27,7 +27,8 @@ const LIVE_DATA_SECTIONS: ReadonlyArray<readonly [string, string]> = [
   ['LandingHero', 'fetchExampleData'],
   ['ReportingThisWeek', 'fetchReportingThisWeek'],
   // NotableFilings left this list on 2026-10-11 (brand studio, docs/brand/01-interview.md A8): the
-  // section is dormant until a curation rule exists; the component and fetcher remain for that day.
+  // section stays dormant until the complete stored-window comparison of index + 10-K/10-Q
+  // curation is reviewed; the component and fetcher remain for that day.
   ['PricingSection', 'fetchSignupConfig'],
 ]
 

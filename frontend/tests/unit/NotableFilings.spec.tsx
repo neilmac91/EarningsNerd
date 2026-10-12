@@ -1,8 +1,8 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 
 import NotableFilings from '@/features/filings/components/NotableFilings'
-import type { NotableFilingsResponse } from '@/lib/serverApi'
+import { fetchNotableFilings, type NotableFilingsResponse } from '@/lib/serverApi'
 
 vi.mock('next/link', () => ({
   default: ({ children, href, onClick, ...props }: { children: React.ReactNode; href: string; onClick?: () => void; [key: string]: unknown }) => (
@@ -27,18 +27,18 @@ const RESPONSE: NotableFilingsResponse = {
     {
       ticker: 'AAPL',
       company_name: 'Apple Inc.',
-      form: '8-K',
-      reason: 'earnings_results',
-      reason_label: 'Earnings results',
+      form: '10-K',
+      reason: 'annual_report',
+      reason_label: 'Annual report',
       filed_date: '2026-07-05',
       sec_url: 'https://www.sec.gov/Archives/edgar/data/320193/x/',
     },
     {
-      ticker: 'CRSP',
-      company_name: 'CRISPR Therapeutics AG',
-      form: 'SC 13D',
-      reason: 'activist_stake',
-      reason_label: 'Activist stake',
+      ticker: 'MSFT',
+      company_name: 'Microsoft Corporation',
+      form: '10-Q',
+      reason: 'quarterly_report',
+      reason_label: 'Quarterly report',
       filed_date: '2026-07-03',
       sec_url: 'https://www.sec.gov/Archives/edgar/data/1/y/',
     },
@@ -69,16 +69,16 @@ describe('NotableFilings', () => {
 
     expect(screen.getByText('Notable filings')).toBeInTheDocument()
     expect(screen.getByTestId('notable-filing-AAPL')).toHaveAttribute('href', '/company/AAPL')
-    expect(screen.getByTestId('notable-filing-CRSP')).toHaveAttribute('href', '/company/CRSP')
+    expect(screen.getByTestId('notable-filing-MSFT')).toHaveAttribute('href', '/company/MSFT')
   })
 
   it('shows the honest reason chip and a relative filed date', () => {
     render(<NotableFilings data={RESPONSE} />)
 
-    expect(screen.getByText('Earnings results')).toBeInTheDocument()
-    expect(screen.getByText('Activist stake')).toBeInTheDocument()
-    // "8-K • Filed X ago" — relative label is time-dependent, assert shape not value.
-    expect(screen.getByTestId('notable-filing-AAPL').textContent).toMatch(/8-K • Filed .* ago/)
+    expect(screen.getByText('Annual report')).toBeInTheDocument()
+    expect(screen.getByText('Quarterly report')).toBeInTheDocument()
+    // "10-K • Filed X ago" — relative label is time-dependent, assert shape not value.
+    expect(screen.getByTestId('notable-filing-AAPL').textContent).toMatch(/10-K • Filed .* ago/)
   })
 
   it('fires notable_filing_clicked with ticker/form/reason on click', () => {
@@ -87,8 +87,8 @@ describe('NotableFilings', () => {
     fireEvent.click(screen.getByTestId('notable-filing-AAPL'))
     expect(mockAnalytics.notableFilingClicked).toHaveBeenCalledWith({
       ticker: 'AAPL',
-      form: '8-K',
-      reason: 'earnings_results',
+      form: '10-K',
+      reason: 'annual_report',
     })
     expect(mockAnalytics.notableFilingClicked).toHaveBeenCalledTimes(1)
   })
@@ -113,4 +113,24 @@ describe('NotableFilings', () => {
       vi.useRealTimers()
     }
   })
+})
+
+describe('the prepared homepage fetch', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it.each(['ok', 'http-error', 'offline'] as const)(
+    'requests pre-limit homepage curation with hourly ISR and keeps the %s fallback',
+    async (outcome) => {
+      const fetch = vi.fn(() => outcome === 'offline'
+        ? Promise.reject(new Error('offline'))
+        : Promise.resolve({ ok: outcome === 'ok', json: async () => RESPONSE }))
+      vi.stubGlobal('fetch', fetch)
+      const response = await fetchNotableFilings()
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringMatching(/\/api\/notable_filings\?limit=8&homepage_only=true$/),
+        expect.objectContaining({ next: { revalidate: 3600 } }),
+      )
+      expect(response).toEqual(outcome === 'ok' ? RESPONSE : null)
+    },
+  )
 })

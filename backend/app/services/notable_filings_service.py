@@ -21,7 +21,8 @@ Three layers, mirroring ``earnings_calendar_service``:
 3. **Serve** (``get_notable_filings``): ≤7-day window, decay-ranked, one filing per company,
    fewer than ``MIN_COMPANIES`` distinct companies → empty (ReportingThisWeek's self-omission
    contract). Gated on ``settings.NOTABLE_FILINGS_ENABLED`` so the surface ships dark. Never
-   raises.
+   raises. The optional homepage instance selects the committed index universe's 10-K/10-Q
+   candidates before ranking; the default instance retains every supported filing form.
 """
 from __future__ import annotations
 
@@ -36,6 +37,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import Company, NotableFiling, UserSearch, Watchlist
+from app.services import index_membership_service
 from app.services.earnings_calendar_service import today_eastern
 from app.utils.datetimes import utcnow
 
@@ -437,7 +439,10 @@ class NotableFilingsService:
 
     _cache_ttl = timedelta(minutes=15)
 
-    def __init__(self) -> None:
+    def __init__(self, *, homepage_only: bool = False) -> None:
+        # Each instance owns one fixed selection policy and its own full-list cache. The default
+        # feed retains every supported form; homepage curation never changes the scan or its rows.
+        self._homepage_only = homepage_only
         # Caches the FULL ranked list so different `limit` values within one cache window each
         # get correctly sliced results (ReportingThisWeekService's cache rationale).
         self._cache_rows: Optional[List[Dict[str, Any]]] = None
@@ -483,12 +488,21 @@ class NotableFilingsService:
         """Window query + decay ranking + one-per-company. Empty on any failure."""
         window_start = today - timedelta(days=SERVE_WINDOW_DAYS)
         try:
-            rows = (
+            query = (
                 db.query(NotableFiling)
                 .filter(NotableFiling.filed_date >= window_start)
-                .order_by(NotableFiling.filed_date.desc(), NotableFiling.score.desc())
-                .all()
             )
+            if self._homepage_only:
+                # Filter the complete stored window BEFORE choosing a company's best filing or
+                # counting/slicing the result. A higher-ranked 8-K must not hide its 10-K/10-Q.
+                # Unlike the calendar's optional filter, this explicitly curated request omits
+                # itself if the committed universe is unavailable; it never silently widens.
+                members = index_membership_service.member_tickers()
+                query = query.filter(
+                    NotableFiling.form.in_(("10-K", "10-Q")),
+                    func.replace(func.upper(func.trim(NotableFiling.ticker)), "-", ".").in_(members),
+                )
+            rows = query.order_by(NotableFiling.filed_date.desc(), NotableFiling.score.desc()).all()
         except Exception as exc:  # never let a query hiccup break the homepage
             logger.warning("Notable-filings fetch failed: %s", exc)
             return []
@@ -499,9 +513,13 @@ class NotableFilingsService:
                 continue
             age_days = (today - row.filed_date).days
             ranked_score = effective_score(float(row.score or 0), age_days)
-            current = best_per_ticker.get(row.ticker)
+            ticker_key = (
+                index_membership_service.normalize_ticker(row.ticker)
+                if self._homepage_only else row.ticker
+            )
+            current = best_per_ticker.get(ticker_key)
             if current is None or ranked_score > current[0]:
-                best_per_ticker[row.ticker] = (ranked_score, row)
+                best_per_ticker[ticker_key] = (ranked_score, row)
 
         ordered = sorted(best_per_ticker.values(), key=lambda pair: pair[0], reverse=True)
         return [
@@ -519,3 +537,4 @@ class NotableFilingsService:
 
 
 notable_filings_service = NotableFilingsService()
+homepage_notable_filings_service = NotableFilingsService(homepage_only=True)

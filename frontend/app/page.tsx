@@ -138,8 +138,9 @@ export default async function Home() {
 
         {/* Notable filings is dormant under the brand (docs/brand/01-interview.md, A8; the 2026-10
             audit found microcap 8-Ks under "high-signal"): the component, its fetcher and its spec
-            stay until a curation rule exists, and tests/unit/landing-sections-mounted.spec.ts no
-            longer lists it. Its fetcher revalidated at 3600 like the rest, so dropping it leaves the
+            stay until the complete stored-window comparison of the prepared index + 10-K/10-Q
+            filter is reviewed. tests/unit/landing-sections-mounted.spec.ts intentionally omits
+            it. Its fetcher revalidates at 3600 like the rest, so its absence leaves the
             route's ISR window where it was. */}
 
         {/* 9. Final CTA */}

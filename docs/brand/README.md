@@ -69,7 +69,7 @@ the verified set; every colour is a token; the mark's paths are byte-identical t
 | 5 | [05-mark.md](05-mark.md), [mark/](mark/) | The mark's audit, arrangements, rules and renditions; the drawing unchanged |
 | 6 | [06-system.md](06-system.md) | Palette measured, type, spacing, icons, imagery, the device; docs and sidecar in parity |
 | 7 | [07-voice.md](07-voice.md) | The voice guide rewritten; every microcopy site changed, with its before and after |
-| 8 | [08-applications.md](08-applications.md) | The landing page and every other surface in code; templates; the founder slot; Notable filings dormant |
+| 8 | [08-applications.md](08-applications.md) | The landing page and templates; current follow-up: founder section removed, Notable filings still dormant pending the stored-window comparison |
 | 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; three fixes; second score 12 of 42 |
 | 10 | this page | The handoff |
 | all | [decisions-log.md](decisions-log.md) | D-001 to D-028 |
@@ -107,8 +107,9 @@ Each fails on a deliberate break of its rule (the PR lists the mutation proofs):
   margin twin centres on its marker at any root size; the catch card's amounts never overlap or
   leave the card, at 390px and 320px under a 200% root font and in the desktop column, in both
   themes.
-- `frontend/tests/unit/founderNote.spec.tsx` and `waitlistCounter.spec.tsx`: no placeholder in the
-  founder slot, no counter below its floor or passing through "0+", the count in neutral ink.
+- `frontend/tests/unit/waitlistCounter.spec.tsx`: no counter below its floor or passing through
+  "0+", the count in neutral ink. The original founder-slot spec was retired with its component;
+  the homepage no longer includes that personal section.
 
 ## Gate tails
 
@@ -147,11 +148,11 @@ and CI's backend job, on its pinned toolchain, passed on the same commit.
 
 ## Left for the founder
 
-1. The first-person sentence for the founder slot (`frontend/features/marketing/lib/founderNote.ts`;
-   it renders nothing until written).
+1. The founder section is absent; no sentence or identity is needed.
 2. The Multi-Period demo regenerated through the pipeline to end at FY2025
    (`frontend/features/analysis/demo/demo-analysis.json`).
-3. A curation rule before Notable filings returns to the homepage (`NotableFilings.tsx`).
+3. Review the complete stored-window comparison before remounting Notable filings. The prepared
+   selector uses the committed index universe and 10-K/10-Q forms only; see [§7](08-applications.md#7-notable-filings).
 4. The landing page's section composition (tell T4), as its own PR.
 5. Vercel Web Analytics on the privacy page, or gated on consent: `/privacy` does not name it today.
 6. Whether sage may mark a count inside the product (three calendar sites, D-023).
@@ -164,5 +165,5 @@ The brief asked for a brand that could be recognised with the logo covered. On t
 the thing you would recognise is small and specific: a phrase with a pale mark under it, a
 bracket in the margin, a figure beside the sentence it came from. That is the product's own habit
 made visible, which is why it will hold: nothing in it needs a campaign to stay true, only the
-rules the gates above now hold. What remains is the founder's voice in the one slot kept for it, and
-a page layout that has yet to be as particular as the copy it carries.
+rules the gates above now hold. The personal founder section is absent; the separate landing
+composition remains a follow-up.

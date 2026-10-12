@@ -5,10 +5,10 @@ import type { NotableFilingsResponse } from '@/lib/serverApi'
 /**
  * DORMANT since 2026-10-11 (brand studio, docs/brand/01-interview.md A8): unmounted from app/page.tsx
  * because the week's list read as microcap 8-Ks under a "high-signal" heading. It returns when a
- * curation rule exists (a known-good set, a size floor, or 10-K / 10-Q only); the fetcher, the
- * card and the spec stay for that day.
+ * complete stored-window comparison is reviewed. The prepared fetcher selects 10-K/10-Q from
+ * the committed S&P 500 / Nasdaq 100 universe before ranking; the section remains unmounted.
  *
- * Market-wide notable SEC filings from the past week (EDGAR-native; replaces the retired
+ * Homepage-curated SEC filings from the past week (EDGAR-native; replaces the retired
  * "Trending Filings" section — tasks/homepage-sections-review-findings.md). Renders nothing at
  * all when there's nothing honest to show: the backend already enforces the contract (flag off,
  * fewer than 3 distinct companies in the 7-day window, or upstream failure → empty list), and a
@@ -35,8 +35,8 @@ export default function NotableFilings({
               Notable filings
             </h2>
             <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              High-signal SEC filings from the past week, across the whole market. Sourced from
-              EDGAR.
+              Recent 10-K and 10-Q filings from our S&P 500 and Nasdaq 100 coverage, sourced from
+              SEC EDGAR.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
