@@ -154,6 +154,7 @@ const SPECIMEN_ROLES: Record<string, [string, string | null]> = {
   'primary-disabled': ['brand@0.45', 'brand-dark@0.35'],
   'primary-disabled-ink': ['white@0.8', 'background-dark@0.6'],
   ring: ['shadow:ring-brand', 'shadow:ring-brand-dark'],
+  'error-ring': ['shadow:ring-error', 'shadow:ring-error-dark'],
   e1: ['shadow:e1', null],
   e2: ['shadow:e2', 'none'],
   e5: ['shadow:e5', 'none'],

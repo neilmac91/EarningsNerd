@@ -512,8 +512,7 @@ _BACKFILL_STD = {
 
 
 def _fake_extract(xbrl):
-    # Only our marked filing yields metrics, so the test is isolated from any other filings that
-    # may carry xbrl_data in the shared test DB.
+    # Several tests use this marker; each backfill also scopes its pass to its own company ticker.
     if isinstance(xbrl, dict) and xbrl.get("mark") == "X":
         return _BACKFILL_STD
     return {}
@@ -559,7 +558,7 @@ class TestBackfill:
         from datetime import datetime
 
         from app.database import SessionLocal
-        from app.models import Filing
+        from app.models import Company, Filing
 
         db = SessionLocal()
         cid = _new_company(db)
@@ -575,13 +574,14 @@ class TestBackfill:
         db.add(filing)
         db.commit()
 
-        svc.backfill_facts(db, extract=_fake_extract, cross_check=False)
+        ticker = db.get(Company, cid).ticker
+        svc.backfill_facts(db, extract=_fake_extract, cross_check=False, tickers=[ticker])
         db.refresh(filing)
         assert filing.processed_facts_at is not None  # stamped after normalization
         stamped_at = filing.processed_facts_at
 
         # An incremental pass skips already-stamped filings (timestamp unchanged).
-        svc.backfill_facts(db, extract=_fake_extract, only_unprocessed=True, cross_check=False)
+        svc.backfill_facts(db, extract=_fake_extract, only_unprocessed=True, cross_check=False, tickers=[ticker])
         db.refresh(filing)
         assert filing.processed_facts_at == stamped_at
         db.close()
@@ -707,7 +707,8 @@ class TestBackfill:
         db = SessionLocal()
         cid = _new_company(db)
         filing = self._marked_filing(db, cid, "auth")
-        svc.backfill_facts(db, extract=_fake_extract, cross_check=False)
+        ticker = db.get(Company, cid).ticker
+        svc.backfill_facts(db, extract=_fake_extract, cross_check=False, tickers=[ticker])
         row = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").one()
         row.reconciled = False  # the local gate says False; pretend the SEC confirmed it below
         db.commit()
@@ -715,7 +716,6 @@ class TestBackfill:
         filing.processed_facts_at = None
         db.commit()
 
-        ticker = db.get(Company, cid).ticker
         # Sanity: with the fetch available (empty authority) the audit would flip the flag.
         stats_with = svc.backfill_facts(
             db, extract=_fake_extract, companyfacts_fetcher=lambda cik: {"facts": {}},
@@ -736,11 +736,13 @@ class TestBackfill:
 
     def test_default_backfill_stats_shape_is_unchanged(self):
         from app.database import SessionLocal
+        from app.models import Company
 
         db = SessionLocal()
         cid = _new_company(db)
         self._marked_filing(db, cid, "shape")
-        stats = svc.backfill_facts(db, extract=_fake_extract, cross_check=False)
+        ticker = db.get(Company, cid).ticker
+        stats = svc.backfill_facts(db, extract=_fake_extract, cross_check=False, tickers=[ticker])
         assert set(stats) == {"filings_processed", "facts_inserted", "facts_skipped",
                               "facts_rejected", "extract_errors"}
         db.close()
@@ -858,7 +860,7 @@ class TestBackfillCrossCheck:
         from datetime import datetime
 
         from app.database import SessionLocal
-        from app.models import Filing, FinancialFact
+        from app.models import Company, Filing, FinancialFact
 
         db = SessionLocal()
         cid = _new_company(db)
@@ -882,7 +884,8 @@ class TestBackfillCrossCheck:
         def _fetcher(_cik):
             return _COMPANYFACTS
 
-        svc.backfill_facts(db, extract=_extract, companyfacts_fetcher=_fetcher)
+        ticker = db.get(Company, cid).ticker
+        svc.backfill_facts(db, extract=_extract, companyfacts_fetcher=_fetcher, tickers=[ticker])
 
         row = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").first()
         assert row is not None

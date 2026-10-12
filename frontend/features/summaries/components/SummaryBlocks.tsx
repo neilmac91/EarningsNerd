@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useMemo, useRef, type ReactNode } from 'react'
+import { useId, useMemo, useRef, type ReactNode, type Ref } from 'react'
 import { Badge } from '@/components/ui'
 import { useOverflowRegion } from '@/hooks/useOverflowRegion'
 import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
@@ -64,6 +64,8 @@ interface SummaryBlocksProps {
   summary: Summary
   /** The period-over-period change report; rendered as section 02 territory when it has changes. */
   whatChanged?: ChangeReport | null
+  /** Optional completion-focus target without introducing a second document heading. */
+  firstHeadingRef?: Ref<HTMLHeadingElement>
 }
 
 /**
@@ -79,7 +81,7 @@ interface SummaryBlocksProps {
  * metrics section. Subheadings are 14/600 headings, never uppercase eyebrows (eyebrows are for
  * metric labels only).
  */
-export function SummaryBlocks({ sections, summary, whatChanged }: SummaryBlocksProps) {
+export function SummaryBlocks({ sections, summary, whatChanged, firstHeadingRef }: SummaryBlocksProps) {
   // Enriched, placeholder-filtered risks (with source_url/verified) for the risks special-case.
   const risks = useMemo<RiskFactor[]>(() => {
     const sections = summary.raw_summary?.sections as { risks?: unknown; risk_factors?: unknown } | undefined
@@ -177,7 +179,12 @@ export function SummaryBlocks({ sections, summary, whatChanged }: SummaryBlocksP
                   <span aria-hidden="true" className={`font-data text-xs tabular-nums ${MUTED}`}>
                     {sectionIndex(i)}
                   </span>
-                  <h2 id={`${section.id}-heading`} className="min-w-0 text-xl font-semibold">
+                  <h2
+                    ref={i === 0 ? firstHeadingRef : undefined}
+                    tabIndex={i === 0 && firstHeadingRef ? -1 : undefined}
+                    id={`${section.id}-heading`}
+                    className={`min-w-0 text-xl font-semibold${i === 0 && firstHeadingRef ? ' outline-none' : ''}`}
+                  >
                     {section.title}
                   </h2>
                   {toneVariant && (

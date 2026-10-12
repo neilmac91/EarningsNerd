@@ -204,7 +204,7 @@ export default function InsiderActivityPanel({
           {/* Buy / Sell / Net stats */}
           <div className="mb-5 grid grid-cols-3 gap-3">
             <div className="rounded-lg bg-gain-soft p-3 dark:bg-gain-soft-dark">
-              <p className="text-xs font-medium text-gain-light dark:text-gain-dark">
+              <p className="text-xs font-medium text-gain-text dark:text-gain-dark">
                 Buys ({summary.buy_count})
               </p>
               <p className="mt-0.5 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -212,7 +212,7 @@ export default function InsiderActivityPanel({
               </p>
             </div>
             <div className="rounded-lg bg-loss-soft p-3 dark:bg-loss-soft-dark">
-              <p className="text-xs font-medium text-loss-light dark:text-loss-dark">
+              <p className="text-xs font-medium text-loss-text dark:text-loss-dark">
                 Sells ({summary.sell_count})
               </p>
               <p className="mt-0.5 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">

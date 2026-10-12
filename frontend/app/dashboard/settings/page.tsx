@@ -82,7 +82,7 @@ export default function SettingsPage() {
     <div className="mb-8">
       <Link
         href="/dashboard"
-        className="inline-flex items-center text-sm text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark mb-4"
+        className="rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center text-sm text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark mb-4"
       >
         <ArrowLeftIcon className="h-4 w-4 mr-1" />
         Back to dashboard
@@ -255,7 +255,7 @@ export default function SettingsPage() {
                     type="text"
                     value={deleteConfirmText}
                     onChange={(e) => setDeleteConfirmText(e.target.value)}
-                    className={inputClasses({ className: 'focus:border-error-light focus:shadow-ring-error' })}
+                    className={inputClasses({ tone: 'danger' })}
                     placeholder="delete my account"
                     disabled={deleteMutation.isPending}
                   />
@@ -301,7 +301,7 @@ export default function SettingsPage() {
           <div className="mt-8 text-sm text-text-tertiary-light dark:text-text-secondary-dark text-center">
             <p>
               For more information about how we handle your data, please read our{' '}
-              <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
+              <Link href="/privacy" className="rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark text-brand-strong dark:text-brand-strong-dark hover:underline">
                 Privacy Policy
               </Link>
               .
