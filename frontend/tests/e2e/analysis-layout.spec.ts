@@ -558,8 +558,10 @@ for (const theme of THEMES) for (const profile of [
     // Start from the scroll region and follow the browser's actual Tab sequence across
     // two whole rows, including the wrap from the final period back to the earliest.
     const sources = section.locator('tbody button[aria-label$="View source and calculation"]')
-    for (let index = 0; index < PERIODS.length * 2; index++) {
-      await page.keyboard.press('Tab')
+    const forward = Array.from({ length: PERIODS.length * 2 }, (_, index) => ({ index, key: 'Tab' }))
+    const backward = forward.slice(0, -1).reverse().map(step => ({ ...step, key: 'Shift+Tab' }))
+    for (const { index, key } of [...forward, ...backward]) {
+      await page.keyboard.press(key)
       await expect(sources.nth(index)).toBeFocused()
       await settleTable(page)
       const fraction = await sources.nth(index).evaluate(button => {
@@ -570,9 +572,9 @@ for (const theme of THEMES) for (const profile of [
         const inset = getComputedStyle(header).position === 'sticky' ? header.getBoundingClientRect().width : 0
         return Math.max(0, Math.min(box.right, viewport.right) - Math.max(box.left, viewport.left + inset)) / box.width
       })
-      expect(fraction, `Tab cell ${index} is fully visible after native snapping`).toBeGreaterThanOrEqual(0.99)
+      expect(fraction, `${key} cell ${index} is fully visible after native snapping`).toBeGreaterThanOrEqual(0.99)
     }
-    const source = sources.nth(PERIODS.length * 2 - 1)
+    const source = sources.first()
     await source.evaluate(button => {
       button.addEventListener('keydown', event => {
         queueMicrotask(() => button.setAttribute('data-key-prevented', String(event.defaultPrevented)))
@@ -582,6 +584,27 @@ for (const theme of THEMES) for (const profile of [
     await page.keyboard.press('Home')
     await expect(source).toHaveAttribute('data-key-prevented', 'false')
     expect((await settleTable(page)).left, 'a child control retains its own Home key').toBe(beforeChild.left)
+
+    await page.keyboard.press('Enter')
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    const close = dialog.getByRole('button', { name: 'Close', exact: true })
+    await expect(close).toBeFocused()
+    const technical = dialog.locator('summary').last()
+    await expect(technical).toHaveText('Technical source details')
+    await page.keyboard.press('Shift+Tab')
+    await expect(technical, 'the last technical disclosure participates in the dialog trap').toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(close, 'Tab wraps from the last disclosure to Close').toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    const portalled = await settleTable(page)
+    for (const key of ['Home', 'End', 'ArrowLeft', 'ArrowRight']) {
+      await page.keyboard.press(key)
+      expect((await settleTable(page)).left, `${key} in a portalled dialog cannot move its table`).toBe(portalled.left)
+    }
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await expect(source).toBeFocused()
 
     // Preserve the same leading period as the viewport and actual text size change.
     await region.focus()
