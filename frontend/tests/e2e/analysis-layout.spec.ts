@@ -683,7 +683,7 @@ for (const theme of THEMES) for (const state of ['captured', 'edge', 'annual'] a
 for (const theme of THEMES) for (const width of [390, 1480]) {
   test.describe(`analysis chart notes / ${theme} / ${width}px`, () => {
     test.use({ viewport: { width, height: 1000 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-    test('keeps filled bars and legible note letters with one useful keyboard viewport', async ({ page, baseURL }, testInfo) => {
+    test('keeps filled bars and legible notes with named keyboard values and scrolling', async ({ page, baseURL }, testInfo) => {
       await openAnalysis(page, baseURL!, 'discrepancy', theme)
       const plots = page.locator('[data-analysis-chart]')
       await expect(plots).toHaveCount(4)
@@ -698,13 +698,25 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
             await expect(viewport).not.toHaveAttribute('role')
             await expect(viewport).not.toHaveAttribute('tabindex')
           }
+          const values = viewport.getByRole('application', { name: /chart values\. Use Left and Right arrows to inspect periods\./ })
+          await expect(values).toHaveCount(1)
+          await expect(values).toHaveAttribute('tabindex', '0')
           expect(await viewport.locator('[tabindex]').evaluateAll(elements =>
-            elements.every(element => (element as HTMLElement).tabIndex < 0)
-          ), 'inner chart elements stay out of sequential Tab order').toBe(true)
+            elements.filter(element => (element as HTMLElement).tabIndex >= 0).length
+          ), 'each chart has one named value-navigation stop').toBe(1)
           if (overflow) {
             await viewport.focus()
             await page.keyboard.press('Tab')
-            expect(await page.evaluate(() => document.activeElement?.closest('[data-analysis-chart-scroll]'))).toBeNull()
+          } else {
+            await values.focus()
+          }
+          await expect(values).toBeFocused()
+          expect(await viewport.evaluate(element => getComputedStyle(element).boxShadow)).not.toBe('none')
+          await page.keyboard.press('Tab')
+          expect(await page.evaluate(() => document.activeElement?.closest('[data-analysis-chart-scroll]'))).toBeNull()
+          await page.keyboard.press('Shift+Tab')
+          await expect(values).toBeFocused()
+          if (overflow) {
             await page.keyboard.press('Shift+Tab')
             await expect(viewport).toBeFocused()
           }
@@ -712,6 +724,20 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
       }
       await assertViewport()
       const revenue = plots.first()
+      const revenueValues = revenue.getByRole('application', { name: 'Revenue & growth chart values. Use Left and Right arrows to inspect periods.' })
+      await revenueValues.focus()
+      const tooltip = revenue.locator('.recharts-tooltip-wrapper').getByRole('status')
+      for (const period of PERIODS.slice(1)) {
+        await page.keyboard.press('ArrowRight')
+        await expect(tooltip).toContainText(period.replace(/^(\d{4})(Q\d)$/, '$2 $1'))
+      }
+      await expect(tooltip).toContainText('Q2 2026')
+      await expect(tooltip).toContainText('YoY growth')
+      await expect(tooltip).toContainText('28.0%')
+      // The quarterly metrics table uses QoQ here; these YoY values need the chart's own path.
+      await page.keyboard.press('ArrowLeft')
+      await expect(tooltip).toContainText('Q1 2026')
+      await expect(tooltip).toContainText('33.1%')
       const allBars = revenue.locator('.recharts-bar-rectangle path')
       await expect(allBars).toHaveCount(12)
       const cleanFill = await allBars.first().getAttribute('fill')

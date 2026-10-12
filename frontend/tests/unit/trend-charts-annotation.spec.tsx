@@ -6,7 +6,7 @@ vi.mock('recharts', async () => {
   const { createContext, useContext } = await import('react')
   type Row = Record<string, number | string | null>
   const Data = createContext<Row[]>([])
-  const Chart = ({ children, data, accessibilityLayer }: { children: React.ReactNode; data: Row[]; accessibilityLayer?: boolean }) => <Data.Provider value={data}><svg data-testid="chart-layer" tabIndex={accessibilityLayer === false ? undefined : 0}>{children}</svg></Data.Provider>
+  const Chart = ({ children, data, accessibilityLayer, 'aria-label': label }: { children: React.ReactNode; data: Row[]; accessibilityLayer?: boolean; 'aria-label'?: string }) => <Data.Provider value={data}><svg data-testid="chart-layer" role={accessibilityLayer === false ? undefined : 'application'} aria-label={label} tabIndex={accessibilityLayer === false ? undefined : 0}>{children}</svg></Data.Provider>
   const project = (value: number, axis: string) => 100 - value / (axis === 'right' ? 10 : axis === 'growth' ? 2 : 1)
   return {
     ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -246,7 +246,7 @@ describe('TrendCharts source note marks', () => {
 })
 
 describe('TrendCharts keyboard viewport', () => {
-  it('adds one named keyboard stop only while overflowing and cleans up on unmount', () => {
+  it('keeps named chart-value navigation beside the conditional scrolling stop and cleans up on unmount', () => {
     let width = 300
     const callbacks: Array<() => void> = []
     const disconnect = vi.fn()
@@ -265,7 +265,9 @@ describe('TrendCharts keyboard viewport', () => {
         expect(viewport).toHaveAttribute('tabindex', '0')
         expect(viewport).toHaveAttribute('role', 'region')
         expect(viewport).toHaveAccessibleName(/chart\. Scroll horizontally to view all periods\./)
-        expect(viewport.querySelector('[tabindex]')).toBeNull()
+        expect(viewport.querySelectorAll('[tabindex]')).toHaveLength(1)
+        expect(viewport.querySelector('[tabindex]')).toHaveAttribute('tabindex', '0')
+        expect(viewport.querySelector('[role=application]')).toHaveAccessibleName(/chart values\. Use Left and Right arrows to inspect periods\./)
       }
       width = 500
       act(() => callbacks.forEach(callback => callback()))
@@ -273,6 +275,7 @@ describe('TrendCharts keyboard viewport', () => {
         expect(viewport).not.toHaveAttribute('tabindex')
         expect(viewport).not.toHaveAttribute('role')
         expect(viewport).not.toHaveAttribute('aria-label')
+        expect(viewport.querySelector('[role=application]')).toHaveAttribute('tabindex', '0')
       }
       width = 280
       act(() => callbacks.forEach(callback => callback()))

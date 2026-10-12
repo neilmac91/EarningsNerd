@@ -892,8 +892,11 @@ affected bars keep their series fill. Note letters use the neutral chart label i
 stroke and paint-order=stroke so growth letters remain legible over bars; those are SVG attributes
 retained in PNG export. Value and YoY concerns are independent. PNG notes use the same grouped
 reason sentences beneath the plot and list each recorded gap once. The plot is a named keyboard
-region only while overflowing, measured before paint and on resize; the redundant unnamed Recharts
-accessibility layer is disabled. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
+region only while overflowing, measured by `useOverflowRegion` before paint and on resize.
+Inside it, Recharts retains one named chart-values keyboard stop: Left/Right reads each period's
+tooltip, including the YoY growth series that the quarterly metrics table's QoQ column does not
+replace. Tooltip changes use a live status; Tab leaves the chart and Shift+Tab returns without a
+trap. The viewport carries the brand focus ring for either keyboard stop. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
 source dates, material gaps and a concise disclosure. Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the

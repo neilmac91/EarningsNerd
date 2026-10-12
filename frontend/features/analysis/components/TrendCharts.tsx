@@ -1,6 +1,6 @@
 'use client'
 
-import { useContext, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useMemo, useRef, useState } from 'react'
 import {
   Bar,
   CartesianGrid,
@@ -19,6 +19,7 @@ import {
 } from 'recharts'
 
 import { ThemeContext } from '@/components/ThemeProvider'
+import { useOverflowRegion } from '@/hooks/useOverflowRegion'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import {
   AxisSeriesTag,
@@ -175,22 +176,11 @@ function PositionedNoteBar({ anchors, anchorKey, ...props }: NoteBarProps & {
 /** A keyboard stop is useful only while there is more plot to scroll into view. */
 function ChartViewport({ label, children }: { label: string; children: React.ReactNode }) {
   const viewportRef = useRef<HTMLDivElement>(null)
-  const [overflowing, setOverflowing] = useState(false)
-  useLayoutEffect(() => {
-    const viewport = viewportRef.current
-    if (!viewport) return
-    const measure = () => setOverflowing(viewport.scrollWidth > viewport.clientWidth + 1)
-    measure()
-    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
-    observer?.observe(viewport)
-    if (viewport.firstElementChild) observer?.observe(viewport.firstElementChild)
-    window.addEventListener('resize', measure)
-    return () => { observer?.disconnect(); window.removeEventListener('resize', measure) }
-  }, [])
-  return <div ref={viewportRef} data-analysis-chart-scroll
-    className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-    tabIndex={overflowing ? 0 : undefined} role={overflowing ? 'region' : undefined}
-    aria-label={overflowing ? `${label} chart. Scroll horizontally to view all periods.` : undefined}>
+  const { regionProps } = useOverflowRegion(viewportRef, {
+    label: `${label} chart. Scroll horizontally to view all periods.`,
+  })
+  return <div ref={viewportRef} data-analysis-chart-scroll {...regionProps}
+    className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark has-[:focus-visible]:shadow-ring-brand dark:has-[:focus-visible]:shadow-ring-brand-dark [&_svg[role=application]:focus-visible]:outline-none">
     {children}
   </div>
 }
@@ -260,6 +250,8 @@ function PanelCard({
   const reduced = usePrefersReducedMotion()
   const [expanded, setExpanded] = useState(false)
   const plotRef = useRef<HTMLDivElement>(null)
+  // The quarterly table usually shows QoQ, so it cannot replace keyboard access to chart YoY.
+  const keyboardLabel = `${panel.title} chart values. Use Left and Right arrows to inspect periods.`
 
   // One series→(concept, label, color, axis) mapping drives the legend AND the plotted <Line>s —
   // built once so the two can't disagree on color/label pairing.
@@ -336,6 +328,7 @@ function PanelCard({
   }
 
   const renderTooltip = ({ active, label, payload }: TooltipContentProps) => (
+    <div role="status">
     <ChartTooltip
       dark={dark}
       active={active}
@@ -347,6 +340,7 @@ function PanelCard({
       }))}
       formatValue={formatTooltip}
     />
+    </div>
   )
 
   const legendItems = barSeries
@@ -440,7 +434,7 @@ function PanelCard({
       >
         <ResponsiveContainer width="100%" height="100%">
           {barSeries ? (
-            <ComposedChart accessibilityLayer={false} data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
+            <ComposedChart accessibilityLayer aria-label={keyboardLabel} data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
               <CartesianGrid {...gridProps(dark)} />
               <XAxis
                 dataKey="period"
@@ -497,7 +491,7 @@ function PanelCard({
             </ComposedChart>
           ) : (
             // Dual-axis panels reserve top room for the right axis's head-tag (the named scale).
-            <LineChart accessibilityLayer={false} data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
+            <LineChart accessibilityLayer aria-label={keyboardLabel} data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
               <CartesianGrid {...gridProps(dark)} />
               <XAxis
                 dataKey="period"
