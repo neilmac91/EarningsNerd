@@ -200,9 +200,12 @@ Button size      sm, md and lg keep a fixed height (h-8 / h-10 / h-12: 32, 40 an
                  drops `max-[24rem]:` while the screens are in px. In that state a caller's own min-h or
                  vertical padding wins over the size's (the header's account link keeps its 44px target
                  from min-h-11 on a 360px phone), through <Button className> and buttonVariants alike. A
-                 taller target is set with min-h, never a fixed h-, which h-auto would beat there
-                 (tests/unit/buttonHeightIsAMinimum.spec.ts), and a `whitespace-normal` className still
-                 loses to the base `whitespace-nowrap` above 24rem (stylesheet order): use `wrap`.
+                 taller target is set with min-h, never a fixed h-, which h-auto would beat there, and a
+                 min-h or py goes through the factory's className option (<Button>, RetryButton and
+                 MarketingCta pass theirs through it), never beside its output in cx() or a template,
+                 where the narrow state cannot see it (tests/unit/buttonHeightIsAMinimum.spec.ts holds
+                 both). A `whitespace-normal` className still loses to the base `whitespace-nowrap`
+                 above 24rem (stylesheet order): use `wrap`.
                  Gates: tests/e2e/reflow-200.spec.ts (390px at both text sizes; 360px at the default),
                  tests/unit/button-wrap.spec.tsx (the narrow state keeps a caller's min-h and py).
 
