@@ -1,13 +1,12 @@
-"""No gcloud call in the describe-service, describe-jobs or logs-probe steps lets its error text reach the job log,
-inherited or echoed, and no other ops.yml gcloud call may start letting it through (rule 12).
+"""No gcloud call in the describe-service, describe-jobs, logs-probe or Cloud SQL proxy steps lets its error text
+reach the job log, inherited or echoed, and no other ops.yml gcloud call may start letting it through (rule 12).
 
 gcloud's stderr can name the acting principal, a host or a URL, and the Actions log of this public
 repository is public. Two leaks were found after #1181: describe-service's shell read inherited
 gcloud's stderr, and logs-probe printed the stderr it had captured. Both now print a closed class.
 These gates keep it that way: every gcloud call in ops.yml discards or captures its stderr unless INHERITED
-lists it (the jobs-channel and rollback actions, and the Cloud SQL proxy step's secret read that
-capacity-readout, detection-sql and the repair-ticker operations run, a recorded follow-up), a file that
-captures stderr is only ever tested with `grep -q`, the logs-probe classifier names the class
+lists it (the jobs-channel and rollback actions whose progress output remains operator evidence), a file that
+captures stderr is only ever tested with `grep -q`, the logs-probe and proxy-secret classifiers name the class
 describe-service's gcloud_json() names, and an ops/ module never lets a child process inherit stderr and
 captures or reads one only in gcloud_json(). Python a step runs is a file run by path from ops/ or scripts/,
 or a one-line `python3 -c` helper (three today); never a program fed through a heredoc or stdin, nor a step
@@ -19,7 +18,8 @@ Not covered (review concerns): gcloud run through a variable, a function, its fu
 or pipes into a shell, or a `python3 -c` helper; a file a step writes and then runs by path; `|&` after a gcloud
 call; a capture file named without its literal path (a relative path, a brace or variable expansion); a step in a
 job other than `ops` (only its steps are read); and a dynamic import or lookup (importlib, __import__,
-sys.modules) in an ops/ module.
+sys.modules) in an ops/ module. The stdin-program check does not recognise an interpreter invoked through a
+variable or another name (for example `$INTERPRETER -` or `pypy3 -`).
 """
 import ast
 import importlib.util
@@ -40,6 +40,7 @@ BASH = shutil.which("bash")
 SERVICE_STEP = "Describe service env (values only for known feature flags)"
 JOBS_STEP = "Describe expected job release configuration"
 PROBE_STEP = "Logs read probe (safeguard-2 alert feasibility)"
+PROXY_STEP = "Start Cloud SQL proxy and export connection env"
 SERVICE_MODULE = ROOT / "ops/describe/service.py"
 JOBS_MODULE = ROOT / "ops/describe/jobs.py"
 SENTINEL = "PRIVATE_STDERR_SENTINEL principal@example.invalid"
@@ -67,7 +68,7 @@ if [ $? -eq 0 ]; then
   echo "company_upsert_conflict entries in last 7d: $(python3 -c 'import json;print(len(json.load(open("/tmp/conflicts.json"))))' 2>/dev/null || echo 0)"
 fi
 """
-# (gcloud's stderr, its exit status, the closed class both classifiers name), precedence cases included.
+# (gcloud's stderr, its exit status, the closed class all three classifiers name), precedence cases included.
 CORPUS = [
     ("ERROR: (gcloud.logging.read) PERMISSION_DENIED: Permission denied for all log views. " + SENTINEL, 1,
      "permission_denied"),
@@ -81,11 +82,11 @@ CORPUS = [
     ("sh: gcloud: not found " + SENTINEL, 127, "error (gcloud exit 127)"),
 ]
 # gcloud calls that still let stderr reach the log, by (step, command group): actions whose progress
-# output is the operator's evidence, and the Cloud SQL proxy step's secret read (a recorded follow-up).
+# output remains the operator's evidence. Retain these existing jobs-channel/rollback exceptions explicitly;
+# never dispatch a mutating action merely to test this gate.
 # A new inheriting call fails; a fixed one must leave this map, which can only shrink.
 INHERITED = {
     ("Jobs-channel no-op probe (args override on an existing job)", "run jobs execute"): 1,
-    ("Start Cloud SQL proxy and export connection env", "secrets versions access"): 1,
     ("Trigger companyfacts resync (internal endpoint; jobs-channel fallback)", "run jobs execute"): 1,
     ("Trigger filing-history backfill (internal endpoint; jobs-channel fallback)", "run jobs execute"): 2,
     ("Run the weekly data-quality report once (P1-9; jobs channel)", "run jobs execute"): 1,
@@ -126,10 +127,10 @@ def _steps():
     return workflow, {step.get("name"): step for step in workflow["jobs"]["ops"]["steps"]}
 
 
-def _fakebin(tmp_path, answers=None):
+def _fakebin(tmp_path, answers=None, stubs=None):
     """A PATH directory holding python3 (this interpreter) and, when `answers` is given, a fake gcloud: it answers
     each exact argv from `answers` (json.dumps(argv) -> stdout/stderr/rc; "*" for any other), records every call
-    and writes a sentinel to stderr on every call, success included."""
+    and writes a sentinel to stderr on every call, success included. Optional shell stubs replace setup tools."""
     directory = tmp_path / "bin"
     directory.mkdir()
     (directory / "python3").write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n')
@@ -139,20 +140,24 @@ def _fakebin(tmp_path, answers=None):
         (tmp_path / "answers.json").write_text(json.dumps(answers))
         (directory / "gcloud").write_text(f'#!/bin/sh\nexec "{sys.executable}" "{tmp_path / "fake_gcloud.py"}" "$@"\n')
         (directory / "gcloud").chmod(0o755)
+    for name, body in (stubs or {}).items():
+        (directory / name).write_text("#!/bin/sh\n" + body)
+        (directory / name).chmod(0o755)
     return directory
 
 
-def _step_shell(run, tmp_path, answers=None, env=None):
+def _step_shell(run, tmp_path, answers=None, env=None, *, stubs=None, cwd=ROOT):
     """Run a step's script as GitHub runs an unspecified shell (bash -e), with its /tmp/ files moved into tmp_path
-    and only the given env; PATH holds the fake bin (no gcloud when `answers` is None) and the system tools."""
+    and only the given env; PATH holds the fake bin (no gcloud when `answers` is None) and the system tools.
+    Proxy setup runs in a scratch cwd with its install/download/launch tools stubbed, never live."""
     calls = tmp_path / "calls.jsonl"
     calls.write_text("")
-    bindir = _fakebin(tmp_path, answers)
+    bindir = _fakebin(tmp_path, answers, stubs)
     full_env = {"PATH": f"{bindir}" + ("" if answers is None else ":/usr/bin:/bin"), "HOME": str(tmp_path),
                 "FAKE_GCLOUD_CALLS": str(calls), "FAKE_GCLOUD_ANSWERS": str(tmp_path / "answers.json"),
                 "FAKE_GCLOUD_SENTINEL": "WARNING: PRIVATE_FAKE_GCLOUD_STDERR_SENTINEL principal@example.invalid",
                 **(env or {})}
-    result = subprocess.run([BASH, "-e", "-c", run.replace("/tmp/", f"{tmp_path}/")], cwd=ROOT, env=full_env,
+    result = subprocess.run([BASH, "-e", "-c", run.replace("/tmp/", f"{tmp_path}/")], cwd=cwd, env=full_env,
                             capture_output=True, text=True, timeout=120, check=False)
     return result, [json.loads(line) for line in calls.read_text().splitlines()]
 
@@ -310,6 +315,47 @@ def test_logs_probe_names_the_class_gcloud_json_names_never_the_text(tmp_path, m
     assert _policy_class(monkeypatch, capsys, stderr, code) == klass
 
 
+@pytest.mark.parametrize("stderr,code,klass", [("WARNING: " + SENTINEL, 0, None), *CORPUS])
+def test_proxy_secret_read_withholds_stderr_and_stops_on_failure(tmp_path, monkeypatch, capsys, stderr, code, klass):
+    """Run the whole proxy step with fake setup tools and gcloud; failures must never reach env export or launch."""
+    workflow, steps = _steps()
+    argv = ["secrets", "versions", "access", "latest", "--secret=DATABASE_URL"]
+    database_url = "postgresql://fixture-user:fixture-password@/fixture-db?host=/cloudsql/fixture:region:instance"
+    local_url = "postgresql://fixture-user:fixture-password@127.0.0.1:5432/fixture-db"
+    answers = {json.dumps(argv): {"stdout": database_url if code == 0 else "PRIVATE_STDOUT_SENTINEL",
+                                "stderr": stderr, "rc": code},
+               "*": {"stderr": "ERROR: unexpected call " + SENTINEL, "rc": 2}}
+    progress = tmp_path / "setup-progress"
+    stubs = {name: f"printf '%s\\n' '{name}' >> \"$FAKE_PROXY_PROGRESS\"\n"
+             for name in ("sudo", "curl", "chmod", "nohup", "pg_isready")}
+    stubs["sha256sum"] = 'cat >/dev/null\n'
+    stubs["nohup"] += ': > "$FAKE_PROXY_STARTED"\n'
+    stubs["pg_isready"] += 'test -f "$FAKE_PROXY_STARTED"\n'
+    env_file = tmp_path / "github-env"
+    result, calls = _step_shell(steps[PROXY_STEP]["run"], tmp_path, answers,
+                               {"CLOUD_SQL_PROXY_VERSION": workflow["env"]["CLOUD_SQL_PROXY_VERSION"],
+                                "CLOUD_SQL_PROXY_SHA256": workflow["env"]["CLOUD_SQL_PROXY_SHA256"],
+                                "GITHUB_ENV": str(env_file), "FAKE_PROXY_PROGRESS": str(progress),
+                                "FAKE_PROXY_STARTED": str(tmp_path / "proxy-started")},
+                               stubs=stubs, cwd=tmp_path)
+    assert calls == [argv] and result.returncode == code and result.stderr == ""
+    assert "PRIVATE_" not in result.stdout and "example.invalid" not in result.stdout
+    reached = progress.read_text().splitlines()
+    assert reached[:4] == ["sudo", "sudo", "curl", "chmod"]
+    if code:
+        assert result.stdout == (f"::error::Cloud SQL proxy: cannot read DATABASE_URL "
+                                 f"({klass}; gcloud's error text withheld)\n")
+        assert not env_file.exists() and len(reached) == 4
+        assert _policy_class(monkeypatch, capsys, stderr, code) == klass
+    else:
+        assert result.stdout == (f"::add-mask::{database_url}\n::add-mask::fixture-password\n"
+                                 f"::add-mask::{local_url}\n")
+        assert env_file.read_text() == ("PGUSER=fixture-user\nPGPASSWORD=fixture-password\nPGDATABASE=fixture-db\n"
+                                       f"PGHOST=127.0.0.1\nPGPORT=5432\nDATABASE_URL={local_url}\n")
+        # A readiness attempt can precede the detached fake launch, just as on the runner.
+        assert reached.count("nohup") == 1 and reached.count("pg_isready") >= 2
+
+
 def _executable_lines(run):
     """A run: block's executable lines: comment lines dropped, backslash continuations joined."""
     lines = [line for line in run.splitlines() if not line.lstrip().startswith("#")]
@@ -413,7 +459,7 @@ def test_ops_workflow_gcloud_stderr_is_discarded_or_captured_except_listed_actio
         elif where != "discarded":
             captured.append((name, where))
     assert inherited == INHERITED, "a gcloud call lets its stderr reach the job log; discard or classify it"
-    assert captured == [(PROBE_STEP, "/tmp/probe.err")]
+    assert captured == [(PROBE_STEP, "/tmp/probe.err"), (PROXY_STEP, "/tmp/proxy-secret.err")]
     # A file that captured stderr is only tested, never printed: every other command naming it, in any step, is
     # a grep -q.
     for _, path in captured:
