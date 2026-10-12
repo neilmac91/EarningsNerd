@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card'
 
 export const metadata: Metadata = {
   title: 'Contact | EarningsNerd',
-  description: "Contact Neil, EarningsNerd's founder, for support, billing, privacy, or security questions.",
+  description: 'Contact EarningsNerd for support, billing, privacy or security questions.',
   alternates: { canonical: '/contact' },
 }
 
@@ -19,12 +19,12 @@ export default function ContactPage() {
             Contact
           </h1>
           <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">
-            I&apos;m Neil, EarningsNerd&apos;s founder. Send me a question or feedback.
+            Send a question or share feedback about EarningsNerd.
           </p>
         </div>
 
         <Card as="section" className="mt-8 p-6">
-          <h2 className="text-lg font-semibold">Email me directly</h2>
+          <h2 className="text-lg font-semibold">Email directly</h2>
           <dl className="mt-4 space-y-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             {([
               ['support', 'Product help, feedback and general questions'],
@@ -56,13 +56,10 @@ export default function ContactPage() {
           </h2>
           <div className="mt-4 space-y-3 text-text-secondary-light dark:text-text-secondary-dark">
             <div>
-              <span className="font-medium">Response time:</span> I aim to reply within 2 business days.
+              <span className="font-medium">Response time:</span> The aim is to reply within 2 business days.
             </div>
             <div>
-              I read every message myself. EarningsNerd is a solo-founder product.
-            </div>
-            <div>
-              You can use the form or email me directly at the addresses above.
+              Use the form or email the relevant address above.
             </div>
           </div>
         </div>

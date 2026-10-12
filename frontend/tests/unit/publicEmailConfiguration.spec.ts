@@ -39,12 +39,14 @@ describe('public email configuration', () => {
     expect(hardcoded, 'Import addresses from lib/contactAddresses.ts, which reads the shared backend JSON.').toEqual([])
   })
 
-  it('keeps security.txt discoverable while the waitlist gate is enabled', () => {
+  it('keeps legal and contact routes discoverable while the waitlist gate is enabled', () => {
     vi.stubEnv('WAITLIST_MODE', 'true')
     try {
-      const response = middleware(new NextRequest('https://www.earningsnerd.io/.well-known/security.txt'))
-      expect(response.status).toBe(200)
-      expect(response.headers.get('location')).toBeNull()
+      for (const route of ['/.well-known/security.txt', '/privacy', '/terms', '/security', '/contact']) {
+        const response = middleware(new NextRequest(`https://www.earningsnerd.io${route}`))
+        expect(response.status, route).toBe(200)
+        expect(response.headers.get('location'), route).toBeNull()
+      }
     } finally {
       vi.unstubAllEnvs()
     }

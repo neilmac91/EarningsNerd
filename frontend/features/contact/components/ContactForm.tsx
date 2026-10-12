@@ -117,7 +117,7 @@ export default function ContactForm() {
             Message sent
           </h3>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            Thanks for your message. I&apos;m Neil, EarningsNerd&apos;s founder, and I aim to reply within 2 business days.
+            Thanks for your message. The aim is to reply within 2 business days.
           </p>
           <button
             onClick={() => {
@@ -198,7 +198,7 @@ export default function ContactForm() {
             onChange={(e) => setSubject(e.target.value)}
             readOnly={isSubmitting}
             className="mt-2"
-            placeholder="How can I help?"
+            placeholder="What can we help with?"
           />
         </div>
 
@@ -219,7 +219,7 @@ export default function ContactForm() {
             readOnly={isSubmitting}
             rows={6}
             className={clsx(inputClasses(), 'mt-2')}
-            placeholder="Tell me more about your question..."
+            placeholder="Tell us more about your question..."
           />
           <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
             Minimum 10 characters
@@ -231,7 +231,7 @@ export default function ContactForm() {
           <div className="rounded-lg bg-error-light/10 p-4 dark:bg-error-dark/15">
             <p className="text-sm text-error-light dark:text-error-dark">{error}</p>
             <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              You can email me at{' '}
+              You can also email{' '}
               <a href={contactMailto('support')} className="break-all text-brand-strong underline dark:text-brand-strong-dark">
                 {CONTACT_ADDRESSES.support}
               </a>.

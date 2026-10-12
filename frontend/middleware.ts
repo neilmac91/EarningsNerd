@@ -10,6 +10,7 @@ const ALLOWED_PATHS = new Set([
   '/reset-password',
   '/pricing',
   '/privacy',
+  '/terms',
   '/security',
   '/.well-known/security.txt',
   '/contact',

@@ -1,30 +1,28 @@
-# EarningsNerd privacy policy — implementation review
+# Privacy notice — source review
 
-Reviewed **12 October 2026**. This is a working review companion, not a separate customer privacy notice or a statement of full legal compliance.
+Reviewed **12 October 2026**. The maintained customer notice is [the privacy page](../../frontend/app/privacy/page.tsx); [the security page](../../frontend/app/security/page.tsx) describes application controls. This companion records source facts and review needs, rather than defining a separate notice or certifying compliance. The proposed changes remain unmerged and undeployed.
 
-The proposed website policy lives in [frontend/app/privacy/page.tsx](../../frontend/app/privacy/page.tsx); related controls are described in [the security page source](../../frontend/app/security/page.tsx). Those files are the maintained copy for the website routes. The changes in draft PR #1121 remain unmerged and undeployed. Final local lint/type checking, 1,991 frontend tests, build, Ruff/Bandit and 7,075 backend tests pass. The revised privacy/security pages and Cookie settings controls were verified in the in-app preview in light/dark and mobile views; saved-choice cancellation/withdrawal and focus restoration passed.
+## Current data facts
 
-## What the 12 October correction describes
+- Account, waitlist, support and product activity records support sign-in, access, subscriptions, saved features and correspondence.
+- The configured AI provider is DeepSeek. Requests include filing material and financial context; Copilot also sends typed questions and recent conversation text. These inputs are not automatically stripped of personal information. Account-linked usage/cost telemetry is separate.
+- Hosting, payments, email, diagnostics and optional browser analytics use service providers. Social sign-in, bot checks, password screening and externally delivered company images add recipients where used. Provider names, purposes and relevant transfer information should reflect actual configuration.
+- Optional PostHog browser analytics and recording use saved choices and can be withdrawn through Cookie settings. Recording also requires analytics. Those choices do not disable separate server operational metrics, error reporting or cookieless Vercel traffic measurements. Saved choices take precedence over Do Not Track.
+- Search/contact records older than 365 days qualify for scheduled cleanup. Inactivity-based account deletion, waitlist/referrals, audit, usage and billing records are outside that purge. Account deletion removes the records handled by its application process; retained billing/audit records and provider copies can remain. The export feature does not cover every provider's records.
+- Current source configures telemetry sanitization and recording input masking. These controls do not establish that all collection is anonymous or that every displayed detail is removed. See [retention/deletion review](../DATA_RETENTION_POLICY.md) and [cookie review](COOKIE_POLICY.md).
 
-- Neil operates EarningsNerd as an individual and receives privacy requests at **privacy@earningsnerd.io**. No entity, full name, address, jurisdiction, DPO or representative is added here.
-- AI requests include filing material and financial context. Copilot also sends typed questions and recent conversation text without automatic removal of personal information. Account-linked usage telemetry is a separate flow.
-- The configured provider is DeepSeek. Its published policy describes China processing/storage. The backend runs in the United States. Resend dispatches email from Ireland, while its region documentation says account metadata, logs and API records are stored in the United States. These facts are not a complete inventory of every provider destination.
-- Optional PostHog browser choices are separate from server operational metrics, error reporting and cookieless Vercel traffic measurements. Do Not Track supplies initial optional-browser preferences only when no saved choice exists; saved preferences take precedence.
-- Search history/contact records older than 365 days qualify for scheduled cleanup. The cleanup excludes inactivity-based account deletion, waitlist/referral records, usage, audit and billing data. Account deletion is not universal instant erasure: billing/audit records and provider copies can remain.
-- Security copy describes verified application controls and removes unsupported universal endpoint-authentication, uptime, infrastructure and deletion claims. It does not certify the product or its providers.
+## Review before release
 
-## Remaining review items
+Confirm responsible-operator identification and contact information, applicable jurisdictions, processing grounds and any representative requirements from actual operations. A brand name or role address does not itself establish that these duties are satisfied. Do not invent an entity, address, jurisdiction or officer.
 
-1. **Controller identity/contact disclosure:** the site retains Neil-only wording under the founder's instruction. The identity/contact disclosure gap remains unresolved; do not fill it with invented details or treat a working role email as complete compliance.
-2. **Provider arrangements:** verify each actual recipient, processing destination, accepted agreement and applicable transfer arrangement. Do not assert executed DPAs/SCCs or lawful safeguards without evidence. This review did not accept terms, change providers or establish every provider's retention/training settings.
-3. **Retention:** confirm category-specific billing, audit, usage, waitlist, provider-log and backup periods or meaningful deletion criteria. Scheduled cleanup code is not proof of every production purge outcome. No single seven-year tax deadline, universal 90-day log limit or 12-month backup limit is claimed.
-4. **Legal scope:** assess applicable jurisdictions, processing grounds and any representative duties from actual operations. No country of establishment, representative appointment or blanket GDPR/FADP/CCPA compliance is inferred.
-5. **Verification/release:** final local frontend/backend gates and changed-page/Cookie settings browser checks pass; hosted CI remains blocked by two fictional-identifier matches on an unrelated prototype branch, pending its separate exception integration. No merge, deployment, data deletion or account change is authorised by this document.
+Verify recipient/destination coverage, accepted provider agreements, applicable transfer arrangements and any retention/training terms before making assurances about them. DeepSeek's published policy describes China processing/storage. Backend hosting is in the United States. Resend's EU sending region does not establish EU-only account-data storage. Provider statements are not proof of account-specific terms or safeguards.
+
+Establish meaningful periods or deletion criteria for retained billing, audit, usage, waitlist, correspondence, provider logs and backups. Scheduled cleanup code does not prove every production purge outcome; sending a provider deletion event does not confirm erasure. Do not publish universal retention periods, instant-erasure promises or unsupported security guarantees.
+
+Validate the final changed notice, Cookie settings controls and release revision. Earlier checks and preview results apply to their recorded revisions; this document neither changes live processing nor authorises deployment.
 
 ## Primary references
 
-- [GDPR, Articles 13–14](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679): identity/contact, purposes/grounds, retention and transfer disclosures where applicable.
-- [FDPIC information duties](https://www.edoeb.admin.ch/en/duty-to-provide-information): transparent current processing, recipients and destination-country/protection information.
-- [EDPB transparency guidance](https://www.edpb.europa.eu/system/files/documents/2023-09/wp260rev01_en.pdf): meaningful category-specific retention information or criteria.
-- [DeepSeek privacy policy](https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html) and [Resend regions/data residency](https://resend.com/docs/dashboard/domains/regions): vendor statements, not proof of account-specific contract acceptance.
-- [Swiss accounting guidance](https://www.kmu.admin.ch/en/electronic-bookkeeping): ten-year retention for relevant accounting records if those duties apply; it is not a blanket period for all customer data, and establishment is not assumed.
+- [GDPR Articles 13–14](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679) and [FDPIC information duties](https://www.edoeb.admin.ch/en/duty-to-provide-information): applicable identification, processing, recipient and transfer disclosures.
+- [EDPB transparency guidance](https://www.edpb.europa.eu/system/files/documents/2023-09/wp260rev01_en.pdf): meaningful retention information and accessible explanations.
+- [DeepSeek privacy policy](https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html) and [Resend regions/data residency](https://resend.com/docs/dashboard/domains/regions): vendor statements requiring account-specific review.

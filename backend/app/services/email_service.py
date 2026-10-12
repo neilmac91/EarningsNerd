@@ -37,7 +37,7 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
                 <tr>
                   <td style="padding-top:32px;font-size:12px;color:#6B7280;">
                     {footer}
-                    <p>Questions? Reply to reach Neil, founder of EarningsNerd.</p>
+                    <p>Questions? Reply to contact EarningsNerd.</p>
                   </td>
                 </tr>
               </table>

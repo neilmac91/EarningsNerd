@@ -168,7 +168,7 @@ async def send_contact_notifications(
 
     # Email to user (confirmation). Deliberately does NOT repeat the submitted message: the
     # recipient address is caller-supplied, so the confirmation carries only our own copy.
-    user_subject = "I received your message - EarningsNerd"
+    user_subject = "Message received - EarningsNerd"
     user_html = f"""
     <html>
       <head>
@@ -187,9 +187,9 @@ async def send_contact_notifications(
           </div>
           <div class="content">
             <p>Hi {safe_name},</p>
-            <p>I&apos;ve received your message. I aim to reply within 2 business days.</p>
+            <p>Thanks for getting in touch. The aim is to reply within 2 business days.</p>
             <p>If you have anything to add, just reply to this email.</p>
-            <p>Neil<br>Founder, EarningsNerd</p>
+            <p>EarningsNerd</p>
           </div>
           <div class="footer">
             <p>EarningsNerd · AI summaries of SEC filings<br>

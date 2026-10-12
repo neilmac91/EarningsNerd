@@ -210,8 +210,8 @@ export default function WaitlistPage() {
                 body: 'Official filings, cited and traceable back to the primary source.',
               },
               {
-                title: 'Security-first approach',
-                body: 'Encrypted data in transit and at rest. No personal financial data stored.',
+                title: 'Account protection',
+                body: 'HTTPS connections, hashed passwords and card payments handled by Stripe.',
               },
               {
                 title: 'A numbered spot',

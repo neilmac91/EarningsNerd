@@ -29,8 +29,8 @@ export default function TermsPage() {
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
             These Terms of Service (&quot;Terms&quot;) govern your access to and use of EarningsNerd
-            (the &quot;Service&quot;), operated by Neil, its founder, as an individual. References to &quot;we,&quot;
-            &quot;our,&quot; or &quot;us&quot; mean Neil operating EarningsNerd. By creating an account, joining the waitlist, or otherwise using the
+            (the &quot;Service&quot;). References to &quot;we,&quot; &quot;our,&quot; or &quot;us&quot; mean the operator
+            of EarningsNerd. By creating an account, joining the waitlist, or otherwise using the
             Service, you agree to be bound by these Terms and by our{' '}
             <Link href="/privacy" className="text-brand-strong hover:underline dark:text-brand-strong-dark">
               Privacy Policy
@@ -166,8 +166,8 @@ export default function TermsPage() {
             10. Limitation of liability
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            TO THE MAXIMUM EXTENT PERMITTED BY LAW, NEIL, AS THE INDIVIDUAL OPERATOR OF EARNINGSNERD,
-            AND HIS SUPPLIERS WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR
+            TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE OPERATOR OF EARNINGSNERD
+            AND ITS SUPPLIERS WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR
             PUNITIVE DAMAGES, OR FOR ANY INVESTMENT OR TRADING LOSSES, ARISING OUT OF OR RELATED TO
             YOUR USE OF THE SERVICE. OUR TOTAL LIABILITY FOR ANY CLAIM WILL NOT EXCEED THE GREATER OF
             (A) THE AMOUNTS YOU PAID US IN THE 12 MONTHS BEFORE THE CLAIM OR (B) USD $100.
