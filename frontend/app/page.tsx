@@ -9,12 +9,11 @@ import ProDepth from '@/features/marketing/components/ProDepth'
 import PricingSection from '@/features/marketing/components/PricingSection'
 import ReaderQuoteSlot from '@/features/marketing/components/ReaderQuoteSlot'
 import ReportingThisWeek from '@/features/calendar/components/ReportingThisWeek'
-import NotableFilings from '@/features/filings/components/NotableFilings'
 import CtaBanner from '@/features/marketing/components/CtaBanner'
 import { betaPricingActive, resolveAccessMode } from '@/features/marketing/lib/access'
 import { DEFAULT_HEADLINE, pageTitleFor } from '@/features/marketing/lib/headline'
 import { LOGO_DEV_ENABLED } from '@/lib/featureFlags'
-import { fetchExampleData, fetchNotableFilings, fetchReportingThisWeek, fetchSignupConfig } from '@/lib/serverApi'
+import { fetchExampleData, fetchReportingThisWeek, fetchSignupConfig } from '@/lib/serverApi'
 
 const SITE_URL = 'https://www.earningsnerd.io'
 
@@ -23,7 +22,7 @@ const SITE_URL = 'https://www.earningsnerd.io'
 const SHOW_QUOTE_SLOT = false
 
 const DESCRIPTION =
-  'AI summaries of 10-Ks and 10-Qs built from selected SEC filing text and available filed XBRL data, with source labels where matches are found.'
+  'AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company’s XBRL where they can be, and quotes against the filing’s own text.'
 
 // <title> / og:title follow the default headline variant (A). The client-side experiment may swap
 // the H1 to B or C and retitles the document to match (HeroHeadline); crawlers always see A.
@@ -41,10 +40,10 @@ export const metadata: Metadata = {
     images: [
       {
         // Same card as the root layout (a nested `openGraph` replaces the layout's, not merges).
-        url: '/og-image.png?v=3',
+        url: '/og-image.png?v=4',
         width: 1200,
         height: 630,
-        alt: 'EarningsNerd - SEC filing summaries with source context',
+        alt: 'EarningsNerd: the summary that shows its work',
       },
     ],
   },
@@ -52,7 +51,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: pageTitleFor(DEFAULT_HEADLINE),
     description: DESCRIPTION,
-    images: ['/og-image.png?v=3'],
+    images: ['/og-image.png?v=4'],
   },
 }
 
@@ -96,10 +95,9 @@ export default async function Home() {
   // to static content. The signup config drives the ONE access decision
   // (account CTAs + access line + beta pricing line) and fails closed to the
   // invite copy when the backend is unreachable.
-  const [example, reportingThisWeek, notableFilings, signup] = await Promise.all([
+  const [example, reportingThisWeek, signup] = await Promise.all([
     fetchExampleData(),
     fetchReportingThisWeek(),
-    fetchNotableFilings(),
     fetchSignupConfig(),
   ])
   const accessMode = resolveAccessMode(signup)
@@ -138,11 +136,13 @@ export default async function Home() {
         {/* 8. Reporting this week — omits itself entirely when there is no live data */}
         <ReportingThisWeek data={reportingThisWeek} />
 
-        {/* 9. Notable filings — same contract: renders nothing while NOTABLE_FILINGS_ENABLED
-            is off, because the API answers 200 with an empty list and the section self-omits. */}
-        <NotableFilings data={notableFilings} />
+        {/* Notable filings is dormant under the brand (docs/brand/01-interview.md, A8; the 2026-10
+            audit found microcap 8-Ks under "high-signal"): the component, its fetcher and its spec
+            stay until a curation rule exists, and tests/unit/landing-sections-mounted.spec.ts no
+            longer lists it. Its fetcher revalidated at 3600 like the rest, so dropping it leaves the
+            route's ISR window where it was. */}
 
-        {/* 10. Final CTA */}
+        {/* 9. Final CTA */}
         <CtaBanner accessMode={accessMode} />
       </main>
     </div>

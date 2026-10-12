@@ -192,7 +192,7 @@ async def send_contact_notifications(
             <p>Best regards,<br>The EarningsNerd Team</p>
           </div>
           <div class="footer">
-            <p>EarningsNerd - AI-Powered SEC Filing Analysis<br>
+            <p>EarningsNerd · AI summaries of SEC filings<br>
             <a href="{settings.FRONTEND_URL}">{settings.FRONTEND_URL}</a></p>
           </div>
         </div>

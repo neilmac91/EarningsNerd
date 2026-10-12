@@ -21,7 +21,7 @@ type WaitlistFormProps = {
 }
 
 const twitterCopy =
-  'I just joined the waitlist for @EarningsNerd - AI-powered SEC filing summaries for retail investors. Join me:'
+  'I just joined the waitlist for @EarningsNerd, AI summaries of SEC filings for investors who still check the source. Join me:'
 const linkedInCopy =
   'Excited to get early access to EarningsNerd, a tool that uses AI to summarize SEC filings. Join the waitlist:'
 

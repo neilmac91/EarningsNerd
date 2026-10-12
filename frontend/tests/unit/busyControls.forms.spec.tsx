@@ -23,6 +23,9 @@ const api = vi.hoisted(() => ({
   submitFeedback: vi.fn(),
   joinWaitlist: vi.fn(),
   getCurrentUserSafe: vi.fn(),
+  // The pricing page reads the public registration gate for its guest CTA; public here keeps the
+  // Retry cases below about the account, subscription and usage queries only.
+  getRegistrationConfig: vi.fn(async () => ({ mode: 'public' as const, beta_promo_enabled: false })),
   getSubscriptionStatus: vi.fn(),
   getUsage: vi.fn(),
   createCheckoutSession: vi.fn(),
@@ -33,6 +36,7 @@ vi.mock('@/features/contact/api/contact-api', () => ({ submitContactForm: api.su
 vi.mock('@/features/feedback/api/feedback-api', () => ({ submitFeedback: api.submitFeedback }))
 vi.mock('@/features/waitlist/api/waitlist-api', () => ({ joinWaitlist: api.joinWaitlist }))
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: api.getCurrentUserSafe }))
+vi.mock('@/features/marketing/api/access-api', () => ({ getRegistrationConfig: api.getRegistrationConfig }))
 vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({
   getSubscriptionStatus: api.getSubscriptionStatus,
   getUsage: api.getUsage,
@@ -264,7 +268,7 @@ describe('Pricing page Retry buttons (a failure keeps its Notice through any ref
     return client
   }
 
-  const intro = () => screen.getByText(/Choose the plan that works for you/)
+  const intro = () => screen.getByText(/Summaries are generated once per filing and shared/)
 
   const cases = [
     {

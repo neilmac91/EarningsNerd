@@ -1,0 +1,120 @@
+<!doctype html>
+<!--
+  Social post, 1080 × 1350 (4:5). One verified figure with its source line and the brand device.
+  Figure: Apple Inc. 10-K FY2025 (accession 0000320193-25-000079, filed Oct 31, 2025), total net
+  sales $416,161M vs FY2024 $391,035M (+6.4%), SEC XBRL fact
+  us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax. Render: see README.md.
+
+  The device (docs/brand/06-system.md §6): the margin holds [F1], the twin of the in-text marker,
+  on the marker's own line; the one highlight sits under "shows its work" in the tagline, never on
+  the figure. The highlight is two nested spans rather than .en-mark's background trick, so the
+  same markup renders in Chromium, WeasyPrint and mail clients: the outer span's own font box is
+  sized to the lower 38% of the phrase's line box and lowered onto it (tint plus a 2px hairline at
+  its foot); the inner span restores the ink at full size. For a phrase at size s px:
+    tint size  t = (0.45978 s - 2) / 1.20996     lowered by  L = 0.24121 s - 2 - 0.24121 t
+  (Inter: ascent 0.96875 em, descent 0.24121 em). At s = 38: t = 12.787px, L = 4.082px.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Social post 1080×1350</title>
+<style>
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 100 900;
+    src: url('../../../frontend/scripts/brand/fonts/Inter-Variable-latin.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Geist Mono';
+    font-style: normal;
+    font-weight: 100 900;
+    src: url('../../../frontend/scripts/brand/fonts/GeistMono-latin.woff2') format('woff2');
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #F4F3EE; }
+  body {
+    width: 1080px;
+    height: 1350px;
+    color: #1A1A17;
+    font-family: 'Inter', sans-serif;
+    font-optical-sizing: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 88px 80px 84px;
+    overflow: hidden;
+  }
+
+  /* Lockup: og-template.html proportions (mark 1, wordmark 0.731, gap 0.346). */
+  .lockup { display: flex; align-items: center; gap: 21px; }
+  .lockup svg { height: 60px; width: auto; display: block; }
+  .wordmark { font-size: 44px; font-weight: 700; letter-spacing: -0.02em; color: #1A1A17; line-height: 1; }
+  .wordmark em { font-style: italic; color: #3C6650; }
+
+  /* The margin and the marked copy. Each line of the sentence is a grid row, so the twin in the
+     gutter shares the baseline of the line that carries the in-text marker. */
+  .marked {
+    display: grid;
+    grid-template-columns: 112px 1fr;
+    align-items: baseline;
+    margin-bottom: 120px; /* lifts the block 60px, onto the optical centre */
+  }
+  .rule { grid-column: 1; grid-row: 1 / 6; align-self: stretch; border-right: 2px solid #CFE0D6; }
+  .twin {
+    grid-column: 1; grid-row: 3; justify-self: end; padding-right: 24px;
+    font-family: 'Geist Mono', monospace; font-size: 34px; font-weight: 600; color: #3C6650;
+  }
+  .line {
+    grid-column: 2; padding-left: 40px;
+    font-size: 104px; font-weight: 600; line-height: 1.04; letter-spacing: -0.025em; color: #1A1A17;
+    white-space: nowrap;
+  }
+  .ref { font-family: 'Geist Mono', monospace; font-size: 34px; font-weight: 600; letter-spacing: 0; color: #3C6650; margin-left: 14px; }
+  .source { grid-column: 2; grid-row: 4; padding: 46px 0 0 40px; }
+  .chip {
+    display: inline-flex; align-items: center; height: 50px; padding: 0 19px;
+    border-radius: 999px; border: 2px solid #CFE0D6; background: #ECF2EE; color: #3C6650;
+    font-family: 'Geist Mono', monospace; font-size: 28px; font-weight: 500;
+  }
+  .identity {
+    grid-column: 2; grid-row: 5; padding: 20px 0 6px 40px;
+    font-family: 'Geist Mono', monospace; font-size: 26px; color: #636A77; font-variant-numeric: tabular-nums;
+  }
+  .identity b { color: #1A1A17; font-weight: 600; }
+
+  /* Footer: the tagline with the one highlight, and the address. */
+  .footer { display: flex; align-items: baseline; justify-content: space-between; }
+  .tagline { font-size: 38px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.3; color: #1A1A17; }
+  .mark-tint { font-size: 12.787px; vertical-align: -4.082px; line-height: 0; background: #ECF2EE; border-bottom: 2px solid #CFE0D6; white-space: nowrap; }
+  .mark-ink { font-size: 38px; vertical-align: 4.082px; line-height: 0; }
+  .url { font-family: 'Geist Mono', monospace; font-size: 26px; color: #636A77; }
+</style>
+</head>
+<body>
+  <div class="lockup">
+    <svg viewBox="0 0 94.6 73.2" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <g transform="translate(0,-14.8)">
+        <path d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z" fill="#3C6650"></path>
+        <g transform="translate(0.92,6.98) scale(0.9193)"><path d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z" fill="#3C6650"></path><path d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z" fill="#3C6650"></path></g>
+      </g>
+    </svg>
+    <div class="wordmark">Earnings<em>Nerd</em></div>
+  </div>
+
+  <div class="marked">
+    <div class="rule"></div>
+    <span class="twin" aria-hidden="true">[F1]</span>
+    <div class="line" style="grid-row: 1">Total net sales</div>
+    <div class="line" style="grid-row: 2">rose 6.4% to</div>
+    <div class="line" style="grid-row: 3">$416.2B<span class="ref">[F1]</span></div>
+    <div class="source"><span class="chip">{ } Revenue · SEC XBRL</span></div>
+    <div class="identity"><b>Apple Inc.</b> · 10-K · FY2025 · filed Oct 31, 2025</div>
+  </div>
+
+  <div class="footer">
+    <p class="tagline">The summary that <span class="mark-tint"><span class="mark-ink">shows its work</span></span>.</p>
+    <span class="url">earningsnerd.io</span>
+  </div>
+</body>
+</html>

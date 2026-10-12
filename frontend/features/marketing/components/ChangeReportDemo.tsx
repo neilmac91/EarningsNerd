@@ -3,7 +3,7 @@ import { SAMPLE_CHANGE_REPORT } from '@/features/marketing/lib/landing-samples'
 
 /**
  * The Change Report product screen for the landing page: the REAL WhatChanged component fed static
- * FY2022-vs-FY2021 XBRL deltas. WhatChanged draws its own card chrome; inside the frame that would
+ * FY2025-vs-FY2024 XBRL deltas. WhatChanged draws its own card chrome; inside the frame that would
  * read as a card within a card, so the wrapper flattens it (radius, hairline, shadow and fill),
  * leaving the frame as the only chrome.
  *

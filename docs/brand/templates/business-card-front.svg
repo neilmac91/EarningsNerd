@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="91mm" height="61mm" viewBox="0 0 91 61">
+  <title>EarningsNerd business card, front</title>
+  <desc>85 x 55 mm card with 3 mm bleed on every side (viewBox 91 x 61 mm, trim at 3 mm). Horizontal lockup top-left, the tagline with the one highlight under "shows its work", the address in the data face, and two fill-in lines for the cardholder.</desc>
+  <!-- Artwork. The cream ground runs to the bleed edge. Lockup geometry from
+       frontend/public/assets/earningsnerd-logo-light.svg (mark paths verbatim from
+       earningsnerd-mark-mono.svg); mark 8.041 mm wide, clear space one E-bar
+       (0.933 mm) on every side. Wordmark Inter 700 at 10.602 pt, -0.02em
+       (letter-spacing -0.88 at size 44). Tagline 9 pt,
+       name 8.5 pt, role and address 7.5 pt; nothing under 7 pt. -->
+  <g id="artwork" inkscape:groupmode="layer" inkscape:label="artwork">
+    <rect x="0" y="0" width="91" height="61" fill="#F4F3EE"/>
+    <g id="lockup" transform="translate(9,9) scale(0.085)">
+      <g transform="translate(0,-14.8)">
+        <path d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z" fill="#3C6650"></path>
+        <g transform="translate(0.92,6.98) scale(0.9193)"><path d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z" fill="#3C6650"></path><path d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z" fill="#3C6650"></path></g>
+      </g>
+      <text x="114" y="59" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="44" font-weight="700" letter-spacing="-0.88" fill="#1A1A17">Earnings<tspan font-style="italic" fill="#3C6650">Nerd</tspan></text>
+    </g>
+    <!-- The mark (docs/brand/06-system.md §6): pale sage tint over the lower 38% of the line box,
+         0.3 mm sage hairline at its foot. Drawn before the text so the ink sits on it. -->
+    <rect x="37.739" y="30.306" width="22.92" height="1.46" fill="#ECF2EE"/>
+    <rect x="37.739" y="31.466" width="22.92" height="0.3" fill="#CFE0D6"/>
+    <text y="31" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="3.175" font-weight="600" fill="#1A1A17"><tspan x="9">The summary that</tspan><tspan x="37.739" textLength="22.92" lengthAdjust="spacing">shows its work</tspan><tspan>.</tspan></text>
+    <text x="82" y="50.4" text-anchor="end" font-family="'Geist Mono', ui-monospace, Menlo, monospace" font-size="2.646" font-weight="400" fill="#636A77">earningsnerd.io</text>
+  </g>
+  <!-- Fill-in: replace "Name" and "Role" with the cardholder's own name and role before print.
+       The file carries labels, not a person: no name is invented here. Keep the sizes
+       (8.5 pt and 7.5 pt) and the baselines; a long role may run to x = 54 mm at most, clear
+       of the address. -->
+  <g id="fill-in" inkscape:groupmode="layer" inkscape:label="fill-in">
+    <text x="9" y="46.4" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="2.999" font-weight="600" fill="#1A1A17">Name</text>
+    <text x="9" y="50.4" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="2.646" font-weight="400" fill="#374151">Role</text>
+  </g>
+  <!-- Trim guide for proofing only: the printer removes this group. The cut is at 3 mm from
+       every edge (85 x 55 mm); everything outside it is bleed. -->
+  <g id="trim-guide" inkscape:groupmode="layer" inkscape:label="trim-guide">
+    <rect x="3" y="3" width="85" height="55" fill="none" stroke="#636A77" stroke-width="0.1" stroke-dasharray="1 0.8"/>
+  </g>
+</svg>

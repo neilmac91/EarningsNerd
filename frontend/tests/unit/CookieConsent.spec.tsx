@@ -50,7 +50,7 @@ describe('CookieConsent settings dialog', () => {
     const { dialog } = await openSettings()
     expect(dialog).toHaveAttribute('aria-modal', 'true')
     expect(dialog).toContainElement(document.activeElement as HTMLElement)
-    expect(screen.getByText('We value your privacy')).toBeInTheDocument() // the banner stays beneath it
+    expect(screen.getByText('Cookies on this site')).toBeInTheDocument() // the banner stays beneath it
     expect(screen.getByRole('checkbox', { name: 'Essential Cookies' })).toBeDisabled()
     expect(screen.getByRole('checkbox', { name: 'Analytics Cookies' })).not.toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Session Recording' })).not.toBeChecked()
@@ -62,7 +62,7 @@ describe('CookieConsent settings dialog', () => {
     await user.click(screen.getByRole('button', { name: 'Save Preferences' }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.queryByText('We value your privacy')).not.toBeInTheDocument() // Save dismisses both
+    expect(screen.queryByText('Cookies on this site')).not.toBeInTheDocument() // Save dismisses both
     expect(stored()).toMatchObject({ essential: true, analytics: true, sessionRecording: false })
     expect(consentEvents).toHaveLength(1)
     expect(consentEvents[0]).toMatchObject({ essential: true, analytics: true, sessionRecording: false })
@@ -84,7 +84,7 @@ describe('CookieConsent settings dialog', () => {
     await close(user)
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByText('We value your privacy')).toBeInTheDocument()
+    expect(screen.getByText('Cookies on this site')).toBeInTheDocument()
     expect(document.activeElement).toBe(customize)
     expect(stored()).toBeNull()
     expect(consentEvents).toHaveLength(0)

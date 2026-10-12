@@ -9,7 +9,8 @@ import { directionOf, directionText } from '@/lib/financialTone'
 import { Sep } from '@/features/filings/components/FilingIdentity'
 import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
 import { excerptHeadings } from '@/features/summaries/lib/riskTitle'
-import { AAPL_FY22_EDGAR_URL } from '@/features/marketing/lib/landing-samples'
+import { AAPL_FY25_EDGAR_URL } from '@/features/marketing/lib/landing-samples'
+import MarkedCopy, { EnRef } from '@/features/marketing/components/MarkedCopy'
 import type { ExampleData, ExampleMetric } from '@/lib/serverApi'
 
 /**
@@ -21,25 +22,29 @@ import type { ExampleData, ExampleMetric } from '@/lib/serverApi'
  *
  * When the pre-generated example summary is reachable it renders the REAL thing (fetched
  * server-side with hourly ISR), so the preview can never drift from what a click delivers. Falls
- * back to a verified static snapshot of Apple's FY 2022 10-K (filed 2022-10-28; figures checked
- * against the filing's XBRL), which has no evidence row: its excerpt is not verified here.
+ * back to a verified static snapshot of Apple's FY 2025 10-K (filed 2025-10-31; figures checked
+ * against the filing's XBRL on 2026-10-11, docs/brand/00-audit.md §4), which has no evidence row:
+ * its excerpt is not located here.
+ *
+ * The evidence row is the brand device at work (DESIGN.md › Graphic device): the filing's words in
+ * the filing's face inside a marked block, with a bracketed marker whose twin sits in the margin.
  */
 
-// Static fallback — every value verified against Apple's FY 2022 10-K XBRL.
+// Static fallback — every value verified against Apple's FY 2025 10-K XBRL.
 const FALLBACK: ExampleData = {
   filingId: 0,
   ticker: 'AAPL',
   companyName: 'Apple Inc.',
   filingType: '10-K',
-  filingDate: '2022-10-28',
-  secUrl: AAPL_FY22_EDGAR_URL,
+  filingDate: '2025-10-31',
+  secUrl: AAPL_FY25_EDGAR_URL,
   excerpt:
-    'Net sales rose 8% to $394.3B, led by iPhone and Services growth. Gross margin expanded to 43.3%, and operating cash flow reached a record $122.2B.',
+    'Total net sales rose 6.4% to $416.2B with net income of $112.0B and diluted EPS of $7.46, while operating cash flow declined to $111.5B from $118.3B.',
   qualityTier: null,
   metrics: [
-    { label: 'Revenue', value: '$394.3B', deltaPercent: 7.8 },
-    { label: 'Net Income', value: '$99.8B', deltaPercent: 5.4 },
-    { label: 'Diluted EPS', value: '$6.11', deltaPercent: 8.9 },
+    { label: 'Revenue', value: '$416.2B', deltaPercent: 6.4 },
+    { label: 'Net Income', value: '$112.0B', deltaPercent: 19.5 },
+    { label: 'Diluted EPS', value: '$7.46', deltaPercent: 22.7 },
   ],
 }
 
@@ -160,23 +165,29 @@ function HeroExample({
           </dl>
         )}
 
-        {/* One evidence row, the filing page's own (P-03): the filing's words, located in its text. */}
+        {/* One evidence row, the filing page's own (P-03): the filing's words, located in its text, as
+            a marked block in the filing's face with its margin twin (the brand device). */}
         {evidence && (
-          <div className="flex flex-col gap-2">
-            <p className={cx('text-sm font-semibold', INK)}>{excerptHeadings([evidence.excerpt])[0]}</p>
-            <blockquote className={cx('border-l-2 pl-3.5 text-sm leading-relaxed', HAIRLINE, MUTED)}>
-              {clip(evidence.excerpt)}
-            </blockquote>
-            {evidence.url && (
-              <div>
-                <a href={evidence.url} target="_blank" rel="noopener noreferrer" className={sourceTraceChipClass()}>
-                  <QuotesIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-                  Located in the filing
-                  <span className="sr-only"> (opens in a new tab)</span>
-                </a>
-              </div>
-            )}
-          </div>
+          <MarkedCopy>
+            <div className="flex flex-col gap-2 pl-3 sm:pl-3.5">
+              <p className={cx('text-sm font-semibold', INK)}>
+                {excerptHeadings([evidence.excerpt])[0]}
+                <EnRef label="[1]" />
+              </p>
+              <blockquote className={cx('en-marked px-3.5 py-2.5 font-editorial text-base leading-relaxed', INK)}>
+                {clip(evidence.excerpt)}
+              </blockquote>
+              {evidence.url && (
+                <div>
+                  <a href={evidence.url} target="_blank" rel="noopener noreferrer" className={sourceTraceChipClass()}>
+                    <QuotesIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    Located in the filing
+                    <span className="sr-only"> (opens in a new tab)</span>
+                  </a>
+                </div>
+              )}
+            </div>
+          </MarkedCopy>
         )}
 
         <a

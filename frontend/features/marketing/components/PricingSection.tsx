@@ -182,7 +182,7 @@ export default function PricingSection({
                 className={radioClass('annual')}
               >
                 Annual{' '}
-                <span className="font-medium text-brand-strong dark:text-brand-strong-dark">· save {PRO_PRICING.annualSavingsPercent}%</span>
+                <span className="font-medium">· save {PRO_PRICING.annualSavingsPercent}%</span>
               </button>
             </div>
           </div>

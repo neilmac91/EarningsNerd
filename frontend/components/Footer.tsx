@@ -39,7 +39,7 @@ export default function Footer() {
           <div>
             <EarningsNerdLogo variant="icon-only" iconClassName="h-8 w-8" mode="auto" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-              Explore SEC filings with AI-assisted summaries.
+              The summary that shows its work.
             </p>
           </div>
 

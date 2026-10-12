@@ -32,14 +32,15 @@ import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 
 // --- Constants ---
 
-// Playful but polished: personality without the cringe. Rotates while we work.
+// The one sanctioned playful surface (docs/voice-and-style.md › the humour floor): dry, true to what
+// the pipeline does, never a joke about money. Rotates while we work.
 const WHIMSY_MESSAGES = [
-  "Scanning 400 pages of footnotes so you don't have to…",
-  'Cross-referencing the numbers with the narrative…',
-  'Translating corporate-speak into plain English…',
+  'Reading the footnotes so you can go straight to the ones that matter…',
+  'Checking the figures against the company’s XBRL…',
+  'Finding where the filing says that…',
   'Reading the size-8 fine print…',
-  "Reviewing the obscure 'Other' section…",
-  'Decoding the tone of the outlook…',
+  'Reviewing the line called Other…',
+  'Translating management’s phrasing into plain English…',
 ]
 
 // Ordered list of the real pipeline stages the backend streams over SSE
@@ -294,11 +295,11 @@ export default function StreamingSummaryDisplay({
   // inside the progress card, which is itself hidden on error — so the GuidanceCard is the
   // single failure surface (one error surface, not two).
   const whimsyText = isStalled
-    ? 'Taking longer than usual. This looks like a complex filing; still working on it.'
+    ? 'Taking longer than usual. A long filing; still reading.'
     : showWhimsy && whimsyMessage
       ? whimsyMessage
-      : 'Warming up the analysis…'
-  const whimsyAttribution = isStalled ? 'Complex filing detected' : 'EarningsNerd analyst'
+      : 'Opening the filing…'
+  const whimsyAttribution = isStalled ? 'A long filing' : 'Reading the filing'
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -406,7 +407,7 @@ export default function StreamingSummaryDisplay({
           title="Generation interrupted"
           headingLevel="h2"
           headingRef={failureHeadingRef}
-          description={error || message || 'Generation timed out. Please retry to continue.'}
+          description={error || message || 'It timed out before the summary finished. Retry to pick it up again.'}
           action={
             onRetry ? (
               // RetryButton (secondary by default: an error retry is never the page's primary action).
