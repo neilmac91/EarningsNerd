@@ -214,7 +214,7 @@ function ChartTooltipStatus({ active, coordinateX, plotRef, children }: {
       const pointX = plot.getBoundingClientRect().left + coordinateX
       const halfMark = MAX_BAR_SIZE / 2
       if (pointX - halfMark < frame.left || pointX + halfMark > frame.right) {
-        viewport.scrollLeft += pointX - frame.left - frame.width / 2
+        viewport.scrollBy({ left: pointX - frame.left - frame.width / 2, behavior: 'instant' })
         frame = viewport.getBoundingClientRect()
       }
     }
