@@ -1,15 +1,33 @@
 'use client'
 
+import { useMemo } from 'react'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import type { DataNote } from '@/features/analysis/lib/dataNotes'
 import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
-import { useDataNotes } from './DataNotesContext'
+import { usePrintDetails } from '@/features/analysis/lib/usePrintDetails'
+import { comparisonLocations, tablePeriods } from '@/features/analysis/lib/reportPresentation'
+import { useAnalysisTableWindow, useDataNotes } from './DataNotesContext'
 
 const comparisonLabel = (basis: string) => basis === 'qoq' ? 'QoQ' : basis === 'yoy' ? 'YoY' : basis === 'window_pp' ? 'window percentage-point' : 'CAGR'
 const periodLabel = (period: string) => period.split('..').map((key) => formatAnalysisPeriod(key)).join(' – ')
 
-export function DataNotesList({ notes }: { notes: DataNote[] }) {
+type ComparisonLocations = ReturnType<typeof comparisonLocations>
+
+function comparisonLocator(location: ReturnType<ComparisonLocations>[number]) {
+  const { basis, total, headline, chart, chartLabel, table, fullTable, windowed, periods, quarterly } = location
+  const label = basis === 'qoq' ? 'quarter-over-quarter' : basis === 'yoy' ? 'year-over-year' : basis === 'window_pp' ? 'window percentage-point' : 'CAGR'
+  const surfaces = [
+    headline ? `The headline cards show ${headline}.` : '',
+    chart ? `The ${chartLabel} growth chart shows ${chart}.` : '',
+    fullTable ? `The table shows ${fullTable}${quarterly && basis === 'yoy' ? ' as its labelled fallback' : ''}${windowed && (basis === 'qoq' || basis === 'yoy') ? ` (${table} in the ${periods} ${quarterly ? 'quarters' : 'years'} shown)` : ''}.` : '',
+    `Exports carry all ${total}.`,
+  ].filter(Boolean)
+  return `${total} ${label} ${total === 1 ? 'comparison carries' : 'comparisons carry'} this note. ${surfaces.join(' ')}`
+}
+
+/** Citation supplements omit locations because they have no report surface membership to inspect. */
+export function DataNotesList({ notes, locations }: { notes: DataNote[]; locations?: ComparisonLocations }) {
   return (
     <ul className="space-y-3">
       {notes.map((note) => {
@@ -31,6 +49,7 @@ export function DataNotesList({ notes }: { notes: DataNote[] }) {
               ...comparisons.map(([basis, count]) => `${count} ${comparisonLabel(basis)} ${count === 1 ? 'comparison' : 'comparisons'}`),
             ].join(' · ')}.</p>}
             {comparisonPlaces.size > 0 && <p>Comparisons: {[...comparisonPlaces].map(([label, periods]) => `${label} (${[...new Set(periods)].map(periodLabel).join(', ')})`).join('; ')}.</p>}
+            {locations?.(note).map(location => <p key={location.basis}>{comparisonLocator(location)}</p>)}
           </div>
         </li>
       })}
@@ -39,28 +58,36 @@ export function DataNotesList({ notes }: { notes: DataNote[] }) {
 }
 
 export default function DataNotes({ dataset, sample = false }: { dataset: AnalysisDataset; sample?: boolean }) {
+  const printScope = usePrintDetails()
   const model = useDataNotes(dataset)
+  const { window } = useAnalysisTableWindow(dataset)
+  const locations = useMemo(() => sample ? undefined : comparisonLocations(dataset, tablePeriods(dataset, window), model),
+    [dataset, window, model, sample])
   const { totals } = model
   const unknownComparisons = model.notes.filter((note) => note.kind === 'unknown').reduce((count, note) => count + note.comparisons.length, 0)
-  const allPopulatedPassed = totals.reviewValues === 0 && totals.reviewComparisons === 0 && totals.unknown === 0 && unknownComparisons === 0
+  const allPopulatedPassed = totals.reviewValues === 0 && totals.unknown === 0 && totals.passed > 0
+  const letters = (kind: DataNote['kind'], scope: 'values' | 'comparisons') => model.notes
+    .filter((note) => note.kind === kind && note[scope].length > 0).map((note) => note.letter)
+  const reviewComparisonLetters = letters('review', 'comparisons')
   return (
-    <section className="min-w-0 border-y border-border-light py-1 dark:border-border-dark" data-analysis-data-notes>
+    <section className="min-w-0 border-y border-border-light py-1 dark:border-border-dark" data-analysis-data-notes data-analysis-print-scope={printScope}>
       <details>
         <summary className="cursor-pointer rounded py-2 text-sm text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark">
           <span className="font-medium">Data notes</span>
           <span className="font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">
             {sample && <span> · illustrative sample</span>}
-            {totals.reviewValues > 0 && <span className="text-warning-light dark:text-warning-dark"> · {totals.reviewValues} {totals.reviewValues === 1 ? 'figure needs' : 'figures need'} review</span>}
-            {totals.reviewComparisons > 0 && <span className="text-warning-light dark:text-warning-dark"> · {totals.reviewComparisons} {totals.reviewComparisons === 1 ? 'comparison needs' : 'comparisons need'} review</span>}
-            {totals.unknown > 0 && <span> · {totals.unknown} {totals.unknown === 1 ? 'figure has' : 'figures have'} no validation record</span>}
-            {unknownComparisons > 0 && <span> · {unknownComparisons} {unknownComparisons === 1 ? 'comparison has' : 'comparisons have'} no validation record</span>}
-            {!sample && allPopulatedPassed && totals.passed > 0 && <span className="text-brand-strong dark:text-brand-strong-dark"> · {totals.passed} {totals.passed === 1 ? 'figure' : 'figures'} passed automated checks</span>}
-            {totals.unavailable > 0 && <span> · {totals.unavailable} unavailable</span>}
+            {!sample && allPopulatedPassed && <span> · No figures need review · {totals.passed} checked</span>}
+            {totals.reviewValues > 0 && <span className="text-warning-light dark:text-warning-dark"> · {totals.reviewValues} {totals.reviewValues === 1 ? 'figure needs' : 'figures need'} review ({letters('review', 'values').join(', ')})</span>}
+            {totals.reviewComparisons > 0 && <span className="text-warning-light dark:text-warning-dark"> · {totals.reviewComparisons} {totals.reviewComparisons === 1 ? 'comparison carries' : 'comparisons carry'} {reviewComparisonLetters.length === 1 ? 'note' : 'notes'} {reviewComparisonLetters.join(', ')}</span>}
+            {totals.unknown > 0 && <span> · {totals.unknown} {totals.unknown === 1 ? 'figure has' : 'figures have'} no validation record ({letters('unknown', 'values').join(', ')})</span>}
+            {unknownComparisons > 0 && <span> · {unknownComparisons} {unknownComparisons === 1 ? 'comparison has' : 'comparisons have'} no validation record ({letters('unknown', 'comparisons').join(', ')})</span>}
+            {totals.unavailable > 0 && <span> · {totals.unavailable} unavailable ({letters('unavailable', 'values').join(', ')})</span>}
             {totals.calculated > 0 && <span> · {totals.calculated} calculated †</span>}
           </span>
         </summary>
         <div className="space-y-3 pb-3 pt-1 text-xs leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-          <DataNotesList notes={model.notes} />
+          <DataNotesList notes={model.notes} locations={locations} />
+          <p>Automated checks confirm that reported figures come from the company’s SEC XBRL data and that calculations combine compatible periods and units; they are not an audit of the company’s accounts.</p>
           <p>Select a figure to inspect its source, reporting period and calculation. Letters identify data notes; † marks a calculated figure, not an error. Comparisons retain notes from their source inputs. Counts describe distinct figures and comparisons, not the number of places they appear.</p>
           <details>
             <summary className="cursor-pointer rounded font-medium focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Sources &amp; methods</summary>

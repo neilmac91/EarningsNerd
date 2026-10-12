@@ -21,7 +21,19 @@ from unittest.mock import NonCallableMock
 # Removed in pytest_unconfigure, or at exit when pytest stops before configuring (a usage error).
 # Gate: tests/unit/test_suite_isolation.py.
 _TEST_DB_DIR = tempfile.mkdtemp(prefix=f"earningsnerd-tests-{os.environ.get('PYTEST_XDIST_WORKER', 'main')}-")
-atexit.register(shutil.rmtree, _TEST_DB_DIR, ignore_errors=True)
+
+
+def _cleanup_test_database():
+    # Windows cannot remove SQLite files while pooled connections still hold them open. Look up
+    # an already-loaded module: a usage error can exit before app.database was ever imported.
+    database = sys.modules.get("app.database")
+    engine = getattr(database, "engine", None)
+    if engine is not None:
+        engine.dispose()
+    shutil.rmtree(_TEST_DB_DIR, ignore_errors=True)
+
+
+atexit.register(_cleanup_test_database)
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_TEST_DB_DIR, "earningsnerd.db")
 
 # Set mock environment variables for all tests at module level to avoid Pydantic validation errors at import time
@@ -84,7 +96,7 @@ def _sqlite_never_reuses_ids(table, connection, **kw):
 
 
 def pytest_unconfigure(config):
-    shutil.rmtree(_TEST_DB_DIR, ignore_errors=True)
+    _cleanup_test_database()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -161,6 +173,26 @@ def _reset_delivery_ownership():
             if name in present:
                 conn.execute(text(f"DELETE FROM {name}"))  # nosec B608 - fixed table names
     yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_summary_limiter():
+    """Request allowances belong to one test, even when tests reuse a stand-in account id.
+
+    Avoid importing a router for tests that do not use it. Check again at teardown because the
+    running test may be the first to import it. The ordered probes in test_suite_isolation.py
+    exhaust one account's allowance, then require an empty limiter in the next test.
+    """
+    def clear_loaded_limiter():
+        summaries = sys.modules.get("app.routers.summaries")
+        limiter = getattr(summaries, "SUMMARY_LIMITER", None)
+        if limiter is not None:
+            with limiter._lock:
+                limiter._hits.clear()
+
+    clear_loaded_limiter()
+    yield
+    clear_loaded_limiter()
 
 
 @pytest.fixture(autouse=True)
