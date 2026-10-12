@@ -1,4 +1,5 @@
 """Persist contact submissions; the router owns request policy and notifications."""
+from __future__ import annotations
 
 from logging import Logger
 
