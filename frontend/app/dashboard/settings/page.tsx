@@ -255,7 +255,7 @@ export default function SettingsPage() {
                     type="text"
                     value={deleteConfirmText}
                     onChange={(e) => setDeleteConfirmText(e.target.value)}
-                    className={inputClasses({ invalid: true })}
+                    className={inputClasses({ tone: 'danger' })}
                     placeholder="delete my account"
                     disabled={deleteMutation.isPending}
                   />
