@@ -27,3 +27,14 @@ needs both-backend reasoning (see the naive-utcnow allowlist).
 self-test `backend/tests/unit/test_network_gate.py`; CODE RED decision records 16 and 17; PR #546
 review (inert CI SECRET_KEY finding);
 `backend/tests/unit/test_naive_utcnow_allowlist.py`.
+
+**Local sandbox correction (2026-10-12, #1259).** When constructing an allowlisted environment
+for a backend gate with a read-only home directory, provide separate writable temporary paths
+for `EDGAR_LOCAL_DATA_DIR` and `EDGAR_CACHE_DIR`. EdgarTools' anchor cache uses the latter; the
+data-directory setting does not cover it. Omitting the cache path caused eight Ford source
+tests to fail because TOC extraction swallowed the cache-directory `OSError` and selected an
+incomplete pattern fallback. A fresh-process probe captured that error, and the unchanged
+eight-test owner failed with the cache path absent and passed with only that path supplied.
+Keep the failed receipt and correct the local environment; do not replace the fixture or relax
+its source-coverage assertions. This is runner setup guidance, not a change to application
+configuration or the suite's network guard.
