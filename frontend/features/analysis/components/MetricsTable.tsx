@@ -161,7 +161,7 @@ export default function MetricsTable({
   const hasDerived = dataset.series.some((s) => s.points.some((p) => p.provenance?.method === 'calculated' || (!p.provenance && p.derived)) || s.cagr_provenance?.method === 'calculated' || s.window_pp_provenance?.method === 'calculated')
 
   return (
-    <Card as="section" className="@container min-w-0 p-4 sm:p-6" data-analysis-metrics>
+    <Card as="section" className="[container-type:inline-size] min-w-0 p-4 sm:p-6" data-analysis-metrics>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Heading className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
