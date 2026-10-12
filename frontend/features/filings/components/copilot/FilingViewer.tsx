@@ -42,6 +42,8 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
   const viewer = useFilingViewer()
   const [localOpen, setLocalOpen] = useState(false)
   const [passageMissing, setPassageMissing] = useState(false)
+  // The mounted text or status box is the retry's destination: success focuses the loaded reader
+  // (or empty result); another failure keeps the focused Retry inside its retained alert.
   const contentRef = useRef<HTMLDivElement>(null)
   const handledNonce = useRef(0)
 
@@ -51,6 +53,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
   // The content query owns the single in-flight request for this filing, including a tab activation
   // and a citation in the same commit. Loaded text stays fresh across view switches; a failed read
   // stays visible and focusable throughout Retry or any other refetch until data replaces it.
+  // An initial errored query has no data, so re-enabling it refetches even with staleTime: Infinity.
   const contentQuery = useQuery({
     queryKey: queryKeys.filingContent(filingId),
     queryFn: () => fetchFilingContent(filingId),
