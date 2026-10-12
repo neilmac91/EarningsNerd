@@ -470,8 +470,8 @@ for (const theme of THEMES) for (const width of [390, 1480]) for (const textScal
     test.use({ viewport: { width, height: 1000 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
     test('keeps range changes readable and explains unavailable modes in the Tab order', async ({ page, baseURL }) => {
       await openAnalysis(page, baseURL!, 'clean', theme, textScale)
-      const from = page.getByLabel('From', { exact: true })
-      const to = page.getByLabel('To', { exact: true })
+      const from = page.getByRole('combobox', { name: 'From', exact: true })
+      const to = page.getByRole('combobox', { name: 'To', exact: true })
       await from.selectOption('2022Q1')
       await expect(to).toHaveValue('2024Q4')
       await expect(page.getByRole('status').filter({ hasText: 'To moved' })).toHaveText('To moved to Q4 2024 to keep at most 12 quarters.')
