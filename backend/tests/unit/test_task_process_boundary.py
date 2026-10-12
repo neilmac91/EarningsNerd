@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import subprocess
 import sys
 
@@ -11,6 +12,25 @@ import httpx
 from app.config import settings
 from app.services import task_process_service as service
 from app.services.durable_tasks import TaskEnvelope
+
+
+@pytest.fixture
+def preserve_worker_logging():
+    """The private entrypoint configures process logging on its first import."""
+    root = logging.getLogger()
+    handlers, level = list(root.handlers), root.level
+    library_levels = {name: logging.getLogger(name).level
+                      for name in ("httpx", "httpcore", "urllib3", "edgar", "markdown_it")}
+    try:
+        yield
+    finally:
+        for handler in root.handlers:
+            if handler not in handlers:
+                handler.close()
+        root.handlers[:] = handlers
+        root.setLevel(level)
+        for name, previous_level in library_levels.items():
+            logging.getLogger(name).setLevel(previous_level)
 
 
 @pytest.mark.asyncio
@@ -84,7 +104,7 @@ async def test_worker_reports_process_failure_and_rejects_api_execution(monkeypa
 
 
 @pytest.mark.asyncio
-async def test_private_asgi_worker_has_its_own_work_deadline(monkeypatch):
+async def test_private_asgi_worker_has_its_own_work_deadline(monkeypatch, preserve_worker_logging):
     # A fresh interpreter catches eager package imports hidden by pytest's loaded API modules.
     probe = subprocess.run(
         [sys.executable, "-c", "import task_worker_main,sys,logging; "

@@ -146,7 +146,7 @@ export default function ConnectedAccounts() {
                   aria-disabled={isLast || pending || undefined}
                   aria-busy={pending || undefined}
                   title={isLast ? 'Set a password first so you keep a way to sign in' : undefined}
-                  className="text-sm font-medium text-error-light underline-offset-4 hover:underline dark:text-error-dark aria-disabled:cursor-not-allowed aria-disabled:text-error-light/40 aria-disabled:no-underline dark:aria-disabled:text-error-dark/40"
+                  className="rounded-lg focus-visible:outline-none focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark text-sm font-medium text-error-light underline-offset-4 hover:underline dark:text-error-dark aria-disabled:cursor-not-allowed aria-disabled:text-error-light/40 aria-disabled:no-underline dark:aria-disabled:text-error-dark/40"
                 >
                   {pending ? 'Unlinking…' : 'Unlink'}
                 </button>

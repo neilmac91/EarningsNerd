@@ -97,22 +97,10 @@ const ROOTS = ['app', 'components', 'features', 'hooks', 'lib']
 const DEFINITION = 'components/ui/Input.tsx'
 
 const PINS: Record<string, { findings: string[]; reason: string }> = {
-  'app/dashboard/settings/page.tsx': {
-    findings: [
-      'focus:border-error-light vs dark:border-border-dark [border-color] (no dark twin)',
-      'focus:border-error-light vs dark:focus:border-brand-dark [border-color] (no dark twin)',
-      'focus:border-error-light vs focus:border-brand [border-color] (same chain)',
-      'focus:shadow-ring-error vs dark:focus:shadow-ring-brand-dark [--tw-shadow] (no dark twin)',
-      'focus:shadow-ring-error vs focus:shadow-ring-brand [--tw-shadow] (same chain)',
-    ],
-    reason:
-      'The delete-account confirm field: its error-toned focus wins in light by one rule and loses in dark (the ' +
-      'sage brand border and ring show). The fix shows `shadow-ring-error` in dark, which reads 1.27:1 on panel, ' +
-      'so it waits on the dark ring-error token decision (rule 11) recorded by #1178.',
-  },
+
 }
 /** Shrink-only: files, and findings (one entry per site, so a second site with the same override fails). */
-const MAX_PINNED = { files: 1, findings: 5 }
+const MAX_PINNED = { files: 0, findings: 0 }
 
 /** The findings PINS does not cover, counting each pinned entry once, and the pins no finding matched. */
 function againstPins(found: { file: string; line: number; finding: string }[], pins: typeof PINS) {
@@ -133,10 +121,11 @@ function againstPins(found: { file: string; line: number; finding: string }[], p
 
 // ------------------------------------------------------------------------------------------------- scanner
 
-type Options = { invalid: boolean; leadingIcon: boolean; trailingIcon: boolean; select: boolean; density: FieldDensity; autoWidth: boolean; shell: boolean }
-const DEFAULTS: Options = { invalid: false, leadingIcon: false, trailingIcon: false, select: false, density: 'comfortable', autoWidth: false, shell: false }
+type Options = { invalid: boolean; tone: 'default' | 'danger'; leadingIcon: boolean; trailingIcon: boolean; select: boolean; density: FieldDensity; autoWidth: boolean; shell: boolean }
+const DEFAULTS: Options = { invalid: false, tone: 'default', leadingIcon: false, trailingIcon: false, select: false, density: 'comfortable', autoWidth: false, shell: false }
 const BOOLEAN_OPTIONS = ['invalid', 'leadingIcon', 'trailingIcon', 'select', 'autoWidth', 'shell'] as const
 const DENSITIES: FieldDensity[] = ['comfortable', 'compact']
+const FIELD_TONES: Options['tone'][] = ['default', 'danger']
 
 /** A sibling drawn at one edge of the field: it needs that side's inset, reserved always. */
 interface Edge { tag: string; side: 'left' | 'right'; anchor: string }
@@ -274,7 +263,7 @@ function scanSource(file: string, text: string): Scan {
     if (!arg) return { combos: [DEFAULTS], className: [] }
     if (!ts.isObjectLiteralExpression(arg)) throw new Unreadable('inputClasses() options that are not an object literal')
     const values: { [K in keyof Options]: Options[K][] } = {
-      invalid: [false], leadingIcon: [false], trailingIcon: [false], select: [false], density: ['comfortable'], autoWidth: [false], shell: [false],
+      invalid: [false], tone: ['default'], leadingIcon: [false], trailingIcon: [false], select: [false], density: ['comfortable'], autoWidth: [false], shell: [false],
     }
     let className: string[] = []
     for (const p of arg.properties) {
@@ -289,6 +278,8 @@ function scanSource(file: string, text: string): Scan {
         values[k] = v.kind === ts.SyntaxKind.TrueKeyword ? [true] : v.kind === ts.SyntaxKind.FalseKeyword ? [false] : [false, true]
       } else if (key === 'density') {
         values.density = ts.isStringLiteral(v) && (DENSITIES as string[]).includes(v.text) ? [v.text as FieldDensity] : DENSITIES
+      } else if (key === 'tone') {
+        values.tone = ts.isStringLiteral(v) && (FIELD_TONES as string[]).includes(v.text) ? [v.text as Options['tone']] : FIELD_TONES
       } else throw new Unreadable(`an option inputClasses() does not take: ${key}`)
     }
     let combos: Options[] = [{ ...DEFAULTS }]
@@ -695,7 +686,7 @@ describe('a raw field takes inputClasses() options, never a competing class on t
     expect(
       unpinned,
       'A class on top of inputClasses() that sets what the field sets resolves by stylesheet order, not class ' +
-        'order (cx and clsx do no tailwind-merge). Use an option (select, autoWidth, density, leadingIcon, trailingIcon, invalid, shell) ' +
+        'order (cx and clsx do no tailwind-merge). Use an option (select, autoWidth, density, leadingIcon, trailingIcon, invalid, tone, shell) ' +
         'or add one to components/ui/Input.tsx with explicit sides.',
     ).toEqual([])
     expect(stale, 'pins that no longer match a finding: remove them').toEqual([])
@@ -777,7 +768,13 @@ export const C = ({ on }: { on: boolean }) => (
 
   it('fails a state colour with no dark twin, and passes one that has it', async () => {
     expect(await findingsOf(`${IMPORTS}export const X = () => <input className={inputClasses({ className: 'focus:border-error-light focus:shadow-ring-error' })} />`)).toEqual(
-      PINS['app/dashboard/settings/page.tsx'].findings,
+      [
+        'focus:border-error-light vs dark:border-border-dark [border-color] (no dark twin)',
+        'focus:border-error-light vs dark:focus:border-brand-dark [border-color] (no dark twin)',
+        'focus:border-error-light vs focus:border-brand [border-color] (same chain)',
+        'focus:shadow-ring-error vs dark:focus:shadow-ring-brand-dark [--tw-shadow] (no dark twin)',
+        'focus:shadow-ring-error vs focus:shadow-ring-brand [--tw-shadow] (same chain)',
+      ],
     )
     // A focus-within layer on a shell (the chat composer's before `shell`) in light alone: each class wants its dark twin.
     const lightOnly = `import { cx, inputClasses } from '@/components/ui'
@@ -990,7 +987,7 @@ export const S = () => <div className={cx(inputClasses({ className: 'flex items-
 /** Every combination of the options, built from the gate's own lists so a new flag joins it unasked. */
 const ALL: Options[] = BOOLEAN_OPTIONS.reduce<Options[]>(
   (combos, k) => combos.flatMap((c) => [{ ...c, [k]: false }, { ...c, [k]: true }]),
-  DENSITIES.map((density) => ({ ...DEFAULTS, density })),
+  DENSITIES.flatMap((density) => FIELD_TONES.map((tone) => ({ ...DEFAULTS, density, tone }))),
 )
 
 // ------------------------------------------------------------------------------------------------- width
@@ -1113,13 +1110,14 @@ describe("the field's tone is one class per state", SLOW, () => {
     return [...container.querySelectorAll('input, textarea, select')].map((el) => ({
       name: el.getAttribute('aria-label')!,
       invalid: el.getAttribute('aria-invalid') === 'true',
+      tone: 'default' as const,
       shell: false,
       classes: [...el.classList],
     }))
   }
   /** Every field the module draws: each combination of inputClasses() options, then the components. */
   const fields = () => [
-    ...ALL.map((o) => ({ name: JSON.stringify(o), invalid: o.invalid, shell: o.shell, classes: inputClasses(o as InputClassesOptions).split(' ') })),
+    ...ALL.map((o) => ({ name: JSON.stringify(o), invalid: o.invalid, tone: o.tone, shell: o.shell, classes: inputClasses(o as InputClassesOptions).split(' ') })),
     ...componentFields(),
   ]
 
@@ -1172,6 +1170,19 @@ describe("the field's tone is one class per state", SLOW, () => {
       },
       ring: { focus: 'focus:shadow-ring-brand', 'dark:focus': 'dark:focus:shadow-ring-brand-dark' },
     },
+    danger: {
+      border: {
+        '': 'border-border-light',
+        hover: 'hover:border-flat-light',
+        focus: 'focus:border-error-light',
+        'disabled:hover': 'disabled:hover:border-border-light',
+        dark: 'dark:border-border-dark',
+        'dark:hover': 'dark:hover:border-flat-dark',
+        'dark:focus': 'dark:focus:border-error-dark',
+        'dark:disabled:hover': 'dark:disabled:hover:border-border-dark',
+      },
+      ring: { focus: 'focus:shadow-ring-error', 'dark:focus': 'dark:focus:shadow-ring-error-dark' },
+    },
     error: {
       border: {
         '': 'border-error-light',
@@ -1179,8 +1190,7 @@ describe("the field's tone is one class per state", SLOW, () => {
         dark: 'dark:border-error-dark',
         'dark:focus': 'dark:focus:border-error-dark',
       },
-      // The dark ring is the light token until a dark ring-error exists (the focus-ring item #1178 recorded).
-      ring: { focus: 'focus:shadow-ring-error', 'dark:focus': 'dark:focus:shadow-ring-error' },
+      ring: { focus: 'focus:shadow-ring-error', 'dark:focus': 'dark:focus:shadow-ring-error-dark' },
     },
   }
   const SHELL_TONES = {
@@ -1197,6 +1207,19 @@ describe("the field's tone is one class per state", SLOW, () => {
       },
       ring: { 'focus-within': 'focus-within:shadow-ring-brand', 'dark:focus-within': 'dark:focus-within:shadow-ring-brand-dark' },
     },
+    danger: {
+      border: {
+        '': 'border-border-light',
+        hover: 'hover:border-flat-light',
+        'focus-within': 'focus-within:border-error-light',
+        'focus-within:hover': 'hover:focus-within:border-error-light',
+        dark: 'dark:border-border-dark',
+        'dark:hover': 'dark:hover:border-flat-dark',
+        'dark:focus-within': 'dark:focus-within:border-error-dark',
+        'dark:focus-within:hover': 'dark:hover:focus-within:border-error-dark',
+      },
+      ring: { 'focus-within': 'focus-within:shadow-ring-error', 'dark:focus-within': 'dark:focus-within:shadow-ring-error-dark' },
+    },
     error: {
       border: {
         '': 'border-error-light',
@@ -1204,7 +1227,7 @@ describe("the field's tone is one class per state", SLOW, () => {
         dark: 'dark:border-error-dark',
         'dark:focus-within': 'dark:focus-within:border-error-dark',
       },
-      ring: { 'focus-within': 'focus-within:shadow-ring-error', 'dark:focus-within': 'dark:focus-within:shadow-ring-error' },
+      ring: { 'focus-within': 'focus-within:shadow-ring-error', 'dark:focus-within': 'dark:focus-within:shadow-ring-error-dark' },
     },
   }
   /** The classes that set `prop` on the field itself, keyed by their variant chain (sorted, `:`-joined). */
@@ -1285,7 +1308,7 @@ describe("the field's tone is one class per state", SLOW, () => {
     return order
   }
 
-  it('the default tone leaves only focus-over-hover to variant order, and Tailwind emits focus after hover; no other tone leaves any', async () => {
+  it('neutral resting tones leave only focus-over-hover to variant order, and Tailwind emits focus after hover; invalid fields and shells leave none', async () => {
     const all = fields()
     await loadDeclarations(all.flatMap((f) => f.classes).map((t) => parseClass(t).utility))
     const FOCUS_OVER_HOVER = [
@@ -1295,21 +1318,24 @@ describe("the field's tone is one class per state", SLOW, () => {
       'focus:border-brand vs hover:border-flat-light (focus+hover)',
     ]
     for (const f of all) {
-      expect(orderDecided(f.classes), f.name).toEqual(!f.shell && !f.invalid ? FOCUS_OVER_HOVER : [])
+      const focusOverHover = f.tone === 'danger'
+        ? FOCUS_OVER_HOVER.map((pair) => pair.replaceAll('border-brand-dark', 'border-error-dark').replaceAll('border-brand', 'border-error-light')).sort()
+        : FOCUS_OVER_HOVER
+      expect(orderDecided(f.classes), f.name).toEqual(!f.shell && !f.invalid ? focusOverHover : [])
     }
-    const order = await ruleOrder(['hover:border-flat-light', 'focus:border-brand', 'dark:hover:border-flat-dark', 'dark:focus:border-brand-dark'])
-    expect(order.get('focus:border-brand')!).toBeGreaterThan(order.get('hover:border-flat-light')!)
-    expect(order.get('dark:focus:border-brand-dark')!).toBeGreaterThan(order.get('dark:hover:border-flat-dark')!)
+    const order = await ruleOrder(['hover:border-flat-light', 'focus:border-brand', 'focus:border-error-light', 'dark:hover:border-flat-dark', 'dark:focus:border-brand-dark', 'dark:focus:border-error-dark'])
+    for (const ink of ['brand', 'error-light']) expect(order.get(`focus:border-${ink}`)!).toBeGreaterThan(order.get('hover:border-flat-light')!)
+    for (const ink of ['brand-dark', 'error-dark']) expect(order.get(`dark:focus:border-${ink}`)!).toBeGreaterThan(order.get('dark:hover:border-flat-dark')!)
   })
 
-  it('`invalid` and the components’ `error` pick the error tone, and every other field the default one, by state', async () => {
+  it('danger changes focus only, while invalid and component errors take precedence with an error border in every state', async () => {
     const all = fields()
     await loadDeclarations(all.flatMap((f) => f.classes).map((t) => parseClass(t).utility))
     for (const f of all) {
       expect(
         { border: setters(f.classes, 'border-top-color'), ring: setters(f.classes, '--tw-shadow') },
         f.name,
-      ).toEqual((f.shell ? SHELL_TONES : TONES)[f.invalid ? 'error' : 'default'])
+      ).toEqual((f.shell ? SHELL_TONES : TONES)[f.invalid ? 'error' : f.tone])
     }
   })
 })

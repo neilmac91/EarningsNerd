@@ -145,7 +145,7 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Share invite via WhatsApp"
-              className={externalLinkClasses}
+              className={`focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${externalLinkClasses}`}
             >
               <WhatsappLogoIcon className="h-3.5 w-3.5" />
               WhatsApp
@@ -153,7 +153,7 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
             <a
               href={deepLinks.sms}
               aria-label="Share invite via Messages"
-              className={externalLinkClasses}
+              className={`focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${externalLinkClasses}`}
             >
               <ChatTextIcon className="h-3.5 w-3.5" />
               Messages
@@ -161,7 +161,7 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
             <a
               href={deepLinks.mailto}
               aria-label="Share invite via email"
-              className={externalLinkClasses}
+              className={`focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${externalLinkClasses}`}
             >
               <EnvelopeSimpleIcon className="h-3.5 w-3.5" />
               Email
@@ -170,7 +170,7 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
               type="button"
               onClick={handleCopyMessage}
               aria-label="Copy invite message and link for a DM or LinkedIn"
-              className={externalLinkClasses}
+              className={`focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${externalLinkClasses}`}
             >
               <LinkedinLogoIcon className="h-3.5 w-3.5" />
               Copy for DM/LinkedIn
@@ -179,7 +179,7 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
               type="button"
               onClick={handleCopyMessage}
               aria-label="Copy invite message and link"
-              className={externalLinkClasses}
+              className={`focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${externalLinkClasses}`}
             >
               <CopyIcon className="h-3.5 w-3.5" />
               Copy message

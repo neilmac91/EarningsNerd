@@ -15,7 +15,7 @@
      - ghost:       brand.strong text on transparent, same tint hover.
      - destructive: error fill + white label; hover error.emphasis.
    Focus-visible = shadow-ring-brand (light) / shadow-ring-brand-dark (navy);
-   destructive uses shadow-ring-error.
+   destructive uses shadow-ring-error / shadow-ring-error-dark.
    States: default / hover / active / focus-visible / disabled / loading.
    Loading is NOT the disabled look — it keeps the resting fill, shows a
    spinner, sets aria-busy, and refuses activation until the work settles.
@@ -69,18 +69,18 @@ const VARIANT: Record<Exclude<ButtonVariant, 'tertiary'>, string> = {
     'hover:bg-brand-weak',
     'active:bg-brand-border/60',
     'focus-visible:shadow-ring-brand',
-    'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent',
+    'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:active:bg-transparent',
     'dark:border-brand-border-dark dark:text-brand-strong-dark dark:hover:bg-brand-weak-dark dark:active:bg-brand-border-dark',
-    'dark:focus-visible:shadow-ring-brand-dark',
+    'dark:focus-visible:shadow-ring-brand-dark dark:disabled:hover:bg-transparent dark:disabled:active:bg-transparent',
   ),
   ghost: cx(
     'bg-transparent text-brand-strong',
     'hover:bg-brand-weak',
     'active:bg-brand-border/60',
     'focus-visible:shadow-ring-brand',
-    'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent',
+    'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:active:bg-transparent',
     'dark:text-brand-strong-dark dark:hover:bg-brand-weak-dark dark:active:bg-brand-border-dark',
-    'dark:focus-visible:shadow-ring-brand-dark',
+    'dark:focus-visible:shadow-ring-brand-dark dark:disabled:hover:bg-transparent dark:disabled:active:bg-transparent',
   ),
   destructive: cx(
     'bg-error-light text-white shadow-e1',
@@ -88,7 +88,7 @@ const VARIANT: Record<Exclude<ButtonVariant, 'tertiary'>, string> = {
     'active:bg-error-emphasis active:shadow-none',
     'focus-visible:shadow-ring-error',
     'disabled:cursor-not-allowed disabled:bg-error-light/40 disabled:shadow-none',
-    'dark:hover:bg-error-emphasis',
+    'dark:hover:bg-error-emphasis dark:disabled:bg-error-light/40 dark:focus-visible:shadow-ring-error-dark',
   ),
 }
 
@@ -136,7 +136,7 @@ export const primaryUnavailableClass = cx(
     unavailable but must keep keyboard focus: aria-disabled plus the caller's own guard, never native
     `disabled`. Apply it only while the button is unavailable, never while `loading`. It fades the
     label and the hairline, not the element: the native `opacity-50` would fade the focus ring with
-    them, from 1.97:1 to 1.39:1 on panel in light and from 2.85:1 to 1.66:1 in dark. Dark's hairline is
+    them below the 3:1 focus floor held by tests/unit/siteChromeFocusRing.spec.ts. Dark's hairline is
     brand-weak-dark (0.14), exactly half of brand-border-dark (0.28): `/50` on that rgba token would
     REPLACE its alpha with 0.5, not halve it. Dark repeats the transparent fill because dark:hover: and
     dark:active: out-specify a bare aria-disabled:. lessons/frontend-busy-controls-stay-focusable.md (e) */

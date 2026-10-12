@@ -937,15 +937,19 @@ verification. Implementation and its measurement gates remain separate from this
 5. Whether the table window should also drive the charts. Recommended: no.
 
 **Amended and added by the comprehensive review (2026-10-10, evening).** Each is implemented in the
-prototype as recommended; the founder may overrule any of them. On `main` at `dd7b9ce` (2026-10-11):
-decision 6 was shipped (#1202) and is now ratified by the 2026-10-11 sweep;
-the amended 4, 7, 8 and 9 had not shipped at that dated revision. That is a historical baseline,
-not the current implementation-branch status. On the #1273 branch (2026-10-12), decision 4
-(amended) is implemented: the KPI cards remain two-up at ordinary phone text and become one-up
-below 17 em of their own text size. This stack also implements decision 9’s “Unavailable”
-presentation and neutral all-clear wording, and retains decision 6’s ratified glyph-budget
-rounding with full-precision evidence one click away. Decisions 7 and 8 remain separate chart
-and period-selector work. These branch changes are not yet merged or deployed.
+prototype as recommended; the founder may overrule any of them. Historical release checkpoint:
+on `main` at `dd7b9ce` (2026-10-11), decision 6 was merged in #1202 and was ratified by the
+2026-10-11 sweep; amended 4 and decisions 7, 8 and 9 still awaited implementation. That dated
+checkpoint does not describe later implementation branches. Branch updates below record code
+available for review, separately from a verified merge and deployment.
+
+**Branch implementation (2026-10-12).** Decision 9 is implemented on this branch in #1264: evidence dialogs say "Unavailable" and
+clean reports say "No figures need review", independently of comparison concerns. Merge and
+deployment verification remain pending.
+
+**Branch implementation (2026-10-12).** Decision 4 (amended) is implemented on this branch in #1273:
+the KPI cards remain two-up at ordinary phone text and become one-up below 17 em of their own
+text size. Merge and deployment verification for this geometry change remain pending.
 
 4 (amended). Decision 4 was measured at 100% text only. At 200% text a 390 px phone shows 55 px of
    card overflow two-up and 90 px at 320. Recommended and implemented: two-up stays at 320 px and 100%

@@ -88,7 +88,7 @@ function NarrativeEvidence({ operands, citations, notes, preciseAmounts }: { ope
   if (figures.length <= 3) return <ul role="list" className="my-3 list-none !pl-0 text-sm" aria-label="Figures behind this finding">
     {figures.map((figure, index) => <li key={index} className="!m-0 inline">
       {figure.label} <span className="tnum">{figure.display}</span>, {formatAnalysisPeriod(figure.period)}{figure.derived && <DataNoteMark calculated announce />}{' '}
-      <NarrativeCitationChip citation={figure.source} notes={notes} />{index < figures.length - 1 ? '; ' : '.'}
+      <NarrativeCitationChip citation={figure.source} notes={notes} /><span aria-hidden="true">{index < figures.length - 1 ? '; ' : '.'}</span>
     </li>)}
   </ul>
   const noteKeys = new Set(figures.map((figure) => notes.noteForQuality(figure.source)?.key))
