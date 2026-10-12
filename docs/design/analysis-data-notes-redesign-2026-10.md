@@ -947,6 +947,10 @@ available for review, separately from a verified merge and deployment.
 clean reports say "No figures need review", independently of comparison concerns. Merge and
 deployment verification remain pending.
 
+**Branch implementation (2026-10-12).** Decision 4 (amended) is implemented on this branch in #1273:
+the KPI cards remain two-up at ordinary phone text and become one-up below 17 em of their own
+text size. Merge and deployment verification for this geometry change remain pending.
+
 4 (amended). Decision 4 was measured at 100% text only. At 200% text a 390 px phone shows 55 px of
    card overflow two-up and 90 px at 320. Recommended and implemented: two-up stays at 320 px and 100%
    text; the cards go one-up when the page is narrower than 17 em of its own text size (§4.4).

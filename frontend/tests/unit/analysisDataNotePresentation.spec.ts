@@ -76,8 +76,8 @@ function classViolations(file: ts.SourceFile, compact: boolean): string[] {
     if (!(ts.isStringLiteralLike(node) || ts.isTemplateHead(node) ||
       ts.isTemplateMiddle(node) || ts.isTemplateTail(node))) return
     for (const token of node.text.split(/\s+/)) {
-      if (compact && /(?:^|:)!?whitespace-nowrap!?$/.test(token)) {
-        found.push(`${location(file, node)}: ${token} prevents a figure's data notes from wrapping`)
+      if (compact && /(?:^|:)!?(?:whitespace-nowrap|text-nowrap|truncate|text-ellipsis|line-clamp-(?!none)[^:]+)!?$/.test(token)) {
+        found.push(`${location(file, node)}: ${token} prevents analysis content from reflowing in full`)
       }
       const pixels = /(?:^|:)!?text-\[([+-]?(?:\d+(?:\.\d*)?|\.\d+))px\](?:\/[^\s!]+)?!?$/.exec(token)
       if (pixels && Number(pixels[1]) < 11) {
@@ -163,7 +163,7 @@ const files = [...new Set(execFileSync('git', ['ls-files', '--cached', '--others
 const sources = files.map((file) => parse(readFileSync(resolve(ROOT, file), 'utf8'), file))
 
 describe('analysis data-note presentation gate', () => {
-  it('keeps Badge and nowrap tokens out of KPI and metrics-table source', () => {
+  it('keeps Badge, nowrap and truncation tokens out of KPI and metrics-table source', () => {
     const offenders = COMPACT_SURFACES.flatMap((file) => {
       const source = parse(readFileSync(resolve(ROOT, file), 'utf8'), file)
       return [...badgeViolations(source), ...classViolations(source, true)]
@@ -212,8 +212,9 @@ describe('analysis data-note presentation gate', () => {
       'const a = <span className="whitespace-nowrap text-[10px]" />',
       'const b = `md:whitespace-nowrap ${tone} text-[10.5px] ${extra} dark:text-[9px]`',
       'const c = cx({ "hover:!whitespace-nowrap": active }, "text-[.5px]/4")',
+      'const d = `lg:text-nowrap ${tone} md:!truncate ${extra} text-ellipsis line-clamp-2`',
     ].join('\n'))
-    expect(classViolations(source, true)).toHaveLength(7)
+    expect(classViolations(source, true)).toHaveLength(11)
     expect(classViolations(source, false)).toHaveLength(4)
     expect(classViolations(parse([
       '// whitespace-nowrap text-[8px]',

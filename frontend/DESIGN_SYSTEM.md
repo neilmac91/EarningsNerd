@@ -181,6 +181,11 @@ Secondary button <Button variant="secondary">  — brand hairline on transparent
                  (never hover:opacity — it darkens). Native disabled secondary/ghost controls keep their
                  transparent fill under hover and active in both themes; loading keeps the resting look.
 
+Wrapping button  <Button wrap> (or buttonVariants({ wrap: true })) lets a text label wrap and replaces
+                 its fixed height with min-h-8 / min-h-10 / min-h-12 plus size-owned vertical padding.
+                 Constrain width at the call site; never override its height or whitespace.
+                 Default buttons keep their fixed height; icon-sm stays a 32px square.
+
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
 
@@ -261,7 +266,9 @@ Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated orig
                  line-height, and does not size its row. Warning ink belongs only to unresolved review
                  concerns; unavailable values and missing validation use secondary ink. The mark is
                  aria-hidden inside the figure's source button; its accessible name states the note
-                 and any inherited comparison note. Letters are snapshot-local, review notes first.
+                 and any inherited comparison note once; a shared figure/comparison note is named
+                 once with its scope. The separate visual change mark does not repeat the spoken
+                 note. Letters are snapshot-local, review notes first.
                  Data notes counts distinguish values, QoQ, YoY and annual window comparisons;
                  a missing validation record is never counted as a passed check. Preserve every
                  reason, including comparison-only concerns. Full-width status Badges and nowrap
@@ -274,18 +281,47 @@ Data table hover <DataTable> — ordinary rows use hover:bg-white dark:hover:bg-
                  group-hover:bg-white; dark hover retains dark:group-hover:bg-panel-dark. The
                  ordinary row tint must not replace that opaque fill and reveal scrolled values.
 
-Analysis table   <MetricsTable> — equal rem period columns with a semantic sticky row-header column.
-                 The named scroll region supports Left/Right by one measured column, Home/End,
-                 and mandatory snapping. Inline-end padding makes the entire scroll range a whole
-                 number of columns; resize and enlarged text recompute the actual rendered widths.
-                 Focused figure controls are scrolled clear of the sticky labels. Phones start at
-                 the newest period, with a visible scrolling hint when columns are off-screen.
+Analysis table   <MetricsTable> — equal rem period columns with semantic row headers. The label
+                 column sticks only when the scrollport can also show one whole period; otherwise
+                 it scrolls with the table and has its own snap stop. The MetricsTable Card is its
+                 query container; the label width is capped to that content width, keeping labels
+                 readable at Home without an oversized free-panning snap area. The scroll region
+                 itself is not the container: its trailing snap padding must not shrink the cap.
+                 useOverflowRegion(ref, { label, describedBy, enabled }) owns measurement and the
+                 optional region props: role, Tab stop, name and description exist only while content
+                 exceeds the box by more than one CSS pixel. It observes the box and first child,
+                 rebinds replaced children and measures window resizes without ResizeObserver. Start
+                 disabled while the box is not rendered. Hints and scroll behavior remain surface-owned.
+                 The named region supports Left/Right by one measured column,
+                 Home/End, PageUp/PageDown and mandatory snapping. Child controls retain their keys. Inline-end padding makes the entire scroll range a whole
+                 number of columns. A layout effect measures before paint; resize and enlarged text
+                 recompute rendered widths without accumulating padding or losing the prior column.
+                 Scroll events from native resize snapping wait for current measurements before
+                 updating the retained column.
+                 Focused figure controls are scrolled wholly into view using the active sticky inset.
+                 Phones below 640px start at
+                 the newest period. “← Earlier quarters” (or years) appears only on phones while
+                 earlier columns are off-screen; the hidden hint line retains its height at the
+                 start so native keyboard scrolling does not shift the page. Generic table hints
+                 keep their existing static behavior.
                  A table-only segmented window defaults to All, with Newest 6 and Earliest 6 when
                  more than six periods exist. Charts, KPI cards, data-note totals and full exports
-                 retain the complete selected dataset. A new report resets the table window.
-                 Headers show quarter/year on two lines. The change basis is stated once, while
-                 a fallback YoY comparison retains its explicit prefix. Only a period-derived Q4
+                 retain the complete selected dataset. A status region announces the visible count.
+                 Report context shares the table window with note locators; a new snapshot or report
+                 resets it to All, and standalone tables retain local selection. Illustrative demo
+                 and teaser tables use an explicit sample prop to suppress the window controls.
+                 Headers show quarter/year on two lines with the complete quarter/year accessible name.
+                 The annual final column names the full report range and CAGR; visible prose explains
+                 that percent-unit rows instead show the recorded window’s percentage-point change.
+                 The table's Notes chip lists only letters present in its visible cells, including
+                 unavailable values and annual window comparisons, in report note order.
+                 The change basis is stated once, while
+                 a fallback YoY label sits on its own line above the complete change and note.
+                 Data cells align at the top so missing values and mixed growth heights stay aligned. Only a period-derived Q4
                  receives a column dagger; ordinary arithmetic ratios do not create one.
+                 The legend explains n/m and the fiscal-quarter basis. A Q4 header dagger applies
+                 to flow figures calculated from annual totals less nine months, without labelling
+                 the column's balance-sheet figures as calculated.
                  Table-only formatting keeps complete amounts and affixes together: normal precision
                  first, then fewer decimals, compact scale or scientific notation for large tokens.
                  Signs and percent/ratio units remain. USD keeps its dollar symbol; other currency
@@ -307,6 +343,12 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  represented as recorded inputs or a scheduled repair. Original SEC links and
                  nested inputs remain accessible; raw tags sit in technical disclosures. Annual
                  growth fractions and percentage-point changes retain their distinct units.
+                 A noted comparison names the recorded input and period carrying its concern; if
+                 its input identity is absent, say so instead of inventing an operand or fiscal period.
+
+Analysis reflow  The page title and selected-company rows wrap. Narrative cards use p-4 sm:p-6;
+                 export/refresh Buttons use size="sm" wrap and max-w-full. The shared wrap state
+                 keeps min-h-8 and lets labels grow within the card without conflicting utilities.
 
 Analysis reading <NarrativePane> — compact monetary amounts and quarter labels in prose, without
                  changing link destinations, code or source excerpts. Preserve enough precision
@@ -325,6 +367,8 @@ Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly
                  there are no quarterly options. Table windows never alter this report selection.
 
 Analysis KPI     <KpiStrip> — a definition list, two cards across at phone widths and four from lg.
+                 An inline-size container query collapses it to one card below 17em of the
+                 component’s actual text size; 320px at ordinary text still has two cards.
                  Each Card groups a metric-only dt and two dd rows: the 24px data-face value/source
                  button, then the actual reporting period and delta. Cards span three subgrid rows,
                  so wrapped labels do not move neighbouring values. The period and delta wrap as
@@ -339,6 +383,13 @@ Data notes strip <DataNotes> — hairlines above and below a native details disc
                  independent of concerns on comparisons. Unknown validation,
                  unavailable and calculated counts remain separate. Expanded notes use two columns:
                  the letter, then its reason, affected metric/periods and distinct comparison counts.
+                 Per-basis locators count actual latest-available headline membership, the revenue
+                 or net-interest-income numeric YoY chart, and the table's QoQ-else-YoY fallback or
+                 annual window column. Headline and locator membership share one selection helper.
+                 A narrowed table window adds the number currently shown without changing distinct
+                 report totals or counting repeated appearances. Annual window comparisons retain
+                 their recorded range. Dataset-free citation supplements and illustrative sample notes
+                 make no report-surface claims.
                  Existing Sources & methods prose, source date and snapshot reference stay inside.
                  Note chips reveal and focus the same stable note ID. Citation-only supplemental
                  notes remain in the narrative and do not increase the report's figure counts.
