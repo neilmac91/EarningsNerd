@@ -55,33 +55,19 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # deleting a line (with or without its blank line) would not be. A cleanup PR prunes the zero rows
 # once no sibling branch is editing the table.
 ROUTER_ORM_CEILINGS: dict[str, int] = {
-    "app/routers/admin.py": 0,
-
     "app/routers/analysis.py": 10,
-
-    "app/routers/auth.py": 0,
-
-    "app/routers/companies.py": 0,
 
     "app/routers/contact.py": 5,
 
     "app/routers/feedback.py": 5,
 
-    "app/routers/filings.py": 0,
-
     "app/routers/internal.py": 18,
-
-    "app/routers/saved_summaries.py": 0,
 
     "app/routers/sitemap.py": 8,  # was 7; #1147 (29493b53) added the func.lower readiness filter
 
     "app/routers/subscriptions.py": 3,
 
     "app/routers/summaries.py": 31,
-
-    "app/routers/users.py": 0,
-
-    "app/routers/watchlist.py": 0,
 
     "app/routers/webhooks.py": 1,
 }
