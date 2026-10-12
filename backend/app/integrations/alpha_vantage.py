@@ -102,9 +102,15 @@ class AlphaVantageClient:
                 response.raise_for_status()
                 body = response.text
         except httpx.HTTPError as exc:
-            logger.warning("Alpha Vantage earnings calendar request failed: %s", exc)
+            # An HTTPStatusError's message quotes the request URL, whose query carries the key: keep its status only.
+            error = (
+                httpx.HTTPStatusError(f"HTTP {exc.response.status_code}", request=exc.request, response=exc.response)
+                if isinstance(exc, httpx.HTTPStatusError)
+                else exc
+            )
+            logger.warning("Alpha Vantage earnings calendar request failed: %s: %s", type(error).__name__, error)
             if raise_on_error:
-                raise
+                raise error from None
             return []
 
         # A non-CSV body (JSON "Information"/"Note") means throttling or a bad key — AV returns 200

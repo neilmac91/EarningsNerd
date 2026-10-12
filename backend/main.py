@@ -14,31 +14,50 @@ load_dotenv()
 
 from app.config import settings, APP_VERSION
 
+
+def _sentry_options() -> dict:
+    """sentry_sdk.init's options; the gate builds a capturing client from them (tests/unit/
+    test_never_echo_environment_values.py). The integrations are imported here, so a failure among them is caught
+    with init's own and never blocks startup."""
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+    from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber
+
+    return {
+        "dsn": settings.SENTRY_DSN,
+        "environment": settings.ENVIRONMENT,
+        # Release = deployed git SHA (CI sets SENTRY_RELEASE=$GITHUB_SHA on Cloud Run), so
+        # errors are attributable to an exact revision. None → Sentry's default detection.
+        "release": settings.SENTRY_RELEASE or None,
+        "traces_sample_rate": 0.1,  # 10% of transactions for performance monitoring
+        "profiles_sample_rate": 0.1,  # 10% of sampled transactions for profiling
+        "integrations": [FastApiIntegration(transaction_style="endpoint"), SqlalchemyIntegration()],
+        # Don't send PII
+        "send_default_pii": False,
+        # No frame's local variables: a secret copied into a local, every library frame holding the request (its
+        # ASGI scope, its headers) and the database driver's connect frames (the decoded password) would otherwise
+        # ride on each captured error, and so would a user's password in an auth request's frames. The exception and
+        # its chain, each frame's file, function, line and source lines, breadcrumbs, the request and tags stay.
+        "include_local_variables": False,
+        # The scrubber matches exact key names, and the SDK withholds only its own short list of headers: the
+        # internal-job header carries INTERNAL_JOB_TOKEN, an outbound request's query string (on breadcrumbs and
+        # spans) carries Alpha Vantage's key, and a password change's JSON body carries the user's passwords. Never
+        # pass `data_collection`: it drops this scrubber and brings frame variables back.
+        "event_scrubber": EventScrubber(
+            denylist=[*DEFAULT_DENYLIST, "x-internal-token", "http.query", "new_password", "current_password"]
+        ),
+    }
+
+
 # Initialize Sentry for error tracking (must be done before FastAPI app creation)
 try:
     import sentry_sdk
-    from sentry_sdk.integrations.fastapi import FastApiIntegration
-    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 except ImportError:
     print("Sentry SDK not available - install sentry-sdk for error tracking")
 else:
     if settings.SENTRY_DSN:
         try:
-            sentry_sdk.init(
-                dsn=settings.SENTRY_DSN,
-                environment=settings.ENVIRONMENT,
-                # Release = deployed git SHA (CI sets SENTRY_RELEASE=$GITHUB_SHA on Cloud Run), so
-                # errors are attributable to an exact revision. None → Sentry's default detection.
-                release=settings.SENTRY_RELEASE or None,
-                traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
-                profiles_sample_rate=0.1,  # 10% of sampled transactions for profiling
-                integrations=[
-                    FastApiIntegration(transaction_style="endpoint"),
-                    SqlalchemyIntegration(),
-                ],
-                # Don't send PII
-                send_default_pii=False,
-            )
+            sentry_sdk.init(**_sentry_options())
             print("✓ Sentry error tracking initialized")
         except Exception as e:
             # A malformed DSN or init failure must never block application startup

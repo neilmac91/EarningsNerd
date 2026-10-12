@@ -22,7 +22,8 @@ from app.services.resend_service import send_email, ResendError  # noqa: E402
 async def smoke_resend() -> None:
     print("Testing Resend Configuration...")
     print(f"RESEND_FROM_EMAIL: {settings.RESEND_FROM_EMAIL}")
-    print(f"RESEND_API_KEY: {'*' * 5 + settings.RESEND_API_KEY[-4:] if settings.RESEND_API_KEY else 'NOT SET'}")
+    # Presence and length only, never a character (lessons/ops-never-echo-environment-values.md).
+    print(f"RESEND_API_KEY: {f'set ({len(settings.RESEND_API_KEY)} characters)' if settings.RESEND_API_KEY else 'NOT SET'}")
     
     # Use the email from the DNS file as a likely target for testing
     test_email = "neil@earningsnerd.io"

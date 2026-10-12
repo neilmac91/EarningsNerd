@@ -71,29 +71,28 @@ def run_validation():
 
     database_url = get_database_url()
 
-    # Mask password in output
-    masked_url = database_url
-    if "@" in masked_url:
-        parts = masked_url.split("@")
-        if ":" in parts[0]:
-            user_pass = parts[0].split(":")
-            if len(user_pass) > 1:
-                masked_url = f"{user_pass[0]}:****@{'@'.join(parts[1:])}"
-
-    print(f"Database: {masked_url}")
-    print()
-
     try:
         from sqlalchemy import create_engine, text
+        from sqlalchemy.engine import make_url
         from sqlalchemy.orm import sessionmaker
         from sqlalchemy.exc import SQLAlchemyError, OperationalError, InterfaceError
     except ImportError:
         print("ERROR: SQLAlchemy not installed. Run: pip install sqlalchemy")
         sys.exit(1)
 
+    # SQLAlchemy renders the URL with its password masked. Its parse error can quote the password (a URL missing its
+    # `@host` puts it where the port goes, and the int() that parses the port quotes it), so only its type is printed.
+    try:
+        url = make_url(database_url)
+    except Exception as e:  # noqa: BLE001 — any parse failure
+        print(f"ERROR: DATABASE_URL could not be parsed ({type(e).__name__}; message withheld: it can quote the password)")
+        sys.exit(1)
+    print(f"Database: {url.render_as_string(hide_password=True)}")
+    print()
+
     # Create engine with production-like settings
     engine = create_engine(
-        database_url,
+        url,
         pool_pre_ping=True,
         pool_size=5,
         max_overflow=10,

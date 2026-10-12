@@ -2,6 +2,7 @@ import logging
 import os
 
 from sqlalchemy import create_engine, inspect as sa_inspect, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.config import settings
@@ -21,16 +22,30 @@ DB_CONNECT_TIMEOUT = int(os.getenv("DB_CONNECT_TIMEOUT", "10"))
 # hung request. Overridable per-process so the Cloud Run Jobs (serial, tiny pools) can tune it.
 DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "10"))
 
+
+def _database_url():
+    """settings.DATABASE_URL, parsed. The parser's message is withheld: a URL missing its `@host` puts the
+    password where the port goes, and the int() that reads the port quotes it into a startup traceback."""
+    try:
+        return make_url(settings.DATABASE_URL)
+    except Exception as exc:  # noqa: BLE001 — any parse failure
+        problem = type(exc).__name__
+    # Raised after the handler, so no traceback chains the parser's error.
+    raise RuntimeError(f"DATABASE_URL could not be parsed ({problem}; message withheld: it can quote the password)")
+
+
+_DATABASE_URL = _database_url()
+
 # SQLite requires check_same_thread=False for async operations
 if settings.DATABASE_URL.startswith("sqlite"):
     engine = create_engine(
-        settings.DATABASE_URL,
+        _DATABASE_URL,
         connect_args={"check_same_thread": False},
         pool_pre_ping=True,
     )
 else:
     engine = create_engine(
-        settings.DATABASE_URL,
+        _DATABASE_URL,
         pool_pre_ping=True,
         pool_size=DB_POOL_SIZE,
         max_overflow=DB_MAX_OVERFLOW,

@@ -1,37 +1,49 @@
-"""A settings secret never reaches an output through five gated paths (rule 12; CODE RED record 23, plan item 3;
+"""A settings secret never reaches an output (rule 12; CODE RED records 22 and 23; todo E16;
 lessons/ops-never-echo-environment-values.md).
 
 pydantic appends each failing field's input to its error message (`input_value=...`), and a missing
 required field's input is the whole environment-derived settings dict. Without
 `hide_input_in_errors`, a settings validation error printed environment values, secrets included,
 into whatever output carried it: a service's startup log, CI's public log, or an agent's own tool
-output (CODE RED records 22 and 23 each disclose one such echo). That is the first path. Review of
-the fix found four more, each gated here:
+output (CODE RED records 22 and 23 each disclose one such echo). Two reviews found the other routes,
+each gated here:
 
 - the setting covers the error's rendered text only (`str`, `repr`, so a traceback or a log line);
   its structured form, `errors()` and `json()`, still returns each input unless called with
   `include_input=False`, so every `except` block that calls them must pass it;
-- a settings object's repr carried every value, and Sentry's default local-variable capture
-  serializes the repr of every frame local, so a captured error would have sent every secret;
-- a validator's own message can quote a value, which no pydantic setting hides;
-- `scripts/deploy_check.py` printed the first 30 characters of every value it checked, and its two
-  database checks printed an error message that can quote the database password.
+- a settings object's repr carried every value;
+- a raise or assert message in app/config.py can quote a value (the message walk), and an error a library
+  raises inside a validator (a URL or port parse) prints whole: every field is fed values shaped to break
+  such a parse;
+- `scripts/deploy_check.py`, `scripts/smoke_resend.py` and `scripts/validate_db_performance.py` printed
+  characters of the secrets they handled, and a database or Redis URL parser's message can quote the password
+  (`app/database.py` at import, the Redis pool);
+- an Alpha Vantage HTTP error's message, and httpx's request log in the calendar job, quote its keyed URL;
+- Sentry serialized every captured frame's local variables (a secret copied into a local, every library frame
+  holding a request, the database driver's connect arguments), the `X-Internal-Token` header and each outbound
+  request's query string, and the exact-name scrubber left `new_password` and `current_password` in a request
+  body; the compare_digest checks raised on a non-ASCII value, a 500 whose frame held the secret;
+- and, for every route at once, no print, log, warn or write call and no raise or assert message in the
+  backend reads a secret directly.
 
-Not covered: the echoes the lesson lists as ungated, such as a secret copied out of the settings object
-into another local or a request header, which still reaches Sentry's capture.
+Not covered: the echoes the lesson lists as ungated.
 """
 
 import ast
+import asyncio
 import importlib
 import json
+import logging
 import os
 import random
 import string
 import sys
+import traceback
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
-from pydantic import ValidationError
+from pydantic import ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.config import MIN_SECRET_KEY_LENGTH, Settings
@@ -102,6 +114,44 @@ def test_a_settings_object_prints_no_value():
     assert serialize({"vars": {"settings": settings}})["vars"]["settings"] == "Settings()"
 
 
+class _Parsing(Settings):
+    """The control for the per-field test: a validator whose library call quotes its input, as a URL's port parse
+    does, so the malformed values are shown to reach such a call and its message is shown to print whole."""
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def _port(cls, v):
+        urlsplit(v).port
+        return v
+
+
+# Shaped to break what a validator would parse: the value alone, a URL whose missing `@host` puts the password where
+# the port goes, a URL whose every part is the value, and a host:port pair.
+_MALFORMED = ("{s}", "postgresql://app:{s}/db", "https://{s}@{s}:{s}/", "{s}:{s}")
+
+
+def _construction_error(model: type[Settings], **values: str) -> str:
+    """The full traceback text, chained exceptions included, of building the model from these values; empty if none."""
+    try:
+        model(_env_file=None, **{"SECRET_KEY": _fabricated("SECRET_KEY"), **values})
+    except Exception as exc:  # a ValidationError, or a ValueError raised by __init__
+        return "".join(traceback.format_exception(exc))
+    return ""
+
+
+def test_a_validators_library_message_prints_whole():
+    # hide_input_in_errors hides the input pydantic appends, not the message of an error raised inside a validator.
+    assert SHORT_SENTINEL in _construction_error(_Parsing, DATABASE_URL=_MALFORMED[1].format(s=SHORT_SENTINEL))
+
+
+@pytest.mark.parametrize("field", sorted(set(Settings.model_fields) - {"REGISTRATION_MODE"}))
+def test_no_field_error_quotes_a_malformed_value(field):
+    # REGISTRATION_MODE quotes its value by design (QUOTES_ITS_VALUE).
+    for shape in _MALFORMED:
+        text = _construction_error(Settings, **{field: shape.format(s=SHORT_SENTINEL)})
+        assert SHORT_SENTINEL not in text, f"An error for {field}={shape!r} quotes the value"
+
+
 def _hides_input(call: ast.Call) -> bool:
     return any(
         keyword.arg == "include_input" and isinstance(keyword.value, ast.Constant) and keyword.value.value is False
@@ -143,14 +193,26 @@ def _scanned_files() -> list[Path]:
     ]
 
 
-def test_the_walk_reads_every_backend_file_outside_tests():
-    # A new directory of backend code joins the walk or fails here. Only tests/, a virtualenv and a hidden
-    # directory (a cache, a tool's state) are left out.
-    def kept(path: Path) -> bool:
-        top = path.relative_to(BACKEND_DIR).parts[0]
-        return top.endswith(".py") or (top not in {"tests", "venv"} and not top.startswith("."))
+def _kept(path: Path, root: Path = BACKEND_DIR) -> bool:
+    """Whether the walk must read a Python file: all but tests/, a hidden directory (a cache, a tool's state) and a
+    virtualenv, whatever its name (a directory holding a pyvenv.cfg)."""
+    top = path.relative_to(root).parts[0]
+    if top.endswith(".py"):
+        return True
+    return top not in {"tests", "venv"} and not top.startswith(".") and not (root / top / "pyvenv.cfg").is_file()
 
-    assert set(_scanned_files()) == {path for path in BACKEND_DIR.rglob("*.py") if kept(path)}
+
+def test_the_walk_reads_every_backend_file_outside_tests():
+    # A new directory of backend code joins the walk or fails here.
+    assert set(_scanned_files()) == {path for path in BACKEND_DIR.rglob("*.py") if _kept(path)}
+
+
+def test_the_walk_skips_a_virtualenv_by_its_marker(tmp_path):
+    for name in ("env/pyvenv.cfg", "env/lib/site.py", "newcode/module.py", "entry.py"):
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text("")
+    kept = {path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*.py") if _kept(path, tmp_path)}
+    assert kept == {"newcode/module.py", "entry.py"}
 
 
 def test_no_caught_exception_is_serialized_with_its_input():
@@ -215,6 +277,7 @@ def test_the_structured_form_gate_flags_input(source, expected):
 # The one sanctioned quotation: REGISTRATION_MODE holds no secret, and a typo there must be visible.
 QUOTES_ITS_VALUE = {("_normalize_registration_mode", "v")}
 _MUTATORS = {"append", "extend", "insert", "add", "update", "setdefault"}
+_CONTAINERS = (ast.List, ast.Dict, ast.Set, ast.ListComp, ast.DictComp, ast.SetComp)
 
 
 def _quoted(
@@ -223,10 +286,11 @@ def _quoted(
     """What a message expression reads beyond literals, `len(...)` and names bound only to such expressions.
 
     Default deny: a name counts through every expression bound to it (see `_quotations`), and a name with no
-    expression bound to it counts as read: a parameter such as `v` or `info`, a `with` target, an import
-    (`getenv(...)`, `os.environ`), a builtin (`locals()`). An attribute counts unless it belongs to a literal
-    (`", ".join`) or to a name that reads nothing. The only calls that read nothing of their own are calls of a
-    name that neither the scope nor the module binds and that is an exception class (a CapWords name) or `sorted`.
+    expression bound to it counts as read: a parameter such as `v` or `info`, a builtin (`locals()`), and every name
+    an import, a def, a class, `except ... as`, `with ... as` or a match capture binds, which reads itself
+    (`getenv(...)`, `os.environ`, `Settings()`). An attribute counts unless it belongs to a literal (`", ".join`) or
+    to a name that reads nothing. The only calls that read nothing of their own are calls of a builtin exception
+    class (a CapWords name neither the scope nor the module binds) and of `sorted`.
     """
 
     def read(child: ast.AST, more: frozenset[str] = frozenset()) -> set[str]:
@@ -252,13 +316,37 @@ def _quoted(
     return set().union(*(read(child) for child in ast.iter_child_nodes(node)))
 
 
+def _non_expression_bindings(node: ast.AST) -> list[str]:
+    """The names a node binds to something that is not an expression: a parameter, an import, a def, a class,
+    `except ... as`, `with ... as`, a match capture. A store into a parameter (`self.cache = 1`, `info.data[k] = 1`,
+    `v.append(1)`, `v += ''`) adds to what it holds and never replaces the caller's value."""
+    if isinstance(node, ast.arg):
+        return [node.arg]
+    if isinstance(node, (ast.Import, ast.ImportFrom)):
+        return [(alias.asname or alias.name).split(".")[0] for alias in node.names]
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return [node.name]
+    if isinstance(node, ast.withitem) and node.optional_vars is not None:
+        return [name.id for name in ast.walk(node.optional_vars) if isinstance(name, ast.Name)]
+    if isinstance(node, ast.MatchMapping):
+        return [node.rest] if node.rest else []
+    if isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)):
+        return [node.name] if node.name else []
+    return []
+
+
 def _assignments(nodes: list[ast.AST]) -> dict[str, list[ast.expr]]:
-    """Every expression the nodes bind or add to a name: tuple targets, loop variables, `:=` and mutator calls."""
+    """Every expression the nodes bind or add to a name: tuple targets, loop variables, `:=` and mutator calls. A
+    name bound to something that is not an expression (`_non_expression_bindings`), or to a list, dict or set, is
+    bound to itself too, so it reads itself wherever it is read, a call of it included: a container can be filled
+    through an alias, a helper it is handed to or a dunder call, none of which the walk follows."""
     assigned: dict[str, list[ast.expr]] = {}
 
     def bind(target: ast.AST, expr: ast.expr) -> None:
         for name in (node for node in ast.walk(target) if isinstance(node, ast.Name)):
             assigned.setdefault(name.id, []).append(expr)
+            if isinstance(expr, _CONTAINERS):  # an alias, a helper or a dunder call can fill it unseen
+                assigned[name.id].append(ast.Name(id=name.id, ctx=ast.Load()))
 
     for node in nodes:
         if isinstance(node, ast.Assign):
@@ -276,22 +364,19 @@ def _assignments(nodes: list[ast.AST]) -> dict[str, list[ast.expr]]:
         ):
             for arg in [*node.args, *(keyword.value for keyword in node.keywords)]:
                 bind(node.func.value, arg)
+        for name in _non_expression_bindings(node):
+            assigned.setdefault(name, []).append(ast.Name(id=name, ctx=ast.Load()))
     return assigned
 
 
 def _bound(nodes: list[ast.AST]) -> set[str]:
-    """Every name the nodes bind: a parameter, a store (an assignment, a loop, `with`, a comprehension, `:=`), an
-    `except ... as` or an import."""
+    """Every name the nodes bind: a store (an assignment, a loop, `with`, a comprehension, `:=`) and every
+    non-expression binding (`_non_expression_bindings`), a parameter included."""
     names = set()
     for node in nodes:
-        if isinstance(node, ast.arg):
-            names.add(node.arg)
-        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
             names.add(node.id)
-        elif isinstance(node, ast.ExceptHandler) and node.name:
-            names.add(node.name)
-        elif isinstance(node, (ast.Import, ast.ImportFrom)):
-            names.update((alias.asname or alias.name).split(".")[0] for alias in node.names)
+        names.update(_non_expression_bindings(node))
     return names
 
 
@@ -301,20 +386,39 @@ def _quotations(tree: ast.Module) -> set[tuple[str, str]]:
     A message inside a function is read in that function's scope; one anywhere else (the module's own statements,
     a class body) in `<module>`'s. A name counts through every expression its scope binds to it or, when the scope
     binds it in no way at all, through every expression the module binds to it: `MIN_SECRET_KEY_LENGTH = 32`
-    reads nothing, a module name bound to `os.environ[...]` reads the environment, and an uppercase parameter is a
-    value like any other. A raise's `from` cause counts as part of its message: a traceback prints the cause too.
+    reads nothing, a module name bound to `os.environ[...]` reads the environment, `settings = Settings()` reads
+    the class, and an uppercase parameter is a value like any other. A module name that a function stores into or
+    mutates without binding it (a `global` store, `NAME[key] = ...`, `NAME.append(...)`) holds whatever that
+    function put there, so it reads itself everywhere. A raise's `from` cause counts as part of its message: a
+    traceback prints the cause too. So does, for a raise without `from` in an `except` or `finally` block, the
+    exception being handled, which the new one chains implicitly: only `from None` drops it.
     """
     functions = [node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
-    in_a_function = {id(inner) for function in functions for inner in ast.walk(function)}
+    # A def belongs to the scope that holds it, so the module keeps its own defs' names but not their insides.
+    in_a_function = {id(inner) for function in functions for inner in ast.walk(function) if inner is not function}
     module = [node for node in ast.walk(tree) if id(node) not in in_a_function]
     module_assigned = _assignments(module)
+    for function in functions:
+        nodes = list(ast.walk(function))
+        declared = {name for node in nodes if isinstance(node, (ast.Global, ast.Nonlocal)) for name in node.names}
+        for name in set(_assignments(nodes)) - (_bound(nodes) - declared):
+            module_assigned.setdefault(name, []).append(ast.Name(id=name, ctx=ast.Load()))
     scopes = [(function.name, list(ast.walk(function))) for function in functions] + [("<module>", module)]
     found = set()
     for scope, nodes in scopes:
         own = _assignments(nodes)
         local = frozenset(_bound(nodes) | set(own))
         assigned = {**{name: exprs for name, exprs in module_assigned.items() if name not in local}, **own}
+        handling = {
+            id(inner)
+            for node in nodes
+            if isinstance(node, (ast.ExceptHandler, ast.Try, ast.TryStar))
+            for statement in (node.body if isinstance(node, ast.ExceptHandler) else node.finalbody)
+            for inner in ast.walk(statement)
+        }
         for node in nodes:
+            if isinstance(node, ast.Raise) and node.cause is None and id(node) in handling:
+                found.add((scope, "<the exception being handled>"))  # chained implicitly; a traceback prints it
             if isinstance(node, ast.Raise):
                 messages = [node.exc, node.cause]
             elif isinstance(node, ast.Assert):
@@ -372,7 +476,7 @@ _CLASS = "class Settings:\n"
         (
             _CLASS + "    def check(cls, v):\n        parts = []\n        parts.append(v)\n"
             "        raise ValueError(', '.join(parts))\n",
-            {("check", "v")},
+            {("check", "parts"), ("check", "v")},
         ),
         (
             _CLASS + "    def check(cls, v):\n        if (s := v.strip()):\n            raise ValueError(f'bad {s}')\n",
@@ -419,18 +523,21 @@ _CLASS = "class Settings:\n"
         ),
         (_CLASS + "    def check(cls, Wrap):\n        raise ValueError(Wrap())\n", {("check", "Wrap")}),
         (
-            _CLASS + "    def check(cls, v):\n        d = {}\n        d.update(key=v)\n        raise ValueError(f'{d}')\n",
-            {("check", "v")},
+            _CLASS
+            + "    def check(cls, v):\n        d = {}\n        d.update(key=v)\n        raise ValueError(f'{d}')\n",
+            {("check", "d"), ("check", "v")},
         ),
         (
             _CLASS + "    def check(cls, v):\n        d = {}\n        d.setdefault('key', v)\n"
             "        raise ValueError(f'{d}')\n",
-            {("check", "v")},
+            {("check", "d"), ("check", "v")},
         ),
         (_CLASS + "    def check(cls, v):\n        raise ValueError('bad') from ValueError(v)\n", {("check", "v")}),
         ("import os\nif os.environ:\n    raise RuntimeError(f'{os.environ}')\n", {("<module>", "os.environ")}),
         (
-            "import os\nKEY = os.environ['K']\n" + _CLASS + "    def check(cls, v):\n        raise ValueError(f'bad {KEY}')\n",
+            "import os\nKEY = os.environ['K']\n"
+            + _CLASS
+            + "    def check(cls, v):\n        raise ValueError(f'bad {KEY}')\n",
             {("check", "os.environ")},
         ),
         (
@@ -438,6 +545,89 @@ _CLASS = "class Settings:\n"
             "        raise ValueError(f'bad {Fetch(\"K\")}')\n",
             {("check", "os.environ.get")},
         ),
+        (
+            "_P = []\n" + _CLASS + "    def a(cls, v):\n        _P.append(v)\n"
+            "    def b(cls, w):\n        raise ValueError(', '.join(_P))\n",
+            {("b", "_P")},
+        ),
+        (
+            "_k = ''\n" + _CLASS + "    def a(self):\n        global _k\n        _k = self.SECRET_KEY\n"
+            "    def b(cls, w):\n        raise ValueError(_k)\n",
+            {("b", "_k")},
+        ),
+        (
+            "_s = {}\n" + _CLASS + "    def a(self):\n        _s['k'] = self.SECRET_KEY\n"
+            "    def b(cls, w):\n        raise ValueError(_s.get('k'))\n",
+            {("b", "_s.get")},
+        ),
+        (
+            _CLASS + "    pass\nsettings = Settings()\ndef f():\n    raise ValueError(settings.SECRET_KEY)\n",
+            {("f", "settings.SECRET_KEY")},
+        ),
+        (
+            _CLASS + "    pass\nsettings = Settings()\nassert settings, f'{settings.SECRET_KEY}'\n",
+            {("<module>", "settings.SECRET_KEY")},
+        ),
+        (
+            "from os import getenv as Env\n" + _CLASS + "    def check(cls, v):\n        raise ValueError(Env('K'))\n",
+            {("check", "Env")},
+        ),
+        (
+            "class ConfigError(ValueError):\n    pass\n" + _CLASS + "    def check(cls, v):\n"
+            "        raise ConfigError('must be set')\n",
+            {("check", "ConfigError")},
+        ),
+        (
+            "def Leak():\n    return 1\n" + _CLASS + "    def check(cls, v):\n        raise ValueError(f'{Leak()}')\n",
+            {("check", "Leak")},
+        ),
+        (
+            "try:\n    from dotenv import dotenv_values\nexcept ImportError:\n    dotenv_values = None\n"
+            + _CLASS
+            + "    def check(cls, v):\n        raise ValueError(dotenv_values('.env'))\n",
+            {("check", "dotenv_values")},
+        ),
+        (
+            "_SEEN = []\ndef _keep(bucket, value):\n    bucket.append(value)\n" + _CLASS + "    def a(self):\n"
+            "        _keep(_SEEN, self.SECRET_KEY)\n    def b(cls, w):\n        raise ValueError(f'{_SEEN}')\n",
+            {("b", "_SEEN")},
+        ),
+        (
+            "_P = []\n" + _CLASS + "    def a(self):\n        alias = _P\n        alias.append(self.SECRET_KEY)\n"
+            "    def b(cls, w):\n        raise ValueError(', '.join(_P))\n",
+            {("b", "_P")},
+        ),
+        (
+            "_D = {}\n" + _CLASS + "    def a(self):\n        _D.__setitem__('k', self.SECRET_KEY)\n"
+            "    def b(cls, w):\n        raise ValueError(f'{_D}')\n",
+            {("b", "_D")},
+        ),
+        (
+            _CLASS + "    def __init__(self):\n        try:\n            int(self.DATABASE_URL)\n"
+            "        except ValueError:\n            raise ValueError('DATABASE_URL is malformed')\n",
+            {("__init__", "<the exception being handled>")},
+        ),
+        (
+            _CLASS
+            + "    def check(cls, v):\n        try:\n            int(v)\n        except ValueError:\n            raise\n",
+            {("check", "<the exception being handled>")},
+        ),
+        (
+            _CLASS + "    def __init__(self):\n        try:\n            int(self.DATABASE_URL)\n"
+            "        except ValueError:\n            raise ValueError('DATABASE_URL is malformed') from None\n",
+            set(),
+        ),
+        (
+            _CLASS + "    def check(self):\n        self.cache = 1\n        raise ValueError(f'{self.SECRET_KEY}')\n",
+            {("check", "self.SECRET_KEY")},
+        ),
+        (
+            _CLASS + "    def check(cls, v, info):\n        info.data['seen'] = 1\n"
+            "        raise ValueError(f\"{info.data['SECRET_KEY']}\")\n",
+            {("check", "info.data")},
+        ),
+        (_CLASS + "    def check(cls, v):\n        v.append(1)\n        raise ValueError(f'{v}')\n", {("check", "v")}),
+        (_CLASS + "    def check(cls, v):\n        v += ''\n        raise ValueError(v)\n", {("check", "v")}),
         (_CLASS + "    def check(cls, v):\n        raise ValueError('must be set')\n", set()),
     ],
     ids=[
@@ -472,6 +662,25 @@ _CLASS = "class Settings:\n"
         "module-level",
         "module-value",
         "assigned-callee",
+        "cross-scope-append",
+        "global-rebind",
+        "cross-scope-store",
+        "singleton-field",
+        "singleton-field-module-assert",
+        "capwords-import-alias",
+        "module-exception-class",
+        "module-def-callee",
+        "import-with-fallback",
+        "helper-fills-module-list",
+        "aliased-module-list",
+        "dunder-setitem",
+        "implicit-chaining",
+        "bare-reraise",
+        "chaining-suppressed",
+        "parameter-attribute-store",
+        "parameter-subscript-store",
+        "parameter-mutation",
+        "parameter-augmented",
         "plain",
     ],
 )
@@ -479,14 +688,14 @@ def test_the_message_gate_flags_a_quoted_value(source, expected):
     assert _quotations(ast.parse(source)) == expected
 
 
-def _fabricated(name: str) -> str:
+def _fabricated(name: str, alphabet: str = string.ascii_letters + string.digits) -> str:
     """A fabricated 40-character secret, the same on every run: drawn at run time, so no literal here looks like one."""
-    return "".join(random.Random(name).choices(string.ascii_letters + string.digits, k=40))
+    return "".join(random.Random(name).choices(alphabet, k=40))
 
 
-def _fragments(secret: str, text: str) -> int:
-    """How many of the secret's 4-character windows the text holds: a prefix, a last four or the whole value."""
-    return sum(secret[i : i + 4] in text for i in range(len(secret) - 3))
+def _fragments(secret: str, text: str, width: int = 4) -> int:
+    """How many of the secret's `width`-character windows the text holds: a prefix, a last four or the whole value."""
+    return sum(secret[i : i + width] in text for i in range(len(secret) - width + 1))
 
 
 def _deploy_check(monkeypatch):
@@ -494,15 +703,32 @@ def _deploy_check(monkeypatch):
     return importlib.import_module("deploy_check")
 
 
-def test_the_deploy_check_prints_no_secret(monkeypatch, capsys):
-    # The environment and configuration checks print a secret's presence and length only. The model id and the
-    # provider base URL are identifiers, not secrets, and are printed by design.
+@pytest.mark.parametrize(
+    ("environment", "length", "stripe_modes", "branches"),
+    [
+        ("development", 40, ("sk_live_", "pk_live_"), ("✓ Set (", "LIVE key (sk_live_) outside production")),
+        ("development", 12, ("", ""), ("is set but invalid", "OPENAI_API_KEY appears too short (length: 15)")),
+        (
+            "production",
+            40,
+            ("sk_test_", "pk_live_"),
+            ("TEST key (sk_test_) but ENVIRONMENT=production", "different modes"),
+        ),
+    ],
+    ids=["long-keys", "short-keys", "production-test-key"],
+)
+def test_the_deploy_check_prints_no_secret(monkeypatch, capsys, environment, length, stripe_modes, branches):
+    # The environment and configuration checks print a secret's presence and length only, on every branch: a valid
+    # key, a key too short, and a key in the wrong mode. The model id and the provider base URL are identifiers, not
+    # secrets, and are printed by design.
     deploy_check = _deploy_check(monkeypatch)
-    names = ("OPENAI_API_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "SECRET_KEY", "DATABASE_URL")
-    secrets = {name: _fabricated(name) for name in names}
+    names = ("OPENAI_API_KEY", "STRIPE_SECRET_KEY", "STRIPE_PUBLISHABLE_KEY", "STRIPE_WEBHOOK_SECRET", "SECRET_KEY")
+    secrets = {name: _fabricated(name)[:length] for name in (*names, "DATABASE_URL")}
     values = {
+        "ENVIRONMENT": environment,
         "OPENAI_API_KEY": "sk-" + secrets["OPENAI_API_KEY"],
-        "STRIPE_SECRET_KEY": "sk_live_" + secrets["STRIPE_SECRET_KEY"],
+        "STRIPE_SECRET_KEY": stripe_modes[0] + secrets["STRIPE_SECRET_KEY"],
+        "STRIPE_PUBLISHABLE_KEY": stripe_modes[1] + secrets["STRIPE_PUBLISHABLE_KEY"],
         "STRIPE_WEBHOOK_SECRET": "whsec_" + secrets["STRIPE_WEBHOOK_SECRET"],
         "SECRET_KEY": secrets["SECRET_KEY"],
         "DATABASE_URL": f"postgresql://app:{secrets['DATABASE_URL']}@db/app",
@@ -512,8 +738,9 @@ def test_the_deploy_check_prints_no_secret(monkeypatch, capsys):
     deploy_check.check_environment_variables()
     deploy_check.check_configuration_validation()
     out = capsys.readouterr().out
-    assert "✓ Set (" in out  # the set-and-valid branch ran
     assert "Stripe Configuration" in out  # the configuration check ran
+    for branch in branches:
+        assert branch in out  # the branch under test ran
     leaked = sum(_fragments(secret, out) for secret in secrets.values())
     assert not leaked, f"{leaked} four-character fragments of a fabricated secret reached the output"
 
@@ -535,3 +762,430 @@ def test_the_deploy_check_database_checks_print_no_secret(monkeypatch, capsys):
     assert out.count("(message withheld: it can quote DATABASE_URL)") == 2  # both handlers caught the error
     leaked = _fragments(password, out)
     assert not leaked, f"{leaked} four-character fragments of the fabricated password reached the output"
+
+
+@pytest.fixture
+def sentry_envelopes():
+    # main.py's own options, with a fabricated DSN, a transport that keeps each envelope instead of sending it, every
+    # transaction sampled (a transaction carries the request too), no profiler thread and a fixed release (none would
+    # run `git rev-parse`). The integrations stay installed in this process and pass every call through once the
+    # client is removed.
+    import sentry_sdk
+    from sentry_sdk.transport import Transport
+
+    import main
+
+    class Keep(Transport):
+        def __init__(self):
+            super().__init__()
+            self.items = []
+
+        def capture_envelope(self, envelope):
+            self.items.extend((item.type, item.payload.json) for item in envelope.items if item.payload.json)
+
+    options = main._sentry_options()
+    assert options["include_local_variables"] is False and options["send_default_pii"] is False
+    # data_collection would drop the event scrubber and bring frame variables back whatever the two options above say
+    # (sentry_sdk/client.py, _get_options; sentry_sdk/utils.py, serialize_frame).
+    assert "data_collection" not in options and "data_collection" not in options.get("_experiments", {})
+    keep = Keep()
+    options.update(dsn="https://fabricated@sentry.invalid/1", transport=keep, release="gate")
+    options.update(traces_sample_rate=1.0, profiles_sample_rate=None)
+    sentry_sdk.init(**options)
+    try:
+        with sentry_sdk.isolation_scope():  # no breadcrumb or tag left by another test
+            yield keep.items
+    finally:
+        sentry_sdk.get_client().close()
+        sentry_sdk.get_global_scope().set_client(None)
+
+
+def _of(items: list, kind: str) -> list[dict]:
+    return [payload for item_type, payload in items if item_type == kind]
+
+
+def test_sentry_sends_no_internal_token(monkeypatch, sentry_envelopes):
+    # An /internal/ request holds the token in its X-Internal-Token header, which rides on its transaction and on every
+    # error captured in its scope, a background job's error logged after the 202 included; and a captured frame
+    # holds it in a plain local copied out of `settings` and in every library frame holding the request (its ASGI
+    # scope, its headers). Uppercase letters and 8-character windows: no window occurs by chance in a hex id or in a
+    # source line Sentry sends.
+    import sentry_sdk
+    from fastapi.testclient import TestClient
+
+    import main
+    from app.routers import internal
+
+    token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
+
+    async def failing_enqueue(job, arguments=None):
+        copied = internal.settings.INTERNAL_JOB_TOKEN  # noqa: F841 — a plain local holding the secret
+        raise RuntimeError("queue unavailable")
+
+    async def failing_scan(db):
+        raise RuntimeError("scan failed")
+
+    monkeypatch.setattr(internal.settings, "INTERNAL_JOB_TOKEN", token)
+    monkeypatch.setattr(internal, "enqueue_internal_job", failing_enqueue)
+    monkeypatch.setattr(internal.filing_scan_service, "run_filing_scan", failing_scan)
+    client = TestClient(main.app, raise_server_exceptions=False)
+    monkeypatch.setattr(internal.settings, "DURABLE_TASKS_ENABLED", True)  # the enqueue fails inside the request
+    assert client.post("/internal/jobs/filing-scan", headers={"X-Internal-Token": token}).status_code == 500
+    monkeypatch.setattr(internal.settings, "DURABLE_TASKS_ENABLED", False)  # the job fails after the response
+    assert client.post("/internal/jobs/filing-scan", headers={"X-Internal-Token": token}).status_code == 202
+    # A non-ASCII header (Starlette decodes headers as latin-1) is a wrong token, not a TypeError and a 500.
+    assert client.post("/internal/jobs/filing-scan", headers={"X-Internal-Token": b"\xe9"}).status_code == 401
+    sentry_sdk.flush()
+    events, transactions = _of(sentry_envelopes, "event"), _of(sentry_envelopes, "transaction")
+    assert any("queue unavailable" in json.dumps(event) for event in events)  # the 500 was sent, stack and all
+    assert any(event.get("logger") == "app.routers.internal" for event in events)  # so was the job's logged error
+    assert len(transactions) == 3
+    for payload in (*events, *transactions):
+        assert payload["request"]["headers"]["x-internal-token"] == "[Filtered]"  # attached, then withheld
+    sent = json.dumps(sentry_envelopes)
+    assert '"vars"' not in sent  # no frame's local variables
+    leaked = _fragments(token, sent, width=8)
+    assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry"
+
+
+def test_sentry_sends_no_password_from_a_request_body(sentry_envelopes):
+    # The FastAPI integration attaches a JSON request body to the request's error event and transaction, and the
+    # scrubber matches exact key names: `password` and `token` were withheld, a password reset's `new_password` and
+    # `current_password` were not.
+    import sentry_sdk
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    password = _fabricated("a user's new password", string.ascii_uppercase)
+    app = FastAPI()
+
+    @app.post("/reset")
+    async def reset(body: dict):
+        raise RuntimeError("database down")
+
+    body = {"new_password": password, "current_password": password, "password": password, "token": password}
+    assert TestClient(app, raise_server_exceptions=False).post("/reset", json=body).status_code == 500
+    sentry_sdk.flush()
+    (event,) = _of(sentry_envelopes, "event")
+    assert event["request"]["data"] == dict.fromkeys(body, "[Filtered]")  # the body was attached, then withheld
+    leaked = _fragments(password, json.dumps(sentry_envelopes), width=8)
+    assert not leaked, f"{leaked} eight-character fragments of the fabricated password reached Sentry"
+
+
+def _alpha_vantage(monkeypatch, status: int, body: str = "", alphabet: str = string.ascii_letters + string.digits):
+    """The real client, its key fabricated, its requests answered in-process with this status."""
+    import httpx
+
+    from app.integrations import alpha_vantage
+
+    key = _fabricated("ALPHA_VANTAGE_API_KEY", alphabet)
+    transport = httpx.MockTransport(lambda request: httpx.Response(status, text=body, request=request))
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: real_client(transport=transport, **kwargs))
+    return alpha_vantage.AlphaVantageClient(api_key=key), key
+
+
+def test_sentry_sends_no_outbound_query(monkeypatch, sentry_envelopes):
+    # Sentry's httpx integration records each outbound request's query string unsanitized, on its breadcrumb (sent
+    # with the next error) and on its span (sent with a sampled transaction), and Alpha Vantage's query carries the key.
+    import sentry_sdk
+
+    client, key = _alpha_vantage(monkeypatch, 200, "symbol,reportDate\n", string.ascii_uppercase)
+    with sentry_sdk.start_transaction(name="earnings-calendar-refresh"):
+        assert asyncio.run(client.fetch_earnings_calendar()) == []
+    sentry_sdk.capture_message("after an Alpha Vantage request")
+    sentry_sdk.flush()
+    (event,), (transaction,) = _of(sentry_envelopes, "event"), _of(sentry_envelopes, "transaction")
+    crumbs = [crumb for crumb in event["breadcrumbs"]["values"] if crumb.get("category") == "httplib"]
+    spans = [span for span in transaction["spans"] if span.get("op") == "http.client"]
+    assert crumbs and spans  # both carriers were sent
+    assert all(item["data"]["http.query"] == "[Filtered]" for item in (*crumbs, *spans))
+    leaked = _fragments(key, json.dumps(sentry_envelopes), width=8)
+    assert not leaked, f"{leaked} eight-character fragments of the fabricated key reached Sentry"
+
+
+def test_an_alpha_vantage_error_carries_no_key(monkeypatch, caplog):
+    # An HTTPStatusError's message quotes the request URL, whose query carries the key; the client logs it, and the
+    # daily refresh, which asks for the error raised, logs its traceback.
+    import httpx
+
+    client, key = _alpha_vantage(monkeypatch, 503)
+    caplog.set_level(logging.INFO, logger="app.integrations.alpha_vantage")
+    assert asyncio.run(client.fetch_earnings_calendar()) == []
+    with pytest.raises(httpx.HTTPStatusError) as info:
+        asyncio.run(client.fetch_earnings_calendar(raise_on_error=True))
+    logged = "\n".join(
+        record.getMessage() for record in caplog.records if record.name == "app.integrations.alpha_vantage"
+    )
+    text = logged + "".join(traceback.format_exception(info.value))
+    assert "HTTPStatusError: HTTP 503" in logged
+    leaked = _fragments(key, text)
+    assert not leaked, f"{leaked} four-character fragments of the fabricated key reached the log or the traceback"
+
+
+def test_the_calendar_job_logs_no_request_url(monkeypatch, caplog):
+    # httpx logs each request's URL at INFO, and the daily calendar job logs at INFO and fetches Alpha Vantage.
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.syspath_prepend(str(BACKEND_DIR / "scripts"))
+    monkeypatch.setattr(logging, "basicConfig", lambda **kwargs: None)  # the test's own handlers stay
+    httpx_logger = logging.getLogger("httpx")
+    level = httpx_logger.level  # main.py's configure_logging may have set it already in this process
+    httpx_logger.setLevel(logging.NOTSET)
+    try:
+        importlib.import_module("earnings_calendar_job")._configure_logging()
+        client, key = _alpha_vantage(monkeypatch, 200, "symbol,reportDate\n")
+        caplog.set_level(logging.INFO)
+        asyncio.run(client.fetch_earnings_calendar())
+    finally:
+        httpx_logger.setLevel(level)  # setLevel, not an attribute write: it clears the loggers' level cache
+    leaked = _fragments(key, caplog.text)
+    assert not leaked, f"{leaked} four-character fragments of the fabricated key reached the job's log"
+
+
+def test_the_resend_smoke_prints_no_key(monkeypatch, capsys):
+    import dotenv
+
+    monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)  # never a developer's .env
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.syspath_prepend(str(BACKEND_DIR / "scripts"))
+    monkeypatch.delitem(sys.modules, "smoke_resend", raising=False)
+    smoke = importlib.import_module("smoke_resend")
+    key = "re_" + _fabricated("RESEND_API_KEY")
+
+    async def sent(**kwargs):
+        return {"id": "fabricated"}
+
+    monkeypatch.setattr(smoke, "send_email", sent)
+    monkeypatch.setattr(smoke.settings, "RESEND_API_KEY", key)
+    asyncio.run(smoke.smoke_resend())
+    out = capsys.readouterr().out
+    assert f"RESEND_API_KEY: set ({len(key)} characters)" in out
+    leaked = _fragments(key[3:], out)
+    assert not leaked, f"{leaked} four-character fragments of the fabricated key were printed"
+
+
+def test_redis_logs_no_url(monkeypatch, caplog):
+    # A valid URL's pool is logged without it; a URL missing its `@host` puts the password where the port goes, and
+    # the port parse's message would quote it.
+    from app.services import redis_service
+
+    password = _fabricated("REDIS_URL password")
+    for name in ("_pool", "_client", "_init_lock", "_init_lock_loop"):
+        monkeypatch.setattr(redis_service, name, None)
+    monkeypatch.setattr(redis_service.settings, "SKIP_REDIS_INIT", False)
+    caplog.set_level(logging.INFO, logger=redis_service.logger.name)
+    for url, created in ((f"redis://:{password}@cache.invalid:6379/0", True), (f"redis://default:{password}/0", False)):
+        monkeypatch.setattr(redis_service.settings, "REDIS_URL", url)
+        monkeypatch.setattr(redis_service, "_pool", None)
+        assert (asyncio.run(redis_service.get_redis_pool()) is not None) is created
+    assert "pool created" in caplog.text and "REDIS_URL is malformed (ValueError)" in caplog.text
+    leaked = _fragments(password, caplog.text)
+    assert not leaked, f"{leaked} four-character fragments of the fabricated password were logged"
+
+
+def test_a_malformed_database_url_is_not_quoted(monkeypatch):
+    # app.database builds its engine at import, before any handler can withhold a message, so a URL missing its
+    # `@host` put the password into a service's startup traceback (and Sentry, which main.py starts first).
+    from app import config
+
+    password = _fabricated("DATABASE_URL password")
+    monkeypatch.setattr(config.settings, "DATABASE_URL", f"postgresql://app:{password}/app")
+    app_package = importlib.import_module("app")
+    monkeypatch.setattr(app_package, "database", getattr(app_package, "database", None), raising=False)
+    monkeypatch.delitem(sys.modules, "app.database", raising=False)
+    with pytest.raises(RuntimeError) as info:
+        importlib.import_module("app.database")
+    text = "".join(traceback.format_exception(info.value))
+    assert "DATABASE_URL could not be parsed (ValueError" in text
+    leaked = _fragments(password, text)
+    assert not leaked, f"{leaked} four-character fragments of the fabricated password reached the traceback"
+
+
+def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
+    # The operator's benchmark reads DATABASE_URL itself: a malformed URL stops it with the parse error's type, and a
+    # well-formed one is printed masked. 127.0.0.1:1 refuses the connection at once; nothing leaves the machine.
+    import dotenv
+
+    monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)  # never a developer's .env
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.syspath_prepend(str(BACKEND_DIR / "scripts"))
+    monkeypatch.delitem(sys.modules, "validate_db_performance", raising=False)
+    script = importlib.import_module("validate_db_performance")
+    password = _fabricated("benchmark password")
+    for url in (f"postgresql://app:{password}/app", f"postgresql://app:{password}@127.0.0.1:1/app"):
+        monkeypatch.setenv("DATABASE_URL", url)
+        with pytest.raises(SystemExit):
+            script.run_validation()
+    out = capsys.readouterr().out
+    assert "could not be parsed (ValueError" in out  # the malformed URL's branch ran
+    assert "Database: postgresql://app:***@127.0.0.1:1/app" in out  # and the well-formed one's
+    leaked = _fragments(password, out)
+    assert not leaked, f"{leaked} four-character fragments of the fabricated password were printed"
+
+
+# Settings fields that hold a secret, by name: keys, secrets, tokens, salts and the DSN, and the two connection URLs,
+# whose names do not say they carry a password. Every other field is printable.
+SECRET_FIELDS = frozenset(
+    name for name in Settings.model_fields if name.endswith(("_KEY", "_SECRET", "_TOKEN", "_SALT", "_DSN"))
+) | {"DATABASE_URL", "REDIS_URL"}
+_PRINTABLE = frozenset(Settings.model_fields) - SECRET_FIELDS
+_OUTPUT_METHODS = {"debug", "info", "warning", "warn", "error", "exception", "critical", "fatal", "log", "write"}
+
+
+def _outputs(tree: ast.Module) -> list[ast.expr]:
+    """What the module prints: a print call's arguments, a log, warn or write call's, and every raise or assert
+    message."""
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and (
+            (isinstance(node.func, ast.Name) and node.func.id == "print")
+            or (isinstance(node.func, ast.Attribute) and node.func.attr in _OUTPUT_METHODS)
+        ):
+            found.extend([*node.args, *(keyword.value for keyword in node.keywords)])
+        elif isinstance(node, ast.Raise):
+            found.extend(expr for expr in (node.exc, node.cause) if expr is not None)
+        elif isinstance(node, ast.Assert) and node.msg is not None:
+            found.append(node.msg)
+    return found
+
+
+def _is_settings(node: ast.AST) -> bool:
+    """The settings object, by any path: `settings`, `config.settings`, `deploy_check.settings`."""
+    return (isinstance(node, ast.Name) and node.id == "settings") or (
+        isinstance(node, ast.Attribute) and node.attr == "settings"
+    )
+
+
+def _secret_reads(node: ast.AST) -> list[str]:
+    """Each read an output expression makes of a secret: on the settings object, anything but a printable field (a
+    secret field, or what is no field at all: `model_dump()`, `__dict__`), as an attribute or through `getattr`; on
+    `self`, a secret field (the class's own methods); through `getattr` on anything, a secret field named as a
+    literal. Not a read: inside `len()` or `bool()`, a comparison, or a conditional expression's condition, none of
+    which prints the value."""
+    if isinstance(node, ast.IfExp):
+        return _secret_reads(node.body) + _secret_reads(node.orelse)
+    if isinstance(node, ast.Compare):
+        return []
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+        if node.func.id in {"len", "bool"}:
+            return []
+        if node.func.id == "getattr" and len(node.args) > 1:
+            name = node.args[1].value if isinstance(node.args[1], ast.Constant) else None
+            if name in SECRET_FIELDS or (_is_settings(node.args[0]) and name not in _PRINTABLE):
+                return [ast.unparse(node)]
+    if isinstance(node, ast.Attribute) and (
+        (_is_settings(node.value) and node.attr not in _PRINTABLE)
+        or (isinstance(node.value, ast.Name) and node.value.id == "self" and node.attr in SECRET_FIELDS)
+    ):
+        return [ast.unparse(node)]
+    return [read for child in ast.iter_child_nodes(node) for read in _secret_reads(child)]
+
+
+def test_no_output_reads_a_settings_secret():
+    # The "never again" half of the echoes this file closes one by one: no print, log, warn or write call and no
+    # raise or assert message anywhere in the backend outside tests reads a secret directly.
+    assert {"SECRET_KEY", "DATABASE_URL", "REDIS_URL", "INTERNAL_JOB_TOKEN", "ALPHA_VANTAGE_API_KEY"} <= SECRET_FIELDS
+    found = [
+        f"{path.relative_to(BACKEND_DIR).as_posix()}:{output.lineno}: {read}"
+        for path in _scanned_files()
+        for output in _outputs(ast.parse(path.read_text(encoding="utf-8")))
+        for read in _secret_reads(output)
+    ]
+    assert not found, (
+        f"An output reads a settings secret: {found}. Print or log its presence or its length (`len(...)`), never "
+        "its characters, and a connection URL's parse error by its type (lessons/ops-never-echo-environment-values.md)."
+    )
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("logger.info(f'pool for {settings.REDIS_URL}')", ["settings.REDIS_URL"]),
+        ("print('key', settings.RESEND_API_KEY[-4:])", ["settings.RESEND_API_KEY"]),
+        (
+            "logging.getLogger('x').warning('%s', getattr(settings, 'OPENAI_API_KEY'))",
+            ["getattr(settings, 'OPENAI_API_KEY')"],
+        ),
+        ("print(getattr(settings, name))", ["getattr(settings, name)"]),
+        ("raise ValueError(f'bad {self.STRIPE_SECRET_KEY}')", ["self.STRIPE_SECRET_KEY"]),
+        ("assert ok, f'{settings.SECRET_KEY}'", ["settings.SECRET_KEY"]),
+        ("warnings.warn(settings.SENTRY_DSN)", ["settings.SENTRY_DSN"]),
+        ("sys.stderr.write(settings.INTERNAL_JOB_TOKEN)", ["settings.INTERNAL_JOB_TOKEN"]),
+        ("print(settings.model_dump())", ["settings.model_dump"]),
+        ("logger.error(config.settings.DATABASE_URL)", ["config.settings.DATABASE_URL"]),
+        ("print(f'{len(settings.SECRET_KEY)} characters', bool(settings.STRIPE_WEBHOOK_SECRET))", []),
+        ("print(settings.STRIPE_SECRET_KEY.startswith('sk_live_') == True)", []),
+        ("logger.info('model %s', settings.AI_DEFAULT_MODEL)", []),
+        ("client = Client(settings.OPENAI_API_KEY)", []),
+        ("print(f'{len(settings.RESEND_API_KEY)}' if settings.RESEND_API_KEY else 'NOT SET')", []),
+        ("print(settings.RESEND_API_KEY if settings.RESEND_API_KEY else 'NOT SET')", ["settings.RESEND_API_KEY"]),
+        ("print(settings)", []),
+    ],
+    ids=[
+        "log",
+        "print",
+        "getattr",
+        "computed-getattr",
+        "raise",
+        "assert",
+        "warn",
+        "write",
+        "dump",
+        "module-path",
+        "length-and-presence",
+        "compare",
+        "not-a-secret",
+        "not-an-output",
+        "condition",
+        "conditional-value",
+        "repr",
+    ],
+)
+def test_the_output_gate_flags_a_secret_read(source, expected):
+    assert [read for output in _outputs(ast.parse(source)) for read in _secret_reads(output)] == expected
+
+
+def _compare_digest_calls(tree: ast.Module) -> list[tuple[int, list[ast.expr]]]:
+    return [
+        (node.lineno, node.args)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and (getattr(node.func, "attr", None) == "compare_digest" or getattr(node.func, "id", None) == "compare_digest")
+    ]
+
+
+def _not_bytes(args: list[ast.expr]) -> bool:
+    """compare_digest raises TypeError on a non-ASCII str: each argument must be an `.encode(...)` or a bytes literal."""
+    return len(args) != 2 or not all(
+        (isinstance(arg, ast.Call) and isinstance(arg.func, ast.Attribute) and arg.func.attr == "encode")
+        or (isinstance(arg, ast.Constant) and isinstance(arg.value, bytes))
+        for arg in args
+    )
+
+
+def test_compare_digest_takes_bytes():
+    # A caller-supplied str that is not ASCII (a header decodes as latin-1) makes compare_digest raise TypeError: a 500
+    # where a 401 belongs, an error event, and a captured frame holding the expected secret.
+    found, seen = [], 0
+    for path in _scanned_files():
+        for line, args in _compare_digest_calls(ast.parse(path.read_text(encoding="utf-8"))):
+            seen += 1
+            if _not_bytes(args):
+                found.append(f"{path.relative_to(BACKEND_DIR).as_posix()}:{line}")
+    assert seen >= 5  # internal.py, webhooks.py, auth.py (two), oauth_verify.py
+    assert not found, f"compare_digest on a str raises TypeError for a non-ASCII value; pass .encode()d bytes: {found}"
+
+
+@pytest.mark.parametrize(
+    ("source", "flagged"),
+    [
+        ("hmac.compare_digest(header, expected)", True),
+        ("secrets.compare_digest(header.encode(), expected)", True),
+        ("compare_digest(header.encode(), expected.encode())", False),
+        ("hmac.compare_digest(header.encode('utf-8'), b'x')", False),
+    ],
+    ids=["str", "one-str", "bytes", "bytes-literal"],
+)
+def test_the_compare_digest_gate_flags_a_str(source, flagged):
+    ((_, args),) = _compare_digest_calls(ast.parse(source))
+    assert _not_bytes(args) is flagged
