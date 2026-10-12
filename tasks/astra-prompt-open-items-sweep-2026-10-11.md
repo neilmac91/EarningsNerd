@@ -10,6 +10,16 @@
 > disagrees with `tasks/todo.md` on `main`, the page wins and the session says so in the PR that fixes
 > this file; the instructions here still bind as the founder's message.
 >
+> **Status (2026-10-12): executed.** This prompt ran on 2026-10-11/12. Its Track A result is PR #1255,
+> which reconciles every row and rewrites `tasks/todo.md` (the Engineering row this file's PR first
+> added to that page was dropped in review; #1255 owns the file). Its Track B drafts are PRs #1256 to
+> #1275, open and unmerged at this writing. The founder's filled `<founder_answers>` were given in the
+> founder's message to that session, which delegated the Multi-Period decisions (amended 4, and 6 to 9)
+> to Astra's recommendation; the defaults below are the pre-run text, kept for the record. Codex's
+> review quota was exhausted on 2026-10-11 (#1255's thread), so the `<environment>` line that Codex
+> reviews are available did not hold for that run. Do not paste this file to re-run a finished sweep:
+> a new sweep starts from `tasks/todo.md` on `main` with a fresh prompt.
+>
 > **How to run it.** On the Responses API use `reasoning.effort: "high"` and leave `temperature`, `top_p`
 > and `top_logprobs` unset (this model accepts none of them when reasoning is on, and tool calling needs
 > the Responses API). In Codex, paste it as the first message of a new session on a clone outside iCloud.
