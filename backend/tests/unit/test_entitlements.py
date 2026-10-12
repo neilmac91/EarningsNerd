@@ -33,6 +33,7 @@ def test_free_user_has_free_entitlements():
     assert ent.eightk_coverage is False
     assert ent.history_retention_days == 90
     assert ent.priority_model is False
+    assert ent.section_changes is False  # Free reads the "what changed" wording diff as a teaser
 
 
 def test_is_pro_mirror_grants_pro_when_no_subscription_row():
@@ -45,6 +46,7 @@ def test_is_pro_mirror_grants_pro_when_no_subscription_row():
     assert ent.eightk_coverage is True
     assert ent.history_retention_days is None
     assert ent.priority_model is True
+    assert ent.section_changes is True
 
 
 def test_active_subscription_grants_pro_even_if_mirror_false():

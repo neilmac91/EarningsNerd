@@ -10,7 +10,7 @@ Requirements (runs in prod / CI, NOT the offline sandbox):
   - DATABASE_URL pointing at the production database
 
 Usage:
-  python scripts/filing_scan.py              # real-time scan pass
+  python scripts/filing_scan.py              # real-time scan pass (+ Item 1A extraction when ENABLE_SECTION_CHANGES)
   python scripts/filing_scan.py --digest     # daily digest pass
   python scripts/filing_scan.py --dry-run    # rejected: safe preview is unavailable
 
@@ -58,6 +58,34 @@ async def _main(*, digest: bool, dry_run: bool, cadence_minutes: int) -> None:
                 )
                 attempt.record(stats)
                 logger.info("Filing scan complete: %s", stats)
+        finally:
+            db.close()
+
+    if not digest:
+        await _extract_sections_if_enabled()
+
+
+async def _extract_sections_if_enabled() -> None:
+    """After the real-time pass: store Item 1A text for the watched cohort's newest filings.
+
+    Behind ENABLE_SECTION_CHANGES, its own job record (`section-extraction`) and its own honest
+    outcome: a failed extraction fails this execution without touching the scan's record above.
+    """
+    from app.config import settings
+
+    if not settings.ENABLE_SECTION_CHANGES:
+        return
+
+    from app.database import SessionLocal
+    from app.services import filing_section_service
+    from app.services.job_run_service import track_job
+
+    with track_job("section-extraction") as attempt:
+        db = SessionLocal()
+        try:
+            stats = await filing_section_service.run_section_extraction(db)
+            attempt.record(stats)
+            logger.info("Section extraction complete: %s", stats)
         finally:
             db.close()
 

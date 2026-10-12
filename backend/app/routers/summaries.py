@@ -55,6 +55,7 @@ from app.services.summary_pipeline import (
 )
 from app.services.provenance_service import enrich_summary_provenance, source_safe_business_overview
 from app.services.change_report_service import build_change_report
+from app.services.filing_section_service import section_changes_access
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -677,17 +678,23 @@ async def get_summary(filing_id: int, db: Session = Depends(get_db)):
     return enrich_summary_provenance(summary, filing, xbrl_standardized)
 
 @router.get("/filing/{filing_id}/what-changed")
-async def get_what_changed(filing_id: int, db: Session = Depends(get_db)):
+async def get_what_changed(
+    filing_id: int,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
     """Deterministic period-over-period change report for a filing vs its prior same-form filing.
 
-    Reports financial-metric deltas, new/resolved risk factors, and management's key-changes
-    narrative. DB-only, no LLM — cheap to serve. Returns ``has_changes: false`` when there's no
-    prior filing to compare against.
+    Reports financial-metric deltas and, behind ENABLE_SECTION_CHANGES, the Item 1A wording diff
+    (``section_changes``: a teaser for anonymous and Free readers, the full list for Pro). DB-only,
+    no LLM — cheap to serve. Returns ``has_changes: false`` when there's no prior filing to compare
+    against. Off the event loop: the wording diff is CPU work (about 150 ms on the largest pair).
     """
     filing = db.query(Filing).filter(Filing.id == filing_id).first()
     if not filing:
         raise HTTPException(status_code=404, detail="Filing not found")
-    return build_change_report(db, filing)
+    access = section_changes_access(current_user)
+    return await run_in_threadpool(build_change_report, db, filing, section_access=access)
 
 
 @router.get("/filing/{filing_id}/export/pdf")

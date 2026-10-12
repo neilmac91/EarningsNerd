@@ -190,7 +190,8 @@ frontend/
 | `facts_service.py` | Normalized XBRL metrics (`financial_fact`) + SEC **companyfacts** multi-period ingest (duration-window Q1–Q4 labelling, derived Q4, latest-filed-wins) |
 | `trend_analysis_service.py` + `trend_analysis/` | Compatibility façade over domain modules: deterministic YoY/QoQ/CAGR datasets and `F#` markers, code-owned observations, validated selection and cached narrative streaming |
 | `precompute_service.py` | Idempotent per-ticker filing resolution + summary precompute (cron + internal job) |
-| `change_report_service.py` | Period-over-period change report (financial deltas + risk diffs) |
+| `change_report_service.py` | Period-over-period change report (financial deltas; risk diffs withheld) plus, behind `ENABLE_SECTION_CHANGES`, the `section_changes` wording diff block |
+| `filing_section_service.py` / `section_diff.py` | Item 1A text per filing (`filing_section_text`): fetched through the SEC transport, located with edgartools' HTML parser (local), stored with status and a cached comparison summary; the watched-cohort batch the filing-scan job runs; `section_diff` is the pure paragraph-paired, word-level diff (page furniture dropped, line-wrapped typesetting re-flowed, exact/moved/fuzzy pairing, content-addressed item ids) |
 | `peers_service.py` / `insider_service.py` | Peer comparison by SIC; Form 4 insider activity (`ownership_extractor.py` parses the Form 4 tables DEFENSIVELY — EdgarTools' DataFrame column casing varies across versions; don't "simplify" the guards) |
 | `dashboard_feed_service.py` / `calendar_service.py` / `filing_scan_service.py` / `notification_service.py` | Personalized feed; earnings calendar; new-filing alerts (dedup); alert prefs |
 | `notable_filings_service.py` | Homepage "Notable filings": market-wide EFTS scan (8-K item materiality + form weights + owned demand), serve-from-Postgres, self-omitting |

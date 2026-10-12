@@ -419,6 +419,8 @@ the simplest robust way to schedule the digest. The CD pipeline keeps both job i
 they exist** (each step skips gracefully otherwise). Create them once, with one Cloud Scheduler
 trigger each (hourly scan + once-daily digest):
 
+With `ENABLE_SECTION_CHANGES=true` on the job, the real-time pass also runs the Item 1A extraction batch for the watched cohort (its own `section-extraction` job record; `SECTION_EXTRACTION_BATCH_LIMIT` filings per run, one SEC request each through the shared limiter) and the what-changed endpoint serves the wording diff. `python scripts/extract_sections.py --tickers AAPL,MSFT` (or `--all --limit N`) warms the `filing_section_text` table by hand before the flag flips; `docs/CONFIGURATION.md` lists the three settings.
+
 ```bash
 # Same connector + scheduler SA the rest of this runbook uses.
 CONN=earnings-nerd:us-west1:earningsnerd-db

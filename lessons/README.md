@@ -96,6 +96,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - sec-edgar-resilience-layer.md — Preserve SEC pacing and distinguish selected breaker coverage from limiter-only paths
 - sec-enforce-gates-server-side.md — Enforce every access gate server-side at the mutation endpoint
 - sec-listing-fetch-recent-window-and-cheap-fields.md — List filings in ONE recent-window fetch and read cheap metadata fields — never edgartools properties that hit the network
+- sec-parse-app-fetched-html-not-edgartools-filing-objects.md — Section text: fetch the primary document through the app transport and parse it locally with edgartools' HTMLParser; the Filing/CompanyReport accessors re-fetch outside the budget and fail where the homepage does not resolve
 - sec-runtime-facts-carry-no-duration.md — Runtime per-filing facts carry no duration: abstain, never substitute an annual-looking label
 - sec-xbrl-period-selection.md — XBRL facts: select for the filing's OWN reporting period — fy/fp label the filing, not the fact
 

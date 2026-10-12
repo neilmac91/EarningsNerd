@@ -107,6 +107,13 @@ class TestAssembleReport:
         # T1.6: key_changes is deprecated — no longer surfaced (the lead is metrics.headline).
         assert out["key_changes"] is None
         assert out["has_changes"] is True
+        # The Item 1A wording diff is a separate block, null unless the caller supplies one.
+        assert out["section_changes"] is None
+
+    def test_section_changes_block_is_passed_through_verbatim(self):
+        block = {"section": "item_1a", "status": "pending", "reason": "current_not_extracted"}
+        out = svc.assemble_report(self.CURRENT_FILING, self.PRIOR_FILING, None, None, section_changes=block)
+        assert out["section_changes"] is block
 
     def test_no_prior_filing_has_no_risks_and_marks_no_prior(self):
         current_summary = SimpleNamespace(risk_factors=[{"title": "x risk"}], raw_summary=None, key_changes=None)

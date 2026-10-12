@@ -12,8 +12,8 @@ dependency in ``app.dependencies``) rather than reading ``is_pro`` directly. Add
 new gated capability is then a change to this module plus Stripe price wiring — not a hunt through
 scattered ``if user.is_pro`` checks.
 
-Note: ``monthly_summary_limit``, ``can_export``, ``copilot`` and ``can_analyze_trends`` are
-enforced today, and ``realtime_alerts`` + ``eightk_coverage`` are enforced by the notification
+Note: ``monthly_summary_limit``, ``can_export``, ``copilot``, ``can_analyze_trends`` and
+``section_changes`` are enforced today, and ``realtime_alerts`` + ``eightk_coverage`` are enforced by the notification
 engine (``notification_service`` / ``filing_scan_service``). The remaining flags
 (``history_retention_days``, ``priority_model``) are forward-looking and do not yet change
 behaviour on their own.
@@ -72,6 +72,10 @@ class Entitlements:
     # without the full `copilot` entitlement, after which they hit the upsell. 0 = no taste (Pro
     # doesn't need one — it's unlimited via `copilot=True`).
     copilot_free_taste: int = 0
+    # "What changed" wording diff (Change Report `section_changes`, behind ENABLE_SECTION_CHANGES):
+    # Pro reads every changed paragraph; Free and anonymous readers get the counts and the first
+    # few items as a teaser (filing_section_service.TEASER_ITEMS).
+    section_changes: bool = False
 
     @property
     def has_unlimited_summaries(self) -> bool:
@@ -109,6 +113,7 @@ _PRO = Entitlements(
     priority_model=True,
     copilot=True,
     can_analyze_trends=True,
+    section_changes=True,
 )
 
 

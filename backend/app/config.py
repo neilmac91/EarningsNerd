@@ -431,6 +431,22 @@ class Settings(BaseSettings):
     # ACTIVITY); turning both on needs a budget-aware insider scan first (decision record 17).
     ENABLE_INSIDER_ACTIVITY: bool = False
 
+    # "What changed" wording diff (the Change Report's `section_changes` block; tasks/todo.md E17).
+    # When True, the hourly filing-scan job also extracts and stores Item 1A text for the watched
+    # companies' 10-K/10-Q filings (one SEC request per filing, serial, through the shared limiter)
+    # and GET /api/summaries/filing/{id}/what-changed serves the paragraph-paired wording diff
+    # against the prior same-form filing: the first few items for Free/anonymous readers, the whole
+    # list for Pro (entitlements.section_changes). Ships OFF: nothing is fetched or stored and the
+    # report carries `section_changes: null`. scripts/extract_sections.py backfills regardless of
+    # this flag so an operator can warm the table before flipping it.
+    ENABLE_SECTION_CHANGES: bool = False
+    # Filings extracted per scan run (one SEC request each). 25 keeps an hourly run under a minute
+    # at the deploy-pinned 1 req/s and still backfills a watchlist's recent filings within a day.
+    SECTION_EXTRACTION_BATCH_LIMIT: int = Field(default=25, ge=0, le=500)
+    # Section texts longer than this are recorded as `oversize` without their text. The longest
+    # Item 1A in the 2026-10 corpus of 56 filings was 161k characters.
+    SECTION_TEXT_MAX_CHARS: int = Field(default=400_000, gt=0)
+
     # Restrict the public earnings calendar (and homepage "Reporting This Week" strip) to companies
     # in the S&P 500 or Nasdaq 100 — a tight, defensible, high-signal universe (~515 tickers) instead
     # of the full Alpha Vantage long tail. Membership is the committed app/data/index_membership.json
