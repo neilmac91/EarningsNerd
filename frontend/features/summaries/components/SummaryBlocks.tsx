@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useId, useMemo, useRef, type ReactNode } from 'react'
 import { Badge } from '@/components/ui'
+import { useOverflowRegion } from '@/hooks/useOverflowRegion'
 import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
 import { Callout } from '@/features/summaries/components/Callout'
 import { SummaryRisks } from '@/features/summaries/components/SummaryRisks'
@@ -323,15 +324,11 @@ function GenericTable({ label, headers, rows, rowEvidence }: {
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const hintId = useId()
-  const [overflowing, setOverflowing] = useState(false)
-  useEffect(() => {
-    const box = boxRef.current
-    if (!box || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(() => setOverflowing(box.scrollWidth > box.clientWidth))
-    observer.observe(box)
-    if (box.firstElementChild) observer.observe(box.firstElementChild)
-    return () => observer.disconnect()
-  }, [rows, headers])
+  const { overflowing, regionProps } = useOverflowRegion(boxRef, {
+    label: `Scrollable table: ${label}`,
+    describedBy: hintId,
+    enabled: rows.length > 0,
+  })
   if (rows.length === 0) return null
   const hasRowEvidence = rowEvidence?.some(Boolean) ?? false
   const colCount = Math.max(headers.length, ...rows.map((r) => r.length))
@@ -348,7 +345,7 @@ function GenericTable({ label, headers, rows, rowEvidence }: {
       {overflowing && <p id={hintId} className={`mb-2 text-xs ${MUTED}`}>Scroll horizontally to read all columns.</p>}
       <div ref={boxRef}
         className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-        {...(overflowing ? { role: 'region', 'aria-label': `Scrollable table: ${label}`, 'aria-describedby': hintId, tabIndex: 0 } : {})}>
+        {...regionProps}>
       <table className="min-w-full border-collapse">
         <caption className="sr-only">{label}</caption>
         {headers.length > 0 && (
