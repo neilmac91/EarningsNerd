@@ -220,7 +220,7 @@ export default function MetricsTable({
           hint: `← Earlier ${periodUnit}`,
           startAtEndOnMobile: true,
         }}
-        caption={`Metrics by period, ${periods.length} of ${dataset.periods.length} ${periodUnit}: value and change versus ${basis}. ${dataset.mode === 'quarterly' ? 'YoY labels identify comparisons versus the prior year when a quarterly comparison is unavailable.' : 'The final column shows the full selected window CAGR, or percentage-point change for margins.'}`}
+        caption={`Metrics by period, ${periods.length} of ${dataset.periods.length} ${periodUnit}: value and change versus ${basis}. ${dataset.mode === 'quarterly' ? 'Fiscal quarters follow the company’s reporting calendar. YoY labels identify comparisons versus the prior year when a quarterly comparison is unavailable.' : 'The final column shows the full selected window CAGR, or percentage-point change for margins.'}`}
         stickyFirstColumn
         empty="No metrics available for the selected periods."
       />
