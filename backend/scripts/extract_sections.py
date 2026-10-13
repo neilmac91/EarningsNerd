@@ -4,7 +4,8 @@
 The hourly filing-scan job runs the same batch when ENABLE_SECTION_CHANGES is on; this script is
 the operator's hand on it: warm the table for a cohort before the flag flips, widen a batch, or
 retry failed rows. One SEC request per filing through the shared limiter, serial; the parse is
-local. Runs regardless of the flag.
+local. Runs regardless of the flag, and records its attempts as `section-extraction-manual`: a
+manual run never refreshes the scheduled job's heartbeat (`docs/OPERATIONS.md`).
 
 Requirements (prod / CI, NOT the offline sandbox):
   - SEC EDGAR network access
@@ -12,7 +13,7 @@ Requirements (prod / CI, NOT the offline sandbox):
 
 Usage:
   python scripts/extract_sections.py                      # watched companies + summarized filings, newest first
-  python scripts/extract_sections.py --tickers AAPL,MSFT  # those companies only (any cohort)
+  python scripts/extract_sections.py --tickers AAPL,MSFT  # those companies only, watched or not
   python scripts/extract_sections.py --all --limit 200    # every supported filing, bounded
   python scripts/extract_sections.py --retry-failed       # include failed rows without the 24 h wait
   python scripts/extract_sections.py --window-days 400    # only filings filed in the last 400 days (default: three years)
@@ -28,13 +29,22 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 logger = logging.getLogger(__name__)
 
+# Not the scan job's `section-extraction`: a manual run has its own identity in the ledger.
+JOB_NAME = "section-extraction-manual"
+
+
+def cohort_for(*, all_filings: bool, tickers: list[str]) -> str:
+    """``--all`` or ``--tickers`` widen the batch past the watched cohort: a named company is the
+    operator's choice whether or not anyone watches it."""
+    return "all" if all_filings or tickers else "watched"
+
 
 async def _main(*, tickers: list[str], cohort: str, limit: int | None, retry_failed: bool, window_days: int | None) -> None:
     from app.database import SessionLocal
     from app.services import filing_section_service
     from app.services.job_run_service import track_job
 
-    with track_job("section-extraction") as attempt:
+    with track_job(JOB_NAME) as attempt:
         db = SessionLocal()
         try:
             stats = await filing_section_service.run_section_extraction(
@@ -59,9 +69,10 @@ if __name__ == "__main__":
     parser.add_argument("--window-days", type=int, default=None, help="Only filings filed within this many days (default: three years).")
     args = parser.parse_args()
 
+    tickers = [t for t in args.tickers.split(",") if t.strip()]
     asyncio.run(_main(
-        tickers=[t for t in args.tickers.split(",") if t.strip()],
-        cohort="all" if args.all else "watched",
+        tickers=tickers,
+        cohort=cohort_for(all_filings=args.all, tickers=tickers),
         limit=args.limit,
         retry_failed=args.retry_failed,
         window_days=args.window_days,

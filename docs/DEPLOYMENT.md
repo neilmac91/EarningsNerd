@@ -419,8 +419,6 @@ the simplest robust way to schedule the digest. The CD pipeline keeps both job i
 they exist** (each step skips gracefully otherwise). Create them once, with one Cloud Scheduler
 trigger each (hourly scan + once-daily digest):
 
-With `ENABLE_SECTION_CHANGES=true` on the job, the real-time pass also runs the Item 1A extraction batch for the watched cohort (its own `section-extraction` job record; `SECTION_EXTRACTION_BATCH_LIMIT` filings per run, one SEC request each through the shared limiter) and the what-changed endpoint serves the wording diff. `python scripts/extract_sections.py --tickers AAPL,MSFT` (or `--all --limit N`) warms the `filing_section_text` table by hand before the flag flips; `docs/CONFIGURATION.md` lists the three settings.
-
 ```bash
 # Same connector + scheduler SA the rest of this runbook uses.
 CONN=earnings-nerd:us-west1:earningsnerd-db
@@ -479,6 +477,15 @@ gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --sc
   --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-backfill-facts:run" \
   --http-method=POST --oauth-service-account-email="${SA}"
 ```
+
+`ENABLE_SECTION_CHANGES` ("what changed" wording diff) goes on **both** the scan job and the
+service: the job's real-time pass stores the Item 1A text (its own `section-extraction` job record;
+`SECTION_EXTRACTION_BATCH_LIMIT` filings per run, one SEC request each through the shared limiter)
+and the service's what-changed endpoint serves the diff. Neither `$ENVV` above nor the service's
+`--update-env-vars` in `ci.yml` sets it, so add it to both when it flips, and add `section-extraction`
+to `JOB_CADENCES`. `python scripts/extract_sections.py --tickers AAPL,MSFT` (or `--all --limit N`)
+warms the `filing_section_text` table by hand before the flip, under its own
+`section-extraction-manual` record; `docs/CONFIGURATION.md` lists the three settings.
 
 Smoke-test each before trusting the schedule:
 ```bash

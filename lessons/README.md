@@ -96,7 +96,6 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - sec-edgar-resilience-layer.md — Preserve SEC pacing and distinguish selected breaker coverage from limiter-only paths
 - sec-enforce-gates-server-side.md — Enforce every access gate server-side at the mutation endpoint
 - sec-listing-fetch-recent-window-and-cheap-fields.md — List filings in ONE recent-window fetch and read cheap metadata fields — never edgartools properties that hit the network
-- sec-parse-app-fetched-html-not-edgartools-filing-objects.md — Section text: fetch the primary document through the app transport and parse it locally with edgartools' HTMLParser; the Filing/CompanyReport accessors re-fetch outside the budget and fail where the homepage does not resolve
 - sec-runtime-facts-carry-no-duration.md — Runtime per-filing facts carry no duration: abstain, never substitute an annual-looking label
 - sec-xbrl-period-selection.md — XBRL facts: select for the filing's OWN reporting period — fy/fp label the filing, not the fact
 
@@ -188,6 +187,7 @@ The rule is checked by the named gate; open the lesson only when that gate fails
 - ops-pin-ci-toolchain.md — Pin the lint/security toolchain and select lint rules explicitly — CI must not drift with the tool — gate: `backend/tests/unit/test_migration_lock_safety.py` (unpinned `pip install` check)
 - ops-prove-the-permission-route-before-a-gated-session.md — Prove the permission route with a `--help` no-op in the exact allow-rule form before any gated step; a denial there is a stop, not a failed restore; name the mode (Accept edits, not Plan) — gate: `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`
 - sec-filing-url-format.md — SEC archive URLs: strip CIK leading zeros, strip accession dashes — and sec_url is NOT NULL — gate: `backend/tests/unit/test_filing_url_listeners.py`, `test_sec_gov_importers_allowlist.py`; CLAUDE.md rule 10
+- sec-parse-app-fetched-html-not-edgartools-filing-objects.md — Section text: fetch the primary document through the app transport and parse it locally with edgartools' HTMLParser; the Filing/CompanyReport `obj()` accessors re-fetch through edgartools' own client, outside the app's limiter and breaker, and fail where the homepage does not resolve — gate: `backend/tests/unit/test_edgartools_obj_allowlist.py`
 - test-one-test-home.md — Tests live in exactly one home per stack — a test outside it does not run in CI — gate: `frontend/tests/unit/testHomesAllowlist.spec.ts`
 
 ## Archived (`lessons/archive/`) — superseded by a rule or a gate

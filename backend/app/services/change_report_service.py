@@ -21,7 +21,7 @@ from app.models import Filing, Summary
 # Reuse the tested deterministic delta engine rather than duplicating it (one home for the
 # revenue/net-income/EPS invariants, the QoQ/YoY logic and the reporting-currency guard).
 from app.services.dashboard_feed_service import compute_what_changed, reporting_currency
-from app.services.filing_section_service import ACCESS_NONE, build_section_changes
+from app.services.filing_section_service import NO_SECTION_ACCESS, SectionAccess, build_section_changes
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 # Generic words that don't help distinguish one risk factor from another.
@@ -194,11 +194,13 @@ def _latest_summary(db: Session, filing_id: int) -> Optional[Summary]:
     )
 
 
-def build_change_report(db: Session, filing: Filing, *, section_access: str = ACCESS_NONE) -> dict[str, Any]:
+def build_change_report(
+    db: Session, filing: Filing, *, section_access: SectionAccess = NO_SECTION_ACCESS
+) -> dict[str, Any]:
     """Find the filing's prior comparable filing + both summaries, then assemble the change report.
 
-    ``section_access`` (``filing_section_service.section_changes_access``) decides how much of
-    the Item 1A wording diff the viewer gets: none, a teaser or the full list.
+    ``section_access`` (``filing_section_service.section_changes_access``) is how much of the
+    Item 1A wording diff the viewer gets: none, a teaser of so many items, or the full list.
 
     The prior is the latest earlier report period from the same company and base form,
     preferring its newest amendment filed before the viewed filing
@@ -225,3 +227,23 @@ def build_change_report(db: Session, filing: Filing, *, section_access: str = AC
     prior_summary = _latest_summary(db, prior.id) if prior is not None else None
     section_changes = build_section_changes(db, filing, section_access)
     return assemble_report(filing, prior, current_summary, prior_summary, section_changes)
+
+
+def change_report_for_filing(
+    db: Session, filing_id: int, *, section_access: SectionAccess = NO_SECTION_ACCESS
+) -> Optional[dict[str, Any]]:
+    """The filing's change report, or None when the filing does not exist; releases the session
+    either way.
+
+    One synchronous unit for the router to run off the event loop: the lookup, the report (the
+    wording diff is CPU work) and the close, so the pooled connection is back before the async
+    route yields to the sync dependency's finalizer
+    (``lessons/ops-release-cached-filing-reads-before-yield.md``).
+    """
+    try:
+        filing = db.query(Filing).filter(Filing.id == filing_id).first()
+        if filing is None:
+            return None
+        return build_change_report(db, filing, section_access=section_access)
+    finally:
+        db.close()

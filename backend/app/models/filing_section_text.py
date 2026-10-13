@@ -2,12 +2,17 @@
 
 One row per (filing, section). The text is the filing's own, as edgartools' HTML parser returns
 it from the primary document the app fetched (CLAUDE.md rules 2 and 5); nothing model-authored
-is stored here. ``status`` records what the extractor found (``ok`` with text, ``missing`` when
-the document has no such section, ``oversize`` when the text exceeds the configured cap, ``failed``
-on a fetch/parse error with its ``error_type``); ``extractor_version`` lets a later extractor
-re-run only rows it would change. The ``diff_*`` columns cache the comparison summary against the
+is stored here. ``status`` records what the last stored extraction found: ``ok`` with text,
+``missing`` when the document has no such section, ``oversize`` when the text exceeds the
+configured cap, ``failed`` on a fetch/parse error with its ``error_type``. ``attempted_at`` is the
+last attempt of any outcome and is what the batch's retry wait reads: a failed re-extraction of
+an ``ok`` row keeps the text and records only ``attempted_at`` and ``error_type``, while
+``extracted_at`` stays the time the stored payload was written. ``extractor_version`` is the
+extractor that wrote the payload; after a bump the batch re-extracts every older row in its
+window and cohort, newest first. The ``diff_*`` columns cache the comparison summary against the
 prior same-form filing (counts only, never the items) so lists can sort and filter without
-recomputing; ``filing_section_service`` refreshes them when either side is (re)extracted.
+recomputing: ``filing_section_service`` rewrites them after every attempt on either side and
+brings rows behind the diff engine's version current in its batch.
 
 Existing databases get this table from ``migrations/20261012_filing_section_text.sql``; fresh
 ones from ``create_all``. Deliberately not the legacy ``filing_content_cache.markdown_content``
@@ -37,7 +42,7 @@ class FilingSectionText(Base):
     __tablename__ = "filing_section_text"
     __table_args__ = (
         UniqueConstraint("filing_id", "section", name="uq_filing_section_text_filing_section"),
-        Index("ix_filing_section_text_status_extracted", "status", "extracted_at"),
+        Index("ix_filing_section_text_status_attempted", "status", "attempted_at"),
     )
 
     id = Column(Integer, primary_key=True)
@@ -55,12 +60,13 @@ class FilingSectionText(Base):
     detection_method = Column(String(32), nullable=True)
     confidence = Column(Float, nullable=True)
     error_type = Column(String(120), nullable=True)
-    # Cached comparison against the prior same-form filing with an ``ok`` row (summary only).
+    # Cached comparison against the prior same-form filing's ``ok`` row (summary only).
     diff_prior_filing_id = Column(Integer, ForeignKey("filings.id", ondelete="SET NULL"), nullable=True)
     diff_engine_version = Column(SmallInteger, nullable=True)
     diff_summary = Column(JSON, nullable=True)
     diff_computed_at = Column(DateTime(timezone=True), nullable=True)
     extracted_at = Column(DateTime(timezone=True), nullable=False)
+    attempted_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

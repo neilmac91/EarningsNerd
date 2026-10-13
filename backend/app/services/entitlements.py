@@ -72,10 +72,12 @@ class Entitlements:
     # without the full `copilot` entitlement, after which they hit the upsell. 0 = no taste (Pro
     # doesn't need one — it's unlimited via `copilot=True`).
     copilot_free_taste: int = 0
-    # "What changed" wording diff (Change Report `section_changes`, behind ENABLE_SECTION_CHANGES):
-    # Pro reads every changed paragraph; Free and anonymous readers get the counts and the first
-    # few items as a teaser (filing_section_service.TEASER_ITEMS).
+    # "What changed" wording diff (Change Report `section_changes`, behind ENABLE_SECTION_CHANGES).
+    # `section_changes` reads every changed paragraph; without it a viewer (Free, or anonymous,
+    # which resolves to Free) gets the counts and the first `section_changes_items` items as a
+    # teaser. None = no cap.
     section_changes: bool = False
+    section_changes_items: Optional[int] = 3
 
     @property
     def has_unlimited_summaries(self) -> bool:
@@ -114,6 +116,7 @@ _PRO = Entitlements(
     copilot=True,
     can_analyze_trends=True,
     section_changes=True,
+    section_changes_items=None,
 )
 
 

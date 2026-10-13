@@ -9,23 +9,30 @@ Pipeline
 1. ``split_paragraphs``: blank-line blocks → cleaned paragraphs. Page furniture is dropped and
    counted by class (bare page numbers, running headers such as "Apple Inc. | 2025 Form 10-K | 7",
    "Table of Contents", a repeated company-name banner, the section's own "Item 1A. Risk Factors"
-   heading). Filing agents that emit one block per *line* (every line ends in a trailing space
-   before the blank line) are re-flowed back into paragraphs, so a 10-K typeset that way still
-   pairs with its unwrapped predecessor.
+   heading). A document typeset one *line* per block (most blocks end in a trailing space before
+   the blank line) is re-flowed back into paragraphs, so a 10-K typeset that way still pairs with
+   its unwrapped predecessor; in any document a block that starts lowercase continues the one
+   before it. A stray trailing space on a heading in an ordinary document merges nothing.
 2. Exact pairing on a normalized key (NFKC, soft hyphens and zero-width characters removed,
    curly quotes and dashes straightened, whitespace collapsed, a leading bullet glyph ignored), so
-   a re-typeset paragraph is "unchanged", never "modified". Out-of-order exact pairs are "moved".
+   a re-typeset paragraph is "unchanged", never "modified". Keys repeat inside a section (a
+   "Summary of Risk Factors" bullet repeats the body heading it points at), so the pairs are a
+   longest common subsequence of the two key sequences first, which keeps every occurrence in its
+   own place; equal keys left over pair in reading order as "moved".
 3. Fuzzy pairing of the remainder: global best-first on ``difflib`` word similarity
-   (``PAIR_THRESHOLD``), a Jaccard prefilter keeping it quadratic-cheap. Each pair becomes a
-   "modified" item with word-level ops; what stays unpaired is "added" or "removed".
+   (``PAIR_THRESHOLD``) over each paragraph's closest few candidates by Jaccard overlap, so a
+   section of near-identical bullets stays cheap. Each pair becomes a "modified" item with
+   word-level ops; what stays unpaired is "added" or "removed".
 
-Items come back in later-section reading order, each with a content-addressed ``id`` that is
-stable across re-extraction while the two paragraphs' wording is unchanged (a review label can
-hang on it). ``counts``/``words`` summarize the section for lists and gates: ``words.changed_ratio``
-is (inserted + deleted) / later words, the noise measure the corpus gate reads.
+Items come back in later-section reading order, each with a content-addressed ``id`` (kind, the
+two paragraphs' keys and the occurrence number when the same content repeats) that is stable
+across re-extraction while the two paragraphs' wording is unchanged, so a review label can hang
+on it. ``counts``/``words`` summarize the section for lists and gates: ``words.changed_ratio`` is
+(inserted + deleted) / later words, the noise measure a corpus check reads.
 
 The only tunables are module constants; ``ENGINE_VERSION`` changes whenever the output for the
-same input could change (persisted summaries carry it and are recomputed when it moves).
+same input could change (persisted summaries carry it; ``filing_section_service`` recomputes the
+ones behind it in its batch).
 """
 from __future__ import annotations
 
@@ -43,23 +50,33 @@ ENGINE_VERSION = 1
 PAIR_THRESHOLD = 0.6
 # Cheap set-overlap floor below which the ratio is not even computed.
 _JACCARD_PREFILTER = 0.25
+# Prior paragraphs (closest by Jaccard overlap) whose ratio is computed for one later paragraph.
+_FUZZY_CANDIDATES = 8
+# Above this many DP cells the exact pairing falls back to first-occurrence matching.
+_LCS_CELL_CAP = 2_000_000
 # Blocks of at most this many characters are checked for furniture patterns.
 _SHORT_BLOCK = 120
 # A short block repeated verbatim at least this often inside one section is a running banner.
 _REPEAT_BANNER_MIN = 3
+# A document is "line-wrapped" (one typeset line per block) when at least this share of its prose
+# blocks end in a trailing space before the blank line.
+_WRAPPED_MODE_MIN = 0.4
 
 _ZERO_WIDTH = dict.fromkeys(map(ord, "­​‌‍⁠﻿"), None)
 _QUOTES_DASHES = str.maketrans({
     "‘": "'", "’": "'", "‚": "'", "‛": "'", "′": "'",
     "“": '"', "”": '"', "„": '"', "‟": '"', "″": '"',
-    "‐": "-", "‑": "-", "‒": "-", "–": "-", "—": "-", "―": "-", "−": "-",
+    "‐": "-", "‒": "-", "–": "-", "—": "-", "―": "-", "−": "-",
     "…": "...",
 })
-_BULLETS = "•·▪●○◦▪■□‣⁃*"
-_BULLET_PREFIX = re.compile(rf"^[{re.escape(_BULLETS)}]\s*")
-_SPACES = re.compile(r"[ \t   ]+")
+# Bullet glyphs, including the Symbol-font bullet (U+F0B7) Word documents leave behind; a dash or
+# a lone "o" followed by a space is a bullet too.
+_BULLET_GLYPHS = "•·▪●○◦■□‣⁃*–—§"
+_BULLET_START = re.compile(rf"^(?:[{re.escape(_BULLET_GLYPHS)}]|[-o](?=\s))")
+_BULLET_PREFIX = re.compile(rf"^(?:[{re.escape(_BULLET_GLYPHS)}]|[-o](?=\s))\s*")
+_SPACES = re.compile(r"[ \t   ]+")
 _INNER_NEWLINES = re.compile(r"\s*\n\s*")
-_BLOCK_SEPARATOR = re.compile(r"\n[ \t ]*\n")
+_BLOCK_SEPARATOR = re.compile(r"\n[ \t ]*\n")
 _TERMINAL = re.compile(r"""[.!?:;]["'”’)\]]*$""")
 # Arabic page numbers (any case for "Page"), or a lowercase roman numeral (front-matter style).
 _PAGE_NUMBER = re.compile(
@@ -68,7 +85,7 @@ _PAGE_NUMBER = re.compile(
 _RUNNING_HEADER = re.compile(r"form\s+10-[kq]\b", re.I)
 _TRAILING_NUMBER = re.compile(r"\d\s*$")
 _TOC_OR_PART = re.compile(r"^(?:table\s+of\s+contents|part\s+[ivx]+\.?)$", re.I)
-_SECTION_HEADING = re.compile(r"^item\s*1a\.?\s*[-.:\u2013\u2014]?\s*risk\s+factors\.?$", re.I)
+_SECTION_HEADING = re.compile(r"^item\s*1a\.?\s*[-.:–—]?\s*risk\s+factors\.?$", re.I)
 _HAS_LETTER = re.compile(r"[^\W\d_]")
 _WORD_PUNCT = re.compile(r"^[^\w]+|[^\w]+$")
 
@@ -90,7 +107,7 @@ def _clean_display(block: str) -> str:
     text = _INNER_NEWLINES.sub(" ", text.strip())
     text = _SPACES.sub(" ", text).strip()
     # "•pricing;" and "• pricing;" are the same bullet: give the glyph its own token.
-    if text and text[0] in _BULLETS and len(text) > 1 and not text[1].isspace():
+    if text and text[0] in _BULLET_GLYPHS and len(text) > 1 and not text[1].isspace():
         text = text[0] + " " + text[1:]
     return text
 
@@ -138,16 +155,20 @@ def _furniture_class(text: str, repeated: Counter) -> Optional[str]:
     if (
         repeated[text] >= _REPEAT_BANNER_MIN
         and not _TERMINAL.search(text)
-        and text[0] not in _BULLETS
+        and not _BULLET_START.match(text)
     ):
         return "running_header"
     return None
 
 
+def _ends_in_space(raw_block: str) -> bool:
+    return raw_block != raw_block.rstrip(" \t ")
+
+
 def _is_wrapped_line(raw_block: str, text: str) -> bool:
-    """A block that ends in whitespace (before the blank line) and in no sentence punctuation is a
-    typeset line, not a paragraph: its successor continues it."""
-    return bool(text) and raw_block != raw_block.rstrip(" \t ") and not _TERMINAL.search(text)
+    """In a line-wrapped document, a block that ends in whitespace (before the blank line) and in
+    no sentence punctuation is a typeset line, not a paragraph: its successor continues it."""
+    return bool(text) and _ends_in_space(raw_block) and not _TERMINAL.search(text)
 
 
 def split_paragraphs(text: str) -> tuple[list[Paragraph], dict[str, int]]:
@@ -156,19 +177,26 @@ def split_paragraphs(text: str) -> tuple[list[Paragraph], dict[str, int]]:
     cleaned = [_clean_display(block) for block in raw_blocks]
     repeated = Counter(t for t in cleaned if t and len(t) <= _SHORT_BLOCK)
     excluded: Counter = Counter()
-    merged: list[tuple[str, bool]] = []  # (display text, continues into the next block)
+    prose: list[tuple[str, str]] = []
     for raw, clean in zip(raw_blocks, cleaned):
         cls = _furniture_class(clean, repeated)
-        if cls is not None:
-            if cls != "blank":
-                excluded[cls] += 1
-            continue
-        wrapped = _is_wrapped_line(raw, clean)
+        if cls is None:
+            prose.append((raw, clean))
+        elif cls != "blank":
+            excluded[cls] += 1
+    # Only a document typeset one line per block re-flows on trailing spaces; elsewhere a trailing
+    # space is noise (a heading with one would otherwise swallow its paragraph).
+    line_wrapped = bool(prose) and sum(_ends_in_space(raw) for raw, _ in prose) >= _WRAPPED_MODE_MIN * len(prose)
+    merged: list[tuple[str, bool]] = []  # (display text, continues into the next block)
+    for raw, clean in prose:
+        wrapped = line_wrapped and _is_wrapped_line(raw, clean)
         if merged:
             prev_text, prev_wrapped = merged[-1]
             continues = (prev_wrapped or clean[0].islower()) and not _TERMINAL.search(prev_text)
-            if continues and clean[0] not in _BULLETS:
-                merged[-1] = (prev_text + " " + clean, wrapped)
+            if continues and not _BULLET_START.match(clean):
+                # A line broken after a hyphen ("Forward-" / "looking") joins without a space.
+                joiner = "" if prev_text.endswith("-") else " "
+                merged[-1] = (prev_text + joiner + clean, wrapped)
                 continue
         merged.append((clean, wrapped))
     paragraphs = [_paragraph(i, t) for i, (t, _) in enumerate(merged)]
@@ -189,8 +217,8 @@ def _ratio(a: Paragraph, b: Paragraph) -> float:
     return matcher.ratio()
 
 
-def _exact_pairs(prior: list[Paragraph], later: list[Paragraph]) -> list[tuple[int, int]]:
-    """Pair identical keys in reading order (first unmatched occurrence on each side)."""
+def _first_occurrence_pairs(prior: list[Paragraph], later: list[Paragraph]) -> list[tuple[int, int]]:
+    """Pair equal keys first unmatched occurrence to first unmatched occurrence, in reading order."""
     by_key: dict[str, list[int]] = {}
     for p in prior:
         by_key.setdefault(p.key, []).append(p.index)
@@ -202,13 +230,65 @@ def _exact_pairs(prior: list[Paragraph], later: list[Paragraph]) -> list[tuple[i
     return pairs
 
 
+def _lcs_pairs(prior: list[Paragraph], later: list[Paragraph]) -> list[tuple[int, int]]:
+    """Equal-key pairs on one longest common subsequence of the two key sequences: the
+    occurrences that kept their place. Ties skip the earlier prior occurrence, so a repeated
+    paragraph pairs with the one in the matching position."""
+    n, m = len(prior), len(later)
+    if not n or not m:
+        return []
+    if n * m > _LCS_CELL_CAP:
+        return _first_occurrence_pairs(prior, later)
+    later_keys = [lp.key for lp in later]
+    # length[i][j] = LCS length of prior[i:] and later[j:]
+    length = [[0] * (m + 1) for _ in range(n + 1)]
+    for i in range(n - 1, -1, -1):
+        key, row, below = prior[i].key, length[i], length[i + 1]
+        for j in range(m - 1, -1, -1):
+            if key == later_keys[j]:
+                row[j] = below[j + 1] + 1
+            else:
+                row[j] = below[j] if below[j] >= row[j + 1] else row[j + 1]
+    pairs = []
+    i = j = 0
+    while i < n and j < m:
+        if prior[i].key == later_keys[j]:
+            pairs.append((prior[i].index, later[j].index))
+            i += 1
+            j += 1
+        elif length[i + 1][j] >= length[i][j + 1]:
+            i += 1
+        else:
+            j += 1
+    return pairs
+
+
+def _exact_pairs(prior: list[Paragraph], later: list[Paragraph]) -> list[tuple[int, int]]:
+    """Pairs of identical keys: in place first (a longest common subsequence over the paragraphs
+    whose key occurs on both sides), then the leftover equal keys in reading order (moves)."""
+    common = {p.key for p in prior} & {lp.key for lp in later}
+    shared_prior = [p for p in prior if p.key in common]
+    shared_later = [lp for lp in later if lp.key in common]
+    pairs = _lcs_pairs(shared_prior, shared_later)
+    used_prior = {i for i, _ in pairs}
+    used_later = {j for _, j in pairs}
+    pairs.extend(_first_occurrence_pairs(
+        [p for p in shared_prior if p.index not in used_prior],
+        [lp for lp in shared_later if lp.index not in used_later],
+    ))
+    return pairs
+
+
 def _fuzzy_pairs(prior: list[Paragraph], later: list[Paragraph]) -> list[tuple[float, int, int]]:
     """Global best-first pairing of the unpaired remainder above ``PAIR_THRESHOLD``."""
     candidates: list[tuple[float, int, int]] = []
-    for p in prior:
-        for lp in later:
-            if _jaccard(p.sim_set, lp.sim_set) < _JACCARD_PREFILTER:
-                continue
+    for lp in later:
+        if not lp.sim_set:
+            continue
+        # Only the closest few by cheap set overlap get the quadratic ratio.
+        close = [(jaccard, p) for p in prior if (jaccard := _jaccard(p.sim_set, lp.sim_set)) >= _JACCARD_PREFILTER]
+        close.sort(key=lambda entry: (-entry[0], entry[1].index))
+        for _, p in close[:_FUZZY_CANDIDATES]:
             score = _ratio(p, lp)
             if score >= PAIR_THRESHOLD:
                 candidates.append((score, p.index, lp.index))
@@ -261,8 +341,9 @@ def _in_order(pairs: list[tuple[int, int]]) -> set[tuple[int, int]]:
 def word_ops(before: Paragraph, after: Paragraph) -> list[list[str]]:
     """Word-level segments ``[kind, text]`` with kind ``equal`` / ``delete`` / ``insert``.
 
-    The prior paragraph is the ``equal`` + ``delete`` segments in order, the later one the
-    ``equal`` + ``insert`` segments: a client reconstructs both from the ops alone.
+    The later paragraph is the ``equal`` + ``insert`` segments in order, exactly; the prior one is
+    the ``equal`` + ``delete`` segments, with equal words in the later filing's typography (a
+    straightened quote is not a change). A client reconstructs both from the ops alone.
     """
     matcher = SequenceMatcher(None, before.tokens, after.tokens, autojunk=False)
     a_words = before.text.split()
@@ -279,8 +360,8 @@ def word_ops(before: Paragraph, after: Paragraph) -> list[list[str]]:
     return ops
 
 
-def _item_id(kind: str, before: Optional[str], after: Optional[str]) -> str:
-    digest = hashlib.sha256(f"{kind}\x1f{before or ''}\x1f{after or ''}".encode("utf-8")).hexdigest()
+def _item_id(kind: str, before: Optional[str], after: Optional[str], occurrence: int) -> str:
+    digest = hashlib.sha256(f"{kind}\x1f{before or ''}\x1f{after or ''}\x1f{occurrence}".encode("utf-8")).hexdigest()
     return digest[:16]
 
 
@@ -303,35 +384,32 @@ def diff_sections(prior_text: str, later_text: str) -> dict[str, Any]:
         paired_prior.add(i)
         paired_later.add(j)
 
-    items: list[tuple[tuple[float, int, int], dict[str, Any]]] = []
+    # (sort key, signature for the id, item)
+    items: list[tuple[tuple[int, int, int], tuple[str, Optional[str], Optional[str]], dict[str, Any]]] = []
     unchanged = moved = 0
     for i, j in all_pairs:
         p, lp = prior[i], later[j]
         in_order = (i, j) in kept_order
         if (i, j) in similarity:
-            ops = word_ops(p, lp)
             item = {
-                "id": _item_id("modified", p.key, lp.key),
                 "kind": "modified",
                 "index": j,
                 "prior_index": i,
                 "similarity": round(similarity[(i, j)], 3),
                 "moved": not in_order,
-                "ops": ops,
+                "ops": word_ops(p, lp),
             }
-            items.append(((j, 0, i), item))
+            items.append(((j, 0, i), ("modified", p.key, lp.key), item))
         elif in_order:
             unchanged += 1
         else:
             moved += 1
-            items.append(((j, 0, i), {
-                "id": _item_id("moved", p.key, lp.key), "kind": "moved", "index": j, "prior_index": i, "after": lp.text,
-            }))
+            items.append(((j, 0, i), ("moved", p.key, lp.key),
+                          {"kind": "moved", "index": j, "prior_index": i, "after": lp.text}))
     for lp in later:
         if lp.index not in paired_later:
-            items.append(((lp.index, 0, -1), {
-                "id": _item_id("added", None, lp.key), "kind": "added", "index": lp.index, "after": lp.text,
-            }))
+            items.append(((lp.index, 0, -1), ("added", None, lp.key),
+                          {"kind": "added", "index": lp.index, "after": lp.text}))
     # A removed paragraph is anchored just after the later position of the nearest paired prior
     # paragraph before it, so it reads where it used to sit.
     later_of_prior = {i: j for i, j in all_pairs}
@@ -340,11 +418,15 @@ def diff_sections(prior_text: str, later_text: str) -> dict[str, Any]:
         if p.index in later_of_prior:
             anchor = later_of_prior[p.index]
         else:
-            items.append(((anchor, 1, p.index), {
-                "id": _item_id("removed", p.key, None), "kind": "removed", "prior_index": p.index, "before": p.text,
-            }))
+            items.append(((anchor, 1, p.index), ("removed", p.key, None),
+                          {"kind": "removed", "prior_index": p.index, "before": p.text}))
     items.sort(key=lambda entry: entry[0])
-    ordered = [item for _, item in items]
+    # Content-addressed ids; repeated content is told apart by its occurrence in reading order.
+    occurrences: Counter = Counter()
+    ordered: list[dict[str, Any]] = []
+    for _, signature, item in items:
+        ordered.append({"id": _item_id(*signature, occurrences[signature]), **item})
+        occurrences[signature] += 1
 
     counts = Counter(item["kind"] for item in ordered)
     inserted = deleted = 0

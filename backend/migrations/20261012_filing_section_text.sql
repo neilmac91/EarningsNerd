@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS filing_section_text (
     diff_summary JSON,
     diff_computed_at TIMESTAMPTZ,
     extracted_at TIMESTAMPTZ NOT NULL,
+    attempted_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ,
     CONSTRAINT uq_filing_section_text_filing_section UNIQUE (filing_id, section)
@@ -29,7 +30,7 @@ DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'ix_filing_section_text_filing_id') THEN
         CREATE INDEX ix_filing_section_text_filing_id ON filing_section_text (filing_id);
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'ix_filing_section_text_status_extracted') THEN
-        CREATE INDEX ix_filing_section_text_status_extracted ON filing_section_text (status, extracted_at);
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'ix_filing_section_text_status_attempted') THEN
+        CREATE INDEX ix_filing_section_text_status_attempted ON filing_section_text (status, attempted_at);
     END IF;
 END $$;

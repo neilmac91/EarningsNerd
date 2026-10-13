@@ -12,13 +12,16 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
 from app.models import Company, Filing, FilingSectionText, Summary, User, Watchlist
 from app.services import filing_section_service as svc
-from app.services.change_report_service import build_change_report
+from app.services.change_report_service import build_change_report, change_report_for_filing
+from app.utils.datetimes import ensure_utc
 
 NOW = datetime(2026, 10, 12, 12, 0, tzinfo=timezone.utc)
+TEASER = svc.SectionAccess(svc.ACCESS_TEASER, 3)
 
 PRIOR_TEXT = (
     "Item 1A. Risk Factors\n\n"
@@ -49,6 +52,9 @@ def _tables():
     yield
 
 
+_WATCHLIST_ROWS: list[int] = []
+
+
 @pytest.fixture
 def db():
     from app.database import SessionLocal
@@ -57,6 +63,12 @@ def db():
     try:
         yield session
     finally:
+        # The scan suite walks every watched company; this module's watchers must not outlive it.
+        session.rollback()
+        if _WATCHLIST_ROWS:
+            session.query(Watchlist).filter(Watchlist.id.in_(_WATCHLIST_ROWS)).delete(synchronize_session=False)
+            session.commit()
+            _WATCHLIST_ROWS.clear()
         session.close()
 
 
@@ -66,8 +78,10 @@ def _company(db, *, watched_by=None):
     db.add(company)
     db.commit()
     if watched_by is not None:
-        db.add(Watchlist(user_id=watched_by.id, company_id=company.id))
+        row = Watchlist(user_id=watched_by.id, company_id=company.id)
+        db.add(row)
         db.commit()
+        _WATCHLIST_ROWS.append(row.id)
     return company
 
 
@@ -123,11 +137,29 @@ def _parse(texts):
     return parse
 
 
-def _extract(db, filing, text, *, now=NOW):
+def _attempt(db, filing, text, *, now=NOW):
     documents = {filing.document_url: f"html-{filing.id}"}
     return asyncio.run(svc.extract_for_filing(
         db, filing, fetch_document=_fetch(documents), parse=_parse({f"html-{filing.id}": text}), now=now,
     ))
+
+
+def _extract(db, filing, text, *, now=NOW):
+    """Store ``text`` as the filing's Item 1A and return its row."""
+    return _attempt(db, filing, text, now=now).row
+
+
+def _missing(db, filing, *, now=NOW):
+    """An attempt whose document has no Item 1A."""
+    return asyncio.run(svc.extract_for_filing(
+        db, filing, fetch_document=_fetch({filing.document_url: "h"}), parse=_parse({}), now=now,
+    ))
+
+
+def _ids(db, **kw):
+    kw.setdefault("limit", 100)
+    kw.setdefault("now", NOW)
+    return [f.id for f in svc.select_filings_for_extraction(db, **kw)]
 
 
 def _row(db, filing_id):
@@ -185,6 +217,14 @@ def test_parse_item_1a_locates_the_section_in_a_10k_and_a_10q():
     assert svc.is_reference_only(quarterly.text) is True
 
 
+def test_parse_item_1a_falls_back_to_any_part_when_the_part_heading_is_missing():
+    paragraphs = ["Our revenue depends on a small number of example customers."]
+    html = _synthetic_10k(paragraphs).replace('<p style="font-weight:bold">PART I</p>\n', "")
+    assert "PART I" not in html
+    result = svc.parse_item_1a(html, "10-K")
+    assert result.status == svc.STATUS_OK and paragraphs[0] in result.text
+
+
 def test_parse_item_1a_reports_a_document_without_the_section_as_missing():
     html = "<html><body><p><b>Item 1. Business</b></p><p>Widgets.</p><p><b>Item 2. Properties</b></p><p>An office.</p></body></html>"
     assert svc.parse_item_1a(html, "10-K").status == svc.STATUS_MISSING
@@ -205,6 +245,7 @@ def test_extract_stores_the_text_and_the_summary_against_the_prior(db):
     assert prior_row.char_count == len(PRIOR_TEXT) and prior_row.paragraph_count == 3  # heading excluded
     assert prior_row.sha256 and prior_row.detection_method == "toc" and prior_row.confidence == 0.95
     assert prior_row.reference_only is False
+    assert ensure_utc(prior_row.extracted_at) == NOW and ensure_utc(prior_row.attempted_at) == NOW
     assert prior_row.diff_prior_filing_id is None and prior_row.diff_summary is None
     assert prior_row.diff_engine_version == svc.section_diff.ENGINE_VERSION  # evaluated: no prior exists
 
@@ -235,6 +276,7 @@ def test_re_extraction_replaces_the_row_in_place(db):
     first_id, first_sha = first.id, first.sha256
     second = _extract(db, later, PRIOR_TEXT, now=NOW + timedelta(days=1))
     assert second.id == first_id and second.sha256 != first_sha
+    assert ensure_utc(second.extracted_at) == NOW + timedelta(days=1)
     assert second.diff_summary["has_changes"] is False  # identical to the prior now
     assert db.query(FilingSectionText).filter(FilingSectionText.filing_id == later.id).count() == 1
 
@@ -242,32 +284,123 @@ def test_re_extraction_replaces_the_row_in_place(db):
 def test_fetch_or_parse_failure_is_recorded_not_raised(db):
     _, prior, _, _ = _pair(db)
     failing = AsyncMock(side_effect=TimeoutError("sec timed out"))
-    row = asyncio.run(svc.extract_for_filing(db, prior, fetch_document=failing, parse=_parse({}), now=NOW))
+    attempt = asyncio.run(svc.extract_for_filing(db, prior, fetch_document=failing, parse=_parse({}), now=NOW))
+    assert attempt.status == svc.STATUS_FAILED
+    row = attempt.row
     assert row.status == svc.STATUS_FAILED and row.error_type == "TimeoutError"
     assert row.text is None and row.char_count == 0 and row.sha256 is None
+    assert ensure_utc(row.attempted_at) == NOW
 
     def broken(html, form):
         raise ValueError("parser fault")
 
-    row = asyncio.run(svc.extract_for_filing(
+    attempt = asyncio.run(svc.extract_for_filing(
         db, prior, fetch_document=_fetch({prior.document_url: "html"}), parse=broken, now=NOW,
     ))
-    assert row.status == svc.STATUS_FAILED and row.error_type == "ValueError"  # the cause, not the executor's wrapper
+    assert attempt.row.error_type == "ValueError"  # the cause, not the executor's wrapper
+
+
+def test_a_failed_re_extraction_keeps_the_older_text_and_waits(db, monkeypatch):
+    """An EXTRACTOR_VERSION bump re-selects every older row; a fetch that then fails must not
+    throw the stored text away, and the row waits like a failed one before the next attempt."""
+    watcher = _user(db)
+    _, prior, later, _ = _pair(db, watched_by=watcher)
+    _extract(db, prior, PRIOR_TEXT)
+    first_sha = _extract(db, later, LATER_TEXT).sha256
+    tickers = [prior.company.ticker]
+    assert _ids(db, tickers=tickers) == []
+    monkeypatch.setattr(svc, "EXTRACTOR_VERSION", svc.EXTRACTOR_VERSION + 1)
+    assert _ids(db, tickers=tickers) == [later.id, prior.id]  # older extractor: newest first
+
+    failing = AsyncMock(side_effect=TimeoutError("sec timed out"))
+    attempt = asyncio.run(svc.extract_for_filing(db, later, fetch_document=failing, parse=_parse({}), now=NOW + timedelta(hours=1)))
+    assert attempt.status == svc.STATUS_FAILED
+    row = attempt.row
+    assert row.status == svc.STATUS_OK and row.text == LATER_TEXT and row.sha256 == first_sha
+    assert row.error_type == "TimeoutError" and row.extractor_version == svc.EXTRACTOR_VERSION - 1
+    assert ensure_utc(row.attempted_at) == NOW + timedelta(hours=1) and ensure_utc(row.extracted_at) == NOW
+    assert row.diff_prior_filing_id == prior.id  # the cached comparison survives with the text
+    assert svc.build_section_changes(db, later, svc.FULL_SECTION_ACCESS)["status"] == "ok"
+
+    assert _ids(db, tickers=tickers, now=NOW + timedelta(hours=2)) == [prior.id]  # waits
+    assert _ids(db, tickers=tickers, now=NOW + timedelta(hours=1) + svc.RETRY_FAILED_AFTER + timedelta(minutes=1)) == [later.id, prior.id]
+    assert _ids(db, tickers=tickers, now=NOW + timedelta(hours=2), retry_failed=True) == [later.id, prior.id]
+
+    _extract(db, later, LATER_TEXT, now=NOW + timedelta(days=2))
+    db.expire_all()
+    assert _row(db, later.id).error_type is None and _row(db, later.id).extractor_version == svc.EXTRACTOR_VERSION
 
 
 def test_missing_section_is_recorded_without_text(db):
     _, prior, _, _ = _pair(db)
-    row = asyncio.run(svc.extract_for_filing(
-        db, prior, fetch_document=_fetch({prior.document_url: "html"}), parse=_parse({}), now=NOW,
-    ))
-    assert row.status == svc.STATUS_MISSING and row.text is None
+    attempt = _missing(db, prior)
+    assert attempt.status == svc.STATUS_MISSING
+    assert attempt.row.status == svc.STATUS_MISSING and attempt.row.text is None
+
+
+def test_a_prior_that_turns_missing_clears_the_later_summary(db):
+    _, prior, later, _ = _pair(db)
+    _extract(db, prior, PRIOR_TEXT)
+    assert _extract(db, later, LATER_TEXT).diff_prior_filing_id == prior.id
+    assert _missing(db, prior, now=NOW + timedelta(days=1)).row.status == svc.STATUS_MISSING
+    db.expire_all()
+    refreshed = _row(db, later.id)
+    assert refreshed.diff_prior_filing_id is None and refreshed.diff_summary is None
+    block = svc.build_section_changes(db, later, svc.FULL_SECTION_ACCESS)
+    assert (block["status"], block["reason"]) == ("unavailable", "prior_missing")
+    assert block["prior"]["status"] == "missing" and block["prior_filing"]["filing_id"] == prior.id
+    _extract(db, prior, PRIOR_TEXT, now=NOW + timedelta(days=2))
+    db.expire_all()
+    assert _row(db, later.id).diff_summary["counts"]["modified"] == 1  # and back
+    gone = _missing(db, later, now=NOW + timedelta(days=3)).row  # the later side turns missing
+    assert gone.diff_prior_filing_id is None and gone.diff_summary is None and gone.diff_engine_version is None
+
+
+def test_a_concurrent_insert_is_written_onto_not_duplicated(db, monkeypatch):
+    """The operator script beside the hourly job: whoever inserts second writes onto the row."""
+    from app.database import SessionLocal
+
+    _, prior, _, _ = _pair(db)
+    real_commit = db.commit
+    raced = []
+
+    def racing_commit():
+        if not raced:
+            raced.append(True)
+            with SessionLocal() as other:
+                other.add(FilingSectionText(
+                    filing_id=prior.id, section=svc.SECTION_ITEM_1A, extractor_version=svc.EXTRACTOR_VERSION,
+                    status=svc.STATUS_FAILED, error_type="TimeoutError", extracted_at=NOW, attempted_at=NOW,
+                ))
+                other.commit()
+                other_id = other.query(FilingSectionText).filter(FilingSectionText.filing_id == prior.id).one().id
+            raced.append(other_id)
+            raise IntegrityError("INSERT INTO filing_section_text", {}, Exception("UNIQUE constraint failed"))
+        real_commit()
+
+    monkeypatch.setattr(db, "commit", racing_commit)
+    attempt = _attempt(db, prior, PRIOR_TEXT, now=NOW + timedelta(minutes=1))
+    assert attempt.status == svc.STATUS_OK
+    rows = db.query(FilingSectionText).filter(FilingSectionText.filing_id == prior.id).all()
+    assert [r.id for r in rows] == [raced[1]]
+    assert rows[0].status == svc.STATUS_OK and rows[0].text == PRIOR_TEXT and rows[0].error_type is None
 
 
 def test_oversize_text_is_recorded_without_text(db, monkeypatch):
     monkeypatch.setattr(settings, "SECTION_TEXT_MAX_CHARS", 50)
     _, prior, _, _ = _pair(db)
-    row = _extract(db, prior, PRIOR_TEXT)
-    assert row.status == svc.STATUS_OVERSIZE and row.text is None and row.detection_method == "toc"
+    attempt = _attempt(db, prior, PRIOR_TEXT)
+    assert attempt.status == svc.STATUS_OVERSIZE
+    assert attempt.row.status == svc.STATUS_OVERSIZE and attempt.row.text is None and attempt.row.detection_method == "toc"
+
+
+def test_default_fetch_uses_the_shared_sec_transport(monkeypatch):
+    from app.services.edgar.compat import sec_edgar_service
+
+    get_document = AsyncMock(return_value="<html/>")
+    monkeypatch.setattr(sec_edgar_service, "get_filing_document", get_document)
+    assert asyncio.run(svc._default_fetch("https://sec.example/doc.htm")) == "<html/>"
+    get_document.assert_awaited_once_with("https://sec.example/doc.htm", timeout=svc.FETCH_TIMEOUT_SECONDS)
 
 
 def test_amendments_and_other_forms_are_not_fetched(db):
@@ -289,10 +422,11 @@ def test_selection_prefers_watched_companies_newest_first_and_skips_done_rows(db
     _, o_prior, o_later, _ = _pair(db)
     stale = _filing(db, w_later.company, "10-K", datetime(2021, 12, 31, tzinfo=timezone.utc), datetime(2022, 2, 1, tzinfo=timezone.utc))
     universe = {w_prior.id, w_later.id, s_prior.id, s_later.id, o_prior.id, o_later.id, w_amend.id, stale.id}
+    tickers = [w_later.company.ticker, s_later.company.ticker, o_later.company.ticker]
 
     def ids(**kw):
-        kw.setdefault("now", NOW)
-        return [f.id for f in svc.select_filings_for_extraction(db, limit=100, **kw) if f.id in universe]
+        kw.setdefault("tickers", tickers)
+        return _ids(db, **kw)
 
     # Watched company first, newest first; a summarized company's prior comes too; never an
     # amendment, never a filing outside the window.
@@ -300,7 +434,7 @@ def test_selection_prefers_watched_companies_newest_first_and_skips_done_rows(db
     assert set(ids(cohort="all")) == universe - {w_amend.id, stale.id}
     assert ids(window_days=10 * 365) == [w_later.id, w_prior.id, stale.id, s_later.id, s_prior.id]
     assert ids(tickers=[w_later.company.ticker.lower()]) == [w_later.id, w_prior.id]
-    assert [f.id for f in svc.select_filings_for_extraction(db, limit=0, now=NOW)] == []
+    assert ids(limit=1) == [w_later.id] and ids(limit=0) == []
 
     _extract(db, w_later, LATER_TEXT)
     assert ids() == [w_prior.id, s_later.id, s_prior.id]
@@ -325,44 +459,81 @@ def test_run_section_extraction_counts_outcomes_including_errors(db, monkeypatch
     stats = asyncio.run(svc.run_section_extraction(
         db, limit=100, tickers=[prior.company.ticker, other_prior.company.ticker], fetch_document=fetch, parse=parse, now=NOW,
     ))
-    assert stats == {"selected": 4, "extracted_ok": 2, "missing": 1, "oversize": 0, "extract_errors": 1}  # 4th: no document
+    assert stats == {"selected": 4, "extracted_ok": 2, "missing": 1, "oversize": 0, "extract_errors": 1,  # 4th: no document
+                     "breaker_open": 0, "summaries_recomputed": 0}
     assert _row(db, later.id).diff_prior_filing_id == prior.id
     monkeypatch.setattr(settings, "SECTION_EXTRACTION_BATCH_LIMIT", 0)
     assert asyncio.run(svc.run_section_extraction(db, fetch_document=fetch, parse=parse, now=NOW))["selected"] == 0
+
+
+def test_an_open_breaker_halts_the_batch_without_writing(db):
+    from app.services.edgar.circuit_breaker import CircuitOpenError
+
+    watcher = _user(db)
+    _, prior, later, _ = _pair(db, watched_by=watcher)
+    fetch = AsyncMock(side_effect=CircuitOpenError("sec", "open", 30.0))
+    with pytest.raises(svc.SectionExtractionHalted):
+        asyncio.run(svc.extract_for_filing(db, later, fetch_document=fetch, parse=_parse({}), now=NOW))
+    stats = asyncio.run(svc.run_section_extraction(
+        db, limit=100, tickers=[later.company.ticker], fetch_document=fetch, parse=_parse({}), now=NOW,
+    ))
+    assert stats["selected"] == 2 and stats["breaker_open"] == 1 and stats["extract_errors"] == 0
+    assert fetch.await_count == 2  # one before each halt, nothing after
+    assert db.query(FilingSectionText).filter(FilingSectionText.filing_id.in_([prior.id, later.id])).count() == 0
+
+
+def test_the_batch_recomputes_summaries_behind_the_diff_engine(db):
+    _, prior, later, _ = _pair(db)
+    _extract(db, prior, PRIOR_TEXT)
+    later_row = _extract(db, later, LATER_TEXT)
+    later_row.diff_engine_version = svc.section_diff.ENGINE_VERSION - 1
+    later_row.diff_summary = {"stale": True}
+    db.commit()
+    assert svc.recompute_stale_summaries(db, limit=10, now=NOW + timedelta(days=1)) >= 1
+    db.expire_all()
+    refreshed = _row(db, later.id)
+    assert refreshed.diff_engine_version == svc.section_diff.ENGINE_VERSION
+    assert refreshed.diff_summary["counts"]["modified"] == 1 and refreshed.diff_prior_filing_id == prior.id
+    assert ensure_utc(refreshed.diff_computed_at) == NOW + timedelta(days=1)
+    assert svc.recompute_stale_summaries(db, limit=10) == 0
 
 
 # --- the Change Report block ------------------------------------------------------------------
 
 def test_section_changes_access_follows_the_flag_and_the_entitlement(monkeypatch):
     monkeypatch.setattr(settings, "ENABLE_SECTION_CHANGES", False)
-    assert svc.section_changes_access(SimpleNamespace(is_pro=True, subscription=None)) == svc.ACCESS_NONE
+    assert svc.section_changes_access(SimpleNamespace(is_pro=True, subscription=None)) == svc.NO_SECTION_ACCESS
     monkeypatch.setattr(settings, "ENABLE_SECTION_CHANGES", True)
-    assert svc.section_changes_access(None) == svc.ACCESS_TEASER
-    assert svc.section_changes_access(SimpleNamespace(is_pro=False, subscription=None)) == svc.ACCESS_TEASER
-    assert svc.section_changes_access(SimpleNamespace(is_pro=True, subscription=None)) == svc.ACCESS_FULL
+    assert svc.section_changes_access(None) == TEASER  # anonymous resolves to the Free plan
+    assert svc.section_changes_access(SimpleNamespace(is_pro=False, subscription=None)) == TEASER
+    assert svc.section_changes_access(SimpleNamespace(is_pro=True, subscription=None)) == svc.FULL_SECTION_ACCESS
+    assert svc.FULL_SECTION_ACCESS.item_limit is None and svc.NO_SECTION_ACCESS.level == "none"
 
 
 def test_section_changes_block_states(db):
     _, prior, later, amendment = _pair(db)
-    assert svc.build_section_changes(db, later, svc.ACCESS_NONE) is None
+    assert svc.build_section_changes(db, later, svc.NO_SECTION_ACCESS) is None
 
-    block = svc.build_section_changes(db, later, svc.ACCESS_FULL)
+    block = svc.build_section_changes(db, later, svc.FULL_SECTION_ACCESS)
     assert (block["status"], block["reason"]) == ("pending", "current_not_extracted")
     assert block["section"] == "item_1a" and block["section_label"] == "Item 1A. Risk Factors"
+    assert block["engine_version"] == svc.section_diff.ENGINE_VERSION and block["prior_filing"] is None
 
     _extract(db, later, LATER_TEXT)
-    block = svc.build_section_changes(db, later, svc.ACCESS_FULL)
+    block = svc.build_section_changes(db, later, svc.FULL_SECTION_ACCESS)
     assert (block["status"], block["reason"]) == ("pending", "prior_not_extracted")
-    assert block["current"]["paragraph_count"] == 4 and block["current"]["extracted_at"].endswith("Z")
+    assert block["prior_filing"]["filing_id"] == prior.id  # which filing the state is about
+    assert block["current"]["status"] == "ok" and block["current"]["paragraph_count"] == 4
+    assert block["current"]["extracted_at"].endswith("Z")
 
-    block = svc.build_section_changes(db, prior, svc.ACCESS_FULL)
+    block = svc.build_section_changes(db, prior, svc.FULL_SECTION_ACCESS)
     assert (block["status"], block["reason"]) == ("pending", "current_not_extracted")
     _extract(db, prior, PRIOR_TEXT)
-    block = svc.build_section_changes(db, prior, svc.ACCESS_FULL)
+    block = svc.build_section_changes(db, prior, svc.FULL_SECTION_ACCESS)
     assert (block["status"], block["reason"]) == ("no_prior", "no_prior_filing")
 
-    full = svc.build_section_changes(db, later, svc.ACCESS_FULL)
-    assert full["status"] == "ok" and full["access"] == "full"
+    full = svc.build_section_changes(db, later, svc.FULL_SECTION_ACCESS)
+    assert full["status"] == "ok" and full["access"] == "full" and full["reason"] is None
     assert full["prior_filing"]["filing_id"] == prior.id and full["prior_filing"]["accession_number"] == prior.accession_number
     assert full["counts"] == {"unchanged": 1, "modified": 1, "added": 2, "removed": 1, "moved": 0}
     # Reading order of the later text; the removed paragraph sits where it used to (after "defects").
@@ -370,20 +541,59 @@ def test_section_changes_block_states(db):
     assert full["items_total"] == 4 and full["truncated"] is False
     assert full["prior"]["reference_only"] is False and full["has_changes"] is True
 
-    teaser = svc.build_section_changes(db, later, svc.ACCESS_TEASER)
+    teaser = svc.build_section_changes(db, later, TEASER)
     assert teaser["access"] == "teaser" and teaser["counts"] == full["counts"]
-    assert len(teaser["items"]) == svc.TEASER_ITEMS and teaser["items_total"] == 4 and teaser["truncated"] is True
-    assert teaser["items"] == full["items"][: svc.TEASER_ITEMS]
+    assert len(teaser["items"]) == 3 and teaser["items_total"] == 4 and teaser["truncated"] is True
+    assert teaser["items"] == full["items"][:3]
+    assert svc.build_section_changes(db, later, svc.SectionAccess(svc.ACCESS_TEASER, 0))["items"] == []
 
-    block = svc.build_section_changes(db, amendment, svc.ACCESS_FULL)
+    block = svc.build_section_changes(db, amendment, svc.FULL_SECTION_ACCESS)
     assert (block["status"], block["reason"]) == ("unavailable", "form_not_supported")
+
+
+def test_a_teaser_with_nothing_withheld_is_not_truncated(db):
+    _, prior, later, _ = _pair(db)
+    _extract(db, prior, PRIOR_TEXT)
+    _extract(db, later, PRIOR_TEXT.replace("small number", "limited number"))
+    teaser = svc.build_section_changes(db, later, TEASER)
+    assert teaser["items_total"] == 1 and len(teaser["items"]) == 1 and teaser["truncated"] is False
 
 
 def test_a_missing_or_failed_current_section_is_unavailable(db):
     _, prior, _, _ = _pair(db)
-    asyncio.run(svc.extract_for_filing(db, prior, fetch_document=_fetch({prior.document_url: "h"}), parse=_parse({}), now=NOW))
-    block = svc.build_section_changes(db, prior, svc.ACCESS_FULL)
+    _missing(db, prior)
+    block = svc.build_section_changes(db, prior, svc.FULL_SECTION_ACCESS)
     assert (block["status"], block["reason"]) == ("unavailable", "current_missing")
+    assert block["current"]["status"] == "missing"
+
+
+def test_the_comparison_never_skips_a_period(db):
+    company = _company(db)
+    oldest = _filing(db, company, "10-K", datetime(2023, 12, 31, tzinfo=timezone.utc), datetime(2024, 2, 20, tzinfo=timezone.utc))
+    middle = _filing(db, company, "10-K", datetime(2024, 12, 31, tzinfo=timezone.utc), datetime(2025, 2, 20, tzinfo=timezone.utc))
+    latest = _filing(db, company, "10-K", datetime(2025, 12, 31, tzinfo=timezone.utc), datetime(2026, 2, 19, tzinfo=timezone.utc))
+    _extract(db, oldest, PRIOR_TEXT)
+    assert _extract(db, latest, LATER_TEXT).diff_prior_filing_id is None  # never the period before last
+    block = svc.build_section_changes(db, latest, svc.FULL_SECTION_ACCESS)
+    assert (block["status"], block["reason"]) == ("pending", "prior_not_extracted")
+    assert block["prior_filing"]["filing_id"] == middle.id
+    _missing(db, middle)
+    block = svc.build_section_changes(db, latest, svc.FULL_SECTION_ACCESS)
+    assert (block["status"], block["reason"]) == ("unavailable", "prior_missing")
+    assert block["prior"]["status"] == "missing" and block["current"]["status"] == "ok"
+    assert svc.prior_section_row(db, latest) is None
+
+
+def test_a_prior_outside_the_extraction_window_is_unavailable(db):
+    company = _company(db)
+    old = _filing(db, company, "10-K", datetime(2019, 12, 31, tzinfo=timezone.utc), datetime(2020, 2, 20, tzinfo=timezone.utc))
+    new = _filing(db, company, "10-K", datetime(2025, 12, 31, tzinfo=timezone.utc), datetime(2026, 2, 19, tzinfo=timezone.utc))
+    _extract(db, new, LATER_TEXT)
+    block = svc.build_section_changes(db, new, svc.FULL_SECTION_ACCESS)
+    assert (block["status"], block["reason"]) == ("unavailable", "prior_outside_window")
+    assert block["prior_filing"]["filing_id"] == old.id
+    # The same window bounds the batch: that prior is never fetched, so the block is not "pending".
+    assert old.id not in [f.id for f in svc.select_filings_for_extraction(db, limit=100, cohort="all", tickers=[company.ticker])]
 
 
 def test_a_stub_10q_compares_and_is_labelled_reference_only(db):
@@ -391,10 +601,15 @@ def test_a_stub_10q_compares_and_is_labelled_reference_only(db):
     q1 = _filing(db, company, "10-Q", datetime(2026, 3, 31, tzinfo=timezone.utc), datetime(2026, 5, 1, tzinfo=timezone.utc))
     q2 = _filing(db, company, "10-Q", datetime(2026, 6, 30, tzinfo=timezone.utc), datetime(2026, 8, 1, tzinfo=timezone.utc))
     _extract(db, q1, STUB_TEXT)
-    _extract(db, q2, STUB_TEXT)
-    block = svc.build_section_changes(db, q2, svc.ACCESS_FULL)
+    q2_row = _extract(db, q2, STUB_TEXT)
+    block = svc.build_section_changes(db, q2, svc.FULL_SECTION_ACCESS)
     assert block["status"] == "ok" and block["has_changes"] is False
     assert block["current"]["reference_only"] is True and block["prior"]["reference_only"] is True
+    assert q2_row.diff_summary["reference_only"] is True and q2_row.diff_summary["prior_reference_only"] is True
+    q3 = _filing(db, company, "10-Q", datetime(2026, 9, 30, tzinfo=timezone.utc), datetime(2026, 11, 1, tzinfo=timezone.utc))
+    q3_row = _extract(db, q3, LATER_TEXT)  # restated after a stub
+    assert q3_row.diff_summary["reference_only"] is False and q3_row.diff_summary["prior_reference_only"] is True
+    assert q3_row.diff_summary["has_changes"] is True
 
 
 def test_prior_requires_a_strictly_earlier_period_of_the_same_form(db):
@@ -406,6 +621,29 @@ def test_prior_requires_a_strictly_earlier_period_of_the_same_form(db):
     assert svc.prior_section_row(db, quarterly) is None  # a 10-K is never a 10-Q's prior
     undated = _filing(db, company, "10-Q", None, datetime(2026, 8, 1, tzinfo=timezone.utc))
     assert svc.prior_section_row(db, undated) is None  # no period: nothing provably different
+    # The same period filed earlier (a re-filed 10-K) is not a prior; neither is an earlier
+    # period that was filed later (a late 10-K): the prior must have been public first.
+    refiled = _filing(db, company, "10-K", datetime(2025, 12, 31, tzinfo=timezone.utc), datetime(2026, 1, 15, tzinfo=timezone.utc))
+    _extract(db, refiled, PRIOR_TEXT)
+    assert svc._prior_filing(db, annual) is None
+    late = _filing(db, company, "10-K", datetime(2024, 12, 31, tzinfo=timezone.utc), datetime(2026, 6, 1, tzinfo=timezone.utc))
+    _extract(db, late, PRIOR_TEXT)
+    assert svc._prior_filing(db, annual) is None and svc._next_filing(db, late) is None
+
+
+def test_the_prior_is_the_latest_earlier_period_and_the_successor_the_nearest(db):
+    company = _company(db)
+    fy23 = _filing(db, company, "10-K", datetime(2023, 12, 31, tzinfo=timezone.utc), datetime(2024, 2, 20, tzinfo=timezone.utc))
+    fy24 = _filing(db, company, "10-K", datetime(2024, 12, 31, tzinfo=timezone.utc), datetime(2025, 2, 20, tzinfo=timezone.utc))
+    fy25 = _filing(db, company, "10-K", datetime(2025, 12, 31, tzinfo=timezone.utc), datetime(2026, 2, 19, tzinfo=timezone.utc))
+    assert svc._prior_filing(db, fy25).id == fy24.id and svc._next_filing(db, fy23).id == fy24.id
+    _extract(db, fy25, LATER_TEXT)
+    _extract(db, fy24, PRIOR_TEXT)
+    _extract(db, fy23, PRIOR_TEXT)
+    db.expire_all()
+    assert _row(db, fy25.id).diff_prior_filing_id == fy24.id
+    assert _row(db, fy24.id).diff_prior_filing_id == fy23.id  # refreshed by fy23's extraction
+    assert _row(db, fy23.id).diff_prior_filing_id is None
 
 
 def test_change_report_carries_the_block_or_null(db):
@@ -414,8 +652,11 @@ def test_change_report_carries_the_block_or_null(db):
     _extract(db, later, LATER_TEXT)
     report = build_change_report(db, later)
     assert report["section_changes"] is None and report["prior_filing"]["filing_id"] == prior.id
-    report = build_change_report(db, later, section_access=svc.ACCESS_TEASER)
+    report = build_change_report(db, later, section_access=TEASER)
     assert report["section_changes"]["status"] == "ok" and report["section_changes"]["truncated"] is True
+    # The router's unit: lookup and report together, None for a filing that does not exist.
+    assert change_report_for_filing(db, later.id, section_access=TEASER)["section_changes"]["truncated"] is True
+    assert change_report_for_filing(db, 0) is None
 
 
 def test_cached_diff_is_memoized_on_the_text_hashes(db, monkeypatch):
@@ -433,6 +674,8 @@ def test_cached_diff_is_memoized_on_the_text_hashes(db, monkeypatch):
     svc._DIFF_CACHE.clear()
     first = svc.cached_diff(prior_row, later_row)
     assert svc.cached_diff(prior_row, later_row) is first and calls == [1]
+    reextracted = _extract(db, prior, STUB_TEXT, now=NOW + timedelta(days=1))  # new prior text, same later
+    assert svc.cached_diff(reextracted, later_row) is not first and len(calls) >= 2
 
 
 # --- the endpoint and the scan hook -----------------------------------------------------------
@@ -457,7 +700,12 @@ def test_what_changed_endpoint_serves_a_teaser_anonymously_and_the_full_list_to_
     anonymous = client.get(f"/api/summaries/filing/{later.id}/what-changed")
     assert anonymous.status_code == 200
     block = anonymous.json()["section_changes"]
-    assert block["access"] == "teaser" and block["truncated"] is True and len(block["items"]) == svc.TEASER_ITEMS
+    assert block["access"] == "teaser" and block["truncated"] is True and len(block["items"]) == 3
+
+    free = _user(db, is_pro=False)
+    client.cookies.set(settings.COOKIE_NAME, create_access_token(data={"sub": free.email}))
+    signed_in = client.get(f"/api/summaries/filing/{later.id}/what-changed").json()["section_changes"]
+    assert signed_in["access"] == "teaser" and len(signed_in["items"]) == 3 and signed_in["items_total"] == 4
 
     pro = _user(db, is_pro=True)
     client.cookies.set(settings.COOKIE_NAME, create_access_token(data={"sub": pro.email}))
@@ -470,30 +718,113 @@ def test_what_changed_endpoint_serves_a_teaser_anonymously_and_the_full_list_to_
     assert client.get("/api/summaries/filing/0/what-changed").status_code == 404
 
 
+CLEAN_BATCH = {"selected": 2, "extracted_ok": 2, "missing": 0, "oversize": 0, "extract_errors": 0,
+               "breaker_open": 0, "summaries_recomputed": 0}
+
+
+@pytest.fixture
+def job_outcomes(monkeypatch):
+    """Every (job name, status, counters) the ledger records during the test."""
+    from app.services import job_run_service as jobs
+
+    outcomes = []
+    original_track, original_finish = jobs.track_job, jobs._finish
+    names = {}
+
+    def observing_track(name, **kw):
+        manager = original_track(name, **kw)
+        names[id(manager)] = name
+        return manager
+
+    def observing_finish(run_id, status, attempt, error_type=None):
+        outcomes.append((status, dict(attempt.counters), error_type))
+        return original_finish(run_id, status, attempt, error_type)
+
+    monkeypatch.setattr(jobs, "track_job", observing_track)
+    monkeypatch.setattr(jobs, "_finish", observing_finish)
+    return outcomes
+
+
 @pytest.mark.parametrize("enabled", [False, True])
-def test_filing_scan_runs_the_extraction_batch_only_behind_the_flag(monkeypatch, enabled):
+def test_filing_scan_runs_the_extraction_batch_only_behind_the_flag(monkeypatch, job_outcomes, enabled):
     from scripts import filing_scan
     from app.services import filing_scan_service
-    from app.services import job_run_service as jobs
 
     monkeypatch.setattr(settings, "ENABLE_SECTION_CHANGES", enabled)
     monkeypatch.setattr(filing_scan_service, "run_filing_scan", AsyncMock(return_value={"companies_scanned": 1}))
     monkeypatch.setattr(filing_scan_service, "run_daily_digest", AsyncMock(return_value={"digests_sent": 0}))
-    extraction = AsyncMock(return_value={"selected": 2, "extracted_ok": 2, "missing": 0, "oversize": 0, "extract_errors": 0})
+    extraction = AsyncMock(return_value=CLEAN_BATCH)
     monkeypatch.setattr(svc, "run_section_extraction", extraction)
-    tracked = []
-    original_track = jobs.track_job
-
-    def observing_track(name, **kw):
-        tracked.append(name)
-        return original_track(name, **kw)
-
-    monkeypatch.setattr(jobs, "track_job", observing_track)
     asyncio.run(filing_scan._main(digest=False, dry_run=False, cadence_minutes=60))
-    assert tracked == (["filing-scan", "section-extraction"] if enabled else ["filing-scan"])
     assert extraction.await_count == (1 if enabled else 0)
+    expected = [("succeeded", {"companies_scanned": 1}, None)]
+    if enabled:
+        expected.append(("succeeded", CLEAN_BATCH, None))
+    assert job_outcomes == expected
 
     if enabled:
-        tracked.clear()
+        job_outcomes.clear()
         asyncio.run(filing_scan._main(digest=True, dry_run=False, cadence_minutes=60))
-        assert tracked == ["filing-digest"]  # the digest pass never extracts
+        assert job_outcomes == [("succeeded", {"digests_sent": 0}, None)]  # the digest pass never extracts
+
+
+def test_filing_scan_still_extracts_after_a_failed_scan_and_survives_extraction_errors(monkeypatch, job_outcomes):
+    from scripts import filing_scan
+    from app.services import filing_scan_service
+    from app.services.job_run_service import JobRunFailed
+
+    monkeypatch.setattr(settings, "ENABLE_SECTION_CHANGES", True)
+    failed_batch = {**CLEAN_BATCH, "extracted_ok": 1, "extract_errors": 1}
+    extraction = AsyncMock(return_value=failed_batch)
+    monkeypatch.setattr(svc, "run_section_extraction", extraction)
+
+    # A scan whose source errored still fails the execution, but only after the batch ran.
+    monkeypatch.setattr(filing_scan_service, "run_filing_scan", AsyncMock(return_value={"companies_scanned": 2, "source_errors": 1}))
+    with pytest.raises(JobRunFailed):
+        asyncio.run(filing_scan._main(digest=False, dry_run=False, cadence_minutes=60))
+    assert extraction.await_count == 1
+    assert job_outcomes == [
+        ("failed", {"companies_scanned": 2, "source_errors": 1}, "JobRunFailed"),
+        ("failed", failed_batch, "JobRunFailed"),
+    ]
+
+    # A clean scan with a failed document: the batch's own row is failed, the execution is not
+    # (Cloud Run would otherwise re-run the scan for a row that waits 24 h anyway).
+    job_outcomes.clear()
+    monkeypatch.setattr(filing_scan_service, "run_filing_scan", AsyncMock(return_value={"companies_scanned": 2}))
+    asyncio.run(filing_scan._main(digest=False, dry_run=False, cadence_minutes=60))
+    assert job_outcomes == [("succeeded", {"companies_scanned": 2}, None), ("failed", failed_batch, "JobRunFailed")]
+
+    # Anything but recorded work failures (the database down, say) propagates at once, batch or no batch.
+    extraction.reset_mock()
+    monkeypatch.setattr(filing_scan_service, "run_filing_scan", AsyncMock(side_effect=RuntimeError("database unreachable")))
+    with pytest.raises(RuntimeError):
+        asyncio.run(filing_scan._main(digest=False, dry_run=False, cadence_minutes=60))
+    assert extraction.await_count == 0
+    job_outcomes.clear()
+    monkeypatch.setattr(filing_scan_service, "run_filing_scan", AsyncMock(return_value={"companies_scanned": 2}))
+    monkeypatch.setattr(svc, "run_section_extraction", AsyncMock(side_effect=RuntimeError("database unreachable")))
+    with pytest.raises(RuntimeError):
+        asyncio.run(filing_scan._main(digest=False, dry_run=False, cadence_minutes=60))
+    assert job_outcomes == [("succeeded", {"companies_scanned": 2}, None), ("failed", {}, "RuntimeError")]
+
+
+def test_operator_script_has_its_own_job_identity_and_widens_the_cohort_for_named_tickers(monkeypatch, job_outcomes):
+    from scripts import extract_sections
+
+    assert extract_sections.JOB_NAME == "section-extraction-manual"
+    assert extract_sections.cohort_for(all_filings=False, tickers=[]) == "watched"
+    assert extract_sections.cohort_for(all_filings=False, tickers=["AAPL"]) == "all"
+    assert extract_sections.cohort_for(all_filings=True, tickers=[]) == "all"
+
+    extraction = AsyncMock(return_value=CLEAN_BATCH)
+    monkeypatch.setattr(svc, "run_section_extraction", extraction)
+    from app.models import JobRun
+    from app.database import SessionLocal
+
+    asyncio.run(extract_sections._main(tickers=["AAPL"], cohort="all", limit=5, retry_failed=True, window_days=None))
+    extraction.assert_awaited_once()
+    assert extraction.await_args.kwargs == {"limit": 5, "cohort": "all", "tickers": ["AAPL"], "retry_failed": True, "window_days": None}
+    assert job_outcomes == [("succeeded", CLEAN_BATCH, None)]
+    with SessionLocal() as session:
+        assert session.query(JobRun).filter(JobRun.job_name == "section-extraction-manual").count() >= 1

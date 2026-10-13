@@ -312,7 +312,8 @@ Submodules: `financial_fact.py` (normalized XBRL for peers/time-series),
 `trend_analysis.py` (cached Multi-Period runs keyed by company/mode/range),
 `notifications.py` (prefs + dedup ledger), `refresh_token.py` (rotation chain),
 `subscription.py` (`Subscription` + `StripeEvent` idempotency ledger), `waitlist.py`,
-`contact.py`, `audit_log.py`, `job_run.py` (`earningsnerd_job_runs`, independent scheduled-job attempts). Additional tables via migrations: `invite_codes`,
+`contact.py`, `audit_log.py`, `job_run.py` (`earningsnerd_job_runs`, independent scheduled-job attempts),
+`filing_section_text.py` (`filing_section_text`: Item 1A text per filing with its extraction status, attempt times and the cached comparison summary). Additional tables via migrations: `invite_codes`,
 `feedback`, `login_attempts`, `earnings_events` (plus the orphaned `guest_daily_usage` —
 unused since generation became account-required in #619; kept because migrations are re-run-safe, never destructive).
 

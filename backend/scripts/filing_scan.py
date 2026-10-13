@@ -39,37 +39,48 @@ async def _main(*, digest: bool, dry_run: bool, cadence_minutes: int) -> None:
     from app.database import SessionLocal
     from app.services import filing_scan_service
 
-    from app.services.job_run_service import track_job
+    from app.services.job_run_service import JobRunFailed, track_job
 
-    with track_job("filing-digest" if digest else "filing-scan", dry_run=dry_run) as attempt:
-        db = SessionLocal()
-        try:
-            if digest:
-                stats = await filing_scan_service.run_daily_digest(
-                    db, send_digest=None
-                )
-                attempt.record(stats)
-                logger.info("Daily digest complete: %s", stats)
-            else:
-                stats = await filing_scan_service.run_filing_scan(
-                    db,
-                    send_alert=None,
-                    cadence_minutes=cadence_minutes,
-                )
-                attempt.record(stats)
-                logger.info("Filing scan complete: %s", stats)
-        finally:
-            db.close()
+    scan_failed: JobRunFailed | None = None
+    try:
+        with track_job("filing-digest" if digest else "filing-scan", dry_run=dry_run) as attempt:
+            db = SessionLocal()
+            try:
+                if digest:
+                    stats = await filing_scan_service.run_daily_digest(
+                        db, send_digest=None
+                    )
+                    attempt.record(stats)
+                    logger.info("Daily digest complete: %s", stats)
+                else:
+                    stats = await filing_scan_service.run_filing_scan(
+                        db,
+                        send_alert=None,
+                        cadence_minutes=cadence_minutes,
+                    )
+                    attempt.record(stats)
+                    logger.info("Filing scan complete: %s", stats)
+            finally:
+                db.close()
+    except JobRunFailed as exc:
+        # Recorded as failed already. The extraction batch still runs below: the scan's filings are
+        # in the table, and a pass whose alerts failed must not also starve the wording diff.
+        scan_failed = exc
 
     if not digest:
         await _extract_sections_if_enabled()
+    if scan_failed is not None:
+        raise scan_failed
 
 
 async def _extract_sections_if_enabled() -> None:
     """After the real-time pass: store Item 1A text for the watched cohort's newest filings.
 
-    Behind ENABLE_SECTION_CHANGES, its own job record (`section-extraction`) and its own honest
-    outcome: a failed extraction fails this execution without touching the scan's record above.
+    Behind ENABLE_SECTION_CHANGES, under its own job record (`section-extraction`) with its own
+    honest outcome. A document that failed is recorded on that record (and waits
+    `filing_section_service.RETRY_FAILED_AFTER` before its next attempt), but it does not fail
+    this execution: Cloud Run would otherwise retry the whole script, scan included, for a row
+    that the next pass cannot retry yet.
     """
     from app.config import settings
 
@@ -78,16 +89,19 @@ async def _extract_sections_if_enabled() -> None:
 
     from app.database import SessionLocal
     from app.services import filing_section_service
-    from app.services.job_run_service import track_job
+    from app.services.job_run_service import JobRunFailed, track_job
 
-    with track_job("section-extraction") as attempt:
-        db = SessionLocal()
-        try:
-            stats = await filing_section_service.run_section_extraction(db)
-            attempt.record(stats)
-            logger.info("Section extraction complete: %s", stats)
-        finally:
-            db.close()
+    try:
+        with track_job("section-extraction") as attempt:
+            db = SessionLocal()
+            try:
+                stats = await filing_section_service.run_section_extraction(db)
+                attempt.record(stats)
+                logger.info("Section extraction complete: %s", stats)
+            finally:
+                db.close()
+    except JobRunFailed as exc:
+        logger.warning("Section extraction recorded failures (see the job's counters): %s", exc)
 
 
 if __name__ == "__main__":

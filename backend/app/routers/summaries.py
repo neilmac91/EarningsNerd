@@ -54,7 +54,7 @@ from app.services.summary_pipeline import (
     stream_filing_summary, to_sse, snapshot_generation_user, load_generation_user,
 )
 from app.services.provenance_service import enrich_summary_provenance, source_safe_business_overview
-from app.services.change_report_service import build_change_report
+from app.services.change_report_service import change_report_for_filing
 from app.services.filing_section_service import section_changes_access
 
 router = APIRouter()
@@ -688,13 +688,15 @@ async def get_what_changed(
     Reports financial-metric deltas and, behind ENABLE_SECTION_CHANGES, the Item 1A wording diff
     (``section_changes``: a teaser for anonymous and Free readers, the full list for Pro). DB-only,
     no LLM — cheap to serve. Returns ``has_changes: false`` when there's no prior filing to compare
-    against. Off the event loop: the wording diff is CPU work (about 150 ms on the largest pair).
+    against. The lookup, the report and the session release are one unit off the event loop: the
+    wording diff is CPU work (about 150 ms on the largest pair), and the pooled connection is back
+    before the route yields to the dependency's finalizer.
     """
-    filing = db.query(Filing).filter(Filing.id == filing_id).first()
-    if not filing:
-        raise HTTPException(status_code=404, detail="Filing not found")
     access = section_changes_access(current_user)
-    return await run_in_threadpool(build_change_report, db, filing, section_access=access)
+    report = await run_in_threadpool(change_report_for_filing, db, filing_id, section_access=access)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Filing not found")
+    return report
 
 
 @router.get("/filing/{filing_id}/export/pdf")

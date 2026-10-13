@@ -9,15 +9,16 @@ The one home for the ``filing_section_text`` table (``app/models/filing_section_
   section and the comparison pairs originals.
 * ``run_section_extraction`` is the job body the hourly filing scan (``scripts/filing_scan.py``,
   behind ``ENABLE_SECTION_CHANGES``) and the operator script (``scripts/extract_sections.py``)
-  share: a bounded, newest-first batch over the watched companies' filings and the filings that
-  already have a summary, so nothing is ever fetched because an anonymous page view asked.
+  share: a bounded, newest-first batch over the filings of the companies somebody watches or has
+  a summary for, so nothing is ever fetched because an anonymous page view asked. The same pass
+  recomputes cached comparison summaries left behind by an older diff engine.
 * ``build_section_changes`` is the Change Report's ``section_changes`` block: the stored text of
   the viewed filing diffed (``section_diff``) against the stored text of its prior same-form
   filing, in full for Pro and as a short teaser for everyone else. A cached summary of that diff
   lives on the later filing's row so lists can read counts without recomputing.
 
-Only the filings' own text is stored or served (rule 2). Services stay HTTP-free: access is a
-plain string the router derives from the entitlements.
+Only the filings' own text is stored or served (rule 2). Services stay HTTP-free: the router
+derives the viewer's access from the entitlements and hands it in as plain data.
 """
 from __future__ import annotations
 
@@ -28,9 +29,10 @@ import threading
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable, NamedTuple, Optional
 
 from sqlalchemy import desc, exists, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
 from app.config import settings
@@ -44,7 +46,8 @@ logger = logging.getLogger(__name__)
 
 SECTION_ITEM_1A = "item_1a"
 SECTION_LABELS = {SECTION_ITEM_1A: "Item 1A. Risk Factors"}
-# Bump when ``parse_item_1a`` or ``_tidy`` would store different text for the same document.
+# Bump when ``parse_item_1a`` or ``_tidy`` would store different text for the same document; every
+# row produced by an older extractor is then re-fetched, newest first, within the batch limit.
 EXTRACTOR_VERSION = 1
 SUPPORTED_FORMS = ("10-K", "10-Q")
 
@@ -56,25 +59,28 @@ STATUS_OVERSIZE = "oversize"
 ACCESS_NONE = "none"
 ACCESS_TEASER = "teaser"
 ACCESS_FULL = "full"
-# Items a Free or anonymous reader sees; the counts are never truncated.
-TEASER_ITEMS = 3
 
 FETCH_TIMEOUT_SECONDS = 60.0
-# JPMorgan's 13 MB 10-K parses in about 8 s on the job's single CPU.
+# A 13 MB 10-K parses in about 8 s on the job's single CPU, peaking near 370 MB of RSS.
 PARSE_TIMEOUT_SECONDS = 120.0
-# A failed row is retried by the scheduled batch once it is this old; the operator script's
+# A failed attempt (a fresh failure, or a failed re-extraction of a row that keeps its older
+# text) is not retried by the scheduled batch until it is this old; the operator script's
 # ``retry_failed`` ignores the wait.
 RETRY_FAILED_AFTER = timedelta(hours=24)
 # Filings older than this are never selected: three fiscal years give every current 10-K/10-Q a
 # prior to pair with, without walking a company's backfilled history to 2001.
 WINDOW_DAYS = 3 * 365
+# Cached summaries behind the current diff engine recomputed per batch (CPU only, no SEC request).
+SUMMARY_RECOMPUTE_BATCH = 200
 # A 10-Q "no material changes" pointer is short; a restated section never is.
 _REFERENCE_ONLY_MAX_CHARS = 2000
 _REFERENCE_ONLY = re.compile(
     r"no material (?:change|update)s?|not (?:been )?materially (?:changed|updated)|"
     r"(?:refer|see|incorporated)\w*\b.{0,120}\b(?:annual report|form 10-k)",
-    re.I | re.S,
+    re.I,
 )
+# A pointer that goes on to restate or add a risk is not a pointer.
+_REFERENCE_CARVE_OUT = re.compile(r"\b(?:except|other than|in addition|supplement\w*|as (?:updated|supplemented) below)\b", re.I)
 
 FetchDocument = Callable[[str], Awaitable[str]]
 ParseSection = Callable[[str, str], "ExtractedSection"]
@@ -89,6 +95,31 @@ class ExtractedSection:
     detection_method: Optional[str] = None
     confidence: Optional[float] = None
     error_type: Optional[str] = None
+
+
+class ExtractionAttempt(NamedTuple):
+    """One stored attempt: the row as it now stands and what this attempt found.
+
+    ``status`` is the attempt's outcome, not necessarily the row's: a failed re-extraction keeps
+    the row's older ``ok`` text (see ``_upsert``)."""
+
+    row: FilingSectionText
+    status: str
+
+
+class SectionAccess(NamedTuple):
+    """How much of the block a viewer gets, as the router resolved it from the entitlements."""
+
+    level: str                    # ACCESS_NONE | ACCESS_TEASER | ACCESS_FULL
+    item_limit: Optional[int]     # items shown; None = every item
+
+
+NO_SECTION_ACCESS = SectionAccess(ACCESS_NONE, 0)
+FULL_SECTION_ACCESS = SectionAccess(ACCESS_FULL, None)
+
+
+class SectionExtractionHalted(RuntimeError):
+    """The SEC breaker is open: nothing was attempted, the batch stops."""
 
 
 # --- extraction -------------------------------------------------------------------------------
@@ -123,7 +154,11 @@ def parse_item_1a(html: str, form: str) -> ExtractedSection:
 
 
 def is_reference_only(text: str) -> bool:
-    return len(text) <= _REFERENCE_ONLY_MAX_CHARS and bool(_REFERENCE_ONLY.search(text))
+    """A short 10-Q section that only points back at the 10-K, however it is line-wrapped."""
+    flat = " ".join(text.split())
+    if len(flat) > _REFERENCE_ONLY_MAX_CHARS or not _REFERENCE_ONLY.search(flat):
+        return False
+    return not _REFERENCE_CARVE_OUT.search(flat)
 
 
 async def _default_fetch(document_url: str) -> str:
@@ -141,10 +176,22 @@ def _section_row(db: Session, filing_id: int) -> Optional[FilingSectionText]:
 
 
 def _upsert(db: Session, filing: Filing, result: ExtractedSection, *, now: datetime) -> FilingSectionText:
+    """Write the attempt onto the filing's row.
+
+    A failed attempt on a row that already holds ``ok`` text (a re-extraction after an
+    ``EXTRACTOR_VERSION`` bump, or an operator retry) keeps that text: only ``attempted_at`` and
+    ``error_type`` record the failure, and the selection waits ``RETRY_FAILED_AFTER`` before trying
+    again. Any other result replaces the row's payload and clears its cached comparison, which
+    ``refresh_diff_summaries`` recomputes.
+    """
     row = _section_row(db, filing.id)
     if row is None:
         row = FilingSectionText(filing_id=filing.id, section=SECTION_ITEM_1A)
         db.add(row)
+    row.attempted_at = now
+    if result.status == STATUS_FAILED and row.status == STATUS_OK and row.text:
+        row.error_type = result.error_type
+        return row
     text = result.text if result.status == STATUS_OK else None
     row.extractor_version = EXTRACTOR_VERSION
     row.status = result.status
@@ -165,6 +212,12 @@ def _upsert(db: Session, filing: Filing, result: ExtractedSection, *, now: datet
     return row
 
 
+def _is_breaker_open(exc: BaseException) -> bool:
+    from app.services.edgar.circuit_breaker import CircuitOpenError
+
+    return isinstance(exc, CircuitOpenError)
+
+
 async def extract_for_filing(
     db: Session,
     filing: Filing,
@@ -172,11 +225,13 @@ async def extract_for_filing(
     fetch_document: Optional[FetchDocument] = None,
     parse: Optional[ParseSection] = None,
     now: Optional[datetime] = None,
-) -> Optional[FilingSectionText]:
+) -> Optional[ExtractionAttempt]:
     """Fetch, parse and store the filing's Item 1A; refresh the diff summaries it takes part in.
 
-    Returns the row, or None for an unsupported form (nothing is fetched). A fetch or parse error
-    is recorded as a ``failed`` row (never raised), so one bad document cannot stop a batch.
+    Returns the attempt, or None for an unsupported form (nothing is fetched). A fetch or parse
+    error is recorded as a failed attempt (never raised), so one bad document cannot stop a batch;
+    an open SEC breaker raises ``SectionExtractionHalted`` without writing anything, because
+    nothing was attempted.
     """
     if filing.filing_type not in SUPPORTED_FORMS:
         return None
@@ -189,20 +244,28 @@ async def extract_for_filing(
     try:
         html = await fetch_document(filing.document_url)
         result = await run_in_executor_with_timeout(lambda: parse(html, form), timeout=PARSE_TIMEOUT_SECONDS)
-    except Exception as exc:  # EdgarError, CircuitOpenError, timeouts, parser faults: all recorded
+    except Exception as exc:  # EdgarError, timeouts, parser faults: all recorded
         # The executor wraps parser faults in EdgarError; the underlying type is the useful one.
         underlying = getattr(exc, "cause", None) or exc
+        if _is_breaker_open(underlying):
+            raise SectionExtractionHalted(f"SEC breaker open before filing {filing.id}") from exc
         logger.warning("Item 1A extraction failed for filing %s (%s): %s", filing.id, form, type(underlying).__name__)
         result = ExtractedSection(status=STATUS_FAILED, error_type=type(underlying).__name__[:120])
     if result.status == STATUS_OK and len(result.text or "") > settings.SECTION_TEXT_MAX_CHARS:
         result = ExtractedSection(status=STATUS_OVERSIZE, detection_method=result.detection_method,
                                   confidence=result.confidence)
     row = _upsert(db, filing, result, now=now)
-    db.commit()
-    if row.status == STATUS_OK:
-        refresh_diff_summaries(db, filing, now=now)
+    try:
         db.commit()
-    return row
+    except IntegrityError:
+        # Another process (the operator script beside the hourly job) inserted the row first:
+        # write this attempt onto theirs.
+        db.rollback()
+        row = _upsert(db, filing, result, now=now)
+        db.commit()
+    refresh_diff_summaries(db, filing, now=now)
+    db.commit()
+    return ExtractionAttempt(row=row, status=result.status)
 
 
 # --- selection and the job body ----------------------------------------------------------------
@@ -221,22 +284,24 @@ def select_filings_for_extraction(
     companies ahead of the rest.
 
     ``cohort`` is ``"watched"`` (companies somebody watches or has a summary for, so a summarized
-    filing's prior is extracted too) or ``"all"``; ``tickers`` narrows either. A ``failed`` row
-    blocks re-selection for ``RETRY_FAILED_AFTER`` unless ``retry_failed``.
+    filing's prior is extracted too) or ``"all"``; ``tickers`` narrows either. A failed attempt
+    (a ``failed`` row, or an ``ok`` row whose re-extraction failed) blocks re-selection for
+    ``RETRY_FAILED_AFTER`` unless ``retry_failed``.
     """
     if limit <= 0:
         return []
     now = now or utcnow()
     window_days = WINDOW_DAYS if window_days is None else window_days
-    blocking = (FilingSectionText.filing_id == Filing.id) & (FilingSectionText.section == SECTION_ITEM_1A) & (
-        FilingSectionText.extractor_version >= EXTRACTOR_VERSION
-    )
+    same_row = (FilingSectionText.filing_id == Filing.id) & (FilingSectionText.section == SECTION_ITEM_1A)
+    current = FilingSectionText.extractor_version >= EXTRACTOR_VERSION
     if retry_failed:
-        blocking = blocking & (FilingSectionText.status != STATUS_FAILED)
+        blocking = same_row & current & (FilingSectionText.status != STATUS_FAILED)
     else:
-        blocking = blocking & or_(
-            FilingSectionText.status != STATUS_FAILED,
-            FilingSectionText.extracted_at > now - RETRY_FAILED_AFTER,
+        recently_attempted = FilingSectionText.attempted_at > now - RETRY_FAILED_AFTER
+        blocking = same_row & or_(
+            current & or_(FilingSectionText.status != STATUS_FAILED, recently_attempted),
+            # An older row whose re-extraction just failed waits too.
+            FilingSectionText.error_type.isnot(None) & recently_attempted,
         )
     watched = exists().where(Watchlist.company_id == Filing.company_id)
     query = db.query(Filing).filter(
@@ -270,83 +335,84 @@ async def run_section_extraction(
     fetch_document: Optional[FetchDocument] = None,
     parse: Optional[ParseSection] = None,
 ) -> dict[str, int]:
-    """One bounded, serial pass: counts only (``job_run_service`` persists them)."""
+    """One bounded, serial pass: counts only (``job_run_service`` persists them).
+
+    ``extract_errors`` fails the job; ``breaker_open`` (the batch stopped early because the SEC
+    breaker is open) and ``summaries_recomputed`` (cached summaries brought up to the current
+    diff engine) are informational.
+    """
     limit = settings.SECTION_EXTRACTION_BATCH_LIMIT if limit is None else limit
-    stats = {"selected": 0, "extracted_ok": 0, "missing": 0, "oversize": 0, "extract_errors": 0}
+    stats = {"selected": 0, "extracted_ok": 0, "missing": 0, "oversize": 0, "extract_errors": 0,
+             "breaker_open": 0, "summaries_recomputed": 0}
     filings = select_filings_for_extraction(
         db, limit=limit, cohort=cohort, tickers=tickers, retry_failed=retry_failed, window_days=window_days, now=now
     )
     stats["selected"] = len(filings)
     for filing in filings:
-        row = await extract_for_filing(db, filing, fetch_document=fetch_document, parse=parse, now=now)
-        if row is None:
+        try:
+            attempt = await extract_for_filing(db, filing, fetch_document=fetch_document, parse=parse, now=now)
+        except SectionExtractionHalted as halted:
+            logger.warning("Section extraction stopped: %s", halted)
+            stats["breaker_open"] = 1
+            break
+        if attempt is None:
             continue
-        if row.status == STATUS_OK:
+        if attempt.status == STATUS_OK:
             stats["extracted_ok"] += 1
-        elif row.status == STATUS_FAILED:
+        elif attempt.status == STATUS_FAILED:
             stats["extract_errors"] += 1
         else:
-            stats[row.status] += 1
+            stats[attempt.status] += 1
+    stats["summaries_recomputed"] = recompute_stale_summaries(db, limit=SUMMARY_RECOMPUTE_BATCH, now=now)
     return stats
 
 
 # --- pairing and the cached diff ---------------------------------------------------------------
 
-def prior_section_row(db: Session, filing: Filing) -> Optional[FilingSectionText]:
-    """The ``ok`` Item 1A row of the latest earlier-period filing of the same form and company.
-
-    Same rule as the Change Report's prior: a strictly earlier reporting period, never an
-    amendment of the same period; without the current period nothing is comparable.
-    """
+def _prior_filing(db: Session, filing: Filing) -> Optional[Filing]:
+    """The latest earlier-period original of the same form and company: the Change Report's own
+    prior rule, minus amendments (a strictly earlier reporting period, filed earlier; without the
+    current period nothing is comparable)."""
     if filing.period_end_date is None:
         return None
     return (
-        db.query(FilingSectionText)
-        .join(Filing, FilingSectionText.filing_id == Filing.id)
+        db.query(Filing)
         .filter(
             Filing.company_id == filing.company_id,
             Filing.filing_type == filing.filing_type,
             Filing.filing_date < filing.filing_date,
             Filing.period_end_date < filing.period_end_date,
-            FilingSectionText.section == SECTION_ITEM_1A,
-            FilingSectionText.status == STATUS_OK,
         )
         .order_by(desc(Filing.period_end_date), desc(Filing.filing_date), desc(Filing.accession_number))
         .first()
     )
 
 
-def _has_prior_filing(db: Session, filing: Filing) -> bool:
-    if filing.period_end_date is None:
-        return False
-    return db.query(
-        exists().where(
-            (Filing.company_id == filing.company_id)
-            & (Filing.filing_type == filing.filing_type)
-            & (Filing.filing_date < filing.filing_date)
-            & (Filing.period_end_date < filing.period_end_date)
-        )
-    ).scalar()
-
-
-def _next_section_row(db: Session, filing: Filing) -> Optional[FilingSectionText]:
-    """The ``ok`` row of the next same-form filing, whose prior this filing may now be."""
+def _next_filing(db: Session, filing: Filing) -> Optional[Filing]:
+    """The next same-form original, whose prior this filing is."""
     if filing.period_end_date is None:
         return None
     return (
-        db.query(FilingSectionText)
-        .join(Filing, FilingSectionText.filing_id == Filing.id)
+        db.query(Filing)
         .filter(
             Filing.company_id == filing.company_id,
             Filing.filing_type == filing.filing_type,
             Filing.filing_date > filing.filing_date,
             Filing.period_end_date > filing.period_end_date,
-            FilingSectionText.section == SECTION_ITEM_1A,
-            FilingSectionText.status == STATUS_OK,
         )
         .order_by(Filing.period_end_date, Filing.filing_date, Filing.accession_number)
         .first()
     )
+
+
+def prior_section_row(db: Session, filing: Filing) -> Optional[FilingSectionText]:
+    """The ``ok`` Item 1A row of the filing's prior (``_prior_filing``), else None. The comparison
+    never skips a period: a prior without usable text leaves the filing without a comparison."""
+    prior = _prior_filing(db, filing)
+    if prior is None:
+        return None
+    row = _section_row(db, prior.id)
+    return row if row is not None and row.status == STATUS_OK else None
 
 
 _DIFF_CACHE: "OrderedDict[tuple[Optional[str], Optional[str], int], dict[str, Any]]" = OrderedDict()
@@ -400,29 +466,56 @@ def compute_diff_summary(db: Session, row: FilingSectionText, *, now: Optional[d
 
 
 def refresh_diff_summaries(db: Session, filing: Filing, *, now: Optional[datetime] = None) -> int:
-    """Recompute the summary of this filing's row and of the next filing's row (this filing may
-    have just become its prior). Returns how many summaries were written."""
+    """Recompute the summary of this filing's row and of the next filing's row (this filing is
+    its prior, so a change of status here changes that comparison). Returns how many were written."""
     written = 0
     row = _section_row(db, filing.id)
     if row is not None and row.status == STATUS_OK:
         compute_diff_summary(db, row, now=now)
         written += 1
-    successor = _next_section_row(db, filing)
-    if successor is not None:
-        compute_diff_summary(db, successor, now=now)
+    successor = _next_filing(db, filing)
+    successor_row = _section_row(db, successor.id) if successor is not None else None
+    if successor_row is not None and successor_row.status == STATUS_OK:
+        compute_diff_summary(db, successor_row, now=now)
         written += 1
     return written
 
 
+def recompute_stale_summaries(db: Session, *, limit: int, now: Optional[datetime] = None) -> int:
+    """Bring up to ``limit`` ``ok`` rows whose cached summary predates ``section_diff.ENGINE_VERSION``
+    (or was never computed) onto the current engine. CPU only; commits. Returns how many."""
+    if limit <= 0:
+        return 0
+    rows = (
+        db.query(FilingSectionText)
+        .filter(
+            FilingSectionText.section == SECTION_ITEM_1A,
+            FilingSectionText.status == STATUS_OK,
+            or_(FilingSectionText.diff_engine_version.is_(None),
+                FilingSectionText.diff_engine_version < section_diff.ENGINE_VERSION),
+        )
+        .order_by(desc(FilingSectionText.extracted_at), desc(FilingSectionText.id))
+        .limit(limit)
+        .all()
+    )
+    for row in rows:
+        compute_diff_summary(db, row, now=now)
+    if rows:
+        db.commit()
+    return len(rows)
+
+
 # --- the Change Report block -------------------------------------------------------------------
 
-def section_changes_access(user: Any) -> str:
-    """``none`` while the flag is off, ``full`` for an entitled user, else ``teaser``."""
+def section_changes_access(user: Any) -> SectionAccess:
+    """None while the flag is off; otherwise what ``entitlements`` grants the viewer: every item
+    for ``section_changes``, else the ``section_changes_items`` teaser."""
     if not settings.ENABLE_SECTION_CHANGES:
-        return ACCESS_NONE
-    if user is not None and get_entitlements(user).section_changes:
-        return ACCESS_FULL
-    return ACCESS_TEASER
+        return NO_SECTION_ACCESS
+    entitlements = get_entitlements(user)
+    if entitlements.section_changes:
+        return FULL_SECTION_ACCESS
+    return SectionAccess(ACCESS_TEASER, entitlements.section_changes_items)
 
 
 def _filing_ref(filing: Filing) -> dict[str, Any]:
@@ -437,6 +530,7 @@ def _filing_ref(filing: Filing) -> dict[str, Any]:
 
 def _side(row: FilingSectionText) -> dict[str, Any]:
     return {
+        "status": row.status,
         "extracted_at": iso_z(ensure_utc(row.extracted_at)) if row.extracted_at else None,
         "reference_only": bool(row.reference_only),
         "char_count": row.char_count,
@@ -444,20 +538,27 @@ def _side(row: FilingSectionText) -> dict[str, Any]:
     }
 
 
-def build_section_changes(db: Session, filing: Filing, access: str) -> Optional[dict[str, Any]]:
+def _outside_window(filing: Filing, now: datetime) -> bool:
+    return filing.filing_date is not None and ensure_utc(filing.filing_date) < now - timedelta(days=WINDOW_DAYS)
+
+
+def build_section_changes(db: Session, filing: Filing, access: SectionAccess) -> Optional[dict[str, Any]]:
     """The ``section_changes`` block, or None when the feature is off.
 
-    ``status`` is ``ok`` (a comparison, ``items`` cut to ``TEASER_ITEMS`` unless ``access`` is
-    full), ``pending`` (a side is not extracted yet), ``no_prior`` (no earlier same-form filing
-    exists) or ``unavailable`` (the section is missing, oversize, failed, or the form is not
-    supported); ``reason`` says which side and why.
+    ``status`` is ``ok`` (a comparison, ``items`` cut to ``access.item_limit``), ``pending`` (a side
+    has no row yet and the batch will extract it: ``current_not_extracted`` /
+    ``prior_not_extracted``), ``no_prior`` (no earlier same-form filing exists) or ``unavailable``
+    (nothing to compare as things stand: ``form_not_supported``; the current or the prior row is
+    ``missing``, ``oversize`` or ``failed`` as ``current_<status>`` / ``prior_<status>``; or the
+    prior was filed outside the extraction window, ``prior_outside_window``). ``prior_filing`` is
+    set whenever a prior exists, so a reader can see which filing the state is about.
     """
-    if access == ACCESS_NONE:
+    if access.level == ACCESS_NONE:
         return None
     block: dict[str, Any] = {
         "section": SECTION_ITEM_1A,
         "section_label": SECTION_LABELS[SECTION_ITEM_1A],
-        "access": access,
+        "access": access.level,
         "engine_version": section_diff.ENGINE_VERSION,
         "prior_filing": None,
     }
@@ -468,20 +569,24 @@ def build_section_changes(db: Session, filing: Filing, access: str) -> Optional[
         return {**block, "status": "pending", "reason": "current_not_extracted"}
     if row.status != STATUS_OK:
         return {**block, "status": "unavailable", "reason": f"current_{row.status}", "current": _side(row)}
-    prior = prior_section_row(db, filing)
+    prior_filing = _prior_filing(db, filing)
+    if prior_filing is None:
+        return {**block, "status": "no_prior", "reason": "no_prior_filing", "current": _side(row)}
+    block["prior_filing"] = _filing_ref(prior_filing)
+    prior = _section_row(db, prior_filing.id)
     if prior is None:
-        if not _has_prior_filing(db, filing):
-            return {**block, "status": "no_prior", "reason": "no_prior_filing", "current": _side(row)}
+        if _outside_window(prior_filing, utcnow()):
+            return {**block, "status": "unavailable", "reason": "prior_outside_window", "current": _side(row)}
         return {**block, "status": "pending", "reason": "prior_not_extracted", "current": _side(row)}
+    if prior.status != STATUS_OK:
+        return {**block, "status": "unavailable", "reason": f"prior_{prior.status}", "current": _side(row), "prior": _side(prior)}
     result = cached_diff(prior, row)
     items = result["items"]
-    shown = items if access == ACCESS_FULL else items[:TEASER_ITEMS]
-    prior_filing = prior.filing if prior.filing is not None else db.get(Filing, prior.filing_id)
+    shown = items if access.item_limit is None else items[: max(access.item_limit, 0)]
     return {
         **block,
         "status": "ok",
         "reason": None,
-        "prior_filing": _filing_ref(prior_filing),
         "current": _side(row),
         "prior": _side(prior),
         "paragraphs": result["paragraphs"],

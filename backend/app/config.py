@@ -440,8 +440,10 @@ class Settings(BaseSettings):
     # report carries `section_changes: null`. scripts/extract_sections.py backfills regardless of
     # this flag so an operator can warm the table before flipping it.
     ENABLE_SECTION_CHANGES: bool = False
-    # Filings extracted per scan run (one SEC request each). 25 keeps an hourly run under a minute
-    # at the deploy-pinned 1 req/s and still backfills a watchlist's recent filings within a day.
+    # Filings extracted per scan run (one SEC request each, up to three attempts). The 2026-10
+    # corpus averaged 2.7 s per filing for fetch plus parse (7.7 s for the largest 10-K), so 25
+    # keeps a typical hourly run near a minute and still backfills a watchlist's recent filings
+    # within a day; a document that times out on every attempt costs about three minutes on its own.
     SECTION_EXTRACTION_BATCH_LIMIT: int = Field(default=25, ge=0, le=500)
     # Section texts longer than this are recorded as `oversize` without their text. The longest
     # Item 1A in the 2026-10 corpus of 56 filings was 161k characters.
