@@ -66,11 +66,17 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   "$7.5" (a Phase 9 fix; compact figures keep their rounding).
 - **Calendar** (`frontend/features/calendar/components/EarningsCalendarPage.tsx`, `MonthView.tsx`,
   `WeekView.tsx`): the coverage chip and the "+N more" and "Show top 5" controls rest in the ink,
-  sage only under the pointer or focus (D-030); `brandCopyRules.spec.ts` rule 2 now scans the whole
-  app, a ui Button (or RetryButton or MarketingCta) whose variant sets sage ink included, so no sage element
-  anywhere renders a digit.
-  `tests/unit/calendarCoverageChip.spec.tsx` renders the page on a bounded payload under the known universe
-  and holds the chip in the neutral pill and the week view's "+N more" in the secondary ink.
+  sage only under the pointer (D-030). `tests/unit/calendarCoverageChip.spec.tsx` renders the page
+  on a bounded payload under the known universe: the chip shows there and nowhere else.
+- **Counts elsewhere in the product** (D-030): the dashboard feed's "See all N companies" link, the
+  check-email countdown, the period quick picks, the narrative's "Show the N source figures"
+  summary and its bracketed Sources chip, the data notes' checked count, the peer rank and the
+  summary's section index rest in the ink. The controls among them take the count control recipe
+  (`frontend/DESIGN_SYSTEM.md`): the whole label in the secondary ink as one text run, sage under
+  the pointer, and a countdown at full strength while its control waits. `brandCopyRules.spec.ts`
+  rule 2 reads the whole app and follows sage through a class, a ui Button or Badge variant, a
+  resting state such as `aria-pressed:`, an opacity modifier and a component that sets it; its
+  header names what stays review-checked.
 - **Exports and mail** (`backend/app/services/export_service.py`, `excel_export_service.py`,
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
@@ -140,7 +146,7 @@ New gates, each with a mutation proof in the PR (CLAUDE.md rule 12):
 - `brandCopyRules.spec.ts`: shipped copy never says "each figure" or "every figure" without the
   server's scope beside it, never promises nine parts for every filing, and on the public surfaces
   never promises that quotes are withheld or are the filing's own words unless it names risk
-  excerpts; on the public surfaces no sage-coloured element renders a digit (D-030 later widened this to the whole app and to computed values); the
+  excerpts; on the public surfaces no sage-coloured element renders a digit (D-030 later widened this to the whole app, to computed values and to the sage a variant, a resting state or a component sets); the
   highlight never sits on a figure or a price, the hero accents included; the margin exists only
   inside `MarkedCopy`, and every `MarkedCopy` carries a marker.
 - `markSingleSource.spec.ts`: every rendition of the EN monogram (the assets, the templates, the

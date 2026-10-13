@@ -57,6 +57,13 @@ keys, spreads and helpers are all covered for free, and no regex needs widening 
 Text-matching is sound only where the format forbids the ambiguity — CSS custom properties
 cannot be quoted or computed, so `globals.css` stays a regex.
 
+*Score the gate on the rule's forms, not only on its sites.* A mutation proof on the site you
+just fixed shows the gate catches that site; it says nothing about the other forms the rule can
+take. Before a record says what a gate holds, plant one case for each way the rule can be broken
+and one for each look-alike that must pass, mark each flag or clean, run the gate over them and
+record the score. Name in the gate's header what stays out of reach, so the record claims only
+what the score shows.
+
 Corollary for the anti-vacuity floor: assert the scanner actually found things (>100 files,
 >100 tests). A narrow gate and a broken walk look identical from the outside — both green.
 
@@ -69,5 +76,12 @@ before/after proof: the pre-fix form passed with the mutation present — `Tests
 (17)` for the quoted key, `5 passed (5)` for the `.mjs` orphan, `22 passed (22)` for the
 tracked `build/` orphan, the renamed font variable and the commented-out `--font-heading`
 all at once — which is what makes "the gate was narrower than the rule" a measurement
-rather than a claim. Companion to `arch-structural-gates-over-prose-rules.md`, which says to
-build the gate; this one says how wide to build it.
+rather than a claim. [#1251](https://github.com/neilmac91/EarningsNerd/pull/1251)'s rule 2 in
+`frontend/tests/unit/brandCopyRules.spec.ts` (sage never colours a number) passed its mutation proofs
+on every site it fixed, and its records said no sage element anywhere rendered a digit; scored on
+50 planted forms at `cc2df56`, it missed 15 (a Badge variant, an opacity modifier, a selected state,
+a wrapper component, a block-bodied callback, SVG text, among others) and failed 3 that must pass
+(a literal "10-K", a primary Button or a neutral Badge inside sage text). After it asked the
+components for their colours and followed sage through variants, states and components, it scored
+50 of 50. Companion to `arch-structural-gates-over-prose-rules.md`, which says to build the gate;
+this one says how wide to build it.

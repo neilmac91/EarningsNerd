@@ -654,7 +654,8 @@ Filing identity  <FilingIdentity filing>  (features/filings, 2026-10 critique P-
 
 Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page ground with no card: index + h2 (see
                  §3), body `space-y-4`, `space-y-11` between sections; the sticky TOC sits on the reading
-                 side (lg+), each entry `01 Title` with the index in brand-strong; below lg the jump chips
+                 side (lg+), each entry `01 Title` with the index in the tertiary ink (secondary on navy;
+                 sage never colours a number, D-030); below lg the jump chips
                  carry the same index. Hairlines live inside the content (row tables: header and every row
                  close with a hairline, outer cells flush with the text edge, no outer frame). Body ink for
                  paragraphs and bullets. The change report is the section after the first metrics section
@@ -916,7 +917,9 @@ carries no claim and is `aria-hidden` (the in-text marker is the accessible one)
 - **Status + financial colors are semantic** — keep them; reserve loud status colors for genuine
   state. A default guidance/info container is subdued/brand-tinted, not loud blue (see `GuidanceCard`).
 - **Progress / step / completion indicators use the BRAND accent (sage), not success-green.**
-  Green is for a genuine terminal *confirmation* state; in-progress ticks are brand activity.
+  Green is for a genuine terminal *confirmation* state; in-progress ticks are brand activity. The
+  indicator itself (a bar, a ring, a tick) takes the sage; a step's number or a percentage beside it
+  rests in the ink (D-030).
 
 ## 10. Charts (recharts)
 

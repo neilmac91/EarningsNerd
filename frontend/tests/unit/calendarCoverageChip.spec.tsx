@@ -6,12 +6,11 @@ import type { CalendarEvent, CalendarUniverse } from '@/features/calendar/api/ca
 
 /**
  * The calendar's coverage chip renders only when the backend reports the index universe
- * (`universe: 'sp500_nasdaq100'`), which the page's fixture mode never does, so the chip is proven
+ * (`universe: 'sp500_nasdaq100'`), which the page's fixture mode never does, so the chip is checked
  * here on a bounded payload instead: seven reports on the week's Monday (so the week view also shows
- * its "+N more" control) under the known universe. Sage never colours a number (DESIGN.md, the
- * Separate Signals Rule; D-030): the chip, which carries "500" and "100", rests in the neutral pill
- * (panel fill, hairline, secondary ink), and the "+N more" control rests in the secondary ink and
- * turns sage only under the pointer. The chip is absent while the universe is 'all'.
+ * its "+N more" control) under the known universe. The chip shows its caption there and is absent
+ * while the universe is 'all'. Its colour and the "+N more" control's are rule 2's to hold
+ * (brandCopyRules.spec.ts; D-030): the chip carries "500" and "100", so a sage chip fails that rule.
  */
 
 let universe: CalendarUniverse = 'sp500_nasdaq100'
@@ -60,21 +59,11 @@ async function renderPage() {
   await waitFor(() => expect(screen.getAllByRole('button', { name: /^\+\d+ more$/ }).length).toBeGreaterThan(0), { timeout: 5000 })
 }
 
-const SAGE_INK = /(^|\s)(dark:)?text-brand-strong(-dark)?(\s|$)/
-const SAGE_FILL = /(^|\s)(dark:)?bg-brand-weak(-dark)?(\s|$)/
-
 describe('the calendar coverage chip under the known universe', () => {
-  it('rests in the neutral pill, never in sage, while the week view shows its "+N more" in the secondary ink', async () => {
+  it('shows its caption under the known universe, beside the week view\'s "+N more"', async () => {
     universe = 'sp500_nasdaq100'
     await renderPage()
-    const chip = await screen.findByText(/^Covering the S&P 500 & Nasdaq 100$/)
-    expect(chip).toHaveClass('text-text-secondary-light', 'dark:text-text-secondary-dark', 'bg-panel-light', 'dark:bg-panel-dark', 'border')
-    expect(chip.className).not.toMatch(SAGE_INK)
-    expect(chip.className).not.toMatch(SAGE_FILL)
-    for (const more of screen.getAllByRole('button', { name: /^\+\d+ more$/ })) {
-      expect(more).toHaveClass('text-text-secondary-light', 'dark:text-text-secondary-dark', 'hover:text-brand-strong', 'dark:hover:text-brand-strong-dark')
-      expect(more.className).not.toMatch(SAGE_INK)
-    }
+    expect(await screen.findByText(/^Covering the S&P 500 & Nasdaq 100$/)).toBeInTheDocument()
   })
 
   it('is absent while the backend serves every company', async () => {
