@@ -6,7 +6,7 @@ import DashboardError from '@/app/dashboard/error'
  * app/dashboard/error.tsx is the only error boundary under app/dashboard, so it also catches a render
  * error on /dashboard/settings and /dashboard/watchlist: its generic line names no route (audit DSW-12,
  * UA-51). Titles and buttons are in sentence case. The signed-out state keeps its verb ("Go to login")
- * until the founder picks Log in or Sign in (tasks/todo.md F23). Server markup, so no effect runs (no
+ * until the founder picks Log in or Sign in (tasks/todo.md F44). Server markup, so no effect runs (no
  * Sentry call, no redirect).
  */
 

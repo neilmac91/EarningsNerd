@@ -67,7 +67,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   unavailable, failed) with a matching badge ("No summary yet", "Unavailable", "Needs regenerating" in
   sentence case), never from the regeneration flag alone; a failed load shows its error card with a
   Retry and no empty card (a run the server still reports as generating after it died reads as being
-  written until tasks/todo.md E25 lands). The what-changed chips take `lib/financialTone`'s direction chip, the
+  written until tasks/todo.md E43 lands). The what-changed chips take `lib/financialTone`'s direction chip, the
   700-level gain and loss inks on their soft grounds with the sign kept, never sage, and the glyph is
   decorative. The feed lead names what it shows ("The latest annual or quarterly report from the
   companies you follow."), the limit banner states the account's own count and that Pro has no
