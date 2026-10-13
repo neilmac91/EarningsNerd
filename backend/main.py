@@ -76,10 +76,22 @@ def _withhold(node: Any, secret_values: tuple[str, ...]) -> Any:
 def _value_scrubber(secret_values: tuple[str, ...]) -> Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]:
     """Sentry's hook on every channel that carries text: an error or check-in (before_send), a transaction with its
     spans (before_send_transaction), a log (before_send_log) and a metric (before_send_metric). A hook that raises drops
-    its item (the SDK records a callback error), so a failure here never sends one unscrubbed."""
+    its item (the SDK records a callback error), so a failure here never sends one unscrubbed. The item's own keys, its
+    `type` and its trace context's keys are the protocol's, never user data, and the SDK reads them after the hook (an
+    event's `event_id` and `type`, a log's `attributes`, a profile's `contexts.trace.trace_id`): a secret equal to one
+    of those words, such as a weak salt, leaves them as they are."""
+
+    def scrub(mapping: dict[str, Any]) -> dict[str, Any]:
+        return {key: _withhold(value, secret_values) for key, value in mapping.items()}
 
     def withhold_secret_values(item: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
-        return _withhold(item, secret_values)
+        scrubbed = scrub(item)
+        if "type" in item:
+            scrubbed["type"] = item["type"]
+        contexts = item.get("contexts")
+        if isinstance(contexts, dict) and isinstance(contexts.get("trace"), dict):
+            scrubbed["contexts"] = {**scrubbed["contexts"], "trace": scrub(contexts["trace"])}
+        return scrubbed
 
     return withhold_secret_values
 

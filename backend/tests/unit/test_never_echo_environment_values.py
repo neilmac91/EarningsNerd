@@ -1379,6 +1379,44 @@ def test_sentry_withholds_no_value_shorter_than_eight_characters(monkeypatch, re
     assert event["message"] == f"[Filtered] {seven} db.internal:5432 [2001:db8::1]:6379 as sent"
 
 
+def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request):
+    # Codex's case on #1297: a weak secret equal to a word of Sentry's protocol (IP_HASH_SALT=event_id passes every
+    # check) renamed the event's own `event_id`, which the SDK reads after the hook, so the capture raised. The item's
+    # own keys, its `type` and its trace context's keys stay as they are: an error, a transaction, a check-in, a log and
+    # a metric are each sent, as their own kind, with those fields.
+    import sentry_sdk
+    from sentry_sdk import logger as sentry_logger
+    from sentry_sdk.crons import capture_checkin
+
+    words = {
+        "IP_HASH_SALT": "event_id",
+        "FMP_API_KEY": "trace_id",
+        "POSTHOG_API_KEY": "attributes",
+        "TURNSTILE_SECRET_KEY": "start_timestamp",
+        "ALPHA_VANTAGE_API_KEY": "time_unix_nano",
+        "GOOGLE_CLIENT_SECRET": "severity_number",
+        "OPENAI_API_KEY": "transaction",
+        "AI_FALLBACK_API_KEY": "timestamp",
+        "STRIPE_WEBHOOK_SECRET": "check_in",
+    }
+    envelopes = _scrubbing_envelopes(request, monkeypatch, **words)
+    sentry_sdk.capture_message("job failed")
+    with sentry_sdk.start_transaction(name="job"), sentry_sdk.start_span(op="job.step"):
+        pass
+    capture_checkin(monitor_slug="nightly", status="ok")
+    sentry_logger.warning("job failed")
+    sentry_sdk.metrics.count("job.failures", 1)
+    sentry_sdk.flush()
+    assert not [lost for lost in _of(envelopes, "lost") if lost[0] == "callback_error"]
+    (event,), (transaction,), (checkin,) = (_of(envelopes, kind) for kind in ("event", "transaction", "check_in"))
+    assert "event_id" in event and checkin["type"] == "check_in" and transaction["type"] == "transaction"
+    assert {"event_id", "start_timestamp", "timestamp", "transaction"} <= transaction.keys()
+    assert "trace_id" in transaction["contexts"]["trace"]
+    (logs,), (metrics,) = _of(envelopes, "log"), _of(envelopes, "trace_metric")
+    assert [entry["body"] for entry in logs["items"]] == ["job failed"]
+    assert [entry["name"] for entry in metrics["items"]] == ["job.failures"]
+
+
 def test_the_value_scrubber_reads_the_settings_once_at_startup(monkeypatch, request):
     # The values are read when `_sentry_options()` runs, as main.py's one call does at startup, and never again: not
     # at the first item, not per item.
