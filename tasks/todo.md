@@ -15,7 +15,6 @@ reconciliation PR. Holds stay pointers; delete an engineering line in the PR tha
 ## Open items
 
 Founder:
-- [ ] F1 — PREPARE: supply the founder sentence and name for the dormant `founderNote.ts` slot; brand handoff `docs/brand/README.md` (#1226).
 - [ ] F2 — PREPARE: decide one bounded FY2025 landing-demo regeneration; its `data_notes` and narrative payload must match the filtered demo consumers before publication (#1226, #1225).
 - [ ] F3 — PREPARE: choose the Notable filings curation rule before remounting the homepage section; compare the observed public feed with known-good, size-floor and 10-K/10-Q options (#1226).
 - [ ] F4 — PREPARE: review the concrete Vercel Analytics policy/date draft [#1265](https://github.com/neilmac91/EarningsNerd/pull/1265), or choose shared consent gating; legal approval must separately cover removal of the DPA-safeguards assertion, and all hosted checks remain required.
