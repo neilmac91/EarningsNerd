@@ -37,8 +37,9 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    entries, a call that keeps its members or returns one (slice, filter, concat, flat, a Set,
  *    Array.from, React's Children.toArray; at, find; Children.only returns what it is given, and
  *    Children.map and forEach bind their callback as the array methods do, each helper by whatever
- *    name the file gives it, an alias, a destructured helper or a const holding one, resolved through
- *    the checker), a map's returns, a join and a list rendered whole. A key the scan cannot read may
+ *    name the file gives it: an alias, a name destructured from Children or from React itself, or a
+ *    const holding one, resolved through the checker), a map's returns, a join and a list rendered
+ *    whole. A key the scan cannot read may
  *    land on any member, so every
  *    member is read; a parameter bound at several calls takes every call's value, so a function that
  *    renders it in sage fails on any call that hands it a digit; and a binding the walk meets again
@@ -180,46 +181,63 @@ const objectCall = (v: ts.Expression, name: string): v is ts.CallExpression =>
   && v.expression.expression.text === 'Object' && v.expression.name.text === name && v.arguments.length > 0
 /** Whether a declaration is React's own (its typings under `@types/react`). */
 const fromReact = (d: ts.Node) => /[\\/]@types[\\/]react[\\/]/.test(d.getSourceFile().fileName)
-/** Whether an expression is React's `Children`, resolved through the checker: the import by any name, `React.Children`
-    through the default or a namespace import, or a same-file const holding one of those. A same-file object that
-    shares the name is not it. A field is asked of the checker only when it is spelled `Children`, so `rows.map`
-    never types `rows` here. */
-function isReactChildren(e: ts.Expression, seen = new Set<ts.Node>()): boolean {
+/** The path an expression reads from React's module, resolved through the checker: `React` (the default or a
+    namespace import) is [], `Children` (the import by any name, or `React.Children`) is ['Children'] and
+    `Children.only` is ['Children', 'only']; a same-file const or destructured name holds what it was given, so
+    `const Kids = Children` and `const { Children: Kids } = React` are ['Children'], and `const { only } = Children`
+    and `const { Children: { only } } = React` are ['Children', 'only']. undefined for anything else, a same-file
+    object that shares a name included. Only a callee's root identifier is asked of the checker, so `rows.map`
+    never types `rows` here; each expression is resolved once. */
+const REACT_PATHS = new Map<ts.Node, string[] | undefined>()
+function reactPath(e: ts.Expression, seen = new Set<ts.Node>()): string[] | undefined {
   const x = unwrap(e)
-  const name = ts.isIdentifier(x) ? x : ts.isPropertyAccessExpression(x) && x.name.text === 'Children' ? x.name : undefined
-  if (!name) return false
-  let symbol = CHECKER.getSymbolAtLocation(name)
-  if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = CHECKER.getAliasedSymbol(symbol)
-  const declaration = symbol?.valueDeclaration
-  if (!declaration || !ts.isVariableDeclaration(declaration) || seen.has(declaration)) return false
-  seen.add(declaration)
-  if (fromReact(declaration)) return ts.isIdentifier(declaration.name) && declaration.name.text === 'Children'
-  return declaration.getSourceFile() === x.getSourceFile() && !!declaration.initializer && isReactChildren(declaration.initializer, seen)
+  if (REACT_PATHS.has(x)) return REACT_PATHS.get(x)
+  const found = ((): string[] | undefined => {
+    if (ts.isPropertyAccessExpression(x)) {
+      const base = reactPath(x.expression, seen)
+      return base && [...base, x.name.text]
+    }
+    if (!ts.isIdentifier(x)) return undefined
+    let symbol = CHECKER.getSymbolAtLocation(x)
+    if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = CHECKER.getAliasedSymbol(symbol)
+    const declaration = symbol?.valueDeclaration ?? symbol?.declarations?.[0]
+    if (!declaration || seen.has(declaration)) return undefined
+    seen.add(declaration)
+    if (fromReact(declaration)) {
+      if (ts.isModuleDeclaration(declaration) || ts.isSourceFile(declaration)) return []
+      return ts.isVariableDeclaration(declaration) && ts.isIdentifier(declaration.name) && declaration.name.text === 'Children' ? ['Children'] : undefined
+    }
+    if (declaration.getSourceFile() !== x.getSourceFile()) return undefined
+    if (ts.isVariableDeclaration(declaration)) return declaration.initializer ? reactPath(declaration.initializer, seen) : undefined
+    return ts.isBindingElement(declaration) ? boundPath(declaration, seen) : undefined
+  })()
+  REACT_PATHS.set(x, found)
+  return found
+}
+/** The path a destructured name reads from React's module: its pattern's source, then its key, through nested
+    patterns; a rest element, an array pattern or a key the scan cannot read is not followed. */
+function boundPath(element: ts.BindingElement, seen: Set<ts.Node>): string[] | undefined {
+  if (element.dotDotDotToken || !ts.isObjectBindingPattern(element.parent)) return undefined
+  const key = keyOf(element.propertyName ?? element.name)
+  if (typeof key !== 'string') return undefined
+  const owner = element.parent.parent
+  const base = ts.isVariableDeclaration(owner) ? owner.initializer && reactPath(owner.initializer, seen)
+    : ts.isBindingElement(owner) ? boundPath(owner, seen) : undefined
+  return base && [...base, key]
+}
+/** Whether an expression is React's `Children`, by whatever name the file gives it (`reactPath`). */
+const isReactChildren = (e: ts.Expression): boolean => {
+  const found = reactPath(e)
+  return found?.length === 1 && found[0] === 'Children'
 }
 /** The React `Children` helper a callee names (`toArray`, `map`, `forEach`, `only`), whatever the file calls it:
-    `Children.only`, `React.Children.map`, an alias (`const Kids = Children; Kids.toArray`), a helper destructured from
-    it (`const { only } = Children`, renamed or not) or held in a same-file const; undefined for anything else, a
-    same-file function or object of the same name included. Each callee is resolved once. */
-const HELPERS = new Map<ts.Node, string | undefined>()
-function childrenHelper(callee: ts.Expression, seen = new Set<ts.Node>()): string | undefined {
-  const x = unwrap(callee)
-  if (HELPERS.has(x)) return HELPERS.get(x)
-  const found = ((): string | undefined => {
-    if (ts.isPropertyAccessExpression(x)) return isReactChildren(x.expression) ? x.name.text : undefined
-    if (!ts.isIdentifier(x)) return undefined
-    const declaration = CHECKER.getSymbolAtLocation(x)?.valueDeclaration
-    if (!declaration || declaration.getSourceFile() !== x.getSourceFile() || seen.has(declaration)) return undefined
-    seen.add(declaration)
-    if (ts.isBindingElement(declaration)) {
-      const from = declaration.parent.parent
-      const key = keyOf(declaration.propertyName ?? declaration.name)
-      return !declaration.dotDotDotToken && ts.isObjectBindingPattern(declaration.parent) && typeof key === 'string'
-        && ts.isVariableDeclaration(from) && !!from.initializer && isReactChildren(from.initializer) ? key : undefined
-    }
-    return ts.isVariableDeclaration(declaration) && declaration.initializer ? childrenHelper(declaration.initializer, seen) : undefined
-  })()
-  HELPERS.set(x, found)
-  return found
+    `Children.only`, `React.Children.map`, an alias (`const Kids = Children; Kids.toArray`), a name destructured from
+    `Children` or from React itself (`const { only } = Children`, `const { Children: Kids } = React`, renamed or not,
+    nested or not) or a same-file const holding one; undefined for anything else, a same-file function or object
+    of the same name included. */
+function childrenHelper(callee: ts.Expression): string | undefined {
+  const found = reactPath(callee)
+  return found?.length === 2 && found[0] === 'Children' ? found[1] : undefined
 }
 /** A call of React's `Children.<name>` with an argument, by any spelling (`childrenHelper`). */
 const childrenCall = (v: ts.Expression, name: string): v is ts.CallExpression =>

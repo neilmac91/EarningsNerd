@@ -137,6 +137,9 @@ list any of them makes when it is rendered whole; its review of `d3f1522` then n
 the last of React's child-preserving helpers, which the gate reads as what it is given; and its review
 of `1dd291d` named the spellings, an alias of `Children` or a helper destructured from it, which the
 spelling check did not know, so the helpers now resolve through the checker by whatever name the
-file gives them, and a same-file object that shares the name is no longer taken for React's. Companion to
+file gives them, and a same-file object that shares the name is no longer taken for React's; its review of
+`c00788f` then named `Children` destructured from React itself (`const { Children: Kids } = React`), which
+that resolver followed through a const and not a binding element, so it now reads the path a name takes
+from React's module through any chain of consts and destructuring. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.

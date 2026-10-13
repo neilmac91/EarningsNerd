@@ -576,3 +576,12 @@ export function P342() { const Kids = Children; return <p>{Kids.map(LABELS_161, 
 export function P343() { const { forEach } = Children; const out: ReactNode[] = []; forEach(LABELS_161, (l) => { out.push(<span key={String(l)} className="text-brand-strong">{l}</span>) }); return <p>{out}</p> } // flag
 export function P344({ n }: { n: number }) { const Kids = Children; const action = Kids.only(<button>See <span className="text-text-secondary-light">{n}</span></button>); return <div className="text-brand-strong">{action}</div> } // flag
 export function P345() { const { only } = Children; const child = only(<b>Revenue</b>); return <div className="text-brand-strong">{child}</div> } // clean
+// Codex's review of c00788f: Children destructured from React itself (P346, the review's own form) was unread, since
+// the resolver followed a const and not a binding element. It now reads the path a name takes from React's module
+// through any chain of consts and destructuring: a nested pattern, a const holding the namespace, the callbacks an
+// alias binds, and a look-alike destructured from a same-file object of the same shape.
+export function P346({ n }: { n: number }) { const { Children: Kids } = React; const child = Kids.only(<span>{n}</span>); return <div className="text-brand-strong">{child}</div> } // flag
+export function P347() { const { Children: { toArray } } = React; return <span className="text-brand-strong">{toArray(LABELS_161)}</span> } // flag
+export function P348({ n }: { n: number }) { const Lib = R; const kids = Lib.Children.toArray([<span key="n">{n}</span>]); return <div className="text-brand-strong">{kids}</div> } // flag
+export function P349({ n }: { n: number }) { const { Children: Kids } = { Children: { only: (child: ReactNode) => (child ? <b>Revenue</b> : null) } }; return <div className="text-brand-strong">{Kids.only(<span>{n}</span>)}</div> } // clean
+export function P350() { const { Children: Kids } = React; return <p>{Kids.map(LABELS_161, (l) => <span key={String(l)} className="text-brand-strong">{l}</span>)}</p> } // flag
