@@ -9,6 +9,7 @@
  * reads it. A new form the rule can take joins it with its mark.
  */
 import * as React from 'react'
+import * as R from 'react'
 import { Children, cloneElement, cloneElement as clone, createElement, isValidElement, type ReactElement, type ReactNode, useCallback, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Badge, Button, buttonVariants, type BadgeVariant } from '@/components/ui'
@@ -725,6 +726,29 @@ export function P464({ n }: { n: number }) { const action = Children.only(<butto
 // form for only); the checker names both.
 export function P465({ n }: { n: number }) { const Kids = Children; return <span className="text-brand-strong">{Kids.toArray(<span>{n}</span>)}</span> } // flag
 export function P466({ n }: { n: number }) { const { only } = Children; return <span className="text-brand-strong">{only(<span>{n}</span>)}</span> } // flag
+// c00788f's forms for Codex's review of 1dd291d (its P336 to P345): React's Children helpers reached by another
+// spelling, an alias (P467, the review's own form) and a helper destructured from it (P468), with a same-file object
+// that shares the name, which is not React's (P469). The family: an alias, a destructured helper (renamed too), a
+// helper held in a const, a namespace import, the callbacks the aliased map and forEach bind, a count control through
+// an alias, and a look-alike over a word.
+export function P467({ n }: { n: number }) { const Kids = Children; const kids = Kids.toArray([<span key="n">{n}</span>]); return <div className="text-brand-strong">{kids}</div> } // flag
+export function P468({ n }: { n: number }) { const { only } = Children; const child = only(<span>{n}</span>); return <div className="text-brand-strong">{child}</div> } // flag
+export function P469({ n }: { n: number }) { const Children = { only: (child: ReactNode) => (child ? <b>Revenue</b> : null) }; return <div className="text-brand-strong">{Children.only(<span>{n}</span>)}</div> } // clean
+export function P470() { const { toArray: list } = React.Children; return <span className="text-brand-strong">{list(LABELS_161)}</span> } // flag
+export function P471() { const one = Children.only; return <span className="text-brand-strong">{one(<b>Step 2</b>)}</span> } // flag
+export function P472() { return <span className="text-brand-strong">{R.Children.toArray(LABELS_161)}</span> } // flag
+export function P473() { const Kids = Children; return <p>{Kids.map(LABELS_161, (l) => <span key={String(l)} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P474() { const { forEach } = Children; const out: ReactNode[] = []; forEach(LABELS_161, (l) => { out.push(<span key={String(l)} className="text-brand-strong">{l}</span>) }); return <p>{out}</p> } // flag
+export function P475({ n }: { n: number }) { const Kids = Children; const action = Kids.only(<button>See <span className="text-text-secondary-light">{n}</span></button>); return <div className="text-brand-strong">{action}</div> } // flag
+export function P476() { const { only } = Children; const child = only(<b>Revenue</b>); return <div className="text-brand-strong">{child}</div> } // clean
+// 4e44658's forms for Codex's review of c00788f (its P346 to P350): Children destructured from React itself (P477, the
+// review's own form), a nested pattern, a const holding the namespace, the callbacks an alias binds, and a look-alike
+// destructured from a same-file object of the same shape.
+export function P477({ n }: { n: number }) { const { Children: Kids } = React; const child = Kids.only(<span>{n}</span>); return <div className="text-brand-strong">{child}</div> } // flag
+export function P478() { const { Children: { toArray } } = React; return <span className="text-brand-strong">{toArray(LABELS_161)}</span> } // flag
+export function P479({ n }: { n: number }) { const Lib = R; const kids = Lib.Children.toArray([<span key="n">{n}</span>]); return <div className="text-brand-strong">{kids}</div> } // flag
+export function P480({ n }: { n: number }) { const { Children: Kids } = { Children: { only: (child: ReactNode) => (child ? <b>Revenue</b> : null) } }; return <div className="text-brand-strong">{Kids.only(<span>{n}</span>)}</div> } // clean
+export function P481() { const { Children: Kids } = React; return <p>{Kids.map(LABELS_161, (l) => <span key={String(l)} className="text-brand-strong">{l}</span>)}</p> } // flag
 // What the file puts in an array or an object after making it: a push, a splice's inserts, an index or a field it
 // sets, through a field chain or a key the scan cannot read, a className built that way, a count control, an
 // index into an array a push filled, which may land on any member, and a conditional put there, read as code.

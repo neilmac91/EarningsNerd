@@ -149,5 +149,9 @@ object it read but not where a clone's props hand the name over, and a spread of
 which this probe had missed; listing the family from the language instead, every array method that
 returns its receiver's members, found five more (`toSpliced`, `with`, `splice`, `fill` and
 `copyWithin`), and `pop` and `shift`, which return one. In all, 99 forms broke the rule unread at
-`f5526d3`, and it failed 4 look-alikes. Companion to `arch-structural-gates-over-prose-rules.md`,
-which says to build the gate; this one says how wide to build it.
+`f5526d3`, and it failed 4 look-alikes. Codex's reviews of that session's fixes (`d3f1522`,
+`1dd291d`, `c00788f`) named in turn `Children.only`, an alias of `Children` or a helper destructured
+from it, and `Children` destructured from React itself; the gate reads all three without a rule for
+each, since it names a utility by the declaration the checker resolves its callee to, not by its
+spelling. Companion to `arch-structural-gates-over-prose-rules.md`, which says to build the gate;
+this one says how wide to build it.
