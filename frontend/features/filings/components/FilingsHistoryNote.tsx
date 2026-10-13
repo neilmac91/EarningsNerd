@@ -23,7 +23,8 @@ export default function FilingsHistoryNote({ oldestFilingDate, cik }: FilingsHis
   // the mismatch showed up as a hydration error too.
   const filedSince = formatLocalDate(oldestFilingDate, 'MMM d, yyyy')
   if (!filedSince) return null
-  // Every form, not only 10-Ks: the link promises the full history, and a 20-F filer has no 10-K list.
+  // Every form, not only 10-Ks: the link promises the full history, and a 20-F filer has no 10-K list. It is
+  // the company link the lead uses, so EDGAR's own defaults stand in for the old owner=include and count=40.
   const edgarUrl = edgarCompanyUrl(cik)
   return (
     <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">

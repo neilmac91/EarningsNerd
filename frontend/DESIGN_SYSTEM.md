@@ -471,7 +471,8 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  passes className="flex-wrap gap-y-1" without fullWidth, so whole segments wrap at
                  every width inside the shell. Gate: earningsnerd/no-hand-rolled-toggle-group
                  (eslint.designRules.mjs) fails a role="group" holding an aria-pressed <button> or
-                 <Button> anywhere outside components/ui.
+                 <Button> anywhere outside components/ui/SegmentedControl.tsx. A hand-built row
+                 without role="group" is outside its reach (FeedbackWidget's type row, E27).
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover

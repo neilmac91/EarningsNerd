@@ -131,6 +131,12 @@ ruleTester.run('no-hand-rolled-toggle-group', noHandRolledToggleGroup, {
       errors: [{ messageId: 'handRolled' }],
     },
     { code: '<div role="group"><ui.Button aria-pressed="true">One</ui.Button></div>', errors: [{ messageId: 'handRolled' }] },
+    // Only the SegmentedControl's own file is exempt, not its directory: another primitive rebuilding it fails.
+    {
+      code: '<div role="group" aria-label={label}>{options.map((o) => <button aria-pressed={o.value === value} />)}</div>',
+      filename: '/repo/frontend/components/ui/FilterChips.tsx',
+      errors: [{ messageId: 'handRolled' }],
+    },
   ],
 })
 

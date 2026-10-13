@@ -84,13 +84,15 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     initialData: initialCompany,
     initialDataUpdatedAt: 0,
   })
-  const { data: company, error: companyError } = companyQuery
+  const { data: company } = companyQuery
   // A failed load keeps its card, and a focused Retry in it, through the Retry's refetch: the query has
   // no data, so the refetch goes back to pending, and the spinner would otherwise replace the card.
   const companyFailure = useRetainedFailure(companyQuery, companyKey)
   const companyLoading = companyQuery.isLoading && !companyFailure.failed
-  // A 404 is an answer (no such ticker), not a failure: it gets the not-found card, without a Retry.
-  const companyNotFound = companyError instanceof ApiError && companyError.status === 404
+  // A 404 is an answer (no such ticker), not a failure: it gets the not-found card, without a Retry. It
+  // reads the held error, not the query's own: a refetch (a reconnect, an invalidation) clears that to
+  // null while it runs, and the 404 card would turn into the load-failure card until the answer lands.
+  const companyNotFound = companyFailure.error instanceof ApiError && companyFailure.error.status === 404
 
   // Default view serves the backend's recent cap; "Show full history" refetches with a high limit
   // so the deep-backfilled 10-K/10-Q history (P1-6) surfaces. The limit is part of the query key so
@@ -327,6 +329,9 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
           {/* Honest coverage-unavailable state — an empty, not an error. */}
           <GuidanceCard
             variant="empty"
+            // The company Retry's last hand-off target: a retry that answers with an unsupported issuer
+            // renders this card and no filings heading.
+            headingRef={companyCardHeadingRef}
             icon={<FileTextIcon className="h-5 w-5" />}
             title={formatCompanyName(company.name) || normalizedTicker}
             description={

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { Company } from '@/features/companies/api/companies-api'
@@ -7,6 +7,7 @@ import type { Filing } from '@/features/filings/api/filings-api'
 import type { ChangeReport } from '@/features/summaries/api/summaries-api'
 import CompanyPageClient from '@/app/company/[ticker]/page-client'
 import { ApiError } from '@/lib/api/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 /**
  * The company page's lead and aside (2026-10 critique, 1b): the company stated in the filing page's
@@ -227,12 +228,46 @@ describe('Company page when the company does not load (CO-05)', () => {
     api.getCurrentUserSafe.mockResolvedValue(null)
     api.getSummary.mockResolvedValue(null)
     api.getWhatChanged.mockResolvedValue(REPORT)
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    return render(
-      <QueryClientProvider client={client}>
-        <CompanyPageClient />
-      </QueryClientProvider>,
-    )
+    // The company query's own `retry: 1` still runs; the client's retryDelay of 0 only drops TanStack's 1s wait before it.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } })
+    return {
+      client,
+      ...render(
+        <QueryClientProvider client={client}>
+          <CompanyPageClient />
+        </QueryClientProvider>,
+      ),
+    }
+  }
+
+  const deferred = <T,>() => {
+    let resolve!: (value: T) => void
+    let reject!: (reason: unknown) => void
+    const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no })
+    return { promise, resolve, reject }
+  }
+
+  /** TanStack notifies its observers on a later task: let that render land before asserting it changed nothing. */
+  const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+
+  /** A 503 load failure, then a Retry pressed from the keyboard's focus whose answer the test holds. */
+  async function pressRetryOverFailure() {
+    api.getCompany.mockRejectedValue(new ApiError(503, 'Service unavailable'))
+    renderUnseeded()
+    const card = (await screen.findByRole('heading', { name: 'Couldn’t load this company' })).closest('[role="alert"]') as HTMLElement
+    const retry = within(card).getByRole('button', { name: 'Retry' })
+    const answer = deferred<Company>()
+    api.getCompany.mockReturnValueOnce(answer.promise)
+    retry.focus()
+    fireEvent.click(retry)
+    // The query has no data, so its refetch goes back to pending: the card stays, not the page spinner,
+    // with the pressed Retry still mounted, busy and focused.
+    await waitFor(() => expect(retry).toHaveAttribute('aria-busy', 'true'))
+    expect(retry.isConnected).toBe(true)
+    expect(document.activeElement).toBe(retry)
+    expect(screen.getByRole('heading', { name: 'Couldn’t load this company' })).toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: 'Loading company' })).toBeNull()
+    return { retry, answer }
   }
 
   it('says it could not load the company, never prints the raw error, and a Retry loads the page', async () => {
@@ -256,5 +291,57 @@ describe('Company page when the company does not load (CO-05)', () => {
     expect(screen.getByText('No company with a ticker on SEC EDGAR matches "AAPL".')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Go back home' })).toHaveAttribute('href', '/')
+  })
+
+  it('keeps the card and its focused Retry busy through the retry, then hands focus to the "SEC filings" heading', async () => {
+    const { retry, answer } = await pressRetryOverFailure()
+    await act(async () => answer.resolve(COMPANY))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Apple Inc.' })).toBeInTheDocument()
+    expect(retry.isConnected).toBe(false)
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'SEC filings' })))
+  })
+
+  it('hands focus to the not-found title when the retry answers 404', async () => {
+    const { retry, answer } = await pressRetryOverFailure()
+    // The query's one retry asks again, and hears the same answer.
+    api.getCompany.mockRejectedValue(new ApiError(404, 'Company not found'))
+    await act(async () => answer.reject(new ApiError(404, 'Company not found')))
+    const title = await screen.findByRole('heading', { name: 'Company not found' })
+    expect(retry.isConnected).toBe(false)
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    await waitFor(() => expect(document.activeElement).toBe(title))
+  })
+
+  it('hands focus to the coverage card title when the retry answers with an unsupported foreign issuer', async () => {
+    const { retry, answer } = await pressRetryOverFailure()
+    await act(async () => answer.resolve({ ...COMPANY, coverage_status: 'unsupported_foreign', coverage_reason: 'No SEC financial reports.' }))
+    const title = await screen.findByRole('heading', { name: 'Apple Inc.' })
+    expect(retry.isConnected).toBe(false)
+    await waitFor(() => expect(document.activeElement).toBe(title))
+  })
+
+  it('keeps a 404 not found through a background refetch: no Retry appears, and the focused link stays', async () => {
+    api.getCompany.mockRejectedValue(new ApiError(404, 'Company not found'))
+    const { client } = renderUnseeded()
+    const home = await screen.findByRole('link', { name: 'Go back home' })
+    home.focus()
+    const answer = deferred<Company>()
+    api.getCompany.mockReturnValue(answer.promise)
+    // A reconnect or an invalidation refetches it: the errored query has no data, so it goes back to
+    // pending, its own error cleared, while the fetch runs.
+    act(() => { void client.refetchQueries({ queryKey: queryKeys.company('AAPL') }) })
+    await waitFor(() => expect(client.getQueryState(queryKeys.company('AAPL'))?.status).toBe('pending'))
+    await settle()
+    expect(screen.getByRole('heading', { name: 'Company not found' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Couldn’t load this company' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(screen.getByRole('link', { name: 'Go back home' })).toBe(home)
+    expect(document.activeElement).toBe(home)
+
+    await act(async () => answer.reject(new ApiError(404, 'Company not found')))
+    await waitFor(() => expect(client.getQueryState(queryKeys.company('AAPL'))?.status).toBe('error'))
+    await settle()
+    expect(screen.getByRole('heading', { name: 'Company not found' })).toBeInTheDocument()
+    expect(document.activeElement).toBe(home)
   })
 })

@@ -213,8 +213,8 @@ const isButtonName = (name) =>
   (name?.type === 'JSXMemberExpression' && name.property.name === 'Button')
 const hasPressed = (opening) =>
   opening.attributes.some((attr) => attr.type === 'JSXAttribute' && attr.name?.name === 'aria-pressed')
-/** The SegmentedControl's own directory: the one place a group of pressed buttons is built. */
-const TOGGLE_GROUP_HOME = /(^|[\\/])components[\\/]ui[\\/]/
+/** The SegmentedControl's own file: the one place a group of pressed buttons is built. */
+const TOGGLE_GROUP_HOME = /(^|[\\/])components[\\/]ui[\\/]SegmentedControl\.tsx$/
 
 export const noHandRolledToggleGroup = {
   meta: {

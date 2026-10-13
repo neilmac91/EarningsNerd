@@ -72,9 +72,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   window through the SegmentedControl (a long set wraps inside one shell), in sentence case; the
   percentile is an ordinal ("21st percentile"); a trade's type carries a hidden ▲ or ▼ beside its
   label and the discretionary net keeps its sign; the 10b5-1 note says what a plan trade is. "Full
-  history on SEC EDGAR" opens the company's whole EDGAR list, every form, in the filing identity's
-  quiet link. `earningsnerd/no-hand-rolled-toggle-group` (new ESLint rule) fails a role="group" of
-  pressed buttons outside components/ui; `tests/unit/formatters.spec.ts` holds `ordinal` and the
+  history on SEC EDGAR" opens the company's EDGAR list through the shared company link the lead
+  uses (`edgarCompanyUrl`: every form, and EDGAR's own defaults in place of the old `owner=include`
+  and `count=40`), in the filing identity's quiet link. `earningsnerd/no-hand-rolled-toggle-group`
+  (new ESLint rule) fails a hand-built role="group" of pressed buttons outside the SegmentedControl's
+  own file (a row without role="group" is outside its reach); `tests/unit/formatters.spec.ts` holds `ordinal` and the
   signed `fmtShares`.
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as

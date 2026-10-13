@@ -53,6 +53,7 @@ Engineering:
 - [ ] E14 — IN-FLIGHT: prevent disabled hover/active tint [#1262](https://github.com/neilmac91/EarningsNerd/pull/1262). Drafts remain unmerged; Modal-host Escape is CANCEL-RECOMMENDED because Modal has no native-dialog host, and the founder-only class-7 SQL read is PREPARE.
 - [ ] E15 — IN-FLIGHT: Insider gain/loss ink [#1262](https://github.com/neilmac91/EarningsNerd/pull/1262) pass local acceptance. Analysis Run’s locked native-disabled contract remains a separate founder decision.
 - [ ] E21 — POSTPONE (brand sweep): the chart metric labels are stored in Title Case (`PeerComparisonPanel.tsx` METRICS, `FundamentalsTrendChart.tsx` FEATURED: 'Net Income', 'Operating Cash Flow' and 24 more); they are data labels shared by the picker, the rank line, the axis and the footnote, so align them to sentence case when the label source is next touched, with the specs that pin them.
+- [ ] E27 — POSTPONE (brand sweep, after [#1289](https://github.com/neilmac91/EarningsNerd/pull/1289)): FeedbackWidget's Bug / Idea / General row is a single-choice row of `aria-pressed` buttons built by hand without `role="group"`, so `earningsnerd/no-hand-rolled-toggle-group` does not reach it; convert it to the SegmentedControl once #1289's edits to the same lines land.
 
 ## What to doubt first
 
