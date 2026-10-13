@@ -132,8 +132,11 @@ const MENTIONS_A_PERIOD = /years?\b|quarters?\b/i
 /**
  * Copy that types a count of years for a fact other than the analysis caps. Keyed by file and phrase;
  * shrink-only: an entry whose phrase no longer appears in a flagged literal of its file fails the spec
- * (delete it), and a new hit is written from the mirror, or argued in here when it states another fact.
+ * (delete it, and lower the ceiling), and the table may not outgrow its ceiling. A new hit is written
+ * from the mirror; one that states another fact is argued in here with the ceiling raised in the same
+ * reviewed diff.
  */
+const PERIOD_COUNT_OTHER_FACTS_CEILING = 6
 const PERIOD_COUNT_OTHER_FACTS: Array<{ file: string; phrase: string; why: string }> = [
   // The privacy policy's retention periods: how long data is kept, not how far back analysis reaches.
   // A legal page (it imports LEGAL_DATES), off limits without the founder.
@@ -203,6 +206,8 @@ describe('Multi-Period Analysis period caps move in lockstep with the backend', 
     expect(offenders, 'write the caps from ANALYSIS_MAX_ANNUAL_PERIODS / ANALYSIS_MAX_QUARTERLY_PERIODS in lib/planLimits').toEqual([])
     const stale = PERIOD_COUNT_OTHER_FACTS.filter((_, index) => !seen.has(index)).map((entry) => `${entry.file}: ${entry.phrase}`)
     expect(stale, 'PERIOD_COUNT_OTHER_FACTS is shrink-only: delete the entries whose phrase is gone').toEqual([])
+    expect(PERIOD_COUNT_OTHER_FACTS.length, 'PERIOD_COUNT_OTHER_FACTS is shrink-only: write a new count from the mirror')
+      .toBeLessThanOrEqual(PERIOD_COUNT_OTHER_FACTS_CEILING)
   })
 
   it('the scan reads the files that state the caps', () => {
