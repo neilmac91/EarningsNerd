@@ -4,11 +4,12 @@ Recorded 2026-10-13, by the successor chief (`https://claude.ai/code/session_011
 Context: record 24 merged to main as `3da1c520` (PR #1277, 2026-10-12T21:23:59Z), and the records branch `claude/stoic-wright-6jeujo`
 was reset to it before this record's first commit. PR #1281 (the secret-output follow-ups) is not merged at this record: its merge is
 held (below). This PR: this record, closure 176, the checkpoint, the appointments file, the archive ledger's record-25 entry and
-`tasks/todo.md` (the `Where things stand` block refreshed; founder line F22, the merge decision on #1281, and engineering line E19
-added): no application code, workflow, migration, cloud, IAM or production change (nothing under `backend/`, so the merge deploys
-nothing); no provider call; no reservation; nothing opened under `tasks/readiness-2026-09-21/acceptance/` or `tasks/review-evidence/`.
-The five `deepseek-balance` dispatches and the one `ops.yml` dispatch (`describe-service`) of this record are read-only operations the
-chief dispatched from `main` (GitHub shows every action under the one login, the founder's account); they changed nothing.
+`tasks/todo.md` (the `Where things stand` block refreshed; founder line F22, the merge decision on #1281, and engineering line E20
+added; E19, first added here, moved into #1281): no application code, workflow, migration, cloud, IAM or production change (nothing
+under `backend/`, so the merge deploys nothing); no provider call; no reservation; nothing opened under
+`tasks/readiness-2026-09-21/acceptance/` or `tasks/review-evidence/`. The five `deepseek-balance` dispatches and the one `ops.yml`
+dispatch (`describe-service`) of this record are read-only operations the chief dispatched from `main` (GitHub shows every action
+under the one login, the founder's account); they changed nothing.
 
 ## Record 24 merged (PR #1277): review record closed; twentieth deploy-skip proof
 
@@ -35,10 +36,10 @@ At 2026-10-12T23:14:43Z the founder wrote: "ok, turn sentry locals off and proce
 stops capturing each stack frame's local variables (`include_local_variables=False`; reversible in one line). Lost: each frame's
 variables panel (argument and local values such as filing ids, tickers and partial results). Kept: the exception type, message and
 chain; each frame's file, function, line and surrounding source; breadcrumbs; the request's method, URL, non-secret headers and
-filtered body; user id, tags, release, environment, transactions and profiles. Why: on main today a database connection failure sends
-the decoded database password through driver frame variables, and a login 500 sends the user's plaintext password; no value scrubber
-can know every such value. The decision also replaces the `before_send` value scrubber todo E16 had named; #1281's body and its lesson
-state that departure.
+filtered body; user id, tags, release, environment, transactions and profiles. Why: on main today, wherever Sentry is configured, a
+database connection failure would send the decoded database password through driver frame variables, and a login 500 the user's
+plaintext password; no value scrubber can know every such value. The decision also replaces the `before_send` value scrubber todo E16
+had named; #1281's body and its lesson state that departure.
 
 ## The secret-output follow-ups PR (#1281, `secret-output-followups-pr-01`): designed, reviewed and ready; merge held
 
@@ -70,15 +71,15 @@ itself, so no implementation context was launched: `a918653` (code and tests) an
 70 with 0 errors and the gate passed with two warnings (mean untraceable dollar figures 1.314, an absolute advisory; mean citation
 fidelity 0.8237 against the pinned 0.9648), which the chief judges pre-existing on a head that changes no prompt, model or summary
 code: other writers' runs that day read 0.8535, 0.8146 and 0.8563. Event 54 settled the run at USD 0.175359.
-**The review.** The high-tier review workflow `wf_844015fc-9e9` over `2716f0c` (22:40:41Z to 01:21:21Z on 2026-10-13; three lenses,
-correctness, rules-and-brief and tests-and-gates, and two refuters per blocker or should-fix; twenty-seven agents): each lens returned
-**no blocker**. Of the 24 refutation verdicts, 20 upheld their finding (both of TG-4's and one of C-1's rate it a nit) and 4 refuted
-RB-2 and TG-3 (`test_task_process_boundary.py` already pins the shared httpx setting). The upheld should-fixes: an unescaped `@` in
-the database password reached the startup log, the traceback and Sentry through the driver's host error (C-1); the benchmark's masked
-rendering kept a query-string password and printed errors whole (C-2); other request-body credentials reached Sentry (C-3, RB-1,
-TG-5); the body lacked exact gate and mutation tails (RB-3); E16 stayed open, the `before_send` departure was unnamed, the follow-ups
-untracked and F9's pointer stale (RB-4); the init call was not pinned (TG-1); `dict(settings)`, `vars(settings)`, unpacking and
-iteration passed the output walk (TG-2). Every upheld finding is fixed in the PR: `4e4c283` and `86ca7ac` (the two review rounds),
+**The review.** The high-tier review workflow `wf_844015fc-9e9` over `2716f0c` (2026-10-12T22:40:41Z to 2026-10-13T01:21:21Z; three
+lenses, correctness, rules-and-brief and tests-and-gates, and two refuters per blocker or should-fix; twenty-seven agents): each lens
+returned **no blocker**. Of the 24 refutation verdicts, 20 upheld their finding (both of TG-4's and one of C-1's rate it a nit) and 4
+refuted RB-2 and TG-3 (`test_task_process_boundary.py` already pins the shared httpx setting). The upheld should-fixes: an unescaped
+`@` in the database password reached the startup log, the traceback and Sentry through the driver's host error (C-1); the benchmark's
+masked rendering kept a query-string password and printed errors whole (C-2); other request-body credentials reached Sentry (C-3,
+RB-1, TG-5); the body lacked exact gate and mutation tails (RB-3); E16 stayed open, the `before_send` departure was unnamed, the
+follow-ups untracked and F9's pointer stale (RB-4); the init call was not pinned (TG-1); `dict(settings)`, `vars(settings)`, unpacking
+and iteration passed the output walk (TG-2). Every upheld finding is fixed in the PR: `4e4c283` and `86ca7ac` (the two review rounds),
 `81c90f6` (pointers), `8813804` (the refuters' further shapes: a password tail in a query key, an all-digit password in the port) and
 `58b07c9`.
 **The delta reviewer.** The label's single delta reviewer (agent `acabf4885208fecd8`, launched 00:05:37Z; one context for its three
@@ -101,7 +102,7 @@ body carries a `Review override:` line naming the substitute review.
 115090495979, 01:52:27–01:54:55Z) passed. Main had not moved from `3da1c520`, and the PR was mergeable.
 **The hold.** At 05:20:49Z a comment appeared on the PR under the founder's login, posted through the Codex GitHub app as an
 "AI-assisted coordination update": the founder "has approved proceeding with the proposed work, but explicitly asked that merging wait
-for another agent to review it", and "the merge hold supersedes the earlier general merge authorization". The chief cannot verify a
+for another agent to review it", and "The merge hold supersedes the earlier general merge authorization." The chief cannot verify a
 relay, and holding costs only time, so it holds. It acknowledged on the PR at 05:24:16Z (nothing will be merged or deployed until the
 requested review is done and the founder confirms; the head stays `54c954c`) and asked the founder in the chat at 05:24:42Z. Closure
 176 pre-registers `secret-output-followups-second-review-01` for that second review and any fix it leads to. At this record the PR is
@@ -114,9 +115,18 @@ review reports no blocker; the chief still waits for the founder's own answer. O
 `54c954c` (06:47:36Z to 06:53:31Z) and raised one P2: todo E16 named a value-level `before_send` scrubber, and the PR closes E16
 without one, so a secret value inside a message (for example a malformed `DATABASE_URL`'s digits quoted by the driver) can still reach
 Sentry. The PR declared that departure, and the lesson lists such messages as an accepted limit. The chief agrees the scrubber is
-worth having as defense in depth, tracks it as todo E19 (its own PR after #1281, unless the founder wants it first), answered the
-thread and put the choice to the founder (founder action 1). The second review (`secret-output-followups-second-review-01`) launched
-at 06:46:19Z.
+worth having as defense in depth, tracks it as todo E19 (in #1281's own todo lines; its own PR after #1281, unless the founder wants
+it first), answered the thread and put the choice to the founder (founder action 1). The second review
+(`secret-output-followups-second-review-01`) launched at 06:46:19Z. It returned at 07:30:04Z: **no blocker bound to `54c954c`**, two
+should-fixes and seven nits. The first should-fix is a route the earlier reviews missed: the Alpha Vantage client logged the first 160
+characters of a throttle notice, and the provider's daily-limit notice has quoted the key. It also showed the chief's answer to Codex
+wrong ("at most a masked key's last four characters"), which the chief corrected in that thread at 07:55:35Z. The second: the output
+walk missed some Sentry calls (`set_tags`, `set_user`, `capture_exception`, a span's data). The chief applied both and five nits in
+`3c52519`, declined one (reformatting lines that fail `ruff format` on main too), moved E19 into #1281's own todo lines and pushed it
+at 07:55:25Z, after reserving its paid runs (event 63, record 26's spend): the full gate, 296 gate-file tests and 94 mutation runs ran
+on it first. The reviewer judged the merge safe for production: the documented `DATABASE_URL` holds one `@`, and the deploy's
+migration step, which splits the secret at its first `@`, would already fail on any other. Outside the PR, it noted that the Resend
+webhook signs and compares unlike the Svix scheme Resend uses, so genuine webhooks may never verify (it fails closed): todo E20.
 
 ## The `INHERITED` residue: closed by another writer
 
@@ -236,6 +246,9 @@ No classifier denial of the chief's this record. One of the chief's misses is a 
    `eval-baseline` job logs through its field filter (the gate's summary values only; the raw copies deleted). After a context
    compaction it read its own session log, matched lines only, to recover the delta reviewer's side-effect lists and its own turn
    times; the log is the chief's, not an agent's transcript.
+   (i) **A wrong statement in a review thread.** The chief's answer to Codex on #1281 (06:59:10Z) said the other message routes in
+   today's code quote at most a masked key's last four characters; the second review showed that Alpha Vantage's throttle notice,
+   which the client logged, can quote the whole key. Corrected in the thread at 07:55:35Z; the route is fixed in `3c52519`.
 2. **The relayed hold comment** (05:20:49Z) is attributed to the founder's login through the Codex GitHub app; the chief did not post
    it and treats it as a relay it cannot verify (above).
 3. **Record 24's fact-check workflow:** the PRs checker made one GraphQL request that the sandbox refused (no effect); the integrity
@@ -265,7 +278,7 @@ No classifier denial of the chief's this record. One of the chief's misses is a 
    created (no force-push), its body edited several times, four `@codex review` requests through 01:26:26Z and a fifth at 06:47:26Z,
    the ready marking, the hold acknowledgement and an answer on Codex's thread; ten ledger events published to the private ledger;
    four cross-session messages to the merge trains (two each at about 21:04Z and 21:24Z on 2026-10-12); two self check-ins armed; this
-   PR (opened as a draft, one `@codex review` request, an answer on Codex's thread).
+   PR (opened as a draft; `@codex review` requested after each push; Codex's threads answered).
 
 ## Plan
 
@@ -273,13 +286,12 @@ No classifier denial of the chief's this record. One of the chief's misses is a 
    (pre-registered in closure 175, annotated in closure 176; records-only rule: one reviewer context bound to the final head, with
    same-context delta checks); Codex reviewed `324b5bb` (one P2, applied) and is requested after each push; an explicit squash title
    and message; then the twenty-first deploy-skip proof.
-2. **#1281's merge waits for the founder.** A second, independent review of its final head by a fresh context
-   (`secret-output-followups-second-review-01`, closure 176) launched at 06:46:19Z, after this record's first commit carried closure
-   176 to GitHub, and Codex's review of `54c954c` is in (one P2: the value-level scrubber, todo E19); any fix either leads to goes
-   onto the same branch, each paid run reserved first. The founder also decides whether E19 goes in before the merge. When the founder
-   confirms, the chief squash-merges with the drafted message pinned to the reviewed head once main is idle, verifies the deploy and
-   tells the merge trains. If the founder names another reviewer instead (for example Codex, once its credits are added), the chief
-   waits for that review.
+2. **#1281's merge waits for the founder.** The second, independent review (`secret-output-followups-second-review-01`, closure 176)
+   found no blocker, and its fixes are on the branch (`3c52519`): its same-context delta check of them, Codex's review and CI on that
+   head come next, each later fix onto the same branch with each paid run reserved first. The founder decides the merge and whether
+   E19 (Codex's P2) goes in before it. When the founder confirms, the chief squash-merges with the drafted message pinned to the
+   reviewed head once main is idle, verifies the deploy and tells the merge trains. If the founder names another reviewer instead (for
+   example Codex, once its credits are added), the chief waits for that review.
 3. **Then the checkpoint's Next queue:** the COO's G3 first-customer-part review and the G4 gate; B32's qualifying retained window; R1
    waits on the founder's custody step-A answer.
 
@@ -300,12 +312,12 @@ is retained.
 ## Founder actions this record needs
 
 1. **#1281's merge** (new; yours to decide): a comment relayed on the PR at 05:20Z under your login asks that its merge wait for
-   another agent's review. Tell the chief, in your own words, one of: merge it after the chief's second, independent review (plan item
-   2) finds no blocker; merge it now, the reviews already done counting (the high-tier review workflow and the delta reviewer: no
-   blocker; CI, the Copilot fidelity run and the review gate green); or wait for a reviewer you name. Also say whether Codex's P2 (a
-   value-level Sentry scrubber, todo E19) goes into #1281 before the merge (about an hour more, one more paid run and a delta check)
-   or into its own PR right after it, which the chief recommends: the scrubber is defense in depth, and the reviews so far found every
-   route #1281 claims to close closed. Merging deploys the backend. If the 05:20Z comment was not yours, say so.
+   another agent's review. The second, independent review it asked for is done: no blocker, its two should-fixes applied on the
+   branch. Tell the chief, in your own words, one of: merge it once CI, Codex and that review's delta check are green on the new head;
+   or wait for a reviewer you name. Also say whether Codex's P2 (a value-level Sentry scrubber, todo E19) goes into #1281 before the
+   merge (about an hour more, one more paid run and a delta check) or into its own PR right after it, which the chief recommends: the
+   scrubber is defense in depth over the routes #1281 closes, and its own review keeps #1281's reviewed head stable. Merging deploys
+   the backend. If the 05:20Z comment was not yours, say so.
 2. **Sentry search** (carried from record 24, recommended): if Sentry is configured on the API service, search it two ways. Events
    whose stack frames show a `settings` variable (coverage, precompute or facts-backfill errors): any such event stored every secret,
    so rotate them and delete the events (rotating `SECRET_KEY` signs every user out). Events with a `_require_internal_token` frame or
