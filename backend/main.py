@@ -54,6 +54,30 @@ def _secret_values() -> tuple[str, ...]:
     return tuple(sorted((value for value in values if len(value) >= _MIN_SECRET_LENGTH), key=lambda v: (-len(v), v)))
 
 
+# The protocol's own keys, at any depth, as the SDK builds an item under main's options: an error's, a transaction's,
+# a check-in's, a log's and a metric's own; a span's, a breadcrumb's, an exception's, its mechanism's and its frames',
+# a log entry's, a request's, a user's, the SDK info's; the trace context's, its dynamic sampling context's, the
+# response context's (and its name); a check-in's monitor config's. The value scrubber keeps a key that is exactly one
+# of these words, wherever it occurs, so a weak secret equal to one (or inside one) leaves the item's structure whole,
+# and the SDK finds the keys it reads after the hook (an event's `event_id`, a log's `attributes`, a profile's
+# `contexts.trace.trace_id`): such a secret is no secret from Sentry, whose items all spell these words. Every other key
+# is user data and is scrubbed, whoever wrote it. A name shorter than _MIN_SECRET_LENGTH needs no entry (no secret fits
+# in it), and the gate derives the set it checks from the SDK's own items.
+_PROTOCOL_KEYS = frozenset(
+    """
+    abs_path attributes breadcrumbs category check_in_id checkin_margin context_line contexts description duration
+    dynamic_sampling_context environment event_id exception exception_id failure_issue_threshold filename formatted
+    function integrations is_exception_group logentry max_runtime measurements mechanism monitor_config monitor_slug
+    packages parent_id parent_span_id platform post_context pre_context public_key query_string recovery_threshold
+    response same_process_as_parent sample_rand sample_rate schedule server_name severity_number severity_text
+    stacktrace start_timestamp status_code time_unix_nano timestamp timezone trace_id transaction transaction_info
+    username
+    """.split()
+)
+# The `type` the SDK gives an item, which it reads after the hook: a transaction, a check-in, a metric's kind. The
+# value scrubber keeps an item's `type` only when it is one of these.
+_ITEM_TYPES = frozenset({"transaction", "check_in", "counter", "gauge", "distribution"})
+
 # The placeholder of the SDK's own scrubber, then others: a secret value that overlaps one (a weak salt equal to
 # `Filtered`, or one that starts with `Filtered]`) would ride inside it, or form where it meets the text around it.
 _PLACEHOLDERS = ("[Filtered]", "[Withheld]", "[Redacted]", "<Filtered>", "<Withheld>", "<Redacted>")
@@ -82,15 +106,18 @@ def _placeholder(secret_values: tuple[str, ...]) -> str:
 
 
 def _withhold(node: Any, secret_values: tuple[str, ...]) -> Any:
-    """The node with each occurrence of each secret value, in any text at any depth (a key too), replaced by the
-    placeholder (`_placeholder`: the SDK's own `[Filtered]` unless a secret overlaps it). Mappings and lists are walked;
-    None, booleans and numbers stay as they are; any other value becomes its repr first, scrubbed: the SDK would turn
-    it into text after the hook (a log record's `extra` value, a log's body that is not text), where nothing scrubs
-    it."""
+    """The node with each occurrence of each secret value, in any text at any depth (a key too, unless it is one of
+    the protocol's own: `_PROTOCOL_KEYS`), replaced by the placeholder (`_placeholder`: the SDK's own `[Filtered]`
+    unless a secret overlaps it). Mappings and lists are walked; None, booleans and numbers stay as they are; any other
+    value becomes its repr first, scrubbed: the SDK would turn it into text after the hook (a log record's `extra`
+    value, a log's body that is not text), where nothing scrubs it."""
     if node is None or isinstance(node, (bool, int, float)):
         return node
     if isinstance(node, dict):
-        return {_withhold(key, secret_values): _withhold(value, secret_values) for key, value in node.items()}
+        return {
+            (key if key in _PROTOCOL_KEYS else _withhold(key, secret_values)): _withhold(value, secret_values)
+            for key, value in node.items()
+        }
     if isinstance(node, list):
         return [_withhold(item, secret_values) for item in node]
     if not isinstance(node, str):
@@ -106,23 +133,17 @@ def _withhold(node: Any, secret_values: tuple[str, ...]) -> Any:
 def _value_scrubber(secret_values: tuple[str, ...]) -> Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]:
     """Sentry's hook on every channel that carries text: an error or check-in (before_send), a transaction with its
     spans (before_send_transaction), a log (before_send_log) and a metric (before_send_metric). A hook that raises drops
-    its item (the SDK records a callback error), so a failure here never sends one unscrubbed. The item's own keys, its
-    `type` and its trace context's keys are the protocol's, never user data, and the SDK reads them after the hook (an
-    event's `event_id` and `type`, a log's `attributes`, a profile's `contexts.trace.trace_id`): a secret equal to one
-    of those words, such as a weak salt, leaves them as they are."""
+    its item (the SDK records a callback error), so a failure here never sends one unscrubbed. It keeps only the
+    protocol's own words, never a field whole: a key that is exactly one of `_PROTOCOL_KEYS` and an item's `type` when
+    it is one of `_ITEM_TYPES`. So a weak secret equal to one of those words breaks no item, and nothing that runs
+    before the hook (an event processor, a hand-built event, a trace context set by hand) can carry a secret past it."""
 
     _placeholder(secret_values)  # every placeholder overlapped fails here, at startup, not on the first item
 
-    def scrub(mapping: dict[str, Any]) -> dict[str, Any]:
-        return {key: _withhold(value, secret_values) for key, value in mapping.items()}
-
     def withhold_secret_values(item: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
-        scrubbed = scrub(item)
-        if "type" in item:
+        scrubbed = _withhold(item, secret_values)
+        if item.get("type") in _ITEM_TYPES:
             scrubbed["type"] = item["type"]
-        contexts = item.get("contexts")
-        if isinstance(contexts, dict) and isinstance(contexts.get("trace"), dict):
-            scrubbed["contexts"] = {**scrubbed["contexts"], "trace": scrub(contexts["trace"])}
         return scrubbed
 
     return withhold_secret_values
@@ -175,10 +196,10 @@ def _sentry_options() -> dict:
             ]
         ),
         # Each secret setting's value and each connection URL's password, wherever an item holds it (the protocol's own
-        # fields aside, which the SDK reads after the hook: `_value_scrubber`), on every channel that carries text; the
-        # hooks run after the event scrubber and the serializer. Never set `max_value_length`: the serializer would cut
-        # a string inside a secret and leave a prefix no hook matches. `before_send_span` acts only under span
-        # streaming (`trace_lifecycle`), which stays off.
+        # keys and item types aside: `_value_scrubber`), on every channel that carries text; the hooks run after the
+        # event scrubber and the serializer. Never set `max_value_length`: the serializer would cut a string inside a
+        # secret and leave a prefix no hook matches. `before_send_span` acts only under span streaming
+        # (`trace_lifecycle`), which stays off.
         "before_send": withhold_secret_values,
         "before_send_transaction": withhold_secret_values,
         "before_send_log": withhold_secret_values,

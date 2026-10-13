@@ -839,18 +839,20 @@ def test_the_deploy_check_database_checks_print_no_secret(monkeypatch, capsys):
 @pytest.fixture
 def sentry_envelopes():
     # main.py's own options, with a fabricated DSN, a transport that keeps each envelope item instead of sending it (with
-    # the envelope's and each item's headers, and each lost item's reason and category as a "lost" item), every
-    # transaction sampled (a transaction carries the request too), no profiler thread and a fixed release (none would
-    # run `git rev-parse`). The integrations stay installed in this process and pass every call through once the
-    # client is removed.
+    # the envelope's and each item's headers, and each lost item's reason and category as a "lost" item; it reads the
+    # DSN as the SDK's own does, so the dynamic sampling context carries its public key), every transaction sampled (a
+    # transaction carries the request too), no profiler thread and a fixed release (none would run `git rev-parse`).
+    # The integrations stay installed in this process and pass every call through once the client is removed.
     import sentry_sdk
     from sentry_sdk.transport import Transport
 
     import main
 
+    dsn = "https://fabricated@sentry.invalid/1"
+
     class Keep(Transport):
         def __init__(self):
-            super().__init__()
+            super().__init__({"dsn": dsn})
             self.items = []
 
         def capture_envelope(self, envelope):
@@ -871,7 +873,7 @@ def sentry_envelopes():
     # Span streaming (trace_lifecycle="stream") sends request headers as span attributes, unscrubbed.
     assert "trace_lifecycle" not in options and "trace_lifecycle" not in options.get("_experiments", {})
     keep = Keep()
-    options.update(dsn="https://fabricated@sentry.invalid/1", transport=keep, release="gate")
+    options.update(dsn=dsn, transport=keep, release="gate")
     options.update(traces_sample_rate=1.0, profiles_sample_rate=None)
     sentry_sdk.init(**options)
     try:
@@ -918,126 +920,6 @@ def test_main_passes_sentry_only_its_options():
         for call in _sentry_inits(ast.parse(path.read_text(encoding="utf-8")))
     ]
     assert found == ["main.py: sentry_sdk.init(**_sentry_options())"]
-
-
-def _sentry_calls(tree: ast.Module, name: str) -> list[str]:
-    """Each call in the module that can reach Sentry's function `name`: as a method on any receiver (the package, a
-    module of it, a scope or a client held in a name, `get_current_scope()`), or as the function imported from
-    sentry_sdk or one of its modules under any name. A method of that name on another receiver is flagged too: the scan
-    cannot tell receivers apart, and the backend has none."""
-    functions = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "sentry_sdk":
-            functions |= {alias.asname or alias.name for alias in node.names if alias.name == name}
-    return [
-        ast.unparse(node)
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and (ast.unparse(node.func) in functions or (isinstance(node.func, ast.Attribute) and node.func.attr == name))
-    ]
-
-
-def _trace_contexts(tree: ast.Module) -> list[str]:
-    """Each `set_context` call in the module that sets the trace context, on any receiver (a scope, the package), its
-    key given by position or by name."""
-    found = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and ast.unparse(node.func).split(".")[-1] == "set_context":
-            key = node.args[0] if node.args else next((kw.value for kw in node.keywords if kw.arg == "key"), None)
-            if isinstance(key, ast.Constant) and key.value == "trace":
-                found.append(ast.unparse(node))
-    return found
-
-
-# An event processor runs before the hooks and can write any field of an event, the kept ones included.
-_EVENT_PROCESSORS = {"add_event_processor", "add_error_processor", "add_global_event_processor"}
-
-
-def _event_processors(tree: ast.Module) -> list[str]:
-    """Each place in the module that adds an event or error processor: a call on any receiver, the function imported
-    from sentry_sdk or one of its modules under any name, or a decorator (the SDK's own idiom)."""
-    names = _EVENT_PROCESSORS | {
-        alias.asname or alias.name
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "sentry_sdk"
-        for alias in node.names
-        if alias.name in _EVENT_PROCESSORS
-    }
-    calls = [
-        ast.unparse(node)
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call) and ast.unparse(node.func).split(".")[-1] in names
-    ]
-    decorators = [
-        f"@{ast.unparse(decorator)}"
-        for node in ast.walk(tree)
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-        for decorator in node.decorator_list
-        if ast.unparse(decorator).split("(")[0].split(".")[-1] in names
-    ]
-    return calls + decorators
-
-
-def _kept_field_writers(tree: ast.Module) -> list[str]:
-    return [*_sentry_calls(tree, "capture_event"), *_trace_contexts(tree), *_event_processors(tree)]
-
-
-def test_no_backend_code_writes_the_fields_the_value_scrubber_keeps():
-    # The value scrubber keeps an item's own keys, its `type` and its trace context's keys (main._value_scrubber),
-    # because the SDK builds them from the protocol's names and never from user data. A hand-built event
-    # (`capture_event`), a trace context set by hand or an event processor could put user data there, unscrubbed:
-    # none exists.
-    found = [
-        f"{path.relative_to(BACKEND_DIR).as_posix()}: {call}"
-        for path in _scanned_files()
-        for call in _kept_field_writers(ast.parse(path.read_text(encoding="utf-8")))
-    ]
-    assert found == []
-
-
-@pytest.mark.parametrize(
-    "source",
-    [
-        "import sentry_sdk\nsentry_sdk.capture_event(event)",
-        "import sentry_sdk as sdk\nsdk.api.capture_event(event)",
-        "from sentry_sdk import capture_event as send\nsend(event)",
-        "from sentry_sdk import api\napi.capture_event(event)",
-        "scope = sentry_sdk.get_current_scope()\nscope.capture_event(event)",
-        "client = sentry_sdk.get_client()\nclient.capture_event(event)",
-        "from sentry_sdk import get_current_scope\nget_current_scope().capture_event(event)",
-        "import sentry_sdk\nsentry_sdk.set_context('trace', {})",
-        "scope = get_scope()\nscope.set_context('trace', {})",
-        "import sentry_sdk\nsentry_sdk.set_context(key='trace', value={})",
-        "import sentry_sdk\nsentry_sdk.get_current_scope().add_event_processor(rewrite)",
-        "from sentry_sdk.scope import add_global_event_processor\nadd_global_event_processor(rewrite)",
-        "from sentry_sdk.scope import add_global_event_processor as hook\nhook(rewrite)",
-        "from sentry_sdk.scope import add_global_event_processor\n@add_global_event_processor\ndef rewrite(event, hint):\n    return event",
-        "from app.services.posthog_client import capture_event\ncapture_event(user, event)",
-        "scope = get_scope()\nscope.set_context('job', {})",
-    ],
-    ids=[
-        "package",
-        "module-alias",
-        "function-alias",
-        "submodule",
-        "scope-in-a-name",
-        "client-in-a-name",
-        "current-scope",
-        "set-trace",
-        "scope-trace",
-        "trace-by-keyword",
-        "event-processor",
-        "global-event-processor",
-        "processor-alias",
-        "processor-decorator",
-        "posthog",
-        "other-context",
-    ],
-)
-def test_the_kept_fields_scan_follows_imports(source):
-    found = _kept_field_writers(ast.parse(source))
-    harmless = source.endswith(("capture_event(user, event)", "set_context('job', {})"))
-    assert found == ([] if harmless else [source.splitlines()[1]])
 
 
 @pytest.mark.parametrize(
@@ -1503,15 +1385,72 @@ def test_sentry_withholds_no_value_shorter_than_eight_characters(monkeypatch, re
     assert event["message"] == f"[Filtered] {seven} db.internal:5432 [2001:db8::1]:6379 as sent"
 
 
-def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request):
-    # Codex's case on #1297: a weak secret equal to a word of Sentry's protocol (IP_HASH_SALT=event_id passes every
-    # check) renamed the event's own `event_id`, which the SDK reads after the hook, so the capture raised. The item's
-    # own keys, its `type` and its trace context's keys stay as they are: an error, a transaction, a check-in, a log and
-    # a metric are each sent, as their own kind, with those fields.
+def _capture_every_structure(caplog) -> None:
+    """One capture of each structure the SDK builds under main's options, on every channel: an error with a chained
+    exception (its frames and mechanism), an exception group (its mechanism's links), breadcrumbs from a log line and
+    by hand, a user, a request and a log entry; a transaction with nested spans, a database query and a response
+    status; a check-in with its monitor config; a log; a metric."""
     import sentry_sdk
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
     from sentry_sdk import logger as sentry_logger
     from sentry_sdk.crons import capture_checkin
+    from sqlalchemy import create_engine, text
 
+    caplog.set_level(logging.INFO, logger="app.jobs")
+    logging.getLogger("app.jobs").info("step %s", "one")  # a log line at INFO and above becomes a breadcrumb
+    sentry_sdk.add_breadcrumb(category="job", message="retrying", data={"attempt": 2})
+    sentry_sdk.set_user({"id": "1", "username": "reader"})
+    try:
+        try:
+            raise KeyError("note")
+        except KeyError as cause:
+            raise RuntimeError("job failed") from cause
+    except RuntimeError as error:
+        sentry_sdk.capture_exception(error)
+    try:
+        raise ExceptionGroup("jobs failed", [ValueError("one"), TypeError("two")])
+    except ExceptionGroup as group:
+        sentry_sdk.capture_exception(group)
+    logging.getLogger("app.jobs").error("job %s failed", "two")  # an event with a log entry
+    app = FastAPI()
+
+    @app.post("/notes/{note}")
+    async def notes(note: str, body: dict):
+        raise RuntimeError("database down")
+
+    TestClient(app, raise_server_exceptions=False).post("/notes/1", params={"q": "x"}, json={"note": "x"})
+    engine = create_engine("sqlite://")
+    with sentry_sdk.start_transaction(name="job", op="task") as transaction:
+        transaction.set_http_status(500)
+        with sentry_sdk.start_span(op="job.step", name="step"), sentry_sdk.start_span(op="job.query", name="query"):
+            with engine.connect() as connection:
+                connection.execute(text("select 1"))
+    capture_checkin(
+        monitor_slug="nightly",
+        status="ok",
+        duration=1.5,
+        monitor_config={
+            "schedule": {"type": "interval", "value": 1, "unit": "day"},
+            "timezone": "UTC",
+            "checkin_margin": 5,
+            "max_runtime": 30,
+            "failure_issue_threshold": 2,
+            "recovery_threshold": 2,
+            "owner": "jobs",
+        },
+    )
+    sentry_logger.warning("job {name} failed", name="nightly")
+    sentry_sdk.metrics.count("job.failures", 1)
+    sentry_sdk.flush()
+
+
+def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request, caplog):
+    # Codex's cases on #1297: a weak secret equal to a word of Sentry's protocol (IP_HASH_SALT=event_id passes every
+    # check) renamed the event's own `event_id`, which the SDK reads after the hook, so the capture raised; one equal to
+    # a key below it (parent_span_id) renamed that key in each child span. Every key of the protocol's own and an
+    # item's `type` stay as they are (main._PROTOCOL_KEYS, main._ITEM_TYPES): errors, transactions, a check-in, a log
+    # and a metric are each sent, as their own kind and whole, and the trace header keeps its sample rate.
     words = {
         "IP_HASH_SALT": "event_id",
         "FMP_API_KEY": "trace_id",
@@ -1522,23 +1461,176 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request):
         "OPENAI_API_KEY": "transaction",
         "AI_FALLBACK_API_KEY": "timestamp",
         "STRIPE_WEBHOOK_SECRET": "check_in",
+        "RESEND_API_KEY": "parent_span_id",
+        "RESEND_WEBHOOK_SECRET": "category",
+        "STRIPE_PUBLISHABLE_KEY": "filename",
+        "STRIPE_SECRET_KEY": "schedule",
+        "INTERNAL_JOB_TOKEN": "sample_rate",
     }
     envelopes = _scrubbing_envelopes(request, monkeypatch, **words)
-    sentry_sdk.capture_message("job failed")
-    with sentry_sdk.start_transaction(name="job"), sentry_sdk.start_span(op="job.step"):
-        pass
-    capture_checkin(monitor_slug="nightly", status="ok")
-    sentry_logger.warning("job failed")
-    sentry_sdk.metrics.count("job.failures", 1)
-    sentry_sdk.flush()
+    _capture_every_structure(caplog)
     assert not [lost for lost in _of(envelopes, "lost") if lost[0] == "callback_error"]
-    (event,), (transaction,), (checkin,) = (_of(envelopes, kind) for kind in ("event", "transaction", "check_in"))
-    assert "event_id" in event and checkin["type"] == "check_in" and transaction["type"] == "transaction"
-    assert {"event_id", "start_timestamp", "timestamp", "transaction"} <= transaction.keys()
-    assert "trace_id" in transaction["contexts"]["trace"]
+    events, transactions, (checkin,) = (_of(envelopes, kind) for kind in ("event", "transaction", "check_in"))
+    assert all("event_id" in event for event in events) and checkin["type"] == "check_in"
+    frames = [
+        frame
+        for event in events
+        for value in event.get("exception", {}).get("values", [])
+        for frame in value.get("stacktrace", {}).get("frames", [])  # an exception never raised has no frames
+    ]
+    assert frames and all("filename" in frame for frame in frames)
+    crumbs = [crumb for event in events for crumb in event.get("breadcrumbs", {}).get("values", [])]
+    assert crumbs and all("category" in crumb and "timestamp" in crumb for crumb in crumbs)
+    (job,) = [transaction for transaction in transactions if transaction["contexts"]["trace"].get("op") == "task"]
+    assert job["type"] == "transaction" and {"event_id", "start_timestamp", "timestamp", "transaction"} <= job.keys()
+    assert "trace_id" in job["contexts"]["trace"] and len(job["spans"]) == 3
+    assert all({"parent_span_id", "start_timestamp", "timestamp", "trace_id"} <= span.keys() for span in job["spans"])
+    assert {"schedule", "timezone", "checkin_margin"} <= checkin["monitor_config"].keys()
+    traces = [headers["trace"] for kind, headers in envelopes if kind == "headers" and "trace" in headers]
+    assert traces and all("sample_rate" in trace and "trace_id" in trace for trace in traces)
     (logs,), (metrics,) = _of(envelopes, "log"), _of(envelopes, "trace_metric")
-    assert [entry["body"] for entry in logs["items"]] == ["job failed"]
+    assert [entry["body"] for entry in logs["items"]] == ["job nightly failed"]
     assert [entry["name"] for entry in metrics["items"]] == ["job.failures"]
+
+
+# The fields whose mappings hold user data: their keys are data too, never the protocol's own, so the value scrubber
+# withholds a secret held as one of them.
+_USER_DATA_FIELDS = frozenset(
+    {"data", "tags", "extra", "attributes", "headers", "cookies", "env", "vars", "measurements", "modules", "_meta"}
+)
+
+
+def _structure(node: object, path: tuple = ()) -> set[tuple]:
+    """The path of each key in an item outside user data (a user-data field's own key is the protocol's, its keys
+    are not walked); a list's items share the list's path."""
+    paths = set()
+    if isinstance(node, dict):
+        for key, value in node.items():
+            paths.add((*path, key))
+            if key not in _USER_DATA_FIELDS:
+                paths |= _structure(value, (*path, key))
+    elif isinstance(node, list):
+        for item in node:
+            paths |= _structure(item, (*path, "[]"))
+    return paths
+
+
+def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatch, request, caplog):
+    # Codex's case on #1297, and the coordination comment's ask for schema-aware coverage: a weak secret equal to a key
+    # of Sentry's protocol below an item's top level (IP_HASH_SALT=parent_span_id passes every check) renamed that key
+    # in each child span, breadcrumb, frame or monitor config. Every key of 8 characters or more that the SDK's own
+    # items carry outside user data (as each hook received them, from one capture of every structure on every
+    # channel), each taken as a secret, leaves every item's structure as it was. The keys come from the SDK, not from
+    # main's list: a key an SDK upgrade adds fails here until main._PROTOCOL_KEYS has it.
+    import copy
+
+    import main
+
+    received = []
+    value_scrubber = main._value_scrubber
+
+    def recording(secret_values):
+        withhold = value_scrubber(secret_values)
+
+        def recorded(item, hint):
+            received.append(copy.deepcopy(item))
+            return withhold(item, hint)
+
+        return recorded
+
+    monkeypatch.setattr(main, "_value_scrubber", recording)
+    request.getfixturevalue("sentry_envelopes")
+    _capture_every_structure(caplog)
+    assert {"transaction", "check_in", "counter"} <= {item.get("type") for item in received}
+    assert any("exception" in item for item in received) and any("severity_text" in item for item in received)
+    words = {path[-1] for item in received for path in _structure(item) if isinstance(path[-1], str)}
+    words = sorted((word for word in words if len(word) >= 8), key=lambda word: (-len(word), word))
+    # The capture reaches what Codex named and every structure below an item's top level.
+    below = {"parent_span_id", "same_process_as_parent", "category", "filename", "context_line", "is_exception_group"}
+    below |= {"formatted", "query_string", "username", "status_code", "public_key", "schedule", "checkin_margin"}
+    assert below <= set(words)
+    withhold = value_scrubber(tuple(words))
+    for item in received:
+        lost = _structure(item) - _structure(withhold(copy.deepcopy(item), {}))
+        assert not lost, f"{sorted('.'.join(map(str, path)) for path in lost)} lost to secrets equal to protocol keys"
+
+
+def test_a_secret_held_as_a_key_in_user_data_is_withheld(monkeypatch, request):
+    # Only a key that is exactly one of the protocol's own stays (main._PROTOCOL_KEYS); every other key is user data:
+    # a secret held as a key in an extra, a tag, a context (its name and inside it), a user, a breadcrumb's data, a
+    # request's body, a span's data or tags, a log's or a metric's attributes is withheld there, and so is one that
+    # follows a protocol word in the same key.
+    import sentry_sdk
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from sentry_sdk import logger as sentry_logger
+
+    token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
+    envelopes = _scrubbing_envelopes(request, monkeypatch, INTERNAL_JOB_TOKEN=token)
+    sentry_sdk.set_extra(token, "x")
+    sentry_sdk.set_tag(token, "x")
+    sentry_sdk.set_context(token, {token: "x"})
+    sentry_sdk.set_user({"id": "1", token: "x"})
+    sentry_sdk.add_breadcrumb(message="retrying", data={token: "x"})
+    sentry_sdk.capture_message("job failed")
+    app = FastAPI()
+
+    @app.post("/notes")
+    async def notes(body: dict):
+        raise RuntimeError("database down")
+
+    TestClient(app, raise_server_exceptions=False).post("/notes", json={token: "x"})
+    with sentry_sdk.start_transaction(name="job"), sentry_sdk.start_span(op="job.step") as span:
+        span.set_data(token, "x")
+        span.set_data(f"trace_id.{token}", "x")
+        span.set_tag(token, "x")
+    sentry_logger.warning("job failed", attributes={token: "x"})
+    sentry_sdk.metrics.count("job.failures", 1, attributes={token: "x"})
+    sentry_sdk.flush()
+    leaked = _fragments(token, json.dumps(envelopes), width=8)
+    assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry"
+    events = _of(envelopes, "event")
+    (event,) = [event for event in events if event.get("message") == "job failed"]
+    assert event["extra"]["[Filtered]"] == event["tags"]["[Filtered]"] == event["user"]["[Filtered]"] == "x"
+    assert event["contexts"]["[Filtered]"] == {"[Filtered]": "x"}
+    assert {"[Filtered]": "x"} in [crumb.get("data") for crumb in event["breadcrumbs"]["values"]]
+    assert {"[Filtered]": "x"} in [event.get("request", {}).get("data") for event in events]
+    (job,) = [transaction for transaction in _of(envelopes, "transaction") if transaction["transaction"] == "job"]
+    ((step,),) = [job["spans"]]
+    assert step["data"]["[Filtered]"] == step["data"]["trace_id.[Filtered]"] == step["tags"]["[Filtered]"] == "x"
+    (logs,), (metrics,) = _of(envelopes, "log"), _of(envelopes, "trace_metric")
+    assert logs["items"][0]["attributes"]["[Filtered]"]["value"] == "x"
+    assert metrics["items"][0]["attributes"]["[Filtered]"]["value"] == "x"
+
+
+def test_nothing_written_before_the_hooks_carries_a_secret_past_them(monkeypatch, request):
+    # The hooks keep only the protocol's own words (main._PROTOCOL_KEYS, main._ITEM_TYPES), never a field whole, so
+    # nothing that runs before them can carry a secret past them: a trace context set by hand, a hand-built event with
+    # the secret as its own key and its `type`, or an event processor, registered under any name (an assignment alias:
+    # Codex's case on #1297), writing it as an event's key, a trace context's key and the `type`.
+    import sentry_sdk
+
+    token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
+    envelopes = _scrubbing_envelopes(request, monkeypatch, INTERNAL_JOB_TOKEN=token)
+    sentry_sdk.set_context("trace", {token: token})
+    sentry_sdk.capture_message("traced by hand")
+    sentry_sdk.capture_event({"message": "built by hand", token: token, "type": token})
+
+    def rewrite(event, hint):
+        event[token] = token
+        event.setdefault("contexts", {}).setdefault("trace", {})[token] = token
+        event["type"] = token
+        return event
+
+    register = sentry_sdk.get_isolation_scope().add_event_processor
+    register(rewrite)
+    sentry_sdk.capture_message("rewritten")
+    sentry_sdk.flush()
+    events = _of(envelopes, "event")
+    assert sorted(event.get("message") for event in events) == ["built by hand", "rewritten", "traced by hand"]
+    assert all(event.get("type") in (None, "[Filtered]") for event in events)
+    leaked = _fragments(token, json.dumps(envelopes), width=8)
+    assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry"
 
 
 @pytest.mark.parametrize(
