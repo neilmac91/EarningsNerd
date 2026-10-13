@@ -14,15 +14,17 @@
   its mark keeps 4.4:1 on either. Gmail and Outlook also drop inline SVG, so this preview's svg sits
   in a cell wrapped for Outlook to skip; the port puts the hosted raster in its place and drops that
   [if !mso] conditional, since Outlook shows a PNG:
-    <img src="{settings.FRONTEND_URL}/assets/earningsnerd-appicon.png" width="32" height="32"
-      alt="" style="display:block;border:0;">
+    <img src="{base}/assets/earningsnerd-appicon.png" width="32" height="32" alt=""
+      style="display:block;border:0;">
   The raster is 128 px square, written from the SVG by frontend/scripts/generate-brand-assets.mjs.
   Its alt is empty because the text wordmark beside it names the brand, and carries it alone where
-  images are blocked. Build the address from settings.FRONTEND_URL, as the mail's links are built.
-  Sent mail keeps the whole address, so the origin is published along with the path: use the origin
-  that answers without a redirect (https://www.earningsnerd.io today; the apex answers 307 to it)
-  and keep it answering. FRONTEND_URL defaults to the apex (backend/app/config.py), so production's
-  value is confirmed before the port deploys (tasks/todo.md F26). The path never moves
+  images are blocked. Build base from settings.FRONTEND_URL, as the mail's links are built, with any
+  trailing slash stripped (base = settings.FRONTEND_URL.rstrip("/"), as
+  backend/app/services/waitlist_service.py does): a doubled slash answers 308. Sent mail keeps the
+  whole address, so the origin is published along with the path: use the origin that answers without
+  a redirect (https://www.earningsnerd.io today; the apex answers 307 to it) and keep it answering.
+  FRONTEND_URL defaults to the apex (backend/app/config.py), so production's value is confirmed
+  before the port deploys (tasks/todo.md F26). The path never moves
   (frontend/public/assets/LOGO_README.md; frontend/tests/unit/publishedAssetUrls.spec.ts). It is a
   raster under /assets/, not the PWA's /icons/icon-192.png: the waitlist gate does not pass /icons,
   and the manifest is free to change its icons.

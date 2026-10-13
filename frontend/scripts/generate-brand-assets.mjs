@@ -21,13 +21,19 @@
                                      raster the backend embeds in Excel exports
                                      (openpyxl can't rasterize SVG)
      public/assets/earningsnerd-mark-sage.png
-                                     the same raster, served at a fixed URL for
-                                     light surfaces that cannot render SVG
+                                     the same raster at a fixed URL, first
+                                     offered as the mail header's mark and kept
+                                     there since the header took the tile (D-035)
      public/assets/earningsnerd-appicon.png
                                      128×128 app tile, the transactional mail
                                      header's mark, served at a fixed URL (clients
                                      drop inline SVG; the tile keeps its own
                                      ground where a mail app darkens the message)
+
+   The two public/assets PNGs are held by the published-URL rule
+   (public/assets/LOGO_README.md › Rules; sent mail shows the tile by address).
+   If a source change alters one, keep the committed file and write the new
+   rendition under a new name.
 
    Run: npm run brand:assets
    Requires devDeps sharp + png-to-ico + playwright. If playwright's managed
@@ -110,9 +116,10 @@ async function main() {
   await fs.writeFile(path.join(backendBrand, 'earningsnerd-mark.png'), sageMark)
   console.log('✓ backend/app/assets/brand/earningsnerd-mark.png (256w, transparent)')
 
-  // The same raster served at a fixed URL (/assets/earningsnerd-mark-sage.png) for light surfaces
-  // that cannot render SVG and have no access to the repository. One buffer, two paths: the two
-  // files are byte-identical by construction.
+  // The same raster served at a fixed URL (/assets/earningsnerd-mark-sage.png). It was first offered
+  // as the mail header's mark and stays at its URL, in the published-URL register, since the header
+  // took the tile below (D-035); no mail references it. One buffer, two paths: the two files are
+  // byte-identical by construction.
   await fs.writeFile(path.join(assets, 'earningsnerd-mark-sage.png'), sageMark)
   console.log('✓ assets/earningsnerd-mark-sage.png (256w, transparent, served at a fixed URL)')
 

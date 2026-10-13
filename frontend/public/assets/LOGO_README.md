@@ -21,7 +21,7 @@ The mark is the letters **E + N** with the N's final stroke rising into an arrow
 | `earningsnerd-logo-stacked-dark.svg` | Stacked lockup for navy. |
 | `earningsnerd-logo-stacked-mono.svg` | Stacked lockup in `currentColor`. |
 | `earningsnerd-mask-icon.svg` | Safari pinned-tab mask: the mark letterboxed in a square, black on transparent (Safari recolours it; `app/layout.tsx` declares it with the sage colour). |
-| `earningsnerd-mark-sage.png` | The sage mark rasterized at 256 px wide on transparent, byte-identical to the backend's Excel raster. Served at `/assets/earningsnerd-mark-sage.png` for light surfaces that cannot render SVG; generated, never edited, and a published URL (see Rules). |
+| `earningsnerd-mark-sage.png` | The sage mark rasterized at 256 px wide on transparent, byte-identical to the backend's Excel raster. Served at `/assets/earningsnerd-mark-sage.png`: first offered as the mail header's mark, kept at its URL since the header took the tile (D-035), though no mail references it; generated, never edited, and held to the published-URL rule (see Rules). |
 | `earningsnerd-appicon.png` | The app tile rasterized at 128 px square, transparent outside the squircle. Served at `/assets/earningsnerd-appicon.png` for the transactional mail header, which shows it at 32 px beside the text wordmark: mail clients drop inline SVG, and the apps that darken a message leave its images alone, so the mark comes on its own ground; generated, never edited, and a published URL (see Rules). |
 
 ## In-app usage
@@ -70,18 +70,19 @@ Excel export).
   about 6 mm there, the E's open counters 2.9 mm; the E and the N kiss, which a satin stitch joins
   and the mark survives). Evidence: `docs/brand/05-mark.md`.
 - **Published URLs stay put.** A path that sent mail references is published: a message keeps its
-  image addresses for as long as it is kept, and nobody can edit it after sending. The first is
-  `/assets/earningsnerd-appicon.png`, the app tile in the transactional mail header once that
-  header's port ships; `/assets/earningsnerd-mark-sage.png`, the bare mark's raster, is served for
-  light surfaces that cannot render SVG and is held to the same rule. Each file stays at its path
-  for good and stays served: never rename, move or remove it, never redirect its path, and keep it
-  the same image (regenerating it from the same source is fine); a new rendition takes a new name.
-  Mail addresses these paths on the origin that answers without a redirect
-  (`https://www.earningsnerd.io`), so that origin keeps serving them without one. A change that puts
-  a new asset path in mail adds it to the register in the same PR. Gate:
-  `frontend/tests/unit/publishedAssetUrls.spec.ts`, the register, checks that each file is present
-  (a PNG where it is one) and that `middleware.ts` passes it in both waitlist modes; a redirect or
-  rewrite in `next.config.js` or `vercel.json`, the origin, and the image itself are review-checked.
+  image addresses for as long as it is kept, and nobody can edit it after sending. The register
+  holds two paths: `/assets/earningsnerd-appicon.png`, the app tile in the transactional mail header
+  once that header's port ships, and `/assets/earningsnerd-mark-sage.png`, the bare mark's raster,
+  first offered as the header's mark and kept at its URL when the header took the tile (D-035); no
+  mail references it, and the rule holds it all the same. Each file stays at its path for good and
+  stays served: never rename, move or remove it, never redirect its path, and keep it the same image
+  (regenerating it from the same source is fine); a new rendition takes a new name. Mail addresses
+  these paths on the origin that answers without a redirect (`https://www.earningsnerd.io`), so that
+  origin keeps serving them without one. A change that puts a new asset path in mail adds it to the
+  register in the same PR. Gate: `frontend/tests/unit/publishedAssetUrls.spec.ts`, the register,
+  checks that each file is present (a PNG where it is one) and that `middleware.ts` passes it in
+  both waitlist modes; a redirect or rewrite in `next.config.js` or `vercel.json`, the origin, and
+  the image itself are review-checked.
 - **Where it goes.** The mark sits top-left on every surface the brand owns (the site header, the
   OG card, the PDF masthead, the email shell, the business card front); the email shell carries it
   as the app tile, which brings its own ground into mail apps that darken a message; the stacked

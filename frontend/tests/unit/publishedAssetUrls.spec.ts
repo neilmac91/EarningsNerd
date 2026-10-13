@@ -20,8 +20,8 @@ const PUBLISHED = [
   // The app tile in the transactional mail header (docs/brand/templates/email-header.html) once
   // its port into backend/app/services/email_service.py ships.
   '/assets/earningsnerd-appicon.png',
-  // The bare sage mark's raster, served for light surfaces that cannot render SVG; the Excel
-  // export's raster, same bytes.
+  // The bare sage mark's raster, the Excel export's bytes: first offered as the mail header's mark,
+  // kept at its URL since the header took the tile (D-035), though no mail references it.
   '/assets/earningsnerd-mark-sage.png',
 ]
 
