@@ -1,10 +1,8 @@
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { PHASE_PRODUCTION_BUILD } from 'next/constants'
-import { defaultConfig } from 'next/dist/server/config-shared'
 import { getPathMatch } from 'next/dist/shared/lib/router/utils/path-match'
 import { NextRequest } from 'next/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -40,28 +38,49 @@ const WAITLIST_MODES = ['true', 'false']
 const KEPT = 'is a published URL'
 
 type Route = { source?: string; src?: string; has?: { type: string; value?: string }[] }
-type Rewrites = Route[] | { beforeFiles?: Route[]; afterFiles?: Route[]; fallback?: Route[] }
+type NextRoutes = { basePath?: string; redirects: Route[]; rewrites: Route[] | { beforeFiles?: Route[]; afterFiles?: Route[]; fallback?: Route[] } }
 
 /**
- * Every rule that can redirect or rewrite a path before it is served: next.config.js evaluated as
- * `next build` loads it, in the build phase (redirects and rewrites are fixed into the deployment
- * then) and with Next's default config, Sentry's wrapper included; and vercel.json read as Vercel
- * applies it.
+ * The redirects and rewrites `next build` writes into the deployment, read the way it reads them:
+ * Next's own config loader and custom-route loader (next/dist/server/config,
+ * next/dist/lib/load-custom-routes), in the build phase and with NODE_ENV=production, so a rule that
+ * only a production build enables is read too. They run in a child process, which keeps the test's
+ * environment its own; the routes come back as one marked JSON line.
  */
-async function routing(): Promise<{ basePath: string; rules: [string, Route][] }> {
-  const loaded = createRequire(import.meta.url)(path.join(FRONTEND, 'next.config.js'))
-  const config = typeof loaded === 'function' ? await loaded(PHASE_PRODUCTION_BUILD, { defaultConfig }) : loaded
-  const redirects: Route[] = (await config.redirects?.()) ?? []
-  const rewrites: Rewrites = (await config.rewrites?.()) ?? []
-  const rewritten = Array.isArray(rewrites)
-    ? rewrites
-    : [...(rewrites.beforeFiles ?? []), ...(rewrites.afterFiles ?? []), ...(rewrites.fallback ?? [])]
+const LOAD_NEXT_ROUTES = `
+const loadConfig = require('next/dist/server/config').default
+const loadCustomRoutes = require('next/dist/lib/load-custom-routes').default
+const { PHASE_PRODUCTION_BUILD } = require('next/constants')
+;(async () => {
+  const config = await loadConfig(PHASE_PRODUCTION_BUILD, process.cwd(), { silent: true })
+  const { redirects, rewrites } = await loadCustomRoutes(config)
+  process.stdout.write('\\n__ROUTES__' + JSON.stringify({ basePath: config.basePath, redirects, rewrites }) + '\\n')
+})().catch((error) => { console.error(error); process.exit(1) })
+`
+
+function nextRoutes(): NextRoutes {
+  const out = execFileSync(process.execPath, ['-e', LOAD_NEXT_ROUTES], {
+    cwd: FRONTEND,
+    env: { ...process.env, NODE_ENV: 'production' },
+    encoding: 'utf8',
+  })
+  const line = out.split('\n').find((l) => l.startsWith('__ROUTES__'))
+  if (!line) throw new Error(`next.config.js's routes did not load:\n${out}`)
+  return JSON.parse(line.slice('__ROUTES__'.length))
+}
+
+/** Every rule that can redirect or rewrite a path before it is served: Next's, and vercel.json's as Vercel applies them. */
+function routing(): { basePath: string; rules: [string, Route][] } {
+  const next = nextRoutes()
+  const rewritten = Array.isArray(next.rewrites)
+    ? next.rewrites
+    : [...(next.rewrites.beforeFiles ?? []), ...(next.rewrites.afterFiles ?? []), ...(next.rewrites.fallback ?? [])]
   const vercel = JSON.parse(readFileSync(path.join(FRONTEND, 'vercel.json'), 'utf8'))
   const named = (where: string, list: Route[] | undefined) => (list ?? []).map((r): [string, Route] => [where, r])
   return {
-    basePath: config.basePath ?? '',
+    basePath: next.basePath ?? '',
     rules: [
-      ...named('next.config.js redirect', redirects),
+      ...named('next.config.js redirect', next.redirects),
       ...named('next.config.js rewrite', rewritten),
       ...named('vercel.json redirect', vercel.redirects),
       ...named('vercel.json rewrite', vercel.rewrites),
@@ -69,6 +88,8 @@ async function routing(): Promise<{ basePath: string; rules: [string, Route][] }
     ],
   }
 }
+
+let routes: ReturnType<typeof routing> | undefined
 
 /**
  * Whether a rule can reach a path on the mail origin. A `source` goes through Next's own matcher, with
@@ -105,8 +126,8 @@ describe('published asset URLs', () => {
       expect(res.headers.get('x-middleware-next'), `${url} ${KEPT}: pass it through`).toBe('1')
     })
 
-    it(`${url} is reached by no redirect or rewrite in next.config.js or vercel.json`, async () => {
-      const { basePath, rules } = await routing()
+    it(`${url} is reached by no redirect or rewrite in next.config.js or vercel.json`, () => {
+      const { basePath, rules } = (routes ??= routing())
       expect(basePath, `${url} ${KEPT}: a basePath moves it`).toBe('')
       const hits = rules.filter(([, rule]) => reaches(rule, url)).map(([where, rule]) => `${where} ${rule.source ?? rule.src}`)
       expect(hits, `${url} ${KEPT}: never redirect or rewrite it`).toEqual([])
