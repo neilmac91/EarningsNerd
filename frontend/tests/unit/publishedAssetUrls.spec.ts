@@ -18,7 +18,9 @@ import { middleware } from '@/middleware'
  * mail adds it here in the same PR. Each path must be its published file in frontend/public, byte
  * for byte (a new rendition takes a new name, so a changed file fails here until it does); pass
  * middleware.ts in both waitlist modes; and be reached by no redirect or rewrite in next.config.js
- * or vercel.json, and no basePath. The origin mail addresses them on is review-checked.
+ * or vercel.json, and no basePath, read in a production build's environment. The origin mail
+ * addresses them on is review-checked, and so is anything set only in the Vercel dashboard (a
+ * variable a rule reads, or a redirect).
  */
 const PUBLISHED = [
   // The app tile in the transactional mail header (docs/brand/templates/email-header.html) once
@@ -39,13 +41,41 @@ const KEPT = 'is a published URL'
 
 type Route = { source?: string; src?: string; has?: { type: string; value?: string }[] }
 type NextRoutes = { basePath?: string; redirects: Route[]; rewrites: Route[] | { beforeFiles?: Route[]; afterFiles?: Route[]; fallback?: Route[] } }
+type VercelJson = { build?: { env?: Record<string, string> }; redirects?: Route[]; rewrites?: Route[]; routes?: Route[] }
+
+/**
+ * The environment a production build on Vercel runs in, as far as the repository can say: Next's own
+ * NODE_ENV (the phase goes to the loader), the system variables Vercel sets on a production build and
+ * the `NEXT_PUBLIC_` copies it adds for a Next.js project, and vercel.json's `build.env` (its `env` goes
+ * to functions at run time, not to the build). Of the shell's environment it keeps only PATH and HOME.
+ * Next's loader still reads frontend/.env* files, as `next build` does; the repository ignores them, so
+ * CI and Vercel have none, and a developer's own copy changes the reading on that machine alone. A rule
+ * that depends on a value the repository cannot know (a variable set only in the Vercel dashboard, or a
+ * deployment's own URL or commit) is review-checked; next.config.js and vercel.json are high-tier files.
+ */
+function productionBuildEnv(vercel: VercelJson): NodeJS.ProcessEnv {
+  return {
+    PATH: process.env.PATH,
+    HOME: process.env.HOME,
+    VERCEL: '1',
+    CI: '1',
+    VERCEL_ENV: 'production',
+    VERCEL_TARGET_ENV: 'production',
+    VERCEL_GIT_COMMIT_REF: 'main',
+    NEXT_PUBLIC_VERCEL_ENV: 'production',
+    NEXT_PUBLIC_VERCEL_TARGET_ENV: 'production',
+    NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF: 'main',
+    ...vercel.build?.env,
+    NODE_ENV: 'production',
+  }
+}
 
 /**
  * The redirects and rewrites `next build` writes into the deployment, read the way it reads them:
  * Next's own config loader and custom-route loader (next/dist/server/config,
- * next/dist/lib/load-custom-routes), in the build phase and with NODE_ENV=production, so a rule that
- * only a production build enables is read too. They run in a child process, which keeps the test's
- * environment its own; the routes come back as one marked JSON line.
+ * next/dist/lib/load-custom-routes), in the build phase and in a production build's environment, so a
+ * rule that only a production build enables is read too. They run in a child process, which keeps the
+ * test's environment its own; the routes come back as one marked JSON line.
  */
 const LOAD_NEXT_ROUTES = `
 const loadConfig = require('next/dist/server/config').default
@@ -58,10 +88,10 @@ const { PHASE_PRODUCTION_BUILD } = require('next/constants')
 })().catch((error) => { console.error(error); process.exit(1) })
 `
 
-function nextRoutes(): NextRoutes {
+function nextRoutes(vercel: VercelJson): NextRoutes {
   const out = execFileSync(process.execPath, ['-e', LOAD_NEXT_ROUTES], {
     cwd: FRONTEND,
-    env: { ...process.env, NODE_ENV: 'production' },
+    env: productionBuildEnv(vercel),
     encoding: 'utf8',
   })
   const line = out.split('\n').find((l) => l.startsWith('__ROUTES__'))
@@ -71,11 +101,11 @@ function nextRoutes(): NextRoutes {
 
 /** Every rule that can redirect or rewrite a path before it is served: Next's, and vercel.json's as Vercel applies them. */
 function routing(): { basePath: string; rules: [string, Route][] } {
-  const next = nextRoutes()
+  const vercel: VercelJson = JSON.parse(readFileSync(path.join(FRONTEND, 'vercel.json'), 'utf8'))
+  const next = nextRoutes(vercel)
   const rewritten = Array.isArray(next.rewrites)
     ? next.rewrites
     : [...(next.rewrites.beforeFiles ?? []), ...(next.rewrites.afterFiles ?? []), ...(next.rewrites.fallback ?? [])]
-  const vercel = JSON.parse(readFileSync(path.join(FRONTEND, 'vercel.json'), 'utf8'))
   const named = (where: string, list: Route[] | undefined) => (list ?? []).map((r): [string, Route] => [where, r])
   return {
     basePath: next.basePath ?? '',

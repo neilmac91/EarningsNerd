@@ -82,8 +82,9 @@ Excel export).
   that puts a new asset path in mail adds it to the register in the same PR. Gate:
   `frontend/tests/unit/publishedAssetUrls.spec.ts`, the register, checks that each file is present
   and is the file that was published (its sha256), that `middleware.ts` passes it in both waitlist
-  modes, and that no redirect, rewrite or basePath in `next.config.js` or `vercel.json` reaches it;
-  the origin is review-checked.
+  modes, and that no redirect, rewrite or basePath in `next.config.js` or `vercel.json` reaches it,
+  read in a production build's environment; the origin, and anything set only in the Vercel
+  dashboard (a variable a rule reads, or a redirect), are review-checked.
 - **Where it goes.** The mark sits top-left on every surface the brand owns (the site header, the
   OG card, the PDF masthead, the email shell, the business card front); the email shell carries it
   as the app tile, which brings its own ground into mail apps that darken a message; the stacked
