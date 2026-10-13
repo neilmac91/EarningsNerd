@@ -48,8 +48,8 @@ with A3 tightened by the instruction about the mark; any of them changes on the 
   arrow, wordmark). Brand work adds arrangements and rules only (`lessons/brand-the-mark-is-protected.md`).
 - **A4 (naming).** No competitor is named on a brand surface; the catch is shown with two real
   figures from two real fiscal years.
-- **A5 (founder presence).** A first-person sentence slot is designed and built; it renders only with
-  an approved sentence, like the reader-quote slot.
+- **A5 (founder presence).** Keep the founder absent from the website. The previously built empty
+  sentence slot, configuration and hero mount are retired; see [08-applications.md §6](08-applications.md#6-the-founder-slot).
 - **A6 (job of the page).** Qualify, with "See a live example" primary.
 - **A7 (price).** The price is whatever the code states ($39 / $390 at the audit; $25 / $240 since main's #1009); no price copy is authored by the brand work.
 - **A8 (notable filings).** Self-omit until curated.

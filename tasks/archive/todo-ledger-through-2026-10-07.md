@@ -6650,6 +6650,28 @@ Full local and hosted verification plus independent exact-head review precede re
   map. Live read-backs after it: `describe-service` PASS (the worker invoker policy PRIVATE), `describe-jobs` PASS,
   `logs-probe` PERMITTED. Thirty-nine main runs classified; twenty-three deploys by other writers read back (healthy;
   every pin in place, read from the logs). A review agent's environment echo, the second (founder: key rotation). Closure 174.
+- 2026-10-11 to 2026-10-12 (record 24, `runtime/control/DECISIONS-24.md`): PR #1229 (record 23) merged `1268e8ee`
+  (nineteenth deploy-skip proof). The settings hardening (`settings-errors-hide-input-pr-01`) reviewed in draft (two review
+  workflows with refuters and a delta reviewer over two checks: no blocker) and merged as PR #1238 → `8d92dfb4` under the
+  founder's account (one login with the chief's), deployed and verified healthy: a settings secret no longer reaches an output through five gated
+  paths; Sentry's other routes and the gate's late findings go to `secret-output-followups-pr-01`. The founder keeps the
+  AI-provider key for now. The Monday 06:00–08:00Z readout clean at near-idle load. Twenty-four main runs classified; ten
+  deploys read back (healthy; every pin in place). Ledger events 46–52 (USD 0.511964). Closure 175.
+- 2026-10-12 to 2026-10-13 (record 25, `runtime/control/DECISIONS-25.md`): PR #1277 (record 24) merged `3da1c520`
+  (twentieth deploy-skip proof). The founder turned Sentry's frame locals off. The secret-output follow-ups
+  (`secret-output-followups-pr-01`) designed by a workflow, implemented by the chief, reviewed in draft (a high-tier review
+  workflow with refuters and a delta reviewer over three checks: no blocker) and marked ready as PR #1281; its merge held
+  at a request relayed on the PR for another agent's review (founder: F22). The `INHERITED` residue closed by another
+  writer's #1258. Twenty-five main runs classified; one deploy read back (healthy; every pin in place); production read
+  live. Ledger events 53–62 (USD 0.996534). Chief defect 15. Closure 176.
+- 2026-10-13 (record 26, `runtime/control/DECISIONS-26.md`): PR #1294 (record 25) merged `dc2d2d4b` (twenty-first
+  deploy-skip proof). Codex cleared #1281's `3c52519`. E19, the value-level Sentry scrubber
+  (`sentry-value-scrubber-pr-01`), built as PR #1297 on #1281's branch: designed by a workflow, implemented by the
+  chief, reviewed by two high-tier review workflows, design checks and a delta reviewer (no blocker found; the second
+  review four refuters short), redesigned at a relayed request; its release with #1281 held for the founder (F22).
+  Another writer's #1306 left #1281 conflicting with main in `tasks/todo.md`; the resolution prepared, not pushed. Six
+  main runs classified; two other writers' deploys read back (healthy; every pin in place); production read live. Ledger
+  events 63–64 (USD 0.366538). Closure 177.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
@@ -6676,8 +6698,10 @@ Full local and hosted verification plus independent exact-head review precede re
       that fires `eval-baseline` reserved at USD 0.730000 first (record 18). Merged `ae5b0f1c` (PR #1151) and deployed;
       the service's and pregenerate's pins read back with `describe-service`, the worker's and the seven other jobs' from
       the deploy's echoed commands (record 19).
-- [ ] Chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window (the first with the whole fleet pinned and
+- [x] Chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window (the first with the whole fleet pinned and
       backfill-facts at 07:30) with the read-only `capacity-readout`: SEC errors, breaker opens, job outcomes (record 19).
+      Read 2026-10-12 (ops run 38223107648, record 24): every job succeeded on its first attempt, no error-level entry; SEC
+      `403`/`429` and breaker opens are not receipt channels, and the window ran at near-idle load (B32 unchanged).
 - [x] Chief: the read-back PR (`ops-readback-pr-01`, record 20): `describe-service` reads back the task worker (revision,
       traffic, command, sizing, ingress, invoker policy, SEC pins) and the service's minimum instances, CPU and memory;
       `describe-jobs` prints and checks both SEC pins per job; `capacity-readout` adds the worker's requests and errors and
@@ -6690,6 +6714,10 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] Chief: the read-back follow-ups (`readback-followups-pr-01`, record 22): describe-service's shell read and logs-probe's
       denied branch print no gcloud error text, the receipt's message is address-redacted, both heredocs are committed
       modules, the not-executable class is pinned; a rule-12 gate. Merged `f64d6040` (PR #1195), deploying nothing (record 23).
+- [x] Chief: the settings hardening (`settings-errors-hide-input-pr-01`, record 23): a settings validation error's rendered
+      text carries no input value, and four more paths are closed and gated (the structured form at call sites, the settings
+      object's repr, config.py's messages, deploy_check's checks). Merged `8d92dfb4` (PR #1238), deployed and verified (record 24).
+- [x] Founder (record 23): the key fragment — decided 2026-10-11: no rotation for now (record 24).
 - [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", including Codex's own
       summary boilerplate, which cancelled a required run on PR #1131 (record 17); exclude the Codex connector's comments.
 - [x] Founder (optional, now; folded into record 17's option A): the D3 staging answer rested on an overstated premise (the insider panel is off in production;
