@@ -202,3 +202,15 @@ export function P116({ n }: { n: number }) { return <Frag className="text-brand-
 export function P117({ index }: { index: string }) { return <span className="text-brand-strong">Covering the {index}</span> } // gap
 // An index name written in words, with no digit to read (review-checked).
 export function P118() { return <span className="text-brand-strong">Covering the Dow Jones</span> } // gap
+// A same-file class const wherever it stands in the className, and through the consts it is built from.
+const SAGE_119 = 'text-brand-strong'
+const QUIET_119 = 'text-text-secondary-light'
+export function P119({ n, on }: { n: number; on: boolean }) { return <span className={on ? SAGE_119 : QUIET_119}>{n}</span> } // flag
+export function P120({ n, on }: { n: number; on: boolean }) { return <span className={cx('font-semibold', on && SAGE_119)}>{n}</span> } // flag
+const HOT_121 = `${SAGE_119} font-semibold`
+export function P121({ n }: { n: number }) { return <span className={HOT_121}>{n}</span> } // flag
+const MUTED_122 = 'text-text-tertiary-light'
+export function P122({ n, on }: { n: number; on: boolean }) { return <span className={on ? QUIET_119 : MUTED_122}>{n}</span> } // clean
+// A const read by a key is read whole: the scan cannot know the key, and fails closed.
+const TONE_123 = { hot: 'text-brand-strong', quiet: 'text-text-secondary-light' }
+export function P123({ n, tone }: { n: number; tone: keyof typeof TONE_123 }) { return <span className={TONE_123[tone]}>{n}</span> } // flag

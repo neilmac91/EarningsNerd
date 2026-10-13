@@ -31,7 +31,9 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    aria-*, data-*, disabled:, visited:, focus:); hover: and active: and their group- and peer-
  *    forms are activity under the pointer, sage's other job, so a control may turn sage under the
  *    pointer while its count rests in the ink, and keyboard focus draws the sage ring, not a sage
- *    count. The ink comes from the className at the call site (inline or a same-file const), from a
+ *    count. The ink comes from the className at the call site (inline, or a same-file const wherever it
+ *    stands in the expression, through the consts it is built from; a const read by a key or called is
+ *    read whole, any class it holds counting), from a
  *    variant component (Button, RetryButton, MarketingCta and Badge, each variant's colour asked of
  *    the component itself, and buttonVariants() in a className likewise; a variant the scan cannot
  *    read counts as sage), or from an app component followed through the checker: one that renders
@@ -148,21 +150,27 @@ function mappedValues(access: ts.PropertyAccessExpression, sf: ts.SourceFile): s
   return values
 }
 
-/** The nodes a className attribute is read from: its initializer, and the same-file const behind an
-    identifier written as the whole expression or as a direct argument of its call (`className={cls}`,
-    `className={cx(cls, '…')}`), so a class string held in a const is read as if written inline. */
+/** The nodes a className attribute is read from: its initializer, and the same-file const behind every
+    identifier in it, wherever the identifier stands (`className={cls}`, `className={cx(cls, on && hot)}`,
+    `className={on ? SAGE : QUIET}`), followed through the consts each is built from, so a class string held
+    in a const is read as if written inline. A const read by a key or called (`TONE[tone]`, `cls(on)`) is
+    read whole, so any class it holds counts: the scan cannot know the key, and fails closed. The checker
+    resolves each identifier, so a parameter, a destructured binding, a property name or an import is never
+    taken for a const. */
 function classNameNodes(opening: ts.JsxOpeningLikeElement): ts.Node[] {
   const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className')
   if (!attr?.initializer) return []
+  const sf = opening.getSourceFile()
   const nodes: ts.Node[] = [attr.initializer]
-  if (ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
-    const e = unwrap(attr.initializer.expression)
-    const ids = ts.isIdentifier(e) ? [e] : ts.isCallExpression(e) ? e.arguments.map(unwrap).filter(ts.isIdentifier) : []
-    for (const id of ids) {
-      const init = localInitializer(id, opening.getSourceFile())
-      if (init) nodes.push(init)
-    }
-  }
+  const follow = (node: ts.Node) =>
+    visit(node, (n) => {
+      const init = ts.isIdentifier(n) ? localInitializer(n, sf) : undefined
+      if (init && !nodes.includes(init)) {
+        nodes.push(init)
+        follow(init)
+      }
+    })
+  follow(attr.initializer)
   return nodes
 }
 
