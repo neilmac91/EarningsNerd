@@ -34,6 +34,16 @@ describe('Risk factor Trace-to-Source', () => {
     expect(screen.queryByRole('link')).toBeNull()
   })
 
+  it('says the filing text was not available when the projection had none to search', () => {
+    const { container } = render(
+      <SummaryRisks risks={[]} projection={{ version: 1, verified_count: 0, withheld_count: 2, source_available: false }} />,
+    )
+    expect(container.textContent).toBe(
+      'The filing text was not available to check risk excerpts against. 2 items withheld until they can be checked. Read the risk factors in the filing.',
+    )
+    expect(container.textContent).not.toMatch(/was located|could not be matched/)
+  })
+
   it('does not render legacy model text without a source projection', () => {
     const risks: RiskFactor[] = [
       { summary: 'Legacy risk', supporting_evidence: 'Evidence text only.' },

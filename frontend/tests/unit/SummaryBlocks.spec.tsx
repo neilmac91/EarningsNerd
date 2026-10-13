@@ -251,13 +251,50 @@ describe('SummaryBlocks', () => {
         tone: 'positive',
         blocks: [{ kind: 'paragraph', text: 'Record quarter driven by AI demand.' }],
       },
+      {
+        id: 'forward-signals',
+        title: 'Forward Signals',
+        tone: 'Cautious',
+        blocks: [{ kind: 'paragraph', text: 'Guidance was held.' }],
+      },
     ]
     render(<SummaryBlocks sections={toneSections} summary={summary} />)
-    const badge = screen.getByText('Management tone: positive')
-    // A tone is a reading, not a status: neither the brand nor a warning colour.
-    expect(badge.className).not.toMatch(/brand|warning/)
-    expect(badge.className).not.toContain('capitalize')
+    const classes = (el: HTMLElement) => el.className.split(/\s+/)
+    for (const label of ['Management tone: positive', 'Management tone: cautious']) {
+      const badge = screen.getByText(label).parentElement!
+      // A tone is a reading, not a status: the neutral Badge's quiet ink and hairline, exactly, so neither
+      // the brand nor a warning colour nor the gain or loss data colours (info, beat, miss) can stand in.
+      expect(classes(badge)).toEqual(expect.arrayContaining(['border-border-light', 'bg-white', 'text-text-secondary-light', 'dark:text-text-secondary-dark']))
+      expect(badge.className).not.toMatch(/brand|warning|info|gain|loss/)
+      expect(badge.className).not.toContain('capitalize')
+    }
     expect(screen.queryByText(/tone was/i)).not.toBeInTheDocument()
+  })
+
+  it('lets the tone badge move beneath its heading and wrap its label, never squeeze the heading or widen the page', () => {
+    const toneSections: RenderedSection[] = [
+      {
+        id: 'executive-assessment',
+        title: 'Executive Assessment',
+        tone: 'cautious',
+        blocks: [{ kind: 'paragraph', text: 'Margins narrowed.' }],
+      },
+    ]
+    render(<SummaryBlocks sections={toneSections} summary={summary} />)
+    const label = screen.getByText('Management tone: cautious')
+    const badge = label.parentElement!
+    const row = screen.getByRole('heading', { level: 2, name: 'Executive Assessment' }).parentElement!
+    const classes = (el: HTMLElement) => el.className.split(/\s+/)
+    // The founder's review (320px, and 390px at 200% text): a row that cannot wrap squeezed the heading
+    // and pushed the page wider. The row wraps, the badge may shrink to its container, and the label's
+    // own span lets its words wrap inside the Badge (whose base recipe is nowrap).
+    expect(row).toContainElement(badge)
+    expect(classes(row)).toContain('flex-wrap')
+    expect(classes(row)).not.toContain('flex-nowrap')
+    expect(classes(badge)).not.toContain('shrink-0')
+    expect(classes(badge)).toContain('max-w-full')
+    expect(classes(label)).toContain('whitespace-normal')
+    expect(classes(label).filter((c) => /nowrap|shrink-0|truncate/.test(c))).toEqual([])
   })
 
   it('renders a compact mobile jump-nav whose anchors mirror the desktop TOC', () => {

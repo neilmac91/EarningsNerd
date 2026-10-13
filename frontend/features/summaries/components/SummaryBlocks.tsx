@@ -176,7 +176,11 @@ export function SummaryBlocks({ sections, summary, whatChanged, firstHeadingRef 
                 aria-labelledby={`${section.id}-heading`}
                 className="scroll-mt-32 lg:scroll-mt-24"
               >
-                <div className="flex items-baseline gap-3">
+                {/* The row wraps: when the heading and the tone badge do not fit on one line (a 320px
+                    phone, or 200% text) the badge moves beneath the heading instead of squeezing it or
+                    pushing the page wider, and its label wraps inside the badge if even a line of its
+                    own is too narrow (the label's span overrides the Badge's nowrap). */}
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <span aria-hidden="true" className={`font-data text-xs tabular-nums ${MUTED}`}>
                     {sectionIndex(i)}
                   </span>
@@ -189,8 +193,8 @@ export function SummaryBlocks({ sections, summary, whatChanged, firstHeadingRef 
                     {section.title}
                   </h2>
                   {toneLabel && (
-                    <Badge variant="neutral" className="shrink-0 self-center">
-                      {toneLabel}
+                    <Badge variant="neutral" className="max-w-full self-center">
+                      <span className="min-w-0 whitespace-normal">{toneLabel}</span>
                     </Badge>
                   )}
                 </div>

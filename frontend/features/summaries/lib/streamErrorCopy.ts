@@ -1,8 +1,9 @@
 /**
  * The summary stream's error sentences, as the filing page shows them.
  *
- * The backend writes these sentences in the generation pipeline (backend/app/services/summary_stages),
- * which stays untouched until the founder opens it (tasks/todo.md), so several still carry an em-dash
+ * The backend writes these sentences in the generation pipeline (backend/app/services/summary_stages, and
+ * services/ai/summary_finalize.py for the payload messages generation.py and finalize.py stream), which
+ * stays untouched until the founder opens it (tasks/todo.md), so several still carry an em-dash
  * or a lowercase "please" the product voice does not use. The page maps each one here instead of
  * printing it. Only what the reader sees changes: the raw message is still what decides the card
  * (isPaywallStreamError) and the retry (isNonRetryableStreamError), so no matcher reads this map.
@@ -10,10 +11,11 @@
  * Keys are the backend's text exactly, as Python writes it; a `{name}` in a key is an f-string field and
  * matches any value, which the displayed sentence may reuse. A key spells the backend's em-dash through
  * EM_DASH: a key is matched and replaced, never shown, and no-em-dash-copy.spec.ts reads literals, so
- * the dash stays out of the literals that are copy (the spec below holds every displayed sentence to it). tests/unit/streamErrorCopy.spec.ts reads
- * fetch.py, failure.py and admission.py: every error sentence they stream (and every message carrying an
- * em-dash) has a line here, every line here is still written by a summary stage, and the words the two
- * matchers route on still occur in the sentences that must trigger them.
+ * the dash stays out of the literals that are copy (the spec below holds every displayed sentence to it,
+ * and allows the char-code dash in this file only). tests/unit/streamErrorCopy.spec.ts reads every module
+ * under summary_stages plus ai/summary_finalize.py: every error sentence they stream (and every message
+ * carrying an em-dash) has a line here, every line here is still written by one of them, and the words
+ * the two matchers route on still occur in the sentences that must trigger them.
  */
 const EM_DASH = String.fromCharCode(0x2014)
 
@@ -21,14 +23,18 @@ export const STREAM_ERROR_COPY: Readonly<Record<string, string>> = {
   // fetch.py: a 6-K's exhibits could not be fetched from EDGAR.
   [`Unable to retrieve this 6-K at the moment ${EM_DASH} please try again shortly.`]:
     'We could not retrieve this 6-K from SEC EDGAR. Try again shortly.',
-  // fetch.py (the filing could not be fetched) and failure.py (any other failure) stream the same
-  // sentence, so it maps to the one sentence true of both.
+  // fetch.py (the filing could not be fetched), failure.py (any other failure) and summary_finalize.py
+  // (the model returned no covered section; generation.py and finalize.py stream it) write the same
+  // sentence, so it maps to the one sentence true of all three.
   [`Unable to retrieve this filing at the moment ${EM_DASH} please try again shortly.`]:
     'We could not generate this summary. Try again shortly.',
   // failure.py: the run passed its deadline.
   'Summary generation timed out. Please try again.': 'The summary timed out before it finished. Try again.',
   // generation.py and finalize.py: the writer returned an error with no message of its own.
   'Error generating summary': 'We could not generate this summary. Try again shortly.',
+  // summary_finalize.py (extraction_failure): the structured extraction or the provider failed;
+  // generation.py and finalize.py stream it.
+  "We couldn't generate this summary just now. Please try again shortly.": 'We could not generate this summary. Try again shortly.',
   // admission.py: the filing id is unknown.
   'Filing not found': 'This filing could not be found.',
   // admission.py: Pro's fair-use ceiling. Never an upsell: a Pro user is not paywalled.

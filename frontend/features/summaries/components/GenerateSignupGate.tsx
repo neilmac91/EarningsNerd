@@ -21,7 +21,8 @@ import { queryKeys } from '@/lib/queryKeys'
  * Shown in place of auto-generation when a signed-out visitor lands on a filing with NO cached
  * summary. Generation requires an account (the backend 401s anonymous callers); already-generated
  * summaries still render for everyone, so this gate only appears where a fresh AI run would start.
- * Both CTAs carry ?redirect= so the visitor lands back on this filing after authenticating.
+ * Log in and Create free account carry ?redirect= so the visitor lands back on this filing after
+ * authenticating; the invite CTA goes to /waitlist without one, and the stashed redirect below covers it.
  *
  * The account CTA follows the one access decision (features/marketing/lib/access.ts), read from the
  * same registration payload the pricing page reads. Until it answers, and when it cannot, the gate

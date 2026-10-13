@@ -379,3 +379,75 @@ test('at 390px the filing page keeps body text 16px off the edges, with the Ask 
   await settled(page.locator(PANE))
   expect(await edgeParagraphs(page), 'sheet open').toEqual([])
 })
+
+/**
+ * The tone badge beside a section heading ("Management tone: cautious", filing/F20; the founder's
+ * design review of #1293): the heading row wraps, so where the badge does not fit beside its heading
+ * it moves beneath it instead of squeezing the heading, and its label wraps inside it rather than
+ * push the page wider. Measured on the painted boxes at 320px with the default text size and at
+ * 390x844 with Chromium's text doubled (standard 32px). Geometry only, so the light theme stands for
+ * both. The fixture's sections carry no tone, so this case gives the first two one.
+ */
+const TONED_SUMMARY = {
+  ...SUMMARY,
+  rendered_sections: (SUMMARY.rendered_sections as Array<Record<string, unknown>>).map((section, i) =>
+    i === 0 ? { ...section, tone: 'cautious' } : i === 1 ? { ...section, tone: 'positive' } : section,
+  ),
+}
+const TONED_FILING: Route = {
+  name: 'filing with toned sections',
+  path: '/filing/3',
+  open: async (p, b) => {
+    await answerApi(p, b, 'anon')
+    await p.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/summaries/filing/3', (r) =>
+      r.fulfill({ status: 200, headers: corsFor(b), json: TONED_SUMMARY }),
+    )
+  },
+  ready: (p) => expect(p.getByText('Management tone: cautious', { exact: true })).toBeVisible(),
+}
+
+/** Each toned heading row: whether its badge's box meets its heading's, and how far either reaches. */
+const toneRows = (page: Page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('section h2')].flatMap((heading) => {
+      const row = heading.parentElement!
+      const badge = [...row.children].find((child) => (child.textContent ?? '').startsWith('Management tone: '))
+      if (!badge) return []
+      const h = heading.getBoundingClientRect()
+      const b = badge.getBoundingClientRect()
+      const meets = h.left < b.right && b.left < h.right && h.top < b.bottom && b.top < h.bottom
+      const rowRight = row.getBoundingClientRect().right
+      return [{
+        heading: (heading.textContent ?? '').trim(),
+        meets,
+        pastRow: Math.max(0, Math.round(Math.max(h.right, b.right) - rowRight)),
+      }]
+    }),
+  )
+
+const pageWidth = (page: Page) =>
+  page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }))
+
+test('the tone badge moves beneath its heading at 320px', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 320, height: 720 })
+  await visit(page, baseURL!, TONED_FILING)
+  const rows = await toneRows(page)
+  expect(rows.map((r) => r.heading), 'both toned sections were measured').toHaveLength(2)
+  expect(rows.filter((r) => r.meets || r.pastRow > 0), 'a badge meets its heading or runs past the row').toEqual([])
+})
+
+test('the tone badge keeps the filing page 390px wide at 200% text', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await visit(page, baseURL!, TONED_FILING)
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+  await expect
+    .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).fontSize), { message: 'the 200% text setting took' })
+    .toBe('32px')
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+  const rows = await toneRows(page)
+  expect(rows.map((r) => r.heading), 'both toned sections were measured').toHaveLength(2)
+  expect(rows.filter((r) => r.meets || r.pastRow > 0), 'a badge meets its heading or runs past the row').toEqual([])
+  const width = await pageWidth(page)
+  expect(width.scrollWidth, `document ${width.scrollWidth}px wide against a ${width.clientWidth}px viewport`).toBeLessThanOrEqual(width.clientWidth)
+})

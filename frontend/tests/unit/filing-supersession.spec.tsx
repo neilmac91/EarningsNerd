@@ -38,12 +38,16 @@ describe('filing supersession', () => {
     const { container } = render(
       <QueryClientProvider client={client}><TickerFilingsView ticker="aapl" /></QueryClientProvider>,
     )
-    const originalLink = screen.getByRole('link', { name: 'Open 10-K original' })
+    // Label in name (WCAG 2.5.3): the accessible name starts with the visible "Open filing", and a
+    // hidden tail names the row's filing, so the rows' links stay distinct without an aria-label.
+    const originalLink = screen.getByRole('link', { name: 'Open filing (10-K, original)' })
     expect(originalLink).toHaveAttribute('href', '/filing/41')
+    expect(originalLink).not.toHaveAttribute('aria-label')
+    expect(originalLink).toHaveAccessibleName('Open filing (10-K, original)')
     const row = originalLink.parentElement!.parentElement!
     expect(within(row).getByText('Superseded')).toBeVisible()
     expect(within(row).getByRole('link', { name: 'View amendment' })).toHaveAttribute('href', '/filing/72')
-    expect(screen.getByRole('link', { name: 'Open 10-K/A amendment' })).toHaveAttribute('href', '/filing/72')
+    expect(screen.getByRole('link', { name: 'Open filing (10-K/A, amendment)' })).toHaveAttribute('href', '/filing/72')
     expect(container.querySelector('a a')).toBeNull()
     expect(screen.getAllByText('Superseded')).toHaveLength(1)
     client.clear()

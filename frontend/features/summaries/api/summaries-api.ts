@@ -348,8 +348,8 @@ const runStreamAttempt = async (
     // Keep the existing silent 401 refresh/replay owner, with a bounded handshake.
     const response = await untilAborted(postStreamWithRefresh(postStream))
     if (!response.ok) {
-      // The reader's sentence when the response carries no detail of its own. The 401 one keeps
-      // "sign in": isNonRetryableStreamError routes on it, so a signed-out stream is never retried.
+      // The reader's sentence when the response carries no detail of its own. A 401 is never retried
+      // whatever its text (retryable is set only for a 5xx below); its sentence says what to do.
       let errorMessage = response.status === 401
         ? 'Sign in again to generate this summary.'
         : 'The summary could not start. Try again.'

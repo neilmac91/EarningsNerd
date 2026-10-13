@@ -120,16 +120,20 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
                       </div>
                       {/* A plain text link: the row's one action opens the filing (its summary is generated
                           there), and a Badge is a label, never a control. The ring is IDENTITY_LINK's, restated
-                          so the focus-ring scan, which reads the file, sees it. */}
+                          so the focus-ring scan, which reads the file, sees it. The accessible name starts with
+                          the visible "Open filing" (label in name, WCAG 2.5.3) and a hidden tail names the row's
+                          filing (lessons/frontend-hidden-name-tails-bring-their-own-space.md). */}
                       <Link
                         href={`/filing/${filing.id}`}
-                        aria-label={`Open ${filing.filing_type} ${filing.accession_number}`}
                         className={cx(
                           IDENTITY_LINK,
                           'text-sm font-medium focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
                         )}
                       >
-                        Open filing
+                        Open filing{' '}
+                        <span className="sr-only">
+                          ({filing.filing_type}, {filing.accession_number})
+                        </span>
                       </Link>
                     </div>
                     <SupersededFilingNotice filing={filing} filings={filings} />

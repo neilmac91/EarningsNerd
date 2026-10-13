@@ -23,9 +23,13 @@ import {
  * The Pro trial's length is a claim of the same kind, with one difference: the backend's
  * PRO_TRIAL_DAYS defaults to 0 (backend/app/config.py), so the trial exists only while the UI flag
  * ENABLE_PRO_TRIAL and that setting are flipped together. So (3) the length is written only through
- * TRIAL_DAYS (no copy literal says "7 days" or a trial of any other typed length), (4) every read of
- * TRIAL_DAYS sits under ENABLE_PRO_TRIAL (directly, or through a const derived from it in the same
- * file), and (5) TRIAL_DAYS is the value the flag's own documentation and the backend name for the flip.
+ * TRIAL_DAYS: no copy says "7 days" or a trial of any other typed length, whether as a literal or as a
+ * number spliced into JSX text, a template or a `+` chain (`{7}-day free trial`, `${7}-day`, a local
+ * `const LEN = 7`); (4) every read of TRIAL_DAYS sits under a guard, where a guard is ENABLE_PRO_TRIAL
+ * itself or an `&&` chain with a guard operand (directly, or through a const so derived in the same
+ * file), never a negation, an `||`, a `??`, a ternary or a comparison, each of which can be true with
+ * the flag off; and (5) TRIAL_DAYS is the value the flag's own documentation and the backend name for
+ * the flip.
  */
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const entitlements = readFileSync(path.resolve(frontendDir, '../backend/app/services/entitlements.py'), 'utf8')
@@ -131,8 +135,78 @@ function copyLiterals(sf: ts.SourceFile): Array<{ node: ts.Node; text: string }>
   return out
 }
 
-const parse = (file: string) =>
-  ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+/** A gap for an expression whose value the file does not state: never a digit, never a word. */
+const GAP = '\u0000'
+
+/** The number constants a file declares (`const N = 7`, `as const` allowed), by name. */
+function numberConsts(sf: ts.SourceFile): Map<string, string> {
+  const out = new Map<string, string>()
+  const visit = (node: ts.Node) => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      let init: ts.Expression = node.initializer
+      while (ts.isAsExpression(init) || ts.isParenthesizedExpression(init)) init = init.expression
+      if (ts.isNumericLiteral(init)) out.set(node.name.text, init.text)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return out
+}
+
+/** Copy as it renders when a number is spliced into it: a JSX element's children in order, a template,
+    or a `+` chain with a string in it. A number literal, or a file's number const, reads as its digits;
+    a string as its text; any other expression as a gap. */
+function composedCopy(sf: ts.SourceFile): Array<{ node: ts.Node; text: string }> {
+  const numbers = numberConsts(sf)
+  const valueOf = (expr: ts.Expression | undefined): string => {
+    while (expr && (ts.isParenthesizedExpression(expr) || ts.isAsExpression(expr))) expr = expr.expression
+    if (!expr) return GAP
+    if (ts.isNumericLiteral(expr)) return expr.text
+    if (ts.isStringLiteralLike(expr)) return expr.text
+    if (ts.isIdentifier(expr) && numbers.has(expr.text)) return numbers.get(expr.text)!
+    return GAP
+  }
+  const plusOperands = (expr: ts.Expression): ts.Expression[] =>
+    ts.isBinaryExpression(expr) && expr.operatorToken.kind === ts.SyntaxKind.PlusToken
+      ? [...plusOperands(expr.left), ...plusOperands(expr.right)]
+      : [expr]
+  const out: Array<{ node: ts.Node; text: string }> = []
+  const visit = (node: ts.Node) => {
+    if ((ts.isJsxElement(node) || ts.isJsxFragment(node)) && node.children.some(ts.isJsxExpression)) {
+      const text = node.children.map((child) => (ts.isJsxText(child) ? child.text : ts.isJsxExpression(child) ? valueOf(child.expression) : GAP)).join('')
+      out.push({ node, text })
+    }
+    if (ts.isTemplateExpression(node)) {
+      out.push({ node, text: node.head.text + node.templateSpans.map((span) => valueOf(span.expression) + span.literal.text).join('') })
+    }
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.PlusToken &&
+      !(ts.isBinaryExpression(node.parent) && node.parent.operatorToken.kind === ts.SyntaxKind.PlusToken)
+    ) {
+      const operands = plusOperands(node)
+      if (operands.some(ts.isStringLiteralLike)) out.push({ node, text: operands.map(valueOf).join('') })
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return out
+}
+
+/** Whether a piece of copy types a trial length: "7 days", or any "N-day" beside "trial" or "days free". */
+const typesTrialLength = (text: string) =>
+  new RegExp(`\\b${TRIAL_DAYS}[- ]days?\\b`, 'i').test(text) || (/\b\d+[- ]days?\b/i.test(text) && /\btrial\b|\bdays? free\b/i.test(text))
+
+const parsed = new Map<string, ts.SourceFile>()
+/** Each source file is parsed once for the clauses that walk the whole tree. */
+const parse = (file: string) => {
+  let sf = parsed.get(file)
+  if (!sf) {
+    sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+    parsed.set(file, sf)
+  }
+  return sf
+}
 const sourceFiles = () =>
   SOURCE_ROOTS.flatMap((root) => walk(path.join(frontendDir, root))).filter((file) => /\.tsx?$/.test(file) && !/\.(spec|test)\.tsx?$|\.d\.ts$/.test(file))
 
@@ -141,7 +215,7 @@ const NOT_THE_TRIAL: Record<string, string> = {
   'app/admin/invites/page.tsx 7 days': "an invite link's lifetime option",
 }
 
-/** The guard names in a file: ENABLE_PRO_TRIAL, and every const whose initializer reads a guard name. */
+/** The guard names in a file: ENABLE_PRO_TRIAL, and every const whose initializer is a guard. */
 function guardNames(sf: ts.SourceFile): Set<string> {
   const guards = new Set(['ENABLE_PRO_TRIAL'])
   const decls: Array<[string, ts.Expression]> = []
@@ -153,7 +227,7 @@ function guardNames(sf: ts.SourceFile): Set<string> {
   for (let grew = true; grew; ) {
     grew = false
     for (const [name, init] of decls) {
-      if (!guards.has(name) && readsGuard(init, guards)) {
+      if (!guards.has(name) && isGuard(init, guards)) {
         guards.add(name)
         grew = true
       }
@@ -162,30 +236,53 @@ function guardNames(sf: ts.SourceFile): Set<string> {
   return guards
 }
 
-/** Whether an expression reads a guard name, not negated. */
-function readsGuard(expr: ts.Node, guards: Set<string>): boolean {
-  let reads = false
-  const visit = (node: ts.Node) => {
-    if (ts.isIdentifier(node) && guards.has(node.text)) {
-      const parent = node.parent
-      const negated = ts.isPrefixUnaryExpression(parent) && parent.operator === ts.SyntaxKind.ExclamationToken
-      if (!negated && !(ts.isPropertyAccessExpression(parent) && parent.name === node)) reads = true
-    }
-    ts.forEachChild(node, visit)
+/** Whether an expression is true only while the flag is: a guard name itself, or an `&&` chain with a
+    guard operand (parentheses allowed). A negation, `||`, `??`, a ternary or a comparison is not: each
+    can be true with the flag off. */
+function isGuard(expr: ts.Node, guards: Set<string>): boolean {
+  if (ts.isParenthesizedExpression(expr)) return isGuard(expr.expression, guards)
+  if (ts.isIdentifier(expr)) return guards.has(expr.text)
+  if (ts.isBinaryExpression(expr) && expr.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+    return isGuard(expr.left, guards) || isGuard(expr.right, guards)
   }
-  visit(expr)
-  return reads
+  return false
 }
 
 /** Whether a node renders only when a guard holds: inside `guard && …`, `guard ? … :`, or `if (guard) …`. */
 function guarded(node: ts.Node, guards: Set<string>): boolean {
   for (let child = node, parent = node.parent; parent; child = parent, parent = parent.parent) {
-    if (ts.isBinaryExpression(parent) && parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken && parent.right === child && readsGuard(parent.left, guards)) return true
-    if (ts.isConditionalExpression(parent) && parent.whenTrue === child && readsGuard(parent.condition, guards)) return true
-    if (ts.isIfStatement(parent) && parent.thenStatement === child && readsGuard(parent.expression, guards)) return true
+    if (ts.isBinaryExpression(parent) && parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken && parent.right === child && isGuard(parent.left, guards)) return true
+    if (ts.isConditionalExpression(parent) && parent.whenTrue === child && isGuard(parent.condition, guards)) return true
+    if (ts.isIfStatement(parent) && parent.thenStatement === child && isGuard(parent.expression, guards)) return true
   }
   return false
 }
+
+/** The TRIAL_DAYS reads in a file that render outside a guard (line numbers). */
+function unguardedTrialReads(sf: ts.SourceFile): { reads: number[]; unguarded: number[] } {
+  const guards = guardNames(sf)
+  const reads: number[] = []
+  const unguarded: number[] = []
+  const visit = (node: ts.Node) => {
+    if (ts.isIdentifier(node) && node.text === 'TRIAL_DAYS' && !ts.isImportSpecifier(node.parent)) {
+      const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
+      reads.push(line)
+      if (!guarded(node, guards)) unguarded.push(line)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return { reads, unguarded }
+}
+
+/** The copy in a file that types a trial length: literals and composed copy, with their lines. */
+function typedTrialCopy(sf: ts.SourceFile): Array<{ line: number; text: string }> {
+  return [...copyLiterals(sf), ...composedCopy(sf)]
+    .filter(({ text }) => typesTrialLength(text))
+    .map(({ node, text }) => ({ line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1, text: text.trim() }))
+}
+
+const probe = (code: string) => ts.createSourceFile('probe.tsx', code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
 
 describe('the Pro trial length is stated only through TRIAL_DAYS, and only while the trial ships', () => {
   it('no copy literal types the trial length', () => {
@@ -194,21 +291,19 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
     for (const file of sourceFiles()) {
       const rel = path.relative(frontendDir, file)
       if (rel === path.join('lib', 'planLimits.ts')) continue
-      const sf = parse(file)
-      for (const { node, text } of copyLiterals(sf)) {
-        const typed = new RegExp(`\\b${TRIAL_DAYS}[- ]days?\\b`, 'i').test(text) || (/\b\d+[- ]days?\b/i.test(text) && /\btrial\b|\bdays? free\b/i.test(text))
-        if (!typed) continue
-        const key = `${rel} ${text.trim()}`
+      for (const { line, text } of typedTrialCopy(parse(file))) {
+        const key = `${rel} ${text}`
         if (key in NOT_THE_TRIAL) {
           allowed.add(key)
           continue
         }
-        offenders.push(`${rel}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1} ${text.trim().slice(0, 80)}`)
+        offenders.push(`${rel}:${line} ${text.replace(new RegExp(GAP, 'g'), '{…}').slice(0, 80)}`)
       }
     }
     expect(offenders, 'write the trial length as {TRIAL_DAYS} from lib/planLimits').toEqual([])
     expect(Object.keys(NOT_THE_TRIAL).filter((key) => !allowed.has(key)), 'no longer in the code: delete it from NOT_THE_TRIAL').toEqual([])
-  })
+    // Parses every source file (about 2s idle): the default 5s is too tight on a loaded runner.
+  }, 30_000)
 
   it('every read of TRIAL_DAYS renders only under ENABLE_PRO_TRIAL', () => {
     const reads: string[] = []
@@ -216,21 +311,34 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
     for (const file of sourceFiles()) {
       const rel = path.relative(frontendDir, file)
       if (rel === path.join('lib', 'planLimits.ts')) continue
-      const sf = parse(file)
-      const guards = guardNames(sf)
-      const visit = (node: ts.Node) => {
-        if (ts.isIdentifier(node) && node.text === 'TRIAL_DAYS' && !ts.isImportSpecifier(node.parent)) {
-          const where = `${rel}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`
-          reads.push(where)
-          if (!guarded(node, guards)) unguarded.push(where)
-        }
-        ts.forEachChild(node, visit)
-      }
-      visit(sf)
+      const found = unguardedTrialReads(parse(file))
+      reads.push(...found.reads.map((line) => `${rel}:${line}`))
+      unguarded.push(...found.unguarded.map((line) => `${rel}:${line}`))
     }
     // Anti-vacuity: the signup gate, the paywall card and both pricing surfaces state the length.
     expect(reads.length, 'TRIAL_DAYS reads found').toBeGreaterThanOrEqual(4)
     expect(unguarded, 'state the trial only inside ENABLE_PRO_TRIAL (or a const derived from it)').toEqual([])
+  }, 30_000)
+
+  it('the two clauses see a spliced number and refuse a guard that can hold with the flag off', () => {
+    const typed = (code: string) => typedTrialCopy(probe(code)).length > 0
+    expect(typed('const a = <p>Start a {7}-day free trial</p>'), 'a number in JSX text').toBe(true)
+    expect(typed('const a = `Start ${7}-day free trial`'), 'a number in a template').toBe(true)
+    expect(typed('const LEN = 7\nconst a = <p>First {LEN} days free</p>'), 'a local number const').toBe(true)
+    expect(typed("const a = 'Start ' + 7 + '-day free trial'"), 'a + chain').toBe(true)
+    expect(typed('const a = <p>Start a {TRIAL_DAYS}-day free trial</p>'), 'TRIAL_DAYS itself').toBe(false)
+    expect(typed('const a = <p>Free accounts get {FREE_SUMMARY_LIMIT} summaries</p>'), 'another limit').toBe(false)
+
+    const loose = (code: string) => unguardedTrialReads(probe(`${code}`)).unguarded.length
+    expect(loose('const a = ENABLE_PRO_TRIAL && <p>{TRIAL_DAYS}</p>'), 'the flag').toBe(0)
+    expect(loose('const show = ENABLE_PRO_TRIAL && monthly && !beta\nconst a = show && <p>{TRIAL_DAYS}</p>'), 'a derived && const').toBe(0)
+    expect(loose('const a = (ready && ENABLE_PRO_TRIAL) ? <p>{TRIAL_DAYS}</p> : null'), 'an && condition').toBe(0)
+    expect(loose('const show = ENABLE_PRO_TRIAL || beta\nconst a = show && <p>{TRIAL_DAYS}</p>'), 'a derived ||').toBe(1)
+    expect(loose('const a = (ENABLE_PRO_TRIAL || beta) && <p>{TRIAL_DAYS}</p>'), 'an inline ||').toBe(1)
+    expect(loose('const a = !(ENABLE_PRO_TRIAL) && <p>{TRIAL_DAYS}</p>'), 'a parenthesised negation').toBe(1)
+    expect(loose('const a = ENABLE_PRO_TRIAL === false && <p>{TRIAL_DAYS}</p>'), 'a comparison').toBe(1)
+    expect(loose('const show = ENABLE_PRO_TRIAL ? false : true\nconst a = show && <p>{TRIAL_DAYS}</p>'), 'an inverted ternary').toBe(1)
+    expect(loose('const a = (ENABLE_PRO_TRIAL ?? beta) && <p>{TRIAL_DAYS}</p>'), 'a ??').toBe(1)
   })
 
   it('TRIAL_DAYS is the length the trial flips to, in the flag and in the backend', () => {

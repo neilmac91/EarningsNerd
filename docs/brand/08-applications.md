@@ -68,7 +68,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   generate it again." The pipeline's stream errors are mapped on the client
   (`frontend/features/summaries/lib/streamErrorCopy.ts`), because the summary_stages strings are the
   founder's until he opens them; the raw sentence still decides the paywall card and the retry, and
-  `tests/unit/streamErrorCopy.spec.ts` reads the Python so a reworded sentence fails until it is mapped.
+  `tests/unit/streamErrorCopy.spec.ts` reads the Python (every summary_stages module and
+  `services/ai/summary_finalize.py`, whose payload messages two stages stream) so a reworded sentence
+  fails until it is mapped.
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
   "$7.5" (a Phase 9 fix; compact figures keep their rounding).

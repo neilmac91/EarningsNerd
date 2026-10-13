@@ -94,7 +94,9 @@ describe('StreamingSummaryDisplay step log', () => {
     renderAt('fetching')
     await act(async () => {})
     const pending = screen.getByText('Writing the summary')
-    expect(pending.className).toContain('text-text-tertiary-light')
+    // Whole class tokens: a translucent ink (`text-text-tertiary-light/40`) fades it as opacity-40 did.
+    expect(pending.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-text-tertiary-light', 'dark:text-text-secondary-dark']))
+    expect(pending.className).not.toMatch(/text-text-(?:tertiary|secondary)-(?:light|dark)\//)
     for (let el: HTMLElement | null = pending; el; el = el.parentElement) expect(el.className).not.toMatch(/\bopacity-/)
     expect(screen.getByText('Retrieving 10-K filing from EDGAR').className).toContain('font-medium')
   })
