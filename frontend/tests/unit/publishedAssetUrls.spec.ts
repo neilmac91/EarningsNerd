@@ -39,9 +39,9 @@ const MAIL_HOST = 'www.earningsnerd.io'
 const WAITLIST_MODES = ['true', 'false']
 const KEPT = 'is a published URL'
 
-type Route = { source?: string; src?: string; has?: { type: string; value?: string }[] }
+type Route = { source?: string; src?: string; has?: { type: string; value?: unknown }[] }
 type NextRoutes = { basePath?: string; redirects: Route[]; rewrites: Route[] | { beforeFiles?: Route[]; afterFiles?: Route[]; fallback?: Route[] } }
-type VercelJson = { build?: { env?: Record<string, string> }; redirects?: Route[]; rewrites?: Route[]; routes?: Route[] }
+type VercelJson = { build?: { env?: Record<string, string> }; bulkRedirectsPath?: string; redirects?: Route[]; rewrites?: Route[]; routes?: Route[] }
 
 /**
  * The environment a production build on Vercel runs in, as far as the repository can say: Next's own
@@ -99,22 +99,29 @@ function nextRoutes(vercel: VercelJson): NextRoutes {
   return JSON.parse(line.slice('__ROUTES__'.length))
 }
 
-/** Every rule that can redirect or rewrite a path before it is served: Next's, and vercel.json's as Vercel applies them. */
-function routing(): { basePath: string; rules: [string, Route][] } {
+/**
+ * Every rule that can redirect or rewrite a path before it is served: Next's, and vercel.json's as Vercel
+ * applies them. A legacy route's regex may be spelled `src` or `source`; it is kept as `src`, the
+ * spelling reaches() reads as a regex. The bulk redirects vercel.json can import from a file
+ * (`bulkRedirectsPath`) are not read here, so the register refuses them until it reads them.
+ */
+function routing(): { basePath: string; bulkRedirectsPath?: string; rules: [string, Route][] } {
   const vercel: VercelJson = JSON.parse(readFileSync(path.join(FRONTEND, 'vercel.json'), 'utf8'))
   const next = nextRoutes(vercel)
   const rewritten = Array.isArray(next.rewrites)
     ? next.rewrites
     : [...(next.rewrites.beforeFiles ?? []), ...(next.rewrites.afterFiles ?? []), ...(next.rewrites.fallback ?? [])]
+  const legacy = (vercel.routes ?? []).map(({ src, source, has }): Route => ({ src: src ?? source, has }))
   const named = (where: string, list: Route[] | undefined) => (list ?? []).map((r): [string, Route] => [where, r])
   return {
     basePath: next.basePath ?? '',
+    bulkRedirectsPath: vercel.bulkRedirectsPath,
     rules: [
       ...named('next.config.js redirect', next.redirects),
       ...named('next.config.js rewrite', rewritten),
       ...named('vercel.json redirect', vercel.redirects),
       ...named('vercel.json rewrite', vercel.rewrites),
-      ...named('vercel.json route', vercel.routes),
+      ...named('vercel.json route', legacy),
     ],
   }
 }
@@ -122,17 +129,31 @@ function routing(): { basePath: string; rules: [string, Route][] } {
 let routes: ReturnType<typeof routing> | undefined
 
 /**
+ * A legacy route's `src` as Vercel compiles it (@vercel/routing-utils normalizeRoutes): a `^` and a `$`
+ * are added only where missing, so `/a|/b` matches any path that starts with `/a`, and the regex
+ * matches regardless of case, as Vercel matches routes.
+ */
+function legacyRouteRegex(src: string): RegExp {
+  return new RegExp(`${src.startsWith('^') ? '' : '^'}${src}${src.endsWith('$') ? '' : '$'}`, 'i')
+}
+
+/**
  * Whether a rule can reach a path on the mail origin. A `source` goes through Next's own matcher, with
- * the options `next build` compiles custom routes with (server/lib/router-utils/filesystem.js);
- * vercel.json's redirects and rewrites take the same syntax, and a legacy route's `src` is a regex
- * over the whole path. A rule held to another host by a `has` host condition cannot reach the mail
- * origin; any other condition is taken to hold.
+ * the options `next build` compiles custom routes with (server/lib/router-utils/filesystem.js), which
+ * ignore case; vercel.json's redirects and rewrites take the same syntax and match case, so there the
+ * check can only err toward failing. A legacy route's `src` is matched as Vercel compiles it. A rule
+ * held to another host by a `has` host condition cannot reach the mail origin. The condition's string
+ * is compiled as Next compiles one (shared/lib/router/utils/prepare-destination.js, `^value$`), and the
+ * same is assumed for vercel.json's, since Vercel does not publish how it matches them. Any other
+ * condition, an object-valued one included, is taken to hold.
  */
 function reaches(rule: Route, url: string): boolean {
-  const otherHost = rule.has?.some((h) => h.type === 'host' && h.value !== undefined && !new RegExp(`^(?:${h.value})$`).test(MAIL_HOST))
+  const otherHost = rule.has?.some(
+    (h) => h.type === 'host' && typeof h.value === 'string' && !new RegExp(`^${h.value}$`).test(MAIL_HOST),
+  )
   if (otherHost) return false
   if (rule.source !== undefined) return getPathMatch(rule.source, { strict: true, removeUnnamedParams: true })(url) !== false
-  if (rule.src !== undefined) return new RegExp(`^(?:${rule.src})$`).test(url)
+  if (rule.src !== undefined) return legacyRouteRegex(rule.src).test(url)
   return false
 }
 
@@ -157,8 +178,12 @@ describe('published asset URLs', () => {
     })
 
     it(`${url} is reached by no redirect or rewrite in next.config.js or vercel.json`, () => {
-      const { basePath, rules } = (routes ??= routing())
+      const { basePath, bulkRedirectsPath, rules } = (routes ??= routing())
       expect(basePath, `${url} ${KEPT}: a basePath moves it`).toBe('')
+      expect(
+        bulkRedirectsPath,
+        `${url} ${KEPT}: vercel.json imports bulk redirects, which this register does not read; teach it to read them first`,
+      ).toBeUndefined()
       const hits = rules.filter(([, rule]) => reaches(rule, url)).map(([where, rule]) => `${where} ${rule.source ?? rule.src}`)
       expect(hits, `${url} ${KEPT}: never redirect or rewrite it`).toEqual([])
     })
