@@ -11,14 +11,18 @@
   where it is dropped the text wordmark carries the brand alone. The port carries the hosted raster
   as an <img> in place of this <svg>: /assets/earningsnerd-mark-sage.png (256 px wide, transparent,
   the same bytes as the Excel export's mark; frontend/scripts/generate-brand-assets.mjs writes
-  both). Build its address from settings.FRONTEND_URL, as the mail's links are built, and serve it
-  from the origin that answers without a redirect: https://www.earningsnerd.io today, since the
-  apex answers 307 to it. The path is published, because sent mail keeps it, so the file never
-  moves (frontend/public/assets/LOGO_README.md; frontend/tests/unit/publishedAssetUrls.spec.ts).
+  both). Build its address from settings.FRONTEND_URL, as the mail's links are built. Sent mail
+  keeps the whole address, so the origin is published along with the path: use the origin that
+  answers without a redirect (https://www.earningsnerd.io today; the apex answers 307 to it) and
+  keep it answering. FRONTEND_URL defaults to the apex (backend/app/config.py), so production's
+  value is confirmed before the port deploys (tasks/todo.md F22). The path never moves
+  (frontend/public/assets/LOGO_README.md; frontend/tests/unit/publishedAssetUrls.spec.ts).
   Dark mode: Gmail's and Outlook's apps darken a light-only message but leave its images alone, so
   the sage mark on transparent falls from 5.9:1 on this cream to about 2.5:1 on their dark grey,
   while the text wordmark beside it is recoloured and stays legible. The self-backgrounded app tile
-  (earningsnerd-appicon.svg) holds on both; which one the header carries is the founder's call.
+  (earningsnerd-appicon.svg, a cream mark on a sage squircle) holds on both; its raster is
+  /icons/icon-192.png, the PWA icon, and carrying it publishes that path too, so the port adds it
+  to the spec's register. Which one the header carries is the founder's call (F22).
   The @font-face rule points at the repository's Inter for this preview only (the email uses no
   data face); a sent email falls back through the inline font stacks. The highlight under "shows its work" is two nested spans:
   the outer span's own font box is the lower 38% of the tagline's line box (tint, with the 2px

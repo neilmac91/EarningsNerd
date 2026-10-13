@@ -66,11 +66,14 @@ sage mark raster in two places, `assets/earningsnerd-mark-sage.png` here and
   64 px wide on screen, 16 mm in print. Embroidery: 60 mm wide and above (the thinnest stroke is
   about 6 mm there, the E's open counters 2.9 mm; the E and the N kiss, which a satin stitch joins
   and the mark survives). Evidence: `docs/brand/05-mark.md`.
-- **Published URLs stay put.** `/assets/earningsnerd-mark-sage.png` is the mark's address in
-  transactional email, and a sent message keeps its image addresses for as long as it is kept, so
-  the file stays at that path for good: never rename, move or remove it, and keep it the sage mark
-  (regenerating it from the same source is fine). A new rendition takes a new name. Gate:
-  `frontend/tests/unit/publishedAssetUrls.spec.ts`, which lists every published path.
+- **Published URLs stay put.** A path that sent mail references is published: a message keeps its
+  image addresses for as long as it is kept, and nobody can edit it after sending. The register of
+  published paths is `frontend/tests/unit/publishedAssetUrls.spec.ts`; its first entry is
+  `/assets/earningsnerd-mark-sage.png`, the mark in the transactional mail header once that
+  header's port ships. Each file stays at its path for good and stays served: never rename, move
+  or remove it, never redirect its path (the waitlist gate in `middleware.ts` included), and keep it
+  the same image (regenerating it from the same source is fine). A new rendition takes a new name,
+  and a change that puts a new asset path in mail adds it to the register in the same PR.
 - **Where it goes.** The mark sits top-left on every surface the brand owns (the site header, the
   OG card, the PDF masthead, the email shell, the business card front); the stacked lockup is for
   square placements; never centre the horizontal lockup as a hero.
