@@ -874,6 +874,10 @@ def sentry_envelopes():
     assert "data_collection" not in options and "data_collection" not in options.get("_experiments", {})
     # Span streaming (trace_lifecycle="stream") sends request headers as span attributes, unscrubbed.
     assert "trace_lifecycle" not in options and "trace_lifecycle" not in options.get("_experiments", {})
+    # Continuous profiling sends profile chunks, which pass no hook either; main samples transaction profiles only.
+    assert not {"profile_session_sample_rate", "profile_lifecycle"} & (
+        set(options) | set(options.get("_experiments", {}))
+    )
     keep = Keep()
     options.update(dsn=dsn, transport=keep, release="gate")
     options.update(traces_sample_rate=1.0, profiles_sample_rate=None)
@@ -1402,8 +1406,8 @@ def _capture_every_structure(caplog) -> None:
     of #1297 read the SDK (2.71.0): an error with a chained exception (its frames and mechanism), an exception group
     (its mechanism's links), a log record with its thread's stack, breadcrumbs from a log line and by hand, a user, a
     request that continues a trace and a log entry; transactions with nested spans, a database query, an outbound HTTP
-    call, a gen-AI span and a response status; a check-in with its monitor config (the SDK's MonitorConfig fields,
-    written out here by hand); a log; a counter and a distribution."""
+    call and an error after it in the trace it heads, a gen-AI span and a response status; a check-in with its monitor
+    config (the SDK's MonitorConfig fields, written out here by hand); a log; a counter and a distribution."""
     import sentry_sdk
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -1452,6 +1456,7 @@ def _capture_every_structure(caplog) -> None:
         pass  # a gen-AI span, which the SDK splits out of its transaction after the hook
     with sentry_sdk.start_transaction(name="fetch", op="fetch"):  # an outbound call: its span and breadcrumb
         httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200))).get("https://api.invalid/x")
+        sentry_sdk.capture_message("fetch failed")  # an error in a trace it heads, after an outbound call
     capture_checkin(
         monitor_slug="nightly",
         status="ok",
@@ -1779,6 +1784,45 @@ def test_a_protocol_word_is_kept_only_in_its_own_kind_of_item(monkeypatch, reque
 
     scrubbed = main._value_scrubber(("check_in_id",))["event"]({"type": Posing("event"), "check_in_id": "x"}, {})
     assert scrubbed == {"type": "event", "[Filtered]": "x"} and type(scrubbed["type"]) is str
+
+
+def test_each_kind_of_event_keeps_only_its_own_kinds_keys(monkeypatch, request):
+    # Weak secrets equal to a key only an error's paths hold (`fingerprint`), one only a transaction's hold
+    # (`start_timestamp`), one only a check-in's hold (`check_in_id`) and one only a log's and a metric's hold
+    # (`attributes`), written where the item lacks them by an event processor (into an error and a transaction; the
+    # SDK runs none on a check-in) and by hand (a check-in): each item keeps only its own kind's.
+    import sentry_sdk
+
+    words = {
+        "IP_HASH_SALT": "fingerprint",
+        "FMP_API_KEY": "start_timestamp",
+        "POSTHOG_API_KEY": "check_in_id",
+        "RESEND_API_KEY": "attributes",
+    }
+    envelopes = _scrubbing_envelopes(request, monkeypatch, **words)
+
+    def write(event, hint):
+        for word in words.values():
+            event.setdefault(word, "x")
+        return event
+
+    sentry_sdk.get_isolation_scope().add_event_processor(write)
+    sentry_sdk.capture_message("an error")
+    with sentry_sdk.start_transaction(name="job", op="task"):
+        pass
+    sentry_sdk.capture_event(
+        {
+            "type": "check_in",
+            "monitor_slug": "nightly",
+            "status": "ok",
+            "check_in_id": "c" * 32,
+            **{word: "x" for word in words.values() if word != "check_in_id"},
+        }
+    )
+    sentry_sdk.flush()
+    (error,), (transaction,), (checkin,) = (_of(envelopes, kind) for kind in ("event", "transaction", "check_in"))
+    for item, own in ((error, "fingerprint"), (transaction, "start_timestamp"), (checkin, "check_in_id")):
+        assert [word for word in words.values() if word in item] == [own] and item["[Filtered]"] == "x"
 
 
 @pytest.mark.parametrize("field", sorted(_USER_DATA_FIELDS))

@@ -86,7 +86,7 @@ list included) and the str of a log's body that is not text only after `before_s
   one is overlapped, the options fail at startup and Sentry stays off. The walk is total: mappings and lists are walked,
   None, booleans and numbers kept, and any other value becomes its repr first and is scrubbed there, so no text the SDK
   builds after the hook can hold a secret, and turning Sentry logs on (`enable_logs`, or the logging integration's
-  `capture_sentry_logs`) sends none either. The hook keeps only the protocol's own keys where the protocol puts them,
+  `capture_sentry_logs`) sends none either. Each hook keeps only the protocol's own keys where the protocol puts them,
   never a field whole: a key stays as it is only at one of the paths `main._PROTOCOL_PATHS` gives its item's kind, one
   set each for an error, a transaction with its spans, a check-in, a log and a metric (before_send tells a check-in by
   its `type`, exactly text): the path of each key of 8 characters or more from an item's top (a list's items sharing the
@@ -106,16 +106,17 @@ list included) and the str of a log's body that is not text only after `before_s
   `attributes` written into an error): Codex's cases on #1297. So an app that writes a protocol word as a key sends no
   secret equal to it, and nothing that runs before the hook (an event processor, under any name; a hand-built event; a
   trace context set by hand) can carry a secret past it, but as the protocol's own key at its own path in its own kind
-  of item, which every item of that kind spells; no scan of the backend for such writers is needed. A `type` that is not
-  text (only a hand-built event has one) is walked like any value, and the item is sent. A secret setting is named by
-  the output walk's rule (below), which main.py copies. The values are read once, when `main._sentry_options()` runs at
-  startup, and matched longest first, so a URL quoted whole goes whole. A text under 8 characters is left: settings
-  bound no secret's length but `SECRET_KEY`'s, the shortest real secret (the Alpha Vantage key) has 16, a port has at
-  most 5 digits, and a shorter text would garble ids, timestamps and SQL wherever it occurred by chance. The hooks see
-  each item after the event scrubber and the serializer, so never set `max_value_length`: the serializer would cut a
-  string inside a secret and leave a prefix no hook matches. A hook that raises drops its item (`callback_error`), so a
-  failure sends nothing; never move the scrubber into an event processor: one that raises passes the event on, and a
-  global one runs before the request is attached. `before_send_span` acts only under span streaming, which stays off.
+  of item, a word the SDK itself writes there, so a secret equal to it is public text; no scan of the backend for such
+  writers is needed. A `type` that is not text (only a hand-built event has one) is walked like any value, and the item
+  is sent. A secret setting is named by the output walk's rule (below), which main.py copies. The values are read once,
+  when `main._sentry_options()` runs at startup, and matched longest first, so a URL quoted whole goes whole. A text
+  under 8 characters is left: settings bound no secret's length but `SECRET_KEY`'s, the shortest real secret (the Alpha
+  Vantage key) has 16, a port has at most 5 digits, and a shorter text would garble ids, timestamps and SQL wherever it
+  occurred by chance. The hooks see each item after the event scrubber and the serializer, so never set
+  `max_value_length`: the serializer would cut a string inside a secret and leave a prefix no hook matches. A hook that
+  raises drops its item (`callback_error`), so a failure sends nothing; never move the scrubber into an event processor:
+  one that raises passes the event on, and a global one runs before the request is attached. `before_send_span` acts
+  only under span streaming, which stays off.
 - Nothing prints or logs a secret. An output reports a secret's presence and length, never a character; a
   connection URL's parse error is reported by its type, and an HTTP error from a keyed URL by its status, never
   their messages; a database URL holding more than one `@` is refused; httpx's request log stays at WARNING
@@ -313,15 +314,22 @@ each with its reason:
   re-forms where the SDK serializes an item, across a key and its value or from an escaped character (Codex's
   `message":"`, from an event's `message` key and its value: Codex's P2 on `b7de8cb`): such a secret forms only from
   texts side by side in the item, so only one made of public text, which such items spell anyway, or one whose parts
-  code holding it writes side by side does. Profiles (code locations) and sessions (release-health counts) pass no hook,
-  and the hook drops a hint's attachments, whose bytes would pass none (the backend sends none); the envelope's trace
-  header is taken from the scrubbed event. Frame variables stay off whatever the scrubber does: a frame holds values in
-  forms it cannot match. Over-redaction is accepted: a secret that equals ordinary text (a weak salt equal to the
-  domain) withholds that text; one equal to a protocol word, which leaves every key at its kind's own paths, replaces
-  that word in values, the protocol's own included (a check-in's `in_progress`, a span's `op`), and in every other key
-  (a log attribute named `sentry.environment` under a secret `environment`), so Sentry may drop such a check-in or lose
-  that attribute, though no capture fails; and the public-by-design values the rule names (`STRIPE_PUBLISHABLE_KEY`,
-  `POSTHOG_API_KEY`, `SENTRY_DSN`) are withheld too;
+  code holding it writes side by side does. Profiles and sessions pass no hook. The SDK builds a sampled transaction's
+  profile (`profiles_sample_rate`) after its hook, from each sampled frame's file, module, function and line, every live
+  thread's name (the app's `request_` and `edgar_` pool prefixes and `startup-` steps, its libraries', Python's
+  `MainThread`), the host's platform strings and the scrubbed transaction's id, name, trace id, environment, release and
+  start (Codex's P2 on `53016f2`). Code or the host fixes each text, the same whatever a secret is, so a secret shows
+  there only when it equals or sits inside one; a thread named from data, code compiled from data, or continuous
+  profiling (whose chunks pass no hook either; the gate pins main's options to configure none) would change that, and
+  the gate runs with profiles off. A session carries release-health counts. Each hook drops a hint's attachments, whose
+  bytes would pass none (the backend sends none); the envelope's trace header is taken from the scrubbed event. Frame
+  variables stay off whatever the scrubber does: a frame holds values in forms it cannot match. Over-redaction is
+  accepted: a secret that equals ordinary text (a weak salt equal to the domain) withholds that text; one equal to a
+  protocol word, which leaves every key at its kind's own paths, replaces that word in values, the protocol's own
+  included (a check-in's `in_progress`, a span's `op`), and in every other key (a log attribute named
+  `sentry.environment` under a secret `environment`), so Sentry may drop such a check-in or lose that attribute, though
+  no capture fails; and the public-by-design values the rule names (`STRIPE_PUBLISHABLE_KEY`, `POSTHOG_API_KEY`,
+  `SENTRY_DSN`) are withheld too;
 - the output walk sees only a direct read in a call it names as an output, not an alias (`url = settings.REDIS_URL`),
   a helper the value is handed to or an object holding it (`stripe.api_key`), and the message walk reads
   `app/config.py` only and does not follow `globals()`, `setattr` or `sys.modules`;
