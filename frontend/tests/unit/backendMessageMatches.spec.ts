@@ -5,17 +5,18 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 /**
- * The frontend routes some UI on the words of an error message: the paywall card instead of Retry, the
- * sign-in prompt, the verify-your-email event. Those words are written in the backend (an HTTPException
+ * The frontend routes some UI on the words of an error message: the paywall card instead of Retry, no
+ * automatic retry for a permission or sign-in error, the verify-your-email event. Those words are written in the backend (an HTTPException
  * detail, a stream error) or in the frontend's own fallback for a status, so a copy edit on either side
  * can silently switch the UI off. Until an error code field replaces the matching (tasks/todo.md), this
  * gate holds both sides together (docs/brand/decisions-log.md D-031):
  *
  *  1. Every phrase a matcher in MATCHERS tests for occurs, case-insensitively, in a string literal of one
  *     of the files that write that message: the backend modules that raise it (read as Python source,
- *     comments ignored, adjacent literals joined as Python joins them) or the frontend fallbacks beside
- *     it. A phrase nobody writes any more fails, unless UNSOURCED lists it with its reason (shrink-only).
- *  2. Matching is confined to MATCHERS: any other `.includes('…')`, `.startsWith('…')`, `.match(/…/)` or
+ *     comments and docstrings ignored, adjacent literals joined as Python joins them) or the frontend
+ *     fallbacks beside it. A phrase nobody writes any more fails, unless UNSOURCED lists it with its
+ *     reason (shrink-only, capped at its seed: UNSOURCED_MAX).
+ *  2. Matching is confined to MATCHERS: any other `.includes('…')`, `.startsWith('…')`, `.endsWith('…')`, `.match(/…/)` or
  *     `/…/.test(…)` on a literal under features/<domain>/api or lib/api fails, unless NOT_MESSAGES lists
  *     it as a test on something other than an error message.
  */
@@ -29,7 +30,6 @@ const BACKEND = {
   summaries: 'backend/app/routers/summaries.py',
   analysis: 'backend/app/routers/analysis.py',
   subscriptions: 'backend/app/routers/subscriptions.py',
-  auth: 'backend/app/routers/auth.py',
 }
 
 interface Matcher {
@@ -46,8 +46,10 @@ const MATCHERS: Matcher[] = [
   {
     file: 'features/summaries/api/summaries-api.ts',
     fn: 'isNonRetryableStreamError',
-    backend: [BACKEND.summaries, BACKEND.admission, BACKEND.auth],
-    frontend: ['features/summaries/api/summaries-api.ts', 'features/summaries/hooks/useSummaryGeneration.ts'],
+    // The summary stream's own sources only: auth.py's Apple configuration error never reaches this
+    // stream, and useSummaryGeneration's guest message is set beside the stream, never matched.
+    backend: [BACKEND.summaries, BACKEND.admission],
+    frontend: ['features/summaries/api/summaries-api.ts'],
   },
   { file: 'features/filings/api/copilot-api.ts', fn: 'isCopilotPaywallError', backend: [BACKEND.dependencies, BACKEND.summaries], frontend: ['features/filings/api/copilot-api.ts'] },
   { file: 'features/analysis/api/analysis-api.ts', fn: 'isAnalysisPaywallError', backend: [BACKEND.dependencies, BACKEND.analysis], frontend: ['features/analysis/api/analysis-api.ts'] },
@@ -59,7 +61,10 @@ const MATCHERS: Matcher[] = [
 const UNSOURCED: Record<string, string> = {
   'isCopilotPaywallError monthly cap':
     "no message says it: the Copilot cap's 429 says \"fair-use limit\" (routers/summaries.py), which this matcher does not read; the matcher's owner (brand-copilot, ASK-07) decides",
+  'isNonRetryableStreamError sign in':
+    'no message on the summary stream says it: its 401 reads "Authentication error occurred." (matched by "authentication"); the matcher\'s logic is E18\'s (an error code field), never the brand sweep\'s',
 }
+const UNSOURCED_MAX = 2
 
 /** Literal tests in the api modules that read something other than an error message. */
 const NOT_MESSAGES: Record<string, string> = {
@@ -74,22 +79,36 @@ const NOT_MESSAGES: Record<string, string> = {
   'lib/api/client.ts includes timeout': "axios's own error message, not the backend's",
 }
 
-/** Every string literal in Python source, comments skipped, with adjacent literals also joined (Python
-    concatenates `"a " "b"` across whitespace, parentheses and line breaks). */
+/** Every string literal in Python source, comments and docstrings skipped, with adjacent literals also
+    joined (Python concatenates `"a " "b"` across whitespace, parentheses and line breaks). A docstring
+    is a literal that opens the first statement of the module or of a `def` or `class` body: it
+    documents the code, it is never a message. */
 export function pythonStrings(src: string): string[] {
   const out: string[] = []
   let run = ''
   let runEnd = -1
   let i = 0
+  // The logical line so far (code only, a literal read as ""), the last complete one (null at the
+  // module's start) and the bracket depth, which joins physical lines into one logical line.
+  let line = ''
+  let previous: string | null = null
+  let depth = 0
   while (i < src.length) {
     const c = src[i]
     if (c === '#') {
       while (i < src.length && src[i] !== '\n') i++
       continue
     }
+    if (c === '\n' && depth === 0 && !line.endsWith('\\')) {
+      if (line.trim()) previous = line.trim()
+      line = ''
+      i++
+      continue
+    }
     const prefix = /^[rRbBuUfF]{0,2}(?="|')/.exec(src.slice(i, i + 3))
     if (prefix && (i === 0 || !/\w/.test(src[i - 1]))) {
       const start = i
+      const docstring = !line.trim() && (previous === null || /^(?:async\s+)?(?:def|class)\b[\s\S]*:$/.test(previous))
       i += prefix[0].length
       const quote = src.startsWith('"""', i) ? '"""' : src.startsWith("'''", i) ? "'''" : src[i]
       i += quote.length
@@ -101,12 +120,20 @@ export function pythonStrings(src: string): string[] {
         } else text += src[i++]
       }
       i += quote.length
+      line += '""'
+      if (docstring) {
+        runEnd = -1
+        continue
+      }
       out.push(text)
       run = runEnd >= 0 && /^[\s()\\]*$/.test(src.slice(runEnd, start).replace(/#[^\n]*/g, '')) ? run + text : text
       runEnd = i
       if (run !== text) out.push(run)
       continue
     }
+    if ('([{'.includes(c)) depth++
+    else if (')]}'.includes(c)) depth = Math.max(0, depth - 1)
+    line += c
     i++
   }
   return out
@@ -152,7 +179,8 @@ function phrases(matcher: Matcher): Array<{ text: string; regex: boolean }> {
   const out: Array<{ text: string; regex: boolean }> = []
   visit(scope, (n) => {
     const test = literalTest(n)
-    if (test && (matcher.fn ? test.kind === 'includes' || test.regex : test.kind === 'test')) out.push({ text: test.text, regex: test.regex })
+    // In a matcher function every literal test is a phrase (includes, startsWith, endsWith, a regex).
+    if (test && (matcher.fn || test.kind === 'test')) out.push({ text: test.text, regex: test.regex })
   })
   return out
 }
@@ -180,6 +208,21 @@ describe('the frontend routes UI only on words the code writes', () => {
   it('reads each matcher (a reader that finds nothing must not pass)', () => {
     for (const matcher of MATCHERS) expect(phrases(matcher).length, `${matcher.file} ${matcher.fn ?? 'regex tests'}`).toBeGreaterThan(0)
     expect(pythonStrings('x = ("a "  # note\n     f"b {y}")\n# "not a string"\n')).toEqual(['a ', 'b {y}', 'a b {y}'])
+    // Docstrings document code, never a message; a literal that opens any other statement is kept.
+    const docstrings = [
+      '"""Module docstring: sign in."""',
+      'class Gate(Base):',
+      '    """Class docstring."""',
+      '    async def check(',
+      '        self, user: User,',
+      '    ) -> None:',
+      "        '''Method docstring.'''",
+      '        raise HTTPException(status_code=401, detail="Please sign in.")',
+      'def bare():',
+      '    "Function docstring."',
+      '"""A later bare literal is no docstring."""',
+    ].join('\n')
+    expect(pythonStrings(docstrings)).toEqual(['Please sign in.', 'A later bare literal is no docstring.'])
   })
 
   it('every phrase a matcher tests for is written by a file that raises the message', () => {
@@ -195,6 +238,7 @@ describe('the frontend routes UI only on words the code writes', () => {
       }
     }
     expect(missing, 'keep the phrase in the message (backend and frontend together), or change the matcher in the same PR').toEqual([])
+    expect(Object.keys(UNSOURCED).length, 'UNSOURCED gained an entry').toBeLessThanOrEqual(UNSOURCED_MAX)
     expect(Object.keys(UNSOURCED).filter((key) => !unsourced.has(key)), 'written again or gone from its matcher: delete it from UNSOURCED').toEqual([])
   })
 

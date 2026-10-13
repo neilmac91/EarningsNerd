@@ -308,9 +308,11 @@ describe('brand rule 3: the Marked Copy Rule', () => {
       'features/peers/components/PeerComparisonPanel.tsx', 'features/summaries/components/SummaryBlocks.tsx']) {
       expect(PUBLIC_FILES.has(rel), `${rel} is public`).toBe(true)
     }
-    // The signed-in product stays out of the public reading (D-030 holds it in-app separately).
+    // Out of the public reading: the signed-in product (the dashboard, admin) and the flag-gated calendar
+    // (app/calendar 404s while NEXT_PUBLIC_ENABLE_CALENDAR is off, the shipped default). #1251 reads them
+    // app-wide under D-030.
     for (const rel of ['app/dashboard/page.tsx', 'features/calendar/components/MonthView.tsx', 'features/admin/components/InviteRow.tsx']) {
-      expect(PUBLIC_FILES.has(rel), `${rel} is not public`).toBe(false)
+      expect(PUBLIC_FILES.has(rel), `${rel} is signed-in or flag-gated, outside the public reading`).toBe(false)
     }
     const rels = new Set(SOURCES.map((s) => s.rel))
     for (const rel of ['features/marketing/components/HeroHeadline.tsx', 'features/marketing/components/HeroExample.tsx', 'app/waitlist/page.tsx', 'app/pricing/page.tsx', 'features/auth/components/AuthShell.tsx']) {

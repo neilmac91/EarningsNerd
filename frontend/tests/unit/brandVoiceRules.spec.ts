@@ -47,8 +47,13 @@ const PROPER_NOUNS = [
   'EarningsNerd', 'Pro', 'SEC', 'EDGAR', 'XBRL', 'U.S.',
   'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December',
   'Jan', 'Feb', 'Mar', 'Apr', 'Jun', 'Jul', 'Aug', 'Sep', 'Sept', 'Oct', 'Nov', 'Dec',
-  'Google', 'Apple', 'Stripe', 'GitHub', 'LinkedIn', 'WhatsApp',
+  'Google', 'Apple', 'Stripe', 'GitHub', 'LinkedIn', 'WhatsApp', 'Excel',
 ].sort((a, b) => b.length - a.length)
+
+/** Each proper noun as a whole word: 'Pro' never swallows the start of 'Profile', nor 'Mar' of 'Margin'. */
+const PROPER_NOUN_RES = PROPER_NOUNS.map(
+  (noun) => new RegExp(`(?<![\\p{L}\\p{N}])${noun.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}])`, 'gu'),
+)
 
 const BUZZWORDS: Array<[string, RegExp]> = [
   ['unlock', /\bunlock(?:s|ed|ing)?\b/i],
@@ -136,7 +141,7 @@ function isCodeString(node: ts.Node, text: string): boolean {
 /** Capitalised words after a phrase's first word that are not proper nouns. */
 export function titleCaseWords(text: string): string[] {
   let t = ` ${text} `
-  for (const noun of PROPER_NOUNS) t = t.split(noun).join(' {n} ')
+  for (const noun of PROPER_NOUN_RES) t = t.replace(noun, ' {n} ')
   const out: string[] = []
   // A phrase starts again after a sentence stop, a separator, a bracket or quote, or an expression
   // (`{x}`: an icon or a value before a label).
@@ -246,11 +251,10 @@ const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
   'app/filing/[id]/page.tsx': { sentenceCase: 2 }, // brand-metadata-social (meta titles)
   'app/privacy/page.tsx': { sentenceCase: 16 }, // legal page: its headings wait on the founder (legalDates bump)
   'app/search/page.tsx': { sentenceCase: 1 }, // brand-metadata-social (meta title)
-  'app/security/page.tsx': { sentenceCase: 11 }, // founder-gated: the /security recase lands with its claims (UA ids)
+  'app/security/page.tsx': { sentenceCase: 12 }, // founder-gated: the /security recase lands with its claims (UA ids)
   'app/terms/page.tsx': { sentenceCase: 4 }, // legal page: its headings wait on the founder (legalDates bump)
   'app/waitlist/page.tsx': { buzzword: 1 }, // brand-public-pages (BG-23, "clarity")
   'components/CookieConsent.tsx': { sentenceCase: 6 }, // brand-chrome-primitives
-  'features/analysis/components/MetricsTable.tsx': { sentenceCase: 1 }, // brand-analysis
   'features/contact/components/ContactForm.tsx': { sentenceCase: 1 }, // brand-contact-security-presentation
   'features/feedback/components/FeedbackWidget.tsx': { emoji: 3 }, // brand-chrome-primitives
   'features/fundamentals/components/FundamentalsTrendChart.tsx': { sentenceCase: 1 }, // brand-company-page
@@ -261,7 +265,7 @@ const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
   'features/summaries/components/SummaryActionsBar.tsx': { sentenceCase: 1 }, // brand-filing-page
   'lib/api/client.ts': { developerWording: 1 }, // brand-chrome-primitives (CAL-12, "backend API")
 }
-const VOICE_RESIDUE_MAX = { entries: 24, violations: 66 }
+const VOICE_RESIDUE_MAX = { entries: 23, violations: 66 }
 
 describe('brand voice rules (docs/brand/07-voice.md)', () => {
   const findings = FILES.flatMap((file) => voiceFindings(readFileSync(file, 'utf8'), rel(file)))
@@ -315,6 +319,8 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '      <h3>Ask this Filing about Apple’s 10-K for Q3 · SEC EDGAR</h3>',
       '      <Button>Wow!</Button>',
       "      <a className=\"md:!block focus-visible:outline-none\" href=\"/pricing\">See Pro plans</a>",
+      '      <Button>Edit Profile</Button>',
+      '      <Button>Export Excel</Button>',
       '    </div>',
       '  )',
       '}',
@@ -329,6 +335,7 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '10 emoji',
       '10 buzzword',
       '13 exclamation',
+      '15 sentenceCase',
     ])
     expect(voiceFindings("export const msg = 'The backend returned 503. Try again.'", 'lib/api/probe.ts').map((f) => f.clause)).toEqual(['developerWording'])
     expect(voiceFindings("export const msg = 'The backend returned 503. Try again.'", 'features/probe/msg.ts')).toEqual([])

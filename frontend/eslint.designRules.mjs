@@ -30,8 +30,10 @@
 //   locale-pinned-numbers  A number reads in one locale (en-US) whatever the viewer's browser says, so
 //                       `x.toLocaleString()` and `new Intl.NumberFormat()` with no locale, or with
 //                       `undefined` for it, are banned outside lib/format.ts (eslint.config.mjs turns
-//                       the rule off there). Use fmtCount, fmtDecimal or another lib/format helper,
-//                       or pass 'en-US'. A locale the scan cannot read (a variable) passes.
+//                       the rule off there). The receiver's type is not read, so a Date's
+//                       toLocaleString() is caught too: the message names lib/format generally (fmtCount
+//                       and fmtDecimal for a number, a date helper for a date), or pass 'en-US'. A
+//                       locale the scan cannot read (a variable) passes.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), a
@@ -209,8 +211,8 @@ export const localePinnedNumbers = {
     schema: [],
     messages: {
       unpinned:
-        '{{call}} with no locale renders in the viewer\'s browser locale. Use fmtCount or fmtDecimal from ' +
-        "lib/format.ts (or pass 'en-US').",
+        '{{call}} with no locale renders in the viewer\'s browser locale. Format the value through the ' +
+        "lib/format.ts helper made for it, or pass 'en-US'.",
     },
   },
   create(context) {

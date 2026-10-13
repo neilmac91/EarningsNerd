@@ -161,9 +161,9 @@ that PR:
   no developer wording ("backend", an API path, "reader", an HTTP status) in `lib/` and `hooks/`.
 - `reservedGlyphs.spec.ts` (new): the quotes glyph marks a filing passage, the braces an XBRL fact
   and the sparkle the AI summary, nowhere else; a hand-drawn stand-in or the ✨ emoji counts.
-- `backendMessageMatches.spec.ts` (new): every phrase the frontend routes paywall, sign-in or
-  verification UI on is written by the code that raises the message, and no other literal match on
-  a message exists under the api modules.
+- `backendMessageMatches.spec.ts` (new): every phrase the frontend routes the paywall, the no-retry
+  path or the verification event on is written by the code that raises the message (docstrings do
+  not count), and no other literal match on a message exists under the api modules.
 - ESLint: the raw-colour rule reads `rgb()`, `rgba()`, `hsl()` and `hsla()` as well as hex, in an
   arbitrary utility too; `earningsnerd/locale-pinned-numbers` (new) bans an unpinned
   `toLocaleString()` or `Intl.NumberFormat` outside `lib/format.ts` (`fmtCount`, `fmtDecimal`).
@@ -172,7 +172,7 @@ that PR:
 
 Four of them carry a shrink-only residue: `VOICE_RESIDUE`, the glyphs' `RESIDUE`, `RING_RESIDUE`
 and the matchers' `UNSOURCED`. Each holds what the audit found when its gate landed, counted per
-file, with the PR that clears each entry; a fixed entry fails until its count is lowered, and each
+file, with the PR or the reason that clears each entry; a fixed entry fails until its count is lowered, and each
 list's size is capped at its seed. A PR that adds an entry needs a reason in its body.
 
 The design gates
