@@ -65,8 +65,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   limit is read from the status and says "Too many messages from this connection. Try again in an
   hour."; any other failure shows in an error Notice titled "Message not sent", with the server's
   sentence or "We couldn't send your message. Try again in a minute." The success heading is an h2.
-  The prose links here and on /security are underlined and carry the brand focus ring; the /security
-  text and its date are unchanged, since its claims wait on the founder.
+  The prose links on /contact are underlined and carry the brand focus ring. The /security links
+  are unchanged, because /security is a legal page under the founder's boundary; the ring triple
+  on its five links rides the founder-gated security-claims PR.
 
 ## 3. Inside the product
 
