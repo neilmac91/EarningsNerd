@@ -16,10 +16,11 @@ import { describe, expect, it } from 'vitest'
  * This gate reads every file under app, components, features, hooks and lib, twice. The first pass
  * finds the Button-like components: Button itself, and every component that forwards its caller's
  * props into buttonVariants()'s className option or onto a <Button>: a prop of the component's own
- * parameters, named directly (`className`), through `props.className`, destructured in the body
- * (`const { className } = props`), inside an expression (`cx('w-full', className)`) or as a spread
- * of the props (`{...rest}`); a spread of something else (a mapped module const) is not a caller's
- * class (RetryButton, MarketingCta, and any wrapper written later). The second pass fails on: a bare
+ * parameters, named directly (`className`), through `props.className`, declared in the body from
+ * one (`const { className } = props`, `const classes = cx('w-full', className)`), inside an
+ * expression (`cx('w-full', className)`) or as a spread of the props (`{...rest}`); a spread of
+ * something else (a mapped module const) is not a caller's class (RetryButton, MarketingCta, and any
+ * wrapper written later). The second pass fails on: a bare
  * `h-<n>` token in the className of a Button-like element or in a buttonVariants() className option
  * (a literal, a same-file const, a shorthand property, a conditional's branches, a template's text;
  * icon-sm is exempt); and, in any class expression that composes buttonVariants() (under its import
@@ -27,9 +28,11 @@ import { describe, expect, it } from 'vitest'
  * literal `h-<n>`, `min-h-` or `py-` token outside the call, or a forwarded binding (a parameter
  * such as `className`, also as `props.className`, `className as string`, `className!`, or either
  * side of `||` and `??`) outside the call, which would carry a caller's min-h or py where the narrow
- * state cannot see it; the condition of `cond && 'class'` and `undefined` are not classes. An
- * identifier bound by an enclosing function (a parameter, a destructured prop) is never resolved to
- * a const of the same name elsewhere in the file; a const imported from another file is not read.
+ * state cannot see it; the condition of `cond && 'class'` and `undefined` are not classes. A binding
+ * beside the factory that the file does not resolve (an import, a module object's member, a helper's
+ * argument) is reported as forwarded, and an expression too deep to read is reported rather than
+ * skipped, so the gate fails closed. An identifier bound by an enclosing function (a parameter, a
+ * destructured prop) is never resolved to a const of the same name elsewhere in the file.
  */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
@@ -97,30 +100,30 @@ function reachesProps(e: ts.Expression): boolean {
   const component = componentFunction(e)
   if (!component) return false
   const param = (text: string) => component.parameters.some((p) => bindsName(p.name, text))
-  const rootIdentifier = (x: ts.Expression): ts.Identifier | undefined => {
-    const y = unwrapExpression(x)
-    return ts.isIdentifier(y) ? y : ts.isPropertyAccessExpression(y) ? rootIdentifier(y.expression) : undefined
+  /** Whether a node holds an identifier that is a parameter or a body binding from one (a property's name is not one). */
+  const holdsProp = (node: ts.Node, depth: number): boolean => {
+    let found = false
+    const look = (n: ts.Node) => {
+      if (found) return
+      if (ts.isIdentifier(n) && !(ts.isPropertyAccessExpression(n.parent) && n.parent.name === n) && (param(n.text) || bodyBound(n.text, depth))) found = true
+      else ts.forEachChild(n, look)
+    }
+    look(node)
+    return found
   }
+  /** Whether a name is declared in the component's body from its props, directly or through another such declaration. */
   const bodyBound = (text: string, depth = 0): boolean => {
     if (depth > 3) return false
     let found = false
     const look = (n: ts.Node) => {
-      if (found || !ts.isVariableDeclaration(n) || !bindsName(n.name, text) || !n.initializer) { if (!found) ts.forEachChild(n, look); return }
-      const root = rootIdentifier(n.initializer)
-      if (root && (param(root.text) || bodyBound(root.text, depth + 1))) found = true
+      if (found) return
+      if (ts.isVariableDeclaration(n) && bindsName(n.name, text) && n.initializer && holdsProp(n.initializer, depth + 1)) found = true
       else ts.forEachChild(n, look)
     }
     look(component)
     return found
   }
-  let reaches = false
-  const visit = (n: ts.Node) => {
-    if (reaches) return
-    if (ts.isIdentifier(n) && !(ts.isPropertyAccessExpression(n.parent) && n.parent.name === n) && (param(n.text) || bodyBound(n.text))) reaches = true
-    else ts.forEachChild(n, visit)
-  }
-  visit(e)
-  return reaches
+  return holdsProp(e, 0)
 }
 
 /** The initializer of the same-file const an identifier names, unless the identifier is bound in its scope. */
@@ -157,7 +160,8 @@ function beside(e: ts.Expression, sf: ts.SourceFile, names: Set<string>): { lite
   const out = { literals: [] as string[], forwarded: [] as string[] }
   const go = (raw: ts.Expression, depth: number): void => {
     const x = unwrapExpression(raw)
-    if (depth > 4 || isFactoryCall(x, names)) return
+    if (isFactoryCall(x, names)) return
+    if (depth > 6) { out.forwarded.push(`${x.getText(sf).slice(0, 40)} (too deep to read)`); return }
     if (ts.isConditionalExpression(x)) { go(x.whenTrue, depth + 1); go(x.whenFalse, depth + 1); return }
     if (ts.isBinaryExpression(x)) {
       // The left of `&&` is a condition, never a class; either side of `||`, `??` or `+` can be the value.
