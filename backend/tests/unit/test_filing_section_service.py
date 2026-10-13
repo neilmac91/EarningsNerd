@@ -542,7 +542,7 @@ def test_section_changes_access_follows_the_flag_and_the_entitlement(monkeypatch
 
 
 def test_section_changes_block_states(db):
-    _, prior, later, amendment = _pair(db)
+    _, prior, later, amendment = _pair(db, watched_by=_user(db))  # a company the batch selects
     assert svc.build_section_changes(db, later, svc.NO_SECTION_ACCESS) is None
 
     block = svc.build_section_changes(db, later, svc.FULL_SECTION_ACCESS)
@@ -599,7 +599,7 @@ def test_a_missing_or_failed_current_section_is_unavailable(db):
 
 
 def test_the_comparison_never_skips_a_period(db):
-    company = _company(db)
+    company = _company(db, watched_by=_user(db))
     oldest = _filing(db, company, "10-K", datetime(2023, 12, 31, tzinfo=timezone.utc), datetime(2024, 2, 20, tzinfo=timezone.utc))
     middle = _filing(db, company, "10-K", datetime(2024, 12, 31, tzinfo=timezone.utc), datetime(2025, 2, 20, tzinfo=timezone.utc))
     latest = _filing(db, company, "10-K", datetime(2025, 12, 31, tzinfo=timezone.utc), datetime(2026, 2, 19, tzinfo=timezone.utc))
@@ -625,6 +625,36 @@ def test_a_prior_outside_the_extraction_window_is_unavailable(db):
     assert block["prior_filing"]["filing_id"] == old.id
     # The same window bounds the batch: that prior is never fetched, so the block is not "pending".
     assert old.id not in [f.id for f in svc.select_filings_for_extraction(db, limit=100, cohort="all", tickers=[company.ticker])]
+
+
+def test_an_unextracted_filing_the_batch_will_not_select_is_unavailable_not_pending(db):
+    # "pending" promises the hourly batch; a filing it never selects is "unavailable" with why.
+    watcher = _user(db)
+    company = _company(db, watched_by=watcher)
+    old = _filing(db, company, "10-K", datetime(2018, 12, 31, tzinfo=timezone.utc), datetime(2019, 2, 10, tzinfo=timezone.utc))
+    block = svc.build_section_changes(db, old, svc.FULL_SECTION_ACCESS)
+    assert (block["status"], block["reason"]) == ("unavailable", "current_outside_window")
+    assert block["prior_filing"] is None and "current" not in block
+    assert old.id not in _ids(db, cohort="all", tickers=[company.ticker])
+    assert old.id in _ids(db, cohort="all", tickers=[company.ticker], window_days=10 * 365)  # the operator's reach
+
+    _, prior, later, _ = _pair(db)  # nobody watches this company and no filing of it has a summary
+    block = svc.build_section_changes(db, later, svc.FULL_SECTION_ACCESS)
+    assert (block["status"], block["reason"]) == ("unavailable", "current_outside_cohort")
+    assert later.id not in _ids(db, tickers=[later.company.ticker])
+    assert later.id in _ids(db, cohort="all", tickers=[later.company.ticker])  # --all / --tickers reach it
+    # Extracted by hand, the current leaves the prior outside the cohort too.
+    _extract(db, later, LATER_TEXT)
+    block = svc.build_section_changes(db, later, svc.FULL_SECTION_ACCESS)
+    assert (block["status"], block["reason"]) == ("unavailable", "prior_outside_cohort")
+    assert block["prior_filing"]["filing_id"] == prior.id and block["current"]["status"] == "ok"
+    # A summary of any filing of the company (a watcher would do too) puts it in the cohort: the same
+    # prior is pending now, and the batch selects it.
+    db.add(Summary(filing_id=prior.id, business_overview="x"))
+    db.commit()
+    block = svc.build_section_changes(db, later, svc.FULL_SECTION_ACCESS)
+    assert (block["status"], block["reason"]) == ("pending", "prior_not_extracted")
+    assert prior.id in _ids(db, tickers=[later.company.ticker])
 
 
 def test_a_stub_10q_compares_and_is_labelled_reference_only(db):

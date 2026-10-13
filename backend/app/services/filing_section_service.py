@@ -270,6 +270,23 @@ async def extract_for_filing(
 
 # --- selection and the job body ----------------------------------------------------------------
 
+def _watched_company():
+    """``Filing``'s company is on somebody's watchlist."""
+    return exists().where(Watchlist.company_id == Filing.company_id)
+
+
+def _in_watched_cohort():
+    """The batch's ``watched`` cohort as a filter on ``Filing``: a company somebody watches, or one
+    with a summarized filing (so a summarized filing's prior is extracted too). The Change Report
+    block tests a single filing against this same predicate, so its ``pending`` means what the
+    batch does."""
+    summarized_company = aliased(Filing)
+    has_summary = exists().where(
+        (summarized_company.company_id == Filing.company_id) & (Summary.filing_id == summarized_company.id)
+    )
+    return or_(_watched_company(), has_summary)
+
+
 def select_filings_for_extraction(
     db: Session,
     *,
@@ -303,18 +320,14 @@ def select_filings_for_extraction(
             # An older row whose re-extraction just failed waits too.
             FilingSectionText.error_type.isnot(None) & recently_attempted,
         )
-    watched = exists().where(Watchlist.company_id == Filing.company_id)
+    watched = _watched_company()
     query = db.query(Filing).filter(
         Filing.filing_type.in_(SUPPORTED_FORMS),
         Filing.filing_date >= now - timedelta(days=window_days),
         ~exists().where(blocking),
     )
     if cohort == "watched":
-        summarized_company = aliased(Filing)
-        has_summary = exists().where(
-            (summarized_company.company_id == Filing.company_id) & (Summary.filing_id == summarized_company.id)
-        )
-        query = query.filter(or_(watched, has_summary))
+        query = query.filter(_in_watched_cohort())
     if tickers:
         from app.models import Company
 
@@ -554,16 +567,35 @@ def _outside_window(filing: Filing, now: datetime) -> bool:
     return filing.filing_date is not None and ensure_utc(filing.filing_date) < now - timedelta(days=WINDOW_DAYS)
 
 
+def _in_cohort(db: Session, filing: Filing) -> bool:
+    return db.query(Filing.id).filter(Filing.id == filing.id, _in_watched_cohort()).first() is not None
+
+
+def _unextracted(db: Session, filing: Filing, side: str, now: datetime) -> tuple[str, str]:
+    """The state of a side with no row: ``pending`` when the hourly batch will select the filing
+    (``<side>_not_extracted``), else ``unavailable`` with why it will not: filed before the
+    extraction window (``<side>_outside_window``) or a company nobody watches and no filing of
+    which has a summary (``<side>_outside_cohort``). ``scripts/extract_sections.py`` reaches both
+    by hand (``--window-days``, ``--all`` or ``--tickers``)."""
+    if _outside_window(filing, now):
+        return "unavailable", f"{side}_outside_window"
+    if not _in_cohort(db, filing):
+        return "unavailable", f"{side}_outside_cohort"
+    return "pending", f"{side}_not_extracted"
+
+
 def build_section_changes(db: Session, filing: Filing, access: SectionAccess) -> Optional[dict[str, Any]]:
     """The ``section_changes`` block, or None when the feature is off.
 
     ``status`` is ``ok`` (a comparison, ``items`` cut to ``access.item_limit``), ``pending`` (a side
-    has no row yet and the batch will extract it: ``current_not_extracted`` /
+    has no row yet and the hourly batch will extract it: ``current_not_extracted`` /
     ``prior_not_extracted``), ``no_prior`` (no earlier same-form filing exists) or ``unavailable``
     (nothing to compare as things stand: ``form_not_supported``; the current or the prior row is
-    ``missing``, ``oversize`` or ``failed`` as ``current_<status>`` / ``prior_<status>``; or the
-    prior was filed outside the extraction window, ``prior_outside_window``). ``prior_filing`` is
-    set whenever a prior exists, so a reader can see which filing the state is about.
+    ``missing``, ``oversize`` or ``failed`` as ``current_<status>`` / ``prior_<status>``; or a side
+    has no row and the batch will not select it, filed before the extraction window
+    (``<side>_outside_window``) or a company outside the batch's cohort (``<side>_outside_cohort``)).
+    ``prior_filing`` is set whenever a prior exists, so a reader can see which filing the state is
+    about.
     """
     if access.level == ACCESS_NONE:
         return None
@@ -578,7 +610,8 @@ def build_section_changes(db: Session, filing: Filing, access: SectionAccess) ->
         return {**block, "status": "unavailable", "reason": "form_not_supported"}
     row = _section_row(db, filing.id)
     if row is None:
-        return {**block, "status": "pending", "reason": "current_not_extracted"}
+        status, reason = _unextracted(db, filing, "current", utcnow())
+        return {**block, "status": status, "reason": reason}
     if row.status != STATUS_OK:
         return {**block, "status": "unavailable", "reason": f"current_{row.status}", "current": _side(row)}
     prior_filing = _prior_filing(db, filing)
@@ -587,9 +620,8 @@ def build_section_changes(db: Session, filing: Filing, access: SectionAccess) ->
     block["prior_filing"] = _filing_ref(prior_filing)
     prior = _section_row(db, prior_filing.id)
     if prior is None:
-        if _outside_window(prior_filing, utcnow()):
-            return {**block, "status": "unavailable", "reason": "prior_outside_window", "current": _side(row)}
-        return {**block, "status": "pending", "reason": "prior_not_extracted", "current": _side(row)}
+        status, reason = _unextracted(db, prior_filing, "prior", utcnow())
+        return {**block, "status": status, "reason": reason, "current": _side(row)}
     if prior.status != STATUS_OK:
         return {**block, "status": "unavailable", "reason": f"prior_{prior.status}", "current": _side(row), "prior": _side(prior)}
     result = cached_diff(prior, row)
