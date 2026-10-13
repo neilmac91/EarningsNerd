@@ -25,7 +25,7 @@ Switching modes or refreshing resets this tab's workspace. Export Markdown or JS
 - Separate editable interpretations; explicit human review notes; append-only source revisions; retained candidates when a reader keeps prior evidence.
 - User review never verifies the truth of a claim. Even an identical later excerpt reopens review. Changing an interpretation invalidates its prior reviewed state.
 - Portable Markdown and JSON downloads via the existing shared download helper. Untrusted quotes and notes render as text and are escaped in Markdown.
-- A strict opt-in identity mode on `fetchFilingContent`. Other callers retain its legacy behavior. This prototype rejects content responses that omit or mismatch the requested filing ID.
+- `fetchFilingContent` refuses a content response that omits or mismatches the requested filing ID, for every caller (the filing viewer included), before any text is attributed to the filing.
 - Synchronous duplicate-request guard and stale-response invalidation when the input/mode changes or the component unmounts.
 
 ## What is illustrative or missing
@@ -41,7 +41,7 @@ Before production: add owned persistence and access controls, robust source-cont
 From `frontend/`:
 
 ```sh
-npx vitest run tests/unit/evidenceLedger.spec.ts tests/unit/evidence-packs-route.spec.tsx tests/unit/filing-content-strict-identity.spec.ts tests/unit/research-evidence-packs.spec.tsx
+npx vitest run tests/unit/evidenceLedger.spec.ts tests/unit/evidence-packs-route.spec.tsx tests/unit/filing-content-api.spec.ts tests/unit/research-evidence-packs.spec.tsx
 npm run lint
 npx tsc -p tsconfig.ci.json
 npm run test -- --run

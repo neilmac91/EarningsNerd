@@ -111,7 +111,7 @@ export default function ResearchEvidencePacks() {
       const filing = await getFiling(id)
       if (epoch !== generation.current) return
       const identity = sourceIdentity(filing, id)
-      const content = await fetchFilingContent(id, true)
+      const content = await fetchFilingContent(id)
       if (epoch !== generation.current) return
       setLoaded(sourceDocument(identity, content))
     } catch (reason) {

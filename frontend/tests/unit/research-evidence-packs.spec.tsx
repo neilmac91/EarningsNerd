@@ -9,7 +9,7 @@ const api = vi.hoisted(() => ({
   content: (_id: number): Promise<FilingContent> => Promise.reject(new Error('Unexpected text')),
 }))
 vi.mock('@/features/filings/api/filings-api', () => ({ getFiling: (id: number) => { api.filings.push(id); return api.filing(id) } }))
-vi.mock('@/features/filings/api/filing-content-api', () => ({ fetchFilingContent: (id: number, strict?: boolean) => { api.contents.push([id, strict]); return api.content(id) } }))
+vi.mock('@/features/filings/api/filing-content-api', () => ({ fetchFilingContent: (id: number) => { api.contents.push([id]); return api.content(id) } }))
 vi.mock('@/lib/downloadBlob', () => ({ downloadBlob: (blob: Blob, name: string) => { api.downloads.push([blob, name]) } }))
 import ResearchEvidencePacks from '@/features/research-evidence-packs/components/ResearchEvidencePacks'
 
@@ -51,7 +51,7 @@ describe('research evidence pack workflow', () => {
     render(<ResearchEvidencePacks />)
     fireEvent.click(screen.getByRole('button', { name: 'Cached filings' })); load()
     await screen.findByText('First paragraph 1.')
-    expect(api.contents).toEqual([[1, true]])
+    expect(api.contents).toEqual([[1]])
     fireEvent.change(screen.getByLabelText('Cached paragraph'), { target: { value: '1' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save as new evidence' }))
     const card = within(screen.getByRole('article', { name: 'Evidence 1' }))
@@ -110,7 +110,7 @@ describe('research evidence pack workflow', () => {
   it('invalidates already-loading content on input edit while preserving existing evidence', async () => {
     const pending = deferred<FilingContent>(); api.content = () => pending.promise
     render(<ResearchEvidencePacks />); fireEvent.click(screen.getByRole('button', { name: 'Cached filings' })); load()
-    await waitFor(() => expect(api.contents).toEqual([[1, true]]))
+    await waitFor(() => expect(api.contents).toEqual([[1]]))
     fireEvent.change(screen.getByLabelText('Filing ID'), { target: { value: '2' } })
     await act(async () => pending.resolve(content(1)))
     expect(screen.queryByRole('button', { name: 'Save as new evidence' })).not.toBeInTheDocument()

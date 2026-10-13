@@ -81,7 +81,7 @@ describe('review ledger', () => {
     expect(markdown).toContain('\\[click\\]\\(javascript:alert\\(1\\)\\)')
     expect(markdown).not.toContain('<img')
     expect(markdown).toContain('FICTIONAL EXAMPLE')
-    expect(markdown).toContain('FICTIONAL\\-2026')
+    expect(markdown).toContain('FICTIONAL\\-0000\\-0002')
     expect(JSON.parse(exportEvidence([proposeSource(entry, later)], 'json', now))).toMatchObject({ schemaVersion: 1, entries: [{ status: 'review-needed', proposal: later, revisions: [earlier], reviews: [{ note: text }] }] })
   })
 })
