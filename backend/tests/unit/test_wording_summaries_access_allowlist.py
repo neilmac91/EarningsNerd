@@ -59,6 +59,10 @@ ALLOWED_READERS: dict[tuple[str, str, str], str] = {
         "reads the full comparison for a reader its callers gated: the review endpoints by "
         "require_entitlement('section_changes'), the dashboard feed by ACCESS_FULL"
     ),
+    ("app/services/section_review_service.py", "review_progress", "cached_diff"): (
+        "the list's reconciliation (live ids and hashes) over rows the reader wrote behind "
+        "require_entitlement('section_changes'); dashboard_feed_service._wording_changes calls it only for ACCESS_FULL"
+    ),
 }
 
 

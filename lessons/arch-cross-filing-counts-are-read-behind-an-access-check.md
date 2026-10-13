@@ -21,7 +21,7 @@ while its fingerprints still match; the cached comparison column (`diff_summary`
 `build_section_changes`, `cached_diff`) are called only from scopes that check the flag and the plan
 or pass the viewer's `SectionAccess` through (`filing_scan_service.alert_wording_changes`,
 `dashboard_feed_service._wording_changes`, `change_report_service.build_change_report`, and
-`section_review_service._comparison` for a reader its callers already gated). A new reader is added
+`section_review_service._comparison` and `review_progress` for a reader its callers already gated). A new reader is added
 to the allow-list with the check it makes, in the same PR, or it fails the gate; the gate pins the
 reader, review checks the check.
 
