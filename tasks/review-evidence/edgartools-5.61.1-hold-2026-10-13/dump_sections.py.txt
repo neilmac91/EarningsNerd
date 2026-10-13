@@ -1,0 +1,19 @@
+"""Dump every Ford 10-Q fixture section's text under the installed edgartools; run from backend/."""
+import gzip, hashlib, sys
+from pathlib import Path
+import edgar
+from edgar.documents import HTMLParser, ParserConfig
+
+html = gzip.decompress(Path("tests/fixtures/outlook/ford-2026q1.html.gz").read_bytes())
+assert hashlib.sha256(html).hexdigest() == "8f7a1adee57f71fcb32c011cc47e8358ebb68f1b0248a3a719e32da26b27750e"
+document = HTMLParser(ParserConfig(form="10-Q")).parse(html)
+out = Path(sys.argv[1]); out.mkdir(parents=True, exist_ok=True)
+sections = document.sections
+items = sections.items() if hasattr(sections, "items") else ((k, sections.get(k)) for k in sections)
+names = []
+for name, section in items:
+    text = section.text()
+    (out / f"section_{name}.txt").write_text(text, encoding="utf-8")
+    names.append(name)
+(out / "VERSION").write_text(edgar.__version__)
+print(edgar.__version__, sorted(names))
