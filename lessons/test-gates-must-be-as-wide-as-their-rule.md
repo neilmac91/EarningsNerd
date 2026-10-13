@@ -134,6 +134,9 @@ walk abandoned; it is read as the whole it is taken from. Codex's review of `f55
 "calls that keep what they are given" claim short by one React call, `Children.toArray`; the gate now
 reads it, with `concat`, `flat` and the callbacks `Children.map` and `forEach` bind beside it, and a
 list any of them makes when it is rendered whole; its review of `d3f1522` then named `Children.only`,
-the last of React's child-preserving helpers, which the gate reads as what it is given. Companion to
+the last of React's child-preserving helpers, which the gate reads as what it is given; and its review
+of `1dd291d` named the spellings, an alias of `Children` or a helper destructured from it, which the
+spelling check did not know, so the helpers now resolve through the checker by whatever name the
+file gives them, and a same-file object that shares the name is no longer taken for React's. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.

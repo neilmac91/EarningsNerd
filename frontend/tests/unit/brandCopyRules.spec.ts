@@ -36,8 +36,10 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    useMemo returns. Arrays and objects are read through a spread, an object's values, keys and
  *    entries, a call that keeps its members or returns one (slice, filter, concat, flat, a Set,
  *    Array.from, React's Children.toArray; at, find; Children.only returns what it is given, and
- *    Children.map and forEach bind their callback as the array methods do), a map's returns, a join
- *    and a list rendered whole. A key the scan cannot read may land on any member, so every
+ *    Children.map and forEach bind their callback as the array methods do, each helper by whatever
+ *    name the file gives it, an alias, a destructured helper or a const holding one, resolved through
+ *    the checker), a map's returns, a join and a list rendered whole. A key the scan cannot read may
+ *    land on any member, so every
  *    member is read; a parameter bound at several calls takes every call's value, so a function that
  *    renders it in sage fails on any call that hands it a digit; and a binding the walk meets again
  *    (a function that hands a parameter to itself) ends there.
@@ -176,13 +178,52 @@ const method = (v: ts.Expression, names: ReadonlySet<string>): v is ts.CallExpre
 const objectCall = (v: ts.Expression, name: string): v is ts.CallExpression =>
   ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && ts.isIdentifier(v.expression.expression)
   && v.expression.expression.text === 'Object' && v.expression.name.text === name && v.arguments.length > 0
-/** A call of React's `Children.<name>` (`Children.toArray(x)`, `React.Children.map(x, fn)`) with an argument. */
-const childrenCall = (v: ts.Expression, name: string): v is ts.CallExpression & { expression: ts.PropertyAccessExpression } => {
-  if (!ts.isCallExpression(v) || !ts.isPropertyAccessExpression(v.expression) || v.expression.name.text !== name || !v.arguments.length) return false
-  const owner = unwrap(v.expression.expression)
-  return (ts.isIdentifier(owner) && owner.text === 'Children')
-    || (ts.isPropertyAccessExpression(owner) && owner.name.text === 'Children' && ts.isIdentifier(owner.expression) && owner.expression.text === 'React')
+/** Whether a declaration is React's own (its typings under `@types/react`). */
+const fromReact = (d: ts.Node) => /[\\/]@types[\\/]react[\\/]/.test(d.getSourceFile().fileName)
+/** Whether an expression is React's `Children`, resolved through the checker: the import by any name, `React.Children`
+    through the default or a namespace import, or a same-file const holding one of those. A same-file object that
+    shares the name is not it. A field is asked of the checker only when it is spelled `Children`, so `rows.map`
+    never types `rows` here. */
+function isReactChildren(e: ts.Expression, seen = new Set<ts.Node>()): boolean {
+  const x = unwrap(e)
+  const name = ts.isIdentifier(x) ? x : ts.isPropertyAccessExpression(x) && x.name.text === 'Children' ? x.name : undefined
+  if (!name) return false
+  let symbol = CHECKER.getSymbolAtLocation(name)
+  if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = CHECKER.getAliasedSymbol(symbol)
+  const declaration = symbol?.valueDeclaration
+  if (!declaration || !ts.isVariableDeclaration(declaration) || seen.has(declaration)) return false
+  seen.add(declaration)
+  if (fromReact(declaration)) return ts.isIdentifier(declaration.name) && declaration.name.text === 'Children'
+  return declaration.getSourceFile() === x.getSourceFile() && !!declaration.initializer && isReactChildren(declaration.initializer, seen)
 }
+/** The React `Children` helper a callee names (`toArray`, `map`, `forEach`, `only`), whatever the file calls it:
+    `Children.only`, `React.Children.map`, an alias (`const Kids = Children; Kids.toArray`), a helper destructured from
+    it (`const { only } = Children`, renamed or not) or held in a same-file const; undefined for anything else, a
+    same-file function or object of the same name included. Each callee is resolved once. */
+const HELPERS = new Map<ts.Node, string | undefined>()
+function childrenHelper(callee: ts.Expression, seen = new Set<ts.Node>()): string | undefined {
+  const x = unwrap(callee)
+  if (HELPERS.has(x)) return HELPERS.get(x)
+  const found = ((): string | undefined => {
+    if (ts.isPropertyAccessExpression(x)) return isReactChildren(x.expression) ? x.name.text : undefined
+    if (!ts.isIdentifier(x)) return undefined
+    const declaration = CHECKER.getSymbolAtLocation(x)?.valueDeclaration
+    if (!declaration || declaration.getSourceFile() !== x.getSourceFile() || seen.has(declaration)) return undefined
+    seen.add(declaration)
+    if (ts.isBindingElement(declaration)) {
+      const from = declaration.parent.parent
+      const key = keyOf(declaration.propertyName ?? declaration.name)
+      return !declaration.dotDotDotToken && ts.isObjectBindingPattern(declaration.parent) && typeof key === 'string'
+        && ts.isVariableDeclaration(from) && !!from.initializer && isReactChildren(from.initializer) ? key : undefined
+    }
+    return ts.isVariableDeclaration(declaration) && declaration.initializer ? childrenHelper(declaration.initializer, seen) : undefined
+  })()
+  HELPERS.set(x, found)
+  return found
+}
+/** A call of React's `Children.<name>` with an argument, by any spelling (`childrenHelper`). */
+const childrenCall = (v: ts.Expression, name: string): v is ts.CallExpression =>
+  ts.isCallExpression(v) && v.arguments.length > 0 && childrenHelper(v.expression) === name
 /** A call or a `new` that keeps what it is given: `Array.from(x)` without a mapper, `new Set(x)`, `Children.toArray(x)`. */
 const keepsArgument = (v: ts.Expression): v is ts.CallExpression | ts.NewExpression =>
   (ts.isNewExpression(v) && ts.isIdentifier(v.expression) && v.expression.text === 'Set' && !!v.arguments?.length)
@@ -249,7 +290,7 @@ const SITES = new Map<ts.SourceFile, Map<ts.Node, Site[]>>()
 /** Where a function's parameters take their values, indexed once per file: every call that names it, every array
     method it is handed to (`rows.map(render)`, its callback written inline or named, the members landing where
     HANDS_MEMBERS says), Array.from's mapper (its source's members), and React's Children.map and forEach (the
-    children they are given first). A component's props come from JSX, which the component check reads (its
+    children they are given first, by any spelling). A component's props come from JSX, which the component check reads (its
     children and className), so a tag is no call here. */
 function sitesOf(fn: ts.Node): Site[] {
   const sf = fn.getSourceFile()
@@ -260,14 +301,17 @@ function sitesOf(fn: ts.Node): Site[] {
     visit(sf, (n) => {
       if (!ts.isCallExpression(n)) return
       const callee = unwrap(n.expression)
+      // React's Children.map and forEach, by any spelling (`Kids.map(kids, fn)`, a destructured `forEach(kids, fn)`), hand
+      // the children they are given first to the callback they are given second.
+      const helper = childrenHelper(callee)
+      const handsChildren = helper !== undefined && CHILDREN_HANDS.has(helper)
       if (ts.isPropertyAccessExpression(callee)) {
-        const handsChildren = [...CHILDREN_HANDS].some((name) => childrenCall(n, name))
         const at = handsChildren ? undefined : HANDS_MEMBERS.get(callee.name.text)
         if (at !== undefined && n.arguments[0]) for (const f of functionsOf(n.arguments[0])) add(f, { members: callee.expression, at })
-        const mapsSource = handsChildren
-          || (callee.name.text === 'from' && ts.isIdentifier(callee.expression) && callee.expression.text === 'Array')
-        if (mapsSource && n.arguments[1]) for (const f of functionsOf(n.arguments[1])) add(f, { members: n.arguments[0], at: 0 })
       }
+      const mapsSource = handsChildren
+        || (ts.isPropertyAccessExpression(callee) && callee.name.text === 'from' && ts.isIdentifier(callee.expression) && callee.expression.text === 'Array')
+      if (mapsSource && n.arguments[1]) for (const f of functionsOf(n.arguments[1])) add(f, { members: n.arguments[0], at: 0 })
       for (const f of functionsOf(callee)) add(f, { args: n.arguments })
     })
     SITES.set(sf, sites = index)
@@ -355,7 +399,8 @@ function bindingOf(symbol: ts.Symbol | undefined, path: Step[]): Binding {
     included). Arrays and objects are read through a spread, a shorthand property through the name it holds, an
     object through Object.values, keys and entries, an array through a call that keeps its members (`slice`,
     `filter` …) or adds to them (`concat`, `flat`), a Set, Array.from or React's Children.toArray, a child through
-    Children.only, and a map (Children.map included) through what its callback returns; a member through `at`,
+    Children.only, and a map (Children.map included) through what its callback returns, React's helpers by any
+    spelling the file gives them; a member through `at`,
     `find` and `findLast`, a join through every member it joins, and the chain through `??`, `||` and
     conditionals. A
     value written in a literal is read as written: a conditional there is not split, since the scan cannot tie it
@@ -484,9 +529,9 @@ function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[]): ts.Exp
     depth > 24 ? [] : held(m, [], depth + 1).flatMap((v) => (ts.isArrayLiteralExpression(v) || listCall(v) ? members(v, depth + 1).flatMap((inner) => flattened(inner, depth + 1)) : [v]))
   // What a map's callback returns, each a member, read as code (a conditional there is split); a flatMap's
   // returned arrays give their members.
-  const mapped = (call: ts.CallExpression & { expression: ts.PropertyAccessExpression }, depth: number): ts.Expression[] =>
+  const mapped = (call: ts.CallExpression, depth: number): ts.Expression[] =>
     callbackReturns(call).flatMap((r) => held(r, [], depth + 1)).flatMap((v) =>
-      call.expression.name.text === 'flatMap' && ts.isArrayLiteralExpression(v) ? members(v, depth + 1) : [v])
+      ts.isPropertyAccessExpression(call.expression) && call.expression.name.text === 'flatMap' && ts.isArrayLiteralExpression(v) ? members(v, depth + 1) : [v])
   // An object's own keys, through a spread, each with the values it holds (`Object.keys`, `entries`, for…in); a
   // name written as an identifier becomes its text.
   const pairs = (x: ts.Expression, depth: number): [ts.Expression, ts.Expression[]][] =>

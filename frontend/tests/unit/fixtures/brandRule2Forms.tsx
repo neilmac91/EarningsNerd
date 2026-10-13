@@ -9,6 +9,7 @@
  * reads it. A new form the rule can take joins it with its mark.
  */
 import React, { Children, type ReactNode, useCallback, useMemo, useState } from 'react'
+import * as R from 'react'
 import { Badge, Button, buttonVariants, type BadgeVariant } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
 import Link from 'next/link'
@@ -560,3 +561,18 @@ export function P332({ n }: { n: number }) { const child = Children.only(<span>{
 export function P333() { return <span className="text-brand-strong">{React.Children.only(<b>Step 2</b>)}</span> } // flag
 export function P334() { const child = Children.only(<b>Revenue</b>); return <div className="text-brand-strong">{child}</div> } // clean
 export function P335({ n }: { n: number }) { const action = Children.only(<button>See <span className="text-text-secondary-light">{n}</span></button>); return <div className="text-brand-strong">{action}</div> } // flag
+// Codex's review of 1dd291d: React's Children helpers reached by another spelling were unread, an alias (P336, the
+// review's own form) and a helper destructured from it (P337). They now resolve through the checker, so a same-file
+// object that shares the name is not React's (P338). The family: an alias, a destructured helper (renamed too), a
+// helper held in a const, a namespace import, the callbacks the aliased map and forEach bind, a count control through
+// an alias, and a look-alike over a word.
+export function P336({ n }: { n: number }) { const Kids = Children; const kids = Kids.toArray([<span key="n">{n}</span>]); return <div className="text-brand-strong">{kids}</div> } // flag
+export function P337({ n }: { n: number }) { const { only } = Children; const child = only(<span>{n}</span>); return <div className="text-brand-strong">{child}</div> } // flag
+export function P338({ n }: { n: number }) { const Children = { only: (child: ReactNode) => (child ? <b>Revenue</b> : null) }; return <div className="text-brand-strong">{Children.only(<span>{n}</span>)}</div> } // clean
+export function P339() { const { toArray: list } = React.Children; return <span className="text-brand-strong">{list(LABELS_161)}</span> } // flag
+export function P340() { const one = Children.only; return <span className="text-brand-strong">{one(<b>Step 2</b>)}</span> } // flag
+export function P341() { return <span className="text-brand-strong">{R.Children.toArray(LABELS_161)}</span> } // flag
+export function P342() { const Kids = Children; return <p>{Kids.map(LABELS_161, (l) => <span key={String(l)} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P343() { const { forEach } = Children; const out: ReactNode[] = []; forEach(LABELS_161, (l) => { out.push(<span key={String(l)} className="text-brand-strong">{l}</span>) }); return <p>{out}</p> } // flag
+export function P344({ n }: { n: number }) { const Kids = Children; const action = Kids.only(<button>See <span className="text-text-secondary-light">{n}</span></button>); return <div className="text-brand-strong">{action}</div> } // flag
+export function P345() { const { only } = Children; const child = only(<b>Revenue</b>); return <div className="text-brand-strong">{child}</div> } // clean
