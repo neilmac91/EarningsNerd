@@ -225,9 +225,11 @@ list included) and the str of a log's body that is not text only after `before_s
   error, the transaction, the check-in, the log and the metric are each sent, as their own kind, with those fields;
   a scan fails, in the backend, any `capture_event` method call (on any receiver: the package, a scope or a client in a
   name) or the function imported from sentry_sdk, any `set_context` of the trace context (by position or by name) and
-  any event or error processor added, each of which could put user data in the fields the hook keeps; a secret overlapping `[Filtered]`, inside it
-  or across its edge, moves the placeholder to `[Withheld]` and appears nowhere in the envelope, and weak secrets that
-  overlap every placeholder fail the options with an error that names no value; and a scrubber that raises sends
+  any event or error processor added (by a call, under an alias or as a decorator), each of which could put user data
+  in the fields the hook keeps; a secret overlapping `[Filtered]` in each of the four ways (inside it, across its end,
+  around it, across its start) moves the placeholder to the first that none overlaps and appears nowhere in the
+  envelope, and weak secrets that overlap every placeholder fail the options with an error that names no value, inside
+  main.py's `try` around its one init, so Sentry stays off and the app starts; and a scrubber that raises sends
   nothing: the error, the check-in, the transaction, the log and the metric are each lost to `callback_error`.
 - **compare_digest.** An AST walk fails any `compare_digest` call in the backend, by its name or a name
   `from hmac|secrets import compare_digest as ...` gives it, whose two arguments are not both bytes by their
@@ -272,7 +274,7 @@ each with its reason:
   header is taken from the scrubbed event. Frame variables stay off whatever the scrubber does: a frame holds values
   in forms it cannot match. Over-redaction is accepted: a secret that equals ordinary text (a weak salt equal to the
   domain) withholds that text; one equal to a protocol word replaces that word everywhere but the fields the hook keeps,
-  in nested fields' names, where colliding names collapse into one `[Filtered]` (a child span loses its `trace_id` and
+  in nested fields' names, where colliding names collapse into one placeholder (a child span loses its `trace_id` and
   timestamps, the trace header its `trace_id`), and in protocol values (a check-in's `in_progress`), so Sentry may
   drop such a span or check-in, though no capture fails; and the public-by-design values the rule names
   (`STRIPE_PUBLISHABLE_KEY`, `POSTHOG_API_KEY`, `SENTRY_DSN`) are withheld too;

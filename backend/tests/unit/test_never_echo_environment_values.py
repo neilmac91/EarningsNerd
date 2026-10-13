@@ -954,12 +954,28 @@ _EVENT_PROCESSORS = {"add_event_processor", "add_error_processor", "add_global_e
 
 
 def _event_processors(tree: ast.Module) -> list[str]:
-    """Each call in the module that adds an event or error processor, on any receiver or as an imported function."""
-    return [
+    """Each place in the module that adds an event or error processor: a call on any receiver, the function imported
+    from sentry_sdk or one of its modules under any name, or a decorator (the SDK's own idiom)."""
+    names = _EVENT_PROCESSORS | {
+        alias.asname or alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "sentry_sdk"
+        for alias in node.names
+        if alias.name in _EVENT_PROCESSORS
+    }
+    calls = [
         ast.unparse(node)
         for node in ast.walk(tree)
-        if isinstance(node, ast.Call) and ast.unparse(node.func).split(".")[-1] in _EVENT_PROCESSORS
+        if isinstance(node, ast.Call) and ast.unparse(node.func).split(".")[-1] in names
     ]
+    decorators = [
+        f"@{ast.unparse(decorator)}"
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        for decorator in node.decorator_list
+        if ast.unparse(decorator).split("(")[0].split(".")[-1] in names
+    ]
+    return calls + decorators
 
 
 def _kept_field_writers(tree: ast.Module) -> list[str]:
@@ -994,6 +1010,8 @@ def test_no_backend_code_writes_the_fields_the_value_scrubber_keeps():
         "import sentry_sdk\nsentry_sdk.set_context(key='trace', value={})",
         "import sentry_sdk\nsentry_sdk.get_current_scope().add_event_processor(rewrite)",
         "from sentry_sdk.scope import add_global_event_processor\nadd_global_event_processor(rewrite)",
+        "from sentry_sdk.scope import add_global_event_processor as hook\nhook(rewrite)",
+        "from sentry_sdk.scope import add_global_event_processor\n@add_global_event_processor\ndef rewrite(event, hint):\n    return event",
         "from app.services.posthog_client import capture_event\ncapture_event(user, event)",
         "scope = get_scope()\nscope.set_context('job', {})",
     ],
@@ -1010,6 +1028,8 @@ def test_no_backend_code_writes_the_fields_the_value_scrubber_keeps():
         "trace-by-keyword",
         "event-processor",
         "global-event-processor",
+        "processor-alias",
+        "processor-decorator",
         "posthog",
         "other-context",
     ],
@@ -1521,19 +1541,29 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request):
     assert [entry["name"] for entry in metrics["items"]] == ["job.failures"]
 
 
-@pytest.mark.parametrize("overlap", ["Filtered", "Filtered] then"], ids=["inside", "edge"])
-def test_no_placeholder_holds_or_forms_a_secret(monkeypatch, request, overlap):
-    # Codex's case on #1297: a weak secret that overlaps the placeholder, inside it (IP_HASH_SALT=Filtered passes every
-    # check) or across its edge, rode inside `[Filtered]` or formed with the text beside it, so a scrubbed event sent
-    # it. The placeholder is the first that no secret overlaps.
+@pytest.mark.parametrize(
+    ("overlap", "text", "sent"),
+    [
+        ("Filtered", "{token} then Filtered", "[Withheld] then [Withheld]"),
+        ("Filtered] then", "{token} then Filtered] then", "[Withheld] then [Withheld]"),
+        ("a" * 20 + "[Filtered]" + "b" * 20, "a" * 20 + "{token}" + "b" * 20, "a" * 20 + "[Withheld]" + "b" * 20),
+        ("c" * 41 + "[", "c" * 41 + "{token}", "c" * 41 + "<Filtered>"),
+    ],
+    ids=["inside", "right-edge", "around", "left-edge"],
+)
+def test_no_placeholder_holds_or_forms_a_secret(monkeypatch, request, overlap, text, sent):
+    # Codex's case on #1297: a weak secret that overlaps the placeholder rode inside `[Filtered]` (IP_HASH_SALT=Filtered
+    # passes every check) or formed where it meets the text beside it. Each of the four ways a secret can overlap one
+    # (inside it, across its end, around it, across its start) moves the placeholder to the first that none overlaps,
+    # and the secret appears nowhere in the envelope.
     import sentry_sdk
 
     token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
     envelopes = _scrubbing_envelopes(request, monkeypatch, INTERNAL_JOB_TOKEN=token, IP_HASH_SALT=overlap)
-    sentry_sdk.capture_message(f"{token} then {overlap}")
+    sentry_sdk.capture_message(text.format(token=token))
     sentry_sdk.flush()
     (event,) = _of(envelopes, "event")
-    assert event["message"] == "[Withheld] then [Withheld]"
+    assert event["message"] == sent
     assert overlap not in json.dumps(envelopes)
 
 
@@ -1548,6 +1578,20 @@ def test_sentry_stays_off_when_every_placeholder_overlaps_a_secret(monkeypatch):
     with pytest.raises(ValueError) as info:
         main._sentry_options()
     assert str(info.value) == "every placeholder overlaps a secret setting's value"
+    tree = ast.parse((BACKEND_DIR / "main.py").read_text(encoding="utf-8"))
+    guarded = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Try)
+        and any(isinstance(handler.type, ast.Name) and handler.type.id == "Exception" for handler in node.handlers)
+        and any(
+            ast.unparse(call) == "sentry_sdk.init(**_sentry_options())"
+            for statement in node.body
+            for call in ast.walk(statement)
+            if isinstance(call, ast.Call)
+        )
+    ]
+    assert guarded  # main.py's one init catches the failure: Sentry stays off, and the app starts
 
 
 def test_the_value_scrubber_reads_the_settings_once_at_startup(monkeypatch, request):

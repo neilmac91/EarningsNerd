@@ -17,7 +17,8 @@ own message quotes its value; it holds no secret). A settings object prints no v
 reported by its error's type, never the parser's message, which can quote the password. Sentry receives no frame's
 local variables, and the `X-Internal-Token` header, every outbound request's query string, the credential keys of a
 request body, each secret setting's whole value and each connection URL's password (8 characters or more; the limits
-are in the lesson) reach it as `[Filtered]`, wherever an error, a transaction, a log or a metric holds them
+are in the lesson) reach it as `[Filtered]` (another placeholder if a weak secret overlaps that one), wherever an
+error, a transaction, a log or a metric holds them
 (`main._sentry_options`). The rules,
 their gates and the echoes not yet gated: `lessons/ops-never-echo-environment-values.md`. To debug a value, read it
 from its source (Secret Manager, `backend/.env`).
