@@ -15,8 +15,9 @@ A literal reaches a user when it is:
 2. a value under a COPY_KEYS key of a dict literal (``{"message": ...}`` in a response body or a stream
    event), or any string inside a ``content=`` dict (a JSONResponse body);
 3. assigned to a name or attribute whose last word says which copy it holds (ROLE_NAME:
-   ``FEEDBACK_RATE_LIMIT_DETAIL``, ``error_message``, ``run.message``), unless the name also says the
-   text is for the model (``RECOVERY_SYSTEM_MESSAGE``);
+   ``FEEDBACK_RATE_LIMIT_DETAIL``, ``error_message``, ``run.message``), or returned by a function so
+   named (``copilot_taste_exhausted_detail``), unless the name also says the text is for the model
+   (``RECOVERY_SYSTEM_MESSAGE``, ``build_system_message``);
 4. a module constant that one of the above names (``detail=SOME_CONSTANT``);
 5. HTML markup, wherever it sits (a closing tag, or a known element whose attributes carry values):
    mail and PDF bodies;
@@ -37,7 +38,8 @@ owner lands, lower EXEMPT_CAP in the same diff, never raise it. Keep the blank l
 groups so two PRs shrinking different groups merge cleanly.
 
 Limits (review, not this walk): copy assembled outside these six shapes in a module that is not a
-document module, such as a positional constructor argument or a list element (two such strings carry
+document module, such as a positional constructor argument, a list element or a local without a role
+word handed on by name (``x = "..."`` then ``detail=x``; two such strings carry
 an em-dash today: the ADS-ratio sources in edgar/ads_ratios.py and the issuer cash-flow table header in
 ai/issuer_cash_disclosure.py); casing below <h2>; and claims, which brandCopyRules.spec.ts reads.
 """
@@ -176,6 +178,7 @@ class _Reader(ast.NodeVisitor):
         self.reached: set[int] = set()
         self.literals: list[tuple[ast.AST, str]] = []
         self._scope: list[str] = []
+        self._functions: list[str] = []
         self.visit(tree)
 
     @staticmethod
@@ -227,13 +230,24 @@ class _Reader(ast.NodeVisitor):
         elif isinstance(expr, ast.Name) and expr.id in self.constants and expr.id not in seen:
             self._reach(self.constants[expr.id], seen | {expr.id})
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self._scope.append(node.name)
         self.generic_visit(node)
         self._scope.pop()
 
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self._functions.append(node.name)  # the innermost one decides what a ``return`` hands back
+        self._scope.append(node.name)
+        self.generic_visit(node)
+        self._scope.pop()
+        self._functions.pop()
+
     visit_AsyncFunctionDef = visit_FunctionDef  # type: ignore[assignment]
-    visit_ClassDef = visit_FunctionDef  # type: ignore[assignment]
+
+    def visit_Return(self, node: ast.Return) -> None:
+        if self._functions and _names_copy(self._functions[-1]):
+            self._reach(node.value)
+        self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
         for keyword in node.keywords:
@@ -252,7 +266,7 @@ class _Reader(ast.NodeVisitor):
     def _assigned(self, targets: list[ast.expr], value: Optional[ast.AST]) -> None:
         for target in targets:
             name = target.id if isinstance(target, ast.Name) else target.attr if isinstance(target, ast.Attribute) else ""
-            if name and ROLE_NAME.search(name) and not MODEL_FACING_NAME.search(name):
+            if name and _names_copy(name):
                 self._reach(value)
 
     def visit_Assign(self, node: ast.Assign) -> None:
@@ -277,6 +291,11 @@ class _Reader(ast.NodeVisitor):
         for part in node.values:  # the constant parts belong to this literal; read only the interpolations
             if isinstance(part, ast.FormattedValue):
                 self.visit(part.value)
+
+
+def _names_copy(name: str) -> bool:
+    """A name whose last word says which copy it holds, and that does not say the text is for the model."""
+    return bool(ROLE_NAME.search(name)) and not MODEL_FACING_NAME.search(name)
 
 
 def _call_name(node: ast.Call) -> str:
@@ -376,6 +395,16 @@ def route(n, run):
     page = '<p style="color:#6B7280">Hi there</p><h2>Thank You for Writing</h2><h2>Welcome to EarningsNerd</h2>'
     fine = '<!-- note --><style>p {color: red !important}</style><p>a != b</p>'
     return JSONResponse(content={"success": False, "reason": "Oops — no", "message": "Saved ✨", "empty": "—"})
+
+
+def taste_detail(n):
+    def fallback():
+        return "Inner — not a detail"
+    return f"You have used {n} questions!"
+
+
+def build_system_message(n):
+    return "Plan — answer as JSON!"
 '''
 
 _PAGE = '<p style="color:#6B7280">Hi there</p><h2>Thank You for Writing</h2><h2>Welcome to EarningsNerd</h2>'
@@ -391,6 +420,7 @@ _PROBE_BREAKS = {
     ("Title Case <h2>", _PAGE),
     ("em-dash", "Oops — no"),
     ("emoji", "Saved ✨"),
+    ("exclamation mark", "You have used {} questions!"),
 }
 
 
@@ -399,6 +429,7 @@ def test_the_reader_sees_each_shape_and_lets_the_rest_through():
     assert {(b.rule, b.text) for b in found} == _PROBE_BREAKS
     assert [b.line for b in found if b.text == "Slow down!"] == [7]  # the constant's own line, not its use
     assert {b.scope for b in found if b.text == "Gone!"} == {"route"}
+    assert {b.scope for b in found if b.text.startswith("You have used")} == {"taste_detail"}
 
     # In a document module every literal is text, so the plain ones count too; docstrings, logging and
     # patterns still do not.
@@ -407,6 +438,9 @@ def test_the_reader_sees_each_shape_and_lets_the_rest_through():
         ("em-dash", "a — b"),
         ("em-dash", "<a short quote — never reword>"),
         ("em-dash", "Fill the gaps — return JSON."),
+        ("em-dash", "Inner — not a detail"),
+        ("em-dash", "Plan — answer as JSON!"),
+        ("exclamation mark", "Plan — answer as JSON!"),
     }
 
 

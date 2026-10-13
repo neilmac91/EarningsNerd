@@ -5,18 +5,21 @@ Copilot rail and the analysis page, the summary paywall card, the verify-your-em
 lib/api/client.ts opens. Until an error code replaces the matching (tasks/todo.md), a copy edit on either
 side can switch that UI off. The frontend spec holds both sides, but only in the frontend job; this test
 runs the same tables in pytest, so a backend-only edit fails the local backend gate (ruff, bandit, pytest)
-before it reaches CI. It was written against the spec on PR #1288 (brand-copy-gates):
+before it reaches CI. It follows the spec on PR #1288 (brand-copy-gates) at 31488948, and reads the way
+that spec reads: docstrings skipped, every literal test inside a matcher function a phrase.
 
 1. Every phrase a MATCHERS function tests for occurs in a string literal of a file that writes the
-   message, unless UNSOURCED lists it with its reason (shrink-only). This is the spec's first clause with
-   the same MATCHERS, BACKEND and UNSOURCED tables; the phrases are read from the TypeScript source with
-   comments, strings and regex literals tokenised, so a commented-out test reads as nothing.
+   message, unless UNSOURCED lists it with its reason (shrink-only, capped at UNSOURCED_MAX). This is the
+   spec's first clause with the same MATCHERS, BACKEND and UNSOURCED tables; the phrases are read from the
+   TypeScript source with comments, strings and regex literals tokenised, so a commented-out test reads as
+   nothing.
 2. Each message in ROUTED, a backend site whose words a matcher has to catch, carries at least one of that
    matcher's phrases, with module constants such as ``_UPGRADE_HINT`` interpolated. The spec cannot see
    this case: when dependencies.py stops saying "Upgrade to Pro", analysis.py and summaries.py still write
    the phrase, so clause 1 stays green while the Copilot rail's taste-exhausted detail routes to Retry.
-3. When the spec is on the branch, its MATCHERS, BACKEND and UNSOURCED tables equal these, so the twins
-   cannot drift. Until #1288 merges the spec is absent and this one case skips with that reason.
+3. When the spec is on the branch, its MATCHERS, BACKEND and UNSOURCED tables and its UNSOURCED_MAX equal
+   these, so the twins cannot drift. Until #1288 merges the spec is absent and this one case skips with
+   that reason.
 """
 import ast
 import re
@@ -36,7 +39,6 @@ BACKEND = {
     "summaries": "backend/app/routers/summaries.py",
     "analysis": "backend/app/routers/analysis.py",
     "subscriptions": "backend/app/routers/subscriptions.py",
-    "auth": "backend/app/routers/auth.py",
 }
 
 
@@ -55,8 +57,7 @@ MATCHERS = (
     Matcher("features/summaries/api/summaries-api.ts", "isPaywallStreamError",
             (BACKEND["admission"], BACKEND["dependencies"], BACKEND["summaries"]), ()),
     Matcher("features/summaries/api/summaries-api.ts", "isNonRetryableStreamError",
-            (BACKEND["summaries"], BACKEND["admission"], BACKEND["auth"]),
-            ("features/summaries/api/summaries-api.ts", "features/summaries/hooks/useSummaryGeneration.ts")),
+            (BACKEND["summaries"], BACKEND["admission"]), ("features/summaries/api/summaries-api.ts",)),
     Matcher("features/filings/api/copilot-api.ts", "isCopilotPaywallError",
             (BACKEND["dependencies"], BACKEND["summaries"]), ("features/filings/api/copilot-api.ts",)),
     Matcher("features/analysis/api/analysis-api.ts", "isAnalysisPaywallError",
@@ -70,7 +71,12 @@ UNSOURCED = {
         "no message says it: the Copilot cap's 429 says \"fair-use limit\" (routers/summaries.py), which "
         "this matcher does not read; the matcher's owner (brand-copilot, ASK-07) decides"
     ),
+    "isNonRetryableStreamError sign in": (
+        "no message on the summary stream says it: its 401 reads \"Authentication error occurred.\" (matched by "
+        "\"authentication\"); the matcher's logic is E18's (an error code field), never the brand sweep's"
+    ),
 }
+UNSOURCED_MAX = 2
 
 
 @dataclass(frozen=True)
@@ -246,15 +252,15 @@ class Phrase:
 
 
 def phrases(matcher: Matcher, read: Reader = _read_repo) -> list[Phrase]:
-    """The phrases a matcher tests for (with a function: its includes and regex tests; without: the module's
-    regex ``.test()`` calls), as the spec reads them."""
+    """The phrases a matcher tests for (with a function: every literal test in it, includes, startsWith,
+    endsWith and regex alike; without: the module's regex ``.test()`` calls), as the spec reads them."""
     literals, masked = _ts_literals(read(f"frontend/{matcher.file}"))
     span = _function_span(masked, matcher.fn) if matcher.fn else (0, len(masked))
     out: list[Phrase] = []
     for literal, kind in _literal_tests(literals, masked):
         if not span[0] <= literal.start < span[1]:
             continue
-        if (matcher.fn and (kind == "includes" or literal.kind == "re")) or (not matcher.fn and kind == "test"):
+        if matcher.fn or kind == "test":
             out.append(Phrase(literal.text, literal.kind == "re"))
     return out
 
@@ -279,13 +285,28 @@ def _module_constants(tree: ast.Module) -> dict[str, ast.expr]:
     return constants
 
 
+def _docstrings(tree: ast.Module) -> set[int]:
+    """The literal that opens the first statement of the module or of a ``def`` or ``class`` body, as the
+    spec's pythonStrings skips it: it documents the code, it is never a message."""
+    skip: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and node.body:
+            first = node.body[0]
+            if isinstance(first, ast.Expr) and isinstance(first.value, (ast.Constant, ast.JoinedStr)):
+                skip.add(id(first.value))
+    return skip
+
+
 def python_strings(source: str) -> list[str]:
     """Every string literal in a module (adjacent literals already joined by the parser; an f-string's
-    interpolations read as ``{}``), docstrings included, as the spec's pythonStrings reads them."""
+    interpolations read as ``{}``), docstrings skipped, as the spec's pythonStrings reads them."""
     tree = ast.parse(source)
     parts = {id(part) for node in ast.walk(tree) if isinstance(node, ast.JoinedStr) for part in node.values}
+    skip = _docstrings(tree)
     out: list[str] = []
     for node in ast.walk(tree):
+        if id(node) in skip:
+            continue
         if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in parts:
             out.append(node.value)
         elif isinstance(node, ast.JoinedStr):
@@ -415,14 +436,33 @@ const fallback = `Monthly limit ${n} reached`
     files = {"frontend/probe.ts": probe}
     read = files.__getitem__
     matcher = Matcher("probe.ts", "isProbeError", (), ())
-    assert phrases(matcher, read) == [Phrase("pro feature", False), Phrase("fair-use\\s+limit", True)]
+    assert phrases(matcher, read) == [
+        Phrase("pro feature", False), Phrase("fair-use\\s+limit", True), Phrase("data:", False),
+    ]
     assert frontend_strings("probe.ts", read) == ["http://x", "", "Monthly limit   reached"]
     assert python_strings('x = ("a "  # note\n     f"b {y}")\n# "not a string"\n') == ["a b {}"]
+    # Docstrings document code, never a message; a literal that opens any other statement is kept (the
+    # spec's own probe, line for line).
+    docstrings = "\n".join([
+        '"""Module docstring: sign in."""',
+        "class Gate(Base):",
+        '    """Class docstring."""',
+        "    async def check(",
+        "        self, user: User,",
+        "    ) -> None:",
+        "        '''Method docstring.'''",
+        '        raise HTTPException(status_code=401, detail="Please sign in.")',
+        "def bare():",
+        '    "Function docstring."',
+        '"""A later bare literal is no docstring."""',
+    ])
+    assert sorted(python_strings(docstrings)) == ["A later bare literal is no docstring.", "Please sign in."]
 
 
 def test_every_phrase_the_frontend_routes_on_is_written():
     missing, used = unsourced()
     assert not missing, "Keep the phrase in the message (backend and frontend together), or change the matcher:\n" + "\n".join(missing)
+    assert len(UNSOURCED) <= UNSOURCED_MAX, f"UNSOURCED gained an entry ({len(UNSOURCED)}, cap {UNSOURCED_MAX})"
     stale = sorted(set(UNSOURCED) - used)
     assert not stale, f"Written again or gone from its matcher: delete it from UNSOURCED: {stale}"
 
@@ -448,8 +488,9 @@ def test_a_reword_in_one_module_fails_even_while_another_still_writes_the_phrase
     assert any("copilot_taste_exhausted_detail" in failure and "upgrade to pro" in failure for failure in failures)
 
 
-def _spec_tables(source: str) -> tuple[dict[str, str], set[Matcher], set[str]]:
-    """BACKEND, MATCHERS and UNSOURCED as the frontend spec declares them; unreadable fails loudly."""
+def _spec_tables(source: str) -> tuple[dict[str, str], set[Matcher], set[str], Optional[int]]:
+    """BACKEND, MATCHERS, UNSOURCED and UNSOURCED_MAX as the frontend spec declares them; unreadable fails
+    loudly."""
     literals, masked = _ts_literals(source)
 
     def block(name: str, opener: str, closer: str) -> tuple[int, int]:
@@ -492,14 +533,16 @@ def _spec_tables(source: str) -> tuple[dict[str, str], set[Matcher], set[str]]:
     start, end = block("UNSOURCED", "{", "}")
     key_spots = [m.start() for m in re.finditer(r"['\"]\s*:", masked[start:end])]
     keys_found = {lit.text for lit in strings_in(start, end) if any(lit.end - 1 == start + s for s in key_spots)}
-    return backend, matchers, keys_found
+    cap = re.search(r"\bconst UNSOURCED_MAX\s*=\s*(\d+)", masked)
+    return backend, matchers, keys_found, int(cap.group(1)) if cap else None
 
 
 def test_the_twins_share_their_tables():
     if not SPEC.exists():
         pytest.skip("frontend/tests/unit/backendMessageMatches.spec.ts lands with #1288; this case holds the twins together after it")
-    backend, matchers, unsourced_keys = _spec_tables(SPEC.read_text(encoding="utf-8"))
+    backend, matchers, unsourced_keys, cap = _spec_tables(SPEC.read_text(encoding="utf-8"))
     ours = {Matcher(m.file, m.fn, tuple(sorted(m.backend)), tuple(sorted(m.frontend))) for m in MATCHERS}
     assert backend == BACKEND, "BACKEND differs from the frontend spec's"
     assert matchers == ours, f"MATCHERS differs from the frontend spec's:\nspec only {matchers - ours}\nhere only {ours - matchers}"
     assert unsourced_keys == set(UNSOURCED), "UNSOURCED differs from the frontend spec's"
+    assert cap == UNSOURCED_MAX, f"UNSOURCED_MAX differs from the frontend spec's ({cap})"
