@@ -22,7 +22,12 @@
                                      (openpyxl can't rasterize SVG)
      public/assets/earningsnerd-mark-sage.png
                                      the same raster, served at a fixed URL for
-                                     transactional email (clients drop inline SVG)
+                                     light surfaces that cannot render SVG
+     public/assets/earningsnerd-appicon.png
+                                     128×128 app tile, the transactional mail
+                                     header's mark, served at a fixed URL (clients
+                                     drop inline SVG; the tile keeps its own
+                                     ground where a mail app darkens the message)
 
    Run: npm run brand:assets
    Requires devDeps sharp + png-to-ico + playwright. If playwright's managed
@@ -105,13 +110,22 @@ async function main() {
   await fs.writeFile(path.join(backendBrand, 'earningsnerd-mark.png'), sageMark)
   console.log('✓ backend/app/assets/brand/earningsnerd-mark.png (256w, transparent)')
 
-  // The same raster served at a fixed URL (/assets/earningsnerd-mark-sage.png) for surfaces that
-  // cannot render SVG and have no access to the repository: transactional email. Gmail and
-  // Outlook drop inline SVG, so the mail header's lockup (docs/brand/templates/email-header.html,
-  // ported into email_service.py by its own PR) will carry this PNG beside the text wordmark.
-  // One buffer, two paths: the two files are byte-identical by construction.
+  // The same raster served at a fixed URL (/assets/earningsnerd-mark-sage.png) for light surfaces
+  // that cannot render SVG and have no access to the repository. One buffer, two paths: the two
+  // files are byte-identical by construction.
   await fs.writeFile(path.join(assets, 'earningsnerd-mark-sage.png'), sageMark)
-  console.log('✓ assets/earningsnerd-mark-sage.png (256w, transparent, served for email)')
+  console.log('✓ assets/earningsnerd-mark-sage.png (256w, transparent, served at a fixed URL)')
+
+  // The app tile served at a fixed URL (/assets/earningsnerd-appicon.png) for the transactional
+  // mail header (docs/brand/templates/email-header.html, ported into email_service.py by its own
+  // PR). Gmail and Outlook drop inline SVG, and the mail apps that darken a light-only message
+  // leave its images alone, so the header carries the self-backgrounded tile, not the bare mark:
+  // the tile keeps its cream-on-sage contrast on any ground. 128 px, 4× the 32 px it is shown at.
+  await fs.writeFile(
+    path.join(assets, 'earningsnerd-appicon.png'),
+    await sharp(appiconSvg, { density: 300 }).resize(128, 128).png().toBuffer(),
+  )
+  console.log("✓ assets/earningsnerd-appicon.png (128, the mail header's tile)")
 
   // og-image — deterministic Playwright render of the committed template
   const browser = await chromium.launch(

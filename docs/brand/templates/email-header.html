@@ -7,24 +7,25 @@
   wordmark. This block is what its first row would become (lockup, hairline, marked tagline) and
   the line its footer row would carry. Port the markup into _wrap_html; do not link this file.
 
-  Client notes. Gmail and Outlook drop inline SVG: the mark is wrapped so Outlook skips it, and
-  where it is dropped the text wordmark carries the brand alone. The port carries the hosted raster
-  as an <img> in place of this <svg>: /assets/earningsnerd-mark-sage.png (256 px wide, transparent,
-  the same bytes as the Excel export's mark; frontend/scripts/generate-brand-assets.mjs writes
-  both). Build its address from settings.FRONTEND_URL, as the mail's links are built. Sent mail
-  keeps the whole address, so the origin is published along with the path: use the origin that
-  answers without a redirect (https://www.earningsnerd.io today; the apex answers 307 to it) and
-  keep it answering. FRONTEND_URL defaults to the apex (backend/app/config.py), so production's
+  Client notes. The header's mark is the app tile (earningsnerd-appicon.svg, the cream mark on a
+  sage squircle), not the bare mark (D-035). Gmail's and Outlook's apps darken a light-only message,
+  recolouring its text but leaving its images alone, so the bare sage mark on transparent would fall
+  from 5.9:1 on this cream to about 2.5:1 on their dark grey; the tile brings its own ground, and
+  its mark keeps 4.4:1 on either. Gmail and Outlook also drop inline SVG, so this preview's svg sits
+  in a cell wrapped for Outlook to skip; the port puts the hosted raster in its place and drops that
+  [if !mso] conditional, since Outlook shows a PNG:
+    <img src="{settings.FRONTEND_URL}/assets/earningsnerd-appicon.png" width="32" height="32"
+      alt="" style="display:block;border:0;">
+  The raster is 128 px square, written from the SVG by frontend/scripts/generate-brand-assets.mjs.
+  Its alt is empty because the text wordmark beside it names the brand, and carries it alone where
+  images are blocked. Build the address from settings.FRONTEND_URL, as the mail's links are built.
+  Sent mail keeps the whole address, so the origin is published along with the path: use the origin
+  that answers without a redirect (https://www.earningsnerd.io today; the apex answers 307 to it)
+  and keep it answering. FRONTEND_URL defaults to the apex (backend/app/config.py), so production's
   value is confirmed before the port deploys (tasks/todo.md F26). The path never moves
-  (frontend/public/assets/LOGO_README.md; frontend/tests/unit/publishedAssetUrls.spec.ts).
-  Dark mode: Gmail's and Outlook's apps darken a light-only message but leave its images alone, so
-  the sage mark on transparent falls from 5.9:1 on this cream to about 2.5:1 on their dark grey,
-  while the text wordmark beside it is recoloured and stays legible. The self-backgrounded app tile
-  (earningsnerd-appicon.svg, a cream mark on a sage squircle) holds on both. Carrying it means a
-  raster of the tile under /assets/, written by the brand pipeline beside the mark's and added to
-  the spec's register, not the PWA's /icons/icon-192.png: the waitlist gate does not pass /icons,
-  and the manifest is free to change its icons. Which one the header carries is the founder's
-  call (F26).
+  (frontend/public/assets/LOGO_README.md; frontend/tests/unit/publishedAssetUrls.spec.ts). It is a
+  raster under /assets/, not the PWA's /icons/icon-192.png: the waitlist gate does not pass /icons,
+  and the manifest is free to change its icons.
   The @font-face rule points at the repository's Inter for this preview only (the email uses no
   data face); a sent email falls back through the inline font stacks. The highlight under "shows its work" is two nested spans:
   the outer span's own font box is the lower 38% of the tagline's line box (tint, with the 2px
@@ -59,11 +60,14 @@
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <!--[if !mso]><!-->
-                  <td style="vertical-align:middle;padding:0;line-height:0;">
-                    <svg width="39" height="30" viewBox="0 0 94.6 73.2" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block;margin-right:10px;">
-                      <g transform="translate(0,-14.8)">
-                        <path d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z" fill="#3C6650"></path>
-                        <g transform="translate(0.92,6.98) scale(0.9193)"><path d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z" fill="#3C6650"></path><path d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z" fill="#3C6650"></path></g>
+                  <td style="vertical-align:middle;padding:0 10px 0 0;line-height:0;">
+                    <svg width="32" height="32" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block;">
+                      <path d="M50 0C13 0 0 13 0 50C0 87 13 100 50 100C87 100 100 87 100 50C100 13 87 0 50 0Z" fill="#4F7A63"></path>
+                      <g transform="translate(16,23.7) scale(0.7188)">
+                        <g transform="translate(0,-14.8)">
+                          <path d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z" fill="#F4F3EE"></path>
+                          <g transform="translate(0.92,6.98) scale(0.9193)"><path d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z" fill="#F4F3EE"></path><path d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z" fill="#F4F3EE"></path></g>
+                        </g>
                       </g>
                     </svg>
                   </td>

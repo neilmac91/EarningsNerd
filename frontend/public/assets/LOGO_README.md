@@ -7,7 +7,7 @@ The mark is the letters **E + N** with the N's final stroke rising into an arrow
 
 | File | Use |
 |------|-----|
-| `earningsnerd-appicon.svg` | The app tile: sage `#4F7A63` squircle + cream mark. Source for favicon.ico, PWA icons, and the SVG favicon (self-backgrounded — legible on light AND dark tab chrome). |
+| `earningsnerd-appicon.svg` | The app tile: sage `#4F7A63` squircle + cream mark. Source for favicon.ico, PWA icons, the SVG favicon and `earningsnerd-appicon.png` (self-backgrounded — legible on light AND dark tab chrome). |
 | `earningsnerd-icon-light.svg` | Bare mark in `#3C6650` (brand.strong) — light surfaces. |
 | `earningsnerd-icon-dark.svg` | Bare mark in `#7FB295` (brand.dark) — navy surfaces. |
 | `earningsnerd-logo-light.svg` | Full lockup: mark + wordmark ("Earnings" ink `#1A1A17`, italic "Nerd" `#3C6650`) — light surfaces. |
@@ -21,7 +21,8 @@ The mark is the letters **E + N** with the N's final stroke rising into an arrow
 | `earningsnerd-logo-stacked-dark.svg` | Stacked lockup for navy. |
 | `earningsnerd-logo-stacked-mono.svg` | Stacked lockup in `currentColor`. |
 | `earningsnerd-mask-icon.svg` | Safari pinned-tab mask: the mark letterboxed in a square, black on transparent (Safari recolours it; `app/layout.tsx` declares it with the sage colour). |
-| `earningsnerd-mark-sage.png` | The sage mark rasterized at 256 px wide on transparent, byte-identical to the backend's Excel raster. Served at `/assets/earningsnerd-mark-sage.png` for transactional email, whose clients drop inline SVG; generated, never edited, and a published URL (see Rules). |
+| `earningsnerd-mark-sage.png` | The sage mark rasterized at 256 px wide on transparent, byte-identical to the backend's Excel raster. Served at `/assets/earningsnerd-mark-sage.png` for light surfaces that cannot render SVG; generated, never edited, and a published URL (see Rules). |
+| `earningsnerd-appicon.png` | The app tile rasterized at 128 px square, transparent outside the squircle. Served at `/assets/earningsnerd-appicon.png` for the transactional mail header, which shows it at 32 px beside the text wordmark: mail clients drop inline SVG, and the apps that darken a message leave its images alone, so the mark comes on its own ground; generated, never edited, and a published URL (see Rules). |
 
 ## In-app usage
 
@@ -44,9 +45,10 @@ Never inline the mark by hand — compose the components:
 committed binaries from this directory: `favicon.ico`, `apple-touch-icon.png`
 (180, full-bleed — Apple applies its own corner mask), `icons/icon-{192,512}.png`
 (+ `-maskable` full-bleed variants, mark at 0.62 for the r=40% safe zone),
-`og-image.png` (deterministic Playwright render with the committed Inter woff2), and the
-sage mark raster, written twice from one buffer: `assets/earningsnerd-mark-sage.png` (served
-at a fixed URL for mail) and `backend/app/assets/brand/earningsnerd-mark.png` (embedded in the
+`og-image.png` (deterministic Playwright render with the committed Inter woff2),
+`assets/earningsnerd-appicon.png` (the tile at 128 px, served at a fixed URL for the mail header),
+and the sage mark raster, written twice from one buffer: `assets/earningsnerd-mark-sage.png`
+(served at a fixed URL) and `backend/app/assets/brand/earningsnerd-mark.png` (embedded in the
 Excel export).
 
 ## Rules
@@ -69,19 +71,21 @@ Excel export).
   and the mark survives). Evidence: `docs/brand/05-mark.md`.
 - **Published URLs stay put.** A path that sent mail references is published: a message keeps its
   image addresses for as long as it is kept, and nobody can edit it after sending. The first is
-  `/assets/earningsnerd-mark-sage.png`, the mark in the transactional mail header once that
-  header's port ships. Each file stays at its path for good and stays served: never rename, move
-  or remove it, never redirect its path, and keep it the same image (regenerating it from the same
-  source is fine); a new rendition takes a new name. Mail addresses these paths on the origin that
-  answers without a redirect (`https://www.earningsnerd.io`), so that origin keeps serving them
-  without one. A change that puts a new asset path in mail adds it to the register in the same PR.
-  Gate: `frontend/tests/unit/publishedAssetUrls.spec.ts`, the register, checks that each file is
-  present (a PNG where it is one) and that `middleware.ts` passes it in both waitlist modes; a
-  redirect or rewrite in `next.config.js` or `vercel.json`, the origin, and the image itself are
-  review-checked.
+  `/assets/earningsnerd-appicon.png`, the app tile in the transactional mail header once that
+  header's port ships; `/assets/earningsnerd-mark-sage.png`, the bare mark's raster, is served for
+  light surfaces that cannot render SVG and is held to the same rule. Each file stays at its path
+  for good and stays served: never rename, move or remove it, never redirect its path, and keep it
+  the same image (regenerating it from the same source is fine); a new rendition takes a new name.
+  Mail addresses these paths on the origin that answers without a redirect
+  (`https://www.earningsnerd.io`), so that origin keeps serving them without one. A change that puts
+  a new asset path in mail adds it to the register in the same PR. Gate:
+  `frontend/tests/unit/publishedAssetUrls.spec.ts`, the register, checks that each file is present
+  (a PNG where it is one) and that `middleware.ts` passes it in both waitlist modes; a redirect or
+  rewrite in `next.config.js` or `vercel.json`, the origin, and the image itself are review-checked.
 - **Where it goes.** The mark sits top-left on every surface the brand owns (the site header, the
-  OG card, the PDF masthead, the email shell, the business card front); the stacked lockup is for
-  square placements; never centre the horizontal lockup as a hero.
+  OG card, the PDF masthead, the email shell, the business card front); the email shell carries it
+  as the app tile, which brings its own ground into mail apps that darken a message; the stacked
+  lockup is for square placements; never centre the horizontal lockup as a hero.
 - **Misuse.** Never on a photograph, never recoloured outside this table, never with a drop shadow,
   outline or gradient, never rotated, never with the arrow pointing anywhere but up-right, never
   beside a competitor's mark at a different size.
