@@ -2,7 +2,7 @@
 
 Date: 2026-10-10 · Scope: `/analysis` results surface (KPI strip, Sources & methods, charts, narrative,
 metrics table, period picker) and the PDF, Excel and PNG exports that mirror it · Status: the five original §9
-decisions are taken (2026-10-10), the amended decision 4 and decisions 6–9 await the founder's confirmation; Phase 1 items 1–10 and 11 of §7 are merged (#1199, #1200, #1202, #1203, #1206) and Phase 2 in #1225 (the status note under §7's Phase 2 says where it departs from the brief and what stays open);
+decisions are taken (2026-10-10); amended decision 4 and decisions 6–9 were adopted on 2026-10-11 under the founder's delegation to Astra's recommendation; Phase 1 items 1–10 and 11 of §7 are merged (#1199, #1200, #1202, #1203, #1206) and Phase 2 in #1225 (the status note under §7's Phase 2 says where it departs from the brief and what stays open);
 the follow-ups in §11 are open; this document itself ships nothing · Support
 material:
 [`tasks/analysis-redesign-2026-10/`](../../tasks/analysis-redesign-2026-10/README.md) (runnable
@@ -701,10 +701,10 @@ operational action and is not part of this brief.
    caption. Update `metrics-table.spec.tsx`.
 6. **`SourceValue.tsx`** (M; partly landed in #1203: the display form, the stored value, the bound
    operands, the comparison block and the lineage copy; the status vocabulary of decision 9, "Unavailable"
-   for "Withheld", waits on that decision's confirmation): display form, the stored value, the formula with
+   for "Withheld", authorized by the 2026-10-11 decision): display form, the stored value, the formula with
    its operands bound by concept, the status vocabulary, the comparison block, the lineage block with the
    absent-lineage copy; never a storage unit (§4.6). Leftovers on `main`: `review-2026-10-10.md` items 1
-   and 13, item 28's "As stored" label, and the paused vocabulary (item 16 and the rest of 28 are satisfied
+   and 13, item 28's "As stored" label, and the authorized vocabulary follow-up (item 16 and the rest of 28 are satisfied
    there).
 7. **`NarrativePane.tsx`** (M; partly landed in #1203: the render-time compaction, the evidence fold, the
    header chips and the Sources lines; `main` folds every operand list and its summary names only the count,
@@ -714,20 +714,20 @@ operational action and is not part of this brief.
    the markers name; header chips; Sources list lines. Update `narrative-pane.spec.tsx`. Leftovers on
    `main`: `review-2026-10-10.md` items 2 and 11.
 8. **`TrendCharts.tsx`** (S; partly landed in #1203: the hollow markers with their letters, the chip and
-   the PNG notes; the filled affected bars wait on decision 7's confirmation, and `main` still draws a
+   the PNG notes; filled affected bars are authorized by decision 7 (2026-10-11), and `main` still draws a
    dashed outline): `dot` render for hollow markers with the letter above,
    affected bars keeping their fill with the letter above (never a dashed outline: §4.7, decision 7),
    letters in the chart label ink as SVG attributes from the chart theme, "Notes a" chip, PNG note
    sentences from `groupDataNotes`. Leftovers on `main`: `review-2026-10-10.md` items 25 and 29 (29 is
-   the filled affected bar, paused under decision 7; item 22's label ink is satisfied there). Update
+   the filled affected bar, authorized under decision 7; item 22's label ink is satisfied there). Update
    `trend-charts-annotation.spec.tsx`, `trend-charts-legend.spec.tsx` (it owns the warning and PNG
    metadata assertions) and `chart-export.spec.ts`.
 9. **`PeriodPicker.tsx`** (M; partly landed in #1203 as a rule-6 contract change: the `SegmentedControl`,
-   the From/To selects and the summary line; presets as plain buttons wait on decision 8's confirmation,
+   the From/To selects and the summary line; plain preset buttons are authorized by decision 8 (2026-10-11),
    and `main` still renders an `aria-pressed` group): `SegmentedControl`, presets as
    plain buttons, From/To selects with the announced clamp, summary line (§4.9); `chipsFor`/`nextRange`
    become option builders. Update `period-picker-helpers.spec.ts`. Leftovers on `main`:
-   `review-2026-10-10.md` item 19, which carries the paused presets.
+   `review-2026-10-10.md` item 19, which carries the authorized preset follow-up.
    `SegmentedControl` has no unavailable-option API today and the picker disables Quarterly when a
    company has no quarterly coverage: add an `aria-disabled` option (early return in the handler, the
    DS unavailable recipe, never native `disabled`) so that state survives the migration. Note the Run
@@ -920,8 +920,12 @@ Taken on 2026-10-10: the founder aligned with all five recommendations below ("r
 founder - i'm aligned with your recommendations"). They are recorded here and in
 `tasks/analysis-redesign-2026-10/astra-prompt.md`, the hand-over prompt for the implementing agent.
 The amendment to decision 4 and decisions 6–9, under "Amended and added by the comprehensive review"
-below, are not yet confirmed: each is a founder pause until confirmed in writing (the hand-over says so,
-and the Engineering row in `tasks/todo.md` does not pre-authorize them).
+below, were adopted on 2026-10-11 under the founder's open-items-sweep instruction: "I will go with
+the Astra agent’s expert recommend for all points above." The recommendation is to adopt all five:
+text-relative stacking prevents the measured 200%-text overflow; the glyph budget keeps columns
+readable while exact values remain available; filled bars avoid implying estimates; plain presets
+avoid a second competing selection state; and neutral status copy avoids promising substantive
+verification. Implementation and its measurement gates remain separate from this decision.
 
 1. Letters (a, b, c) as the note mark, or one warning glyph for all notes. Recommended: letters.
 2. `scroll-snap-type: x mandatory` (every rest position whole columns) or `proximity` (gentler
@@ -933,12 +937,26 @@ and the Engineering row in `tasks/todo.md` does not pre-authorize them).
 5. Whether the table window should also drive the charts. Recommended: no.
 
 **Amended and added by the comprehensive review (2026-10-10, evening).** Each is implemented in the
-prototype as recommended; the founder may overrule any of them. On `main` at `dd7b9ce` (2026-10-11):
-decision 6 is shipped (#1202) and stands pending ratification, so overruling it is a rollback follow-up;
-the amended 4, 7, 8 and 9 are not shipped (`TrendCharts.tsx` still draws an affected bar as a dashed
-outline, `PeriodPicker.tsx`'s presets are still an `aria-pressed` group, `SourceValue.tsx` still says
-"Withheld" and `DataNotes.tsx` still counts figures that "passed"), so the implementation pause applies to
-those four.
+prototype as recommended; the founder may overrule any of them. Historical release checkpoint:
+on `main` at `dd7b9ce` (2026-10-11), decision 6 was merged in #1202 and was ratified by the
+2026-10-11 sweep; amended 4 and decisions 7, 8 and 9 still awaited implementation. That dated
+checkpoint does not describe later implementation branches. Branch updates below record code
+available for review, separately from a verified merge and deployment.
+
+**Branch implementation (2026-10-12).** Decision 9 is implemented on this branch in #1264: evidence dialogs say "Unavailable" and
+clean reports say "No figures need review", independently of comparison concerns. Merge and
+deployment verification remain pending.
+
+**Branch implementation (2026-10-12).** Decision 4 (amended) is implemented on this branch in #1273:
+the KPI cards remain two-up at ordinary phone text and become one-up below 17 em of their own
+text size. Merge and deployment verification for this geometry change remain pending.
+
+**Branch implementation (2026-10-12).** Decision 7 is implemented on this branch in #1274: affected bars retain their series fill
+and carry the note letter above, with SVG/PNG halos. Merge and deployment verification
+remain pending.
+
+**Branch implementation (2026-10-12).** Decision 8 is implemented on this branch in #1275: recent-period presets are plain buttons
+without a second pressed selection state. Merge and deployment verification remain pending.
 
 4 (amended). Decision 4 was measured at 100% text only. At 200% text a 390 px phone shows 55 px of
    card overflow two-up and 90 px at 320. Recommended and implemented: two-up stays at 320 px and 100%

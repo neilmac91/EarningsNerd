@@ -310,12 +310,12 @@ export default function AnalysisPageClient() {
 
   return (
     // The page's one <main> landmark (the root layout's #main is a non-landmark skip-link target).
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 [@container(max-width:13em)]:px-2">
       <Suspense fallback={null}>
         <LinkedTicker onChange={followLink} />
       </Suspense>
       <header className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Multi-Period Analysis
           </h1>
@@ -327,13 +327,13 @@ export default function AnalysisPageClient() {
         </p>
       </header>
 
-      <Card className="p-5">
+      <Card className="p-5 [@container(max-width:13em)]:px-1.5">
         <div className="mb-1 text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
           Company
         </div>
         <CompanySearch onSelect={selectCompany} />
         {ticker && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             <CompanyLogo decorative ticker={ticker} name={coverage?.company_name || ticker} size={20} />
             <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
               {coverage?.company_name || ticker}

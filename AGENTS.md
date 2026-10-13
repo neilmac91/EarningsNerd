@@ -175,7 +175,10 @@ what to doubt first. Anything longer belongs in the PR that produced it. Closed 
 `tasks/todo.md` in the PR that closes them; the file never grows into a ledger again.
 
 Founder deliberations (pricing, fundraising, strategy, council transcripts) never enter this
-repository: it is currently private, but history keeps what `main` drops. Keep it private. The `llm-council` skill writes
+repository. The repository API reported public visibility on 2026-10-11; do not assume that
+status stays unchanged, and verify it before disclosure-sensitive work. History keeps what
+`main` drops. Keep these deliberations private and leave visibility changes to the founder.
+The `llm-council` skill writes
 transcripts to `~/.claude/earningsnerd/council/`; records that must be shared go through the
 founder's private store, not `tasks/`.
 

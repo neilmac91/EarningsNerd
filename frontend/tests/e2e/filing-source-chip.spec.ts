@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { DOCUMENT, EXCERPT, PANE, answerApi, type Content, type Theme, type Who } from './fixtures/filing3Api'
+import { API_ORIGIN, DOCUMENT, EXCERPT, PANE, answerApi, type Content, type Theme, type Who } from './fixtures/filing3Api'
 
 const CHIP = 'Source: Verified in filing'
 
@@ -210,6 +210,69 @@ test.describe('desktop: a chip activation opens the pane on the Filing tab', () 
     expect(landed).not.toBe('Open in SEC EDGAR')
   })
 })
+
+for (const theme of ['light', 'dark'] as const) {
+  for (const width of [1440, 390]) {
+    test.describe(`filing text recovery / ${theme} / ${width}`, () => {
+      test.use({ viewport: { width, height: 900 } })
+
+      for (const recovered of ['text', 'empty', 'held-focus'] as const) {
+        test(`Retry keeps focus through another failure and resolves to ${recovered}`, async ({ page, baseURL }) => {
+          const chip = await openFiling(page, baseURL!, { theme, content: 'error' })
+          type Answer = 'error' | 'text' | 'empty'
+          let next: Answer | 'hold' = 'error'
+          let release: ((answer: Answer) => void) | undefined
+          let requests = 0
+          await page.route(`${API_ORIGIN}/api/filings/3/content`, async (route) => {
+            requests += 1
+            const answer = next === 'hold' ? await new Promise<Answer>((resolve) => { release = resolve }) : next
+            await route.fulfill({
+              status: answer === 'error' ? 503 : 200,
+              headers: { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true' },
+              json: answer === 'error' ? { detail: 'Filing text is temporarily unavailable' }
+                : { filing_id: 3, has_content: answer === 'text', markdown_content: answer === 'text' ? `# Net sales\n\n${EXCERPT}` : null },
+            })
+          })
+          await chip.focus()
+          await page.keyboard.press('Enter')
+          const pane = page.locator(PANE)
+          const retry = pane.getByRole('button', { name: 'Try again', exact: true })
+          await expect(retry).toBeVisible()
+          await retry.focus()
+          next = 'hold'
+          await page.keyboard.press('Enter')
+          await expect.poll(() => release !== undefined).toBe(true)
+          const busy = pane.getByRole('button', { name: 'Retrying…', exact: true })
+          await expect(busy).toBeFocused()
+          await expect(pane.getByText('Could not load the filing text.')).toBeVisible()
+          await page.keyboard.press('Enter')
+          expect(requests).toBe(2)
+          release!('error')
+          await expect(retry).toBeFocused()
+          release = undefined
+          await page.keyboard.press('Enter')
+          await expect.poll(() => release !== undefined).toBe(true)
+          const filingTab = pane.getByRole('tab', { name: 'Filing', exact: true })
+          if (recovered === 'held-focus') await filingTab.focus()
+          const scrollY = await page.evaluate(() => window.scrollY)
+          release!(recovered === 'empty' ? 'empty' : 'text')
+          if (recovered === 'empty') {
+            const status = pane.getByRole('status')
+            await expect(status).toContainText('The full filing text is not available to view in-app yet.')
+            await expect(status).toBeFocused()
+          } else {
+            const reader = pane.getByRole('region', { name: /filing text/ })
+            await expect(reader).toContainText(EXCERPT)
+            await expect(recovered === 'held-focus' ? filingTab : reader).toBeFocused()
+          }
+          expect(await page.evaluate(() => window.scrollY), 'recovery must not scroll the page').toBe(scrollY)
+          expect(requests).toBe(3)
+          await expect(pane.getByRole('link', { name: /Original on SEC EDGAR/ })).toHaveAttribute('href', DOCUMENT)
+        })
+      }
+    })
+  }
+}
 
 test.describe('touch: a tap opens the sheet, "Show in filing" opens the pane', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })

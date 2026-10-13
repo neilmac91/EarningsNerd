@@ -253,10 +253,14 @@ module.exports = {
         e3: '0 4px 6px -1px rgba(16, 24, 40, 0.10), 0 2px 4px -2px rgba(16, 24, 40, 0.10)',
         e4: '0 10px 15px -3px rgba(16, 24, 40, 0.10), 0 4px 6px -4px rgba(16, 24, 40, 0.10)',
         e5: '0 20px 25px -5px rgba(16, 24, 40, 0.12), 0 8px 10px -6px rgba(16, 24, 40, 0.10)',
-        // Focus rings — use with focus-visible for keyboard users
-        'ring-brand': '0 0 0 3px rgba(79, 122, 99, 0.50)',
-        'ring-brand-dark': '0 0 0 3px rgba(127, 178, 149, 0.55)',
-        'ring-error': '0 0 0 3px rgba(185, 28, 28, 0.45)',
+        // Opaque focus ink holds 3:1 on page, panel and tinted controls in each theme.
+        // Inset twins keep clipped scroll regions and calendar cells visibly focused.
+        'ring-brand': '0 0 0 3px rgba(79, 122, 99, 1)',
+        'ring-brand-dark': '0 0 0 3px rgba(127, 178, 149, 1)',
+        'ring-brand-inset': 'inset 0 0 0 3px rgba(79, 122, 99, 1)',
+        'ring-brand-inset-dark': 'inset 0 0 0 3px rgba(127, 178, 149, 1)',
+        'ring-error': '0 0 0 3px rgba(185, 28, 28, 1)',
+        'ring-error-dark': '0 0 0 3px rgba(248, 113, 113, 1)',
         // Brand glow — sage (replaces the legacy mint glow)
         'glow-brand': '0 0 40px -10px rgba(79, 122, 99, 0.30)',
         'glow-brand-sm': '0 0 20px -5px rgba(79, 122, 99, 0.20)',
