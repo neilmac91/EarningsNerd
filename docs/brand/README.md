@@ -96,10 +96,10 @@ hierarchy check) followed, each fixed in the branch.
 
 Each fails on a deliberate break of its rule (the PR lists the mutation proofs):
 
-- `frontend/tests/unit/brandCopyRules.spec.ts`: matching claims keep the server's scope, the
-  outline is "up to nine parts", and only risk excerpts are promised as located or withheld; no
-  sage number on a public surface; the highlight never on a figure or price; the margin only
-  inside `MarkedCopy`, and never without a marker.
+- `frontend/tests/unit/brandCopyRules.spec.ts`: matching claims keep the server's scope, the outline
+  is "up to nine parts", and only risk excerpts are promised as located or withheld; no sage number
+  on a public surface (D-030 widened this to the whole app); the highlight never on a figure or
+  price; the margin only inside `MarkedCopy`, and never without a marker.
 - `frontend/tests/unit/markSingleSource.spec.ts`: every rendition of the EN monogram copies the
   canonical outlines byte for byte, places them through the canonical groups and nothing else,
   and never stretches them.
@@ -154,7 +154,6 @@ and CI's backend job, on its pinned toolchain, passed on the same commit.
 3. A curation rule before Notable filings returns to the homepage (`NotableFilings.tsx`).
 4. The landing page's section composition (tell T4), as its own PR.
 5. Vercel Web Analytics on the privacy page, or gated on consent: `/privacy` does not name it today.
-6. Whether sage may mark a count inside the product (three calendar sites, D-023).
 
 Each has its own line in `tasks/todo.md`.
 
