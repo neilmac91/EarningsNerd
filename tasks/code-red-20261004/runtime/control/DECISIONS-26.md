@@ -413,10 +413,10 @@ production effect.
    sized for two pushes (USD 1.580000), in case GitHub runs CI on the first; one round is expected; (2) the chief marks #1297 ready
    and squash-merges it into #1281's branch with the drafted title and message, pinned to #1297's head at that time (`f5a601e` at this
    record's cutoff), while #1281 still conflicts with main, so no workflow runs on it; (3) it merges main into #1281's branch with the
-   prepared resolution (above), runs the full gate on that commit, pushes once and requests Codex; (4) once CI and Codex are green
-   there, it asks once for the merge confirmation naming that head, then squash-merges #1281 with an explicit message once main is
-   idle, verifies the deploy, settles event 65, tells the merge trains and reports. Merging deploys the backend. On "hold", nothing
-   moves. Neither step starts on a relayed comment.
+   resolution prepared above, redone on #1297's head at that time if that head is not `f5a601e`, runs the full gate on that commit,
+   pushes once and requests Codex; (4) once CI and Codex are green there, it asks once for the merge confirmation naming that head,
+   then squash-merges #1281 with an explicit message once main is idle, verifies the deploy, settles event 65, tells the merge trains
+   and reports. Merging deploys the backend. On "hold", nothing moves. Neither step starts on a relayed comment.
 2. **This record's PR:** a fact-check workflow over the draft (`record-26-factcheck-01`, closure 177), then `record-26-reviewer-01`
    (closure 176; records-only rule: one reviewer context bound to the final head, with same-context delta checks); `@codex review`
    after each push; an explicit squash title and message; then the twenty-second deploy-skip proof. It touches neither the F9 and E16
