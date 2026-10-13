@@ -8,5 +8,9 @@ export const metadata: Metadata = {
 }
 
 export default function AnalysisPage() {
-  return <AnalysisPageClient />
+  return (
+    <div className="[container-type:inline-size]">
+      <AnalysisPageClient />
+    </div>
+  )
 }
