@@ -261,8 +261,9 @@ test.describe('main routes at 1440x900, light theme', () => {
 const CARD_STATES: { name: string; route: Route; card: string }[] = [
   {
     name: 'filing without a summary, guest (the signup gate)',
-    // No backend answers /api/auth/registration here, so the gate fails closed to its invite-only copy.
-    route: { ...ROUTES[3], open: (p, b) => noSummary(p, b, 'anon'), ready: (p) => expect(p.getByRole('link', { name: 'Request an invite' })).toBeVisible() },
+    // No backend answers /api/auth/registration here, so the gate fails closed to its invite-only copy. The
+    // header carries the same 'Request an invite' CTA in invite mode, so the gate's link is read inside #main.
+    route: { ...ROUTES[3], open: (p, b) => noSummary(p, b, 'anon'), ready: (p) => expect(p.locator('#main').getByRole('link', { name: 'Request an invite' })).toBeVisible() },
     card: 'Summaries need an account',
   },
   {
