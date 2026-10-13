@@ -67,13 +67,17 @@ sage mark raster in two places, `assets/earningsnerd-mark-sage.png` here and
   about 6 mm there, the E's open counters 2.9 mm; the E and the N kiss, which a satin stitch joins
   and the mark survives). Evidence: `docs/brand/05-mark.md`.
 - **Published URLs stay put.** A path that sent mail references is published: a message keeps its
-  image addresses for as long as it is kept, and nobody can edit it after sending. The register of
-  published paths is `frontend/tests/unit/publishedAssetUrls.spec.ts`; its first entry is
+  image addresses for as long as it is kept, and nobody can edit it after sending. The first is
   `/assets/earningsnerd-mark-sage.png`, the mark in the transactional mail header once that
   header's port ships. Each file stays at its path for good and stays served: never rename, move
-  or remove it, never redirect its path (the waitlist gate in `middleware.ts` included), and keep it
-  the same image (regenerating it from the same source is fine). A new rendition takes a new name,
-  and a change that puts a new asset path in mail adds it to the register in the same PR.
+  or remove it, never redirect its path, and keep it the same image (regenerating it from the same
+  source is fine); a new rendition takes a new name. Mail addresses these paths on the origin that
+  answers without a redirect (`https://www.earningsnerd.io`), so that origin keeps serving them
+  without one. A change that puts a new asset path in mail adds it to the register in the same PR.
+  Gate: `frontend/tests/unit/publishedAssetUrls.spec.ts`, the register, checks that each file is
+  present (a PNG where it is one) and that `middleware.ts` passes it in both waitlist modes; a
+  redirect or rewrite in `next.config.js` or `vercel.json`, the origin, and the image itself are
+  review-checked.
 - **Where it goes.** The mark sits top-left on every surface the brand owns (the site header, the
   OG card, the PDF masthead, the email shell, the business card front); the stacked lockup is for
   square placements; never centre the horizontal lockup as a hero.

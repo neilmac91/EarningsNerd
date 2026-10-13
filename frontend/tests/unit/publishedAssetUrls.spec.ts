@@ -6,12 +6,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { middleware } from '@/middleware'
 
 /**
- * A published asset URL stays where it was published, and stays served (CLAUDE.md rule 12;
+ * A published asset URL stays where it was published (CLAUDE.md rule 12;
  * frontend/public/assets/LOGO_README.md › Rules). Transactional email shows its images by
  * address, a sent message keeps those addresses for as long as it is kept, and nobody can edit it
  * after sending, so renaming, moving or removing one of these files, or redirecting its path,
  * breaks the image in every message already delivered. This list is the register of published
- * paths: a change that puts a new asset path in mail adds it here in the same PR.
+ * paths: a change that puts a new asset path in mail adds it here in the same PR. Each path must
+ * be a file in frontend/public (a PNG where it is one) and pass middleware.ts in both waitlist
+ * modes; a redirect or rewrite in next.config.js or vercel.json, and the image itself, are
+ * review-checked.
  */
 const PUBLISHED = [
   // The mark in the transactional mail header (docs/brand/templates/email-header.html) once its
@@ -44,7 +47,7 @@ describe('published asset URLs', () => {
       vi.stubEnv('WAITLIST_MODE', mode)
       const res = middleware(new NextRequest(new URL(url, 'https://www.earningsnerd.io')))
       expect(res.headers.get('location'), `${url} ${SENT}: never redirect it`).toBeNull()
-      expect(res.headers.get('x-middleware-next')).toBe('1')
+      expect(res.headers.get('x-middleware-next'), `${url} ${SENT}: pass it through`).toBe('1')
     })
   }
 })

@@ -20,9 +20,11 @@
   Dark mode: Gmail's and Outlook's apps darken a light-only message but leave its images alone, so
   the sage mark on transparent falls from 5.9:1 on this cream to about 2.5:1 on their dark grey,
   while the text wordmark beside it is recoloured and stays legible. The self-backgrounded app tile
-  (earningsnerd-appicon.svg, a cream mark on a sage squircle) holds on both; its raster is
-  /icons/icon-192.png, the PWA icon, and carrying it publishes that path too, so the port adds it
-  to the spec's register. Which one the header carries is the founder's call (F22).
+  (earningsnerd-appicon.svg, a cream mark on a sage squircle) holds on both. Carrying it means a
+  raster of the tile under /assets/, written by the brand pipeline beside the mark's and added to
+  the spec's register, not the PWA's /icons/icon-192.png: the waitlist gate does not pass /icons,
+  and the manifest is free to change its icons. Which one the header carries is the founder's
+  call (F22).
   The @font-face rule points at the repository's Inter for this preview only (the email uses no
   data face); a sent email falls back through the inline font stacks. The highlight under "shows its work" is two nested spans:
   the outer span's own font box is the lower 38% of the tagline's line box (tint, with the 2px
