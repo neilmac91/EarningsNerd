@@ -70,12 +70,15 @@ export function decodeNarrativePresentation(
     || !Number.isSafeInteger(citation.n) || citation.n <= 0)) return invalid()
   const citations = new Map(completion.citations.map((citation) => [citation.n, citation]))
   if (citations.size !== completion.citations.length) return invalid()
-  // The data-notes decoder's TypeError names the broken field for diagnostics; the reader gets the one
-  // recovery sentence every other decode failure here gives.
+  // The data-notes decoder rejects with a TypeError naming the broken field: it goes to the console for
+  // diagnostics, and the reader gets the one recovery sentence every other decode failure here gives.
+  // Anything else is a defect, not a rejection, and propagates unchanged.
   let notes: DataNotesWire
   try {
     notes = decodeCitationDataNotes(value.notes, dataset, completion.citations)
-  } catch {
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error
+    console.error('[analysis] data notes rejected:', error)
     return invalid()
   }
   let previousEnd = 0

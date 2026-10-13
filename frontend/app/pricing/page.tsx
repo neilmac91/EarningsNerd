@@ -14,7 +14,7 @@ import { Badge, Button, Card, Notice, Switch } from '@/components/ui'
 import analytics from '@/lib/analytics'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
-import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
+import { ANALYSIS_MAX_ANNUAL_PERIODS, FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { PRO_PRICING } from './prices'
 import { billingCycleFromQuery, pricingHref, type BillingCycle } from '@/features/subscriptions/lib/pricingRoute'
@@ -269,7 +269,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       description: 'For deeper filing research',
       features: [
         'Unlimited summaries',
-        'Unlimited Multi-Period Analysis: 10-year trends, quarterly deltas & AI narrative',
+        `Unlimited Multi-Period Analysis: ${ANALYSIS_MAX_ANNUAL_PERIODS}-year trends, quarterly deltas & AI narrative`,
         'Ask this Filing: Get answers on any filing',
         'Hourly filing alerts',
         '8-K filing alerts',

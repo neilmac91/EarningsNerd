@@ -136,6 +136,25 @@ describe('analysis presentation API admission', () => {
     expect(reader.cancel).toHaveBeenCalledTimes(1)
   })
 
+  it('logs a data-notes rejection for diagnostics and gives the reader the one recovery sentence', () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const rewritten = { ...presentation, notes: { ...notes, notes: [{ ...notes.notes[0], message: 'No concerns.' }] } }
+    expect(() => decodeNarrativePresentation(rewritten, completion, dataset))
+      .toThrow(new TypeError('The analysis evidence could not be read consistently. Run analysis again to reload the report.'))
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(log.mock.calls[0][0]).toBe('[analysis] data notes rejected:')
+    expect(log.mock.calls[0][1]).toBeInstanceOf(TypeError)
+    expect((log.mock.calls[0][1] as TypeError).message).toMatch(/^Invalid analysis data notes: /)
+  })
+
+  it('lets a data-notes failure that is not a rejection propagate unchanged', () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const fault = new RangeError('engine fault')
+    const exploding = new Proxy({}, { get() { throw fault } })
+    expect(() => decodeNarrativePresentation({ ...presentation, notes: exploding }, completion, dataset)).toThrow(fault)
+    expect(log).not.toHaveBeenCalled()
+  })
+
   it('requires the currently displayed financial snapshot for new envelopes', () => {
     expect(() => decodeNarrativePresentation(presentation, completion)).toThrow('analysis evidence')
     expect(() => decodeNarrativePresentation(presentation, completion, { ...dataset, snapshot_id: 'other' })).toThrow('analysis evidence')

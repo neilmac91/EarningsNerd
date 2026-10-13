@@ -108,12 +108,13 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
 })
 
 /**
- * Multi-Period Analysis period caps (the /analysis metadata and lead, the landing's feature row). The
- * backend's Settings defaults (backend/app/config.py: ANALYSIS_MAX_ANNUAL_PERIODS,
+ * Multi-Period Analysis period caps (the /analysis metadata and lead, the landing's feature row, the
+ * /pricing Pro card). The backend's Settings defaults (backend/app/config.py: ANALYSIS_MAX_ANNUAL_PERIODS,
  * ANALYSIS_MAX_QUARTERLY_PERIODS) are the truth the picker reads from the coverage response; copy that
  * renders before it takes the mirror in lib/planLimits.ts. So (1) the mirror equals the defaults, and
  * (2) no copy literal (a string, a template's static part, JSX text; comments are not copy) types a
- * count of fiscal years or quarters, in digits or words.
+ * count of years or quarters, in digits or words, spaced or hyphenated ("10 fiscal years", "10-year",
+ * "twelve quarters"), outside the few that state a different fact (PERIOD_COUNT_OTHER_FACTS).
  */
 const config = readFileSync(path.resolve(frontendDir, '../backend/app/config.py'), 'utf8')
 const settingDefault = (name: string): number => {
@@ -122,10 +123,32 @@ const settingDefault = (name: string): number => {
   return Number(match[1])
 }
 
-const TYPED_PERIOD_COUNT = /\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:(?:fiscal|financial)\s+years?|(?:fiscal\s+)?quarters?)\b/i
+/** A digit or a number word, a hyphen or a space, an optional "fiscal" or "financial", then year or quarter. */
+const TYPED_PERIOD_COUNT = /\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)[-\s]+(?:(?:fiscal|financial)[-\s]+)?(?:years?|quarters?)\b/i
+/** Cheap raw-text prefilter: a file with no "year" or "quarter" anywhere has no copy the scan can flag,
+ * so it skips the parse. Every TYPED_PERIOD_COUNT hit contains one of the two words. */
+const MENTIONS_A_PERIOD = /years?\b|quarters?\b/i
+
+/**
+ * Copy that types a count of years for a fact other than the analysis caps. Keyed by file and phrase;
+ * shrink-only: an entry whose phrase no longer appears in a flagged literal of its file fails the spec
+ * (delete it), and a new hit is written from the mirror, or argued in here when it states another fact.
+ */
+const PERIOD_COUNT_OTHER_FACTS: Array<{ file: string; phrase: string; why: string }> = [
+  // The privacy policy's retention periods: how long data is kept, not how far back analysis reaches.
+  // A legal page (it imports LEGAL_DATES), off limits without the founder.
+  { file: 'app/privacy/page.tsx', phrase: 'after 2 years of inactivity', why: 'account-data retention period' },
+  { file: 'app/privacy/page.tsx', phrase: 'Retained for 1 year from the search date', why: 'search-history retention period' },
+  { file: 'app/privacy/page.tsx', phrase: 'Retained for 1 year from submission date', why: 'contact-form retention period' },
+  { file: 'app/privacy/page.tsx', phrase: 'Retained for 1 year from signup date', why: 'waitlist retention period' },
+  { file: 'app/privacy/page.tsx', phrase: 'Retained for 7 years from transaction date', why: 'billing-record retention (tax law)' },
+  { file: 'app/privacy/page.tsx', phrase: 'retained for 7 years for tax compliance', why: 'billing-record retention (tax law)' },
+]
 
 function copyTexts(file: string): Array<{ line: number; text: string }> {
-  const sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+  const source = readFileSync(file, 'utf8')
+  if (!MENTIONS_A_PERIOD.test(source)) return []
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
   const out: Array<{ line: number; text: string }> = []
   const visit = (node: ts.Node) => {
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateHead(node)
@@ -144,22 +167,49 @@ describe('Multi-Period Analysis period caps move in lockstep with the backend', 
     expect(ANALYSIS_MAX_QUARTERLY_PERIODS).toBe(settingDefault('ANALYSIS_MAX_QUARTERLY_PERIODS'))
   })
 
-  it('no copy types a count of fiscal years or quarters', () => {
+  it('the pattern reads every way a period count is typed, and only those', () => {
+    for (const typed of ['10 fiscal years', 'up to ten fiscal years', '12 quarters', 'twelve fiscal quarters',
+      '10-year trends', '10-fiscal-year window', 'ten-year', '12-quarter view', '5 years', '1 year', '3 financial years']) {
+      expect(TYPED_PERIOD_COUNT.test(typed), typed).toBe(true)
+      expect(MENTIONS_A_PERIOD.test(typed), `prefilter keeps ${typed}`).toBe(true)
+    }
+    for (const prose of ['fiscal years', 'quarterly deltas', 'Fiscal year', 'year-over-year', '10-K and 10-Q',
+      '-year trends, quarterly deltas', 'FY2025', 'Q3 2025', 'yearly billing']) {
+      expect(TYPED_PERIOD_COUNT.test(prose), prose).toBe(false)
+    }
+  })
+
+  it('no copy types a count of years or quarters', () => {
     const offenders: string[] = []
+    const seen = new Set<number>()
     for (const root of SOURCE_ROOTS) {
       for (const file of walk(path.join(frontendDir, root))) {
         if (!/\.tsx?$/.test(file) || /\.(spec|test)\.tsx?$|\.d\.ts$/.test(file)) continue
+        const rel = path.relative(frontendDir, file).split(path.sep).join('/')
         for (const { line, text } of copyTexts(file)) {
-          if (TYPED_PERIOD_COUNT.test(text)) offenders.push(`${path.relative(frontendDir, file)}:${line}: ${text.trim().slice(0, 100)}`)
+          if (!TYPED_PERIOD_COUNT.test(text)) continue
+          // An argued phrase is taken out of the literal; whatever count is left still has to go.
+          let rest = text
+          PERIOD_COUNT_OTHER_FACTS.forEach((entry, index) => {
+            if (entry.file === rel && rest.includes(entry.phrase)) {
+              seen.add(index)
+              rest = rest.replace(entry.phrase, '')
+            }
+          })
+          if (TYPED_PERIOD_COUNT.test(rest)) offenders.push(`${rel}:${line}: ${text.trim().slice(0, 100)}`)
         }
       }
     }
     expect(offenders, 'write the caps from ANALYSIS_MAX_ANNUAL_PERIODS / ANALYSIS_MAX_QUARTERLY_PERIODS in lib/planLimits').toEqual([])
+    const stale = PERIOD_COUNT_OTHER_FACTS.filter((_, index) => !seen.has(index)).map((entry) => `${entry.file}: ${entry.phrase}`)
+    expect(stale, 'PERIOD_COUNT_OTHER_FACTS is shrink-only: delete the entries whose phrase is gone').toEqual([])
   })
 
   it('the scan reads the files that state the caps', () => {
     for (const rel of ['app/analysis/page.tsx', 'features/analysis/components/AnalysisPageClient.tsx', 'features/marketing/components/ProDepth.tsx']) {
       expect(readFileSync(path.join(frontendDir, rel), 'utf8'), `${rel} states the caps from the mirror`).toMatch(/ANALYSIS_MAX_ANNUAL_PERIODS[\s\S]*ANALYSIS_MAX_QUARTERLY_PERIODS/)
     }
+    expect(readFileSync(path.join(frontendDir, 'app/pricing/page.tsx'), 'utf8'), 'the Pro card states the annual cap from the mirror')
+      .toMatch(/\$\{ANALYSIS_MAX_ANNUAL_PERIODS\}-year trends/)
   })
 })

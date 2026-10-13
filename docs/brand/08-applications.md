@@ -78,9 +78,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   reload the report."), and a refused run with no detail says "The analysis did not start. Run it
   again." The chart axis captions are "Fiscal year" and "Fiscal quarter". The chart PNG's footer is
   the logo's lockup: the bare mark at 25px tall (about 32px wide, its minimum), then "Earnings"
-  upright and "Nerd" italic 600 in the accent. The "up to 10 fiscal years or 12 quarters" caps are
-  written from `lib/planLimits.ts`, which mirrors `ANALYSIS_MAX_ANNUAL_PERIODS` and
-  `ANALYSIS_MAX_QUARTERLY_PERIODS` in `backend/app/config.py` (`planLimitsLockstep.spec.ts`).
+  upright and "Nerd" italic 600 in the accent. The "up to 10 fiscal years or 12 quarters" caps, and
+  the /pricing Pro card's "10-year trends", are written from `lib/planLimits.ts`, which mirrors
+  `ANALYSIS_MAX_ANNUAL_PERIODS` and `ANALYSIS_MAX_QUARTERLY_PERIODS` in `backend/app/config.py`
+  (`planLimitsLockstep.spec.ts`: no copy types a count of years or quarters, spaced or hyphenated, outside
+  the privacy policy's retention periods).
 
 ## 4. The mark's files and the icons
 
