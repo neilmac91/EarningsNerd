@@ -174,7 +174,7 @@ export default function SecurityPage() {
           </ul>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
             For more information about how we handle your data, please see our{' '}
-            <Link href="/privacy" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+            <Link href="/privacy" className="rounded-sm text-brand-strong underline underline-offset-4 hover:text-brand-emphasis focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark">
               Privacy Policy
             </Link>
             .
@@ -227,7 +227,7 @@ export default function SecurityPage() {
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
               Email us at{' '}
-              <a href="mailto:security@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <a href="mailto:security@earningsnerd.io" className="rounded-sm text-brand-strong underline underline-offset-4 hover:text-brand-emphasis focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark">
                 security@earningsnerd.io
               </a>
             </li>
@@ -279,13 +279,13 @@ export default function SecurityPage() {
           <ul className="list-none space-y-2 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
               General inquiries:{' '}
-              <Link href="/contact" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <Link href="/contact" className="rounded-sm text-brand-strong underline underline-offset-4 hover:text-brand-emphasis focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark">
                 Contact form
               </Link>
             </li>
             <li>
               Security issues:{' '}
-              <a href="mailto:security@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <a href="mailto:security@earningsnerd.io" className="rounded-sm text-brand-strong underline underline-offset-4 hover:text-brand-emphasis focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark">
                 security@earningsnerd.io
               </a>
             </li>
@@ -295,7 +295,7 @@ export default function SecurityPage() {
         <div className="mt-12 border-t border-border-light pt-8 dark:border-border-dark">
           <Link
             href="/"
-            className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark"
+            className="rounded-sm text-brand-strong hover:text-brand-emphasis focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
           >
             ← Back to Home
           </Link>

@@ -7,6 +7,7 @@ import FeedbackWidget from '@/features/feedback/components/FeedbackWidget'
 import WaitlistForm from '@/features/waitlist/components/WaitlistForm'
 import PricingPage from '@/app/pricing/page'
 import { queryKeys } from '@/lib/queryKeys'
+import { ApiError } from '@/lib/api/client'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 
 /**
@@ -101,11 +102,11 @@ describe('ContactForm', () => {
     render(<ContactForm />)
     fill()
 
-    const send = screen.getByRole('button', { name: 'Send Message' })
+    const send = screen.getByRole('button', { name: 'Send message' })
     const form = send.closest('form')!
     send.focus()
     fireEvent.click(send)
-    await waitFor(() => expect(send).toHaveTextContent('Sending...'))
+    await waitFor(() => expect(send).toHaveTextContent('Sending…'))
     expectBusyAndFocused(send)
     fireEvent.click(send)
     fireEvent.submit(form) // Enter in a field while the request is in flight
@@ -113,9 +114,9 @@ describe('ContactForm', () => {
     expect(api.submitContactForm).toHaveBeenCalledTimes(1)
     expect(document.activeElement).toBe(send)
 
-    await act(async () => post.reject(new Error('Server unavailable')))
+    await act(async () => post.reject(new ApiError(503, 'Server unavailable')))
     expect(await screen.findByText('Server unavailable')).toBeInTheDocument()
-    expect(send).toHaveTextContent('Send Message')
+    expect(send).toHaveTextContent('Send message')
     expect(send).not.toHaveAttribute('aria-disabled')
     expect(send).not.toHaveAttribute('aria-busy')
     expect(send).not.toBeDisabled()
@@ -128,7 +129,7 @@ describe('ContactForm', () => {
     fill()
 
     // The success panel replaces the form, and the focused Send with it: focus must not stay on <body>.
-    const send = screen.getByRole('button', { name: 'Send Message' })
+    const send = screen.getByRole('button', { name: 'Send message' })
     send.focus()
     fireEvent.click(send)
     const heading = await screen.findByRole('heading', { name: 'Message sent' })
@@ -151,7 +152,7 @@ describe('ContactForm', () => {
     fill()
 
     const name = screen.getByLabelText(/^Name/)
-    const send = screen.getByRole('button', { name: 'Send Message' })
+    const send = screen.getByRole('button', { name: 'Send message' })
     const form = send.closest('form')!
     name.focus()
     await user.keyboard('{Enter}')
@@ -173,7 +174,7 @@ describe('ContactForm', () => {
     expect(api.submitContactForm).toHaveBeenCalledTimes(1)
     expect(document.activeElement).toBe(name)
 
-    await act(async () => post.reject(new Error('Server unavailable')))
+    await act(async () => post.reject(new ApiError(503, 'Server unavailable')))
     expect(await screen.findByText('Server unavailable')).toBeInTheDocument()
     expect(name).not.toHaveAttribute('readonly')
     expect(document.activeElement).toBe(name)

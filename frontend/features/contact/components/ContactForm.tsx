@@ -3,10 +3,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { submitContactForm } from '@/features/contact/api/contact-api'
+import { CONTACT_LIMITS } from '@/features/contact/lib/limits'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { Button } from '@/components/ui/Button'
 import { Input, inputClasses } from '@/components/ui/Input'
+import { Notice } from '@/components/ui/Notice'
+import { ApiError } from '@/lib/api/client'
+import { getErrorStatus } from '@/lib/api/types'
+
+const RATE_LIMITED = 'Too many messages from this connection. Try again in an hour.'
+const SEND_FAILED = "We couldn't send your message. Try again in a minute."
+
+/** What a failed send tells the reader. The rate limit is read from the status, never from the
+    message's words (the backend's 429 sentence has no "429" in it). Otherwise the backend's own
+    sentence when it sent one as a string, and the fallback for anything else: a non-string detail
+    (a validation list), an empty one, or an error that is not the API's. */
+function sendErrorMessage(err: unknown): string {
+  if (getErrorStatus(err) === 429) return RATE_LIMITED
+  const detail: unknown = err instanceof ApiError ? err.detail : undefined
+  return typeof detail === 'string' && detail.trim() ? detail : SEND_FAILED
+}
 
 export default function ContactForm() {
   const [name, setName] = useState('')
@@ -44,6 +61,10 @@ export default function ContactForm() {
       setError('Please enter your name.')
       return
     }
+    if (name.trim().length < CONTACT_LIMITS.nameMin) {
+      setError(`Please enter at least ${CONTACT_LIMITS.nameMin} characters for your name.`)
+      return
+    }
     if (!email.trim()) {
       setError('Please enter your email address.')
       return
@@ -52,8 +73,8 @@ export default function ContactForm() {
       setError('Please enter a message.')
       return
     }
-    if (message.trim().length < 10) {
-      setError('Message must be at least 10 characters long.')
+    if (message.trim().length < CONTACT_LIMITS.messageMin) {
+      setError(`Message must be at least ${CONTACT_LIMITS.messageMin} characters long.`)
       return
     }
 
@@ -78,12 +99,7 @@ export default function ContactForm() {
       setSubject('')
       setMessage('')
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to send message. Please try again.'
-      if (errorMessage.includes('429')) {
-        setError('Too many requests. Please try again in an hour.')
-      } else {
-        setError(errorMessage)
-      }
+      setError(sendErrorMessage(err))
     } finally {
       setIsSubmitting(false)
     }
@@ -108,23 +124,22 @@ export default function ContactForm() {
               />
             </svg>
           </div>
-          <h3
+          <h2
             ref={successHeadingRef}
             tabIndex={-1}
             className="mb-2 text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
           >
             Message sent
-          </h3>
+          </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            Thank you for contacting us. We&apos;ve received your message and will get back to you within 1-2 business
-            days.
+            We have your message and will reply within 1–2 business days.
           </p>
           <button
             onClick={() => {
               swapped.current = true
               setSuccess(false)
             }}
-            className="mt-6 text-sm font-medium text-brand-strong underline-offset-4 hover:underline dark:text-brand-strong-dark"
+            className="mt-6 rounded-sm text-sm font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
           >
             Send another message
           </button>
@@ -155,6 +170,7 @@ export default function ContactForm() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
+            maxLength={CONTACT_LIMITS.nameMax}
             readOnly={isSubmitting}
             className="mt-2"
             placeholder="Your name"
@@ -196,6 +212,7 @@ export default function ContactForm() {
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
+            maxLength={CONTACT_LIMITS.subjectMax}
             readOnly={isSubmitting}
             className="mt-2"
             placeholder="How can we help?"
@@ -216,22 +233,19 @@ export default function ContactForm() {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             required
+            maxLength={CONTACT_LIMITS.messageMax}
             readOnly={isSubmitting}
             rows={6}
             className={clsx(inputClasses(), 'mt-2')}
             placeholder="Tell us more about your inquiry..."
           />
           <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-            Minimum 10 characters
+            Minimum {CONTACT_LIMITS.messageMin} characters
           </p>
         </div>
 
         {/* Error Message */}
-        {error && (
-          <div className="rounded-lg bg-error-light/10 p-4 dark:bg-error-dark/15">
-            <p className="text-sm text-error-light dark:text-error-dark">{error}</p>
-          </div>
-        )}
+        {error && <Notice variant="error" title="Message not sent" description={error} />}
 
         <TurnstileWidget onToken={setTurnstileToken} />
 
@@ -242,11 +256,11 @@ export default function ContactForm() {
         <Button
           type="submit"
           loading={isSubmitting}
-          loadingText="Sending..."
+          loadingText="Sending…"
           disabled={TURNSTILE_ENABLED && !turnstileToken}
           className="w-full"
         >
-          Send Message
+          Send message
         </Button>
       </div>
     </form>

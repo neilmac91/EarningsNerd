@@ -55,6 +55,18 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   (`frontend/app/posthog-provider.tsx`); Vercel Web Analytics is cookieless and runs for every
   visitor, which is why the clause names analytics cookies. The categories, the controls and the
   privacy link are unchanged.
+- **Contact** (`frontend/app/contact/page.tsx`, `frontend/features/contact/components/ContactForm.tsx`):
+  "Contact us", then one line on what to write about. "What to expect" keeps the response time
+  (typically within 1–2 business days), the support hours (Monday–Friday, 9:00 AM–5:00 PM EST) and the
+  automated confirmation email; the hours, their time zone and the confirmation claim wait on the
+  founder (F27), because `backend/app/routers/contact.py` logs a failed confirmation send and still
+  answers success. The form's limits are the server's (`tests/unit/contactValidationParity.spec.ts`
+  reads `backend/app/schemas/contact.py`), so a one-letter name is refused before sending. A rate
+  limit is read from the status and says "Too many messages from this connection. Try again in an
+  hour."; any other failure shows in an error Notice titled "Message not sent", with the server's
+  sentence or "We couldn't send your message. Try again in a minute." The success heading is an h2.
+  The prose links here and on /security are underlined and carry the brand focus ring; the /security
+  text and its date are unchanged, since its claims wait on the founder.
 
 ## 3. Inside the product
 
