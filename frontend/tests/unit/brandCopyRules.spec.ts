@@ -24,46 +24,60 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  * 2. Sage never colours a number, anywhere in the app (DESIGN.md › the Separate Signals Rule;
  *    docs/brand/decisions-log.md D-030, the founder's call of 2026-10-11: the strict reading holds
  *    inside the product as on the public surfaces). Nothing an element renders in sage ink at rest
- *    may carry a digit, written inline (a template's substitutions included), in a callback, or held
- *    in a same-file literal and reached through any chain of consts, fields, indices, destructuring
- *    and map callbacks (a key the scan cannot read, or an index into an array with a spread, may land
- *    on any member, so every member is read), arrays and objects through a spread, and arrays through
- *    a call that keeps its members such as slice or filter (SEC form codes such as "10-K" are names,
- *    and the device's citation brackets, "[1]" and "[F1]", are not numbers), or a value.
+ *    may carry a digit or a value (SEC form codes such as "10-K" are names, and the device's citation
+ *    brackets, "[1]" and "[F1]", are not numbers). A digit counts written inline (a template's
+ *    substitutions included) or held in a same-file literal or JSX and reached through the file's
+ *    own bindings: a variable (its initializer and every value the file assigns it, destructured or
+ *    not), a field, an index, a destructured name and its default, a loop's variable, and a
+ *    function's parameter, which takes its default and what the file's own calls hand it (an
+ *    argument in its place, or the members an array method hands its callback, written inline or
+ *    held in a name); a call holds and renders what its callbacks, its own same-file function or a
+ *    useMemo returns. Arrays and objects are read through a spread, an object's values, keys and
+ *    entries, a call that keeps its members or returns one (slice, filter, a Set, Array.from; at,
+ *    find), a map's returns and a join. A key the scan cannot read may land on any member, so every
+ *    member is read; a parameter bound at several calls takes every call's value, so a function that
+ *    renders it in sage fails on any call that hands it a digit; and a binding the walk meets again
+ *    (a function that hands a parameter to itself) ends there.
  *    Sage ink is any brand-family colour token, with or without an opacity modifier, in a state the
  *    element can rest in (dark:, a breakpoint, aria-*, data-*, disabled:, visited:, focus:); hover:
  *    and active: and their group- and peer- forms are activity under the pointer, sage's other job,
  *    so a control may turn sage under the pointer while its count rests in the ink, and keyboard
  *    focus draws the sage ring, not a sage count. The ink comes from the className at the call site
- *    (inline, or a same-file const wherever it stands in the expression, through the consts it is
- *    built from; a const read by a key or called is read whole, any class it holds counting), from a
- *    variant component (Button, RetryButton, MarketingCta and Badge, each variant's colour asked of
- *    the component itself, and buttonVariants() in a className likewise; a variant the scan cannot
- *    read counts as sage), or from an app component followed through the checker: one that renders
- *    its children in sage is a sage element, and one that renders a number in the ink it inherits
- *    fails inside a sage parent, or given sage where it is used when it hands that className to the
- *    element it returns. A value is read through the type checker (one program from
- *    tsconfig.json): a number- or bigint-typed expression, a template or a call fed one (a
- *    formatter, and so also a lookup such as labelFor(i) or a helper that builds a label), a
- *    number's own method, a same-file constant holding one, or what a callback returns, through
- *    conditionals, `||`, `??`, the right of `&&` (and its left when that can be a number, which
- *    renders a 0) and JSX branches; a comparison is a boolean and renders nothing. A citation whose
- *    bracket is its whole text ("[{n}]") and a link that renders its own address are text. The count
- *    control (frontend/DESIGN_SYSTEM.md) is the second check: a control that rests in sage, its own
- *    or the element's around it, never holds its count in a span of its own ink, written inline or
- *    held in a same-file const (its props are not its label). The planted forms in
- *    tests/unit/fixtures/brandRule2Forms.tsx, one per way the rule can be broken, per look-alike that
- *    must pass and per known gap, are scored on every run, so the gate's reach is held as well as its
- *    verdict on the app. Out of a source scan's reach, and so review-checked (the fixture marks each as
- *    a gap): a value held in a string (a date or an index name computed as text, or any value the
- *    server or the model sends as text) or written in words, a count a component renders in its own
+ *    (inline, or a same-file variable wherever it stands in the expression, through the variables it
+ *    is built from, and a helper's parameter through the file's calls; a variable read by a key or
+ *    called is read whole, any class it holds counting), from a variant component (Button,
+ *    RetryButton, MarketingCta and Badge, each variant's colour asked of the component itself, and
+ *    buttonVariants() in a className likewise; a variant the scan cannot read counts as sage), or
+ *    from an app component followed through the checker: one that renders its children in sage is a
+ *    sage element, and one that renders a number in the ink it inherits (what a same-file helper
+ *    returns included) fails inside a sage parent, or given sage where it is used when it hands that
+ *    className to the element it returns. A value is read through the type checker (one program from
+ *    tsconfig.json): a number- or bigint-typed expression or an array of them (whole or joined), a
+ *    template or a call fed one (a formatter, and so also a lookup such as labelFor(i) or a helper
+ *    that builds a label), a number's own method, a same-file variable holding one, a parameter the
+ *    file's calls hand one (by the type of what each call gives it, whatever the parameter's own
+ *    type), or what a callback or a same-file function returns, through conditionals, `||`, `??`,
+ *    the right of `&&` (and its left when that can be a number, which renders a 0) and JSX
+ *    branches; a comparison is a boolean and renders nothing. A citation
+ *    whose bracket is its whole text ("[{n}]") and a link that renders its own address are text. The
+ *    count control (frontend/DESIGN_SYSTEM.md) is the second check: a control that rests in sage, its
+ *    own or the element's around it, never holds its count in a span of its own ink, written inline,
+ *    held in a same-file variable, or returned by a same-file function its label calls or maps with
+ *    (its props are not its label). The planted forms in tests/unit/fixtures/brandRule2Forms.tsx, one
+ *    per way the rule can be broken, per look-alike that must pass and per known gap, are scored on
+ *    every run, so the gate's reach is held as well as its verdict on the app. Out of a source scan's
+ *    reach, and so review-checked (the fixture marks each as a gap): a value held in a string (a date
+ *    or an index name computed as text, or any value the server or the model sends as text) or
+ *    written in words; a value bound outside the file's own calls (a component's prop, which JSX
+ *    binds and the component check reads only for its children and className, a hook's state, a
+ *    callback handed through another function's parameter); a count a component renders in its own
  *    ink inside a sage control, sage handed to a component through a prop other than className, a
  *    component's own ink that a call-site className joins (cx joins without merging, so CSS order
  *    decides), and a conditional written in a literal's field, read as written since the scan cannot
- *    tie it to the element's other fields; beyond the fixture, a colour set by an inline style or on a
- *    pseudo-element, a library component's internals, and SVG text coloured by attribute (the chart
- *    theme, which carries no sage). The waitlist counter's own spec covers the count on the public
- *    pages.
+ *    tie it to the element's other fields; beyond the fixture, a literal another file holds, a colour
+ *    set by an inline style or on a pseudo-element, a library component's internals, and SVG text
+ *    coloured by attribute (the chart theme, which carries no sage). The waitlist counter's own spec
+ *    covers the count on the public pages.
  * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
  *    figure or a price, the hero's accent phrases included; the margin (`en-margin`) exists only
  *    inside MarkedCopy, and every MarkedCopy carries at least one marker (`EnRef`).
@@ -124,29 +138,203 @@ function literalText(node: ts.Node): string | null {
 }
 
 const unwrap = (e: ts.Expression): ts.Expression =>
-  ts.isAsExpression(e) || ts.isSatisfiesExpression(e) || ts.isParenthesizedExpression(e) ? unwrap(e.expression) : e
+  ts.isAsExpression(e) || ts.isSatisfiesExpression(e) || ts.isParenthesizedExpression(e) || ts.isNonNullExpression(e) ? unwrap(e.expression) : e
 
 /** Calls that return some of their receiver's own members, so a map over one walks the receiver's members. */
 const KEEPS_MEMBERS = new Set(['slice', 'filter', 'toSorted', 'toReversed', 'sort', 'reverse'])
+/** Calls that return one of their receiver's members, read as an index: `at(0)` by its index, the others as a key
+    the scan cannot read. */
+const ONE_MEMBER = new Set(['at', 'find', 'findLast'])
+/** Calls whose members are what their callback returns, and the call that renders every member as text. */
+const MAPS = new Set(['map', 'flatMap'])
+const JOINS = new Set(['join'])
+/** The array methods that hand a callback the array's members, and the parameter each member lands in. */
+const HANDS_MEMBERS = new Map<string, number>([
+  ...['map', 'flatMap', 'forEach', 'filter', 'find', 'findLast', 'findIndex', 'findLastIndex', 'some', 'every'].map((m) => [m, 0] as const),
+  ['reduce', 1], ['reduceRight', 1],
+])
+
+/** A useMemo call (`useMemo(…)`, `React.useMemo(…)`), which holds what its callback returns. */
+const isUseMemo = (call: ts.CallExpression) =>
+  (ts.isIdentifier(call.expression) ? call.expression : ts.isPropertyAccessExpression(call.expression) ? call.expression.name : undefined)?.text === 'useMemo'
 
 /** A step into a literal: a property's name, a member's index, or null for a key the scan cannot read. */
 type Step = string | number | null
 
-/** The literals an expression holds when it reads a same-file literal, through any chain of consts, fields,
-    indices, destructuring and map callbacks: a const (`CONFIG.step`, `STEPS[0]`, `const first = STEPS[0]`,
-    `const { cls } = TONES[tone] ?? TONES.flat`), or the element a map callback takes from a literal array
-    (`ARRAY.map((item) => …)`, a nested map over an element's field included), whole (`label`), by a field
-    (`item.meta.step`) or destructured (`({ step })`, `({ step: s })`, `([q])`, or `const { step } = item` in the
-    callback). Arrays and objects are read through a spread, a shorthand property through the const it names,
-    an array through a call that keeps its members (`slice`, `filter` …), and the chain through `??`, `||` and
-    conditionals. A value written in a literal is read as written: a conditional there is not split, since the
-    scan cannot tie it to the element's other fields (the pricing cards' call to action takes its button's
-    variant and its label from the same plan). A key the scan cannot read (`LABELS[i]`), or an index into an array with a spread or
-    through such a call, may land on any member, so every member is read. Names resolve through the checker, so
-    an index, a shadowing binding, a prop or another function's parameter is never taken for a literal. */
-function literalExpressions(e: ts.Expression, sf: ts.SourceFile): ts.Expression[] {
-  const keepsMembers = (v: ts.Expression): v is ts.CallExpression & { expression: ts.PropertyAccessExpression } =>
-    ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && KEEPS_MEMBERS.has(v.expression.name.text)
+/** The same-file functions an expression names: one written inline, or the one a name, a field or a method holds,
+    through the checker (every function a variable is given, its initializer and each assignment, or the one a
+    wrapper such as useCallback or memo is given), on either branch of a conditional, `??` or `||`. Each
+    expression is read once. */
+const FUNCTIONS = new Map<ts.Node, ts.FunctionLikeDeclaration[]>()
+function functionsOf(e: ts.Expression): ts.FunctionLikeDeclaration[] {
+  let found = FUNCTIONS.get(e)
+  if (!found) FUNCTIONS.set(e, (found = functionsNamed(e, new Set())))
+  return found
+}
+function functionsNamed(e: ts.Expression, seen: Set<ts.Node>): ts.FunctionLikeDeclaration[] {
+  const x = unwrap(e)
+  if (ts.isArrowFunction(x) || ts.isFunctionExpression(x)) return [x]
+  if (ts.isConditionalExpression(x)) return [x.whenTrue, x.whenFalse].flatMap((branch) => functionsNamed(branch, seen))
+  if (ts.isBinaryExpression(x) && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken].includes(x.operatorToken.kind)) {
+    return [x.left, x.right].flatMap((side) => functionsNamed(side, seen))
+  }
+  // A field or a method is a same-file function only on a same-file object, so the checker is asked for the field
+  // only then: asking it of `rows.map` would type `rows`, at every call in the file. A field read by a literal key
+  // (`R['chip']`) names that field; any other key names nothing the scan can read.
+  if (ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) {
+    let root = unwrap(x.expression)
+    while (ts.isPropertyAccessExpression(root) || ts.isElementAccessExpression(root)) root = unwrap(root.expression)
+    const object = ts.isIdentifier(root) ? CHECKER.getSymbolAtLocation(root)?.valueDeclaration : undefined
+    if (!object || !ts.isVariableDeclaration(object) || object.getSourceFile() !== x.getSourceFile()) return []
+  }
+  const name = ts.isIdentifier(x) ? x : ts.isPropertyAccessExpression(x) ? x.name
+    : ts.isElementAccessExpression(x) && ts.isStringLiteralLike(x.argumentExpression) ? x.argumentExpression : undefined
+  const declaration = name && CHECKER.getSymbolAtLocation(name)?.valueDeclaration
+  if (!declaration || declaration.getSourceFile() !== x.getSourceFile() || seen.has(declaration)) return []
+  seen.add(declaration)
+  if (ts.isFunctionDeclaration(declaration) || ts.isMethodDeclaration(declaration)) return [declaration]
+  if (ts.isPropertyAssignment(declaration)) return functionsNamed(declaration.initializer, seen)
+  if (!ts.isVariableDeclaration(declaration)) return []
+  return variableValues(declaration).flatMap((v) => {
+    if (v.steps.length) return []
+    const value = unwrap(v.value)
+    return functionsNamed(ts.isCallExpression(value) && value.arguments[0] ? value.arguments[0] : value, seen)
+  })
+}
+
+/** A call that binds a same-file function's parameters: its arguments, by position, or the array whose members it
+    hands the parameter at `at`. */
+interface Site { args?: ts.NodeArray<ts.Expression>; members?: ts.Expression; at?: number }
+const SITES = new Map<ts.SourceFile, Map<ts.Node, Site[]>>()
+/** Where a function's parameters take their values, indexed once per file: every call that names it, every array
+    method it is handed to (`rows.map(render)`, its callback written inline or named, the members landing where
+    HANDS_MEMBERS says), and Array.from's mapper (its source's members). A component's props come from JSX, which
+    the component check reads (its children and className), so a tag is no call here. */
+function sitesOf(fn: ts.Node): Site[] {
+  const sf = fn.getSourceFile()
+  let sites = SITES.get(sf)
+  if (!sites) {
+    const index = new Map<ts.Node, Site[]>()
+    const add = (f: ts.Node, site: Site) => index.set(f, [...(index.get(f) ?? []), site])
+    visit(sf, (n) => {
+      if (!ts.isCallExpression(n)) return
+      const callee = unwrap(n.expression)
+      if (ts.isPropertyAccessExpression(callee)) {
+        const at = HANDS_MEMBERS.get(callee.name.text)
+        if (at !== undefined && n.arguments[0]) for (const f of functionsOf(n.arguments[0])) add(f, { members: callee.expression, at })
+        if (callee.name.text === 'from' && ts.isIdentifier(callee.expression) && callee.expression.text === 'Array' && n.arguments[1]) {
+          for (const f of functionsOf(n.arguments[1])) add(f, { members: n.arguments[0], at: 0 })
+        }
+      }
+      for (const f of functionsOf(callee)) add(f, { args: n.arguments })
+    })
+    SITES.set(sf, sites = index)
+  }
+  return sites.get(fn) ?? []
+}
+
+/** A value a name holds, and the steps from it to the name's place (`[label] = LABELS` holds LABELS at index 0). */
+interface Held { value: ts.Expression; steps: Step[] }
+const ASSIGNED = new Map<ts.SourceFile, Map<ts.Symbol, Held[]>>()
+/** What a same-file variable holds: its initializer and every value the file assigns it (`label = 'Ready'` in a
+    switch, `label += …`, or `[label] = …` and `({ label } = …)` destructured, a default in the pattern included),
+    the assignments indexed once per file. */
+function variableValues(declaration: ts.VariableDeclaration): Held[] {
+  const sf = declaration.getSourceFile()
+  let index = ASSIGNED.get(sf)
+  if (!index) {
+    const found = new Map<ts.Symbol, Held[]>()
+    const add = (symbol: ts.Symbol | undefined, held: Held) => { if (symbol) found.set(symbol, [...(found.get(symbol) ?? []), held]) }
+    const assign = (target: ts.Expression, value: ts.Expression, steps: Step[]): void => {
+      const t = unwrap(target)
+      if (ts.isIdentifier(t)) add(CHECKER.getSymbolAtLocation(t), { value, steps })
+      else if (ts.isBinaryExpression(t) && t.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+        assign(t.left, value, steps)
+        assign(t.left, t.right, [])
+      } else if (ts.isArrayLiteralExpression(t)) {
+        t.elements.forEach((element, i) => { if (!ts.isSpreadElement(element) && !ts.isOmittedExpression(element)) assign(element, value, [...steps, i]) })
+      } else if (ts.isObjectLiteralExpression(t)) {
+        for (const property of t.properties) {
+          if (ts.isPropertyAssignment(property)) assign(property.initializer, value, [...steps, keyOf(property.name)])
+          else if (ts.isShorthandPropertyAssignment(property)) {
+            const symbol = CHECKER.getShorthandAssignmentValueSymbol(property)
+            add(symbol, { value, steps: [...steps, property.name.text] })
+            if (property.objectAssignmentInitializer) add(symbol, { value: property.objectAssignmentInitializer, steps: [] })
+          }
+        }
+      }
+    }
+    visit(sf, (n) => {
+      if (!ts.isBinaryExpression(n)) return
+      const operator = n.operatorToken.kind
+      if (operator < ts.SyntaxKind.FirstAssignment || operator > ts.SyntaxKind.LastAssignment) return
+      // A compound assignment (`+=`, `??=`) adds its right side; only `=` destructures.
+      if (ts.isIdentifier(n.left)) add(CHECKER.getSymbolAtLocation(n.left), { value: n.right, steps: [] })
+      else if (operator === ts.SyntaxKind.EqualsToken) assign(n.left, n.right, [])
+    })
+    ASSIGNED.set(sf, index = found)
+  }
+  const symbol = CHECKER.getSymbolAtLocation(declaration.name)
+  return [...(declaration.initializer ? [{ value: declaration.initializer, steps: [] }] : []), ...((symbol && index.get(symbol)) ?? [])]
+}
+
+/** Where a name is bound: the variable or parameter its destructuring climbs to, the steps from that declaration's
+    value to the name's place, and each default met on the way with the steps below it (a parameter's own default
+    last); null for a rest element, which holds what the others leave. */
+interface Binding { declaration: ts.Node | undefined; steps: Step[]; defaults: Held[] }
+function bindingOf(symbol: ts.Symbol | undefined, path: Step[]): Binding | null {
+  const steps = [...path]
+  const defaults: Held[] = []
+  let declaration: ts.Node | undefined = symbol?.valueDeclaration
+  while (declaration && ts.isBindingElement(declaration)) {
+    if (declaration.dotDotDotToken) return null
+    if (declaration.initializer) defaults.push({ value: declaration.initializer, steps: [...steps] })
+    const pattern = declaration.parent
+    steps.unshift(ts.isObjectBindingPattern(pattern) ? keyOf(declaration.propertyName ?? declaration.name) : pattern.elements.indexOf(declaration))
+    declaration = pattern.parent
+  }
+  if (declaration && ts.isParameter(declaration) && declaration.initializer) defaults.push({ value: declaration.initializer, steps: [...steps] })
+  return { declaration, steps, defaults }
+}
+
+/** The literals an expression holds when it reads a same-file literal, through the file's own bindings: a
+    variable's initializer and every value the file assigns it (`CONFIG.step`, `STEPS[0]`, `const first =
+    STEPS[0]`, `let label` set in a switch or destructured into), a call's return (a same-file function's, or a
+    useMemo's callback's), a destructured name with its default (`const { cls } = TONES[tone]
+    ?? TONES.flat`, `({ step = 'Step 1' })`, `({ step: s })`, `([q])`), a for…of variable (the array's members) or
+    a for…in one (the object's keys), and a parameter: its default, and whatever the file binds it to at
+    `sitesOf`'s calls (an argument in its place, or the members of the array a method hands it, its callback
+    written inline or named: `ARRAY.map((item) => …)`, `ARRAY.map(render)`, a nested map over an element's field
+    included). Arrays and objects are read through a spread, a shorthand property through the name it holds, an
+    object through Object.values, keys and entries, an array through a call that keeps its members (`slice`,
+    `filter` …), a Set or Array.from, and a map through what its callback returns; a member through `at`, `find`
+    and `findLast`, a join through every member it joins, and the chain through `??`, `||` and conditionals. A
+    value written in a literal is read as written: a conditional there is not split, since the scan cannot tie it
+    to the element's other fields (the pricing cards' call to action takes its button's variant and its label
+    from the same plan). A key the scan cannot read (`LABELS[i]`, a computed key, `find`), or an index into an
+    array with a spread or through such a call, may land on any member, so every member is read; a parameter the
+    file binds at several calls takes every call's value, so a function that renders it in sage fails on any call
+    that hands it a digit, and a binding met again on the way reads only its defaults, so a function that hands a
+    parameter to itself ends in time. Names resolve through the checker, so an index, a shadowing binding, a prop
+    or an import is never taken for a literal. */
+const LITERALS = new Map<ts.Node, ts.Expression[]>()
+function literalExpressions(e: ts.Expression, sf: ts.SourceFile, path: Step[] = []): ts.Expression[] {
+  if (path.length) return walkLiterals(e, sf, path)
+  let found = LITERALS.get(e)
+  if (!found) LITERALS.set(e, (found = walkLiterals(e, sf, path)))
+  return found
+}
+function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[]): ts.Expression[] {
+  const method = (v: ts.Expression, names: ReadonlySet<string>): v is ts.CallExpression & { expression: ts.PropertyAccessExpression } =>
+    ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && names.has(v.expression.name.text)
+  const objectCall = (v: ts.Expression, name: string): v is ts.CallExpression =>
+    ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && ts.isIdentifier(v.expression.expression)
+    && v.expression.expression.text === 'Object' && v.expression.name.text === name && v.arguments.length > 0
+  // A call or a `new` that keeps what it is given: `Array.from(x)` without a mapper, `new Set(x)`.
+  const keepsArgument = (v: ts.Expression): v is ts.CallExpression | ts.NewExpression =>
+    (ts.isNewExpression(v) && ts.isIdentifier(v.expression) && v.expression.text === 'Set' && !!v.arguments?.length)
+    || (ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && ts.isIdentifier(v.expression.expression)
+      && v.expression.expression.text === 'Array' && v.expression.name.text === 'from' && v.arguments.length === 1)
   // What an expression holds once the path is walked into it; `inLiteral` marks a value written in a literal.
   const held = (x: ts.Expression, path: Step[], depth: number, inLiteral = false): ts.Expression[] => {
     if (depth > 24) return []
@@ -156,93 +344,176 @@ function literalExpressions(e: ts.Expression, sf: ts.SourceFile): ts.Expression[
       return [at.left, at.right].flatMap((side) => held(side, path, depth + 1))
     }
     if (ts.isPropertyAccessExpression(at)) return held(at.expression, [at.name.text, ...path], depth + 1)
-    if (ts.isElementAccessExpression(at)) {
-      const key = unwrap(at.argumentExpression)
-      const step = ts.isNumericLiteral(key) ? Number(key.text) : ts.isStringLiteral(key) || ts.isNoSubstitutionTemplateLiteral(key) ? key.text : null
-      return held(at.expression, [step, ...path], depth + 1)
+    if (ts.isElementAccessExpression(at)) return held(at.expression, [accessStep(at.argumentExpression), ...path], depth + 1)
+    if (method(at, ONE_MEMBER)) {
+      const index = at.arguments[0] && unwrap(at.arguments[0])
+      const step = at.expression.name.text === 'at' && index && ts.isNumericLiteral(index) ? Number(index.text) : null
+      return held(at.expression.expression, [step, ...path], depth + 1)
     }
-    if (ts.isIdentifier(at)) return named(at, path, depth + 1)
+    if (method(at, JOINS)) return path.length ? [] : held(at.expression.expression, [null], depth + 1)
+    // A call holds what its same-file function returns (`build()`), and useMemo what its callback returns; a function
+    // met again on the way (one that returns a call of itself) holds nothing more.
+    if (ts.isCallExpression(at)) {
+      const fns = [...functionsOf(at.expression), ...(isUseMemo(at) && at.arguments[0] ? functionsOf(at.arguments[0]) : [])]
+      if (fns.length) {
+        return fns.flatMap((fn) => {
+          const key = `call:${fn.pos}:${JSON.stringify(path)}`
+          if (reading.has(key)) return []
+          reading.add(key)
+          try {
+            return returnedExpressions(fn).flatMap((r) => held(r, path, depth + 1))
+          } finally {
+            reading.delete(key)
+          }
+        })
+      }
+    }
+    if (ts.isIdentifier(at)) return bound(CHECKER.getSymbolAtLocation(at), path, depth + 1)
     if (path.length === 0) return [at]
     const [step, ...rest] = path
     return into(at, step, depth + 1).flatMap((value) => held(value, rest, depth + 1, true))
   }
-  // What a name holds: a same-file const's initializer, or a map callback's element; a destructured name climbs
-  // its patterns to what they destructure, each pattern adding its step.
-  const named = (id: ts.Identifier, path: Step[], depth: number): ts.Expression[] => {
-    const steps = [...path]
-    let declaration: ts.Node | undefined = CHECKER.getSymbolAtLocation(id)?.valueDeclaration
-    while (declaration && ts.isBindingElement(declaration)) {
-      if (declaration.dotDotDotToken) return []
-      const pattern = declaration.parent
-      if (ts.isObjectBindingPattern(pattern)) {
-        const key = declaration.propertyName ?? declaration.name
-        if (!ts.isIdentifier(key) && !ts.isStringLiteral(key)) return []
-        steps.unshift(key.text)
-      } else steps.unshift(pattern.elements.indexOf(declaration))
-      declaration = pattern.parent
+  // The bindings being read, by declaration and steps: one met again (a function that hands a parameter to itself,
+  // a variable built from itself) reads only its defaults, so the walk ends in time linear in its calls.
+  const reading = new Set<string>()
+  // What a name holds: its defaults (`bindingOf`), then a variable's values, a loop's members or keys, or the values
+  // the file binds a parameter to.
+  const bound = (symbol: ts.Symbol | undefined, path: Step[], depth: number): ts.Expression[] => {
+    const binding = bindingOf(symbol, path)
+    if (!binding) return []
+    const { declaration, steps } = binding
+    const defaults = binding.defaults.flatMap((d) => held(d.value, d.steps, depth + 1))
+    if (!declaration || declaration.getSourceFile() !== sf) return defaults
+    const key = `${declaration.pos}:${JSON.stringify(steps)}`
+    if (reading.has(key)) return defaults
+    reading.add(key)
+    try {
+      if (ts.isVariableDeclaration(declaration)) {
+        const loop = declaration.parent.parent
+        if (ts.isForOfStatement(loop)) return [...defaults, ...members(loop.expression, depth + 1).flatMap((member) => held(member, steps, depth + 1, true))]
+        if (ts.isForInStatement(loop)) {
+          return [...defaults, ...(steps.length ? [] : pairs(loop.expression, depth + 1).map(([k]) => k).filter((k) => !ts.isOmittedExpression(k)))]
+        }
+        return [...defaults, ...variableValues(declaration).flatMap((v) => held(v.value, [...v.steps, ...steps], depth + 1))]
+      }
+      if (!ts.isParameter(declaration)) return defaults
+      const at = declaration.parent.parameters.indexOf(declaration)
+      return [...defaults, ...sitesOf(declaration.parent).flatMap((site) => {
+        if (site.members) return site.at === at && !declaration.dotDotDotToken ? members(site.members, depth + 1).flatMap((member) => held(member, steps, depth + 1, true)) : []
+        const args = site.args ?? []
+        // A rest parameter holds the arguments from its place on, as an array.
+        if (declaration.dotDotDotToken) return held(ts.factory.createArrayLiteralExpression(args.slice(at)), steps, depth + 1)
+        // From a spread argument on, a place may hold any of what follows.
+        const spread = args.findIndex(ts.isSpreadElement)
+        if (spread !== -1 && at >= spread) {
+          return args.slice(spread).flatMap((a) => (ts.isSpreadElement(a) ? held(a.expression, [null, ...steps], depth + 1) : held(a, steps, depth + 1)))
+        }
+        return args[at] ? held(args[at], steps, depth + 1) : []
+      })]
+    } finally {
+      reading.delete(key)
     }
-    if (!declaration) return []
-    if (ts.isVariableDeclaration(declaration)) {
-      return declaration.getSourceFile() === sf && declaration.initializer ? held(declaration.initializer, steps, depth + 1) : []
-    }
-    if (!ts.isParameter(declaration)) return []
-    const fn = declaration.parent
-    if (!(ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) || fn.parameters[0] !== declaration) return []
-    const call = fn.parent
-    if (!ts.isCallExpression(call) || call.arguments[0] !== fn || !ts.isPropertyAccessExpression(call.expression) || call.expression.name.text !== 'map') return []
-    return members(call.expression.expression, depth + 1).flatMap((member) => held(member, steps, depth + 1, true))
   }
-  // The members of the array literals an expression holds.
+  // The members of the arrays an expression holds: an array literal's, through a spread; a call's that keeps them,
+  // or keeps what it is given; an object's values, keys or entries (each a [key, value] pair); a map's returns.
   const members = (x: ts.Expression, depth: number): ts.Expression[] =>
     held(x, [], depth + 1).flatMap((v) => {
-      if (keepsMembers(v)) return members(v.expression.expression, depth + 1)
+      if (method(v, KEEPS_MEMBERS)) return members(v.expression.expression, depth + 1)
+      if (keepsArgument(v)) return members(v.arguments![0], depth + 1)
+      if (objectCall(v, 'values')) return held(v.arguments[0], [null], depth + 1)
+      if (objectCall(v, 'keys')) return pairs(v.arguments[0], depth + 1).map(([key]) => key).filter((key) => !ts.isOmittedExpression(key))
+      if (objectCall(v, 'entries')) {
+        return pairs(v.arguments[0], depth + 1).flatMap(([key, values]) => values.map((value) => ts.factory.createArrayLiteralExpression([key, value])))
+      }
+      if (method(v, MAPS)) return mapped(v, depth + 1)
       if (!ts.isArrayLiteralExpression(v)) return []
       return v.elements.flatMap((m) => (ts.isSpreadElement(m) ? members(m.expression, depth + 1) : ts.isOmittedExpression(m) ? [] : [m]))
     })
+  // What a map's callback returns, each a member, read as code (a conditional there is split); a flatMap's
+  // returned arrays give their members.
+  const mapped = (call: ts.CallExpression & { expression: ts.PropertyAccessExpression }, depth: number): ts.Expression[] =>
+    callbackReturns(call).flatMap((r) => held(r, [], depth + 1)).flatMap((v) =>
+      call.expression.name.text === 'flatMap' && ts.isArrayLiteralExpression(v) ? members(v, depth + 1) : [v])
+  // An object's own keys, through a spread, each with the values it holds (`Object.keys`, `entries`, for…in); a
+  // name written as an identifier becomes its text.
+  const pairs = (x: ts.Expression, depth: number): [ts.Expression, ts.Expression[]][] =>
+    held(x, [], depth + 1).filter(ts.isObjectLiteralExpression).flatMap((o) => o.properties.flatMap((property): [ts.Expression, ts.Expression[]][] => {
+      if (ts.isSpreadAssignment(property)) return pairs(property.expression, depth + 1)
+      const key = property.name ? keyOf(property.name) : null
+      // A computed name the scan cannot read has no text to render; its value still counts.
+      const text = key === null ? ts.factory.createOmittedExpression() : ts.factory.createStringLiteral(String(key))
+      const values = ts.isPropertyAssignment(property) ? [property.initializer]
+        : ts.isShorthandPropertyAssignment(property) ? bound(CHECKER.getShorthandAssignmentValueSymbol(property), [], depth + 1) : []
+      return [[text, values]]
+    }))
   // One step into a literal: an object's property, an array's member, or every property or member for a key the
   // scan cannot read or an index that may land on any member.
   const into = (v: ts.Expression, step: Step, depth: number): ts.Expression[] => {
-    if (keepsMembers(v)) return step === null || typeof step === 'number' ? members(v, depth + 1) : []
+    const lists = method(v, KEEPS_MEMBERS) || keepsArgument(v) || method(v, MAPS) || ['values', 'keys', 'entries'].some((name) => objectCall(v, name))
+    if (lists) return step === null || typeof step === 'number' ? members(v, depth + 1) : []
     if (ts.isArrayLiteralExpression(v)) {
       if (step === null || v.elements.some(ts.isSpreadElement)) return typeof step === 'string' ? [] : members(v, depth + 1)
       const member = typeof step === 'number' ? v.elements[step] : undefined
       return member && !ts.isOmittedExpression(member) ? [member] : []
     }
     if (!ts.isObjectLiteralExpression(v)) return []
-    const matches = (name: ts.PropertyName) =>
-      step === null || ((ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) && name.text === String(step))
+    // A computed name the scan cannot read may be the key asked for.
+    const matches = (name: ts.PropertyName) => step === null || keyOf(name) === null || String(keyOf(name)) === String(step)
     return v.properties.flatMap((property) => {
       if (ts.isSpreadAssignment(property)) return held(property.expression, [step], depth + 1)
       if (ts.isPropertyAssignment(property) && matches(property.name)) return [property.initializer]
       if (ts.isShorthandPropertyAssignment(property) && matches(property.name)) {
-        const value = CHECKER.getShorthandAssignmentValueSymbol(property)?.valueDeclaration
-        return value && ts.isVariableDeclaration(value) && value.getSourceFile() === sf && value.initializer ? [value.initializer] : []
+        return bound(CHECKER.getShorthandAssignmentValueSymbol(property), [], depth + 1)
       }
       return []
     })
   }
-  return held(e, [], 0)
+  return held(e, path, 0)
 }
 
-/** The literal texts `literalExpressions` finds, for an expression rendered in JSX. */
-function literalValues(e: ts.Expression, sf: ts.SourceFile): string[] {
+/** The step a property or binding name reads: its text, a numeric name's index, a computed name's literal, or null
+    for a computed name the scan cannot read. */
+function keyOf(name: ts.PropertyName | ts.BindingName): Step {
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isPrivateIdentifier(name)) return name.text
+  if (ts.isNumericLiteral(name)) return Number(name.text)
+  if (ts.isComputedPropertyName(name)) {
+    const key = unwrap(name.expression)
+    return ts.isStringLiteral(key) || ts.isNoSubstitutionTemplateLiteral(key) ? key.text : ts.isNumericLiteral(key) ? Number(key.text) : null
+  }
+  return null
+}
+
+/** The literal texts `literalExpressions` finds, for an expression rendered in JSX: an array renders every member it
+    holds (`{['Q1', 'Q2']}`, `{labels}`). */
+function literalValues(e: ts.Expression, sf: ts.SourceFile, depth = 0): string[] {
+  if (depth > 8) return []
   return literalExpressions(e, sf).flatMap((v) => {
+    if (ts.isArrayLiteralExpression(v)) {
+      return v.elements.flatMap((m) => (ts.isOmittedExpression(m) ? [] : literalValues(ts.isSpreadElement(m) ? m.expression : m, sf, depth + 1)))
+    }
     const text = literalText(v)
     return text === null ? [] : [text]
   })
 }
 
-/** The nodes a className attribute is read from: its initializer, and the same-file const behind every
+/** The nodes a className attribute is read from: its initializer, and the same-file variable behind every
     identifier in it, wherever the identifier stands (`className={cls}`, `className={cx(cls, on && hot)}`,
-    `className={on ? SAGE : QUIET}`), followed through the consts each is built from, so a class string held
-    in a const is read as if written inline. A const read by a key or called (`TONE[tone]`, `cls(on)`) is
-    read whole, so any class it holds counts: the scan cannot know the key, and fails closed. A name that is
-    no const is read for the literals it holds (`literalExpressions`): one destructured from a const
-    (`const { cls } = TONES[tone] ?? TONES.flat`) or a map callback's element over a literal array
-    (`TONES.map((t) => <span className={t.cls}>…)`), with the fields read off it; a whole object or array it
-    holds is not read as a class. The checker resolves each identifier, so a parameter, a prop, a property
-    name or an import is never taken for either. */
+    `className={on ? SAGE : QUIET}`), each value it holds (its initializer and every assignment) followed
+    through the variables it is built from, so a class string held in a const is read as if written inline. A
+    variable read by a key or called (`TONE[tone]`, `cls(on)`) is read whole, so any class it holds counts: the
+    scan cannot know the key, and fails closed. Any other name is read for the literals it holds
+    (`literalExpressions`): one destructured from a const (`const { cls } = TONES[tone] ?? TONES.flat`), a map
+    callback's element over a literal array (`TONES.map((t) => <span className={t.cls}>…)`), or a helper's
+    parameter bound at the file's calls, with the fields read off it; a whole object or array it holds is not
+    read as a class. The checker resolves each identifier, so a prop, a property name or an import is never
+    taken for either. */
+const CLASS_NODES = new Map<ts.Node, ts.Node[]>()
 function classNameNodes(opening: ts.JsxOpeningLikeElement): ts.Node[] {
+  let found = CLASS_NODES.get(opening)
+  if (!found) CLASS_NODES.set(opening, (found = readClassName(opening)))
+  return found
+}
+function readClassName(opening: ts.JsxOpeningLikeElement): ts.Node[] {
   const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className')
   if (!attr?.initializer) return []
   const sf = opening.getSourceFile()
@@ -253,9 +524,9 @@ function classNameNodes(opening: ts.JsxOpeningLikeElement): ts.Node[] {
       // The fields and keys read off the name (`t.cls`, `t.tone.cls`), so the literals are the ones it reads.
       let chain: ts.Expression = n
       while ((ts.isPropertyAccessExpression(chain.parent) || ts.isElementAccessExpression(chain.parent)) && chain.parent.expression === chain) chain = chain.parent
-      const init = localInitializer(n, sf)
+      const values = localValues(n, sf)
       // A whole object or array the name holds is no class; its fields are read where the className reads them.
-      const literals = init ? [init] : literalExpressions(chain, sf).filter((v) => !ts.isObjectLiteralExpression(v) && !ts.isArrayLiteralExpression(v))
+      const literals = values.length ? values : literalExpressions(chain, sf).filter((v) => !ts.isObjectLiteralExpression(v) && !ts.isArrayLiteralExpression(v))
       for (const found of literals) {
         if (nodes.includes(found)) continue
         nodes.push(found)
@@ -392,9 +663,13 @@ function returnedExpressions(fn: ts.FunctionLikeDeclaration): ts.Expression[] {
   return out
 }
 
-/** What a call renders through the callbacks it is given (`rows.map((r) => …)`, with or without a block body). */
-const callbackReturns = (call: ts.CallExpression) =>
-  call.arguments.map(unwrap).filter((a): a is ts.ArrowFunction | ts.FunctionExpression => ts.isArrowFunction(a) || ts.isFunctionExpression(a)).flatMap(returnedExpressions)
+/** The same-file functions a call is handed, written inline or named (`rows.map((r) => …)`, `rows.map(renderRow)`). */
+const callbacksOf = (call: ts.CallExpression) => call.arguments.flatMap((a) => functionsOf(a))
+/** What a call renders: what its callbacks return, with or without a block body. */
+const callbackReturns = (call: ts.CallExpression) => callbacksOf(call).flatMap(returnedExpressions)
+/** The functions whose returns a call renders: its callbacks', and, for a call to a same-file function, that
+    function's own (`{label('Q3')}`, `{renderRow(row)}`). */
+const renderedFunctions = (call: ts.CallExpression) => [...callbacksOf(call), ...functionsOf(call.expression)]
 
 /** The string members of a union type alias (`ButtonVariant`), read through the checker. */
 function unionMembers(rel: string, name: string): string[] {
@@ -547,17 +822,15 @@ function containsJsx(node: ts.Node): boolean {
   return found
 }
 
-/** The JSX a same-file const holds (`const body = <span>{children}</span>`), through an alias of it, once per walk;
-    undefined for a const that holds no JSX, which the value reading takes instead. */
-function heldJsx(id: ts.Identifier, sf: ts.SourceFile, followed: Set<ts.Node>): ts.Expression | undefined {
-  let held: ts.Expression = id
-  while (ts.isIdentifier(held)) {
-    const init = localInitializer(held, sf)
-    if (!init || followed.has(init)) return undefined
-    followed.add(init)
-    held = unwrap(init)
-  }
-  return containsJsx(held) ? held : undefined
+/** The JSX a name holds through the file's bindings (`const body = <span>{children}</span>`, each JSX value a `let` is
+    assigned, a helper's parameter handed a label), once per walk; none for one that holds no JSX, which the value
+    reading takes instead. */
+function heldJsx(id: ts.Identifier, sf: ts.SourceFile, followed: Set<ts.Node>): ts.Expression[] {
+  return literalExpressions(id, sf).filter((v) => {
+    if (followed.has(v) || !containsJsx(v)) return false
+    followed.add(v)
+    return true
+  })
 }
 
 /** What a component does with the ink it inherits: the ink its children render in (null when they inherit
@@ -611,20 +884,23 @@ function summary(fn: ts.FunctionLikeDeclaration): Summary {
     else if (ts.isJsxFragment(x)) children(x.children, ink)
     else if (ts.isConditionalExpression(x)) { expression(x.whenTrue, ink); expression(x.whenFalse, ink) }
     else if (ts.isBinaryExpression(x)) valueOperands(x).forEach((operand) => expression(operand, ink))
-    else if (ts.isCallExpression(x) && callbackReturns(x).length) {
+    else if (ts.isCallExpression(x) && renderedFunctions(x).some((fn) => returnedExpressions(fn).length)) {
       const callee = x.expression
       if (x.arguments.some(isChildren) || (ts.isPropertyAccessExpression(callee) && isChildren(callee.expression))) {
-        for (const a of x.arguments.map(unwrap)) {
-          if ((ts.isArrowFunction(a) || ts.isFunctionExpression(a)) && a.parameters[0] && ts.isIdentifier(a.parameters[0].name)) aliases.add(a.parameters[0].name.text)
-        }
+        for (const fn of callbacksOf(x)) if (fn.parameters[0] && ts.isIdentifier(fn.parameters[0].name)) aliases.add(fn.parameters[0].name.text)
       }
-      callbackReturns(x).forEach((r) => expression(r, ink))
+      // What its callbacks and its own same-file function return renders here, each function walked once, so one
+      // that renders itself ends; a call with no callbacks counts its own value too (a helper fed a number).
+      const fns = renderedFunctions(x).filter((fn) => !followed.has(fn))
+      fns.forEach((fn) => followed.add(fn))
+      fns.flatMap(returnedExpressions).forEach((r) => expression(r, ink))
+      if (ink === 'inherit' && !callbacksOf(x).length && rendersValue(x, sf)) carries = true
     } else {
-      const held = ts.isIdentifier(x) ? heldJsx(x, sf, followed) : undefined
-      if (held) expression(held, ink)
-      else if (ink === 'inherit') {
+      const jsx = ts.isIdentifier(x) ? heldJsx(x, sf, followed) : []
+      jsx.forEach((h) => expression(h, ink))
+      if (!jsx.length && ink === 'inherit') {
         const text = literalText(x)
-        if (text !== null ? carriesDigit(text) : rendersValue(x, sf)) carries = true
+        if (text !== null ? carriesDigit(text) : literalValues(x, sf).some(carriesDigit) || rendersValue(x, sf)) carries = true
       }
     }
   }
@@ -646,42 +922,48 @@ function inheritsValue(opening: ts.JsxOpeningLikeElement): boolean {
   return !!fn && summary(fn).inheritsValue
 }
 
-/** The literal texts an element renders in its own ink (stops at a child that sets its own colour). */
-function inkTexts(children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile, out: { node: ts.Node; text: string }[] = [], held = new Set<ts.Node>()) {
-  const expr = (e: ts.Expression) => {
+/** The literal texts an element renders in its own ink (stops at a child that sets its own colour). Text held
+    elsewhere (a variable's value, what a function returns) is reported at `site`, the expression that renders it
+    here: the variable's name, or the call. */
+function inkTexts(children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile, out: { node: ts.Node; text: string }[] = [], seen = new Set<ts.Node>(), site?: ts.Node) {
+  const expr = (e: ts.Expression, at = site) => {
     const x = unwrap(e)
+    const push = (text: string) => out.push({ node: at ?? x, text })
+    // What the file binds a name, a field read or a call to (`literalExpressions`), read once where it is rendered:
+    // a literal's text, a template with its substitutions, an array's members, the JSX it holds. A value a literal's
+    // field writes as a conditional stays as written.
+    const read = (v: ts.Expression) => {
+      if (v === x || seen.has(v) || asWritten(v)) return
+      seen.add(v)
+      expr(v, at ?? x)
+    }
     const text = literalText(x)
     if (text !== null) {
-      out.push({ node: x, text })
+      push(text)
       // A template's substitutions render with it (`{`Go to ${label}`}`): each is read as an expression of its own.
-      if (ts.isTemplateExpression(x)) x.templateSpans.forEach((span) => expr(span.expression))
-    } else if (ts.isConditionalExpression(x)) [x.whenTrue, x.whenFalse].forEach(expr)
-    else if (ts.isBinaryExpression(x)) valueOperands(x).forEach(expr)
-    else if (ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) literalValues(x, sf).forEach((value) => out.push({ node: x, text: value }))
-    else if (ts.isJsxFragment(x)) inkTexts(x.children, sf, out, held)
-    else if (ts.isJsxElement(x) && textColour(x.openingElement) === null) inkTexts(x.children, sf, out, held)
-    else if (ts.isCallExpression(x)) callbackReturns(x).forEach(expr)
-    else if (ts.isIdentifier(x)) {
-      // A same-file const read where it is used: its text (`const step = 'Step 2'`) or the JSX it holds;
-      // else what a name destructured from a literal or a map callback's element holds (`literalValues`).
-      const init = localInitializer(x, sf)
-      if (!init) literalValues(x, sf).forEach((value) => out.push({ node: x, text: value }))
-      if (!init || held.has(init)) return
-      held.add(init)
-      const heldExpression = unwrap(init)
-      const heldText = literalText(heldExpression)
-      if (heldText === null) expr(init)
-      else {
-        out.push({ node: x, text: heldText })
-        if (ts.isTemplateExpression(heldExpression)) heldExpression.templateSpans.forEach((span) => expr(span.expression))
+      if (ts.isTemplateExpression(x)) x.templateSpans.forEach((span) => expr(span.expression, at))
+    } else if (ts.isConditionalExpression(x)) [x.whenTrue, x.whenFalse].forEach((branch) => expr(branch, at))
+    else if (ts.isBinaryExpression(x)) valueOperands(x).forEach((operand) => expr(operand, at))
+    // An array renders every member (`{['Q1', 'Q2']}`), a spread's included.
+    else if (ts.isArrayLiteralExpression(x)) x.elements.forEach((m) => { if (!ts.isOmittedExpression(m)) expr(ts.isSpreadElement(m) ? m.expression : m, at) })
+    else if (ts.isJsxFragment(x)) inkTexts(x.children, sf, out, seen, at)
+    else if (ts.isJsxElement(x) && textColour(x.openingElement) === null) inkTexts(x.children, sf, out, seen, at)
+    else if (ts.isCallExpression(x)) {
+      // What the call holds (a member through `at` or `find`, the members a join renders, what its same-file function
+      // or useMemo returns) and what its callbacks return, each callback read once.
+      literalExpressions(x, sf).forEach(read)
+      for (const fn of callbacksOf(x)) {
+        if (seen.has(fn)) continue
+        seen.add(fn)
+        returnedExpressions(fn).forEach((r) => expr(r, at ?? x))
       }
-    }
+    } else if (ts.isIdentifier(x) || ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) literalExpressions(x, sf).forEach(read)
   }
   for (const child of children) {
-    if (ts.isJsxText(child)) out.push({ node: child, text: child.text })
+    if (ts.isJsxText(child)) out.push({ node: site ?? child, text: child.text })
     else if (ts.isJsxExpression(child) && child.expression) expr(child.expression)
-    else if (ts.isJsxFragment(child)) inkTexts(child.children, sf, out, held)
-    else if (ts.isJsxElement(child) && textColour(child.openingElement) === null) inkTexts(child.children, sf, out, held)
+    else if (ts.isJsxFragment(child)) inkTexts(child.children, sf, out, seen, site)
+    else if (ts.isJsxElement(child) && textColour(child.openingElement) === null) inkTexts(child.children, sf, out, seen, site)
   }
   return out
 }
@@ -693,8 +975,7 @@ function mayBeNumber(e: ts.Expression): boolean {
   const t = CHECKER.getTypeAtLocation(e)
   return (t.isUnion() ? t.types : [t]).some((u) => (u.flags & NUMBER_LIKE) !== 0)
 }
-function isNumberTyped(e: ts.Expression): boolean {
-  const t = CHECKER.getTypeAtLocation(e)
+function numberType(t: ts.Type): boolean {
   if (t.flags & NUMBER_LIKE) return true
   // A union is a number when every member that is not null or undefined is one (`number | null`);
   // ReactNode and `string | number` carry other things and are not read as values.
@@ -702,19 +983,77 @@ function isNumberTyped(e: ts.Expression): boolean {
   const members = t.types.filter((u) => !(u.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)))
   return members.length > 0 && members.every((u) => (u.flags & NUMBER_LIKE) !== 0)
 }
+const isNumberTyped = (e: ts.Expression) => numberType(CHECKER.getTypeAtLocation(e))
+/** Whether a type is an array or a tuple of numbers, which renders each one's digits (`{counts}`). */
+function numberArrayType(t: ts.Type): boolean {
+  const member = CHECKER.isArrayType(t) || CHECKER.isTupleType(t) ? CHECKER.getIndexTypeOfType(t, ts.IndexKind.Number) : undefined
+  return !!member && numberType(member)
+}
+const isNumberArray = (e: ts.Expression) => numberArrayType(CHECKER.getTypeAtLocation(e))
 
-/** The initializer of the variable an identifier names, when this file declares it (one level). Resolved through
-    the checker, so a parameter, or a name another function in the file declares, is never mistaken for it. */
-function localInitializer(id: ts.Identifier, sf: ts.SourceFile): ts.Expression | undefined {
+/** What the variable an identifier names holds, when this file declares it: its initializer and every value the
+    file assigns it (one level). Resolved through the checker, so a parameter, or a name another function in the
+    file declares, is never mistaken for it. */
+function localValues(id: ts.Identifier, sf: ts.SourceFile): ts.Expression[] {
   const declaration = CHECKER.getSymbolAtLocation(id)?.valueDeclaration
-  return declaration && ts.isVariableDeclaration(declaration) && declaration.getSourceFile() === sf ? declaration.initializer : undefined
+  if (!declaration || !ts.isVariableDeclaration(declaration) || declaration.getSourceFile() !== sf) return []
+  // A value destructured into the variable (`[label] = LABELS`) is read at its place.
+  return variableValues(declaration).flatMap((v) => (v.steps.length ? literalExpressions(v.value, sf, v.steps) : [v.value]))
 }
 
-/** Whether a JSX expression renders a value: a number-typed expression, a template or concatenation with a
- *  number in it, a string-returning call fed a number (a formatter, and so also a lookup such as
- *  `labelFor(i)`: give that label its own ink or pass it a string), what a callback returns, a conditional
- *  with such a branch, a same-file constant built from one of those, or a component that renders a number
- *  in the ink it inherits. */
+/** A value a literal's field writes and the scan reads as written (`literalExpressions`): a conditional, `??`, `||`. */
+const asWritten = (v: ts.Expression) =>
+  ts.isConditionalExpression(v) || (ts.isBinaryExpression(v) && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken].includes(v.operatorToken.kind))
+
+/** The step an element access reads: a literal key, or null for one the scan cannot read. */
+function accessStep(key: ts.Expression): Step {
+  const k = unwrap(key)
+  return ts.isNumericLiteral(k) ? Number(k.text) : ts.isStringLiteral(k) || ts.isNoSubstitutionTemplateLiteral(k) ? k.text : null
+}
+
+/** Whether a type, walked through the steps of a destructuring or a field read, is a number or an array of them. */
+function valueType(t: ts.Type | undefined, steps: Step[], at: ts.Node): boolean {
+  let type = t
+  for (const step of steps) {
+    if (!type) return false
+    if (typeof step === 'string') {
+      const property = type.getProperty(step)
+      type = property && CHECKER.getTypeOfSymbolAtLocation(property, at)
+    } else type = CHECKER.getIndexTypeOfType(type, ts.IndexKind.Number)
+  }
+  return !!type && (numberType(type) || numberArrayType(type))
+}
+
+/** Whether the file hands a parameter a value, by the type of what it is given: a number passed to a parameter typed
+    wider (`(v: ReactNode) => …` called with a count), mapped from an array of numbers, or given as its default,
+    through the fields the parameter is destructured or read by (`({ n }) => …` given `{ n: count }`). */
+function boundToValue(e: ts.Expression, sf: ts.SourceFile): boolean {
+  const path: Step[] = []
+  let x = unwrap(e)
+  while (ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) {
+    path.unshift(ts.isPropertyAccessExpression(x) ? x.name.text : accessStep(x.argumentExpression))
+    x = unwrap(x.expression)
+  }
+  if (!ts.isIdentifier(x)) return false
+  const binding = bindingOf(CHECKER.getSymbolAtLocation(x), path)
+  const declaration = binding?.declaration
+  if (!binding || !declaration || !ts.isParameter(declaration) || declaration.dotDotDotToken || declaration.getSourceFile() !== sf) return false
+  if (binding.defaults.some((d) => valueType(CHECKER.getTypeAtLocation(d.value), d.steps, d.value))) return true
+  const at = declaration.parent.parameters.indexOf(declaration)
+  return sitesOf(declaration.parent).some((site) => {
+    if (site.members) {
+      return site.at === at && valueType(CHECKER.getIndexTypeOfType(CHECKER.getTypeAtLocation(site.members), ts.IndexKind.Number), binding.steps, site.members)
+    }
+    const arg = site.args?.[at]
+    return !!arg && !ts.isSpreadElement(arg) && valueType(CHECKER.getTypeAtLocation(arg), binding.steps, arg)
+  })
+}
+
+/** Whether a JSX expression renders a value: a number-typed expression or an array of them (rendered whole or
+ *  joined), a template or concatenation with a number in it, a string-returning call fed a number (a formatter,
+ *  and so also a lookup such as `labelFor(i)`: give that label its own ink or pass it a string), what a callback
+ *  or a same-file function returns, a conditional with such a branch, a same-file variable holding one of those,
+ *  or a component that renders a number in the ink it inherits. */
 function rendersValue(e: ts.Expression, sf: ts.SourceFile, depth = 0): boolean {
   const x = unwrap(e)
   if (depth > 6) return false
@@ -726,18 +1065,26 @@ function rendersValue(e: ts.Expression, sf: ts.SourceFile, depth = 0): boolean {
   if (ts.isConditionalExpression(x)) return rendersValue(x.whenTrue, sf, depth + 1) || rendersValue(x.whenFalse, sf, depth + 1)
   if (ts.isBinaryExpression(x)) return valueOperands(x).some((operand) => rendersValue(operand, sf, depth + 1))
   if (ts.isCallExpression(x)) {
-    // A number's own method ("n.toLocaleString()"), a call that returns one, a formatter fed one
-    // (a literal argument such as "slice(0, 20)" is not a value), or what a callback returns.
+    // A number's own method ("n.toLocaleString()"), a join of numbers, a call that returns one, a formatter fed
+    // one (a literal argument such as "slice(0, 20)" is not a value), or what a callback or the same-file
+    // function it calls returns.
     if (isNumberTyped(x)) return true
     if (ts.isPropertyAccessExpression(x.expression) && isNumberTyped(x.expression.expression)) return true
-    if (callbackReturns(x).some((r) => rendersValue(r, sf, depth + 1))) return true
+    if (ts.isPropertyAccessExpression(x.expression) && JOINS.has(x.expression.name.text) && isNumberArray(x.expression.expression)) return true
+    if (renderedFunctions(x).some((fn) => returnedExpressions(fn).some((r) => rendersValue(r, sf, depth + 1)))) return true
     return x.arguments.some((a) => !ts.isArrowFunction(unwrap(a)) && !ts.isFunctionExpression(unwrap(a)) && literalText(unwrap(a)) === null && isNumberTyped(a))
   }
   if (ts.isIdentifier(x)) {
-    const init = localInitializer(x, sf)
-    if (init) return rendersValue(init, sf, depth + 1) || isNumberTyped(x)
+    const values = localValues(x, sf)
+    if (values.length) return values.some((value) => rendersValue(value, sf, depth + 1)) || isNumberTyped(x) || isNumberArray(x)
   }
-  return isNumberTyped(x)
+  if (ts.isIdentifier(x) || ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) {
+    // A parameter the file hands a number, whatever its own type; and what a name or a field read holds through the
+    // file's bindings that renders one (a template or JSX handed to a helper).
+    if (boundToValue(x, sf)) return true
+    if (literalExpressions(x, sf).some((v) => !asWritten(v) && rendersValue(v, sf, depth + 1))) return true
+  }
+  return isNumberTyped(x) || isNumberArray(x)
 }
 
 /** The device's citation marker: an expression whose bracket is the whole of the text around it ("[{n}]"). */
@@ -927,25 +1274,34 @@ function sageValues(sf: ts.SourceFile): Offence[] {
 }
 
 /** Rule 2's second check over one file, the count control's: what a control resting in sage holds in an ink of
-    its own that carries a digit or a value, in its markup or in the same-file const its label is held in
-    (`{overflowLabel}`). */
+    its own that carries a digit or a value, in its markup, in the same-file variable its label is held in
+    (`{overflowLabel}`), or in what a same-file function it calls or maps with returns (`{renderLabel(n)}`), a
+    count held elsewhere reported at the expression that renders it in the control. */
 function heldValues(sf: ts.SourceFile): Offence[] {
   const out: Offence[] = []
   visit(sf, (n) => {
     if (!ts.isJsxElement(n) || !isControl(n.openingElement) || (textColour(n.openingElement) ?? inheritedInk(n)) !== 'sage') return
     const followed = new Set<ts.Node>()
-    const holders = (node: ts.Node): void => {
+    const holders = (node: ts.Node, site?: ts.Node): void => {
       // A prop is not the label: a handler's body, a tooltip's content.
       if (ts.isJsxAttributes(node)) return
-      const held = ts.isJsxExpression(node) && node.expression && ts.isIdentifier(unwrap(node.expression))
+      const jsx = ts.isJsxExpression(node) && node.expression && ts.isIdentifier(unwrap(node.expression))
         ? heldJsx(unwrap(node.expression) as ts.Identifier, sf, followed)
-        : undefined
-      if (held) holders(held)
-      if (node !== n && ts.isJsxElement(node) && textColour(node.openingElement) === 'other') {
-        for (const { node: hit, text } of inkTexts(node.children, sf)) if (carriesDigit(text)) out.push({ node: hit, text })
-        for (const hit of inkValues(node.children, sf, [], node.openingElement)) out.push({ node: hit, text: `{${hit.getText(sf)}}` })
+        : []
+      jsx.forEach((h) => holders(h, site ?? node))
+      // A function written inside the label is walked where it stands; one held elsewhere, once.
+      if (ts.isCallExpression(node)) {
+        for (const fn of renderedFunctions(node)) {
+          if (followed.has(fn) || (fn.pos >= node.pos && fn.end <= node.end)) continue
+          followed.add(fn)
+          returnedExpressions(fn).forEach((r) => holders(r, site ?? node))
+        }
       }
-      ts.forEachChild(node, holders)
+      if (node !== n && ts.isJsxElement(node) && textColour(node.openingElement) === 'other') {
+        for (const { node: hit, text } of inkTexts(node.children, sf)) if (carriesDigit(text)) out.push({ node: site ?? hit, text })
+        for (const hit of inkValues(node.children, sf, [], node.openingElement)) out.push({ node: site ?? hit, text: `{${hit.getText(sf)}}` })
+      }
+      ts.forEachChild(node, (child) => holders(child, site))
     }
     holders(n)
   })
@@ -953,12 +1309,15 @@ function heldValues(sf: ts.SourceFile): Offence[] {
 }
 
 describe('brand rule 2: sage never colours a number', () => {
+  // Each offence once: a text reached two ways (a helper's return read as a value and walked as JSX) is one.
   const inApp = (check: (sf: ts.SourceFile) => Offence[]) =>
-    SOURCES.flatMap(({ rel, sf }) => check(sf).map(({ node, text }) => where(rel, sf, node, text)))
+    [...new Set(SOURCES.flatMap(({ rel, sf }) => check(sf).map(({ node, text }) => where(rel, sf, node, text))))]
 
+  // The app scan asks the checker for the types of what it reads in every file, about 2 s on a laptop; the budget
+  // leaves room for a loaded CI runner.
   it('nothing the app renders in sage ink at rest carries a digit or a value', () => {
     expect(inApp(sageValues), 'set the number in the ink (text-text-primary / secondary); sage signals brand and activity').toEqual([])
-  })
+  }, 20_000)
 
   it('no control that rests in sage holds its count in an ink of its own (the count control)', () => {
     expect(inApp(heldValues), 'rest the whole label in the ink, sage under the pointer (the count control, frontend/DESIGN_SYSTEM.md)').toEqual([])

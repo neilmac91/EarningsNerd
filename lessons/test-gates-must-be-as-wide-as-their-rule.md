@@ -67,8 +67,11 @@ gate passes is planted as a gap, never as a look-alike, and each gap the header 
 has one. For a gate that reads code (a source scan, an AST walk), keep the planted cases as the
 gate's fixture and score them in its own spec, so CI reruns the score on every change and the next
 review extends the cases instead of starting over. When a review finds one form of a claim the gate
-already makes that it misses, probe the claim's whole family before fixing that form: a reader that
-gains one syntax per review is matching forms, not following the value, and the fix is a reader that
+already makes that it misses, probe the claim's whole family before fixing that form, and take the
+family from the language, not from the forms the reviews have named: for a value, every way a name
+gets one (a declaration and each assignment, destructuring and its default, a loop's variable, a
+parameter at each call of its function, a callback however it is handed over). A reader that gains
+one syntax per review is matching forms, not following the value, and the fix is a reader that
 follows it.
 
 Corollary for the anti-vacuity floor: assert the scanner actually found things (>100 files,
@@ -109,6 +112,15 @@ Codex's review of `19ed8fb` found the same of a class, one destructured from a m
 lens found a const holding a keyed read (`const config = MAP[s] ?? MAP.x`) that both readers lost.
 One resolver, a single walk through any chain of consts, fields, indices, destructuring and map
 callbacks, replaced the readers written per form; the gate at `19ed8fb` misread the 21 forms planted
-for it. Companion to
+for it. That probe took its family from the chains the reviews had named, and Codex's review of
+`c9bd846` found the next form among the ways a name is bound: a map's callback held in a name
+(`labels.map(render)`). Probed from the binding forms instead (a named callback however it is held,
+the other array methods, a call's arguments, a rest parameter, a default, a reassigned `let`, a
+loop's variable), and then by the round's lens (a helper's return in a component's inherited ink, a
+number handed to a parameter typed wider, a value held in what a call returns, and a recursion that
+ran for minutes), the fixture gained 100 forms, and the gate at `c9bd846` misreads all 74 of them
+that break the rule. An index of each file's calls, binding a parameter at every call of its
+function and every array method it is handed to, replaced the map-only rule, and a binding met again
+on the walk now ends it. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.

@@ -8,7 +8,7 @@
  * that loses a form, or catches a look-alike, fails there. Outside the scan roots: rule 2's app scan never
  * reads it. A new form the rule can take joins it with its mark.
  */
-import { Children, type ReactNode } from 'react'
+import { Children, type ReactNode, useCallback, useMemo, useState } from 'react'
 import { Badge, Button, buttonVariants, type BadgeVariant } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
 import Link from 'next/link'
@@ -292,3 +292,158 @@ export function P159() { return <div>{GROUPS_159.map((g, i) => <p key={i}>{g.ite
 // fields (a plan's button variant and its label), so it stays review-checked.
 const PLANS_160 = [{ cta: Math.random() > 0.5 ? 'Start 7-day trial' : 'Upgrade' }]
 export function P160() { return <p>{PLANS_160.map((plan) => <span key={plan.cta} className="text-brand-strong">{plan.cta}</span>)}</p> } // gap
+// The review of c9bd846: a parameter takes the values the file binds it to. A map's callback held in a name, not
+// written inline (P161, the review's own form), however the name holds it: a function declaration, a function
+// expression, a literal object's field or method, a wrapper, either branch of a conditional; destructuring its
+// element; and named under a sage parent, a literal's text or a number's type.
+const LABELS_161 = ['Step 2']
+const WORDS_161 = ['Revenue']
+const STEPS_161 = [{ step: 'Step 2' }]
+export function P161() { const render = (label: string) => <span key={label} className="text-brand-strong">{label}</span>; return <p>{LABELS_161.map(render)}</p> } // flag
+export function P162() { function render(label: string) { return <span key={label} className="text-brand-strong">{label}</span> } return <p>{LABELS_161.map(render)}</p> } // flag
+export function P163() { const render = function (label: string) { return <span key={label} className="text-brand-strong">{label}</span> }; return <p>{LABELS_161.map(render)}</p> } // flag
+export function P164() { const R = { chip: (label: string) => <span key={label} className="text-brand-strong">{label}</span> }; return <p>{LABELS_161.map(R.chip)}</p> } // flag
+export function P165() { const R = { chip(label: string) { return <span key={label} className="text-brand-strong">{label}</span> } }; return <p>{LABELS_161.map(R.chip)}</p> } // flag
+export function P166() { const render = useCallback((label: string) => <span key={label} className="text-brand-strong">{label}</span>, []); return <p>{LABELS_161.map(render)}</p> } // flag
+export function P167({ on }: { on: boolean }) { const a = (label: string) => <span key={label} className="text-brand-strong">{label}</span>; const b = (label: string) => <span key={label}>{label}</span>; return <p>{LABELS_161.map(on ? a : b)}</p> } // flag
+export function P168() { const render = ({ step }: { step: string }) => <span key={step} className="text-brand-strong">{step}</span>; return <p>{STEPS_161.map(render)}</p> } // flag
+export function P169() { const render = (label: string) => <span key={label}>{label}</span>; return <p className="text-brand-strong">{LABELS_161.map(render)}</p> } // flag
+export function P170({ rows }: { rows: number[] }) { const render = (n: number) => <span key={n}>{n}</span>; return <p className="text-brand-strong">{rows.map(render)}</p> } // flag
+export function P171() { const R = { chip: (label: string) => <span key={label} className="text-brand-strong">{label}</span> }; return <p>{LABELS_161.map(R['chip'])}</p> } // flag
+// Look-alikes: a named callback over words, over a prop's array (runtime data), and one whose index it never
+// renders; the same callback mapped over two arrays of words.
+export function P172() { const render = (label: string) => <span key={label} className="text-brand-strong">{label}</span>; return <p>{WORDS_161.map(render)}</p> } // clean
+export function P173({ rows }: { rows: { label: string }[] }) { const render = ({ label }: { label: string }) => <span key={label} className="text-brand-strong">{label}</span>; return <p>{rows.map(render)}</p> } // clean
+export function P174() { const render = (label: string, i: number) => <span key={i} className="text-brand-strong">{label}</span>; return <p>{WORDS_161.map(render)}</p> } // clean
+export function P175() { const render = (label: string) => <span key={label} className="text-brand-strong">{label}</span>; return <p>{WORDS_161.map(render)}{['Margin'].map(render)}</p> } // clean
+// The other array methods that hand a callback its members (flatMap, forEach, reduce's second parameter), and
+// Array.from's mapper.
+export function P176() { return <p>{LABELS_161.flatMap((label) => [<span key={label} className="text-brand-strong">{label}</span>])}</p> } // flag
+export function P177() { const out: ReactNode[] = []; LABELS_161.forEach((label) => { out.push(<span key={label} className="text-brand-strong">{label}</span>) }); return <p>{out}</p> } // flag
+export function P178() { return <p>{LABELS_161.reduce<ReactNode[]>((all, label) => [...all, <span key={label} className="text-brand-strong">{label}</span>], [])}</p> } // flag
+export function P179() { return <p>{Array.from(LABELS_161, (label) => <span key={label} className="text-brand-strong">{label}</span>)}</p> } // flag
+// A function called by name: its parameters take the call's arguments, in place, through a callback that calls
+// it and a helper that calls another; a rest parameter takes the arguments from its place on, and a spread
+// argument may fill any place after it.
+export function P180() { const chip = (text: string) => <span className="text-brand-strong">{text}</span>; return <p>{chip('Step 2')}</p> } // flag
+export function P181() { const render = (label: string) => <span key={label} className="text-brand-strong">{label}</span>; return <p>{LABELS_161.map((l) => render(l))}</p> } // flag
+export function P182() { const inner = (t: string) => <span className="text-brand-strong">{t}</span>; const outer = (t: string) => inner(t); return <p>{outer('Step 2')}</p> } // flag
+export function P183() { const chips = (...labels: string[]) => <p>{labels.map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p>; return chips('Step 2') } // flag
+export function P184() { const chip = (text: string) => <span className="text-brand-strong">{text}</span>; return chip(...(LABELS_161 as [string])) } // flag
+// Look-alikes: a call with words, the sage one of two helpers that share a parameter's name called with words, a
+// helper never called, and a recursion that ends.
+export function P185() { const chip = (text: string) => <span className="text-brand-strong">{text}</span>; return <p>{chip('Revenue')}</p> } // clean
+export function P186() { const a = (label: string) => <span className="text-brand-strong">{label}</span>; const b = (label: string) => <span className="text-text-secondary-light">{label}</span>; return <p>{a('Revenue')}{b('Step 2')}</p> } // clean
+export function P187() { const chip = (text: string) => <span className="text-brand-strong">{text}</span>; return <p>{typeof chip}</p> } // clean
+export function P188() { const walk = (t: string): ReactNode => (t.length > 9 ? <span className="text-brand-strong">{t}</span> : walk(`${t}!`)); return <p>{walk('Revenue')}</p> } // clean
+// A recursive callback ends, and is read. A parameter the file binds at several calls takes every call's value:
+// the call under sage passes words and the other a digit, so the gate fails closed.
+type Node189 = { label: string; kids: Node189[] }
+const TREE_189: Node189[] = [{ label: 'Step 2', kids: [] }]
+export function P189() { const render = (n: Node189): ReactNode => <li key={n.label} className="text-brand-strong">{n.label}{n.kids.map(render)}</li>; return <ul>{TREE_189.map(render)}</ul> } // flag
+export function P190() { const label = (t: string) => <span>{t}</span>; return <><p className="text-brand-strong">{label('Revenue')}</p><p className="text-text-secondary-light">{label('Q3')}</p></> } // flag
+// A call renders what its same-file function returns: under a sage parent, a literal argument's text and a
+// template built from an object's number.
+export function P191() { const label = (t: string) => <span>{t}</span>; return <p className="text-brand-strong">{label('Q3')}</p> } // flag
+export function P192() { const label = (t: string) => <span>{t}</span>; return <p className="text-brand-strong">{label('Revenue')}</p> } // clean
+export function P193({ item }: { item: { count: number } }) { const caption = (f: { count: number }) => `${f.count} filings`; return <span className="text-brand-strong">{caption(item)}</span> } // flag
+// A default stands beside what the binding takes: a parameter's and a destructured name's.
+export function P194() { const chip = (text = 'Step 2') => <span className="text-brand-strong">{text}</span>; return <p>{chip()}</p> } // flag
+export function P195({ item }: { item: { step?: string } }) { const { step = 'Step 2' } = item; return <span className="text-brand-strong">{step}</span> } // flag
+// A variable takes every value the file assigns it: a text, JSX held for a sage control's label, a class.
+export function P196({ on }: { on: boolean }) { let label = 'Revenue'; if (on) label = 'Step 2'; return <span className="text-brand-strong">{label}</span> } // flag
+export function P197({ n, on }: { n: number; on: boolean }) { let label = <span>Saved</span>; if (on) label = <span>See <span className="text-text-secondary-light">{n}</span></span>; return <Link className="text-brand-strong" href="/x">{label}</Link> } // flag
+export function P198({ n }: { n: number }) { let cls = 'text-text-secondary-light'; if (n > 9) cls = 'text-brand-strong'; return <span className={cls}>{n}</span> } // flag
+// A class reaches an element through a helper's parameter, or its default; a helper given a quiet class passes.
+export function P199({ n }: { n: number }) { const pill = (tone: string) => <span className={tone}>{n}</span>; return pill('text-brand-strong') } // flag
+export function P200({ n }: { n: number }) { const pill = (tone = 'text-brand-strong') => <span className={tone}>{n}</span>; return pill() } // flag
+export function P201({ n }: { n: number }) { const pill = (tone: string) => <span className={tone}>{n}</span>; return pill('text-text-secondary-light') } // clean
+// A sage control holds its count in a span of its own ink through a helper it calls or a callback it maps with.
+export function P202() { const label = (t: string) => <span>See <span className="text-text-secondary-light">{t}</span></span>; return <Link className="text-brand-strong" href="/x">{label('3 filings')}</Link> } // flag
+export function P203({ rows }: { rows: { n: number }[] }) { const render = (r: { n: number }) => <span key={r.n} className="text-text-secondary-light">{r.n}</span>; return <Link className="text-brand-strong" href="/x">See {rows.map(render)}</Link> } // flag
+// A loop's variable: a for…of one takes the array's members, a for…in one the object's keys.
+export function P204() { const out: ReactNode[] = []; for (const label of LABELS_161) out.push(<span key={label} className="text-brand-strong">{label}</span>); return <p>{out}</p> } // flag
+export function P205() { const out: ReactNode[] = []; for (const label of WORDS_161) out.push(<span key={label} className="text-brand-strong">{label}</span>); return <p>{out}</p> } // clean
+export function P206() { const out: ReactNode[] = []; for (const k in { Q1: 1 }) out.push(<span key={k} className="text-brand-strong">{k}</span>); return <p>{out}</p> } // flag
+// A member a call returns (find, at), an object's values, entries (a shorthand's included) and keys, and what a
+// map returns: indexed, a conditional it returns, joined.
+const OBJ_207 = { a: 'Q1', b: 'Q2' }
+const KEYS_207 = { Q1: 'Revenue' }
+export function P207({ k }: { k: string }) { const s = STEPS_161.find((x) => x.step === k); return <span className="text-brand-strong">{s?.step}</span> } // flag
+export function P208() { return <span className="text-brand-strong">{LABELS_161.at(0)}</span> } // flag
+export function P209() { return <p>{Object.values(OBJ_207).map((v) => <span key={v} className="text-brand-strong">{v}</span>)}</p> } // flag
+export function P210() { return <p>{Object.entries(OBJ_207).map(([k, v]) => <span key={k} className="text-brand-strong">{v}</span>)}</p> } // flag
+export function P211() { const q = 'Q1'; return <p>{Object.entries({ q }).map(([k, v]) => <span key={k} className="text-brand-strong">{v}</span>)}</p> } // flag
+export function P212() { return <p>{Object.keys(KEYS_207).map((k) => <span key={k} className="text-brand-strong">{k}</span>)}</p> } // flag
+export function P213({ k }: { k: string }) { return <span className="text-brand-strong">{Object.values(OBJ_207).find((v) => v === k)}</span> } // flag
+export function P214() { const labels = STEPS_161.map((s) => s.step); return <span className="text-brand-strong">{labels[0]}</span> } // flag
+const FLAGGED_215 = [{ on: true, step: 'Step 2' }]
+export function P215() { const labels = FLAGGED_215.map((s) => (s.on ? s.step : 'Overview')); return <span className="text-brand-strong">{labels[0]}</span> } // flag
+export function P216() { return <span className="text-brand-strong">{STEPS_161.map((s) => s.step).join(' · ')}</span> } // flag
+// A join, an array rendered whole, a Set and Array.from keep their members; a computed key may name any property;
+// a non-null assertion reads through.
+export function P217() { return <span className="text-brand-strong">{LABELS_161.join(', ')}</span> } // flag
+export function P218() { return <span className="text-brand-strong">{LABELS_161}</span> } // flag
+export function P219() { return <span className="text-brand-strong">{['Q1', 'Q2']}</span> } // flag
+export function P220() { return <p>{[...new Set(LABELS_161)].map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P221() { return <p>{Array.from(LABELS_161).map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P222({ k }: { k: 'a' }) { const { [k]: v } = OBJ_207; return <span className="text-brand-strong">{v}</span> } // flag
+export function P223() { return <span className="text-brand-strong">{STEPS_161[0]!.step}</span> } // flag
+// Look-alikes: words joined, rendered whole.
+export function P224() { return <span className="text-brand-strong">{WORDS_161.join(', ')}</span> } // clean
+export function P225() { return <span className="text-brand-strong">{WORDS_161}</span> } // clean
+// An array of numbers renders every one's digits, whole or joined; one of names does not.
+export function P226({ counts }: { counts: number[] }) { return <span className="text-brand-strong">{counts}</span> } // flag
+export function P227({ counts }: { counts: number[] }) { return <span className="text-brand-strong">{counts.join(', ')}</span> } // flag
+export function P228({ names }: { names: string[] }) { return <span className="text-brand-strong">{names.join(', ')}</span> } // clean
+// A component renders a const's digits in the ink it inherits, inside a sage parent.
+function Caption229() { const s = 'Step 2'; return <>{s}</> }
+export function P229() { return <span className="text-brand-strong"><Caption229 /></span> } // flag
+// What a function returns or a variable holds is reported where it is rendered, not where it is written: the
+// helper and the consts sit on lines of their own (a text under a sage parent, a count a sage control holds).
+const label234 = (t: string) => <span>{t}</span>
+export function P234() { return <p className="text-brand-strong">{label234('Q3')}</p> } // flag
+const SEE_235 = <span>See 3 filings</span>
+export function P235() { return <p className="text-brand-strong">{SEE_235}</p> } // flag
+const SEE_236 = <span>See <span className="text-text-secondary-light">3</span> filings</span>
+export function P236() { return <Link className="text-brand-strong" href="/x">{SEE_236}</Link> } // flag
+// The lens on this round's draft: a component renders what a same-file helper returns in the ink it inherits; a
+// number handed to a parameter typed wider than a number (ReactNode, `string | number`), read by the type of what
+// each call passes, mapped over numbers, or destructured from an object; a function that hands a parameter to itself
+// at several calls ends in time; a value held in what a call returns (useMemo, a helper); a destructuring assignment
+// and a callback a variable is reassigned; and JSX handed to a helper, a label's text, a value, a count control's.
+function Cap237() { const label = (t: string) => <>{t}</>; return <>{label('Q3')}</> }
+export function P237() { return <span className="text-brand-strong"><Cap237 /></span> } // flag
+function Cap238() { const label = (t: string) => t; return <>{label('Q3')}</> }
+export function P238() { return <span className="text-brand-strong"><Cap238 /></span> } // flag
+function Cap239() { const label = (t: string) => <>{t}</>; return <>{label('Revenue')}</> }
+export function P239() { return <span className="text-brand-strong"><Cap239 /></span> } // clean
+export function P240({ n }: { n: number }) { const chip = (v: ReactNode) => <span className="text-brand-strong">{v}</span>; return chip(n) } // flag
+export function P241({ n }: { n: number }) { const chip = (v: string | number) => <span className="text-brand-strong">{v}</span>; return chip(n + 1) } // flag
+export function P242({ counts }: { counts: number[] }) { const render = (v: ReactNode) => <span className="text-brand-strong">{v}</span>; return <p>{counts.map(render)}</p> } // flag
+export function P243({ n }: { n: number }) { const chip = ({ v }: { v: ReactNode }) => <span className="text-brand-strong">{v}</span>; return chip({ v: n }) } // flag
+export function P244({ name }: { name: string }) { const chip = (v: ReactNode) => <span className="text-brand-strong">{v}</span>; return chip(name) } // clean
+export function P245() { const walk = (t: string, d: number): ReactNode => (d > 3 ? <span className="text-brand-strong">{t}</span> : <>{walk(t, d + 1)}{walk(t, d + 2)}{walk(t, d + 3)}{walk(t, d + 4)}</>); return walk('Q3', 0) } // flag
+export function P246() { const walk = (t: string, d: number): ReactNode => (d > 3 ? <span className="text-brand-strong">{t}</span> : <>{walk(t, d + 1)}{walk(t, d + 2)}{walk(t, d + 3)}{walk(t, d + 4)}</>); return walk('Revenue', 0) } // clean
+export function P247() { const labels = useMemo(() => ['Step 2'], []); return <p>{labels.map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P248() { const build = () => ['Step 2']; const ls = build(); return <span className="text-brand-strong">{ls[0]}</span> } // flag
+export function P249() { const build = () => ['Step 2']; return <span className="text-brand-strong">{build()[0]}</span> } // flag
+export function P250() { const labels = useMemo(() => ['Revenue'], []); return <p>{labels.map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // clean
+export function P251({ on }: { on: boolean }) { let label = 'Revenue'; if (on) [label] = LABELS_161; return <span className="text-brand-strong">{label}</span> } // flag
+export function P252({ on }: { on: boolean }) { let label = 'Revenue'; if (on) ({ step: label } = STEPS_161[0]); return <span className="text-brand-strong">{label}</span> } // flag
+export function P253({ on }: { on: boolean }) { let render = (l: string) => <span key={l}>{l}</span>; if (on) render = (l: string) => <span key={l} className="text-brand-strong">{l}</span>; return <p>{LABELS_161.map(render)}</p> } // flag
+export function P254() { const wrap = (c: ReactNode) => <span className="text-brand-strong">{c}</span>; return wrap(<b>Step 2</b>) } // flag
+export function P255({ n }: { n: number }) { const wrap = (c: ReactNode) => <span className="text-brand-strong">{c}</span>; return wrap(<b>{n}</b>) } // flag
+export function P256({ n }: { n: number }) { const control = (label: ReactNode) => <Link className="text-brand-strong" href="/x">{label}</Link>; return control(<span>See <span className="text-text-secondary-light">{n}</span></span>) } // flag
+export function P257() { const wrap = (c: ReactNode) => <span className="text-brand-strong">{c}</span>; return wrap(<b>Revenue</b>) } // clean
+// Look-alikes beside the loop, the default and the reassignment above: words.
+export function P258() { const out: ReactNode[] = []; for (const k in { Revenue: 1 }) out.push(<span key={k} className="text-brand-strong">{k}</span>); return <p>{out}</p> } // clean
+export function P259() { const chip = (text = 'Revenue') => <span className="text-brand-strong">{text}</span>; return <p>{chip()}</p> } // clean
+export function P260({ on }: { on: boolean }) { let label = 'Revenue'; if (on) label = 'Margin'; return <span className="text-brand-strong">{label}</span> } // clean
+// Out of the file's own calls, and so review-checked: a value handed to a component as a prop (JSX binds its
+// props, which the component check reads only for children and className), a hook's state, and a callback
+// handed through another function's parameter.
+export function P230() { return <Chip230 label="Step 2" /> } function Chip230({ label }: { label: string }) { return <span className="text-brand-strong">{label}</span> } // gap
+export function P231() { return <p>{LABELS_161.map((l) => <Chip231 key={l} label={l} />)}</p> } function Chip231({ label }: { label: string }) { return <span className="text-brand-strong">{label}</span> } // gap
+export function P232() { const [label] = useState('Step 2'); return <span className="text-brand-strong">{label}</span> } // gap
+export function P233() { const list = (render: (s: string) => ReactNode) => LABELS_161.map(render); return <p>{list((s) => <span key={s} className="text-brand-strong">{s}</span>)}</p> } // gap
