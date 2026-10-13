@@ -5,7 +5,7 @@ Copilot rail and the analysis page, the summary paywall card, the verify-your-em
 lib/api/client.ts opens. Until an error code replaces the matching (tasks/todo.md), a copy edit on either
 side can switch that UI off. The frontend spec holds both sides, but only in the frontend job; this test
 runs the same tables in pytest, so a backend-only edit fails the local backend gate (ruff, bandit, pytest)
-before it reaches CI. It follows the spec on PR #1288 (brand-copy-gates) at 0930834d, and reads the way
+before it reaches CI. It follows the spec on PR #1288 (brand-copy-gates) at 986cc09e, and reads the way
 that spec reads: docstrings skipped, every literal test inside a matcher function a phrase, a .tsx matcher
 read with its JSX tags.
 
@@ -77,7 +77,7 @@ MATCHERS = (
 # clause 3 compares both). Shrink-only: delete the line and lower UNSOURCED_MAX in the same commit.
 _DASHBOARD_UNSOURCED = (
     "no message that reaches the dashboard's error boundary says it (see MATCHERS); the redirect's logic is "
-    "E18's (a status or an error code), never the brand sweep's"
+    "E31's (a status or an error code), never the brand sweep's"
 )
 UNSOURCED = {
     "isCopilotPaywallError monthly cap": (
@@ -87,7 +87,7 @@ UNSOURCED = {
     "isNonRetryableStreamError sign in": (
         "no message on the summary stream says it: its 401 is get_current_user's \"Could not validate "
         "credentials\" (routers/auth.py), which summaries-api.ts surfaces in place of its fallback, and a 401 "
-        "comes back retryable: false by status, so this matcher never sees it; the matcher's logic is E18's "
+        "comes back retryable: false by status, so this matcher never sees it; the matcher's logic is E31's "
         "(an error code field), never the brand sweep's"
     ),
     "DashboardError 401": _DASHBOARD_UNSOURCED,
