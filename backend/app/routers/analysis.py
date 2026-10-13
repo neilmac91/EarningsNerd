@@ -453,7 +453,7 @@ async def export_analysis_pdf(
         # Re-running the analysis regenerates the row in place under the same id.
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="This analysis was generated under an older version — re-run it to export.",
+            detail="This report is out of date. Run analysis again before exporting.",
         )
     company = db.get(Company, analysis.company_id)
     if company is None:

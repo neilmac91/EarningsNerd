@@ -48,7 +48,12 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   cards, three of the four steps and the feature grid are rewritten (search coverage stated as
   companies with a ticker on SEC EDGAR); the share text matches; the counter renders only from 25
   signups (`COUNT_FLOOR`), and its count-up is clamped to that floor so no frame reads "0+"; the
-  count and the step numbers are set in the ink, not sage.
+  count and the step numbers are set in the ink, not sage. The referral link in the join response and
+  the waitlist mails lands on `/waitlist?ref=` (`backend/app/services/waitlist_service.py`), where the
+  form submits the code with the waitlist gate up or down, so a referral counts; the success card
+  states the bonus once, from `REFERRAL_BONUS` (`features/waitlist/lib/referral.ts`, mirrored from the
+  backend), and the "A numbered spot" card no longer repeats it. The join answers "You're on the
+  waitlist." or "This email is already on the waitlist.", without an exclamation mark.
 - **Consent bar** (`frontend/components/CookieConsent.tsx`): "Cookies on this site", then what the
   cookies do: essential cookies keep you signed in; analytics cookies and session recording stay off
   until allowed. PostHog, the analytics tool that sets cookies, initialises only after consent

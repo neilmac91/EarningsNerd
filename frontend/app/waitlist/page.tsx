@@ -215,7 +215,7 @@ export default function WaitlistPage() {
               },
               {
                 title: 'A numbered spot',
-                body: 'Join the list and get a position. Each referral moves you up 5 spots.',
+                body: 'Join the list and get a position.',
               },
             ].map((item) => (
               <div

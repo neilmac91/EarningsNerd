@@ -291,7 +291,7 @@ class TestCommitTimeConflicts:
         assert resp.json() == {
             "success": False,
             "error": "already_registered",
-            "message": "This email is already on the waitlist!",
+            "message": "This email is already on the waitlist.",
             "position": 2,  # 7 - 1 * REFERRAL_BONUS
             "referral_code": "rival001",
             "referral_link": waitlist_service.build_referral_link("rival001"),

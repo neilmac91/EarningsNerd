@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { CheckIcon, CopyIcon } from '@/lib/icons'
 import { ApiError } from '@/lib/api/client'
 import { joinWaitlist } from '@/features/waitlist/api/waitlist-api'
+import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { Button, Card, Input, Notice, buttonVariants } from '@/components/ui'
@@ -135,7 +136,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           <span className="text-sm font-semibold uppercase tracking-eyebrow">You&apos;re in</span>
         </div>
         <h3 className="mt-3 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-          {success.message || 'You&apos;re on the waitlist.'}
+          {success.message || "You're on the waitlist."}
         </h3>
         <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Your current position is <span className="tnum font-data font-semibold">#{success.position}</span>.
@@ -163,7 +164,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
         </div>
 
         <div className="mt-5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          Move up the list by sharing. Each referral bumps you up 5 spots.
+          Each person who joins with your link moves you up {REFERRAL_BONUS} spots.
         </div>
 
         {shareLinks && (
