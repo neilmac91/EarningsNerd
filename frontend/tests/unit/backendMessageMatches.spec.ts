@@ -27,8 +27,14 @@ import { describe, expect, it } from 'vitest'
  *     or `.trim()` is stripped and each is split at camelCase and non-letter boundaries, include one of
  *     MESSAGE_WORDS (err, error, message, msg, detail, reason). A test found outside a MATCHERS function
  *     fails unless NOT_MESSAGES lists it as a test on something other than a message the code writes.
- *     The limit: outside the api modules, a message held under another name (`text`, `m`, `body`) is not
- *     read.
+ *     The limits, outside the api modules: a message held under another name (`text`, `m`, `body`) is
+ *     not read; MESSAGE_WORDS are whole words, so a plural receiver (`errors`, `messages`, `reasons`,
+ *     `fieldErrors`) is not read, nor a bracket-keyed one (`obj['message']`, whose key is a string, not
+ *     an identifier); and only the six literal tests above are read, so an equality test (`===`), an
+ *     `indexOf` and a test whose argument is a constant (`msg.includes(PHRASE)`) are outside the scan.
+ *     The third review (at 0930834d) parsed every module under those roots and found no message test
+ *     in any of these shapes: the equality tests on an error-named receiver compare codes
+ *     (`data?.error === 'already_registered'`, `err.name === 'AbortError'`), not message words.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')

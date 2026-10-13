@@ -156,22 +156,46 @@ export function titleCaseWords(text: string): string[] {
   return out
 }
 
-/** The text an element renders, its expressions read as `{x}`. */
-function elementText(element: ts.JsxElement): string {
-  const parts: string[] = []
+/** The texts an expression can render where copy is read in context (a button label, a heading, a
+    title): each literal leaf of a conditional, of a logical and/or/nullish expression and of a
+    parenthesised one, so `{busy ? 'Sending Message' : 'Send Message'}` is read as both labels. The
+    condition of an `&&` renders nothing a reader sees; any other expression reads as `{x}`. */
+function renderedVariants(expr: ts.Expression): string[] {
+  if (ts.isParenthesizedExpression(expr)) return renderedVariants(expr.expression)
+  if (ts.isConditionalExpression(expr)) return [...renderedVariants(expr.whenTrue), ...renderedVariants(expr.whenFalse)]
+  if (ts.isBinaryExpression(expr)) {
+    const op = expr.operatorToken.kind
+    if (op === ts.SyntaxKind.AmpersandAmpersandToken) return renderedVariants(expr.right)
+    if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken)
+      return [...renderedVariants(expr.left), ...renderedVariants(expr.right)]
+  }
+  return [literalText(expr) ?? '{x}']
+}
+
+/** Bounds the combinations an element with several conditionals can render. */
+const MAX_VARIANTS = 32
+
+/** The texts an element can render, one per combination of its conditionals' leaves, other
+    expressions read as `{x}`. */
+function elementTexts(element: ts.JsxElement): string[] {
+  let texts = ['']
+  const append = (options: string[]) => {
+    texts = texts.flatMap((t) => options.map((o) => t + o)).slice(0, MAX_VARIANTS)
+  }
   const visit = (node: ts.Node) => {
-    if (ts.isJsxText(node)) parts.push(node.text)
+    if (ts.isJsxText(node)) append([node.text])
     else if (ts.isJsxExpression(node)) {
-      const e = node.expression
-      const text = e ? literalText(e) : null
-      parts.push(text ?? '{x}')
+      append(node.expression ? renderedVariants(node.expression) : ['{x}'])
       return
     }
     ts.forEachChild(node, visit)
   }
   element.children.forEach(visit)
-  return parts.join('').replace(/\s+/g, ' ').trim()
+  return [...new Set(texts.map((t) => t.replace(/\s+/g, ' ').trim()))]
 }
+
+/** The first of the texts a node can render that breaks sentence case. */
+const titleCased = (texts: string[]) => texts.find((t) => titleCaseWords(t).length)
 
 const tagOf = (node: ts.JsxOpeningLikeElement) => node.tagName.getText()
 
@@ -196,8 +220,8 @@ export function voiceFindings(source: string, rel: string): Finding[] {
     if (ts.isJsxElement(node)) {
       const tag = tagOf(node.openingElement)
       if (HEADINGS.has(tag) || BUTTONS.has(tag)) {
-        const rendered = elementText(node)
-        if (titleCaseWords(rendered).length) add(node, 'sentenceCase', rendered)
+        const rendered = titleCased(elementTexts(node))
+        if (rendered !== undefined) add(node, 'sentenceCase', rendered)
       }
       if (HEADINGS.has(tag)) {
         const icons: ts.Node[] = []
@@ -217,13 +241,13 @@ export function voiceFindings(source: string, rel: string): Finding[] {
       const title = node.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'title')
       const init = title?.initializer
       const expr = init && ts.isJsxExpression(init) ? init.expression : init
-      const value = expr ? literalText(expr) : null
-      if (value !== null && titleCaseWords(value).length) add(expr!, 'sentenceCase', value)
+      const value = expr ? titleCased(renderedVariants(expr)) : undefined
+      if (value !== undefined) add(expr!, 'sentenceCase', value)
     }
     // A page's metadata title (`export const metadata`, generateMetadata), its default and template included.
     if (inMetadata && ts.isPropertyAssignment(node) && /^(?:title|default|template)$/.test(node.name.getText())) {
-      const value = literalText(node.initializer)
-      if (value !== null && titleCaseWords(value).length) add(node.initializer, 'sentenceCase', value)
+      const value = titleCased(renderedVariants(node.initializer))
+      if (value !== undefined) add(node.initializer, 'sentenceCase', value)
     }
     const metadataScope =
       inMetadata ||
@@ -324,6 +348,12 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       "      <a className=\"md:!block focus-visible:outline-none\" href=\"/pricing\">See Pro plans</a>",
       '      <Button>Edit Profile</Button>',
       '      <Button>Export Excel</Button>',
+      "      <Button>{busy ? 'Sending Message' : 'Send message'}</Button>",
+      "      <h2>{loading ? 'Loading' : ('Your Watchlist')}</h2>",
+      "      <Notice title={error ? 'Something Went Wrong' : 'Saved'} />",
+      "      <h3>{count > 0 && 'Recent Filings'}</h3>",
+      "      <Modal title={name ?? 'Delete Account'} />",
+      "      <Button>{busy ? 'Sending message' : 'Send message'} {count || 'none'}</Button>",
       '    </div>',
       '  )',
       '}',
@@ -339,7 +369,16 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '10 buzzword',
       '13 exclamation',
       '15 sentenceCase',
+      '17 sentenceCase',
+      '18 sentenceCase',
+      '19 sentenceCase',
+      '20 sentenceCase',
+      '21 sentenceCase',
     ])
+    // A metadata title read through generateMetadata's conditional.
+    expect(
+      voiceFindings("export async function generateMetadata() { return { title: ok ? 'Filing Summary' : 'Filing' } }", 'app/probe/page.tsx').map((f) => `${f.clause} ${f.text}`),
+    ).toEqual(['sentenceCase Filing Summary'])
     expect(voiceFindings("export const msg = 'The backend returned 503. Try again.'", 'lib/api/probe.ts').map((f) => f.clause)).toEqual(['developerWording'])
     expect(voiceFindings("export const msg = 'The backend returned 503. Try again.'", 'features/probe/msg.ts')).toEqual([])
   })
