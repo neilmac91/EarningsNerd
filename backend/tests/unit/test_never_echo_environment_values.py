@@ -1128,11 +1128,11 @@ def test_sentry_sends_no_outbound_query(monkeypatch, sentry_envelopes):
     assert not leaked, f"{leaked} eight-character fragments of the fabricated key reached Sentry"
 
 
-def test_every_sentry_channel_runs_the_value_scrubber():
-    # Each option through which the SDK hands over an item before sending it is the one value scrubber: errors and
-    # check-ins (before_send), transactions, logs and metrics. A hook an SDK upgrade adds fails here until it is wired;
-    # before_send_span acts only under span streaming, which the fixture refuses (and the SDK warns when it is set
-    # alone).
+def test_every_sentry_channel_runs_the_value_scrubber(monkeypatch):
+    # Each option through which the SDK hands over an item before sending it is the value scrubber's hook for its
+    # channel, which keeps its own kind's paths: errors and check-ins (before_send), transactions, logs and metrics. A
+    # hook an SDK upgrade adds fails here until it is wired; before_send_span acts only under span streaming, which the
+    # fixture refuses (and the SDK warns when it is set alone).
     import inspect
 
     from sentry_sdk.consts import ClientConstructor
@@ -1141,10 +1141,20 @@ def test_every_sentry_channel_runs_the_value_scrubber():
 
     parameters = inspect.signature(ClientConstructor.__init__).parameters
     hooks = {name for name in parameters if name.startswith("before_send")}
-    assert {"before_send", "before_send_transaction", "before_send_log", "before_send_metric"} <= hooks
+    channels = {
+        "before_send": "event",
+        "before_send_transaction": "transaction",
+        "before_send_log": "log",
+        "before_send_metric": "metric",
+    }
+    assert sorted(hooks - {"before_send_span"}) == sorted(channels)
+    assert set(main._value_scrubber(("x" * 8,))) == set(channels.values())
+    built = {channel: object() for channel in channels.values()}
+    monkeypatch.setattr(main, "_value_scrubber", lambda secret_values: built)
     options = main._sentry_options()
-    wired = sorted(hooks - {"before_send_span"})
-    assert callable(options["before_send"]) and [options.get(hook) for hook in wired] == [options["before_send"]] * 4
+    assert {hook: options.get(hook) for hook in channels} == {
+        hook: built[channel] for hook, channel in channels.items()
+    }
 
 
 def _scrubbing_envelopes(request, monkeypatch, **values: str | None) -> list:
@@ -1466,9 +1476,9 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request, 
     # Codex's cases on #1297: a weak secret equal to a word of Sentry's protocol (IP_HASH_SALT=event_id passes every
     # check) renamed the event's own `event_id`, which the SDK reads after the hook, so the capture raised; one equal to
     # a key below it (parent_span_id) renamed that key in each child span. Every key at one of the protocol's own paths
-    # and an item's `type` stay as they are (main._PROTOCOL_PATHS, main._ITEM_TYPES): errors, transactions, a check-in,
-    # a log and a metric are each sent, as their own kind and whole, the trace header keeps its sample rate, and a
-    # gen-AI span, which the SDK splits out after the hook, keeps its keys.
+    # for its item's kind and an item's `type` stay as they are (main._PROTOCOL_PATHS, main._ITEM_TYPES): errors,
+    # transactions, a check-in, a log and a metric are each sent, as their own kind and whole, the trace header keeps
+    # its sample rate, and a gen-AI span, which the SDK splits out after the hook, keeps its keys.
     words = {
         "IP_HASH_SALT": "event_id",
         "FMP_API_KEY": "trace_id",
@@ -1548,7 +1558,8 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
     # items carry outside user data (as each hook received them, from one capture of the structures the design checks
     # found the SDK builds, on every channel), each taken as a secret, leaves every item's structure as it was. The keys
     # come from the SDK's items, not from main's list: a key on a structure the capture builds fails here until
-    # main._PROTOCOL_PATHS has its path, and an SDK upgrade fails the pin below until the capture is checked again.
+    # main._PROTOCOL_PATHS has its path for the item's kind, and an SDK upgrade fails the pin below until the capture is
+    # checked again.
     import copy
 
     import sentry_sdk
@@ -1564,34 +1575,48 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
     value_scrubber = main._value_scrubber
 
     def recording(secret_values):
-        withhold = value_scrubber(secret_values)
+        hooks = value_scrubber(secret_values)
 
-        def recorded(item, hint):
-            received.append(copy.deepcopy(item))
-            return withhold(item, hint)
+        def recorder(channel, hook):
+            def recorded(item, hint):
+                received.append((channel, copy.deepcopy(item)))
+                return hook(item, hint)
 
-        return recorded
+            return recorded
+
+        return {channel: recorder(channel, hook) for channel, hook in hooks.items()}
 
     monkeypatch.setattr(main, "_value_scrubber", recording)
     request.getfixturevalue("sentry_envelopes")
     _capture_every_structure(caplog)
-    assert {"transaction", "check_in", "counter"} <= {item.get("type") for item in received}
-    assert any("exception" in item for item in received) and any("severity_text" in item for item in received)
-    # Each key's path from its item's top, a list's items sharing the list's path, as main keeps them.
-    paths = {
-        tuple(step for step in path if not isinstance(step, int))
-        for item in received
-        for path in _structure(item)
-        if isinstance(path[-1], str) and len(path[-1]) >= main._MIN_SECRET_LENGTH
+    assert {"transaction", "check_in", "counter"} <= {item.get("type") for _, item in received}
+    assert any("exception" in item for _, item in received) and any("severity_text" in item for _, item in received)
+    # Each key's path from its item's top, a list's items sharing the list's path, by the item's kind: its channel's,
+    # and on before_send a check-in's when its type is exactly `check_in`, an error's otherwise.
+    paths = {}
+    for channel, item in received:
+        kind = channel
+        if channel == "event":
+            kind = "check_in" if type(item.get("type")) is str and item["type"] == "check_in" else "error"
+        paths.setdefault(kind, set()).update(
+            tuple(step for step in path if not isinstance(step, int))
+            for path in _structure(item)
+            if isinstance(path[-1], str) and len(path[-1]) >= main._MIN_SECRET_LENGTH
+        )
+    # Main keeps exactly these paths for each kind: none missing, none dead, each spelled as the SDK spells it. The
+    # capture sets no context of its own, so every context in it is the SDK's.
+    assert main._PROTOCOL_PATHS == paths, {
+        kind: (
+            sorted(paths.get(kind, set()) - main._PROTOCOL_PATHS.get(kind, set())),
+            sorted(main._PROTOCOL_PATHS.get(kind, set()) - paths.get(kind, set())),
+        )
+        for kind in sorted(set(paths) | set(main._PROTOCOL_PATHS))
     }
-    # Main keeps exactly these paths: none missing, none dead, each spelled as the SDK spells it. The capture sets no
-    # context of its own, so every context in it is the SDK's.
-    assert main._PROTOCOL_PATHS == paths, (sorted(paths - main._PROTOCOL_PATHS), sorted(main._PROTOCOL_PATHS - paths))
-    assert {name for item in received for name in item.get("contexts", {})} == {"trace", "runtime", "response"}
-    words = sorted({path[-1] for path in paths}, key=lambda word: (-len(word), word))
-    withhold = value_scrubber(tuple(words))
-    for item in received:
-        lost = _structure(item) - _structure(withhold(copy.deepcopy(item), {}))
+    assert {name for _, item in received for name in item.get("contexts", {})} == {"trace", "runtime", "response"}
+    words = sorted({path[-1] for kept in paths.values() for path in kept}, key=lambda word: (-len(word), word))
+    hooks = value_scrubber(tuple(words))
+    for channel, item in received:
+        lost = _structure(item) - _structure(hooks[channel](copy.deepcopy(item), {}))
         assert not lost, f"{sorted('.'.join(map(str, path)) for path in lost)} lost to secrets equal to protocol keys"
 
 
@@ -1717,12 +1742,51 @@ def test_a_protocol_word_is_kept_only_at_its_own_path(monkeypatch, request):
     assert nested["custom"] == {"[Filtered]": "x"}
 
 
+def test_a_protocol_word_is_kept_only_in_its_own_kind_of_item(monkeypatch, request):
+    # Codex's case on #1297 (a87dfd9), which the delta reviewer reproduced: a key stays only at a path the protocol
+    # gives its own kind of item, so weak secrets equal to a log's `attributes` and a check-in's `check_in_id`, written
+    # into an ordinary error by an event processor, and to a log's top-level `trace_id`, on a hand-built error, are
+    # withheld there, while the error's own trace context keeps its `trace_id`; and an event whose `type` only poses as
+    # `check_in` keeps no check-in key.
+    import sentry_sdk
+
+    import main
+
+    secrets = {"IP_HASH_SALT": "attributes", "FMP_API_KEY": "check_in_id", "POSTHOG_API_KEY": "trace_id"}
+    envelopes = _scrubbing_envelopes(request, monkeypatch, **secrets)
+
+    def write(event, hint):
+        if event.get("message") == "another kind's keys":
+            event.update({"attributes": "x", "check_in_id": "x"})
+        return event
+
+    sentry_sdk.get_isolation_scope().add_event_processor(write)
+    sentry_sdk.capture_message("another kind's keys")
+    sentry_sdk.capture_event({"message": "a log's key by hand", "trace_id": "x"})
+    sentry_sdk.flush()
+    events = {event["message"]: event for event in _of(envelopes, "event")}
+    written, by_hand = events["another kind's keys"], events["a log's key by hand"]
+    assert written["[Filtered]"] == "x" and not {"attributes", "check_in_id"} & written.keys()
+    assert "trace_id" in written["contexts"]["trace"]  # the error's own path
+    assert by_hand["[Filtered]"] == "x" and "trace_id" not in by_hand
+
+    class Posing(str):
+        def __eq__(self, other):
+            return other == "check_in"
+
+        def __hash__(self):
+            return hash("check_in")
+
+    scrubbed = main._value_scrubber(("check_in_id",))["event"]({"type": Posing("event"), "check_in_id": "x"}, {})
+    assert scrubbed == {"type": "event", "[Filtered]": "x"} and type(scrubbed["type"]) is str
+
+
 @pytest.mark.parametrize("field", sorted(_USER_DATA_FIELDS))
 def test_the_value_scrubber_keeps_a_protocol_word_only_outside_user_data(field):
-    # Main keeps a key only at the protocol's own paths, none of them below a field of the gate's list, so a weak secret
-    # equal to a protocol word is withheld as a key there at any depth (a list's items too, a protocol structure nested
-    # there too), and in a context the app set, while the same word stays where the protocol puts it (a user's
-    # `username`, the trace context's `trace_id`).
+    # Main keeps a key only at the paths the protocol gives the item's kind (an error's here), none of them below a field
+    # of the gate's list, so a weak secret equal to a protocol word is withheld as a key there at any depth (a list's
+    # items too, a protocol structure nested there too), and in a context the app set, while the same word stays where
+    # the protocol puts it (a user's `username`, the trace context's `trace_id`).
     import main
 
     word = "username"
@@ -1731,7 +1795,7 @@ def test_the_value_scrubber_keeps_a_protocol_word_only_outside_user_data(field):
         field: {word: "x", "nested": {word: "x"}, "listed": [{word: "x"}], "user": {word: "x"}},
         "contexts": {"trace": {"trace_id": "x"}, "job": {word: "x"}},
     }
-    assert main._withhold(item, (word,)) == {
+    assert main._withhold(item, (word,), main._PROTOCOL_PATHS["error"]) == {
         "user": {word: "reader"},
         field: {
             "[Filtered]": "x",
@@ -1768,15 +1832,18 @@ def test_a_key_is_kept_as_a_protocol_word_only_when_it_is_text():
         def __repr__(self):
             return "Word()"
 
-    assert main._withhold({Posing(secret): 1}, (secret,)) == {"[Filtered]": 1}
-    assert main._withhold({Word(): 2}, (secret,)) == {"Word()": 2}
+    errors = main._PROTOCOL_PATHS["error"]  # `timestamp` is one of an error's own paths
+    assert main._withhold({Posing(secret): 1}, (secret,), errors) == {"[Filtered]": 1}
+    assert main._withhold({Word(): 2}, (secret,), errors) == {"Word()": 2}
     # Above a protocol path, too: a key that only poses as `contexts` (its text is the word) keeps nothing below it,
-    # while the plain word keeps the trace context's `trace_id`.
+    # while the plain word keeps the trace context's `trace_id`; and below a key that is not text, no key stays, a
+    # top-level word included (the delta check of a87dfd9).
     item = {"trace": {"trace_id": "x"}}
-    assert main._withhold({"contexts": item}, ("trace_id",)) == {"contexts": item}
-    assert main._withhold({type("Text", (str,), {})("contexts"): item}, ("trace_id",)) == {
+    assert main._withhold({"contexts": item}, ("trace_id",), errors) == {"contexts": item}
+    assert main._withhold({type("Text", (str,), {})("contexts"): item}, ("trace_id",), errors) == {
         "contexts": {"trace": {"[Filtered]": "x"}}
     }
+    assert main._withhold({Word(): {"event_id": "x"}}, ("event_id",), errors) == {"Word()": {"[Filtered]": "x"}}
 
 
 def test_a_type_is_kept_only_when_it_is_text(monkeypatch, request):
@@ -1803,13 +1870,14 @@ def test_a_type_is_kept_only_when_it_is_text(monkeypatch, request):
 
 
 def test_nothing_written_before_the_hooks_carries_a_secret_past_them(monkeypatch, request):
-    # The hooks keep only the protocol's own keys at its paths and an item's own `type` (main._PROTOCOL_PATHS,
-    # main._ITEM_TYPES), never a field whole, and drop a hint's attachments, whose bytes pass no hook, so nothing that
-    # runs before them can carry a secret past them: a trace context set by hand; an attachment on the scope; a
-    # hand-built event with the secret as its own key, its `type` and an attachment; or an event processor, registered
-    # under any name (an assignment alias: Codex's case on #1297), writing it as an event's key, a trace context's key
-    # and the `type`, and attaching it (the high-tier review of 2cc3780). A `type` that is not text (hand-built) is
-    # walked like any value, and the event is sent.
+    # The hooks keep only the protocol's own keys at its paths for each item's kind and an item's own `type`
+    # (main._PROTOCOL_PATHS, main._ITEM_TYPES), never a field whole, and drop a hint's attachments, whose bytes pass no
+    # hook, so nothing that runs before them can carry a secret past them, but as the protocol's own key at its own path
+    # in its own kind of item: a trace context set by hand; an attachment on the scope; a hand-built event with the
+    # secret as its own key, its `type` and an attachment; or an event processor, registered under any name (an
+    # assignment alias: Codex's case on #1297), writing it as an event's key, a trace context's key and the `type`, and
+    # attaching it (the high-tier review of 2cc3780). A `type` that is not text (hand-built) is walked like any value,
+    # and the event is sent.
     import sentry_sdk
     from sentry_sdk.attachments import Attachment
 
@@ -1937,7 +2005,7 @@ def test_a_failing_value_scrubber_sends_nothing(monkeypatch, sentry_envelopes):
 
     import main
 
-    def failing(node, secret_values):
+    def failing(*arguments):
         raise RuntimeError("the scrubber failed")
 
     monkeypatch.setattr(main, "_withhold", failing)

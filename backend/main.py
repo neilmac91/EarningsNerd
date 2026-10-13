@@ -54,46 +54,69 @@ def _secret_values() -> tuple[str, ...]:
     return tuple(sorted((value for value in values if len(value) >= _MIN_SECRET_LENGTH), key=lambda v: (-len(v), v)))
 
 
-# Where the protocol puts its own keys: the path of each key of _MIN_SECRET_LENGTH characters or more, from an item's
-# top through the keys above it (a list's items share the list's path), as the SDK builds an error, a transaction with
-# its spans, a check-in, a log and a metric under main's options: an item's own keys; a span's, a breadcrumb's, an
-# exception's, its mechanism's and its frames', a thread's frames'; a log entry's, a request's, a user's and the SDK
-# info's; the trace context's, its dynamic sampling context's and the response context's; a check-in's monitor config's;
-# and the names the SDK fills from its API or a request's incoming trace (an event's `fingerprint`; the replay fields
-# an incoming baggage header carries into the dynamic sampling context). The value scrubber keeps a key only at one of
-# these paths, so a weak secret equal to one of their words (or inside one) leaves the item's structure whole and the
-# SDK finds the keys it reads after the hook (an event's `event_id`, a log's `attributes`, a profile's
+# Where the protocol puts its own keys, by item kind: the path of each key of _MIN_SECRET_LENGTH characters or more,
+# from an item's top through the keys above it (a list's items share the list's path), as the SDK builds each kind under
+# main's options: an error (its exceptions, their mechanisms and frames, its threads' frames, breadcrumbs, log entry,
+# request and user), a transaction (its spans, request, user and response context), a check-in (its monitor config), a
+# log and a metric, each with the SDK info, the trace context's keys and its dynamic sampling context's where it carries
+# them, and the names the SDK fills from its API or a request's incoming trace (an event's `fingerprint`; the replay
+# fields an incoming baggage header carries into the dynamic sampling context). The value scrubber keeps a key only at
+# one of its item kind's paths, so a weak secret equal to one of their words (or inside one) leaves the item's structure
+# whole and the SDK finds the keys it reads after the hook (an event's `event_id`, a log's `attributes`, a profile's
 # `contexts.trace.trace_id`), while the same word anywhere else (in user data, in a context the app set, as a user's own
-# key, in a structure the app nested in the protocol's) is scrubbed like any key. A shorter key needs no entry (no
-# secret fits in it), so the list is complete for that floor, on the structures the gate's capture builds; the gate
-# derives the paths from the SDK's items there and fails on a missing one there or a dead one. Continuous profiling,
-# which main does not configure, would add `contexts.profile.profiler_id`.
-_PROTOCOL_PATHS = frozenset(
-    tuple(path.split("."))
-    for path in """
-    attributes breadcrumbs breadcrumbs.values.category breadcrumbs.values.timestamp check_in_id contexts
-    contexts.response contexts.response.status_code contexts.trace.description contexts.trace.dynamic_sampling_context
-    contexts.trace.dynamic_sampling_context.environment contexts.trace.dynamic_sampling_context.public_key
-    contexts.trace.dynamic_sampling_context.replay_id contexts.trace.dynamic_sampling_context.sample_rand
-    contexts.trace.dynamic_sampling_context.sample_rate contexts.trace.dynamic_sampling_context.trace_id
-    contexts.trace.dynamic_sampling_context.transaction contexts.trace.dynamic_sampling_context.user_segment
-    contexts.trace.parent_span_id contexts.trace.trace_id duration environment event_id exception
-    exception.values.mechanism exception.values.mechanism.exception_id exception.values.mechanism.is_exception_group
-    exception.values.mechanism.parent_id exception.values.stacktrace exception.values.stacktrace.frames.abs_path
-    exception.values.stacktrace.frames.context_line exception.values.stacktrace.frames.filename
-    exception.values.stacktrace.frames.function exception.values.stacktrace.frames.post_context
-    exception.values.stacktrace.frames.pre_context fingerprint logentry logentry.formatted measurements monitor_config
-    monitor_config.checkin_margin monitor_config.failure_issue_threshold monitor_config.max_runtime
-    monitor_config.recovery_threshold monitor_config.schedule monitor_config.timezone monitor_slug platform
-    request.query_string sdk.integrations sdk.packages server_name severity_number severity_text spans.description
-    spans.parent_span_id spans.same_process_as_parent spans.start_timestamp spans.timestamp spans.trace_id
-    start_timestamp threads.values.stacktrace threads.values.stacktrace.frames.abs_path
-    threads.values.stacktrace.frames.context_line threads.values.stacktrace.frames.filename
-    threads.values.stacktrace.frames.function threads.values.stacktrace.frames.post_context
-    threads.values.stacktrace.frames.pre_context time_unix_nano timestamp trace_id transaction transaction_info
-    user.username
-    """.split()
-)
+# key, in a structure the app nested in the protocol's, at another kind's path: a log's `attributes` written into an
+# error) is scrubbed like any key. A shorter key needs no entry (no secret fits in it), so the lists are complete for
+# that floor, on the structures the gate's capture builds; the gate derives each kind's paths from the SDK's items there
+# and fails on a missing one there or a dead one. Continuous profiling, which main does not configure, would add
+# `contexts.profile.profiler_id`.
+_PROTOCOL_PATHS = {
+    kind: frozenset(tuple(path.split(".")) for path in paths.split())
+    for kind, paths in {
+        "error": """
+        breadcrumbs breadcrumbs.values.category breadcrumbs.values.timestamp contexts contexts.trace.description
+        contexts.trace.dynamic_sampling_context contexts.trace.dynamic_sampling_context.environment
+        contexts.trace.dynamic_sampling_context.public_key contexts.trace.dynamic_sampling_context.replay_id
+        contexts.trace.dynamic_sampling_context.sample_rand contexts.trace.dynamic_sampling_context.sample_rate
+        contexts.trace.dynamic_sampling_context.trace_id contexts.trace.dynamic_sampling_context.user_segment
+        contexts.trace.parent_span_id contexts.trace.trace_id environment event_id exception exception.values.mechanism
+        exception.values.mechanism.exception_id exception.values.mechanism.is_exception_group
+        exception.values.mechanism.parent_id exception.values.stacktrace exception.values.stacktrace.frames.abs_path
+        exception.values.stacktrace.frames.context_line exception.values.stacktrace.frames.filename
+        exception.values.stacktrace.frames.function exception.values.stacktrace.frames.post_context
+        exception.values.stacktrace.frames.pre_context fingerprint logentry logentry.formatted platform
+        request.query_string sdk.integrations sdk.packages server_name threads.values.stacktrace
+        threads.values.stacktrace.frames.abs_path threads.values.stacktrace.frames.context_line
+        threads.values.stacktrace.frames.filename threads.values.stacktrace.frames.function
+        threads.values.stacktrace.frames.post_context threads.values.stacktrace.frames.pre_context timestamp transaction
+        transaction_info user.username
+        """,
+        "transaction": """
+        contexts contexts.response contexts.response.status_code contexts.trace.description
+        contexts.trace.dynamic_sampling_context contexts.trace.dynamic_sampling_context.environment
+        contexts.trace.dynamic_sampling_context.public_key contexts.trace.dynamic_sampling_context.replay_id
+        contexts.trace.dynamic_sampling_context.sample_rand contexts.trace.dynamic_sampling_context.sample_rate
+        contexts.trace.dynamic_sampling_context.trace_id contexts.trace.dynamic_sampling_context.transaction
+        contexts.trace.dynamic_sampling_context.user_segment contexts.trace.parent_span_id contexts.trace.trace_id
+        environment event_id measurements platform request.query_string sdk.integrations sdk.packages server_name
+        spans.description spans.parent_span_id spans.same_process_as_parent spans.start_timestamp spans.timestamp
+        spans.trace_id start_timestamp timestamp transaction transaction_info user.username
+        """,
+        "check_in": """
+        check_in_id contexts contexts.trace.dynamic_sampling_context contexts.trace.dynamic_sampling_context.environment
+        contexts.trace.dynamic_sampling_context.public_key contexts.trace.dynamic_sampling_context.sample_rate
+        contexts.trace.dynamic_sampling_context.trace_id contexts.trace.parent_span_id contexts.trace.trace_id duration
+        environment event_id monitor_config monitor_config.checkin_margin monitor_config.failure_issue_threshold
+        monitor_config.max_runtime monitor_config.recovery_threshold monitor_config.schedule monitor_config.timezone
+        monitor_slug platform sdk.integrations sdk.packages server_name timestamp
+        """,
+        "log": """
+        attributes severity_number severity_text time_unix_nano trace_id
+        """,
+        "metric": """
+        attributes timestamp trace_id
+        """,
+    }.items()
+}
 # The `type` the SDK gives an item, which it reads after the hook: a transaction, a check-in, a metric's kind. The
 # value scrubber keeps an item's `type` only when it is one of these.
 _ITEM_TYPES = frozenset({"transaction", "check_in", "counter", "gauge", "distribution"})
@@ -125,11 +148,17 @@ def _placeholder(secret_values: tuple[str, ...]) -> str:
     raise ValueError("every placeholder overlaps a secret setting's value")
 
 
-def _withhold(node: Any, secret_values: tuple[str, ...], path: tuple[str, ...] | None = ()) -> Any:
+def _withhold(
+    node: Any,
+    secret_values: tuple[str, ...],
+    kept: frozenset[tuple[str, ...]] = frozenset(),
+    path: tuple[str, ...] | None = (),
+) -> Any:
     """The node with each occurrence of each secret value, in any text at any depth, keys too, replaced by the
     placeholder (`_placeholder`: the SDK's own `[Filtered]` unless a secret overlaps it). A key stays as it is only at
-    one of the protocol's own paths (`_PROTOCOL_PATHS`): `path` is the keys above the node, a list's items sharing the
-    list's, and None below a key that is not exactly text (a str subclass could pose as one), where no key stays.
+    one of `kept`, the paths the protocol gives the item's kind (`_PROTOCOL_PATHS`; none by default): `path` is the keys
+    above the node, a list's items sharing the list's, and None below a key that is not exactly text (a str subclass
+    could pose as one), where no key stays.
     Mappings and lists are walked; None, booleans and numbers stay as they are; any other value becomes its repr first,
     scrubbed: the SDK would turn it into text after the hook (a log record's `extra` value, a log's body that is not
     text), where nothing scrubs it."""
@@ -139,11 +168,11 @@ def _withhold(node: Any, secret_values: tuple[str, ...], path: tuple[str, ...] |
         withheld: dict[Any, Any] = {}
         for key, value in node.items():
             here = (*path, key) if path is not None and type(key) is str else None
-            kept = key if here in _PROTOCOL_PATHS else _withhold(key, secret_values)
-            withheld[kept] = _withhold(value, secret_values, here)
+            name = key if here in kept else _withhold(key, secret_values)
+            withheld[name] = _withhold(value, secret_values, kept, here)
         return withheld
     if isinstance(node, list):
-        return [_withhold(item, secret_values, path) for item in node]
+        return [_withhold(item, secret_values, kept, path) for item in node]
     if not isinstance(node, str):
         from sentry_sdk.utils import safe_repr
 
@@ -154,27 +183,44 @@ def _withhold(node: Any, secret_values: tuple[str, ...], path: tuple[str, ...] |
     return node
 
 
-def _value_scrubber(secret_values: tuple[str, ...]) -> Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]:
-    """Sentry's hook on every channel that carries text: an error or check-in (before_send), a transaction with its
-    spans (before_send_transaction), a log (before_send_log) and a metric (before_send_metric). A hook that raises drops
-    its item (the SDK records a callback error), so a failure here never sends one unscrubbed. It keeps only the
-    protocol's own keys where the protocol puts them, never a field whole: a key at one of `_PROTOCOL_PATHS`
-    (`_withhold`) and an item's `type` when it is one of `_ITEM_TYPES`. So a weak secret equal to one of their words
-    breaks no item, and nothing that runs before the hook (an event processor, a hand-built event, a trace context set
-    by hand) can carry a secret past it. It also drops the hint's attachments, whose bytes would reach Sentry through
-    no hook: the backend sends none."""
+_Hook = Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]
+
+
+def _value_scrubber(secret_values: tuple[str, ...]) -> dict[str, _Hook]:
+    """Sentry's hooks on every channel that carries text, one per channel: an error or a check-in (`event`, set as
+    before_send), a transaction with its spans (`transaction`, before_send_transaction), a log (`log`, before_send_log)
+    and a metric (`metric`, before_send_metric). A hook that raises drops its item (the SDK records a callback error),
+    so a failure here never sends one unscrubbed. Each keeps only the protocol's own keys where the protocol puts them
+    in its item's kind, never a field whole: a key at one of that kind's `_PROTOCOL_PATHS` (`_withhold`; before_send
+    tells a check-in by its `type`, exactly text) and an item's `type` when it is one of `_ITEM_TYPES`. So a weak secret
+    equal to one of their words breaks no item, and nothing that runs before the hooks (an event processor, a
+    hand-built event, a trace context set by hand) can carry a secret past them, but as the protocol's own key at its
+    own path in its own kind of item. They also drop the hint's attachments, whose bytes would reach Sentry through no
+    hook: the backend sends none."""
 
     _placeholder(secret_values)  # every placeholder overlapped fails here, at startup, not on the first item
 
-    def withhold_secret_values(item: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
-        hint.pop("attachments", None)  # the SDK sends what is left there after the hook, unscrubbed
-        scrubbed = _withhold(item, secret_values)
-        kind = item.get("type")
-        if type(kind) is str and kind in _ITEM_TYPES:  # exactly text: a subclass could pose as one
-            scrubbed["type"] = kind
-        return scrubbed
+    def hook(paths: Callable[[dict[str, Any]], frozenset[tuple[str, ...]]]) -> _Hook:
+        def withhold_secret_values(item: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
+            hint.pop("attachments", None)  # the SDK sends what is left there after the hook, unscrubbed
+            scrubbed = _withhold(item, secret_values, paths(item))
+            kind = item.get("type")
+            if type(kind) is str and kind in _ITEM_TYPES:  # exactly text: a subclass could pose as one
+                scrubbed["type"] = kind
+            return scrubbed
 
-    return withhold_secret_values
+        return withhold_secret_values
+
+    def event_paths(item: dict[str, Any]) -> frozenset[tuple[str, ...]]:
+        kind = item.get("type")
+        return _PROTOCOL_PATHS["check_in" if type(kind) is str and kind == "check_in" else "error"]
+
+    return {
+        "event": hook(event_paths),
+        "transaction": hook(lambda item: _PROTOCOL_PATHS["transaction"]),
+        "log": hook(lambda item: _PROTOCOL_PATHS["log"]),
+        "metric": hook(lambda item: _PROTOCOL_PATHS["metric"]),
+    }
 
 
 def _sentry_options() -> dict:
@@ -185,9 +231,9 @@ def _sentry_options() -> dict:
     from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
     from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber
 
-    # The event scrubber below matches key names; this hook matches values. It reads the settings once, here at
+    # The event scrubber below matches key names; these hooks match values. They read the settings once, here at
     # startup: nothing changes them afterwards.
-    withhold_secret_values = _value_scrubber(_secret_values())
+    hooks = _value_scrubber(_secret_values())
     return {
         "dsn": settings.SENTRY_DSN,
         "environment": settings.ENVIRONMENT,
@@ -228,10 +274,10 @@ def _sentry_options() -> dict:
         # event scrubber and the serializer. Never set `max_value_length`: the serializer would cut a string inside a
         # secret and leave a prefix no hook matches. `before_send_span` acts only under span streaming
         # (`trace_lifecycle`), which stays off.
-        "before_send": withhold_secret_values,
-        "before_send_transaction": withhold_secret_values,
-        "before_send_log": withhold_secret_values,
-        "before_send_metric": withhold_secret_values,
+        "before_send": hooks["event"],
+        "before_send_transaction": hooks["transaction"],
+        "before_send_log": hooks["log"],
+        "before_send_metric": hooks["metric"],
     }
 
 
