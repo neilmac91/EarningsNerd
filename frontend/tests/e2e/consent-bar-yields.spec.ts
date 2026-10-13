@@ -121,6 +121,9 @@ const hitsScrim = (loc: Locator) =>
     const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
     return !!at && at !== el && !el.contains(at) && at.classList.contains('bg-overlay')
   })
+/** The site header's bottom edge: the desktop pane sticks there (`lg:top-[var(--site-header-h,4rem)]`), at
+    the header's measured height (61px at 1440 at the default text size), not at a fixed 4rem. */
+const headerBottom = (page: Page) => page.evaluate(() => Math.round(document.querySelector('header')!.getBoundingClientRect().bottom))
 const viewport = (page: Page) => page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))
 const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 const inside = (r: Rect, vp: { w: number; h: number }) => r.x >= 0 && r.y >= 0 && r.x + r.w <= vp.w + 0.5 && r.y + r.h <= vp.h + 0.5
@@ -208,7 +211,8 @@ for (const theme of ['light', 'dark'] as const) {
         const pane = page.locator(PANE)
         await expect(pane.getByRole('tab', { name: 'Filing', exact: true })).toHaveAttribute('aria-selected', 'true')
         expect(await page.evaluate(() => window.scrollY), 'opening a citation scrolls the page').toBe(0)
-        expect((await rectOf(pane)).y, 'the first check must exercise the unstuck pane').toBeGreaterThan(64)
+        const stuckAt = await headerBottom(page)
+        expect((await rectOf(pane)).y, 'the first check must exercise the unstuck pane').toBeGreaterThan(stuckAt)
 
         const expectFooterClear = async () => {
           const vp = await viewport(page)
@@ -223,7 +227,7 @@ for (const theme of ['light', 'dark'] as const) {
         }
         await expectFooterClear()
         await page.evaluate(() => window.scrollTo({ top: 400, behavior: 'instant' }))
-        await expect.poll(() => rectOf(pane).then((rect) => Math.round(rect.y))).toBe(64)
+        await expect.poll(() => rectOf(pane).then((rect) => Math.round(rect.y))).toBe(stuckAt)
         await expectFooterClear()
         await page.setViewportSize({ width: 1440, height: 640 })
         await expectFooterClear()

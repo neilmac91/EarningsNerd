@@ -576,6 +576,12 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  The copilot rail / workspace bottom sheets stay z-40 over z-scrim scrims, so the in-sheet
                  citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]
                  sticky-cell layering is the one documented exemption.
+                 The header offset: the site header publishes its rendered height on <html> as
+                 `--site-header-h` (components/Header.tsx), the one offset under it. Sticky and fixed chrome
+                 below the header and every section's scroll margin read it, `top-[var(--site-header-h,4rem)]`
+                 or `scroll-mt-[calc(var(--site-header-h,4rem)_+_4rem)]`, never a fixed `top-16`, so a bar that
+                 wraps under enlarged text covers nothing. Gates: tests/unit/headerOffsetReadsTheVariable.spec.ts
+                 and tests/e2e/reflow-200.spec.ts (the filing page's section nav at 200% text).
                  The consent layer: a lower z alone would let the launcher cover a consent choice, so while
                  the bar is mounted CookieConsent publishes its height on <html> as `--consent-inset` plus
                  `data-consent-visible` (lib/consentLayer), and every bottom-anchored layer above it adds the

@@ -146,6 +146,20 @@ const collisions = (bar: Locator): Promise<string[]> =>
 const why = ({ scrollWidth, clientWidth, widest }: Overflow) =>
   `scrollWidth ${scrollWidth}px against clientWidth ${clientWidth}px; past the edge: ${widest.join('; ') || 'nothing outside a clipping box'}`
 
+/** Chromium's own text setting doubled (standard 32, fixed 26), confirmed taken, then a beat for
+    anything that re-measures on resize (the header publishes its new height) before the layout is read. */
+async function doubleText(page: Page) {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+  await expect
+    .poll(() => page.evaluate(() => ({ root: getComputedStyle(document.documentElement).fontSize, narrow: matchMedia('(max-width: 24rem)').matches })), {
+      message: 'the 200% text setting took: the root computes to 32px and the 24rem query matches',
+    })
+    .toEqual({ root: '32px', narrow: true })
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+  await page.evaluate(() => document.fonts.ready)
+}
+
 test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
 
 /** Below 24rem at the default text size (a 360px phone) the Button's narrow state is already on; a
@@ -194,19 +208,72 @@ for (const route of ROUTES) {
     expect(atDefault.scrollWidth, `${route.path} at the default text size: ${why(atDefault)}`).toBeLessThanOrEqual(atDefault.clientWidth)
     expect(await collisions(route.bar(page)), `${route.path} at the default text size: the bar's controls`).toEqual([])
 
-    const cdp = await page.context().newCDPSession(page)
-    await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
-    await expect
-      .poll(() => page.evaluate(() => ({ root: getComputedStyle(document.documentElement).fontSize, narrow: matchMedia('(max-width: 24rem)').matches })), {
-        message: 'the 200% text setting took: the root computes to 32px and the 24rem query matches',
-      })
-      .toEqual({ root: '32px', narrow: true })
-    // A beat for anything that re-measures on resize, then the layout is read.
-    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
-    await page.evaluate(() => document.fonts.ready)
+    await doubleText(page)
 
     const enlarged = await measure(page)
     expect(enlarged.scrollWidth, `${route.path} at 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
     expect(await collisions(route.bar(page)), `${route.path} at 200% text: the bar's controls`).toEqual([])
   })
 }
+
+/** The wrapped header must not cover what is pinned under it. At 200% text the site header wraps to
+    about 239px; the filing page's section nav, once stuck, sits below the header's measured height
+    (`--site-header-h`, components/Header.tsx), not below a fixed 4rem (128px here), which left its
+    chips under the header and sent a tap on the first one to the theme toggle. Scrolled well past the
+    nav's own place, its first link lies wholly below the header's bottom edge, a hit at its centre
+    reaches it, and focusing it leaves it so. */
+test('filing (/filing/3) keeps the stuck section nav below the wrapped header at 200% text', async ({ page, baseURL }) => {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('theme', 'light')
+      localStorage.setItem('en:copilot-coachmark-v1', '1')
+      localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+    } catch {}
+  })
+  await answerApi(page, baseURL!, 'anon')
+  await page.goto('/filing/3')
+  const nav = page.getByRole('navigation', { name: 'Jump to section' })
+  await expect(nav).toBeVisible()
+  await expect(siteHeader.chrome(page)).toBeVisible()
+  await page.evaluate(() => document.fonts.ready)
+  await doubleText(page)
+
+  // Scroll well past the nav's own place and stay inside its column, so it is stuck (the founder's
+  // report scrolled to about 2500px).
+  const scrolled = await nav.evaluate((el) => {
+    const natural = el.getBoundingClientRect().top + window.scrollY
+    const columnEnd = el.parentElement!.getBoundingClientRect().bottom + window.scrollY
+    window.scrollTo({ top: Math.min(natural + 2000, columnEnd - window.innerHeight), behavior: 'instant' })
+    return { natural, at: window.scrollY }
+  })
+  expect(scrolled.at, 'the page scrolls past the section nav, so the nav is stuck').toBeGreaterThan(scrolled.natural)
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+
+  const first = nav.getByRole('link').first()
+  const header = await siteHeader.bar(page).elementHandle()
+  /** The first link's box against the header's bottom edge, and what a hit at the link's centre reaches. */
+  const read = () =>
+    first.evaluate((link, banner) => {
+      const box = link.getBoundingClientRect()
+      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+      const name = (el: Element | null) => (el ? `${el.tagName.toLowerCase()} "${(el.textContent?.trim() || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').slice(0, 30)}"` : 'nothing')
+      return {
+        headerBottom: Math.round(banner!.getBoundingClientRect().bottom),
+        linkTop: Math.round(box.top),
+        linkBottom: Math.round(box.bottom),
+        hitsLink: !!hit && link.contains(hit),
+        hit: name(hit),
+      }
+    }, header)
+
+  const stuck = await read()
+  expect(stuck.linkTop, `the first section link (${stuck.linkTop}-${stuck.linkBottom}px) lies below the header's bottom edge (${stuck.headerBottom}px)`).toBeGreaterThanOrEqual(stuck.headerBottom)
+  expect(stuck.hitsLink, `a hit at the first section link's centre reaches it, not ${stuck.hit}`).toBe(true)
+
+  await first.focus()
+  await expect(first).toBeFocused()
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+  const focused = await read()
+  expect(focused.linkTop, `focused, the first section link (${focused.linkTop}-${focused.linkBottom}px) lies below the header's bottom edge (${focused.headerBottom}px)`).toBeGreaterThanOrEqual(focused.headerBottom)
+  expect(focused.hitsLink, `focused, a hit at the first section link's centre reaches it, not ${focused.hit}`).toBe(true)
+})

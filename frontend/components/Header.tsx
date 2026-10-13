@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -27,6 +27,16 @@ const NAV_LINKS = [
   { href: '/contact', label: 'Contact' },
 ]
 
+/** The site header's rendered height, published on <html> as a CSS length. Every sticky offset and
+ *  scroll margin under the header reads `var(--site-header-h,4rem)` (4rem, the one-row bar, before
+ *  the first measurement and on routes without the header), so a bar that wraps under enlarged text
+ *  never covers what sits below it (tests/e2e/reflow-200.spec.ts; DESIGN_SYSTEM.md §4 Stacking). */
+export const SITE_HEADER_HEIGHT_PROPERTY = '--site-header-h'
+
+// Isomorphic layout effect (the repo's SSR-safe alias, as in CookieConsent): the header renders on
+// the server too, where useLayoutEffect warns.
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
 const MOBILE_USER_LINKS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/dashboard/watchlist', label: 'Watchlist' },
@@ -45,6 +55,25 @@ export default function Header({
   const router = useRouter()
   const queryClient = useQueryClient()
   const account = ACCESS_COPY[accessMode]
+  const headerRef = useRef<HTMLElement>(null)
+
+  // Publish the header's height (SITE_HEADER_HEIGHT_PROPERTY) before the first paint and on every
+  // reflow (a wrapped bar, an open menu, a theme or text-size change); cleared when the header leaves.
+  useIsoLayoutEffect(() => {
+    const header = headerRef.current
+    if (!header) return
+    const root = document.documentElement
+    const measure = () => {
+      root.style.setProperty(SITE_HEADER_HEIGHT_PROPERTY, `${Math.ceil(header.getBoundingClientRect().height)}px`)
+    }
+    measure()
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null
+    observer?.observe(header)
+    return () => {
+      observer?.disconnect()
+      root.style.removeProperty(SITE_HEADER_HEIGHT_PROPERTY)
+    }
+  }, [])
 
   // `user` is tri-state: a user object (logged in), `null` (definitive 401 → logged out), or
   // `undefined` (still resolving, or errored with no data). getCurrentUserSafe returns `null`
@@ -79,7 +108,7 @@ export default function Header({
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
+    <header ref={headerRef} className="sticky top-0 z-50 border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
         {/* Left: Logo */}
         <div className="flex items-center">

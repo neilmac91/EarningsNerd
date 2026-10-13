@@ -30,7 +30,7 @@ vi.mock('@/features/auth/api/auth-api', () => ({
 }))
 
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
-import Header from '@/components/Header'
+import Header, { SITE_HEADER_HEIGHT_PROPERTY } from '@/components/Header'
 import { ACCESS_COPY } from '@/features/marketing/lib/access'
 
 const mockUser = {
@@ -125,6 +125,38 @@ describe('Header auth state', () => {
       expect(screen.queryByTestId('user-menu')).not.toBeInTheDocument()
     } finally {
       vi.useRealTimers()
+    }
+  })
+})
+
+// The header's rendered height is the one offset under it (DESIGN_SYSTEM.md §4 Stacking): published
+// on <html> as --site-header-h before the first paint, rounded up to a whole pixel, followed on
+// every resize, and cleared when the header leaves (the auth routes), so 4rem is the fallback.
+describe('Header publishes its height', () => {
+  it('sets --site-header-h from its own box, follows a resize and clears it on unmount', () => {
+    vi.mocked(getCurrentUserSafe).mockReturnValue(new Promise<never>(() => {}))
+    let height = 238.4
+    let resize: (() => void) | undefined
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) { resize = callback }
+      observe() {}
+      disconnect() {}
+    })
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return { height: this.tagName === 'HEADER' ? height : 0 } as DOMRect
+    })
+    try {
+      const { unmount } = renderHeader()
+      const root = document.documentElement
+      expect(root.style.getPropertyValue(SITE_HEADER_HEIGHT_PROPERTY)).toBe('239px')
+      height = 151
+      resize?.()
+      expect(root.style.getPropertyValue(SITE_HEADER_HEIGHT_PROPERTY)).toBe('151px')
+      unmount()
+      expect(root.style.getPropertyValue(SITE_HEADER_HEIGHT_PROPERTY)).toBe('')
+    } finally {
+      rect.mockRestore()
+      vi.unstubAllGlobals()
     }
   })
 })

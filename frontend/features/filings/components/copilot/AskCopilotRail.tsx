@@ -58,7 +58,7 @@ const PANEL_BASE =
   'fixed inset-x-0 bottom-[var(--consent-inset,0px)] z-40 flex max-h-[calc(80vh_-_var(--consent-inset,0px))] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none'
 const PANEL_VARIANT: Record<'overlay' | 'pane', string> = {
   overlay:
-    'lg:inset-x-auto lg:right-0 lg:top-16 lg:max-h-none lg:w-[420px] lg:rounded-none lg:border-y-0 lg:border-l',
+    'lg:inset-x-auto lg:right-0 lg:top-[var(--site-header-h,4rem)] lg:max-h-none lg:w-[420px] lg:rounded-none lg:border-y-0 lg:border-l',
   pane: 'lg:static lg:inset-auto lg:z-auto lg:h-full lg:w-full lg:max-h-none lg:rounded-none lg:border-y-0 lg:border-l lg:shadow-none',
 }
 
