@@ -33,7 +33,8 @@
    The two public/assets PNGs are held by the published-URL rule
    (public/assets/LOGO_README.md › Rules; sent mail shows the tile by address).
    If a source change alters one, keep the committed file and write the new
-   rendition under a new name.
+   rendition under a new name: tests/unit/publishedAssetUrls.spec.ts pins each
+   one's sha256 and fails until you do.
 
    Run: npm run brand:assets
    Requires devDeps sharp + png-to-ico + playwright. If playwright's managed

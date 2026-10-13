@@ -75,14 +75,15 @@ Excel export).
   once that header's port ships, and `/assets/earningsnerd-mark-sage.png`, the bare mark's raster,
   first offered as the header's mark and kept at its URL when the header took the tile (D-035); no
   mail references it, and the rule holds it all the same. Each file stays at its path for good and
-  stays served: never rename, move or remove it, never redirect its path, and keep it the same image
-  (regenerating it from the same source is fine); a new rendition takes a new name. Mail addresses
-  these paths on the origin that answers without a redirect (`https://www.earningsnerd.io`), so that
-  origin keeps serving them without one. A change that puts a new asset path in mail adds it to the
-  register in the same PR. Gate: `frontend/tests/unit/publishedAssetUrls.spec.ts`, the register,
-  checks that each file is present (a PNG where it is one) and that `middleware.ts` passes it in
-  both waitlist modes; a redirect or rewrite in `next.config.js` or `vercel.json`, the origin, and
-  the image itself are review-checked.
+  stays served: never rename, move, remove or replace it, never redirect or rewrite its path, and
+  keep it the same image, byte for byte (regenerating it is fine while it comes back identical); a
+  new rendition takes a new name. Mail addresses these paths on the origin that answers without a
+  redirect (`https://www.earningsnerd.io`), so that origin keeps serving them without one. A change
+  that puts a new asset path in mail adds it to the register in the same PR. Gate:
+  `frontend/tests/unit/publishedAssetUrls.spec.ts`, the register, checks that each file is present
+  and is the file that was published (its sha256), that `middleware.ts` passes it in both waitlist
+  modes, and that no redirect, rewrite or basePath in `next.config.js` or `vercel.json` reaches it;
+  the origin is review-checked.
 - **Where it goes.** The mark sits top-left on every surface the brand owns (the site header, the
   OG card, the PDF masthead, the email shell, the business card front); the email shell carries it
   as the app tile, which brings its own ground into mail apps that darken a message; the stacked
