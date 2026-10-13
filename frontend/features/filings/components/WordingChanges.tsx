@@ -416,16 +416,19 @@ export function WordingChanges({
   // seed's prompt is not shown to them (a Pro reader never sees "Upgrade to Pro" flash).
   const promptWithheld = (context?.provisional ?? false) && (context?.isAuthenticated ?? false)
 
-  // Once per form the viewer is served: the seed may stand in as the teaser for a signed-in reader
-  // whose own read is still running, and that moment is not a view of the teaser.
+  // Once per filing and form the viewer is served: the seed may stand in as the teaser for a
+  // signed-in reader whose own read is still running, and that moment is not a view of the teaser;
+  // the block stays mounted across a client-side navigation to another filing, and that is a view.
   const filingId = context?.filingId
   const ticker = context?.ticker ?? null
   const filingType = context?.filingType
   const provisional = context?.provisional ?? false
   const seen = useRef<string | null>(null)
   useEffect(() => {
-    if (filingId === undefined || filingType === undefined || provisional || seen.current === block.access) return
-    seen.current = block.access
+    if (filingId === undefined || filingType === undefined || provisional) return
+    const served = `${filingId}:${block.access}`
+    if (seen.current === served) return
+    seen.current = served
     const identity = { filingId, ticker, filingType }
     analytics.wordingChangesViewed({ ...identity, access: block.access, status: block.status, itemsTotal: block.items_total, hasChanges: block.has_changes })
     if (teaser && showItems) analytics.paywallPromptShown({ ...identity, entryPoint: WORDING_ENTRY_POINT })

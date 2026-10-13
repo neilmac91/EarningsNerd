@@ -9,6 +9,7 @@ import {
   type WordingReviewState,
 } from '@/features/summaries/api/summaries-api'
 import { useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { getSessionGeneration, isSessionGenerationCurrent } from '@/lib/api/session'
 import { queryKeys } from '@/lib/queryKeys'
 
 export const WORDING_REVIEW_STALE_MS = 60 * 1000
@@ -36,9 +37,12 @@ function recount(labels: Record<string, WordingLabel>, total: number): WordingRe
  * so each answer lands in press order and never over a later press. The server alone decides
  * completion: the receipt and the completion time never come from the client, and the completion
  * event fires on the transition the server reports (`completed_now`), so it counts once however
- * the answers land. A failed read is held for the error UI (`failure`, with RetryButton); a read
- * that finds nothing to review (`unavailable`: the comparison the block shows is gone, or the
- * feature is off) has the block re-read against the live state.
+ * the answers land. A label that settles after the reader logged out or another account signed in
+ * (the session generation moved on) writes nothing back: `resetAccountQueries` removes the family,
+ * and a late answer must not repopulate it for the next account. A failed read is held for the
+ * error UI (`failure`, with RetryButton); a read that finds nothing to review (`unavailable`: the
+ * comparison the block shows is gone, or the feature is off) has the block re-read against the
+ * live state.
  */
 export function useWordingReview(filingId: number, { enabled, onLabeled, onCompleted }: UseWordingReviewOptions) {
   const queryClient = useQueryClient()
@@ -60,6 +64,9 @@ export function useWordingReview(filingId: number, { enabled, onLabeled, onCompl
     mutationFn: ({ itemId, label }: { itemId: string; label: WordingLabel | null }) => setWordingLabel(filingId, itemId, label),
     scope: { id: `wording-review-${filingId}` },
     onMutate: async ({ itemId, label }) => {
+      // The account the label belongs to: an answer that lands after the generation moved on is
+      // another account's problem no longer, and is not written into its cache.
+      const generation = getSessionGeneration()
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData<WordingReviewState>(key)
       if (previous && previous.status === 'ok') {
@@ -74,12 +81,14 @@ export function useWordingReview(filingId: number, { enabled, onLabeled, onCompl
           counts: recount(labels, previous.items_total),
         })
       }
-      return { previous }
+      return { previous, generation }
     },
     onError: (_error, _variables, context) => {
-      if (context?.previous) queryClient.setQueryData(queryKeys.wordingReview.byFiling(filingId), context.previous)
+      if (!context || !isSessionGenerationCurrent(context.generation)) return
+      if (context.previous) queryClient.setQueryData(queryKeys.wordingReview.byFiling(filingId), context.previous)
     },
-    onSuccess: (state, { itemId, label }) => {
+    onSuccess: (state, { itemId, label }, context) => {
+      if (!context || !isSessionGenerationCurrent(context.generation)) return
       queryClient.setQueryData(queryKeys.wordingReview.byFiling(filingId), state)
       onLabeled?.(itemId, label)
       if (state.completed_now) onCompleted?.(state)

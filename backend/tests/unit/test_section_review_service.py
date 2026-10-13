@@ -445,9 +445,68 @@ def test_feed_carries_the_counts_for_a_viewer_with_access_and_the_review_for_the
     assert next(i for i in feed if i["filing_id"] == unpaired.id)["wording_changes"] is None
 
 
-def test_feed_endpoint_resolves_the_viewer_access(db, client, flag_on):
+def test_a_list_of_reviews_is_read_in_three_statements(db, flag_on):
+    """The feed's progress for N reviewed filings loads the reader's rows, their current Item 1A
+    rows and the prior rows once each; the diff comes from the per-process memo. The dashboard's
+    N+1-free promise holds for a reader who reviewed every company in it."""
+    from sqlalchemy import event
+
+    from app.database import engine
+
+    user = _user(db, is_pro=True)
+    filings = []
+    for _ in range(3):
+        _company, _prior, later = _compared_pair(db, watched_by=user)
+        svc.set_label(db, user.id, later.id, _ids(db, later)[0], svc.LABEL_REVIEWED, now=NOW)
+        filings.append(later)
+    user_id = user.id  # the last commit expired the fixtures; load them outside the recorded window
+    expected = {filing.id: {"labeled": 1, "completed_at": None} for filing in filings}
+    statements: list[str] = []
+
+    def record(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", record)
+    try:
+        progress = svc.review_progress(db, user_id, filings)
+    finally:
+        event.remove(engine, "before_cursor_execute", record)
+    assert progress == expected
+    assert len(statements) == 3, statements
+    # The same reading as the endpoint's, filing by filing.
+    for filing in filings:
+        state = svc.review_state(db, user.id, filing.id)
+        assert progress[filing.id] == {"labeled": len(state["labels"]), "completed_at": state["completed_at"]}
+
+
+def test_feed_endpoint_resolves_the_viewer_access(db, client, flag_on, monkeypatch):
+    """The viewer's access decides the counts and the review, and it is resolved inside the unit the
+    route hands to the threadpool (``get_entitlements`` reads the subscription row, a lazy load the
+    auth dependency does not make), never on the event loop."""
+    from app.routers import dashboard as dashboard_router
     from app.routers.auth import create_access_token
 
+    real_run_in_threadpool = dashboard_router.run_in_threadpool
+    real_access = dashboard_router.section_changes_access
+    off_loop = {"active": False}
+    resolved_off_loop: list[bool] = []
+
+    async def spying_run_in_threadpool(func, *args, **kwargs):
+        def unit(*a, **kw):
+            off_loop["active"] = True
+            try:
+                return func(*a, **kw)
+            finally:
+                off_loop["active"] = False
+
+        return await real_run_in_threadpool(unit, *args, **kwargs)
+
+    def access(viewer):
+        resolved_off_loop.append(off_loop["active"])
+        return real_access(viewer)
+
+    monkeypatch.setattr(dashboard_router, "run_in_threadpool", spying_run_in_threadpool)
+    monkeypatch.setattr(dashboard_router, "section_changes_access", access)
     user = _user(db, is_pro=False)
     _company, _prior, later = _compared_pair(db, watched_by=user)
     client.cookies.set(settings.COOKIE_NAME, create_access_token(data={"sub": user.email}))
@@ -455,4 +514,5 @@ def test_feed_endpoint_resolves_the_viewer_access(db, client, flag_on):
     assert resp.status_code == 200
     item = next(i for i in resp.json()["items"] if i["filing_id"] == later.id)
     assert item["wording_changes"]["items_total"] == 4 and item["wording_changes"]["review"] is None
+    assert resolved_off_loop == [True]
     client.cookies.clear()

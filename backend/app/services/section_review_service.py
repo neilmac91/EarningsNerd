@@ -38,8 +38,10 @@ from app.services.filing_section_service import (
     SECTION_ITEM_1A,
     SECTION_LABELS,
     build_section_changes,
+    cached_diff,
     section_row,
 )
+from app.services.filing_section_service import STATUS_OK as SECTION_STATUS_OK
 from app.utils.datetimes import ensure_utc, iso_z, utcnow
 
 LABEL_REVIEWED = "reviewed"
@@ -91,19 +93,20 @@ def _review_row(db: Session, user_id: int, filing_id: int, *, lock: bool = False
     return query.first()
 
 
+def _text_fingerprint(row: Optional[FilingSectionText]) -> dict[str, Any]:
+    """A stored text as the receipt names it: its hash, extractor version and extraction time."""
+    return {
+        "sha256": row.sha256 if row is not None else None,
+        "extractor_version": row.extractor_version if row is not None else None,
+        "extracted_at": iso_z(ensure_utc(row.extracted_at)) if row is not None and row.extracted_at else None,
+    }
+
+
 def _fingerprints(db: Session, filing: Filing, comparison: dict[str, Any]) -> dict[str, Any]:
     """The two stored texts behind the comparison, by their rows' hashes and extractor versions."""
     current = section_row(db, filing.id)
     prior = section_row(db, comparison["prior_filing"]["filing_id"])
-
-    def side(row: Optional[FilingSectionText]) -> dict[str, Any]:
-        return {
-            "sha256": row.sha256 if row is not None else None,
-            "extractor_version": row.extractor_version if row is not None else None,
-            "extracted_at": iso_z(ensure_utc(row.extracted_at)) if row is not None and row.extracted_at else None,
-        }
-
-    return {"current": side(current), "prior": side(prior)}
+    return {"current": _text_fingerprint(current), "prior": _text_fingerprint(prior)}
 
 
 def _filing_ref(filing: Filing) -> dict[str, Any]:
@@ -182,8 +185,16 @@ def review_state(db: Session, user_id: int, filing_id: int) -> dict[str, Any]:
 def review_progress(db: Session, user_id: int, filings: Sequence[Filing]) -> dict[int, dict[str, Any]]:
     """Per filing the reader has a review row for, what a list shows of it: ``labeled`` (the labels
     on the live comparison's changes) and ``completed_at`` (only while the receipt still describes
-    that comparison), read exactly as ``review_state`` reads them, so a card never says "Reviewed"
-    after a re-extraction reopened the review. Filings without a row are absent."""
+    that comparison), reconciled as ``review_state`` reconciles them (the live diff's ids, the
+    stored texts' hashes), so a card never says "Reviewed" after a re-extraction reopened the
+    review. Filings without a row are absent.
+
+    A list's read, in three statements however many reviews it carries: the reader's rows, then
+    their filings' ``ok`` Item 1A rows, then the prior rows those name (``diff_prior_filing_id``,
+    the prior the cached comparison was computed against; ``refresh_diff_summaries`` keeps it on
+    the prior rule after every extraction, and a row whose comparison is not cached yet has no
+    progress to show). The diff itself comes from the per-process memo (``cached_diff``). The
+    review endpoint resolves the prior live; the two agree whenever the summary is current."""
     by_id = {filing.id: filing for filing in filings}
     if not by_id:
         return {}
@@ -196,12 +207,37 @@ def review_progress(db: Session, user_id: int, filings: Sequence[Filing]) -> dic
         )
         .all()
     )
+    current_rows: dict[int, FilingSectionText] = {}
+    prior_rows: dict[int, FilingSectionText] = {}
+    if rows and settings.ENABLE_SECTION_CHANGES:
+        current_rows = {
+            section.filing_id: section
+            for section in db.query(FilingSectionText).filter(
+                FilingSectionText.filing_id.in_([row.filing_id for row in rows]),
+                FilingSectionText.section == SECTION_ITEM_1A,
+                FilingSectionText.status == SECTION_STATUS_OK,
+                FilingSectionText.diff_prior_filing_id.isnot(None),
+            )
+        }
+        prior_ids = {section.diff_prior_filing_id for section in current_rows.values()}
+        if prior_ids:
+            prior_rows = {
+                section.filing_id: section
+                for section in db.query(FilingSectionText).filter(
+                    FilingSectionText.filing_id.in_(list(prior_ids)),
+                    FilingSectionText.section == SECTION_ITEM_1A,
+                    FilingSectionText.status == SECTION_STATUS_OK,
+                )
+            }
     out: dict[int, dict[str, Any]] = {}
     for row in rows:
-        filing = by_id[row.filing_id]
-        comparison = _comparison(db, filing)
-        fingerprints = _fingerprints(db, filing, comparison) if comparison is not None else None
-        state = _state(filing, comparison, row, fingerprints)
+        current = current_rows.get(row.filing_id)
+        prior = prior_rows.get(current.diff_prior_filing_id) if current is not None else None
+        comparison = fingerprints = None
+        if current is not None and prior is not None:
+            comparison = {"engine_version": section_diff.ENGINE_VERSION, "items": cached_diff(prior, current)["items"]}
+            fingerprints = {"current": _text_fingerprint(current), "prior": _text_fingerprint(prior)}
+        state = _state(by_id[row.filing_id], comparison, row, fingerprints)
         out[row.filing_id] = {"labeled": len(state["labels"]), "completed_at": state["completed_at"]}
     return out
 

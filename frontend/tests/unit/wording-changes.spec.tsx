@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
+import { resetAccountQueries } from '@/features/auth/lib/accountQueryState'
+import { queryKeys } from '@/lib/queryKeys'
 import { WhatChanged, reportHasContent } from '@/features/filings/components/WhatChanged'
 import { WordingChanges, receiptText } from '@/features/filings/components/WordingChanges'
 import { changesPhrase, wordingHasContent } from '@/features/filings/lib/sectionChanges'
@@ -267,6 +269,13 @@ describe('the full list (Pro)', () => {
       filingId: 42, ticker: 'AAPL', filingType: '10-K', access: 'full', status: 'ok', itemsTotal: 5, hasChanges: true,
     })
     expect(mockAnalytics.paywallPromptShown).not.toHaveBeenCalled()
+  })
+
+  it('counts the next filing’s view when the mounted block serves it after a client-side navigation', () => {
+    const { rerender } = render(<WordingChanges block={FULL} Heading="h3" context={context} />)
+    rerender(<WordingChanges block={FULL} Heading="h3" context={{ ...context, filingId: 43, ticker: 'MSFT' }} />)
+    rerender(<WordingChanges block={FULL} Heading="h3" context={{ ...context, filingId: 43, ticker: 'MSFT' }} />)
+    expect(mockAnalytics.wordingChangesViewed.mock.calls.map(([event]) => event.filingId)).toEqual([42, 43])
   })
 })
 
@@ -560,6 +569,47 @@ describe('the review (Pro, signed in)', () => {
     expect(screen.getByTestId('wording-progress')).toHaveTextContent('0 of 5 changes marked.')
     expect(mockAnalytics.wordingChangeLabeled).not.toHaveBeenCalled()
     expect(screen.queryByTestId('wording-receipt')).toBeNull()
+  })
+
+  it('a label that settles after the account changed writes nothing back, so the next account never sees it', async () => {
+    // The reader has one change flagged; they press another, then log out (or another account signs
+    // in) and leave the page before the server answers. resetAccountQueries removed the family; the
+    // late answer must not recreate it with the last account's labels, and nothing counts the label.
+    const theirs: WordingReviewState = { ...REVIEW, labels: { a3: 'follow_up' }, counts: { reviewed: 0, follow_up: 1, unlabeled: 4 } }
+    fakeReviewServer(theirs)
+    let resolve: (state: WordingReviewState & { completed_now: boolean }) => void = () => {}
+    reviewApi.setWordingLabel.mockImplementation(() => new Promise((r) => { resolve = r }))
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    const { unmount } = render(<QueryClientProvider client={client}><WordingChanges block={FULL} Heading="h3" context={signedInPro} /></QueryClientProvider>)
+    await waitFor(() => expect(screen.getByTestId('wording-progress')).toHaveTextContent('1 of 5'))
+    const [first] = screen.getAllByRole('listitem')
+    fireEvent.click(toggles(first)[0])
+    await waitFor(() => expect(pressed(first)).toEqual(['true', 'false']))
+    act(() => resetAccountQueries(client))
+    unmount()
+    expect(client.getQueryData(queryKeys.wordingReview.byFiling(42))).toBeUndefined()
+    await act(async () => resolve({ ...theirs, labels: { a1: 'reviewed', a3: 'follow_up' }, counts: { reviewed: 1, follow_up: 1, unlabeled: 3 }, completed_now: false }))
+    await flush()
+    expect(client.getQueryData(queryKeys.wordingReview.byFiling(42))).toBeUndefined()
+    expect(mockAnalytics.wordingChangeLabeled).not.toHaveBeenCalled()
+  })
+
+  it('a label the server refuses after the account changed rolls nothing back either', async () => {
+    const theirs: WordingReviewState = { ...REVIEW, labels: { a3: 'follow_up' }, counts: { reviewed: 0, follow_up: 1, unlabeled: 4 } }
+    fakeReviewServer(theirs)
+    let reject: (error: Error) => void = () => {}
+    reviewApi.setWordingLabel.mockImplementation(() => new Promise<WordingReviewState>((_resolve, r) => { reject = r }))
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    const { unmount } = render(<QueryClientProvider client={client}><WordingChanges block={FULL} Heading="h3" context={signedInPro} /></QueryClientProvider>)
+    await waitFor(() => expect(screen.getByTestId('wording-progress')).toHaveTextContent('1 of 5'))
+    const [first] = screen.getAllByRole('listitem')
+    fireEvent.click(toggles(first)[0])
+    await waitFor(() => expect(pressed(first)).toEqual(['true', 'false']))
+    act(() => resetAccountQueries(client))
+    unmount()
+    await act(async () => reject(new Error('offline')))
+    await flush()
+    expect(client.getQueryData(queryKeys.wordingReview.byFiling(42))).toBeUndefined()
   })
 
   it('the toggles wait for the review read, and a review the server has nothing for leaves the list plain and re-reads the report', async () => {

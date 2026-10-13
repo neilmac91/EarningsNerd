@@ -93,10 +93,15 @@ async def get_dashboard_feed(
 
     DB-only (no live EDGAR on render); cheap enough to serve uncached. Returns an empty list for
     users with no watched companies (the UI renders a guided empty state)."""
-    access = section_changes_access(current_user)
-    # Sync SQLAlchemy off the event loop: the feed is a handful of queries plus, for a Pro viewer,
-    # the cached diffs their review progress is reconciled against.
-    items = await run_in_threadpool(dashboard_feed_service.compose_feed, db, current_user.id, limit=limit, section_access=access)
+    def feed_for_viewer():
+        # Sync SQLAlchemy off the event loop, the viewer's access included: resolving it reads
+        # the subscription row (a lazy load the auth dependency does not make); the feed is a
+        # handful of queries plus, for a Pro viewer, the cached diffs their review progress is
+        # reconciled against.
+        access = section_changes_access(current_user)
+        return dashboard_feed_service.compose_feed(db, current_user.id, limit=limit, section_access=access)
+
+    items = await run_in_threadpool(feed_for_viewer)
     return {"items": items}
 
 
