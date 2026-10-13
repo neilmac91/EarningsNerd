@@ -61,6 +61,21 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): five new loading quips in
   the voice and one kept ("Reading the size-8 fine print…"), signed "Reading the filing"; the stalled line and the timeout error say what happened
   and what to do. The heading "Generation interrupted" stays.
+- **Company page** (`frontend/app/company/[ticker]/page-client.tsx`,
+  `features/companies/components/CompanySearch.tsx`, `features/peers`, `features/insiders`,
+  `features/fundamentals`, `features/filings/components/FilingsHistoryNote.tsx`): a company that fails
+  to load says "Couldn’t load this company" with a Retry and never prints the raw error; only a 404
+  reads "Company not found", with the search's scope ("No company with a ticker on SEC EDGAR matches
+  …"). The watched star keeps the button's own ink, its fill and `aria-pressed` carrying the state. The
+  search field reads "Search company or ticker" everywhere (the landing's string) and its result rows
+  take the inset focus ring. Sector peers, insider activity and financial trends pick their metric or
+  window through the SegmentedControl (a long set wraps inside one shell), in sentence case; the
+  percentile is an ordinal ("21st percentile"); a trade's type carries a hidden ▲ or ▼ beside its
+  label and the discretionary net keeps its sign; the 10b5-1 note says what a plan trade is. "Full
+  history on SEC EDGAR" opens the company's whole EDGAR list, every form, in the filing identity's
+  quiet link. `earningsnerd/no-hand-rolled-toggle-group` (new ESLint rule) fails a role="group" of
+  pressed buttons outside components/ui; `tests/unit/formatters.spec.ts` holds `ordinal` and the
+  signed `fmtShares`.
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
   "$7.5" (a Phase 9 fix; compact figures keep their rounding).

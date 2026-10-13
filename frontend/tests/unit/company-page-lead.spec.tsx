@@ -6,6 +6,7 @@ import type { Company } from '@/features/companies/api/companies-api'
 import type { Filing } from '@/features/filings/api/filings-api'
 import type { ChangeReport } from '@/features/summaries/api/summaries-api'
 import CompanyPageClient from '@/app/company/[ticker]/page-client'
+import { ApiError } from '@/lib/api/client'
 
 /**
  * The company page's lead and aside (2026-10 critique, 1b): the company stated in the filing page's
@@ -187,6 +188,15 @@ describe('Company page lead', () => {
     expect(primaryActions(container)).toEqual([await screen.findByRole('link', { name: 'Summarize latest filing' })])
   })
 
+  it("sets the watched star in the button's own ink, never a status colour (CO-07)", async () => {
+    api.getSummary.mockResolvedValue(null)
+    renderPage([QUARTER, ANNUAL, PRIOR_ANNUAL], { signedIn: true })
+    api.getWatchlist.mockResolvedValue([{ id: 1, company_id: 1, created_at: '2026-01-01T00:00:00Z', company: { id: 1, ticker: 'AAPL', name: 'Apple Inc.' } }])
+    const star = await screen.findByRole('button', { name: 'Remove from watchlist' })
+    expect(star).toHaveAttribute('aria-pressed', 'true')
+    expect(star.querySelector('svg')?.getAttribute('class') ?? '').not.toMatch(/warning/)
+  })
+
   it('puts the Compare periods card beside the filings for the newest annual report', async () => {
     api.getSummary.mockResolvedValue(null)
     renderPage([QUARTER, ANNUAL, PRIOR_ANNUAL])
@@ -208,5 +218,43 @@ describe('Company page lead', () => {
     expect(api.getWhatChanged).not.toHaveBeenCalled()
     const list = screen.getByRole('region', { name: 'SEC filings' })
     expect((list.parentElement as HTMLElement).className).not.toMatch(/lg:grid-cols-/)
+  })
+})
+
+describe('Company page when the company does not load (CO-05)', () => {
+  function renderUnseeded() {
+    api.getCompanyFilings.mockResolvedValue([QUARTER, ANNUAL, PRIOR_ANNUAL])
+    api.getCurrentUserSafe.mockResolvedValue(null)
+    api.getSummary.mockResolvedValue(null)
+    api.getWhatChanged.mockResolvedValue(REPORT)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    return render(
+      <QueryClientProvider client={client}>
+        <CompanyPageClient />
+      </QueryClientProvider>,
+    )
+  }
+
+  it('says it could not load the company, never prints the raw error, and a Retry loads the page', async () => {
+    api.getCompany.mockRejectedValue(new ApiError(503, 'Upstream EDGAR proxy timed out at 10.0.0.4'))
+    renderUnseeded()
+    const title = await screen.findByRole('heading', { name: 'Couldn’t load this company' }, { timeout: 4000 })
+    const card = title.closest('[role="alert"]') as HTMLElement
+    expect(card).toHaveTextContent('Try again in a moment.')
+    expect(card).not.toHaveTextContent(/EDGAR proxy|10\.0\.0\.4|Error:/)
+    expect(screen.queryByText('Company not found')).toBeNull()
+
+    api.getCompany.mockResolvedValue(COMPANY)
+    act(() => screen.getByRole('button', { name: 'Retry' }).click())
+    expect(await screen.findByRole('heading', { level: 1, name: 'Apple Inc.' })).toBeInTheDocument()
+  })
+
+  it('reads a 404 as not found, with the scope of the search and no Retry', async () => {
+    api.getCompany.mockRejectedValue(new ApiError(404, 'Company not found'))
+    renderUnseeded()
+    expect(await screen.findByRole('heading', { name: 'Company not found' }, { timeout: 4000 })).toBeInTheDocument()
+    expect(screen.getByText('No company with a ticker on SEC EDGAR matches "AAPL".')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(screen.getByRole('link', { name: 'Go back home' })).toHaveAttribute('href', '/')
   })
 })

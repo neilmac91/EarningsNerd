@@ -12,7 +12,7 @@ import {
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { ThemeContext } from '@/components/ThemeProvider'
-import { Card, seriesColor, CHART_SERIES, gridProps, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton } from '@/components/ui'
+import { Card, seriesColor, CHART_SERIES, gridProps, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, SegmentedControl, Skeleton } from '@/components/ui'
 import { needsSourceCheck } from '@/features/analysis/lib/provenance'
 import SourceCheckBadge from '@/features/fundamentals/components/SourceCheckBadge'
 import SourceChecks from '@/features/analysis/components/SourceChecks'
@@ -145,7 +145,7 @@ export default function FundamentalsTrendChart({
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Financial Trends</h2>
+            <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Financial trends</h2>
             {hasUnverified && (
               <SourceCheckBadge reconciled={false} />
             )}
@@ -155,23 +155,15 @@ export default function FundamentalsTrendChart({
           )}
         </div>
         {available.length > 0 && (
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Select metric">
-            {available.map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => setSelected(f.key)}
-                aria-pressed={f.key === activeKey}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                  f.key === activeKey
-                    ? 'bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
-                    : 'bg-background-light text-text-secondary-light hover:bg-brand-weak dark:bg-white/5 dark:text-text-secondary-dark dark:hover:bg-white/10'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
+          // Up to 23 metrics: the shell wraps whole segments (flex-wrap) at every width.
+          <SegmentedControl
+            label="Metric"
+            size="adaptive"
+            className="flex-wrap gap-y-1"
+            value={activeKey ?? ''}
+            onChange={setSelected}
+            options={available.map((f) => ({ value: f.key, label: f.label }))}
+          />
         )}
       </div>
 

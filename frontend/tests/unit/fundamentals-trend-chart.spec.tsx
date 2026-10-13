@@ -63,7 +63,7 @@ describe('FundamentalsTrendChart', () => {
     // Wait on a data-driven button (the heading also shows during loading).
     const revenueBtn = await screen.findByRole('button', { name: 'Revenue' })
     expect(revenueBtn).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByText('Financial Trends')).toBeInTheDocument()
+    expect(screen.getByText('Financial trends')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Net Margin' })).toBeInTheDocument()
     expect(screen.queryByText('some_unfeatured_concept')).not.toBeInTheDocument()
     expect(screen.getByTestId('fundamentals-chart')).toBeInTheDocument()
@@ -146,7 +146,7 @@ describe('FundamentalsTrendChart', () => {
     getFilingFundamentals.mockResolvedValue({ ticker: 'AAPL', company_name: 'Apple Inc.', concepts: [] })
     renderChart()
 
-    await waitFor(() => expect(screen.queryByText('Financial Trends')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('Financial trends')).not.toBeInTheDocument())
   })
 
   it('shows the optional subtitle when provided, and omits it by default', async () => {

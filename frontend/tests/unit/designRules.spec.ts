@@ -5,6 +5,7 @@ import { ESLint, RuleTester } from 'eslint'
 import { describe, expect, it } from 'vitest'
 import {
   noFormCodeBadge,
+  noHandRolledToggleGroup,
   noSideStripe,
   noUnguardedAnimation,
   SELF_GUARDED_ANIMATIONS,
@@ -22,6 +23,8 @@ import {
  *    motion-safe: or a motion-reduce:animate-none with the same variants that always renders with it.
  *    The globals.css classes it exempts must stop themselves there, and so must every other animation
  *    globals.css declares.
+ *  - no-hand-rolled-toggle-group (CO-15): a role="group" of aria-pressed buttons is the SegmentedControl,
+ *    composed from components/ui, never rebuilt in a feature (the primitive's own file is exempt).
  */
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -99,6 +102,35 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     { code: '<Badge>{f.form}</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<Badge>{`10-K`}</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<ui.Badge variant="neutral">{filing.filing_type}</ui.Badge>', errors: [{ messageId: 'badge' }] },
+  ],
+})
+
+ruleTester.run('no-hand-rolled-toggle-group', noHandRolledToggleGroup, {
+  valid: [
+    '<SegmentedControl label="Metric" value={metric} onChange={setMetric} options={options} />',
+    // A group of plain actions (no pressed state) is not a toggle group.
+    '<div role="group" aria-label="Recent period presets"><Button onClick={pick}>Last 4</Button></div>',
+    // A lone toggle outside a group (the watchlist star, the alert bell).
+    '<Button aria-pressed={on} onClick={toggle}>Watch</Button>',
+    // The primitive builds the group itself.
+    {
+      code: '<div role="group" aria-label={label}>{options.map((o) => <button aria-pressed={o.value === value} />)}</div>',
+      filename: '/repo/frontend/components/ui/SegmentedControl.tsx',
+    },
+  ],
+  invalid: [
+    // The company page's three rows: a mapped <button> with aria-pressed inside role="group".
+    {
+      code: '<div className="flex flex-wrap gap-2" role="group" aria-label="Select metric">{METRICS.map((m) => <button key={m.key} type="button" aria-pressed={m.key === metric}>{m.label}</button>)}</div>',
+      filename: '/repo/frontend/features/peers/components/PeerComparisonPanel.tsx',
+      errors: [{ messageId: 'handRolled' }],
+    },
+    // The DS Button, nested deeper, and role written as an expression.
+    {
+      code: "<section role={'group'}><span><Button aria-pressed={a}>A</Button><Button aria-pressed={!a}>B</Button></span></section>",
+      errors: [{ messageId: 'handRolled' }],
+    },
+    { code: '<div role="group"><ui.Button aria-pressed="true">One</ui.Button></div>', errors: [{ messageId: 'handRolled' }] },
   ],
 })
 
@@ -228,7 +260,7 @@ describe('globals.css animations stop under reduced motion', () => {
 const SLOW = { timeout: 30_000 }
 
 describe('the repository config', SLOW, () => {
-  it('runs the three rules as errors on app code', async () => {
+  it('runs the four rules as errors on app code', async () => {
     const eslint = new ESLint({ cwd: frontendRoot })
     const [result] = await eslint.lintText(
       [
@@ -238,6 +270,7 @@ describe('the repository config', SLOW, () => {
         '    <div className={`border-l-4 ${tone} rounded-xl p-4`}>',
         '      <Badge variant="neutral">{form.filing_type}</Badge>',
         '      <span className="animate-spin" />',
+        '      <div role="group" aria-label="Window"><button type="button" aria-pressed={tone === "a"}>A</button></div>',
         '    </div>',
         '  )',
         '}',
@@ -247,6 +280,7 @@ describe('the repository config', SLOW, () => {
     )
     expect(result.messages.map((m) => m.ruleId).sort()).toEqual([
       'earningsnerd/no-form-code-badge',
+      'earningsnerd/no-hand-rolled-toggle-group',
       'earningsnerd/no-side-stripe',
       'earningsnerd/no-unguarded-animation',
     ])

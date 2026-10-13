@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 // recharts measures the DOM, which jsdom can't — stub it for deterministic rendering.
@@ -66,12 +66,31 @@ describe('PeerComparisonPanel', () => {
     getPeers.mockResolvedValue(RESP)
     renderPanel()
 
-    expect(await screen.findByText('Sector Peers')).toBeInTheDocument()
+    expect(await screen.findByText('Sector peers')).toBeInTheDocument()
     expect(screen.getByText(/#3/)).toBeInTheDocument()
     expect(screen.getByText(/of 3 on Revenue/)).toBeInTheDocument()
+    // The percentile reads as an ordinal (CO-13): 0 is "0th", and 1, 2, 3 and 21 take st, nd, rd, st.
+    expect(screen.getByText(/of 3 on Revenue/)).toHaveTextContent('· 0th percentile')
     expect(screen.getByTestId('peers-chart')).toBeInTheDocument()
     // Clean data → no honesty badge.
     expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
+  })
+
+  it('reads a percentile as an English ordinal', async () => {
+    getPeers.mockResolvedValue({ ...RESP, subject: peer('AAPL', 100, true, 3, 21.4) })
+    renderPanel()
+    expect(await screen.findByText(/of 3 on Revenue/)).toHaveTextContent('· 21st percentile')
+  })
+
+  it('picks the metric through the SegmentedControl (CO-15): a named group of pressed buttons', async () => {
+    getPeers.mockResolvedValue(RESP)
+    renderPanel()
+    const group = await screen.findByRole('group', { name: 'Metric' })
+    expect(group.className).toContain('flex-wrap')
+    expect(screen.getByRole('button', { name: 'Revenue' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Net Income' }))
+    await waitFor(() => expect(getPeers).toHaveBeenCalledWith('AAPL', 'net_income'))
+    expect(screen.getByRole('button', { name: 'Net Income' }).className).toContain('focus-visible:shadow-ring-brand')
   })
 
   it('shows a source check when a shown value is flagged', async () => {
@@ -104,6 +123,6 @@ describe('PeerComparisonPanel', () => {
     })
     renderPanel()
 
-    await waitFor(() => expect(screen.queryByText('Sector Peers')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('Sector peers')).not.toBeInTheDocument())
   })
 })

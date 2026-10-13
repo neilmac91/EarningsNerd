@@ -112,6 +112,31 @@ export const fmtScale = (value: NumericInput, options?: { digits?: number }): st
   return formatter.format(num)
 }
 
+/**
+ * A share count, scaled ("1.2M"). A count is a magnitude, so the sign is dropped by default; a net
+ * figure passes `signed`, which keeps its direction as "+" or "−" (U+2212), never colour alone.
+ */
+export const fmtShares = (value: NumericInput, options?: { digits?: number; signed?: boolean }): string => {
+  const num = parseNumeric(value)
+  if (num === null) {
+    return ''
+  }
+  const magnitude = fmtScale(Math.abs(num), { digits: options?.digits ?? 1 })
+  if (!options?.signed || num === 0) {
+    return magnitude
+  }
+  return `${num > 0 ? '+' : '\u2212'}${magnitude}`
+}
+
+/** An English ordinal: 1st, 2nd, 3rd, 4th, 11th, 12th, 13th, 21st, 22nd, 23rd, 101st, 111th. */
+export const ordinal = (n: number): string => {
+  const whole = Math.trunc(n)
+  const lastTwo = Math.abs(whole) % 100
+  const last = Math.abs(whole) % 10
+  const suffix = lastTwo >= 11 && lastTwo <= 13 ? 'th' : last === 1 ? 'st' : last === 2 ? 'nd' : last === 3 ? 'rd' : 'th'
+  return `${whole}${suffix}`
+}
+
 export const fmtCurrency = (
   value: NumericInput,
   options?: { currency?: string; digits?: number; compact?: boolean }

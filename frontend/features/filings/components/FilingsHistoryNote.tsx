@@ -1,5 +1,8 @@
 import { ArrowSquareOutIcon } from '@/lib/icons'
 import { formatLocalDate } from '@/lib/format'
+import { cx } from '@/components/ui'
+import { edgarCompanyUrl } from '@/features/companies/lib/edgar'
+import { IDENTITY_LINK } from '@/features/filings/components/FilingIdentity'
 
 interface FilingsHistoryNoteProps {
   oldestFilingDate: string | null
@@ -20,7 +23,8 @@ export default function FilingsHistoryNote({ oldestFilingDate, cik }: FilingsHis
   // the mismatch showed up as a hydration error too.
   const filedSince = formatLocalDate(oldestFilingDate, 'MMM d, yyyy')
   if (!filedSince) return null
-  const edgarUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${cik}&type=10-K&dateb=&owner=include&count=40`
+  // Every form, not only 10-Ks: the link promises the full history, and a 20-F filer has no 10-K list.
+  const edgarUrl = edgarCompanyUrl(cik)
   return (
     <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
       Showing filings since {filedSince}.{' '}
@@ -28,10 +32,10 @@ export default function FilingsHistoryNote({ oldestFilingDate, cik }: FilingsHis
         href={edgarUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-brand-strong dark:text-brand-strong-dark hover:underline"
+        className={cx(IDENTITY_LINK, 'inline-flex items-center gap-1')}
       >
         Full history on SEC EDGAR
-        <ArrowSquareOutIcon className="h-3.5 w-3.5" />
+        <ArrowSquareOutIcon aria-hidden="true" className="h-3.5 w-3.5" />
       </a>
     </p>
   )

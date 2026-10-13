@@ -27,6 +27,13 @@
 //                       shows at once. The globals.css classes that stop themselves in a
 //                       reduced-motion block (SELF_GUARDED_ANIMATIONS) need no guard; the spec holds
 //                       each of them, and every other animation globals.css declares, to that block.
+//   no-hand-rolled-toggle-group (CO-15, CO-22, CO-25) One single-choice toggle group app-wide: the
+//                       SegmentedControl (components/ui). An element with role="group" that holds a
+//                       <button> or <Button> carrying aria-pressed, anywhere beneath it (a .map callback
+//                       included), is that control rebuilt by hand, and three such rows on the company page
+//                       had drifted from it (no focus ring, a hover that darkens). The primitive's own file is
+//                       exempt. A group of independent toggles (a multi-select filter row) is not this
+//                       control: disable the rule on that line with the reason.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), a
@@ -194,11 +201,65 @@ export const noUnguardedAnimation = {
   },
 }
 
+const isGroupRole = (attr) =>
+  attr.type === 'JSXAttribute' &&
+  attr.name?.name === 'role' &&
+  ((attr.value?.type === 'Literal' && attr.value.value === 'group') ||
+    (attr.value?.type === 'JSXExpressionContainer' &&
+      attr.value.expression.type === 'Literal' &&
+      attr.value.expression.value === 'group'))
+const isButtonName = (name) =>
+  (name?.type === 'JSXIdentifier' && (name.name === 'button' || name.name === 'Button')) ||
+  (name?.type === 'JSXMemberExpression' && name.property.name === 'Button')
+const hasPressed = (opening) =>
+  opening.attributes.some((attr) => attr.type === 'JSXAttribute' && attr.name?.name === 'aria-pressed')
+/** The SegmentedControl's own directory: the one place a group of pressed buttons is built. */
+const TOGGLE_GROUP_HOME = /(^|[\\/])components[\\/]ui[\\/]/
+
+export const noHandRolledToggleGroup = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'A single-choice toggle group is the SegmentedControl, never a hand-rolled row.' },
+    schema: [],
+    messages: {
+      handRolled:
+        'A role="group" of aria-pressed buttons is a single-choice toggle group: compose <SegmentedControl ' +
+        'label options value onChange> from @/components/ui (the ring, the pressed colorway and the wrapping ' +
+        'come with it). A group of independent toggles is not this control: disable the rule with the reason.',
+    },
+  },
+  create(context) {
+    if (TOGGLE_GROUP_HOME.test(context.filename ?? '')) return {}
+    const keys = context.sourceCode.visitorKeys
+    // The first <button>/<Button> with aria-pressed under `node`, else null.
+    const pressedButton = (node) => {
+      if (!node || typeof node.type !== 'string') return null
+      if (node.type === 'JSXOpeningElement' && isButtonName(node.name) && hasPressed(node)) return node
+      for (const key of keys[node.type] ?? []) {
+        for (const child of [node[key]].flat()) {
+          const found = pressedButton(child)
+          if (found) return found
+        }
+      }
+      return null
+    }
+    return {
+      JSXElement(node) {
+        if (!node.openingElement.attributes.some(isGroupRole)) return
+        for (const child of node.children) {
+          if (pressedButton(child)) return context.report({ node: node.openingElement, messageId: 'handRolled' })
+        }
+      },
+    }
+  },
+}
+
 const plugin = {
   rules: {
     'no-side-stripe': noSideStripe,
     'no-form-code-badge': noFormCodeBadge,
     'no-unguarded-animation': noUnguardedAnimation,
+    'no-hand-rolled-toggle-group': noHandRolledToggleGroup,
   },
 }
 export default plugin

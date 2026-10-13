@@ -17,6 +17,12 @@ describe('FilingsHistoryNote', () => {
     expect(href).toContain('https://www.sec.gov/cgi-bin/browse-edgar')
     expect(href).toContain('action=getcompany')
     expect(href).toContain('CIK=0000019617')
+    // Every form, not only 10-Ks (CO-27): "full history" is the company's whole EDGAR list.
+    expect(href).not.toContain('type=')
+    // The quiet source link's recipe (CO-28): underlined, with the brand focus ring; the icon is decorative.
+    expect(link.className).toContain('focus-visible:shadow-ring-brand')
+    expect(link.className).toContain('underline')
+    expect(link.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
     expect(link.getAttribute('target')).toBe('_blank')
     expect(link.getAttribute('rel')).toContain('noopener')
   })

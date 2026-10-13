@@ -71,7 +71,7 @@ describe('InsiderActivityPanel', () => {
     getInsiderActivity.mockResolvedValue(RESP)
     renderPanel()
 
-    expect(await screen.findByText('Insider Activity')).toBeInTheDocument()
+    expect(await screen.findByText('Insider activity')).toBeInTheDocument()
     expect(screen.getByText(/Net insider buying/)).toBeInTheDocument()
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
     // The 10b5-1 sale row carries the badge.
@@ -88,12 +88,32 @@ describe('InsiderActivityPanel', () => {
     expect(await screen.findByText(/pre-scheduled 10b5-1 plans/)).toBeInTheDocument()
   })
 
+  it('signs the discretionary net, so a net sale never reads as a purchase (CO-21)', async () => {
+    getInsiderActivity.mockResolvedValue({
+      ...RESP,
+      summary: { ...RESP.summary, plan_10b5_1_sell_shares: 50000, discretionary_net_shares: -1_200_000 },
+    })
+    renderPanel()
+    expect(await screen.findByText(/pre-scheduled 10b5-1 plans/)).toHaveTextContent('discretionary net \u22121.2M shares')
+  })
+
+  it('marks each trade type with a hidden ▲/▼ beside its label, and names the 10b5-1 badge plainly', async () => {
+    getInsiderActivity.mockResolvedValue(RESP)
+    renderPanel()
+    const buy = await screen.findByText('Purchase', { exact: false })
+    expect(buy.closest('td')).toHaveTextContent('▲ Purchase')
+    expect(screen.getByText('Sale', { exact: false }).closest('td')).toHaveTextContent('▼ Sale')
+    for (const glyph of screen.getAllByText(/^[▲▼]\s*$/)) expect(glyph).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByText(/10b5-1 marks a trade scheduled in advance under a trading plan\./)).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Time window' })).toBeInTheDocument()
+  })
+
   it('refetches with a new window when the window is changed', async () => {
     getInsiderActivity.mockResolvedValue(RESP)
     const user = userEvent.setup()
     renderPanel('AAPL')
 
-    await screen.findByText('Insider Activity')
+    await screen.findByText('Insider activity')
     await user.click(screen.getByRole('button', { name: '1Y' }))
     await waitFor(() => expect(getInsiderActivity).toHaveBeenCalledWith('AAPL', 365))
   })
@@ -106,7 +126,7 @@ describe('InsiderActivityPanel', () => {
     })
     renderPanel()
 
-    await waitFor(() => expect(screen.queryByText('Insider Activity')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('Insider activity')).not.toBeInTheDocument())
   })
 
   it('shows the FPI note and skips the live SEC read for foreign private issuers', async () => {
@@ -131,6 +151,6 @@ describe('InsiderActivityPanel', () => {
     )
 
     await waitFor(() => expect(getInsiderActivity).not.toHaveBeenCalled())
-    expect(screen.queryByText('Insider Activity')).not.toBeInTheDocument()
+    expect(screen.queryByText('Insider activity')).not.toBeInTheDocument()
   })
 })

@@ -467,6 +467,11 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  The controlled selected option keeps its primary colourway even if unavailable,
                  so newly loaded coverage never silently changes the selected mode. This is not
                  a busy-state API.
+                 A long option set (the company page's peer and trend metric pickers, up to 23)
+                 passes className="flex-wrap gap-y-1" without fullWidth, so whole segments wrap at
+                 every width inside the shell. Gate: earningsnerd/no-hand-rolled-toggle-group
+                 (eslint.designRules.mjs) fails a role="group" holding an aria-pressed <button> or
+                 <Button> anywhere outside components/ui.
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
