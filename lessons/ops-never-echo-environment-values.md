@@ -86,17 +86,24 @@ list included) and the str of a log's body that is not text only after `before_s
   overlapped, the options fail at startup and Sentry stays off.
   The walk is total: mappings and lists are walked, None, booleans and numbers kept, and any other value becomes its
   repr first and is scrubbed there, so no text the SDK builds after the hook can hold a secret, and turning Sentry
-  logs on (`enable_logs`, or the logging integration's `capture_sentry_logs`) sends none either. The hook keeps only
-  the protocol's own words, never a field whole: a key that is exactly one of `main._PROTOCOL_KEYS` (an error's, a
+  logs on (`enable_logs`, or the logging integration's `capture_sentry_logs`) sends none either. The hook keeps only the
+  protocol's own words, never a field whole: a key that is exactly one of `main._PROTOCOL_KEYS` (an error's, a
   transaction's, a check-in's, a log's and a metric's own; a child span's, a breadcrumb's, an exception's, its
   mechanism's and its frames', a request's, a user's, the SDK info's; the trace context's, its dynamic sampling
-  context's, the response context's; a monitor config's), wherever it occurs, and an item's `type` when it is one the
-  SDK gives (`main._ITEM_TYPES`: a transaction, a check-in, a metric's kind). The SDK reads some of them after the hook
-  (an event's `event_id` and `type`, a log's `attributes`, a profile's `contexts.trace.trace_id`), so a weak secret
-  equal to one of those words, or inside one, breaks no item, and keeping them reveals nothing: the items Sentry
-  receives all spell those words. Every other key is user data and is scrubbed, whoever wrote it, so nothing that runs
-  before the hook (an event processor, under any name; a hand-built event; a trace context set by hand) can carry a
-  secret past it, and no scan of the backend for such writers is needed.
+  context's, the response context's; a monitor config's; and the names the SDK fills from its API or a request's
+  incoming trace, an event's `fingerprint` and the replay fields an incoming baggage header carries; with continuous
+  profiling, which main does not configure, `profiler_id` would join them) where the protocol puts it, outside user data
+  (below none of `main._USER_DATA_FIELDS`: an event's extra and tags, a span's or a breadcrumb's data, a request's body,
+  headers, cookies and env, a log's or a metric's attributes, a frame's variables, a log entry's params, measurements,
+  the modules; and in no context the app set, any but `main._SDK_CONTEXTS`), and only when it is exactly text, and an
+  item's `type` when it is one the SDK gives (`main._ITEM_TYPES`: a transaction, a check-in, a metric's kind). The SDK
+  reads some of them after the hook (an event's `event_id` and `type`, a log's `attributes`, a profile's
+  `contexts.trace.trace_id`), so a weak secret equal to one of those words, or inside one, breaks no item, and keeping
+  them reveals nothing: the items Sentry receives all spell those words. Every other key, and every key in user data, a
+  protocol word or not, is scrubbed, whoever wrote it, so an app that writes a protocol word as a key in its own data
+  does not send a secret equal to it, and nothing that runs before the hook (an event processor, under any name; a
+  hand-built event; a trace context set by hand) can carry a secret past it, and no scan of the backend for such writers
+  is needed.
   A secret setting is named by the output walk's rule (below), which main.py copies. The values are read once, when
   `main._sentry_options()` runs at startup, and matched longest first, so a URL quoted whole goes whole. A text under 8
   characters is left: settings bound no secret's length but `SECRET_KEY`'s, the shortest real secret (the Alpha Vantage
@@ -232,16 +239,23 @@ list included) and the str of a log's body that is not text only after `before_s
   metric are each sent, as their own kind and whole, their child spans, breadcrumbs, frames, monitor config and trace
   header with their keys; every key of 8 characters or more that the SDK's own items carry outside user data, read from
   what each hook received in one capture of every structure on every channel and each taken as a secret, leaves every
-  item's structure as it was, so a key an SDK upgrade adds fails until `_PROTOCOL_KEYS` has it; a secret held as a key
-  in user data (an extra, a tag, a context's name and contents, a user, a breadcrumb's data, a request body, a span's
-  data and tags, a log's and a metric's attributes) is withheld there, and so is one that follows a protocol word in the
-  same key; a trace context set by hand, a hand-built event with the secret as its own key and its `type`, and an event
-  processor registered under an assignment alias that writes it as an event's key, a trace context's key and the `type`
-  each send it nowhere; a secret overlapping `[Filtered]` in each of the four ways (inside it, across its end, around
-  it, across its start) moves the placeholder to the first that none overlaps and appears nowhere in the envelope, and
-  weak secrets that overlap every placeholder fail the options with an error that names no value, inside main.py's `try`
-  around its one init, so Sentry stays off and the app starts; and a scrubber that raises sends nothing: the error, the
-  check-in, the transaction, the log and the metric are each lost to `callback_error`.
+  item's structure as it was, so a key an SDK upgrade adds fails until `_PROTOCOL_KEYS` has it, and every name the list
+  keeps occurs in those items (no entry is dead or misspelled), and so does each context main counts as the SDK's, on
+  the SDK version the capture was checked against (pinned); a weak secret equal to a protocol word (`username`) written
+  by the app as a key in each kind of user data (an extra, a tag, a context of its own, a breadcrumb's data, a span's
+  data and tags, a log's and a metric's attributes, a request's body and headers, a log entry's params) is withheld
+  there while the user's own `username` stays, each field of the gate's copy of the user-data fields holds user data in
+  main, and a key that only poses as a protocol word (a text subclass, any other object) is withheld or turned into its
+  repr; a secret held as a key in user data (an extra, a tag, a context's name and contents, a user, a breadcrumb's
+  data, a request body, a span's data and tags, a log's and a metric's attributes) is withheld there, and so is one that
+  follows a protocol word in the same key; a trace context set by hand, a hand-built event with the secret as its own
+  key and its `type`, and an event processor registered under an assignment alias that writes it as an event's key, a
+  trace context's key and the `type` each send it nowhere; a secret overlapping `[Filtered]` in each of the four ways
+  (inside it, across its end, around it, across its start) moves the placeholder to the first that none overlaps and
+  appears nowhere in the envelope, and weak secrets that overlap every placeholder fail the options with an error that
+  names no value, inside main.py's `try` around its one init, so Sentry stays off and the app starts; and a scrubber
+  that raises sends nothing: the error, the check-in, the transaction, the log and the metric are each lost to
+  `callback_error`.
 - **compare_digest.** An AST walk fails any `compare_digest` call in the backend, by its name or a name
   `from hmac|secrets import compare_digest as ...` gives it, whose two arguments are not both bytes by their
   form: a UTF-8 `.encode(...)` or `bytes(x, ...)`, a `.digest()`, a bytes literal, a base64 encoding of bytes or a

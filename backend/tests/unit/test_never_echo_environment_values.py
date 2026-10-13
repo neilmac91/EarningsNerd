@@ -1413,13 +1413,19 @@ def _capture_every_structure(caplog) -> None:
     except ExceptionGroup as group:
         sentry_sdk.capture_exception(group)
     logging.getLogger("app.jobs").error("job %s failed", "two")  # an event with a log entry
+    sentry_sdk.capture_message("job failed again", fingerprint=["job", "nightly"])
     app = FastAPI()
 
     @app.post("/notes/{note}")
     async def notes(note: str, body: dict):
         raise RuntimeError("database down")
 
-    TestClient(app, raise_server_exceptions=False).post("/notes/1", params={"q": "x"}, json={"note": "x"})
+    # A request that continues a trace: the SDK copies the incoming baggage's items into the dynamic sampling context.
+    trace = {"sentry-trace": f"{'a' * 32}-{'b' * 16}-1"}
+    trace["baggage"] = f"sentry-trace_id={'a' * 32},sentry-replay_id={'c' * 32},sentry-user_segment=readers"
+    TestClient(app, raise_server_exceptions=False).post(
+        "/notes/1", params={"q": "x"}, json={"note": "x"}, headers=trace
+    )
     engine = create_engine("sqlite://")
     with sentry_sdk.start_transaction(name="job", op="task") as transaction:
         transaction.set_http_status(500)
@@ -1493,16 +1499,17 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request, 
     assert [entry["name"] for entry in metrics["items"]] == ["job.failures"]
 
 
-# The fields whose mappings hold user data: their keys are data too, never the protocol's own, so the value scrubber
-# withholds a secret held as one of them.
+# The fields whose mappings hold user data, the gate's own copy (main keeps its own): their keys are data, never the
+# protocol's, so the value scrubber withholds a secret held as one of them, a protocol word or not.
 _USER_DATA_FIELDS = frozenset(
-    {"data", "tags", "extra", "attributes", "headers", "cookies", "env", "vars", "measurements", "modules", "_meta"}
+    {"data", "tags", "extra", "attributes", "headers", "cookies", "env", "vars", "params", "measurements", "modules"}
 )
 
 
 def _structure(node: object, path: tuple = ()) -> set[tuple]:
     """The path of each key in an item outside user data (a user-data field's own key is the protocol's, its keys
-    are not walked); a list's items share the list's path."""
+    are not walked; the capture sets no context of its own, so every context is the SDK's); a list's items share the
+    list's path."""
     paths = set()
     if isinstance(node, dict):
         for key, value in node.items():
@@ -1524,7 +1531,13 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
     # main's list: a key an SDK upgrade adds fails here until main._PROTOCOL_KEYS has it.
     import copy
 
+    import sentry_sdk
+
     import main
+
+    # The capture reaches every structure this SDK builds under main's options (the design check of #1297 read the
+    # SDK for them); an upgrade can add one the capture does not reach, so it fails here until that is checked again.
+    assert sentry_sdk.VERSION == "2.71.0"
 
     received = []
     value_scrubber = main._value_scrubber
@@ -1544,11 +1557,13 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
     assert {"transaction", "check_in", "counter"} <= {item.get("type") for item in received}
     assert any("exception" in item for item in received) and any("severity_text" in item for item in received)
     words = {path[-1] for item in received for path in _structure(item) if isinstance(path[-1], str)}
-    words = sorted((word for word in words if len(word) >= 8), key=lambda word: (-len(word), word))
-    # The capture reaches what Codex named and every structure below an item's top level.
-    below = {"parent_span_id", "same_process_as_parent", "category", "filename", "context_line", "is_exception_group"}
-    below |= {"formatted", "query_string", "username", "status_code", "public_key", "schedule", "checkin_margin"}
-    assert below <= set(words)
+    words = sorted(
+        (word for word in words if len(word) >= main._MIN_SECRET_LENGTH), key=lambda word: (-len(word), word)
+    )
+    # Every name main keeps occurs in the SDK's own items, spelled as the SDK spells it: no entry is dead. The same
+    # for the contexts main counts as the SDK's: the capture sets none of its own.
+    assert main._PROTOCOL_KEYS <= set(words), sorted(main._PROTOCOL_KEYS - set(words))
+    assert {name for item in received for name in item.get("contexts", {})} == main._SDK_CONTEXTS
     withhold = value_scrubber(tuple(words))
     for item in received:
         lost = _structure(item) - _structure(withhold(copy.deepcopy(item), {}))
@@ -1556,10 +1571,10 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
 
 
 def test_a_secret_held_as_a_key_in_user_data_is_withheld(monkeypatch, request):
-    # Only a key that is exactly one of the protocol's own stays (main._PROTOCOL_KEYS); every other key is user data:
-    # a secret held as a key in an extra, a tag, a context (its name and inside it), a user, a breadcrumb's data, a
+    # Only a key that is exactly one of the protocol's own stays (main._PROTOCOL_KEYS), and only outside user data: a
+    # secret held as a key in an extra, a tag, a context (its name and inside it), a user, a breadcrumb's data, a
     # request's body, a span's data or tags, a log's or a metric's attributes is withheld there, and so is one that
-    # follows a protocol word in the same key.
+    # follows a protocol word in the same key (a user's, where protocol words stay: kept only when exactly one).
     import sentry_sdk
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -1570,7 +1585,7 @@ def test_a_secret_held_as_a_key_in_user_data_is_withheld(monkeypatch, request):
     sentry_sdk.set_extra(token, "x")
     sentry_sdk.set_tag(token, "x")
     sentry_sdk.set_context(token, {token: "x"})
-    sentry_sdk.set_user({"id": "1", token: "x"})
+    sentry_sdk.set_user({"id": "1", token: "x", f"username.{token}": "x"})  # a user's keys are kept by exact name only
     sentry_sdk.add_breadcrumb(message="retrying", data={token: "x"})
     sentry_sdk.capture_message("job failed")
     app = FastAPI()
@@ -1592,6 +1607,7 @@ def test_a_secret_held_as_a_key_in_user_data_is_withheld(monkeypatch, request):
     events = _of(envelopes, "event")
     (event,) = [event for event in events if event.get("message") == "job failed"]
     assert event["extra"]["[Filtered]"] == event["tags"]["[Filtered]"] == event["user"]["[Filtered]"] == "x"
+    assert event["user"]["username.[Filtered]"] == "x"
     assert event["contexts"]["[Filtered]"] == {"[Filtered]": "x"}
     assert {"[Filtered]": "x"} in [crumb.get("data") for crumb in event["breadcrumbs"]["values"]]
     assert {"[Filtered]": "x"} in [event.get("request", {}).get("data") for event in events]
@@ -1601,6 +1617,104 @@ def test_a_secret_held_as_a_key_in_user_data_is_withheld(monkeypatch, request):
     (logs,), (metrics,) = _of(envelopes, "log"), _of(envelopes, "trace_metric")
     assert logs["items"][0]["attributes"]["[Filtered]"]["value"] == "x"
     assert metrics["items"][0]["attributes"]["[Filtered]"]["value"] == "x"
+
+
+def test_a_secret_equal_to_a_protocol_word_is_withheld_as_a_key_in_user_data(monkeypatch, request, caplog):
+    # The protocol's words stay only where the protocol puts them (the adversarial design check on #1297): an app that
+    # writes one as a key in user data (an extra, a tag, a context of its own, a breadcrumb's data, a span's data and
+    # tags, a log's or a metric's attributes, a request's body and headers, a log entry's params) writes its own data,
+    # so a weak secret equal to that word (IP_HASH_SALT=username passes every check) is withheld there, while the
+    # user's `username`, where the protocol puts it, stays.
+    import sentry_sdk
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from sentry_sdk import logger as sentry_logger
+
+    word = "username"
+    envelopes = _scrubbing_envelopes(request, monkeypatch, IP_HASH_SALT=word)
+    sentry_sdk.set_user({"id": "1", word: "reader"})
+    sentry_sdk.set_extra(word, "x")
+    sentry_sdk.set_tag(word, "x")
+    sentry_sdk.set_context("job", {word: "x"})
+    sentry_sdk.add_breadcrumb(message="retrying", data={word: "x"})
+    caplog.set_level(logging.INFO, logger="app.jobs")
+    logging.getLogger("app.jobs").error("job %(name)s failed", {word: "x", "name": "nightly"})
+    app = FastAPI()
+
+    @app.post("/notes")
+    async def notes(body: dict):
+        raise RuntimeError("database down")
+
+    TestClient(app, raise_server_exceptions=False).post("/notes", json={word: "x"}, headers={word: "x"})
+    with sentry_sdk.start_transaction(name="job"), sentry_sdk.start_span(op="job.step") as span:
+        span.set_data(word, "x")
+        span.set_tag(word, "x")
+    sentry_logger.warning("job failed", attributes={word: "x"})
+    sentry_sdk.metrics.count("job.failures", 1, attributes={word: "x"})
+    sentry_sdk.flush()
+    events = _of(envelopes, "event")
+    assert events and all(event["user"][word] == "reader" for event in events)
+    (event,) = [event for event in events if event.get("logentry")]
+    assert event["extra"]["[Filtered]"] == event["tags"]["[Filtered]"] == event["contexts"]["job"]["[Filtered]"] == "x"
+    assert event["logentry"]["params"] == {"[Filtered]": "x", "name": "nightly"}
+    assert {"[Filtered]": "x"} in [crumb.get("data") for crumb in event["breadcrumbs"]["values"]]
+    (posted,) = [event for event in events if event.get("request", {}).get("data")]
+    assert posted["request"]["data"] == {"[Filtered]": "x"} and posted["request"]["headers"]["[Filtered]"] == "x"
+    (job,) = [transaction for transaction in _of(envelopes, "transaction") if transaction["transaction"] == "job"]
+    ((step,),) = [job["spans"]]
+    assert step["data"]["[Filtered]"] == step["tags"]["[Filtered]"] == "x"
+    (logs,), (metrics,) = _of(envelopes, "log"), _of(envelopes, "trace_metric")
+    assert logs["items"][0]["attributes"]["[Filtered]"]["value"] == "x"
+    assert metrics["items"][0]["attributes"]["[Filtered]"]["value"] == "x"
+
+
+@pytest.mark.parametrize("field", sorted(_USER_DATA_FIELDS))
+def test_the_value_scrubber_keeps_a_protocol_word_only_outside_user_data(field):
+    # Each field of the gate's own copy holds user data in main too: a weak secret equal to a protocol word is withheld
+    # as a key there at any depth (a list's items too), and in a context the app set, while the same word stays where
+    # the protocol puts it (a user's `username`, the trace context's `trace_id`).
+    import main
+
+    word = "username"
+    item = {
+        "user": {word: "reader"},
+        field: {word: "x", "nested": {word: "x"}, "listed": [{word: "x"}]},
+        "contexts": {"trace": {"trace_id": "x"}, "job": {word: "x"}},
+    }
+    assert main._withhold(item, (word,)) == {
+        "user": {word: "reader"},
+        field: {"[Filtered]": "x", "nested": {"[Filtered]": "x"}, "listed": [{"[Filtered]": "x"}]},
+        "contexts": {"trace": {"trace_id": "x"}, "job": {"[Filtered]": "x"}},
+    }
+
+
+def test_a_key_is_kept_as_a_protocol_word_only_when_it_is_text():
+    # Log and metric attributes reach the hook unserialized, keys as the app gave them: a str subclass that compares
+    # equal to a protocol word while its text is a secret is withheld (a key is kept only when it is exactly text), and
+    # any other key equal to one becomes its repr, which the SDK can encode (the adversarial design check on #1297).
+    import main
+
+    secret = _fabricated("SECRET_KEY", string.ascii_uppercase)
+
+    class Posing(str):
+        def __eq__(self, other):
+            return other == "timestamp"
+
+        def __hash__(self):
+            return hash("timestamp")
+
+    class Word:
+        def __eq__(self, other):
+            return other == "timestamp"
+
+        def __hash__(self):
+            return hash("timestamp")
+
+        def __repr__(self):
+            return "Word()"
+
+    assert main._withhold({Posing(secret): 1}, (secret,)) == {"[Filtered]": 1}
+    assert main._withhold({Word(): 2}, (secret,)) == {"Word()": 2}
 
 
 def test_nothing_written_before_the_hooks_carries_a_secret_past_them(monkeypatch, request):
