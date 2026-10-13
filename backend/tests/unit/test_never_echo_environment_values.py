@@ -921,50 +921,60 @@ def test_main_passes_sentry_only_its_options():
 
 
 def _sentry_calls(tree: ast.Module, name: str) -> list[str]:
-    """Each call of sentry_sdk's function `name` in the module, through any import of the package or its modules
-    (`sentry_sdk.capture_event`, `sdk.api.capture_event`), or the function imported from either under any name."""
-    modules, functions = {"sentry_sdk"}, set()
+    """Each call in the module that can reach Sentry's function `name`: as a method on any receiver (the package, a
+    module of it, a scope or a client held in a name, `get_current_scope()`), or as the function imported from
+    sentry_sdk or one of its modules under any name. A method of that name on another receiver is flagged too: the scan
+    cannot tell receivers apart, and the backend has none."""
+    functions = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            modules |= {
-                alias.asname or alias.name.split(".")[0]
-                for alias in node.names
-                if alias.name.split(".")[0] == "sentry_sdk"
-            }
-        elif isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "sentry_sdk":
+        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "sentry_sdk":
             functions |= {alias.asname or alias.name for alias in node.names if alias.name == name}
-            modules |= {alias.asname or alias.name for alias in node.names if alias.name != name}
-    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
-    return [
-        ast.unparse(call)
-        for call in calls
-        if ast.unparse(call.func) in functions
-        or (ast.unparse(call.func).endswith(f".{name}") and ast.unparse(call.func).split(".")[0] in modules)
-    ]
-
-
-def _trace_contexts(tree: ast.Module) -> list[str]:
-    """Each `set_context("trace", ...)` call in the module, on any receiver (a scope, the package)."""
     return [
         ast.unparse(node)
         for node in ast.walk(tree)
         if isinstance(node, ast.Call)
-        and ast.unparse(node.func).split(".")[-1] == "set_context"
-        and node.args
-        and isinstance(node.args[0], ast.Constant)
-        and node.args[0].value == "trace"
+        and (ast.unparse(node.func) in functions or (isinstance(node.func, ast.Attribute) and node.func.attr == name))
     ]
+
+
+def _trace_contexts(tree: ast.Module) -> list[str]:
+    """Each `set_context` call in the module that sets the trace context, on any receiver (a scope, the package), its
+    key given by position or by name."""
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and ast.unparse(node.func).split(".")[-1] == "set_context":
+            key = node.args[0] if node.args else next((kw.value for kw in node.keywords if kw.arg == "key"), None)
+            if isinstance(key, ast.Constant) and key.value == "trace":
+                found.append(ast.unparse(node))
+    return found
+
+
+# An event processor runs before the hooks and can write any field of an event, the kept ones included.
+_EVENT_PROCESSORS = {"add_event_processor", "add_error_processor", "add_global_event_processor"}
+
+
+def _event_processors(tree: ast.Module) -> list[str]:
+    """Each call in the module that adds an event or error processor, on any receiver or as an imported function."""
+    return [
+        ast.unparse(node)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and ast.unparse(node.func).split(".")[-1] in _EVENT_PROCESSORS
+    ]
+
+
+def _kept_field_writers(tree: ast.Module) -> list[str]:
+    return [*_sentry_calls(tree, "capture_event"), *_trace_contexts(tree), *_event_processors(tree)]
 
 
 def test_no_backend_code_writes_the_fields_the_value_scrubber_keeps():
     # The value scrubber keeps an item's own keys, its `type` and its trace context's keys (main._value_scrubber),
     # because the SDK builds them from the protocol's names and never from user data. A hand-built event
-    # (`capture_event`) or a trace context set by hand would put user data there, unscrubbed: neither exists.
+    # (`capture_event`), a trace context set by hand or an event processor could put user data there, unscrubbed:
+    # none exists.
     found = [
         f"{path.relative_to(BACKEND_DIR).as_posix()}: {call}"
         for path in _scanned_files()
-        for tree in [ast.parse(path.read_text(encoding="utf-8"))]
-        for call in (*_sentry_calls(tree, "capture_event"), *_trace_contexts(tree))
+        for call in _kept_field_writers(ast.parse(path.read_text(encoding="utf-8")))
     ]
     assert found == []
 
@@ -976,8 +986,14 @@ def test_no_backend_code_writes_the_fields_the_value_scrubber_keeps():
         "import sentry_sdk as sdk\nsdk.api.capture_event(event)",
         "from sentry_sdk import capture_event as send\nsend(event)",
         "from sentry_sdk import api\napi.capture_event(event)",
+        "scope = sentry_sdk.get_current_scope()\nscope.capture_event(event)",
+        "client = sentry_sdk.get_client()\nclient.capture_event(event)",
+        "from sentry_sdk import get_current_scope\nget_current_scope().capture_event(event)",
         "import sentry_sdk\nsentry_sdk.set_context('trace', {})",
         "scope = get_scope()\nscope.set_context('trace', {})",
+        "import sentry_sdk\nsentry_sdk.set_context(key='trace', value={})",
+        "import sentry_sdk\nsentry_sdk.get_current_scope().add_event_processor(rewrite)",
+        "from sentry_sdk.scope import add_global_event_processor\nadd_global_event_processor(rewrite)",
         "from app.services.posthog_client import capture_event\ncapture_event(user, event)",
         "scope = get_scope()\nscope.set_context('job', {})",
     ],
@@ -986,18 +1002,22 @@ def test_no_backend_code_writes_the_fields_the_value_scrubber_keeps():
         "module-alias",
         "function-alias",
         "submodule",
+        "scope-in-a-name",
+        "client-in-a-name",
+        "current-scope",
         "set-trace",
         "scope-trace",
+        "trace-by-keyword",
+        "event-processor",
+        "global-event-processor",
         "posthog",
         "other-context",
     ],
 )
 def test_the_kept_fields_scan_follows_imports(source):
-    tree = ast.parse(source)
-    found = [*_sentry_calls(tree, "capture_event"), *_trace_contexts(tree)]
-    assert found == (
-        [] if source.endswith(("capture_event(user, event)", "set_context('job', {})")) else [source.splitlines()[1]]
-    )
+    found = _kept_field_writers(ast.parse(source))
+    harmless = source.endswith(("capture_event(user, event)", "set_context('job', {})"))
+    assert found == ([] if harmless else [source.splitlines()[1]])
 
 
 @pytest.mark.parametrize(

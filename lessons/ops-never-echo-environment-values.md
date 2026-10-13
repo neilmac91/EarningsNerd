@@ -48,8 +48,8 @@ context, a request, a span's data), still reached Sentry; a `DATABASE_URL` missi
 password parses, and the driver's connection error quotes the digits as the port. Building the value scrubber showed
 one more channel: the SDK's own logger and metrics API send logs and metrics past `before_send` and the event
 scrubber, whatever `enable_logs` says. Its review found where text is still made after the hooks: the SDK builds the
-repr of a log record's `extra` value (anything but text or a number, a mapping and a mixed list included) and the str
-of a log's body that is not text only after `before_send_log` returns.
+repr of a log record's `extra` value (anything but text, a number or a list of one such type; a mapping and a mixed
+list included) and the str of a log's body that is not text only after `before_send_log` returns.
 
 **Rule.**
 - The settings class sets `hide_input_in_errors`, so a validation error's text (`str`, `repr`, and so a
@@ -90,7 +90,7 @@ of a log's body that is not text only after `before_send_log` returns.
   its `type` and its trace context's keys stay as they are: they are the protocol's, never user data, and the SDK reads
   them after the hook (an event's `event_id` and `type`, a log's `attributes`, a profile's `contexts.trace.trace_id`),
   so a weak secret equal to one of those words cannot break a capture. Nothing in the backend writes them by hand: no
-  hand-built event (`capture_event`) and no trace context set by hand.
+  hand-built event (`capture_event`), no trace context set by hand and no event processor.
   A secret setting is named by the output walk's rule (below), which main.py copies. The values are read once, when
   `main._sentry_options()` runs at startup, and matched longest first, so a URL quoted whole goes whole. A text under 8
   characters is left: settings bound no secret's length but `SECRET_KEY`'s, the shortest real secret (the Alpha Vantage
@@ -223,8 +223,9 @@ of a log's body that is not text only after `before_send_log` returns.
   transaction with the secret withheld; secrets equal to protocol words (`event_id`, `trace_id`, `attributes`,
   `start_timestamp`, `time_unix_nano`, `severity_number`, `transaction`, `timestamp`, `check_in`) break no item: the
   error, the transaction, the check-in, the log and the metric are each sent, as their own kind, with those fields;
-  a scan fails any Sentry `capture_event` call (through any import of the package) and any `set_context("trace", ...)`
-  in the backend, which would put user data in the fields the hook keeps; a secret overlapping `[Filtered]`, inside it
+  a scan fails, in the backend, any `capture_event` method call (on any receiver: the package, a scope or a client in a
+  name) or the function imported from sentry_sdk, any `set_context` of the trace context (by position or by name) and
+  any event or error processor added, each of which could put user data in the fields the hook keeps; a secret overlapping `[Filtered]`, inside it
   or across its edge, moves the placeholder to `[Withheld]` and appears nowhere in the envelope, and weak secrets that
   overlap every placeholder fail the options with an error that names no value; and a scrubber that raises sends
   nothing: the error, the check-in, the transaction, the log and the metric are each lost to `callback_error`.
@@ -270,7 +271,7 @@ each with its reason:
   (code locations), sessions (release-health counts) and attachments (none sent) pass no hook; the envelope's trace
   header is taken from the scrubbed event. Frame variables stay off whatever the scrubber does: a frame holds values
   in forms it cannot match. Over-redaction is accepted: a secret that equals ordinary text (a weak salt equal to the
-  domain) withholds that text; one equal to a protocol word replaces that word everywhere but the fields the SDK reads,
+  domain) withholds that text; one equal to a protocol word replaces that word everywhere but the fields the hook keeps,
   in nested fields' names, where colliding names collapse into one `[Filtered]` (a child span loses its `trace_id` and
   timestamps, the trace header its `trace_id`), and in protocol values (a check-in's `in_progress`), so Sentry may
   drop such a span or check-in, though no capture fails; and the public-by-design values the rule names
