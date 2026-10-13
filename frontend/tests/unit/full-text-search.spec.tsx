@@ -6,6 +6,7 @@ vi.mock('@/features/search/api/search-api', () => ({ searchFullText: vi.fn() }))
 
 import FullTextSearch, { FullTextSearchResults } from '@/features/search/components/FullTextSearch'
 import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
+import { ApiError } from '@/lib/api/client'
 
 const hit: FullTextSearchHit = {
   accession_no: '0000320193-24-000123',
@@ -47,6 +48,19 @@ describe('FullTextSearchResults', () => {
     const { container } = render(<FullTextSearchResults hits={[noUrl]} />)
     expect(screen.queryByRole('link')).toBeNull()
     expect(container.textContent).toContain('Apple Inc.')
+  })
+
+  it('sets the form code as data-face text, never a chip, and rings the row link inside the clipped list', () => {
+    render(<FullTextSearchResults hits={[hit]} />)
+    const form = screen.getByText('10-K')
+    expect(form).toHaveClass('font-data')
+    expect(form.className).not.toMatch(/\b(rounded|border|uppercase|tracking-eyebrow)\b/)
+    // The list is overflow-hidden, so an outer ring would be clipped: the inset token instead.
+    expect(screen.getByRole('link')).toHaveClass(
+      'focus-visible:outline-none',
+      'focus-visible:shadow-ring-brand-inset',
+      'dark:focus-visible:shadow-ring-brand-inset-dark',
+    )
   })
 
   it('renders one row per hit', () => {
@@ -98,5 +112,56 @@ describe('FullTextSearch date filters', () => {
     expect(await screen.findByText(/start date must be on or before end date/i)).toBeInTheDocument()
     await new Promise((resolve) => setTimeout(resolve, 400)) // past the 350ms debounce
     expect(vi.mocked(searchFullText)).not.toHaveBeenCalled()
+  })
+})
+
+describe('FullTextSearch controls and errors', () => {
+  beforeEach(() => vi.mocked(searchFullText).mockReset())
+
+  const renderSearch = () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={qc}>
+        <FullTextSearch />
+      </QueryClientProvider>,
+    )
+  }
+  const search = (q: string) => fireEvent.change(screen.getByLabelText(/Search the full text/i), { target: { value: q } })
+
+  it('caps the query at the 400 characters the backend accepts, so its 422 cannot occur', () => {
+    renderSearch()
+    expect(screen.getByLabelText(/Search the full text/i)).toHaveAttribute('maxLength', '400')
+  })
+
+  it('rings the form toggles and Clear dates', () => {
+    renderSearch()
+    fireEvent.change(screen.getByLabelText('Filed on or after'), { target: { value: '2023-01-01' } })
+    for (const control of [screen.getByRole('button', { name: '10-K' }), screen.getByRole('button', { name: 'Clear dates' })]) {
+      expect(control).toHaveClass('focus-visible:outline-none', 'focus-visible:shadow-ring-brand', 'dark:focus-visible:shadow-ring-brand-dark')
+    }
+  })
+
+  it('shows a backend detail (the 429) verbatim, and its Retry runs the search again', async () => {
+    vi.mocked(searchFullText)
+      .mockRejectedValueOnce(new ApiError(429, 'SEC full-text search is rate-limited right now. Please retry shortly.'))
+      .mockResolvedValueOnce({ query: 'going concern', total: 0, count: 0, hits: [] })
+    renderSearch()
+    search('going concern')
+    expect(await screen.findByRole('alert')).toHaveTextContent('SEC full-text search is rate-limited right now. Please retry shortly.')
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText(/No filings match/)).toBeInTheDocument()
+    expect(vi.mocked(searchFullText)).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([
+    ['a lost connection (no response)', new ApiError(0, 'Could not reach the server. Try again in a moment.')],
+    // FastAPI's 422 carries a list, which reached the UI as "[object Object]" before lib/api/client read it.
+    ['a validation list in place of a detail', new ApiError(422, [{ loc: ['query', 'q'], msg: 'too long' }] as unknown as string)],
+    ['an error that is not an ApiError', new Error('boom')],
+  ])('shows its own sentence for %s', async (_name, error) => {
+    vi.mocked(searchFullText).mockRejectedValueOnce(error)
+    renderSearch()
+    search('going concern')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Search did not load. Try again in a minute.')
   })
 })

@@ -52,6 +52,7 @@ Engineering:
 - [ ] E13 — Suppressing the [critique's](../.impeccable/critique/2026-10-04T16-43-55Z__frontend-app-filing-id-page-tsx.md#design-specificity-verdict-mixed) quotation `side-tab` false positive and sanctioned `--ease-pop` warning is CANCEL-RECOMMENDED; old consent/dialog harnesses wait for reuse, memoization for measurements, and missing-prior web/export dashes for a compatible backend batch.
 - [ ] E14 — IN-FLIGHT: prevent disabled hover/active tint [#1262](https://github.com/neilmac91/EarningsNerd/pull/1262). Drafts remain unmerged; Modal-host Escape is CANCEL-RECOMMENDED because Modal has no native-dialog host, and the founder-only class-7 SQL read is PREPARE.
 - [ ] E15 — IN-FLIGHT: Insider gain/loss ink [#1262](https://github.com/neilmac91/EarningsNerd/pull/1262) pass local acceptance. Analysis Run’s locked native-disabled contract remains a separate founder decision.
+- [ ] E24 — PREPARE (brand sweep): `NEXT_PUBLIC_ENABLE_CALENDAR` and `NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH` are set only in Vercel, so CI's e2e build serves /calendar and /search as 404 and `tests/e2e/text-floors.spec.ts` cannot visit them for the contrast census or the heading outline; set both flags (with `NEXT_PUBLIC_CALENDAR_FIXTURES`, since e2e runs with no backend, and the search answered through `page.route`) in the e2e build and add the two routes, a CI file change reviewed at high tier.
 
 ## What to doubt first
 

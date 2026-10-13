@@ -10,14 +10,20 @@
    Intl(America/New_York), and labels render through formatLocalDate.
 ============================================================================= */
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Button, GuidanceCard, SegmentedControl, Skeleton, type SegmentedOption } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
 import { BellIcon, CaretLeftIcon, CaretRightIcon, ClockIcon } from '@/lib/icons'
 import { formatLocalDate } from '@/lib/format'
+import { queryKeys } from '@/lib/queryKeys'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { getRegistrationConfig } from '@/features/marketing/api/access-api'
+import { resolveAccessMode } from '@/features/marketing/lib/access'
 import { addDaysIso, addMonths, firstOfMonth, marketHolidayName, mondayOf, todayEasternIso } from '../lib/dates'
 import { indexByDate } from '../lib/lanes'
-import { useCalendarRange, useEarningsAlerts, useViewer, FREE_ALERT_LIMIT } from '../hooks/useCalendar'
+import { getCalendar, type CalendarRangeResult } from '../api/calendar-api'
+import { useEarningsAlerts, useViewer, FREE_ALERT_LIMIT } from '../hooks/useCalendar'
 import { WeekView, type DayBucket } from './WeekView'
 import { MonthView } from './MonthView'
 import { DayDetailDialog } from './DayDetailDialog'
@@ -46,9 +52,29 @@ export default function EarningsCalendarPage() {
     return { from, to: addDaysIso(from, 41) }
   }, [view, anchor])
 
-  const query = useCalendarRange(range.from, range.to)
+  const query = useQuery<CalendarRangeResult>({
+    queryKey: queryKeys.calendar(range.from, range.to),
+    queryFn: () => getCalendar(range.from, range.to),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  })
+  // The error card keeps its failure through any refetch until data replaces it (a focused "Try again"
+  // in it included); another range is another query, so navigating drops the old failure.
+  const failure = useRetainedFailure(query, queryKeys.calendar(range.from, range.to))
+  const headingRef = useRef<HTMLHeadingElement>(null)
   const viewer = useViewer()
   const alerts = useEarningsAlerts(viewer)
+  // The signed-out bell's account action follows the one access decision (features/marketing/lib/
+  // access.ts): "Request an invite" while registration is invite-only, the free account when it is
+  // public. Asked only of a guest; until it answers, and when it cannot, it fails closed to the invite.
+  const { data: registration } = useQuery({
+    queryKey: queryKeys.registrationConfig(),
+    queryFn: getRegistrationConfig,
+    retry: false,
+    staleTime: 60 * 60 * 1000,
+    enabled: !viewer.identityPending && !viewer.signedIn,
+  })
+  const accessMode = resolveAccessMode(registration ?? null)
   // The bell's popover portals into the open day dialog, so it never outlives a change of that dialog:
   // one closing under it (its X from the keyboard fires no cancel) would orphan it, still holding
   // Escape; one opening over it would leave it inert beneath the top layer. Every day change goes here.
@@ -84,9 +110,11 @@ export default function EarningsCalendarPage() {
       {/* Title row */}
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold sm:text-3xl">Earnings calendar</h1>
+          <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold outline-none sm:text-3xl">
+            Earnings calendar
+          </h1>
           <p className="mt-1 max-w-[64ch] text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-            The most-anticipated U.S. reports, day by day. Dates are U.S. Eastern calendar days.
+            U.S. earnings reports, day by day. Dates are U.S. Eastern calendar days.
           </p>
           {/* Coverage caption — shown only when the backend confirms the index filter is active, so
               it never claims a curated universe while serving everything (accurate across flag states). */}
@@ -154,23 +182,24 @@ export default function EarningsCalendarPage() {
       </div>
 
       {/* System states */}
-      {query.isPending && <CalendarSkeleton />}
-      {query.isError && (
+      {query.isPending && !failure.failed && <CalendarSkeleton />}
+      {failure.failed && (
         <GuidanceCard
           variant="error"
           title="Couldn't load the calendar"
           description="The calendar service did not respond. Your alert subscriptions are unaffected."
           action={
-            <Button variant="secondary" size="sm" onClick={() => query.refetch()}>
+            // When the card goes while "Try again" holds focus (the range loads), focus moves to the page heading.
+            <RetryButton size="sm" failures={[failure]} focusTarget={headingRef}>
               Try again
-            </Button>
+            </RetryButton>
           }
         />
       )}
       {isEmpty && (
         <GuidanceCard
           title={view === 'week' ? 'A quiet week' : 'A quiet month'}
-          description="No earnings are scheduled in this range yet. Estimated dates appear as companies' reporting patterns firm up."
+          description="Nothing is on the calendar for this range yet. Estimated dates appear as the data provider publishes them."
           action={
             <Button variant="secondary" size="sm" onClick={() => navigate(1)}>
               {view === 'week' ? 'Jump to next week' : 'Jump to next month'}
@@ -186,8 +215,9 @@ export default function EarningsCalendarPage() {
       )}
 
       <p className="mt-4 px-1 text-xs leading-relaxed text-text-tertiary-light dark:text-text-secondary-dark">
-        Reported dates come from SEC EDGAR 8-K filings. Estimated dates come from each company&rsquo;s own reporting pattern and
-        provider data; &ldquo;usually&rdquo; marks a habitual, unconfirmed slot. Not investment advice.
+        Reported dates come from the company&rsquo;s 8-K results filing on SEC EDGAR. Estimated dates and EPS estimates come
+        from a market-data provider and can move; &ldquo;usually&rdquo; marks a time the company has not confirmed. Not
+        investment advice.
       </p>
 
       {openDay && (
@@ -199,7 +229,7 @@ export default function EarningsCalendarPage() {
           onClose={() => setOpenDay(null)}
         />
       )}
-      {alerts.blocked && <BellPopover blocked={alerts.blocked} onClose={alerts.clearBlocked} />}
+      {alerts.blocked && <BellPopover blocked={alerts.blocked} accessMode={accessMode} onClose={alerts.clearBlocked} />}
     </main>
   )
 }

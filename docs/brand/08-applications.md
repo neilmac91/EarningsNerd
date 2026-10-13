@@ -68,6 +68,23 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
   verification mail ends "Verify your email address and you can start reading."
+- **Earnings calendar** (`frontend/app/calendar/page.tsx`, `features/calendar/components/*`): the
+  page, its metadata and its footer say where each date comes from: a reported date from the
+  company's 8-K results filing on SEC EDGAR, an estimated date and EPS estimate from a market-data
+  provider, and "usually" for a time the company has not confirmed. Nothing claims a confirmed
+  date, a reporting pattern or "the most-anticipated" reports; the day dialog orders "large caps and
+  most followed first". The anticipation flame is gone: the order already ranks the rows, and the
+  warning colour is for status. A signed-out bell offers an email the morning a company reports, and
+  its second action follows the registration mode ("Request an invite" while invite-only). The error
+  card's "Try again" is a `RetryButton`. `brandCopyRules.spec.ts` rule 1d bans the old claims under
+  the calendar, and `tests/unit/calendarEventRow.spec.tsx` holds the row without a marker.
+- **Full-text search** (`frontend/app/search/page.tsx`, `features/search/components/FullTextSearch.tsx`):
+  the form code is set in the data face, not as a chip, and `earningsnerd/no-form-code-badge` now
+  flags a hand-rolled eyebrow chip around a form as well as a `Badge`. The form toggles, "Clear
+  dates" and Retry (a `RetryButton`) carry the brand ring, the result rows an inset one inside the
+  clipped list. The field stops at the 400 characters the backend accepts; an error shows the
+  backend's own sentence, or "Search did not load. Try again in a minute." when there is none. The
+  description no longer promises every filing, and the title is in sentence case.
 
 ## 4. The mark's files and the icons
 

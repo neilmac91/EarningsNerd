@@ -1,8 +1,10 @@
 'use client'
 
 import { queryKeys } from '@/lib/queryKeys'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
+import { ApiError } from '@/lib/api/client'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { ArrowSquareOutIcon, MagnifyingGlassIcon, WarningIcon } from '@/lib/icons'
 import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
 import { FieldSpinner, inputClasses } from '@/components/ui'
@@ -32,13 +34,10 @@ export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
                 <span className="truncate text-sm text-text-primary-light dark:text-text-secondary-dark">{hit.company ?? 'Unknown filer'}</span>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                {hit.form && (
-                  <span className="rounded border border-border-light dark:border-white/10 bg-black/[0.03] dark:bg-white/5 px-1.5 py-0.5 uppercase tracking-eyebrow">
-                    {hit.form}
-                  </span>
-                )}
-                {hit.filed_date && <span>Filed {hit.filed_date}</span>}
-                {hit.period_ending && <span>· Period {hit.period_ending}</span>}
+                {/* A form code is text in the data face, never a chip (DESIGN.md › Chips). */}
+                {hit.form && <span className="font-data text-text-primary-light dark:text-text-primary-dark">{hit.form}</span>}
+                {hit.filed_date && <span>{hit.form && '· '}Filed {hit.filed_date}</span>}
+                {hit.period_ending && <span>{(hit.form || hit.filed_date) && '· '}Period {hit.period_ending}</span>}
               </div>
             </div>
             {/* Only the linkable rows get the external-link affordance. */}
@@ -53,7 +52,8 @@ export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
                 href={href}
                 target="_blank"
                 rel="noreferrer"
-                className={`${rowClass} transition-colors hover:bg-black/[0.03] dark:hover:bg-white/5`}
+                // The list clips its rows (overflow-hidden), so the ring sits inside the row.
+                className={`${rowClass} transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:shadow-ring-brand-inset dark:hover:bg-white/5 dark:focus-visible:shadow-ring-brand-inset-dark`}
               >
                 {inner}
               </a>
@@ -86,7 +86,8 @@ export default function FullTextSearch() {
   // range can be inverted (start > end); don't fire a request that the upstream would 400/502 on.
   const validRange = !startDate || !endDate || startDate <= endDate
 
-  const { data, isError, error, refetch, isFetching } = useQuery({
+  const inputRef = useRef<HTMLInputElement>(null)
+  const search = useQuery({
     queryKey: queryKeys.fullTextSearch(query, formsParam, startDate, endDate),
     queryFn: () =>
       searchFullText({
@@ -99,6 +100,16 @@ export default function FullTextSearch() {
     placeholderData: keepPreviousData, // keep prior results visible while refining (no flash)
     staleTime: 5 * 60 * 1000,
   })
+  const { data, isFetching } = search
+  // The alert keeps its failure through any refetch until data replaces it (a focused Retry in it
+  // included); a new query is another query, so typing one drops the old failure.
+  const failure = useRetainedFailure(search, queryKeys.fullTextSearch(query, formsParam, startDate, endDate))
+  // A backend detail (the 429 and 502 sentences) reads verbatim; an error with no readable detail
+  // from the server (a lost connection, a malformed body) gets this surface's own sentence.
+  const errorText =
+    failure.error instanceof ApiError && failure.error.status > 0 && typeof failure.error.detail === 'string' && failure.error.detail
+      ? failure.error.detail
+      : 'Search did not load. Try again in a minute.'
 
   const toggleForm = (form: string) =>
     setForms((prev) => (prev.includes(form) ? prev.filter((f) => f !== form) : [...prev, form]))
@@ -120,11 +131,14 @@ export default function FullTextSearch() {
           className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark"
         />
         <input
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Search the full text of filings…"
           aria-label="Search the full text of SEC filings"
           aria-busy={isFetching || undefined}
+          // The backend refuses a query over 400 characters (routers/search.py, max_length=400).
+          maxLength={400}
           className={inputClasses({ leadingIcon: true, trailingIcon: true })}
         />
         {/* Inset always reserved, not only while fetching: see CompanySearch. */}
@@ -140,7 +154,7 @@ export default function FullTextSearch() {
               type="button"
               onClick={() => toggleForm(form)}
               aria-pressed={active}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${
                 active
                   ? 'border-brand-border dark:border-brand-dark/40 bg-brand-weak dark:bg-brand-dark/15 text-brand-strong dark:text-brand-strong-dark'
                   : 'border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-black/[0.03] dark:hover:bg-white/10'
@@ -178,7 +192,7 @@ export default function FullTextSearch() {
               setStartDate('')
               setEndDate('')
             }}
-            className="text-text-secondary-light dark:text-text-secondary-dark underline-offset-2 transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark hover:underline"
+            className="rounded text-text-secondary-light dark:text-text-secondary-dark underline-offset-2 transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             Clear dates
           </button>
@@ -186,22 +200,20 @@ export default function FullTextSearch() {
         {!validRange && <span className="text-warning-light dark:text-warning-dark">Start date must be on or before end date.</span>}
       </div>
 
-      {isError && (
+      {failure.failed && (
         <div
           role="alert"
           className="flex items-center justify-between gap-3 rounded-xl border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/15 p-4 text-sm text-error-light dark:text-error-dark"
         >
           <span className="flex items-center gap-2">
             <WarningIcon className="h-4 w-4" aria-hidden />
-            {error instanceof Error ? error.message : 'Search is temporarily unavailable.'}
+            {errorText}
           </span>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="rounded-lg border border-error-light/40 dark:border-error-dark/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-error-light/10 dark:hover:bg-error-dark/15"
-          >
+          {/* When the alert goes while Retry holds focus (the search lands), focus moves to the field,
+              except after a tap, which would raise the touch keyboard. */}
+          <RetryButton size="sm" failures={[failure]} focusTarget={inputRef} textField>
             Retry
-          </button>
+          </RetryButton>
         </div>
       )}
 
@@ -211,7 +223,7 @@ export default function FullTextSearch() {
         </p>
       )}
 
-      {query.length > 0 && !isError && data && (
+      {query.length > 0 && !failure.failed && data && (
         data.hits.length > 0 ? (
           <div className="space-y-2">
             <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">

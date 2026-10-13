@@ -17,7 +17,7 @@ import {
  *  - no-side-stripe (P-08): a thick left border on a rounded container is the side-tab stripe card.
  *    Evaluated on whole class strings, so a stripe split across template chunks or cx() arguments
  *    is caught, while a quotation's unrounded 2px bar and the Callout's full hairline pass.
- *  - no-form-code-badge (P-04): a form code is text in the data face, never a <Badge>.
+ *  - no-form-code-badge (P-04): a form code is text in the data face, never a <Badge> or a hand-rolled eyebrow chip.
  *  - no-unguarded-animation (P-09): every animation utility stops under reduced motion, through
  *    motion-safe: or a motion-reduce:animate-none with the same variants that always renders with it.
  *    The globals.css classes it exempts must stop themselves there, and so must every other animation
@@ -85,6 +85,13 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     // Descriptive props may name the form: they describe the badge, they are not its content.
     '<Badge variant="warning" title={`Amends the ${filing.filing_type}`}>Superseded</Badge>',
     '<Badge aria-label={`${filing.form_type} superseded`}>Superseded</Badge>',
+    // The data face is the form code's place; eyebrow type on a label that is not a form passes.
+    '<span className="font-data text-text-primary-light">{hit.form}</span>',
+    '<span className="uppercase tracking-eyebrow text-text-tertiary-light">Revenue</span>',
+    // Not the only child: a sentence that names the form is copy, not a chip.
+    '<span className="uppercase tracking-eyebrow">Latest {filing.filing_type}</span>',
+    // A component is judged by its own rule (Badge above), not as a hand-rolled chip.
+    '<Eyebrow className="uppercase tracking-eyebrow">{form}</Eyebrow>',
   ],
   invalid: [
     { code: '<Badge variant="neutral">{filing.filing_type}</Badge>', errors: [{ messageId: 'badge' }] },
@@ -99,6 +106,14 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     { code: '<Badge>{f.form}</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<Badge>{`10-K`}</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<ui.Badge variant="neutral">{filing.filing_type}</ui.Badge>', errors: [{ messageId: 'badge' }] },
+    // A hand-rolled chip: eyebrow type (uppercase, tracking-eyebrow) around a form field or a form code,
+    // as the full-text search rows had it (audit SRCH-02).
+    {
+      code: '<span className="rounded border px-1.5 py-0.5 uppercase tracking-eyebrow">{hit.form}</span>',
+      errors: [{ messageId: 'chip' }],
+    },
+    { code: '<span className={`uppercase ${tone} tracking-eyebrow`}>{filing?.filing_type}</span>', errors: [{ messageId: 'chip' }] },
+    { code: "<div className={cx('uppercase', 'sm:tracking-eyebrow')}>10-K/A</div>", errors: [{ messageId: 'chip' }] },
   ],
 })
 

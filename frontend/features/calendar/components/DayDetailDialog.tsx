@@ -69,7 +69,7 @@ export function DayDetailDialog({
           <h2 className="text-lg font-semibold">{formatLocalDate(iso, 'EEEE, MMMM d')}</h2>
           <p className="mt-0.5 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
             {holiday ? 'Market holiday' : `${events.length} ${events.length === 1 ? 'company reports' : 'companies report'}`} ·
-            ranked by anticipation · U.S. Eastern
+            large caps and most followed first · U.S. Eastern
           </p>
         </div>
         <button

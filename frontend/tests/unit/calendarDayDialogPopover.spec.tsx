@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import EarningsCalendarPage from '@/features/calendar/components/EarningsCalendarPage'
 import type { CalendarEvent } from '@/features/calendar/api/calendar-api'
+import type { SignupConfig } from '@/lib/serverApi'
 
 /**
  * The bell's popover portals into the open day dialog (DayDetailDialog, a native <dialog>), so it must
@@ -14,6 +15,9 @@ import type { CalendarEvent } from '@/features/calendar/api/calendar-api'
 
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: async () => null }))
 vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({ getUsage: async () => ({ is_pro: false }) }))
+// The registration mode the signed-out prompt's account action follows (null: no answer, the invite).
+const mockRegistration = vi.fn<() => Promise<SignupConfig | null>>(async () => null)
+vi.mock('@/features/marketing/api/access-api', () => ({ getRegistrationConfig: () => mockRegistration() }))
 vi.mock('@/features/calendar/api/calendar-api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/features/calendar/api/calendar-api')>()
   const day = (from: string): CalendarEvent[] =>
@@ -86,5 +90,19 @@ describe('the bell popover never outlives a change of the day dialog', () => {
 
     openDay()
     expect(screen.queryByRole('group', { name: 'Sign in to set earnings alerts' })).not.toBeInTheDocument()
+  })
+})
+
+describe("the signed-out prompt's account action follows the registration mode", () => {
+  it.each([
+    ['no answer (fails closed)', null, 'Request an invite', '/waitlist'],
+    ['invite-only', { mode: 'invite_only', beta_promo_enabled: false }, 'Request an invite', '/waitlist'],
+    ['public', { mode: 'public', beta_promo_enabled: false }, 'Create a free account', '/register'],
+  ] as const)('%s', async (_name, config, label, href) => {
+    mockRegistration.mockResolvedValue(config)
+    await renderPage()
+    await waitFor(() => expect(mockRegistration).toHaveBeenCalled())
+    fireEvent.click(screen.getAllByRole('button', { name: /^Sign in to get earnings alerts/ })[0])
+    await waitFor(() => expect(screen.getByRole('link', { name: label })).toHaveAttribute('href', href))
   })
 })

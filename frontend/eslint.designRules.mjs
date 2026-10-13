@@ -13,6 +13,8 @@
 //   no-form-code-badge  (P-04) A form code (10-K, 10-Q, 6-K …) is text in the data face, never a
 //                       Badge: a blue chip on 10-Q spent the status colour on a category, and a
 //                       neutral one still reads as a status. The rule flags a <Badge> (or ui.Badge)
+//                       and a hand-rolled chip (an element whose class text sets uppercase and
+//                       tracking-eyebrow and whose only child is a form field or a form code)
 //                       that reads a filing-type field, or holds a literal form code (string,
 //                       template or text), in its children or in a prop that styles it. Descriptive
 //                       props (title, alt, aria-*) may name the form: they describe, not display.
@@ -91,6 +93,43 @@ const isBadge = (name) =>
   (name?.type === 'JSXIdentifier' && name.name === 'Badge') ||
   (name?.type === 'JSXMemberExpression' && name.property.name === 'Badge')
 const FORM_CODE = /^\s*(10-K|10-Q|8-K|20-F|40-F|6-K|S-1|S-4|DEF 14A)(\/A)?\s*$/i
+const CHIP_CLASS = /^(class|className)$/
+const EYEBROW_CHIP = [/(^|:)uppercase$/, /(^|:)tracking-eyebrow$/]
+
+/** Every string an attribute's value can contribute (literals and template chunks), joined. */
+function attributeText(node, keys, out = []) {
+  if (!node || typeof node.type !== 'string') return out
+  if (node.type === 'Literal' && typeof node.value === 'string') out.push(node.value)
+  if (node.type === 'TemplateElement') out.push(node.value.cooked ?? node.value.raw)
+  for (const key of keys[node.type] ?? []) for (const child of [node[key]].flat()) attributeText(child, keys, out)
+  return out
+}
+
+/** A field that holds a form (`form`, `hit.form`, `filing?.filing_type`), or a literal form code. */
+function isFormValue(node) {
+  if (!node) return false
+  if (node.type === 'ChainExpression' || node.type === 'TSNonNullExpression') return isFormValue(node.expression)
+  if (node.type === 'Identifier') return FORM_FIELD.test(node.name)
+  if (node.type === 'MemberExpression') return !node.computed && FORM_FIELD.test(node.property.name ?? '')
+  if (node.type === 'Literal') return typeof node.value === 'string' && FORM_CODE.test(node.value)
+  if (node.type === 'TemplateLiteral') return node.expressions.length === 0 && FORM_CODE.test(node.quasis[0].value.cooked ?? '')
+  return false
+}
+
+/** A hand-rolled chip around a form: an HTML element set in eyebrow type (uppercase, tracking-eyebrow)
+ *  whose only child is a form field or a form code. A Badge by another hand. */
+function isEyebrowFormChip(node, keys) {
+  const name = node.openingElement.name
+  if (name.type !== 'JSXIdentifier' || !/^[a-z]/.test(name.name)) return false
+  const classAttr = node.openingElement.attributes.find((a) => a.type === 'JSXAttribute' && CHIP_CLASS.test(a.name?.name ?? ''))
+  const tokens = classAttr ? attributeText(classAttr.value, keys).join(' ').split(/\s+/) : []
+  if (!EYEBROW_CHIP.every((pattern) => tokens.some((token) => pattern.test(token)))) return false
+  const children = node.children.filter((c) => !(c.type === 'JSXText' && c.value.trim() === ''))
+  if (children.length !== 1) return false
+  const [only] = children
+  if (only.type === 'JSXText') return FORM_CODE.test(only.value)
+  return only.type === 'JSXExpressionContainer' && isFormValue(only.expression)
+}
 
 export const noFormCodeBadge = {
   meta: {
@@ -101,6 +140,9 @@ export const noFormCodeBadge = {
       badge:
         'A form code inside <Badge> — set it as text in the data face (font-data font-semibold), as ' +
         'the filing identity strip does. Badges are for states, not document categories.',
+      chip:
+        'A form code in a hand-rolled eyebrow chip (uppercase, tracking-eyebrow): set it as text in the ' +
+        'data face (font-data), as the filing identity strip does. Eyebrow type is for metric labels.',
     },
   },
   create(context) {
@@ -125,6 +167,7 @@ export const noFormCodeBadge = {
     }
     return {
       JSXElement(node) {
+        if (isEyebrowFormChip(node, keys)) return context.report({ node: node.openingElement, messageId: 'chip' })
         if (!isBadge(node.openingElement.name)) return
         for (const part of [...node.openingElement.attributes, ...node.children]) {
           const found = formNode(part)

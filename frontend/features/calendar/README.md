@@ -13,7 +13,7 @@ Live design spec with every state exercisable: **`Earnings Calendar.dc.html`**
 | `api/calendar-fixtures.ts` | ⚠ Isolated mock (dynamic-import only, `NEXT_PUBLIC_CALENDAR_FIXTURES='true'`); exercises both cap 403s |
 | `lib/dates.ts` | ET-honest calendar-day math + computed NYSE holidays (no `new Date(iso)` shift bug) |
 | `lib/lanes.ts` | Top-5 ranking, BMO/AMC/during·unspecified lanes, "usually after close" wording |
-| `hooks/useCalendar.ts` | Range query, viewer (session/plan/alert count), optimistic alert toggle with rollback |
+| `hooks/useCalendar.ts` | Viewer (session/plan/alert count), optimistic alert toggle with rollback (the range query and its retained failure live in the page, beside its `RetryButton`) |
 | `components/` | `EarningsCalendarPage` (route body), `WeekView` (desktop sheet + mobile day list), `MonthView`, `DayDetailDialog` (native `<dialog>`), `EventRow`/`StatusChip`/`EpsFigure`, `AlertBell` + `BellPopover`, `laneHeader` |
 | `app/calendar/page.tsx` | Route, 404-gated on `NEXT_PUBLIC_ENABLE_CALENDAR` (same pattern as `ENABLE_ANALYSIS`) |
 
@@ -44,7 +44,9 @@ Weighed three layouts:
   "usually before open / after close" (§3.3 — right ~3 times in 4).
 - **Alerts:** bell on every row (the subscription is per *company*, so it
   shows on reported rows too — it arms the next quarter).
-  - Signed-out → sign-in popover.
+  - Signed-out → sign-in popover; its second action follows the registration
+    mode (`ACCESS_COPY`): "Request an invite" while invite-only, the free
+    account when registration is public.
   - **Free**: visible "N of 3" chip; the 4th enable short-circuits to the
     upsell popover (deliberate conversion surface). A server 403 with
     `code='earnings_alert_limit'` lands on the same surface.
@@ -54,8 +56,9 @@ Weighed three layouts:
     special-casing, per spec.
   - Toggles are optimistic with rollback; `aria-pressed` carries state.
 - **States:** shimmer skeleton (role="status" wrapper, aria-hidden bones),
-  `GuidanceCard` error with retry, `GuidanceCard` empty range, per-day
-  "No reports" / "Market closed — {holiday}".
+  `GuidanceCard` error with `RetryButton`, `GuidanceCard` empty range, per-day
+  "No reports" / "Market closed" over the holiday's name (desktop column),
+  "Market closed · {holiday}" (mobile list).
 - **A11y:** semantic day `<section>`s + `<ul>` rows; rows are real links to
   `/company/[ticker]`; bell is a sibling button (never a link-in-link); native
   `<dialog>` for the day detail (focus trap + Esc for free, focus restored);
