@@ -34,7 +34,7 @@ export class ChartErrorBoundary extends Component<Props, State> {
         return this.props.fallback
       }
       
-      // Says only what failed. On the filing page the boundary wraps one chart with nothing below
+      // Says only what failed. On the filing page the boundary wraps one chart with no table below
       // it; on Multi-Period Analysis it wraps the whole grid of chart panels (TrendCharts passes
       // noun="charts" when more than one is shown) and MetricsTable sits below, outside it.
       return (

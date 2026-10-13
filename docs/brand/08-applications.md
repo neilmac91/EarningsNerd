@@ -78,8 +78,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Feedback widget** (`frontend/features/feedback/components/FeedbackWidget.tsx`): the three kinds
   read "Bug", "Idea" and "General", without emoji, on the token hairlines.
 - **Chart fallback** (`frontend/components/ChartErrorBoundary.tsx`): "This chart could not be
-  drawn." in the Card recipe on the filing page, where the boundary wraps one chart with nothing
-  below it; "These charts could not be drawn." on Multi-Period Analysis when it wraps a grid of more
+  drawn." in the Card recipe on the filing page, where the boundary wraps one chart with no
+  table below it; "These charts could not be drawn." on Multi-Period Analysis when it wraps a grid of more
   than one chart panel (MetricsTable sits below, outside it). It says only what failed.
 - **Checkbox** (`frontend/components/ui/Checkbox.tsx`): one recipe for the consent dialog and the
   admin invites page, with a checked fill that holds 3:1 in dark (it was 2.2:1).
