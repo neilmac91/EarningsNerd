@@ -34,7 +34,23 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Auth pane** (`frontend/features/auth/components/AuthShell.tsx`): the tagline with the mark, one
   FY2025 sentence, and the $416.2B figure with its direction chip. The three grey placeholder bars
   are gone. This is the brand pane beside the login and register forms; the auth logic and
-  `features/auth/api/auth-api.ts` are untouched.
+  `features/auth/api/auth-api.ts` are untouched. The pages around it say only what the code does.
+  /check-email: "Open the link to verify your email address. It expires in 24 hours."; reached
+  without an address it offers no Resend and says where a new link comes from (the account menu's
+  "Verify your email"). /verify-email shows the server's reason for a refused link through the
+  shared `getErrorMessage` (fallback "The link has expired, or a newer one replaced it.") and, on
+  success, "Your email address is confirmed." (signing in and reading never waited on it).
+  /reset-password and the register form state one rule from `frontend/lib/passwordRules.ts`, mirrored
+  from the server's `PASSWORD_MIN_LENGTH`: "At least 12 characters. A longer passphrase is stronger.
+  Breached passwords are rejected." (true while `PWNED_PASSWORD_CHECK_ENABLED` keeps its default), and
+  the strength meter reads "Too short" under that minimum; its bars carry dark twins
+  (`tests/unit/themePairs.spec.ts` holds every `-light` token to one). The login page's Google and
+  Apple account-conflict error says the email already has an account that could not be linked and to
+  sign in with email and password. The register subhead follows the server's config: an invited
+  visitor is promised Pro only while the beta promo is on (`betaPricingActive`), otherwise "Your invite
+  opens an account during the private beta."; an uninvited visitor under the invite gate gets no
+  subhead, the private-beta notice says it. Every page link and button on these routes carries the
+  brand focus ring.
 - **Pricing** (`frontend/app/pricing/page.tsx`): the free plan's call to action reads the
   registration mode (`features/marketing/api/access-api.ts`, the client twin of the server's
   `fetchSignupConfig`), so a guest under the invite gate sees "Request an invite" and goes to the

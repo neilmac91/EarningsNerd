@@ -20,6 +20,10 @@ import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { consumePostAuthRedirect } from '@/lib/postAuthRedirect'
 import { Button, Input, Notice } from '@/components/ui'
 
+/** Google or Apple returned an email that an existing account holds, and the two could not be linked. */
+const ACCOUNT_CONFLICT =
+  "This email already has an EarningsNerd account we couldn't link. Sign in with your email and password instead."
+
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   google_denied: 'Google sign-in was cancelled.',
   google_invalid: 'Google sign-in failed. Please try again.',
@@ -27,11 +31,11 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   google_token_failed: 'Could not complete Google sign-in. Please try again.',
   google_userinfo_failed: 'Could not retrieve your Google account info. Please try again.',
   google_missing_claims: 'Google did not return an email address. Please try again.',
-  google_account_conflict: 'An account conflict occurred. Please contact support.',
+  google_account_conflict: ACCOUNT_CONFLICT,
   apple_denied: 'Apple sign-in was cancelled.',
   apple_invalid: 'Apple sign-in failed. Please try again.',
   apple_missing_claims: 'Apple did not return an email address. Please try again.',
-  apple_account_conflict: 'An account conflict occurred. Please contact support.',
+  apple_account_conflict: ACCOUNT_CONFLICT,
   invite_required:
     'EarningsNerd is in private beta: creating an account needs an invite. Sign in with an existing account, or open your invite link to sign up.',
   email_unverified:
@@ -177,7 +181,7 @@ function LoginContent() {
               labelAction={
                 <Link
                   href="/forgot-password"
-                  className="text-xs text-brand-strong hover:underline dark:text-brand-strong-dark"
+                  className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark text-xs text-brand-strong hover:underline dark:text-brand-strong-dark"
                 >
                   Forgot password?
                 </Link>
@@ -201,7 +205,7 @@ function LoginContent() {
 
       <p className="mt-8 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
         Don&apos;t have an account?{' '}
-        <Link href="/register" className="font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
+        <Link href="/register" className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
           Sign up
         </Link>
       </p>

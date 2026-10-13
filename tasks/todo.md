@@ -36,6 +36,7 @@ Founder:
 - [ ] F19 — PREPARE: approve the prepared atomic deletion-audit/UTC-export branch, including audit-failure blocking database deletion, before a paid PR; uniqueness needs a private duplicate count and note-preservation policy, and async DB work needs latency evidence (#1140/#1141).
 - [ ] F20 — CANCEL-RECOMMENDED: the exact Copilot arm-B-plus-quotation candidate was measured and closed unqualified in #1074 ([registered verdict](https://github.com/neilmac91/EarningsNerd/pull/1029#issuecomment-5965113700)); a successor needs a new question and ceiling, not a repeat of that experiment.
 - [ ] F21 — PREPARE: decide held native-evidence adapter draft #1035 after its current lifecycle/metadata findings; bind the release base and run the releasing-machine plan/probe only within an approved ceiling.
+- [ ] F28 — PREPARE: the Google and Apple consent screens (the app name, logo and support email a person sees before an OAuth sign-in) are founder actions in the Google Cloud and Apple Developer consoles; the code's sign-in buttons and their error copy shipped in the brand sweep (brand-auth-pages-presentation).
 
 Engineering:
 - [ ] E16 — PREPARE (CODE RED chief): the secret-output follow-ups (`secret-output-followups-pr-01`): close the message gate's holes from #1238's second delta check (module names stored or mutated in a function, names bound by an import, def or class, a per-field behaviour backstop, the configuration check's warning branches), Sentry's other routes (#1238's FL-1: a `before_send` scrubber over every secret field's value, the internal-token header on its denylist, a bytes comparison) and the three echoes the lesson lists as ungated; high tier; the merge deploys the backend (`code-red-20261004/runtime/control/DECISIONS-24.md`).
@@ -52,6 +53,7 @@ Engineering:
 - [ ] E13 — Suppressing the [critique's](../.impeccable/critique/2026-10-04T16-43-55Z__frontend-app-filing-id-page-tsx.md#design-specificity-verdict-mixed) quotation `side-tab` false positive and sanctioned `--ease-pop` warning is CANCEL-RECOMMENDED; old consent/dialog harnesses wait for reuse, memoization for measurements, and missing-prior web/export dashes for a compatible backend batch.
 - [ ] E14 — IN-FLIGHT: prevent disabled hover/active tint [#1262](https://github.com/neilmac91/EarningsNerd/pull/1262). Drafts remain unmerged; Modal-host Escape is CANCEL-RECOMMENDED because Modal has no native-dialog host, and the founder-only class-7 SQL read is PREPARE.
 - [ ] E15 — IN-FLIGHT: Insider gain/loss ink [#1262](https://github.com/neilmac91/EarningsNerd/pull/1262) pass local acceptance. Analysis Run’s locked native-disabled contract remains a separate founder decision.
+- [ ] E26 — POSTPONE (founder decision F23): the login page's "Don't have an account? Sign up" link (UA-40) waits for the sign-in verb and the invite-gate wording; brand-auth-pages-presentation kept `frontend/tests/e2e/auth-flow.spec.ts` byte-identical (CLAUDE.md rule 6), and the change it needs at lines 21 and 78 is a documented contract change in that follow-up.
 
 ## What to doubt first
 

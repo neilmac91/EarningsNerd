@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { verifyEmail } from '@/features/auth/api/auth-api'
+import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { CheckCircleIcon, CircleNotchIcon, XCircleIcon } from '@/lib/icons'
 import AuthShell from '@/features/auth/components/AuthShell'
@@ -35,12 +36,7 @@ function VerifyEmailContent() {
       })
       .catch((err: unknown) => {
         setStatus('error')
-        const msg =
-          err && typeof err === 'object' && 'response' in err
-            ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail ??
-              'Verification failed.'
-            : 'Verification failed.'
-        setErrorMessage(msg)
+        setErrorMessage(isApiError(err) ? getErrorMessage(err) : 'The link has expired, or a newer one replaced it.')
       })
   }, [token, router, queryClient])
 
@@ -65,9 +61,9 @@ function VerifyEmailContent() {
               Email verified
             </h1>
             <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              Your account is active. Redirecting you now…
+              Your email address is confirmed. Taking you to EarningsNerd…
             </p>
-            <Link href="/" className="mt-6 inline-block text-sm font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
+            <Link href="/" className="mt-6 inline-block rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark text-sm font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
               Continue to EarningsNerd
             </Link>
           </>
@@ -86,13 +82,13 @@ function VerifyEmailContent() {
             </p>
             <div className="mt-6 space-y-2 text-sm">
               <p>
-                <Link href="/check-email" className="font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
+                <Link href="/check-email" className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
                   Resend verification email
                 </Link>
               </p>
               <p className="text-text-tertiary-light dark:text-text-secondary-dark">
                 or{' '}
-                <Link href="/login" className="text-brand-strong hover:underline dark:text-brand-strong-dark">
+                <Link href="/login" className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark text-brand-strong hover:underline dark:text-brand-strong-dark">
                   back to login
                 </Link>
               </p>

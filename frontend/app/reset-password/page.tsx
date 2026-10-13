@@ -9,6 +9,7 @@ import { CheckCircleIcon } from '@/lib/icons'
 import AuthShell from '@/features/auth/components/AuthShell'
 import PasswordField from '@/features/auth/components/PasswordField'
 import { Button, Notice } from '@/components/ui'
+import { PASSWORD_MIN_LENGTH, PASSWORD_RULE } from '@/lib/passwordRules'
 
 function ResetPasswordContent() {
   const searchParams = useSearchParams()
@@ -59,7 +60,7 @@ function ResetPasswordContent() {
           <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Redirecting you to login…
           </p>
-          <Link href="/login" className="mt-6 inline-block text-sm font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
+          <Link href="/login" className="mt-6 inline-block rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark text-sm font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
             Go to login
           </Link>
         </div>
@@ -73,7 +74,7 @@ function ResetPasswordContent() {
         Choose a new password
       </h1>
       <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        At least 12 characters, with upper- and lowercase letters and a number.
+        {PASSWORD_RULE}
       </p>
 
       {error && (
@@ -100,7 +101,7 @@ function ResetPasswordContent() {
           onChange={setPassword}
           autoComplete="new-password"
           required
-          minLength={12}
+          minLength={PASSWORD_MIN_LENGTH}
           showStrength
           autoFocus={!!token}
         />
@@ -112,7 +113,7 @@ function ResetPasswordContent() {
           onChange={setConfirm}
           autoComplete="new-password"
           required
-          minLength={12}
+          minLength={PASSWORD_MIN_LENGTH}
         />
 
         <Button type="submit" loading={loading} loadingText="Resetting…" disabled={!token} className="w-full">
@@ -122,7 +123,7 @@ function ResetPasswordContent() {
 
       <p className="mt-8 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
         Need a new link?{' '}
-        <Link href="/forgot-password" className="font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
+        <Link href="/forgot-password" className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
           Request reset
         </Link>
       </p>

@@ -41,7 +41,7 @@ describe('RegisterForm social sign-up follows the invite gate', () => {
   })
 
   it('offers no social sign-up to an uninvited visitor in invite-only mode', () => {
-    render(<RegisterForm inviteOnly />)
+    render(<RegisterForm inviteOnly betaPromoActive={false} />)
     expect(socialLink('Google')).toBeNull()
     expect(socialLink('Apple')).toBeNull()
     expect(screen.getByRole('link', { name: 'Request an invite' })).toHaveAttribute('href', '/waitlist')
@@ -49,7 +49,7 @@ describe('RegisterForm social sign-up follows the invite gate', () => {
   })
 
   it('offers plain social sign-up in public mode', () => {
-    render(<RegisterForm inviteOnly={false} />)
+    render(<RegisterForm inviteOnly={false} betaPromoActive={false} />)
     expect(socialLink('Google')).toHaveAttribute('href', '/api/auth/google')
     expect(socialLink('Apple')).toHaveAttribute('href', '/api/auth/apple')
     expect(screen.queryByRole('link', { name: 'Request an invite' })).toBeNull()
@@ -58,7 +58,7 @@ describe('RegisterForm social sign-up follows the invite gate', () => {
   it('starts an invited social sign-up with the invite in the request body, never in a URL', () => {
     const invite = 'tok en+/=1'
     searchParams.set('invite', invite)
-    render(<RegisterForm inviteOnly />)
+    render(<RegisterForm inviteOnly betaPromoActive={false} />)
     // No link carries the token: the controls are buttons that POST it.
     expect(socialLink('Google')).toBeNull()
     expect(socialLink('Apple')).toBeNull()
@@ -74,7 +74,7 @@ describe('RegisterForm social sign-up follows the invite gate', () => {
   })
 
   it('keeps the submit focusable while the request is in flight (aria-disabled, never native disabled)', async () => {
-    render(<RegisterForm inviteOnly={false} />)
+    render(<RegisterForm inviteOnly={false} betaPromoActive={false} />)
     fireEvent.click(screen.getByRole('button', { name: /sign up with email/i }))
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'person@example.com' } })
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'a-long-enough-passphrase' } })
@@ -87,5 +87,46 @@ describe('RegisterForm social sign-up follows the invite gate', () => {
     expect(submit).toHaveAttribute('aria-disabled', 'true')
     expect(submit).not.toBeDisabled()
     expect(submit).toHaveTextContent('Creating account…')
+  })
+})
+
+describe('RegisterForm promises Pro only while the beta promo is configured', () => {
+  const PRO_SUBHEAD = 'Finish setting up to get full Pro. No credit card required.'
+  const PRO_CARD = 'Your invite includes full Pro access. Create your account below.'
+  const INVITE_SUBHEAD = 'Your invite opens an account during the private beta.'
+
+  beforeEach(() => {
+    Array.from(searchParams.keys()).forEach((key) => searchParams.delete(key))
+    window.history.replaceState({}, '', '/register')
+  })
+
+  it('an invited visitor with the promo off is told what the invite opens, and no Pro', () => {
+    searchParams.set('invite', 'tok')
+    render(<RegisterForm inviteOnly betaPromoActive={false} />)
+    expect(screen.getByText(INVITE_SUBHEAD)).toBeInTheDocument()
+    expect(screen.getByText('Create your account below.')).toBeInTheDocument()
+    expect(screen.queryByText(/\bPro\b/)).toBeNull()
+  })
+
+  it('an invited visitor with the promo on reads the Pro sentences', () => {
+    searchParams.set('invite', 'tok')
+    render(<RegisterForm inviteOnly betaPromoActive />)
+    expect(screen.getByText(PRO_SUBHEAD)).toBeInTheDocument()
+    expect(screen.getByText(PRO_CARD)).toBeInTheDocument()
+    expect(screen.queryByText(INVITE_SUBHEAD)).toBeNull()
+  })
+
+  it('an uninvited visitor under the invite gate gets no subhead: the private-beta notice says it', () => {
+    render(<RegisterForm inviteOnly betaPromoActive />)
+    const heading = screen.getByRole('heading', { level: 1, name: 'Create your account' })
+    expect(heading.nextElementSibling?.tagName).not.toBe('P')
+    expect(screen.queryByText(/free AI summaries a month/)).toBeNull()
+    expect(screen.queryByText(PRO_SUBHEAD)).toBeNull()
+    expect(screen.getByText('EarningsNerd is in private beta')).toBeInTheDocument()
+  })
+
+  it('open registration keeps the free-plan subhead', () => {
+    render(<RegisterForm inviteOnly={false} betaPromoActive={false} />)
+    expect(screen.getByText(/free AI summaries a month\. No credit card required\./)).toBeInTheDocument()
   })
 })

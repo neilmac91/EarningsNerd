@@ -55,17 +55,26 @@ function CheckEmailContent() {
       <h1 className="mt-6 text-center text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
         Check your inbox
       </h1>
-      <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        We sent a verification link to
-      </p>
-      {email && (
-        <p className="mt-1 text-center text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
-          {email}
+      {email ? (
+        <>
+          <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            We sent a verification link to
+          </p>
+          <p className="mt-1 text-center text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
+            {email}
+          </p>
+          <p className="mt-4 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            Open the link to verify your email address. It expires in 24 hours.
+          </p>
+        </>
+      ) : (
+        // Reached without an address (verify-email's "Resend verification email" link): nothing to
+        // resend to, so the page says where a new link comes from instead of offering Resend.
+        <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          Open the newest verification link we sent you. Need a new one? Sign in and choose Verify your
+          email from the account menu.
         </p>
       )}
-      <p className="mt-4 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        Click the link to activate your account. It expires in 24 hours.
-      </p>
 
       {resendStatus === 'sent' && (
         <div className="mt-6">
@@ -78,16 +87,16 @@ function CheckEmailContent() {
         </div>
       )}
 
+      {email && (
       <p className="mt-8 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
         Didn&apos;t receive it?{' '}
         {/* In flight and cooling down: aria-disabled (handleResend returns early), not native
             `disabled`. Chromium blurs a focused button that turns disabled, and both states
-            follow this button's own activation. A missing email comes from the URL and never
-            changes here, so that alone stays natively disabled. The aria-disabled look fades the
-            label's ink, not the element, so the focus indicator keeps its strength. */}
+            follow this button's own activation. Without an email the line is not rendered at
+            all. The aria-disabled look fades the label's ink, not the element, so the focus
+            indicator keeps its strength. */}
         <button
           onClick={handleResend}
-          disabled={!email}
           aria-disabled={resendLoading || cooldown > 0 || undefined}
           aria-busy={resendLoading || undefined}
           className="rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1 font-medium text-brand-strong hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline aria-disabled:cursor-not-allowed aria-disabled:text-brand-strong/50 aria-disabled:no-underline dark:text-brand-strong-dark dark:aria-disabled:text-brand-strong-dark/50"
@@ -96,6 +105,7 @@ function CheckEmailContent() {
           {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend email'}
         </button>
       </p>
+      )}
 
       <p className="mt-4 text-center text-sm">
         <Link

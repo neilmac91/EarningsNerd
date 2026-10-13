@@ -22,15 +22,16 @@ type PasswordFieldProps = {
 
 const STRENGTH_LABELS = ['Too short', 'Weak', 'Fair', 'Good', 'Strong']
 const STRENGTH_COLORS = [
-  'bg-error-light',
-  'bg-warning-light',
-  'bg-warning-light',
-  'bg-success-light',
-  'bg-success-light',
+  'bg-error-light dark:bg-error-dark',
+  'bg-warning-light dark:bg-warning-dark',
+  'bg-warning-light dark:bg-warning-dark',
+  'bg-success-light dark:bg-success-dark',
+  'bg-success-light dark:bg-success-dark',
 ]
 
-function scorePassword(pw: string): number {
-  if (!pw) return 0
+/** A password under the field's minimum is "Too short" whatever else it holds: the server rejects it. */
+function scorePassword(pw: string, minLength = 0): number {
+  if (!pw || pw.length < minLength) return 0
   let score = 0
   if (pw.length >= 8) score++
   if (pw.length >= 12) score++
@@ -53,7 +54,7 @@ export default function PasswordField({
   autoFocus,
 }: PasswordFieldProps) {
   const [show, setShow] = useState(false)
-  const score = showStrength ? scorePassword(value) : 0
+  const score = showStrength ? scorePassword(value, minLength) : 0
 
   return (
     <div>
@@ -69,7 +70,7 @@ export default function PasswordField({
 
       <div className="relative">
         {/* Raw input + inputClasses(): the field itself takes the trailing inset so
-            typed text clears the eye toggle — the v2 <Input> shell owns className.
+            typed text clears the eye toggle: the v2 <Input> shell owns className.
             `trailingIcon`, not pr-10 on top: that would resolve by stylesheet order. */}
         <input
           type={show ? 'text' : 'password'}

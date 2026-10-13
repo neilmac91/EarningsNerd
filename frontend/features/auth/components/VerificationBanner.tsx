@@ -58,7 +58,7 @@ export default function VerificationBanner() {
       setFailure((previous) => ({
         message: rateLimited
           ? "We can't send another link right now. Use the newest link in your inbox, or reload this page to try again later."
-          : "Couldn't send a new link. Please try again in a moment.",
+          : "Couldn't send a new link. Try again in a few minutes.",
         n: (previous?.n ?? 0) + 1,
       }))
     } finally {
