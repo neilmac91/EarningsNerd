@@ -75,6 +75,7 @@ prose and a rendered table; neither is in 5.61.1.
 SHA-256 of the decompressed HTML `8f7a1ade…`, the value the test asserts) with `HTMLParser(ParserConfig(form="10-Q"))`, the same parser, config and
 part-qualified selection the test and `_extract_sections_sync` use, and writes each section's
 `text()`. It ran once in a Python 3.11.17 environment installed from main's `requirements.txt`
-(edgartools 5.58.0) and once from #1285's (5.61.1). `compare_sections.py.txt` produced
-`content_compare.txt`, the ROIC row and the Outlook block; the seam probe is reproduced in
-`probe_table_seams.txt`.
+(edgartools 5.58.0) and once from #1285's (5.61.1). `compare_sections.py.txt` reads the two dumps and writes `content_compare.txt`, `roic-row.txt`,
+`probe_table_seams.txt` and `outlook_block.txt`; `diff_outlook_block.txt` is `diff` of the two Outlook
+blocks it writes. Each seam probe matches the marker occurrence adjacent to its table header, since
+`with the SEC.` also occurs earlier in MD&A (Codex's review of this record).
