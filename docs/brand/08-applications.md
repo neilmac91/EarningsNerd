@@ -68,6 +68,19 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
   verification mail ends "Verify your email address and you can start reading."
+- **Multi-Period Analysis** (`frontend/features/analysis/*`, `frontend/app/analysis/page.tsx`): the
+  fair-use cap is stated once, in the narrative card, with no plan link; "See plans" stays only beside
+  the 403 "Pro feature" gate, and the page's three inline links (Sign in, See plans, Terms) carry the
+  brand ring. The Cached badge says what it knows: "Served from an earlier run of this period range.
+  The next run regenerates it if these figures change." A stale export reads "This report is out of
+  date. Run analysis again before exporting."; a report whose evidence will not decode gives the one
+  recovery sentence ("The analysis evidence could not be read consistently. Run analysis again to
+  reload the report."), and a refused run with no detail says "The analysis did not start. Run it
+  again." The chart axis captions are "Fiscal year" and "Fiscal quarter". The chart PNG's footer is
+  the logo's lockup: the bare mark at 25px tall (about 32px wide, its minimum), then "Earnings"
+  upright and "Nerd" italic 600 in the accent. The "up to 10 fiscal years or 12 quarters" caps are
+  written from `lib/planLimits.ts`, which mirrors `ANALYSIS_MAX_ANNUAL_PERIODS` and
+  `ANALYSIS_MAX_QUARTERLY_PERIODS` in `backend/app/config.py` (`planLimitsLockstep.spec.ts`).
 
 ## 4. The mark's files and the icons
 

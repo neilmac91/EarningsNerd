@@ -131,7 +131,8 @@ describe('analysis presentation API admission', () => {
     await streamAnalysis('META', range, handlers, undefined, dataset)
     expect(handlers.onComplete).not.toHaveBeenCalled()
     expect(handlers.onError).toHaveBeenCalledTimes(1)
-    expect(handlers.onError.mock.calls[0][0]).toMatch(/analysis (evidence|data notes)/)
+    // One reader-facing sentence for every decode failure, the data-notes decoder's included.
+    expect(handlers.onError.mock.calls[0][0]).toBe('The analysis evidence could not be read consistently. Run analysis again to reload the report.')
     expect(reader.cancel).toHaveBeenCalledTimes(1)
   })
 

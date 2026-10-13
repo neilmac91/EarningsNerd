@@ -1,8 +1,11 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import {
+  ANALYSIS_MAX_ANNUAL_PERIODS,
+  ANALYSIS_MAX_QUARTERLY_PERIODS,
   FREE_SUMMARY_LIMIT,
   FREE_EARNINGS_ALERT_LIMIT,
   FREE_COPILOT_QUESTIONS,
@@ -101,5 +104,62 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
       }
     }
     expect(offenders, 'use FREE_SUMMARY_LIMIT / FREE_EARNINGS_ALERT_LIMIT from lib/planLimits instead').toEqual([])
+  })
+})
+
+/**
+ * Multi-Period Analysis period caps (the /analysis metadata and lead, the landing's feature row). The
+ * backend's Settings defaults (backend/app/config.py: ANALYSIS_MAX_ANNUAL_PERIODS,
+ * ANALYSIS_MAX_QUARTERLY_PERIODS) are the truth the picker reads from the coverage response; copy that
+ * renders before it takes the mirror in lib/planLimits.ts. So (1) the mirror equals the defaults, and
+ * (2) no copy literal (a string, a template's static part, JSX text; comments are not copy) types a
+ * count of fiscal years or quarters, in digits or words.
+ */
+const config = readFileSync(path.resolve(frontendDir, '../backend/app/config.py'), 'utf8')
+const settingDefault = (name: string): number => {
+  const match = config.match(new RegExp(`^\\s+${name}\\s*:\\s*int\\s*=\\s*(\\d+)`, 'm'))
+  if (!match) throw new Error(`${name} not found in backend/app/config.py`)
+  return Number(match[1])
+}
+
+const TYPED_PERIOD_COUNT = /\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:(?:fiscal|financial)\s+years?|(?:fiscal\s+)?quarters?)\b/i
+
+function copyTexts(file: string): Array<{ line: number; text: string }> {
+  const sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+  const out: Array<{ line: number; text: string }> = []
+  const visit = (node: ts.Node) => {
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateHead(node)
+      || ts.isTemplateMiddle(node) || ts.isTemplateTail(node) || ts.isJsxText(node)) {
+      out.push({ line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1, text: node.text })
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return out
+}
+
+describe('Multi-Period Analysis period caps move in lockstep with the backend', () => {
+  it('mirrors ANALYSIS_MAX_ANNUAL_PERIODS and ANALYSIS_MAX_QUARTERLY_PERIODS', () => {
+    expect(ANALYSIS_MAX_ANNUAL_PERIODS).toBe(settingDefault('ANALYSIS_MAX_ANNUAL_PERIODS'))
+    expect(ANALYSIS_MAX_QUARTERLY_PERIODS).toBe(settingDefault('ANALYSIS_MAX_QUARTERLY_PERIODS'))
+  })
+
+  it('no copy types a count of fiscal years or quarters', () => {
+    const offenders: string[] = []
+    for (const root of SOURCE_ROOTS) {
+      for (const file of walk(path.join(frontendDir, root))) {
+        if (!/\.tsx?$/.test(file) || /\.(spec|test)\.tsx?$|\.d\.ts$/.test(file)) continue
+        for (const { line, text } of copyTexts(file)) {
+          if (TYPED_PERIOD_COUNT.test(text)) offenders.push(`${path.relative(frontendDir, file)}:${line}: ${text.trim().slice(0, 100)}`)
+        }
+      }
+    }
+    expect(offenders, 'write the caps from ANALYSIS_MAX_ANNUAL_PERIODS / ANALYSIS_MAX_QUARTERLY_PERIODS in lib/planLimits').toEqual([])
+  })
+
+  it('the scan reads the files that state the caps', () => {
+    for (const rel of ['app/analysis/page.tsx', 'features/analysis/components/AnalysisPageClient.tsx', 'features/marketing/components/ProDepth.tsx']) {
+      expect(readFileSync(path.join(frontendDir, rel), 'utf8'), `${rel} states the caps from the mirror`).toMatch(/ANALYSIS_MAX_ANNUAL_PERIODS[\s\S]*ANALYSIS_MAX_QUARTERLY_PERIODS/)
+    }
   })
 })

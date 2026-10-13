@@ -9,6 +9,7 @@ import {
   headerHeight,
   layoutLegend,
   layoutExportNotes,
+  MARK_STAMP,
 } from '@/features/analysis/lib/chartExport'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
@@ -286,6 +287,43 @@ describe('exportPanelPng header', () => {
     // Two-tone wordmark: "Earnings" (ink) + "Nerd" (sage), so the source is obvious.
     expect(fillTexts).toContain('Earnings')
     expect(fillTexts).toContain('Nerd')
+  })
+
+  it('stamps the logo lockup: the mark first, at its minimum size, then upright "Earnings" and italic 600 "Nerd" in the accent', async () => {
+    // Record the paint order with the font and ink each call ran under.
+    const calls: Array<{ op: string; x: number; w?: number; h?: number; font?: string; fill?: string }> = []
+    // The plot is drawn at x=0 (the header test below relies on it); the footer's mark is the other image.
+    ctx.drawImage = vi.fn((_image: unknown, x: number, _y: number, w?: number, h?: number) => {
+      calls.push({ op: x === 0 ? 'plot' : 'mark', x, w, h })
+    })
+    ctx.fillText = vi.fn((text: string, x: number) => {
+      fillTexts.push(text)
+      calls.push({ op: text, x, font: ctx.font as string, fill: ctx.fillStyle as string })
+    })
+    // "Nerd" is measured in the face it is drawn in, so the lockup's right edge holds the inset.
+    const measured: Record<string, string> = {}
+    ctx.measureText = (text: string) => {
+      measured[text] = ctx.font as string
+      return { width: text.length * 7 }
+    }
+    await exportPanelPng(makeContainer(), 'x.png', { dark: false, header: HEADER })
+    expect(measured.Nerd).toMatch(/^italic 600 14px /)
+    const markIndex = calls.findIndex((c) => c.op === 'mark')
+    const earningsIndex = calls.findIndex((c) => c.op === 'Earnings')
+    const nerdIndex = calls.findIndex((c) => c.op === 'Nerd')
+    expect(markIndex, 'the mark is stamped').toBeGreaterThanOrEqual(0)
+    const mark = calls[markIndex]
+    // The bare mark at 32px wide or more (25px tall); smaller would need the app tile.
+    expect(mark.h).toBeGreaterThanOrEqual(25)
+    expect(mark.w).toBeGreaterThanOrEqual(32)
+    // Mark, then wordmark: painted first and set to the wordmark's left.
+    expect(markIndex).toBeLessThan(earningsIndex)
+    expect(earningsIndex).toBeLessThan(nerdIndex)
+    expect(mark.x + (mark.w ?? 0)).toBeLessThanOrEqual(calls[earningsIndex].x)
+    expect(calls[earningsIndex].font).toMatch(/^600 14px /)
+    expect(calls[nerdIndex].font).toMatch(/^italic 600 14px /)
+    expect(calls[earningsIndex].fill).toBe(EXPORT_TEXT.primary.light)
+    expect(calls[nerdIndex].fill).toBe(MARK_STAMP.fillLight)
   })
 
   it('carries resolved text and tspan font stacks into the isolated SVG image', async () => {

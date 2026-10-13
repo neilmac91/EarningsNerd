@@ -18,3 +18,12 @@ export const FREE_EARNINGS_ALERT_LIMIT = 3
  */
 export const FREE_COPILOT_QUESTIONS = 3
 export const FREE_HISTORY_RETENTION_DAYS = 90
+
+/**
+ * Multi-Period Analysis period caps, mirrored from `backend/app/config.py` (ANALYSIS_MAX_ANNUAL_PERIODS,
+ * ANALYSIS_MAX_QUARTERLY_PERIODS defaults). The picker reads the live values from the coverage
+ * response (`limits`); these exist for copy that renders before it (the /analysis metadata and lead,
+ * the landing). The same lockstep spec holds them to the backend and bans the numbers typed in copy.
+ */
+export const ANALYSIS_MAX_ANNUAL_PERIODS = 10
+export const ANALYSIS_MAX_QUARTERLY_PERIODS = 12

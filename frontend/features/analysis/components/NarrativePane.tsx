@@ -274,7 +274,7 @@ export default function NarrativePane({
           )}
           {state.status === 'done' && <DataNotesLink notes={citedNotes} />}
           {state.status === 'done' && completion?.cached && !sample && (
-            <Badge title="Served from a previous run of this exact period range. It regenerates automatically when new filings arrive.">
+            <Badge title="Served from an earlier run of this period range. The next run regenerates it if these figures change.">
               Cached
             </Badge>
           )}

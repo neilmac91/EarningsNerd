@@ -70,7 +70,14 @@ export function decodeNarrativePresentation(
     || !Number.isSafeInteger(citation.n) || citation.n <= 0)) return invalid()
   const citations = new Map(completion.citations.map((citation) => [citation.n, citation]))
   if (citations.size !== completion.citations.length) return invalid()
-  const notes = decodeCitationDataNotes(value.notes, dataset, completion.citations)
+  // The data-notes decoder's TypeError names the broken field for diagnostics; the reader gets the one
+  // recovery sentence every other decode failure here gives.
+  let notes: DataNotesWire
+  try {
+    notes = decodeCitationDataNotes(value.notes, dataset, completion.citations)
+  } catch {
+    return invalid()
+  }
   let previousEnd = 0
   const observations = new Set<string>()
   const evidence = value.evidence.map((entry): NarrativeEvidence => {

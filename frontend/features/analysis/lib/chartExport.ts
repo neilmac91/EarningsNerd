@@ -125,13 +125,13 @@ export function buildMarkSvg(fill: string): string {
  *  collision). */
 export const MARK_STAMP = {
   stripHeight: 32,
-  markHeight: 20,
+  markHeight: 25, // about 32px wide: the bare mark's minimum size (smaller needs the app tile)
   inset: 12,
   alpha: 0.85,
   fillLight: '#3C6650', // brand-strong (the mark's own sage)
   fillDark: '#7FB295', // lightened sage — legible on the dark panel without glowing
-  wordmarkSize: 14, // "EarningsNerd" wordmark next to the mark
-  wordmarkGap: 9, // wordmark → mark
+  wordmarkSize: 14, // "EarningsNerd" wordmark after the mark
+  wordmarkGap: 9, // mark → wordmark
 } as const
 
 /** Canvas mirrors of the text tokens (canvas draws hexes, not CSS vars) — the single source for
@@ -143,11 +143,11 @@ export const EXPORT_TEXT = {
   secondary: { light: '#374151', dark: '#9CA3AF' },
 } as const
 
-/** Draw the branded footer strip bottom-right: the "EarningsNerd" wordmark (two-tone like the site
- *  logo — ink "Earnings" + sage "Nerd", so a shared image names its source rather than an
- *  ambiguous monogram) followed by the EN mark. A mark decode failure still leaves the wordmark
- *  (branding never blocks a download). Coordinates are CSS px — the caller's retina scale is
- *  already applied. `footerTop` is the y where the strip begins (below the plot). */
+/** Draw the branded footer strip bottom-right as the logo's lockup: the EN mark, then the
+ *  "EarningsNerd" wordmark (like the site logo: upright ink "Earnings" + italic 600 sage "Nerd", so a
+ *  shared image names its source rather than an ambiguous monogram). A mark decode failure still
+ *  leaves the wordmark (branding never blocks a download). Coordinates are CSS px — the caller's
+ *  retina scale is already applied. `footerTop` is the y where the strip begins (below the plot). */
 async function drawBrandFooter(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -160,26 +160,33 @@ async function drawBrandFooter(
   const markW = mark ? (MARK_STAMP.markHeight * MARK_WIDTH) / MARK_HEIGHT : 0
   const centerY = footerTop + MARK_STAMP.stripHeight / 2
 
+  const upright = font(600, MARK_STAMP.wordmarkSize)
+  const italic = `italic ${upright}` // the wordmark's "Nerd" (components/EarningsNerdLogo.tsx)
+
   ctx.save()
   ctx.globalAlpha = MARK_STAMP.alpha
-  ctx.font = font(600, MARK_STAMP.wordmarkSize)
   ctx.textBaseline = 'middle'
   ctx.textAlign = 'left'
+  ctx.font = upright
   const w1 = ctx.measureText('Earnings').width
+  ctx.font = italic
   const w2 = ctx.measureText('Nerd').width
-  const markX = width - markW - MARK_STAMP.inset
-  const textRight = markX - (mark ? MARK_STAMP.wordmarkGap : 0)
-  const textLeft = textRight - (w1 + w2)
+  const textLeft = width - MARK_STAMP.inset - (w1 + w2)
+  const lockupLeft = textLeft - (mark ? markW + MARK_STAMP.wordmarkGap : 0)
   // Skip the wordmark on a pathologically narrow export rather than overrun the left edge.
-  if (textLeft > MARK_STAMP.inset) {
-    ctx.fillStyle = ink
-    ctx.fillText('Earnings', textLeft, centerY)
-    ctx.fillStyle = accent
-    ctx.fillText('Nerd', textLeft + w1, centerY)
-  }
+  const withWordmark = lockupLeft > MARK_STAMP.inset
   if (mark) {
+    const markX = withWordmark ? lockupLeft : width - markW - MARK_STAMP.inset
     const markY = footerTop + (MARK_STAMP.stripHeight - MARK_STAMP.markHeight) / 2
     ctx.drawImage(mark, markX, markY, markW, MARK_STAMP.markHeight)
+  }
+  if (withWordmark) {
+    ctx.font = upright
+    ctx.fillStyle = ink
+    ctx.fillText('Earnings', textLeft, centerY)
+    ctx.font = italic
+    ctx.fillStyle = accent
+    ctx.fillText('Nerd', textLeft + w1, centerY)
   }
   ctx.restore()
 }

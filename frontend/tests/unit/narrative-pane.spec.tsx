@@ -344,6 +344,11 @@ describe('NarrativePane citation chips', () => {
     expect(screen.queryByText('Some source references need attention')).not.toBeInTheDocument()
   })
 
+  it('says what the Cached badge knows: an earlier run, regenerated when the figures change', () => {
+    render(<NarrativePane state={doneState({ completion: doneCompletion({ cached: true }) })} />)
+    expect(screen.getByText('Cached')).toHaveAttribute('title', 'Served from an earlier run of this period range. The next run regenerates it if these figures change.')
+  })
+
   it('replaces the verified/cached badges with a Sample badge in teaser mode (F3)', () => {
     const state = doneState({ completion: doneCompletion({ cached: true }) })
     render(<NarrativePane state={state} sample />)
