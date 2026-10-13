@@ -124,8 +124,12 @@ security items do not reach this deployment.
   17/18, one BABA `viewed-native-revenue-2025` citation withhold) and was triaged under the RUNBOOK rule in
   [comment 6150541803](https://github.com/neilmac91/EarningsNerd/pull/1305#issuecomment-6150541803): the
   offline replay under main's code reproduces it (exit 0, 0 UNEXPLAINED); `copilot-eval` is not a required
-  check, so the merge went on the six required checks and the clean Codex review. `deploy-backend`:
-  {{DEPLOY1305}}
+  check, so the merge went on the six required checks and the clean Codex review. `deploy-backend`
+  [job 115442211817](https://github.com/neilmac91/EarningsNerd/actions/runs/38436459638/job/115442211817)
+  succeeded at 17:36 UTC, `apply_migrations: applied=0 skipped=43`, revisions
+  `earningsnerd-backend-00505-bt2` and `earningsnerd-task-worker-00055-j7r` at 100%, `/health/detailed`
+  healthy in the job and on a readback at 17:43 UTC. The founder's post-deploy Checkout preview check is
+  listed under the follow-ups.
 - Paid `copilot-eval` draws on #1302 and #1305 ran under the founder's merge instruction; the
   reservation is to be settled in the private ledger by the chief. Estimated USD 0.006607 for #1302
   (36 calls) and USD 0.007084 for #1305 (38 calls, the triaged red draw), USD 0.013691 together, from
