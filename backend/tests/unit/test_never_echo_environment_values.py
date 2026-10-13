@@ -1465,10 +1465,10 @@ def _capture_every_structure(caplog) -> None:
 def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request, caplog):
     # Codex's cases on #1297: a weak secret equal to a word of Sentry's protocol (IP_HASH_SALT=event_id passes every
     # check) renamed the event's own `event_id`, which the SDK reads after the hook, so the capture raised; one equal to
-    # a key below it (parent_span_id) renamed that key in each child span. Every key of the protocol's own and an
-    # item's `type` stay as they are (main._PROTOCOL_KEYS, main._ITEM_TYPES): errors, transactions, a check-in, a log
-    # and a metric are each sent, as their own kind and whole, the trace header keeps its sample rate, and a gen-AI span,
-    # which the SDK splits out after the hook, keeps its keys.
+    # a key below it (parent_span_id) renamed that key in each child span. Every key at one of the protocol's own paths
+    # and an item's `type` stay as they are (main._PROTOCOL_PATHS, main._ITEM_TYPES): errors, transactions, a check-in,
+    # a log and a metric are each sent, as their own kind and whole, the trace header keeps its sample rate, and a
+    # gen-AI span, which the SDK splits out after the hook, keeps its keys.
     words = {
         "IP_HASH_SALT": "event_id",
         "FMP_API_KEY": "trace_id",
@@ -1517,9 +1517,9 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request, 
     ]
 
 
-# The fields whose mappings hold user data, the gate's own copy (main keeps its own): their keys are the app's data and
-# the SDK's attribute names (`sentry.environment`, `thread.id`), all of which the value scrubber scrubs, a protocol
-# word or not, so the structure cases leave them out (the lesson's over-redaction entry).
+# The fields whose mappings hold user data: their keys are the app's data and the SDK's attribute names
+# (`sentry.environment`, `thread.id`), at none of the protocol's paths (main._PROTOCOL_PATHS), so the value scrubber
+# scrubs them all, a protocol word or not, and the structure cases leave them out (the lesson's over-redaction entry).
 _USER_DATA_FIELDS = frozenset(
     {"data", "tags", "extra", "attributes", "headers", "cookies", "env", "vars", "params", "measurements", "modules"}
 )
@@ -1548,7 +1548,7 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
     # items carry outside user data (as each hook received them, from one capture of the structures the design checks
     # found the SDK builds, on every channel), each taken as a secret, leaves every item's structure as it was. The keys
     # come from the SDK's items, not from main's list: a key on a structure the capture builds fails here until
-    # main._PROTOCOL_KEYS has it, and an SDK upgrade fails the pin below until the capture is checked against it again.
+    # main._PROTOCOL_PATHS has its path, and an SDK upgrade fails the pin below until the capture is checked again.
     import copy
 
     import sentry_sdk
@@ -1577,14 +1577,18 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
     _capture_every_structure(caplog)
     assert {"transaction", "check_in", "counter"} <= {item.get("type") for item in received}
     assert any("exception" in item for item in received) and any("severity_text" in item for item in received)
-    words = {path[-1] for item in received for path in _structure(item) if isinstance(path[-1], str)}
-    words = sorted(
-        (word for word in words if len(word) >= main._MIN_SECRET_LENGTH), key=lambda word: (-len(word), word)
-    )
-    # Every name main keeps occurs in the SDK's own items, spelled as the SDK spells it: no entry is dead. The same
-    # for the contexts main counts as the SDK's: the capture sets none of its own.
-    assert main._PROTOCOL_KEYS <= set(words), sorted(main._PROTOCOL_KEYS - set(words))
-    assert {name for item in received for name in item.get("contexts", {})} == main._SDK_CONTEXTS
+    # Each key's path from its item's top, a list's items sharing the list's path, as main keeps them.
+    paths = {
+        tuple(step for step in path if not isinstance(step, int))
+        for item in received
+        for path in _structure(item)
+        if isinstance(path[-1], str) and len(path[-1]) >= main._MIN_SECRET_LENGTH
+    }
+    # Main keeps exactly these paths: none missing, none dead, each spelled as the SDK spells it. The capture sets no
+    # context of its own, so every context in it is the SDK's.
+    assert main._PROTOCOL_PATHS == paths, (sorted(paths - main._PROTOCOL_PATHS), sorted(main._PROTOCOL_PATHS - paths))
+    assert {name for item in received for name in item.get("contexts", {})} == {"trace", "runtime", "response"}
+    words = sorted({path[-1] for path in paths}, key=lambda word: (-len(word), word))
     withhold = value_scrubber(tuple(words))
     for item in received:
         lost = _structure(item) - _structure(withhold(copy.deepcopy(item), {}))
@@ -1592,10 +1596,10 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
 
 
 def test_a_secret_held_as_a_key_in_user_data_is_withheld(monkeypatch, request):
-    # Only a key that is exactly one of the protocol's own stays (main._PROTOCOL_KEYS), and only outside user data: a
-    # secret held as a key in an extra, a tag, a context (its name and inside it), a user, a breadcrumb's data, a
-    # request's body, a span's data or tags, a log's or a metric's attributes is withheld there, and so is one that
-    # follows a protocol word in the same key (a user's, where protocol words stay: kept only when exactly one).
+    # Only a key at one of the protocol's own paths stays (main._PROTOCOL_PATHS): a secret held as a key in an extra, a
+    # tag, a context (its name and inside it), a user, a breadcrumb's data, a request's body, a span's data or tags, a
+    # log's or a metric's attributes is withheld there, and so is one that follows a protocol word in the same key (a
+    # user's, whose own `username` stays: a key is kept only when it is exactly the protocol's).
     import sentry_sdk
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -1689,22 +1693,52 @@ def test_a_secret_equal_to_a_protocol_word_is_withheld_as_a_key_in_user_data(mon
     assert metrics["items"][0]["attributes"]["[Filtered]"]["value"] == "x"
 
 
+def test_a_protocol_word_is_kept_only_at_its_own_path(monkeypatch, request):
+    # Codex's case on #1297 (ffe85f1): a key equal to a protocol word stays only at the protocol's own path, so a weak
+    # secret equal to one (IP_HASH_SALT=trace_id passes every check) written as a user's own key, nested by the app in a
+    # trace context, or as a hand-built event's field is withheld there, while the user's `username` and the trace
+    # context's `trace_id`, where the protocol puts them, stay.
+    import sentry_sdk
+
+    word = "trace_id"
+    envelopes = _scrubbing_envelopes(request, monkeypatch, IP_HASH_SALT=word)
+    sentry_sdk.set_user({"id": "1", "username": "reader", word: "x"})
+    sentry_sdk.capture_message("a user's own key")
+    trace = {word: "0" * 32, "span_id": "1" * 16, "custom": {word: "x"}}
+    sentry_sdk.capture_event({"message": "nested by hand", "contexts": {"trace": trace}, "custom": {word: "x"}})
+    sentry_sdk.flush()
+    events = {event["message"]: event for event in _of(envelopes, "event")}
+    user = events["a user's own key"]["user"]
+    assert user["[Filtered]"] == "x" and user["username"] == "reader" and word not in user
+    assert word in events["a user's own key"]["contexts"]["trace"]
+    nested = events["nested by hand"]
+    assert nested["contexts"]["trace"][word] == "0" * 32
+    assert nested["contexts"]["trace"]["custom"] == {"[Filtered]": "x"}
+    assert nested["custom"] == {"[Filtered]": "x"}
+
+
 @pytest.mark.parametrize("field", sorted(_USER_DATA_FIELDS))
 def test_the_value_scrubber_keeps_a_protocol_word_only_outside_user_data(field):
-    # Each field of the gate's own copy holds user data in main too: a weak secret equal to a protocol word is withheld
-    # as a key there at any depth (a list's items too), and in a context the app set, while the same word stays where
-    # the protocol puts it (a user's `username`, the trace context's `trace_id`).
+    # Main keeps a key only at the protocol's own paths, none of them below a field of the gate's list, so a weak secret
+    # equal to a protocol word is withheld as a key there at any depth (a list's items too, a protocol structure nested
+    # there too), and in a context the app set, while the same word stays where the protocol puts it (a user's
+    # `username`, the trace context's `trace_id`).
     import main
 
     word = "username"
     item = {
         "user": {word: "reader"},
-        field: {word: "x", "nested": {word: "x"}, "listed": [{word: "x"}]},
+        field: {word: "x", "nested": {word: "x"}, "listed": [{word: "x"}], "user": {word: "x"}},
         "contexts": {"trace": {"trace_id": "x"}, "job": {word: "x"}},
     }
     assert main._withhold(item, (word,)) == {
         "user": {word: "reader"},
-        field: {"[Filtered]": "x", "nested": {"[Filtered]": "x"}, "listed": [{"[Filtered]": "x"}]},
+        field: {
+            "[Filtered]": "x",
+            "nested": {"[Filtered]": "x"},
+            "listed": [{"[Filtered]": "x"}],
+            "user": {"[Filtered]": "x"},  # a protocol structure nested in user data keeps nothing
+        },
         "contexts": {"trace": {"trace_id": "x"}, "job": {"[Filtered]": "x"}},
     }
 
@@ -1736,6 +1770,13 @@ def test_a_key_is_kept_as_a_protocol_word_only_when_it_is_text():
 
     assert main._withhold({Posing(secret): 1}, (secret,)) == {"[Filtered]": 1}
     assert main._withhold({Word(): 2}, (secret,)) == {"Word()": 2}
+    # Above a protocol path, too: a key that only poses as `contexts` (its text is the word) keeps nothing below it,
+    # while the plain word keeps the trace context's `trace_id`.
+    item = {"trace": {"trace_id": "x"}}
+    assert main._withhold({"contexts": item}, ("trace_id",)) == {"contexts": item}
+    assert main._withhold({type("Text", (str,), {})("contexts"): item}, ("trace_id",)) == {
+        "contexts": {"trace": {"[Filtered]": "x"}}
+    }
 
 
 def test_a_type_is_kept_only_when_it_is_text(monkeypatch, request):
@@ -1762,12 +1803,13 @@ def test_a_type_is_kept_only_when_it_is_text(monkeypatch, request):
 
 
 def test_nothing_written_before_the_hooks_carries_a_secret_past_them(monkeypatch, request):
-    # The hooks keep only the protocol's own words (main._PROTOCOL_KEYS, main._ITEM_TYPES), never a field whole, and
-    # drop a hint's attachments, whose bytes pass no hook, so nothing that runs before them can carry a secret past
-    # them: a trace context set by hand; an attachment on the scope; a hand-built event with the secret as its own key,
-    # its `type` and an attachment; or an event processor, registered under any name (an assignment alias: Codex's case
-    # on #1297), writing it as an event's key, a trace context's key and the `type`, and attaching it (the high-tier
-    # review of 2cc3780). A `type` that is not text (hand-built) is walked like any value, and the event is sent.
+    # The hooks keep only the protocol's own keys at its paths and an item's own `type` (main._PROTOCOL_PATHS,
+    # main._ITEM_TYPES), never a field whole, and drop a hint's attachments, whose bytes pass no hook, so nothing that
+    # runs before them can carry a secret past them: a trace context set by hand; an attachment on the scope; a
+    # hand-built event with the secret as its own key, its `type` and an attachment; or an event processor, registered
+    # under any name (an assignment alias: Codex's case on #1297), writing it as an event's key, a trace context's key
+    # and the `type`, and attaching it (the high-tier review of 2cc3780). A `type` that is not text (hand-built) is
+    # walked like any value, and the event is sent.
     import sentry_sdk
     from sentry_sdk.attachments import Attachment
 
