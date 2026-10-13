@@ -29,10 +29,14 @@
 //                       { Icon: TrendUpIcon, cls: '…' }, the value a literal, a cx() call or a ternary).
 //                       Known limits: a glyph reached through a variable rendered elsewhere
 //                       (`const Icon = GLYPH[d]` then `<Icon />`), a glyph imported under another name
-//                       (`TrendUpIcon as Up`), and a member-expression glyph in a map
-//                       ({ Icon: icons.TrendUpIcon }) are data-flow, out of scope as below; the
-//                       what-changed chip draws its glyph that way, so tests/unit/whatChangedChip.spec.tsx
-//                       renders it and holds its colour to directionChip.
+//                       (`TrendUpIcon as Up`), a member-expression glyph in a map
+//                       ({ Icon: icons.TrendUpIcon }), a map whose Icon value is a ternary
+//                       ({ Icon: up ? TrendUpIcon : TrendDownIcon }), a glyph returned from a callback
+//                       (`{xs.map((x) => <TrendUpIcon />)}`: the walk up stops at the arrow function),
+//                       and a glyph passed as a JSX prop (`icon={<TrendUpIcon />}`, valid by design: the
+//                       element that draws it is elsewhere) are data-flow, out of scope as below; the
+//                       what-changed chip draws its glyph through a variable, so
+//                       tests/unit/whatChangedChip.spec.tsx renders it and holds its colour to directionChip.
 //   no-unguarded-animation (P-09) Every Tailwind animation utility stops under reduced motion
 //                       (WCAG 2.3.3): `motion-safe:animate-x`, or `animate-x` beside a
 //                       `motion-reduce:animate-none` with the same variants in the class text that

@@ -264,9 +264,10 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  a direction. Gates: earningsnerd/direction-text-tokens (eslint.designRules.mjs) bans the
                  600-level gain/loss as text anywhere, and sage on a TrendUp/TrendDown glyph named in JSX,
                  on the nearest element above it that sets a class, or in a map that pairs one with its
-                 classes; a glyph drawn through a variable (`<Icon />`), an alias import or a member in a
-                 map is past it, so tests/unit/whatChangedChip.spec.tsx renders the what-changed chip and
-                 holds its colour to directionChip for the server's tone.
+                 classes; a glyph drawn through a variable (`<Icon />`), an alias import, a member or a
+                 ternary as a map's Icon value, a glyph returned from a .map callback and a glyph passed
+                 as a JSX prop (`icon={…}`) are past it, so tests/unit/whatChangedChip.spec.tsx renders
+                 the what-changed chip and holds its colour to directionChip for the server's tone.
 
 Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated origin, then a superscript
                  letter for its grouped data note. The letter is text-data-xs (11px minimum), zero

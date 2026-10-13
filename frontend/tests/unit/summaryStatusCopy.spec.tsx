@@ -57,6 +57,9 @@ function renderPage() {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  // clearAllMocks keeps queued once-values: a test that fails before its Retry click would leave its
+  // never-resolving refetch for the next test to take, and one regression would read as two.
+  api.getWatchlistInsights.mockReset()
 })
 
 // Each prefix with the needs_regeneration the server sends beside it.
