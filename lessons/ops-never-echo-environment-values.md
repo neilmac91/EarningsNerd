@@ -35,9 +35,9 @@ The follow-up review (#1281) found the rest:
   logs at INFO with the key mounted, let httpx log every request URL;
 - `app/database.py` parses `DATABASE_URL` at import, so a URL missing its `@host` put the password into a
   service's startup traceback (and into Sentry, which `main.py` starts first), and an unescaped `@` in the password
-  parsed, its tail becoming the host (or, past a `?`, a query key) that the driver's connection error quotes at
-  startup; `redis_service` logged
-  `REDIS_URL` whole and its parse error's message; `scripts/smoke_resend.py` printed the key's last four
+  parsed, its tail becoming the host, the database or a query key, which the driver's connection error quotes at
+  startup; `redis_service` logged `REDIS_URL` whole and its parse error's message; `scripts/smoke_resend.py`
+  printed the key's last four
   characters; `scripts/validate_db_performance.py` printed a URL without an `@` whole, and a password passed in
   the URL's query string survived SQLAlchemy's masked rendering.
 
@@ -66,9 +66,8 @@ The follow-up review (#1281) found the rest:
   and query string, other headers and body; the user id, tags, release and environment.
 - Nothing prints or logs a secret. An output reports a secret's presence and length, never a character; a
   connection URL's parse error is reported by its type, and an HTTP error from a keyed URL by its status, never
-  their messages; a database URL whose host or query key holds an `@` is refused; httpx's request log stays at
-  WARNING where a
-  key travels in a query string. No output call (a print, log, warn or write call, `click.echo`, `pprint`, a
+  their messages; a database URL holding more than one `@` is refused; httpx's request log stays at WARNING
+  where a key travels in a query string. No output call (a print, log, warn or write call, `click.echo`, `pprint`, a
   Sentry message, tag, context, extra or breadcrumb) and no raise or assert message reads a secret field directly,
   the settings object beyond a printable field (`model_dump()`, `__dict__`) or whole (`dict(settings)`,
   `vars(settings)`, `str.format`, unpacking, iteration), or a secret's environment variable.
@@ -116,34 +115,34 @@ The follow-up review (#1281) found the rest:
 
   One sanctioned quotation is allowed: `REGISTRATION_MODE`'s `v`. The test also pins the settings class's
   only base and the absence of an `Annotated` validator, so a validator cannot move out of the walk unseen.
-- **Library messages.** Every settings field but `REGISTRATION_MODE` is built from four values shaped to break a
-  parse (the value alone, a URL missing its `@host`, a URL whose every part is the value, a `host:port` pair),
-  and from one value per prefix a validator might check before it parses: each prefix `app/config.py` checks with
-  `startswith`, the `sk_live_`, `whsec_` and `re_` credential prefixes, and a URL of each scheme a field's default
-  or a connection uses, with the value where the port goes. Each carries a sentinel; no error's full traceback,
-  chained exceptions included, may hold it. A control class whose validators parse a port, one on every value
-  and one only past a `redis://` check, shows the shapes reach both calls (the second only through its scheme's
-  shape) and that pydantic prints the message.
+- **Library messages.** Every settings field but `REGISTRATION_MODE` is built from four values shaped to break a parse
+  (the value alone, a URL missing its `@host`, a URL whose every part is the value, a `host:port` pair), and from one
+  value per prefix a validator might check before it parses: each prefix `app/config.py` checks with `startswith` (a
+  literal or a module constant bound to literals; a check the harvest cannot read fails the gate), the `sk_live_`,
+  `whsec_` and `re_` credential prefixes, and a URL of each such `://` prefix and of each scheme a field's default or
+  a connection uses, with the value where the port goes. Each carries a sentinel; no error's full traceback, chained
+  exceptions included, may hold it. A control class whose validators parse a port, one on every value and one only
+  past a `redis://` check, shows the shapes reach both calls (the second only through its scheme's shape) and that
+  pydantic prints the message.
 - **The checks.** `deploy_check`'s environment and configuration checks print no 4-character fragment of a
   fabricated secret on any branch: long keys, 12-character keys (the "appears too short" warnings), and
   production with a `sk_test_` secret key and a `pk_live_` publishable key (the mode warnings); each case
   asserts its branch ran. Its two database checks, fed a URL that puts a fabricated password where the port
   goes, print the error's type and no fragment.
-- **Outputs.** `smoke_resend` prints the key's length; `redis_service` builds a pool from a URL holding a
-  password and refuses a URL missing its `@host`; importing `app.database` with such a URL, or with an `@`
-  in its host or a query key, raises a `RuntimeError`; the database benchmark stops on each, prints a well-formed
-  URL's backend, host and database only (a query-string password and an all-digit password in the port included in
-  the test) and its errors by type; an Alpha Vantage
-  503 is logged and raised as `HTTP 503`; the calendar job's logging setup and the service's `configure_logging`
-  keep httpx's request log off. None prints or logs a 4-character fragment of the fabricated secret. An AST walk
-  over every backend file outside `tests/`
-  fails an output call's argument (a print, log, warn or write call, `echo`, `pprint`, a Sentry message, tag,
-  context, extra or breadcrumb, by function or method name), or a raise or assert message, that reads
-  `settings.X` or `getattr(settings, ...)` for anything but a printable field, hands the settings object whole to
-  a call other than `repr`, `str`, `getattr`, `hasattr` and `isinstance` or unpacks or iterates it, reads
-  `self.X` or `getattr(obj, "X")` for a secret field, or reads the environment whole or a variable that a
-  secret field, a secret suffix or `PASSWORD` names or that an expression computes; all outside `len()`,
-  `bool()`, a comparison and a conditional expression's condition. A secret field is one whose name ends in
+- **Outputs.** `smoke_resend` prints the key's length; `redis_service` builds a pool from a URL holding a password and
+  refuses a URL missing its `@host`; importing `app.database` with such a URL, or with more than one `@` (its tail in
+  the host, the database or a query key), raises a `RuntimeError`, while the Cloud SQL socket form and a
+  percent-encoded `@` parse; the database benchmark stops on each, prints a well-formed URL's backend, host and
+  database only (a query-string password and an all-digit password in the port included in the test) and its errors by
+  type; an Alpha Vantage 503 is logged and raised as `HTTP 503`; the calendar job's logging setup and the service's
+  `configure_logging` keep httpx's request log off. None prints or logs a 4-character fragment of the fabricated
+  secret. An AST walk over every backend file outside `tests/` fails an output call's argument (a print, log, warn or
+  write call, `echo`, `pprint`, a Sentry message, tag, context, extra or breadcrumb, by function or method name), or a
+  raise or assert message, that reads `settings.X` or `getattr(settings, ...)` for anything but a printable field,
+  hands the settings object whole to a call other than `repr`, `str`, `getattr`, `hasattr` and `isinstance` or unpacks
+  or iterates it, reads `self.X` or `getattr(obj, "X")` for a secret field, or reads the environment whole or a
+  variable that a secret field, a secret suffix or `PASSWORD` names or that an expression computes; all outside
+  `len()`, `bool()`, a comparison and a conditional expression's condition. A secret field is one whose name ends in
   `_KEY`, `_SECRET`, `_TOKEN`, `_SALT` or `_DSN`, and the two connection URLs.
 - **Sentry.** Built from `main._sentry_options()` with a fabricated DSN and a transport that keeps each
   envelope, a fixture fails if the options turn local variables back on, send PII or pass `data_collection`.
@@ -155,11 +154,12 @@ The follow-up review (#1281) found the rest:
   send each as `[Filtered]`, on the errors and the transactions. A walk of the API's request body schemas (JSON and
   form, through references, unions and lists) fails a key that names a credential (`password`, `token`, `secret`,
   `invite`, `code`, `key`, `otp`, `nonce`, `credential`; `referral_code` is shared by design) unless the denylist
-  holds it and it sits at the body's top level. The backend's one `sentry_sdk.init` call, through any import, is
-  main.py's, and it takes `_sentry_options()` and nothing else.
+  holds it and it sits at the body's top level. The backend's one `sentry_sdk.init` call, through any import of the
+  package or its modules, is main.py's, and it takes `_sentry_options()` and nothing else.
 - **compare_digest.** An AST walk fails any `compare_digest` call in the backend, by its name or a name
   `from hmac|secrets import compare_digest as ...` gives it, whose two arguments are not both bytes by their
-  form: an `.encode(...)`, a `.digest()`, a `bytes(...)` or a bytes literal.
+  form: a UTF-8 `.encode(...)` or `bytes(x, ...)`, a `.digest()` or a bytes literal (another codec, `ascii`,
+  raises on a non-ASCII value too).
 
 The agent clause is not machine-gated and stays session reading.
 
@@ -170,10 +170,13 @@ with its reason:
 - a provider's own error text can quote a masked key's last four characters (Stripe's and the AI providers'
   invalid-key messages): callers log it, and `app/routers/subscriptions.py` returns Stripe's message as the
   checkout and portal error detail (todo E18);
-- an incoming request's query string reaches Sentry unscrubbed: the Google OAuth callback's single-use `code`
-  (a user's, not a settings secret);
+- an incoming request's URL reaches Sentry unscrubbed: the Google OAuth callback's single-use `code` in its query
+  string and the waitlist verification token in its path (a user's, not a settings secret);
+- the request-body walk reads the API's OpenAPI schemas: the Stripe and Resend webhooks read their bodies by hand
+  and are outside it, and the scrubber reads a body's top-level keys only, so a credential nested in a provider's
+  event would reach Sentry with that handler's error;
 - `main.py`'s startup database check and `/health/detailed` log a driver's connection error, which names the host,
-  port, user and database; it carries no password once the URL parses with a clean host and query, except one case:
+  port, user and database; it carries no password once the URL holds a single `@`, except one case:
   an all-digit password in a URL missing its `@host` parses as the port, which the connection error (the database
   driver's, or Redis's) quotes. The documented production password is hex (`openssl rand -hex 24`) in the
   Cloud SQL socket form, which keeps its `@`;

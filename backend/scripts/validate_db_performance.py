@@ -81,16 +81,15 @@ def run_validation():
         sys.exit(1)
 
     # The parse error can quote the password (a URL missing its `@host` puts it where the port goes, and the int() that
-    # parses the port quotes it), so only its type is printed. A host or query key holding an "@" is refused too: an
-    # unescaped "@" in the password ends it there and the rest becomes the host (or, past a "?", a query key), which a
-    # driver's error quotes.
+    # parses the port quotes it), so only its type is printed. A URL holding more than one "@" is refused too: an
+    # unescaped "@" in the password ends it there, and the rest becomes the host, the database or a query key, which
+    # this script prints and a driver's error quotes.
     try:
         url = make_url(database_url)
     except Exception as e:  # noqa: BLE001 — any parse failure
         problem = type(e).__name__
     else:
-        clean = "@" not in (url.host or "") and not any("@" in key for key in url.query)
-        problem = None if clean else "an '@' in the host or a query key; percent-encode the password"
+        problem = None if database_url.count("@") <= 1 else "more than one '@'; percent-encode the password"
     if problem:
         print(f"ERROR: DATABASE_URL could not be parsed ({problem}; message withheld: it can quote the password)")
         sys.exit(1)

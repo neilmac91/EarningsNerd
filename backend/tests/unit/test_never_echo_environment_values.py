@@ -21,8 +21,9 @@ each gated here:
 - an Alpha Vantage HTTP error's message, and httpx's request log in the calendar job, quote its keyed URL;
 - Sentry serialized every captured frame's local variables (a secret copied into a local, every library frame
   holding a request, the database driver's connect arguments), the `X-Internal-Token` header and each outbound
-  request's query string, and the exact-name scrubber left `new_password` and `current_password` in a request
-  body; the compare_digest checks raised on a non-ASCII value, a 500 whose frame held the secret;
+  request's query string, and the exact-name scrubber left a request body's credential keys (a password change's
+  passwords, a refresh token, an invite, Apple's form-posted code and id_token); the compare_digest checks raised on a
+  non-ASCII value, a 500 whose frame held the secret;
 - and, for every route at once, no output call and no raise or assert message in the backend reads a secret
   directly, from the settings object or the environment, and every credential a request body names is scrubbed.
 
@@ -140,20 +141,40 @@ _MALFORMED = ("{s}", "postgresql://app:{s}/db", "https://{s}@{s}:{s}/", "{s}:{s}
 # A validator that parses only past a prefix or scheme check is reached only by a value carrying it: the value behind
 # every prefix app/config.py checks with `startswith` and every prefix a credential carries, and a URL of every scheme
 # a field's default or a connection uses with the value where the port goes.
-_CHECKED_PREFIXES = {
-    constant.value
-    for node in ast.walk(ast.parse((BACKEND_DIR / "app" / "config.py").read_text(encoding="utf-8")))
-    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "startswith"
-    for arg in node.args
-    for constant in ast.walk(arg)
-    if isinstance(constant, ast.Constant) and isinstance(constant.value, str)
-}
+
+
+def _checked_prefixes() -> tuple[set[str], list[str]]:
+    """Every prefix app/config.py checks a value's start against, a literal or a module constant bound to literals;
+    and each `startswith` argument that is neither, which the harvest cannot read."""
+    tree = ast.parse((BACKEND_DIR / "app" / "config.py").read_text(encoding="utf-8"))
+    constants = {
+        target.id: node.value
+        for node in tree.body
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None
+        for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
+        if isinstance(target, ast.Name)
+    }
+    prefixes, unreadable = set(), []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "startswith":
+            argument = node.args[0] if node.args else None
+            value = constants.get(argument.id) if isinstance(argument, ast.Name) else argument
+            items = value.elts if isinstance(value, ast.Tuple) else [value]
+            if all(isinstance(item, ast.Constant) and isinstance(item.value, str) for item in items):
+                prefixes |= {item.value for item in items}
+            else:
+                unreadable.append(ast.unparse(node))
+    return prefixes, unreadable
+
+
+_CHECKED_PREFIXES = _checked_prefixes()[0]
 _SCHEMES = {
     str(field.default).split("://")[0] for field in Settings.model_fields.values() if "://" in str(field.default)
 }
 _PREFIXED = tuple(
     sorted(
         {f"{prefix}{{s}}" for prefix in _CHECKED_PREFIXES | {"sk_live_", "whsec_", "re_"}}
+        | {f"{prefix}default:{{s}}/0" for prefix in _CHECKED_PREFIXES if prefix.endswith("://")}
         | {f"{scheme}://default:{{s}}/0" for scheme in _SCHEMES | {"postgresql", "postgres", "rediss"}}
     )
 )
@@ -179,6 +200,12 @@ def test_a_validators_library_message_prints_whole():
     ]
     assert quoted == ["redis://default:{s}/0", "rediss://default:{s}/0"]
     assert {"promo_", "sk_live_", "sqlite"} <= _CHECKED_PREFIXES and {"redis", "sqlite", "https"} <= _SCHEMES
+
+
+def test_the_prefix_harvest_reads_every_startswith():
+    # A prefix the harvest cannot read (a call, an attribute, a name bound to anything but literals) would leave a
+    # parse behind it unreached; such a check fails here instead.
+    assert _checked_prefixes()[1] == []
 
 
 @pytest.mark.parametrize("field", sorted(set(Settings.model_fields) - {"REGISTRATION_MODE"}))
@@ -838,17 +865,25 @@ def sentry_envelopes():
 
 
 def _sentry_inits(tree: ast.Module) -> list[str]:
-    """Each call of sentry_sdk's `init` in the module, through any import of it: `sentry_sdk.init`, the module under
-    another name, or `init` imported from it under any name."""
+    """Each call of sentry_sdk's `init` in the module, through any import of it: the package or any of its modules
+    under any name (`sentry_sdk.init`, `sdk.api.init`, `api.init`), or `init` imported from either under any name."""
     modules, functions = {"sentry_sdk"}, set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            modules |= {alias.asname or alias.name for alias in node.names if alias.name == "sentry_sdk"}
-        elif isinstance(node, ast.ImportFrom) and node.module == "sentry_sdk":
+            modules |= {
+                alias.asname or alias.name.split(".")[0]
+                for alias in node.names
+                if alias.name.split(".")[0] == "sentry_sdk"
+            }
+        elif isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "sentry_sdk":
             functions |= {alias.asname or alias.name for alias in node.names if alias.name == "init"}
-    names = {f"{module}.init" for module in modules} | functions
+            modules |= {alias.asname or alias.name for alias in node.names if alias.name != "init"}
+
+    def is_init(function: str) -> bool:
+        return function in functions or (function.endswith(".init") and function.split(".")[0] in modules)
+
     return [
-        ast.unparse(node) for node in ast.walk(tree) if isinstance(node, ast.Call) and ast.unparse(node.func) in names
+        ast.unparse(node) for node in ast.walk(tree) if isinstance(node, ast.Call) and is_init(ast.unparse(node.func))
     ]
 
 
@@ -870,8 +905,20 @@ def test_main_passes_sentry_only_its_options():
         "import sentry_sdk as sdk\nsdk.init(dsn=x)",
         "from sentry_sdk import init as start\nstart(dsn=x)",
         "from sentry_sdk import init\ninit(dsn=x)",
+        "from sentry_sdk.api import init as start\nstart(dsn=x)",
+        "import sentry_sdk\nsentry_sdk.api.init(dsn=x)",
+        "from sentry_sdk import api\napi.init(dsn=x)",
+        "import sentry_sdk.api as sdk_api\nsdk_api.init(dsn=x)",
     ],
-    ids=["module-alias", "function-alias", "function"],
+    ids=[
+        "module-alias",
+        "function-alias",
+        "function",
+        "submodule-function",
+        "submodule-path",
+        "submodule",
+        "submodule-alias",
+    ],
 )
 def test_the_sentry_init_scan_follows_imports(source):
     assert _sentry_inits(ast.parse(source)) == [source.splitlines()[1]]
@@ -1096,8 +1143,8 @@ def test_the_alpha_vantage_url_stays_out_of_the_request_log(monkeypatch, caplog,
             logging_service.configure_logging(level="INFO")
             root.handlers[:] = handlers  # it replaces the root handlers; caplog's comes back
         client, key = _alpha_vantage(monkeypatch, 200, "symbol,reportDate\n")
-        caplog.set_level(logging.INFO)
-        asyncio.run(client.fetch_earnings_calendar())
+        with caplog.at_level(logging.INFO):  # restored on exit, before the finally restores the setup's own level
+            asyncio.run(client.fetch_earnings_calendar())
     finally:
         root.handlers[:] = handlers
         root.setLevel(root_level)
@@ -1148,33 +1195,55 @@ def test_redis_logs_no_url(monkeypatch, caplog):
     assert not leaked, f"{leaked} four-character fragments of the fabricated password were logged"
 
 
+def _import_database(monkeypatch, url: str):
+    """Import a fresh app.database with this DATABASE_URL; the original module comes back at teardown."""
+    from app import config
+
+    monkeypatch.setattr(config.settings, "DATABASE_URL", url)
+    app_package = importlib.import_module("app")
+    monkeypatch.setattr(app_package, "database", getattr(app_package, "database", None), raising=False)
+    monkeypatch.delitem(sys.modules, "app.database", raising=False)
+    return importlib.import_module("app.database")
+
+
 @pytest.mark.parametrize(
     ("shape", "reported"),
     [
         ("postgresql://app:{p}/app", "(ValueError"),
-        ("postgresql://app:{p}@{p}@db.invalid/app", "(an '@' in the host or a query key"),
-        ("postgresql://app:{p}@{p}?{p}@/app?host=/cloudsql/x", "(an '@' in the host or a query key"),
+        ("postgresql://app:{p}@{p}@db.invalid/app", "(more than one '@'"),
+        ("postgresql://app:{p}@{p}/{p}@db.invalid/app", "(more than one '@'"),
+        ("postgresql://app:{p}@{p}?{p}@/app?host=/cloudsql/x", "(more than one '@'"),
     ],
-    ids=["host-missing", "at-in-password", "at-then-query-in-password"],
+    ids=["host-missing", "at-then-host", "at-then-slash", "at-then-query"],
 )
 def test_a_malformed_database_url_is_not_quoted(monkeypatch, shape, reported):
     # app.database builds its engine at import, before any handler can withhold a message: a URL missing its `@host`
     # put the password into a service's startup traceback (and Sentry, which main.py starts first), and an unescaped
-    # "@" in the password parses, its tail becoming the host (or, past a "?", a query key) that the driver's
+    # "@" in the password parses, its tail becoming the host, the database or a query key, which the driver's
     # connection error quotes at startup.
-    from app import config
-
     password = _fabricated("DATABASE_URL password")
-    monkeypatch.setattr(config.settings, "DATABASE_URL", shape.format(p=password))
-    app_package = importlib.import_module("app")
-    monkeypatch.setattr(app_package, "database", getattr(app_package, "database", None), raising=False)
-    monkeypatch.delitem(sys.modules, "app.database", raising=False)
     with pytest.raises(RuntimeError) as info:
-        importlib.import_module("app.database")
+        _import_database(monkeypatch, shape.format(p=password))
     text = "".join(traceback.format_exception(info.value))
     assert f"DATABASE_URL could not be parsed {reported}" in text
     leaked = _fragments(password, text)
     assert not leaked, f"{leaked} four-character fragments of the fabricated password reached the traceback"
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        "postgresql://app:{p}@/app?host=/cloudsql/x",
+        "postgresql://app:{p}%40{p}@db.invalid:5432/app",
+        "sqlite:///./x.db",
+    ],
+    ids=["socket-form", "percent-encoded-at", "sqlite"],
+)
+def test_a_database_url_with_one_at_is_accepted(monkeypatch, shape):
+    # The refusal costs nothing a valid URL needs: the Cloud SQL socket form and an encoded "@" parse as before.
+    password = _fabricated("DATABASE_URL password")
+    database = _import_database(monkeypatch, shape.format(p=password))
+    assert database.engine.url.password in (password, f"{password}@{password}", None)
 
 
 def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
@@ -1191,8 +1260,8 @@ def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
     digits = _fabricated("benchmark all-digit password", string.digits)
     urls = (
         f"postgresql://app:{password}/app",  # the host missing: the password sits where the port goes
-        f"postgresql://app:{password}@{password}@127.0.0.1:1/app",  # an unescaped "@" in the password
-        f"postgresql://app:{password}@{password}?{password}@/app?host=/tmp",  # an "@", then a "?", in the password
+        f"postgresql://app:{password}@{password}@127.0.0.1:1/app?hostaddr=127.0.0.1",  # an "@" in the password: its tail
+        f"postgresql://app:{password}@127.0.0.1:1/{password}@db.invalid/app",  # becomes the host, or the database
         f"postgresql://app:{password}@127.0.0.1:1/app",  # well-formed
         f"postgresql://127.0.0.1:1/app?user=app&password={password}",  # a password in the query string
         f"postgresql://app:{digits}/app?hostaddr=127.0.0.1",  # the host missing: an all-digit password parses as the port
@@ -1203,7 +1272,7 @@ def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
             script.run_validation()
     out = capsys.readouterr().out
     assert "could not be parsed (ValueError" in out  # the host-missing branch ran
-    assert out.count("could not be parsed (an '@' in the host or a query key") == 2  # so did both "@" branches
+    assert out.count("could not be parsed (more than one '@'") == 2  # so did both "@" refusals
     assert out.count("Database: postgresql at 127.0.0.1/app") == 2  # and the two well-formed URLs'
     assert "Database: postgresql at app/app" in out  # the all-digit password's URL, its port withheld
     assert out.count("FAILED (connection error): OperationalError (message withheld") == 3  # each connect failed
@@ -1294,7 +1363,9 @@ def _secret_reads(node: ast.AST) -> list[str]:
             if name in SECRET_FIELDS or (_is_settings(node.args[0]) and name not in _PRINTABLE):
                 return [ast.unparse(node)]
         if function.endswith("getenv") or (function.endswith(".get") and _is_environ(node.func.value)):
-            return [ast.unparse(node)] if _names_a_secret(node.args[0] if node.args else None) else []
+            named = [ast.unparse(node)] if _names_a_secret(node.args[0] if node.args else None) else []
+            rest = [*node.args[1:], *(keyword.value for keyword in node.keywords)]  # a default is printed too
+            return named + [read for argument in rest for read in _secret_reads(argument)]
         arguments = [*node.args, *(keyword.value for keyword in node.keywords)]
         if function not in _TAKE_SETTINGS and any(_is_settings(argument) for argument in arguments):
             return [ast.unparse(node)]
@@ -1363,6 +1434,7 @@ def test_no_output_reads_a_settings_secret():
         ("print(os.getenv(name), environ['PGPASSWORD'])", ["os.getenv(name)", "environ['PGPASSWORD']"]),
         ("print(dict(os.environ))", ["os.environ"]),
         ("print(os.environ.get('ENVIRONMENT'), os.environ['PORT'])", []),
+        ("print(os.getenv('ENVIRONMENT', settings.SECRET_KEY))", ["settings.SECRET_KEY"]),
         ("console.print(settings.STRIPE_SECRET_KEY)", ["settings.STRIPE_SECRET_KEY"]),
         ("click.echo(settings.RESEND_API_KEY)", ["settings.RESEND_API_KEY"]),
         ("pprint(settings.SECRET_KEY)", ["settings.SECRET_KEY"]),
@@ -1399,6 +1471,7 @@ def test_no_output_reads_a_settings_secret():
         "environment-computed-and-password",
         "environment-whole",
         "environment-printable",
+        "environment-default",
         "console-print",
         "echo",
         "pprint",
@@ -1427,15 +1500,28 @@ def _compare_digest_calls(tree: ast.Module) -> list[tuple[int, list[ast.expr]]]:
     ]
 
 
+def _utf8(call: ast.Call, position: int) -> bool:
+    """The call's codec, positional at `position` or `encoding=`, is absent or names UTF-8."""
+    codec = next((keyword.value for keyword in call.keywords if keyword.arg == "encoding"), None)
+    codec = call.args[position] if len(call.args) > position else codec
+    return codec is None or (isinstance(codec, ast.Constant) and str(codec.value).lower().replace("-", "") == "utf8")
+
+
+def _is_bytes(arg: ast.expr) -> bool:
+    """Bytes by its form, for any str: a bytes literal, a `.digest()`, or a UTF-8 `.encode(...)` or `bytes(x, ...)`;
+    another codec (`ascii`) raises on a non-ASCII value, the same 500."""
+    if isinstance(arg, ast.Constant):
+        return isinstance(arg.value, bytes)
+    if not isinstance(arg, ast.Call):
+        return False
+    if isinstance(arg.func, ast.Attribute) and arg.func.attr in {"digest", "encode"}:
+        return arg.func.attr == "digest" or _utf8(arg, 0)
+    return isinstance(arg.func, ast.Name) and arg.func.id == "bytes" and len(arg.args) > 1 and _utf8(arg, 1)
+
+
 def _not_bytes(args: list[ast.expr]) -> bool:
-    """compare_digest raises TypeError on a non-ASCII str: each argument must be bytes by its form, an `.encode(...)`,
-    a `.digest()`, a `bytes(...)` or a bytes literal."""
-    return len(args) != 2 or not all(
-        (isinstance(arg, ast.Call) and isinstance(arg.func, ast.Attribute) and arg.func.attr in {"encode", "digest"})
-        or (isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name) and arg.func.id == "bytes")
-        or (isinstance(arg, ast.Constant) and isinstance(arg.value, bytes))
-        for arg in args
-    )
+    """compare_digest raises TypeError on a non-ASCII str: each argument must be bytes by its form."""
+    return len(args) != 2 or not all(_is_bytes(arg) for arg in args)
 
 
 def test_compare_digest_takes_bytes():
@@ -1461,8 +1547,22 @@ def test_compare_digest_takes_bytes():
         ("from hmac import compare_digest as same\nsame(header, expected.encode())", True),
         ("hmac.compare_digest(mac.digest(), bytes(header, 'utf-8'))", False),
         ("hmac.compare_digest(mac.hexdigest(), header.encode())", True),
+        ("hmac.compare_digest(header.encode('ascii'), b'x')", True),
+        ("hmac.compare_digest(bytes(header, encoding='ascii'), b'x')", True),
+        ("hmac.compare_digest(bytes(header), b'x')", True),
     ],
-    ids=["str", "one-str", "bytes", "bytes-literal", "aliased-str", "digest-and-bytes", "hexdigest"],
+    ids=[
+        "str",
+        "one-str",
+        "bytes",
+        "bytes-literal",
+        "aliased-str",
+        "digest-and-bytes",
+        "hexdigest",
+        "ascii",
+        "bytes-ascii",
+        "bytes-of-a-name",
+    ],
 )
 def test_the_compare_digest_gate_flags_a_str(source, flagged):
     ((_, args),) = _compare_digest_calls(ast.parse(source))
