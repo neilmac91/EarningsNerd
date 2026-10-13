@@ -131,7 +131,7 @@ security items do not reach this deployment.
   healthy in the job and on a readback at 17:43 UTC. The founder's post-deploy Checkout preview check is
   listed under the follow-ups.
 - Paid `copilot-eval` draws on #1302 and #1305 ran under the founder's merge instruction; the
-  reservation is to be settled in the private ledger by the chief. Estimated USD 0.006607 for #1302
+  reservation is to be settled in the private ledger by the chief (todo E23). Estimated USD 0.006607 for #1302
   (36 calls) and USD 0.007084 for #1305 (38 calls, the triaged red draw), USD 0.013691 together, from
   the runs' own `ai_call` telemetry.
 - Dependabot #1282, #1283 and #1284 closed as superseded with a pointer to each replacement; #1285
