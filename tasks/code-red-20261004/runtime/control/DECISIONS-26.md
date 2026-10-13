@@ -1,4 +1,4 @@
-# Decision record 26 — record 25 merged (twenty-first deploy-skip proof); Codex clears #1281's `3c52519`; E19 built as #1297, redesigned at a relayed request and reviewed with no blocker, its release with #1281 held for the founder's go; main moves under #1281 (another writer's #1306), a todo conflict prepared, not pushed; two other writers' deploys read back; ledger events 63–64; closure 177
+# Decision record 26 — record 25 merged (twenty-first deploy-skip proof); Codex clears #1281's `3c52519`; E19 built as #1297 and redesigned at a relayed request, no blocker found but its second review four refuters short, its release with #1281 held for the founder's go; main moves under #1281 (another writer's #1306), a todo conflict prepared, not pushed; two other writers' deploys read back; ledger events 63–64; closure 177
 
 Recorded 2026-10-13, by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
 Context: record 25 merged to main as `dc2d2d4b` (PR #1294, 2026-10-13T09:08:16Z), and the records branch `claude/stoic-wright-6jeujo`
@@ -237,10 +237,11 @@ design: 119 runs on `2cc3780` and 144 on `2483213`, as intended, and 86 of 155 o
 over the fourteen commits: clean. CI on `f5a601e` passed (backend, frontend, e2e, lighthouse, migrations and secret-scan;
 `eval-baseline` skipped every paid step). The chief republished the body with the evidence at 17:30:36Z and read it back equal. At
 about 17:31Z it asked the founder in the chat for a go on the release sequence (Plan, item 1); there was no answer by this record's
-cutoff. The rule as it stands: every value is scrubbed; a key stays as it is only when it is exactly text, one of 57 protocol words
-and outside user data; an item's `type` stays only when it is exactly one of its five protocol types; a hint's attachments are
-dropped. The documented residual is over-redaction only: a weak secret equal to a protocol value, such as `in_progress`, replaces that
-value.
+cutoff. The second high-tier review is incomplete at the cutoff: the gate lens's F4 and F5 refuters had not reported, and missing
+review output is never clearance (AGENTS.md section 5), so the release waits for them (Codex's P1 on this PR's first record head). The
+rule as it stands: every value is scrubbed; a key stays as it is only when it is exactly text, one of 57 protocol words and outside
+user data; an item's `type` stays only when it is exactly one of its five protocol types; a hint's attachments are dropped. The
+documented residual is over-redaction only: a weak secret equal to a protocol value, such as `in_progress`, replaces that value.
 
 **Main moves under #1281.** At 18:01:35Z another writer's records PR #1306 merged as `7933ee20` (its deploy skipped, below). It added
 two Engineering lines at the top of `tasks/todo.md`, E23 (assigned to the chief: two other writers' Copilot draws to settle in the
@@ -405,14 +406,15 @@ production effect.
 
 ## Plan
 
-1. **#1281's release with #1297 waits for the founder's go** (asked at about 17:31Z). On "go": (1) a fresh `deepseek-balance` reading
-   above USD 5 and ledger event 65, published and read back, sized for two pushes (USD 1.580000), in case GitHub runs CI on the first;
-   one round is expected; (2) the chief marks #1297 ready and squash-merges it into #1281's branch with the drafted title and message,
-   pinned to `f5a601e`, while #1281 still conflicts with main, so no workflow runs on it; (3) it merges main into #1281's branch with
-   the prepared resolution (above), runs the full gate on that commit, pushes once and requests Codex; (4) once CI and Codex are green
-   there, it asks once for the merge confirmation naming that head, then squash-merges #1281 with an explicit message once main is
-   idle, verifies the deploy, settles event 65, tells the merge trains and reports. Merging deploys the backend. On "hold", nothing
-   moves. Neither step starts on a relayed comment.
+1. **#1281's release with #1297 waits for the founder's go** (asked at about 17:31Z). On "go", once the second high-tier review's last
+   refuters (the gate lens's F4 and F5) have reported and any finding they uphold is fixed and checked, since until then that review
+   is incomplete, not clearance: (1) a fresh `deepseek-balance` reading above USD 5 and ledger event 65, published and read back,
+   sized for two pushes (USD 1.580000), in case GitHub runs CI on the first; one round is expected; (2) the chief marks #1297 ready
+   and squash-merges it into #1281's branch with the drafted title and message, pinned to `f5a601e`, while #1281 still conflicts with
+   main, so no workflow runs on it; (3) it merges main into #1281's branch with the prepared resolution (above), runs the full gate on
+   that commit, pushes once and requests Codex; (4) once CI and Codex are green there, it asks once for the merge confirmation naming
+   that head, then squash-merges #1281 with an explicit message once main is idle, verifies the deploy, settles event 65, tells the
+   merge trains and reports. Merging deploys the backend. On "hold", nothing moves. Neither step starts on a relayed comment.
 2. **This record's PR:** a fact-check workflow over the draft (`record-26-factcheck-01`, closure 177), then `record-26-reviewer-01`
    (closure 176; records-only rule: one reviewer context bound to the final head, with same-context delta checks); `@codex review`
    after each push; an explicit squash title and message; then the twenty-second deploy-skip proof. It touches neither the F9 and E16
@@ -444,10 +446,10 @@ review workflow `wf_0f0826ee-035`, twenty-three contexts at the cutoff, of twent
 ## Founder actions this record needs
 
 1. **#1281's release with #1297** (new; yours; asked in the chat at about 17:31Z): reply "go" to start Plan item 1's first three steps
-   (the reservation; the fold of #1297 into #1281's branch; the merge of main that resolves #1281's todo conflict with another
-   writer's #1306, so one paid round runs; Codex on the new head), after which the chief asks once more, naming #1281's new head,
-   before the merge; or "hold". Merging deploys the backend. The relayed comments' hold stands until you say so; if either relayed
-   comment was not yours, say so.
+   once #1297's second review is complete, its last four refuters having reported (the reservation; the fold of #1297 into #1281's
+   branch; the merge of main that resolves #1281's todo conflict with another writer's #1306, so one paid round runs; Codex on the new
+   head), after which the chief asks once more, naming #1281's new head, before the merge; or "hold". Merging deploys the backend. The
+   relayed comments' hold stands until you say so; if either relayed comment was not yours, say so.
 2. **The residual over-redaction** (optional): a weak secret equal to a protocol value, such as a check-in's `in_progress`, still
    replaces that value; the lesson records it as accepted, since production secrets are random and the path needs a misconfigured,
    word-like one. Say so if you want values preserved too: a further design and review round.
