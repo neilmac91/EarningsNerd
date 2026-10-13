@@ -95,7 +95,8 @@ oracle its tests iterate, so `app/config.py` does not change and no paid evaluat
 and the rule's copy, and added one pin: the gate's fixture refuses `enable_logs`, because with Sentry logs on a log record's `extra`
 value that is not text, a mapping or a list reaches Sentry as its repr, built after the hook. The chief tracks two of the synthesis's
 open questions elsewhere: `app/database.py`'s refusal message still advises percent-encoding, which the deploy's split does not decode
-(todo E23, which #1297 adds); and the startup log's quote of a host-missing URL's digits, accepted since #1281.
+(todo E23 in #1297; E24 once main is merged in, as main's E23 is now another writer's); and the startup log's quote of a host-missing
+URL's digits, accepted since #1281.
 
 **Implementation and gates.** The chief applied the synthesis in the worktree of the branch
 `claude/stoic-wright-6jeujo-sentry-value-scrubber`, stacked on #1281's head, after checking each file against the checksum the
@@ -260,9 +261,9 @@ workflow on a conflicting pull request; then push the merge of main once, so one
 ## Production after record 25: six main runs classified; two deploys read back
 
 Main moved six times after record 25's base. Each run is classified from its `deploy-backend` job's step conclusions (read through the
-platform's REST API, read-only: for each skipped run, the six deploy steps all `skipped` and the detector `success`), and each deploy
-from its log through the redacting filter (every Cloud Run default-domain host, signed query, address and token replaced; only step
-markers, pins, migration counts, revision and health lines kept, and one line of the allow-listed env pairs per echoed
+platform's REST API, read-only: for each skipped run, steps 6 to 17 all `skipped` and the detector, step 5, `success`), and each
+deploy from its log through the redacting filter (every Cloud Run default-domain host, signed query, address and token replaced; only
+step markers, pins, migration counts, revision and health lines kept, and one line of the allow-listed env pairs per echoed
 `--update-env-vars` or `--set-env-vars` line; the raw copy deleted):
 
 | Merge | PR | Main CI run | `deploy-backend` job | Outcome |
@@ -302,18 +303,18 @@ Spend this record: **USD 0.366538, 108 DeepSeek calls** (telemetry estimates, no
 usage 6.805791 → 7.172329 (3,825 → 3,933 calls); **0 active reservations after event 64**. Each event was published to the private
 ledger after the chief read the published document back and found it equal to the previous event's (event 63 at `51049bd6…`, event 64
 at `2c856b48…`); each publication was read back equal (`2c856b48…` and `1fca2715…`). No paid trigger of the chief's followed event 64:
-no head of #1297 fired one (above). Event 65, the reservation before the fold moves #1281's head (USD 0.790000: one `eval-baseline`
-run, 0.730000, and one Copilot fidelity run, 0.060000), is prepared and unwritten; it waits for the founder's go and a fresh reading
-above the floor. Other writers' paid runs in this record's window, not reserved in this ledger and not read here: the Copilot fidelity
-runs on #1302's branch (38428724525, 16:13:32–16:16:01Z, success) and on #1305's (38432391251, 16:40:12–16:42:39Z, failed at its
-question step), and the `eval-baseline` job of #1305's branch (115417598365 in CI run 38432369552, 16:40:09–16:50:12Z, its baseline
-eval and regression gate run); three Copilot fidelity runs on Dependabot branches failed at the same question step (38429840008,
-38429940475 and 38436835915); their calls, if any, were not read. F23, the founder row #1300 added, named a Copilot reservation
-(record 09's rule) as a step before #1302's ready marking; no request reached the chief, and this ledger holds none. #1306 then added
-E23 on main, assigned to the chief: settle the two Copilot draws in the private ledger (36 and 38 calls, USD 0.013691 together by that
-writer's reading of their telemetry). The chief will record them, with #1305's `eval-baseline` job, which E23 does not list, after
-reading each run's telemetry through its own field filter (Plan, item 3). No `deepseek-balance` dispatch in the window was another
-writer's.
+no head of #1297 fired one (above). Event 65, the reservation before the fold moves #1281's head (USD 1.580000: up to two rounds of
+one `eval-baseline` run, 0.730000, and one Copilot fidelity run, 0.060000, in case GitHub runs CI on the fold's push as well as on the
+merge's; one round is expected), is prepared and unwritten; it waits for the founder's go and a fresh reading above the floor. Other
+writers' paid runs in this record's window, not reserved in this ledger and not read here: the Copilot fidelity runs on #1302's branch
+(38428724525, 16:13:32–16:16:01Z, success) and on #1305's (38432391251, 16:40:12–16:42:39Z, failed at its question step), and the
+`eval-baseline` job of #1305's branch (115417598365 in CI run 38432369552, 16:40:09–16:50:12Z, its baseline eval and regression gate
+run); three Copilot fidelity runs on Dependabot branches failed at the same question step (38429840008, 38429940475 and 38436835915);
+their calls, if any, were not read. F23, the founder row #1300 added, named a Copilot reservation (record 09's rule) as a step before
+#1302's ready marking; no request reached the chief, and this ledger holds none. #1306 then added E23 on main, assigned to the chief:
+settle the two Copilot draws in the private ledger (36 and 38 calls, USD 0.013691 together by that writer's reading of their
+telemetry). The chief will record them, with #1305's `eval-baseline` job, which E23 does not list, after reading each run's telemetry
+through its own field filter (Plan, item 3). No `deepseek-balance` dispatch in the window was another writer's.
 
 ## Disclosures
 
@@ -326,10 +327,9 @@ production effect.
    (b) **A lease push refused, harmlessly.** After the merge the chief reset the records branch and pushed with a lease naming the old
    head; GitHub had already deleted the merged branch, so the lease reported stale information and pushed nothing. A plain push
    recreated the branch (09:12:53Z).
-   (c) **A result stated before its check ran.** The chief's answer to Codex's P2 on `06a463e` (12:41:31Z) said that three mutations
-   each fail only the new gate case; the probe that showed it ran after the answer was posted. The probe confirmed the statement
-   (`M44`–`M46`, each killed by that case alone), and the head's full mutation run later agreed. Rule: state a check's result only
-   after it has run.
+   (c) **A result stated before its check ran.** The chief's answer to Codex's P2 on `06a463e` (12:41:31Z) said "Three mutations each
+   fail the new case"; the probe that showed it ran after the answer was posted. The probe confirmed the statement (`M44`–`M46`, each
+   killed by that case alone), and the head's full mutation run later agreed. Rule: state a check's result only after it has run.
    (d) **Two of the chief's own tools misfired before any test ran:** the first start of the mutation run on `ceae996` named a
    mistyped commit and stopped at its `git archive` (its empty directory removed); the first run on `2483213` stopped at two mutation
    anchors left stale by that commit (`M07`, `M48`). The runner was fixed, and from then on every anchor was dry-run checked against
@@ -411,11 +411,12 @@ production effect.
    refuters (the gate lens's F4 and F5) have reported and any finding they uphold is fixed and checked, since until then that review
    is incomplete, not clearance: (1) a fresh `deepseek-balance` reading above USD 5 and ledger event 65, published and read back,
    sized for two pushes (USD 1.580000), in case GitHub runs CI on the first; one round is expected; (2) the chief marks #1297 ready
-   and squash-merges it into #1281's branch with the drafted title and message, pinned to `f5a601e`, while #1281 still conflicts with
-   main, so no workflow runs on it; (3) it merges main into #1281's branch with the prepared resolution (above), runs the full gate on
-   that commit, pushes once and requests Codex; (4) once CI and Codex are green there, it asks once for the merge confirmation naming
-   that head, then squash-merges #1281 with an explicit message once main is idle, verifies the deploy, settles event 65, tells the
-   merge trains and reports. Merging deploys the backend. On "hold", nothing moves. Neither step starts on a relayed comment.
+   and squash-merges it into #1281's branch with the drafted title and message, pinned to #1297's head at that time (`f5a601e` at this
+   record's cutoff), while #1281 still conflicts with main, so no workflow runs on it; (3) it merges main into #1281's branch with the
+   prepared resolution (above), runs the full gate on that commit, pushes once and requests Codex; (4) once CI and Codex are green
+   there, it asks once for the merge confirmation naming that head, then squash-merges #1281 with an explicit message once main is
+   idle, verifies the deploy, settles event 65, tells the merge trains and reports. Merging deploys the backend. On "hold", nothing
+   moves. Neither step starts on a relayed comment.
 2. **This record's PR:** a fact-check workflow over the draft (`record-26-factcheck-01`, closure 177), then `record-26-reviewer-01`
    (closure 176; records-only rule: one reviewer context bound to the final head, with same-context delta checks); `@codex review`
    after each push; an explicit squash title and message; then the twenty-second deploy-skip proof. It touches neither the F9 and E16
@@ -430,19 +431,20 @@ production effect.
 
 ## Registration (closure 177)
 
-Closure 177 (759 → 769), pushed at 09:12:53Z before any launch it covers, registers as actual this session's launches since closure
-176: the record-25 fact-check workflow `wf_3acf8f6c-b19` and its four agent contexts (convention `workflow_agent_labels`), #1281's
-second, independent review (`launched-2026-10-13T0646Z`; one context, also its delta check of `3c52519` and its check of the PR body)
-and `record-25-reviewer-01`'s launch-time identity (`launched-2026-10-13T0700Z`). It resolves closure 176's `record-25-factcheck-01`
-and `secret-output-followups-second-review-01` and closure 175's `record-25-reviewer-01` to those identities, annotates the review
-workflow `wf_844015fc-9e9` (closure 176's text cites the older convention; record 25's reviewer suggested the note), and pre-registers
-`sentry-value-scrubber-pr-01` (E19's design, implementation and review, and any fix they lead to), `record-26-factcheck-01` and
-`record-27-reviewer-01`. `record-26-reviewer-01` (closure 176) covers this record's reviewer. No context gains source, reconciliation
-or judging eligibility; every earlier identity and adverse history is retained. This record's launches under
-`sentry-value-scrubber-pr-01` (the design workflow `wf_90ae5e9c-de0`, three contexts; the first review workflow `wf_c08be321-99a`,
-thirteen; the delta reviewer `ae31331869c7cec1a`, one context over six rounds; the design checks `wf_13b2a427-187`, two; the second
-review workflow `wf_0f0826ee-035`, twenty-three contexts launched by the cutoff, twenty-one of them reported, of twenty-five planned)
-and under `record-26-factcheck-01` and `record-26-reviewer-01` are registered as actual by record 27's closure.
+Closure 177 (759 → 769), pushed at 09:12:53Z before any launch it pre-registers, registers as actual this session's launches since
+closure 176: the record-25 fact-check workflow `wf_3acf8f6c-b19` and its four agent contexts (convention `workflow_agent_labels`),
+#1281's second, independent review (`launched-2026-10-13T0646Z`; one context, also its delta check of `3c52519` and its check of the
+PR body) and `record-25-reviewer-01`'s launch-time identity (`launched-2026-10-13T0700Z`). It resolves closure 176's
+`record-25-factcheck-01` and `secret-output-followups-second-review-01` and closure 175's `record-25-reviewer-01` to those identities,
+annotates the review workflow `wf_844015fc-9e9` (closure 176's text cites the older convention; record 25's reviewer suggested the
+note), and pre-registers `sentry-value-scrubber-pr-01` (E19's design, implementation and review, and any fix they lead to),
+`record-26-factcheck-01` and `record-27-reviewer-01`. `record-26-reviewer-01` (closure 176) covers this record's reviewer. No context
+gains source, reconciliation or judging eligibility; every earlier identity and adverse history is retained. This record's launches
+under `sentry-value-scrubber-pr-01` (the design workflow `wf_90ae5e9c-de0`, three contexts; the first review workflow
+`wf_c08be321-99a`, thirteen; the delta reviewer `ae31331869c7cec1a`, one context over six rounds and a final check; the design checks
+`wf_13b2a427-187`, two; the second review workflow `wf_0f0826ee-035`, twenty-three contexts launched by the cutoff, twenty-one of them
+reported, of twenty-five planned) and under `record-26-factcheck-01` and `record-26-reviewer-01` are registered as actual by record
+27's closure.
 
 ## Founder actions this record needs
 
@@ -470,4 +472,5 @@ and under `record-26-factcheck-01` and `record-26-reviewer-01` are registered as
    the custody side; if you agree, also tell the chief, in your own words, "If the answer is outcome B, I adopt record 16's form (b)
    for R1".
 
-Record 25's founder action 3 (Codex credits) is closed: Codex reviewed every head of #1297 and #1281's `3c52519` from 11:35Z on.
+Record 25's founder action 3 (Codex credits) is resolved for now: Codex reviewed every head of #1297 and #1281's `3c52519` from 11:35Z
+on; it reopens if Codex answers with its usage-limit reply again.

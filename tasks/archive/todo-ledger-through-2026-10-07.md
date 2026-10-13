@@ -6668,8 +6668,7 @@ Full local and hosted verification plus independent exact-head review precede re
   deploy-skip proof). Codex cleared #1281's `3c52519`. E19, the value-level Sentry scrubber
   (`sentry-value-scrubber-pr-01`), built as PR #1297 on #1281's branch: designed by a workflow, implemented by the chief,
   reviewed by two high-tier review workflows, design checks and a delta reviewer (no blocker found; the second review
-  four refuters short), redesigned at a relayed
-  request; its release with #1281 held for the founder (F22). Another writer's #1306 left #1281 conflicting with main in
+  four refuters short), redesigned at a relayed request; its release with #1281 held for the founder (F22). Another writer's #1306 left #1281 conflicting with main in
   `tasks/todo.md`; the resolution prepared, not pushed. Six main runs classified; two other writers' deploys read back
   (healthy; every pin in place); production read live. Ledger events 63–64 (USD 0.366538). Closure 177.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
