@@ -82,12 +82,12 @@ const MATCHERS: Matcher[] = [
 /** Phrases no file writes today, each with its reason. Shrink-only: delete the line when the phrase is
     written again or dropped from its matcher, and lower UNSOURCED_MAX in the same commit. */
 const DASHBOARD_UNSOURCED =
-  "no message that reaches the dashboard's error boundary says it (see MATCHERS); the redirect's logic is E18's (a status or an error code), never the brand sweep's"
+  "no message that reaches the dashboard's error boundary says it (see MATCHERS); the redirect's logic is E31's (a status or an error code), never the brand sweep's"
 const UNSOURCED: Record<string, string> = {
   'isCopilotPaywallError monthly cap':
     "no message says it: the Copilot cap's 429 says \"fair-use limit\" (routers/summaries.py), which this matcher does not read; the matcher's owner (brand-copilot, ASK-07) decides",
   'isNonRetryableStreamError sign in':
-    'no message on the summary stream says it: its 401 is get_current_user\'s "Could not validate credentials" (routers/auth.py), which summaries-api.ts surfaces in place of its fallback, and a 401 comes back retryable: false by status, so this matcher never sees it; the matcher\'s logic is E18\'s (an error code field), never the brand sweep\'s',
+    'no message on the summary stream says it: its 401 is get_current_user\'s "Could not validate credentials" (routers/auth.py), which summaries-api.ts surfaces in place of its fallback, and a 401 comes back retryable: false by status, so this matcher never sees it; the matcher\'s logic is E31\'s (an error code field), never the brand sweep\'s',
   'DashboardError 401': DASHBOARD_UNSOURCED,
   'DashboardError Unauthorized': DASHBOARD_UNSOURCED,
   'DashboardError authentication': DASHBOARD_UNSOURCED,
