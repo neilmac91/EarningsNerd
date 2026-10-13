@@ -1,0 +1,45 @@
+"""Compare two section dumps: raw/non-whitespace equality, lost/gained characters, the ROIC row and the three table seams."""
+import re, sys
+from collections import Counter
+from pathlib import Path
+A, B = Path(sys.argv[1]), Path(sys.argv[2])
+va, vb = (A / "VERSION").read_text(), (B / "VERSION").read_text()
+print(f"A={va} B={vb}")
+for fa in sorted(A.glob("section_*.txt")):
+    fb = B / fa.name
+    if not fb.exists():
+        print(f"{fa.name}: MISSING in B"); continue
+    a, b = fa.read_text(encoding="utf-8"), fb.read_text(encoding="utf-8")
+    na, nb = re.sub(r"\s+", "", a), re.sub(r"\s+", "", b)
+    ca, cb = Counter(na), Counter(nb)
+    lost = {k: v for k, v in (ca - cb).items()}
+    gained = {k: v for k, v in (cb - ca).items()}
+    print(f"{fa.name}: raw_equal={a == b} nonws_equal={na == nb} nonws_lenA={len(na)} nonws_lenB={len(nb)} "
+          f"same_char_multiset={ca == cb} lost_in_B={lost} gained_in_B={gained}")
+mda_a = (A / "section_part_i_item_2.txt").read_text(encoding="utf-8")
+mda_b = (B / "section_part_i_item_2.txt").read_text(encoding="utf-8")
+print("\n== ROIC row ==")
+for label, text in ((va, mda_a), (vb, mda_b)):
+    for i, line in enumerate(text.splitlines(), 1):
+        if line.startswith("ROIC (a)"):
+            print(f"{label} MD&A line {i}: {line!r}")
+print("\n== Table seams (the three glued in 5.59.1) ==")
+seams = [("part_i_item_2", "with the SEC.", "2026 Guidance"),
+         ("part_i_item_1", "ended March\xa031 (in millions):", "First Quarter 2025"),
+         ("part_i_item_1", "were as follows (in millions):", "December 31, 2025")]
+for sec, before, after in seams:
+    for label, root in ((va, A), (vb, B)):
+        text = (root / f"section_{sec}.txt").read_text(encoding="utf-8")
+        i = text.find(before)
+        j = text.find(after, i) if i >= 0 else -1
+        between = text[i + len(before):j] if (i >= 0 and j >= 0) else None
+        print(f"{label} {sec}: {before[-22:]!r} .. {after!r} -> between={between!r}")
+print("\n== Outlook block ==")
+for label, text in ((va, mda_a), (vb, mda_b)):
+    s = text.index("OUTLOOK"); e = text.index("Cautionary Note on Forward-Looking Statements", s)
+    block = text[s:e].strip()
+    glued = "Adjusted EBIT (a)$8.5 - $10.5 billion" in block
+    rowre = re.compile(r"Adjusted EBIT \(a\)[ \t]*\$8\.5 - \$10\.5 billion")
+    print(f"{label}: OUTLOOK at {s} len(block)={len(block)} glued_literal={glued} row_regex={bool(rowre.search(block))} "
+          f"ford_energy={'Ford Energy' in block}")
+    (Path(sys.argv[3]) / f"outlook-{label}.txt").write_text(block, encoding="utf-8")
