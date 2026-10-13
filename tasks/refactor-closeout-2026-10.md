@@ -366,7 +366,7 @@ Keep separate Rule 7 timestamp and Wave 0 behavior follow-ups (missing-identifie
 NaN, numeric model filing_date, model-supplied structured-output keys), and the
 existing Founder OUTPUT REFERENCE prompt-byte decision until separately resolved.
 This closeout changes three task documents. Original red verdicts and unknown
-costs remain visible; the separate behavior and founder decisions, open at closeout, are resolved below.
+costs remain visible; the separate behavior follow-ups and the founder decision, open at closeout, are resolved below.
 
 
 ### Follow-ups resolved — 2026-10-11
@@ -408,8 +408,9 @@ after the closeout is accounted separately, once each:
 | Follow-ups 5 and 6 | #1245 | 0.183647 (summary 0.177031, Copilot 0.006616) | [#1245](https://github.com/neilmac91/EarningsNerd/pull/1245) |
 | Move-proof hardening | #1243 | 0 (tests only; no paid path) | [#1243](https://github.com/neilmac91/EarningsNerd/pull/1243) |
 
-Each figure sums the calls' logged `estimated_cost_usd` (`app/services/llm_pricing.py`); a report's
-`total_cost_usd: 0.0` and wallet movement are not cost evidence. #1236's body gave about USD 0.18 per run. Its
+Each figure is quoted from the receipt or job log its row links, where it sums the calls' logged
+`estimated_cost_usd` (`app/services/llm_pricing.py`); a report's `total_cost_usd: 0.0` and wallet movement are not
+cost evidence. #1236's body gave about USD 0.18 per run. Its
 second job was cancelled when a new head superseded it, after 68 of its 70 attempts had logged usage. The last
 filing's two attempts were in flight at the cancellation (13:31:50Z) and logged none, so their cost is unknown.
 
