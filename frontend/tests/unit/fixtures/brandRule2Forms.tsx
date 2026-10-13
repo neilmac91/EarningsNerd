@@ -554,3 +554,9 @@ export function P328() { return <p>{[WORDS_161, ['Margin']].flat().map((l) => <s
 export function P329() { return <span className="text-brand-strong">{LABELS_161.slice(0)}</span> } // flag
 export function P330() { return <span className="text-brand-strong">{WORDS_161.concat(['Margin'])}</span> } // clean
 export function P331({ n }: { n: number }) { const actions = Children.toArray([<button key="a">See <span className="text-text-secondary-light">{n}</span></button>]); return <div className="text-brand-strong">{actions}</div> } // flag
+// Codex's review of d3f1522: React's other child-preserving helper, Children.only, returns what it is given (P332, the
+// review's own form); by its React. name rendered inline; a count control through it; and a look-alike over a word.
+export function P332({ n }: { n: number }) { const child = Children.only(<span>{n}</span>); return <div className="text-brand-strong">{child}</div> } // flag
+export function P333() { return <span className="text-brand-strong">{React.Children.only(<b>Step 2</b>)}</span> } // flag
+export function P334() { const child = Children.only(<b>Revenue</b>); return <div className="text-brand-strong">{child}</div> } // clean
+export function P335({ n }: { n: number }) { const action = Children.only(<button>See <span className="text-text-secondary-light">{n}</span></button>); return <div className="text-brand-strong">{action}</div> } // flag

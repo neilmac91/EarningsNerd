@@ -35,9 +35,9 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    held in a name); a call holds and renders what its callbacks, its own same-file function or a
  *    useMemo returns. Arrays and objects are read through a spread, an object's values, keys and
  *    entries, a call that keeps its members or returns one (slice, filter, concat, flat, a Set,
- *    Array.from, React's Children.toArray; at, find; Children.map and forEach bind their callback as
- *    the array methods do), a map's returns, a join and a list rendered whole. A key the scan cannot
- *    read may land on any member, so every
+ *    Array.from, React's Children.toArray; at, find; Children.only returns what it is given, and
+ *    Children.map and forEach bind their callback as the array methods do), a map's returns, a join
+ *    and a list rendered whole. A key the scan cannot read may land on any member, so every
  *    member is read; a parameter bound at several calls takes every call's value, so a function that
  *    renders it in sage fails on any call that hands it a digit; and a binding the walk meets again
  *    (a function that hands a parameter to itself) ends there.
@@ -354,9 +354,10 @@ function bindingOf(symbol: ts.Symbol | undefined, path: Step[]): Binding {
     written inline or named: `ARRAY.map((item) => …)`, `ARRAY.map(render)`, a nested map over an element's field
     included). Arrays and objects are read through a spread, a shorthand property through the name it holds, an
     object through Object.values, keys and entries, an array through a call that keeps its members (`slice`,
-    `filter` …) or adds to them (`concat`, `flat`), a Set, Array.from or React's Children.toArray, and a map
-    (Children.map included) through what its callback returns; a member through `at`, `find` and `findLast`, a
-    join through every member it joins, and the chain through `??`, `||` and conditionals. A
+    `filter` …) or adds to them (`concat`, `flat`), a Set, Array.from or React's Children.toArray, a child through
+    Children.only, and a map (Children.map included) through what its callback returns; a member through `at`,
+    `find` and `findLast`, a join through every member it joins, and the chain through `??`, `||` and
+    conditionals. A
     value written in a literal is read as written: a conditional there is not split, since the scan cannot tie it
     to the element's other fields (the pricing cards' call to action takes its button's variant and its label
     from the same plan). A key the scan cannot read (`LABELS[i]`, a computed key, `find`), or an index into an
@@ -389,6 +390,8 @@ function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[]): ts.Exp
       return held(at.expression.expression, [step, ...path], depth + 1)
     }
     if (method(at, JOINS)) return path.length ? [] : held(at.expression.expression, [null], depth + 1)
+    // `Children.only(x)` returns what it is given.
+    if (childrenCall(at, 'only')) return held(at.arguments[0], path, depth + 1)
     // A call holds what its same-file function returns (`build()`), and useMemo what its callback returns; a function
     // met again on the way (one that returns a call of itself) holds nothing more.
     if (ts.isCallExpression(at)) {
@@ -1170,6 +1173,8 @@ function rendersValue(e: ts.Expression, sf: ts.SourceFile, depth = 0): boolean {
     if (renderedFunctions(x).some((fn) => returnedExpressions(fn).some((r) => rendersValue(r, sf, depth + 1)))) return true
     // A list a call makes renders every member (`{Children.toArray([<b>{n}</b>])}`, `{counts.concat(more)}`).
     if (listCall(x) && literalExpressions(x, sf, [null]).some((m) => !asWritten(m) && rendersValue(m, sf, depth + 1))) return true
+    // `Children.only(x)` renders x.
+    if (childrenCall(x, 'only') && rendersValue(x.arguments[0], sf, depth + 1)) return true
     return x.arguments.some((a) => !ts.isArrowFunction(unwrap(a)) && !ts.isFunctionExpression(unwrap(a)) && literalText(unwrap(a)) === null && isNumberTyped(a))
   }
   if (ts.isIdentifier(x)) {
