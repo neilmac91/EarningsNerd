@@ -10,9 +10,9 @@ standing holds (issue #1063 for edgartools; dependency majors are founder-held).
 
 | PR | Bump | Disposition | Record |
 | --- | --- | --- | --- |
-| [#1282](https://github.com/neilmac91/EarningsNerd/pull/1282) | frontend `minor-updates` group, 7 updates | Replaced by [#1304](https://github.com/neilmac91/EarningsNerd/pull/1304), identical patch-id `0db98d69…`; marked ready for Codex (no paid run on this path) | #1304 body |
-| [#1283](https://github.com/neilmac91/EarningsNerd/pull/1283) | backend `minor-updates` group, 7 updates | Replaced by [#1302](https://github.com/neilmac91/EarningsNerd/pull/1302), identical patch-id `c54a3f67…`; left as a draft until the `copilot-eval` reservation is written | #1302 body |
-| [#1284](https://github.com/neilmac91/EarningsNerd/pull/1284) | stripe 15.6.1 → 16.0.0 (major) | **Held, do not merge as-is**: the SDK's pinned API version `2026-09-30.endive` removes `payment_method_types` from Checkout Session create, which `app/routers/subscriptions.py:216` still sends; founder decision pending | [comment 6148612685](https://github.com/neilmac91/EarningsNerd/pull/1284#issuecomment-6148612685) |
+| [#1282](https://github.com/neilmac91/EarningsNerd/pull/1282) | frontend `minor-updates` group, 7 updates | Replaced by [#1304](https://github.com/neilmac91/EarningsNerd/pull/1304), identical patch-id `0db98d69…`; merged as `95ac033` (16:13 UTC); #1282 closed as superseded | #1304 body; release record below |
+| [#1283](https://github.com/neilmac91/EarningsNerd/pull/1283) | backend `minor-updates` group, 7 updates | Replaced by [#1302](https://github.com/neilmac91/EarningsNerd/pull/1302), identical patch-id `c54a3f67…`; marked ready under the founder's merge instruction (paid `copilot-eval` draw, green); merged as `6113751` (16:18 UTC); #1283 closed as superseded | #1302 body; release record below |
+| [#1284](https://github.com/neilmac91/EarningsNerd/pull/1284) | stripe 15.6.1 → 16.0.0 (major) | Replaced by [#1305](https://github.com/neilmac91/EarningsNerd/pull/1305): the same commit (identical patch-id `3489c8e5…`) plus the one change the SDK forces, `allowed_payment_method_types: ["card"]` in `app/routers/subscriptions.py`, because the SDK's pinned API version `2026-09-30.endive` removes `payment_method_types` from Checkout Session create; high tier, 0 blockers; merged as `{{MERGE1305}}`; #1284 closed as superseded | #1305 body; [comment 6148612685](https://github.com/neilmac91/EarningsNerd/pull/1284#issuecomment-6148612685); release record below |
 | [#1285](https://github.com/neilmac91/EarningsNerd/pull/1285) | edgartools 5.58.0 → 5.61.1 | **Held** under issue #1063: both 5.59.1 regressions persist on the Ford fixture | [`../edgartools-5.61.1-hold-2026-10-13/`](../edgartools-5.61.1-hold-2026-10-13/README.md), [comment 6148225509](https://github.com/neilmac91/EarningsNerd/pull/1285#issuecomment-6148225509) |
 
 ## Method
@@ -72,19 +72,34 @@ pydantic-settings 2.15.0 tolerates the `model_config` non-mutation; openai 3.28.
 streaming and exception modules are byte-identical to 3.24.0; posthog 7.67.0's `capture` surface is
 unchanged; ruff 0.17.0 changes nothing in E4/E7/E9 and the effective rule list is identical.
 
-## #1284 (stripe 16.0.0): held
+## #1284 → #1305 (stripe 16.0.0)
 
 The SDK surface is compatible (every path parameter is already positional; `stripe.error`,
 `Webhook.construct_event`, `RequestsClient`, `StripeClient(..., http_client=, max_network_retries=0)`
 and `to_dict()` are unchanged), every dahlia → endive change to a field this code reads is additive,
 and webhook payloads follow the endpoint's version, not the SDK pin. The full suite passes on
-16.0.0 (7086 passed, ruff and bandit clean, pip-audit clean), which is exactly why the break is
-invisible to CI: `tests/unit/test_checkout_session.py` mocks `Session.create`. Stripe's changelog
-for endive states that passing `payment_method_types` to Checkout Session create "now returns a
-`400` error", and 16.0.0's `checkout.SessionCreateParams` drops the key for
-`allowed_payment_method_types`. The remediation is a maintainer PR that bumps and changes line 216
-in the same commit (`allowed_payment_method_types: ["card"]` keeps today's behaviour; dropping the
-line hands selection to the Dashboard), with a kwargs assertion in the checkout test; high tier.
+16.0.0 with the old key still in place, which is exactly why the break is invisible to CI:
+`tests/unit/test_checkout_session.py` mocks `Session.create`. Stripe's changelog for endive states
+that passing `payment_method_types` to Checkout Session create "now returns a `400` error", and
+16.0.0's `checkout.SessionCreateParams` drops the key for `allowed_payment_method_types`.
+
+The remediation is #1305, under the founder's instruction to resolve what is not ready: the bump
+and the fix in one squash commit, because neither half can precede the other (stripe 15 on dahlia
+answers the new key with `parameter_unknown`; stripe 16 on endive answers the old key with 400).
+Card-only is kept: `allowed_payment_method_types: ["card"]` filters the account's Dashboard
+payment-method configuration, which was read before the PR opened (`GET
+/v1/payment_method_configurations`, live, read-only: card available and on). The gate moved into
+the checkout test helper every cohort test goes through: the removed key is absent, the new key is
+`["card"]`, and every key sent is one the installed SDK declares for the call, so the next
+endive-style removal fails in the suite. Mutation proofs on the committed head: old key restored,
+11 failed / 9 passed; an undeclared key added, 11 failed / 9 passed; restored, 20 passed. Gate on
+`faff471` under a fresh 3.11.17 environment from the PR's lock: ruff clean, bandit 0 medium /
+0 high, 7086 passed / 39 skipped, `pip check` clean. Review: three Opus lenses, 0 blockers, three
+should-fixes (the Dashboard read, the body's rollback and post-deploy items, the PR head), two Opus
+refuters per should-fix (the Dashboard check stands twice; the coupled-rollback sentence stands once
+and is refuted once as redundant under squash merges and revision rollback; the post-deploy
+Checkout check stands); nits applied. Dynamic payment methods (dropping the parameter) stay a
+product decision for the founder.
 
 ## #1285 (edgartools 5.61.1): held
 
@@ -92,12 +107,26 @@ See `../edgartools-5.61.1-hold-2026-10-13/README.md`: the Outlook test fails as 
 cell is still dropped from the ROIC row, three prose/table breaks are still missing, and 5.61.1's
 security items do not reach this deployment.
 
+## Release record
+
+- 16:13 UTC: #1304 merged as `95ac033` (frontend group). Vercel served the new bundle: the
+  production chunk carries posthog-js `LIB_VERSION="1.438.7"` (curl readback); no backend deploy.
+- 16:13 UTC: #1300 merged as `02411fb` (this directory and the edgartools hold; records only).
+- 16:18 UTC: #1302 merged as `6113751` (backend group). `deploy-backend`: {{DEPLOY1302}}
+- #1305 merged as `{{MERGE1305}}` (stripe 16 + checkout fix). `deploy-backend`: {{DEPLOY1305}}
+- Paid `copilot-eval` draws on #1302 and #1305 ran under the founder's merge instruction without a
+  prior reservation line; {{COST}}. The private ledger is the chief's to settle (todo F23).
+- Dependabot #1282, #1283 and #1284 closed as superseded with a pointer to each replacement; #1285
+  stays open as the edgartools tracker under #1063.
+
 ## Open follow-ups
 
-- #1302: write the `copilot-eval` reservation (DECISIONS-09 rule), mark ready, sequence the backend
-  deploy against #1281 (F22).
-- #1284: founder decision between `allowed_payment_method_types: ["card"]` and dynamic payment
-  methods; then the combined bump-and-fix PR for high-tier review.
-- React 19 before Next 17 (react, react-dom, @types/react), as a deliberate PR.
-- Dependabot's #1282 and #1283 stay open until their replacements merge, then close as superseded,
-  as #1097 and #1124 did; #1284 and #1285 stay open as trackers.
+- Founder, after #1305's deploy (F23): open the monthly and the yearly Checkout preview as the free
+  test account (user id 9) and confirm a Stripe page with a card form, unsubmitted; check the account
+  API version and the webhook endpoint version in Stripe Workbench against `2026-09-30.endive`;
+  decide later whether to hand payment-method selection to the Dashboard.
+- `.claude/skills/payments/stripe-best-practices/SKILL.md:83` still teaches `payment_method_types`
+  for `setupIntents.create`; v16 no longer declares it on SetupIntent or PaymentIntent create (E22).
+- React 19 before Next 17 (react, react-dom, @types/react), as a deliberate PR (E21).
+- edgartools: #1285 stays held under #1063 until the Outlook and table-seam regressions are fixed
+  upstream.
