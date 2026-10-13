@@ -75,8 +75,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   (`frontend/DESIGN_SYSTEM.md`): the whole label in the secondary ink as one text run, sage under
   the pointer, and a countdown at full strength while its control waits. `brandCopyRules.spec.ts`
   rule 2 reads the whole app and follows sage through a class, a ui Button or Badge variant, a
-  resting state such as `aria-pressed:`, an opacity modifier and a component that sets it; its
-  header names what stays review-checked.
+  resting state such as `aria-pressed:`, `visited:` or `focus:`, an opacity modifier and a
+  component that sets it or is given it, and its count-control check fails a sage control that
+  holds its count in a span of its own ink; its header names what stays review-checked.
 - **Exports and mail** (`backend/app/services/export_service.py`, `excel_export_service.py`,
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the

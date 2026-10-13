@@ -27,4 +27,6 @@ the PR's What with its reason, never as the way to turn a gate green.
 commit on that PR that restores both counts; the review of `cc2df56`, whose fix moved the feed link
 and the countdown on `frontend/app/check-email/page.tsx` to the count control recipe.
 `frontend/tests/unit/filingFeedOverflowCount.spec.tsx` and `narrative-pane.spec.tsx` keep the two
-counts rendered; `brandCopyRules.spec.ts` rule 2 keeps them out of sage.
+counts rendered; `brandCopyRules.spec.ts` rule 2 keeps them out of sage, and its count-control check
+(added after the review of `88f801c`, which found the recipe claiming a gate it did not have) fails a
+control resting in sage that holds its count in a span of its own ink, the form `cc2df56` shipped.

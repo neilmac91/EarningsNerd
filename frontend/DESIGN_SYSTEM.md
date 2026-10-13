@@ -220,7 +220,10 @@ Count control    A link or control whose label carries a count, a date, an index
                  drawing the ring below. Never a sage label with the count in a span of its own: it reads
                  in two inks, and inside an inline-flex control the span is its own flex item, which breaks
                  the underline. A countdown on a control that waits (aria-disabled) rests in the same ink at
-                 full strength, so the number stays legible. Gate: brandCopyRules.spec.ts rule 2.
+                 full strength, so the number stays legible. Gate: brandCopyRules.spec.ts rule 2, whose
+                 count-control check fails a sage control that holds its count in a span of its own ink
+                 (written inline or held in a const; a count a component renders inside one is
+                 review-checked).
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
@@ -371,11 +374,12 @@ Analysis reading <NarrativePane> — compact monetary amounts and quarter labels
 Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly; unavailable modes
                  opt into focusable aria-disabled with visible described reasons. Other callers keep
                  native disabled. The unavailable segment retains the full-strength focus ring.
-                 Recent-period presets are plain actions in the secondary ink that turn sage under the
-                 pointer or focus, with Button sm's shape and weight copied by hand (not ghost Buttons,
-                 whose label is sage at rest on a count, D-030), not pressed toggles; they sit outside
-                 the Button size contract on purpose, so a later change to Button's sizes does not reach
-                 them (their labels are three short words and their row wraps). Visible From/To
+                 Recent-period presets are plain actions in the secondary ink that turn sage under
+                 the pointer, keyboard focus drawing the ring, with Button sm's shape and weight
+                 copied by hand (not ghost Buttons, whose label is sage at rest on a count, D-030),
+                 not pressed toggles; they sit outside the Button size contract on purpose, so a
+                 later change to Button's sizes does not reach them (their labels are three short
+                 words and their row wraps). Visible From/To
                  labels wrap raw compact selects using inputClasses({ select: true, autoWidth: true });
                  font-data and tabular-nums belong to the select itself. Fields fill phones and use
                  intrinsic/em widths on desktop. Analysis's full-width route wrapper is an inline-size

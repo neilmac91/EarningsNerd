@@ -1,6 +1,9 @@
 import { readFileSync, readdirSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { Config } from 'tailwindcss'
+import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -24,22 +27,28 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    may carry a digit, written inline, in a callback or mapped in from a literal array (SEC form
  *    codes such as "10-K" are names, and the device's citation brackets, "[1]" and "[F1]", are not
  *    numbers), or a value. Sage ink is any brand-family colour token, with or without an opacity
- *    modifier, in a state the element can rest in (dark:, a breakpoint, aria-*, data-*, disabled:);
- *    hover:, focus: and their group- and peer- forms are activity, sage's other job, so a control
- *    may turn sage under the pointer while its count rests in the ink. The ink comes from the
+ *    modifier, in a state the element can rest in (dark:, a breakpoint, aria-*, data-*, disabled:,
+ *    visited:, focus:); hover: and active: and their group- and peer- forms are activity under the
+ *    pointer, sage's other job, so a control may turn sage under the pointer while its count rests
+ *    in the ink, and keyboard focus draws the sage ring, not a sage count. The ink comes from the
  *    className at the call site (inline or a same-file const), from a variant component (Button,
  *    RetryButton, MarketingCta and Badge, each variant's colour asked of the component itself, and
  *    buttonVariants() in a className likewise), or from an app component followed through the
  *    checker: one that renders its children in sage is a sage element, and one that renders a
- *    number in the ink it inherits fails inside a sage parent. A value is read through the type
- *    checker (one program from tsconfig.json): a number-typed expression, a template or a call fed
- *    one (a formatter, and so also a lookup such as labelFor(i)), a number's own method, a
- *    same-file constant holding one, or what a callback returns, through conditionals and JSX
- *    branches. A citation whose bracket is its whole text ("[{n}]") and a link that renders its own
- *    address are text. Out of a source scan's reach, and so review-checked: a date or an index name
- *    computed as text, a colour set by an inline style or on a pseudo-element, a library
- *    component's internals, and SVG text coloured by attribute (the chart theme, which carries no
- *    sage). The waitlist counter's own spec covers the count on the public pages.
+ *    number in the ink it inherits fails inside a sage parent or given sage where it is used. A
+ *    value is read through the type checker (one program from tsconfig.json): a number-typed
+ *    expression, a template or a call fed one (a formatter, and so also a lookup such as
+ *    labelFor(i)), a number's own method, a same-file constant holding one, or what a callback
+ *    returns, through conditionals, `||`, `??`, the right of `&&` (and its left when that is a
+ *    number, which renders a 0) and JSX branches; a comparison is a boolean and renders nothing. A
+ *    citation whose bracket is its whole text ("[{n}]") and a link that renders its own address are
+ *    text. The count control (frontend/DESIGN_SYSTEM.md) is the second check: a control that rests
+ *    in sage never holds its count in a span of its own ink, written inline or held in a same-file
+ *    const. Out of a source scan's reach, and so review-checked: a date or an index name computed
+ *    as text, a count a component renders in its own ink inside a sage control, a colour set by an
+ *    inline style or on a pseudo-element, a library component's internals, and SVG text coloured by
+ *    attribute (the chart theme, which carries no sage). The waitlist counter's own spec covers the
+ *    count on the public pages.
  * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
  *    figure or a price, the hero's accent phrases included; the margin (`en-margin`) exists only
  *    inside MarkedCopy, and every MarkedCopy carries at least one marker (`EnRef`).
@@ -109,11 +118,7 @@ function mappedValues(access: ts.PropertyAccessExpression, sf: ts.SourceFile): s
   if (!call || !ts.isCallExpression(call) || !ts.isPropertyAccessExpression(call.expression) || call.expression.name.text !== 'map') return []
   let array = unwrap(call.expression.expression)
   if (ts.isIdentifier(array)) {
-    const name = array.text
-    let init: ts.Expression | undefined
-    visit(sf, (n) => {
-      if (!init && ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === name && n.initializer) init = n.initializer
-    })
+    const init = localInitializer(array, sf)
     if (!init) return []
     array = unwrap(init)
   }
@@ -167,17 +172,28 @@ type Ink = 'sage' | 'other' | null
     without an opacity modifier (`text-brand-strong/70`), or the legacy accent-strong alias. `fill-` counts on
     SVG text, whose glyphs it paints. */
 const SAGE = /^(?:text|fill)-(?:brand(?:-[a-z]+)*|accent-strong)(?:\/(?:\d+|\[[^\]]+\]))?$/
-const NOT_COLOUR = /^text-(?:xs|sm|base|lg|xl|[2-9]xl|data-[a-z]+|left|center|right|justify|start|end|ellipsis|clip|wrap|nowrap|balance|pretty)$|^fill-(?:none|current|inherit)$/
-/** Variants that apply only under the pointer or keyboard focus (activity, sage's other job), and those that
-    colour a pseudo-element rather than the element's own text. Every other variant (dark, a breakpoint,
-    aria-*, data-*, disabled, open, checked, first, …) is a state an element can rest in, so its colour counts:
-    a selected tab's sage count is a sage count. */
-const ACTIVITY = /^(?:(?:group|peer)-)?(?:hover|focus|focus-visible|focus-within|active|visited|target)(?:\/[\w-]+)?$|^\[.*:(?:hover|focus|focus-visible|focus-within|active)\b.*\]$/
+/** Utilities that share a colour's prefix and set no ink of their own: the theme's type sizes (read from
+    tailwind.config.js, so a size added there is never read as a colour), an arbitrary length, alignment,
+    overflow and wrapping, and the parent's own colour (`text-inherit`, `text-current`). */
+const SIZES = Object.keys(resolveConfig(createRequire(import.meta.url)(path.join(ROOT, 'tailwind.config.js')) as Config).theme.fontSize)
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const NOT_COLOUR = new RegExp(
+  `^text-(?:${SIZES.map(escapeRegExp).join('|')}|left|center|right|justify|start|end|ellipsis|clip|wrap|nowrap|balance|pretty|inherit|current)$`
+    + String.raw`|^text-\[(?:length:|[\d.]|(?:calc|clamp|min|max)\()|^fill-(?:none|current|inherit)$`,
+)
+/** Variants that apply only under the pointer (hover: and active:, and their group- and peer- forms: activity,
+    sage's other job), and those that colour a pseudo-element rather than the element's own text. Every other
+    variant is a state an element can rest in, so its colour counts: dark:, a breakpoint, aria-*, data-*,
+    disabled:, open:, visited: (a link stays visited), target: (a section stays the fragment's target), and
+    focus: in all its forms, since keyboard focus draws the sage ring and a focused control stays focused while
+    it is read. A selected tab's sage count is a sage count. */
+const ACTIVITY = /^(?:(?:group|peer)-)?(?:hover|active)(?:\/[\w-]+)?$|^\[.*:(?:hover|active)\b.*\]$/
 const PSEUDO = /^(?:placeholder|file|marker|selection|before|after|first-letter|first-line|backdrop)$/
 const SVG_TEXT = new Set(['text', 'tspan', 'textPath'])
 const CITATION = /^\[F?\d+\]$/
-/** SEC form codes are names, not values ("Open the 10-K"), as a form code read from a variable already is. */
-const FORM_CODE = /\b(?:10-K|10-Q|8-K|20-F|40-F|6-K|11-K|S-1|S-3|S-4|S-8|F-1|F-3|DEF 14A|13F)(?:\/A)?\b/g
+/** SEC form codes are names, not values ("Open the 10-K", "10-Ks and 10-Qs"), as a form code read from a variable
+    already is. */
+const FORM_CODE = /\b(?:10-K|10-Q|8-K|20-F|40-F|6-K|11-K|S-1|S-3|S-4|S-8|F-1|F-3|DEF 14A|13F)(?:\/A)?(?:s|['’]s)?\b/g
 const carriesDigit = (text: string) => {
   const trimmed = text.trim()
   return !CITATION.test(trimmed) && /\d/.test(trimmed.replace(FORM_CODE, ''))
@@ -318,12 +334,27 @@ const VARIANT_COMPONENTS = new Map(([
   return [fn as ts.Node, { inks, fallback: defaultVariant(fn, name) }] as const
 }))
 
+const COMPARISONS = new Set([
+  ts.SyntaxKind.LessThanToken, ts.SyntaxKind.GreaterThanToken, ts.SyntaxKind.LessThanEqualsToken, ts.SyntaxKind.GreaterThanEqualsToken,
+  ts.SyntaxKind.EqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsToken, ts.SyntaxKind.EqualsEqualsEqualsToken,
+  ts.SyntaxKind.ExclamationEqualsEqualsToken, ts.SyntaxKind.InKeyword, ts.SyntaxKind.InstanceOfKeyword,
+])
+/** The operands a binary expression can evaluate to: none of a comparison (its boolean renders nothing), the
+    right of `&&`, and its left only when that is a number (`{count && …}` renders a 0), and both of `||`, `??`
+    and arithmetic. */
+function valueOperands(x: ts.BinaryExpression): ts.Expression[] {
+  const operator = x.operatorToken.kind
+  if (COMPARISONS.has(operator)) return []
+  if (operator === ts.SyntaxKind.AmpersandAmpersandToken) return isNumberTyped(x.left) ? [x.left, x.right] : [x.right]
+  return [x.left, x.right]
+}
+
 function variantLiterals(e: ts.Expression): string[] {
   const x = unwrap(e)
   const text = literalText(x)
   if (text !== null) return [text]
   if (ts.isConditionalExpression(x)) return [...variantLiterals(x.whenTrue), ...variantLiterals(x.whenFalse)]
-  if (ts.isBinaryExpression(x)) return [...variantLiterals(x.left), ...variantLiterals(x.right)]
+  if (ts.isBinaryExpression(x)) return valueOperands(x).flatMap(variantLiterals)
   return []
 }
 
@@ -430,7 +461,7 @@ function summary(fn: ts.FunctionLikeDeclaration): Summary {
     else if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x)) element(x, ink)
     else if (ts.isJsxFragment(x)) children(x.children, ink)
     else if (ts.isConditionalExpression(x)) { expression(x.whenTrue, ink); expression(x.whenFalse, ink) }
-    else if (ts.isBinaryExpression(x)) { expression(x.left, ink); expression(x.right, ink) }
+    else if (ts.isBinaryExpression(x)) valueOperands(x).forEach((operand) => expression(operand, ink))
     else if (ts.isCallExpression(x) && callbackReturns(x).length) callbackReturns(x).forEach((r) => expression(r, ink))
     else if (ink === 'inherit') {
       const text = literalText(x)
@@ -439,7 +470,9 @@ function summary(fn: ts.FunctionLikeDeclaration): Summary {
   }
   for (const r of returnedExpressions(fn)) expression(r, 'inherit')
   const result: Summary = {
-    childrenInk: childInks.has('sage') ? 'sage' : childInks.has('inherit') ? null : 'other',
+    // No path to the children found (renamed, cloned, handed to a helper) reads as one that passes its ink
+    // through, so a number given to it inside a sage parent is still read.
+    childrenInk: childInks.has('sage') ? 'sage' : childInks.has('inherit') || childInks.size === 0 ? null : 'other',
     inheritsValue: carries,
   }
   SUMMARIES.set(fn, result)
@@ -460,7 +493,7 @@ function inkTexts(children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile, out: {
     const text = literalText(x)
     if (text !== null) out.push({ node: x, text })
     else if (ts.isConditionalExpression(x)) [x.whenTrue, x.whenFalse].forEach(expr)
-    else if (ts.isBinaryExpression(x)) [x.left, x.right].forEach(expr)
+    else if (ts.isBinaryExpression(x)) valueOperands(x).forEach(expr)
     else if (ts.isPropertyAccessExpression(x)) mappedValues(x, sf).forEach((value) => out.push({ node: x, text: value }))
     else if (ts.isJsxFragment(x)) inkTexts(x.children, sf, out)
     else if (ts.isJsxElement(x) && textColour(x.openingElement) === null) inkTexts(x.children, sf, out)
@@ -486,13 +519,11 @@ function isNumberTyped(e: ts.Expression): boolean {
   return members.length > 0 && members.every((u) => (u.flags & NUMBER_LIKE) !== 0)
 }
 
-/** The initializer of a `const` declared in this file under that name, if any (one level, as mappedValues resolves). */
+/** The initializer of the variable an identifier names, when this file declares it (one level). Resolved through
+    the checker, so a parameter, or a name another function in the file declares, is never mistaken for it. */
 function localInitializer(id: ts.Identifier, sf: ts.SourceFile): ts.Expression | undefined {
-  let init: ts.Expression | undefined
-  visit(sf, (n) => {
-    if (!init && ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === id.text && n.initializer) init = n.initializer
-  })
-  return init
+  const declaration = CHECKER.getSymbolAtLocation(id)?.valueDeclaration
+  return declaration && ts.isVariableDeclaration(declaration) && declaration.getSourceFile() === sf ? declaration.initializer : undefined
 }
 
 /** Whether a JSX expression renders a value: a number-typed expression, a template or concatenation with a
@@ -509,7 +540,7 @@ function rendersValue(e: ts.Expression, sf: ts.SourceFile, depth = 0): boolean {
   if (ts.isTemplateExpression(x)) return x.templateSpans.some((span) => rendersValue(span.expression, sf, depth + 1))
   if (literalText(x) !== null) return false
   if (ts.isConditionalExpression(x)) return rendersValue(x.whenTrue, sf, depth + 1) || rendersValue(x.whenFalse, sf, depth + 1)
-  if (ts.isBinaryExpression(x)) return rendersValue(x.left, sf, depth + 1) || rendersValue(x.right, sf, depth + 1)
+  if (ts.isBinaryExpression(x)) return valueOperands(x).some((operand) => rendersValue(operand, sf, depth + 1))
   if (ts.isCallExpression(x)) {
     // A number's own method ("n.toLocaleString()"), a call that returns one, a formatter fed one
     // (a literal argument such as "slice(0, 20)" is not a value), or what a callback returns.
@@ -649,17 +680,55 @@ describe('brand rule 1c: the withholding promise names risk excerpts', () => {
   })
 })
 
+/** A control the user activates: a link, a button, a disclosure's summary, any element given an href or an
+    onClick, and the ui Button family. */
+function isControl(opening: ts.JsxOpeningLikeElement): boolean {
+  if (['a', 'button', 'summary'].includes(opening.tagName.getText())) return true
+  if (opening.attributes.properties.some((p) => ts.isJsxAttribute(p) && ['href', 'onClick'].includes(p.name.getText()))) return true
+  const fn = componentFunction(opening)
+  return !!fn && VARIANT_COMPONENTS.get(fn)?.inks === BUTTON_INK
+}
+
 describe('brand rule 2: sage never colours a number', () => {
-  it('no element in the app whose own text colour is a sage token renders a digit', () => {
+  it('nothing the app renders in sage ink at rest carries a digit or a value', () => {
     const offenders: string[] = []
     for (const { rel, sf } of SOURCES) {
       visit(sf, (n) => {
-        if (!ts.isJsxElement(n) || textColour(n.openingElement) !== 'sage') return
-        for (const { node, text } of inkTexts(n.children, sf)) if (carriesDigit(text)) offenders.push(where(rel, sf, node, text))
-        for (const node of inkValues(n.children, sf, [], n.openingElement)) offenders.push(where(rel, sf, node, `{${node.getText(sf)}}`))
+        if (!ts.isJsxElement(n) && !ts.isJsxSelfClosingElement(n)) return
+        const opening = ts.isJsxElement(n) ? n.openingElement : n
+        if (textColour(opening) !== 'sage') return
+        if (ts.isJsxElement(n)) {
+          for (const { node, text } of inkTexts(n.children, sf)) if (carriesDigit(text)) offenders.push(where(rel, sf, node, text))
+          for (const node of inkValues(n.children, sf, [], opening)) offenders.push(where(rel, sf, node, `{${node.getText(sf)}}`))
+        }
+        // Sage given where a component is used reaches the number it renders in the ink it inherits.
+        const fn = componentFunction(opening)
+        if (fn && siteInk(opening) === 'sage' && summary(fn).inheritsValue) offenders.push(where(rel, sf, n, `<${opening.tagName.getText(sf)}>`))
       })
     }
     expect(offenders, 'set the number in the ink (text-text-primary / secondary); sage signals brand and activity').toEqual([])
+  })
+
+  it('no control that rests in sage holds its count in an ink of its own (the count control)', () => {
+    const offenders: string[] = []
+    for (const { rel, sf } of SOURCES) {
+      visit(sf, (n) => {
+        if (!ts.isJsxElement(n) || !isControl(n.openingElement) || textColour(n.openingElement) !== 'sage') return
+        // The control's markup, and the same-file const a label is held in (`{overflowLabel}`).
+        const seen = new Set<ts.Node>()
+        const holders = (node: ts.Node) => visit(node, (m) => {
+          if (ts.isJsxExpression(m) && m.expression && ts.isIdentifier(unwrap(m.expression))) {
+            const init = localInitializer(unwrap(m.expression) as ts.Identifier, sf)
+            if (init && !seen.has(init)) { seen.add(init); holders(init) }
+          }
+          if (m === n || !ts.isJsxElement(m) || textColour(m.openingElement) !== 'other') return
+          for (const { node, text } of inkTexts(m.children, sf)) if (carriesDigit(text)) offenders.push(where(rel, sf, node, text))
+          for (const node of inkValues(m.children, sf, [], m.openingElement)) offenders.push(where(rel, sf, node, `{${node.getText(sf)}}`))
+        })
+        holders(n)
+      })
+    }
+    expect(offenders, 'rest the whole label in the ink, sage under the pointer (the count control, frontend/DESIGN_SYSTEM.md)').toEqual([])
   })
 })
 
