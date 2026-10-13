@@ -88,6 +88,8 @@ export default function BillingPanel() {
   // The API resolves expired trial rows to Free even while their raw status stays trialing.
   const isTrialing = isPro && sub?.status === 'trialing'
   const planLabel = isTrialing ? 'Pro (trial)' : isPro ? 'Pro' : 'Free'
+  // An unreadable trial_end formats to '', and the line then shows nothing, as TrialBanner does.
+  const trialEndsOn = isTrialing ? formatLocalDate(sub?.trial_end, 'MMM d, yyyy') : ''
 
   return (
     <Card className="p-6 mb-6">
@@ -152,9 +154,9 @@ export default function BillingPanel() {
           </div>
 
           {/* Trial end: the date, never a countdown (docs/voice-and-style.md: patient). */}
-          {isTrialing && sub?.trial_end && (
+          {trialEndsOn && (
             <div className="rounded-lg border border-brand-border bg-brand-weak dark:border-white/10 dark:bg-white/5 px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              Pro trial ends {formatLocalDate(sub.trial_end, 'MMM d, yyyy')}.
+              Pro trial ends {trialEndsOn}.
             </div>
           )}
 

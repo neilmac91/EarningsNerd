@@ -83,6 +83,14 @@ describe('BillingPanel', () => {
     expect(screen.queryByRole('button', { name: /manage billing/i })).not.toBeInTheDocument()
   })
 
+  it.each(['soon', '2026-13-45T00:00:00Z'])('states no trial line for an unreadable trial_end (%s), as TrialBanner does', async (trialEnd) => {
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub, is_pro: true, status: 'trialing', plan: 'pro', trial_end: trialEnd })
+
+    renderPanel()
+    expect(await screen.findByText('Pro (trial)', { exact: true })).toBeInTheDocument()
+    expect(screen.queryByText(/Pro trial ends/)).not.toBeInTheDocument()
+  })
+
   it.each([null, 'cus_expired'])('labels an expired trial Free and preserves portal routing (%s)', async (customerId) => {
     mockGetSubscriptionStatus.mockResolvedValue({
       ...baseSub,

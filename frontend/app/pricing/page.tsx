@@ -14,7 +14,7 @@ import { Badge, Button, Card, Notice, Switch } from '@/components/ui'
 import analytics from '@/lib/analytics'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
-import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
+import { FREE_SUMMARY_LIMIT, analysisLine } from '@/lib/planLimits'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { PRO_PRICING } from './prices'
 import { billingCycleFromQuery, pricingHref, type BillingCycle } from '@/features/subscriptions/lib/pricingRoute'
@@ -37,7 +37,7 @@ interface CurrentUser {
 // and reacts to Stripe's return params without removing the plans from server HTML.
 function PricingQueryEffects({ onBillingResolved, onCheckoutCanceled }: {
   onBillingResolved: (cycle: BillingCycle) => void
-  onCheckoutCanceled: (canceled: boolean) => void
+  onCheckoutCanceled: () => void
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -49,10 +49,17 @@ function PricingQueryEffects({ onBillingResolved, onCheckoutCanceled }: {
   }, [requestedBilling, onBillingResolved])
 
   // Stripe's cancel_url (backend routers/subscriptions.py) returns here with ?canceled=true; the page
-  // says so beside its intro. Presentation only: nothing about the plan or checkout changes.
+  // says so beside its intro. The flag is read once, then dropped from the address (other params kept),
+  // so a reload, a history entry or a bookmark of the return URL does not say it again. Presentation
+  // only: nothing about the plan or checkout changes.
   useEffect(() => {
-    onCheckoutCanceled(checkoutCanceled)
-  }, [checkoutCanceled, onCheckoutCanceled])
+    if (!checkoutCanceled) return
+    onCheckoutCanceled()
+    const rest = new URLSearchParams(searchParams.toString())
+    rest.delete('canceled')
+    const query = rest.toString()
+    router.replace(query ? `/pricing?${query}` : '/pricing', { scroll: false })
+  }, [checkoutCanceled, searchParams, router, onCheckoutCanceled])
 
   useEffect(() => {
     // Handle success from Stripe: refresh subscription status
@@ -276,7 +283,8 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
       description: 'For deeper filing research',
       features: [
         'Unlimited summaries',
-        'Unlimited Multi-Period Analysis: 10-year trends, quarterly deltas & AI narrative',
+        // Listed only while the analysis route ships (lib/planLimits.ts analysisLine).
+        ...analysisLine('pricingPro'),
         'Ask this Filing: Get answers on any filing',
         'Hourly filing alerts',
         '8-K filing alerts',
@@ -322,9 +330,18 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
             downgrade at any time.
           </p>
 
+          {/* The return URL says only that the visitor came back from Stripe's checkout, not what was charged,
+              so the notice claims no payment outcome. The plan, once the subscription query resolves, is the
+              one fact it adds. */}
           {checkoutCanceled && (
             <div className="mt-6 mx-auto max-w-2xl text-left">
-              <Notice variant="info" title="Checkout cancelled" description="Nothing was charged." />
+              <Notice
+                variant="info"
+                title="You returned from checkout"
+                description={
+                  !accountResolved ? undefined : subscription?.is_pro ? 'Your plan is Pro.' : 'You can choose a plan below.'
+                }
+              />
             </div>
           )}
 
@@ -580,6 +597,7 @@ export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('yearly')
   const [billingResolved, setBillingResolved] = useState(false)
   const [checkoutCanceled, setCheckoutCanceled] = useState(false)
+  const noteCheckoutCanceled = useCallback(() => setCheckoutCanceled(true), [])
   const resolveBilling = useCallback((cycle: BillingCycle) => {
     setBillingCycle(cycle)
     setBillingResolved(true)
@@ -588,7 +606,7 @@ export default function PricingPage() {
   return (
     <>
       <Suspense fallback={null}>
-        <PricingQueryEffects onBillingResolved={resolveBilling} onCheckoutCanceled={setCheckoutCanceled} />
+        <PricingQueryEffects onBillingResolved={resolveBilling} onCheckoutCanceled={noteCheckoutCanceled} />
       </Suspense>
       <PricingContent
         billingCycle={billingCycle}

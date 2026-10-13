@@ -13,6 +13,7 @@ import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { CheckIcon, SealCheckIcon } from '@/lib/icons'
 import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 import {
+  analysisLine,
   FREE_COPILOT_QUESTIONS,
   FREE_EARNINGS_ALERT_LIMIT,
   FREE_HISTORY_RETENTION_DAYS,
@@ -28,21 +29,23 @@ import {
  * entry until pricing can resolve account eligibility, rather than selecting a guest trial.
  */
 
-// Free-tier caps are never bare literals (tests/unit/planLimitsLockstep.spec.ts).
-const FREE_FEATURES = [
+// Free-tier caps are never bare literals (tests/unit/planLimitsLockstep.spec.ts). The Multi-Period
+// Analysis lines come from lib/planLimits.ts analysisLine, listed only while the flag ships the feature,
+// so both lists are built at render.
+const freeFeatures = () => [
   `${FREE_SUMMARY_LIMIT} AI summaries a month`,
   'Supported 10-K, 10-Q and 20-F filings from SEC EDGAR',
   'Company search and historical filings',
   `${FREE_COPILOT_QUESTIONS} Ask this Filing questions`,
   `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts`,
-  'Multi-Period Analysis demo (locked)',
+  ...analysisLine('landingFree'),
   `${FREE_HISTORY_RETENTION_DAYS}-day summary history`,
   'Unlimited watchlist',
 ]
 
-const PRO_FEATURES = [
+const proFeatures = () => [
   'Unlimited summaries',
-  'Unlimited Multi-Period Analysis',
+  ...analysisLine('landingPro'),
   'Ask this Filing',
   'Change Report',
   'Hourly filing alerts and 8-K alerts',
@@ -200,7 +203,7 @@ export default function PricingSection({
               >
                 {access.cta}
               </Link>
-              <FeatureList items={FREE_FEATURES} />
+              <FeatureList items={freeFeatures()} />
             </Card>
 
             {/* The design's brand border is a 1px inset ring here (the pricing page's Pro-card
@@ -237,7 +240,7 @@ export default function PricingSection({
                   Card required. One trial per account. Cancel any time in the 7 days at no charge.
                 </p>
               )}
-              <FeatureList items={PRO_FEATURES} />
+              <FeatureList items={proFeatures()} />
             </Card>
           </div>
         </SectionImpression>

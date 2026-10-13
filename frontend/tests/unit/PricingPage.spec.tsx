@@ -19,7 +19,13 @@ const mockCheckoutStarted = vi.fn()
 const mockPricingViewed = vi.fn()
 const mockPush = vi.fn()
 const mockSearchParams = new URLSearchParams()
-const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false }))
+// router.replace moves the address as the real router does, so the next render reads what is left.
+const mockReplace = vi.fn((href: string) => {
+  Array.from(mockSearchParams.keys()).forEach((key) => mockSearchParams.delete(key))
+  new URLSearchParams(href.split('?')[1] ?? '').forEach((value, key) => mockSearchParams.set(key, value))
+})
+// ENABLE_ANALYSIS ships off: the plan lists leave out Multi-Period Analysis (lib/planLimits.ts analysisLine).
+const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false, ENABLE_ANALYSIS: false }))
 vi.mock('@/lib/featureFlags', () => flags)
 // Test-only capture of the real onClick each card Button was rendered with, keyed by
 // `${variant}:${label}` (Free = secondary, Pro = primary; both cards share a label while the
@@ -44,7 +50,7 @@ vi.mock('@/features/marketing/api/access-api', () => ({
 }))
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
+  useRouter: () => ({ push: mockPush, refresh: vi.fn(), replace: mockReplace }),
   useSearchParams: () => mockSearchParams,
 }))
 
@@ -110,6 +116,7 @@ describe('PricingPage', () => {
     mockCheckoutStarted.mockReset()
     mockPricingViewed.mockReset()
     mockPush.mockReset()
+    mockReplace.mockClear()
     mockGetRegistrationConfig.mockReset()
     mockGetRegistrationConfig.mockResolvedValue({ mode: 'public', beta_promo_enabled: false })
     Array.from(mockSearchParams.keys()).forEach((key) => mockSearchParams.delete(key))
@@ -120,6 +127,53 @@ describe('PricingPage', () => {
     mockGetUsage.mockResolvedValue(baseUsage)
     mockCreateCheckoutSession.mockResolvedValue({ url: '' }) // falsy url → no navigation in onSuccess
     mockUseFeatureFlagVariantKey.mockReturnValue(undefined)
+  })
+
+  // Stripe's cancel_url carries only ?canceled=true: no session id and no charge outcome. The notice says
+  // the visitor came back from checkout and what the subscription query says, nothing about payment.
+  describe('returning from a cancelled checkout (?canceled=true)', () => {
+    const RETURNED = 'You returned from checkout'
+
+    it('a Free account is invited to choose a plan, and the flag is dropped from the address', async () => {
+      mockSearchParams.set('canceled', 'true')
+      mockSearchParams.set('billing', 'monthly')
+      mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+      const { unmount } = renderPricing()
+
+      expect(await screen.findByText('You can choose a plan below.')).toBeInTheDocument()
+      expect(screen.getByText(RETURNED)).toBeInTheDocument()
+      expect(screen.queryByText(/charged/i)).not.toBeInTheDocument()
+      expect(screen.queryByText('Your plan is Pro.')).not.toBeInTheDocument()
+      // Other params are kept; only the return flag goes.
+      expect(mockReplace).toHaveBeenCalledWith('/pricing?billing=monthly', { scroll: false })
+      expect(mockSearchParams.toString()).toBe('billing=monthly')
+
+      // A second visit to the address left behind (a reload, a history entry) says nothing.
+      unmount()
+      renderPricing()
+      await screen.findByRole('button', { name: /^current plan$/i })
+      expect(screen.queryByText(RETURNED)).not.toBeInTheDocument()
+    })
+
+    it('an account already on Pro is told its plan is Pro, with no invitation to choose', async () => {
+      mockSearchParams.set('canceled', 'true')
+      mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub, is_pro: true, status: 'active', plan: 'pro', stripe_customer_id: 'cus_123' })
+      renderPricing()
+
+      expect(await screen.findByText('Your plan is Pro.')).toBeInTheDocument()
+      expect(screen.getByText(RETURNED)).toBeInTheDocument()
+      expect(screen.queryByText('You can choose a plan below.')).not.toBeInTheDocument()
+      expect(screen.queryByText(/charged/i)).not.toBeInTheDocument()
+      expect(mockReplace).toHaveBeenCalledWith('/pricing', { scroll: false })
+    })
+
+    it('says nothing about a checkout without the flag', async () => {
+      mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+      renderPricing()
+      await screen.findByRole('button', { name: /^current plan$/i })
+      expect(screen.queryByText(RETURNED)).not.toBeInTheDocument()
+      expect(mockReplace).not.toHaveBeenCalled()
+    })
   })
 
   it('treats a trialing user as current-plan: disabled "Current plan (trial)" + no billing toggle', async () => {

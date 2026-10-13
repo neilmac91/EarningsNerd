@@ -169,13 +169,19 @@ export default function DashboardPage() {
   // Stripe's success_url (backend routers/subscriptions.py) lands here with ?success=true. Read after
   // hydration from window.location, not useSearchParams(): that hook outside a Suspense boundary bails
   // the page out of the server HTML. The notice only reads the subscription query the page already
-  // holds; the webhook can land after the redirect, so a plan still Free is not called Pro.
+  // holds; the webhook can land after the redirect, so a plan still Free is not called Pro. The flag is
+  // read once, then dropped from the address (other params kept), so a reload, a history entry or a
+  // bookmark of the return URL does not announce a checkout again.
   const [checkoutReturned, setCheckoutReturned] = useState(false)
   useEffect(() => {
-    const returned = new URLSearchParams(window.location.search).get('success') === 'true'
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('success') !== 'true') return
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot post-hydration read of the return flag, as the filing page reads its URL flags; reading window.location during render would mismatch the server HTML
-    if (returned) setCheckoutReturned(true)
-  }, [])
+    setCheckoutReturned(true)
+    params.delete('success')
+    const query = params.toString()
+    router.replace(`${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`, { scroll: false })
+  }, [router])
 
   // One header for the skeleton and the loaded page. Usage and subscription only start once the user
   // resolves, so by the time the grid replaces the bones the header already carries the real name and
