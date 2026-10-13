@@ -214,3 +214,14 @@ export function P122({ n, on }: { n: number; on: boolean }) { return <span class
 // A const read by a key is read whole: the scan cannot know the key, and fails closed.
 const TONE_123 = { hot: 'text-brand-strong', quiet: 'text-text-secondary-light' }
 export function P123({ n, tone }: { n: number; tone: keyof typeof TONE_123 }) { return <span className={TONE_123[tone]}>{n}</span> } // flag
+// A map callback's element over a literal array of strings, the array in a const or written inline.
+const LABELS_124 = ['Step 2']
+export function P124() { return <p>{LABELS_124.map((label) => <span key={label} className="text-brand-strong">{label}</span>)}</p> } // flag
+export function P125() { return <p>{['Revenue', 'Margin'].map((label) => <span key={label} className="text-brand-strong">{label}</span>)}</p> } // clean
+export function P126() { return <p>{['Q1', 'Q2'].map((q) => <span key={q} className="text-brand-strong">{q}</span>)}</p> } // flag
+// A form whose code is a bare number, named as a form; the bare number stays a count (P128).
+export function P127() { return <span className="text-brand-strong">Form 4</span> } // clean
+export function P128() { return <span className="text-brand-strong">4</span> } // flag
+// A shadowing binding is not the mapped element: the inner destructured label is a prop's string.
+const LABELS_129 = ['Step 2']
+export function P129({ rows }: { rows: { label: string }[] }) { return <p>{LABELS_129.map((label) => <b key={label}>{rows.map(({ label }) => <span key={label} className="text-brand-strong">{label}</span>)}</b>)}</p> } // clean

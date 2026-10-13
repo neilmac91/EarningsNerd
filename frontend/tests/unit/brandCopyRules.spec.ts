@@ -121,14 +121,20 @@ function literalText(node: ts.Node): string | null {
 const unwrap = (e: ts.Expression): ts.Expression =>
   ts.isAsExpression(e) || ts.isSatisfiesExpression(e) || ts.isParenthesizedExpression(e) ? unwrap(e.expression) : e
 
-/** `item.step` inside `ARRAY.map((item) => …)` over a literal array: the literal values of `step`. */
-function mappedValues(access: ts.PropertyAccessExpression, sf: ts.SourceFile): string[] {
-  if (!ts.isIdentifier(access.expression)) return []
-  const param = access.expression.text
-  const prop = access.name.text
-  let fn: ts.Node | undefined = access.parent
-  while (fn && !((ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) && fn.parameters.some((p) => ts.isIdentifier(p.name) && p.name.text === param))) fn = fn.parent
-  const call = fn?.parent
+/** What a map callback's element holds where the callback maps a literal array (`ARRAY.map((item) => …)`,
+    the array written inline or held in a same-file const): the elements' literal texts for the element
+    itself (`labels.map((label) => …{label}…)`), or the literal values of one of its fields (`item.step`).
+    The name is resolved through the checker to the callback's first parameter, so an index, a shadowing
+    binding (a destructured parameter, a loop's const) or another function's parameter is never taken for it. */
+function mappedValues(x: ts.Identifier | ts.PropertyAccessExpression, sf: ts.SourceFile): string[] {
+  const element = ts.isIdentifier(x) ? x : x.expression
+  if (!ts.isIdentifier(element)) return []
+  const field = ts.isPropertyAccessExpression(x) ? x.name.text : null
+  const declaration = CHECKER.getSymbolAtLocation(element)?.valueDeclaration
+  if (!declaration || !ts.isParameter(declaration) || !ts.isIdentifier(declaration.name)) return []
+  const fn = declaration.parent
+  if (!(ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) || fn.parameters[0] !== declaration) return []
+  const call = fn.parent
   if (!call || !ts.isCallExpression(call) || !ts.isPropertyAccessExpression(call.expression) || call.expression.name.text !== 'map') return []
   let array = unwrap(call.expression.expression)
   if (ts.isIdentifier(array)) {
@@ -138,12 +144,16 @@ function mappedValues(access: ts.PropertyAccessExpression, sf: ts.SourceFile): s
   }
   if (!ts.isArrayLiteralExpression(array)) return []
   const values: string[] = []
-  for (const element of array.elements) {
-    if (!ts.isObjectLiteralExpression(element)) continue
-    for (const property of element.properties) {
-      if (ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) && property.name.text === prop) {
-        const text = literalText(unwrap(property.initializer))
-        if (text !== null) values.push(text)
+  for (const item of array.elements) {
+    if (field === null) {
+      const text = literalText(unwrap(item))
+      if (text !== null) values.push(text)
+    } else if (ts.isObjectLiteralExpression(item)) {
+      for (const property of item.properties) {
+        if (ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) && property.name.text === field) {
+          const text = literalText(unwrap(property.initializer))
+          if (text !== null) values.push(text)
+        }
       }
     }
   }
@@ -213,8 +223,9 @@ const PSEUDO = /^(?:placeholder|file|marker|selection|before|after|first-letter|
 const SVG_TEXT = new Set(['text', 'tspan', 'textPath'])
 const CITATION = /^\[F?\d+\]$/
 /** SEC form codes are names, not values ("Open the 10-K", "10-Ks and 10-Qs"), as a form code read from a variable
-    already is. */
-const FORM_CODE = /\b(?:10-K|10-Q|8-K|20-F|40-F|6-K|11-K|S-1|S-3|S-4|S-8|F-1|F-3|DEF 14A|13F)(?:\/A)?(?:s|['’]s)?\b/g
+    already is. A form whose code is a bare number is read as a form code only with its name before it
+    ("Form 4"): a bare "4" is a count. */
+const FORM_CODE = /\b(?:10-K|10-Q|8-K|20-F|40-F|6-K|11-K|S-1|S-3|S-4|S-8|F-1|F-3|DEF 14A|13F|Form [345])(?:\/A)?(?:s|['’]s)?\b/g
 const carriesDigit = (text: string) => {
   const trimmed = text.trim()
   return !CITATION.test(trimmed) && /\d/.test(trimmed.replace(FORM_CODE, ''))
@@ -566,8 +577,10 @@ function inkTexts(children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile, out: {
     else if (ts.isJsxElement(x) && textColour(x.openingElement) === null) inkTexts(x.children, sf, out, held)
     else if (ts.isCallExpression(x)) callbackReturns(x).forEach(expr)
     else if (ts.isIdentifier(x)) {
-      // A same-file const read where it is used: its text (`const step = 'Step 2'`) or the JSX it holds.
+      // A same-file const read where it is used: its text (`const step = 'Step 2'`) or the JSX it holds;
+      // else a map callback's element over a literal array (`['Step 2'].map((label) => …{label}…)`).
       const init = localInitializer(x, sf)
+      if (!init) mappedValues(x, sf).forEach((value) => out.push({ node: x, text: value }))
       if (!init || held.has(init)) return
       held.add(init)
       const heldText = literalText(unwrap(init))
