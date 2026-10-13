@@ -210,8 +210,9 @@ text into its str, only after `before_send_log` returns.
   driver's own error for a URL missing its `@host` with an all-digit password, which quotes the digits as the port,
   arrives with them `[Filtered]`; a value stored with a trailing newline is withheld where an error quotes it escaped;
   an 8-character value is withheld while a 7-character one, an empty one, a URL's port and an IPv6 host are not, and a
-  setting holding `None` is skipped, not a failure that would turn Sentry off; and a scrubber that raises sends nothing:
-  the error, the transaction, the log and the metric are each lost to `callback_error`.
+  setting holding `None` is skipped, not a failure that would turn Sentry off; the values are read once, when the
+  options are built, never at an item; and a scrubber that raises sends nothing: the error, the check-in, the
+  transaction, the log and the metric are each lost to `callback_error`.
 - **compare_digest.** An AST walk fails any `compare_digest` call in the backend, by its name or a name
   `from hmac|secrets import compare_digest as ...` gives it, whose two arguments are not both bytes by their
   form: a UTF-8 `.encode(...)` or `bytes(x, ...)`, a `.digest()`, a bytes literal, a base64 encoding of bytes or a

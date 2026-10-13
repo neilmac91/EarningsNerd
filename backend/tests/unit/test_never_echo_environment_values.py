@@ -1240,7 +1240,9 @@ def test_sentry_withholds_every_secret_setting_and_connection_password(monkeypat
     sentry_sdk.flush()
     (event,) = _of(envelopes, "event")
     assert event["message"] == " | ".join(["[Filtered]"] * len(quoted))
-    leaked = sum(_fragments(value, json.dumps(envelopes), width=8) for value in quoted)
+    # The fragment check reads the secrets alone: a URL's scaffolding ("postgres", ":6379/0") can occur elsewhere.
+    secrets = [value for name, value in values.items() if name not in ("DATABASE_URL", "REDIS_URL")]
+    leaked = sum(_fragments(value, json.dumps(envelopes), width=8) for value in (*secrets, encoded, redis))
     assert not leaked, f"{leaked} eight-character fragments of a fabricated secret reached Sentry"
 
 
@@ -1377,12 +1379,34 @@ def test_sentry_withholds_no_value_shorter_than_eight_characters(monkeypatch, re
     assert event["message"] == f"[Filtered] {seven} db.internal:5432 [2001:db8::1]:6379 as sent"
 
 
+def test_the_value_scrubber_reads_the_settings_once_at_startup(monkeypatch, request):
+    # The values are read when `_sentry_options()` runs, as main.py's one call does at startup, and never again: not
+    # at the first item, not per item.
+    import sentry_sdk
+    from sentry_sdk import logger as sentry_logger
+
+    import main
+
+    reads = []
+    read = main._secret_values
+    monkeypatch.setattr(main, "_secret_values", lambda: reads.append("read") or read())
+    envelopes = request.getfixturevalue("sentry_envelopes")
+    assert reads == ["read"]
+    sentry_sdk.capture_message("job failed")
+    sentry_sdk.capture_message("job failed again")
+    sentry_logger.warning("job failed")
+    sentry_sdk.flush()
+    assert len(_of(envelopes, "event")) == 2 and _of(envelopes, "log")
+    assert reads == ["read"]
+
+
 def test_a_failing_value_scrubber_sends_nothing(monkeypatch, sentry_envelopes):
     # The hooks fail closed: an exception inside one drops its item, which the SDK records as lost to a callback error,
     # instead of sending it unscrubbed, on every channel. (A global event processor would fail open: the SDK passes the
     # event on when one raises, and it runs before the request is attached.)
     import sentry_sdk
     from sentry_sdk import logger as sentry_logger
+    from sentry_sdk.crons import capture_checkin
 
     import main
 
@@ -1392,10 +1416,12 @@ def test_a_failing_value_scrubber_sends_nothing(monkeypatch, sentry_envelopes):
     monkeypatch.setattr(main, "_withhold", failing)
     with sentry_sdk.start_transaction(name="job"):
         sentry_sdk.capture_message("job failed")
+    capture_checkin(monitor_slug="nightly", status="error")
     sentry_logger.warning("job failed")
     sentry_sdk.metrics.count("job.failures", 1)
     sentry_sdk.flush()
-    assert not [kind for kind, _ in sentry_envelopes if kind in ("event", "transaction", "log", "trace_metric")]
+    sent = [kind for kind, _ in sentry_envelopes if kind in ("event", "check_in", "transaction", "log", "trace_metric")]
+    assert not sent
     lost = _of(sentry_envelopes, "lost")
     for category in ("error", "transaction", "log_item", "trace_metric"):
         assert ["callback_error", category] in lost
