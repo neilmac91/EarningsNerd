@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { submitContactForm } from '@/features/contact/api/contact-api'
-import { CONTACT_LIMITS } from '@/features/contact/lib/limits'
+import { CONTACT_LIMITS, isPlausibleEmail, trimmedLength } from '@/features/contact/lib/limits'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { Button } from '@/components/ui/Button'
@@ -13,15 +13,19 @@ import { ApiError } from '@/lib/api/client'
 import { getErrorStatus } from '@/lib/api/types'
 
 const RATE_LIMITED = 'Too many messages from this connection. Try again in an hour.'
+const CHECK_FIELDS = 'Check the fields and send again.'
 const SEND_FAILED = "We couldn't send your message. Try again in a minute."
 
 /** What a failed send tells the reader. The rate limit is read from the status, never from the
-    message's words (the backend's 429 sentence has no "429" in it). Otherwise the backend's own
-    sentence when it sent one as a string, and the fallback for anything else: a non-string detail
-    (a validation list), an empty one, or an error that is not the API's. */
+    message's words (the backend's 429 sentence has no "429" in it), and so is a 422, which asks the
+    reader to check the fields. Otherwise the backend's own detail, or the surface's sentence when the
+    body carried none: `backendDetail` is set only from a string `detail` in the body, never from
+    the client's status fallbacks or axios's "Request failed with status code N". */
 function sendErrorMessage(err: unknown): string {
-  if (getErrorStatus(err) === 429) return RATE_LIMITED
-  const detail: unknown = err instanceof ApiError ? err.detail : undefined
+  const status = getErrorStatus(err)
+  if (status === 429) return RATE_LIMITED
+  if (status === 422) return CHECK_FIELDS
+  const detail = err instanceof ApiError ? err.backendDetail : undefined
   return typeof detail === 'string' && detail.trim() ? detail : SEND_FAILED
 }
 
@@ -61,7 +65,7 @@ export default function ContactForm() {
       setError('Please enter your name.')
       return
     }
-    if (name.trim().length < CONTACT_LIMITS.nameMin) {
+    if (trimmedLength(name) < CONTACT_LIMITS.nameMin) {
       setError(`Please enter at least ${CONTACT_LIMITS.nameMin} characters for your name.`)
       return
     }
@@ -69,11 +73,15 @@ export default function ContactForm() {
       setError('Please enter your email address.')
       return
     }
+    if (!isPlausibleEmail(email.trim())) {
+      setError('Please enter a valid email address.')
+      return
+    }
     if (!message.trim()) {
       setError('Please enter a message.')
       return
     }
-    if (message.trim().length < CONTACT_LIMITS.messageMin) {
+    if (trimmedLength(message) < CONTACT_LIMITS.messageMin) {
       setError(`Message must be at least ${CONTACT_LIMITS.messageMin} characters long.`)
       return
     }

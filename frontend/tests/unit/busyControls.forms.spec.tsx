@@ -115,7 +115,7 @@ describe('ContactForm', () => {
     expect(document.activeElement).toBe(send)
 
     await act(async () => post.reject(new ApiError(503, 'Server unavailable')))
-    expect(await screen.findByText('Server unavailable')).toBeInTheDocument()
+    expect(await screen.findByText("We couldn't send your message. Try again in a minute.")).toBeInTheDocument()
     expect(send).toHaveTextContent('Send message')
     expect(send).not.toHaveAttribute('aria-disabled')
     expect(send).not.toHaveAttribute('aria-busy')
@@ -175,7 +175,7 @@ describe('ContactForm', () => {
     expect(document.activeElement).toBe(name)
 
     await act(async () => post.reject(new ApiError(503, 'Server unavailable')))
-    expect(await screen.findByText('Server unavailable')).toBeInTheDocument()
+    expect(await screen.findByText("We couldn't send your message. Try again in a minute.")).toBeInTheDocument()
     expect(name).not.toHaveAttribute('readonly')
     expect(document.activeElement).toBe(name)
   })

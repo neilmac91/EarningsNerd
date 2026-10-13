@@ -61,10 +61,14 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   automated confirmation email; the hours, their time zone and the confirmation claim wait on the
   founder (F27), because `backend/app/routers/contact.py` logs a failed confirmation send and still
   answers success. The form's limits are the server's (`tests/unit/contactValidationParity.spec.ts`
-  reads `backend/app/schemas/contact.py`), so a one-letter name is refused before sending. A rate
-  limit is read from the status and says "Too many messages from this connection. Try again in an
-  hour."; any other failure shows in an error Notice titled "Message not sent", with the server's
-  sentence or "We couldn't send your message. Try again in a minute." The success heading is an h2.
+  reads `backend/app/schemas/contact.py`), so a one-letter name is refused before sending, counted
+  in code points as the server counts, and an email whose shape the server's `EmailStr` refuses
+  (`ada@gmail`, with no dot in the domain) is refused with "Please enter a valid email address."
+  Every failure shows in an error Notice titled "Message not sent". A rate limit is read from the
+  status and says "Too many messages from this connection. Try again in an hour."; a 422 the form
+  could not foresee says "Check the fields and send again."; any other failure shows the backend's
+  own detail, or the surface's sentence when the body carried none: "We couldn't send your message.
+  Try again in a minute." The success heading is an h2.
   The prose links on /contact are underlined and carry the brand focus ring. The /security links
   are unchanged, because /security is a legal page under the founder's boundary; the ring triple
   on its five links rides the founder-gated security-claims PR.

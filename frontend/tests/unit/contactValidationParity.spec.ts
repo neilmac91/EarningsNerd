@@ -5,17 +5,19 @@ import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import ContactForm from '@/features/contact/components/ContactForm'
-import { CONTACT_LIMITS } from '@/features/contact/lib/limits'
+import { CONTACT_LIMITS, isPlausibleEmail } from '@/features/contact/lib/limits'
 
 /**
- * The contact form accepts exactly what the server accepts (CLAUDE.md rule 12; audit UA-24). The
- * backend's `ContactSubmissionCreate` (backend/app/schemas/contact.py) bounds each field with
- * `Field(min_length, max_length)` and re-checks the trimmed name and message in its validators; a
- * value the form let through and the server refused came back as a 422 the reader could not act on
- * (a one-letter name did, before this gate). This spec reads the Python and holds
- * `features/contact/lib/limits.ts` to it, then renders the form to show the limits are the ones it
- * applies: each field's maxLength, and a name or message one character short refused before any
- * request.
+ * The contact form accepts what the server accepts for the name, subject and message, and refuses
+ * the email typos the server refuses (CLAUDE.md rule 12; audit UA-24). The backend's
+ * `ContactSubmissionCreate` (backend/app/schemas/contact.py) bounds each field with
+ * `Field(min_length, max_length)`, re-checks the trimmed name and message in its validators, and
+ * types the email `EmailStr`; a value the form let through and the server refused came back as a 422
+ * the reader could not act on (a one-letter name did, before this gate, and so did `ada@gmail`). This
+ * spec reads the Python and holds `features/contact/lib/limits.ts` to it, then renders the form to
+ * show the limits are the ones it applies: each field's maxLength, a name or message one character
+ * short (in code points, as Python's `len` counts) and an email `EmailStr` refuses, each refused
+ * before any request.
  */
 
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -39,6 +41,36 @@ function validatorFloor(field: string): number {
   if (!value) throw new Error(`${field}'s validator has no len(v) floor`)
   return Number(value)
 }
+
+/**
+ * Addresses and the verdict the backend's `EmailStr` gives each (true = accepted). The verdicts come
+ * from email-validator 2.3.0 under pydantic 2.13.5, the pins in backend/requirements.txt, produced in
+ * the backend's venv as pydantic runs it: `validate_email(address, check_deliverability=False)`, each
+ * address checked with `EmailNotValidError` caught as the refusal. The table samples the typo shapes;
+ * `EmailStr` also refuses rarer forms the client rule does not check (a reserved domain such as
+ * `.test`, a period just before the @-sign, a label opening with a hyphen), and such an address comes
+ * back as a 422 that asks the reader to check the fields. The client may be stricter than `EmailStr`
+ * (it refuses `Ada <ada@example.com>`, which pydantic takes), never looser on this table.
+ */
+const EMAIL_SAMPLES: ReadonlyArray<readonly [string, boolean]> = [
+  ['ada@example.com', true],
+  ['ada.lovelace@mail.example.co.uk', true],
+  ['ada+notes@example.org', true],
+  ['ADA@EXAMPLE.COM', true],
+  ['ada@gmail', false],
+  ['ada@localhost', false],
+  ['ada', false],
+  ['ada@', false],
+  ['@example.com', false],
+  ['ada@@example.com', false],
+  ['ada@ex@ample.com', false],
+  ['ada lovelace@example.com', false],
+  ['ada@exam ple.com', false],
+  ['ada@.example.com', false],
+  ['ada@example..com', false],
+  ['ada@example.com.', false],
+  ['ada@example.', false],
+]
 
 const api = vi.hoisted(() => ({ submitContactForm: vi.fn() }))
 vi.mock('@/features/contact/api/contact-api', () => ({ submitContactForm: api.submitContactForm }))
@@ -71,7 +103,16 @@ describe('contact form limits equal the backend schema', () => {
     expect(validatorFloor('message')).toBe(CONTACT_LIMITS.messageMin)
   })
 
-  it('the form applies those limits: maxLength on each field, and a value one short is refused before any request', () => {
+  it('the schema still types the email EmailStr', () => {
+    expect(createModel).toMatch(/^\s+email: EmailStr = Field\(/m)
+  })
+
+  it('the client email rule refuses every address EmailStr refuses in the table, and takes the plain ones', () => {
+    const verdicts = Object.fromEntries(EMAIL_SAMPLES.map(([address]) => [address, isPlausibleEmail(address)]))
+    expect(verdicts).toEqual(Object.fromEntries(EMAIL_SAMPLES))
+  })
+
+  it('the form applies those limits: maxLength on each field, and a value one short or an email EmailStr refuses is refused before any request', () => {
     render(createElement(ContactForm))
     const name = screen.getByLabelText(/^Name/)
     const subject = screen.getByLabelText('Subject')
@@ -81,7 +122,7 @@ describe('contact form limits equal the backend schema', () => {
     expect(message).toHaveAttribute('maxLength', String(CONTACT_LIMITS.messageMax))
 
     const send = screen.getByRole('button', { name: 'Send message' })
-    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'ada@example.test' } })
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'ada@example.com' } })
 
     fireEvent.change(name, { target: { value: ` ${'A'.repeat(CONTACT_LIMITS.nameMin - 1)} ` } })
     fireEvent.change(message, { target: { value: 'A message long enough.' } })
@@ -96,6 +137,18 @@ describe('contact form limits equal the backend schema', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       `Message must be at least ${CONTACT_LIMITS.messageMin} characters long.`,
     )
+
+    // Five emoji are ten UTF-16 units but five code points, and the server's len() counts five.
+    fireEvent.change(message, { target: { value: '\u{1F600}'.repeat(Math.ceil(CONTACT_LIMITS.messageMin / 2)) } })
+    fireEvent.click(send)
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      `Message must be at least ${CONTACT_LIMITS.messageMin} characters long.`,
+    )
+
+    fireEvent.change(message, { target: { value: 'A message long enough.' } })
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'ada@gmail' } })
+    fireEvent.click(send)
+    expect(screen.getByRole('alert')).toHaveTextContent('Please enter a valid email address.')
     expect(api.submitContactForm).not.toHaveBeenCalled()
   })
 })

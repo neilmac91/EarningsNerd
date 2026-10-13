@@ -11,6 +11,10 @@ export class ApiError extends Error {
   // Internal classification only: an original access 401 after transient refresh failure
   // is not evidence that the refresh session is gone. HTTP status/detail stay unchanged.
   sessionLossConfirmed?: boolean
+  // The backend's own words: set only when the response body carried a readable string `detail`.
+  // Undefined when `detail` is this client's status fallback or axios's message ("Request failed
+  // with status code N"), so a surface that shows backend text verbatim reads this, never `detail`.
+  backendDetail?: string
 
   constructor(status: number, detail: string) {
     super(detail)
@@ -206,6 +210,7 @@ api.interceptors.response.use(
     // Throw our custom ApiError with the extracted details
     const apiError = new ApiError(status, errorMessage)
     apiError.sessionLossConfirmed = sessionLossConfirmed
+    if (typeof backendDetail === 'string' && backendDetail) apiError.backendDetail = backendDetail
     throw apiError
   }
 )

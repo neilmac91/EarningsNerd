@@ -7,9 +7,12 @@ import { ApiError } from '@/lib/api/client'
  * What a failed contact send tells the reader (audit UA-24, UA-25) and the success panel's outline
  * (UA-21). The rate limit is mapped from the status, never from the words of the message: the
  * backend's 429 sentence ("Too many requests. Please try again in 1 hour(s).") holds no "429", so a
- * match on the text never fired. A string detail is the backend's own sentence and is shown; a
- * non-string or empty detail (FastAPI's validation list, a bare error) shows the fallback. The failure
- * is a Notice: role="alert", title "Message not sent". The success heading is an h2 under the page's h1.
+ * match on the text never fired. A 422 asks the reader to check the fields, since sending the same
+ * values again fails the same way. Otherwise the backend's own detail is shown when the body carried
+ * one (`ApiError.backendDetail`), and the surface's sentence when it did not: lib/api/client's own
+ * fallbacks ("Unable to connect to the server…", "Service temporarily unavailable…") and axios's
+ * "Request failed with status code N" sit in `detail` and never reach the reader. The failure is a
+ * Notice: role="alert", title "Message not sent". The success heading is an h2 under the page's h1.
  */
 
 const api = vi.hoisted(() => ({ submitContactForm: vi.fn() }))
@@ -21,7 +24,15 @@ vi.mock('@/lib/featureFlags', async (importOriginal) => ({
 }))
 
 const RATE_LIMITED = 'Too many messages from this connection. Try again in an hour.'
+const CHECK_FIELDS = 'Check the fields and send again.'
 const SEND_FAILED = "We couldn't send your message. Try again in a minute."
+
+/** An ApiError as the response interceptor builds it when the body carried a string `detail`. */
+function backendError(status: number, detail: string): ApiError {
+  const err = new ApiError(status, detail)
+  err.backendDetail = detail
+  return err
+}
 
 afterEach(() => {
   cleanup()
@@ -31,7 +42,7 @@ afterEach(() => {
 function fillAndSend() {
   render(<ContactForm />)
   fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Ada Lovelace' } })
-  fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'ada@example.test' } })
+  fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'ada@example.com' } })
   fireEvent.change(screen.getByLabelText(/^Message/), { target: { value: 'A message long enough.' } })
   fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
 }
@@ -51,20 +62,31 @@ describe('ContactForm send errors', () => {
   })
 
   it('a "429" in the words of another status is not the rate limit', async () => {
-    api.submitContactForm.mockRejectedValue(new ApiError(400, 'Request 429 was refused.'))
+    api.submitContactForm.mockRejectedValue(backendError(400, 'Request 429 was refused.'))
     fillAndSend()
     expect(await failure()).toBe('Request 429 was refused.')
   })
 
-  it("the backend's string detail is shown as it came", async () => {
-    api.submitContactForm.mockRejectedValue(new ApiError(503, 'Service temporarily unavailable. Please try again in a moment.'))
+  it("the backend's own detail is shown as it came", async () => {
+    api.submitContactForm.mockRejectedValue(backendError(500, 'Failed to save contact form submission'))
     fillAndSend()
-    expect(await failure()).toBe('Service temporarily unavailable. Please try again in a moment.')
+    expect(await failure()).toBe('Failed to save contact form submission')
   })
 
   it.each([
-    ['a validation list', new ApiError(422, [{ loc: ['body', 'name'], msg: 'too short', type: 'value_error' }] as unknown as string)],
-    ['an empty detail', new ApiError(500, '  ')],
+    ['a validation list', new ApiError(422, [{ loc: ['body', 'email'], msg: 'not valid', type: 'value_error' }] as unknown as string)],
+    ['a string detail', backendError(422, 'value is not a valid email address')],
+  ])('a 422 with %s asks the reader to check the fields', async (_label, err) => {
+    api.submitContactForm.mockRejectedValue(err)
+    fillAndSend()
+    expect(await failure()).toBe(CHECK_FIELDS)
+  })
+
+  it.each([
+    ['a failed connection', new ApiError(0, 'Unable to connect to the server. Please ensure the backend API is running on https://api.earningsnerd.io')],
+    ["axios's message for a bodiless 413", new ApiError(413, 'Request failed with status code 413')],
+    ["the client's own 503 sentence", new ApiError(503, 'Service temporarily unavailable. Please try again in a moment.')],
+    ['an empty backend detail', backendError(500, '  ')],
     ['an error that is not the API client', new TypeError('Failed to fetch')],
     ['a thrown string', 'boom'],
   ])('%s shows the fallback', async (_label, err) => {
