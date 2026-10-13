@@ -35,7 +35,8 @@ The follow-up review (#1281) found the rest:
   logs at INFO with the key mounted, let httpx log every request URL;
 - `app/database.py` parses `DATABASE_URL` at import, so a URL missing its `@host` put the password into a
   service's startup traceback (and into Sentry, which `main.py` starts first), and an unescaped `@` in the password
-  parsed, its tail becoming the host that the driver's connection error quotes at startup; `redis_service` logged
+  parsed, its tail becoming the host (or, past a `?`, a query key) that the driver's connection error quotes at
+  startup; `redis_service` logged
   `REDIS_URL` whole and its parse error's message; `scripts/smoke_resend.py` printed the key's last four
   characters; `scripts/validate_db_performance.py` printed a URL without an `@` whole, and a password passed in
   the URL's query string survived SQLAlchemy's masked rendering.
@@ -65,7 +66,8 @@ The follow-up review (#1281) found the rest:
   and query string, other headers and body; the user id, tags, release and environment.
 - Nothing prints or logs a secret. An output reports a secret's presence and length, never a character; a
   connection URL's parse error is reported by its type, and an HTTP error from a keyed URL by its status, never
-  their messages; a database URL whose host holds an `@` is refused; httpx's request log stays at WARNING where a
+  their messages; a database URL whose host or query key holds an `@` is refused; httpx's request log stays at
+  WARNING where a
   key travels in a query string. No output call (a print, log, warn or write call, `click.echo`, `pprint`, a
   Sentry message, tag, context, extra or breadcrumb) and no raise or assert message reads a secret field directly,
   the settings object beyond a printable field (`model_dump()`, `__dict__`) or whole (`dict(settings)`,
@@ -129,8 +131,9 @@ The follow-up review (#1281) found the rest:
   goes, print the error's type and no fragment.
 - **Outputs.** `smoke_resend` prints the key's length; `redis_service` builds a pool from a URL holding a
   password and refuses a URL missing its `@host`; importing `app.database` with such a URL, or with an `@`
-  in its host, raises a `RuntimeError`; the database benchmark stops on both, prints a well-formed URL's backend,
-  host and database only (a query-string password included in the test) and its errors by type; an Alpha Vantage
+  in its host or a query key, raises a `RuntimeError`; the database benchmark stops on each, prints a well-formed
+  URL's backend, host and database only (a query-string password and an all-digit password in the port included in
+  the test) and its errors by type; an Alpha Vantage
   503 is logged and raised as `HTTP 503`; the calendar job's logging setup and the service's `configure_logging`
   keep httpx's request log off. None prints or logs a 4-character fragment of the fabricated secret. An AST walk
   over every backend file outside `tests/`
@@ -170,7 +173,10 @@ with its reason:
 - an incoming request's query string reaches Sentry unscrubbed: the Google OAuth callback's single-use `code`
   (a user's, not a settings secret);
 - `main.py`'s startup database check and `/health/detailed` log a driver's connection error, which names the host,
-  port, user and database; it carries no password once the URL parses with a clean host;
+  port, user and database; it carries no password once the URL parses with a clean host and query, except one case:
+  an all-digit password in a URL missing its `@host` parses as the port, which the connection error (the database
+  driver's, or Redis's) quotes. The documented production password is hex (`openssl rand -hex 24`) in the
+  Cloud SQL socket form, which keeps its `@`;
 - `main.py`'s Sentry init-failure line prints a malformed DSN's parse message (its scheme, its project path, or
   the port segment of a legacy key pair without a host); the DSN's key is public by Sentry's design;
 - Sentry scrubs keys, not values (the follow-up's plan named a `before_send` value scrubber; #1281 turned frame

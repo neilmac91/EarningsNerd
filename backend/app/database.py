@@ -26,16 +26,16 @@ DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "10"))
 def _database_url() -> URL:
     """settings.DATABASE_URL, parsed. The parser's message is withheld: a URL missing its `@host` puts the
     password where the port goes, and the int() that reads the port quotes it into a startup traceback. A URL whose
-    host holds an "@" is refused too: an unescaped "@" in the password ends the password there, the rest becomes the
-    host, and a driver's connection error quotes the host."""
+    host or query key holds an "@" is refused too: an unescaped "@" in the password ends the password there, the rest
+    becomes the host (or, past a "?", a query key), and a driver's connection error quotes it."""
     try:
         url = make_url(settings.DATABASE_URL)
     except Exception as exc:  # noqa: BLE001 — any parse failure
         problem = type(exc).__name__
     else:
-        if not (url.host and "@" in url.host):
+        if "@" not in (url.host or "") and not any("@" in key for key in url.query):
             return url
-        problem = "an '@' in the host; percent-encode the password"
+        problem = "an '@' in the host or a query key; percent-encode the password"
     # Raised after the handler, so no traceback chains the parser's error.
     raise RuntimeError(f"DATABASE_URL could not be parsed ({problem}; message withheld: it can quote the password)")
 

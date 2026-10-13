@@ -1150,13 +1150,18 @@ def test_redis_logs_no_url(monkeypatch, caplog):
 
 @pytest.mark.parametrize(
     ("shape", "reported"),
-    [("postgresql://app:{p}/app", "(ValueError"), ("postgresql://app:{p}@{p}@db.invalid/app", "(an '@' in the host")],
-    ids=["host-missing", "at-in-password"],
+    [
+        ("postgresql://app:{p}/app", "(ValueError"),
+        ("postgresql://app:{p}@{p}@db.invalid/app", "(an '@' in the host or a query key"),
+        ("postgresql://app:{p}@{p}?{p}@/app?host=/cloudsql/x", "(an '@' in the host or a query key"),
+    ],
+    ids=["host-missing", "at-in-password", "at-then-query-in-password"],
 )
 def test_a_malformed_database_url_is_not_quoted(monkeypatch, shape, reported):
     # app.database builds its engine at import, before any handler can withhold a message: a URL missing its `@host`
     # put the password into a service's startup traceback (and Sentry, which main.py starts first), and an unescaped
-    # "@" in the password parses, its tail becoming the host that the driver's connection error quotes at startup.
+    # "@" in the password parses, its tail becoming the host (or, past a "?", a query key) that the driver's
+    # connection error quotes at startup.
     from app import config
 
     password = _fabricated("DATABASE_URL password")
@@ -1183,11 +1188,14 @@ def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
     monkeypatch.delitem(sys.modules, "validate_db_performance", raising=False)
     script = importlib.import_module("validate_db_performance")
     password = _fabricated("benchmark password")
+    digits = _fabricated("benchmark all-digit password", string.digits)
     urls = (
         f"postgresql://app:{password}/app",  # the host missing: the password sits where the port goes
         f"postgresql://app:{password}@{password}@127.0.0.1:1/app",  # an unescaped "@" in the password
+        f"postgresql://app:{password}@{password}?{password}@/app?host=/tmp",  # an "@", then a "?", in the password
         f"postgresql://app:{password}@127.0.0.1:1/app",  # well-formed
         f"postgresql://127.0.0.1:1/app?user=app&password={password}",  # a password in the query string
+        f"postgresql://app:{digits}/app?hostaddr=127.0.0.1",  # the host missing: an all-digit password parses as the port
     )
     for url in urls:
         monkeypatch.setenv("DATABASE_URL", url)
@@ -1195,11 +1203,12 @@ def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
             script.run_validation()
     out = capsys.readouterr().out
     assert "could not be parsed (ValueError" in out  # the host-missing branch ran
-    assert "could not be parsed (an '@' in the host" in out  # so did the "@" branch
-    assert out.count("Database: postgresql at 127.0.0.1:1/app") == 2  # and the two well-formed URLs'
-    assert out.count("FAILED (connection error): OperationalError (message withheld") == 2  # each connect refused
-    leaked = _fragments(password, out)
-    assert not leaked, f"{leaked} four-character fragments of the fabricated password were printed"
+    assert out.count("could not be parsed (an '@' in the host or a query key") == 2  # so did both "@" branches
+    assert out.count("Database: postgresql at 127.0.0.1/app") == 2  # and the two well-formed URLs'
+    assert "Database: postgresql at app/app" in out  # the all-digit password's URL, its port withheld
+    assert out.count("FAILED (connection error): OperationalError (message withheld") == 3  # each connect failed
+    leaked = _fragments(password, out) + _fragments(digits, out, width=6)
+    assert not leaked, f"{leaked} fragments of the fabricated passwords were printed"
 
 
 # Settings fields that hold a secret, by name: keys, secrets, tokens, salts and the DSN, and the two connection URLs,

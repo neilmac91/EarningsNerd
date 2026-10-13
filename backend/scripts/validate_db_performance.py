@@ -81,20 +81,22 @@ def run_validation():
         sys.exit(1)
 
     # The parse error can quote the password (a URL missing its `@host` puts it where the port goes, and the int() that
-    # parses the port quotes it), so only its type is printed. A host holding an "@" is refused too: an unescaped "@"
-    # in the password ends it there and the rest becomes the host, which a driver's error quotes.
+    # parses the port quotes it), so only its type is printed. A host or query key holding an "@" is refused too: an
+    # unescaped "@" in the password ends it there and the rest becomes the host (or, past a "?", a query key), which a
+    # driver's error quotes.
     try:
         url = make_url(database_url)
     except Exception as e:  # noqa: BLE001 — any parse failure
         problem = type(e).__name__
     else:
-        problem = "an '@' in the host; percent-encode the password" if url.host and "@" in url.host else None
+        clean = "@" not in (url.host or "") and not any("@" in key for key in url.query)
+        problem = None if clean else "an '@' in the host or a query key; percent-encode the password"
     if problem:
         print(f"ERROR: DATABASE_URL could not be parsed ({problem}; message withheld: it can quote the password)")
         sys.exit(1)
-    # The backend, host, port and database only: SQLAlchemy's masked rendering hides the URL's password but not a
-    # password passed in its query string (?password=...).
-    print(f"Database: {url.get_backend_name()} at {url.host or 'localhost'}:{url.port or 'default'}/{url.database or ''}")
+    # The backend, host and database only: SQLAlchemy's masked rendering hides the URL's password but not a password
+    # passed in its query string (?password=...), and a URL missing its `@host` puts an all-digit password in the port.
+    print(f"Database: {url.get_backend_name()} at {url.host or 'localhost'}/{url.database or ''}")
     print()
 
     # Create engine with production-like settings
