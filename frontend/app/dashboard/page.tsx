@@ -8,7 +8,7 @@ import { getUsage, getSubscriptionStatus, createPortalSession } from '@/features
 import { getSavedSummaries, deleteSavedSummary, SavedSummary } from '@/features/summaries/api/summaries-api'
 import { getWatchlistInsights } from '@/features/watchlist/api/watchlist-api'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { CheckCircleIcon, LightningIcon, TrashIcon, WarningCircleIcon } from '@/lib/icons'
 import Link from 'next/link'
 import { formatLocalDate } from '@/lib/format'
@@ -62,12 +62,14 @@ export default function DashboardPage() {
   const subscriptionFailure = useRetainedFailure(subscriptionQuery, queryKeys.subscription.byUser(user?.id))
   const planFailed = usageFailure.failed || subscriptionFailure.failed
 
-  const { data: savedSummaries, isError: savedError } = useQuery({
+  const savedQuery = useQuery({
     queryKey: queryKeys.savedSummaries(),
     queryFn: getSavedSummaries,
     retry: false,
     enabled: !!user,
   })
+  const { data: savedSummaries } = savedQuery
+  const savedFailure = useRetainedFailure(savedQuery, queryKeys.savedSummaries())
 
   const insightsQuery = useQuery({
     queryKey: queryKeys.watchlistInsights(),
@@ -86,6 +88,11 @@ export default function DashboardPage() {
   const titleRef = useRef<HTMLHeadingElement>(null)
   const savedHeadingRef = useRef<HTMLHeadingElement>(null)
   const planHeadingRef = useRef<HTMLHeadingElement>(null)
+  // A successful empty result removes the saved section. Resolve after the commit, as Delete does,
+  // so a keyboard Retry lands on the remaining saved heading or the next stable section.
+  const savedRetryTarget = useMemo(() => ({
+    get current() { return savedHeadingRef.current ?? planHeadingRef.current },
+  }), [])
   const deletedId = useRef<number | null>(null)
 
   const deleteSummaryMutation = useMutation({
@@ -307,7 +314,7 @@ export default function DashboardPage() {
             {ENABLE_CALENDAR && <EarningsCalendar enabled={!!user} />}
 
             {/* Saved summaries render only when the user has any (the empty block is gone). */}
-            {hasSavedSummaries ? (
+            {hasSavedSummaries || savedFailure.failed ? (
               <section>
                 <h2
                   ref={savedHeadingRef}
@@ -316,7 +323,16 @@ export default function DashboardPage() {
                 >
                   Saved summaries
                 </h2>
-                <div className="space-y-3">
+                {savedFailure.failed && (
+                  <GuidanceCard
+                    variant="error"
+                    title="Unable to load saved summaries"
+                    description="Please retry in a moment."
+                    action={<RetryButton failures={[savedFailure]} focusTarget={savedRetryTarget}>Retry</RetryButton>}
+                    className={hasSavedSummaries ? 'mb-3' : undefined}
+                  />
+                )}
+                {hasSavedSummaries && <div className="space-y-3">
                   {savedSummaries!.map((item: SavedSummary) => (
                     <Card key={item.id} className="p-4">
                       <div className="flex items-start justify-between gap-2">
@@ -347,7 +363,7 @@ export default function DashboardPage() {
                           }}
                           aria-disabled={deleteSummaryMutation.isPending || undefined}
                           aria-busy={pendingDeleteId === item.id || undefined}
-                          className="text-error-light hover:bg-error-light/10 inline-flex min-h-11 min-w-11 items-center justify-center p-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-error aria-disabled:text-error-light/50 dark:text-error-dark dark:hover:bg-error-dark/15 dark:aria-disabled:text-error-dark/50"
+                          className="text-error-light hover:bg-error-light/10 inline-flex min-h-11 min-w-11 items-center justify-center p-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark aria-disabled:text-error-light/50 dark:text-error-dark dark:hover:bg-error-dark/15 dark:aria-disabled:text-error-dark/50"
                           title="Delete"
                           aria-label={`Delete summary for ${formatCompanyName(item.company.name)}`}
                         >
@@ -356,16 +372,7 @@ export default function DashboardPage() {
                       </div>
                     </Card>
                   ))}
-                </div>
-              </section>
-            ) : savedError ? (
-              <section>
-                <h2 className="mb-4 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Saved summaries</h2>
-                <GuidanceCard
-                  variant="error"
-                  title="Unable to load saved summaries"
-                  description="Please retry in a moment."
-                />
+                </div>}
               </section>
             ) : null}
 
@@ -379,7 +386,9 @@ export default function DashboardPage() {
                 >
                   Plan and usage
                 </h2>
-                {subscription?.is_pro ? (
+                {subscriptionFailure.failed || !subscription ? (
+                  <Badge variant="neutral">{subscriptionFailure.failed ? 'Unavailable' : 'Loading'}</Badge>
+                ) : subscription.is_pro ? (
                   <Badge variant="brand" icon={<LightningIcon className="h-4 w-4" />}>Pro</Badge>
                 ) : (
                   <Badge variant="free">Free</Badge>
@@ -396,7 +405,9 @@ export default function DashboardPage() {
                     Retry
                   </RetryButton>
                 </div>
-              ) : subscription?.is_pro ? (
+              ) : !subscription ? (
+                <p role="status" className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">Checking your plan…</p>
+              ) : subscription.is_pro ? (
                 <div className="mt-3 space-y-3">
                   <p className="flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     <CheckCircleIcon className="h-4 w-4 flex-shrink-0 text-success-light dark:text-success-dark" />

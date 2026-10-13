@@ -1,0 +1,83 @@
+import type { AnalysisDataset, AnalysisPoint } from '@/features/analysis/api/analysis-api'
+import type { DataNote, DataNoteBasis, DataNotesModel } from './dataNotes'
+import { windowGrowth, windowRange } from './growth'
+
+export type TableWindow = 'all' | 'newest' | 'earliest'
+
+export const reportIdentity = (dataset: AnalysisDataset) =>
+  JSON.stringify([dataset.ticker, dataset.mode, dataset.period_key, dataset.snapshot_id ?? null])
+
+export const tablePeriods = (dataset: AnalysisDataset, window: TableWindow) =>
+  window === 'newest' ? dataset.periods.slice(-6) : window === 'earliest' ? dataset.periods.slice(0, 6) : dataset.periods
+
+export const topLineConcept = (dataset: AnalysisDataset) =>
+  dataset.series.some(series => series.concept === 'revenue') ? 'revenue' : 'net_interest_income'
+
+/** The KPI renderer and note locators use the same four concepts and latest populated point. */
+export function selectHeadlineFigures(dataset: AnalysisDataset) {
+  const byConcept = Object.fromEntries(dataset.series.map(series => [series.concept, series]))
+  return [topLineConcept(dataset), 'net_income', 'free_cash_flow', 'net_margin'].flatMap(concept => {
+    const series = byConcept[concept]
+    if (!series) return []
+    for (let index = dataset.periods.length - 1; index >= 0; index--) {
+      const point = series.points.find(point => point.period === dataset.periods[index].key)
+      if (point?.value != null) return [{ series, point }]
+    }
+    return []
+  })
+}
+
+export const tableComparisonBasis = (mode: AnalysisDataset['mode'], point: AnalysisPoint) =>
+  mode === 'quarterly' && point.qoq != null ? 'qoq' as const : 'yoy' as const
+
+const comparisonId = (concept: string, period: string, basis: DataNoteBasis) => JSON.stringify([concept, period, basis])
+
+/** Actual rendered table membership, including gaps and the full annual window column. */
+export function tablePresentation(dataset: AnalysisDataset, periods: AnalysisDataset['periods'], notes: DataNotesModel) {
+  const letters = new Set<string>()
+  const comparisons = new Set<string>()
+  const include = (note: DataNote | null) => { if (note) letters.add(note.key) }
+  for (const series of dataset.series) {
+    for (const period of periods) {
+      const point = series.points.find(point => point.period === period.key) ?? { period: period.key, value: null }
+      include(notes.noteFor(point))
+      if (point.value == null) continue
+      const basis = tableComparisonBasis(dataset.mode, point)
+      if (point[basis] == null) continue
+      include(notes.noteForComparison(point, basis))
+      comparisons.add(comparisonId(series.concept, period.key, basis))
+    }
+    if (dataset.mode === 'annual' && windowGrowth(series).value != null) {
+      include(notes.noteForWindow(series))
+      comparisons.add(comparisonId(series.concept, windowRange(series) ?? dataset.period_key, series.percent ? 'window_pp' : 'cagr'))
+    }
+  }
+  return { notes: notes.notes.filter(note => letters.has(note.key)), comparisons }
+}
+
+/** Count distinct concept/period/basis identities; a second appearance never adds a comparison. */
+export function comparisonLocations(dataset: AnalysisDataset, periods: AnalysisDataset['periods'], notes: DataNotesModel) {
+  const headline = new Set(selectHeadlineFigures(dataset).flatMap(({ series, point }) => {
+    const annual = dataset.mode === 'annual'
+    if ((annual ? windowGrowth(series).value : point.yoy) == null) return []
+    return [comparisonId(series.concept, annual ? windowRange(series) ?? dataset.period_key : point.period,
+      annual ? series.percent ? 'window_pp' : 'cagr' : 'yoy')]
+  }))
+  const topLine = dataset.series.find(series => series.concept === topLineConcept(dataset))
+  // TrendCharts plots numeric YoY only; n/m is a table/card label, never a plotted point.
+  const chart = new Set(dataset.periods.flatMap(period => {
+    const point = topLine?.points.find(point => point.period === period.key)
+    return typeof point?.yoy === 'number' ? [comparisonId(topLine!.concept, period.key, 'yoy')] : []
+  }))
+  const table = tablePresentation(dataset, periods, notes).comparisons
+  const fullTable = tablePresentation(dataset, dataset.periods, notes).comparisons
+  return (note: DataNote) => (['qoq', 'yoy', 'cagr', 'window_pp'] as const).flatMap(basis => {
+    const identities = new Set(note.comparisons.filter(comparison => comparison.basis === basis)
+      .map(comparison => comparisonId(comparison.concept, comparison.period, basis)))
+    if (!identities.size) return []
+    const count = (surface: Set<string>) => [...identities].filter(identity => surface.has(identity)).length
+    return [{ basis, total: identities.size, headline: count(headline), chart: count(chart), table: count(table),
+      fullTable: count(fullTable), chartLabel: topLine?.label.toLowerCase() ?? 'top-line',
+      windowed: periods.length < dataset.periods.length, periods: periods.length, quarterly: dataset.mode === 'quarterly' }]
+  })
+}

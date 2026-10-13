@@ -40,9 +40,10 @@ COUNTS_BASIS = "retained items only; a partial or unavailable state makes these 
 # exemption is an IAM permission name of three ASCII letter labels ending in a PERMISSION_VERBS verb
 # (monitoring.timeSeries.list), which names no address. Four numeric labels are an IPv4 address. Kept by shape: a
 # single-label host name (localhost), a host name followed by a label that cannot end one (host.example.invalid.1,
-# host.example.invalid_1), a name dotted with a non-ASCII dot (U+3002, U+FF0E), an IPv4 address glued to a letter,
-# digit, "_" or "-" (ip-192.0.2.7) and an IPv6 address after a "label:" prefix (ip:2001:db8::7). Not covered: a
-# host name in a script written with combining marks (Indic), whose marks \w does not match.
+# host.example.invalid_1), a name dotted with a non-ASCII dot (U+3002, U+FF0E) or encoded dots (%2E), an IPv4 address
+# glued to a letter, digit, "_" or "-" (ip-192.0.2.7), an integer or hexadecimal IPv4 address (3221225991,
+# 0xc0000207) and an IPv6 address after a "label:" prefix (ip:2001:db8::7). Not covered: a host name in a script
+# written with combining marks (Indic), whose marks \w does not match.
 _URL = re.compile(r"(?<!\S)\S*://\S*")
 _EMAIL = re.compile(r"(?<!\S)\S*(?:@|%40)\S*")
 _DOTTED = re.compile(r"(?<![\w-])[\w-]+(?:\.[\w-]+)+")
