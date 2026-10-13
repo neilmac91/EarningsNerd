@@ -5,11 +5,11 @@ Context: record 25 merged to main as `dc2d2d4b` (PR #1294, 2026-10-13T09:08:16Z)
 was reset to it before this record's first commit (closure 177, `45aed08`, pushed 09:12:53Z). Record 25's counts ran to 06:59:31Z;
 this record's run from there to 18:31Z (this record's commit), with its push and the `@codex review` request after it. PR #1281 (the
 secret-output follow-ups) is not merged at this record, and E19, the value-level Sentry scrubber (PR #1297, stacked on #1281's
-branch), is not folded into it: both wait for the founder's go (Plan, item 1). This PR changes only files under `tasks/`: this record,
-the checkpoint, the appointments file, the archive ledger's record-26 entry, and `tasks/todo.md`'s handover block and F22. No
-application code, workflow, migration, cloud, IAM or production change, and nothing under `backend/`, so its merge deploys nothing.
-This record's dispatches: one `deepseek-balance` reading (07:54:38Z, before event 63) and one read-only `describe-service`
-(17:51:36Z).
+branch), is not folded into it: both wait for the founder's go (Plan, item 1). This PR changes only files under `tasks/`: closure
+177's exclusion record (its first commit), this record, the checkpoint, the appointments file, the archive ledger's record-26 entry,
+and `tasks/todo.md`'s handover block and F22. No application code, workflow, migration, cloud, IAM or production change, and nothing
+under `backend/`, so its merge deploys nothing. This record's dispatches: one `deepseek-balance` dispatch (07:54:38Z; its reading at
+07:54:43Z, before event 63) and one read-only `describe-service` (17:51:36Z).
 
 ## Record 25 merged (PR #1294): review record closed; twenty-first deploy-skip proof
 
@@ -25,7 +25,7 @@ merged head (no should-fix; one optional nit not taken, as the counts it names a
 E16's line, which #1281 replaces when it merges: editing it would have made the second of the two PRs to merge conflict, and a
 conflict on #1281 would have cost a re-run of its paid checks; the handover block names #1281 as E16's implementation instead. Codex
 found nothing on `c065a87` and `8ecdf02`. The records gate passed before each commit, and gitleaks over the PR's eight commits found
-nothing. The chief marked the PR ready at 08:43:22Z (no paid run fired: the PR touched only `tasks/`). Codex's ready-triggered review
+nothing. The chief marked the PR ready at 08:43:24Z (no paid run fired: the PR touched only `tasks/`). Codex's ready-triggered review
 of `8ecdf02` found nothing (08:47:32Z), `review-gate` passed at 08:47:46Z and the e2e job at 08:53:48Z. The chief squash-merged it at
 09:08:16Z as `dc2d2d4b` with an explicit title and message, pinned to `8ecdf02`, with main idle at `3da1c520` (disclosure 1(a): about
 fifteen minutes later than it could have been). Main CI run 38374165690 passed; its `deploy-backend` job (115226387956) skipped every
@@ -58,7 +58,7 @@ wording slip of its own, fixed in the body at 08:21:56Z together with the merge 
 resolves).
 
 Codex reviewed again from 11:35Z (#1297's first head, below). At 11:36Z the chief requested its review of `3c52519` (comment
-6144652583), and Codex found no major issues (11:39:19Z): the hosted review the relayed comment (next section) distinguishes from
+6144652583), and Codex found no major issues (11:39:16Z): the hosted review the relayed comment (next section) distinguishes from
 substitute evidence. The chief answered Codex's open P2 thread on the value-level scrubber at 11:39:37Z, naming #1297 as its fix and a
 release dependency (the thread stays open until #1297 lands), and edited the body at 11:40:12Z: the `Review override:` line withdrawn,
 Codex's hosted review recorded, #1297 named. #1281 stayed open, ready and green at `3c52519`, with nothing posted on it after
@@ -213,12 +213,12 @@ a `type` that is a list or a dict made the hook raise and drop the event) and SE
 list's items shared one path, so a key lost in one span passed), F2 (nit: `distribution` unexercised), F3 (nit: the behaviour case
 lacked positive assertions), F4 (nit: a comment overclaimed) and F5 (nit: the capture's reach). Refuters: PF-1, SEC-1 and SEC-3 stand
 (two of two each), PF-3 stands as a nit (two of two), PF-2 and SEC-2 fall (two of two each); of the gate lens's, F1 stands (as a minor
-finding by one refuter, a nit by the other), F2 and F3 stand as nits (two of two each), and F4's and F5's refuters were still running
-at this record's cutoff (record 27 and #1297's body take their verdicts). Every finding was fixed whatever its refuters found: PF-1,
-PF-2, PF-3 and SEC-3 in `2483213`; SEC-1 (the hook drops a hint's attachments, which the SDK would send past every hook) and SEC-2 (a
-`type` that is not text is walked like any value) in `2d0ce7f` (16:24:26Z); F1 to F5 in `6782126` (16:38:27Z): list items compared by
-index, a distribution metric captured and taken as a weak secret, positive assertions, an outbound HTTP call in the capture and its
-reach stated.
+finding by one refuter, a nit by the other), F2 and F3 stand as nits (two of two each), and at this record's cutoff F4's two refuters
+were running and F5's had not started (record 27 and #1297's body take their verdicts). Every finding was fixed whatever its refuters
+found: PF-1, PF-2, PF-3 and SEC-3 in `2483213`; SEC-1 (the hook drops a hint's attachments, which the SDK would send past every hook)
+and SEC-2 (a `type` that is not text is walked like any value) in `2d0ce7f` (16:24:26Z); F1 to F5 in `6782126` (16:38:27Z): list items
+compared by index, a distribution metric captured and taken as a weak secret, positive assertions, an outbound HTTP call in the
+capture and its reach stated.
 
 The delta reviewer's sixth round, over `942d99b..6782126` (16:55Z), bound **no blocker**: every disposition above checked as applied,
 its own mutations at `2d0ce7f` and `6782126` with no survivor against the gate, and one should-fix (D6-1: a hand-built event whose
@@ -280,12 +280,12 @@ traffic; the scheduled jobs' images updated; the five allow-listed env-pair line
 `TASKS_WORKER_PROCESS=false`, `ENABLE_INSIDER_ACTIVITY=false`; pregenerate 3 / 0; the job loop and backfill-facts 1 / 0; both SEC pins
 at 1 everywhere); "Deployed 6113751 and verified healthy." at 16:45:05Z and "Deployed 02fb99b and verified healthy." at 17:36:23Z
 (database healthy, Redis disabled as in production, the SEC EDGAR circuit closed). All six CI runs concluded success.
-**Production now.** A read-only `describe-service` dispatch (ops run 38442055155, 17:51:36–17:52:11Z, on main `02fb99b1`; log read
-through the redacting filter, raw copy deleted) returned `describe-service: PASS`: the service `earningsnerd-backend-00505-bt2` and
-the worker `earningsnerd-task-worker-00055-j7r` each serve 100%, both on #1305's image (release `02fb99b1`); both SEC pins at 1 on
-both; the service's `ENABLE_INSIDER_ACTIVITY` `false` (unset on the worker, where the settings default, false, applies); the worker's
-invoker policy PRIVATE. So production runs #1305's deploy; neither #1281 nor #1297 has reached it. A revision serving no traffic would
-not show in this read.
+**Production now.** A read-only `describe-service` dispatch (ops run 38442055155 from 17:51:36Z, its job 115450853503
+17:51:39–17:52:11Z, on main `02fb99b1`; log read through the redacting filter, raw copy deleted) returned `describe-service: PASS`:
+the service `earningsnerd-backend-00505-bt2` and the worker `earningsnerd-task-worker-00055-j7r` each serve 100%, both on #1305's
+image (release `02fb99b1`); both SEC pins at 1 on both; the service's `ENABLE_INSIDER_ACTIVITY` `false` (unset on the worker, where
+the settings default, false, applies); the worker's invoker policy PRIVATE. So production runs #1305's deploy; neither #1281 nor #1297
+has reached it. A revision serving no traffic would not show in this read.
 
 ## Spend (ledger events 63–64)
 
@@ -307,12 +307,13 @@ run, 0.730000, and one Copilot fidelity run, 0.060000), is prepared and unwritte
 above the floor. Other writers' paid runs in this record's window, not reserved in this ledger and not read here: the Copilot fidelity
 runs on #1302's branch (38428724525, 16:13:32–16:16:01Z, success) and on #1305's (38432391251, 16:40:12–16:42:39Z, failed at its
 question step), and the `eval-baseline` job of #1305's branch (115417598365 in CI run 38432369552, 16:40:09–16:50:12Z, its baseline
-eval and regression gate run); three Copilot fidelity runs on Dependabot branches failed (38429840008, 38429940475 and 38436835915).
-F23, the founder row #1300 added, named a Copilot reservation (record 09's rule) as a step before #1302's ready marking; no request
-reached the chief, and this ledger holds none. #1306 then added E23 on main, assigned to the chief: settle the two Copilot draws in
-the private ledger (36 and 38 calls, USD 0.013691 together by that writer's reading of their telemetry). The chief will record them,
-with #1305's `eval-baseline` job, which E23 does not list, after reading each run's telemetry through its own field filter (Plan, item
-3). No `deepseek-balance` dispatch in the window was another writer's.
+eval and regression gate run); three Copilot fidelity runs on Dependabot branches failed at the same question step (38429840008,
+38429940475 and 38436835915); their calls, if any, were not read. F23, the founder row #1300 added, named a Copilot reservation
+(record 09's rule) as a step before #1302's ready marking; no request reached the chief, and this ledger holds none. #1306 then added
+E23 on main, assigned to the chief: settle the two Copilot draws in the private ledger (36 and 38 calls, USD 0.013691 together by that
+writer's reading of their telemetry). The chief will record them, with #1305's `eval-baseline` job, which E23 does not list, after
+reading each run's telemetry through its own field filter (Plan, item 3). No `deepseek-balance` dispatch in the window was another
+writer's.
 
 ## Disclosures
 
@@ -422,8 +423,8 @@ production effect.
    `tasks/todo.md` at each merge for IDs another writer took (F23 and E21 are now another writer's).
 3. **E23, another writer's request to the chief:** record the two Copilot draws and #1305's `eval-baseline` job in the private ledger,
    after reading each run's telemetry through the field filter; one event after the release's events, or sooner if the founder holds.
-4. **The second review's last refuters** (the gate lens's) were still running at the cutoff; #1297's body and record 27 take their
-   verdicts.
+4. **The second review's last refuters** (the gate lens's F4 and F5) had not reported by the cutoff; #1297's body and record 27 take
+   their verdicts.
 5. **Then the checkpoint's Next queue:** the COO's G3 first-customer-part review and the G4 gate; B32's qualifying retained window; R1
    waits on the founder's custody step-A answer.
 
@@ -440,8 +441,8 @@ workflow `wf_844015fc-9e9` (closure 176's text cites the older convention; recor
 or judging eligibility; every earlier identity and adverse history is retained. This record's launches under
 `sentry-value-scrubber-pr-01` (the design workflow `wf_90ae5e9c-de0`, three contexts; the first review workflow `wf_c08be321-99a`,
 thirteen; the delta reviewer `ae31331869c7cec1a`, one context over six rounds; the design checks `wf_13b2a427-187`, two; the second
-review workflow `wf_0f0826ee-035`, twenty-three contexts at the cutoff, of twenty-five planned) and under `record-26-factcheck-01` and
-`record-26-reviewer-01` are registered as actual by record 27's closure.
+review workflow `wf_0f0826ee-035`, twenty-three contexts launched by the cutoff, twenty-one of them reported, of twenty-five planned)
+and under `record-26-factcheck-01` and `record-26-reviewer-01` are registered as actual by record 27's closure.
 
 ## Founder actions this record needs
 
