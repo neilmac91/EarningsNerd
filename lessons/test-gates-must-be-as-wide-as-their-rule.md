@@ -150,8 +150,11 @@ which this probe had missed; listing the family from the language instead, every
 returns its receiver's members, found five more (`toSpliced`, `with`, `splice`, `fill` and
 `copyWithin`), and `pop` and `shift`, which return one. In all, 99 forms broke the rule unread at
 `f5526d3`, and it failed 4 look-alikes. Codex's reviews of that session's fixes (`d3f1522`,
-`1dd291d`, `c00788f`) named in turn `Children.only`, an alias of `Children` or a helper destructured
-from it, and `Children` destructured from React itself; the gate reads all three without a rule for
-each, since it names a utility by the declaration the checker resolves its callee to, not by its
-spelling. Companion to `arch-structural-gates-over-prose-rules.md`, which says to build the gate;
-this one says how wide to build it.
+`1dd291d`, `c00788f`, `4e44658`) named in turn `Children.only`, an alias of `Children` or a helper
+destructured from it, `Children` destructured from React itself, and `React['Children']`; the gate
+reads all four without a rule for each, since it names a utility by the declaration the checker
+resolves its callee to, not by its spelling. A guard kept the checker to callees under a utility's
+name, for speed, and so left one called through a key, or held under a name of its own, unread;
+measured idle, it saved about a tenth of a second, so every callee is now asked. Companion to
+`arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
+build it.

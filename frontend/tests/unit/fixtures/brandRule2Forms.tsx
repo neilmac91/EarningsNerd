@@ -749,6 +749,44 @@ export function P478() { const { Children: { toArray } } = React; return <span c
 export function P479({ n }: { n: number }) { const Lib = R; const kids = Lib.Children.toArray([<span key="n">{n}</span>]); return <div className="text-brand-strong">{kids}</div> } // flag
 export function P480({ n }: { n: number }) { const { Children: Kids } = { Children: { only: (child: ReactNode) => (child ? <b>Revenue</b> : null) } }; return <div className="text-brand-strong">{Kids.only(<span>{n}</span>)}</div> } // clean
 export function P481() { const { Children: Kids } = React; return <p>{Kids.map(LABELS_161, (l) => <span key={String(l)} className="text-brand-strong">{l}</span>)}</p> } // flag
+// Codex's review of 4e44658: React's Children reached through a key, `React['Children']` held (P482, the review's
+// own form), a utility called through keys, destructured from it, a namespace's, the callbacks its map binds, and a
+// look-alike read through a key from a same-file object of the same shape.
+export function P482({ n }: { n: number }) { const Kids = React['Children']; return <div className="text-brand-strong">{Kids.only(<span>{n}</span>)}</div> } // flag
+export function P483({ n }: { n: number }) { return <div className="text-brand-strong">{React['Children']['only'](<span>{n}</span>)}</div> } // flag
+export function P484({ n }: { n: number }) { const { only } = React['Children']; return <div className="text-brand-strong">{only(<span>{n}</span>)}</div> } // flag
+export function P485() { return <span className="text-brand-strong">{R['Children'].toArray(LABELS_161)}</span> } // flag
+export function P486() { const Kids = React['Children']; return <p>{Kids.map(LABELS_161, (l) => <span key={String(l)} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P487({ n }: { n: number }) { const Kids = { Children: { only: (child: ReactNode) => (child ? <b>Revenue</b> : null) } }['Children']; return <div className="text-brand-strong">{Kids.only(<span>{n}</span>)}</div> } // clean
+// React's child utilities however else a call reaches them: every call's callee is asked of the checker, so a utility
+// held in an object (P488), returned by a function (P489), handed as a parameter (P490), bound (P491), called through
+// a key written or held (P492, P493), or held under a name of its own (P494, and cloneElement, P495) is React's, while
+// a same-file object of the same shape (P496) and a same-file method of the same name called through a key (P497)
+// are not.
+export function P488({ n }: { n: number }) { const lib = { Children }; return <div className="text-brand-strong">{lib.Children.only(<span>{n}</span>)}</div> } // flag
+export function P489({ n }: { n: number }) { const kids = () => Children; return <div className="text-brand-strong">{kids().only(<span>{n}</span>)}</div> } // flag
+export function P490({ n }: { n: number }) { const run = (C: typeof Children) => C.only(<span>{n}</span>); return <div className="text-brand-strong">{run(Children)}</div> } // flag
+export function P491({ n }: { n: number }) { const one = Children.only.bind(Children); return <div className="text-brand-strong">{one(<span>{n}</span>)}</div> } // flag
+export function P492({ n }: { n: number }) { return <div className="text-brand-strong">{Children['only'](<span>{n}</span>)}</div> } // flag
+export function P493({ n }: { n: number }) { const key = 'only'; return <div className="text-brand-strong">{Children[key](<span>{n}</span>)}</div> } // flag
+export function P494({ n }: { n: number }) { const helpers = { first: Children.only }; return <div className="text-brand-strong">{helpers.first(<span>{n}</span>)}</div> } // flag
+export function P495({ n }: { n: number }) { const helpers = { copy: cloneElement }; return <div className="text-brand-strong">{helpers.copy(<span>{n}</span>)}</div> } // flag
+export function P496({ n }: { n: number }) { const lib = { Children: { only: (child: ReactNode) => (child ? <b>Revenue</b> : null) } }; return <div className="text-brand-strong">{lib.Children.only(<span>{n}</span>)}</div> } // clean
+export function P497({ n }: { n: number }) { const table = { only(child: ReactNode) { return child ? <b>Revenue</b> : null } }; return <div className="text-brand-strong">{table['only'](<span>{n}</span>)}</div> } // clean
+// A method the scan names by what follows the dot (an array's, Object's, a push), called through a key instead: the
+// call is read as one the scan does not know.
+export function P498() { return <span className="text-brand-strong">{LABELS_161['slice'](0)}</span> } // gap
+// A callee that may be undefined: the checker's type of the callee is asked without its undefined, so an optional
+// call reaches the utility (P499, P500); and a same-file function typed as React's utility is read as it, which fails
+// closed (P501).
+export function P499({ n }: { n: number }) { const one = n > 0 ? Children.only : undefined; return <div className="text-brand-strong">{one?.(<span>{n}</span>)}</div> } // flag
+export function P500({ n }: { n: number }) { const lib: { only?: typeof Children.only } = { only: Children.only }; return <div className="text-brand-strong">{lib.only?.(<span>{n}</span>)}</div> } // flag
+export function P501({ n }: { n: number }) { const mine: typeof Children.only = ((child: ReactNode) => (child ? <b>Revenue</b> : null)) as never; return <div className="text-brand-strong">{mine(<span>{n}</span>)}</div> } // flag
+// A React utility called through call, apply or Reflect.apply: what is called is lib's, so the children it is handed
+// are unread.
+export function P502({ n }: { n: number }) { return <div className="text-brand-strong">{Children.only.call(null, <span>{n}</span>)}</div> } // gap
+export function P503({ n }: { n: number }) { return <div className="text-brand-strong">{Children.only.apply(null, [<span key="n">{n}</span>])}</div> } // gap
+export function P504({ n }: { n: number }) { return <div className="text-brand-strong">{Reflect.apply(Children.only, null, [<span key="n">{n}</span>])}</div> } // gap
 // What the file puts in an array or an object after making it: a push, a splice's inserts, an index or a field it
 // sets, through a field chain or a key the scan cannot read, a className built that way, a count control, an
 // index into an array a push filled, which may land on any member, and a conditional put there, read as code.

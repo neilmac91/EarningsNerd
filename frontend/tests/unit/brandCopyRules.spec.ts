@@ -41,7 +41,9 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    returns a list of them, slice, filter, concat and flat among them, with the values toSpliced,
  *    with and fill add; a Set, Array.from, Children.toArray; at, find, pop, shift), a map's returns
  *    and a join, and one rendered whole renders every member. React's child utilities are named
- *    through the checker, however a call reaches them (an aliased import, a destructured method):
+ *    through the checker, however a call reaches them (an aliased import, a destructured, held or
+ *    bound method, a field or a key that holds one, a function that returns one, a name that may be
+ *    undefined):
  *    Children.toArray keeps the children it is given (one that is no array is a member), Children.map
  *    and forEach hand their callback each, Children.only and cloneElement render the element they are
  *    given, and the children a clone or createElement hands an element (from the third argument on,
@@ -100,7 +102,10 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    handed), props either is given held in a name or spread into the ones written in the call (read
  *    as none, so the children they hand are unread and a className they give fails closed), a value
  *    put in an array or an object through another name for it (an alias, or a parameter it is handed
- *    to), and a value held in a Map; beyond the fixture, a literal another file holds, a colour set
+ *    to), a value held in a Map, a method the scan names by what follows the dot (an array's,
+ *    Object's, a push) called through a key instead (`labels['slice'](0)`), read as a call it does
+ *    not know, and a React utility called through call, apply or Reflect.apply, whose callee is
+ *    lib's; beyond the fixture, a literal another file holds, a colour set
  *    by an inline style or on a pseudo-element, a library component's internals, a component created
  *    inside another's render, reading that one's children through a closure (the lint's
  *    react-hooks/static-components forbids one), and SVG text coloured by attribute (the chart theme,
@@ -207,18 +212,18 @@ const keepsArgument = (v: ts.Expression): v is ts.CallExpression | ts.NewExpress
 
 /** React's child utilities, which hand JSX through: Children's methods, cloneElement and createElement. A call names one
     when the checker types what it calls as React's own declaration, however the call reaches it (an aliased import,
-    `React.Children`, a destructured or a held method), so an array's `map`, the DOM's createElement or a same-file
-    `toArray` is not one. A method is asked only under a utility's name (a method held under another is out of reach),
-    and each call once. */
+    `React.Children`, a destructured, held or bound method, a field or a key that holds one, a function that returns
+    one, a name that may be undefined), so an array's `map`, the DOM's createElement or a same-file `toArray` is not
+    one, unless it is typed as React's, which fails closed. One called through `call`, `apply` or `Reflect.apply` is
+    a gap, since what is called is lib's. Every call's callee is asked, once: keeping the checker to callees under a
+    utility's name saved about a tenth of a second and left a key and a held name unread. */
 const REACT_UTILITIES = new Set(['toArray', 'only', 'map', 'forEach', 'cloneElement', 'createElement'])
 const REACT_TYPES = /[\\/]node_modules[\\/]@types[\\/]react[\\/]/
 const UTILITIES = new Map<ts.Node, string | undefined>()
 function reactUtility(v: ts.Expression): string | undefined {
   if (!ts.isCallExpression(v)) return undefined
   if (!UTILITIES.has(v)) {
-    const callee = unwrap(v.expression)
-    const asked = ts.isIdentifier(callee) || (ts.isPropertyAccessExpression(callee) && REACT_UTILITIES.has(callee.name.text))
-    const declaration = asked ? CHECKER.getTypeAtLocation(callee).getCallSignatures()[0]?.declaration : undefined
+    const declaration = CHECKER.getNonNullableType(CHECKER.getTypeAtLocation(unwrap(v.expression))).getCallSignatures()[0]?.declaration
     const name = declaration && !ts.isJSDocSignature(declaration) && declaration.name && ts.isIdentifier(declaration.name) ? declaration.name.text : undefined
     UTILITIES.set(v, name && REACT_UTILITIES.has(name) && REACT_TYPES.test(declaration!.getSourceFile().fileName) ? name : undefined)
   }
