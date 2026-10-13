@@ -237,11 +237,13 @@ list included) and the str of a log's body that is not text only after `before_s
   `distribution`) break no item: errors, transactions, the check-in, the log and the metrics are each sent, as their own
   kind and whole, their child spans, breadcrumbs, frames, monitor config, trace header and the gen-AI span the SDK
   splits out after the hook with their keys, and a distribution keeps its kind; every key of 8 characters or more that
-  the SDK's own items carry outside user data, read from what each hook received in one capture of every structure on
-  every channel and each taken as a secret, leaves every item's structure as it was, each list's items compared by index
-  (a key lost in one span or frame shows), so a key an SDK upgrade adds fails until `_PROTOCOL_KEYS` has it, and every
-  name the list keeps occurs in those items (no entry is dead or misspelled), and so does each context main counts as
-  the SDK's, on the SDK version the capture was checked against (pinned); a weak secret equal to a protocol word
+  the SDK's own items carry outside user data, read from what each hook received in one capture of the structures the
+  design checks found the SDK builds under main's options (on every channel; the capture builds no subprocess span,
+  errno mechanism data or gauge) and each taken as a secret, leaves every item's structure as it was, each list's items
+  compared by index (a key lost in one span or frame shows), so a key on a structure the capture builds fails until
+  `_PROTOCOL_KEYS` has it, and every name the list keeps occurs in those items (no entry is dead or misspelled), and so
+  does each context main counts as the SDK's, on the SDK version the capture was checked against (pinned: an upgrade
+  fails until the capture is checked against it again); a weak secret equal to a protocol word
   (`username`) written by the app as a key in each kind of user data (an extra, a tag, a context of its own, a
   breadcrumb's data, a span's data and tags, a log's and a metric's attributes, a request's body and headers, a log
   entry's params) is withheld there while the user's own `username` stays, each field of the gate's copy of the
