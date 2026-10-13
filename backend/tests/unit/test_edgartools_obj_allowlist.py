@@ -5,9 +5,12 @@ and the SGML index through edgartools' own HTTP client, which the app's limiter,
 diagnostics never see, and it returned nothing for every document probed from the build
 environment. Section text is parsed from the primary document the app fetched
 (``filing_section_service.parse_item_1a``). This test encodes the rule the way the os.getenv
-gate does: an AST walk over ``app/**/*.py`` collects every ``.obj()`` call and compares the
-(file, enclosing scope) pairs against the two sites that predate the rule. A NEW call anywhere
-fails with its file:line; a sanctioned site that disappears fails too, so the list cannot go stale.
+gate does: an AST walk over ``app/**/*.py`` collects every access to an attribute named ``obj``:
+the call (``filing.obj()``), the bare read that aliases the accessor (``loader = filing.obj``,
+then ``loader()``) and the string form (``getattr(filing, "obj")``); any way of reaching the
+accessor starts with one of those. The (file, enclosing scope) pairs are compared against the two
+sites that predate the rule. A NEW access anywhere fails with its file:line; a sanctioned site
+that disappears fails too, so the list cannot go stale.
 """
 import ast
 from pathlib import Path
@@ -26,8 +29,9 @@ ALLOWED_OBJ_CALLS: dict[tuple[str, str], str] = {
 }
 
 
-class _ObjCallFinder(ast.NodeVisitor):
-    """Collect (scope, lineno) for every ``<expr>.obj()`` call."""
+class _ObjAccessFinder(ast.NodeVisitor):
+    """Collect (scope, lineno) for every ``<expr>.obj`` attribute (called or not) and every
+    ``getattr(<expr>, "obj")``."""
 
     def __init__(self) -> None:
         self.hits: list[tuple[str, int]] = []
@@ -48,31 +52,40 @@ class _ObjCallFinder(ast.NodeVisitor):
 
     visit_AsyncFunctionDef = visit_FunctionDef  # type: ignore[assignment]
 
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        # A call's callee is this node too, so a call and a bare read are one case each.
+        if node.attr == "obj":
+            self.hits.append((self._scope(), node.lineno))
+        self.generic_visit(node)
+
     def visit_Call(self, node: ast.Call) -> None:
-        if isinstance(node.func, ast.Attribute) and node.func.attr == "obj":
+        if (
+            isinstance(node.func, ast.Name) and node.func.id == "getattr" and len(node.args) >= 2
+            and isinstance(node.args[1], ast.Constant) and node.args[1].value == "obj"
+        ):
             self.hits.append((self._scope(), node.lineno))
         self.generic_visit(node)
 
 
-def _obj_calls(path: Path) -> list[tuple[str, int]]:
-    finder = _ObjCallFinder()
+def _obj_accesses(path: Path) -> list[tuple[str, int]]:
+    finder = _ObjAccessFinder()
     finder.visit(ast.parse(path.read_text(encoding="utf-8")))
     return finder.hits
 
 
-def test_edgartools_obj_calls_match_the_allowlist():
+def test_edgartools_obj_accesses_match_the_allowlist():
     found: dict[tuple[str, str], list[str]] = {}
     for py in sorted(APP_DIR.rglob("*.py")):
         rel = py.relative_to(BACKEND_DIR).as_posix()
-        for scope, lineno in _obj_calls(py):
+        for scope, lineno in _obj_accesses(py):
             found.setdefault((rel, scope), []).append(f"{rel}:{lineno}")
 
     unexpected = {key: locs for key, locs in found.items() if key not in ALLOWED_OBJ_CALLS}
     missing = set(ALLOWED_OBJ_CALLS) - set(found)
 
     assert not unexpected and not missing, (
-        "edgartools .obj() calls drifted from the allow-list "
-        "(lessons/sec-parse-app-fetched-html-not-edgartools-filing-objects.md).\n"
+        "edgartools .obj accesses (a call, a bare read of the accessor or getattr(x, 'obj')) drifted "
+        "from the allow-list (lessons/sec-parse-app-fetched-html-not-edgartools-filing-objects.md).\n"
         f"  unexpected: {sorted(loc for locs in unexpected.values() for loc in locs)}\n"
         f"  missing (a sanctioned site was removed/moved — prune ALLOWED_OBJ_CALLS): {sorted(missing)}\n"
         "For document text, fetch the primary document through sec_edgar_service.get_filing_document "
@@ -80,7 +93,15 @@ def test_edgartools_obj_calls_match_the_allowlist():
     )
 
 
-def test_finder_sees_a_call_and_ignores_the_attribute():
-    tree_hits = _ObjCallFinder()
-    tree_hits.visit(ast.parse("def f(filing):\n    x = filing.obj()\n    y = filing.obj\n    return x, y\n"))
-    assert tree_hits.hits == [("f", 2)]
+def test_finder_sees_a_call_a_bare_read_and_the_getattr_form_and_ignores_other_names():
+    finder = _ObjAccessFinder()
+    finder.visit(ast.parse(
+        "def f(filing):\n"
+        "    x = filing.obj()\n"
+        "    loader = filing.obj\n"
+        "    y = loader()\n"
+        "    z = getattr(filing, 'obj')()\n"
+        "    w = filing.object(); v = getattr(filing, 'objects'); u = obj(filing)\n"
+        "    return x, y, z, w, v, u\n"
+    ))
+    assert finder.hits == [("f", 2), ("f", 3), ("f", 5)]

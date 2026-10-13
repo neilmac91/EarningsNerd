@@ -482,6 +482,37 @@ def test_an_open_breaker_halts_the_batch_without_writing(db):
     assert db.query(FilingSectionText).filter(FilingSectionText.filing_id.in_([prior.id, later.id])).count() == 0
 
 
+def test_the_batch_holds_no_transaction_through_transport_and_refuses_pending_writes(db):
+    """The job-owned session's selection is a finished read before the first fetch, and the
+    per-filing commits leave the selected filings loaded, so no later fetch starts a transaction
+    either: the pooled connection is never idle in transaction through SEC transport or the parse
+    (lessons/ops-finish-only-job-owned-read-transactions.md). The session's expiry policy is
+    restored afterwards, and a session carrying pending writes is refused rather than committed."""
+    watcher = _user(db)
+    _, prior, later, _ = _pair(db, watched_by=watcher)
+    documents = {prior.document_url: "prior", later.document_url: "later"}
+    in_transaction_at_fetch: list[bool] = []
+
+    async def fetch(url):
+        in_transaction_at_fetch.append(db.in_transaction())
+        return documents[url]
+
+    assert prior.company.ticker and db.in_transaction()  # the caller's own read is open on entry
+    stats = asyncio.run(svc.run_section_extraction(
+        db, limit=100, tickers=[prior.company.ticker], fetch_document=fetch,
+        parse=_parse({"prior": PRIOR_TEXT, "later": LATER_TEXT}), now=NOW,
+    ))
+    assert stats["extracted_ok"] == 2 and in_transaction_at_fetch == [False, False]
+    assert db.expire_on_commit is True
+    assert _row(db, later.id).diff_prior_filing_id == prior.id
+
+    db.add(Watchlist(user_id=watcher.id, company_id=prior.company_id))
+    with pytest.raises(RuntimeError, match="pending writes"):
+        asyncio.run(svc.run_section_extraction(db, limit=100, fetch_document=fetch, parse=_parse({}), now=NOW))
+    db.rollback()
+    assert db.expire_on_commit is True
+
+
 def test_the_batch_recomputes_summaries_behind_the_diff_engine(db):
     _, prior, later, _ = _pair(db)
     _extract(db, prior, PRIOR_TEXT)
@@ -716,6 +747,45 @@ def test_what_changed_endpoint_serves_a_teaser_anonymously_and_the_full_list_to_
     monkeypatch.setattr(settings, "ENABLE_SECTION_CHANGES", False)
     assert client.get(f"/api/summaries/filing/{later.id}/what-changed").json()["section_changes"] is None
     assert client.get("/api/summaries/filing/0/what-changed").status_code == 404
+
+
+def test_what_changed_endpoint_resolves_the_viewer_access_inside_the_threadpool_unit(db, client, monkeypatch):
+    """``section_changes_access`` reads the viewer's subscription row (``get_entitlements``, a lazy
+    load the auth dependency does not make), so the route resolves it inside the unit it hands to
+    the threadpool, never on the event loop."""
+    from app.routers import summaries as summaries_router
+    from app.routers.auth import create_access_token
+
+    monkeypatch.setattr(settings, "ENABLE_SECTION_CHANGES", True)
+    _, prior, later, _ = _pair(db)
+    _extract(db, prior, PRIOR_TEXT)
+    _extract(db, later, LATER_TEXT)
+    real_run_in_threadpool = summaries_router.run_in_threadpool
+    real_access = summaries_router.section_changes_access
+    off_loop = {"active": False}
+    resolved_off_loop: list[bool] = []
+
+    async def spying_run_in_threadpool(func, *args, **kwargs):
+        def unit(*a, **kw):
+            off_loop["active"] = True
+            try:
+                return func(*a, **kw)
+            finally:
+                off_loop["active"] = False
+
+        return await real_run_in_threadpool(unit, *args, **kwargs)
+
+    def access(user):
+        resolved_off_loop.append(off_loop["active"])
+        return real_access(user)
+
+    monkeypatch.setattr(summaries_router, "run_in_threadpool", spying_run_in_threadpool)
+    monkeypatch.setattr(summaries_router, "section_changes_access", access)
+    pro = _user(db, is_pro=True)
+    client.cookies.set(settings.COOKIE_NAME, create_access_token(data={"sub": pro.email}))
+    full = client.get(f"/api/summaries/filing/{later.id}/what-changed").json()["section_changes"]
+    client.cookies.clear()
+    assert full["access"] == "full" and resolved_off_loop == [True]
 
 
 CLEAN_BATCH = {"selected": 2, "extracted_ok": 2, "missing": 0, "oversize": 0, "extract_errors": 0,

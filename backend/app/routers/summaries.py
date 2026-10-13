@@ -688,12 +688,15 @@ async def get_what_changed(
     Reports financial-metric deltas and, behind ENABLE_SECTION_CHANGES, the Item 1A wording diff
     (``section_changes``: a teaser for anonymous and Free readers, the full list for Pro). DB-only,
     no LLM — cheap to serve. Returns ``has_changes: false`` when there's no prior filing to compare
-    against. The lookup, the report and the session release are one unit off the event loop: the
-    wording diff is CPU work (about 150 ms on the largest pair), and the pooled connection is back
-    before the route yields to the dependency's finalizer.
+    against. The viewer's access, the lookup, the report and the session release are one unit off
+    the event loop: resolving the access reads the viewer's subscription row (a lazy load the auth
+    dependency does not make), the wording diff is CPU work (about 150 ms on the largest pair), and
+    the pooled connection is back before the route yields to the dependency's finalizer.
     """
-    access = section_changes_access(current_user)
-    report = await run_in_threadpool(change_report_for_filing, db, filing_id, section_access=access)
+    def report_for_viewer():
+        return change_report_for_filing(db, filing_id, section_access=section_changes_access(current_user))
+
+    report = await run_in_threadpool(report_for_viewer)
     if report is None:
         raise HTTPException(status_code=404, detail="Filing not found")
     return report

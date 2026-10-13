@@ -25,5 +25,5 @@ fall back to any part.
 
 **Evidence**: `backend/app/services/filing_section_service.py::parse_item_1a` and its tests in
 `backend/tests/unit/test_filing_section_service.py`; the corpus measures in the body of PR #1286.
-Gate: `backend/tests/unit/test_edgartools_obj_allowlist.py` (every `.obj()` call under `app/` is
-on its allow-list).
+Gate: `backend/tests/unit/test_edgartools_obj_allowlist.py` (every access to the accessor under
+`app/`, the call, a bare `.obj` read that aliases it or `getattr(x, "obj")`, is on its allow-list).

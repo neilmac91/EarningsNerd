@@ -344,26 +344,38 @@ async def run_section_extraction(
     limit = settings.SECTION_EXTRACTION_BATCH_LIMIT if limit is None else limit
     stats = {"selected": 0, "extracted_ok": 0, "missing": 0, "oversize": 0, "extract_errors": 0,
              "breaker_open": 0, "summaries_recomputed": 0}
-    filings = select_filings_for_extraction(
-        db, limit=limit, cohort=cohort, tickers=tickers, retry_failed=retry_failed, window_days=window_days, now=now
-    )
-    stats["selected"] = len(filings)
-    for filing in filings:
-        try:
-            attempt = await extract_for_filing(db, filing, fetch_document=fetch_document, parse=parse, now=now)
-        except SectionExtractionHalted as halted:
-            logger.warning("Section extraction stopped: %s", halted)
-            stats["breaker_open"] = 1
-            break
-        if attempt is None:
-            continue
-        if attempt.status == STATUS_OK:
-            stats["extracted_ok"] += 1
-        elif attempt.status == STATUS_FAILED:
-            stats["extract_errors"] += 1
-        else:
-            stats[attempt.status] += 1
-    stats["summaries_recomputed"] = recompute_stale_summaries(db, limit=SUMMARY_RECOMPUTE_BATCH, now=now)
+    # The job owns this session (the scan job, the operator script, the task worker), so the
+    # selection's read transaction is finished before the first SEC fetch and the selected filings
+    # stay loaded across the per-filing commits: no pooled connection sits idle in transaction
+    # through transport or the parse (lessons/ops-finish-only-job-owned-read-transactions.md).
+    if db.new or db.dirty or db.deleted or db.in_nested_transaction():
+        raise RuntimeError("run_section_extraction needs a session with no pending writes or nested transaction")
+    prior_expire_on_commit = db.expire_on_commit
+    db.expire_on_commit = False
+    try:
+        filings = select_filings_for_extraction(
+            db, limit=limit, cohort=cohort, tickers=tickers, retry_failed=retry_failed, window_days=window_days, now=now
+        )
+        db.commit()  # the read-only selection is complete: the connection goes back before transport
+        stats["selected"] = len(filings)
+        for filing in filings:
+            try:
+                attempt = await extract_for_filing(db, filing, fetch_document=fetch_document, parse=parse, now=now)
+            except SectionExtractionHalted as halted:
+                logger.warning("Section extraction stopped: %s", halted)
+                stats["breaker_open"] = 1
+                break
+            if attempt is None:
+                continue
+            if attempt.status == STATUS_OK:
+                stats["extracted_ok"] += 1
+            elif attempt.status == STATUS_FAILED:
+                stats["extract_errors"] += 1
+            else:
+                stats[attempt.status] += 1
+        stats["summaries_recomputed"] = recompute_stale_summaries(db, limit=SUMMARY_RECOMPUTE_BATCH, now=now)
+    finally:
+        db.expire_on_commit = prior_expire_on_commit
     return stats
 
 
