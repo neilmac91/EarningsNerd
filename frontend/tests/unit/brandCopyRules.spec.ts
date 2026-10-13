@@ -27,20 +27,29 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    may carry a digit or a value (SEC form codes such as "10-K" are names, and the device's citation
  *    brackets, "[1]" and "[F1]", are not numbers). A digit counts written inline (a template's
  *    substitutions included) or held in a same-file literal or JSX and reached through the file's
- *    own bindings: a variable (its initializer and every value the file assigns it, destructured or
- *    not), a field, an index, a destructured name and its default (a rest element read as the whole
- *    it is taken from, so it fails closed on what comes before it), a loop's variable, and a
- *    function's parameter, which takes its default and what the file's own calls hand it (an
- *    argument in its place, or the members an array method hands its callback, written inline or
- *    held in a name); a call holds and renders what its callbacks, its own same-file function or a
- *    useMemo returns. Arrays and objects are read through a spread, an object's values, keys and
- *    entries, a call that keeps its members or returns one (slice, filter, concat, flat, a Set,
- *    Array.from, React's Children.toArray; at, find; Children.only returns what it is given, and
- *    Children.map and forEach bind their callback as the array methods do), a map's returns, a join
- *    and a list rendered whole. A key the scan cannot read may land on any member, so every
- *    member is read; a parameter bound at several calls takes every call's value, so a function that
- *    renders it in sage fails on any call that hands it a digit; and a binding the walk meets again
- *    (a function that hands a parameter to itself) ends there.
+ *    own bindings: a variable (its initializer, every value the file assigns it, destructured or not,
+ *    and every value it puts in it: a push, an unshift, a splice's inserts, a fill's value or a Set's
+ *    add, an index or a field it sets, a compound assignment's included, or the fields Object.assign
+ *    copies, from a spread of sources too, along a chain of fields), a field, an index, a
+ *    destructured name and its default (a rest element read as the whole it is taken from, so it
+ *    fails closed on what comes before it), a loop's variable, and a function's parameter, which
+ *    takes its default and what the file's own calls hand it (an argument in its place, or the
+ *    members an array method hands its callback, written inline or held in a name); a call holds and
+ *    renders what its callbacks, its own same-file function or a useMemo returns, and Object.assign
+ *    its target with the fields it copies. Arrays and objects are read through a spread, an object's
+ *    values, keys and entries, a call that keeps its members or returns one (each array method that
+ *    returns a list of them, slice, filter, concat and flat among them, with the values toSpliced,
+ *    with and fill add; a Set, Array.from, Children.toArray; at, find, pop, shift), a map's returns
+ *    and a join, and one rendered whole renders every member. React's child utilities are named
+ *    through the checker, however a call reaches them (an aliased import, a destructured method):
+ *    Children.toArray keeps the children it is given (one that is no array is a member), Children.map
+ *    and forEach hand their callback each, Children.only and cloneElement render the element they are
+ *    given, and the children a clone or createElement hands an element (from the third argument on,
+ *    or the props written in the call) render in its place, a clone's unless the element it clones
+ *    sets an ink of its own. A key the scan cannot read may land on any member, so every member is
+ *    read; a parameter bound at several calls takes every call's value, so a function that renders it
+ *    in sage fails on any call that hands it a digit; and a binding the walk meets again (a function
+ *    that hands a parameter to itself) ends there.
  *    Sage ink is any brand-family colour token, with or without an opacity modifier, in a state the
  *    element can rest in (dark:, a breakpoint, aria-*, data-*, disabled:, visited:, focus:); hover:
  *    and active: and their group- and peer- forms are activity under the pointer, sage's other job,
@@ -51,41 +60,51 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    called is read whole, any class it holds counting), from a variant component (Button,
  *    RetryButton, MarketingCta and Badge, each variant's colour asked of the component itself, and
  *    buttonVariants() in a className likewise; a variant the scan cannot read counts as sage), or
- *    from an app component followed through the checker: one that renders its children in sage is a
- *    sage element, and one that renders a number in the ink it inherits (what a same-file helper
- *    returns included) fails inside a sage parent, or given sage where it is used when it hands that
- *    className to the element it returns. A value is read through the type checker (one program from
- *    tsconfig.json): a number- or bigint-typed expression or an array of them (whole or joined), a
- *    template or a call fed one (a formatter, and so also a lookup such as labelFor(i) or a helper
- *    that builds a label), a number's own method, a same-file variable holding one, a parameter the
- *    file's calls hand one (by the type of what each call gives it, whatever the parameter's own
- *    type), or what a callback or a same-file function returns, through conditionals, `||`, `??`,
- *    the right of `&&` (and its left when that can be a number, which renders a 0) and JSX
- *    branches; a comparison is a boolean and renders nothing. A citation whose bracket is its whole
- *    text ("[{n}]") and a link that renders its own address are text. The count control
- *    (frontend/DESIGN_SYSTEM.md) is the second check: a control that rests in sage never holds its
- *    count in a span of its own ink, written inline, held in a same-file variable, or returned by a
- *    same-file function its label calls or maps with (its props are not its label). Its sage is its
- *    own or the element's around it where it is rendered: where it is written, where the file's
- *    bindings carry it when it is held elsewhere (reported there), and, for a control a component
- *    renders in the ink it inherits, where the component is used or the sage className the component
- *    hands to the element it returns. The planted forms in tests/unit/fixtures/brandRule2Forms.tsx,
- *    one per way the rule can be broken, per look-alike that must pass and per known gap, are scored
- *    on every run, so the gate's reach is held as well as its verdict on the app. Out of a source
- *    scan's reach, and so review-checked (the fixture marks each as a gap): a value held in a string
- *    (a date or an index name computed as text, or any value the server or the model sends as text)
- *    or written in words; a value bound outside the file's own calls (a component's prop, which JSX
- *    binds and the component check reads only for its children and className, a count control handed
- *    as one included, a hook's state, a callback handed through another function's parameter); a
- *    count a component renders in its own ink inside a sage control, sage handed to a component
- *    through a prop other than className, a className given where a component is used that the
- *    component joins with its own ink (cx joins without merging, so CSS order decides), hands to an
- *    element below the one it returns, or never applies (its ink then masks the one the component
- *    inherits), and a conditional written in a literal's field, read as written since the scan cannot
- *    tie it to the element's other fields; beyond the fixture, a literal another file holds, a colour
- *    set by an inline style or on a pseudo-element, a library component's internals, and SVG text
- *    coloured by attribute (the chart theme, which carries no sage). The waitlist counter's own spec
- *    covers the count on the public pages.
+ *    from an app component followed through the checker: one that renders its children in sage (the
+ *    walk carries them from its props through every binding above and React's child utilities; a
+ *    field of that name read off anything else is no child of its) is a sage element, and one that
+ *    renders a number in the ink it inherits (what a same-file helper returns included) fails inside
+ *    a sage parent, or given sage where it is used when it hands that className to the element it
+ *    returns. A value is read through the type checker (one program from tsconfig.json): a number- or
+ *    bigint-typed expression or an array of them (rendered whole or joined, any member that renders
+ *    one counting), a template or a call fed one (a formatter, and so also a lookup such as
+ *    labelFor(i) or a helper that builds a label), a number's own method, a same-file variable
+ *    holding one, a parameter the file's calls hand one (by the type of what each call gives it,
+ *    whatever the parameter's own type), or what a callback or a same-file function returns, through
+ *    conditionals, `||`, `??`, the right of `&&` (and its left when that can be a number, which
+ *    renders a 0) and JSX branches; a comparison is a boolean and renders nothing. A citation whose
+ *    bracket is its whole text ("[{n}]") and a link that renders its own address are text. The count
+ *    control (frontend/DESIGN_SYSTEM.md) is the second check: a control that rests in sage never
+ *    holds its count in a span of its own ink, written inline, held in a same-file variable, or
+ *    returned by a same-file function its label calls or maps with (its props are not its label); a
+ *    component that renders its children inside a control is one where it is used, its children the
+ *    label. Its sage is its own or the element's around it where it is rendered: where it is written,
+ *    where the file's bindings carry it when it is held elsewhere (reported there), and, for a
+ *    control a component renders in the ink it inherits, where the component is used or the sage
+ *    className the component hands to the element it returns. The planted forms in
+ *    tests/unit/fixtures/brandRule2Forms.tsx, one per way the rule can be broken, per look-alike that
+ *    must pass and per known gap, are scored on every run, so the gate's reach is held as well as its
+ *    verdict on the app. Out of a source scan's reach, and so review-checked (the fixture marks each
+ *    as a gap): a value held in a string (a date or an index name computed as text, or any value the
+ *    server or the model sends as text) or written in words; a value bound outside the file's own
+ *    calls (a component's prop, which JSX binds and the component check reads only for its children
+ *    and className, a count control handed as one included, a hook's state, a callback handed through
+ *    another function's parameter); a count a component renders in its own ink inside a sage control,
+ *    sage handed to a component through a prop other than className, a className given where a
+ *    component is used that the component joins with its own ink (cx joins without merging, so CSS
+ *    order decides), hands to an element below the one it returns, or never applies (its ink then
+ *    masks the one the component inherits), a conditional written in a literal's field, read as
+ *    written since the scan cannot tie it to the element's other fields, a clone's or a created
+ *    element's own ink (a created component's, any className cloneElement's or createElement's props
+ *    give it, the Slot pattern among them, or sage the element it clones sets on the children it is
+ *    handed), props either is given held in a name or spread into the ones written in the call (read
+ *    as none, so the children they hand are unread and a className they give fails closed), a value
+ *    put in an array or an object through another name for it (an alias, or a parameter it is handed
+ *    to), and a value held in a Map; beyond the fixture, a literal another file holds, a colour set
+ *    by an inline style or on a pseudo-element, a library component's internals, a component created
+ *    inside another's render, reading that one's children through a closure (the lint's
+ *    react-hooks/static-components forbids one), and SVG text coloured by attribute (the chart theme,
+ *    which carries no sage). The waitlist counter's own spec covers the count on the public pages.
  * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
  *    figure or a price, the hero's accent phrases included; the margin (`en-margin`) exists only
  *    inside MarkedCopy, and every MarkedCopy carries at least one marker (`EnRef`).
@@ -148,15 +167,19 @@ function literalText(node: ts.Node): string | null {
 const unwrap = (e: ts.Expression): ts.Expression =>
   ts.isAsExpression(e) || ts.isSatisfiesExpression(e) || ts.isParenthesizedExpression(e) || ts.isNonNullExpression(e) ? unwrap(e.expression) : e
 
-/** Calls that return some of their receiver's own members, so a map over one walks the receiver's members. */
-const KEEPS_MEMBERS = new Set(['slice', 'filter', 'toSorted', 'toReversed', 'sort', 'reverse'])
-/** Calls that return their receiver's members and more: `concat` adds its arguments (each an array's members, or
-    the value itself), `flat` the members of the arrays among them (every depth, so it fails closed on `flat(1)`). */
-const CONCATS = new Set(['concat'])
-const FLATS = new Set(['flat'])
-/** Calls that return one of their receiver's members, read as an index: `at(0)` by its index, the others as a key
-    the scan cannot read. */
-const ONE_MEMBER = new Set(['at', 'find', 'findLast'])
+/** The array methods that return some of their receiver's own members, so a map over one walks the receiver's
+    members; some add members of their own (ADDS_MEMBERS). */
+const KEEPS_MEMBERS = new Set(['slice', 'filter', 'toSorted', 'toReversed', 'sort', 'reverse', 'concat', 'toSpliced', 'with', 'splice', 'fill', 'copyWithin'])
+/** The arguments a KEEPS_MEMBERS call adds as members, by place (from, up to): toSpliced's inserts, the value `with`
+    puts at its index and the one `fill` fills with, never an index or a count. concat adds every argument, a list's
+    members or the value itself. */
+const ADDS_MEMBERS = new Map<string, readonly [number, number?]>([['toSpliced', [2]], ['with', [1, 2]], ['fill', [0, 1]]])
+/** A call that returns its receiver's members with the lists among them opened, to any depth, as React renders a
+    nested list's members and a join prints them. */
+const FLATTENS = new Set(['flat'])
+/** Calls that return one of their receiver's members, read as an index: `at(0)` by its index, the others (`pop` and
+    `shift` among them) as a key the scan cannot read. */
+const ONE_MEMBER = new Set(['at', 'find', 'findLast', 'pop', 'shift'])
 /** Calls whose members are what their callback returns, and the call that renders every member as text. */
 const MAPS = new Set(['map', 'flatMap'])
 const JOINS = new Set(['join'])
@@ -165,38 +188,67 @@ const HANDS_MEMBERS = new Map<string, number>([
   ...['map', 'flatMap', 'forEach', 'filter', 'find', 'findLast', 'findIndex', 'findLastIndex', 'some', 'every'].map((m) => [m, 0] as const),
   ['reduce', 1], ['reduceRight', 1],
 ])
-/** React's Children helpers that take the children first: `toArray` keeps them, `map` and `forEach` hand them to
-    the callback they are given second. */
-const CHILDREN_HANDS = new Set(['map', 'forEach'])
-
-/** A call of a method by one of `names` (`rows.slice(1)`). */
-const method = (v: ts.Expression, names: ReadonlySet<string>): v is ts.CallExpression & { expression: ts.PropertyAccessExpression } =>
-  ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && names.has(v.expression.name.text)
-/** A call of `Object.<name>` with an argument. */
-const objectCall = (v: ts.Expression, name: string): v is ts.CallExpression =>
-  ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && ts.isIdentifier(v.expression.expression)
-  && v.expression.expression.text === 'Object' && v.expression.name.text === name && v.arguments.length > 0
-/** A call of React's `Children.<name>` (`Children.toArray(x)`, `React.Children.map(x, fn)`) with an argument. */
-const childrenCall = (v: ts.Expression, name: string): v is ts.CallExpression & { expression: ts.PropertyAccessExpression } => {
-  if (!ts.isCallExpression(v) || !ts.isPropertyAccessExpression(v.expression) || v.expression.name.text !== name || !v.arguments.length) return false
-  const owner = unwrap(v.expression.expression)
-  return (ts.isIdentifier(owner) && owner.text === 'Children')
-    || (ts.isPropertyAccessExpression(owner) && owner.name.text === 'Children' && ts.isIdentifier(owner.expression) && owner.expression.text === 'React')
-}
-/** A call or a `new` that keeps what it is given: `Array.from(x)` without a mapper, `new Set(x)`, `Children.toArray(x)`. */
-const keepsArgument = (v: ts.Expression): v is ts.CallExpression | ts.NewExpression =>
-  (ts.isNewExpression(v) && ts.isIdentifier(v.expression) && v.expression.text === 'Set' && !!v.arguments?.length)
-  || (ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && ts.isIdentifier(v.expression.expression)
-    && v.expression.expression.text === 'Array' && v.expression.name.text === 'from' && v.arguments.length === 1)
-  || childrenCall(v, 'toArray')
-/** A call that holds a list: the members it keeps or makes are what it renders or hands on. */
-const listCall = (v: ts.Expression): boolean =>
-  method(v, KEEPS_MEMBERS) || method(v, CONCATS) || method(v, FLATS) || keepsArgument(v) || method(v, MAPS)
-  || childrenCall(v, 'map') || ['values', 'keys', 'entries'].some((name) => objectCall(v, name))
 
 /** A useMemo call (`useMemo(…)`, `React.useMemo(…)`), which holds what its callback returns. */
 const isUseMemo = (call: ts.CallExpression) =>
   (ts.isIdentifier(call.expression) ? call.expression : ts.isPropertyAccessExpression(call.expression) ? call.expression.name : undefined)?.text === 'useMemo'
+
+/** A call of a method in `names` (`rows.slice(…)`), and `Object.<name>(x)`. */
+const method = (v: ts.Expression, names: ReadonlySet<string>): v is ts.CallExpression & { expression: ts.PropertyAccessExpression } =>
+  ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && names.has(v.expression.name.text)
+const objectCall = (v: ts.Expression, name: string): v is ts.CallExpression =>
+  ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && ts.isIdentifier(v.expression.expression)
+  && v.expression.expression.text === 'Object' && v.expression.name.text === name && v.arguments.length > 0
+/** A call or a `new` that keeps what it is given: `Array.from(x)` without a mapper, `new Set(x)`. */
+const keepsArgument = (v: ts.Expression): v is ts.CallExpression | ts.NewExpression =>
+  (ts.isNewExpression(v) && ts.isIdentifier(v.expression) && v.expression.text === 'Set' && !!v.arguments?.length)
+  || (ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && ts.isIdentifier(v.expression.expression)
+    && v.expression.expression.text === 'Array' && v.expression.name.text === 'from' && v.arguments.length === 1)
+
+/** React's child utilities, which hand JSX through: Children's methods, cloneElement and createElement. A call names one
+    when the checker types what it calls as React's own declaration, however the call reaches it (an aliased import,
+    `React.Children`, a destructured or a held method), so an array's `map`, the DOM's createElement or a same-file
+    `toArray` is not one. A method is asked only under a utility's name (a method held under another is out of reach),
+    and each call once. */
+const REACT_UTILITIES = new Set(['toArray', 'only', 'map', 'forEach', 'cloneElement', 'createElement'])
+const REACT_TYPES = /[\\/]node_modules[\\/]@types[\\/]react[\\/]/
+const UTILITIES = new Map<ts.Node, string | undefined>()
+function reactUtility(v: ts.Expression): string | undefined {
+  if (!ts.isCallExpression(v)) return undefined
+  if (!UTILITIES.has(v)) {
+    const callee = unwrap(v.expression)
+    const asked = ts.isIdentifier(callee) || (ts.isPropertyAccessExpression(callee) && REACT_UTILITIES.has(callee.name.text))
+    const declaration = asked ? CHECKER.getTypeAtLocation(callee).getCallSignatures()[0]?.declaration : undefined
+    const name = declaration && !ts.isJSDocSignature(declaration) && declaration.name && ts.isIdentifier(declaration.name) ? declaration.name.text : undefined
+    UTILITIES.set(v, name && REACT_UTILITIES.has(name) && REACT_TYPES.test(declaration!.getSourceFile().fileName) ? name : undefined)
+  }
+  return UTILITIES.get(v)
+}
+/** A call that returns a list of members it keeps: a method in KEEPS_MEMBERS or FLATTENS, a Set or Array.from, an
+    object's values, keys or entries, and Children.toArray. A map's members are what its callback returns. */
+const listCall = (v: ts.Expression): v is ts.CallExpression | ts.NewExpression =>
+  method(v, KEEPS_MEMBERS) || method(v, FLATTENS) || keepsArgument(v) || ['values', 'keys', 'entries'].some((name) => objectCall(v, name))
+  || reactUtility(v) === 'toArray'
+/** The property a props literal sets under a name (`{ className: … }`), or undefined. */
+const propOf = (props: ts.Expression | undefined, name: string) => {
+  const x = props && unwrap(props)
+  return x && ts.isObjectLiteralExpression(x) ? x.properties.find((p) => p.name !== undefined && keyOf(p.name) === name) : undefined
+}
+/** Whether a cloneElement or createElement call's props give the element a className of its own, which the scan does
+    not read (a gap): on a clone it replaces the cloned element's, so that element's ink no longer holds. */
+const setsClassName = (props: ts.Expression | undefined) => propOf(props, 'className') !== undefined
+/** The children a cloneElement or createElement call hands the element it makes: its arguments from the third on (a
+    spread read through), or else the `children` its props set; undefined when it hands none, and a clone keeps its
+    element's own. */
+function handedChildren(call: ts.CallExpression): ts.Expression[] | undefined {
+  if (call.arguments.length > 2) return call.arguments.slice(2).map((a) => (ts.isSpreadElement(a) ? a.expression : a))
+  const children = propOf(call.arguments[1], 'children')
+  return children && ts.isPropertyAssignment(children) ? [children.initializer]
+    : children && ts.isShorthandPropertyAssignment(children) ? [children.name] : undefined
+}
+/** Whether a cloneElement call renders the element it clones as that element: its props give the clone no className,
+    and it hands the clone no children of its own. */
+const clonesAsIs = (call: ts.CallExpression) => reactUtility(call) === 'cloneElement' && !handedChildren(call) && !setsClassName(call.arguments[1])
 
 /** A step into a literal: a property's name, a member's index, or null for a key the scan cannot read. */
 type Step = string | number | null
@@ -243,14 +295,14 @@ function functionsNamed(e: ts.Expression, seen: Set<ts.Node>): ts.FunctionLikeDe
 }
 
 /** A call that binds a same-file function's parameters: its arguments, by position, or the array whose members it
-    hands the parameter at `at`. */
-interface Site { args?: ts.NodeArray<ts.Expression>; members?: ts.Expression; at?: number }
+    hands the parameter at `at` (read `loose`, a child that is no array being one, for React's Children). */
+interface Site { args?: ts.NodeArray<ts.Expression>; members?: ts.Expression; at?: number; loose?: boolean }
 const SITES = new Map<ts.SourceFile, Map<ts.Node, Site[]>>()
 /** Where a function's parameters take their values, indexed once per file: every call that names it, every array
     method it is handed to (`rows.map(render)`, its callback written inline or named, the members landing where
-    HANDS_MEMBERS says), Array.from's mapper (its source's members), and React's Children.map and forEach (the
-    children they are given first). A component's props come from JSX, which the component check reads (its
-    children and className), so a tag is no call here. */
+    HANDS_MEMBERS says), Array.from's mapper (its source's members), and Children.map's and forEach's callback (the
+    children's). A component's props come from JSX, which the component check reads (its children and className),
+    so a tag is no call here. */
 function sitesOf(fn: ts.Node): Site[] {
   const sf = fn.getSourceFile()
   let sites = SITES.get(sf)
@@ -260,13 +312,15 @@ function sitesOf(fn: ts.Node): Site[] {
     visit(sf, (n) => {
       if (!ts.isCallExpression(n)) return
       const callee = unwrap(n.expression)
-      if (ts.isPropertyAccessExpression(callee)) {
-        const handsChildren = [...CHILDREN_HANDS].some((name) => childrenCall(n, name))
-        const at = handsChildren ? undefined : HANDS_MEMBERS.get(callee.name.text)
+      const utility = reactUtility(n)
+      if (utility === 'map' || utility === 'forEach') {
+        if (n.arguments[1]) for (const f of functionsOf(n.arguments[1])) add(f, { members: n.arguments[0], at: 0, loose: true })
+      } else if (ts.isPropertyAccessExpression(callee)) {
+        const at = HANDS_MEMBERS.get(callee.name.text)
         if (at !== undefined && n.arguments[0]) for (const f of functionsOf(n.arguments[0])) add(f, { members: callee.expression, at })
-        const mapsSource = handsChildren
-          || (callee.name.text === 'from' && ts.isIdentifier(callee.expression) && callee.expression.text === 'Array')
-        if (mapsSource && n.arguments[1]) for (const f of functionsOf(n.arguments[1])) add(f, { members: n.arguments[0], at: 0 })
+        if (callee.name.text === 'from' && ts.isIdentifier(callee.expression) && callee.expression.text === 'Array' && n.arguments[1]) {
+          for (const f of functionsOf(n.arguments[1])) add(f, { members: n.arguments[0], at: 0 })
+        }
       }
       for (const f of functionsOf(callee)) add(f, { args: n.arguments })
     })
@@ -277,19 +331,64 @@ function sitesOf(fn: ts.Node): Site[] {
 
 /** A value a name holds, and the steps from it to the name's place (`[label] = LABELS` holds LABELS at index 0). */
 interface Held { value: ts.Expression; steps: Step[] }
+/** The array a push, an unshift, a splice or an index assignment leaves its values in: they are members, at a place
+    that depends on what the array held before, so the spread first makes any index read every member. */
+const placed = (values: readonly ts.Expression[]) =>
+  ts.factory.createArrayLiteralExpression([ts.factory.createSpreadElement(ts.factory.createArrayLiteralExpression()), ...values])
+/** The methods that put their arguments in an array (or a Set: `add`), by place (from, up to): `fill` puts its value,
+    not its range. `add` is matched on any receiver: on one that is no Set (a classList, a date) it leaves a value where
+    nothing renders it as a list. */
+const PUTS_MEMBERS = new Map<string, readonly [number, number?]>([['push', [0]], ['unshift', [0]], ['splice', [2]], ['add', [0]], ['fill', [0, 1]]])
+/** What a value put at a place can be, read as code (a literal's own fields are read as written): either side of a
+    conditional, `??` or `||`. */
+const branches = (v: ts.Expression): ts.Expression[] => {
+  const x = unwrap(v)
+  if (ts.isConditionalExpression(x)) return [x.whenTrue, x.whenFalse].flatMap(branches)
+  if (ts.isBinaryExpression(x) && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken].includes(x.operatorToken.kind)) {
+    return [x.left, x.right].flatMap(branches)
+  }
+  return [v]
+}
+/** The variable a place is read off and the steps to it (`groups[k].items` is `groups` at [null, 'items']). */
+function placeOf(target: ts.Expression): { root: ts.Identifier; path: Step[] } | undefined {
+  const path: Step[] = []
+  let x = unwrap(target)
+  while (ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) {
+    path.unshift(ts.isPropertyAccessExpression(x) ? x.name.text : accessStep(x.argumentExpression))
+    x = unwrap(x.expression)
+  }
+  return ts.isIdentifier(x) ? { root: x, path } : undefined
+}
+/** What a variable holds once the file puts a value at a place in it: the value in an object at each field on the
+    way, among an array's members at an index (`placed`), and either for a key the scan cannot read (built as
+    `[true]`, a computed key `keyOf` cannot read either, and no identifier a reader could take for a name). */
+const placeAt = (path: Step[], value: ts.Expression): ts.Expression[] =>
+  path.reduceRight<ts.Expression[]>((inner, step) => inner.flatMap((v) => [
+    ...(typeof step === 'number' ? [] : [ts.factory.createObjectLiteralExpression([ts.factory.createPropertyAssignment(
+      step === null ? ts.factory.createComputedPropertyName(ts.factory.createTrue()) : ts.factory.createStringLiteral(step), v)])]),
+    ...(typeof step === 'string' ? [] : [placed([v])]),
+  ]), [value])
 const ASSIGNED = new Map<ts.SourceFile, Map<ts.Symbol, Held[]>>()
 /** What a same-file variable holds: its initializer and every value the file assigns it (`label = 'Ready'` in a
-    switch, `label += …`, or `[label] = …` and `({ label } = …)` destructured, a default in the pattern included),
-    the assignments indexed once per file. */
+    switch, `label += …`, or `[label] = …` and `({ label } = …)` destructured, a default in the pattern included) or
+    puts in it (`labels.push(…)`, an unshift, a splice or a Set's add, `labels[i] = …`, `row.label = …` or `??=`,
+    `||=`, `+=`, and each source's fields `Object.assign(row, …)` copies), the assignments indexed once per file. */
 function variableValues(declaration: ts.VariableDeclaration): Held[] {
   const sf = declaration.getSourceFile()
   let index = ASSIGNED.get(sf)
   if (!index) {
     const found = new Map<ts.Symbol, Held[]>()
     const add = (symbol: ts.Symbol | undefined, held: Held) => { if (symbol) found.set(symbol, [...(found.get(symbol) ?? []), held]) }
+    // A value put at a place in a variable (`placeAt`): a field or an index it sets, or an array a method fills.
+    const put = (target: ts.Expression, value: ts.Expression) => {
+      const place = placeOf(target)
+      if (!place) return
+      for (const held of branches(value).flatMap((v) => placeAt(place.path, v))) add(CHECKER.getSymbolAtLocation(place.root), { value: held, steps: [] })
+    }
     const assign = (target: ts.Expression, value: ts.Expression, steps: Step[]): void => {
       const t = unwrap(target)
       if (ts.isIdentifier(t)) add(CHECKER.getSymbolAtLocation(t), { value, steps })
+      else if (!steps.length && (ts.isPropertyAccessExpression(t) || ts.isElementAccessExpression(t))) put(t, value)
       else if (ts.isBinaryExpression(t) && t.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
         assign(t.left, value, steps)
         assign(t.left, t.right, [])
@@ -307,12 +406,28 @@ function variableValues(declaration: ts.VariableDeclaration): Held[] {
       }
     }
     visit(sf, (n) => {
+      if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && PUTS_MEMBERS.has(n.expression.name.text)) {
+        put(n.expression.expression, placed(n.arguments.slice(...PUTS_MEMBERS.get(n.expression.name.text)!).flatMap(branches)))
+        return
+      }
+      // Object.assign copies each source's fields into its target; a spread hands it a list of sources, any member of
+      // which may be one (read through a key the scan cannot read, `[true]`, as `placeAt` builds one).
+      if (ts.isCallExpression(n) && objectCall(n, 'assign')) {
+        const [target, ...sources] = n.arguments
+        for (const source of sources) {
+          put(target, ts.isSpreadElement(source) ? ts.factory.createElementAccessExpression(source.expression, ts.factory.createTrue()) : source)
+        }
+        return
+      }
       if (!ts.isBinaryExpression(n)) return
       const operator = n.operatorToken.kind
       if (operator < ts.SyntaxKind.FirstAssignment || operator > ts.SyntaxKind.LastAssignment) return
-      // A compound assignment (`+=`, `??=`) adds its right side; only `=` destructures.
-      if (ts.isIdentifier(n.left)) add(CHECKER.getSymbolAtLocation(n.left), { value: n.right, steps: [] })
+      // A compound assignment (`+=`, `??=`) adds its right side, to a variable or at a place in one; only `=`
+      // destructures.
+      const left = unwrap(n.left)
+      if (ts.isIdentifier(left)) add(CHECKER.getSymbolAtLocation(left), { value: n.right, steps: [] })
       else if (operator === ts.SyntaxKind.EqualsToken) assign(n.left, n.right, [])
+      else if (ts.isPropertyAccessExpression(left) || ts.isElementAccessExpression(left)) put(left, n.right)
     })
     ASSIGNED.set(sf, index = found)
   }
@@ -344,21 +459,36 @@ function bindingOf(symbol: ts.Symbol | undefined, path: Step[]): Binding {
   return { declaration, steps, defaults }
 }
 
+/** The mark a function's first parameter holds at its `children`: a component's props are bound by JSX where it is
+    used, not by the file's calls, so what reads their children holds this instead, through every binding the walk
+    follows (`literalExpressions`), and the component summary can tell what reaches them. One per parameter, it
+    renders nothing and names nothing. */
+const CHILDREN_MARKS = new Map<ts.ParameterDeclaration, ts.Expression>()
+const MARKS = new Set<ts.Node>()
+function childrenMark(props: ts.ParameterDeclaration): ts.Expression {
+  let mark = CHILDREN_MARKS.get(props)
+  if (!mark) {
+    CHILDREN_MARKS.set(props, (mark = ts.factory.createObjectLiteralExpression()))
+    MARKS.add(mark)
+  }
+  return mark
+}
+
 /** The literals an expression holds when it reads a same-file literal, through the file's own bindings: a
-    variable's initializer and every value the file assigns it (`CONFIG.step`, `STEPS[0]`, `const first =
-    STEPS[0]`, `let label` set in a switch or destructured into), a call's return (a same-file function's, or a
-    useMemo's callback's), a destructured name with its default (`const { cls } = TONES[tone]
+    variable's initializer and every value the file assigns it or puts in it (`CONFIG.step`, `STEPS[0]`, `const
+    first = STEPS[0]`, `let label` set in a switch or destructured into, `labels.push(…)`), a call's return (a
+    same-file function's, or a useMemo's callback's), a destructured name with its default (`const { cls } = TONES[tone]
     ?? TONES.flat`, `({ step = 'Step 1' })`, `({ step: s })`, `([q])`), a for…of variable (the array's members) or
     a for…in one (the object's keys), and a parameter: its default, and whatever the file binds it to at
     `sitesOf`'s calls (an argument in its place, or the members of the array a method hands it, its callback
     written inline or named: `ARRAY.map((item) => …)`, `ARRAY.map(render)`, a nested map over an element's field
-    included). Arrays and objects are read through a spread, a shorthand property through the name it holds, an
-    object through Object.values, keys and entries, an array through a call that keeps its members (`slice`,
-    `filter` …) or adds to them (`concat`, `flat`), a Set, Array.from or React's Children.toArray, a child through
-    Children.only, and a map (Children.map included) through what its callback returns; a member through `at`,
-    `find` and `findLast`, a join through every member it joins, and the chain through `??`, `||` and
-    conditionals. A
-    value written in a literal is read as written: a conditional there is not split, since the scan cannot tie it
+    included), whose children, when it is a function's first parameter, are held as their mark (`childrenMark`).
+    Arrays and objects are read through a spread, a shorthand property through the name it holds, an object
+    through Object.values, keys and entries, an array through a call that keeps its members (`slice`, `filter`,
+    `concat`, `flat` …), a Set, Array.from or Children.toArray, and a map through what its callback returns; a member
+    through `at`, `find` and `findLast`, a join through every member it joins, the element Children.only or a clone
+    renders, and the chain through `??`, `||` and conditionals.
+    A value written in a literal is read as written: a conditional there is not split, since the scan cannot tie it
     to the element's other fields (the pricing cards' call to action takes its button's variant and its label
     from the same plan). A key the scan cannot read (`LABELS[i]`, a computed key, `find`), or an index into an
     array with a spread or through such a call, may land on any member, so every member is read; a parameter the
@@ -367,10 +497,13 @@ function bindingOf(symbol: ts.Symbol | undefined, path: Step[]): Binding {
     parameter to itself ends in time. Names resolve through the checker, so an index, a shadowing binding, a prop
     or an import is never taken for a literal. */
 const LITERALS = new Map<ts.Node, ts.Expression[]>()
+/** The same read as a list (`[null]`: every member it may hold), which the walks ask of what a list renders. */
+const LIST_LITERALS = new Map<ts.Node, ts.Expression[]>()
 function literalExpressions(e: ts.Expression, sf: ts.SourceFile, path: Step[] = []): ts.Expression[] {
-  if (path.length) return walkLiterals(e, sf, path)
-  let found = LITERALS.get(e)
-  if (!found) LITERALS.set(e, (found = walkLiterals(e, sf, path)))
+  const cache = !path.length ? LITERALS : path.length === 1 && path[0] === null ? LIST_LITERALS : undefined
+  if (!cache) return walkLiterals(e, sf, path)
+  let found = cache.get(e)
+  if (!found) cache.set(e, (found = walkLiterals(e, sf, path)))
   return found
 }
 function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[]): ts.Expression[] {
@@ -378,6 +511,8 @@ function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[]): ts.Exp
   const held = (x: ts.Expression, path: Step[], depth: number, inLiteral = false): ts.Expression[] => {
     if (depth > 24) return []
     const at = unwrap(x)
+    // Any part of a component's children is its children.
+    if (MARKS.has(at)) return [at]
     if (!inLiteral && ts.isConditionalExpression(at)) return [at.whenTrue, at.whenFalse].flatMap((branch) => held(branch, path, depth + 1))
     if (!inLiteral && ts.isBinaryExpression(at) && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken].includes(at.operatorToken.kind)) {
       return [at.left, at.right].flatMap((side) => held(side, path, depth + 1))
@@ -390,11 +525,13 @@ function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[]): ts.Exp
       return held(at.expression.expression, [step, ...path], depth + 1)
     }
     if (method(at, JOINS)) return path.length ? [] : held(at.expression.expression, [null], depth + 1)
-    // `Children.only(x)` returns what it is given.
-    if (childrenCall(at, 'only')) return held(at.arguments[0], path, depth + 1)
+    // Object.assign returns its target, with its sources' fields: any of them may hold the field asked for.
+    if (objectCall(at, 'assign')) return at.arguments.flatMap((a) => (ts.isSpreadElement(a) ? held(a.expression, [null, ...path], depth + 1) : held(a, path, depth + 1)))
     // A call holds what its same-file function returns (`build()`), and useMemo what its callback returns; a function
-    // met again on the way (one that returns a call of itself) holds nothing more.
+    // met again on the way (one that returns a call of itself) holds nothing more. Children.only holds the element it is
+    // given, and so does cloneElement while it gives the clone no children or className of its own.
     if (ts.isCallExpression(at)) {
+      if ((reactUtility(at) === 'only' || clonesAsIs(at)) && at.arguments[0]) return held(at.arguments[0], path, depth + 1)
       const fns = [...functionsOf(at.expression), ...(isUseMemo(at) && at.arguments[0] ? functionsOf(at.arguments[0]) : [])]
       if (fns.length) {
         return fns.flatMap((fn) => {
@@ -409,7 +546,12 @@ function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[]): ts.Exp
         })
       }
     }
-    if (ts.isIdentifier(at)) return bound(CHECKER.getSymbolAtLocation(at), path, depth + 1)
+    // A shorthand property's name (`{ children }`, handed to a clone) holds what the name it repeats holds.
+    if (ts.isIdentifier(at)) {
+      const parent = at.parent
+      const shorthand = !!parent && ts.isShorthandPropertyAssignment(parent) && parent.name === at
+      return bound(shorthand ? CHECKER.getShorthandAssignmentValueSymbol(parent) : CHECKER.getSymbolAtLocation(at), path, depth + 1)
+    }
     if (path.length === 0) return [at]
     const [step, ...rest] = path
     return into(at, step, depth + 1).flatMap((value) => held(value, rest, depth + 1, true))
@@ -438,8 +580,12 @@ function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[]): ts.Exp
       }
       if (!ts.isParameter(declaration)) return defaults
       const at = declaration.parent.parameters.indexOf(declaration)
-      return [...defaults, ...sitesOf(declaration.parent).flatMap((site) => {
-        if (site.members) return site.at === at && !declaration.dotDotDotToken ? members(site.members, depth + 1).flatMap((member) => held(member, steps, depth + 1, true)) : []
+      // A first parameter read at its children, or by a key the scan cannot read, may be a component's children.
+      const children = at === 0 && (steps[0] === 'children' || steps[0] === null) ? [childrenMark(declaration)] : []
+      return [...defaults, ...children, ...sitesOf(declaration.parent).flatMap((site) => {
+        if (site.members) {
+          return site.at === at && !declaration.dotDotDotToken ? members(site.members, depth + 1, site.loose).flatMap((member) => held(member, steps, depth + 1, true)) : []
+        }
         const args = site.args ?? []
         // A rest parameter holds the arguments from its place on, as an array.
         if (declaration.dotDotDotToken) return held(ts.factory.createArrayLiteralExpression(args.slice(at)), steps, depth + 1)
@@ -454,34 +600,37 @@ function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[]): ts.Exp
       reading.delete(key)
     }
   }
-  // The members of the arrays an expression holds: an array literal's, through a spread; a call's that keeps them,
-  // adds to them or keeps what it is given; an object's values, keys or entries (each a [key, value] pair); a
-  // map's returns.
-  const members = (x: ts.Expression, depth: number): ts.Expression[] =>
+  // The members of the arrays an expression holds: an array literal's, through a spread; a call's that keeps them
+  // (concat's arguments' too, and flat's with the lists among them opened), or keeps what it is given; an object's
+  // values, keys or entries (each a [key, value] pair); a map's returns; a component's children, whose members are its
+  // children. A `loose` read takes a value that is no list as its one member, as React reads children:
+  // Children.toArray's, what Children.map and forEach hand their callback, what concat is given, and the receiver of a
+  // call that keeps its members, so a string's slice or concat keeps its text.
+  const members = (x: ts.Expression, depth: number, loose = false): ts.Expression[] =>
     held(x, [], depth + 1).flatMap((v) => {
-      if (method(v, KEEPS_MEMBERS)) return members(v.expression.expression, depth + 1)
-      // `a.concat(b, 'c')`: a's members, then each argument's members when it is a list, else the argument itself.
-      if (method(v, CONCATS)) {
-        return [...members(v.expression.expression, depth + 1), ...v.arguments.flatMap((a) => (ts.isSpreadElement(a) ? members(a.expression, depth + 1) : membersOrSelf(a, depth + 1)))]
+      if (MARKS.has(v)) return [v]
+      if (method(v, KEEPS_MEMBERS)) {
+        const name = v.expression.name.text
+        const added = name === 'concat'
+          ? v.arguments.flatMap((a) => members(ts.isSpreadElement(a) ? a.expression : a, depth + 1, !ts.isSpreadElement(a)))
+          : v.arguments.slice(...(ADDS_MEMBERS.get(name) ?? [0, 0])).flatMap((a) => (ts.isSpreadElement(a) ? members(a.expression, depth + 1) : [a]))
+        return [...members(v.expression.expression, depth + 1, true), ...added]
       }
-      // `a.flat()`: a's members, the arrays among them opened to any depth.
-      if (method(v, FLATS)) return members(v.expression.expression, depth + 1).flatMap((m) => flattened(m, depth + 1))
+      if (method(v, FLATTENS)) return members(v.expression.expression, depth + 1).flatMap((m) => opened(m, depth + 1))
       if (keepsArgument(v)) return members(v.arguments![0], depth + 1)
+      if (reactUtility(v) === 'toArray') return ts.isCallExpression(v) && v.arguments[0] ? members(v.arguments[0], depth + 1, true) : []
       if (objectCall(v, 'values')) return held(v.arguments[0], [null], depth + 1)
       if (objectCall(v, 'keys')) return pairs(v.arguments[0], depth + 1).map(([key]) => key).filter((key) => !ts.isOmittedExpression(key))
       if (objectCall(v, 'entries')) {
         return pairs(v.arguments[0], depth + 1).flatMap(([key, values]) => values.map((value) => ts.factory.createArrayLiteralExpression([key, value])))
       }
-      if (method(v, MAPS) || childrenCall(v, 'map')) return mapped(v, depth + 1)
-      if (!ts.isArrayLiteralExpression(v)) return []
+      if (method(v, MAPS)) return mapped(v, depth + 1)
+      if (!ts.isArrayLiteralExpression(v)) return loose ? [v] : []
       return v.elements.flatMap((m) => (ts.isSpreadElement(m) ? members(m.expression, depth + 1) : ts.isOmittedExpression(m) ? [] : [m]))
     })
-  // What an expression adds to a list: its members when it holds one, else what it holds.
-  const membersOrSelf = (x: ts.Expression, depth: number): ts.Expression[] =>
-    held(x, [], depth + 1).flatMap((v) => (ts.isArrayLiteralExpression(v) || listCall(v) ? members(v, depth + 1) : [v]))
-  // A member opened by `flat`: an array's members, each opened in turn; anything else itself.
-  const flattened = (m: ts.Expression, depth: number): ts.Expression[] =>
-    depth > 24 ? [] : held(m, [], depth + 1).flatMap((v) => (ts.isArrayLiteralExpression(v) || listCall(v) ? members(v, depth + 1).flatMap((inner) => flattened(inner, depth + 1)) : [v]))
+  // A member `flat` opens: the members of a list it holds, each opened in turn; anything else, itself.
+  const opened = (m: ts.Expression, depth: number): ts.Expression[] =>
+    held(m, [], depth + 1).flatMap((v) => (!MARKS.has(v) && (ts.isArrayLiteralExpression(v) || listCall(v)) ? members(v, depth + 1).flatMap((inner) => opened(inner, depth + 1)) : [v]))
   // What a map's callback returns, each a member, read as code (a conditional there is split); a flatMap's
   // returned arrays give their members.
   const mapped = (call: ts.CallExpression & { expression: ts.PropertyAccessExpression }, depth: number): ts.Expression[] =>
@@ -502,7 +651,8 @@ function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[]): ts.Exp
   // One step into a literal: an object's property, an array's member, or every property or member for a key the
   // scan cannot read or an index that may land on any member.
   const into = (v: ts.Expression, step: Step, depth: number): ts.Expression[] => {
-    if (listCall(v)) return step === null || typeof step === 'number' ? members(v, depth + 1) : []
+    const lists = listCall(v) || method(v, MAPS)
+    if (lists) return step === null || typeof step === 'number' ? members(v, depth + 1) : []
     if (ts.isArrayLiteralExpression(v)) {
       if (step === null || v.elements.some(ts.isSpreadElement)) return typeof step === 'string' ? [] : members(v, depth + 1)
       const member = typeof step === 'number' ? v.elements[step] : undefined
@@ -572,7 +722,9 @@ function readClassName(opening: ts.JsxOpeningLikeElement): ts.Node[] {
   const nodes: ts.Node[] = [attr.initializer]
   const follow = (node: ts.Node) =>
     visit(node, (n) => {
-      if (!ts.isIdentifier(n) || (ts.isPropertyAccessExpression(n.parent) && n.parent.name === n)) return
+      // A node the scan builds has no parent; none is an identifier (`placeAt`'s unreadable key is `[true]`), and this
+      // keeps one from crashing the reader if it ever is.
+      if (!ts.isIdentifier(n) || !n.parent || (ts.isPropertyAccessExpression(n.parent) && n.parent.name === n)) return
       // The fields and keys read off the name (`t.cls`, `t.tone.cls`), so the literals are the ones it reads.
       let chain: ts.Expression = n
       while ((ts.isPropertyAccessExpression(chain.parent) || ts.isElementAccessExpression(chain.parent)) && chain.parent.expression === chain) chain = chain.parent
@@ -898,47 +1050,66 @@ function containsJsx(node: ts.Node): boolean {
   return found
 }
 
-/** The JSX a name holds through the file's bindings (`const body = <span>{children}</span>`, each JSX value a `let` is
-    assigned, a helper's parameter handed a label), once per walk; none for one that holds no JSX, which the value
-    reading takes instead. */
-function heldJsx(id: ts.Identifier, sf: ts.SourceFile, followed: Set<ts.Node>): ts.Expression[] {
-  return literalExpressions(id, sf).filter((v) => {
-    if (followed.has(v) || !containsJsx(v)) return false
+/** The JSX a name or a call holds through the file's bindings (`const body = <span>{children}</span>`, each JSX value a
+    `let` is assigned, a helper's parameter handed a label, the element Children.only renders), once per walk; none for
+    one that holds no JSX, which the value reading takes instead. A call the walk reads no further holds itself, which
+    is no JSX held elsewhere: the caller walks it where it stands. */
+function heldJsx(e: ts.Expression, sf: ts.SourceFile, followed: Set<ts.Node>): ts.Expression[] {
+  return literalExpressions(e, sf).filter((v) => {
+    if (v === unwrap(e) || followed.has(v) || !containsJsx(v)) return false
     followed.add(v)
     return true
   })
 }
 
+/** A cloneElement or createElement call: one that makes an element. */
+const makesElement = (call: ts.CallExpression) => ['cloneElement', 'createElement'].includes(reactUtility(call) ?? '')
+/** The children a cloneElement or createElement call hands the element it makes (`handedChildren`), which render in
+    its place, in that element's ink: none when its props set a className, which the scan does not read, or when a
+    clone renders them in an ink of the cloned element's own, since every element it can clone sets one (one the scan
+    cannot read inherits). A created element's own ink, its type's or its props', is not read: its children render in
+    the ink it inherits. */
+function elementChildren(call: ts.CallExpression, sf: ts.SourceFile): ts.Expression[] {
+  const handed = handedChildren(call)
+  if (!handed || setsClassName(call.arguments[1])) return []
+  if (reactUtility(call) === 'cloneElement') {
+    const elements = call.arguments[0] ? literalExpressions(call.arguments[0], sf).filter((v) => ts.isJsxElement(v) || ts.isJsxSelfClosingElement(v)) : []
+    if (elements.length && elements.every((el) => textColour(ts.isJsxElement(el) ? el.openingElement : el) !== null)) return []
+  }
+  return handed
+}
+
 /** What a component does with the ink it inherits: the ink its children render in (null when they inherit
-    it too), whether it renders a number of its own in that inherited ink, which a sage parent colours, and whether
-    it renders a control in it that holds its count in an ink of its own (the count control's form). */
-interface Summary { childrenInk: Ink; inheritsValue: boolean; inheritsControl: boolean }
+    it too), whether it renders a number of its own in that inherited ink, which a sage parent colours, whether
+    it renders a control in it that holds its count in an ink of its own (the count control's form), and whether it
+    renders its children inside a control, which makes it one where it is used (they are that control's label). */
+interface Summary { childrenInk: Ink; inheritsValue: boolean; inheritsControl: boolean; childrenInControl: boolean }
 const SUMMARIES = new Map<ts.Node, Summary>()
 function summary(fn: ts.FunctionLikeDeclaration): Summary {
   // A component met again mid-walk (one that renders itself) reads as one that passes its ink through and carries
   // nothing (`memo`).
-  return memo(SUMMARIES, fn, { childrenInk: null, inheritsValue: false, inheritsControl: false }, () => summarize(fn))
+  return memo(SUMMARIES, fn, { childrenInk: null, inheritsValue: false, inheritsControl: false, childrenInControl: false }, () => summarize(fn))
 }
 function summarize(fn: ts.FunctionLikeDeclaration): Summary {
   const sf = fn.getSourceFile()
   const childInks = new Set<'sage' | 'other' | 'inherit'>()
   let carries = false
   let controls = false
+  // How many controls the walk is inside, and whether it has met the children inside one.
+  let inControl = 0
+  let childrenInControl = false
   const props = fn.parameters[0]
   const takesChildren = !!props && !!CHECKER.getTypeAtLocation(props).getProperty('children')
-  // The names the children go by: `children`, a renamed binding (`{ children: content }`), and the parameter of a
-  // callback they are handed to (`Children.map(children, (child) => …)`, `children.map(…)`), added as the walk
-  // meets it.
-  const aliases = new Set(['children'])
-  if (props && ts.isObjectBindingPattern(props.name)) {
-    for (const binding of props.name.elements) {
-      if (binding.propertyName && ts.isIdentifier(binding.propertyName) && binding.propertyName.text === 'children' && ts.isIdentifier(binding.name)) aliases.add(binding.name.text)
-    }
-  }
-  const isChildren = (e: ts.Expression) => {
-    const x = unwrap(e)
-    return (ts.isIdentifier(x) && aliases.has(x.text)) || (ts.isPropertyAccessExpression(x) && x.name.text === 'children')
-  }
+  // The children, however the component reaches them from its props: the walk carries their mark (`childrenMark`)
+  // through every binding it follows, so `props.children`, `{ children: content }`, `const items =
+  // Children.toArray(children)`, `[first] = …`, a helper's parameter handed them, the callback Children.map or a map
+  // hands their members, what a same-file function, a map's callback or a useMemo returns, a member or a list of them,
+  // and the one child Children.only or a clone renders all reach them, and a field of that name read off anything else
+  // (a row's `item.children`) does not. A list renders its members, so one that holds them reaches them too.
+  const mark = props && childrenMark(props)
+  // JSX written here and literal text are the component's own; anything else may hold its children, whole or as a list.
+  const isChildren = (x: ts.Expression) => !!mark && !ts.isJsxElement(x) && !ts.isJsxSelfClosingElement(x) && !ts.isJsxFragment(x)
+    && literalText(x) === null && (literalExpressions(x, sf).includes(mark) || literalExpressions(x, sf, [null]).includes(mark))
   const followed = new Set<ts.Node>()
   const element = (el: ts.JsxElement | ts.JsxSelfClosingElement, ink: 'sage' | 'other' | 'inherit') => {
     const opening = ts.isJsxElement(el) ? el.openingElement : el
@@ -946,8 +1117,12 @@ function summarize(fn: ts.FunctionLikeDeclaration): Summary {
     // A spread can carry the children through (`<span {...rest} />`).
     if (takesChildren && opening.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p))) childInks.add(next)
     if (ink === 'inherit' && inheritsValue(opening)) carries = true
-    if (next === 'inherit' && ((ts.isJsxElement(el) && isControl(opening) && ownInkCounts(el, sf).length) || inheritsControl(opening))) controls = true
-    if (ts.isJsxElement(el)) children(el.children, next)
+    const control = isControl(opening)
+    if (next === 'inherit' && ((ts.isJsxElement(el) && control && ownInkCounts(el, sf).length) || inheritsControl(opening))) controls = true
+    if (!ts.isJsxElement(el)) return
+    if (control) inControl++
+    children(el.children, next)
+    if (control) inControl--
   }
   const children = (list: ts.NodeArray<ts.JsxChild>, ink: 'sage' | 'other' | 'inherit') => {
     list.forEach((child, i) => {
@@ -959,16 +1134,22 @@ function summarize(fn: ts.FunctionLikeDeclaration): Summary {
   }
   const expression = (e: ts.Expression, ink: 'sage' | 'other' | 'inherit') => {
     const x = unwrap(e)
-    if (isChildren(x)) childInks.add(ink)
-    else if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x)) element(x, ink)
+    if (ts.isConditionalExpression(x)) { expression(x.whenTrue, ink); expression(x.whenFalse, ink); return }
+    if (ts.isBinaryExpression(x)) { valueOperands(x).forEach((operand) => expression(operand, ink)); return }
+    // The children render here, in this ink; what else the expression holds is read on (a default the props give
+    // them, an element held beside them).
+    if (isChildren(x)) {
+      childInks.add(ink)
+      if (inControl) childrenInControl = true
+    }
+    if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x)) element(x, ink)
     else if (ts.isJsxFragment(x)) children(x.children, ink)
-    else if (ts.isConditionalExpression(x)) { expression(x.whenTrue, ink); expression(x.whenFalse, ink) }
-    else if (ts.isBinaryExpression(x)) valueOperands(x).forEach((operand) => expression(operand, ink))
+    // An array renders every member, and so does a list (`rows.slice(0, 2)`, Children.toArray), each read once; a
+    // clone or a created element renders the children it is handed in its place (`elementChildren`).
+    else if (ts.isArrayLiteralExpression(x)) x.elements.forEach((m) => { if (!ts.isOmittedExpression(m)) expression(ts.isSpreadElement(m) ? m.expression : m, ink) })
+    else if (listCall(x)) literalExpressions(x, sf, [null]).forEach((m) => { if (!followed.has(m)) { followed.add(m); expression(m, ink) } })
+    else if (ts.isCallExpression(x) && makesElement(x) && handedChildren(x)) elementChildren(x, sf).forEach((child) => expression(child, ink))
     else if (ts.isCallExpression(x) && renderedFunctions(x).some((fn) => returnedExpressions(fn).length)) {
-      const callee = x.expression
-      if (x.arguments.some(isChildren) || (ts.isPropertyAccessExpression(callee) && isChildren(callee.expression))) {
-        for (const fn of callbacksOf(x)) if (fn.parameters[0] && ts.isIdentifier(fn.parameters[0].name)) aliases.add(fn.parameters[0].name.text)
-      }
       // What its callbacks and its own same-file function return renders here, each function walked once, so one
       // that renders itself ends; a call with no callbacks counts its own value too (a helper fed a number).
       const fns = renderedFunctions(x).filter((fn) => !followed.has(fn))
@@ -976,7 +1157,7 @@ function summarize(fn: ts.FunctionLikeDeclaration): Summary {
       fns.flatMap(returnedExpressions).forEach((r) => expression(r, ink))
       if (ink === 'inherit' && !callbacksOf(x).length && rendersValue(x, sf)) carries = true
     } else {
-      const jsx = ts.isIdentifier(x) ? heldJsx(x, sf, followed) : []
+      const jsx = ts.isIdentifier(x) || ts.isCallExpression(x) ? heldJsx(x, sf, followed) : []
       jsx.forEach((h) => expression(h, ink))
       if (!jsx.length && ink === 'inherit') {
         const text = literalText(x)
@@ -986,11 +1167,12 @@ function summarize(fn: ts.FunctionLikeDeclaration): Summary {
   }
   for (const r of returnedExpressions(fn)) expression(r, 'inherit')
   return {
-    // No path to the children found (cloned, handed to a helper) reads as one that passes its ink through, so a
-    // number given to it inside a sage parent is still read.
+    // No path to the children found (a clone given a className, a callback handed through another function) reads as
+    // one that passes its ink through, so a number given to it inside a sage parent is still read.
     childrenInk: childInks.has('sage') ? 'sage' : childInks.has('inherit') || childInks.size === 0 ? null : 'other',
     inheritsValue: carries,
     inheritsControl: controls,
+    childrenInControl,
   }
 }
 
@@ -1041,12 +1223,15 @@ function inInk(children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile, out: InIn
     else if (ts.isArrayLiteralExpression(x)) x.elements.forEach((m) => { if (!ts.isOmittedExpression(m)) expr(ts.isSpreadElement(m) ? m.expression : m, at) })
     else if (ts.isJsxFragment(x)) inInk(x.children, sf, out, seen, at)
     else if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x)) element(x, at)
-    else if (ts.isCallExpression(x)) {
-      // What the call holds (a member through `at` or `find`, the members a join renders, what its same-file function
-      // or useMemo returns), every member of a list it makes and renders whole (`{labels.slice(1)}`,
-      // `{Children.toArray(kids)}`), and what its callbacks return, each callback read once.
+    else if (ts.isCallExpression(x) || ts.isNewExpression(x)) {
+      // What the call holds (a member through `at` or `find`, the members a join renders, the element Children.only or
+      // a clone renders, what its same-file function or useMemo returns), every member of a list (`{rows.slice(0, 2)}`,
+      // `{Children.toArray(items)}`), the children a clone or a created element is handed, in its place
+      // (`elementChildren`), and what its callbacks return, each callback read once.
       literalExpressions(x, sf).forEach(read)
       if (listCall(x)) literalExpressions(x, sf, [null]).forEach(read)
+      if (!ts.isCallExpression(x)) return
+      if (makesElement(x)) elementChildren(x, sf).forEach((child) => expr(child, at))
       for (const fn of callbacksOf(x)) {
         if (seen.has(fn)) continue
         seen.add(fn)
@@ -1141,7 +1326,9 @@ function boundToValue(e: ts.Expression, sf: ts.SourceFile): boolean {
   const at = declaration.parent.parameters.indexOf(declaration)
   return sitesOf(declaration.parent).some((site) => {
     if (site.members) {
-      return site.at === at && valueType(CHECKER.getIndexTypeOfType(CHECKER.getTypeAtLocation(site.members), ts.IndexKind.Number), binding.steps, site.members)
+      const type = CHECKER.getTypeAtLocation(site.members)
+      const member = CHECKER.getIndexTypeOfType(type, ts.IndexKind.Number) ?? (site.loose ? type : undefined)
+      return site.at === at && valueType(member, binding.steps, site.members)
     }
     const arg = site.args?.[at]
     return !!arg && !ts.isSpreadElement(arg) && valueType(CHECKER.getTypeAtLocation(arg), binding.steps, arg)
@@ -1163,18 +1350,21 @@ function rendersValue(e: ts.Expression, sf: ts.SourceFile, depth = 0): boolean {
   if (literalText(x) !== null) return false
   if (ts.isConditionalExpression(x)) return rendersValue(x.whenTrue, sf, depth + 1) || rendersValue(x.whenFalse, sf, depth + 1)
   if (ts.isBinaryExpression(x)) return valueOperands(x).some((operand) => rendersValue(operand, sf, depth + 1))
+  // An array renders every member (`{[<b key="a">{n}</b>]}`), and so does a list (`{Children.toArray(items)}`).
+  if (ts.isArrayLiteralExpression(x) && x.elements.some((m) => !ts.isOmittedExpression(m) && rendersValue(ts.isSpreadElement(m) ? m.expression : m, sf, depth + 1))) return true
+  if (listCall(x) && literalExpressions(x, sf, [null]).some((v) => !asWritten(v) && rendersValue(v, sf, depth + 1))) return true
   if (ts.isCallExpression(x)) {
-    // A number's own method ("n.toLocaleString()"), a join of numbers, a call that returns one, a formatter fed
-    // one (a literal argument such as "slice(0, 20)" is not a value), or what a callback or the same-file
-    // function it calls returns.
+    // A clone or a created element given children renders them in its place (`elementChildren`).
+    if (makesElement(x) && handedChildren(x)) return elementChildren(x, sf).some((child) => rendersValue(child, sf, depth + 1))
+    // A number's own method ("n.toLocaleString()"), a join of what renders one (every member it joins), a call that
+    // returns one, a formatter fed one (a literal argument such as "slice(0, 20)" is not a value), what a callback or
+    // the same-file function it calls returns, or what it holds (the element Children.only or a clone renders, a
+    // member through `at` or `find`).
     if (isNumberTyped(x)) return true
     if (ts.isPropertyAccessExpression(x.expression) && isNumberTyped(x.expression.expression)) return true
-    if (ts.isPropertyAccessExpression(x.expression) && JOINS.has(x.expression.name.text) && isNumberArray(x.expression.expression)) return true
+    if (method(x, JOINS) && rendersValue(x.expression.expression, sf, depth + 1)) return true
     if (renderedFunctions(x).some((fn) => returnedExpressions(fn).some((r) => rendersValue(r, sf, depth + 1)))) return true
-    // A list a call makes renders every member (`{Children.toArray([<b>{n}</b>])}`, `{counts.concat(more)}`).
-    if (listCall(x) && literalExpressions(x, sf, [null]).some((m) => !asWritten(m) && rendersValue(m, sf, depth + 1))) return true
-    // `Children.only(x)` renders x.
-    if (childrenCall(x, 'only') && rendersValue(x.arguments[0], sf, depth + 1)) return true
+    if (literalExpressions(x, sf).some((v) => v !== x && !asWritten(v) && rendersValue(v, sf, depth + 1))) return true
     return x.arguments.some((a) => !ts.isArrowFunction(unwrap(a)) && !ts.isFunctionExpression(unwrap(a)) && literalText(unwrap(a)) === null && isNumberTyped(a))
   }
   if (ts.isIdentifier(x)) {
@@ -1348,12 +1538,13 @@ function inheritedInk(node: ts.Node): Ink {
 }
 
 /** A control the user activates: a link, a button, a disclosure's summary, any element given an href or an
-    onClick, and the ui Button family. */
+    onClick, the ui Button family, and an app component that renders its children inside a control (its children
+    are that control's label). */
 function isControl(opening: ts.JsxOpeningLikeElement): boolean {
   if (['a', 'button', 'summary'].includes(opening.tagName.getText())) return true
   if (opening.attributes.properties.some((p) => ts.isJsxAttribute(p) && ['href', 'onClick'].includes(p.name.getText()))) return true
   const fn = componentFunction(opening)
-  return !!fn && VARIANT_COMPONENTS.get(fn)?.inks === BUTTON_INK
+  return !!fn && (VARIANT_COMPONENTS.get(fn)?.inks === BUTTON_INK || summary(fn).childrenInControl)
 }
 
 interface Offence { node: ts.Node; text: string }
@@ -1441,8 +1632,8 @@ describe('brand rule 2: sage never colours a number', () => {
   const inApp = (check: (sf: ts.SourceFile) => Offence[]) =>
     [...new Set(SOURCES.flatMap(({ rel, sf }) => check(sf).map(({ node, text }) => where(rel, sf, node, text))))]
 
-  // The app scan asks the checker for the types of what it reads in every file, about 2 s on a laptop; the budget
-  // leaves room for a loaded CI runner.
+  // The app scan asks the checker for the types of what it reads in every file, about 2.5 s; the budget leaves room
+  // for a loaded CI runner.
   it('nothing the app renders in sage ink at rest carries a digit or a value', () => {
     expect(inApp(sageValues), 'set the number in the ink (text-text-primary / secondary); sage signals brand and activity').toEqual([])
   }, 20_000)

@@ -70,11 +70,14 @@ review extends the cases instead of starting over. When a review finds one form 
 already makes that it misses, probe the claim's whole family before fixing that form, and take the
 family from the language, not from the forms the reviews have named: for a value, every way a name
 gets one (a declaration and each assignment, destructuring and its default, a loop's variable, a
-parameter at each call of its function, a callback however it is handed over). A reader that gains
-one syntax per review is matching forms, not following the value, and the fix is a reader that
-follows it. And when a gate has more than one check over the same code, give them one walk: a check
-that follows a value through the bindings while its sibling reads only the syntax around it leaves
-the sibling as narrow as the first reader was.
+parameter at each call of its function, a callback however it is handed over, and what the code
+puts in it after making it), and the framework's calls that move one (React's `Children`,
+`cloneElement` and `createElement`). A reader that gains one syntax per review is matching forms,
+not following the value, and the fix is a reader that follows it. And when a gate has more than one
+check over the same code, give them one walk: a check that follows a value through the bindings
+while its sibling reads only the syntax around it leaves the sibling as narrow as the first reader
+was, and a value the gate must recognise rather than read (a component's children) rides that walk
+as a mark, not a second walk of its own.
 
 Corollary for the anti-vacuity floor: assert the scanner actually found things (>100 files,
 >100 tests). A narrow gate and a broken walk look identical from the outside — both green.
@@ -130,10 +133,21 @@ through the same binding forms and a component boundary, 25 such forms broke the
 `f00c4be`; one walk now yields what an element renders in its ink, its texts and its elements, for
 both checks, and a component's summary says whether it renders such a control in the ink it
 inherits. The re-review of `c9bd846` had also named a rest element in a binding pattern, which the
-walk abandoned; it is read as the whole it is taken from. Codex's review of `f5526d3` then found the
-"calls that keep what they are given" claim short by one React call, `Children.toArray`; the gate now
-reads it, with `concat`, `flat` and the callbacks `Children.map` and `forEach` bind beside it, and a
-list any of them makes when it is rendered whole; its review of `d3f1522` then named `Children.only`,
-the last of React's child-preserving helpers, which the gate reads as what it is given. Companion to
-`arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
-build it.
+walk abandoned; it is read as the whole it is taken from. Codex's review of `f5526d3` then found JSX
+that `Children.toArray` normalizes read by neither check: the walks followed the language's array
+methods but not the framework's, and the value walk read an array of JSX only by its type. Probed
+across React's child utilities, the lists a call keeps or a push fills, and the ways a component
+reaches its children, the family broke the rule in forms no walk read; the three walks now read a
+list, and those utilities, through the one resolver. The review of that fix found the component
+summary still finding a component's children by a walk of its own, narrower than the resolver (a
+`Children.map` held in a const, a helper handed them, `forEach` filling an array) and wider where it
+should not be (a row's field named children); the resolver now carries the children from the props
+as a mark, and the summary's walk is gone. Its second review found two more forms of claims the
+header made: children handed by a shorthand (`{ children }`), which the walk resolved inside an
+object it read but not where a clone's props hand the name over, and a spread of sources to
+`Object.assign`. A second session fixing the same finding at the same time (`d3f1522c`) read `flat`,
+which this probe had missed; listing the family from the language instead, every array method that
+returns its receiver's members, found five more (`toSpliced`, `with`, `splice`, `fill` and
+`copyWithin`), and `pop` and `shift`, which return one. In all, 97 forms broke the rule unread at
+`f5526d3`, and it failed 4 look-alikes. Companion to `arch-structural-gates-over-prose-rules.md`,
+which says to build the gate; this one says how wide to build it.

@@ -8,7 +8,9 @@
  * that loses a form, or catches a look-alike, fails there. Outside the scan roots: rule 2's app scan never
  * reads it. A new form the rule can take joins it with its mark.
  */
-import React, { Children, type ReactNode, useCallback, useMemo, useState } from 'react'
+import * as React from 'react'
+import { Children, cloneElement, cloneElement as clone, createElement, isValidElement, type ReactElement, type ReactNode, useCallback, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Badge, Button, buttonVariants, type BadgeVariant } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
 import Link from 'next/link'
@@ -525,6 +527,237 @@ export function P314({ n }: { n: number }) { return <div className="text-brand-s
 function Tip315({ content, children }: { content: ReactNode; children: ReactNode }) { return <span title="tip">{children}{content ? null : null}</span> }
 export function P315({ n }: { n: number }) { return <Link className="text-brand-strong" href="/x"><Tip315 content={<button>See <span className="text-text-secondary-light">{n}</span></button>}>Coverage</Tip315></Link> } // clean
 export function P316({ n }: { n: number }) { return <div className="text-brand-strong" onMouseEnter={() => { const a = <button>See <span className="text-text-secondary-light">{n}</span></button>; void a }}>Coverage</div> } // clean
+// Codex's review of f5526d3: JSX that Children.toArray normalizes before it renders under a sage parent, which rule 2
+// did not follow. The family: React's child utilities, named through the checker (Children.toArray, whose members a
+// child that is no array joins, Children.only, Children.map and forEach, and cloneElement); a component that reaches
+// its children through them, a binding, a helper or a useMemo, or renders them inside a control, which makes it one
+// where it is used; an array or a list rendered whole; and an array or an object the file fills after it is made.
+export function P319({ n }: { n: number }) { const kids = Children.toArray([<span key="a">{n}</span>]); return <span className="text-brand-strong">{kids}</span> } // flag
+export function P320() { return <span className="text-brand-strong">{Children.toArray([<span key="a">Step 2</span>])}</span> } // flag
+export function P321({ n }: { n: number }) { return <span className="text-brand-strong">{React.Children.toArray(<span>{n}</span>)}</span> } // flag
+export function P322({ n }: { n: number }) { return <span className="text-brand-strong">{Children.only(<span>{n}</span>)}</span> } // flag
+export function P323({ n }: { n: number }) { return <span className="text-brand-strong">{Children.map([<span key="a">{n}</span>], (c) => <b>{c}</b>)}</span> } // flag
+export function P324({ n }: { n: number }) { const kids = Children.toArray([<span key="a">{n}</span>]); return <span className="text-brand-strong">{kids[0]}</span> } // flag
+export function P325({ n }: { n: number }) { const kids = Children.toArray([<button key="a">See <span className="text-text-secondary-light">{n}</span></button>]); return <div className="text-brand-strong">{kids}</div> } // flag
+export function P326({ n }: { n: number }) { const out: ReactNode[] = []; Children.forEach([<b key="a">{n}</b>], (c) => { out.push(c) }); return <div className="text-brand-strong">{out}</div> } // flag
+// The review of 439e2762: a utility the checker types as React's however the call reaches it (an aliased import, a
+// destructured method), and the child Children.map hands its callback when it is given one that is no array.
+export function P384({ n }: { n: number }) { const el = <span>{n}</span>; return <span className="text-brand-strong">{clone(el)}</span> } // flag
+export function P385({ n }: { n: number }) { const { toArray } = Children; return <span className="text-brand-strong">{toArray([<span key="a">{n}</span>])}</span> } // flag
+export function P386({ n }: { n: number }) { return <span className="text-brand-strong">{Children.map(n, (c: ReactNode) => <b>{c}</b>)}</span> } // flag
+// Look-alikes: a member in an ink of its own; words; a Children that is not React's (a prop of that name, whose
+// toArray the scan cannot read); a portal, whose content renders under the document's body, not the sage parent.
+export function P327({ n }: { n: number }) { const kids = Children.toArray([<span key="a" className="text-text-secondary-light">{n}</span>]); return <span className="text-brand-strong">{kids}</span> } // clean
+export function P328() { const kids = Children.toArray(['Revenue', <b key="b">Margin</b>]); return <span className="text-brand-strong">{kids}</span> } // clean
+export function P329({ Children }: { Children: { toArray: (c: ReactNode) => string[] } }) { return <span className="text-brand-strong">{Children.toArray(<b>Step 2</b>)}</span> } // clean
+export function P330({ n }: { n: number }) { return <div className="text-brand-strong">{createPortal(<span>{n}</span>, document.body)}</div> } // clean
+// cloneElement renders the element it clones, or the children it hands the clone (from its third argument, or its
+// props) in that element's place; one whose props give it a className of its own is not read as the element it
+// clones (P372, P390), and a clone of an element the scan cannot read renders them in the ink it inherits (P389).
+// createElement renders the children it hands the element it makes in the ink it inherits (P391).
+export function P331({ n }: { n: number }) { const el = <span>{n}</span>; return <span className="text-brand-strong">{cloneElement(el)}</span> } // flag
+export function P332() { return <span className="text-brand-strong">{cloneElement(<span />, undefined, 'Step 2')}</span> } // flag
+export function P333({ n }: { n: number }) { return <span className="text-brand-strong">{cloneElement(<span className="text-text-secondary-light" />, undefined, n)}</span> } // clean
+export function P334({ n }: { n: number }) { return <span className="text-brand-strong">{cloneElement(<span>{n}</span>, undefined, 'Revenue')}</span> } // clean
+export function P372({ n }: { n: number }) { return <span className="text-brand-strong">{cloneElement(<span>{n}</span>, { className: 'text-text-secondary-light' })}</span> } // clean
+export function P387() { return <span className="text-brand-strong">{cloneElement(<span />, { children: 'Step 2' })}</span> } // flag
+export function P388({ n }: { n: number }) { return <span className="text-brand-strong">{cloneElement(<span>{n}</span>, { children: 'Revenue' })}</span> } // clean
+export function P389({ n, icon }: { n: number; icon: ReactElement }) { return <span className="text-brand-strong">{cloneElement(icon, undefined, n)}</span> } // flag
+export function P390({ n }: { n: number }) { return <span className="text-brand-strong">{cloneElement(<span />, { className: 'text-text-secondary-light' }, n)}</span> } // clean
+export function P391() { return <span className="text-brand-strong">{createElement('span', null, 'Step 2')}</span> } // flag
+// A clone handed children of its own, by its props or its arguments, renders them, not the element's own text.
+export function P421() { return <span className="text-brand-strong">{cloneElement(<span>Step 2</span>, { children: 'Revenue' })}</span> } // clean
+export function P422() { return <span className="text-brand-strong">{cloneElement(<span>Step 2</span>, undefined, 'Revenue')}</span> } // clean
+// The review of 3629f7f3: children handed by a shorthand in a clone's props (a const's, and a component's own), and a
+// list of them spread into a clone's arguments.
+export function P424() { const children = 'Step 2'; return <span className="text-brand-strong">{cloneElement(<span />, { children })}</span> } // flag
+function Sage425({ children }: { children: ReactNode }) { return <span className="text-brand-strong">{cloneElement(<b />, { children })}</span> }
+export function P425({ n }: { n: number }) { return <Sage425>{n}</Sage425> } // flag
+export function P426() { const kids = ['Q1']; return <span className="text-brand-strong">{cloneElement(<span />, undefined, ...kids)}</span> } // flag
+// A component's children reached through React's utilities, a binding, a helper or a useMemo, rendered in sage.
+function Sage335({ children }: { children: ReactNode }) { return <div>{Children.toArray(children).map((c, i) => <span key={i} className="text-brand-strong">{c}</span>)}</div> }
+export function P335({ n }: { n: number }) { return <Sage335>{n}</Sage335> } // flag
+function Sage336({ children }: { children: ReactNode }) { const items = Children.toArray(children); return <div className="text-brand-strong">{items}</div> }
+export function P336({ n }: { n: number }) { return <Sage336>{n}</Sage336> } // flag
+function Sage337({ children }: { children: ReactElement }) { return <span className="text-brand-strong">{Children.only(children)}</span> }
+export function P337({ n }: { n: number }) { return <Sage337><span>{n}</span></Sage337> } // flag
+function Sage338({ children }: { children: ReactNode }) { const items = children; return <div className="text-brand-strong">{items}</div> }
+export function P338({ n }: { n: number }) { return <Sage338>{n}</Sage338> } // flag
+function Sage339({ children }: { children: ReactNode }) { const [first] = Children.toArray(children); return <div className="text-brand-strong">{first}</div> }
+export function P339({ n }: { n: number }) { return <Sage339>{n}</Sage339> } // flag
+function Sage340({ children }: { children: ReactNode }) { const items = useMemo(() => Children.toArray(children), [children]); return <div className="text-brand-strong">{items}</div> }
+export function P340({ n }: { n: number }) { return <Sage340>{n}</Sage340> } // flag
+function Sage341(props: { children: ReactNode }) { const { children: kids } = props; return <span className="text-brand-strong">{kids}</span> }
+export function P341({ n }: { n: number }) { return <Sage341>{n}</Sage341> } // flag
+function Sage342({ children }: { children: ReactElement }) { return <span className="text-brand-strong">{cloneElement(children)}</span> }
+export function P342({ n }: { n: number }) { return <Sage342><span>{n}</span></Sage342> } // flag
+// The review of 439e2762: the children through Children.map held in a const (the canonical isValidElement idiom), a
+// list's map held, forEach filling an array, a helper's parameter, an index into a list of them, a list call, and an
+// array of children mapped as one; f5526d3's walk lost each.
+function Sage392({ children }: { children: ReactNode }) { const items = Children.map(children, (c) => (isValidElement(c) ? cloneElement(c) : c)); return <div className="text-brand-strong">{items}</div> }
+export function P392({ n }: { n: number }) { return <Sage392>{n}</Sage392> } // flag
+function Sage393({ children }: { children: ReactNode }) { const items = Children.toArray(children).map((c) => c); return <div className="text-brand-strong">{items}</div> }
+export function P393({ n }: { n: number }) { return <Sage393>{n}</Sage393> } // flag
+function Sage394({ children }: { children: ReactNode }) { const out: ReactNode[] = []; Children.forEach(children, (c) => { out.push(<li key="a">{c}</li>) }); return <ul className="text-brand-strong">{out}</ul> }
+export function P394({ n }: { n: number }) { return <Sage394>{n}</Sage394> } // flag
+function Sage395({ children }: { children: ReactNode }) { const wrap = (c: ReactNode) => <span className="text-brand-strong">{c}</span>; return <div>{wrap(children)}</div> }
+export function P395({ n }: { n: number }) { return <Sage395>{n}</Sage395> } // flag
+function Sage396({ children }: { children: ReactNode }) { const items = Children.toArray(children); return <div className="text-brand-strong">{items[0]}</div> }
+export function P396({ n }: { n: number }) { return <Sage396>{n}</Sage396> } // flag
+function Sage397({ children }: { children: ReactNode }) { return <div className="text-brand-strong">{Children.toArray(children).slice(0, 2)}</div> }
+export function P397({ n }: { n: number }) { return <Sage397>{n}</Sage397> } // flag
+function Sage398({ children }: { children: ReactNode[] }) { return <div>{children.map((c, i) => <span key={i} className="text-brand-strong">{c}</span>)}</div> }
+export function P398({ n }: { n: number }) { return <Sage398>{n}{' filings'}</Sage398> } // flag
+// A slot chosen by a key the scan cannot read may be the children, and children a component defaults render where
+// its children do, in the ink it inherits (f5526d3 stopped at the children's name, past the default).
+function Slot417({ slot, ...props }: { slot: 'children' | 'label'; children: ReactNode; label: ReactNode }) { return <div className="text-brand-strong">{props[slot]}</div> }
+export function P417({ n }: { n: number }) { return <Slot417 slot="children" label="Revenue">{n}</Slot417> } // flag
+function Steps418({ children = 'Step 2' }: { children?: ReactNode }) { return <>{children}</> }
+export function P418() { return <span className="text-brand-strong"><Steps418 /></span> } // flag
+// A fallback rendered beside the children is read as well as them; and a compound component that renders each
+// child's own children (a tab's content) renders the children it is given.
+function Pick419({ open, children }: { open: boolean; children: ReactNode }) { return <>{open ? children : <b>Step 2</b>}</> }
+export function P419() { return <span className="text-brand-strong"><Pick419 open={false}>Revenue</Pick419></span> } // flag
+function Tab420({ children }: { label: string; children: ReactNode }) { return <>{children}</> }
+function Tabs420({ children }: { children: ReactNode }) { return <div className="text-brand-strong">{Children.toArray(children).map((tab) => (isValidElement<{ children: ReactNode }>(tab) ? tab.props.children : null))}</div> }
+export function P420({ n }: { n: number }) { return <Tabs420><Tab420 label="Revenue">{n}</Tab420></Tabs420> } // flag
+// Children a component joins as text render where the join does (the review of 3629f7f3).
+function Join427({ children }: { children: string[] }) { return <span className="text-brand-strong">{children.join(', ')}</span> }
+export function P427() { return <Join427>{['Q1']}</Join427> } // flag
+// Look-alikes: two of those paths in an ink of the component's own, inside a sage parent (f5526d3 read both as
+// passing the parent's sage through).
+function Own343({ children }: { children: ReactNode }) { return <div>{Children.toArray(children).map((c, i) => <span key={i} className="text-text-secondary-light">{c}</span>)}</div> }
+export function P343({ n }: { n: number }) { return <div className="text-brand-strong"><Own343>{n}</Own343></div> } // clean
+function Own344({ children }: { children: ReactNode }) { const items = useMemo(() => Children.toArray(children), [children]); return <div className="text-text-secondary-light">{items}</div> }
+export function P344({ n }: { n: number }) { return <div className="text-brand-strong"><Own344>{n}</Own344></div> } // clean
+// A component whose path to its children the scan cannot read (a clone given a className) passes the ink it inherits
+// through, so it fails closed on the number its children carry inside a sage parent.
+function Clone399({ children }: { children: ReactElement }) { return cloneElement(children, { className: 'text-text-secondary-light' }) }
+export function P399({ n }: { n: number }) { return <span className="text-brand-strong"><Clone399><span>{n}</span></Clone399></span> } // flag
+// A component that renders its children inside a control is a control where it is used, its children the label:
+// a count they hold in an ink of their own while it rests in sage breaks the count control. And a control a
+// component renders in the ink it inherits, reached through an array, a clone's children or Children.only.
+function Act345({ children }: { children: ReactNode }) { return <button type="button">{children}</button> }
+export function P345({ n }: { n: number }) { return <div className="text-brand-strong"><Act345>See <span className="text-text-secondary-light">{n}</span></Act345></div> } // flag
+function Nav346({ children }: { children: ReactNode }) { return <nav>{Children.map(children, (c) => <a href="/x">{c}</a>)}</nav> }
+export function P346({ n }: { n: number }) { return <div className="text-brand-strong"><Nav346><span className="text-text-secondary-light">{n}</span></Nav346></div> } // flag
+function Sage347({ children }: { children: ReactNode }) { return <button type="button" className="text-brand-strong">{children}</button> }
+export function P347({ n }: { n: number }) { return <Sage347>See <span className="text-text-secondary-light">{n}</span></Sage347> } // flag
+function Outer348({ children }: { children: ReactNode }) { return <Act345>{children}</Act345> }
+export function P348({ n }: { n: number }) { return <div className="text-brand-strong"><Outer348>See <span className="text-text-secondary-light">{n}</span></Outer348></div> } // flag
+function Acts373({ n }: { n: number }) { return <>{[<button key="a">See <span className="text-text-secondary-light">{n}</span></button>]}</> }
+export function P373({ n }: { n: number }) { return <div className="text-brand-strong"><Acts373 n={n} /></div> } // flag
+function Acts374({ n }: { n: number }) { return <>{cloneElement(<div />, undefined, <button>See <span className="text-text-secondary-light">{n}</span></button>)}</> }
+export function P374({ n }: { n: number }) { return <div className="text-brand-strong"><Acts374 n={n} /></div> } // flag
+function Acts375({ n }: { n: number }) { return <>{Children.only(<button>See <span className="text-text-secondary-light">{n}</span></button>)}</> }
+export function P375({ n }: { n: number }) { return <div className="text-brand-strong"><Acts375 n={n} /></div> } // flag
+// The children reach the control through Children.map held in a const, or a helper handed them.
+function Acts400({ children }: { children: ReactNode }) { const items = Children.map(children, (c) => <button type="button">{c}</button>); return <div>{items}</div> }
+export function P400({ n }: { n: number }) { return <div className="text-brand-strong"><Acts400><span className="text-text-secondary-light">{n}</span></Acts400></div> } // flag
+function Acts401({ children }: { children: ReactNode }) { const renderButton = (c: ReactNode) => <button type="button">{c}</button>; return <div>{renderButton(children)}</div> }
+export function P401({ n }: { n: number }) { return <div className="text-brand-strong"><Acts401>See <span className="text-text-secondary-light">{n}</span></Acts401></div> } // flag
+// Look-alikes: the component's control rests in an ink of its own; the children render beside the control, not in
+// it; the parent turns sage only under the pointer.
+function Own349({ children }: { children: ReactNode }) { return <button type="button" className="text-text-secondary-light">{children}</button> }
+export function P349({ n }: { n: number }) { return <div className="text-brand-strong"><Own349>See <span className="text-text-tertiary-light">{n}</span></Own349></div> } // clean
+function Tip350({ children }: { children: ReactNode }) { return <span><button type="button">i</button><span role="tooltip">{children}</span></span> }
+export function P350({ n }: { n: number }) { return <div className="text-brand-strong"><Tip350>Coverage <span className="text-text-secondary-light">{n}</span></Tip350></div> } // clean
+export function P351({ n }: { n: number }) { return <div className="hover:text-brand-strong"><Act345>See <span className="text-text-secondary-light">{n}</span></Act345></div> } // clean
+// A row's field named children, rendered inside a link, is no child of the component's: its children render beside it.
+function Menu402({ items, children }: { items: { href: string; children: string }[]; children: ReactNode }) { return <nav>{children}{items.map((i) => <a key={i.href} href={i.href}>{i.children}</a>)}</nav> }
+export function P402({ n }: { n: number }) { return <div className="text-brand-strong"><Menu402 items={[]}>Plan <span className="text-text-secondary-light">{n}</span></Menu402></div> } // clean
+// An array, or a list a call keeps, rendered whole renders every member: a value an element in it carries, a
+// member's digits, and what a join joins.
+const QUARTERS_353 = ['Q1', 'Q2']
+export function P352({ n }: { n: number }) { const items = [<b key="a">{n}</b>]; return <div className="text-brand-strong">{items}</div> } // flag
+export function P353() { return <span className="text-brand-strong">{QUARTERS_353.filter(Boolean)}</span> } // flag
+export function P354() { return <span className="text-brand-strong">{Object.values({ first: 'Q1' })}</span> } // flag
+export function P355() { return <span className="text-brand-strong">{[...new Set(QUARTERS_353)]}</span> } // flag
+export function P356({ n }: { n: number }) { const items = [<b key="a">{n}</b>]; return <span className="text-brand-strong">{items.find(Boolean)}</span> } // flag
+export function P357({ n }: { n: number }) { return <span className="text-brand-strong">{[n, 'filings'].join(' ')}</span> } // flag
+// A component that renders a list in the ink it inherits, inside a sage parent; concat, which keeps its receiver's
+// members and adds its arguments'.
+function List403() { return <>{QUARTERS_353.slice(0, 1)}</> }
+export function P403() { return <span className="text-brand-strong"><List403 /></span> } // flag
+export function P404() { const labels = ['Revenue']; return <span className="text-brand-strong">{labels.concat('Q1')}</span> } // flag
+// Look-alikes: a member in an ink of its own; words.
+export function P358({ n }: { n: number }) { const items = [<b key="a" className="text-text-secondary-light">{n}</b>]; return <div className="text-brand-strong">{items}</div> } // clean
+export function P359() { return <span className="text-brand-strong">{['Revenue', 'Margin'].slice(0, 1)}</span> } // clean
+export function P405() { return <span className="text-brand-strong">{['Revenue'].concat(['Margin'])}</span> } // clean
+// A string's concat keeps the text it is called on.
+export function P423() { const year = 'FY2025'; return <span className="text-brand-strong">{year.concat(' revenue')}</span> } // flag
+// d3f1522c's forms for the same review, kept: a callback bound through Children.toArray, Children.map and forEach over
+// a held list, React.Children read whole, concat's members and a value it is given, and flat, with two look-alikes;
+// then a field read off a member flat opens, and a flat list rendered whole.
+export function P439() { return <p>{Children.toArray(LABELS_161).map((l) => <span key={String(l)} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P440() { return <span className="text-brand-strong">{React.Children.toArray(LABELS_161)}</span> } // flag
+export function P441() { return <p>{Children.map(LABELS_161, (l) => <span key={String(l)} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P442() { const out: ReactNode[] = []; Children.forEach(LABELS_161, (l) => { out.push(<span key={String(l)} className="text-brand-strong">{l}</span>) }); return <p>{out}</p> } // flag
+export function P443() { return <p>{WORDS_161.concat(LABELS_161).map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P444() { return <p>{WORDS_161.concat('Q3').map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P445() { return <p>{[WORDS_161, LABELS_161].flat().map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P446() { return <p>{WORDS_161.concat(['Margin']).map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // clean
+export function P447() { return <p>{[WORDS_161, ['Margin']].flat().map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // clean
+export function P448() { const rows = [[{ label: 'Q1' }]]; return <p>{rows.flat().map((r) => <span key={r.label} className="text-brand-strong">{r.label}</span>)}</p> } // flag
+export function P449() { return <span className="text-brand-strong">{[WORDS_161, LABELS_161].flat()}</span> } // flag
+// The rest of the array methods that keep their receiver's members, listed from the language: toSpliced's inserts,
+// the value `with` and `fill` give, splice's and copyWithin's return; look-alikes whose index or range is no member;
+// and fill as a put, its value and never its range.
+export function P450() { return <span className="text-brand-strong">{WORDS_161.toSpliced(1, 0, 'Q3')}</span> } // flag
+export function P451() { return <span className="text-brand-strong">{WORDS_161.with(0, 'Q3')}</span> } // flag
+export function P452() { return <span className="text-brand-strong">{new Array<string>(1).fill('Q3')}</span> } // flag
+export function P453() { return <span className="text-brand-strong">{WORDS_161.with(0, 'Margin')}</span> } // clean
+export function P454() { return <span className="text-brand-strong">{[...WORDS_161].fill('Margin', 0, 1)}</span> } // clean
+export function P455() { const removed = [...LABELS_161].splice(0, 1); return <span className="text-brand-strong">{removed}</span> } // flag
+export function P456() { return <span className="text-brand-strong">{[...LABELS_161].copyWithin(0, 0)}</span> } // flag
+export function P457() { const slots = new Array<string>(2); slots.fill('Q3'); return <span className="text-brand-strong">{slots}</span> } // flag
+export function P458() { const slots = ['Revenue']; slots.fill('Margin', 0, 1); return <span className="text-brand-strong">{slots}</span> } // clean
+// The array methods that return one of their receiver's members: pop and shift, read as any member.
+export function P459() { const out = [...LABELS_161]; return <span className="text-brand-strong">{out.pop()}</span> } // flag
+export function P460() { return <span className="text-brand-strong">{[...LABELS_161].shift()}</span> } // flag
+// 1dd291dd's forms for Codex's review of d3f1522c: Children.only, held (P461, the review's own form), by its React.
+// name rendered inline, a count control through it, and a look-alike over a word.
+export function P461({ n }: { n: number }) { const child = Children.only(<span>{n}</span>); return <div className="text-brand-strong">{child}</div> } // flag
+export function P462() { return <span className="text-brand-strong">{React.Children.only(<b>Step 2</b>)}</span> } // flag
+export function P463() { const child = Children.only(<b>Revenue</b>); return <div className="text-brand-strong">{child}</div> } // clean
+export function P464({ n }: { n: number }) { const action = Children.only(<button>See <span className="text-text-secondary-light">{n}</span></button>); return <div className="text-brand-strong">{action}</div> } // flag
+// What the file puts in an array or an object after making it: a push, a splice's inserts, an index or a field it
+// sets, through a field chain or a key the scan cannot read, a className built that way, a count control, an
+// index into an array a push filled, which may land on any member, and a conditional put there, read as code.
+export function P360({ n }: { n: number }) { const out: ReactNode[] = []; out.push(<b key="a">{n}</b>); return <div className="text-brand-strong">{out}</div> } // flag
+export function P361() { const out: string[] = []; out.push('Q1'); return <div className="text-brand-strong">{out}</div> } // flag
+export function P362() { const out = ['Revenue']; out.splice(0, 0, 'Q1'); return <div className="text-brand-strong">{out}</div> } // flag
+export function P363() { const out: string[] = []; out[0] = 'Q1'; return <div className="text-brand-strong">{out}</div> } // flag
+export function P364() { const row: { label?: string } = {}; row.label = 'Q1'; return <div className="text-brand-strong">{row.label}</div> } // flag
+export function P365() { const o = { items: [] as string[] }; o.items.push('Q1'); return <span className="text-brand-strong">{o.items}</span> } // flag
+export function P366({ k }: { k: string }) { const groups: Record<string, string[]> = {}; groups[k] = []; groups[k].push('Q1'); return <span className="text-brand-strong">{Object.values(groups)}</span> } // flag
+export function P367({ n }: { n: number }) { const cls = ['font-semibold']; cls.push('text-brand-strong'); return <span className={cls.join(' ')}>{n}</span> } // flag
+export function P368({ n }: { n: number }) { const actions: ReactNode[] = []; actions.push(<button key="a">See <span className="text-text-secondary-light">{n}</span></button>); return <div className="text-brand-strong">{actions}</div> } // flag
+export function P376() { const out = ['Revenue']; out.push('Q1'); return <span className="text-brand-strong">{out[1]}</span> } // flag
+export function P380({ on }: { on: boolean }) { const out: string[] = []; out.push(on ? 'Q1' : 'Revenue'); return <div className="text-brand-strong">{out}</div> } // flag
+export function P381({ on }: { on: boolean }) { const row: { label?: string } = {}; row.label = on ? 'Q1' : 'Revenue'; return <div className="text-brand-strong">{row.label}</div> } // flag
+// The review of 439e2762: a className lookup filled by a key the scan cannot read (which crashed the walk), a field or
+// an index a compound assignment sets, the fields Object.assign copies, a Set's add, and an unshift.
+export function P406({ n, k }: { n: number; k: string }) { const cls: Record<string, string> = {}; cls[k] = 'text-brand-strong'; return <span className={cls[k]}>{n}</span> } // flag
+export function P407() { const row: { label?: string } = {}; row.label ??= 'Q1'; return <div className="text-brand-strong">{row.label}</div> } // flag
+export function P408() { const out: string[] = []; out[0] ||= 'Q1'; return <div className="text-brand-strong">{out}</div> } // flag
+export function P409() { const row = { label: 'Revenue' }; row.label += ' Q1'; return <div className="text-brand-strong">{row.label}</div> } // flag
+export function P410() { const row: { label?: string } = {}; Object.assign(row, { label: 'Q1' }); return <div className="text-brand-strong">{row.label}</div> } // flag
+export function P411() { const seen = new Set<string>(); seen.add('Q1'); return <span className="text-brand-strong">{[...seen]}</span> } // flag
+export function P412() { const out = ['Revenue']; out.unshift('Q1'); return <div className="text-brand-strong">{out}</div> } // flag
+// The review of 3629f7f3: the fields Object.assign copies from a spread of sources, written there or held, and the
+// object it returns; a field set through a cast; a conditional pushed, read through an index.
+export function P428() { const row: { label?: string } = {}; Object.assign(row, ...[{ label: 'Q1' }]); return <div className="text-brand-strong">{row.label}</div> } // flag
+export function P429() { const sources = [{ label: 'Q1' }]; const row: { label?: string } = {}; Object.assign(row, ...sources); return <div className="text-brand-strong">{row.label}</div> } // flag
+export function P430() { const row = Object.assign({}, { label: 'Q1' }); return <div className="text-brand-strong">{row.label}</div> } // flag
+export function P431() { const row = Object.assign({}, ...[{ label: 'Q1' }]); return <div className="text-brand-strong">{row.label}</div> } // flag
+export function P432() { const row: { label?: string } = {}; (row as { label?: string }).label = 'Q1'; return <div className="text-brand-strong">{row.label}</div> } // flag
+export function P433({ on }: { on: boolean }) { const out: string[] = []; out.push(on ? 'Q1' : 'Revenue'); return <div className="text-brand-strong">{out[0]}</div> } // flag
+// Look-alikes: words pushed; a splice that only removes; words set on a field.
+export function P369() { const out: string[] = []; out.push('Revenue'); return <div className="text-brand-strong">{out}</div> } // clean
+export function P370() { const out = ['Revenue', 'Margin']; out.splice(0, 1); return <div className="text-brand-strong">{out}</div> } // clean
+export function P371() { const row: { label?: string } = {}; row.label = 'Revenue'; return <div className="text-brand-strong">{row.label}</div> } // clean
+export function P413() { const row: { label?: string } = {}; Object.assign(row, { label: 'Revenue' }); return <div className="text-brand-strong">{row.label}</div> } // clean
 // Out of the file's own calls, and so review-checked: a value handed to a component as a prop (JSX binds its
 // props, which the component check reads only for children and className), a count control handed as one, a
 // hook's state, and a callback handed through another function's parameter.
@@ -537,26 +770,30 @@ export function P306({ n }: { n: number }) { return <Panel306 action={<button>Se
 // component returns, or never applied, its ink then masking the sage the component inherits.
 export function P317({ n }: { n: number }) { return <Deep317 className="text-brand-strong" n={n} /> } function Deep317({ className, n }: { className?: string; n: number }) { return <div><span className={className}>{n}</span></div> } // gap
 export function P318({ n }: { n: number }) { return <div className="text-brand-strong"><Ignores310 className="text-text-primary-light" n={n} /></div> } // gap
-// Codex's review of f5526d3: JSX normalised by React's Children.toArray (P319, the review's own form) was unread. The
-// family: the calls that keep what they are given or add to it (Children.toArray, concat, flat, by either name React
-// gives Children), the callbacks Children.map and forEach bind, a count control carried through such a call, and a
-// list a call makes rendered whole.
-export function P319({ n }: { n: number }) { const kids = Children.toArray([<span key="n">{n}</span>]); return <div className="text-brand-strong">{kids}</div> } // flag
-export function P320() { return <p>{Children.toArray(LABELS_161).map((l) => <span key={String(l)} className="text-brand-strong">{l}</span>)}</p> } // flag
-export function P321() { return <span className="text-brand-strong">{React.Children.toArray(LABELS_161)}</span> } // flag
-export function P322() { return <p>{Children.map(LABELS_161, (l) => <span key={String(l)} className="text-brand-strong">{l}</span>)}</p> } // flag
-export function P323() { const out: ReactNode[] = []; Children.forEach(LABELS_161, (l) => { out.push(<span key={String(l)} className="text-brand-strong">{l}</span>) }); return <p>{out}</p> } // flag
-export function P324() { return <p>{WORDS_161.concat(LABELS_161).map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // flag
-export function P325() { return <p>{WORDS_161.concat(['Margin']).map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // clean
-export function P326() { return <p>{WORDS_161.concat('Q3').map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // flag
-export function P327() { return <p>{[WORDS_161, LABELS_161].flat().map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // flag
-export function P328() { return <p>{[WORDS_161, ['Margin']].flat().map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // clean
-export function P329() { return <span className="text-brand-strong">{LABELS_161.slice(0)}</span> } // flag
-export function P330() { return <span className="text-brand-strong">{WORDS_161.concat(['Margin'])}</span> } // clean
-export function P331({ n }: { n: number }) { const actions = Children.toArray([<button key="a">See <span className="text-text-secondary-light">{n}</span></button>]); return <div className="text-brand-strong">{actions}</div> } // flag
-// Codex's review of d3f1522: React's other child-preserving helper, Children.only, returns what it is given (P332, the
-// review's own form); by its React. name rendered inline; a count control through it; and a look-alike over a word.
-export function P332({ n }: { n: number }) { const child = Children.only(<span>{n}</span>); return <div className="text-brand-strong">{child}</div> } // flag
-export function P333() { return <span className="text-brand-strong">{React.Children.only(<b>Step 2</b>)}</span> } // flag
-export function P334() { const child = Children.only(<b>Revenue</b>); return <div className="text-brand-strong">{child}</div> } // clean
-export function P335({ n }: { n: number }) { const action = Children.only(<button>See <span className="text-text-secondary-light">{n}</span></button>); return <div className="text-brand-strong">{action}</div> } // flag
+// A clone's or a created element's own ink, out of reach: any className cloneElement's or createElement's props give
+// it (the Slot pattern included; one that sets no ink leaves the number in the parent's sage), which the scan does not
+// read, the children handed to a clone of an element that sets sage, which renders them in its ink where no sage
+// parent's check reaches, and a created component's own ink (P434).
+export function P377({ n }: { n: number }) { return <span>{cloneElement(<span>{n}</span>, { className: 'text-brand-strong' })}</span> } // gap
+export function P378({ n }: { n: number }) { return <span>{cloneElement(<span className="text-brand-strong" />, undefined, n)}</span> } // gap
+export function P379({ n }: { n: number }) { return <Slot379><span>{n}</span></Slot379> } function Slot379({ children }: { children: ReactElement }) { return cloneElement(children, { className: 'text-brand-strong' }) } // gap
+export function P414({ n }: { n: number }) { return <span className="text-brand-strong">{cloneElement(<span>{n}</span>, { className: 'font-semibold' })}</span> } // gap
+export function P415({ n }: { n: number }) { return <span>{createElement('span', { className: 'text-brand-strong' }, n)}</span> } // gap
+function Sage434({ children }: { children: ReactNode }) { return <span className="text-brand-strong">{children}</span> }
+export function P434({ n }: { n: number }) { return <div>{createElement(Sage434, null, n)}</div> } // gap
+// The props a clone or a created element is given, held in a name or spread into the ones written in the call: the
+// scan reads the props written there, so the children held props hand are unread, and a clone given them is read as
+// the element it clones.
+export function P435() { const props = { children: 'Q1' }; return <span className="text-brand-strong">{createElement('span', props)}</span> } // gap
+export function P436() { const props = { children: 'Q1' }; return <span className="text-brand-strong">{cloneElement(<span>Revenue</span>, { ...props })}</span> } // gap
+// What each of those fails closed on: a className held props give a clone, and a created component's own ink, are
+// unread, so the children handed to either render in the sage around it.
+export function P437({ n }: { n: number }) { const props = { className: 'text-text-secondary-light' }; return <span className="text-brand-strong">{cloneElement(<span />, props, n)}</span> } // flag
+function Own438({ children }: { children: ReactNode }) { return <span className="text-text-secondary-light">{children}</span> }
+export function P438({ n }: { n: number }) { return <span className="text-brand-strong">{createElement(Own438, null, n)}</span> } // flag
+// What the file puts in an array through another name for it, an alias or a parameter it is handed to: the scan
+// reads a value put in a name, not every name for the same array.
+export function P382() { const out: string[] = []; const alias = out; alias.push('Q1'); return <div className="text-brand-strong">{out}</div> } // gap
+export function P383() { const out: string[] = []; fill383(out); return <div className="text-brand-strong">{out}</div> } function fill383(list: string[]) { list.push('Q1') } // gap
+// A value held in a Map: the scan reads what an array, a Set or an object holds, not a Map's entries.
+export function P416() { const byKey = new Map<string, string>(); byKey.set('a', 'Q1'); return <span className="text-brand-strong">{[...byKey.values()]}</span> } // gap

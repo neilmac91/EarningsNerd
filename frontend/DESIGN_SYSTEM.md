@@ -223,9 +223,9 @@ Count control    A link or control whose label carries a count, a date, an index
                  countdown on a control that waits (aria-disabled) rests in the same ink at full strength,
                  so the number stays legible. Gate: brandCopyRules.spec.ts rule 2, whose count-control check
                  fails a control resting in sage, its own or its parent's where it is rendered (held in the
-                 same file or rendered by a component included), that holds its count in a span of its own
-                 ink (written inline or held in the same file; a count a component renders inside one is
-                 review-checked).
+                 same file or rendered by a component included, and a component that renders its children
+                 inside a control counting as one), that holds its count in a span of its own ink (written
+                 inline or held in the same file; a count a component renders inside one is review-checked).
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
