@@ -21,7 +21,7 @@ To check the feature is dark, keep `WAITLIST_MODE=false` locally and restart wit
 Focused checks from `frontend/`:
 
 ```sh
-npx vitest run tests/unit/filing-redlines.spec.tsx tests/unit/filing-redlines-route.spec.tsx tests/unit/compareParagraphs.spec.ts tests/unit/filing-content-strict-identity.spec.ts
+npx vitest run tests/unit/filing-redlines.spec.tsx tests/unit/filing-redlines-route.spec.tsx tests/unit/compareParagraphs.spec.ts tests/unit/filing-content-api.spec.ts
 ```
 
 ## Real and illustrative behavior
@@ -30,7 +30,7 @@ npx vitest run tests/unit/filing-redlines.spec.tsx tests/unit/filing-redlines-ro
 - **Illustrative:** the initial Harbor Vale Industries text and metadata are invented. They make no claim about a real issuer and have no SEC links.
 - **Not implemented:** whole-filing or Item 1A extraction, section alignment, semantic or word-level changes, materiality assessment, AI summaries, monitoring, alerts, server persistence, receipt import, billing or paywalls.
 
-The comparator ignores whitespace within paragraphs and paragraph order for matching while honoring duplicate counts. It preserves displayed paragraphs as supplied, trimming only their outer whitespace. A modified paragraph appears once as removed and once as added; the columns are independent lists, not paired edits. It refuses empty text or an input over 120,000 characters or 400 paragraphs. Missing text is unavailable, never evidence of no changes. Available cached text does not establish complete filing coverage.
+The comparator ignores whitespace within paragraphs and paragraph order for matching while honoring duplicate counts. It preserves displayed paragraphs as supplied, trimming only their outer whitespace. A modified paragraph appears once as removed and once as added; the columns are independent lists, not paired edits. It refuses empty text or an input over 120,000 characters or 400 paragraphs. In practice a cached 10-K's markdown runs well past 120,000 characters, and a table arrives as consecutive lines (one paragraph per table), so **Cached filings** mode abstains on most real filings at these bounds: plan the demand test around the fictional example, not the cached mode. Missing text is unavailable, never evidence of no changes. Available cached text does not establish complete filing coverage.
 
 ## Review workflow and portable receipt
 

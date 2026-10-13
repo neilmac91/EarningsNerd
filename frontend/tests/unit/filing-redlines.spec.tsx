@@ -7,7 +7,6 @@ import type { FilingContent } from '@/features/filings/api/filing-content-api'
 const api = vi.hoisted(() => ({
   filings: [] as number[],
   contents: [] as number[],
-  strictReads: [] as boolean[],
   downloads: [] as Blob[],
   filing: (_id: number): Promise<Filing> => Promise.reject(new Error('Unexpected filing request')),
   content: (_id: number): Promise<FilingContent> => Promise.reject(new Error('Unexpected content request')),
@@ -16,7 +15,7 @@ vi.mock('@/features/filings/api/filings-api', () => ({
   getFiling: (id: number) => { api.filings.push(id); return api.filing(id) },
 }))
 vi.mock('@/features/filings/api/filing-content-api', () => ({
-  fetchFilingContent: (id: number, strict = false) => { api.contents.push(id); api.strictReads.push(strict); return api.content(id) },
+  fetchFilingContent: (id: number) => { api.contents.push(id); return api.content(id) },
 }))
 vi.mock('@/lib/downloadBlob', () => ({ downloadBlob: (blob: Blob) => { api.downloads.push(blob) } }))
 
@@ -69,7 +68,6 @@ async function downloadReceipt() {
 beforeEach(() => {
   api.filings = []
   api.contents = []
-  api.strictReads = []
   api.downloads = []
   api.filing = async (id) => filing(id)
   api.content = async (id) => content(id)
@@ -97,7 +95,6 @@ describe('filing redlines prototype', () => {
     expect(screen.getByText(filing(2).accession_number)).toBeInTheDocument()
     expect(screen.getByText(/full-filing coverage has not been verified/)).toBeInTheDocument()
     expect(api.contents).toEqual([1, 2])
-    expect(api.strictReads).toEqual([true, true])
   })
 
   it.each(['', '0', '-1', '1.5', '2e1', '9007199254740992', '2'])('rejects invalid or duplicate earlier ID %j before reading the API', (value) => {

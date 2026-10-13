@@ -89,7 +89,7 @@ export default function FilingRedlines() {
       const filings = await Promise.all([getFiling(earlier), getFiling(current)])
       if (generation.current !== request) return
       pair = validateFilingPair(filings[0], filings[1], earlier, current)
-      const content = await Promise.all([fetchFilingContent(earlier, true), fetchFilingContent(current, true)])
+      const content = await Promise.all([fetchFilingContent(earlier), fetchFilingContent(current)])
       if (generation.current !== request) return
       if (content[0].filingId !== earlier || content[1].filingId !== current) {
         throw new Error('The returned text does not match the selected filings. No comparison was made.')
