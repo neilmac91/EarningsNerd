@@ -30,15 +30,17 @@ The follow-up review (#1281) found the rest:
   Apple's form-posted `code` and `id_token`;
 - `hmac.compare_digest` raises `TypeError` on a non-ASCII `str`, and Starlette decodes headers as latin-1: a
   non-ASCII `X-Internal-Token` was a 500 whose captured frame held the token, and the Resend webhook's
-  signature, the Google state and the Apple nonce checks had the same shape;
-- an Alpha Vantage HTTP error's message quotes the request URL with the key, and the daily calendar job, which
-  logs at INFO with the key mounted, let httpx log every request URL;
+  signature and the Google state checks had the same shape (the Apple nonce check compared a `str` too, but its
+  caller turns any error into the `apple_invalid` redirect);
+- an Alpha Vantage HTTP error's message quotes the request URL with the key, the client logged the first 160
+  characters of a throttle notice, which can quote the key ("We have detected your API key as ..."), and the daily
+  calendar job, which logs at INFO with the key mounted, let httpx log every request URL;
 - `app/database.py` parses `DATABASE_URL` at import, so a URL missing its `@host` put the password into a
   service's startup traceback (and into Sentry, which `main.py` starts first), and an unescaped `@` in the password
   parsed, its tail becoming the host, the database or a query key, which the driver's connection error quotes at
   startup; `redis_service` logged `REDIS_URL` whole and its parse error's message; `scripts/smoke_resend.py`
   printed the key's last four characters; `scripts/validate_db_performance.py` printed a URL without an `@` whole,
-  and a password passed in the URL's query string survived SQLAlchemy's masked rendering.
+  and its hand-rolled mask kept a password passed in the URL's query string and an unescaped `@`'s tail.
 
 **Rule.**
 - The settings class sets `hide_input_in_errors`, so a validation error's text (`str`, `repr`, and so a
@@ -53,16 +55,17 @@ The follow-up review (#1281) found the rest:
   lets a library's error (`urlsplit(v).port`, `int(v)`) escape with its message.
 - A settings object prints no value: the class overrides `__repr_args__`, so `repr()` is `Settings()` and
   `str()` is empty.
-- Sentry sends no frame's local variables (`include_local_variables=False` in `main._sentry_options`), and its
-  event scrubber withholds the `X-Internal-Token` header, every outbound request's `http.query` and a request body's
-  `new_password`, `current_password`, `refresh_token`, `invite`, `invite_code`, `code` and `id_token` (beside the SDK's
-  own `password` and `token`), on errors and transactions alike; every request body key in the API that names a
-  credential is in that list and at the body's top level, where the scrubber looks. Never configure
-  `data_collection` (nor `_experiments.data_collection`): the SDK then drops the event scrubber and brings frame
-  variables back, whatever `include_local_variables` says. What an event still carries: the exception type,
-  message and chain; every frame's file, function, line and five source lines either side; breadcrumbs (log
-  lines at INFO and above, SQL statements, HTTP calls without their query string); the request's method, URL
-  and query string, other headers and body; the user id, tags, release and environment.
+- Sentry sends no frame's local variables (`include_local_variables=False` in `main._sentry_options`), and its event
+  scrubber withholds the `X-Internal-Token` header, every outbound request's `http.query` and a request body's
+  `new_password`, `current_password`, `refresh_token`, `invite`, `invite_code`, `code` and `id_token` (beside the
+  SDK's own `password` and `token`), on errors and transactions alike; every request body key in the API that names a
+  credential is in that list and at the body's top level, where the scrubber looks. Never configure `data_collection`
+  (nor `_experiments.data_collection`): the SDK then drops the event scrubber and brings frame variables back,
+  whatever `include_local_variables` says. Never set `trace_lifecycle` either: span streaming sends request headers as
+  span attributes, which the scrubber never reads. What an event still carries: the exception type, message and chain;
+  every frame's file, function, line and five source lines either side; breadcrumbs (log lines at INFO and above, SQL
+  statements, HTTP calls without their query string); the request's method, URL and query string, other headers and
+  body; the user id, tags, release and environment.
 - Nothing prints or logs a secret. An output reports a secret's presence and length, never a character; a
   connection URL's parse error is reported by its type, and an HTTP error from a keyed URL by its status, never
   their messages; a database URL holding more than one `@` is refused; httpx's request log stays at WARNING
@@ -133,37 +136,42 @@ The follow-up review (#1281) found the rest:
   the host, the database or a query key), raises a `RuntimeError`, while the Cloud SQL socket form and a
   percent-encoded `@` parse; the database benchmark stops on each, prints a well-formed URL's backend and host only (a
   query-string password, and passwords whose digits land in the port and the rest in the database, included in the
-  test) and its errors by type; an Alpha Vantage 503 is logged and raised as `HTTP 503`; the calendar job's logging
-  setup and the service's `configure_logging` keep httpx's request log off. None prints or logs a 4-character fragment
-  of the fabricated secret. An AST walk over every backend file outside `tests/` fails an output call's argument (a
-  print, log, warn or write call, `echo`, `pprint`, a Sentry message, tag, context, extra or breadcrumb, by function
-  or method name), or a raise or assert message, that reads `settings.X` or `getattr(settings, ...)` for anything but
-  a printable field, hands the settings object whole to a call other than `repr`, `str`, `getattr`, `hasattr` and
-  `isinstance` or unpacks or iterates it, reads `self.X` or `getattr(obj, "X")` for a secret field, or reads the
-  environment whole or a variable that a secret field, a secret suffix or `PASSWORD` names or that an expression
-  computes; all outside `len()`, `bool()`, a comparison and a conditional expression's condition. A secret field is
-  one whose name ends in `_KEY`, `_SECRET`, `_TOKEN`, `_SALT` or `_DSN`, and the two connection URLs.
-- **Sentry.** Built from `main._sentry_options()` with a fabricated DSN and a transport that keeps each
-  envelope, a fixture fails if the options turn local variables back on, send PII or pass `data_collection`.
+  test) and its errors by type; an Alpha Vantage 503 is logged and raised as `HTTP 503`, and its throttle notice is
+  logged with the key `[Filtered]`, whether the caller degrades or raises; the calendar job's logging setup and the
+  service's `configure_logging` keep httpx's request log off. None prints or logs a 4-character fragment of the
+  fabricated secret. An AST walk over every backend file outside `tests/` fails an output call's argument (a print,
+  log, warn or write call, `echo`, `pprint`, a Sentry message, exception, event, tag, context, extra, user, breadcrumb
+  or span data or attribute, by function or method name), or a raise or assert message, that reads `settings.X` or
+  `getattr(settings, ...)` for anything but a printable field, hands the settings object whole to a call other than
+  `repr`, `str`, `getattr`, `hasattr` and `isinstance` or unpacks or iterates it, reads `self.X` or `getattr(obj,
+  "X")` for a secret field, or reads the environment whole or a variable that a secret field, a secret suffix or
+  `PASSWORD` names or that an expression computes; all outside `len()`, `bool()`, a comparison and a conditional
+  expression's condition. A secret field is one whose name ends in `_KEY`, `_SECRET`, `_TOKEN`, `_SALT` or `_DSN`, and
+  the two connection URLs.
+- **Sentry.** Built from `main._sentry_options()` with a fabricated DSN and a transport that keeps each envelope, a
+  fixture fails if the options turn local variables back on, send PII, or pass `data_collection` or `trace_lifecycle`.
   An `/internal/` request whose enqueue fails (a 500 whose frames hold the token in a copied local and in every
-  framework frame) and one whose background job fails after the 202 send their errors and three transactions
-  with the header `[Filtered]`, no `vars` and no 8-character fragment of the token; a non-ASCII header is a
-  401. An Alpha Vantage request's breadcrumb and span carry `http.query` as `[Filtered]` and no fragment of the
-  key. Routes that fail on a JSON body and on a form body holding a fabricated credential under each withheld key
-  send each as `[Filtered]`, on the errors and the transactions. A walk of the API's request body schemas (JSON and
-  form, through references, unions and lists) fails a key that names a credential (`password`, `token`, `secret`,
-  `invite`, `code`, `key`, `otp`, `nonce`, `credential`; `referral_code` is shared by design) unless the denylist
-  holds it and it sits at the body's top level. The backend's one `sentry_sdk.init` call, through any import of the
-  package or its modules, is main.py's, and it takes `_sentry_options()` and nothing else.
+  framework frame) and one whose background job fails after the 202 send their errors and three transactions with the
+  header `[Filtered]`, no `vars` and no 8-character fragment of the token; a non-ASCII header is a 401. An Alpha
+  Vantage request's breadcrumb and span carry `http.query` as `[Filtered]` and no fragment of the key. Routes that
+  fail on a JSON body and on a form body holding a fabricated credential under each withheld key send each as
+  `[Filtered]`, on the errors and the transactions. A walk of the API's request body schemas (JSON and form, through
+  references, unions and lists) fails a key that names a credential (`password`, `token`, `secret`, `invite`, `code`,
+  `key`, `otp`, `nonce`, `credential`; `referral_code` is shared by design) unless the denylist holds it and it sits
+  at the body's top level. The match is by substring, so a future key that names such a word but carries no credential
+  (`country_code`, `max_tokens`) goes into the test's `_NOT_CREDENTIALS` with its reason. The backend's one
+  `sentry_sdk.init` call, through any import of the package or its modules, is main.py's, and it takes
+  `_sentry_options()` and nothing else.
 - **compare_digest.** An AST walk fails any `compare_digest` call in the backend, by its name or a name
   `from hmac|secrets import compare_digest as ...` gives it, whose two arguments are not both bytes by their
-  form: a UTF-8 `.encode(...)` or `bytes(x, ...)`, a `.digest()` or a bytes literal (another codec, `ascii`,
-  raises on a non-ASCII value too).
+  form: a UTF-8 `.encode(...)` or `bytes(x, ...)`, a `.digest()`, a bytes literal, a base64 encoding of bytes or a
+  `token_bytes(...)` (another codec, `ascii`, raises on a non-ASCII value too, and so do `b64decode` and
+  `bytes.fromhex` on a malformed caller value: decode it and refuse a failure before comparing).
 
 The agent clause is not machine-gated and stays session reading.
 
-**Known ungated echoes.** Two are open follow-ups in `tasks/todo.md` (E17, E18); the rest are accepted limits, each
-with its reason:
+**Known ungated echoes.** Three are open follow-ups in `tasks/todo.md` (E17, E18, E19); the rest are accepted
+limits, each with its reason:
 - `scripts/refresh_index_membership.py --source fmp` logs an HTTP error's message (the FMP URL with its key) and
   lets httpx log each request URL at INFO; the monthly workflow uses the keyless Wikipedia source (todo E17);
 - a provider's own error text can quote a masked key's last four characters (Stripe's and the AI providers'
@@ -183,11 +191,11 @@ with its reason:
 - `main.py`'s Sentry init-failure line prints a malformed DSN's parse message (its scheme, its project path, or
   the port segment of a legacy key pair without a host); the DSN's key is public by Sentry's design;
 - Sentry scrubs keys, not values (the follow-up's plan named a `before_send` value scrubber; #1281 turned frame
-  variables off instead, and turning them back on would need that scrubber): a secret in a log message (a
-  breadcrumb), an exception message or an extra is kept out only at its source. The output walk sees only a direct
-  read in a call it names as an output, not an alias (`url = settings.REDIS_URL`), a helper the value is handed to
-  or an object holding it (`stripe.api_key`), and the message walk reads `app/config.py` only and does not follow
-  `globals()`, `setattr` or `sys.modules`;
+  variables off instead, and turning them back on would need that scrubber; the scrubber is todo E19): a secret in a
+  log message (a breadcrumb), an exception message or an extra is kept out only at its source. The output walk sees
+  only a direct read in a call it names as an output, not an alias (`url = settings.REDIS_URL`), a helper the value is
+  handed to or an object holding it (`stripe.api_key`), and the message walk reads `app/config.py` only and does not
+  follow `globals()`, `setattr` or `sys.modules`;
 - the library-message test drives its shapes one field at a time, as constructor arguments: a parse behind a
   check other than `startswith` or a known prefix, one that fails only on other input, on two fields together
   or only from the environment is not exercised.

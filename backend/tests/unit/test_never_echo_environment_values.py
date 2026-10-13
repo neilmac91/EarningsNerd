@@ -852,6 +852,8 @@ def sentry_envelopes():
     # data_collection would drop the event scrubber and bring frame variables back whatever the two options above say
     # (sentry_sdk/client.py, _get_options; sentry_sdk/utils.py, serialize_frame).
     assert "data_collection" not in options and "data_collection" not in options.get("_experiments", {})
+    # Span streaming (trace_lifecycle="stream") sends request headers as span attributes, unscrubbed.
+    assert "trace_lifecycle" not in options and "trace_lifecycle" not in options.get("_experiments", {})
     keep = Keep()
     options.update(dsn="https://fabricated@sentry.invalid/1", transport=keep, release="gate")
     options.update(traces_sample_rate=1.0, profiles_sample_rate=None)
@@ -1070,13 +1072,15 @@ def test_the_body_walk_follows_references_unions_and_lists():
 
 
 def _alpha_vantage(monkeypatch, status: int, body: str = "", alphabet: str = string.ascii_letters + string.digits):
-    """The real client, its key fabricated, its requests answered in-process with this status."""
+    """The real client, its key fabricated, its requests answered in-process with this status and body (`{key}` in
+    the body stands for the fabricated key)."""
     import httpx
 
     from app.integrations import alpha_vantage
 
     key = _fabricated("ALPHA_VANTAGE_API_KEY", alphabet)
-    transport = httpx.MockTransport(lambda request: httpx.Response(status, text=body, request=request))
+    text = body.replace("{key}", key)
+    transport = httpx.MockTransport(lambda request: httpx.Response(status, text=text, request=request))
     real_client = httpx.AsyncClient
     monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: real_client(transport=transport, **kwargs))
     return alpha_vantage.AlphaVantageClient(api_key=key), key
@@ -1118,6 +1122,33 @@ def test_an_alpha_vantage_error_carries_no_key(monkeypatch, caplog):
     assert "HTTPStatusError: HTTP 503" in logged
     leaked = _fragments(key, text)
     assert not leaked, f"{leaked} four-character fragments of the fabricated key reached the log or the traceback"
+
+
+_AV_NOTICES = {
+    "daily-limit": '{"Information": "We have detected your API key as {key} and our rate limit is 25 per day."}',
+    # The key across the logged cut at 160 characters: withheld before the cut, no prefix of it is left.
+    "across-the-cut": '{"Note": "' + "x" * 140 + ' {key} is throttled."}',
+}
+
+
+@pytest.mark.parametrize("raise_on_error", [False, True], ids=["degrade", "raise"])
+@pytest.mark.parametrize("notice", list(_AV_NOTICES))
+def test_an_alpha_vantage_notice_carries_no_key(monkeypatch, caplog, raise_on_error, notice):
+    # Alpha Vantage answers a throttled or refused request with 200 and a JSON notice, which the client logs, and its
+    # daily-limit notice has quoted the key; in the service the log line also becomes a Sentry breadcrumb.
+    client, key = _alpha_vantage(monkeypatch, 200, _AV_NOTICES[notice])
+    caplog.set_level(logging.INFO, logger="app.integrations.alpha_vantage")
+    if raise_on_error:
+        with pytest.raises(ValueError):
+            asyncio.run(client.fetch_earnings_calendar(raise_on_error=True))
+    else:
+        assert asyncio.run(client.fetch_earnings_calendar()) == []
+    logged = "\n".join(
+        record.getMessage() for record in caplog.records if record.name == "app.integrations.alpha_vantage"
+    )
+    assert "non-CSV body" in logged and "[Filter" in logged  # the notice was logged, its key withheld
+    leaked = _fragments(key, logged)
+    assert not leaked, f"{leaked} four-character fragments of the fabricated key reached the log"
 
 
 @pytest.mark.parametrize("setup", ["calendar-job", "service"])
@@ -1296,10 +1327,17 @@ _OUTPUT_CALLS = {"print", "pprint", "echo", "debug", "info", "warning", "warn", 
     "log",
     "write",
     "capture_message",
+    "capture_exception",
+    "capture_event",
     "set_tag",
+    "set_tags",
     "set_context",
     "set_extra",
+    "set_user",
     "add_breadcrumb",
+    "set_data",
+    "set_attribute",
+    "set_attributes",
 }
 # Calls the settings object may be handed whole: none reads a value (`repr()` and `str()` print `Settings()` and
 # nothing), and `getattr` is judged by the field it names.
@@ -1308,7 +1346,8 @@ _TAKE_SETTINGS = {"repr", "str", "getattr", "hasattr", "isinstance"}
 
 def _outputs(tree: ast.Module) -> list[ast.expr]:
     """What the module prints: an output call's arguments (`print`, a log, warn or write call, `click.echo`,
-    `pprint`, a Sentry message, tag, context, extra or breadcrumb), and every raise or assert message."""
+    `pprint`, a Sentry message, exception, event, tag, context, extra, user, breadcrumb or span data or attribute),
+    and every raise or assert message."""
     found = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Call) and (
@@ -1442,6 +1481,11 @@ def test_no_output_reads_a_settings_secret():
         ("pprint(settings.SECRET_KEY)", ["settings.SECRET_KEY"]),
         ("sentry_sdk.set_tag('token', settings.INTERNAL_JOB_TOKEN)", ["settings.INTERNAL_JOB_TOKEN"]),
         ("sentry_sdk.capture_message(f'url {settings.DATABASE_URL}')", ["settings.DATABASE_URL"]),
+        ("sentry_sdk.set_tags({'k': settings.INTERNAL_JOB_TOKEN})", ["settings.INTERNAL_JOB_TOKEN"]),
+        ("sentry_sdk.set_user({'id': settings.SECRET_KEY})", ["settings.SECRET_KEY"]),
+        ("sentry_sdk.capture_exception(RuntimeError(settings.DATABASE_URL))", ["settings.DATABASE_URL"]),
+        ("span.set_data('url', settings.REDIS_URL)", ["settings.REDIS_URL"]),
+        ("span.set_attribute('key', settings.RESEND_API_KEY)", ["settings.RESEND_API_KEY"]),
     ],
     ids=[
         "log",
@@ -1479,6 +1523,11 @@ def test_no_output_reads_a_settings_secret():
         "pprint",
         "sentry-tag",
         "sentry-message",
+        "sentry-tags",
+        "sentry-user",
+        "sentry-exception",
+        "span-data",
+        "span-attribute",
     ],
 )
 def test_the_output_gate_flags_a_secret_read(source, expected):
@@ -1510,12 +1559,18 @@ def _utf8(call: ast.Call, position: int) -> bool:
 
 
 def _is_bytes(arg: ast.expr) -> bool:
-    """Bytes by its form, for any str: a bytes literal, a `.digest()`, or a UTF-8 `.encode(...)` or `bytes(x, ...)`;
-    another codec (`ascii`) raises on a non-ASCII value, the same 500."""
+    """Bytes by its form, for any str: a bytes literal, a `.digest()`, a UTF-8 `.encode(...)` or `bytes(x, ...)`, a
+    base64 encoding of bytes or a `token_bytes(...)`; another codec (`ascii`) raises on a non-ASCII value, the same
+    500, and so do `b64decode` and `bytes.fromhex` on a malformed caller value, so they stay flagged."""
     if isinstance(arg, ast.Constant):
         return isinstance(arg.value, bytes)
     if not isinstance(arg, ast.Call):
         return False
+    name = arg.func.attr if isinstance(arg.func, ast.Attribute) else getattr(arg.func, "id", None)
+    if name in {"b64encode", "urlsafe_b64encode", "standard_b64encode"}:
+        return len(arg.args) == 1 and _is_bytes(arg.args[0])
+    if name == "token_bytes":
+        return True
     if isinstance(arg.func, ast.Attribute) and arg.func.attr in {"digest", "encode"}:
         return arg.func.attr == "digest" or _utf8(arg, 0)
     codec_given = len(arg.args) > 1 or any(keyword.arg == "encoding" for keyword in arg.keywords)
@@ -1554,6 +1609,10 @@ def test_compare_digest_takes_bytes():
         ("hmac.compare_digest(bytes(header, encoding='ascii'), b'x')", True),
         ("hmac.compare_digest(bytes(header), b'x')", True),
         ("hmac.compare_digest(bytes(header, encoding='utf-8'), b'x')", False),
+        ("hmac.compare_digest(base64.b64encode(mac.digest()), header.encode())", False),
+        ("hmac.compare_digest(base64.b64encode(header), b'x')", True),
+        ("hmac.compare_digest(base64.b64decode(header), mac.digest())", True),
+        ("hmac.compare_digest(secrets.token_bytes(16), b'x')", False),
     ],
     ids=[
         "str",
@@ -1567,6 +1626,10 @@ def test_compare_digest_takes_bytes():
         "bytes-ascii",
         "bytes-of-a-name",
         "bytes-utf-8-keyword",
+        "base64-of-a-digest",
+        "base64-of-a-str",
+        "base64-decode",
+        "token-bytes",
     ],
 )
 def test_the_compare_digest_gate_flags_a_str(source, flagged):

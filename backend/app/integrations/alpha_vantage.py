@@ -117,7 +117,9 @@ class AlphaVantageClient:
         # with a JSON message rather than an HTTP error. Detect and degrade to empty.
         stripped = body.lstrip()
         if not stripped or stripped[0] in "{[":
-            logger.warning("Alpha Vantage returned a non-CSV body (rate limit or invalid key): %s", stripped[:160])
+            # Its notice can quote the key ("We have detected your API key as ..."): withhold it, then cut.
+            notice = stripped.replace(self._api_key, "[Filtered]")[:160]
+            logger.warning("Alpha Vantage returned a non-CSV body (rate limit or invalid key): %s", notice)
             if raise_on_error:
                 raise ValueError("Alpha Vantage did not return an earnings-calendar CSV")
             return []
