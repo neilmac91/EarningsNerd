@@ -21,7 +21,7 @@ The mark is the letters **E + N** with the N's final stroke rising into an arrow
 | `earningsnerd-logo-stacked-dark.svg` | Stacked lockup for navy. |
 | `earningsnerd-logo-stacked-mono.svg` | Stacked lockup in `currentColor`. |
 | `earningsnerd-mask-icon.svg` | Safari pinned-tab mask: the mark letterboxed in a square, black on transparent (Safari recolours it; `app/layout.tsx` declares it with the sage colour). |
-| `earningsnerd-mark-sage.png` | The sage mark rasterized at 256 px wide on transparent, byte-identical to the backend's Excel raster. Served at `/assets/earningsnerd-mark-sage.png` for transactional email, whose clients drop inline SVG; generated, never edited. |
+| `earningsnerd-mark-sage.png` | The sage mark rasterized at 256 px wide on transparent, byte-identical to the backend's Excel raster. Served at `/assets/earningsnerd-mark-sage.png` for transactional email, whose clients drop inline SVG; generated, never edited, and a published URL (see Rules). |
 
 ## In-app usage
 
@@ -66,6 +66,11 @@ sage mark raster in two places, `assets/earningsnerd-mark-sage.png` here and
   64 px wide on screen, 16 mm in print. Embroidery: 60 mm wide and above (the thinnest stroke is
   about 6 mm there, the E's open counters 2.9 mm; the E and the N kiss, which a satin stitch joins
   and the mark survives). Evidence: `docs/brand/05-mark.md`.
+- **Published URLs stay put.** `/assets/earningsnerd-mark-sage.png` is the mark's address in
+  transactional email, and a sent message keeps its image addresses for as long as it is kept, so
+  the file stays at that path for good: never rename, move or remove it, and keep it the sage mark
+  (regenerating it from the same source is fine). A new rendition takes a new name. Gate:
+  `frontend/tests/unit/publishedAssetUrls.spec.ts`, which lists every published path.
 - **Where it goes.** The mark sits top-left on every surface the brand owns (the site header, the
   OG card, the PDF masthead, the email shell, the business card front); the stacked lockup is for
   square placements; never centre the horizontal lockup as a hero.
