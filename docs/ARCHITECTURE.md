@@ -185,6 +185,7 @@ frontend/
 | `filing_list_service.py` | Company filing-list freshness, cached reads, persistence, background refresh and on-visit history backfill; the filings router keeps request-path SEC awaits, task scheduling/handoff, response models and error mapping |
 | `filing_read_service.py` | Single/recent filing, cached-content and fundamentals reads, with payload construction and session release in one unit; the filings router owns response models/converters and missing-filing HTTP errors |
 | `copilot_service.py` / `copilot_tools.py` | "Ask this Filing" Pro Q&A with verifiable deep-linked citations; numeric tool-use from `financial_fact` |
+| `sitemap_service.py` | Eligible company/filing queries and bounded XML assembly; the sitemap router owns the hourly cache, single-flight lock and HTTP response |
 | `provenance_service.py` | Trace-to-Source: verifies AI excerpts, builds deep-link citations |
 | `facts_service.py` | Normalized XBRL metrics (`financial_fact`) + SEC **companyfacts** multi-period ingest (duration-window Q1–Q4 labelling, derived Q4, latest-filed-wins) |
 | `trend_analysis_service.py` + `trend_analysis/` | Compatibility façade over domain modules: deterministic YoY/QoQ/CAGR datasets and `F#` markers, code-owned observations, validated selection and cached narrative streaming |
