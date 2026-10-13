@@ -12,7 +12,7 @@ standing holds (issue #1063 for edgartools; dependency majors are founder-held).
 | --- | --- | --- | --- |
 | [#1282](https://github.com/neilmac91/EarningsNerd/pull/1282) | frontend `minor-updates` group, 7 updates | Replaced by [#1304](https://github.com/neilmac91/EarningsNerd/pull/1304), identical patch-id `0db98d69…`; merged as `95ac033` (16:13 UTC); #1282 closed as superseded | #1304 body; release record below |
 | [#1283](https://github.com/neilmac91/EarningsNerd/pull/1283) | backend `minor-updates` group, 7 updates | Replaced by [#1302](https://github.com/neilmac91/EarningsNerd/pull/1302), identical patch-id `c54a3f67…`; marked ready under the founder's merge instruction (paid `copilot-eval` draw, green); merged as `6113751` (16:18 UTC); #1283 closed as superseded | #1302 body; release record below |
-| [#1284](https://github.com/neilmac91/EarningsNerd/pull/1284) | stripe 15.6.1 → 16.0.0 (major) | Replaced by [#1305](https://github.com/neilmac91/EarningsNerd/pull/1305): the same commit (identical patch-id `3489c8e5…`) plus the one change the SDK forces, `allowed_payment_method_types: ["card"]` in `app/routers/subscriptions.py`, because the SDK's pinned API version `2026-09-30.endive` removes `payment_method_types` from Checkout Session create; high tier, 0 blockers; merged as `{{MERGE1305}}`; #1284 closed as superseded | #1305 body; [comment 6148612685](https://github.com/neilmac91/EarningsNerd/pull/1284#issuecomment-6148612685); release record below |
+| [#1284](https://github.com/neilmac91/EarningsNerd/pull/1284) | stripe 15.6.1 → 16.0.0 (major) | Replaced by [#1305](https://github.com/neilmac91/EarningsNerd/pull/1305): the same commit (identical patch-id `3489c8e5…`) plus the one change the SDK forces, `allowed_payment_method_types: ["card"]` in `app/routers/subscriptions.py`, because the SDK's pinned API version `2026-09-30.endive` removes `payment_method_types` from Checkout Session create; high tier, 0 blockers; merged as `02fb99b`; #1284 closed as superseded | #1305 body; [comment 6148612685](https://github.com/neilmac91/EarningsNerd/pull/1284#issuecomment-6148612685); release record below |
 | [#1285](https://github.com/neilmac91/EarningsNerd/pull/1285) | edgartools 5.58.0 → 5.61.1 | **Held** under issue #1063: both 5.59.1 regressions persist on the Ford fixture | [`../edgartools-5.61.1-hold-2026-10-13/`](../edgartools-5.61.1-hold-2026-10-13/README.md), [comment 6148225509](https://github.com/neilmac91/EarningsNerd/pull/1285#issuecomment-6148225509) |
 
 ## Method
@@ -116,9 +116,9 @@ security items do not reach this deployment.
   succeeded at 16:45 UTC, `apply_migrations: applied=0 skipped=43`, revisions `earningsnerd-backend-00504-flk`
   and `earningsnerd-task-worker-00054-pjv` at 100%, `/health/detailed` healthy in the job and on a readback at
   16:46 UTC; its `copilot-eval` draw passed 18/18 (36 calls, estimated USD 0.006607).
-- #1305 merged as `{{MERGE1305}}` (stripe 16 + checkout fix). `deploy-backend`: {{DEPLOY1305}}
+- #1305 merged as `02fb99b` (stripe 16 + checkout fix). `deploy-backend`: {{DEPLOY1305}}
 - Paid `copilot-eval` draws on #1302 and #1305 ran under the founder's merge instruction without a
-  prior reservation line; {{COST}}. The private ledger is the chief's to settle (todo F23).
+  prior reservation line; estimated USD 0.006607 for #1302 (36 calls) and USD 0.007084 for #1305 (38 calls, the triaged red draw), USD 0.013691 together, from the runs' own `ai_call` telemetry. The private ledger is the chief's to settle (todo F23).
 - Dependabot #1282, #1283 and #1284 closed as superseded with a pointer to each replacement; #1285
   stays open as the edgartools tracker under #1063.
 
