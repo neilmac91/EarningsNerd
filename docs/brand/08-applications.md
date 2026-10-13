@@ -81,10 +81,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   whole app and follows sage through a class, a ui Button or Badge variant, a resting state such
   as `aria-pressed:`, `visited:` or `focus:`, an opacity modifier and a component that sets it or
   is given it, reads a same-file literal through the file's own bindings its header names (a
-  variable's every value, fields, indices, destructuring, a loop's variable, and a parameter at
-  each of the file's calls, a named callback's included), and its count-control check fails a
-  sage control that holds its count in a span of its own ink; its header names what stays
-  review-checked.
+  variable's every value, fields, indices, destructuring with its rest, a loop's variable, and a
+  parameter at each of the file's calls, a named callback's included), and its count-control
+  check fails a control resting in sage, its own or inherited where it is rendered, that holds
+  its count in a span of its own ink; its header names what stays review-checked.
 - **Exports and mail** (`backend/app/services/export_service.py`, `excel_export_service.py`,
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the

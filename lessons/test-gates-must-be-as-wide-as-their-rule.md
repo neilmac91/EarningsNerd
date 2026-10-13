@@ -72,7 +72,9 @@ family from the language, not from the forms the reviews have named: for a value
 gets one (a declaration and each assignment, destructuring and its default, a loop's variable, a
 parameter at each call of its function, a callback however it is handed over). A reader that gains
 one syntax per review is matching forms, not following the value, and the fix is a reader that
-follows it.
+follows it. And when a gate has more than one check over the same code, give them one walk: a check
+that follows a value through the bindings while its sibling reads only the syntax around it leaves
+the sibling as narrow as the first reader was.
 
 Corollary for the anti-vacuity floor: assert the scanner actually found things (>100 files,
 >100 tests). A narrow gate and a broken walk look identical from the outside — both green.
@@ -121,6 +123,13 @@ number handed to a parameter typed wider, a value held in what a call returns, a
 ran for minutes), the fixture gained 100 forms, and the gate at `c9bd846` misreads all 74 of them
 that break the rule. An index of each file's calls, binding a parameter at every call of its
 function and every array method it is handed to, replaced the map-only rule, and a binding met again
-on the walk now ends it. Companion to
+on the walk now ends it. Codex's review of `f00c4be` then found the count-control check still taking
+a control's sage from the syntax around where it is written: a control held as JSX and rendered
+under a sage parent passed, while the text check followed the same JSX to where it renders. Probed
+through the same binding forms and a component boundary, 25 such forms broke the rule unread at
+`f00c4be`; one walk now yields what an element renders in its ink, its texts and its elements, for
+both checks, and a component's summary says whether it renders such a control in the ink it
+inherits. The re-review of `c9bd846` had also named a rest element in a binding pattern, which the
+walk abandoned; it is read as the whole it is taken from. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.

@@ -440,10 +440,100 @@ export function P257() { const wrap = (c: ReactNode) => <span className="text-br
 export function P258() { const out: ReactNode[] = []; for (const k in { Revenue: 1 }) out.push(<span key={k} className="text-brand-strong">{k}</span>); return <p>{out}</p> } // clean
 export function P259() { const chip = (text = 'Revenue') => <span className="text-brand-strong">{text}</span>; return <p>{chip()}</p> } // clean
 export function P260({ on }: { on: boolean }) { let label = 'Revenue'; if (on) label = 'Margin'; return <span className="text-brand-strong">{label}</span> } // clean
+// Codex's review of f00c4be: a control held as JSX and rendered under a sage parent rests in that sage, which the
+// count control check read only where the control is written. The family: each way the file's bindings carry a
+// control to where it is rendered, and a component that renders one in the ink it inherits, reported where it is
+// rendered.
+export function P261({ n }: { n: number }) { const action = <button>See <span className="text-text-secondary-light">{n}</span></button>; return <div className="text-brand-strong">{action}</div> } // flag
+const ACTION_262 = <button>See <span className="text-text-secondary-light">3</span> filings</button>
+export function P262() { return <div className="text-brand-strong">{ACTION_262}</div> } // flag
+export function P263({ rows }: { rows: number[] }) { const render = (k: number) => <button key={k}>See <span className="text-text-secondary-light">{k}</span></button>; return <div className="text-brand-strong">{rows.map(render)}</div> } // flag
+export function P264({ n }: { n: number }) { const action = useMemo(() => <button>See <span className="text-text-secondary-light">{n}</span></button>, [n]); return <div className="text-brand-strong">{action}</div> } // flag
+export function P265({ n, on }: { n: number; on: boolean }) { const action = on ? <button>See <span className="text-text-secondary-light">{n}</span></button> : null; return <div className="text-brand-strong">{action}</div> } // flag
+export function P266({ n }: { n: number }) { const actions = { see: <button>See <span className="text-text-secondary-light">{n}</span></button> }; return <div className="text-brand-strong">{actions.see}</div> } // flag
+export function P267({ n }: { n: number }) { const items = [<button key="a">See <span className="text-text-secondary-light">{n}</span></button>]; return <div className="text-brand-strong">{items}</div> } // flag
+export function P268({ n, on }: { n: number; on: boolean }) { let action: ReactNode = null; if (on) action = <button>See <span className="text-text-secondary-light">{n}</span></button>; return <div className="text-brand-strong">{action}</div> } // flag
+export function P269({ n }: { n: number }) { const action = <button>See <span className="text-text-secondary-light">{n}</span></button>; return <div className="text-brand-strong"><p>{action}</p></div> } // flag
+export function P270({ n }: { n: number }) { const wrap = (c: ReactNode) => <div className="text-brand-strong">{c}</div>; return wrap(<button>See <span className="text-text-secondary-light">{n}</span></button>) } // flag
+export function P271({ n }: { n: number }) { const inner = <button>See <span className="text-text-secondary-light">{n}</span></button>; const outer = <p>{inner}</p>; return <div className="text-brand-strong">{outer}</div> } // flag
+export function P272({ n }: { n: number }) { const action = <button>See <span className="text-text-secondary-light">{n}</span></button>; const box = <div className="text-brand-strong">{action}</div>; return box } // flag
+export function P273({ n }: { n: number }) { const action = <a href="/x">See <span className="text-text-secondary-light">{n}</span></a>; return <div className="text-brand-strong">{action}</div> } // flag
+export function P274({ n }: { n: number }) { const action = <><button>See <span className="text-text-secondary-light">{n}</span></button></>; return <div className="text-brand-strong">{action}</div> } // flag
+export function P275({ n }: { n: number }) { const action = <button>See <span className="text-text-secondary-light">{n}</span></button>; const { a } = { a: action }; return <div className="text-brand-strong">{a}</div> } // flag
+export function P276({ n }: { n: number }) { const label = <span className="text-text-secondary-light">{n}</span>; const action = <button>See {label}</button>; return <div className="text-brand-strong">{action}</div> } // flag
+export function P277({ rows }: { rows: number[] }) { const items = rows.map((k) => <button key={k}>See <span className="text-text-secondary-light">{k}</span></button>); return <div className="text-brand-strong">{items}</div> } // flag
+export function P278({ n, on }: { n: number; on: boolean }) { const action = <button>See <span className="text-text-secondary-light">{n}</span></button>; return <div className="text-brand-strong">{on && action}</div> } // flag
+function Sage279({ children }: { children: ReactNode }) { return <div className="text-brand-strong">{children}</div> }
+export function P279({ n }: { n: number }) { const action = <button>See <span className="text-text-secondary-light">{n}</span></button>; return <Sage279>{action}</Sage279> } // flag
+export function P280({ rows }: { rows: number[] }) { const render = useCallback((k: number) => <button key={k}>See <span className="text-text-secondary-light">{k}</span></button>, []); return <div className="text-brand-strong">{rows.map(render)}</div> } // flag
+function Action281({ n }: { n: number }) { return <button>See <span className="text-text-secondary-light">{n}</span></button> }
+export function P281({ n }: { n: number }) { return <div className="text-brand-strong"><Action281 n={n} /></div> } // flag
+export function P282({ n }: { n: number }) { const c = <Action281 n={n} />; return <div className="text-brand-strong">{c}</div> } // flag
+function Action283({ className, n }: { className?: string; n: number }) { return <button className={className}>See <span className="text-text-secondary-light">{n}</span></button> }
+export function P283({ n }: { n: number }) { return <Action283 className="text-brand-strong" n={n} /> } // flag
+function Action284({ n }: { n: number }) { const a = <button>See <span className="text-text-secondary-light">{n}</span></button>; return <>{a}</> }
+export function P284({ n }: { n: number }) { return <div className="text-brand-strong"><Action284 n={n} /></div> } // flag
+function Outer285({ n }: { n: number }) { return <p><Action281 n={n} /></p> }
+export function P285({ n }: { n: number }) { return <div className="text-brand-strong"><Outer285 n={n} /></div> } // flag
+// Look-alikes: the parent is not sage, or sage only under the pointer; an element between them sets its own ink; the
+// control takes the recipe (its whole label in the ink) or holds no count; the held element is no control.
+export function P286({ n }: { n: number }) { const action = <button>See <span className="text-text-secondary-light">{n}</span></button>; return <div className="text-text-primary-light">{action}</div> } // clean
+export function P287({ n }: { n: number }) { const action = <button className="text-text-secondary-light">See {n}</button>; return <div className="text-brand-strong">{action}</div> } // clean
+export function P288() { const action = <button>See <span className="text-text-secondary-light">all</span></button>; return <div className="text-brand-strong">{action}</div> } // clean
+export function P289({ n }: { n: number }) { const action = <button>See <span className="text-text-secondary-light">{n}</span></button>; return <div className="hover:text-brand-strong">{action}</div> } // clean
+export function P290({ n }: { n: number }) { const action = <button>See <span className="text-text-secondary-light">{n}</span></button>; return <div className="text-brand-strong"><p className="text-text-primary-light">{action}</p></div> } // clean
+export function P291({ n }: { n: number }) { const wrap = (c: ReactNode) => <div className="text-text-primary-light">{c}</div>; return wrap(<button>See <span className="text-text-secondary-light">{n}</span></button>) } // clean
+export function P292({ n }: { n: number }) { return <div className="text-text-primary-light"><Action281 n={n} /></div> } // clean
+export function P293({ n }: { n: number }) { const action = <span>See <span className="text-text-secondary-light">{n}</span></span>; return <div className="text-brand-strong">{action}</div> } // clean
+function Action294({ n }: { n: number }) { return <button className="text-text-secondary-light">See {n}</button> }
+export function P294({ n }: { n: number }) { return <div className="text-brand-strong"><Action294 n={n} /></div> } // clean
+export function P295({ n }: { n: number }) { return <Action283 className="text-text-primary-light" n={n} /> } // clean
+export function P296({ n }: { n: number }) { const c = <Action281 n={n} />; return <div className="text-text-primary-light">{c}</div> } // clean
+// The re-review of c9bd846: a rest element in a binding pattern holds what the others leave. It is read as the whole
+// it is taken from, an object's other properties by the key asked for, so an array's rest fails closed on the
+// members before its place (P303).
+export function P297() { const [, ...rest] = ['Revenue', 'Step 2']; return <span className="text-brand-strong">{rest}</span> } // flag
+export function P298() { const [, ...rest] = ['Revenue', 'Step 2']; return <p>{rest.map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P299() { const [, ...rest] = ['Revenue', 'Step 2']; return <span className="text-brand-strong">{rest[0]}</span> } // flag
+export function P300() { const { title, ...others } = { title: 'Overview', step: 'Step 2' }; return <span className="text-brand-strong">{title}{others.step}</span> } // flag
+export function P301() { const chip = ([, ...rest]: string[]) => <span className="text-brand-strong">{rest}</span>; return chip(['Revenue', 'Step 2']) } // flag
+export function P302() { for (const [, ...rest] of [['Revenue', 'Step 2']]) return <span className="text-brand-strong">{rest}</span>; return null } // flag
+export function P303() { const [first, ...rest] = ['Step 2', 'Revenue']; return <><span>{first}</span><span className="text-brand-strong">{rest}</span></> } // flag
+export function P304() { const [, ...rest] = ['Revenue', 'Margin']; return <span className="text-brand-strong">{rest}</span> } // clean
+export function P305() { const { step, ...others } = { step: 'Step 2', title: 'Overview' }; return <><span>{step}</span><span className="text-brand-strong">{others.title}</span></> } // clean
+// The lens on that fix: a component given an onClick is a control at its use site and may render one of its own; a
+// component's control under an element of its own ink is not the parent's; a sage className the component never
+// applies is no ink of its; two components that render each other are read the same whichever the scan meets first
+// (the clean form, written before the two, makes the scan meet the outer one first, the order in which a summary read
+// mid-cycle used to be kept); and an element written in a prop or a handler renders where the component puts it, or
+// not at all.
+function Wrap307({ n, onClick, children }: { n: number; onClick?: () => void; children?: ReactNode }) { return <button onClick={onClick}>{children} <span className="text-text-secondary-light">{n}</span></button> }
+export function P307({ n }: { n: number }) { return <div className="text-brand-strong"><Wrap307 n={n} onClick={() => {}}>See</Wrap307></div> } // flag
+export function P308({ n }: { n: number }) { const a = <Wrap307 n={n} onClick={() => {}}>See</Wrap307>; return <div className="text-brand-strong">{a}</div> } // flag
+function Shell309({ n }: { n: number }) { return <p className="text-text-primary-light"><button>See <span className="text-text-secondary-light">{n}</span></button></p> }
+export function P309({ n }: { n: number }) { return <div className="text-brand-strong"><Shell309 n={n} /></div> } // clean
+function Ignores310({ n }: { className?: string; n: number }) { return <button>See <span className="text-text-secondary-light">{n}</span></button> }
+export function P310({ n }: { n: number }) { return <Ignores310 className="text-brand-strong" n={n} /> } // clean
+export function P311({ n }: { n: number }) { return <div className="text-text-primary-light"><Ring311 d={1} n={n} /></div> } // clean
+function Ring311({ d, n }: { d: number; n: number }): ReactNode { return <div>{d ? <Round311 d={d - 1} n={n} /> : <button>See <span className="text-text-secondary-light">{n}</span></button>}</div> }
+function Round311({ d, n }: { d: number; n: number }): ReactNode { return <p><Ring311 d={d} n={n} /></p> }
+export function P312({ n }: { n: number }) { return <div className="text-brand-strong"><Round311 d={2} n={n} /></div> } // flag
+export function P313({ n }: { n: number }) { return <div className="text-text-primary-light"><Ring313 d={1} n={n} /></div> } // clean
+function Ring313({ d, n }: { d: number; n: number }): ReactNode { return <div>{d ? <Round313 d={d - 1} n={n} /> : n}</div> }
+function Round313({ d, n }: { d: number; n: number }): ReactNode { return <p><Ring313 d={d} n={n} /></p> }
+export function P314({ n }: { n: number }) { return <div className="text-brand-strong"><Round313 d={2} n={n} /></div> } // flag
+function Tip315({ content, children }: { content: ReactNode; children: ReactNode }) { return <span title="tip">{children}{content ? null : null}</span> }
+export function P315({ n }: { n: number }) { return <Link className="text-brand-strong" href="/x"><Tip315 content={<button>See <span className="text-text-secondary-light">{n}</span></button>}>Coverage</Tip315></Link> } // clean
+export function P316({ n }: { n: number }) { return <div className="text-brand-strong" onMouseEnter={() => { const a = <button>See <span className="text-text-secondary-light">{n}</span></button>; void a }}>Coverage</div> } // clean
 // Out of the file's own calls, and so review-checked: a value handed to a component as a prop (JSX binds its
-// props, which the component check reads only for children and className), a hook's state, and a callback
-// handed through another function's parameter.
+// props, which the component check reads only for children and className), a count control handed as one, a
+// hook's state, and a callback handed through another function's parameter.
 export function P230() { return <Chip230 label="Step 2" /> } function Chip230({ label }: { label: string }) { return <span className="text-brand-strong">{label}</span> } // gap
 export function P231() { return <p>{LABELS_161.map((l) => <Chip231 key={l} label={l} />)}</p> } function Chip231({ label }: { label: string }) { return <span className="text-brand-strong">{label}</span> } // gap
 export function P232() { const [label] = useState('Step 2'); return <span className="text-brand-strong">{label}</span> } // gap
 export function P233() { const list = (render: (s: string) => ReactNode) => LABELS_161.map(render); return <p>{list((s) => <span key={s} className="text-brand-strong">{s}</span>)}</p> } // gap
+export function P306({ n }: { n: number }) { return <Panel306 action={<button>See <span className="text-text-secondary-light">{n}</span></button>} /> } function Panel306({ action }: { action: ReactNode }) { return <div className="text-brand-strong">{action}</div> } // gap
+// A className given where a component is used, out of reach two more ways: handed to an element below the one the
+// component returns, or never applied, its ink then masking the sage the component inherits.
+export function P317({ n }: { n: number }) { return <Deep317 className="text-brand-strong" n={n} /> } function Deep317({ className, n }: { className?: string; n: number }) { return <div><span className={className}>{n}</span></div> } // gap
+export function P318({ n }: { n: number }) { return <div className="text-brand-strong"><Ignores310 className="text-text-primary-light" n={n} /></div> } // gap

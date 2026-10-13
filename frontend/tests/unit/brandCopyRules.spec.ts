@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -28,7 +28,8 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    brackets, "[1]" and "[F1]", are not numbers). A digit counts written inline (a template's
  *    substitutions included) or held in a same-file literal or JSX and reached through the file's
  *    own bindings: a variable (its initializer and every value the file assigns it, destructured or
- *    not), a field, an index, a destructured name and its default, a loop's variable, and a
+ *    not), a field, an index, a destructured name and its default (a rest element read as the whole
+ *    it is taken from, so it fails closed on what comes before it), a loop's variable, and a
  *    function's parameter, which takes its default and what the file's own calls hand it (an
  *    argument in its place, or the members an array method hands its callback, written inline or
  *    held in a name); a call holds and renders what its callbacks, its own same-file function or a
@@ -58,22 +59,27 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    file's calls hand one (by the type of what each call gives it, whatever the parameter's own
  *    type), or what a callback or a same-file function returns, through conditionals, `||`, `??`,
  *    the right of `&&` (and its left when that can be a number, which renders a 0) and JSX
- *    branches; a comparison is a boolean and renders nothing. A citation
- *    whose bracket is its whole text ("[{n}]") and a link that renders its own address are text. The
- *    count control (frontend/DESIGN_SYSTEM.md) is the second check: a control that rests in sage, its
- *    own or the element's around it, never holds its count in a span of its own ink, written inline,
- *    held in a same-file variable, or returned by a same-file function its label calls or maps with
- *    (its props are not its label). The planted forms in tests/unit/fixtures/brandRule2Forms.tsx, one
- *    per way the rule can be broken, per look-alike that must pass and per known gap, are scored on
- *    every run, so the gate's reach is held as well as its verdict on the app. Out of a source scan's
- *    reach, and so review-checked (the fixture marks each as a gap): a value held in a string (a date
- *    or an index name computed as text, or any value the server or the model sends as text) or
- *    written in words; a value bound outside the file's own calls (a component's prop, which JSX
- *    binds and the component check reads only for its children and className, a hook's state, a
- *    callback handed through another function's parameter); a count a component renders in its own
- *    ink inside a sage control, sage handed to a component through a prop other than className, a
- *    component's own ink that a call-site className joins (cx joins without merging, so CSS order
- *    decides), and a conditional written in a literal's field, read as written since the scan cannot
+ *    branches; a comparison is a boolean and renders nothing. A citation whose bracket is its whole
+ *    text ("[{n}]") and a link that renders its own address are text. The count control
+ *    (frontend/DESIGN_SYSTEM.md) is the second check: a control that rests in sage never holds its
+ *    count in a span of its own ink, written inline, held in a same-file variable, or returned by a
+ *    same-file function its label calls or maps with (its props are not its label). Its sage is its
+ *    own or the element's around it where it is rendered: where it is written, where the file's
+ *    bindings carry it when it is held elsewhere (reported there), and, for a control a component
+ *    renders in the ink it inherits, where the component is used or the sage className the component
+ *    hands to the element it returns. The planted forms in tests/unit/fixtures/brandRule2Forms.tsx,
+ *    one per way the rule can be broken, per look-alike that must pass and per known gap, are scored
+ *    on every run, so the gate's reach is held as well as its verdict on the app. Out of a source
+ *    scan's reach, and so review-checked (the fixture marks each as a gap): a value held in a string
+ *    (a date or an index name computed as text, or any value the server or the model sends as text)
+ *    or written in words; a value bound outside the file's own calls (a component's prop, which JSX
+ *    binds and the component check reads only for its children and className, a count control handed
+ *    as one included, a hook's state, a callback handed through another function's parameter); a
+ *    count a component renders in its own ink inside a sage control, sage handed to a component
+ *    through a prop other than className, a className given where a component is used that the
+ *    component joins with its own ink (cx joins without merging, so CSS order decides), hands to an
+ *    element below the one it returns, or never applies (its ink then masks the one the component
+ *    inherits), and a conditional written in a literal's field, read as written since the scan cannot
  *    tie it to the element's other fields; beyond the fixture, a literal another file holds, a colour
  *    set by an inline style or on a pseudo-element, a library component's internals, and SVG text
  *    coloured by attribute (the chart theme, which carries no sage). The waitlist counter's own spec
@@ -280,17 +286,22 @@ function variableValues(declaration: ts.VariableDeclaration): Held[] {
 
 /** Where a name is bound: the variable or parameter its destructuring climbs to, the steps from that declaration's
     value to the name's place, and each default met on the way with the steps below it (a parameter's own default
-    last); null for a rest element, which holds what the others leave. */
+    last). A rest element holds what the others leave and is read as the whole it is taken from: an object by the key
+    asked for, one the others took included, and an array's members, any of which an index into it may land on, so
+    it fails closed on what the others took. */
 interface Binding { declaration: ts.Node | undefined; steps: Step[]; defaults: Held[] }
-function bindingOf(symbol: ts.Symbol | undefined, path: Step[]): Binding | null {
+function bindingOf(symbol: ts.Symbol | undefined, path: Step[]): Binding {
   const steps = [...path]
   const defaults: Held[] = []
   let declaration: ts.Node | undefined = symbol?.valueDeclaration
   while (declaration && ts.isBindingElement(declaration)) {
-    if (declaration.dotDotDotToken) return null
-    if (declaration.initializer) defaults.push({ value: declaration.initializer, steps: [...steps] })
     const pattern = declaration.parent
-    steps.unshift(ts.isObjectBindingPattern(pattern) ? keyOf(declaration.propertyName ?? declaration.name) : pattern.elements.indexOf(declaration))
+    if (declaration.dotDotDotToken) {
+      if (ts.isArrayBindingPattern(pattern) && steps.length) steps[0] = null
+    } else {
+      if (declaration.initializer) defaults.push({ value: declaration.initializer, steps: [...steps] })
+      steps.unshift(ts.isObjectBindingPattern(pattern) ? keyOf(declaration.propertyName ?? declaration.name) : pattern.elements.indexOf(declaration))
+    }
     declaration = pattern.parent
   }
   if (declaration && ts.isParameter(declaration) && declaration.initializer) defaults.push({ value: declaration.initializer, steps: [...steps] })
@@ -380,7 +391,6 @@ function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[]): ts.Exp
   // the file binds a parameter to.
   const bound = (symbol: ts.Symbol | undefined, path: Step[], depth: number): ts.Expression[] => {
     const binding = bindingOf(symbol, path)
-    if (!binding) return []
     const { declaration, steps } = binding
     const defaults = binding.defaults.flatMap((d) => held(d.value, d.steps, depth + 1))
     if (!declaration || declaration.getSourceFile() !== sf) return defaults
@@ -798,21 +808,45 @@ function siteInk(opening: ts.JsxOpeningLikeElement): Ink {
   return variants.includes('sage') || classes === 'sage' ? 'sage' : variants.includes(null) ? classes : 'other'
 }
 
+/** A cached read that can meet itself while it runs: a component that renders itself, two that render each other, an
+    element whose ink is its component's. Met again while in progress, it gives `placeholder`, and its result is kept
+    only when it read nothing still in progress below it: a read inside a cycle depends on the unfinished value of the
+    cycle's outermost member, so it is read again once that member is done, and no verdict hangs on the order the scan
+    meets the members in. */
+const IN_PROGRESS: ts.Node[] = []
+let outermostRead = Infinity
+function memo<V>(cache: Map<ts.Node, V>, key: ts.Node, placeholder: V, compute: () => V): V {
+  const known = cache.get(key)
+  if (known !== undefined) return known
+  const at = IN_PROGRESS.indexOf(key)
+  if (at !== -1) {
+    outermostRead = Math.min(outermostRead, at)
+    return placeholder
+  }
+  const outer = outermostRead
+  outermostRead = Infinity
+  IN_PROGRESS.push(key)
+  try {
+    const value = compute()
+    if (outermostRead >= IN_PROGRESS.length - 1) cache.set(key, value)
+    return value
+  } finally {
+    IN_PROGRESS.pop()
+    outermostRead = Math.min(outer, outermostRead)
+  }
+}
+
 const COLOURS = new Map<ts.Node, Ink>()
 /** The ink an element gives its children: 'sage' or 'other' when it sets a resting text colour, null when
     they inherit its parent's. The call site's ink first; then, for a component the app declares, the ink it
     renders its children in, so a component that wraps its children in sage is a sage element. */
 function textColour(opening: ts.JsxOpeningLikeElement): Ink {
-  const known = COLOURS.get(opening)
-  if (known !== undefined) return known
-  COLOURS.set(opening, null)
-  let ink = siteInk(opening)
-  if (ink === null) {
+  return memo(COLOURS, opening, null, () => {
+    const ink = siteInk(opening)
+    if (ink !== null) return ink
     const fn = componentFunction(opening)
-    if (fn) ink = summary(fn).childrenInk
-  }
-  COLOURS.set(opening, ink)
-  return ink
+    return fn ? summary(fn).childrenInk : null
+  })
 }
 
 /** Whether a node holds JSX anywhere in it. */
@@ -834,17 +868,20 @@ function heldJsx(id: ts.Identifier, sf: ts.SourceFile, followed: Set<ts.Node>): 
 }
 
 /** What a component does with the ink it inherits: the ink its children render in (null when they inherit
-    it too), and whether it renders a number of its own in that inherited ink, which a sage parent colours. */
-interface Summary { childrenInk: Ink; inheritsValue: boolean }
+    it too), whether it renders a number of its own in that inherited ink, which a sage parent colours, and whether
+    it renders a control in it that holds its count in an ink of its own (the count control's form). */
+interface Summary { childrenInk: Ink; inheritsValue: boolean; inheritsControl: boolean }
 const SUMMARIES = new Map<ts.Node, Summary>()
 function summary(fn: ts.FunctionLikeDeclaration): Summary {
-  const known = SUMMARIES.get(fn)
-  if (known) return known
-  // A component that renders itself reads, mid-walk, as one that passes its ink through and carries nothing.
-  SUMMARIES.set(fn, { childrenInk: null, inheritsValue: false })
+  // A component met again mid-walk (one that renders itself) reads as one that passes its ink through and carries
+  // nothing (`memo`).
+  return memo(SUMMARIES, fn, { childrenInk: null, inheritsValue: false, inheritsControl: false }, () => summarize(fn))
+}
+function summarize(fn: ts.FunctionLikeDeclaration): Summary {
   const sf = fn.getSourceFile()
   const childInks = new Set<'sage' | 'other' | 'inherit'>()
   let carries = false
+  let controls = false
   const props = fn.parameters[0]
   const takesChildren = !!props && !!CHECKER.getTypeAtLocation(props).getProperty('children')
   // The names the children go by: `children`, a renamed binding (`{ children: content }`), and the parameter of a
@@ -867,6 +904,7 @@ function summary(fn: ts.FunctionLikeDeclaration): Summary {
     // A spread can carry the children through (`<span {...rest} />`).
     if (takesChildren && opening.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p))) childInks.add(next)
     if (ink === 'inherit' && inheritsValue(opening)) carries = true
+    if (next === 'inherit' && ((ts.isJsxElement(el) && isControl(opening) && ownInkCounts(el, sf).length) || inheritsControl(opening))) controls = true
     if (ts.isJsxElement(el)) children(el.children, next)
   }
   const children = (list: ts.NodeArray<ts.JsxChild>, ink: 'sage' | 'other' | 'inherit') => {
@@ -905,14 +943,13 @@ function summary(fn: ts.FunctionLikeDeclaration): Summary {
     }
   }
   for (const r of returnedExpressions(fn)) expression(r, 'inherit')
-  const result: Summary = {
+  return {
     // No path to the children found (cloned, handed to a helper) reads as one that passes its ink through, so a
     // number given to it inside a sage parent is still read.
     childrenInk: childInks.has('sage') ? 'sage' : childInks.has('inherit') || childInks.size === 0 ? null : 'other',
     inheritsValue: carries,
+    inheritsControl: controls,
   }
-  SUMMARIES.set(fn, result)
-  return result
 }
 
 /** Whether a component element renders a number in the ink it inherits, which a sage parent would colour. */
@@ -922,10 +959,24 @@ function inheritsValue(opening: ts.JsxOpeningLikeElement): boolean {
   return !!fn && summary(fn).inheritsValue
 }
 
-/** The literal texts an element renders in its own ink (stops at a child that sets its own colour). Text held
-    elsewhere (a variable's value, what a function returns) is reported at `site`, the expression that renders it
-    here: the variable's name, or the call. */
-function inkTexts(children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile, out: { node: ts.Node; text: string }[] = [], seen = new Set<ts.Node>(), site?: ts.Node) {
+/** Whether a component element renders, in the ink it inherits, a control that holds its count in an ink of its own. */
+function inheritsControl(opening: ts.JsxOpeningLikeElement): boolean {
+  if (siteInk(opening) !== null) return false
+  const fn = componentFunction(opening)
+  return !!fn && summary(fn).inheritsControl
+}
+
+/** What an element renders in its own ink (stops at a child that sets its own colour), through the file's
+    bindings: each literal text, and each element that inherits the ink (a control, a component). What is held
+    elsewhere (a variable's value, what a function returns, JSX handed to a helper) is reported at `site`, the
+    expression that renders it here: the variable's name, or the call. */
+interface InInk { node: ts.Node; text?: string; element?: ts.JsxElement | ts.JsxSelfClosingElement }
+function inInk(children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile, out: InInk[] = [], seen = new Set<ts.Node>(), site?: ts.Node): InInk[] {
+  const element = (el: ts.JsxElement | ts.JsxSelfClosingElement, at: ts.Node | undefined) => {
+    if (textColour(ts.isJsxElement(el) ? el.openingElement : el) !== null) return
+    out.push({ node: at ?? el, element: el })
+    if (ts.isJsxElement(el)) inInk(el.children, sf, out, seen, at)
+  }
   const expr = (e: ts.Expression, at = site) => {
     const x = unwrap(e)
     const push = (text: string) => out.push({ node: at ?? x, text })
@@ -946,8 +997,8 @@ function inkTexts(children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile, out: {
     else if (ts.isBinaryExpression(x)) valueOperands(x).forEach((operand) => expr(operand, at))
     // An array renders every member (`{['Q1', 'Q2']}`), a spread's included.
     else if (ts.isArrayLiteralExpression(x)) x.elements.forEach((m) => { if (!ts.isOmittedExpression(m)) expr(ts.isSpreadElement(m) ? m.expression : m, at) })
-    else if (ts.isJsxFragment(x)) inkTexts(x.children, sf, out, seen, at)
-    else if (ts.isJsxElement(x) && textColour(x.openingElement) === null) inkTexts(x.children, sf, out, seen, at)
+    else if (ts.isJsxFragment(x)) inInk(x.children, sf, out, seen, at)
+    else if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x)) element(x, at)
     else if (ts.isCallExpression(x)) {
       // What the call holds (a member through `at` or `find`, the members a join renders, what its same-file function
       // or useMemo returns) and what its callbacks return, each callback read once.
@@ -962,11 +1013,15 @@ function inkTexts(children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile, out: {
   for (const child of children) {
     if (ts.isJsxText(child)) out.push({ node: site ?? child, text: child.text })
     else if (ts.isJsxExpression(child) && child.expression) expr(child.expression)
-    else if (ts.isJsxFragment(child)) inkTexts(child.children, sf, out, seen, site)
-    else if (ts.isJsxElement(child) && textColour(child.openingElement) === null) inkTexts(child.children, sf, out, seen, site)
+    else if (ts.isJsxFragment(child)) inInk(child.children, sf, out, seen, site)
+    else if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) element(child, site)
   }
   return out
 }
+
+/** The literal texts an element renders in its own ink (`inInk`). */
+const inkTexts = (children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile) =>
+  inInk(children, sf).filter((r): r is InInk & { text: string } => r.text !== undefined)
 
 /** A number or a bigint: either renders as digits. */
 const NUMBER_LIKE = ts.TypeFlags.NumberLike | ts.TypeFlags.BigIntLike
@@ -1036,8 +1091,8 @@ function boundToValue(e: ts.Expression, sf: ts.SourceFile): boolean {
   }
   if (!ts.isIdentifier(x)) return false
   const binding = bindingOf(CHECKER.getSymbolAtLocation(x), path)
-  const declaration = binding?.declaration
-  if (!binding || !declaration || !ts.isParameter(declaration) || declaration.dotDotDotToken || declaration.getSourceFile() !== sf) return false
+  const declaration = binding.declaration
+  if (!declaration || !ts.isParameter(declaration) || declaration.dotDotDotToken || declaration.getSourceFile() !== sf) return false
   if (binding.defaults.some((d) => valueType(CHECKER.getTypeAtLocation(d.value), d.steps, d.value))) return true
   const at = declaration.parent.parameters.indexOf(declaration)
   return sitesOf(declaration.parent).some((site) => {
@@ -1230,9 +1285,12 @@ function forwardsClassName(fn: ts.FunctionLikeDeclaration): boolean {
   })
 }
 
-/** The ink an element inherits from the elements around it in its own file: the nearest one that sets an ink. */
+/** The ink an element inherits from the elements around it in its own file: the nearest one that sets an ink. One
+    written in a prop or a handler (`content={<button>…</button>}`) renders where the component puts it, or not at
+    all, so it inherits nothing the scan can see (the prop gap). */
 function inheritedInk(node: ts.Node): Ink {
   for (let p = node.parent; p; p = p.parent) {
+    if (ts.isJsxAttribute(p)) return null
     if (ts.isJsxElement(p)) {
       const ink = textColour(p.openingElement)
       if (ink !== null) return ink
@@ -1273,37 +1331,59 @@ function sageValues(sf: ts.SourceFile): Offence[] {
   return out
 }
 
+/** What a control's label holds in an ink of its own that carries a digit or a value: in its markup, in the same-file
+    variable its label is held in (`{overflowLabel}`), or in what a same-file function it calls or maps with returns
+    (`{renderLabel(n)}`). A count held elsewhere is reported at the expression that renders it in the control, and all
+    of it at `site`, where the control is rendered, when the control itself is held elsewhere. */
+function ownInkCounts(control: ts.JsxElement, sf: ts.SourceFile, out: Offence[] = [], site?: ts.Node): Offence[] {
+  const followed = new Set<ts.Node>()
+  const holders = (node: ts.Node, at?: ts.Node): void => {
+    // A prop is not the label: a handler's body, a tooltip's content.
+    if (ts.isJsxAttributes(node)) return
+    const jsx = ts.isJsxExpression(node) && node.expression && ts.isIdentifier(unwrap(node.expression))
+      ? heldJsx(unwrap(node.expression) as ts.Identifier, sf, followed)
+      : []
+    jsx.forEach((h) => holders(h, at ?? node))
+    // A function written inside the label is walked where it stands; one held elsewhere, once.
+    if (ts.isCallExpression(node)) {
+      for (const fn of renderedFunctions(node)) {
+        if (followed.has(fn) || (fn.pos >= node.pos && fn.end <= node.end)) continue
+        followed.add(fn)
+        returnedExpressions(fn).forEach((r) => holders(r, at ?? node))
+      }
+    }
+    if (node !== control && ts.isJsxElement(node) && textColour(node.openingElement) === 'other') {
+      for (const { node: hit, text } of inkTexts(node.children, sf)) if (carriesDigit(text)) out.push({ node: at ?? hit, text })
+      for (const hit of inkValues(node.children, sf, [], node.openingElement)) out.push({ node: at ?? hit, text: `{${hit.getText(sf)}}` })
+    }
+    ts.forEachChild(node, (child) => holders(child, at))
+  }
+  holders(control, site)
+  return out
+}
+
 /** Rule 2's second check over one file, the count control's: what a control resting in sage holds in an ink of
-    its own that carries a digit or a value, in its markup, in the same-file variable its label is held in
-    (`{overflowLabel}`), or in what a same-file function it calls or maps with returns (`{renderLabel(n)}`), a
-    count held elsewhere reported at the expression that renders it in the control. */
+    its own that carries a digit or a value (`ownInkCounts`). The sage is the control's own, or inherited from the
+    elements around it: where the control is written, where it is rendered when it is held elsewhere (a variable,
+    a helper's return, JSX handed to a helper: `inInk`, reported there), or where a component that renders it in
+    the ink it inherits is used, or is given sage that it hands to the element it returns (reported at that use). */
 function heldValues(sf: ts.SourceFile): Offence[] {
   const out: Offence[] = []
+  const inSage = (el: ts.JsxElement | ts.JsxSelfClosingElement, site?: ts.Node) => {
+    const opening = ts.isJsxElement(el) ? el.openingElement : el
+    if (ts.isJsxElement(el) && isControl(opening)) ownInkCounts(el, sf, out, site)
+    if (inheritsControl(opening)) out.push({ node: site ?? el, text: `<${opening.tagName.getText(sf)}>` })
+  }
   visit(sf, (n) => {
-    if (!ts.isJsxElement(n) || !isControl(n.openingElement) || (textColour(n.openingElement) ?? inheritedInk(n)) !== 'sage') return
-    const followed = new Set<ts.Node>()
-    const holders = (node: ts.Node, site?: ts.Node): void => {
-      // A prop is not the label: a handler's body, a tooltip's content.
-      if (ts.isJsxAttributes(node)) return
-      const jsx = ts.isJsxExpression(node) && node.expression && ts.isIdentifier(unwrap(node.expression))
-        ? heldJsx(unwrap(node.expression) as ts.Identifier, sf, followed)
-        : []
-      jsx.forEach((h) => holders(h, site ?? node))
-      // A function written inside the label is walked where it stands; one held elsewhere, once.
-      if (ts.isCallExpression(node)) {
-        for (const fn of renderedFunctions(node)) {
-          if (followed.has(fn) || (fn.pos >= node.pos && fn.end <= node.end)) continue
-          followed.add(fn)
-          returnedExpressions(fn).forEach((r) => holders(r, site ?? node))
-        }
-      }
-      if (node !== n && ts.isJsxElement(node) && textColour(node.openingElement) === 'other') {
-        for (const { node: hit, text } of inkTexts(node.children, sf)) if (carriesDigit(text)) out.push({ node: site ?? hit, text })
-        for (const hit of inkValues(node.children, sf, [], node.openingElement)) out.push({ node: site ?? hit, text: `{${hit.getText(sf)}}` })
-      }
-      ts.forEachChild(node, (child) => holders(child, site))
+    if (!ts.isJsxElement(n) && !ts.isJsxSelfClosingElement(n)) return
+    const opening = ts.isJsxElement(n) ? n.openingElement : n
+    const own = textColour(opening)
+    if ((own ?? inheritedInk(n)) === 'sage') inSage(n)
+    if (own === 'sage' && ts.isJsxElement(n)) for (const r of inInk(n.children, sf)) if (r.element && r.node !== r.element) inSage(r.element, r.node)
+    const fn = componentFunction(opening)
+    if (fn && siteInk(opening) === 'sage' && forwardsClassName(fn) && summary(fn).inheritsControl) {
+      out.push({ node: n, text: `<${opening.tagName.getText(sf)}>` })
     }
-    holders(n)
   })
   return out
 }
