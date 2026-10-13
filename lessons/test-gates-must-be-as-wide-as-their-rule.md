@@ -62,9 +62,11 @@ just fixed shows the gate catches that site; it says nothing about the other for
 take. Before a record says what a gate holds, plant one case for each way the rule can be broken
 and one for each look-alike that must pass, mark each flag or clean, run the gate over them and
 record the score. Name in the gate's header what stays out of reach, so the record claims only
-what the score shows. For a gate that reads code (a source scan, an AST walk), keep the planted
-cases as the gate's fixture and score them in its own spec, so CI reruns the score on every change
-and the next review extends the cases instead of starting over.
+what the score shows, and keep the header and the cases in step: a form the rule forbids that the
+gate passes is planted as a gap, never as a look-alike, and each gap the header says the cases mark
+has one. For a gate that reads code (a source scan, an AST walk), keep the planted cases as the
+gate's fixture and score them in its own spec, so CI reruns the score on every change and the next
+review extends the cases instead of starting over.
 
 Corollary for the anti-vacuity floor: assert the scanner actually found things (>100 files,
 >100 tests). A narrow gate and a broken walk look identical from the outside — both green.
@@ -90,8 +92,11 @@ components for their colours and followed sage through variants, states and comp
 as a number, a size or `text-inherit` read as a colour, a visited or focused sage count, a control
 holding its count in a span of its own ink, a const another function declares, among others), and
 fixed it named every form that breaks the rule and passed every look-alike and the known gap. The
-next reviews asked for the score to run in CI and added 42 forms, among them a chained `&&` the fix
-had stopped reading; the forms became the spec's fixture,
-`frontend/tests/unit/fixtures/brandRule2Forms.tsx`, 116 of them, scored on every run. Companion to
+next two reviews asked for the score to run in CI and added 39 forms, among them a chained `&&` the
+fix had stopped reading, and their fixes turned up 3 more; the forms became the spec's fixture,
+`frontend/tests/unit/fixtures/brandRule2Forms.tsx`, scored on every run. Read against its own
+header, that fixture still marked a fiscal year held in a string (`FY{y}`) clean though the gate
+leaves it to review, planted no index name held in a string though the header named one, and the
+header missed a date or an index name written in words; all three are now gap forms. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.

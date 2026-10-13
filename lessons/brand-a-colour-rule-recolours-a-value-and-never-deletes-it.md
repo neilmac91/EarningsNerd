@@ -17,9 +17,9 @@ and keep the value rendered. A control that carries a count takes the count cont
 (`frontend/DESIGN_SYSTEM.md`, beside the accent link): the whole label rests in the secondary ink as
 one text run and turns sage only under the pointer, and a countdown on a control that waits rests in
 the same ink at full strength. Do not satisfy the rule with a sage label around a count in its own
-span: the label reads in two inks, and in an inline-flex control the span becomes its own flex item,
-which breaks the hover underline. Remove a value only as a copy decision, named as a copy change in
-the PR's What with its reason, never as the way to turn a gate green.
+span: the control then rests in sage while it carries a value, and the rule keeps sage for the
+pointer. Remove a value only as a copy decision, named as a copy change in the PR's What with its
+reason, never as the way to turn a gate green.
 
 **Evidence**: PR #1251, the founder's review threads on
 `frontend/features/dashboard/components/FilingFeed.tsx` (the overflow link) and

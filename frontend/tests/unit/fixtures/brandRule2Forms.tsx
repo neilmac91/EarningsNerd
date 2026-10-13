@@ -1,10 +1,11 @@
 /**
  * Planted forms for brandCopyRules.spec.ts rule 2 (sage never colours a number, D-030): one component per
- * form, each marked by its trailing comment. `flag` breaks the rule, so rule 2 must name its line; `clean`
- * is a look-alike that must pass; `gap` is a form the rule forbids and the gate leaves to review (its
- * header names it), so it must pass too, until the gate reaches it and the mark flips. The spec reads this
- * file in the same program as the app and scores every form on every run, so a change to the gate that
- * loses a form, or catches a look-alike, fails there. Outside the scan roots: rule 2's app scan never
+ * form, each marked by its trailing comment. `flag` is a form rule 2 must name: one that breaks the rule,
+ * or one the gate fails closed on, such as a lookup fed a number (P12) or a variant it cannot read (P87).
+ * `clean` is a look-alike that must pass. `gap` is a form the rule forbids and the gate leaves to review
+ * (its header names it), so it must pass too, until the gate reaches it and the mark flips. The spec reads
+ * this file in the same program as the app and scores every form on every run, so a change to the gate
+ * that loses a form, or catches a look-alike, fails there. Outside the scan roots: rule 2's app scan never
  * reads it. A new form the rule can take joins it with its mark.
  */
 import { Children, type ReactNode } from 'react'
@@ -44,7 +45,7 @@ export function P24({ n }: { n: number }) { return <span className="!text-brand-
 export function P25({ n }: { n: number }) { return <svg><text className="fill-brand-strong">{n}</text></svg> } // flag
 export function P26({ n }: { n: number }) { return <span className="text-brand-strong">{n}<sup>†</sup></span> } // flag
 export function P27({ n }: { n: number }) { const label = `${n} filings`; return <span className="text-brand-strong">{label}</span> } // flag
-export function P28({ y }: { y: string }) { return <span className="text-brand-strong">FY{y}</span> } // clean
+export function P28({ y }: { y: string }) { return <span className="text-brand-strong">FY{y}</span> } // gap
 export function P29({ rows }: { rows: string[] }) { return <ul className="text-brand-strong">{rows.map((r) => <li key={r}>Step 1</li>)}</ul> } // flag
 export function P30({ rows }: { rows: { n: number }[] }) { return <p className="text-brand-strong">{rows.map((r) => { return r.n })}</p> } // flag
 function Outer({ children }: { children: ReactNode }) { return <SageText>{children}</SageText> }
@@ -53,8 +54,8 @@ export function P32({ n }: { n: number }) { return <p className="text-brand-stro
 export function P33({ n }: { n: number }) { return <p className="text-brand-strong">New <Badge>{n}</Badge></p> } // clean
 export function P34() { return <a className="text-brand-strong">Open the 10-K for FY2025</a> } // flag
 export function P35({ n }: { n: number }) { return <span className="text-text-secondary-light group-hover:text-brand-strong">{n}</span> } // clean
-export function P36({ n }: { n: number }) { return <span className="text-text-secondary-light focus-visible:text-brand-strong">{n}</span> } // flag
-export function P37({ n }: { n: number }) { return <button className="text-text-secondary-light disabled:text-brand-strong">{n}</button> } // flag
+export function P36({ n }: { n: number }) { return <span tabIndex={0} className="text-text-secondary-light focus-visible:text-brand-strong">{n}</span> } // flag
+export function P37({ n }: { n: number }) { return <button disabled className="text-text-secondary-light disabled:text-brand-strong">{n}</button> } // flag
 export function P38({ n }: { n: number }) { return <span className="text-text-secondary-light [&:hover]:text-brand-strong">{n}</span> } // clean
 export function P39({ n }: { n: number }) { return <SageText><span className="text-text-secondary-light">{n}</span></SageText> } // clean
 function Quiet({ n }: { n: number }) { return <span className="text-text-secondary-light">{n}</span> }
@@ -197,3 +198,7 @@ export function P115({ n, hot }: { n: number; hot: boolean }) { return <Badge va
 // A component whose className lands inside a fragment, beside its number.
 function Frag({ n, className }: { n: number; className?: string }) { return <><span className={className}>Total</span> {n}</> }
 export function P116({ n }: { n: number }) { return <Frag className="text-brand-strong" n={n} /> } // clean
+// An index name held in a string ("S&P 500"), as a fiscal year is in P28 (review-checked).
+export function P117({ index }: { index: string }) { return <span className="text-brand-strong">Covering the {index}</span> } // gap
+// An index name written in words, with no digit to read (review-checked).
+export function P118() { return <span className="text-brand-strong">Covering the Dow Jones</span> } // gap

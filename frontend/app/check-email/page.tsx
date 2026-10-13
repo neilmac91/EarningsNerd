@@ -83,8 +83,8 @@ function CheckEmailContent() {
         {/* In flight and cooling down: aria-disabled (handleResend returns early), not native
             `disabled`. Chromium blurs a focused button that turns disabled, and both states
             follow this button's own activation. A missing email comes from the URL and never
-            changes here, so that alone stays natively disabled. The aria-disabled look fades the
-            label's ink, not the element, so the focus indicator keeps its strength. */}
+            changes here, so that alone stays natively disabled. In flight, the aria-disabled look
+            fades the label's ink, not the element, so the focus indicator keeps its strength. */}
         <button
           onClick={handleResend}
           disabled={!email}

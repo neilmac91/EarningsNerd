@@ -217,13 +217,13 @@ Count control    A link or control whose label carries a count, a date, an index
                  the whole label rests in text-text-secondary-light dark:text-text-secondary-dark as one
                  text run and turns hover:text-brand-strong dark:hover:text-brand-strong-dark under the
                  pointer (with hover:underline on a link, hover:bg-brand-weak on a button), keyboard focus
-                 drawing the ring below. Never a sage label with the count in a span of its own: it reads
-                 in two inks, and inside an inline-flex control the span is its own flex item, which breaks
-                 the underline. A countdown on a control that waits (aria-disabled) rests in the same ink at
-                 full strength, so the number stays legible. Gate: brandCopyRules.spec.ts rule 2, whose
-                 count-control check fails a control resting in sage, its own or its parent's, that holds
-                 its count in a span of its own ink (written inline or held in a const; a count a component
-                 renders inside one is review-checked).
+                 drawing the ring below. Never a sage label with the count in a span of its own: the control
+                 then rests in sage while it carries a value, and the rule keeps sage for the pointer. A
+                 countdown on a control that waits (aria-disabled) rests in the same ink at full strength,
+                 so the number stays legible. Gate: brandCopyRules.spec.ts rule 2, whose count-control check
+                 fails a control resting in sage, its own or its parent's, that holds its count in a span of
+                 its own ink (written inline or held in a const; a count a component renders inside one is
+                 review-checked).
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use

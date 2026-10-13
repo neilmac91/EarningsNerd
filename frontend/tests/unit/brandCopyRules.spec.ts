@@ -47,15 +47,16 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    control (frontend/DESIGN_SYSTEM.md) is the second check: a control that rests in sage, its own
  *    or the element's around it, never holds its count in a span of its own ink, written inline or
  *    held in a same-file const (its props are not its label). The planted forms in
- *    tests/unit/fixtures/brandRule2Forms.tsx, one per way the rule can be broken and per look-alike
- *    that must pass, are scored on every run, so the gate's reach is held as well as its verdict on
- *    the app. Out of a source scan's reach, and so review-checked (the fixture marks each as a gap):
- *    a date or an index name computed as text, a count a component renders in its own ink inside a
- *    sage control, sage handed to a component through a prop other than className, and a
- *    component's own ink that a call-site className joins (cx joins without merging, so CSS order
- *    decides); beyond the fixture, a colour set by an inline style or on a pseudo-element, a library
- *    component's internals, and SVG text coloured by attribute (the chart theme, which carries no
- *    sage). The waitlist counter's own spec covers the count on the public pages.
+ *    tests/unit/fixtures/brandRule2Forms.tsx, one per way the rule can be broken, per look-alike that
+ *    must pass and per known gap, are scored on every run, so the gate's reach is held as well as its
+ *    verdict on the app. Out of a source scan's reach, and so review-checked (the fixture marks each as
+ *    a gap): a date or an index name computed as text or written in words, a count a component
+ *    renders in its own ink inside a sage control, sage handed to a component through a prop other
+ *    than className, and a component's own ink that a call-site className joins (cx joins without
+ *    merging, so CSS order decides); beyond the fixture, a colour set by an inline style or on a
+ *    pseudo-element, a library component's internals, and SVG text coloured by attribute (the chart
+ *    theme, which carries no sage). The waitlist counter's own spec covers the count on the public
+ *    pages.
  * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
  *    figure or a price, the hero's accent phrases included; the margin (`en-margin`) exists only
  *    inside MarkedCopy, and every MarkedCopy carries at least one marker (`EnRef`).
