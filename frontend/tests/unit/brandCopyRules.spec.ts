@@ -2,7 +2,10 @@ import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
+import { Badge, buttonVariants, type BadgeVariant, type ButtonVariant } from '@/components/ui'
 import { HEADLINES } from '@/features/marketing/lib/headline'
 
 /**
@@ -17,19 +20,26 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    to nine parts"; 1c, only risk excerpts are promised as located or withheld.
  * 2. Sage never colours a number, anywhere in the app (DESIGN.md › the Separate Signals Rule;
  *    docs/brand/decisions-log.md D-030, the founder's call of 2026-10-11: the strict reading holds
- *    inside the product as on the public surfaces). Text inside an element whose own text colour
- *    is a sage token may not contain a digit, whether written inline or mapped in from a literal
- *    array. Activity variants (hover:, focus:, group-hover:) are sage's other job and are not
- *    read, so a control may turn sage under the pointer while its count rests in the ink; the
- *    device's citation brackets ("[1]", "[F1]") are not numbers. A value computed at runtime is
- *    read through the type checker: one program is built from tsconfig.json, and an expression
- *    rendered in sage ink fails the rule when it is number-typed, a template or formatter fed one,
- *    a number formatter's own call ("n.toLocaleString()"), a same-file constant holding one, or a
- *    JSX child returned from a callback ("rows.map(...)"), through conditionals and JSX branches.
- *    A citation whose bracket is its whole text ("[{n}]") and a link that renders its own address
- *    are text. A ui Button whose variant sets sage ink (secondary, ghost, tertiary), and a link
- *    styled by buttonVariants with one of those, is a sage element even though its className says
- *    nothing of the colour. The waitlist counter's own spec covers the one on the public pages.
+ *    inside the product as on the public surfaces). Nothing an element renders in sage ink at rest
+ *    may carry a digit, written inline, in a callback or mapped in from a literal array (SEC form
+ *    codes such as "10-K" are names, and the device's citation brackets, "[1]" and "[F1]", are not
+ *    numbers), or a value. Sage ink is any brand-family colour token, with or without an opacity
+ *    modifier, in a state the element can rest in (dark:, a breakpoint, aria-*, data-*, disabled:);
+ *    hover:, focus: and their group- and peer- forms are activity, sage's other job, so a control
+ *    may turn sage under the pointer while its count rests in the ink. The ink comes from the
+ *    className at the call site (inline or a same-file const), from a variant component (Button,
+ *    RetryButton, MarketingCta and Badge, each variant's colour asked of the component itself, and
+ *    buttonVariants() in a className likewise), or from an app component followed through the
+ *    checker: one that renders its children in sage is a sage element, and one that renders a
+ *    number in the ink it inherits fails inside a sage parent. A value is read through the type
+ *    checker (one program from tsconfig.json): a number-typed expression, a template or a call fed
+ *    one (a formatter, and so also a lookup such as labelFor(i)), a number's own method, a
+ *    same-file constant holding one, or what a callback returns, through conditionals and JSX
+ *    branches. A citation whose bracket is its whole text ("[{n}]") and a link that renders its own
+ *    address are text. Out of a source scan's reach, and so review-checked: a date or an index name
+ *    computed as text, a colour set by an inline style or on a pseudo-element, a library
+ *    component's internals, and SVG text coloured by attribute (the chart theme, which carries no
+ *    sage). The waitlist counter's own spec covers the count on the public pages.
  * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
  *    figure or a price, the hero's accent phrases included; the margin (`en-margin`) exists only
  *    inside MarkedCopy, and every MarkedCopy carries at least one marker (`EnRef`).
@@ -151,17 +161,163 @@ function classTokens(opening: ts.JsxOpeningLikeElement): string[] {
   return parts.join(' ').split(/\s+/).filter(Boolean)
 }
 
-const SAGE = /^text-(?:brand(?:-strong|-emphasis|-dark|-strong-dark|-fill-dark)?|accent-strong)$/
-const NOT_COLOUR = /^text-(?:xs|sm|base|lg|xl|[2-9]xl|data-[a-z]+|left|center|right|justify|start|end|ellipsis|clip|wrap|nowrap|balance|pretty)$/
-const PASSIVE_VARIANTS = new Set(['dark', 'sm', 'md', 'lg', 'xl', '2xl'])
-const CITATION = /^\[F?\d+\]$/
+type Ink = 'sage' | 'other' | null
 
-/** The Button variants whose label is sage at rest (components/ui/Button.tsx); primary and destructive set white. */
-const SAGE_VARIANTS = new Set(['secondary', 'ghost', 'tertiary'])
-/** The components that render a ui Button's treatment, with the variant each takes when the call site sets none:
-    Button itself, RetryButton (hooks/useRetainedFailure.tsx, secondary by default) and MarketingCta
-    (features/marketing/components/MarketingCta.tsx, which forwards variant into buttonVariants). */
-const BUTTON_LIKE: Record<string, string> = { Button: 'primary', RetryButton: 'secondary', MarketingCta: 'primary' }
+/** A sage colour token: any colour of the brand family (`text-brand`, `-strong`, `-strong-dark`, …), with or
+    without an opacity modifier (`text-brand-strong/70`), or the legacy accent-strong alias. `fill-` counts on
+    SVG text, whose glyphs it paints. */
+const SAGE = /^(?:text|fill)-(?:brand(?:-[a-z]+)*|accent-strong)(?:\/(?:\d+|\[[^\]]+\]))?$/
+const NOT_COLOUR = /^text-(?:xs|sm|base|lg|xl|[2-9]xl|data-[a-z]+|left|center|right|justify|start|end|ellipsis|clip|wrap|nowrap|balance|pretty)$|^fill-(?:none|current|inherit)$/
+/** Variants that apply only under the pointer or keyboard focus (activity, sage's other job), and those that
+    colour a pseudo-element rather than the element's own text. Every other variant (dark, a breakpoint,
+    aria-*, data-*, disabled, open, checked, first, …) is a state an element can rest in, so its colour counts:
+    a selected tab's sage count is a sage count. */
+const ACTIVITY = /^(?:(?:group|peer)-)?(?:hover|focus|focus-visible|focus-within|active|visited|target)(?:\/[\w-]+)?$|^\[.*:(?:hover|focus|focus-visible|focus-within|active)\b.*\]$/
+const PSEUDO = /^(?:placeholder|file|marker|selection|before|after|first-letter|first-line|backdrop)$/
+const SVG_TEXT = new Set(['text', 'tspan', 'textPath'])
+const CITATION = /^\[F?\d+\]$/
+/** SEC form codes are names, not values ("Open the 10-K"), as a form code read from a variable already is. */
+const FORM_CODE = /\b(?:10-K|10-Q|8-K|20-F|40-F|6-K|11-K|S-1|S-3|S-4|S-8|F-1|F-3|DEF 14A|13F)(?:\/A)?\b/g
+const carriesDigit = (text: string) => {
+  const trimmed = text.trim()
+  return !CITATION.test(trimmed) && /\d/.test(trimmed.replace(FORM_CODE, ''))
+}
+
+/** A class token's variants and utility, split on the colons outside brackets (`data-[state=open]:…`). */
+function splitVariants(token: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < token.length; i++) {
+    if (token[i] === '[') depth++
+    else if (token[i] === ']') depth--
+    else if (token[i] === ':' && depth === 0) { parts.push(token.slice(start, i)); start = i + 1 }
+  }
+  parts.push(token.slice(start))
+  return parts
+}
+
+/** The resting text colour class tokens give an element: 'sage', 'other', or null when they set none. */
+function tokenInk(tokens: string[], svgText = false): Ink {
+  let ink: Ink = null
+  for (const token of tokens) {
+    const parts = splitVariants(token)
+    const utility = parts.pop()!.replace(/^!/, '')
+    if (!(utility.startsWith('text-') || (svgText && utility.startsWith('fill-'))) || NOT_COLOUR.test(utility)) continue
+    if (parts.some((variant) => ACTIVITY.test(variant) || PSEUDO.test(variant))) continue
+    if (SAGE.test(utility)) return 'sage'
+    ink = 'other'
+  }
+  return ink
+}
+
+/** The scanned files, so a component is followed only into the app's own code, never into a library. */
+const SCANNED = new Set(FILES.map((file) => path.normalize(file)))
+
+/** The declaration behind an identifier or a component tag, followed through imports and re-exports. */
+function declarationOf(name: ts.Node): ts.Declaration | undefined {
+  let symbol = CHECKER.getSymbolAtLocation(ts.isPropertyAccessExpression(name) ? name.name : name)
+  if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = CHECKER.getAliasedSymbol(symbol)
+  const declaration = symbol?.valueDeclaration ?? symbol?.declarations?.[0]
+  return declaration && SCANNED.has(path.normalize(declaration.getSourceFile().fileName)) ? declaration : undefined
+}
+
+/** The function a component declaration renders through: itself, the function a const holds, or the one
+    passed to forwardRef() or memo(). */
+function functionOf(node: ts.Node): ts.FunctionLikeDeclaration | undefined {
+  if (ts.isFunctionDeclaration(node) || ts.isArrowFunction(node) || ts.isFunctionExpression(node)) return node
+  const init = ts.isVariableDeclaration(node) ? node.initializer : ts.isExportAssignment(node) ? node.expression : undefined
+  if (!init) return undefined
+  const x = unwrap(init)
+  if (ts.isArrowFunction(x) || ts.isFunctionExpression(x)) return x
+  const target = ts.isCallExpression(x) && x.arguments[0] ? unwrap(x.arguments[0]) : x
+  if (ts.isArrowFunction(target) || ts.isFunctionExpression(target)) return target
+  if (ts.isIdentifier(target)) {
+    const declaration = declarationOf(target)
+    return declaration && declaration !== node ? functionOf(declaration) : undefined
+  }
+  return undefined
+}
+
+/** The app component a JSX tag renders, or undefined for an element or a library component. */
+function componentFunction(opening: ts.JsxOpeningLikeElement): ts.FunctionLikeDeclaration | undefined {
+  const tag = opening.tagName
+  if (ts.isIdentifier(tag) && /^[a-z]/.test(tag.text)) return undefined
+  const declaration = declarationOf(tag)
+  return declaration && functionOf(declaration)
+}
+
+/** The expressions a function returns (its body when it is one), skipping nested functions. */
+function returnedExpressions(fn: ts.FunctionLikeDeclaration): ts.Expression[] {
+  if (!fn.body) return []
+  if (!ts.isBlock(fn.body)) return [fn.body]
+  const out: ts.Expression[] = []
+  const collect = (n: ts.Node) => {
+    if (ts.isFunctionLike(n)) return
+    if (ts.isReturnStatement(n) && n.expression) out.push(n.expression)
+    ts.forEachChild(n, collect)
+  }
+  ts.forEachChild(fn.body, collect)
+  return out
+}
+
+/** What a call renders through the callbacks it is given (`rows.map((r) => …)`, with or without a block body). */
+const callbackReturns = (call: ts.CallExpression) =>
+  call.arguments.map(unwrap).filter((a): a is ts.ArrowFunction | ts.FunctionExpression => ts.isArrowFunction(a) || ts.isFunctionExpression(a)).flatMap(returnedExpressions)
+
+/** The string members of a union type alias (`ButtonVariant`), read through the checker. */
+function unionMembers(rel: string, name: string): string[] {
+  const sf = PROGRAM.getSourceFile(path.join(ROOT, rel))
+  let alias: ts.TypeAliasDeclaration | undefined
+  if (sf) visit(sf, (n) => { if (!alias && ts.isTypeAliasDeclaration(n) && n.name.text === name) alias = n })
+  if (!alias) throw new Error(`${rel} declares no ${name}`)
+  const type = CHECKER.getTypeAtLocation(alias.name)
+  return (type.isUnion() ? type.types : [type]).filter((t): t is ts.StringLiteralType => t.isStringLiteral()).map((t) => t.value)
+}
+
+/** The function a file declares under a name, for the variant components below. */
+function declaredFunction(rel: string, name: string): ts.FunctionLikeDeclaration {
+  const sf = PROGRAM.getSourceFile(path.join(ROOT, rel))
+  let fn: ts.FunctionLikeDeclaration | undefined
+  if (sf) visit(sf, (n) => {
+    if (fn) return
+    if (ts.isFunctionDeclaration(n) && n.name?.text === name) fn = n
+    else if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === name) fn = functionOf(n)
+  })
+  if (!fn) throw new Error(`${rel} declares no component ${name}`)
+  return fn
+}
+
+/** The variant a component takes when the call site names none, from its own destructuring default. */
+function defaultVariant(fn: ts.FunctionLikeDeclaration, name: string): string {
+  const binding = fn.parameters[0]?.name
+  const element = binding && ts.isObjectBindingPattern(binding)
+    ? binding.elements.find((e) => ts.isIdentifier(e.name) && e.name.text === 'variant')
+    : undefined
+  if (!element?.initializer || !ts.isStringLiteral(element.initializer)) throw new Error(`${name} declares no literal default variant`)
+  return element.initializer.text
+}
+
+/** Each variant's resting ink, asked of the component itself (buttonVariants() for the Button family, a static
+    render for Badge), so a variant that turns sage is read the day it does. */
+const BUTTON_INK = new Map<string, Ink>(unionMembers('components/ui/Button.tsx', 'ButtonVariant')
+  .map((v) => [v, tokenInk(buttonVariants({ variant: v as ButtonVariant }).split(/\s+/))]))
+const BADGE_INK = new Map<string, Ink>(unionMembers('components/ui/Badge.tsx', 'BadgeVariant').map((v) => {
+  const html = renderToStaticMarkup(createElement(Badge, { variant: v as BadgeVariant }, 'x'))
+  return [v, tokenInk((html.match(/^<[a-z]+[^>]*?\bclass="([^"]*)"/)?.[1] ?? '').split(/\s+/))]
+}))
+/** The components whose colour is their `variant` prop, with the variant each takes by default. RetryButton
+    (hooks/useRetainedFailure.tsx) and MarketingCta render a ui Button's treatment. */
+const VARIANT_COMPONENTS = new Map(([
+  ['components/ui/Button.tsx', 'Button', BUTTON_INK],
+  ['hooks/useRetainedFailure.tsx', 'RetryButton', BUTTON_INK],
+  ['features/marketing/components/MarketingCta.tsx', 'MarketingCta', BUTTON_INK],
+  ['components/ui/Badge.tsx', 'Badge', BADGE_INK],
+] as const).map(([rel, name, inks]) => {
+  const fn = declaredFunction(rel, name)
+  return [fn as ts.Node, { inks, fallback: defaultVariant(fn, name) }] as const
+}))
+
 function variantLiterals(e: ts.Expression): string[] {
   const x = unwrap(e)
   const text = literalText(x)
@@ -170,53 +326,131 @@ function variantLiterals(e: ts.Expression): string[] {
   if (ts.isBinaryExpression(x)) return [...variantLiterals(x.left), ...variantLiterals(x.right)]
   return []
 }
-/** Whether a Button-like element, or an element whose className comes from buttonVariants(), takes a sage
-    variant. A variant the scan cannot read (an identifier, a spread) counts as sage, since it may be. */
-function sageButtonVariant(opening: ts.JsxOpeningLikeElement): boolean {
-  let variants: string[] = []
-  const tag = opening.tagName.getText()
-  if (tag in BUTTON_LIKE) {
+
+/** The inks a variant component, or a `buttonVariants()` call in an element's className, can give its
+    children, or null when the element is neither. A variant the scan cannot read (an identifier, a spread,
+    a shorthand `variant`) counts as sage, since it may be. */
+function variantInks(opening: ts.JsxOpeningLikeElement): Ink[] | null {
+  const ink = (inks: Map<string, Ink>) => (v: string): Ink => (inks.has(v) ? inks.get(v)! : 'sage')
+  const fn = componentFunction(opening)
+  const component = fn && VARIANT_COMPONENTS.get(fn)
+  if (component) {
     const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'variant')
+    let variants: string[]
     if (opening.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p))) variants = ['unknown']
-    else if (!attr) variants = [BUTTON_LIKE[tag]]
+    else if (!attr) variants = [component.fallback]
     else if (attr.initializer && ts.isStringLiteral(attr.initializer)) variants = [attr.initializer.text]
     else if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
       variants = variantLiterals(attr.initializer.expression)
       if (variants.length === 0) variants = ['unknown']
     } else variants = ['unknown']
-  } else {
-    for (const node of classNameNodes(opening)) {
-      visit(node, (n) => {
-        if (!ts.isCallExpression(n) || n.expression.getText() !== 'buttonVariants') return
-        const options = n.arguments[0]
-        // No options: the factory's default, primary. Options the scan cannot read (an identifier, a
-        // spread, a shorthand `variant`) count as sage, as an unreadable variant attribute does above.
-        if (!options) { variants.push('primary'); return }
-        const opaque = !ts.isObjectLiteralExpression(options)
-          || options.properties.some((p) => ts.isSpreadAssignment(p) || (ts.isShorthandPropertyAssignment(p) && p.name.text === 'variant'))
-        if (opaque) { variants.push('unknown'); return }
-        const variant = options.properties.find((p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && p.name.getText() === 'variant')
-        const read = variant ? variantLiterals(variant.initializer) : ['primary']
-        variants.push(...(read.length ? read : ['unknown']))
-      })
+    return variants.map(ink(component.inks))
+  }
+  const variants: string[] = []
+  for (const node of classNameNodes(opening)) {
+    visit(node, (n) => {
+      if (!ts.isCallExpression(n) || n.expression.getText() !== 'buttonVariants') return
+      const options = n.arguments[0]
+      // No options: the factory's default, primary.
+      if (!options) { variants.push('primary'); return }
+      const opaque = !ts.isObjectLiteralExpression(options)
+        || options.properties.some((p) => ts.isSpreadAssignment(p) || (ts.isShorthandPropertyAssignment(p) && p.name.text === 'variant'))
+      if (opaque) { variants.push('unknown'); return }
+      const variant = options.properties.find((p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && p.name.getText() === 'variant')
+      const read = variant ? variantLiterals(variant.initializer) : ['primary']
+      variants.push(...(read.length ? read : ['unknown']))
+    })
+  }
+  return variants.length ? variants.map(ink(BUTTON_INK)) : null
+}
+
+/** The resting ink the call site gives an element: a variant component's variant, or the className written
+    there (inline, a same-file const, or buttonVariants() in it). */
+function siteInk(opening: ts.JsxOpeningLikeElement): Ink {
+  const classes = tokenInk(classTokens(opening), SVG_TEXT.has(opening.tagName.getText()))
+  const variants = variantInks(opening)
+  if (!variants) return classes
+  return variants.includes('sage') || classes === 'sage' ? 'sage' : variants.includes(null) ? classes : 'other'
+}
+
+const COLOURS = new Map<ts.Node, Ink>()
+/** The ink an element gives its children: 'sage' or 'other' when it sets a resting text colour, null when
+    they inherit its parent's. The call site's ink first; then, for a component the app declares, the ink it
+    renders its children in, so a component that wraps its children in sage is a sage element. */
+function textColour(opening: ts.JsxOpeningLikeElement): Ink {
+  const known = COLOURS.get(opening)
+  if (known !== undefined) return known
+  COLOURS.set(opening, null)
+  let ink = siteInk(opening)
+  if (ink === null) {
+    const fn = componentFunction(opening)
+    if (fn) ink = summary(fn).childrenInk
+  }
+  COLOURS.set(opening, ink)
+  return ink
+}
+
+/** What a component does with the ink it inherits: the ink its children render in (null when they inherit
+    it too), and whether it renders a number of its own in that inherited ink, which a sage parent colours. */
+interface Summary { childrenInk: Ink; inheritsValue: boolean }
+const SUMMARIES = new Map<ts.Node, Summary>()
+function summary(fn: ts.FunctionLikeDeclaration): Summary {
+  const known = SUMMARIES.get(fn)
+  if (known) return known
+  // A component that renders itself reads, mid-walk, as one that passes its ink through and carries nothing.
+  SUMMARIES.set(fn, { childrenInk: null, inheritsValue: false })
+  const sf = fn.getSourceFile()
+  const childInks = new Set<'sage' | 'other' | 'inherit'>()
+  let carries = false
+  const props = fn.parameters[0]
+  const takesChildren = !!props && !!CHECKER.getTypeAtLocation(props).getProperty('children')
+  const isChildren = (e: ts.Expression) => {
+    const x = unwrap(e)
+    return (ts.isIdentifier(x) && x.text === 'children') || (ts.isPropertyAccessExpression(x) && x.name.text === 'children')
+  }
+  const element = (el: ts.JsxElement | ts.JsxSelfClosingElement, ink: 'sage' | 'other' | 'inherit') => {
+    const opening = ts.isJsxElement(el) ? el.openingElement : el
+    const next = textColour(opening) ?? ink
+    // A spread can carry the children through (`<span {...rest} />`).
+    if (takesChildren && opening.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p))) childInks.add(next)
+    if (ink === 'inherit' && inheritsValue(opening)) carries = true
+    if (ts.isJsxElement(el)) children(el.children, next)
+  }
+  const children = (list: ts.NodeArray<ts.JsxChild>, ink: 'sage' | 'other' | 'inherit') => {
+    list.forEach((child, i) => {
+      if (ts.isJsxText(child)) { if (ink === 'inherit' && carriesDigit(child.text)) carries = true }
+      else if (ts.isJsxExpression(child) && child.expression) { if (!citationBracket(list, i) && !bracketTemplate(child.expression)) expression(child.expression, ink) }
+      else if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) element(child, ink)
+      else if (ts.isJsxFragment(child)) children(child.children, ink)
+    })
+  }
+  const expression = (e: ts.Expression, ink: 'sage' | 'other' | 'inherit') => {
+    const x = unwrap(e)
+    if (isChildren(x)) childInks.add(ink)
+    else if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x)) element(x, ink)
+    else if (ts.isJsxFragment(x)) children(x.children, ink)
+    else if (ts.isConditionalExpression(x)) { expression(x.whenTrue, ink); expression(x.whenFalse, ink) }
+    else if (ts.isBinaryExpression(x)) { expression(x.left, ink); expression(x.right, ink) }
+    else if (ts.isCallExpression(x) && callbackReturns(x).length) callbackReturns(x).forEach((r) => expression(r, ink))
+    else if (ink === 'inherit') {
+      const text = literalText(x)
+      if (text !== null ? carriesDigit(text) : rendersValue(x, sf)) carries = true
     }
   }
-  return variants.some((v) => SAGE_VARIANTS.has(v) || v === 'unknown')
-}
-/** 'sage' when the element's own resting text colour is a sage token, or it is a Button-like element with a
-    sage variant; 'other' for any other colour. */
-function textColour(opening: ts.JsxOpeningLikeElement): 'sage' | 'other' | null {
-  if (sageButtonVariant(opening)) return 'sage'
-  let colour: 'sage' | 'other' | null = null
-  for (const token of classTokens(opening)) {
-    const parts = token.split(':')
-    const utility = parts.pop()!.replace(/^!/, '')
-    if (!utility.startsWith('text-') || NOT_COLOUR.test(utility)) continue
-    if (parts.some((variant) => !PASSIVE_VARIANTS.has(variant))) continue
-    if (SAGE.test(utility)) return 'sage'
-    colour = 'other'
+  for (const r of returnedExpressions(fn)) expression(r, 'inherit')
+  const result: Summary = {
+    childrenInk: childInks.has('sage') ? 'sage' : childInks.has('inherit') ? null : 'other',
+    inheritsValue: carries,
   }
-  return colour
+  SUMMARIES.set(fn, result)
+  return result
+}
+
+/** Whether a component element renders a number in the ink it inherits, which a sage parent would colour. */
+function inheritsValue(opening: ts.JsxOpeningLikeElement): boolean {
+  if (siteInk(opening) !== null) return false
+  const fn = componentFunction(opening)
+  return !!fn && summary(fn).inheritsValue
 }
 
 /** The literal texts an element renders in its own ink (stops at a child that sets its own colour). */
@@ -228,7 +462,9 @@ function inkTexts(children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile, out: {
     else if (ts.isConditionalExpression(x)) [x.whenTrue, x.whenFalse].forEach(expr)
     else if (ts.isBinaryExpression(x)) [x.left, x.right].forEach(expr)
     else if (ts.isPropertyAccessExpression(x)) mappedValues(x, sf).forEach((value) => out.push({ node: x, text: value }))
-    else if (ts.isJsxElement(x) || ts.isJsxFragment(x)) inkTexts(x.children, sf, out)
+    else if (ts.isJsxFragment(x)) inkTexts(x.children, sf, out)
+    else if (ts.isJsxElement(x) && textColour(x.openingElement) === null) inkTexts(x.children, sf, out)
+    else if (ts.isCallExpression(x)) callbackReturns(x).forEach(expr)
   }
   for (const child of children) {
     if (ts.isJsxText(child)) out.push({ node: child, text: child.text })
@@ -259,28 +495,28 @@ function localInitializer(id: ts.Identifier, sf: ts.SourceFile): ts.Expression |
   return init
 }
 
-/** Whether a JSX expression renders a value: a number-typed expression, a template or concatenation
- *  with a number in it, a string-returning call fed a number (a formatter), a conditional with such
- *  a branch, or a same-file constant built from one of those. */
+/** Whether a JSX expression renders a value: a number-typed expression, a template or concatenation with a
+ *  number in it, a string-returning call fed a number (a formatter, and so also a lookup such as
+ *  `labelFor(i)`: give that label its own ink or pass it a string), what a callback returns, a conditional
+ *  with such a branch, a same-file constant built from one of those, or a component that renders a number
+ *  in the ink it inherits. */
 function rendersValue(e: ts.Expression, sf: ts.SourceFile, depth = 0): boolean {
   const x = unwrap(e)
-  if (depth > 6 || ts.isJsxSelfClosingElement(x)) return false
+  if (depth > 6) return false
+  if (ts.isJsxSelfClosingElement(x)) return inheritsValue(x)
   if (ts.isJsxFragment(x)) return inkValues(x.children, sf).length > 0
-  if (ts.isJsxElement(x)) return textColour(x.openingElement) === null && inkValues(x.children, sf).length > 0
+  if (ts.isJsxElement(x)) return inheritsValue(x.openingElement) || (textColour(x.openingElement) === null && inkValues(x.children, sf).length > 0)
   if (ts.isTemplateExpression(x)) return x.templateSpans.some((span) => rendersValue(span.expression, sf, depth + 1))
   if (literalText(x) !== null) return false
   if (ts.isConditionalExpression(x)) return rendersValue(x.whenTrue, sf, depth + 1) || rendersValue(x.whenFalse, sf, depth + 1)
   if (ts.isBinaryExpression(x)) return rendersValue(x.left, sf, depth + 1) || rendersValue(x.right, sf, depth + 1)
   if (ts.isCallExpression(x)) {
     // A number's own method ("n.toLocaleString()"), a call that returns one, a formatter fed one
-    // (a literal argument such as "slice(0, 20)" is not a value), or a callback that renders JSX.
+    // (a literal argument such as "slice(0, 20)" is not a value), or what a callback returns.
     if (isNumberTyped(x)) return true
     if (ts.isPropertyAccessExpression(x.expression) && isNumberTyped(x.expression.expression)) return true
-    return x.arguments.some((a) => {
-      const arg = unwrap(a)
-      if (ts.isArrowFunction(arg) && !ts.isBlock(arg.body)) return rendersValue(arg.body, sf, depth + 1)
-      return literalText(arg) === null && isNumberTyped(a)
-    })
+    if (callbackReturns(x).some((r) => rendersValue(r, sf, depth + 1))) return true
+    return x.arguments.some((a) => !ts.isArrowFunction(unwrap(a)) && !ts.isFunctionExpression(unwrap(a)) && literalText(unwrap(a)) === null && isNumberTyped(a))
   }
   if (ts.isIdentifier(x)) {
     const init = localInitializer(x, sf)
@@ -296,23 +532,35 @@ function citationBracket(children: ts.NodeArray<ts.JsxChild>, i: number): boolea
   return !!before && !!after && ts.isJsxText(before) && ts.isJsxText(after) && /^\s*\[\s*$/.test(before.text) && /^\s*\]\s*$/.test(after.text)
 }
 
+/** A template whose brackets are its whole text (`{`[${n}]`}`): the citation marker written as one string. */
+function bracketTemplate(e: ts.Expression): boolean {
+  const x = unwrap(e)
+  return ts.isTemplateExpression(x) && /^\s*\[\s*$/.test(x.head.text) && x.templateSpans.length === 1 && /^\s*\]\s*$/.test(x.templateSpans[0].literal.text)
+}
+
 /** The expression a link renders as its own address (`<a href={url}>{url}</a>`): text, not a value. */
 function ownAddress(opening: ts.JsxOpeningLikeElement | undefined, e: ts.Expression): boolean {
   const href = opening?.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'href')
   return !!href?.initializer && ts.isJsxExpression(href.initializer) && !!href.initializer.expression && href.initializer.expression.getText() === e.getText()
 }
 
-/** The expressions an element renders in its own ink that carry a value (stops at a child with its own colour). */
+/** The expressions and component elements an element renders in its own ink that carry a value (stops at a
+    child with its own colour). */
 function inkValues(children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile, out: ts.Node[] = [], opening?: ts.JsxOpeningLikeElement) {
+  const element = (el: ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment) => {
+    if (ts.isJsxFragment(el)) return void inkValues(el.children, sf, out)
+    const own = ts.isJsxElement(el) ? el.openingElement : el
+    if (inheritsValue(own)) out.push(el)
+    if (ts.isJsxElement(el) && textColour(own) === null) inkValues(el.children, sf, out)
+  }
   children.forEach((child, i) => {
     if (ts.isJsxExpression(child) && child.expression) {
       if (citationBracket(children, i) || ownAddress(opening, child.expression)) return
+      if (bracketTemplate(child.expression)) return
       const x = unwrap(child.expression)
-      if (ts.isTemplateExpression(x) && /^\s*\[\s*$/.test(x.head.text) && x.templateSpans.length === 1 && /^\s*\]\s*$/.test(x.templateSpans[0].literal.text)) return
-      if (ts.isJsxElement(x) || ts.isJsxFragment(x)) { if (ts.isJsxElement(x) ? textColour(x.openingElement) === null : true) inkValues(x.children, sf, out); return }
+      if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x) || ts.isJsxFragment(x)) return element(x)
       if (rendersValue(child.expression, sf)) out.push(child.expression)
-    } else if (ts.isJsxFragment(child)) inkValues(child.children, sf, out)
-    else if (ts.isJsxElement(child) && textColour(child.openingElement) === null) inkValues(child.children, sf, out)
+    } else if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child) || ts.isJsxFragment(child)) element(child)
   })
   return out
 }
@@ -407,10 +655,7 @@ describe('brand rule 2: sage never colours a number', () => {
     for (const { rel, sf } of SOURCES) {
       visit(sf, (n) => {
         if (!ts.isJsxElement(n) || textColour(n.openingElement) !== 'sage') return
-        for (const { node, text } of inkTexts(n.children, sf)) {
-          const trimmed = text.trim()
-          if (/\d/.test(trimmed) && !CITATION.test(trimmed)) offenders.push(where(rel, sf, node, trimmed))
-        }
+        for (const { node, text } of inkTexts(n.children, sf)) if (carriesDigit(text)) offenders.push(where(rel, sf, node, text))
         for (const node of inkValues(n.children, sf, [], n.openingElement)) offenders.push(where(rel, sf, node, `{${node.getText(sf)}}`))
       })
     }
