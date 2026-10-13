@@ -19,8 +19,9 @@ import { middleware } from '@/middleware'
  * for byte (a new rendition takes a new name, so a changed file fails here until it does); pass
  * middleware.ts in both waitlist modes; and be reached by no redirect or rewrite in next.config.js
  * or vercel.json, and no basePath, read in a production build's environment. The origin mail
- * addresses them on is review-checked, and so is anything set only in the Vercel dashboard (a
- * variable a rule reads, or a redirect).
+ * addresses them on is review-checked, and so are the response headers a route or a headers rule sets
+ * on them (a Content-Type that stops a mail client showing the image) and anything set only in the
+ * Vercel dashboard (a variable a rule reads, or a redirect).
  */
 const PUBLISHED = [
   // The app tile in the transactional mail header (docs/brand/templates/email-header.html) once
@@ -40,8 +41,10 @@ const WAITLIST_MODES = ['true', 'false']
 const KEPT = 'is a published URL'
 
 type Route = { source?: string; src?: string; has?: { type: string; value?: unknown }[] }
+/** A vercel.json legacy route: its regex, the response headers it may set, and whatever else it carries. */
+type LegacyRoute = Route & { headers?: Record<string, string> } & Record<string, unknown>
 type NextRoutes = { basePath?: string; redirects: Route[]; rewrites: Route[] | { beforeFiles?: Route[]; afterFiles?: Route[]; fallback?: Route[] } }
-type VercelJson = { build?: { env?: Record<string, string> }; bulkRedirectsPath?: string; redirects?: Route[]; rewrites?: Route[]; routes?: Route[] }
+type VercelJson = { build?: { env?: Record<string, string> }; bulkRedirectsPath?: string; redirects?: Route[]; rewrites?: Route[]; routes?: LegacyRoute[] }
 
 /**
  * The environment a production build on Vercel runs in, as far as the repository can say: Next's own
@@ -100,18 +103,26 @@ function nextRoutes(vercel: VercelJson): NextRoutes {
 }
 
 /**
- * Every rule that can redirect or rewrite a path before it is served: Next's, and vercel.json's as Vercel
- * applies them. A legacy route's regex may be spelled `src` or `source`; it is kept as `src`, the
- * spelling reaches() reads as a regex. The bulk redirects vercel.json can import from a file
- * (`bulkRedirectsPath`) are not read here, so the register refuses them until it reads them.
+ * Every rule that can redirect, rewrite or refuse a path before it is served: Next's, and vercel.json's as
+ * Vercel applies them. A legacy route's regex may be spelled `src` or `source`; it is kept as `src`, the
+ * spelling reaches() reads as a regex. A legacy route that does nothing but set response headers on the
+ * way, as Vercel's cache-control example does (`"headers": { … }, "continue": true`), serves the same file
+ * at the same path and passes: its keys are among those in INERT_ROUTE_KEYS, and none of its headers is a
+ * Location. Any other key counts, whatever it does: `dest` or `destination`, `status` or `statusCode`,
+ * `mitigate`, `locale`, `transforms`, `middlewarePath`, and any key Vercel adds. The bulk redirects
+ * vercel.json can import from a file (`bulkRedirectsPath`) are not read here, so the register refuses them
+ * until it reads them.
  */
+const INERT_ROUTE_KEYS = new Set(['src', 'source', 'headers', 'continue', 'has', 'missing', 'methods', 'caseSensitive'])
 function routing(): { basePath: string; bulkRedirectsPath?: string; rules: [string, Route][] } {
   const vercel: VercelJson = JSON.parse(readFileSync(path.join(FRONTEND, 'vercel.json'), 'utf8'))
   const next = nextRoutes(vercel)
   const rewritten = Array.isArray(next.rewrites)
     ? next.rewrites
     : [...(next.rewrites.beforeFiles ?? []), ...(next.rewrites.afterFiles ?? []), ...(next.rewrites.fallback ?? [])]
-  const legacy = (vercel.routes ?? []).map(({ src, source, has }): Route => ({ src: src ?? source, has }))
+  const moves = (r: LegacyRoute) =>
+    Object.keys(r).some((k) => !INERT_ROUTE_KEYS.has(k)) || Object.keys(r.headers ?? {}).some((h) => h.toLowerCase() === 'location')
+  const legacy = (vercel.routes ?? []).filter(moves).map(({ src, source, has }): Route => ({ src: src ?? source, has }))
   const named = (where: string, list: Route[] | undefined) => (list ?? []).map((r): [string, Route] => [where, r])
   return {
     basePath: next.basePath ?? '',
