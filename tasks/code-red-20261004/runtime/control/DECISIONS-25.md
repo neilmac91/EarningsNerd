@@ -121,12 +121,15 @@ it first), answered the thread and put the choice to the founder (founder action
 should-fixes and seven nits. The first should-fix is a route the earlier reviews missed: the Alpha Vantage client logged the first 160
 characters of a throttle notice, and the provider's daily-limit notice has quoted the key. It also showed the chief's answer to Codex
 wrong ("at most a masked key's last four characters"), which the chief corrected in that thread at 07:55:35Z. The second: the output
-walk missed some Sentry calls (`set_tags`, `set_user`, `capture_exception`, a span's data). The chief applied both and five nits in
+walk missed some Sentry calls (`set_tags`, `set_user`, `capture_exception`, a span's data). The chief applied both and six nits in
 `3c52519`, declined one (reformatting lines that fail `ruff format` on main too), moved E19 into #1281's own todo lines and pushed it
-at 07:55:25Z, after reserving its paid runs (event 63, record 26's spend): the full gate, 296 gate-file tests and 94 mutation runs ran
+at 07:55:26Z, after reserving its paid runs (event 63, record 26's spend): the full gate, 296 gate-file tests and 94 mutation runs ran
 on it first. The reviewer judged the merge safe for production: the documented `DATABASE_URL` holds one `@`, and the deploy's
-migration step, which splits the secret at its first `@`, would already fail on any other. Outside the PR, it noted that the Resend
-webhook signs and compares unlike the Svix scheme Resend uses, so genuine webhooks may never verify (it fails closed): todo E20.
+migration step, which splits the secret at its first `@` without decoding, would already fail on an `@` in the user name or password,
+raw or percent-encoded. Outside the PR, it noted that the Resend webhook signs and compares unlike the Svix scheme Resend uses, so
+genuine webhooks may never verify (it fails closed): todo E20. Requested on `3c52519` (07:55:34Z), Codex answered with its usage-limit
+reply (07:55:42Z), though it reviewed this record's PR again at 08:01Z and 08:07Z, so #1281's review gate needs Codex's review or a
+`Review override:` line naming the second review and its delta check.
 
 ## The `INHERITED` residue: closed by another writer
 
@@ -207,8 +210,9 @@ chief made, each with a fresh `deepseek-balance` reading above the founder's USD
 
 Spend this record: **USD 0.996534, 315 DeepSeek calls** (all logged; telemetry estimates, not invoices); recorded use against the
 authority 2.025008 → 3.021542 (1,451 → 1,766 calls); retained holds unchanged (1.881713); headroom 21.093279 → 20.096745; cumulative
-recorded usage 5.809257 → 6.805791 (3,510 → 3,825 calls); **0 active reservations**. No excess over any reservation. Five other
-`deepseek-balance` dispatches on main in this record's window (runs 38297583403, 38299069810, 38305627814, 38307726438 and
+recorded usage 5.809257 → 6.805791 (3,510 → 3,825 calls); **0 active reservations after event 62**; event 63 (the reservation before
+the push of `3c52519`, 07:54:56Z) and event 64 (its settlement, 08:07:48Z) are record 26's spend. No excess over any reservation. Five
+other `deepseek-balance` dispatches on main in this record's window (runs 38297583403, 38299069810, 38305627814, 38307726438 and
 38312689924, 19:25:45Z to 21:46:15Z on 2026-10-12) were not this session's; GitHub shows them under the same login. Between the
 chief's second and third readings the balance fell USD 0.36 against this session's USD 0.178677, and between the third and fourth USD
 0.62 against 0.268017: the difference is other writers' paid runs or the telemetry estimates' error, not reserved here. Event 62 was
@@ -278,20 +282,26 @@ No classifier denial of the chief's this record. One of the chief's misses is a 
    created (no force-push), its body edited several times, four `@codex review` requests through 01:26:26Z and a fifth at 06:47:26Z,
    the ready marking, the hold acknowledgement and an answer on Codex's thread; ten ledger events published to the private ledger;
    four cross-session messages to the merge trains (two each at about 21:04Z and 21:24Z on 2026-10-12); two self check-ins armed; this
-   PR (opened as a draft; `@codex review` requested after each push; Codex's threads answered).
+   PR (opened as a draft; `@codex review` requested after each push; Codex's threads answered). These counts run to 06:59:21Z, when
+   this record's second commit was pushed; the chief's later actions (on #1281 the push of `3c52519`, a sixth `@codex review` request,
+   the correction in Codex's thread and the body edits; a sixth balance dispatch and its log; ledger events 63 on and their runs'
+   logs) are record 26's.
 
 ## Plan
 
 1. **This record's PR:** a fact-check workflow over the draft (`record-25-factcheck-01`, closure 176), then `record-25-reviewer-01`
    (pre-registered in closure 175, annotated in closure 176; records-only rule: one reviewer context bound to the final head, with
    same-context delta checks); Codex reviewed `324b5bb` (one P2, applied) and is requested after each push; an explicit squash title
-   and message; then the twenty-first deploy-skip proof.
+   and message; then the twenty-first deploy-skip proof. Item IDs F22, E19 and E20 are also defined in other writers' open drafts
+   (#1289, #1291): at each merge the chief checks main's `tasks/todo.md` and renumbers its own lines if an ID is taken; these records
+   name each item by its description as well.
 2. **#1281's merge waits for the founder.** The second, independent review (`secret-output-followups-second-review-01`, closure 176)
-   found no blocker, and its fixes are on the branch (`3c52519`): its same-context delta check of them, Codex's review and CI on that
-   head come next, each later fix onto the same branch with each paid run reserved first. The founder decides the merge and whether
-   E19 (Codex's P2) goes in before it. When the founder confirms, the chief squash-merges with the drafted message pinned to the
-   reviewed head once main is idle, verifies the deploy and tells the merge trains. If the founder names another reviewer instead (for
-   example Codex, once its credits are added), the chief waits for that review.
+   found no blocker, and its fixes are on the branch (`3c52519`): its same-context delta check of them, the review gate (Codex's
+   review, or a `Review override:` line where Codex cannot review that head) and CI on that head come next, each later fix onto the
+   same branch with each paid run reserved first. The founder decides the merge and whether E19 (Codex's P2) goes in before it. When
+   the founder confirms, the chief squash-merges with the drafted message pinned to the reviewed head once main is idle, verifies the
+   deploy and tells the merge trains. If the founder names another reviewer instead (for example Codex, once its credits are added),
+   the chief waits for that review.
 3. **Then the checkpoint's Next queue:** the COO's G3 first-customer-part review and the G4 gate; B32's qualifying retained window; R1
    waits on the founder's custody step-A answer.
 
@@ -313,7 +323,8 @@ is retained.
 
 1. **#1281's merge** (new; yours to decide): a comment relayed on the PR at 05:20Z under your login asks that its merge wait for
    another agent's review. The second, independent review it asked for is done: no blocker, its two should-fixes applied on the
-   branch. Tell the chief, in your own words, one of: merge it once CI, Codex and that review's delta check are green on the new head;
+   branch. Tell the chief, in your own words, one of: merge it once CI and that review's delta check are green on the new head and its
+   review gate clears (Codex's review, or a `Review override:` line naming the substitute review where Codex cannot review the head);
    or wait for a reviewer you name. Also say whether Codex's P2 (a value-level Sentry scrubber, todo E19) goes into #1281 before the
    merge (about an hour more, one more paid run and a delta check) or into its own PR right after it, which the chief recommends: the
    scrubber is defense in depth over the routes #1281 closes, and its own review keeps #1281's reviewed head stable. Merging deploys
@@ -323,8 +334,9 @@ is retained.
    so rotate them and delete the events (rotating `SECRET_KEY` signs every user out). Events with a `_require_internal_token` frame or
    on an `/internal/` route: rotate `INTERNAL_JOB_TOKEN` together with the header the Cloud Scheduler jobs send, and delete the
    events. #1238 stops events of the first kind; #1281, once merged, stops the second and stops sending frame locals at all.
-3. **Codex credits** (carried from record 24): Codex reviewed again from 06:43Z on 2026-10-13 (#1294 and #1281), so nothing is needed
-   unless it runs out again.
+3. **Codex credits** (carried from record 24; optional): Codex reviewed again from 06:43Z on 2026-10-13 (#1294 and #1281), but
+   answered #1281's request on `3c52519` with its usage-limit reply (07:55:42Z); a PR whose head Codex cannot review carries a `Review
+   override:` line naming its substitute review. Adding credits would let Codex review such heads.
 4. **#1238's merge** (optional; carried from record 24): if you merged it yourself, nothing to do; telling the chief closes the
    question.
 5. **The spending note** (carried from record 22): if "spending more" was meant for the DeepSeek provider authority as well, say so in
