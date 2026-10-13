@@ -81,12 +81,12 @@ Proposal §9 is the record of the founder's decisions; this block only points at
 letters as the note mark; mandatory column snapping with the whole-column range rule; the "Q2 2026" /
 "Q2 ’26" vocabulary on the analysis surfaces and their exports; the KPI strip two-up at 320 px; the table
 window not driving the charts. Track B is unblocked on them. Under "Amended and added by the
-comprehensive review", the amendment to decision 4 and decisions 6–9 are NOT yet confirmed: decision 6
-(the table's glyph budget) is on `main` (#1202) pending ratification, so overruling it is a rollback
-follow-up; the amended 4 (one-up cards below 17 em), 7 (filled bars), 8 (presets as plain buttons) and 9
-("Unavailable", "No figures need review") are not on `main` and are implemented in the prototype only:
-treat each as a founder pause (`AGENTS.md` §3), do not implement it until the founder confirms it in
-writing, and say in the PR body which of them a PR relies on.
+comprehensive review", the founder delegated decisions 4 (amended), 6, 7, 8 and 9 to Astra's
+expert recommendation in the open-items sweep on 2026-10-11. The recommendations in proposal §9
+are adopted: one-up KPI cards below 17 em of the page's text size, retain the table glyph budget
+with exact-value access, filled affected bars with note letters, plain preset buttons, and
+"Unavailable" / "No figures need review". These decisions authorize the follow-ups; they do not
+claim that unmerged code is shipped. Say in each PR body which decision the change implements.
 </founder_decisions>
 
 <task>

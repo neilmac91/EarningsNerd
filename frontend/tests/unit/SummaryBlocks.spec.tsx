@@ -147,6 +147,29 @@ describe('SummaryBlocks', () => {
     }
   })
 
+  it('keeps every supplied generic-table cell, ragged row and source under distinct native table captions', () => {
+    const evidence = { verified: true, excerpt: 'Expense over vesting', section_ref: 'Note 5', fragment_url: 'https://www.sec.gov/x.htm' }
+    const tables: RenderedSection[] = [{
+      id: 'notable-footnotes', title: 'Notable Footnotes', blocks: [
+        { kind: 'table', headers: ['Item', 'Impact'], rows: [
+          ['Stock awards', 'Expense over vesting', 'Extra supplied field'], ['Short row'], [], ['', ''],
+        ], row_evidence: [evidence, null, evidence, null] },
+        { kind: 'table', headers: [], rows: [['Unlabelled value', 'Second cell']] },
+      ],
+    }]
+    render(<SummaryBlocks sections={tables} summary={summary} />)
+    const first = screen.getByRole('table', { name: 'Notable Footnotes, table 1 of 2' })
+    expect(within(first).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['Item', 'Impact'])
+    expect(Array.from(first.querySelectorAll('tbody tr')).map((row) => row.children.length)).toEqual([3, 1, 1, 2])
+    for (const text of ['Stock awards', 'Expense over vesting', 'Extra supplied field', 'Short row']) {
+      expect(within(first).getByText(text, { exact: true })).toBeInTheDocument()
+    }
+    expect(within(first).getAllByRole('link', { name: /Source: Verified in filing/ })).toHaveLength(2)
+    const second = screen.getByRole('table', { name: 'Notable Footnotes, table 2 of 2' })
+    expect(within(second).queryAllByRole('columnheader')).toHaveLength(0)
+    expect(within(second).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['Unlabelled value', 'Second cell'])
+  })
+
   it('renders the risks section with its evidence + trace-to-source provenance', () => {
     render(<SummaryBlocks sections={sections} summary={summary} />)
     // An evidence row (critique P-03): the start of the excerpt heads it, one level under the

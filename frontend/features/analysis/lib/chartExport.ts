@@ -13,21 +13,26 @@ export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: Analysis
     references.set(key, metrics)
   }
   const unavailable: string[] = []
+  const unnotedGaps: string[] = []
   let hasCalculated = false
   for (const series of plottedSeries) {
     const missing: string[] = []
+    const missingWithoutNote: string[] = []
     for (const period of dataset.periods) {
       const point = series.points.find((entry) => entry.period === period.key) ?? { period: period.key, value: null }
       const note = notes.noteFor(point)
       if (note) addReference(note.key, series.label, period.key)
-      if (point.value == null) missing.push(formatAnalysisPeriod(period.key))
-      else if (point.provenance ? point.provenance.method === 'calculated' : point.derived) hasCalculated = true
+      if (point.value == null) {
+        missing.push(formatAnalysisPeriod(period.key))
+        if (!note) missingWithoutNote.push(formatAnalysisPeriod(period.key))
+      } else if (point.provenance ? point.provenance.method === 'calculated' : point.derived) hasCalculated = true
       if (includeYoY && typeof point.yoy === 'number') {
         const comparison = notes.noteForComparison(point, 'yoy')
         if (comparison) addReference(comparison.key, `${series.label} YoY`, period.key)
       }
     }
     if (missing.length) unavailable.push(`${series.label}: unavailable for ${missing.join(', ')}.`)
+    if (missingWithoutNote.length) unnotedGaps.push(`${series.label}: unavailable for ${missingWithoutNote.join(', ')}.`)
   }
   const panelNotes = notes.notes.filter((note) => references.has(note.key))
   return {
@@ -35,7 +40,7 @@ export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: Analysis
     unavailable,
     exportNotes: [
       ...panelNotes.map((note) => `Note ${note.letter}: ${note.message} ${[...references.get(note.key)!].map(([label, periods]) => `${label} (${periods.join(', ')})`).join('; ')}.`),
-      ...unavailable,
+      ...unnotedGaps,
       ...(hasCalculated ? ['Includes figures calculated by EarningsNerd.'] : []),
       ...(plottedSeries.some((series) => series.concept === 'free_cash_flow') ? [FCF_DEFINITION] : []),
     ],

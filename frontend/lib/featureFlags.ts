@@ -155,6 +155,10 @@ export const ENABLE_FULLTEXT_SEARCH =
  */
 export const LOGO_DEV_ENABLED = Boolean(process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN)
 
+/** Local research evidence pack prototype. Default off; direct route returns 404. */
+export const ENABLE_RESEARCH_EVIDENCE_PACKS =
+  process.env.NEXT_PUBLIC_ENABLE_RESEARCH_EVIDENCE_PACKS === 'true'
+
 /** Local financial-refresh review prototype. Default off; no navigation entry. */
 export const ENABLE_FINANCIAL_REFRESH_REVIEW =
   process.env.NEXT_PUBLIC_ENABLE_FINANCIAL_REFRESH_REVIEW === 'true'

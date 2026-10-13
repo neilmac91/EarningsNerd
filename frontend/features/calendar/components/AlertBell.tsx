@@ -248,7 +248,7 @@ export function BellPopover({ blocked, onClose }: { blocked: BlockedState; onClo
                 off — the group's description keeps the message reachable either way. */}
             <div role={isError ? 'alert' : undefined}>
               <p id={titleId} className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                {title}
+                {title}{isError && <> <span className="sr-only">for {blocked.ticker}</span></>}
               </p>
               <p id={bodyId} className="mt-0.5 text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
                 {body}
