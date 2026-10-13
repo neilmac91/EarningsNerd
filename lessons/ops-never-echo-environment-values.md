@@ -302,15 +302,19 @@ each with its reason:
   value under 8 characters, a password given in a URL's query string (`?password=`, withheld only inside the whole URL),
   a secret that is no settings field (a user's credential, a token a provider returns), a new secret setting whose name
   ends in none of the rule's suffixes (the output walk misses it too), and a secret held as a number, which the walk
-  keeps as it is (no setting is one; an all-digit password is text in its URL). Profiles (code locations) and sessions
-  (release-health counts) pass no hook, and the hook drops a hint's attachments, whose bytes would pass none (the
-  backend sends none); the envelope's trace header is taken from the scrubbed event. Frame variables stay off whatever
-  the scrubber does: a frame holds values in forms it cannot match. Over-redaction is accepted: a secret that equals
-  ordinary text (a weak salt equal to the domain) withholds that text; one equal to a protocol word, which leaves every
-  key at the protocol's own paths, replaces that word in values, the protocol's own included (a check-in's
-  `in_progress`, a span's `op`), and in every other key (a log attribute named `sentry.environment` under a secret
-  `environment`), so Sentry may drop such a check-in or lose that attribute, though no capture fails; and the
-  public-by-design values the rule names (`STRIPE_PUBLISHABLE_KEY`, `POSTHOG_API_KEY`, `SENTRY_DSN`) are withheld too;
+  keeps as it is (no setting is one; an all-digit password is text in its URL), and one holding JSON syntax that
+  re-forms where the SDK serializes an item, across a key and its value or from an escaped character (Codex's
+  `message":"`, from an event's `message` key and its value: Codex's P2 on `b7de8cb`): such a secret forms only from
+  texts side by side in the item, so only one made of public text, which such items spell anyway, or one whose parts
+  code holding it writes side by side does. Profiles (code locations) and sessions (release-health counts) pass no hook,
+  and the hook drops a hint's attachments, whose bytes would pass none (the backend sends none); the envelope's trace
+  header is taken from the scrubbed event. Frame variables stay off whatever the scrubber does: a frame holds values in
+  forms it cannot match. Over-redaction is accepted: a secret that equals ordinary text (a weak salt equal to the
+  domain) withholds that text; one equal to a protocol word, which leaves every key at the protocol's own paths,
+  replaces that word in values, the protocol's own included (a check-in's `in_progress`, a span's `op`), and in every
+  other key (a log attribute named `sentry.environment` under a secret `environment`), so Sentry may drop such a
+  check-in or lose that attribute, though no capture fails; and the public-by-design values the rule names
+  (`STRIPE_PUBLISHABLE_KEY`, `POSTHOG_API_KEY`, `SENTRY_DSN`) are withheld too;
 - the output walk sees only a direct read in a call it names as an output, not an alias (`url = settings.REDIS_URL`),
   a helper the value is handed to or an object holding it (`stripe.api_key`), and the message walk reads
   `app/config.py` only and does not follow `globals()`, `setattr` or `sys.modules`;
