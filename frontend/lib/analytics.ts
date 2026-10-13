@@ -377,6 +377,72 @@ export const analytics = {
     safeCapture('billing_cycle_toggled', { from, to })
   },
 
+  // The Item 1A wording block of the change report was shown, once the viewer's own read settled:
+  // which form the viewer got (the teaser or the full list), the comparison's state and its size.
+  // The beta cohort's review task is counted from this and from the paywall events the teaser
+  // fires with entry_point "wording_changes".
+  wordingChangesViewed: (props: {
+    filingId: number
+    ticker: string | null
+    filingType: string
+    access: 'teaser' | 'full'
+    status: string
+    itemsTotal: number
+    hasChanges: boolean
+  }) => {
+    safeCapture('wording_changes_viewed', {
+      filing_id: props.filingId,
+      ticker: props.ticker,
+      filing_type: props.filingType,
+      access: props.access,
+      status: props.status,
+      items_total: props.itemsTotal,
+      has_changes: props.hasChanges,
+    })
+  },
+
+  // The Pro review of the wording changes (E17): one event per label set, one when the reader
+  // reaches the end of the queue (the E3 completion measure), one per receipt copied.
+  wordingChangeLabeled: (props: {
+    filingId: number
+    ticker: string | null
+    filingType: string
+    label: 'reviewed' | 'follow_up' | null
+    kind: string
+  }) => {
+    safeCapture('wording_change_labeled', {
+      filing_id: props.filingId,
+      ticker: props.ticker,
+      filing_type: props.filingType,
+      label: props.label,
+      kind: props.kind,
+    })
+  },
+
+  wordingReviewCompleted: (props: {
+    filingId: number
+    ticker: string | null
+    filingType: string
+    itemsTotal: number
+    followUps: number
+  }) => {
+    safeCapture('wording_review_completed', {
+      filing_id: props.filingId,
+      ticker: props.ticker,
+      filing_type: props.filingType,
+      items_total: props.itemsTotal,
+      follow_ups: props.followUps,
+    })
+  },
+
+  wordingReceiptCopied: (props: { filingId: number; ticker: string | null; filingType: string }) => {
+    safeCapture('wording_receipt_copied', {
+      filing_id: props.filingId,
+      ticker: props.ticker,
+      filing_type: props.filingType,
+    })
+  },
+
   checkoutStarted: (plan: string, price: number, billingCycle: string) => {
     // price is the selected cycle's full charge in dollars; the server decides the actual charge.
     safeCapture('checkout_started', { plan, price, billing_cycle: billingCycle })

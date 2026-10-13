@@ -4,6 +4,8 @@ import { CaretRightIcon } from '@/lib/icons'
 import { Card, cx } from '@/components/ui'
 import type { ChangeReport, WhatChangedMetricItem } from '@/features/summaries/api/summaries-api'
 import { periodKind } from '@/features/filings/lib/filingPeriod'
+import { WordingChanges, type WordingContext } from '@/features/filings/components/WordingChanges'
+import { wordingHasContent } from '@/features/filings/lib/sectionChanges'
 import { directionText } from '@/lib/financialTone'
 import { fmtCurrency, fmtScale, formatLocalDate } from '@/lib/format'
 
@@ -11,7 +13,7 @@ import { fmtCurrency, fmtScale, formatLocalDate } from '@/lib/format'
  * A5 "What Changed": a calm, deterministic period-over-period change report — a numbered section of
  * the filing summary (`bare`, under the section's own heading) and, fed static samples, the landing
  * page's Change Report screen (its own Card). Renders nothing unless there is something material to
- * report (has_changes).
+ * report: metric deltas (has_changes) or an Item 1A wording comparison (reportHasContent).
  *
  * Rebuilt 2026-10 (docs/design/filings-index-review.md, then the 2026-10 critique's P-07):
  *  - the Card recipe (`<Card as="section">`, 16 / e2) with a sentence-case heading, or, `bare`, no
@@ -27,11 +29,21 @@ import { fmtCurrency, fmtScale, formatLocalDate } from '@/lib/format'
  *    CSS alone, like the metric cards (the inactive layout is display:none);
  *  - the risk diff with sentence-case subheads, counts, and neutral +/− glyphs (brand never signals a
  *    state). The backend withholds risk lines today (model-authored labels — change_report_service),
- *    so this block renders only when the payload carries them.
+ *    so this block renders only when the payload carries them;
+ *  - the Item 1A wording block (E17, PR B: WordingChanges), the filing's own risk-factor text against
+ *    the prior same-form original, last, under its own subheading: the one part of the report that is
+ *    served per viewer (a teaser, or every change for Pro), which `context` tells it about.
  */
 
 /** The report's fragment id: the company page's "Open change report" links to /filing/{id}#what-changed. */
 export const WHAT_CHANGED_ID = 'what-changed'
+
+/** Whether the report has anything to show: metric deltas, or an Item 1A wording comparison (a
+ *  state line at the least). Every surface that mounts the report decides by this, so the section
+ *  and its links appear and disappear together. */
+export function reportHasContent(report: ChangeReport | null | undefined): boolean {
+  return Boolean(report && (report.has_changes || wordingHasContent(report.section_changes)))
+}
 
 const TONE_TEXT: Record<WhatChangedMetricItem['tone'], string> = {
   gain: directionText.up,
@@ -100,6 +112,7 @@ export function WhatChanged({
   headingLevel: Heading = 'h2',
   bare = false,
   id,
+  context,
 }: {
   report: ChangeReport
   /** Heading element for "What changed"; the landing page nests the report under an h3. When `bare`,
@@ -109,9 +122,11 @@ export function WhatChanged({
   bare?: boolean
   /** The Card's id, when a link can name it (WHAT_CHANGED_ID under a legacy markdown summary). */
   id?: string
+  /** Who is reading, for the wording block's events and teaser; absent on the landing page's sample. */
+  context?: WordingContext
 }) {
-  if (!report.has_changes) return null
-  const { metrics, risks, comparison_basis: basis, prior_filing: prior, reporting_currency: currency } = report
+  if (!reportHasContent(report)) return null
+  const { metrics, risks, comparison_basis: basis, prior_filing: prior, reporting_currency: currency, section_changes: wording } = report
   const Sub = SUBHEADING[Heading]
   const priorEnded = prior?.period_end_date ? formatLocalDate(prior.period_end_date, 'MMM d, yyyy') : ''
 
@@ -223,6 +238,15 @@ export function WhatChanged({
         <p className={cx('mt-3 text-xs', MUTED)}>
           {risks.carried_count} risk factor{risks.carried_count === 1 ? '' : 's'} carried over unchanged.
         </p>
+      )}
+
+      {wordingHasContent(wording) && (
+        <WordingChanges
+          block={wording}
+          Heading={Sub}
+          context={context}
+          className={cx(report.has_changes ? 'mt-5 border-t pt-5' : 'mt-4', HAIRLINE)}
+        />
       )}
     </>
   )

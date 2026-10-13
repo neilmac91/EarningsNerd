@@ -26,6 +26,14 @@ from app.models import Filing, Summary, Watchlist
 from app.services import metric_delta_service
 from app.services.copilot_tools import canonical_unit
 from app.services.edgar.models import MetricChange
+from app.services.filing_section_service import (
+    ACCESS_FULL,
+    ACCESS_NONE,
+    NO_SECTION_ACCESS,
+    SectionAccess,
+    wording_change_summaries,
+)
+from app.services.section_review_service import review_progress
 from app.services.summary_generation_service import get_generation_progress_snapshot
 from app.services.summary_placeholders import is_summary_placeholder
 
@@ -236,11 +244,37 @@ def _prior_same_form(company_filings_desc: list[Filing], current: Filing) -> Opt
 
 # --------------------------------------------------------------------------- composition
 
-def compose_feed(db: Session, user_id: int, limit: int = 20) -> list[dict]:
+def _wording_changes(
+    db: Session, user_id: int, filings: list[Filing], access: SectionAccess
+) -> dict[int, Optional[dict]]:
+    """Per head filing, the Item 1A wording-change counts the card shows (from the cached
+    comparison summary; nothing when the filing has no comparison yet) and, for a viewer who gets
+    the full change list, the progress of their review of it, reconciled against the live
+    comparison exactly as the review endpoint reports it (``section_review_service.review_progress``:
+    a re-extraction that retired ids or the receipt reopens the review here too). Nothing at all
+    while the feature is off or the viewer has no access."""
+    if access.level == ACCESS_NONE or not filings:
+        return {}
+    summaries = wording_change_summaries(db, [f.id for f in filings])
+    progress: dict[int, dict] = {}
+    if access.level == ACCESS_FULL and summaries:
+        progress = review_progress(db, user_id, [f for f in filings if f.id in summaries])
+    out: dict[int, Optional[dict]] = {}
+    for filing_id, summary in summaries.items():
+        review = progress.get(filing_id, {"labeled": 0, "completed_at": None}) if access.level == ACCESS_FULL else None
+        out[filing_id] = {**summary, "review": review}
+    return out
+
+
+def compose_feed(
+    db: Session, user_id: int, limit: int = 20, *, section_access: SectionAccess = NO_SECTION_ACCESS
+) -> list[dict]:
     """Each watched company's NEWEST eligible filing (10-K/10-Q, plus 20-F/40-F behind
     ENABLE_FPI_FILINGS) — one item per company, companies ordered by that filing's date, newest
     first. ``limit`` caps the number of COMPANIES shown (not filings). Each item carries a
-    deterministic "what changed" headline + summary status. DB-only; no live EDGAR on render."""
+    deterministic "what changed" headline + summary status and, when ``section_access`` grants the
+    viewer the Item 1A wording diff, its change counts (``wording_changes``, with the viewer's
+    review progress for full access). DB-only; no live EDGAR on render."""
     company_ids = [
         row[0]
         for row in db.query(Watchlist.company_id).filter(Watchlist.user_id == user_id).distinct().all()
@@ -308,6 +342,8 @@ def compose_feed(db: Session, user_id: int, limit: int = 20) -> list[dict]:
     ):
         summary_by_filing.setdefault(s.filing_id, s)
 
+    wording_by_filing = _wording_changes(db, user_id, heads, section_access)
+
     items: list[dict] = []
     for f in heads:
         company = f.company
@@ -327,5 +363,6 @@ def compose_feed(db: Session, user_id: int, limit: int = 20) -> list[dict]:
             "summary_id": status["summary_id"],
             "summary_status": status["summary_status"],
             "what_changed": what_changed,
+            "wording_changes": wording_by_filing.get(f.id),
         })
     return items
