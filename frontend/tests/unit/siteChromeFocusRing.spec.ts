@@ -76,8 +76,9 @@ const PAGE_ROOTS = routeFiles('app', ['page.tsx'], ROOT)
  * The ringless page and feature Tab stops found when the page scan widened from four routes to every route
  * (2026-10), counted per file. Shrink-only: a surface PR that rings a file's controls lowers its count or
  * deletes its line; a new ringless stop fails, in a listed file (its count rises) or an unlisted one. The
- * counts and the number of files are capped at the seed (RING_RESIDUE_MAX), so the list cannot grow
- * without this spec's cap being raised in review. A PR that must raise it says why in its body.
+ * total of the counts and the number of files equal RING_RESIDUE_MAX, seeded at the scan's count and
+ * lowered in the same commit as each shrink, so no slack is left and the list cannot grow without the cap
+ * being raised in review. A PR that must raise it says why in its body.
  */
 const RING_RESIDUE: Record<string, number> = {
   // Each line names the sweep PR that owns the file, or why it waits. A "props spread" finding in a chart
@@ -926,12 +927,13 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
     }
     for (const file of Object.keys(RING_RESIDUE)) if (!found.has(file)) problems.push(`${file} has no ringless stop left: delete its RING_RESIDUE line`)
     expect(problems).toEqual([])
-  })
+  }, 30_000) // it reads every route's page and the modules each reaches; the default 5s times out on a loaded box
 
   it('the ring residue only shrinks', () => {
     const stops = Object.values(RING_RESIDUE).reduce((sum, n) => sum + n, 0)
-    expect(Object.keys(RING_RESIDUE).length, 'RING_RESIDUE gained a file').toBeLessThanOrEqual(RING_RESIDUE_MAX.files)
-    expect(stops, 'RING_RESIDUE gained a stop').toBeLessThanOrEqual(RING_RESIDUE_MAX.stops)
+    // Equality, not a ceiling: a PR that shrinks the list lowers the cap in the same commit.
+    expect(Object.keys(RING_RESIDUE).length, 'RING_RESIDUE changed its files: move RING_RESIDUE_MAX.files with it in the same commit').toBe(RING_RESIDUE_MAX.files)
+    expect(stops, 'RING_RESIDUE changed its stops: move RING_RESIDUE_MAX.stops with it in the same commit').toBe(RING_RESIDUE_MAX.stops)
   })
 
   it('controls a page passes into the page header\'s actions slot', () => {

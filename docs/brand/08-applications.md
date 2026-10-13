@@ -162,8 +162,13 @@ that PR:
 - `reservedGlyphs.spec.ts` (new): the quotes glyph marks a filing passage, the braces an XBRL fact
   and the sparkle the AI summary, nowhere else; a hand-drawn stand-in or the ✨ emoji counts.
 - `backendMessageMatches.spec.ts` (new): every phrase the frontend routes the paywall, the no-retry
-  path or the verification event on is written by the code that raises the message (docstrings do
-  not count), and no other literal match on a message exists under the api modules.
+  path, the verification event, the dashboard's sign-in redirect or the contact form's rate-limit
+  sentence on is written by the code that raises the message (docstrings do not count), or is listed
+  as unsourced with its reason. No other literal match exists in the api modules (`lib/api`,
+  `features/<domain>/api`), nor anywhere under `app`, `components`, `features`, `hooks` and `lib` on a
+  receiver named for an error or a message (err, error, message, msg, detail or reason, read through
+  camelCase such as `errorMessage`); a message held under another name outside the api modules is the
+  scan's limit.
 - ESLint: the raw-colour rule reads `rgb()`, `rgba()`, `hsl()` and `hsla()` as well as hex, in an
   arbitrary utility too; `earningsnerd/locale-pinned-numbers` (new) bans an unpinned
   `toLocaleString()` or `Intl.NumberFormat` outside `lib/format.ts` (`fmtCount`, `fmtDecimal`).
@@ -173,7 +178,10 @@ that PR:
 Four of them carry a shrink-only residue: `VOICE_RESIDUE`, the glyphs' `RESIDUE`, `RING_RESIDUE`
 and the matchers' `UNSOURCED`. Each holds what the audit found when its gate landed, counted per
 file, with the PR or the reason that clears each entry; a fixed entry fails until its count is lowered, and each
-list's size is capped at its seed. A PR that adds an entry needs a reason in its body.
+list's size must equal its cap, so a PR that shrinks a list lowers the cap in the same commit and no
+slack is left. `UNSOURCED`'s cap moved once with the scan's reach, the day the scan reached the
+dashboard boundary and the contact form. A PR that adds an entry raises the cap and gives its reason
+in its body.
 
 The design gates
 (`designSnapshotParity.spec.ts`, the ESLint design rules, `no-em-dash-copy.spec.ts`,

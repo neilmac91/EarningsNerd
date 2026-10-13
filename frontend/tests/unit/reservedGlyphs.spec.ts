@@ -15,8 +15,8 @@ import { describe, expect, it } from 'vitest'
  *  - MEANING lists the sites that use a glyph for its meaning. A new one is a design decision, made in
  *    review against DESIGN.md.
  *  - RESIDUE lists what the audit found spent elsewhere on 2026-10-12, with the PR that removes it.
- *    Shrink-only: a fixed use fails until its count is lowered, a new one fails, and the list is capped
- *    at the seed (RESIDUE_MAX).
+ *    Shrink-only: a fixed use fails until its count is lowered, a new one fails, and the list's size
+ *    equals RESIDUE_MAX, seeded at the audit's count and lowered in the same commit as each shrink.
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -156,8 +156,9 @@ describe('reserved glyphs keep their one meaning', () => {
 
   it('the residue only shrinks', () => {
     const counts = Object.values(RESIDUE).flatMap((c) => Object.values(c))
-    expect(Object.keys(RESIDUE).length, 'RESIDUE gained a file').toBeLessThanOrEqual(RESIDUE_MAX.files)
-    expect(counts.reduce((sum, n) => sum + (n ?? 0), 0), 'RESIDUE gained a use').toBeLessThanOrEqual(RESIDUE_MAX.uses)
+    // Equality, not a ceiling: a PR that shrinks the list lowers the cap in the same commit.
+    expect(Object.keys(RESIDUE).length, 'RESIDUE changed its files: move RESIDUE_MAX.files with it in the same commit').toBe(RESIDUE_MAX.files)
+    expect(counts.reduce((sum, n) => sum + (n ?? 0), 0), 'RESIDUE changed its uses: move RESIDUE_MAX.uses with it in the same commit').toBe(RESIDUE_MAX.uses)
   })
 
   it('the scan catches what it is for (a self-check on fixed sources)', () => {

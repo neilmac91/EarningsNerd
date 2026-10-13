@@ -28,8 +28,9 @@ import { describe, expect, it } from 'vitest'
  * VOICE_RESIDUE holds what the audit found on the day the gate landed, counted per file and clause.
  * It only shrinks: each surface PR that fixes a file lowers or deletes its line, a new violation fails
  * (an unlisted file, or a listed count that rises), a fixed one fails until its count is lowered, and
- * the list's size is capped at the seed (VOICE_RESIDUE_MAX). A PR that must add an entry says why in
- * its body.
+ * the list's size equals VOICE_RESIDUE_MAX, which seeds at the audit's count and moves with the list in
+ * the same commit (a shrink lowers it, so no slack is left). A PR that must add an entry raises it and
+ * says why in its body.
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -299,8 +300,10 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
 
   it('the residue only shrinks', () => {
     const entries = Object.values(VOICE_RESIDUE).flatMap((clauses) => Object.values(clauses))
-    expect(entries.length, 'VOICE_RESIDUE gained an entry').toBeLessThanOrEqual(VOICE_RESIDUE_MAX.entries)
-    expect(entries.reduce((sum, n) => sum + (n ?? 0), 0), 'VOICE_RESIDUE gained a violation').toBeLessThanOrEqual(VOICE_RESIDUE_MAX.violations)
+    // Equality, not a ceiling: a PR that shrinks the list lowers the cap in the same commit, so no slack is
+    // left for a later PR to add an entry by editing the table alone.
+    expect(entries.length, 'VOICE_RESIDUE changed its entries: move VOICE_RESIDUE_MAX.entries with it in the same commit').toBe(VOICE_RESIDUE_MAX.entries)
+    expect(entries.reduce((sum, n) => sum + (n ?? 0), 0), 'VOICE_RESIDUE changed its violations: move VOICE_RESIDUE_MAX.violations with it in the same commit').toBe(VOICE_RESIDUE_MAX.violations)
   })
 
   it('the scan catches what it is for (a self-check on a fixed source)', () => {
