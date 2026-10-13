@@ -380,7 +380,7 @@
       {
         "name": "e4",
         "value": "0 10px 15px -3px rgba(16, 24, 40, 0.10), 0 4px 6px -4px rgba(16, 24, 40, 0.10)",
-        "purpose": "Popovers (alert bell, source trace) and the Copilot coachmark in light mode."
+        "purpose": "Popovers (alert bell, source trace), the Copilot coachmark and toasts in light mode."
       },
       {
         "name": "e5",

@@ -71,13 +71,16 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
   verification mail ends "Verify your email address and you can start reading."
-- **Toasts** (`frontend/app/providers.tsx`): every toast is a panel card on the tokens, in the theme
-  the reader chose on the site rather than the OS setting; a success or error toast keeps the panel
+- **Toasts** (`frontend/app/providers.tsx`): every toast is a panel card on the tokens, on the
+  overlay step of the elevation ladder (`e4`), in the theme the reader chose on the site rather than
+  the OS setting; a success or error toast keeps the panel
   and colours only its icon (Sonner's own rich colours are off).
 - **Feedback widget** (`frontend/features/feedback/components/FeedbackWidget.tsx`): the three kinds
   read "Bug", "Idea" and "General", without emoji, on the token hairlines.
 - **Chart fallback** (`frontend/components/ChartErrorBoundary.tsx`): "This chart could not be
-  drawn." in the Card recipe; it no longer promises a table below, which neither chart surface has.
+  drawn." in the Card recipe on the filing page, where the boundary wraps one chart with nothing
+  below it; "These charts could not be drawn." on Multi-Period Analysis when it wraps a grid of more
+  than one chart panel (MetricsTable sits below, outside it). It says only what failed.
 - **Checkbox** (`frontend/components/ui/Checkbox.tsx`): one recipe for the consent dialog and the
   admin invites page, with a checked fill that holds 3:1 in dark (it was 2.2:1).
 - **Status chips** (`frontend/components/ui/Badge.tsx`): `success` and `error` variants for status,

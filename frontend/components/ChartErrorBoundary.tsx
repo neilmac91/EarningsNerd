@@ -6,6 +6,8 @@ import { Card } from '@/components/ui'
 interface Props {
   children: ReactNode
   fallback?: ReactNode
+  /** What the boundary wraps, so the fallback names it truly: one chart, or a grid of charts. */
+  noun?: 'chart' | 'charts'
 }
 
 interface State {
@@ -32,12 +34,13 @@ export class ChartErrorBoundary extends Component<Props, State> {
         return this.props.fallback
       }
       
-      // Says only what failed: the boundary wraps a chart on the filing page and on Multi-Period
-      // Analysis, and neither promises a table beneath it.
+      // Says only what failed. On the filing page the boundary wraps one chart with nothing below
+      // it; on Multi-Period Analysis it wraps the whole grid of chart panels (TrendCharts passes
+      // noun="charts" when more than one is shown) and MetricsTable sits below, outside it.
       return (
         <Card className="p-6 text-center">
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            This chart could not be drawn.
+            {this.props.noun === 'charts' ? 'These charts could not be drawn.' : 'This chart could not be drawn.'}
           </p>
         </Card>
       )

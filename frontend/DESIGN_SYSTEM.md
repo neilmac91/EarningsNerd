@@ -426,10 +426,11 @@ Checkbox         <Checkbox size="sm|md">  — the one checkbox (consent dialog, 
 
 Toast            Sonner's Toaster, rendered by ThemedToaster (app/providers.tsx) with the theme from
                  ThemeProvider (never "system", which reads the OS setting, not the site's toggle) and no
-                 richColors. Every toast is a panel card: border-border / bg-panel / primary ink, shadow-e2
-                 light and none in dark, each with `!` because Sonner's two-attribute surface rules outrank
-                 a utility; the description is secondary ink; a success or error toast keeps the panel and
-                 colours only its icon. Gate: tests/unit/toastTokens.spec.tsx (token classes only).
+                 richColors. Every toast is a panel card: border-border / bg-panel / primary ink, shadow-e4
+                 light (the ladder's overlay step, as the popovers) and none in dark, each with `!` because
+                 Sonner's two-attribute surface rules outrank a utility; the description is secondary ink;
+                 a success or error toast keeps the panel and colours only its icon. Gate:
+                 tests/unit/toastTokens.spec.tsx (token classes only; the card's e4 and dark none).
 
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a

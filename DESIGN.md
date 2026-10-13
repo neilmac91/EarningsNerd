@@ -406,7 +406,7 @@ The exact source shadow strings are stored in the sidecar's `extensions.shadows`
 | `e1` | Low lift for small controls such as the switch thumb and pricing-period toggle, the popular-ticker and quick-access chips, and some tiles; the Badge primitive carries no shadow |
 | `e2` | Default light card lift |
 | `e3` | Featured/hero surface emphasis |
-| `e4` / `e5` | `e4` for popovers (alert bell, source trace) and the Copilot coachmark; `e5` for the shared Modal, bottom sheets, the citation-chip popover and the cookie-consent banner, light mode only. Header menus use `e2` and search dropdowns `e3` |
+| `e4` / `e5` | `e4` for popovers (alert bell, source trace), the Copilot coachmark and toasts; `e5` for the shared Modal, bottom sheets, the citation-chip popover and the cookie-consent banner, light mode only. Header menus use `e2` and search dropdowns `e3` |
 | `ring-brand` / `ring-brand-dark` | Opaque 3px keyboard focus, at least 3:1 on page, panel and tinted control surfaces; fields also show it on focus |
 | `ring-brand-inset` / `ring-brand-inset-dark` | The same focus ink inside clipped scroll regions and calendar cells |
 | `ring-error` / `ring-error-dark` | Invalid fields and destructive-action focus, with opaque ink in each theme |
@@ -477,7 +477,7 @@ A checkbox is the shared [`Checkbox`](frontend/components/ui/Checkbox.tsx), neve
 
 Use [`Modal.tsx`](frontend/components/ui/Modal.tsx) for ordinary dialogs: translucent navy scrim, rounded panel, shared focus trap, Escape handling, opener focus restoration and internal scrolling. Keep the documented bespoke sheets/native calendar-dialog exceptions rather than creating additional dialog systems. Static sidecar samples demonstrate the visual shell only.
 
-A transient confirmation is a Sonner toast at the top centre, in the theme the reader chose on the site: a panel card with a hairline and primary ink, `e2` in light and no shadow in dark. A success or error toast keeps the panel ground and colours only its icon.
+A transient confirmation is a Sonner toast at the top centre, in the theme the reader chose on the site: a panel card with a hairline and primary ink, `e4` in light (the overlay step, as the popovers) and no shadow in dark. A success or error toast keeps the panel ground and colours only its icon.
 
 The signature evidence treatment is a compact citation/source chip attached to a figure or passage, with a route to inspect its source. [`CopilotMessage.tsx`](frontend/features/filings/components/copilot/CopilotMessage.tsx) is the production Ask answer renderer. A source match describes attribution within its stated scope; it must not imply that every claim in an answer was verified. Keep citation labels and evidence states faithful to the renderer.
 

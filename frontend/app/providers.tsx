@@ -32,10 +32,12 @@ const TOAST_RING = 'focus-visible:outline-none focus-visible:!shadow-ring-brand 
 // (`[data-sonner-toast][data-styled=true]`, two attributes) outrank a single utility class, so the
 // surface takes `!` as the ring does; the focus ring still wins on focus (it adds a pseudo-class).
 // Without richColors a success or error toast keeps the panel ground; its icon carries the status ink.
+// The card floats over the page, so it takes the ladder's overlay step (e4, as the popovers do), and
+// no shadow in dark like every other overlay.
 // toastTokens.spec.tsx holds these slots to token classes. Each slot is one literal, written whole,
 // so the ring gate and the token gate read it as it ships.
 const TOAST_CARD =
-  '!border-border-light !bg-panel-light !text-text-primary-light !shadow-e2 dark:!border-border-dark dark:!bg-panel-dark dark:!text-text-primary-dark dark:!shadow-none focus-visible:outline-none focus-visible:!shadow-ring-brand dark:focus-visible:!shadow-ring-brand-dark'
+  '!border-border-light !bg-panel-light !text-text-primary-light !shadow-e4 dark:!border-border-dark dark:!bg-panel-dark dark:!text-text-primary-dark dark:!shadow-none focus-visible:outline-none focus-visible:!shadow-ring-brand dark:focus-visible:!shadow-ring-brand-dark'
 const TOAST_CLOSE =
   '!border-border-light !bg-panel-light !text-text-secondary-light dark:!border-border-dark dark:!bg-panel-dark dark:!text-text-secondary-dark focus-visible:outline-none focus-visible:!shadow-ring-brand dark:focus-visible:!shadow-ring-brand-dark'
 export const TOAST_OPTIONS = {

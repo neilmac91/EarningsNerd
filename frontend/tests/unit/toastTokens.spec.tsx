@@ -3,6 +3,9 @@ import { act, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ToasterProps } from 'sonner'
 import { ThemeProvider } from '@/components/ThemeProvider'
+// Imported statically: vi.mock('sonner') below is hoisted above this import, so the provider graph
+// loads once at collection and no test body pays for it against the 5s timeout.
+import { ThemedToaster } from '@/app/providers'
 
 /**
  * chrome/F4: every toast is a panel card on the tokens, in the theme the reader chose. Sonner's
@@ -13,10 +16,11 @@ import { ThemeProvider } from '@/components/ThemeProvider'
  *
  * Holds: the Toaster takes the ThemeProvider theme in both themes and never 'system'; richColors is off;
  * every colour, border and shadow class in toastOptions.classNames names a token in tailwind.config.js
- * (no palette step, no hex, no arbitrary value), and the card slot sets the panel surface in both themes.
+ * (no palette step, no hex, no arbitrary value), and the card slot sets the panel surface in both themes
+ * and the overlay step of the elevation ladder (e4 in light, no shadow in dark).
  */
 
-const captured: ToasterProps[] = []
+const captured = vi.hoisted(() => [] as ToasterProps[])
 vi.mock('sonner', () => ({
   Toaster: (props: ToasterProps) => {
     captured.push(props)
@@ -64,7 +68,6 @@ function offToken(cls: string): string | null {
 
 async function renderToaster(stored: 'light' | 'dark') {
   localStorage.setItem('theme', stored)
-  const { ThemedToaster } = await import('@/app/providers')
   await act(async () => {
     render(
       <ThemeProvider>
@@ -100,11 +103,14 @@ describe('the Toaster on tokens (chrome/F4)', () => {
         .map(([s, cls, why]) => `${s}: ${cls} (${why})`),
     )
     expect(offenders).toEqual([])
-    // Anti-vacuity: the card slot paints the panel surface and its ink in both themes.
+    // Anti-vacuity: the card slot paints the panel surface and its ink in both themes, and floats on
+    // the ladder's overlay step (e4/e5 menus & overlays), not the card step e2.
     expect(classNames.toast.split(/\s+/)).toEqual(
-      expect.arrayContaining(['!bg-panel-light', 'dark:!bg-panel-dark', '!text-text-primary-light', 'dark:!text-text-primary-dark']),
+      expect.arrayContaining(['!bg-panel-light', 'dark:!bg-panel-dark', '!text-text-primary-light', 'dark:!text-text-primary-dark', '!shadow-e4', 'dark:!shadow-none']),
     )
+    expect(classNames.toast).not.toMatch(/(?:^|\s)!shadow-e[123](?:\s|$)/)
     expect(offToken('bg-gray-800')).toBe('not a colour token')
+    expect(offToken('!shadow-e9')).toBe('not a shadow token')
     expect(offToken('!bg-[#111]')).toBe('an arbitrary value')
   })
 })
