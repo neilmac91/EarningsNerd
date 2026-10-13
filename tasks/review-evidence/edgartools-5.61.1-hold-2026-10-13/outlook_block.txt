@@ -1,0 +1,3 @@
+== Outlook block (compare_sections.py.txt, final section) ==
+5.58.0: OUTLOOK at 61101 len(block)=3118 glued_literal=True row_regex=True ford_energy=True
+5.61.1: OUTLOOK at 61802 len(block)=3117 glued_literal=False row_regex=True ford_energy=True

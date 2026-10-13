@@ -17,12 +17,14 @@ Dependabot's tracker, as #1034 did.
    on 5.58.0 and 1 failed, 7 passed on 5.61.1 (`pytest-5.58.0.txt`, `pytest-5.61.1.txt`). The
    failing test is the one CI failed on the Dependabot head
    ([job 115044568198](https://github.com/neilmac91/EarningsNerd/actions/runs/38319696913/job/115044568198):
-   `1 failed, 7085 passed, 39 skipped`), with the same assertion:
+   `1 failed, 7085 passed, 39 skipped`; those figures are from that job's log), with the same
+   assertion, captured from the offline run in `pytest-5.61.1.txt`:
    `'Adjusted EBIT (a)$8.5 - $10.5 billion' in block`.
 2. **Regression 1 persists: no break between prose and a following table.** The three seams the
    5.59.1 evidence found glued are still glued (`probe_table_seams.txt`): in MD&A
-   `…with the SEC.` runs straight into `2026 Guidance`, and in Item 1 both `(in millions):` seams
-   run into their table headers. 5.58.0 separates each with a blank line.
+   `…with the SEC.` runs straight into `2026 Guidance`, and in Item 1 the first occurrence of each
+   `(in millions):` seam runs into its table header (the second occurrence of each keeps its blank
+   line, as the probe shows). 5.58.0 separates all three with a blank line.
 3. **Regression 2 persists: characters are lost.** The MD&A ROIC row `ROIC (a)8.6%(12.5%)` still
    becomes `ROIC (a)  8.6  %  (12.5` (`roic-row.txt`); the per-section character comparison
    (`content_compare.txt`) shows Part I Item 2 losing `{')': 1, '%': 2}` and nothing gained, exactly
@@ -34,13 +36,15 @@ Dependabot's tracker, as #1034 did.
 4. **Outlook block: nothing lost, representation changed** (`diff_outlook_block.txt`). As in 5.59.1,
    cells are separated by two spaces and the break before the table is gone; the block is 3,117
    characters against 3,118, `Ford Energy` is retained, and the row-preserving pattern from the
-   5.59.1 README (`Adjusted EBIT \(a\)[ \t]*\$8\.5 - \$10\.5 billion`) matches on both versions.
+   5.59.1 README (`Adjusted EBIT \(a\)[ \t]*\$8\.5 - \$10\.5 billion`) matches on both versions
+   (`outlook_block.txt` records the lengths and the three checks).
 5. **Other sections.** Items 3 and 4 and Part II Items 1 and 5 are byte-identical. Part II Item 2
    differs in whitespace only (5.60.0 collapses whitespace runs inside a text node, per its release
    notes). Item 1 keeps the same character multiset, nothing lost or gained, but not the same
    order, because its tables now render cell by cell through `render_table`; this is the 5.59.1
-   figure too. Part II Item 6 loses its heading and signature block as it did at 5.59.1 (deliberate
-   upstream; we do not use that section).
+   figure too. Part II Item 6 loses about 280 non-whitespace characters and gains none; at 5.59.1
+   that was its heading and signature block, which upstream drops deliberately, and we do not use
+   that section.
 6. **What 5.60.0–5.61.1 change, and whether it reaches us.** None of the three release notes
    mentions the affix or seam behaviour. 5.61.1 is a security release: the MCP server's HTTP
    transport now binds `127.0.0.1` (we do not run that server) and six dependency floors rise
@@ -67,8 +71,8 @@ prose and a rendered table; neither is in 5.61.1.
 
 ## Method
 
-`dump_sections.py.txt` parses the retained fixture (`tests/fixtures/outlook/ford-2026q1.html.gz`,
-SHA-256 `8f7a1ade…`) with `HTMLParser(ParserConfig(form="10-Q"))`, the same parser, config and
+`dump_sections.py.txt` parses the retained fixture (`tests/fixtures/outlook/ford-2026q1.html.gz`;
+SHA-256 of the decompressed HTML `8f7a1ade…`, the value the test asserts) with `HTMLParser(ParserConfig(form="10-Q"))`, the same parser, config and
 part-qualified selection the test and `_extract_sections_sync` use, and writes each section's
 `text()`. It ran once in a Python 3.11.17 environment installed from main's `requirements.txt`
 (edgartools 5.58.0) and once from #1285's (5.61.1). `compare_sections.py.txt` produced
