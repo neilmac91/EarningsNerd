@@ -8,7 +8,7 @@
  * that loses a form, or catches a look-alike, fails there. Outside the scan roots: rule 2's app scan never
  * reads it. A new form the rule can take joins it with its mark.
  */
-import { Children, type ReactNode, useCallback, useMemo, useState } from 'react'
+import React, { Children, type ReactNode, useCallback, useMemo, useState } from 'react'
 import { Badge, Button, buttonVariants, type BadgeVariant } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
 import Link from 'next/link'
@@ -537,3 +537,20 @@ export function P306({ n }: { n: number }) { return <Panel306 action={<button>Se
 // component returns, or never applied, its ink then masking the sage the component inherits.
 export function P317({ n }: { n: number }) { return <Deep317 className="text-brand-strong" n={n} /> } function Deep317({ className, n }: { className?: string; n: number }) { return <div><span className={className}>{n}</span></div> } // gap
 export function P318({ n }: { n: number }) { return <div className="text-brand-strong"><Ignores310 className="text-text-primary-light" n={n} /></div> } // gap
+// Codex's review of f5526d3: JSX normalised by React's Children.toArray (P319, the review's own form) was unread. The
+// family: the calls that keep what they are given or add to it (Children.toArray, concat, flat, by either name React
+// gives Children), the callbacks Children.map and forEach bind, a count control carried through such a call, and a
+// list a call makes rendered whole.
+export function P319({ n }: { n: number }) { const kids = Children.toArray([<span key="n">{n}</span>]); return <div className="text-brand-strong">{kids}</div> } // flag
+export function P320() { return <p>{Children.toArray(LABELS_161).map((l) => <span key={String(l)} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P321() { return <span className="text-brand-strong">{React.Children.toArray(LABELS_161)}</span> } // flag
+export function P322() { return <p>{Children.map(LABELS_161, (l) => <span key={String(l)} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P323() { const out: ReactNode[] = []; Children.forEach(LABELS_161, (l) => { out.push(<span key={String(l)} className="text-brand-strong">{l}</span>) }); return <p>{out}</p> } // flag
+export function P324() { return <p>{WORDS_161.concat(LABELS_161).map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P325() { return <p>{WORDS_161.concat(['Margin']).map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // clean
+export function P326() { return <p>{WORDS_161.concat('Q3').map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P327() { return <p>{[WORDS_161, LABELS_161].flat().map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P328() { return <p>{[WORDS_161, ['Margin']].flat().map((l) => <span key={l} className="text-brand-strong">{l}</span>)}</p> } // clean
+export function P329() { return <span className="text-brand-strong">{LABELS_161.slice(0)}</span> } // flag
+export function P330() { return <span className="text-brand-strong">{WORDS_161.concat(['Margin'])}</span> } // clean
+export function P331({ n }: { n: number }) { const actions = Children.toArray([<button key="a">See <span className="text-text-secondary-light">{n}</span></button>]); return <div className="text-brand-strong">{actions}</div> } // flag

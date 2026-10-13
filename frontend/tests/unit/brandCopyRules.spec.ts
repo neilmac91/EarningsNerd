@@ -34,8 +34,10 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    argument in its place, or the members an array method hands its callback, written inline or
  *    held in a name); a call holds and renders what its callbacks, its own same-file function or a
  *    useMemo returns. Arrays and objects are read through a spread, an object's values, keys and
- *    entries, a call that keeps its members or returns one (slice, filter, a Set, Array.from; at,
- *    find), a map's returns and a join. A key the scan cannot read may land on any member, so every
+ *    entries, a call that keeps its members or returns one (slice, filter, concat, flat, a Set,
+ *    Array.from, React's Children.toArray; at, find; Children.map and forEach bind their callback as
+ *    the array methods do), a map's returns, a join and a list rendered whole. A key the scan cannot
+ *    read may land on any member, so every
  *    member is read; a parameter bound at several calls takes every call's value, so a function that
  *    renders it in sage fails on any call that hands it a digit; and a binding the walk meets again
  *    (a function that hands a parameter to itself) ends there.
@@ -148,6 +150,10 @@ const unwrap = (e: ts.Expression): ts.Expression =>
 
 /** Calls that return some of their receiver's own members, so a map over one walks the receiver's members. */
 const KEEPS_MEMBERS = new Set(['slice', 'filter', 'toSorted', 'toReversed', 'sort', 'reverse'])
+/** Calls that return their receiver's members and more: `concat` adds its arguments (each an array's members, or
+    the value itself), `flat` the members of the arrays among them (every depth, so it fails closed on `flat(1)`). */
+const CONCATS = new Set(['concat'])
+const FLATS = new Set(['flat'])
 /** Calls that return one of their receiver's members, read as an index: `at(0)` by its index, the others as a key
     the scan cannot read. */
 const ONE_MEMBER = new Set(['at', 'find', 'findLast'])
@@ -159,6 +165,34 @@ const HANDS_MEMBERS = new Map<string, number>([
   ...['map', 'flatMap', 'forEach', 'filter', 'find', 'findLast', 'findIndex', 'findLastIndex', 'some', 'every'].map((m) => [m, 0] as const),
   ['reduce', 1], ['reduceRight', 1],
 ])
+/** React's Children helpers that take the children first: `toArray` keeps them, `map` and `forEach` hand them to
+    the callback they are given second. */
+const CHILDREN_HANDS = new Set(['map', 'forEach'])
+
+/** A call of a method by one of `names` (`rows.slice(1)`). */
+const method = (v: ts.Expression, names: ReadonlySet<string>): v is ts.CallExpression & { expression: ts.PropertyAccessExpression } =>
+  ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && names.has(v.expression.name.text)
+/** A call of `Object.<name>` with an argument. */
+const objectCall = (v: ts.Expression, name: string): v is ts.CallExpression =>
+  ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && ts.isIdentifier(v.expression.expression)
+  && v.expression.expression.text === 'Object' && v.expression.name.text === name && v.arguments.length > 0
+/** A call of React's `Children.<name>` (`Children.toArray(x)`, `React.Children.map(x, fn)`) with an argument. */
+const childrenCall = (v: ts.Expression, name: string): v is ts.CallExpression & { expression: ts.PropertyAccessExpression } => {
+  if (!ts.isCallExpression(v) || !ts.isPropertyAccessExpression(v.expression) || v.expression.name.text !== name || !v.arguments.length) return false
+  const owner = unwrap(v.expression.expression)
+  return (ts.isIdentifier(owner) && owner.text === 'Children')
+    || (ts.isPropertyAccessExpression(owner) && owner.name.text === 'Children' && ts.isIdentifier(owner.expression) && owner.expression.text === 'React')
+}
+/** A call or a `new` that keeps what it is given: `Array.from(x)` without a mapper, `new Set(x)`, `Children.toArray(x)`. */
+const keepsArgument = (v: ts.Expression): v is ts.CallExpression | ts.NewExpression =>
+  (ts.isNewExpression(v) && ts.isIdentifier(v.expression) && v.expression.text === 'Set' && !!v.arguments?.length)
+  || (ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && ts.isIdentifier(v.expression.expression)
+    && v.expression.expression.text === 'Array' && v.expression.name.text === 'from' && v.arguments.length === 1)
+  || childrenCall(v, 'toArray')
+/** A call that holds a list: the members it keeps or makes are what it renders or hands on. */
+const listCall = (v: ts.Expression): boolean =>
+  method(v, KEEPS_MEMBERS) || method(v, CONCATS) || method(v, FLATS) || keepsArgument(v) || method(v, MAPS)
+  || childrenCall(v, 'map') || ['values', 'keys', 'entries'].some((name) => objectCall(v, name))
 
 /** A useMemo call (`useMemo(…)`, `React.useMemo(…)`), which holds what its callback returns. */
 const isUseMemo = (call: ts.CallExpression) =>
@@ -214,8 +248,9 @@ interface Site { args?: ts.NodeArray<ts.Expression>; members?: ts.Expression; at
 const SITES = new Map<ts.SourceFile, Map<ts.Node, Site[]>>()
 /** Where a function's parameters take their values, indexed once per file: every call that names it, every array
     method it is handed to (`rows.map(render)`, its callback written inline or named, the members landing where
-    HANDS_MEMBERS says), and Array.from's mapper (its source's members). A component's props come from JSX, which
-    the component check reads (its children and className), so a tag is no call here. */
+    HANDS_MEMBERS says), Array.from's mapper (its source's members), and React's Children.map and forEach (the
+    children they are given first). A component's props come from JSX, which the component check reads (its
+    children and className), so a tag is no call here. */
 function sitesOf(fn: ts.Node): Site[] {
   const sf = fn.getSourceFile()
   let sites = SITES.get(sf)
@@ -226,11 +261,12 @@ function sitesOf(fn: ts.Node): Site[] {
       if (!ts.isCallExpression(n)) return
       const callee = unwrap(n.expression)
       if (ts.isPropertyAccessExpression(callee)) {
-        const at = HANDS_MEMBERS.get(callee.name.text)
+        const handsChildren = [...CHILDREN_HANDS].some((name) => childrenCall(n, name))
+        const at = handsChildren ? undefined : HANDS_MEMBERS.get(callee.name.text)
         if (at !== undefined && n.arguments[0]) for (const f of functionsOf(n.arguments[0])) add(f, { members: callee.expression, at })
-        if (callee.name.text === 'from' && ts.isIdentifier(callee.expression) && callee.expression.text === 'Array' && n.arguments[1]) {
-          for (const f of functionsOf(n.arguments[1])) add(f, { members: n.arguments[0], at: 0 })
-        }
+        const mapsSource = handsChildren
+          || (callee.name.text === 'from' && ts.isIdentifier(callee.expression) && callee.expression.text === 'Array')
+        if (mapsSource && n.arguments[1]) for (const f of functionsOf(n.arguments[1])) add(f, { members: n.arguments[0], at: 0 })
       }
       for (const f of functionsOf(callee)) add(f, { args: n.arguments })
     })
@@ -318,8 +354,9 @@ function bindingOf(symbol: ts.Symbol | undefined, path: Step[]): Binding {
     written inline or named: `ARRAY.map((item) => …)`, `ARRAY.map(render)`, a nested map over an element's field
     included). Arrays and objects are read through a spread, a shorthand property through the name it holds, an
     object through Object.values, keys and entries, an array through a call that keeps its members (`slice`,
-    `filter` …), a Set or Array.from, and a map through what its callback returns; a member through `at`, `find`
-    and `findLast`, a join through every member it joins, and the chain through `??`, `||` and conditionals. A
+    `filter` …) or adds to them (`concat`, `flat`), a Set, Array.from or React's Children.toArray, and a map
+    (Children.map included) through what its callback returns; a member through `at`, `find` and `findLast`, a
+    join through every member it joins, and the chain through `??`, `||` and conditionals. A
     value written in a literal is read as written: a conditional there is not split, since the scan cannot tie it
     to the element's other fields (the pricing cards' call to action takes its button's variant and its label
     from the same plan). A key the scan cannot read (`LABELS[i]`, a computed key, `find`), or an index into an
@@ -336,16 +373,6 @@ function literalExpressions(e: ts.Expression, sf: ts.SourceFile, path: Step[] = 
   return found
 }
 function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[]): ts.Expression[] {
-  const method = (v: ts.Expression, names: ReadonlySet<string>): v is ts.CallExpression & { expression: ts.PropertyAccessExpression } =>
-    ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && names.has(v.expression.name.text)
-  const objectCall = (v: ts.Expression, name: string): v is ts.CallExpression =>
-    ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && ts.isIdentifier(v.expression.expression)
-    && v.expression.expression.text === 'Object' && v.expression.name.text === name && v.arguments.length > 0
-  // A call or a `new` that keeps what it is given: `Array.from(x)` without a mapper, `new Set(x)`.
-  const keepsArgument = (v: ts.Expression): v is ts.CallExpression | ts.NewExpression =>
-    (ts.isNewExpression(v) && ts.isIdentifier(v.expression) && v.expression.text === 'Set' && !!v.arguments?.length)
-    || (ts.isCallExpression(v) && ts.isPropertyAccessExpression(v.expression) && ts.isIdentifier(v.expression.expression)
-      && v.expression.expression.text === 'Array' && v.expression.name.text === 'from' && v.arguments.length === 1)
   // What an expression holds once the path is walked into it; `inLiteral` marks a value written in a literal.
   const held = (x: ts.Expression, path: Step[], depth: number, inLiteral = false): ts.Expression[] => {
     if (depth > 24) return []
@@ -425,20 +452,33 @@ function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[]): ts.Exp
     }
   }
   // The members of the arrays an expression holds: an array literal's, through a spread; a call's that keeps them,
-  // or keeps what it is given; an object's values, keys or entries (each a [key, value] pair); a map's returns.
+  // adds to them or keeps what it is given; an object's values, keys or entries (each a [key, value] pair); a
+  // map's returns.
   const members = (x: ts.Expression, depth: number): ts.Expression[] =>
     held(x, [], depth + 1).flatMap((v) => {
       if (method(v, KEEPS_MEMBERS)) return members(v.expression.expression, depth + 1)
+      // `a.concat(b, 'c')`: a's members, then each argument's members when it is a list, else the argument itself.
+      if (method(v, CONCATS)) {
+        return [...members(v.expression.expression, depth + 1), ...v.arguments.flatMap((a) => (ts.isSpreadElement(a) ? members(a.expression, depth + 1) : membersOrSelf(a, depth + 1)))]
+      }
+      // `a.flat()`: a's members, the arrays among them opened to any depth.
+      if (method(v, FLATS)) return members(v.expression.expression, depth + 1).flatMap((m) => flattened(m, depth + 1))
       if (keepsArgument(v)) return members(v.arguments![0], depth + 1)
       if (objectCall(v, 'values')) return held(v.arguments[0], [null], depth + 1)
       if (objectCall(v, 'keys')) return pairs(v.arguments[0], depth + 1).map(([key]) => key).filter((key) => !ts.isOmittedExpression(key))
       if (objectCall(v, 'entries')) {
         return pairs(v.arguments[0], depth + 1).flatMap(([key, values]) => values.map((value) => ts.factory.createArrayLiteralExpression([key, value])))
       }
-      if (method(v, MAPS)) return mapped(v, depth + 1)
+      if (method(v, MAPS) || childrenCall(v, 'map')) return mapped(v, depth + 1)
       if (!ts.isArrayLiteralExpression(v)) return []
       return v.elements.flatMap((m) => (ts.isSpreadElement(m) ? members(m.expression, depth + 1) : ts.isOmittedExpression(m) ? [] : [m]))
     })
+  // What an expression adds to a list: its members when it holds one, else what it holds.
+  const membersOrSelf = (x: ts.Expression, depth: number): ts.Expression[] =>
+    held(x, [], depth + 1).flatMap((v) => (ts.isArrayLiteralExpression(v) || listCall(v) ? members(v, depth + 1) : [v]))
+  // A member opened by `flat`: an array's members, each opened in turn; anything else itself.
+  const flattened = (m: ts.Expression, depth: number): ts.Expression[] =>
+    depth > 24 ? [] : held(m, [], depth + 1).flatMap((v) => (ts.isArrayLiteralExpression(v) || listCall(v) ? members(v, depth + 1).flatMap((inner) => flattened(inner, depth + 1)) : [v]))
   // What a map's callback returns, each a member, read as code (a conditional there is split); a flatMap's
   // returned arrays give their members.
   const mapped = (call: ts.CallExpression & { expression: ts.PropertyAccessExpression }, depth: number): ts.Expression[] =>
@@ -459,8 +499,7 @@ function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[]): ts.Exp
   // One step into a literal: an object's property, an array's member, or every property or member for a key the
   // scan cannot read or an index that may land on any member.
   const into = (v: ts.Expression, step: Step, depth: number): ts.Expression[] => {
-    const lists = method(v, KEEPS_MEMBERS) || keepsArgument(v) || method(v, MAPS) || ['values', 'keys', 'entries'].some((name) => objectCall(v, name))
-    if (lists) return step === null || typeof step === 'number' ? members(v, depth + 1) : []
+    if (listCall(v)) return step === null || typeof step === 'number' ? members(v, depth + 1) : []
     if (ts.isArrayLiteralExpression(v)) {
       if (step === null || v.elements.some(ts.isSpreadElement)) return typeof step === 'string' ? [] : members(v, depth + 1)
       const member = typeof step === 'number' ? v.elements[step] : undefined
@@ -1001,8 +1040,10 @@ function inInk(children: ts.NodeArray<ts.JsxChild>, sf: ts.SourceFile, out: InIn
     else if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x)) element(x, at)
     else if (ts.isCallExpression(x)) {
       // What the call holds (a member through `at` or `find`, the members a join renders, what its same-file function
-      // or useMemo returns) and what its callbacks return, each callback read once.
+      // or useMemo returns), every member of a list it makes and renders whole (`{labels.slice(1)}`,
+      // `{Children.toArray(kids)}`), and what its callbacks return, each callback read once.
       literalExpressions(x, sf).forEach(read)
+      if (listCall(x)) literalExpressions(x, sf, [null]).forEach(read)
       for (const fn of callbacksOf(x)) {
         if (seen.has(fn)) continue
         seen.add(fn)
@@ -1127,6 +1168,8 @@ function rendersValue(e: ts.Expression, sf: ts.SourceFile, depth = 0): boolean {
     if (ts.isPropertyAccessExpression(x.expression) && isNumberTyped(x.expression.expression)) return true
     if (ts.isPropertyAccessExpression(x.expression) && JOINS.has(x.expression.name.text) && isNumberArray(x.expression.expression)) return true
     if (renderedFunctions(x).some((fn) => returnedExpressions(fn).some((r) => rendersValue(r, sf, depth + 1)))) return true
+    // A list a call makes renders every member (`{Children.toArray([<b>{n}</b>])}`, `{counts.concat(more)}`).
+    if (listCall(x) && literalExpressions(x, sf, [null]).some((m) => !asWritten(m) && rendersValue(m, sf, depth + 1))) return true
     return x.arguments.some((a) => !ts.isArrowFunction(unwrap(a)) && !ts.isFunctionExpression(unwrap(a)) && literalText(unwrap(a)) === null && isNumberTyped(a))
   }
   if (ts.isIdentifier(x)) {
