@@ -103,7 +103,7 @@ list included) and the str of a log's body that is not text only after `before_s
   protocol word or not, is scrubbed, whoever wrote it, so an app that writes a protocol word as a key in its own data
   does not send a secret equal to it, and nothing that runs before the hook (an event processor, under any name; a
   hand-built event; a trace context set by hand) can carry a secret past it, and no scan of the backend for such writers
-  is needed.
+  is needed. A `type` that is not text (only a hand-built event has one) is walked like any value, and the item is sent.
   A secret setting is named by the output walk's rule (below), which main.py copies. The values are read once, when
   `main._sentry_options()` runs at startup, and matched longest first, so a URL quoted whole goes whole. A text under 8
   characters is left: settings bound no secret's length but `SECRET_KEY`'s, the shortest real secret (the Alpha Vantage
@@ -248,9 +248,11 @@ list included) and the str of a log's body that is not text only after `before_s
   main, and a key that only poses as a protocol word (a text subclass, any other object) is withheld or turned into its
   repr; a secret held as a key in user data (an extra, a tag, a context's name and contents, a user, a breadcrumb's
   data, a request body, a span's data and tags, a log's and a metric's attributes) is withheld there, and so is one that
-  follows a protocol word in the same key; a trace context set by hand, a hand-built event with the secret as its own
-  key and its `type`, and an event processor registered under an assignment alias that writes it as an event's key, a
-  trace context's key and the `type` each send it nowhere; a secret overlapping `[Filtered]` in each of the four ways
+  follows a protocol word in the same key; a trace context set by hand, an attachment on the scope, a hand-built event
+  with the secret as its own key, its `type` and an attachment, and an event processor registered under an assignment
+  alias that writes it as an event's key, a trace context's key and the `type` and attaches it each send it nowhere (no
+  attachment item is sent), and a hand-built event whose `type` is a list is sent; a secret overlapping `[Filtered]` in
+  each of the four ways
   (inside it, across its end, around it, across its start) moves the placeholder to the first that none overlaps and
   appears nowhere in the envelope, and weak secrets that overlap every placeholder fail the options with an error that
   names no value, inside main.py's `try` around its one init, so Sentry stays off and the app starts; and a scrubber
@@ -295,7 +297,8 @@ each with its reason:
   the whole URL), a secret that is no settings field (a user's credential, a token a provider returns), a new secret
   setting whose name ends in none of the rule's suffixes (the output walk misses it too), and a secret held as a
   number, which the walk keeps as it is (no setting is one; an all-digit password is text in its URL). Profiles
-  (code locations), sessions (release-health counts) and attachments (none sent) pass no hook; the envelope's trace
+  (code locations) and sessions (release-health counts) pass no hook, and the hook drops a hint's attachments, whose
+  bytes would pass none (the backend sends none); the envelope's trace
   header is taken from the scrubbed event. Frame variables stay off whatever the scrubber does: a frame holds values
   in forms it cannot match. Over-redaction is accepted: a secret that equals ordinary text (a weak salt equal to the
   domain) withholds that text; one equal to a protocol word, which leaves every key of the protocol's own, replaces

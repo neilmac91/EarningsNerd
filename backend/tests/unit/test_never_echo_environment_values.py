@@ -861,6 +861,8 @@ def sentry_envelopes():
                 self.items.append(("item_headers", item.headers))
                 if item.payload.json:
                     self.items.append((item.type, item.payload.json))
+                else:  # an attachment's bytes, which no hook sees, as text the leak checks read
+                    self.items.append((item.type, item.payload.get_bytes().decode("utf-8", "replace")))
 
         def record_lost_event(self, reason, data_category=None, item=None, *, quantity=1):
             self.items.append(("lost", [reason, data_category]))
@@ -1413,6 +1415,7 @@ def _capture_every_structure(caplog) -> None:
     except ExceptionGroup as group:
         sentry_sdk.capture_exception(group)
     logging.getLogger("app.jobs").error("job %s failed", "two")  # an event with a log entry
+    logging.getLogger("app.jobs").error("job three failed", stack_info=True)  # an event with its thread's stack
     sentry_sdk.capture_message("job failed again", fingerprint=["job", "nightly"])
     app = FastAPI()
 
@@ -1432,6 +1435,8 @@ def _capture_every_structure(caplog) -> None:
         with sentry_sdk.start_span(op="job.step", name="step"), sentry_sdk.start_span(op="job.query", name="query"):
             with engine.connect() as connection:
                 connection.execute(text("select 1"))
+    with sentry_sdk.start_transaction(name="chat", op="ai"), sentry_sdk.start_span(op="gen_ai.chat", name="chat"):
+        pass  # a gen-AI span, which the SDK splits out of its transaction after the hook
     capture_checkin(
         monitor_slug="nightly",
         status="ok",
@@ -1456,7 +1461,8 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request, 
     # check) renamed the event's own `event_id`, which the SDK reads after the hook, so the capture raised; one equal to
     # a key below it (parent_span_id) renamed that key in each child span. Every key of the protocol's own and an
     # item's `type` stay as they are (main._PROTOCOL_KEYS, main._ITEM_TYPES): errors, transactions, a check-in, a log
-    # and a metric are each sent, as their own kind and whole, and the trace header keeps its sample rate.
+    # and a metric are each sent, as their own kind and whole, the trace header keeps its sample rate, and a gen-AI span,
+    # which the SDK splits out after the hook, keeps its keys.
     words = {
         "IP_HASH_SALT": "event_id",
         "FMP_API_KEY": "trace_id",
@@ -1494,6 +1500,8 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request, 
     assert {"schedule", "timezone", "checkin_margin"} <= checkin["monitor_config"].keys()
     traces = [headers["trace"] for kind, headers in envelopes if kind == "headers" and "trace" in headers]
     assert traces and all("sample_rate" in trace and "trace_id" in trace for trace in traces)
+    (chat,) = [span for payload in _of(envelopes, "span") for span in payload["items"]]  # split out after the hook
+    assert {"parent_span_id", "start_timestamp", "trace_id"} <= chat.keys()
     (logs,), (metrics,) = _of(envelopes, "log"), _of(envelopes, "trace_metric")
     assert [entry["body"] for entry in logs["items"]] == ["job nightly failed"]
     assert [entry["name"] for entry in metrics["items"]] == ["job.failures"]
@@ -1718,22 +1726,31 @@ def test_a_key_is_kept_as_a_protocol_word_only_when_it_is_text():
 
 
 def test_nothing_written_before_the_hooks_carries_a_secret_past_them(monkeypatch, request):
-    # The hooks keep only the protocol's own words (main._PROTOCOL_KEYS, main._ITEM_TYPES), never a field whole, so
-    # nothing that runs before them can carry a secret past them: a trace context set by hand, a hand-built event with
-    # the secret as its own key and its `type`, or an event processor, registered under any name (an assignment alias:
-    # Codex's case on #1297), writing it as an event's key, a trace context's key and the `type`.
+    # The hooks keep only the protocol's own words (main._PROTOCOL_KEYS, main._ITEM_TYPES), never a field whole, and
+    # drop a hint's attachments, whose bytes pass no hook, so nothing that runs before them can carry a secret past
+    # them: a trace context set by hand; an attachment on the scope; a hand-built event with the secret as its own key,
+    # its `type` and an attachment; or an event processor, registered under any name (an assignment alias: Codex's case
+    # on #1297), writing it as an event's key, a trace context's key and the `type`, and attaching it (the high-tier
+    # review of 2cc3780). A `type` that is not text (hand-built) is walked like any value, and the event is sent.
     import sentry_sdk
+    from sentry_sdk.attachments import Attachment
 
     token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
     envelopes = _scrubbing_envelopes(request, monkeypatch, INTERNAL_JOB_TOKEN=token)
     sentry_sdk.set_context("trace", {token: token})
+    sentry_sdk.get_isolation_scope().add_attachment(bytes=f"token={token}".encode(), filename="scope.txt")
     sentry_sdk.capture_message("traced by hand")
-    sentry_sdk.capture_event({"message": "built by hand", token: token, "type": token})
+    attached = Attachment(bytes=token.encode(), filename="hint.txt")
+    sentry_sdk.capture_event(
+        {"message": "built by hand", token: token, "type": token}, hint={"attachments": [attached]}
+    )
+    sentry_sdk.capture_event({"message": "typed by hand", "type": ["error"]})
 
     def rewrite(event, hint):
         event[token] = token
         event.setdefault("contexts", {}).setdefault("trace", {})[token] = token
         event["type"] = token
+        hint.setdefault("attachments", []).append(Attachment(bytes=token.encode(), filename="processor.txt"))
         return event
 
     register = sentry_sdk.get_isolation_scope().add_event_processor
@@ -1741,8 +1758,11 @@ def test_nothing_written_before_the_hooks_carries_a_secret_past_them(monkeypatch
     sentry_sdk.capture_message("rewritten")
     sentry_sdk.flush()
     events = _of(envelopes, "event")
-    assert sorted(event.get("message") for event in events) == ["built by hand", "rewritten", "traced by hand"]
-    assert all(event.get("type") in (None, "[Filtered]") for event in events)
+    messages = ["built by hand", "rewritten", "traced by hand", "typed by hand"]
+    assert sorted(event.get("message") for event in events) == messages
+    assert [event.get("type") for event in events if event.get("message") == "typed by hand"] == [["error"]]
+    assert all(event.get("type") in (None, "[Filtered]", ["error"]) for event in events)
+    assert not _of(envelopes, "attachment") and not _of(envelopes, "lost")
     leaked = _fragments(token, json.dumps(envelopes), width=8)
     assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry"
 

@@ -160,14 +160,17 @@ def _value_scrubber(secret_values: tuple[str, ...]) -> Callable[[dict[str, Any],
     protocol's own words where the protocol puts them, never a field whole: a key that is exactly one of
     `_PROTOCOL_KEYS` outside user data (`_withhold`) and an item's `type` when it is one of `_ITEM_TYPES`. So a weak
     secret equal to one of those words breaks no item, and nothing that runs before the hook (an event processor, a
-    hand-built event, a trace context set by hand) can carry a secret past it."""
+    hand-built event, a trace context set by hand) can carry a secret past it. It also drops the hint's attachments,
+    whose bytes would reach Sentry through no hook: the backend sends none."""
 
     _placeholder(secret_values)  # every placeholder overlapped fails here, at startup, not on the first item
 
     def withhold_secret_values(item: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
+        hint.pop("attachments", None)  # the SDK sends what is left there after the hook, unscrubbed
         scrubbed = _withhold(item, secret_values)
-        if item.get("type") in _ITEM_TYPES:
-            scrubbed["type"] = item["type"]
+        kind = item.get("type")
+        if isinstance(kind, str) and kind in _ITEM_TYPES:
+            scrubbed["type"] = kind
         return scrubbed
 
     return withhold_secret_values
