@@ -1737,6 +1737,29 @@ def test_a_key_is_kept_as_a_protocol_word_only_when_it_is_text():
     assert main._withhold({Word(): 2}, (secret,)) == {"Word()": 2}
 
 
+def test_a_type_is_kept_only_when_it_is_text(monkeypatch, request):
+    # The delta check of #1297 (D6-1): an item's `type` is kept only when it is exactly text and one of main._ITEM_TYPES.
+    # A hand-built event whose `type` is a str subclass posing as `transaction` while its text is a secret is sent as a
+    # plain event, its type scrubbed, and no part of the secret reaches Sentry.
+    import sentry_sdk
+
+    token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
+    envelopes = _scrubbing_envelopes(request, monkeypatch, INTERNAL_JOB_TOKEN=token)
+
+    class Posing(str):
+        def __eq__(self, other):
+            return other == "transaction"
+
+        def __hash__(self):
+            return hash("transaction")
+
+    sentry_sdk.capture_event({"message": "posed", "type": Posing(token)})
+    sentry_sdk.flush()
+    assert [event["type"] for event in _of(envelopes, "event")] == ["[Filtered]"] and not _of(envelopes, "transaction")
+    leaked = _fragments(token, json.dumps(envelopes), width=8)
+    assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry"
+
+
 def test_nothing_written_before_the_hooks_carries_a_secret_past_them(monkeypatch, request):
     # The hooks keep only the protocol's own words (main._PROTOCOL_KEYS, main._ITEM_TYPES), never a field whole, and
     # drop a hint's attachments, whose bytes pass no hook, so nothing that runs before them can carry a secret past

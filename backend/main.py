@@ -169,7 +169,7 @@ def _value_scrubber(secret_values: tuple[str, ...]) -> Callable[[dict[str, Any],
         hint.pop("attachments", None)  # the SDK sends what is left there after the hook, unscrubbed
         scrubbed = _withhold(item, secret_values)
         kind = item.get("type")
-        if isinstance(kind, str) and kind in _ITEM_TYPES:
+        if type(kind) is str and kind in _ITEM_TYPES:  # exactly text: a subclass could pose as one
             scrubbed["type"] = kind
         return scrubbed
 
