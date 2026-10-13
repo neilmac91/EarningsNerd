@@ -18,14 +18,21 @@ each gated here:
 - `scripts/deploy_check.py`, `scripts/smoke_resend.py` and `scripts/validate_db_performance.py` printed
   characters of the secrets they handled, and a database or Redis URL parser's message can quote the password
   (`app/database.py` at import, the Redis pool);
-- an Alpha Vantage HTTP error's message, and httpx's request log in the calendar job, quote its keyed URL;
+- an Alpha Vantage HTTP error's message, and httpx's request log in the calendar job and in the service, quote its
+  keyed URL, and the client logged the head of a throttle notice, which can quote the key;
 - Sentry serialized every captured frame's local variables (a secret copied into a local, every library frame
   holding a request, the database driver's connect arguments), the `X-Internal-Token` header and each outbound
   request's query string, and the exact-name scrubber left a request body's credential keys (a password change's
   passwords, a refresh token, an invite, Apple's form-posted code and id_token); the compare_digest checks raised on a
   non-ASCII value, a 500 whose frame held the secret;
-- and, for every route at once, no output call and no raise or assert message in the backend reads a secret
-  directly, from the settings object or the environment, and every credential a request body names is scrubbed.
+- that scrubber matches key names, so a secret's value quoted inside a value (a message, an exception, a breadcrumb, an
+  extra, a tag, a context, a user, a request, a span, a log or a metric) still reached Sentry, a malformed
+  DATABASE_URL's digits among them, which the driver quotes as the port: main's hooks withhold each secret setting's
+  value and each connection URL's password on every channel that carries text, and a hook that fails sends nothing;
+- and, for every route at once, no output call (a print, log, warn or write call, `click.echo`, `pprint`, a Sentry
+  message, exception, event, tag or tags, context, extra, user, breadcrumb, or span data or attribute) and no raise or
+  assert message in the backend reads a secret directly, from the settings object or the environment, and every
+  credential a request body names is scrubbed.
 
 Not covered: the echoes the lesson lists as ungated.
 """
@@ -830,10 +837,10 @@ def test_the_deploy_check_database_checks_print_no_secret(monkeypatch, capsys):
 
 @pytest.fixture
 def sentry_envelopes():
-    # main.py's own options, with a fabricated DSN, a transport that keeps each envelope instead of sending it, every
-    # transaction sampled (a transaction carries the request too), no profiler thread and a fixed release (none would
-    # run `git rev-parse`). The integrations stay installed in this process and pass every call through once the
-    # client is removed.
+    # main.py's own options, with a fabricated DSN, a transport that keeps each envelope item instead of sending it (and
+    # each lost item's reason and category as a "lost" item), every transaction sampled (a transaction carries the
+    # request too), no profiler thread and a fixed release (none would run `git rev-parse`). The integrations stay
+    # installed in this process and pass every call through once the client is removed.
     import sentry_sdk
     from sentry_sdk.transport import Transport
 
@@ -847,6 +854,9 @@ def sentry_envelopes():
         def capture_envelope(self, envelope):
             self.items.extend((item.type, item.payload.json) for item in envelope.items if item.payload.json)
 
+        def record_lost_event(self, reason, data_category=None, item=None, *, quantity=1):
+            self.items.append(("lost", [reason, data_category]))
+
     options = main._sentry_options()
     assert options["include_local_variables"] is False and options["send_default_pii"] is False
     # data_collection would drop the event scrubber and bring frame variables back whatever the two options above say
@@ -854,11 +864,17 @@ def sentry_envelopes():
     assert "data_collection" not in options and "data_collection" not in options.get("_experiments", {})
     # Span streaming (trace_lifecycle="stream") sends request headers as span attributes, unscrubbed.
     assert "trace_lifecycle" not in options and "trace_lifecycle" not in options.get("_experiments", {})
+    # Sentry logs through the logging integration (enable_logs) send a record's `extra` values that are not text, a
+    # mapping or a list as their repr, which the SDK builds after the value hook: keep them off.
+    assert not options.get("enable_logs") and not options.get("_experiments", {}).get("enable_logs")
     keep = Keep()
     options.update(dsn="https://fabricated@sentry.invalid/1", transport=keep, release="gate")
     options.update(traces_sample_rate=1.0, profiles_sample_rate=None)
     sentry_sdk.init(**options)
     try:
+        # The serializer runs before the value hooks and would cut each string at max_value_length (main's options or an
+        # SDK default): a cut inside a secret leaves a prefix that no hook matches.
+        assert sentry_sdk.get_client().options["max_value_length"] is None
         with sentry_sdk.isolation_scope():  # no breadcrumb or tag left by another test
             yield keep.items
     finally:
@@ -1105,6 +1121,202 @@ def test_sentry_sends_no_outbound_query(monkeypatch, sentry_envelopes):
     assert not leaked, f"{leaked} eight-character fragments of the fabricated key reached Sentry"
 
 
+def test_every_sentry_channel_runs_the_value_scrubber():
+    # Each option through which the SDK hands over an item before sending it is the one value scrubber: errors and
+    # check-ins (before_send), transactions, logs and metrics. A hook an SDK upgrade adds fails here until it is wired;
+    # before_send_span acts only under span streaming, which the fixture refuses (and the SDK warns when it is set
+    # alone).
+    import inspect
+
+    from sentry_sdk.consts import ClientConstructor
+
+    import main
+
+    parameters = inspect.signature(ClientConstructor.__init__).parameters
+    hooks = {name for name in parameters if name.startswith("before_send")}
+    assert {"before_send", "before_send_transaction", "before_send_log", "before_send_metric"} <= hooks
+    options = main._sentry_options()
+    wired = sorted(hooks - {"before_send_span"})
+    assert callable(options["before_send"]) and [options.get(hook) for hook in wired] == [options["before_send"]] * 4
+
+
+def _scrubbing_envelopes(request, monkeypatch, **values: str | None) -> list:
+    """The sentry_envelopes fixture, built once these settings values are in place: main's value scrubber reads the
+    settings when `_sentry_options()` runs, as main.py's one call does at startup."""
+    from app.config import settings
+
+    for name, value in values.items():
+        monkeypatch.setattr(settings, name, value)
+    return request.getfixturevalue("sentry_envelopes")
+
+
+_CARRIERS = (
+    *("message", "exception", "breadcrumb", "extra", "tag", "context", "user", "request", "span", "log", "metric"),
+    "check-in",
+)
+
+
+@pytest.mark.parametrize("carrier", _CARRIERS)
+def test_sentry_withholds_a_secret_value_wherever_it_rides(monkeypatch, request, caplog, carrier):
+    # The event scrubber matches key names, so a secret's value quoted in a message, an exception or a log line, or held
+    # under a key its denylist does not name, reached Sentry. Each carrier quotes the token twice under such a key (a
+    # context holds it as a key too, a request in its path, query string, header and body), on an error, a transaction,
+    # a log (sent by the SDK's logger whatever enable_logs says), a metric or a cron check-in.
+    import sentry_sdk
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from sentry_sdk import logger as sentry_logger
+    from sentry_sdk.crons import capture_checkin
+
+    token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
+    envelopes = _scrubbing_envelopes(request, monkeypatch, INTERNAL_JOB_TOKEN=token)
+    quoted = f"job failed for {token}, retried with {token}"
+    if carrier == "message":
+        sentry_sdk.capture_message(quoted)
+    elif carrier == "exception":
+        sentry_sdk.capture_exception(RuntimeError(quoted))
+    elif carrier == "request":
+        app = FastAPI()
+
+        @app.post("/notes/{note}")
+        async def notes(note: str, body: dict):
+            raise RuntimeError("database down")
+
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post(
+            f"/notes/{token}", params={"q": quoted}, json={"note": quoted}, headers={"X-Note": quoted}
+        )
+        assert response.status_code == 500
+    elif carrier == "span":
+        with sentry_sdk.start_transaction(name="job"), sentry_sdk.start_span(op="job.step", name=quoted) as span:
+            span.set_data("detail", quoted)
+    elif carrier == "log":
+        sentry_logger.warning(quoted)
+    elif carrier == "metric":
+        sentry_sdk.metrics.count("job.failures", 1, attributes={"detail": quoted})
+    elif carrier == "check-in":
+        capture_checkin(monitor_slug=quoted, status="error")
+    else:
+        if carrier == "breadcrumb":
+            caplog.set_level(logging.INFO, logger="app.jobs")
+            logging.getLogger("app.jobs").info(quoted)  # a log line at INFO and above becomes a breadcrumb
+        elif carrier == "extra":
+            sentry_sdk.set_extra("detail", quoted)
+        elif carrier == "tag":
+            sentry_sdk.set_tag("detail", quoted)
+        elif carrier == "context":
+            sentry_sdk.set_context("job", {"detail": quoted, token: "a key"})
+        else:
+            sentry_sdk.set_user({"id": quoted})
+        sentry_sdk.capture_message("job failed")
+    sentry_sdk.flush()
+    sent = json.dumps(envelopes)
+    assert "job failed for [Filtered], retried with [Filtered]" in sent  # sent, each occurrence withheld where it stood
+    leaked = _fragments(token, sent, width=8)
+    assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry ({carrier})"
+
+
+def test_sentry_withholds_every_secret_setting_and_connection_password(monkeypatch, request):
+    # Every secret field's value (the gate's own SECRET_FIELDS, the oracle of main's copy of the rule), the database
+    # password as written (an "@" percent-encoded) and decoded, and the Redis password (an "@" unescaped, which
+    # redis-py reads to the last "@"), quoted in one message, each arrive as "[Filtered]" and nothing else changes: a
+    # URL quoted whole is withheld whole. The Alpha Vantage key keeps its format's 16 characters, the shortest secret
+    # the app holds.
+    import sentry_sdk
+
+    values = {name: _fabricated(name, string.ascii_uppercase) for name in SECRET_FIELDS}
+    values["ALPHA_VANTAGE_API_KEY"] = values["ALPHA_VANTAGE_API_KEY"][:16]
+    database, redis = values["DATABASE_URL"], values["REDIS_URL"]  # each URL's 40-character password
+    encoded, redis = f"{database[:20]}%40{database[20:]}", f"{redis[:20]}@{redis[20:]}"
+    values["DATABASE_URL"] = f"postgresql://app:{encoded}@/app?host=/cloudsql/x"
+    values["REDIS_URL"] = f"redis://:{redis}@cache.invalid:6379/0"
+    envelopes = _scrubbing_envelopes(request, monkeypatch, **values)
+    quoted = [*values.values(), encoded, encoded.replace("%40", "@"), redis]
+    sentry_sdk.capture_message(" | ".join(quoted))
+    sentry_sdk.flush()
+    (event,) = _of(envelopes, "event")
+    assert event["message"] == " | ".join(["[Filtered]"] * len(quoted))
+    leaked = sum(_fragments(value, json.dumps(envelopes), width=8) for value in quoted)
+    assert not leaked, f"{leaked} eight-character fragments of a fabricated secret reached Sentry"
+
+
+def test_sentry_withholds_a_password_read_as_the_port(monkeypatch, request):
+    # Codex's case on #1281: a DATABASE_URL missing its `@host` puts the password where the port goes, an all-digit
+    # password parses (app.database accepts the URL), and the driver's error quotes it. The address is 127.0.0.1 and
+    # the port out of range: the driver refuses before it opens any connection.
+    import sentry_sdk
+    from sqlalchemy import create_engine
+    from sqlalchemy.exc import OperationalError
+
+    digits = _fabricated("DATABASE_URL all-digit password", string.digits)
+    url = f"postgresql://app:{digits}/app?hostaddr=127.0.0.1"
+    envelopes = _scrubbing_envelopes(request, monkeypatch, DATABASE_URL=url)
+    with pytest.raises(OperationalError) as info:
+        create_engine(url).connect()
+    assert digits in str(info.value)  # the driver quotes it
+    sentry_sdk.capture_exception(info.value)
+    sentry_sdk.flush()
+    (event,) = _of(envelopes, "event")
+    assert "[Filtered]" in event["exception"]["values"][-1]["value"]  # sent, the digits withheld where they stood
+    leaked = _fragments(digits, json.dumps(envelopes), width=8)
+    assert not leaked, f"{leaked} eight-character fragments of the fabricated password reached Sentry"
+
+
+def test_sentry_withholds_a_secret_stored_with_a_newline(monkeypatch, request):
+    # A secret created with `echo` keeps its newline in the environment, and an error can quote it escaped (a header
+    # value's repr, `b'Bearer ...\n'`), where the value as held never appears: the value is withheld stripped.
+    import sentry_sdk
+
+    key = _fabricated("STRIPE_SECRET_KEY", string.ascii_uppercase)
+    envelopes = _scrubbing_envelopes(request, monkeypatch, STRIPE_SECRET_KEY=f"{key}\n")
+    sentry_sdk.capture_message(f"Illegal header value {f'Bearer {key}{chr(10)}'.encode()!r}")
+    sentry_sdk.flush()
+    (event,) = _of(envelopes, "event")
+    assert event["message"] == "Illegal header value b'Bearer [Filtered]\\n'"
+
+
+def test_sentry_withholds_no_value_shorter_than_eight_characters(monkeypatch, request):
+    # The floor (main._MIN_SECRET_LENGTH): an eight-character value is withheld; a seven-character one, an empty one
+    # (most secret settings' default) and a URL's port, which the URL rule reads as a password when a URL has no `@`,
+    # are not, so none garbles an event; nor is an IPv6 host's address read as a password, and a setting that holds no
+    # text (None) is skipped rather than failing the options, which would turn Sentry off.
+    import sentry_sdk
+
+    eight = _fabricated("FMP_API_KEY", string.ascii_uppercase)[:8]
+    seven = _fabricated("IP_HASH_SALT", string.ascii_uppercase)[:7]
+    urls = {"DATABASE_URL": "postgresql://db.internal:5432/app", "REDIS_URL": "redis://[2001:db8::1]:6379/0"}
+    values = {"FMP_API_KEY": eight, "IP_HASH_SALT": seven, "RESEND_API_KEY": "", "TURNSTILE_SECRET_KEY": None, **urls}
+    envelopes = _scrubbing_envelopes(request, monkeypatch, **values)
+    sentry_sdk.capture_message(f"{eight} {seven} db.internal:5432 [2001:db8::1]:6379 as sent")
+    sentry_sdk.flush()
+    (event,) = _of(envelopes, "event")
+    assert event["message"] == f"[Filtered] {seven} db.internal:5432 [2001:db8::1]:6379 as sent"
+
+
+def test_a_failing_value_scrubber_sends_nothing(monkeypatch, sentry_envelopes):
+    # The hooks fail closed: an exception inside one drops its item, which the SDK records as lost to a callback error,
+    # instead of sending it unscrubbed, on every channel. (A global event processor would fail open: the SDK passes the
+    # event on when one raises, and it runs before the request is attached.)
+    import sentry_sdk
+    from sentry_sdk import logger as sentry_logger
+
+    import main
+
+    def failing(node, secret_values):
+        raise RuntimeError("the scrubber failed")
+
+    monkeypatch.setattr(main, "_withhold", failing)
+    with sentry_sdk.start_transaction(name="job"):
+        sentry_sdk.capture_message("job failed")
+    sentry_logger.warning("job failed")
+    sentry_sdk.metrics.count("job.failures", 1)
+    sentry_sdk.flush()
+    assert not [kind for kind, _ in sentry_envelopes if kind in ("event", "transaction", "log", "trace_metric")]
+    lost = _of(sentry_envelopes, "lost")
+    for category in ("error", "transaction", "log_item", "trace_metric"):
+        assert ["callback_error", category] in lost
+
+
 def test_an_alpha_vantage_error_carries_no_key(monkeypatch, caplog):
     # An HTTPStatusError's message quotes the request URL, whose query carries the key; the client logs it, and the
     # daily refresh, which asks for the error raised, logs its traceback.
@@ -1271,8 +1483,9 @@ def test_a_malformed_database_url_is_not_quoted(monkeypatch, shape, reported):
     ids=["socket-form", "percent-encoded-at", "sqlite"],
 )
 def test_a_database_url_with_one_at_is_accepted(monkeypatch, shape):
-    # The refusal costs nothing the documented URLs need: the Cloud SQL socket form and an encoded "@" parse as before
-    # (an "@" in a user name, as an IAM user's, must be percent-encoded like one in a password).
+    # The refusal costs nothing the documented URLs need: the Cloud SQL socket form and an encoded "@" parse as before.
+    # The app decodes an encoded "@"; the deploy's migration step and the Ops proxy step split the URL themselves and do
+    # not, so the production URL keeps percent-encoding out of its user name and password (docs/CONFIGURATION.md).
     password = _fabricated("DATABASE_URL password")
     database = _import_database(monkeypatch, shape.format(p=password))
     assert database.engine.url.password in (password, f"{password}@{password}", None)

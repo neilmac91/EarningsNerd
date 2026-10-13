@@ -6,6 +6,8 @@ from contextlib import asynccontextmanager
 import asyncio
 import re
 import threading
+from typing import Any, Callable
+from urllib.parse import unquote
 from dotenv import load_dotenv
 
 # Load environment variables early (Settings reads .env itself; the pre-Settings bootstrap
@@ -13,6 +15,68 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.config import settings, APP_VERSION
+
+# Settings that hold a secret, by name: keys, secrets, tokens, salts and the DSN, and the two connection URLs, whose
+# names do not say they carry a password. The gate keeps its own copy of this rule, the oracle its tests read.
+_SECRET_SUFFIXES = ("_KEY", "_SECRET", "_TOKEN", "_SALT", "_DSN")
+_CONNECTION_URLS = ("DATABASE_URL", "REDIS_URL")
+# The shortest text Sentry's value scrubber withholds. Settings bound no secret's length but SECRET_KEY's (32), and the
+# shortest real secret, the Alpha Vantage key, has 16 characters; a shorter text is no credential (a port, which the URL
+# rule below reads as a password when a URL has no `@`, has at most 5 digits) and would garble ids, timestamps and SQL
+# wherever it occurred by chance, and an empty one (most secret settings' default) would match everywhere.
+_MIN_SECRET_LENGTH = 8
+
+
+def _url_passwords(url: str) -> set[str]:
+    """A connection URL's password, as written and percent-decoded: what follows the user name's `:` up to the last
+    `@` of the URL's authority (its text before the first `/`, `?` or `#`) or, in a URL missing its `@host`, up to the
+    authority's end, where a parser reads the port and a driver's error quotes it as one. A bracketed (IPv6) host
+    without an `@` holds no password."""
+    authority = re.split("[/?#]", url.partition("://")[2], maxsplit=1)[0]
+    userinfo, at, host = authority.rpartition("@")
+    password = (userinfo if at else "" if host.startswith("[") else host).partition(":")[2]
+    return {password, unquote(password)}
+
+
+def _secret_values() -> tuple[str, ...]:
+    """Each secret setting's value and each connection URL's password, longest first (a URL is withheld whole before its
+    password is looked for), none shorter than _MIN_SECRET_LENGTH. A value is stripped: an echo of it as held contains
+    the stripped text, and so does one that escapes a stored newline (a header value's repr). A setting that holds no
+    text (None) is skipped."""
+    values: set[str] = set()
+    for name in type(settings).model_fields:
+        value = getattr(settings, name)
+        if isinstance(value, str) and (name.endswith(_SECRET_SUFFIXES) or name in _CONNECTION_URLS):
+            value = value.strip()
+            values |= {value} | (_url_passwords(value) if name in _CONNECTION_URLS else set())
+    return tuple(sorted((value for value in values if len(value) >= _MIN_SECRET_LENGTH), key=lambda v: (-len(v), v)))
+
+
+def _withhold(node: Any, secret_values: tuple[str, ...]) -> Any:
+    """The node with each occurrence of each secret value, in any string at any depth (a key too), replaced by
+    "[Filtered]", the placeholder of the SDK's own scrubber. What reaches the hooks holds mappings, lists and scalars:
+    the serializer, and for a log or a metric the SDK's attribute formatting, turn every other value into text, a log
+    record's `extra` with Sentry logs on apart."""
+    if isinstance(node, str):
+        for secret in secret_values:
+            node = node.replace(secret, "[Filtered]")
+        return node
+    if isinstance(node, dict):
+        return {_withhold(key, secret_values): _withhold(value, secret_values) for key, value in node.items()}
+    if isinstance(node, list):
+        return [_withhold(item, secret_values) for item in node]
+    return node
+
+
+def _value_scrubber(secret_values: tuple[str, ...]) -> Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]:
+    """Sentry's hook on every channel that carries text: an error or check-in (before_send), a transaction with its
+    spans (before_send_transaction), a log (before_send_log) and a metric (before_send_metric). A hook that raises drops
+    its item (the SDK records a callback error), so a failure here never sends one unscrubbed."""
+
+    def withhold_secret_values(item: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
+        return _withhold(item, secret_values)
+
+    return withhold_secret_values
 
 
 def _sentry_options() -> dict:
@@ -23,6 +87,9 @@ def _sentry_options() -> dict:
     from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
     from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber
 
+    # The event scrubber below matches key names; this hook matches values. It reads the settings once, here at
+    # startup: nothing changes them afterwards.
+    withhold_secret_values = _value_scrubber(_secret_values())
     return {
         "dsn": settings.SENTRY_DSN,
         "environment": settings.ENVIRONMENT,
@@ -58,6 +125,15 @@ def _sentry_options() -> dict:
                 "id_token",
             ]
         ),
+        # Each secret setting's value and each connection URL's password, wherever an item holds it, on every channel
+        # that carries text; the hooks run after the event scrubber and the serializer. Never set `max_value_length`:
+        # the serializer would cut a string inside a secret and leave a prefix no hook matches. `before_send_span`
+        # acts only under span streaming (`trace_lifecycle`), which stays off, and so does `enable_logs`: a log record's
+        # `extra` value that is not text, a mapping or a list would reach Sentry as its repr, built after the hook.
+        "before_send": withhold_secret_values,
+        "before_send_transaction": withhold_secret_values,
+        "before_send_log": withhold_secret_values,
+        "before_send_metric": withhold_secret_values,
     }
 
 
