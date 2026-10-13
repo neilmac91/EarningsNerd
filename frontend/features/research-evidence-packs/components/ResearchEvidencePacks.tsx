@@ -22,7 +22,7 @@ function SourceQuote({ source }: { source: SourceSnapshot }) {
   </div>
 }
 
-function EvidenceCard({ entry, selected, onChange }: { entry: EvidenceEntry; selected: SourceSnapshot | null; onChange: (entry: EvidenceEntry) => void }) {
+function EvidenceCard({ entry, capture, onChange }: { entry: EvidenceEntry; capture: () => SourceSnapshot | null; onChange: (entry: EvidenceEntry) => void }) {
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
   const heading = useRef<HTMLHeadingElement>(null)
@@ -50,8 +50,9 @@ function EvidenceCard({ entry, selected, onChange }: { entry: EvidenceEntry; sel
       onChange={(event) => onChange(updateInterpretation(entry, event.target.value))} />
     <Button variant="secondary" onClick={() => {
       try {
-        if (!selected) throw new Error('Load a later filing and select a paragraph first.')
-        onChange(proposeSource(entry, selected)); setNote(''); setError('')
+        const candidate = capture()
+        if (!candidate) throw new Error('Load a later filing and select a paragraph first.')
+        onChange(proposeSource(entry, candidate)); setNote(''); setError('')
       } catch (reason) { setError(reason instanceof Error ? reason.message : 'Source proposal unavailable.') }
     }}>Compare selected source</Button>
     {entry.proposal && <section className="space-y-3 border-t border-border-light pt-4 dark:border-border-dark" aria-label={`Source proposal for evidence ${entry.id}`}>
@@ -120,7 +121,11 @@ export default function ResearchEvidencePacks() {
       if (epoch === generation.current) { inFlight.current = false; setLoading(false) }
     }
   }
+  // `selected` previews the paragraph; a snapshot that enters the ledger is stamped when the reader acts on it
+  // (Save, Compare), not when the page last rendered, so a paragraph left open carries no stale capturedAt into
+  // revisions and exports.
   const selected = loaded ? captureSource(loaded, paragraph, new Date().toISOString()) : null
+  const capture = () => (loaded ? captureSource(loaded, paragraph, new Date().toISOString()) : null)
   const changeEntry = (entry: EvidenceEntry) => setEntries((previous) => previous.map((item) => item.id === entry.id ? entry : item))
   const exportPack = (format: 'json' | 'markdown') => {
     downloadBlob(new Blob([exportEvidence(entries, format, new Date().toISOString())], { type: format === 'json' ? 'application/json' : 'text/markdown;charset=utf-8' }), `research-evidence-pack.${format === 'json' ? 'json' : 'md'}`)
@@ -157,12 +162,16 @@ export default function ResearchEvidencePacks() {
           </Select>
           <SourceQuote source={selected} />
           <p className={`text-xs ${secondary}`}>Exact excerpt from the cached text. Paragraph numbers refer to this cache; full-filing coverage and SEC page alignment are unverified.</p>
-          <Button onClick={() => { setEntries((previous) => [...previous, createEntry((previous.at(-1)?.id ?? 0) + 1, selected)]); setNotice('Added an unreviewed source snapshot to the evidence pack.') }}>Save as new evidence</Button>
+          <Button onClick={() => {
+            const snapshot = capture()
+            if (!snapshot) return
+            setEntries((previous) => [...previous, createEntry((previous.at(-1)?.id ?? 0) + 1, snapshot)]); setNotice('Added an unreviewed source snapshot to the evidence pack.')
+          }}>Save as new evidence</Button>
         </> : <p className={`text-sm ${secondary}`}>Load available cached text to choose an exact paragraph. Missing text cannot become evidence.</p>}
       </Card>
       <section className="min-w-0 space-y-4" aria-label="Evidence ledger">
         <h2 className="text-xl font-semibold">2. Review before reuse</h2>
-        {entries.length ? entries.map((entry) => <EvidenceCard key={entry.id} entry={entry} selected={selected} onChange={changeEntry} />) :
+        {entries.length ? entries.map((entry) => <EvidenceCard key={entry.id} entry={entry} capture={capture} onChange={changeEntry} />) :
           <Card className="p-5"><p className={secondary}>Your evidence pack is empty. Select a paragraph, then save your first source snapshot.</p></Card>}
       </section>
     </div>

@@ -116,4 +116,18 @@ describe('research evidence pack workflow', () => {
     expect(screen.queryByRole('button', { name: 'Save as new evidence' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Filing ID')).toHaveValue('2')
   })
+  it('stamps a snapshot when the reader saves it, not when the page last rendered', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-10-13T10:00:00.000Z'))
+      render(<ResearchEvidencePacks />)
+      fireEvent.click(screen.getByRole('button', { name: 'Cached filings' })); load()
+      await screen.findByText('First paragraph 1.')
+      vi.setSystemTime(new Date('2026-10-13T10:05:00.000Z'))
+      fireEvent.click(screen.getByRole('button', { name: 'Save as new evidence' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }))
+      const exported = JSON.parse(await api.downloads[0][0].text()) as { entries: { revisions: { capturedAt: string }[] }[] }
+      expect(exported.entries[0].revisions[0].capturedAt).toBe('2026-10-13T10:05:00.000Z')
+    } finally { vi.useRealTimers() }
+  })
 })
