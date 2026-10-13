@@ -109,6 +109,8 @@ export function FinancialRefreshReview() {
                   </dl>
                 </details>
                 <div className="flex flex-wrap items-center gap-2">
+                  {/* Accept and Keep are states the row holds, so aria-pressed is right here; the period presets that
+                      decision 8 turned into plain actions (#1275) are the other case. A brand or a11y sweep keeps it. */}
                   {row.comparison.eligible && (
                     <Button size="sm" variant={row.decision === 'accept' ? 'primary' : 'secondary'} aria-pressed={row.decision === 'accept'} onClick={() => decide(row.id, 'accept')}>
                       {row.comparison.kind === 'new-period' ? 'Add period' : row.comparison.kind === 'source-only' ? 'Accept source' : 'Accept value'}
