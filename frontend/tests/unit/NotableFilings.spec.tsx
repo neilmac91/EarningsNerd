@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 
 import NotableFilings from '@/features/filings/components/NotableFilings'
 import type { NotableFilingsResponse } from '@/lib/serverApi'
@@ -77,8 +77,16 @@ describe('NotableFilings', () => {
 
     expect(screen.getByText('Earnings results')).toBeInTheDocument()
     expect(screen.getByText('Activist stake')).toBeInTheDocument()
-    // "8-K • Filed X ago" — relative label is time-dependent, assert shape not value.
-    expect(screen.getByTestId('notable-filing-AAPL').textContent).toMatch(/8-K • Filed .* ago/)
+    // "8-K · Filed X ago": the relative label is time-dependent, so assert its shape, not its value.
+    expect(screen.getByTestId('notable-filing-AAPL').textContent).toMatch(/8-K\s*· Filed .* ago/)
+  })
+
+  it('sets the form code as data-face text, never an eyebrow chip', () => {
+    render(<NotableFilings data={RESPONSE} />)
+    const form = within(screen.getByTestId('notable-filing-AAPL')).getByText('8-K')
+    expect(form).toHaveClass('font-data', 'text-text-primary-light', 'dark:text-text-primary-dark')
+    expect(form.className).not.toMatch(/\b(uppercase|tracking-eyebrow)\b/)
+    expect(form.parentElement?.className).not.toMatch(/\b(uppercase|tracking-eyebrow)\b/)
   })
 
   it('fires notable_filing_clicked with ticker/form/reason on click', () => {

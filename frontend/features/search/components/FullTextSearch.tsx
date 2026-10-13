@@ -101,15 +101,16 @@ export default function FullTextSearch() {
     staleTime: 5 * 60 * 1000,
   })
   const { data, isFetching } = search
-  // The alert keeps its failure through any refetch until data replaces it (a focused Retry in it
-  // included); a new query is another query, so typing one drops the old failure.
+  // The alert keeps its failure through any refetch until the query's own data replaces it (a focused
+  // Retry in it included; keepPreviousData's placeholder does not count); a new query is another query,
+  // so typing one drops the old failure.
   const failure = useRetainedFailure(search, queryKeys.fullTextSearch(query, formsParam, startDate, endDate))
-  // A backend detail (the 429 and 502 sentences) reads verbatim; an error with no readable detail
-  // from the server (a lost connection, a malformed body) gets this surface's own sentence.
+  // The backend's own detail (the 429 and 502 sentences) reads verbatim, or the surface's sentence when
+  // the body carried none: `backendDetail` is unset for a lost connection, a non-string detail, an HTML
+  // gateway page, and lib/api/client's status fallbacks or axios's "Request failed with status code N".
+  const backendDetail = failure.error instanceof ApiError ? failure.error.backendDetail : undefined
   const errorText =
-    failure.error instanceof ApiError && failure.error.status > 0 && typeof failure.error.detail === 'string' && failure.error.detail
-      ? failure.error.detail
-      : 'Search did not load. Try again in a minute.'
+    typeof backendDetail === 'string' && backendDetail ? backendDetail : 'Search did not load. Try again in a minute.'
 
   const toggleForm = (form: string) =>
     setForms((prev) => (prev.includes(form) ? prev.filter((f) => f !== form) : [...prev, form]))
@@ -223,6 +224,8 @@ export default function FullTextSearch() {
         </p>
       )}
 
+      {/* While a failure is held, no hits render: during its Retry, `data` is the previous query's
+          results (keepPreviousData), which must not show under this query. */}
       {query.length > 0 && !failure.failed && data && (
         data.hits.length > 0 ? (
           <div className="space-y-2">

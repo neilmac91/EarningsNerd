@@ -14,7 +14,9 @@
 //                       Badge: a blue chip on 10-Q spent the status colour on a category, and a
 //                       neutral one still reads as a status. The rule flags a <Badge> (or ui.Badge)
 //                       and a hand-rolled chip (an element whose class text sets uppercase and
-//                       tracking-eyebrow and whose only child is a form field or a form code)
+//                       tracking-eyebrow and whose first non-blank child is a form field or a form
+//                       code, or text opening with one before a separator, followed only by text or
+//                       expressions, as in `{form} • Filed {ago}`)
 //                       that reads a filing-type field, or holds a literal form code (string,
 //                       template or text), in its children or in a prop that styles it. Descriptive
 //                       props (title, alt, aria-*) may name the form: they describe, not display.
@@ -93,6 +95,8 @@ const isBadge = (name) =>
   (name?.type === 'JSXIdentifier' && name.name === 'Badge') ||
   (name?.type === 'JSXMemberExpression' && name.property.name === 'Badge')
 const FORM_CODE = /^\s*(10-K|10-Q|8-K|20-F|40-F|6-K|S-1|S-4|DEF 14A)(\/A)?\s*$/i
+// A text child that opens with a form code and then only a separator (`10-Q · Filed `), never prose (`10-K filings`).
+const FORM_CODE_LEAD = /^\s*(10-K|10-Q|8-K|20-F|40-F|6-K|S-1|S-4|DEF 14A)(\/A)?\s*($|[·•|])/i
 const CHIP_CLASS = /^(class|className)$/
 const EYEBROW_CHIP = [/(^|:)uppercase$/, /(^|:)tracking-eyebrow$/]
 
@@ -117,18 +121,26 @@ function isFormValue(node) {
 }
 
 /** A hand-rolled chip around a form: an HTML element set in eyebrow type (uppercase, tracking-eyebrow)
- *  whose only child is a form field or a form code. A Badge by another hand. */
+ *  whose first non-blank child is a form field or a form code (or text opening with a code and then a
+ *  separator, `10-Q · Filed `), followed only by text or expressions (the codebase's `{form} • Filed {ago}`
+ *  meta line). A Badge by another hand. A sentence that names a form later (`Latest {filing.filing_type}`)
+ *  or opens with one as prose (`10-K filings`) is copy, and an element child ends the match. */
 function isEyebrowFormChip(node, keys) {
   const name = node.openingElement.name
   if (name.type !== 'JSXIdentifier' || !/^[a-z]/.test(name.name)) return false
   const classAttr = node.openingElement.attributes.find((a) => a.type === 'JSXAttribute' && CHIP_CLASS.test(a.name?.name ?? ''))
   const tokens = classAttr ? attributeText(classAttr.value, keys).join(' ').split(/\s+/) : []
   if (!EYEBROW_CHIP.every((pattern) => tokens.some((token) => pattern.test(token)))) return false
-  const children = node.children.filter((c) => !(c.type === 'JSXText' && c.value.trim() === ''))
-  if (children.length !== 1) return false
-  const [only] = children
-  if (only.type === 'JSXText') return FORM_CODE.test(only.value)
-  return only.type === 'JSXExpressionContainer' && isFormValue(only.expression)
+  const children = node.children.filter(
+    (c) =>
+      !(c.type === 'JSXText' && c.value.trim() === '') &&
+      !(c.type === 'JSXExpressionContainer' && c.expression.type === 'JSXEmptyExpression'),
+  )
+  if (children.length === 0) return false
+  const [first, ...rest] = children
+  if (!rest.every((c) => c.type === 'JSXText' || c.type === 'JSXExpressionContainer')) return false
+  if (first.type === 'JSXText') return FORM_CODE_LEAD.test(first.value)
+  return first.type === 'JSXExpressionContainer' && isFormValue(first.expression)
 }
 
 export const noFormCodeBadge = {

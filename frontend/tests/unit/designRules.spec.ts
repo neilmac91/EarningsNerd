@@ -88,8 +88,12 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     // The data face is the form code's place; eyebrow type on a label that is not a form passes.
     '<span className="font-data text-text-primary-light">{hit.form}</span>',
     '<span className="uppercase tracking-eyebrow text-text-tertiary-light">Revenue</span>',
-    // Not the only child: a sentence that names the form is copy, not a chip.
+    // The form is not the first child: a sentence that names the form is copy, not a chip.
     '<span className="uppercase tracking-eyebrow">Latest {filing.filing_type}</span>',
+    '<p className="uppercase tracking-eyebrow">Filed {ago} with the {filing.form}</p>',
+    '<span className="uppercase tracking-eyebrow">10-K filings this week</span>',
+    // An element after the form ends the match: a composed row, judged element by element.
+    '<div className="uppercase tracking-eyebrow">{filing.form}<Badge>New</Badge></div>',
     // A component is judged by its own rule (Badge above), not as a hand-rolled chip.
     '<Eyebrow className="uppercase tracking-eyebrow">{form}</Eyebrow>',
   ],
@@ -114,6 +118,12 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     },
     { code: '<span className={`uppercase ${tone} tracking-eyebrow`}>{filing?.filing_type}</span>', errors: [{ messageId: 'chip' }] },
     { code: "<div className={cx('uppercase', 'sm:tracking-eyebrow')}>10-K/A</div>", errors: [{ messageId: 'chip' }] },
+    // The form leading a meta line, followed only by text or expressions: the notable-filing card had it.
+    {
+      code: '<div className="mt-1 text-xs uppercase tracking-eyebrow">\n  {filing.form}\n  {ago ? ` • Filed ${ago}` : \'\'}\n</div>',
+      errors: [{ messageId: 'chip' }],
+    },
+    { code: '<span className="uppercase tracking-eyebrow">{/* code */}10-Q · Filed {ago}</span>', errors: [{ messageId: 'chip' }] },
   ],
 })
 
