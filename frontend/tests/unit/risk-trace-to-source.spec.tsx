@@ -28,7 +28,8 @@ describe('Risk factor Trace-to-Source', () => {
 
   it('reports withheld evidence without rendering an unverified citation', () => {
     render(<SummaryRisks risks={[]} projection={{ version: 1, verified_count: 0, withheld_count: 1 }} />)
-    expect(screen.getByText(/Source-verified risk excerpts are unavailable/)).toBeTruthy()
+    expect(screen.getByText(/No risk excerpt was located in the filing text\./)).toBeTruthy()
+    expect(screen.getByText(/Read the risk factors in the filing\./)).toBeTruthy()
     expect(screen.getByText(/1 item withheld/)).toBeTruthy()
     expect(screen.queryByRole('link')).toBeNull()
   })
@@ -39,7 +40,7 @@ describe('Risk factor Trace-to-Source', () => {
     ]
     const { container } = render(<SummaryRisks risks={risks} />)
     expect(container.textContent).not.toContain('Evidence text only.')
-    expect(container.textContent).toContain('Source-verified risk excerpts are unavailable. Review the filing.')
+    expect(container.textContent).toBe('Risk excerpts are not available for this summary. Read the risk factors in the filing.')
     expect(screen.queryByRole('link')).toBeNull()
   })
 

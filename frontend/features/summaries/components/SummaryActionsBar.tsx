@@ -99,7 +99,7 @@ export function SummaryActionsBar({
                 loading={saveMutation.isPending}
                 leftIcon={<BookmarkSimpleIcon className="h-4 w-4" />}
               >
-                Save Summary
+                Save summary
               </Button>
             )
           )}
@@ -116,7 +116,10 @@ export function SummaryActionsBar({
         {copyState === 'failed' && (
           <p role="alert" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Could not copy the link. Try again, or copy this link manually:{' '}
-            <a href={filingUrl} className="break-all text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark">
+            <a
+              href={filingUrl}
+              className="break-all rounded-sm text-brand-strong underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+            >
               {filingUrl}
             </a>
           </p>

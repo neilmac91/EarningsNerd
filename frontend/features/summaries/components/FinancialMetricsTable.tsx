@@ -166,6 +166,9 @@ const takeawayField = (row: FinancialMetric, twin?: string): ReactNode => (
         verified={row.commentary_evidence.verified}
         sectionRef={row.commentary_evidence.section_ref}
         excerpt={row.commentary_evidence.verified ? row.commentary_evidence.excerpt : null}
+        // A takeaway is a sentence the summary wrote, so the panel says what was checked: the passage it
+        // cites, not the takeaway itself. Unverified evidence keeps the panel's own "Cited" line.
+        note={row.commentary_evidence.verified ? 'The passage cited for this takeaway was found in the filing text.' : null}
         layoutTwin={twin}
       />
     )}

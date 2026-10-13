@@ -70,9 +70,9 @@ describe('canonical filing link action', () => {
     expect(screen.getByText('A source-owned excerpt.')).toBeInTheDocument()
     expect(!!screen.queryByText('Full summary')).toBe(tier === 'full')
     expect(!!screen.queryByText('Partial')).toBe(tier === 'partial')
-    expect(!!screen.queryByRole('button', { name: 'Save Summary' })).toBe(authenticated)
+    expect(!!screen.queryByRole('button', { name: 'Save summary' })).toBe(authenticated)
     expect(!!screen.queryByRole('button', { name: 'Export PDF' })).toBe(pro)
-    if (authenticated) { fireEvent.click(screen.getByRole('button', { name: 'Save Summary' })); expect(actions.save).toHaveBeenCalledWith(91) }
+    if (authenticated) { fireEvent.click(screen.getByRole('button', { name: 'Save summary' })); expect(actions.save).toHaveBeenCalledWith(91) }
     if (pro) { fireEvent.click(screen.getByRole('button', { name: 'Export PDF' })); fireEvent.click(screen.getByRole('button', { name: 'Export CSV' })); expect(actions.pdf).toHaveBeenCalledOnce(); expect(actions.csv).toHaveBeenCalledOnce() }
   })
 

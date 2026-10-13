@@ -348,9 +348,11 @@ const runStreamAttempt = async (
     // Keep the existing silent 401 refresh/replay owner, with a bounded handshake.
     const response = await untilAborted(postStreamWithRefresh(postStream))
     if (!response.ok) {
+      // The reader's sentence when the response carries no detail of its own. The 401 one keeps
+      // "sign in": isNonRetryableStreamError routes on it, so a signed-out stream is never retried.
       let errorMessage = response.status === 401
-        ? 'Authentication error occurred.'
-        : `Request failed with status ${response.status}`
+        ? 'Sign in again to generate this summary.'
+        : 'The summary could not start. Try again.'
       try {
         const errorData = await untilAborted(response.json())
         if (typeof errorData?.detail === 'string') errorMessage = errorData.detail
@@ -368,7 +370,7 @@ const runStreamAttempt = async (
       `[summary] ${filingId} stream opened in ${(performance.now() - streamStart).toFixed(1)} ms`
     )
     reader = response.body?.getReader()
-    if (!reader) return { ok: false, retryable: true, error: 'No reader available' }
+    if (!reader) return { ok: false, retryable: true, error: 'The connection dropped before the summary started. Try again.' }
 
     const decoder = new TextDecoder()
     let buffer = ''

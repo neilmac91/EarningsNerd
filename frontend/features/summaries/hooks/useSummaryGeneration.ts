@@ -16,6 +16,10 @@ import { queryKeys } from '@/lib/queryKeys'
 import analytics from '@/lib/analytics'
 import { IN_PROGRESS_MARKER } from '../lib/summaryPlaceholder'
 
+// The hook's own fallback sentences are written in the product voice; a backend sentence is mapped
+// where it is shown (features/summaries/lib/streamErrorCopy.ts, read by StreamingSummaryDisplay), so the
+// raw message stays the one the paywall and retry matchers read. "Sign in" stays in the signed-out
+// sentence: isNonRetryableStreamError routes on it.
 const getFriendlyErrorMessage = (error: unknown): string | null => {
   if (!error) return null
 
@@ -25,7 +29,7 @@ const getFriendlyErrorMessage = (error: unknown): string | null => {
     if (payload?.detail) return payload.detail
     if (payload?.message) return payload.message
     if (error.code === 'ECONNABORTED' || error.message?.toLowerCase().includes('timeout')) {
-      return 'Generation timed out, please retry.'
+      return 'The summary timed out. Retry to generate it again.'
     }
     return error.message
   }
@@ -33,7 +37,7 @@ const getFriendlyErrorMessage = (error: unknown): string | null => {
   if (error instanceof Error) return error.message
   if (typeof error === 'string') return error
 
-  return 'Unexpected error occurred while loading the summary.'
+  return 'The summary could not load. Try again.'
 }
 
 const PROGRESS_POLL_INTERVAL_MS = 1000
@@ -145,7 +149,7 @@ export function useSummaryGeneration({
       // Generation requires an account (the backend 401s guests). The page renders a signup gate
       // for unauthenticated visitors, so this is a defensive backstop, not the primary UX.
       if (!isAuthenticated) {
-        setGenerationError('Please sign in to generate summaries.')
+        setGenerationError('Sign in to generate this summary.')
         return
       }
       setHasStartedGeneration(true)
@@ -202,7 +206,7 @@ export function useSummaryGeneration({
       } catch (error: unknown) {
         // Reuse the shared friendly-error mapping (Axios detail/message + timeout) rather than a
         // bare .message, so a thrown generation error reads the same as a failed summary fetch.
-        const message = getFriendlyErrorMessage(error) || 'Failed to generate summary'
+        const message = getFriendlyErrorMessage(error) || 'We could not generate this summary. Try again shortly.'
         setGenerationError(message)
         setStreamingStage('error')
         setStreamingMessage(message)

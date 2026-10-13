@@ -1,9 +1,22 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { useRef, useState } from 'react'
 import StreamingSummaryDisplay from '@/app/filing/[id]/StreamingSummaryDisplay'
 import { GuidanceCard } from '@/components/ui'
 import type { Filing } from '@/features/filings/api/filings-api'
+
+// The trial ships behind ENABLE_PRO_TRIAL (flipped with the backend's PRO_TRIAL_DAYS); a live flag lets a
+// case turn it on without re-importing the component.
+const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false }))
+vi.mock('@/lib/featureFlags', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
+  get ENABLE_PRO_TRIAL() {
+    return flags.ENABLE_PRO_TRIAL
+  },
+}))
+beforeEach(() => {
+  flags.ENABLE_PRO_TRIAL = false
+})
 
 const filing: Filing = {
   id: 3,
@@ -50,7 +63,7 @@ describe('StreamingSummaryDisplay live region', () => {
   it('changes only on stage transitions, not on progress ticks', async () => {
     const { rerender } = renderAt('analyzing', 5)
     await act(async () => {})
-    const live = () => screen.getByText(/^(Cross-referencing standardized XBRL financials|Generating investment analysis)\.$/)
+    const live = () => screen.getByText(/^(Cross-referencing standardized XBRL financials|Writing the summary)\.$/)
     const before = live().textContent
     rerender(
       <StreamingSummaryDisplay streamingText="" stage="analyzing" message="" filing={filing} elapsedSeconds={20} />,
@@ -61,7 +74,7 @@ describe('StreamingSummaryDisplay live region', () => {
       <StreamingSummaryDisplay streamingText="" stage="summarizing" message="" filing={filing} elapsedSeconds={21} />,
     )
     await act(async () => {})
-    expect(live()).toHaveTextContent('Generating investment analysis.')
+    expect(live()).toHaveTextContent('Writing the summary.')
   })
 
   it('has a generic announcement for early and unknown stages', async () => {
@@ -70,12 +83,33 @@ describe('StreamingSummaryDisplay live region', () => {
     expect(screen.getByText('Starting summary generation.')).toHaveAttribute('aria-live', 'polite')
     rerender(<StreamingSummaryDisplay streamingText="" stage="mystery" message="" filing={filing} />)
     await act(async () => {})
-    expect(screen.getByText('Generating your analysis.')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByText('Generating the summary.')).toHaveAttribute('aria-live', 'polite')
+  })
+})
+
+// A pending step reads in tertiary ink at full opacity (4.9:1 and up), never faded: opacity-40 put it at
+// 2.1:1 (filing/F14). The real-browser contrast census is tests/e2e/text-floors.spec.ts.
+describe('StreamingSummaryDisplay step log', () => {
+  it('shows a pending step with its empty marker, its label at full opacity in tertiary ink', async () => {
+    renderAt('fetching')
+    await act(async () => {})
+    const pending = screen.getByText('Writing the summary')
+    expect(pending.className).toContain('text-text-tertiary-light')
+    for (let el: HTMLElement | null = pending; el; el = el.parentElement) expect(el.className).not.toMatch(/\bopacity-/)
+    expect(screen.getByText('Retrieving 10-K filing from EDGAR').className).toContain('font-medium')
+  })
+
+  it('says a slow run is still running, without guessing why', async () => {
+    renderAt('fetching', 50)
+    await act(async () => {})
+    expect(screen.getByText('Taking longer than usual. Still working on it.')).toBeInTheDocument()
+    expect(screen.getByText('Still running')).toBeInTheDocument()
   })
 })
 
 describe('StreamingSummaryDisplay paywall routing', () => {
   it.each([true, false])('preserves monthly billing for a promised trial (eligible=%s)', (trialEligible) => {
+    flags.ENABLE_PRO_TRIAL = true
     render(
       <StreamingSummaryDisplay
         streamingText=""
@@ -87,6 +121,32 @@ describe('StreamingSummaryDisplay paywall routing', () => {
     )
     const label = trialEligible ? 'Start 7-day free trial' : 'Upgrade to Pro'
     expect(screen.getByRole('link', { name: label })).toHaveAttribute('href', trialEligible ? '/pricing?billing=monthly' : '/pricing')
+  })
+
+  it('promises no trial while the trial does not ship, whatever the page says about the user', () => {
+    render(<StreamingSummaryDisplay streamingText="" stage="error" message="Monthly limit reached" filing={filing} trialEligible />)
+    expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing')
+    expect(screen.queryByText(/free trial/)).toBeNull()
+  })
+})
+
+// The pipeline's sentences keep their em-dashes until the founder opens summary_stages; the card shows
+// the mapped sentence (features/summaries/lib/streamErrorCopy.ts), and the raw one still routes it.
+describe('StreamingSummaryDisplay failure reason', () => {
+  it('shows a backend sentence in the product voice', async () => {
+    render(
+      <StreamingSummaryDisplay
+        streamingText=""
+        stage="error"
+        message=""
+        error={'Unable to retrieve this filing at the moment \u2014 please try again shortly.'}
+        filing={filing}
+      />,
+    )
+    await act(async () => {})
+    expect(screen.getByRole('heading', { name: 'Generation interrupted' })).toBeInTheDocument()
+    expect(screen.getByText('We could not generate this summary. Try again shortly.')).toBeInTheDocument()
+    expect(screen.queryByText(/\u2014/)).toBeNull()
   })
 })
 
@@ -173,8 +233,8 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
     fireEvent.click(retry(), { detail: 0 })
     await settle()
     expect(screen.queryByRole('button', { name: 'Retry generation' })).toBeNull()
-    expect(document.activeElement).toBe(heading('Generating your analysis'))
-    expect(heading('Generating your analysis')).toHaveAttribute('tabindex', '-1')
+    expect(document.activeElement).toBe(heading('Generating the summary'))
+    expect(heading('Generating the summary')).toHaveAttribute('tabindex', '-1')
   })
 
   it('a restart that fails again brings focus back into the new card', async () => {
@@ -183,7 +243,7 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
     retry().focus()
     fireEvent.click(retry(), { detail: 0 })
     await settle()
-    expect(document.activeElement).toBe(heading('Generating your analysis'))
+    expect(document.activeElement).toBe(heading('Generating the summary'))
     // The progress card, its focused heading with it, leaves in the commit that shows the new card.
     outside('fail')
     await settle()

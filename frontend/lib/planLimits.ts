@@ -12,6 +12,14 @@ export const FREE_SUMMARY_LIMIT = 5
 export const FREE_EARNINGS_ALERT_LIMIT = 3
 
 /**
+ * The Pro trial's length, for copy only. The trial exists only while the backend's PRO_TRIAL_DAYS is
+ * set (it defaults to 0 in backend/app/config.py) and the UI flag ENABLE_PRO_TRIAL is on, flipped
+ * together; every sentence that states the length reads this constant under that flag
+ * (`tests/unit/planLimitsLockstep.spec.ts`).
+ */
+export const TRIAL_DAYS = 7
+
+/**
  * Two more free-tier facts the marketing pricing card states, mirrored from the same
  * `_FREE = Entitlements(...)` block (`copilot_free_taste`, `history_retention_days`). Same
  * lockstep spec keeps them honest.

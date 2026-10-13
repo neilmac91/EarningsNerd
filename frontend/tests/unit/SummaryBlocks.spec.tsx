@@ -243,7 +243,7 @@ describe('SummaryBlocks', () => {
     expect(screen.getByText(/No summary found/i)).toBeInTheDocument()
   })
 
-  it('renders tone as a header Badge, not a prose sentence', () => {
+  it('renders tone as a neutral header Badge that names what it is, not a prose sentence', () => {
     const toneSections: RenderedSection[] = [
       {
         id: 'executive-assessment',
@@ -253,7 +253,10 @@ describe('SummaryBlocks', () => {
       },
     ]
     render(<SummaryBlocks sections={toneSections} summary={summary} />)
-    expect(screen.getByText('positive')).toBeInTheDocument()
+    const badge = screen.getByText('Management tone: positive')
+    // A tone is a reading, not a status: neither the brand nor a warning colour.
+    expect(badge.className).not.toMatch(/brand|warning/)
+    expect(badge.className).not.toContain('capitalize')
     expect(screen.queryByText(/tone was/i)).not.toBeInTheDocument()
   })
 

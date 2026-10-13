@@ -60,7 +60,15 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 
 - **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): five new loading quips in
   the voice and one kept ("Reading the size-8 fine print…"), signed "Reading the filing"; the stalled line and the timeout error say what happened
-  and what to do. The heading "Generation interrupted" stays.
+  and what to do. The heading "Generation interrupted" stays. The card reads "Generating the summary"
+  and its last step "Writing the summary"; a pending step keeps full opacity in the tertiary ink (it
+  sat at 2.1:1 under opacity-40). A slow run reads "Taking longer than usual. Still working on it.",
+  signed "Still running", without guessing why. A stored summary that failed reads "This summary did
+  not finish" over its own sentence, "The last attempt for this filing did not finish. Retry to
+  generate it again." The pipeline's stream errors are mapped on the client
+  (`frontend/features/summaries/lib/streamErrorCopy.ts`), because the summary_stages strings are the
+  founder's until he opens them; the raw sentence still decides the paywall card and the retry, and
+  `tests/unit/streamErrorCopy.spec.ts` reads the Python so a reworded sentence fails until it is mapped.
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
   "$7.5" (a Phase 9 fix; compact figures keep their rounding).

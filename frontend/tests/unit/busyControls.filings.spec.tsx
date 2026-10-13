@@ -98,7 +98,7 @@ afterEach(() => {
   Object.values(api).forEach((mock) => mock.mockReset())
 })
 
-describe('SummaryActionsBar Save Summary', () => {
+describe('SummaryActionsBar Save summary', () => {
   it('stays focused and busy while the save is in flight, and refuses a second click or Enter', async () => {
     const ui = (saveMutation: SaveMutation) => (
       <SummaryActionsBar

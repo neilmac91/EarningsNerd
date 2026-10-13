@@ -37,11 +37,12 @@ const RISKS_SECTION_ID = 'investment-risks-concerns'
 const isRisksSection = (section: RenderedSection): boolean =>
   section.role === 'risks' || section.id === RISKS_SECTION_ID
 
-// tone -> Badge variant (T1.2 treatment). neutral/unknown render nothing: tone is a schema field
-// name, not user copy.
-const TONE_VARIANT: Record<string, 'brand' | 'warning'> = {
-  positive: 'brand',
-  cautious: 'warning',
+// tone -> the header Badge's label. One neutral Badge for both: a tone is the model's reading of
+// management's language, not a status, so it takes neither the brand nor a warning colour, and the
+// label names what it is. neutral/unknown render nothing: tone is a schema field name, not user copy.
+const TONE_LABEL: Record<string, string> = {
+  positive: 'Management tone: positive',
+  cautious: 'Management tone: cautious',
 }
 
 const INK = 'text-text-primary-light dark:text-text-primary-dark'
@@ -167,7 +168,7 @@ export function SummaryBlocks({ sections, summary, whatChanged, firstHeadingRef 
         <MobileSectionNav sections={pageSections} />
         <div className="space-y-11">
           {pageSections.map((section, i) => {
-            const toneVariant = section.tone ? TONE_VARIANT[section.tone.toLowerCase()] : undefined
+            const toneLabel = section.tone ? TONE_LABEL[section.tone.toLowerCase()] : undefined
             return (
               <section
                 key={section.id}
@@ -187,9 +188,9 @@ export function SummaryBlocks({ sections, summary, whatChanged, firstHeadingRef 
                   >
                     {section.title}
                   </h2>
-                  {toneVariant && (
-                    <Badge variant={toneVariant} className="shrink-0 self-center capitalize">
-                      {section.tone}
+                  {toneLabel && (
+                    <Badge variant="neutral" className="shrink-0 self-center">
+                      {toneLabel}
                     </Badge>
                   )}
                 </div>

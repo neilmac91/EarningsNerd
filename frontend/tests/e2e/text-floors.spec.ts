@@ -83,7 +83,16 @@ async function answerSiteApi(page: Page, baseURL: string, signedIn: boolean) {
   })
 }
 
-type Route = { name: string; path: string; status?: number; open: (page: Page, baseURL: string) => Promise<void>; ready: (page: Page) => Promise<void> }
+type Route = {
+  name: string
+  path: string
+  status?: number
+  open: (page: Page, baseURL: string) => Promise<void>
+  ready: (page: Page) => Promise<void>
+  /** Fold every ancestor's opacity into the text's ink, as Chromium paints it (the in-flight progress card,
+      whose pending steps once sat at opacity-40, 2.1:1). Opt-in while the other routes' fades are unmeasured. */
+  foldOpacity?: boolean
+}
 const ROUTES: Route[] = [
   { name: 'home', path: '/', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
   { name: 'pricing', path: '/pricing', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Pricing' })).toBeVisible() },
@@ -91,6 +100,22 @@ const ROUTES: Route[] = [
   { name: 'filing', path: '/filing/3', open: (p, b) => answerApi(p, b, 'anon'), ready: (p) => expect(p.getByText('On this page')).toBeVisible() },
   { name: 'dashboard', path: '/dashboard', open: (p, b) => answerSiteApi(p, b, true), ready: (p) => expect(p.getByRole('heading', { level: 2, name: 'Your companies' })).toBeVisible() },
   { name: 'not found', path: '/no-such-page', status: 404, open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible() },
+  {
+    // A signed-in run in flight on a filing with no summary: the stream request is held open, so the
+    // progress card stays up with every step still pending (filing/F14). Its pending labels are tertiary
+    // ink at full opacity; folded opacity makes the census see what a faded label would paint.
+    name: 'filing, a summary in flight (pending steps)',
+    path: '/filing/3',
+    foldOpacity: true,
+    open: async (p, b) => {
+      await noSummary(p, b, 'pro')
+      await p.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/summaries/filing/3/generate-stream', () => new Promise<void>(() => {}))
+    },
+    ready: async (p) => {
+      await expect(p.getByRole('heading', { level: 2, name: 'Generating the summary' })).toBeVisible()
+      await expect(p.getByText('Writing the summary', { exact: true })).toBeVisible()
+    },
+  },
   {
     name: 'legacy markdown filing',
     path: '/filing/3',
@@ -133,8 +158,8 @@ async function visit(page: Page, baseURL: string, route: Route) {
 }
 
 /** Every visible text element painted in `ink`, with its WCAG contrast over the composited ground. */
-const inkCensus = (page: Page, ink: string) =>
-  page.evaluate((ink) => {
+const inkCensus = (page: Page, ink: string, foldOpacity = false) =>
+  page.evaluate(({ ink, foldOpacity }) => {
     type Rgba = { r: number; g: number; b: number; a: number }
     const parse = (c: string): Rgba => {
       const m = c.match(/rgba?\(([^)]+)\)/)
@@ -162,11 +187,16 @@ const inkCensus = (page: Page, ink: string) =>
       }
       if (!layers.length || layers[layers.length - 1].a !== 1) layers.push({ r: 255, g: 255, b: 255, a: 1 })
       const ground = layers.reduceRight((under, top) => over(top, under))
-      const [hi, lo] = [lum(over(parse(s.color), ground)), lum(ground)].sort((x, y) => y - x)
+      // An ancestor's opacity fades the text into what is behind it (an approximation that ignores any
+      // ground inside the faded group, which the progress card's step rows do not have).
+      let fade = 1
+      if (foldOpacity) for (let n: Element | null = el; n; n = n.parentElement) fade *= Number(getComputedStyle(n).opacity)
+      const textInk = parse(s.color)
+      const [hi, lo] = [lum(over({ ...textInk, a: textInk.a * fade }, ground)), lum(ground)].sort((x, y) => y - x)
       found.push({ text: text.slice(0, 48), ratio: Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100 })
     }
     return found
-  }, ink)
+  }, { ink, foldOpacity })
 
 /** Heading levels in DOM order (the detector's reading) and as the accessibility tree exposes them. */
 const headingSkips = (page: Page) =>
@@ -197,9 +227,11 @@ test.describe('main routes at 1440x900, light theme', () => {
       await visit(page, baseURL!, route)
       await page.mouse.move(0, 0)
 
-      const census = await inkCensus(page, TERTIARY_INK)
-      // Anti-vacuity: the homepage keeps tertiary labels inside its sample cards (on panel and white).
+      const census = await inkCensus(page, TERTIARY_INK, route.foldOpacity)
+      // Anti-vacuity: the homepage keeps tertiary labels inside its sample cards (on panel and white), and
+      // the in-flight card its pending step labels.
       if (route.name === 'home') expect(census.length, `tertiary text found on ${route.name}`).toBeGreaterThan(10)
+      if (route.foldOpacity) expect(census.map((c) => c.text), `pending steps measured on ${route.name}`).toContain('Writing the summary')
       // Soft: one run reports every floor a route misses.
       expect.soft(census.filter((c) => c.ratio < 4.5), `tertiary text under 4.5:1 on ${route.name}`).toEqual([])
 
@@ -229,8 +261,9 @@ test.describe('main routes at 1440x900, light theme', () => {
 const CARD_STATES: { name: string; route: Route; card: string }[] = [
   {
     name: 'filing without a summary, guest (the signup gate)',
-    route: { ...ROUTES[3], open: (p, b) => noSummary(p, b, 'anon'), ready: (p) => expect(p.getByRole('link', { name: 'Create free account' })).toBeVisible() },
-    card: 'Create a free account to analyze this filing',
+    // No backend answers /api/auth/registration here, so the gate fails closed to its invite-only copy.
+    route: { ...ROUTES[3], open: (p, b) => noSummary(p, b, 'anon'), ready: (p) => expect(p.getByRole('link', { name: 'Request an invite' })).toBeVisible() },
+    card: 'Summaries need an account',
   },
   {
     name: 'filing without a summary, signed in, the run fails',
@@ -249,7 +282,7 @@ const CARD_STATES: { name: string; route: Route; card: string }[] = [
       },
       ready: (p) => expect(p.getByRole('button', { name: 'Retry' })).toBeVisible(),
     },
-    card: 'Summary temporarily unavailable',
+    card: 'This summary did not finish',
   },
   {
     name: 'empty watchlist',

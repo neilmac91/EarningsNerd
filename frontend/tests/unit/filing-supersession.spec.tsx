@@ -38,12 +38,12 @@ describe('filing supersession', () => {
     const { container } = render(
       <QueryClientProvider client={client}><TickerFilingsView ticker="aapl" /></QueryClientProvider>,
     )
-    const originalLink = screen.getByRole('link', { name: 'Generate AI summary for 10-K original' })
+    const originalLink = screen.getByRole('link', { name: 'Open 10-K original' })
     expect(originalLink).toHaveAttribute('href', '/filing/41')
     const row = originalLink.parentElement!.parentElement!
     expect(within(row).getByText('Superseded')).toBeVisible()
     expect(within(row).getByRole('link', { name: 'View amendment' })).toHaveAttribute('href', '/filing/72')
-    expect(screen.getByRole('link', { name: 'Generate AI summary for 10-K/A amendment' })).toHaveAttribute('href', '/filing/72')
+    expect(screen.getByRole('link', { name: 'Open 10-K/A amendment' })).toHaveAttribute('href', '/filing/72')
     expect(container.querySelector('a a')).toBeNull()
     expect(screen.getAllByText('Superseded')).toHaveLength(1)
     client.clear()

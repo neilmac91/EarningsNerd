@@ -7,8 +7,9 @@ import { formatLocalDate } from '@/lib/format'
 import { getCompany, type Company } from '@/features/companies/api/companies-api'
 import { getCompanyFilings, type Filing } from '@/features/filings/api/filings-api'
 import { CircleNotchIcon } from '@/lib/icons'
-import { Badge, Skeleton } from '@/components/ui'
+import { Skeleton, buttonVariants, cx } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
+import { IDENTITY_LINK } from './FilingIdentity'
 import SupersededFilingNotice from './SupersededFilingNotice'
 
 /**
@@ -52,11 +53,8 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
           {companyError instanceof Error && (
             <p className="mt-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">{companyError.message}</p>
           )}
-          <Link
-            href="/"
-            className="mt-6 inline-flex items-center rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark"
-          >
-            Back to home
+          <Link href="/" className={buttonVariants({ className: 'mt-6' })}>
+            Go to the homepage
           </Link>
         </div>
       </div>
@@ -73,11 +71,8 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
               {company.ticker} • Latest SEC filings
             </p>
           </div>
-          <Link
-            href={`/company/${company.ticker}`}
-            className="inline-flex items-center rounded-full border border-border-light dark:border-white/20 bg-panel-light dark:bg-white/5 px-4 py-2 text-sm font-medium text-text-primary-light dark:text-text-primary-dark transition hover:border-brand-border hover:bg-brand-weak dark:hover:border-white/40 dark:hover:bg-white/10"
-          >
-            View company dashboard
+          <Link href={`/company/${company.ticker}`} className={buttonVariants({ variant: 'secondary' })}>
+            View company page
           </Link>
         </div>
 
@@ -123,8 +118,18 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
                           {formatLocalDate(filing.filing_date, 'MMM dd, yyyy', 'Date TBD')}
                         </p>
                       </div>
-                      <Link href={`/filing/${filing.id}`} aria-label={`Generate AI summary for ${filing.filing_type} ${filing.accession_number}`}>
-                        <Badge variant="brand">Generate AI summary</Badge>
+                      {/* A plain text link: the row's one action opens the filing (its summary is generated
+                          there), and a Badge is a label, never a control. The ring is IDENTITY_LINK's, restated
+                          so the focus-ring scan, which reads the file, sees it. */}
+                      <Link
+                        href={`/filing/${filing.id}`}
+                        aria-label={`Open ${filing.filing_type} ${filing.accession_number}`}
+                        className={cx(
+                          IDENTITY_LINK,
+                          'text-sm font-medium focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+                        )}
+                      >
+                        Open filing
                       </Link>
                     </div>
                     <SupersededFilingNotice filing={filing} filings={filings} />

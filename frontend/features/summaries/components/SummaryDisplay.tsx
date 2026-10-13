@@ -19,7 +19,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { ChangeReportCard } from './ChangeReportCard'
 import { SummaryActionsBar, type SaveMutation } from './SummaryActionsBar'
 import { useSummaryExports } from '../hooks/useSummaryExports'
-import { SUMMARY_FALLBACK_MESSAGE, cleanSummaryMarkdown, isSummaryFailure } from '../lib/summaryPlaceholder'
+import { cleanSummaryMarkdown, isSummaryFailure } from '../lib/summaryPlaceholder'
 
 // Multi-period fundamentals trend (item 2.5), filing-scoped only — the company page no longer shows
 // a company-wide trend (it would "refresh" on every new filing rather than reflect this document).
@@ -104,7 +104,6 @@ export function SummaryDisplay({
     initialData: initialChangeReport,
   })
 
-  const fallbackMessage = SUMMARY_FALLBACK_MESSAGE
   const writerFallback = rawSummary?.writer?.fallback_used === true
   // A stored summary that failed (placeholder filler, a writer error, the fallback body, nothing left
   // once the notices are stripped) shows the error card, not its body. The company page's "summary
@@ -152,9 +151,12 @@ export function SummaryDisplay({
         <>
           <GuidanceCard
             variant="error"
-            title="Summary temporarily unavailable"
+            title="This summary did not finish"
             headingLevel="h2"
-            description={fallbackMessage}
+            // The card's own sentence: SUMMARY_FALLBACK_MESSAGE is the backend's stored body (the
+            // failure detector's token), and the failure stays until a retry, so "temporarily" promised
+            // a timing the code does not keep.
+            description="The last attempt for this filing did not finish. Retry to generate it again."
             action={
               onRetry ? (
                 <Button variant="secondary" onClick={onRetry}>
