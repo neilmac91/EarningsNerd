@@ -219,45 +219,46 @@ list included) and the str of a log's body that is not text only after `before_s
   the one value scrubber, so a hook an upgrade adds fails the gate. With the settings fabricated before the client is
   built: a token quoted twice in a message, an exception, a log line's breadcrumb, an extra, a tag, a context (as a
   value and as a key), a user, a request (its path, query string, header and body), a transaction's name (which the
-  envelope's trace header repeats) and a span's name and data, a log sent through the SDK's logger, a metric's
-  attribute and a cron check-in's monitor slug arrives `[Filtered]` at each place it stood, with no 8-character
-  fragment anywhere, envelope and item headers included; with Sentry logs on, through either switch, a log record's
-  tuple and mapping `extra` values and an SDK log whose body is an exception arrive as their repr with the token
-  `[Filtered]`; a setting added under each of the rule's suffixes (a fabricated settings class, `_PASSWORD` included)
-  is withheld with no change to main.py; one message quoting every secret field's value (the gate's own
-  `SECRET_FIELDS`, so main's copy of the rule cannot narrow unseen; the Alpha Vantage key at its 16 characters), each
-  URL whole, the database password as written (an `@` percent-encoded) and decoded, and the Redis password (an `@`
-  unescaped, read to the last `@` as redis-py reads it) arrives as `[Filtered]` for each, nothing else changed; the
-  driver's own error for a URL missing its `@host` with an all-digit password, which quotes the digits as the port,
-  arrives with them `[Filtered]`; a value stored with a trailing newline is withheld where an error quotes it escaped;
-  an 8-character value is withheld while a 7-character one, an empty one, a URL's port and an IPv6 host are not, and a
-  setting holding `None` is skipped, not a failure that would turn Sentry off; the values are read once, when the
-  options are built, never at an item, by any path (a value set afterwards is not withheld); the trace header names the
-  transaction with the secret withheld; secrets equal to protocol words (`event_id`, `trace_id`, `attributes`,
-  `start_timestamp`, `time_unix_nano`, `severity_number`, `transaction`, `timestamp`, `check_in`, `parent_span_id`,
-  `category`, `filename`, `schedule`, `sample_rate`) break no item: errors, transactions, the check-in, the log and the
-  metric are each sent, as their own kind and whole, their child spans, breadcrumbs, frames, monitor config and trace
-  header with their keys; every key of 8 characters or more that the SDK's own items carry outside user data, read from
-  what each hook received in one capture of every structure on every channel and each taken as a secret, leaves every
-  item's structure as it was, so a key an SDK upgrade adds fails until `_PROTOCOL_KEYS` has it, and every name the list
-  keeps occurs in those items (no entry is dead or misspelled), and so does each context main counts as the SDK's, on
-  the SDK version the capture was checked against (pinned); a weak secret equal to a protocol word (`username`) written
-  by the app as a key in each kind of user data (an extra, a tag, a context of its own, a breadcrumb's data, a span's
-  data and tags, a log's and a metric's attributes, a request's body and headers, a log entry's params) is withheld
-  there while the user's own `username` stays, each field of the gate's copy of the user-data fields holds user data in
-  main, and a key that only poses as a protocol word (a text subclass, any other object) is withheld or turned into its
-  repr; a secret held as a key in user data (an extra, a tag, a context's name and contents, a user, a breadcrumb's
-  data, a request body, a span's data and tags, a log's and a metric's attributes) is withheld there, and so is one that
-  follows a protocol word in the same key; a trace context set by hand, an attachment on the scope, a hand-built event
-  with the secret as its own key, its `type` and an attachment, and an event processor registered under an assignment
-  alias that writes it as an event's key, a trace context's key and the `type` and attaches it each send it nowhere (no
-  attachment item is sent), and a hand-built event whose `type` is a list is sent; a secret overlapping `[Filtered]` in
-  each of the four ways
-  (inside it, across its end, around it, across its start) moves the placeholder to the first that none overlaps and
-  appears nowhere in the envelope, and weak secrets that overlap every placeholder fail the options with an error that
-  names no value, inside main.py's `try` around its one init, so Sentry stays off and the app starts; and a scrubber
-  that raises sends nothing: the error, the check-in, the transaction, the log and the metric are each lost to
-  `callback_error`.
+  envelope's trace header repeats) and a span's name and data, a log sent through the SDK's logger, a metric's attribute
+  and a cron check-in's monitor slug arrives `[Filtered]` at each place it stood, with no 8-character fragment anywhere,
+  envelope and item headers included; with Sentry logs on, through either switch, a log record's tuple and mapping
+  `extra` values and an SDK log whose body is an exception arrive as their repr with the token `[Filtered]`; a setting
+  added under each of the rule's suffixes (a fabricated settings class, `_PASSWORD` included) is withheld with no change
+  to main.py; one message quoting every secret field's value (the gate's own `SECRET_FIELDS`, so main's copy of the rule
+  cannot narrow unseen; the Alpha Vantage key at its 16 characters), each URL whole, the database password as written
+  (an `@` percent-encoded) and decoded, and the Redis password (an `@` unescaped, read to the last `@` as redis-py reads
+  it) arrives as `[Filtered]` for each, nothing else changed; the driver's own error for a URL missing its `@host` with
+  an all-digit password, which quotes the digits as the port, arrives with them `[Filtered]`; a value stored with a
+  trailing newline is withheld where an error quotes it escaped; an 8-character value is withheld while a 7-character
+  one, an empty one, a URL's port and an IPv6 host are not, and a setting holding `None` is skipped, not a failure that
+  would turn Sentry off; the values are read once, when the options are built, never at an item, by any path (a value
+  set afterwards is not withheld); the trace header names the transaction with the secret withheld; secrets equal to
+  protocol words (`event_id`, `trace_id`, `attributes`, `start_timestamp`, `time_unix_nano`, `severity_number`,
+  `transaction`, `timestamp`, `check_in`, `parent_span_id`, `category`, `filename`, `schedule`, `sample_rate`,
+  `distribution`) break no item: errors, transactions, the check-in, the log and the metrics are each sent, as their own
+  kind and whole, their child spans, breadcrumbs, frames, monitor config, trace header and the gen-AI span the SDK
+  splits out after the hook with their keys, and a distribution keeps its kind; every key of 8 characters or more that
+  the SDK's own items carry outside user data, read from what each hook received in one capture of every structure on
+  every channel and each taken as a secret, leaves every item's structure as it was, each list's items compared by index
+  (a key lost in one span or frame shows), so a key an SDK upgrade adds fails until `_PROTOCOL_KEYS` has it, and every
+  name the list keeps occurs in those items (no entry is dead or misspelled), and so does each context main counts as
+  the SDK's, on the SDK version the capture was checked against (pinned); a weak secret equal to a protocol word
+  (`username`) written by the app as a key in each kind of user data (an extra, a tag, a context of its own, a
+  breadcrumb's data, a span's data and tags, a log's and a metric's attributes, a request's body and headers, a log
+  entry's params) is withheld there while the user's own `username` stays, each field of the gate's copy of the
+  user-data fields holds user data in main, and a key that only poses as a protocol word (a text subclass, any other
+  object) is withheld or turned into its repr; a secret held as a key in user data (an extra, a tag, a context's name
+  and contents, a user, a breadcrumb's data, a request body, a span's data and tags, a log's and a metric's attributes)
+  is withheld there, and so is one that follows a protocol word in the same key; a trace context set by hand, an
+  attachment on the scope, a hand-built event with the secret as its own key, its `type` and an attachment, and an event
+  processor registered under an assignment alias that writes it as an event's key, a trace context's key and the `type`
+  and attaches it each send it nowhere (no attachment item is sent, by payload or item header; the aliased processor and
+  the hand-set context are shown to have run), and a hand-built event whose `type` is a list is sent; a secret
+  overlapping `[Filtered]` in each of the four ways (inside it, across its end, around it, across its start) moves the
+  placeholder to the first that none overlaps and appears nowhere in the envelope, and weak secrets that overlap every
+  placeholder fail the options with an error that names no value, inside main.py's `try` around its one init, so Sentry
+  stays off and the app starts; and a scrubber that raises sends nothing: the error, the check-in, the transaction, the
+  log and the metric are each lost to `callback_error`.
 - **compare_digest.** An AST walk fails any `compare_digest` call in the backend, by its name or a name
   `from hmac|secrets import compare_digest as ...` gives it, whose two arguments are not both bytes by their
   form: a UTF-8 `.encode(...)` or `bytes(x, ...)`, a `.digest()`, a bytes literal, a base64 encoding of bytes or a

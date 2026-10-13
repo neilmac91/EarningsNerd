@@ -1388,15 +1388,18 @@ def test_sentry_withholds_no_value_shorter_than_eight_characters(monkeypatch, re
 
 
 def _capture_every_structure(caplog) -> None:
-    """One capture of each structure the SDK builds under main's options, on every channel: an error with a chained
-    exception (its frames and mechanism), an exception group (its mechanism's links), breadcrumbs from a log line and
-    by hand, a user, a request and a log entry; a transaction with nested spans, a database query and a response
-    status; a check-in with its monitor config; a log; a metric."""
+    """One capture of the structures the SDK builds under main's options, on every channel, as far as the design checks
+    of #1297 read the SDK (2.71.0): an error with a chained exception (its frames and mechanism), an exception group
+    (its mechanism's links), a log record with its thread's stack, breadcrumbs from a log line and by hand, a user, a
+    request that continues a trace and a log entry; transactions with nested spans, a database query, an outbound HTTP
+    call, a gen-AI span and a response status; a check-in with its monitor config (the SDK's MonitorConfig fields,
+    written out here by hand); a log; a counter and a distribution."""
     import sentry_sdk
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from sentry_sdk import logger as sentry_logger
     from sentry_sdk.crons import capture_checkin
+    import httpx
     from sqlalchemy import create_engine, text
 
     caplog.set_level(logging.INFO, logger="app.jobs")
@@ -1437,6 +1440,8 @@ def _capture_every_structure(caplog) -> None:
                 connection.execute(text("select 1"))
     with sentry_sdk.start_transaction(name="chat", op="ai"), sentry_sdk.start_span(op="gen_ai.chat", name="chat"):
         pass  # a gen-AI span, which the SDK splits out of its transaction after the hook
+    with sentry_sdk.start_transaction(name="fetch", op="fetch"):  # an outbound call: its span and breadcrumb
+        httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200))).get("https://api.invalid/x")
     capture_checkin(
         monitor_slug="nightly",
         status="ok",
@@ -1453,6 +1458,7 @@ def _capture_every_structure(caplog) -> None:
     )
     sentry_logger.warning("job {name} failed", name="nightly")
     sentry_sdk.metrics.count("job.failures", 1)
+    sentry_sdk.metrics.distribution("job.seconds", 1.5, unit="second")
     sentry_sdk.flush()
 
 
@@ -1478,6 +1484,7 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request, 
         "STRIPE_PUBLISHABLE_KEY": "filename",
         "STRIPE_SECRET_KEY": "schedule",
         "INTERNAL_JOB_TOKEN": "sample_rate",
+        "SECRET_KEY": "distribution",
     }
     envelopes = _scrubbing_envelopes(request, monkeypatch, **words)
     _capture_every_structure(caplog)
@@ -1504,11 +1511,15 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request, 
     assert {"parent_span_id", "start_timestamp", "trace_id"} <= chat.keys()
     (logs,), (metrics,) = _of(envelopes, "log"), _of(envelopes, "trace_metric")
     assert [entry["body"] for entry in logs["items"]] == ["job nightly failed"]
-    assert [entry["name"] for entry in metrics["items"]] == ["job.failures"]
+    assert [(entry["name"], entry["type"]) for entry in metrics["items"]] == [
+        ("job.failures", "counter"),
+        ("job.seconds", "distribution"),
+    ]
 
 
-# The fields whose mappings hold user data, the gate's own copy (main keeps its own): their keys are data, never the
-# protocol's, so the value scrubber withholds a secret held as one of them, a protocol word or not.
+# The fields whose mappings hold user data, the gate's own copy (main keeps its own): their keys are the app's data and
+# the SDK's attribute names (`sentry.environment`, `thread.id`), all of which the value scrubber scrubs, a protocol
+# word or not, so the structure cases leave them out (the lesson's over-redaction entry).
 _USER_DATA_FIELDS = frozenset(
     {"data", "tags", "extra", "attributes", "headers", "cookies", "env", "vars", "params", "measurements", "modules"}
 )
@@ -1516,8 +1527,8 @@ _USER_DATA_FIELDS = frozenset(
 
 def _structure(node: object, path: tuple = ()) -> set[tuple]:
     """The path of each key in an item outside user data (a user-data field's own key is the protocol's, its keys
-    are not walked; the capture sets no context of its own, so every context is the SDK's); a list's items share the
-    list's path."""
+    are not walked; the capture sets no context of its own, so every context is the SDK's); a list's items by their
+    index, so a key lost in one span or frame shows."""
     paths = set()
     if isinstance(node, dict):
         for key, value in node.items():
@@ -1525,8 +1536,8 @@ def _structure(node: object, path: tuple = ()) -> set[tuple]:
             if key not in _USER_DATA_FIELDS:
                 paths |= _structure(value, (*path, key))
     elif isinstance(node, list):
-        for item in node:
-            paths |= _structure(item, (*path, "[]"))
+        for index, item in enumerate(node):
+            paths |= _structure(item, (*path, index))
     return paths
 
 
@@ -1535,8 +1546,9 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
     # of Sentry's protocol below an item's top level (IP_HASH_SALT=parent_span_id passes every check) renamed that key
     # in each child span, breadcrumb, frame or monitor config. Every key of 8 characters or more that the SDK's own
     # items carry outside user data (as each hook received them, from one capture of every structure on every
-    # channel), each taken as a secret, leaves every item's structure as it was. The keys come from the SDK, not from
-    # main's list: a key an SDK upgrade adds fails here until main._PROTOCOL_KEYS has it.
+    # channel), each taken as a secret, leaves every item's structure as it was. The keys come from the SDK's items,
+    # not from main's list: a key on a structure the capture builds fails here until main._PROTOCOL_KEYS has it, and an
+    # SDK upgrade fails the pin below until the capture is checked against it again.
     import copy
 
     import sentry_sdk
@@ -1761,8 +1773,13 @@ def test_nothing_written_before_the_hooks_carries_a_secret_past_them(monkeypatch
     messages = ["built by hand", "rewritten", "traced by hand", "typed by hand"]
     assert sorted(event.get("message") for event in events) == messages
     assert [event.get("type") for event in events if event.get("message") == "typed by hand"] == [["error"]]
+    (rewritten,) = [event for event in events if event.get("message") == "rewritten"]
+    assert rewritten["type"] == rewritten["[Filtered]"] == "[Filtered]"  # the aliased processor ran, scrubbed
+    traced = [event for event in events if event.get("message") == "traced by hand"]
+    assert traced and all("[Filtered]" in event["contexts"]["trace"] for event in traced)  # the context set by hand
     assert all(event.get("type") in (None, "[Filtered]", ["error"]) for event in events)
     assert not _of(envelopes, "attachment") and not _of(envelopes, "lost")
+    assert "attachment" not in [headers.get("type") for headers in _of(envelopes, "item_headers")]
     leaked = _fragments(token, json.dumps(envelopes), width=8)
     assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry"
 
