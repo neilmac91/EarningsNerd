@@ -25,13 +25,16 @@ import { describe, expect, it } from 'vitest'
  * `queryKeys.whatChanged.byViewer` (by property or element access, or destructured), and any other use
  * of the `queryKeys.whatChanged` family that is not `.all()` handed to invalidateQueries, removeQueries,
  * cancelQueries, refetchQueries or resetQueries (a reader or writer of the whole family, such as
- * setQueriesData, would overwrite every viewer's entry). A (file, form) outside the allow-list fails
- * with file:line; an allow-listed (file, form) that disappears fails too, so the list cannot go stale.
+ * setQueriesData, would overwrite every viewer's entry). The registry is recognised under its local aliases
+ * too (`import { queryKeys as k }`, `const k = queryKeys`, `m.queryKeys` off a namespace import), and an alias
+ * that leaves a file (`export { queryKeys as k }`, `export const k = queryKeys`, `export default queryKeys`)
+ * is refused outright, since the gate resolves names within one file. A (file, form) outside the allow-list
+ * fails with file:line; an allow-listed (file, form) that disappears fails too, so the list cannot go stale.
  */
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SOURCE_DIRS = ['app', 'features', 'components', 'lib', 'hooks'] as const
 
-type Form = 'getWhatChanged' | 'fetchWhatChangedServer' | 'path' | 'byViewer' | 'family'
+type Form = 'getWhatChanged' | 'fetchWhatChangedServer' | 'path' | 'byViewer' | 'family' | 'alias'
 const INVALIDATION = new Set(['invalidateQueries', 'removeQueries', 'cancelQueries', 'refetchQueries', 'resetQueries'])
 
 /** File (relative to frontend/) -> the forms it may name, and why. */
@@ -63,7 +66,22 @@ export function readReferences(source: string, fileName = 'x.tsx'): Array<{ line
   const out: Array<{ line: number; form: Form }> = []
   const line = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
   const add = (node: ts.Node, form: Form) => out.push({ line: line(node), form })
-  const isQueryKeys = (node: ts.Node) => ts.isIdentifier(node) && node.text === 'queryKeys'
+  /** Local names bound to the registry: `queryKeys` itself, `import { queryKeys as k }`, `const k = queryKeys` (transitively). */
+  const aliases = new Set(['queryKeys'])
+  /** The registry: one of its local names, or the `queryKeys` member of a namespace import (`import * as m`, then `m.queryKeys`). */
+  const isQueryKeys = (node: ts.Node): boolean =>
+    (ts.isIdentifier(node) && aliases.has(node.text)) || (ts.isPropertyAccessExpression(node) && node.name.text === 'queryKeys')
+  const collectAliases = (node: ts.Node) => {
+    if (ts.isImportSpecifier(node) && node.propertyName?.text === 'queryKeys') aliases.add(node.name.text)
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && isQueryKeys(node.initializer)) aliases.add(node.name.text)
+    ts.forEachChild(node, collectAliases)
+  }
+  let known = -1
+  while (known !== aliases.size) {
+    known = aliases.size
+    collectAliases(sf)
+  }
+  const isExported = (node: ts.Node) => ts.canHaveModifiers(node) && (ts.getModifiers(node) ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
   /** The member a property or element access names (`x.name` or `x['name']`). */
   const memberName = (node: ts.Node | undefined): string | undefined => {
     if (!node) return undefined
@@ -100,6 +118,17 @@ export function readReferences(source: string, fileName = 'x.tsx'): Array<{ line
     if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer && isQueryKeys(node.initializer)) {
       if (node.name.elements.some((element) => (element.propertyName ?? element.name).getText(sf) === 'whatChanged')) add(node, 'family')
     }
+    // An alias that leaves the file would be imported elsewhere under a name this gate cannot resolve: refused outright.
+    if (ts.isExportSpecifier(node) && aliases.has((node.propertyName ?? node.name).text) && node.name.text !== 'queryKeys') add(node, 'alias')
+    if (
+      ts.isVariableStatement(node) &&
+      isExported(node) &&
+      node.declarationList.declarations.some(
+        (declaration) => ts.isIdentifier(declaration.name) && declaration.name.text !== 'queryKeys' && declaration.initializer !== undefined && isQueryKeys(declaration.initializer),
+      )
+    )
+      add(node, 'alias')
+    if (ts.isExportAssignment(node) && isQueryKeys(node.expression)) add(node, 'alias')
     ts.forEachChild(node, visit)
   }
   visit(sf)
@@ -127,7 +156,8 @@ describe('the change report has one client reader (useWhatChanged)', () => {
         'Read the change report through useWhatChanged(filingId, seed): it waits for /me, keys the entry by the ' +
         'signed-in reader and re-reads once when a Pro reader is served the teaser; the family key may only be ' +
         'invalidated, removed, cancelled, refetched or reset. A new reader that must not use the hook is a design ' +
-        'change: say so in the PR and list it here with its forms and reason.',
+        'change: say so in the PR and list it here with its forms and reason. The registry is recognised under a local ' +
+        'alias; an alias exported from a module (export { queryKeys as k }, export const k = queryKeys) is refused outright.',
     ).toEqual([])
   })
 
@@ -138,7 +168,7 @@ describe('the change report has one client reader (useWhatChanged)', () => {
     expect(stale, `allow-listed pairs no longer found: ${stale.join(', ')}; prune them`).toEqual([])
   })
 
-  it('finder sees every form, and not strings, invalidation or a plain whatChanged variable', () => {
+  it('finder sees every form (aliases resolved), and not strings, invalidation, a plain whatChanged variable or a same-name export', () => {
     const refs = readReferences(
       [
         "import { getWhatChanged } from '@/features/summaries/api/summaries-api'",
@@ -155,6 +185,16 @@ describe('the change report has one client reader (useWhatChanged)', () => {
         'const whatChanged = report',
         "export const WHAT_CHANGED_ID = 'what-changed'",
         'await client.refetchQueries({ queryKey: queryKeys.whatChanged.all() })',
+        "import { queryKeys as qkeys } from '@/lib/queryKeys'",
+        'const aliased = qkeys.whatChanged.byViewer(id, viewer)',
+        'const registry = queryKeys',
+        'client.setQueriesData({ queryKey: registry.whatChanged.all() }, patch)',
+        "import * as mod from '@/lib/queryKeys'",
+        'const whole = mod.queryKeys.whatChanged.all()',
+        'export { queryKeys as exported }',
+        'export const registry2 = qkeys',
+        'export { queryKeys }',
+        'void client.removeQueries({ queryKey: qkeys.whatChanged.all() })',
       ].join('\n'),
     )
     expect(refs).toEqual([
@@ -167,6 +207,11 @@ describe('the change report has one client reader (useWhatChanged)', () => {
       { line: 7, form: 'family' },
       { line: 8, form: 'path' },
       { line: 9, form: 'fetchWhatChangedServer' },
+      { line: 16, form: 'byViewer' },
+      { line: 18, form: 'family' },
+      { line: 20, form: 'family' },
+      { line: 21, form: 'alias' },
+      { line: 22, form: 'alias' },
     ])
   })
 })

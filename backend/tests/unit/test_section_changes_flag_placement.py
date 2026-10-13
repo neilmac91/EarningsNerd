@@ -14,10 +14,13 @@ machine-checked (``lessons/ops-a-flag-several-processes-read-is-set-in-every-env
 
 It reads the three deploy steps the way ``test_prod_flag_visibility.py`` does (the workflow's YAML,
 the executable lines of each ``run``, the one ``--update-env-vars=`` map each) and fails when the
-flag is on some maps and not the others, when the values differ, or when the jobs carry it on and
-``JOB_CADENCES`` has no ``section-extraction`` cadence. A second test fails the flag spelled anywhere
+flag is on some maps and not the others, when the values differ, when a value is neither a bool spelling
+``Settings`` reads nor a ``${VAR}`` the deploy expands, or when the jobs carry it on, or shell-sourced and so
+possibly on, and ``JOB_CADENCES`` has no ``section-extraction`` cadence. A second test fails the flag spelled anywhere
 else in the workflows (a space-separated ``--update-env-vars``, a ``--set-env-vars``, an env file, a
-step of its own): a flip lands in these three maps or it is not a flip.
+step of its own): a flip lands in these three maps or it is not a flip. A shell-sourced value
+(``${VAR}``, the shape ``DURABLE_TASKS_ENABLED`` takes) is allowed its reads and the line that defines
+the variable from a ``${{ … }}`` expression, nothing else.
 """
 import re
 from pathlib import Path
@@ -38,8 +41,18 @@ STEPS: dict[str, str] = {
 }
 JOBS = "the filing-scan and filing-digest jobs"
 EXPECTED_JOBS = ("earningsnerd-filing-scan", "earningsnerd-filing-digest")
-# pydantic's truthy spellings for a bool Settings field.
+# pydantic's spellings for a bool Settings field, and the shell forms a deploy step expands at run time
+# (ci.yml sources DURABLE_TASKS_ENABLED and the model env this way), whose value the gate cannot know.
 _ON = frozenset({"1", "true", "t", "yes", "y", "on"})
+_OFF = frozenset({"0", "false", "f", "no", "n", "off"})
+_DYNAMIC = re.compile(r"^\$(\{\{.*\}\}|\{[A-Za-z_]\w*\}|[A-Za-z_]\w*)$")
+# A read of the flag's shell variable (`${FLAG}`, `$FLAG`), a GitHub expression (the flag's name inside `${{ … }}`,
+# `vars.GCP_FLAG` included), and a line that defines the variable a read expands from such an expression
+# (`FLAG: ${{ vars.GCP_FLAG || 'false' }}` in an env block, the shape ci.yml gives DURABLE_TASKS_ENABLED;
+# `FLAG="${{ … }}"` in a run).
+_SHELL_READ = re.compile(r"\$\{" + FLAG + r"\}|\$" + FLAG + r"\b")
+_EXPRESSION = re.compile(r"\$\{\{[^}]*\}\}")
+_SOURCE = re.compile(r"^\s*" + FLAG + r"\s*[:=]\s*[\"']?\$\{\{", re.MULTILINE)
 
 
 def _deploy_job() -> dict:
@@ -65,8 +78,18 @@ def env_map(run: str) -> dict[str, str]:
     return dict(entries)
 
 
-def is_on(value: str) -> bool:
-    return value.strip().lower() in _ON
+def flag_state(value: str) -> str:
+    """``on`` / ``off`` for a spelling Settings reads as that bool; ``dynamic`` for a ``$VAR``, ``${VAR}`` or
+    ``${{ … }}`` the deploy expands (possibly to on, so the gate treats it as on where on is the demanding
+    side); ``unreadable`` for anything else (Settings would refuse it at startup)."""
+    literal = value.strip()
+    if literal.lower() in _ON:
+        return "on"
+    if literal.lower() in _OFF:
+        return "off"
+    if _DYNAMIC.match(literal):
+        return "dynamic"
+    return "unreadable"
 
 
 def placement_problems(maps: dict[str, dict[str, str]], cadences: dict) -> list[str]:
@@ -78,14 +101,30 @@ def placement_problems(maps: dict[str, dict[str, str]], cadences: dict) -> list[
         problems.append(f"{FLAG} is set on {', '.join(carrying)} but not on {', '.join(missing)}; every reader needs it")
     if len({env[FLAG] for env in maps.values() if FLAG in env}) > 1:
         problems.append(f"{FLAG} differs: " + ", ".join(f"{name}={env[FLAG]!r}" for name, env in maps.items() if FLAG in env))
-    if is_on(maps.get(JOBS, {}).get(FLAG, "")) and CADENCE not in cadences:
-        problems.append(f"the filing-scan job runs the extraction batch but JOB_CADENCES has no {CADENCE!r} cadence")
+    for name, env in maps.items():
+        if FLAG in env and flag_state(env[FLAG]) == "unreadable":
+            problems.append(f"{FLAG}={env[FLAG]!r} on {name} is neither a bool spelling Settings reads nor a ${{VAR}} the deploy expands")
+    jobs_value = maps.get(JOBS, {}).get(FLAG)
+    if jobs_value is not None and CADENCE not in cadences:
+        state = flag_state(jobs_value)
+        if state == "on":
+            problems.append(f"the filing-scan job runs the extraction batch but JOB_CADENCES has no {CADENCE!r} cadence")
+        elif state == "dynamic":
+            problems.append(
+                f"{FLAG}={jobs_value!r} on {JOBS} is expanded at deploy time and may be on, but JOB_CADENCES has no "
+                f"{CADENCE!r} cadence; the cadence lands before the flag can"
+            )
     return problems
 
 
-def flag_mentions(workflow_text: str) -> int:
-    """How often the flag is spelled in a workflow's executable lines."""
-    return _executable(workflow_text).count(FLAG)
+def flag_mentions(workflow_text: str) -> dict[str, int]:
+    """How the flag is spelled in a workflow's executable lines: ``set`` (a key, or any spelling that is not one
+    of the other two), ``read`` (``${FLAG}``, ``$FLAG``, the name inside a ``${{ … }}`` expression) and ``source``
+    (a line defining the variable a read expands, from a ``${{ … }}`` expression)."""
+    text = _executable(workflow_text)
+    reads = len(_SHELL_READ.findall(text)) + sum(expression.count(FLAG) for expression in _EXPRESSION.findall(text))
+    sources = len(_SOURCE.findall(text))
+    return {"set": text.count(FLAG) - reads - sources, "read": reads, "source": sources}
 
 
 def _maps() -> dict[str, dict[str, str]]:
@@ -106,13 +145,21 @@ def test_the_flag_is_set_on_every_reader_or_none_and_the_batch_is_watched_when_o
 
 
 def test_the_flag_is_spelled_nowhere_in_the_workflows_but_the_three_maps():
-    in_maps = sum(FLAG in env for env in _maps().values())
-    mentions = {path.name: n for path in sorted(WORKFLOWS.glob("*.yml")) if (n := flag_mentions(path.read_text()))}
-    assert sum(mentions.values()) == in_maps, (
-        f"{FLAG} is spelled {sum(mentions.values())} time(s) in the workflows ({mentions}) but sits in {in_maps} of the "
-        "three deploy maps this gate reads. A flip lands in those maps (--update-env-vars=…) or it is not a flip: "
+    maps = _maps()
+    in_maps = sum(FLAG in env for env in maps.values())
+    dynamic = sum(flag_state(env[FLAG]) == "dynamic" for env in maps.values() if FLAG in env)
+    mentions = {path.name: m for path in sorted(WORKFLOWS.glob("*.yml")) if any((m := flag_mentions(path.read_text())).values())}
+    sets = sum(m["set"] for m in mentions.values())
+    assert sets == in_maps, (
+        f"{FLAG} is spelled {sets} time(s) in the workflows as a key or a bare name ({mentions}) but sits in {in_maps} of "
+        "the three deploy maps this gate reads. A flip lands in those maps (--update-env-vars=…) or it is not a flip: "
         "a space-separated --update-env-vars, a --set-env-vars, an env file or a step of its own escapes the "
         "placement check above."
+    )
+    sources = sum(m["source"] for m in mentions.values())
+    assert (sources > 0) == (dynamic > 0), (
+        f"{sources} line(s) define {FLAG} from a GitHub expression while {dynamic} map(s) read it as a shell value "
+        f"({mentions}): a shell-sourced flip has its source line(s) and its map reads; a literal flip has no source line."
     )
 
 
@@ -135,6 +182,27 @@ def test_placement_check_fails_the_bad_shapes_and_passes_the_good_ones():
     ]
     assert placement_problems({"the service": on, "the worker": on, JOBS: on}, {CADENCE: object()}) == []
     assert placement_problems({"the service": {"OTHER": "x"}, "the worker": {}, JOBS: {"OTHER": "y"}}, {}) == []
+    # A shell-sourced value the deploy expands (the shape ci.yml gives DURABLE_TASKS_ENABLED) may be on: the cadence is due.
+    sourced = {FLAG: "${ENABLE_SECTION_CHANGES}"}
+    assert placement_problems({"the service": sourced, "the worker": sourced, JOBS: sourced}, {}) == [
+        f"{FLAG}='${{ENABLE_SECTION_CHANGES}}' on {JOBS} is expanded at deploy time and may be on, but JOB_CADENCES has no "
+        f"{CADENCE!r} cadence; the cadence lands before the flag can"
+    ]
+    assert placement_problems({"the service": sourced, "the worker": sourced, JOBS: sourced}, {CADENCE: object()}) == []
+    off_literal = {FLAG: "false"}
+    assert placement_problems({"the service": off_literal, "the worker": off_literal, JOBS: off_literal}, {}) == []
+    odd = {FLAG: "enabled"}
+    assert placement_problems({"the service": odd, "the worker": odd, JOBS: odd}, {CADENCE: object()}) == [
+        f"{FLAG}='enabled' on {name} is neither a bool spelling Settings reads nor a ${{VAR}} the deploy expands"
+        for name in ("the service", "the worker", JOBS)
+    ]
+
+
+def test_flag_state_reads_the_bool_spellings_and_treats_a_shell_sourced_value_as_possibly_on():
+    assert [flag_state(value) for value in ("true", "1", "YES", " on ")] == ["on"] * 4
+    assert [flag_state(value) for value in ("false", "0", "No", "off")] == ["off"] * 4
+    assert [flag_state(value) for value in ("${ENABLE_SECTION_CHANGES}", "$FLAG", "${{ vars.FLAG }}")] == ["dynamic"] * 3
+    assert [flag_state(value) for value in ("enabled", "", "maybe")] == ["unreadable"] * 3
 
 
 def test_env_map_reads_one_map_and_rejects_two():
@@ -147,11 +215,20 @@ def test_env_map_reads_one_map_and_rejects_two():
         raise AssertionError("two maps in one step must fail: the gate would read the wrong one")
 
 
-def test_flag_mentions_counts_executable_lines_only():
+def test_flag_mentions_counts_executable_lines_and_tells_a_key_from_a_read_and_a_source():
     text = (
         "      # ENABLE_SECTION_CHANGES stays off until the cohort is recruited\n"
         "      run: |\n"
         "        gcloud run services update x --update-env-vars ENABLE_SECTION_CHANGES=true\n"
         "        gcloud run deploy y --set-env-vars=ENABLE_SECTION_CHANGES=true\n"
     )
-    assert flag_mentions(text) == 2
+    assert flag_mentions(text) == {"set": 2, "read": 0, "source": 0}
+    sourced = (
+        "    env:\n"
+        "      ENABLE_SECTION_CHANGES: ${{ vars.GCP_ENABLE_SECTION_CHANGES || 'false' }}\n"
+        "    run: |\n"
+        '      FLIP="${{ vars.ENABLE_SECTION_CHANGES }}"\n'
+        "      gcloud run deploy x --update-env-vars=A=1,ENABLE_SECTION_CHANGES=${ENABLE_SECTION_CHANGES} \\\n"
+        "        --quiet && echo $ENABLE_SECTION_CHANGES\n"
+    )
+    assert flag_mentions(sourced) == {"set": 1, "read": 4, "source": 1}

@@ -20,8 +20,9 @@ each reader to the entrypoints that run it: the service, each job image, the tas
 durable path) and the deploy map each is configured from; flip it in every one of those maps in the
 same commit, with the job cadence `job_health` needs to watch the work the flag turns on. Write the
 gate with the flag: it fails the flag on some maps and not the others, differing values, a job carrying
-an on value with no cadence, and the flag spelled anywhere else in the workflows (a flip lands in the
-maps or it is not a flip). The default stays off in `Settings` until the flip; the gate pins the
+an on value (or a shell-sourced one, which may expand to on) with no cadence, and the flag spelled
+anywhere else in the workflows (a flip lands in the maps or it is not a flip; a shell-sourced value has
+its source line and its reads, nothing else). The default stays off in `Settings` until the flip; the gate pins the
 placement, not the default.
 
 **Evidence**: gate `backend/tests/unit/test_section_changes_flag_placement.py` (reads the service, task
