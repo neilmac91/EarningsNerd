@@ -16,6 +16,16 @@
 //                       that reads a filing-type field, or holds a literal form code (string,
 //                       template or text), in its children or in a prop that styles it. Descriptive
 //                       props (title, alt, aria-*) may name the form: they describe, not display.
+//   direction-text-tokens (D-030, DESIGN.md "Separate Signals") A delta or a direction chip is text, so
+//                       its ink is the 700-level direction token (text-gain-text / text-loss-text, the
+//                       -dark pair in dark: lib/financialTone's directionText and directionChip), never
+//                       the 600 level and never sage. The rule bans text-gain, text-gain-light, text-loss
+//                       and text-loss-light under any variant (the 600s are graphic tones: 3.0:1 and
+//                       3.9:1 as text on their tints), and a text-brand-* class where it colours a
+//                       direction glyph: on a TrendUpIcon or TrendDownIcon, on the element that renders
+//                       one as its child, or in an object that pairs one with its classes (a direction
+//                       map such as { Icon: TrendUpIcon, cls: '…' }). A glyph reached through a variable
+//                       rendered elsewhere (`<Icon />`) is data-flow, out of scope as below.
 //   no-unguarded-animation (P-09) Every Tailwind animation utility stops under reduced motion
 //                       (WCAG 2.3.3): `motion-safe:animate-x`, or `animate-x` beside a
 //                       `motion-reduce:animate-none` with the same variants in the class text that
@@ -33,7 +43,7 @@
 // Badge imported under another name, and an animation set outside a class utility (an arbitrary
 // `[animation:…]` property, an inline style).
 
-import { branchTexts, classUnitVisitors, parseClassToken, splitClassToken } from './eslint.gridBaseTrack.mjs'
+import { branchTexts, classUnitVisitors, collectStaticText, parseClassToken, splitClassToken } from './eslint.gridBaseTrack.mjs'
 
 const STRIPE_WIDTH = /^border-[ls]-(2|4|8|\[[^\]]+\])$/
 const ROUNDED = /^rounded(-|$)/
@@ -135,6 +145,79 @@ export const noFormCodeBadge = {
   },
 }
 
+const DIRECTION_600_TEXT = /^text-(gain|loss)(-light)?(\/\S+)?$/
+const BRAND_TEXT = /^text-brand(-|\/|$)/
+const TREND_ICON = /^Trend(Up|Down)Icon$/
+const CLASS_ATTR = /^(class|className|\w+ClassName)$/
+
+/** The first token of `classText` whose utility matches `pattern`, under any variant, else null. */
+const firstToken = (classText, pattern) =>
+  classText.split(/\s+/).find((raw) => raw && pattern.test(splitClassToken(raw).utility)) ?? null
+
+/** The first 600-level direction colour used as text in `classText`, else null. */
+export const direction600Text = (classText) => firstToken(classText, DIRECTION_600_TEXT)
+/** The first sage text class in `classText`, else null. */
+export const brandText = (classText) => firstToken(classText, BRAND_TEXT)
+
+const isTrendIcon = (name) =>
+  (name?.type === 'JSXIdentifier' && TREND_ICON.test(name.name)) ||
+  (name?.type === 'JSXMemberExpression' && TREND_ICON.test(name.property.name))
+
+/** Every class text an expression can render, one per branch (see branchTexts). */
+const textsOf = (node) => branchTexts(collectStaticText(node, new WeakSet()))
+
+export const directionTextTokens = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'Direction text uses the 700-level gain/loss tokens, never the 600 level or sage.' },
+    schema: [],
+    messages: {
+      light:
+        '{{token}} is the 600-level direction colour, a graphic tone that fails as text. Use the 700 level ' +
+        '(text-gain-text / text-loss-text, dark:text-gain-dark / dark:text-loss-dark), or directionText / ' +
+        'directionChip from lib/financialTone.',
+      brand:
+        '{{token}} colours a direction in sage, and sage never marks a gain, a loss or a figure (D-030). Use ' +
+        'directionText / directionChip from lib/financialTone, or the neutral ink with the glyph carrying it.',
+    },
+  },
+  create(context) {
+    const reportBrand = (node, texts) => {
+      for (const text of texts) {
+        const token = brandText(text)
+        if (token !== null) return context.report({ node, messageId: 'brand', data: { token } })
+      }
+    }
+    const classAttrs = (opening) =>
+      opening.attributes.filter((a) => a.type === 'JSXAttribute' && a.name.type === 'JSXIdentifier' && CLASS_ATTR.test(a.name.name))
+    return {
+      ...classUnitVisitors((node, pieces) => {
+        for (const text of branchTexts(pieces)) {
+          const token = direction600Text(text)
+          if (token !== null) return context.report({ node, messageId: 'light', data: { token } })
+        }
+      }),
+      // A glyph and the element that renders it as a child: the ink it inherits is the parent's.
+      JSXElement(node) {
+        if (!isTrendIcon(node.openingElement.name)) return
+        const holders = [node.openingElement]
+        if (node.parent?.type === 'JSXElement') holders.push(node.parent.openingElement)
+        for (const opening of holders) {
+          for (const attr of classAttrs(opening)) reportBrand(attr, textsOf(attr.value))
+        }
+      },
+      // A direction map: an object that holds a trend glyph beside the classes it is drawn with.
+      ObjectExpression(node) {
+        const props = node.properties.filter((p) => p.type === 'Property')
+        if (!props.some((p) => p.value.type === 'Identifier' && TREND_ICON.test(p.value.name))) return
+        for (const p of props) {
+          if (p.value.type === 'Literal' || p.value.type === 'TemplateLiteral') reportBrand(p.value, textsOf(p.value))
+        }
+      },
+    }
+  },
+}
+
 /** globals.css classes that stop themselves in a `prefers-reduced-motion: reduce` block, so a use
  *  site needs no guard. tests/unit/designRules.spec.ts reads globals.css to hold each one to it. */
 export const SELF_GUARDED_ANIMATIONS = new Set(['animate-fadeIn', 'animate-check-pop', 'animate-on-scroll'])
@@ -196,6 +279,7 @@ export const noUnguardedAnimation = {
 
 const plugin = {
   rules: {
+    'direction-text-tokens': directionTextTokens,
     'no-side-stripe': noSideStripe,
     'no-form-code-badge': noFormCodeBadge,
     'no-unguarded-animation': noUnguardedAnimation,

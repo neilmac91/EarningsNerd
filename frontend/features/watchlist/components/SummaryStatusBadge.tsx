@@ -1,12 +1,66 @@
 import { Badge, type BadgeVariant } from '@/components/ui'
 
 /**
- * The shared summary-status → badge for a watched company's latest filing. One source of truth so
- * the Watchlist insights page and the dashboard "Your companies" rows can never drift.
+ * The summary status of a watched company's latest filing, read from the server's `summary_status`
+ * (backend/app/routers/watchlist.py and dashboard_feed_service._summary_status): `ready`, `placeholder`,
+ * `generating:<stage>`, `error` or `missing`. One source of truth for the badge and the watchlist card's
+ * next-step sentence, so the Watchlist insights page and the dashboard "Your companies" rows can never
+ * drift. The prefix decides both; `needs_regeneration` only breaks the tie for a prefix this list does
+ * not know (it is true for missing, placeholder and error alike, and false while a summary is written).
+ * Gate: tests/unit/summaryStatusCopy.spec.tsx.
  *
- * The tonal variants (beat/miss/new) are used as plain colour recipes here — `icon={null}` strips
- * their automatic glyphs (▲ / ▼ / pulse).
+ * Ready and Error still borrow the beat/miss chips with their glyphs stripped (`icon={null}`); they move
+ * to Badge's success and error status variants once those land (brand-chrome-primitives, D-032).
  */
+export type SummaryStatusKind = 'ready' | 'generating' | 'missing' | 'placeholder' | 'error'
+
+const KINDS: ReadonlySet<string> = new Set<SummaryStatusKind>(['ready', 'generating', 'missing', 'placeholder', 'error'])
+
+/** The status prefix (`generating:summarizing` reads `generating`), or null for one this list does not know. */
+export function summaryStatusKind(status: string): SummaryStatusKind | null {
+  const base = status.split(':')[0]
+  return KINDS.has(base) ? (base as SummaryStatusKind) : null
+}
+
+/** The badge's label and variant for a status. */
+export function summaryStatusBadge(status: string, needsRegeneration: boolean): { label: string; variant: BadgeVariant } {
+  const detail = status.split(':')[1]
+  switch (summaryStatusKind(status)) {
+    case 'ready':
+      return { label: 'Ready', variant: 'beat' }
+    case 'generating':
+      return { label: detail ? `Generating (${detail})` : 'Generating', variant: 'brand' }
+    case 'missing':
+      return { label: 'No summary yet', variant: 'neutral' }
+    case 'placeholder':
+      return { label: 'Unavailable', variant: 'warning' }
+    case 'error':
+      return { label: 'Error', variant: 'miss' }
+    default:
+      return needsRegeneration
+        ? { label: 'Needs regenerating', variant: 'warning' }
+        : { label: 'Pending', variant: 'neutral' }
+  }
+}
+
+/** What the reader can do next about the summary, one sentence per status. */
+export function summaryNextStep(status: string, needsRegeneration: boolean): string {
+  switch (summaryStatusKind(status)) {
+    case 'ready':
+      return 'Summary is current.'
+    case 'generating':
+      return 'A summary is being written.'
+    case 'missing':
+      return 'No summary yet. Open the filing to generate one.'
+    case 'placeholder':
+      return "This summary isn't available right now. Open the filing and generate it again."
+    case 'error':
+      return 'The last attempt failed. Open the filing and generate it again.'
+    default:
+      return needsRegeneration ? 'Open the filing and generate its summary again.' : 'Open the filing to see its summary.'
+  }
+}
+
 export default function SummaryStatusBadge({
   status,
   needsRegeneration,
@@ -14,30 +68,7 @@ export default function SummaryStatusBadge({
   status: string
   needsRegeneration: boolean
 }) {
-  const [base, detail] = status.split(':')
-  let label: string
-  let variant: BadgeVariant
-  switch (base) {
-    case 'ready':
-      label = 'Ready'
-      variant = 'beat'
-      break
-    case 'generating':
-      label = detail ? `Generating (${detail})` : 'Generating'
-      variant = 'brand'
-      break
-    case 'placeholder':
-      label = 'Fallback'
-      variant = 'new'
-      break
-    case 'error':
-      label = 'Error'
-      variant = 'miss'
-      break
-    default:
-      label = needsRegeneration ? 'Needs Attention' : 'Pending'
-      variant = needsRegeneration ? 'miss' : 'neutral'
-  }
+  const { label, variant } = summaryStatusBadge(status, needsRegeneration)
   return (
     <Badge variant={variant} icon={null}>
       {label}

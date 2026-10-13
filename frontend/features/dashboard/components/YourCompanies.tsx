@@ -122,7 +122,7 @@ export default function YourCompanies({ insights, isLoading, failure }: YourComp
                       <div className="truncate font-semibold text-text-primary-light hover:text-brand-strong dark:text-text-primary-dark dark:hover:text-brand-strong-dark">
                         {formatCompanyName(insight.company.name)}
                       </div>
-                      <div className="truncate text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                      <div className="truncate font-data text-sm text-text-secondary-light dark:text-text-secondary-dark">
                         {insight.company.ticker}
                       </div>
                     </div>

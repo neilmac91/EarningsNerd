@@ -252,6 +252,9 @@ export default function DashboardPage() {
   // transient subscription-API error can't flip it: a Pro user reads usage.is_pro (never warned) and
   // a free user near the cap still gets warned even if the subscription call flaked.
   const showUsageWarning = usagePercentage >= 80 && !usage?.is_pro && !usageFailure.failed
+  // The warning states the account's own numbers (usage drives it, as above), never a plan pitch.
+  const summariesLimit = usage?.summaries_limit ?? FREE_SUMMARY_LIMIT
+  const summariesLeft = Math.max(0, summariesLimit - (usage?.summaries_used || 0))
   const hasSavedSummaries = Boolean(savedSummaries && savedSummaries.length > 0)
   const watchlistCount = watchlistInsights?.length
 
@@ -279,8 +282,8 @@ export default function DashboardPage() {
                 </p>
                 <p className="mt-0.5 text-sm text-warning-light dark:text-warning-dark">
                   {usagePercentage >= 100
-                    ? 'Upgrade to Pro for unlimited summaries'
-                    : 'Upgrade to Pro to continue generating summaries'}
+                    ? `You've used all ${summariesLimit} summaries this month. Pro has no monthly limit.`
+                    : `You have ${summariesLeft} ${summariesLeft === 1 ? 'summary' : 'summaries'} left this month. Pro has no monthly limit.`}
                 </p>
               </div>
             </div>
@@ -296,7 +299,7 @@ export default function DashboardPage() {
           {/* Main column: search, the "what changed" feed, and the watchlist status section. */}
           <div className="space-y-8 lg:col-span-2">
             <Card className="p-5">
-              <p className="mb-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">Jump to any company</p>
+              <p className="mb-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">Find a company by name or ticker</p>
               <CompanySearch />
             </Card>
 
@@ -418,9 +421,9 @@ export default function DashboardPage() {
                     className="w-full"
                     onClick={() => portalMutation.mutate()}
                     loading={portalMutation.isPending}
-                    loadingText="Loading..."
+                    loadingText="Opening billing…"
                   >
-                    Manage subscription
+                    Manage billing
                   </Button>
                 </div>
               ) : (

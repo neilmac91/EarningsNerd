@@ -73,7 +73,7 @@ describe('NotificationBell', () => {
 
     expect(await screen.findByRole('menu')).toBeInTheDocument()
     expect(screen.getByText('AAPL')).toBeInTheDocument()
-    const link = screen.getByRole('menuitem', { name: /AAPL filed a 10-Q/i })
+    const link = screen.getByRole('menuitem', { name: /New 10-Q from AAPL/i })
     expect(link).toHaveAttribute('href', '/filing/123')
     expect(markNotificationsSeen).toHaveBeenCalledTimes(1)
   })

@@ -15,6 +15,7 @@ reconciliation PR. Holds stay pointers; delete an engineering line in the PR tha
 ## Open items
 
 Founder:
+- [ ] F23 — PREPARE: pick the product's one sign-in verb, "Log in" or "Sign in" (audit UA-40); the login page's link and the verb half of UA-51 and DSW-12 (the dashboard error boundary's signed-out title, description and action, which read "Authentication required", "Please log in to access your dashboard." and "Go to login" until then) follow in one small PR with a brandVoiceRules clause banning the other verb.
 - [ ] F1 — PREPARE: supply the founder sentence and name for the dormant `founderNote.ts` slot; brand handoff `docs/brand/README.md` (#1226).
 - [ ] F2 — PREPARE: decide one bounded FY2025 landing-demo regeneration; its `data_notes` and narrative payload must match the filtered demo consumers before publication (#1226, #1225).
 - [ ] F3 — PREPARE: choose the Notable filings curation rule before remounting the homepage section; compare the observed public feed with known-good, size-floor and 10-K/10-Q options (#1226).

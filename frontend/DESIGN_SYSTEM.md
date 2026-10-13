@@ -259,7 +259,9 @@ Input            <Input>  — fill is the BRIGHTEST surface so the field reads o
 
 Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text-loss-dark
                  (the 600-level gain/loss are chips + graphics only — the 3:1 non-text floor).
-                 lib/financialTone.directionText IS this recipe — route delta text through it.
+                 lib/financialTone.directionText IS this recipe — route delta text through it; a
+                 direction chip (the dashboard's what-changed metrics) takes directionChip. Never sage on
+                 a direction (gate: earningsnerd/direction-text-tokens, eslint.designRules.mjs).
 
 Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated origin, then a superscript
                  letter for its grouped data note. The letter is text-data-xs (11px minimum), zero
@@ -550,8 +552,8 @@ Popover          An anchored, light-dismiss surface that explains one control (t
 Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie-consent bar: above in-page
                  sticky chrome, BENEATH the sheet scrims and the z-40 research chrome) · z-scrim 35 (the
                  workspace / rail bottom-sheet scrims: above the bar, under the z-40 sheets they belong to) ·
-                 z-header 50 (site header; its menus ride it) · z-overlay 60 (popovers incl. BellPopover, the
-                 selection pill) · z-modal 70 (dialogs + the source and viewer sheets — scrim AND panel) ·
+                 z-header 50 (site header; its menus ride it) · z-overlay 60 (popovers incl. BellPopover and
+                 the notification menu, the selection pill) · z-modal 70 (dialogs + the source and viewer sheets — scrim AND panel) ·
                  z-toast 80 (the skip link; sonner manages its own toast layer).
                  The copilot rail / workspace bottom sheets stay z-40 over z-scrim scrims, so the in-sheet
                  citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]

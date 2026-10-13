@@ -61,6 +61,24 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): five new loading quips in
   the voice and one kept ("Reading the size-8 fine print…"), signed "Reading the filing"; the stalled line and the timeout error say what happened
   and what to do. The heading "Generation interrupted" stays.
+- **Dashboard and watchlist** (`frontend/app/dashboard/page.tsx`, `app/dashboard/watchlist/page.tsx`,
+  `features/dashboard/components/*`, `features/watchlist/components/SummaryStatusBadge.tsx`): each
+  watched company's card states its summary from the server's status (ready, being written, none yet,
+  unavailable, failed) with a matching badge ("No summary yet", "Unavailable", "Needs regenerating" in
+  sentence case), never from the regeneration flag alone; a failed load shows its error card with a
+  Retry and no empty card. The what-changed chips take `lib/financialTone`'s direction chip, the
+  700-level gain and loss inks on their soft grounds with the sign kept, never sage, and the glyph is
+  decorative. The feed lead names what it shows ("The latest annual or quarterly report from the
+  companies you follow."), the limit banner states the account's own count and that Pro has no
+  monthly limit, the search card reads "Find a company by name or ticker", the plan strip's button
+  reads "Manage billing", and the route error boundary is in sentence case. Tickers are set in the
+  data face.
+  `earningsnerd/direction-text-tokens` (new ESLint rule) bans the 600-level gain and loss as text and
+  sage on a direction glyph; `tests/unit/summaryStatusCopy.spec.tsx` holds the status sentences.
+- **Notification bell** (`frontend/features/notifications/components/NotificationBell.tsx`): an
+  alert reads "New 10-Q from AAPL", the form and ticker in the data face; the unread count rests in
+  the ink, not on sage (D-030), while the sage dot still marks an unread row; the menu rides the
+  z-overlay rung.
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
   "$7.5" (a Phase 9 fix; compact figures keep their rounding).
