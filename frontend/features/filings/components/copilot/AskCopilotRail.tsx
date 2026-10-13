@@ -403,8 +403,8 @@ export default function AskCopilotRail({
         {messages.length === 0 ? (
           <div>
             <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              Ask anything about {subjectFiling}. Answers are grounded in the filing and
-              cite the excerpts they came from.
+              Ask anything about {subjectFiling}. Answers come from this filing, with cited passages
+              you can check.
             </p>
             <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">
               Try asking

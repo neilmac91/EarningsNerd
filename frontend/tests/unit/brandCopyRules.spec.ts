@@ -186,7 +186,10 @@ describe('brand rule 1: matching claims keep their scope', () => {
   // The same scope for answers and citations (ASK-01, ASK-02, ASK-04): an Ask answer can carry an uncited
   // figure or no citation at all (a not-disclosed verdict), and an XBRL citation is not filing text, so no
   // copy promises that each answer or citation is exact, that a figure is never guessed, or that every
-  // claim is one click from proof. Say what the card shows: "cited passages you can check".
+  // claim is one click from proof. Say what the card shows: "cited passages you can check". These
+  // phrasings have no honest scoped form, so rule 1's SCOPE does not excuse them: "Every answer is exact,
+  // you can check." fails, and only a sentence that is itself scoped (no each or every before "exact", no
+  // "never guessed", no "verifiable in one click") passes.
   const ABSOLUTE_CLAIMS = [
     /\b(?:each|every)\b[^.]{0,40}?\bexact\b/i,
     /\bnever guessed\b/i,
@@ -198,10 +201,23 @@ describe('brand rule 1: matching claims keep their scope', () => {
       visit(sf, (n) => {
         if (ts.isImportDeclaration(n.parent ?? n) || ts.isExportDeclaration(n.parent ?? n)) return
         const text = literalText(n)
-        if (text !== null && !ts.isNumericLiteral(n) && ABSOLUTE_CLAIMS.some((claim) => claim.test(text)) && !SCOPE.test(text)) offenders.push(where(rel, sf, n, text))
+        if (text !== null && !ts.isNumericLiteral(n) && ABSOLUTE_CLAIMS.some((claim) => claim.test(text))) offenders.push(where(rel, sf, n, text))
       })
     }
     expect(offenders, 'scope the claim to what the answer card shows: "cited passages you can check against the filing"').toEqual([])
+  })
+
+  it('a trailing scope phrase never excuses an absolute claim, and a scoped sentence passes (self-check)', () => {
+    const absolute = (text: string) => ABSOLUTE_CLAIMS.some((claim) => claim.test(text))
+    for (const claim of [
+      'Every answer is exact, you can check.',
+      'Every answer is cited to the exact passage you can check',
+      'Exact figures pulled from XBRL, never guessed, so you can check them',
+      'Each answer quotes the exact filing text, verifiable in one click',
+    ]) expect(absolute(claim), claim).toBe(true)
+    for (const scoped of ['Answers come from this filing, with cited passages you can check.', 'Cited passages you can check against the filing']) {
+      expect(absolute(scoped), scoped).toBe(false)
+    }
   })
 })
 

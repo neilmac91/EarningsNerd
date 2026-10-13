@@ -816,7 +816,8 @@ Ask answer       <CopilotMessage>  — the SHIPPED copilot contract: status read
 - **Evidence identity:** a provenance chip that cites a filing passage uses the Phosphor `quotes` glyph
   (braces for an XBRL figure, and on the Ask answer's XBRL source rows); the Ask tab, the Ask callout, the
   standalone Ask launcher and header, "Ask about this" and the follow-up prompts use `chat-circle-text`,
-  the Filing tab and the Source launcher `file-text`; an upgrade button uses `lightning`.
+  the Filing tab and the Source launcher `file-text`; an upgrade button that carries a glyph uses `lightning`
+  (the rail's exhausted-state Upgrade and the taste line's text button carry none).
   `sparkle` appears ONLY on the "AI summary" chip.
 - Sortable table headers contain buttons with ▲/▼ and the brand focus ring; `aria-sort` belongs
   to the enclosing header cell (`th`).

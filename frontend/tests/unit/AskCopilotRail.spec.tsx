@@ -177,6 +177,14 @@ describe('AskCopilotRail', () => {
     expect(screen.queryByText(/this filing’s/i)).not.toBeInTheDocument()
   })
 
+  it('scopes the empty state to cited passages: not every answer carries a citation', () => {
+    renderRail({ open: true })
+    // An answer can ship an uncited figure or a not-disclosed verdict with no citation
+    // (copilot_service.py), so the rail never says every answer cites its excerpts (D-034).
+    expect(screen.getByText(/answers come from this filing, with cited passages you can check\./i)).toBeInTheDocument()
+    expect(screen.queryByText(/cite the excerpts they came from|grounded in the filing/i)).not.toBeInTheDocument()
+  })
+
   it('shows the teaser for a FREE user who has spent all their free questions', async () => {
     mockGetUsage.mockResolvedValue({
       ...PRO_USAGE, is_pro: false, qa_used: 0,

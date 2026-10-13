@@ -69,20 +69,27 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
   verification mail ends "Verify your email address and you can start reading."
 - **Ask this Filing** (`frontend/features/filings/components/copilot/*`, `features/filings/api/copilot-api.ts`,
-  D-034): the teaser, the end-of-summary callout and the coachmark claim only what the answer card
-  shows ("Cited passages you can check against the filing", "Figures from XBRL show the tag they came
-  from", "Answers come from this filing, with cited passages you can check."); the teaser's blurred
+  D-034): the teaser, the end-of-summary callout, the coachmark and the rail's empty state claim only
+  what the answer card shows ("Cited passages you can check against the filing", "Figures from XBRL
+  show the tag they came from", "Answers come from this filing, with cited passages you can check."),
+  and the summary's suggested follow-ups say "Tap a question to ask this filing."; the teaser's blurred
   sample is Apple's FY2025 Services answer with sequential [1] and [2] markers and "2 matched
   sources". The product has one name: "Ask this Filing" on the launcher, the rail and the upgrade
   dialog, "ask this filing" in a sentence, and the usage lines say "free questions" and "Upgrade to
   Pro", with Pro's monthly cap read from the usage response, never "unlimited". A spent allowance,
   a Pro-only gate and the Pro fair-use cap are a quiet answer card with role="status" and the
   server's sentence (a lightning "Upgrade to Pro" except at the fair-use cap); the error tint stays
-  for real failures. XBRL source rows carry the braces, Ask controls the chat glyph and upgrades the
-  lightning; the in-text marker and every source-check label are 12px; the callout is an inset well
+  for real failures. XBRL source rows carry the braces, Ask controls the chat glyph and an upgrade
+  button that carries a glyph the lightning; the in-text marker and every source-check label are 12px; the callout is an inset well
   without an icon tile; the answer counts its matched sources once. Every control in the rail, the
   answer and the reader carries the brand ring. The unused reference renderer `AskFilingAnswer.tsx`
-  is gone; DESIGN_SYSTEM.md's "Ask answer" now describes `CopilotMessage`.
+  is gone; DESIGN_SYSTEM.md's "Ask answer" now describes `CopilotMessage`. Gates:
+  `oneProductName.spec.ts` (no copy literal says "Copilot" or "the copilot"; the /security line is
+  its one named residue), `brandCopyRules.spec.ts` rule 1 (no "each" or "every" before "exact", no
+  "never guessed", no "verifiable in one click", whatever scope phrase follows), `planLimitsLockstep.spec.ts`
+  (no "unlimited" questions), `dataXsAllowlist.spec.ts` (data-xs sites listed with counts; the
+  marker and the source-check labels are 12px) and `CopilotMessage.spec.tsx` (the plan card is quiet,
+  a real failure keeps the tint).
 
 ## 4. The mark's files and the icons
 
