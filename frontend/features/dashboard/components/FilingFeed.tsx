@@ -43,17 +43,8 @@ export default function FilingFeed({
   // following 30. When the true count isn't known, drop the number rather than show a wrong one.
   const hasMore =
     watchlistCount != null ? watchlistCount > visible.length : (data?.length ?? 0) > MAX_CARDS
-  // The count rests in the secondary ink inside the sage link: sage never colours a number (D-030). The
-  // label is one flex item of the inline-flex link, so its spaces stay spaces and the hover underline
-  // runs across it.
   const overflowLabel =
-    watchlistCount != null ? (
-      <span>
-        See all <span className="text-text-secondary-light dark:text-text-secondary-dark">{watchlistCount}</span> companies
-      </span>
-    ) : (
-      'See all companies'
-    )
+    watchlistCount != null ? `See all ${watchlistCount} companies` : 'See all companies'
 
   // The onboarding panel leaves once an add succeeds (the watchlist count or the feed changes), taking
   // the focused chip or search option with it. Hand focus to the section heading, but only when it
@@ -130,9 +121,11 @@ export default function FilingFeed({
           </div>
           {hasMore && (
             <div className="mt-4 text-right">
+              {/* The label carries a count, so the link rests in the secondary ink and turns sage under
+                  the pointer (the count control, DESIGN_SYSTEM.md; D-030): one text run, one underline. */}
               <Link
                 href="/dashboard/watchlist"
-                className="inline-flex items-center gap-1 rounded-lg text-sm font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+                className="inline-flex items-center gap-1 rounded-lg text-sm font-medium text-text-secondary-light underline-offset-4 transition-colors duration-fast hover:text-brand-strong hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
               >
                 {overflowLabel}
                 <ArrowRightIcon className="h-4 w-4" />

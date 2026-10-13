@@ -90,19 +90,16 @@ function CheckEmailContent() {
           disabled={!email}
           aria-disabled={resendLoading || cooldown > 0 || undefined}
           aria-busy={resendLoading || undefined}
-          className="group rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1 font-medium text-brand-strong hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline aria-disabled:cursor-not-allowed aria-disabled:text-brand-strong/50 aria-disabled:no-underline dark:text-brand-strong-dark dark:aria-disabled:text-brand-strong-dark/50"
+          className="group rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1 font-medium hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline aria-disabled:cursor-not-allowed aria-disabled:no-underline"
         >
-          {resendLoading && <CircleNotchIcon className="h-3 w-3 animate-spin motion-reduce:animate-none" />}
+          {resendLoading && <CircleNotchIcon className="h-3 w-3 animate-spin text-brand-strong/50 motion-reduce:animate-none dark:text-brand-strong-dark/50" />}
+          {/* The label sets the ink. The countdown carries a number, so it rests in the secondary ink at
+              full strength while the control waits, legible and never sage (D-030); the sage label and
+              its in-flight fade come back with "Resend email". */}
           {cooldown > 0 ? (
-            // One flex item beside the spinner, so the space stays a space and the underline runs across it.
-            <span>
-              Resend in{' '}
-              <span className="tabular-nums text-text-secondary-light group-aria-disabled:text-text-secondary-light/50 dark:text-text-secondary-dark dark:group-aria-disabled:text-text-secondary-dark/50">
-                {cooldown}s
-              </span>
-            </span>
+            <span className="tabular-nums text-text-secondary-light dark:text-text-secondary-dark">Resend in {cooldown}s</span>
           ) : (
-            'Resend email'
+            <span className="text-brand-strong group-aria-disabled:text-brand-strong/50 dark:text-brand-strong-dark dark:group-aria-disabled:text-brand-strong-dark/50">Resend email</span>
           )}
         </button>
       </p>
