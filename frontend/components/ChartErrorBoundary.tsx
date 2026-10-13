@@ -1,6 +1,7 @@
 'use client'
 
 import React, { Component, ErrorInfo, ReactNode } from 'react'
+import { Card } from '@/components/ui'
 
 interface Props {
   children: ReactNode
@@ -31,12 +32,14 @@ export class ChartErrorBoundary extends Component<Props, State> {
         return this.props.fallback
       }
       
+      // Says only what failed: the boundary wraps a chart on the filing page and on Multi-Period
+      // Analysis, and neither promises a table beneath it.
       return (
-        <div className="bg-panel-light dark:bg-panel-dark border border-border-light dark:border-border-dark rounded-lg p-6 text-center">
+        <Card className="p-6 text-center">
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Unable to display charts. Financial data is still available in the table below.
+            This chart could not be drawn.
           </p>
-        </div>
+        </Card>
       )
     }
 

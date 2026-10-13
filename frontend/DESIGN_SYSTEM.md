@@ -411,7 +411,25 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  (light label ink = info.text), never a form category: a form code (10-K, 10-Q, 6-K …)
                  is text in the data face, never a Badge (gate: earningsnerd/no-form-code-badge,
                  eslint.designRules.mjs); <Badge variant="warning"> = warning tint
-                 (replaces raw-amber hand-rolls; "Superseded"). beat/miss/new double as tonal recipes via icon={null}.
+                 (replaces raw-amber hand-rolls; "Superseded"). <Badge variant="success|error"> = a STATUS
+                 chip (a summary is ready, a run failed): the status ink on the quiet ground, since the
+                 success ink inside any tint of itself falls under 4.5:1 at 12px. beat/miss are the
+                 earnings-surprise direction with their ▲/▼ and never tell a status (gate:
+                 tests/unit/badgeVariants.spec.tsx, shrink-only for the one row still on them). `new` keeps
+                 its warning tint and pulse until the design owner picks the chip's colour.
+
+Checkbox         <Checkbox size="sm|md">  — the one checkbox (consent dialog, admin invites); never a raw
+                 <input type="checkbox">. Checked fill brand-strong / dark brand-fill-dark (4.0:1 on
+                 panel-dark, the forms plugin's white check 3.7:1 on it), each stated as `checked:bg-*`
+                 because a `dark:bg-*` ground outranks the plugin's checked fill; the unchecked edge is the
+                 flat ink (4.6:1 / 5.8:1 on panel). Gate: tests/unit/checkboxRecipe.spec.tsx.
+
+Toast            Sonner's Toaster, rendered by ThemedToaster (app/providers.tsx) with the theme from
+                 ThemeProvider (never "system", which reads the OS setting, not the site's toggle) and no
+                 richColors. Every toast is a panel card: border-border / bg-panel / primary ink, shadow-e2
+                 light and none in dark, each with `!` because Sonner's two-attribute surface rules outrank
+                 a utility; the description is secondary ink; a success or error toast keeps the panel and
+                 colours only its icon. Gate: tests/unit/toastTokens.spec.tsx (token classes only).
 
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
@@ -838,11 +856,14 @@ plans, the analysis chart panels). `GuidanceCard` titles itself h3 by default, f
 h2 section; where the card stands in for the page's content directly under the h1, pass
 `headingLevel="h2"` (the filing page's signup gate, failure and monthly-limit cards and a stored
 summary's writer error; the watchlist's empty and error cards; the waitlist example's fallbacks).
+A fallback that replaces the whole page passes `headingLevel="h1"` (app/error.tsx, the dashboard's
+error boundary, the providers' GlobalErrorBoundary; global-error.tsx writes its own h1; gate:
+tests/unit/errorBoundaryHeadings.spec.tsx).
 The footer opens its own section with a visually hidden h2 ("Site links") before its h3 column
 titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
 `tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
 accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a signed-in /dashboard,
-the 404, and four page-level card states (a filing without a summary for a guest and for a
+the 404, the route error boundary, and four page-level card states (a filing without a summary for a guest and for a
 signed-in reader whose run fails, a writer error, an empty watchlist). Known exception, not
 visited: /waitlist when its example loads (the example has no heading, so the h1 is followed by the
 problem cards' h3).

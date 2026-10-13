@@ -1144,7 +1144,8 @@ describe('every field the forms plugin styles takes its ring off and draws the D
       findings.push(...result.findings.map((f) => `${file}:${f.line} <${f.tag}> ${f.problem}`))
     }
     // A reader that finds nothing must not pass: the app styles a handful of fields itself and builds the rest with inputClasses().
-    expect(fields, 'fields that style themselves').toBeGreaterThanOrEqual(5)
+    // Four since the four hand-rolled checkboxes became the one components/ui/Checkbox.tsx (ADM-37).
+    expect(fields, 'fields that style themselves').toBeGreaterThanOrEqual(4)
     expect(factory, 'fields built with inputClasses()').toBeGreaterThanOrEqual(15)
     expect(findings).toEqual([])
   })

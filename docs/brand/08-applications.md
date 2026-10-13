@@ -53,8 +53,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   cookies do: essential cookies keep you signed in; analytics cookies and session recording stay off
   until allowed. PostHog, the analytics tool that sets cookies, initialises only after consent
   (`frontend/app/posthog-provider.tsx`); Vercel Web Analytics is cookieless and runs for every
-  visitor, which is why the clause names analytics cookies. The categories, the controls and the
-  privacy link are unchanged.
+  visitor, which is why the clause names analytics cookies. The bar's two choices say what they set:
+  "Essential only" and "Allow analytics" (session recording stays off until it is chosen under
+  Customize, D-032); the dialog's headings and its "Save preferences" button are in sentence case.
+  The categories, the handlers and the privacy link are unchanged; the analytics clause in the
+  dialog waits on the founder (chrome/F1).
 
 ## 3. Inside the product
 
@@ -68,6 +71,20 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
   verification mail ends "Verify your email address and you can start reading."
+- **Toasts** (`frontend/app/providers.tsx`): every toast is a panel card on the tokens, in the theme
+  the reader chose on the site rather than the OS setting; a success or error toast keeps the panel
+  and colours only its icon (Sonner's own rich colours are off).
+- **Feedback widget** (`frontend/features/feedback/components/FeedbackWidget.tsx`): the three kinds
+  read "Bug", "Idea" and "General", without emoji, on the token hairlines.
+- **Chart fallback** (`frontend/components/ChartErrorBoundary.tsx`): "This chart could not be
+  drawn." in the Card recipe; it no longer promises a table below, which neither chart surface has.
+- **Checkbox** (`frontend/components/ui/Checkbox.tsx`): one recipe for the consent dialog and the
+  admin invites page, with a checked fill that holds 3:1 in dark (it was 2.2:1).
+- **Status chips** (`frontend/components/ui/Badge.tsx`): `success` and `error` variants for status,
+  so a "Ready" or "Error" row stops borrowing the gain and loss colours (D-032).
+- **Error copy** (`frontend/lib/api/client.ts`): a lost connection reads "Could not reach the server.
+  Try again in a moment." instead of naming the backend and its URL, and a validation error shows
+  its first message instead of "[object Object]".
 
 ## 4. The mark's files and the icons
 

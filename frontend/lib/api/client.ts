@@ -22,6 +22,22 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The message a backend `detail` carries, as one sentence a person can read. A string detail is the
+ * backend's own message. FastAPI's validation 422 sends a list of `{ loc, msg, type }` objects, which
+ * used to reach the UI as "[object Object]": its first `msg` stands for it. Anything else yields
+ * undefined, so the status-based message below applies.
+ */
+export function detailMessage(detail: unknown): string | undefined {
+  if (typeof detail === 'string') return detail || undefined
+  const first: unknown = Array.isArray(detail) ? detail[0] : detail
+  if (first && typeof first === 'object' && 'msg' in first) {
+    const msg = (first as { msg: unknown }).msg
+    if (typeof msg === 'string' && msg) return msg
+  }
+  return undefined
+}
+
 // Determine API URL: prefer env var, fallback based on environment
 export const getApiUrl = () => {
   // Always use environment variable if set (for production deployments)
@@ -127,7 +143,7 @@ export function ensureRefreshed(): Promise<void> {
 // Response error interceptor: silent token refresh on 401, then backend error extraction.
 api.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError<{ detail?: string }>) => {
+  async (error: AxiosError<{ detail?: unknown }>) => {
     // Extract the status code and detail message from the backend
     const status = error.response?.status || 0
     const original = error.config as SessionRequestConfig | undefined
@@ -169,7 +185,7 @@ api.interceptors.response.use(
       if (sessionLossConfirmed && original?._sessionWasActive) notifySessionLost(generation)
     }
 
-    const backendDetail = error.response?.data?.detail
+    const backendDetail = detailMessage(error.response?.data?.detail)
 
     // Surface the email-verification gate as a friendly global prompt (e.g. on checkout).
     if (
@@ -196,7 +212,7 @@ api.interceptors.response.use(
     } else if (status >= 500) {
       errorMessage = 'A server error occurred. Please try again later.'
     } else if (error.message?.includes('Network Error') || error.message?.includes('ECONNREFUSED')) {
-      errorMessage = `Unable to connect to the server. Please ensure the backend API is running on ${getApiUrl()}`
+      errorMessage = 'Could not reach the server. Try again in a moment.'
     } else if (error.message?.includes('timeout')) {
       errorMessage = 'The request timed out. Please try again.'
     } else {

@@ -4,7 +4,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { CookieIcon } from '@/lib/icons'
 import Link from 'next/link'
-import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui'
+import { Button, Checkbox, Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui'
 import { isConsentLayerVisible, publishConsentLayer } from '@/lib/consentLayer'
 
 // Isomorphic layout effect (the repo's SSR-safe alias, as in ui/Input and useCountUp): useLayoutEffect
@@ -135,7 +135,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   // launcher it used to cover.
   const confirmSaved = () => toast.success('Cookie preferences saved')
 
-  const handleAcceptAll = () => {
+  const handleAllowAnalytics = () => {
     const newPreferences: CookiePreferences = {
       essential: true,
       analytics: true,
@@ -149,7 +149,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
     confirmSaved()
   }
 
-  const handleRejectAll = () => {
+  const handleEssentialOnly = () => {
     const newPreferences: CookiePreferences = {
       ...DEFAULT_PREFERENCES,
       timestamp: new Date().toISOString(),
@@ -195,7 +195,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
         icon={<CookieIcon className="h-5 w-5" />}
         onClose={() => setShowSettings(false)}
       >
-        Cookie Preferences
+        Cookie preferences
       </ModalHeader>
 
       <ModalBody>
@@ -205,7 +205,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
         </p>
 
         <div className="space-y-4">
-          {/* Essential Cookies */}
+          {/* Essential cookies */}
           <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
             <div className="flex items-start justify-between">
               <div className="flex-1">
@@ -213,7 +213,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   id="cookie-essential-title"
                   className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
                 >
-                  Essential Cookies
+                  Essential cookies
                 </h3>
                 <p id="cookie-essential-desc" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Required for the website to function properly. These include authentication,
@@ -221,19 +221,17 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                 </p>
               </div>
               <div className="ml-4">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={true}
                   disabled
                   aria-labelledby="cookie-essential-title"
                   aria-describedby="cookie-essential-desc"
-                  className="h-5 w-5 rounded border-border-light text-brand-strong focus:shadow-ring-brand opacity-50 cursor-not-allowed"
                 />
               </div>
             </div>
           </div>
 
-          {/* Analytics Cookies */}
+          {/* Analytics cookies */}
           <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
             <div className="flex items-start justify-between">
               <div className="flex-1">
@@ -241,7 +239,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   id="cookie-analytics-title"
                   className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
                 >
-                  Analytics Cookies
+                  Analytics cookies
                 </h3>
                 <p id="cookie-analytics-desc" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Help us understand how visitors interact with our website by collecting
@@ -250,21 +248,19 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                 </p>
               </div>
               <div className="ml-4">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={preferences.analytics}
                   onChange={(e) =>
                     setPreferences({ ...preferences, analytics: e.target.checked })
                   }
                   aria-labelledby="cookie-analytics-title"
                   aria-describedby="cookie-analytics-desc"
-                  className="h-5 w-5 rounded border-border-light text-brand-strong focus:ring-0 focus:ring-offset-0 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 />
               </div>
             </div>
           </div>
 
-          {/* Session Recording */}
+          {/* Session recording */}
           <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
             <div className="flex items-start justify-between">
               <div className="flex-1">
@@ -272,7 +268,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   id="cookie-recording-title"
                   className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
                 >
-                  Session Recording
+                  Session recording
                 </h3>
                 <p id="cookie-recording-desc" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Records your interactions with the site to help us identify and fix bugs.
@@ -281,15 +277,13 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                 </p>
               </div>
               <div className="ml-4">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={preferences.sessionRecording}
                   onChange={(e) =>
                     setPreferences({ ...preferences, sessionRecording: e.target.checked })
                   }
                   aria-labelledby="cookie-recording-title"
                   aria-describedby="cookie-recording-desc"
-                  className="h-5 w-5 rounded border-border-light text-brand-strong focus:ring-0 focus:ring-offset-0 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 />
               </div>
             </div>
@@ -310,7 +304,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
           Cancel
         </Button>
         <Button onClick={handleSavePreferences} className="w-full sm:w-auto">
-          Save Preferences
+          Save preferences
         </Button>
       </ModalFooter>
     </Modal>
@@ -353,11 +347,11 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
               <Button variant="secondary" onClick={handleOpenSettings}>
                 Customize
               </Button>
-              <Button variant="ghost" onClick={handleRejectAll}>
-                Reject All
+              <Button variant="ghost" onClick={handleEssentialOnly}>
+                Essential only
               </Button>
-              <Button onClick={handleAcceptAll}>
-                Accept All
+              <Button onClick={handleAllowAnalytics}>
+                Allow analytics
               </Button>
             </div>
           </div>

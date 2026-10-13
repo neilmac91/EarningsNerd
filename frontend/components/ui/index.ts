@@ -9,6 +9,7 @@ export { SegmentedControl, type SegmentedControlProps, type SegmentedOption, typ
 export { Card, CardHeader, CardTitle, CardBody, CardFooter, type CardProps } from './Card'
 export { Notice, type NoticeProps, type NoticeVariant } from './Notice'
 export { Switch, type SwitchProps } from './Switch'
+export { Checkbox, type CheckboxProps } from './Checkbox'
 // v3: the ONE dialog primitive (DS-04) — the dialog role ships only through Modal
 // (plus the documented copilot sheets; gated by tests/unit/dialogAllowlist.spec.ts).
 export { Modal, ModalHeader, ModalBody, ModalFooter, type ModalProps, type ModalHeaderProps } from './Modal'

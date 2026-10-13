@@ -24,6 +24,7 @@ export default function Error({
         <GuidanceCard
           variant="error"
           title="Something went wrong"
+          headingLevel="h1"
           description={
             <>
               The error has been logged and we&apos;ll look into it.

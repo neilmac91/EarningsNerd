@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Toaster } from 'sonner'
 import { IconContext, type IconProps } from '@phosphor-icons/react'
-import { ThemeProvider } from '@/components/ThemeProvider'
+import { ThemeProvider, useTheme } from '@/components/ThemeProvider'
 import { PostHogProvider } from './posthog-provider'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import FeedbackWidget from '@/features/feedback/components/FeedbackWidget'
@@ -28,8 +28,34 @@ const ICON_DEFAULTS: IconProps = { size: 24, weight: 'regular' }
 // `:focus-visible` shadow at runtime with equal or higher specificity, so the shadow needs `!`.
 // siteChromeFocusRing.spec.ts pins every class slot below.
 const TOAST_RING = 'focus-visible:outline-none focus-visible:!shadow-ring-brand dark:focus-visible:!shadow-ring-brand-dark'
-const TOAST_OPTIONS = {
-  classNames: { toast: TOAST_RING, closeButton: TOAST_RING, actionButton: TOAST_RING, cancelButton: TOAST_RING },
+// Every toast is a panel card on the tokens, in both themes. Sonner's own surface rules
+// (`[data-sonner-toast][data-styled=true]`, two attributes) outrank a single utility class, so the
+// surface takes `!` as the ring does; the focus ring still wins on focus (it adds a pseudo-class).
+// Without richColors a success or error toast keeps the panel ground; its icon carries the status ink.
+// toastTokens.spec.tsx holds these slots to token classes. Each slot is one literal, written whole,
+// so the ring gate and the token gate read it as it ships.
+const TOAST_CARD =
+  '!border-border-light !bg-panel-light !text-text-primary-light !shadow-e2 dark:!border-border-dark dark:!bg-panel-dark dark:!text-text-primary-dark dark:!shadow-none focus-visible:outline-none focus-visible:!shadow-ring-brand dark:focus-visible:!shadow-ring-brand-dark'
+const TOAST_CLOSE =
+  '!border-border-light !bg-panel-light !text-text-secondary-light dark:!border-border-dark dark:!bg-panel-dark dark:!text-text-secondary-dark focus-visible:outline-none focus-visible:!shadow-ring-brand dark:focus-visible:!shadow-ring-brand-dark'
+export const TOAST_OPTIONS = {
+  classNames: {
+    toast: TOAST_CARD,
+    description: '!text-text-secondary-light dark:!text-text-secondary-dark',
+    success: '[&_[data-icon]]:text-success-light dark:[&_[data-icon]]:text-success-dark',
+    error: '[&_[data-icon]]:text-error-light dark:[&_[data-icon]]:text-error-dark',
+    closeButton: TOAST_CLOSE,
+    actionButton: TOAST_RING,
+    cancelButton: TOAST_RING,
+  },
+}
+
+// Transient action feedback. The theme comes from ThemeProvider (the site's own toggle, stored in
+// localStorage), not "system": Sonner's "system" reads prefers-color-scheme, so a reader who chose
+// light on a dark OS got dark toasts. No richColors: those are Sonner's own palette, not the tokens.
+export function ThemedToaster() {
+  const { theme } = useTheme()
+  return <Toaster theme={theme} closeButton position="top-center" toastOptions={TOAST_OPTIONS} />
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -54,9 +80,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
               {children}
               {/* Beta feedback launcher — renders only for logged-in users (client-side session check). */}
               <FeedbackWidget />
-              {/* Transient action feedback. theme="system" follows the .dark class set by
-                  ThemeProvider; richColors gives semantic success/error styling. */}
-              <Toaster theme="system" richColors closeButton position="top-center" toastOptions={TOAST_OPTIONS} />
+              <ThemedToaster />
             </ThemeProvider>
           </QueryClientProvider>
         </PostHogProvider>
