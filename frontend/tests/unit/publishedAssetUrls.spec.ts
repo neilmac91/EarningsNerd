@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { PHASE_PRODUCTION_BUILD } from 'next/constants'
+import { defaultConfig } from 'next/dist/server/config-shared'
 import { getPathMatch } from 'next/dist/shared/lib/router/utils/path-match'
 import { NextRequest } from 'next/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -42,11 +44,13 @@ type Rewrites = Route[] | { beforeFiles?: Route[]; afterFiles?: Route[]; fallbac
 
 /**
  * Every rule that can redirect or rewrite a path before it is served: next.config.js evaluated as
- * `next build` loads it (Sentry's wrapper included), and vercel.json read as Vercel applies it.
+ * `next build` loads it, in the build phase (redirects and rewrites are fixed into the deployment
+ * then) and with Next's default config, Sentry's wrapper included; and vercel.json read as Vercel
+ * applies it.
  */
 async function routing(): Promise<{ basePath: string; rules: [string, Route][] }> {
   const loaded = createRequire(import.meta.url)(path.join(FRONTEND, 'next.config.js'))
-  const config = typeof loaded === 'function' ? await loaded('phase-production-server', { defaultConfig: {} }) : loaded
+  const config = typeof loaded === 'function' ? await loaded(PHASE_PRODUCTION_BUILD, { defaultConfig }) : loaded
   const redirects: Route[] = (await config.redirects?.()) ?? []
   const rewrites: Rewrites = (await config.rewrites?.()) ?? []
   const rewritten = Array.isArray(rewrites)
