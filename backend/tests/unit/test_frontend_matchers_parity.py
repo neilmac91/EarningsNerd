@@ -5,20 +5,21 @@ Copilot rail and the analysis page, the summary paywall card, the verify-your-em
 lib/api/client.ts opens. Until an error code replaces the matching (tasks/todo.md), a copy edit on either
 side can switch that UI off. The frontend spec holds both sides, but only in the frontend job; this test
 runs the same tables in pytest, so a backend-only edit fails the local backend gate (ruff, bandit, pytest)
-before it reaches CI. It follows the spec on PR #1288 (brand-copy-gates) at 31488948, and reads the way
-that spec reads: docstrings skipped, every literal test inside a matcher function a phrase.
+before it reaches CI. It follows the spec on PR #1288 (brand-copy-gates) at 0930834d, and reads the way
+that spec reads: docstrings skipped, every literal test inside a matcher function a phrase, a .tsx matcher
+read with its JSX tags.
 
 1. Every phrase a MATCHERS function tests for occurs in a string literal of a file that writes the
-   message, unless UNSOURCED lists it with its reason (shrink-only, capped at UNSOURCED_MAX). This is the
-   spec's first clause with the same MATCHERS, BACKEND and UNSOURCED tables; the phrases are read from the
-   TypeScript source with comments, strings and regex literals tokenised, so a commented-out test reads as
-   nothing.
+   message, unless UNSOURCED lists it with its reason (shrink-only; its size equals UNSOURCED_MAX). This
+   is the spec's first clause with the same MATCHERS, BACKEND and UNSOURCED tables; the phrases are read
+   from the TypeScript source with comments, strings, regex literals and (in a .tsx file) JSX tags
+   tokenised, so a commented-out test reads as nothing.
 2. Each message in ROUTED, a backend site whose words a matcher has to catch, carries at least one of that
    matcher's phrases, with module constants such as ``_UPGRADE_HINT`` interpolated. The spec cannot see
    this case: when dependencies.py stops saying "Upgrade to Pro", analysis.py and summaries.py still write
    the phrase, so clause 1 stays green while the Copilot rail's taste-exhausted detail routes to Retry.
-3. When the spec is on the branch, its MATCHERS, BACKEND and UNSOURCED tables and its UNSOURCED_MAX equal
-   these, so the twins cannot drift. Until #1288 merges the spec is absent and this one case skips with
+3. When the spec is on the branch, its MATCHERS and BACKEND tables, its UNSOURCED keys and reasons and its
+   UNSOURCED_MAX equal these, so the twins cannot drift. Until #1288 merges the spec is absent and this one case skips with
    that reason.
 """
 import ast
@@ -39,6 +40,7 @@ BACKEND = {
     "summaries": "backend/app/routers/summaries.py",
     "analysis": "backend/app/routers/analysis.py",
     "subscriptions": "backend/app/routers/subscriptions.py",
+    "contact": "backend/app/routers/contact.py",
 }
 
 
@@ -63,20 +65,44 @@ MATCHERS = (
     Matcher("features/analysis/api/analysis-api.ts", "isAnalysisPaywallError",
             (BACKEND["dependencies"], BACKEND["analysis"]), ("features/analysis/api/analysis-api.ts",)),
     Matcher("lib/api/client.ts", None, (BACKEND["subscriptions"],), ()),
+    # The spec's tree-wide pass reaches these two (a test on error.message, on errorMessage). The dashboard's
+    # error boundary lists no source: auth.py's and client.ts's "/api/auth/..." paths would pass "auth" on a
+    # URL, not a message. The contact form reads client.ts's ApiError: the contact route's 429 detail or
+    # client.ts's own 429 fallback.
+    Matcher("app/dashboard/error.tsx", "DashboardError", (), ()),
+    Matcher("features/contact/components/ContactForm.tsx", "handleSubmit", (BACKEND["contact"],), ("lib/api/client.ts",)),
 )
 
-# Phrases no file writes today, each with its reason (the spec's table, word for word). Shrink-only.
+# Phrases no file writes today, each with its reason (the spec's table, keys and reasons word for word;
+# clause 3 compares both). Shrink-only: delete the line and lower UNSOURCED_MAX in the same commit.
+_DASHBOARD_UNSOURCED = (
+    "no message that reaches the dashboard's error boundary says it (see MATCHERS); the redirect's logic is "
+    "E18's (a status or an error code), never the brand sweep's"
+)
 UNSOURCED = {
     "isCopilotPaywallError monthly cap": (
         "no message says it: the Copilot cap's 429 says \"fair-use limit\" (routers/summaries.py), which "
         "this matcher does not read; the matcher's owner (brand-copilot, ASK-07) decides"
     ),
     "isNonRetryableStreamError sign in": (
-        "no message on the summary stream says it: its 401 reads \"Authentication error occurred.\" (matched by "
-        "\"authentication\"); the matcher's logic is E18's (an error code field), never the brand sweep's"
+        "no message on the summary stream says it: its 401 is get_current_user's \"Could not validate "
+        "credentials\" (routers/auth.py), which summaries-api.ts surfaces in place of its fallback, and a 401 "
+        "comes back retryable: false by status, so this matcher never sees it; the matcher's logic is E18's "
+        "(an error code field), never the brand sweep's"
+    ),
+    "DashboardError 401": _DASHBOARD_UNSOURCED,
+    "DashboardError Unauthorized": _DASHBOARD_UNSOURCED,
+    "DashboardError authentication": _DASHBOARD_UNSOURCED,
+    "DashboardError auth": _DASHBOARD_UNSOURCED,
+    "handleSubmit 429": (
+        "the contact route's 429 reads \"Too many requests. Please try again in 1 hour(s).\" and client.ts's 429 "
+        "fallback has no \"429\" either; brand-contact-security-presentation reads the status instead and "
+        "deletes this line"
     ),
 }
-UNSOURCED_MAX = 2
+# Seeded at 2 when the spec scanned the api modules; 7 since its scan reached app/dashboard/error.tsx and
+# ContactForm.tsx. It only falls after.
+UNSOURCED_MAX = 7
 
 
 @dataclass(frozen=True)
@@ -115,7 +141,8 @@ class _Literal:
     end: int
 
 
-_REGEX_AFTER = set("(,=:[!&|?{};+-*%<>~^")
+# Never "<": "</" closes a JSX tag (``</Button>}``), and no regex literal follows a "<" in this codebase.
+_REGEX_AFTER = set("(,=:[!&|?{};+-*%>~^")
 _REGEX_KEYWORDS = ("return", "typeof", "case", "in", "of", "delete", "void", "throw", "new", "else", "do")
 _ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "0": "\0"}
 
@@ -124,12 +151,20 @@ def _unescape(raw: str) -> str:
     return re.sub(r"\\(.)", lambda m: _ESCAPES.get(m.group(1), m.group(1)), raw, flags=re.S)
 
 
-def _ts_literals(source: str) -> tuple[list[_Literal], str]:
+def _ts_literals(source: str, tsx: bool = False) -> tuple[list[_Literal], str]:
     """The string, template and regex literals of TypeScript source, and the source with comments and literal
-    bodies blanked (same length), so brace matching and call shapes can be read off the blanked text."""
+    bodies blanked (same length), so brace matching and call shapes can be read off the blanked text.
+
+    In a .tsx file a "<" followed by a letter, "/" or ">" opens a tag (a type argument such as
+    ``FormEvent<HTMLFormElement>`` reads the same way, harmlessly): until its ">" at the same brace depth, a
+    "/" belongs to the tag (``</Button>``, ``<Icon />``) and never opens a regex. Tags nest through
+    attribute braces (``action={<Button>Go</Button>}``), so the open ones are a stack. Attribute strings are string
+    literals, as TypeScript parses them. JSX text is read as code; react/no-unescaped-entities keeps quotes
+    out of it (``We&apos;ve``), so it opens no literal."""
     literals: list[_Literal] = []
     masked = list(source)
     n = len(source)
+    depth, tags = 0, []  # code brace depth; the depths at which .tsx tags are open, innermost last
 
     def blank(start: int, end: int) -> None:
         for k in range(start, end):
@@ -168,6 +203,10 @@ def _ts_literals(source: str) -> tuple[list[_Literal], str]:
             literals.append(_Literal("tpl" if substituted else "str", _unescape("".join(parts)), i, j + 1))
             blank(i + 1, j)
             i = j + 1
+        elif tags and depth == tags[-1] and c in "/>":
+            if c == ">":
+                tags.pop()
+            i += 1
         elif c == "/" and _starts_regex("".join(masked[max(0, i - 30):i])):
             j, in_class = i + 1, False
             while j < n and source[j] != "\n" and (source[j] != "/" or in_class):
@@ -185,6 +224,10 @@ def _ts_literals(source: str) -> tuple[list[_Literal], str]:
             blank(i + 1, j)
             i = end
         else:
+            if tsx and c == "<" and (nxt.isalpha() or nxt in "/>"):
+                tags.append(depth)
+            elif c in "{}":
+                depth += 1 if c == "{" else -1
             i += 1
     return literals, "".join(masked)
 
@@ -254,7 +297,7 @@ class Phrase:
 def phrases(matcher: Matcher, read: Reader = _read_repo) -> list[Phrase]:
     """The phrases a matcher tests for (with a function: every literal test in it, includes, startsWith,
     endsWith and regex alike; without: the module's regex ``.test()`` calls), as the spec reads them."""
-    literals, masked = _ts_literals(read(f"frontend/{matcher.file}"))
+    literals, masked = _ts_literals(read(f"frontend/{matcher.file}"), matcher.file.endswith(".tsx"))
     span = _function_span(masked, matcher.fn) if matcher.fn else (0, len(masked))
     out: list[Phrase] = []
     for literal, kind in _literal_tests(literals, masked):
@@ -267,7 +310,7 @@ def phrases(matcher: Matcher, read: Reader = _read_repo) -> list[Phrase]:
 
 def frontend_strings(file: str, read: Reader = _read_repo) -> list[str]:
     """The string literals a frontend fallback module writes, its own literal tests excluded."""
-    literals, masked = _ts_literals(read(f"frontend/{file}"))
+    literals, masked = _ts_literals(read(f"frontend/{file}"), file.endswith(".tsx"))
     tests = {id(literal) for literal, _ in _literal_tests(literals, masked)}
     return [literal.text for literal in literals if literal.kind in ("str", "tpl") and id(literal) not in tests]
 
@@ -458,11 +501,41 @@ const fallback = `Monthly limit ${n} reached`
     ])
     assert sorted(python_strings(docstrings)) == ["A later bare literal is no docstring.", "Please sign in."]
 
+    # A .tsx matcher: "</" closes a tag and "/>" ends one, never a regex, so the braces after them still
+    # count and the phrases after the JSX stay inside the function; a type argument reads as a tag,
+    # harmlessly, and a comparison "<" is not one.
+    tsx = """
+export default function ProbeError({ error }: { error: Error }) {
+  const [state] = useState<string | null>(null)
+  const ok = items.length < 10 && /sign\\s+in/i.test(error.message)
+  const card = (
+    <Panel>
+      {ok && <Card
+        action={<Button onClick={() => go('/login')}>Go to Login</Button>}
+        icon={<Icon className="h-5 w-5" />}
+        extra={<>{state}</>} />}
+    </Panel>
+  )
+  const isAuthError = error.message.includes('401') || error.message.toLowerCase().includes('auth')
+  return <p>We&apos;ve logged it.</p>
+}
+const after = () => error.message.includes('outside')
+"""
+    read_tsx = {"frontend/probe.tsx": tsx}.__getitem__
+    assert phrases(Matcher("probe.tsx", "ProbeError", (), ()), read_tsx) == [
+        Phrase("sign\\s+in", True), Phrase("401", False), Phrase("auth", False),
+    ]
+    dashboard = next(m for m in MATCHERS if m.fn == "DashboardError")
+    assert [phrase.text for phrase in phrases(dashboard)] == ["401", "Unauthorized", "authentication", "auth"]
+
 
 def test_every_phrase_the_frontend_routes_on_is_written():
     missing, used = unsourced()
     assert not missing, "Keep the phrase in the message (backend and frontend together), or change the matcher:\n" + "\n".join(missing)
-    assert len(UNSOURCED) <= UNSOURCED_MAX, f"UNSOURCED gained an entry ({len(UNSOURCED)}, cap {UNSOURCED_MAX})"
+    # Equality, as the spec holds it: a PR that shrinks the list lowers the cap in the same commit.
+    assert len(UNSOURCED) == UNSOURCED_MAX, (
+        f"UNSOURCED changed size ({len(UNSOURCED)}, UNSOURCED_MAX {UNSOURCED_MAX}): move UNSOURCED_MAX with it in the same commit"
+    )
     stale = sorted(set(UNSOURCED) - used)
     assert not stale, f"Written again or gone from its matcher: delete it from UNSOURCED: {stale}"
 
@@ -488,9 +561,9 @@ def test_a_reword_in_one_module_fails_even_while_another_still_writes_the_phrase
     assert any("copilot_taste_exhausted_detail" in failure and "upgrade to pro" in failure for failure in failures)
 
 
-def _spec_tables(source: str) -> tuple[dict[str, str], set[Matcher], set[str], Optional[int]]:
-    """BACKEND, MATCHERS, UNSOURCED and UNSOURCED_MAX as the frontend spec declares them; unreadable fails
-    loudly."""
+def _spec_tables(source: str) -> tuple[dict[str, str], set[Matcher], dict[str, str], Optional[int]]:
+    """BACKEND, MATCHERS, UNSOURCED (key to reason, a named constant resolved) and UNSOURCED_MAX as the
+    frontend spec declares them; unreadable fails loudly."""
     literals, masked = _ts_literals(source)
 
     def block(name: str, opener: str, closer: str) -> tuple[int, int]:
@@ -530,19 +603,44 @@ def _spec_tables(source: str) -> tuple[dict[str, str], set[Matcher], set[str], O
         matchers.add(Matcher(fields["file"], fields["fn"], lists["backend"], lists["frontend"]))
     assert matchers, "backendMessageMatches.spec.ts: MATCHERS is unreadable"
 
+    def literal_at(at: int, what: str) -> _Literal:
+        found = next((lit for lit in literals if lit.start == at and lit.kind == "str"), None)
+        assert found, f"backendMessageMatches.spec.ts: {what} is not a string literal"
+        return found
+
     start, end = block("UNSOURCED", "{", "}")
-    key_spots = [m.start() for m in re.finditer(r"['\"]\s*:", masked[start:end])]
-    keys_found = {lit.text for lit in strings_in(start, end) if any(lit.end - 1 == start + s for s in key_spots)}
+    reasons: dict[str, str] = {}
+    for key in strings_in(start, end):
+        colon = re.match(r"\s*:\s*", masked[key.end:end])
+        if not colon:
+            continue  # a reason, not a key
+        at = key.end + colon.end()
+        name = re.match(r"[A-Za-z_]\w*", masked[at:end])
+        if name:  # a reason shared through a constant (DASHBOARD_UNSOURCED)
+            const = re.search(rf"\bconst {name.group(0)}\s*(?::[^=]*)?=\s*", masked)
+            assert const, f"backendMessageMatches.spec.ts: UNSOURCED names {name.group(0)}, which is unreadable"
+            reason = literal_at(const.end(), name.group(0))
+            after = at + name.end()
+        else:
+            reason = literal_at(at, f"UNSOURCED[{key.text!r}]")
+            after = reason.end
+        assert re.match(r"\s*(?:,|$)", masked[after:end]), f"backendMessageMatches.spec.ts: UNSOURCED[{key.text!r}] is unreadable"
+        reasons[key.text] = reason.text
     cap = re.search(r"\bconst UNSOURCED_MAX\s*=\s*(\d+)", masked)
-    return backend, matchers, keys_found, int(cap.group(1)) if cap else None
+    return backend, matchers, reasons, int(cap.group(1)) if cap else None
 
 
 def test_the_twins_share_their_tables():
     if not SPEC.exists():
         pytest.skip("frontend/tests/unit/backendMessageMatches.spec.ts lands with #1288; this case holds the twins together after it")
-    backend, matchers, unsourced_keys, cap = _spec_tables(SPEC.read_text(encoding="utf-8"))
+    backend, matchers, reasons, cap = _spec_tables(SPEC.read_text(encoding="utf-8"))
     ours = {Matcher(m.file, m.fn, tuple(sorted(m.backend)), tuple(sorted(m.frontend))) for m in MATCHERS}
     assert backend == BACKEND, "BACKEND differs from the frontend spec's"
     assert matchers == ours, f"MATCHERS differs from the frontend spec's:\nspec only {matchers - ours}\nhere only {ours - matchers}"
-    assert unsourced_keys == set(UNSOURCED), "UNSOURCED differs from the frontend spec's"
+    assert set(reasons) == set(UNSOURCED), (
+        f"UNSOURCED differs from the frontend spec's: spec only {sorted(set(reasons) - set(UNSOURCED))}, "
+        f"here only {sorted(set(UNSOURCED) - set(reasons))}"
+    )
+    reworded = sorted(key for key in UNSOURCED if reasons[key] != UNSOURCED[key])
+    assert not reworded, f"UNSOURCED reasons differ from the frontend spec's: {reworded}"
     assert cap == UNSOURCED_MAX, f"UNSOURCED_MAX differs from the frontend spec's ({cap})"

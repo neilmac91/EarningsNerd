@@ -17,7 +17,9 @@ A literal reaches a user when it is:
 3. assigned to a name or attribute whose last word says which copy it holds (ROLE_NAME:
    ``FEEDBACK_RATE_LIMIT_DETAIL``, ``error_message``, ``run.message``), or returned by a function so
    named (``copilot_taste_exhausted_detail``), unless the name also says the text is for the model
-   (``RECOVERY_SYSTEM_MESSAGE``, ``build_system_message``);
+   (``RECOVERY_SYSTEM_MESSAGE``, ``build_system_message``, ``_build_context_message``) or the function
+   sits in a prompt module (PROMPT_MODULES: a file named prompt.py or prompts.py), whose returns are
+   prompt parts;
 4. a module constant that one of the above names (``detail=SOME_CONSTANT``);
 5. HTML markup, wherever it sits (a closing tag, or a known element whose attributes carry values):
    mail and PDF bodies;
@@ -71,8 +73,11 @@ ROLE_NAME = re.compile(
     r"(?:^|_)(?:detail|message|msg|error|hint|footer|title|headline|subject|html|caption|disclaimer|notice|excerpt)$",
     re.IGNORECASE,
 )
-# A role name that also says the text is for the model is a prompt part, not copy (RECOVERY_SYSTEM_MESSAGE).
-MODEL_FACING_NAME = re.compile(r"system|prompt|schema|instruction", re.IGNORECASE)
+# A role name that also says the text is for the model is a prompt part, not copy (RECOVERY_SYSTEM_MESSAGE,
+# copilot/prompt.py's _build_context_message).
+MODEL_FACING_NAME = re.compile(r"system|prompt|schema|instruction|context", re.IGNORECASE)
+# A function in a module with one of these file names builds what the model reads: its returns are not copy.
+PROMPT_MODULES = frozenset({"prompt.py", "prompts.py"})
 LOG_METHODS = frozenset({"debug", "info", "warning", "warn", "error", "exception", "critical", "log"})
 
 EM_DASH = "\u2014"
@@ -167,7 +172,8 @@ def _copy_breaks(text: str) -> Iterator[tuple[int, str]]:
 class _Reader(ast.NodeVisitor):
     """Collect the literals of one module, which of them reach a user, and each literal's scope."""
 
-    def __init__(self, tree: ast.Module) -> None:
+    def __init__(self, tree: ast.Module, prompt_module: bool = False) -> None:
+        self.prompt_module = prompt_module
         self.constants: dict[str, ast.expr] = {}
         for stmt in tree.body:
             if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name):
@@ -245,7 +251,7 @@ class _Reader(ast.NodeVisitor):
     visit_AsyncFunctionDef = visit_FunctionDef  # type: ignore[assignment]
 
     def visit_Return(self, node: ast.Return) -> None:
-        if self._functions and _names_copy(self._functions[-1]):
+        if self._functions and not self.prompt_module and _names_copy(self._functions[-1]):
             self._reach(node.value)
         self.generic_visit(node)
 
@@ -315,7 +321,7 @@ def _is_log_or_pattern(node: ast.Call) -> bool:
 
 def read_module(source: str, path: str) -> tuple[list[Break], int]:
     """(breaks, copy literals read) for one module; ``path`` (relative to backend/) sets the document mode."""
-    reader = _Reader(ast.parse(source))
+    reader = _Reader(ast.parse(source), prompt_module=Path(path).name in PROMPT_MODULES)
     found: list[Break] = []
     copy = 0
     for node, scope in reader.literals:
@@ -405,6 +411,16 @@ def taste_detail(n):
 
 def build_system_message(n):
     return "Plan — answer as JSON!"
+
+
+def _build_context_message(n):
+    return "FILING: Apple — 10-K filed today!"
+'''
+
+# A prompt module's role-named returns are prompt parts; the same function elsewhere returns copy.
+_PROMPT_PROBE = '''
+def refusal_message(n):
+    return f"No answer — {n} sources!"
 '''
 
 _PAGE = '<p style="color:#6B7280">Hi there</p><h2>Thank You for Writing</h2><h2>Welcome to EarningsNerd</h2>'
@@ -441,7 +457,22 @@ def test_the_reader_sees_each_shape_and_lets_the_rest_through():
         ("em-dash", "Inner — not a detail"),
         ("em-dash", "Plan — answer as JSON!"),
         ("exclamation mark", "Plan — answer as JSON!"),
+        ("em-dash", "FILING: Apple — 10-K filed today!"),
+        ("exclamation mark", "FILING: Apple — 10-K filed today!"),
     }
+
+    # A role-named return in prompt.py or prompts.py is not read; in any other module it is.
+    assert breaks_in(_PROMPT_PROBE, "app/services/copilot/prompt.py") == []
+    assert breaks_in(_PROMPT_PROBE, "app/services/ai/prompts.py") == []
+    assert {(b.rule, b.scope) for b in breaks_in(_PROMPT_PROBE, "app/services/copilot/answer.py")} == {
+        ("em-dash", "refusal_message"), ("exclamation mark", "refusal_message"),
+    }
+
+    # The real Copilot paywall detail is still read: its f-string counts as copy.
+    source = (BACKEND_DIR / "app/dependencies.py").read_text(encoding="utf-8")
+    reader = _Reader(ast.parse(source))
+    taste = [node for node, scope in reader.literals if scope == "copilot_taste_exhausted_detail" and id(node) in reader.reached]
+    assert any("free Copilot questions" in _text(node) for node in taste), "copilot_taste_exhausted_detail is no longer read"
 
 
 def test_the_walk_reads_the_backend():
