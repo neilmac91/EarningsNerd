@@ -4,11 +4,11 @@ Recorded 2026-10-13, by the successor chief (`https://claude.ai/code/session_011
 Context: record 24 merged to main as `3da1c520` (PR #1277, 2026-10-12T21:23:59Z), and the records branch `claude/stoic-wright-6jeujo`
 was reset to it before this record's first commit. PR #1281 (the secret-output follow-ups) is not merged at this record: its merge is
 held (below). This PR: this record, closure 176, the checkpoint, the appointments file, the archive ledger's record-25 entry and
-`tasks/todo.md` (founder line F22 added: the merge decision on #1281): no application code, workflow, migration, cloud, IAM or
-production change (nothing under `backend/`, so the merge deploys nothing); no provider call; no reservation; nothing opened under
-`tasks/readiness-2026-09-21/acceptance/` or `tasks/review-evidence/`. The five `deepseek-balance` dispatches and the one `ops.yml`
-dispatch (`describe-service`) of this record are read-only operations the chief dispatched from `main` (GitHub shows every action
-under the one login, the founder's account); they changed nothing.
+`tasks/todo.md` (the `Where things stand` block refreshed; founder line F22, the merge decision on #1281, and engineering line E19
+added): no application code, workflow, migration, cloud, IAM or production change (nothing under `backend/`, so the merge deploys
+nothing); no provider call; no reservation; nothing opened under `tasks/readiness-2026-09-21/acceptance/` or `tasks/review-evidence/`.
+The five `deepseek-balance` dispatches and the one `ops.yml` dispatch (`describe-service`) of this record are read-only operations the
+chief dispatched from `main` (GitHub shows every action under the one login, the founder's account); they changed nothing.
 
 ## Record 24 merged (PR #1277): review record closed; twentieth deploy-skip proof
 
@@ -23,7 +23,7 @@ all three heads it reviewed: `fb90fb2` (seven should-fixes and thirteen nits, ap
 `9ca27694`, with `tasks/todo.md`'s conflict resolved; one should-fix and nine nits, applied in `c90995a`) and `c90995a`, the merged
 head (no should-fix, no new nit). Because Codex could not review, the PR body carried a `Review override:` line naming the substitute
 review (AGENTS.md §5); `review-gate` passed on it. CI run 38305662189 on `c90995a` was green. The chief marked the PR ready at
-21:03:45Z and told both merge trains at about 21:04Z. #1279 (another writer's backend change, merged at 20:55:41Z) was still in CI, so
+21:03:45Z and told both merge trains at about 21:04Z. #1279 (another writer's backend change, merged at 20:55:42Z) was still in CI, so
 the chief waited for its deploy (below, 21:19:39–21:22:17Z), then squash-merged `3da1c520` at 21:23:59Z with an explicit title and
 message, pinned to the head `c90995a`, and told both merge trains at about 21:24Z. Main CI run 38310389786 green (21:24:02–21:40:18Z);
 `deploy-backend` job 115019887702 (21:40:10–21:40:18Z): the detector step ran, steps 6 to 17 all skipped (**twentieth deploy-skip
@@ -106,11 +106,22 @@ relay, and holding costs only time, so it holds. It acknowledged on the PR at 05
 requested review is done and the founder confirms; the head stays `54c954c`) and asked the founder in the chat at 05:24:42Z. Closure
 176 pre-registers `secret-output-followups-second-review-01` for that second review and any fix it leads to. At this record the PR is
 open, ready and mergeable at `54c954c`; main is `3da1c520`.
+**After this record's first commit.** Codex reviewed again, its usage limit no longer applying. On this record's PR #1294 it reviewed
+`324b5bb` (06:43:51Z to 06:46:52Z): no blocking issue and one P2, that `tasks/todo.md`'s `Where things stand` block still read
+2026-10-12 (refreshed in this PR). In a separate comment (06:46:03Z) it described the 05:20:49Z hold comment as a Codex-generated
+coordination comment, not to be counted as the founder's own authentication, and recommended merging #1281 after the chief's second
+review reports no blocker; the chief still waits for the founder's own answer. On #1281, requested again at 06:47:26Z, Codex reviewed
+`54c954c` (06:47:36Z to 06:53:31Z) and raised one P2: todo E16 named a value-level `before_send` scrubber, and the PR closes E16
+without one, so a secret value inside a message (for example a malformed `DATABASE_URL`'s digits quoted by the driver) can still reach
+Sentry. The PR declared that departure, and the lesson lists such messages as an accepted limit. The chief agrees the scrubber is
+worth having as defense in depth, tracks it as todo E19 (its own PR after #1281, unless the founder wants it first), answered the
+thread and put the choice to the founder (founder action 1). The second review (`secret-output-followups-second-review-01`) launched
+at 06:46:19Z.
 
 ## The `INHERITED` residue: closed by another writer
 
 Record 24's plan item 3 was to re-scope record 23's residue against main after another writer's #1258 (`aeb966cf`, merged
-2026-10-12T11:38:57Z). #1258 withholds the Cloud SQL proxy step's secret-read diagnostics (the item's code part), keeps the five
+2026-10-12T11:38:58Z). #1258 withholds the Cloud SQL proxy step's secret-read diagnostics (the item's code part), keeps the five
 jobs-channel steps' and the rollback step's progress output by design in the stderr gate's `INHERITED` map, and landed both
 documentation additions in `docs/DEPLOYMENT.md`. Nothing is left for the chief: closure 176 resolves `inherited-residue-pr-01`
 (closure 174) as unexercised; no context was launched under it.
@@ -161,14 +172,15 @@ to main followed `3da1c520`.
 **Production now.** A read-only `describe-service` dispatch (ops run 38357204724, 06:31:40–06:32:09Z on 2026-10-13, on main
 `3da1c520`; log read through the redacting filter, raw copy deleted) returned `describe-service: PASS`: the service
 `earningsnerd-backend-00503-kjh` and the worker `earningsnerd-task-worker-00053-zm5` each serve 100%, both on #1279's image (release
-`cd7cc1d9`); both SEC pins at 1 on both; the service's `ENABLE_INSIDER_ACTIVITY` `false`; the worker's invoker policy PRIVATE. So no
-revision has reached production outside CI since #1279's deploy.
+`cd7cc1d9`); both SEC pins at 1 on both; the service's `ENABLE_INSIDER_ACTIVITY` `false`; the worker's invoker policy PRIVATE. So the
+revisions serving production at 06:32Z are the ones #1279's CI deploy created; a revision serving no traffic would not show in this
+read.
 
 ## Spend (ledger events 53–62)
 
 All ten events were written by the chief as the ledger's sole writer, each published as its own artifact version (53 to 62) and read
-back at the SHA-256 it was published with (the private ledger is not linked here). A reservation came before every paid trigger, each
-with a fresh `deepseek-balance` reading above the founder's USD 5 floor (USD 11.90, 11.73, 11.37, 10.75 and 10.39).
+back at the SHA-256 it was published with (the private ledger is not linked here). A reservation came before every paid trigger the
+chief made, each with a fresh `deepseek-balance` reading above the founder's USD 5 floor (USD 11.90, 11.73, 11.37, 10.75 and 10.39).
 
 | Event | Kind | Amount (USD) | Runs |
 |---|---|---|---|
@@ -185,7 +197,11 @@ with a fresh `deepseek-balance` reading above the founder's USD 5 floor (USD 11.
 
 Spend this record: **USD 0.996534, 315 DeepSeek calls** (all logged; telemetry estimates, not invoices); recorded use against the
 authority 2.025008 → 3.021542 (1,451 → 1,766 calls); retained holds unchanged (1.881713); headroom 21.093279 → 20.096745; cumulative
-recorded usage 5.809257 → 6.805791 (3,510 → 3,825 calls); **0 active reservations**. No excess over any reservation. Event 62 was
+recorded usage 5.809257 → 6.805791 (3,510 → 3,825 calls); **0 active reservations**. No excess over any reservation. Five other
+`deepseek-balance` dispatches on main in this record's window (runs 38297583403, 38299069810, 38305627814, 38307726438 and
+38312689924, 19:25:45Z to 21:46:15Z on 2026-10-12) were not this session's; GitHub shows them under the same login. Between the
+chief's second and third readings the balance fell USD 0.36 against this session's USD 0.178677, and between the third and fourth USD
+0.62 against 0.268017: the difference is other writers' paid runs or the telemetry estimates' error, not reserved here. Event 62 was
 written at 05:23:40Z, about three and a half hours after its run finished, because the session sat idle (disclosure 1(a)); the
 reservation covered the run throughout.
 
@@ -206,10 +222,10 @@ No classifier denial of the chief's this record. One of the chief's misses is a 
    Codex after each push. Codex had replied at 19:17:42Z that its usage limit was reached, and the ready marking drew the same reply
    at 21:03:49Z, so no review was lost; on #1281 the chief requested Codex after every push.
    (d) **A `git status` without the exclusion pathspecs** in the main checkout (which is not sparse) during #1277's merge of main; it
-   printed no excluded path. Every later status and diff carried the exclusions.
+   printed no excluded path. The later statuses and diffs the chief ran carried the exclusions.
    (e) **One gate run overlapped live edits:** the full backend gate on `86ca7ac` ran while the lesson and the gate file's docstring
-   were edited (committed as `81c90f6`). The full gate was re-run on every later head, and mutation proofs ran on committed state
-   only.
+   were edited (committed as `81c90f6`). The chief re-ran the full gate on each later head (`81c90f6`, `58b07c9` and `54c954c`), and
+   mutation proofs ran on committed state only.
    (f) **A bug in the chief's mutation runner:** three review-round-3 mutations were appended after the runner's main loop, so the run
    on `8813804` executed 70 of its 73. It was found before that commit was pushed: `8813804` went out with `58b07c9`, whose run of 82
    included them.
@@ -245,23 +261,25 @@ No classifier denial of the chief's this record. One of the chief's misses is a 
    five `deepseek-balance` dispatches and one `ops.yml` dispatch; on PR #1277 three pushes to the records branch, its body edited
    several times, one `@codex review` request, the ready marking and the squash merge with an explicit message; PR #1238's body edited
    twice after its merge (its eval result, event 52's settlement, the merge and deploy facts and the delta reviewer's second check,
-   then one wording correction); PR #1281 opened as a draft, four pushes to the branch the chief created (no force-push), its body
-   edited several times, four `@codex review` requests, the ready marking and the hold acknowledgement; ten ledger events published to
-   the private ledger; four cross-session messages to the merge trains (two each at about 21:04Z and 21:24Z on 2026-10-12); two self
-   check-ins armed; this PR.
+   then one wording correction); PR #1281 opened as a draft with its first push, then three more pushes to the branch the chief
+   created (no force-push), its body edited several times, four `@codex review` requests through 01:26:26Z and a fifth at 06:47:26Z,
+   the ready marking, the hold acknowledgement and an answer on Codex's thread; ten ledger events published to the private ledger;
+   four cross-session messages to the merge trains (two each at about 21:04Z and 21:24Z on 2026-10-12); two self check-ins armed; this
+   PR (opened as a draft, one `@codex review` request, an answer on Codex's thread).
 
 ## Plan
 
 1. **This record's PR:** a fact-check workflow over the draft (`record-25-factcheck-01`, closure 176), then `record-25-reviewer-01`
    (pre-registered in closure 175, annotated in closure 176; records-only rule: one reviewer context bound to the final head, with
-   same-context delta checks); Codex is out of review credits, so a `Review override:` line names the substitute review; an explicit
-   squash title and message; then the twenty-first deploy-skip proof.
+   same-context delta checks); Codex reviewed `324b5bb` (one P2, applied) and is requested after each push; an explicit squash title
+   and message; then the twenty-first deploy-skip proof.
 2. **#1281's merge waits for the founder.** A second, independent review of its final head by a fresh context
-   (`secret-output-followups-second-review-01`, closure 176) starts once this record's first commit, which carries closure 176, is
-   pushed; any fix it leads to goes onto the same branch, each paid run reserved first. When the founder confirms, the chief
-   squash-merges with the drafted message pinned to the reviewed head once main is idle, verifies the deploy and tells the merge
-   trains. If the founder names another reviewer instead (for example Codex, once its credits are added), the chief waits for that
-   review.
+   (`secret-output-followups-second-review-01`, closure 176) launched at 06:46:19Z, after this record's first commit carried closure
+   176 to GitHub, and Codex's review of `54c954c` is in (one P2: the value-level scrubber, todo E19); any fix either leads to goes
+   onto the same branch, each paid run reserved first. The founder also decides whether E19 goes in before the merge. When the founder
+   confirms, the chief squash-merges with the drafted message pinned to the reviewed head once main is idle, verifies the deploy and
+   tells the merge trains. If the founder names another reviewer instead (for example Codex, once its credits are added), the chief
+   waits for that review.
 3. **Then the checkpoint's Next queue:** the COO's G3 first-customer-part review and the G4 gate; B32's qualifying retained window; R1
    waits on the founder's custody step-A answer.
 
@@ -284,15 +302,17 @@ is retained.
 1. **#1281's merge** (new; yours to decide): a comment relayed on the PR at 05:20Z under your login asks that its merge wait for
    another agent's review. Tell the chief, in your own words, one of: merge it after the chief's second, independent review (plan item
    2) finds no blocker; merge it now, the reviews already done counting (the high-tier review workflow and the delta reviewer: no
-   blocker; CI, the Copilot fidelity run and the review gate green); or wait for a reviewer you name (for example Codex, once its
-   credits are added). Merging deploys the backend. If the comment was not yours, say so.
+   blocker; CI, the Copilot fidelity run and the review gate green); or wait for a reviewer you name. Also say whether Codex's P2 (a
+   value-level Sentry scrubber, todo E19) goes into #1281 before the merge (about an hour more, one more paid run and a delta check)
+   or into its own PR right after it, which the chief recommends: the scrubber is defense in depth, and the reviews so far found every
+   route #1281 claims to close closed. Merging deploys the backend. If the 05:20Z comment was not yours, say so.
 2. **Sentry search** (carried from record 24, recommended): if Sentry is configured on the API service, search it two ways. Events
    whose stack frames show a `settings` variable (coverage, precompute or facts-backfill errors): any such event stored every secret,
    so rotate them and delete the events (rotating `SECRET_KEY` signs every user out). Events with a `_require_internal_token` frame or
    on an `/internal/` route: rotate `INTERNAL_JOB_TOKEN` together with the header the Cloud Scheduler jobs send, and delete the
    events. #1238 stops events of the first kind; #1281, once merged, stops the second and stops sending frame locals at all.
-3. **Codex credits** (optional; carried from record 24): until credits are added, each PR carries a `Review override:` line naming its
-   substitute review (AGENTS.md §5).
+3. **Codex credits** (carried from record 24): Codex reviewed again from 06:43Z on 2026-10-13 (#1294 and #1281), so nothing is needed
+   unless it runs out again.
 4. **#1238's merge** (optional; carried from record 24): if you merged it yourself, nothing to do; telling the chief closes the
    question.
 5. **The spending note** (carried from record 22): if "spending more" was meant for the DeepSeek provider authority as well, say so in
