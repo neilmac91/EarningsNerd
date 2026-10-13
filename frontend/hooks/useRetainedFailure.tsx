@@ -67,9 +67,8 @@ interface Shown {
  * its failure as `success` with `isPlaceholderData`, carrying the previous query's data: the query itself
  * is still `pending` with no data. So while a failure is held, a placeholder-backed result counts as
  * pending, never as success: the error UI and its Retry stay mounted, busy and focused through the
- * refetch, and only the query's own data ends the hold. The other callers (the company page, the
- * dashboard, settings, pricing, the earnings calendar) set no `placeholderData`, so for them
- * `isPlaceholderData` is always false and nothing changes.
+ * refetch, and only the query's own data ends the hold. A caller without `placeholderData` never sees
+ * `isPlaceholderData`, so nothing changes for it (at this commit the search is the only caller with one).
  *
  * Derived from the query's state on each render, with no record of presses or of fetches seen: a second
  * press, a paused fetch, or a fetch that settles inside one notify batch cannot wedge it.
