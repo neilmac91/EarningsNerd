@@ -6664,6 +6664,13 @@ Full local and hosted verification plus independent exact-head review precede re
   at a request relayed on the PR for another agent's review (founder: F22). The `INHERITED` residue closed by another
   writer's #1258. Twenty-five main runs classified; one deploy read back (healthy; every pin in place); production read
   live. Ledger events 53–62 (USD 0.996534). Chief defect 15. Closure 176.
+- 2026-10-13 (record 26, `runtime/control/DECISIONS-26.md`): PR #1294 (record 25) merged `dc2d2d4b` (twenty-first
+  deploy-skip proof). Codex cleared #1281's `3c52519`. E19, the value-level Sentry scrubber
+  (`sentry-value-scrubber-pr-01`), built as PR #1297 on #1281's branch: designed by a workflow, implemented by the chief,
+  reviewed by two high-tier review workflows, design checks and a delta reviewer (no blocker), redesigned at a relayed
+  request; its release with #1281 held for the founder (F22). Another writer's #1306 left #1281 conflicting with main in
+  `tasks/todo.md`; the resolution prepared, not pushed. Six main runs classified; two other writers' deploys read back
+  (healthy; every pin in place); production read live. Ledger events 63–64 (USD 0.366538). Closure 177.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
