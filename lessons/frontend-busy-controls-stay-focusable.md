@@ -235,7 +235,8 @@ page's three and BillingPanel's two (`busyControls.dashboard.spec.tsx`, `busyCon
 (`StreamingSummaryDisplay.spec.tsx`, `useRetainedFailure.spec.tsx`, e2e `summary-generation-focus.spec.ts`); the completed-generation arrival in the persistent filing shell (first summary heading, only after a run, preserving held focus and modal ownership; the same e2e); and
 EmailVerificationModal's Resend (`busyControls.admin-auth.spec.tsx`
 plus the e2e `email-verification-resend.spec.ts`). The dashboard's saved-summary Delete and Manage
-subscription are fixed too (`busyControls.dashboard.spec.tsx`).
+subscription are fixed too (`busyControls.dashboard.spec.tsx`), and Watchlist insights' Retry keeps its error
+card, busy and focused, through its refetch (`summaryStatusCopy.spec.tsx`).
 
 **Evidence**: `frontend/features/calendar/components/AlertBell.tsx` (`disabled={checking}`,
 `aria-disabled={pending || undefined}` plus an early return). `tests/unit/calendarBellKeepsFocus.spec.tsx`

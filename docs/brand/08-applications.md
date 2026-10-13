@@ -66,15 +66,19 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   watched company's card states its summary from the server's status (ready, being written, none yet,
   unavailable, failed) with a matching badge ("No summary yet", "Unavailable", "Needs regenerating" in
   sentence case), never from the regeneration flag alone; a failed load shows its error card with a
-  Retry and no empty card. The what-changed chips take `lib/financialTone`'s direction chip, the
+  Retry and no empty card (a run the server still reports as generating after it died reads as being
+  written until tasks/todo.md E25 lands). The what-changed chips take `lib/financialTone`'s direction chip, the
   700-level gain and loss inks on their soft grounds with the sign kept, never sage, and the glyph is
   decorative. The feed lead names what it shows ("The latest annual or quarterly report from the
   companies you follow."), the limit banner states the account's own count and that Pro has no
   monthly limit, the search card reads "Find a company by name or ticker", the plan strip's button
-  reads "Manage billing", and the route error boundary is in sentence case. Tickers are set in the
-  data face.
-  `earningsnerd/direction-text-tokens` (new ESLint rule) bans the 600-level gain and loss as text and
-  sage on a direction glyph; `tests/unit/summaryStatusCopy.spec.tsx` holds the status sentences.
+  reads "Manage billing", and the route error boundary is in sentence case with a generic line that
+  names no route ("This page didn't load. The error has been logged."). Tickers are set in the data face.
+  `earningsnerd/direction-text-tokens` (new ESLint rule) bans the 600-level gain and loss as text, and
+  sage on a direction glyph it can see by name (on the glyph, on the element whose ink it inherits, or
+  in a map that pairs it with its classes); `tests/unit/whatChangedChip.spec.tsx` holds the chip, whose
+  glyph the rule cannot follow, to the direction chip for the server's tone, and
+  `tests/unit/summaryStatusCopy.spec.tsx` holds the status sentences and the Retry through its refetch.
 - **Notification bell** (`frontend/features/notifications/components/NotificationBell.tsx`): an
   alert reads "New 10-Q from AAPL", the form and ticker in the data face; the unread count rests in
   the ink, not on sage (D-030), while the sage dot still marks an unread row; the menu rides the

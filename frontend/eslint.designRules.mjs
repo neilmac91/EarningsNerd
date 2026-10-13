@@ -22,10 +22,17 @@
 //                       the 600 level and never sage. The rule bans text-gain, text-gain-light, text-loss
 //                       and text-loss-light under any variant (the 600s are graphic tones: 3.0:1 and
 //                       3.9:1 as text on their tints), and a text-brand-* class where it colours a
-//                       direction glyph: on a TrendUpIcon or TrendDownIcon, on the element that renders
-//                       one as its child, or in an object that pairs one with its classes (a direction
-//                       map such as { Icon: TrendUpIcon, cls: '…' }). A glyph reached through a variable
-//                       rendered elsewhere (`<Icon />`) is data-flow, out of scope as below.
+//                       direction glyph: on a TrendUpIcon or TrendDownIcon; on the nearest element
+//                       above it that carries a class, reached through a `{…}` child, a ternary or a
+//                       `&&` and through class-less wrappers (the ink it inherits); or anywhere in a
+//                       value of an object that pairs one with its classes (a direction map such as
+//                       { Icon: TrendUpIcon, cls: '…' }, the value a literal, a cx() call or a ternary).
+//                       Known limits: a glyph reached through a variable rendered elsewhere
+//                       (`const Icon = GLYPH[d]` then `<Icon />`), a glyph imported under another name
+//                       (`TrendUpIcon as Up`), and a member-expression glyph in a map
+//                       ({ Icon: icons.TrendUpIcon }) are data-flow, out of scope as below; the
+//                       what-changed chip draws its glyph that way, so tests/unit/whatChangedChip.spec.tsx
+//                       renders it and holds its colour to directionChip.
 //   no-unguarded-animation (P-09) Every Tailwind animation utility stops under reduced motion
 //                       (WCAG 2.3.3): `motion-safe:animate-x`, or `animate-x` beside a
 //                       `motion-reduce:animate-none` with the same variants in the class text that
@@ -163,6 +170,10 @@ const isTrendIcon = (name) =>
   (name?.type === 'JSXIdentifier' && TREND_ICON.test(name.name)) ||
   (name?.type === 'JSXMemberExpression' && TREND_ICON.test(name.property.name))
 
+/** The nodes a glyph's ink passes through on its way up to the element that sets it: a `{…}` child,
+ *  a ternary or `&&` around it, a fragment, and an element (which the walk skips when it sets no class). */
+const PASS_THROUGH = new Set(['JSXExpressionContainer', 'ConditionalExpression', 'LogicalExpression', 'JSXFragment', 'JSXElement'])
+
 /** Every class text an expression can render, one per branch (see branchTexts). */
 const textsOf = (node) => branchTexts(collectStaticText(node, new WeakSet()))
 
@@ -197,22 +208,25 @@ export const directionTextTokens = {
           if (token !== null) return context.report({ node, messageId: 'light', data: { token } })
         }
       }),
-      // A glyph and the element that renders it as a child: the ink it inherits is the parent's.
+      // A glyph and the element whose ink it inherits: the nearest one above it that carries a class,
+      // through a `{…}` child, a ternary or a `&&`, and through wrappers that set no class.
       JSXElement(node) {
         if (!isTrendIcon(node.openingElement.name)) return
-        const holders = [node.openingElement]
-        if (node.parent?.type === 'JSXElement') holders.push(node.parent.openingElement)
-        for (const opening of holders) {
-          for (const attr of classAttrs(opening)) reportBrand(attr, textsOf(attr.value))
+        for (const attr of classAttrs(node.openingElement)) reportBrand(attr, textsOf(attr.value))
+        for (let up = node.parent; up && PASS_THROUGH.has(up.type); up = up.parent) {
+          if (up.type !== 'JSXElement') continue
+          const attrs = classAttrs(up.openingElement)
+          if (attrs.length === 0) continue
+          for (const attr of attrs) reportBrand(attr, textsOf(attr.value))
+          break
         }
       },
-      // A direction map: an object that holds a trend glyph beside the classes it is drawn with.
+      // A direction map: an object that holds a trend glyph beside the classes it is drawn with. Every
+      // value is read, whatever builds it (a literal, a template, a cx() call, a ternary).
       ObjectExpression(node) {
         const props = node.properties.filter((p) => p.type === 'Property')
         if (!props.some((p) => p.value.type === 'Identifier' && TREND_ICON.test(p.value.name))) return
-        for (const p of props) {
-          if (p.value.type === 'Literal' || p.value.type === 'TemplateLiteral') reportBrand(p.value, textsOf(p.value))
-        }
+        for (const p of props) reportBrand(p.value, textsOf(p.value))
       },
     }
   },

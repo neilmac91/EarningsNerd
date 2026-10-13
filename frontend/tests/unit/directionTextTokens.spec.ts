@@ -52,6 +52,12 @@ ruleTester.run('direction-text-tokens', directionTextTokens, {
     "const DIRECTION = { up: { Icon: TrendUpIcon, cls: 'text-text-secondary-light' } }",
     // An object with sage classes but no trend glyph.
     "const LINK = { Icon: ArrowRightIcon, cls: 'text-brand-strong' }",
+    // The walk stops at the nearest element that sets a class: a neutral one shields the sage link above it.
+    '<a className="text-brand-strong"><span className="text-text-secondary-light">{up ? <TrendUpIcon /> : <TrendDownIcon />}</span></a>',
+    // A glyph passed as a prop is not a child: its ink is wherever the prop renders it.
+    '<Stat className="text-brand-strong" icon={<TrendUpIcon />} />',
+    // A direction map whose computed values stay neutral.
+    "const DIRECTION = { up: { Icon: TrendUpIcon, cls: cx('text-text-secondary-light', big && 'text-base') } }",
   ],
   invalid: [
     { code: '<span className="text-gain-light">+4.2%</span>', errors: [{ messageId: 'light' }] },
@@ -68,6 +74,18 @@ ruleTester.run('direction-text-tokens', directionTextTokens, {
       errors: [{ messageId: 'brand' }],
     },
     { code: '<icons.TrendUpIcon className={`${size} text-brand-strong`} />', errors: [{ messageId: 'brand' }] },
+    // A conditional glyph, through a ternary or a `&&`, inherits the ink of the element around it.
+    {
+      code: '<span className="text-brand-strong">{up ? <TrendUpIcon /> : <TrendDownIcon />}</span>',
+      errors: [{ messageId: 'brand' }, { messageId: 'brand' }],
+    },
+    { code: '<span className="dark:text-brand-strong-dark">{up && <TrendUpIcon />}</span>', errors: [{ messageId: 'brand' }] },
+    // Class-less wrappers and fragments pass the ink through to the nearest element that sets one.
+    { code: '<span className="text-brand-strong"><span><TrendUpIcon /></span></span>', errors: [{ messageId: 'brand' }] },
+    { code: '<p className="text-brand-strong"><>{up && <span><TrendDownIcon /></span>}</></p>', errors: [{ messageId: 'brand' }] },
+    // A direction map's value built by a call or a ternary is read whole.
+    { code: "const DIRECTION = { up: { Icon: TrendUpIcon, cls: cx('text-brand-strong') } }", errors: [{ messageId: 'brand' }] },
+    { code: "const DIRECTION = { up: { Icon: TrendUpIcon, cls: x ? 'text-brand-strong' : 'text-xs' } }", errors: [{ messageId: 'brand' }] },
   ],
 })
 
@@ -81,8 +99,13 @@ describe('the repository config', SLOW, () => {
       [
         "import { TrendUpIcon } from '@/lib/icons'",
         "const DIRECTION = { up: { Icon: TrendUpIcon, cls: 'text-brand-strong' } }",
-        'export function Probe() {',
-        '  return <span className="text-gain-light">{DIRECTION.up.cls}</span>',
+        'export function Probe({ up }: { up: boolean }) {',
+        '  return (',
+        '    <span className="text-gain-light">',
+        '      <span className="text-brand-strong">{up && <TrendUpIcon />}</span>',
+        '      {DIRECTION.up.cls}',
+        '    </span>',
+        '  )',
         '}',
         '',
       ].join('\n'),
@@ -90,7 +113,8 @@ describe('the repository config', SLOW, () => {
     )
     expect(result.messages.map((m) => `${m.line} ${m.ruleId}`).sort()).toEqual([
       '2 earningsnerd/direction-text-tokens',
-      '4 earningsnerd/direction-text-tokens',
+      '5 earningsnerd/direction-text-tokens',
+      '6 earningsnerd/direction-text-tokens',
     ])
     expect(result.messages.every((m) => m.severity === 2)).toBe(true)
   })

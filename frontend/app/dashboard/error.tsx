@@ -58,7 +58,7 @@ export default function DashboardError({
           variant="error"
           icon={<WarningCircleIcon className="h-5 w-5" />}
           title="Something went wrong"
-          description="The dashboard didn't load. The error has been logged."
+          description="This page didn't load. The error has been logged."
           action={
             <>
               <Button onClick={reset}>Try again</Button>

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { CurrentUser } from '@/features/auth/api/auth-api'
@@ -14,7 +14,7 @@ import { queryKeys } from '@/lib/queryKeys'
  * its badge: `needs_regeneration` is true for missing, placeholder and error alike and false while a
  * summary is written, so read alone it called a summary in progress "current" and a missing one
  * "needs regenerating". A failed load shows its error card with a Retry and no empty card, since an
- * error is not an empty watchlist.
+ * error is not an empty watchlist, and its Retry stays mounted, busy and focused while it refetches.
  */
 
 const api = vi.hoisted(() => ({
@@ -96,17 +96,42 @@ describe('the watchlist card states each summary status', () => {
   })
 })
 
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((yes) => { resolve = yes })
+  return { promise, resolve }
+}
+
+/** TanStack starts a fetch and notifies observers a few ticks after the call, so a busy flag is only
+    meaningful once pending work has flushed. */
+const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+
 describe('a failed load', () => {
-  it('shows the error card with a Retry and no empty card, and the Retry refetches', async () => {
-    api.getWatchlistInsights.mockRejectedValueOnce(new Error('Network down'))
+  it('shows the error card with a Retry and no empty card; the Retry stays up, busy and focused through its refetch', async () => {
+    const refetched = deferred<WatchlistInsight[]>()
+    api.getWatchlistInsights.mockRejectedValueOnce(new Error('Network down')).mockReturnValueOnce(refetched.promise)
     renderPage()
 
     const heading = await screen.findByRole('heading', { level: 2, name: "Couldn't load your watchlist" })
-    expect(screen.getByText('Try again in a moment.')).toBeInTheDocument()
+    const card = heading.closest('[role="alert"]') as HTMLElement
+    expect(card).not.toBeNull()
+    expect(within(card).getByText('Try again in a moment.')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'No watchlist companies yet' })).toBeNull()
 
-    api.getWatchlistInsights.mockResolvedValueOnce([])
-    fireEvent.click(within(heading.closest('[role="alert"]') ?? document.body).getByRole('button', { name: 'Retry' }))
+    const retry = within(card).getByRole('button', { name: 'Retry' })
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => expect(api.getWatchlistInsights).toHaveBeenCalledTimes(2))
+    await settle()
+    // In flight: the error card and its Retry stay mounted (the query itself is back to pending, so a
+    // card on the raw isError would have gone), the Retry busy and still the focused element.
+    expect(card.isConnected).toBe(true)
+    expect(retry.isConnected).toBe(true)
+    expect(retry).toHaveAttribute('aria-busy', 'true')
+    expect(document.activeElement).toBe(retry)
+    expect(screen.queryByRole('heading', { name: 'No watchlist companies yet' })).toBeNull()
+
+    await act(async () => refetched.resolve([]))
     expect(await screen.findByRole('heading', { level: 2, name: 'No watchlist companies yet' })).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('heading', { name: "Couldn't load your watchlist" })).toBeNull())
     expect(api.getWatchlistInsights).toHaveBeenCalledTimes(2)
