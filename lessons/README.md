@@ -14,7 +14,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## Operations & workflow (every task)
 
-- ops-a-bare-proceed-continues-the-last-instruction.md — Read a bare "proceed" as the founder's last instruction on that work; your recommendation counts only when there is none
+- ops-a-bare-proceed-continues-the-last-instruction.md — Read a bare "proceed" as the founder's last instruction on the decision; only without one does it accept your recommendation
 - ops-a-piped-gate-does-not-gate.md — Run every verification step of a committing chain unpiped with its exit status checked explicitly; the records-gate wrapper carries the rule
 - ops-auth-lookups-must-let-request-cleanup-progress.md — Keep authentication pool waits off the event loop while preserving request-owned sessions
 - ops-bound-drain-batches-to-job-memory.md — Bound a regeneration batch by the job container's memory, not by its time budget alone
