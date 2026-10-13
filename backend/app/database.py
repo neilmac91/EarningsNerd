@@ -35,7 +35,7 @@ def _database_url() -> URL:
     else:
         if settings.DATABASE_URL.count("@") <= 1:
             return url
-        problem = "more than one '@'; percent-encode the password"
+        problem = "more than one '@'; percent-encode any '@' in the user name or password"
     # Raised after the handler, so no traceback chains the parser's error.
     raise RuntimeError(f"DATABASE_URL could not be parsed ({problem}; message withheld: it can quote the password)")
 

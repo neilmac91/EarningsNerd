@@ -1240,7 +1240,8 @@ def test_a_malformed_database_url_is_not_quoted(monkeypatch, shape, reported):
     ids=["socket-form", "percent-encoded-at", "sqlite"],
 )
 def test_a_database_url_with_one_at_is_accepted(monkeypatch, shape):
-    # The refusal costs nothing a valid URL needs: the Cloud SQL socket form and an encoded "@" parse as before.
+    # The refusal costs nothing the documented URLs need: the Cloud SQL socket form and an encoded "@" parse as before
+    # (an "@" in a user name, as an IAM user's, must be percent-encoded like one in a password).
     password = _fabricated("DATABASE_URL password")
     database = _import_database(monkeypatch, shape.format(p=password))
     assert database.engine.url.password in (password, f"{password}@{password}", None)
@@ -1265,6 +1266,7 @@ def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
         f"postgresql://app:{password}@127.0.0.1:1/app",  # well-formed
         f"postgresql://127.0.0.1:1/app?user=app&password={password}",  # a password in the query string
         f"postgresql://app:{digits}/app?hostaddr=127.0.0.1",  # the host missing: an all-digit password parses as the port
+        f"postgresql://app:{digits}/{password}/app?hostaddr=127.0.0.1",  # its leading digits so, the rest the database
     )
     for url in urls:
         monkeypatch.setenv("DATABASE_URL", url)
@@ -1273,9 +1275,9 @@ def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "could not be parsed (ValueError" in out  # the host-missing branch ran
     assert out.count("could not be parsed (more than one '@'") == 2  # so did both "@" refusals
-    assert out.count("Database: postgresql at 127.0.0.1/app") == 2  # and the two well-formed URLs'
-    assert "Database: postgresql at app/app" in out  # the all-digit password's URL, its port withheld
-    assert out.count("FAILED (connection error): OperationalError (message withheld") == 3  # each connect failed
+    assert out.count("Database: postgresql at 127.0.0.1\n") == 2  # and the two well-formed URLs'
+    assert out.count("Database: postgresql at app\n") == 2  # the host-missing ones: no port, no database printed
+    assert out.count("FAILED (connection error): OperationalError (message withheld") == 4  # each connect failed
     leaked = _fragments(password, out) + _fragments(digits, out, width=6)
     assert not leaked, f"{leaked} fragments of the fabricated passwords were printed"
 
@@ -1516,7 +1518,8 @@ def _is_bytes(arg: ast.expr) -> bool:
         return False
     if isinstance(arg.func, ast.Attribute) and arg.func.attr in {"digest", "encode"}:
         return arg.func.attr == "digest" or _utf8(arg, 0)
-    return isinstance(arg.func, ast.Name) and arg.func.id == "bytes" and len(arg.args) > 1 and _utf8(arg, 1)
+    codec_given = len(arg.args) > 1 or any(keyword.arg == "encoding" for keyword in arg.keywords)
+    return isinstance(arg.func, ast.Name) and arg.func.id == "bytes" and codec_given and _utf8(arg, 1)
 
 
 def _not_bytes(args: list[ast.expr]) -> bool:
@@ -1550,6 +1553,7 @@ def test_compare_digest_takes_bytes():
         ("hmac.compare_digest(header.encode('ascii'), b'x')", True),
         ("hmac.compare_digest(bytes(header, encoding='ascii'), b'x')", True),
         ("hmac.compare_digest(bytes(header), b'x')", True),
+        ("hmac.compare_digest(bytes(header, encoding='utf-8'), b'x')", False),
     ],
     ids=[
         "str",
@@ -1562,6 +1566,7 @@ def test_compare_digest_takes_bytes():
         "ascii",
         "bytes-ascii",
         "bytes-of-a-name",
+        "bytes-utf-8-keyword",
     ],
 )
 def test_the_compare_digest_gate_flags_a_str(source, flagged):

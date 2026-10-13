@@ -89,13 +89,18 @@ def run_validation():
     except Exception as e:  # noqa: BLE001 — any parse failure
         problem = type(e).__name__
     else:
-        problem = None if database_url.count("@") <= 1 else "more than one '@'; percent-encode the password"
+        problem = (
+            None
+            if database_url.count("@") <= 1
+            else "more than one '@'; percent-encode any '@' in the user name or password"
+        )
     if problem:
         print(f"ERROR: DATABASE_URL could not be parsed ({problem}; message withheld: it can quote the password)")
         sys.exit(1)
-    # The backend, host and database only: SQLAlchemy's masked rendering hides the URL's password but not a password
-    # passed in its query string (?password=...), and a URL missing its `@host` puts an all-digit password in the port.
-    print(f"Database: {url.get_backend_name()} at {url.host or 'localhost'}/{url.database or ''}")
+    # The backend and host only: SQLAlchemy's masked rendering hides the URL's password but not a password passed in
+    # its query string (?password=...), and a URL missing its `@host` puts a password's leading digits in the port and
+    # the rest past a "/" in the database.
+    print(f"Database: {url.get_backend_name()} at {url.host or 'localhost'}")
     print()
 
     # Create engine with production-like settings

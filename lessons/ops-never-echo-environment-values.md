@@ -37,9 +37,8 @@ The follow-up review (#1281) found the rest:
   service's startup traceback (and into Sentry, which `main.py` starts first), and an unescaped `@` in the password
   parsed, its tail becoming the host, the database or a query key, which the driver's connection error quotes at
   startup; `redis_service` logged `REDIS_URL` whole and its parse error's message; `scripts/smoke_resend.py`
-  printed the key's last four
-  characters; `scripts/validate_db_performance.py` printed a URL without an `@` whole, and a password passed in
-  the URL's query string survived SQLAlchemy's masked rendering.
+  printed the key's last four characters; `scripts/validate_db_performance.py` printed a URL without an `@` whole,
+  and a password passed in the URL's query string survived SQLAlchemy's masked rendering.
 
 **Rule.**
 - The settings class sets `hide_input_in_errors`, so a validation error's text (`str`, `repr`, and so a
@@ -132,18 +131,18 @@ The follow-up review (#1281) found the rest:
 - **Outputs.** `smoke_resend` prints the key's length; `redis_service` builds a pool from a URL holding a password and
   refuses a URL missing its `@host`; importing `app.database` with such a URL, or with more than one `@` (its tail in
   the host, the database or a query key), raises a `RuntimeError`, while the Cloud SQL socket form and a
-  percent-encoded `@` parse; the database benchmark stops on each, prints a well-formed URL's backend, host and
-  database only (a query-string password and an all-digit password in the port included in the test) and its errors by
-  type; an Alpha Vantage 503 is logged and raised as `HTTP 503`; the calendar job's logging setup and the service's
-  `configure_logging` keep httpx's request log off. None prints or logs a 4-character fragment of the fabricated
-  secret. An AST walk over every backend file outside `tests/` fails an output call's argument (a print, log, warn or
-  write call, `echo`, `pprint`, a Sentry message, tag, context, extra or breadcrumb, by function or method name), or a
-  raise or assert message, that reads `settings.X` or `getattr(settings, ...)` for anything but a printable field,
-  hands the settings object whole to a call other than `repr`, `str`, `getattr`, `hasattr` and `isinstance` or unpacks
-  or iterates it, reads `self.X` or `getattr(obj, "X")` for a secret field, or reads the environment whole or a
-  variable that a secret field, a secret suffix or `PASSWORD` names or that an expression computes; all outside
-  `len()`, `bool()`, a comparison and a conditional expression's condition. A secret field is one whose name ends in
-  `_KEY`, `_SECRET`, `_TOKEN`, `_SALT` or `_DSN`, and the two connection URLs.
+  percent-encoded `@` parse; the database benchmark stops on each, prints a well-formed URL's backend and host only (a
+  query-string password, and passwords whose digits land in the port and the rest in the database, included in the
+  test) and its errors by type; an Alpha Vantage 503 is logged and raised as `HTTP 503`; the calendar job's logging
+  setup and the service's `configure_logging` keep httpx's request log off. None prints or logs a 4-character fragment
+  of the fabricated secret. An AST walk over every backend file outside `tests/` fails an output call's argument (a
+  print, log, warn or write call, `echo`, `pprint`, a Sentry message, tag, context, extra or breadcrumb, by function
+  or method name), or a raise or assert message, that reads `settings.X` or `getattr(settings, ...)` for anything but
+  a printable field, hands the settings object whole to a call other than `repr`, `str`, `getattr`, `hasattr` and
+  `isinstance` or unpacks or iterates it, reads `self.X` or `getattr(obj, "X")` for a secret field, or reads the
+  environment whole or a variable that a secret field, a secret suffix or `PASSWORD` names or that an expression
+  computes; all outside `len()`, `bool()`, a comparison and a conditional expression's condition. A secret field is
+  one whose name ends in `_KEY`, `_SECRET`, `_TOKEN`, `_SALT` or `_DSN`, and the two connection URLs.
 - **Sentry.** Built from `main._sentry_options()` with a fabricated DSN and a transport that keeps each
   envelope, a fixture fails if the options turn local variables back on, send PII or pass `data_collection`.
   An `/internal/` request whose enqueue fails (a 500 whose frames hold the token in a copied local and in every
@@ -175,11 +174,12 @@ with its reason:
 - the request-body walk reads the API's OpenAPI schemas: the Stripe and Resend webhooks read their bodies by hand
   and are outside it, and the scrubber reads a body's top-level keys only, so a credential nested in a provider's
   event would reach Sentry with that handler's error;
-- `main.py`'s startup database check and `/health/detailed` log a driver's connection error, which names the host,
-  port, user and database; it carries no password once the URL holds a single `@`, except one case:
-  an all-digit password in a URL missing its `@host` parses as the port, which the connection error (the database
-  driver's, or Redis's) quotes. The documented production password is hex (`openssl rand -hex 24`) in the
-  Cloud SQL socket form, which keeps its `@`;
+- `main.py`'s startup schema step (`create_all`, whose error the startup traceback and Sentry carry), its startup
+  database check and `/health/detailed` log a driver's connection error, which names the host, port, user and
+  database; it carries no password once the URL holds a single `@`, except in a URL missing its `@host`: a password
+  whose text before its first `/` or `?` is all digits parses as the port and the rest as the database or a query
+  key, and the connection error (the database driver's, or Redis's) can quote the port or such a query key. The
+  documented production password is hex (`openssl rand -hex 24`) in the Cloud SQL socket form, which keeps its `@`;
 - `main.py`'s Sentry init-failure line prints a malformed DSN's parse message (its scheme, its project path, or
   the port segment of a legacy key pair without a host); the DSN's key is public by Sentry's design;
 - Sentry scrubs keys, not values (the follow-up's plan named a `before_send` value scrubber; #1281 turned frame
