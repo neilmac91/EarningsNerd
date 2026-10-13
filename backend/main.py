@@ -16,9 +16,10 @@ load_dotenv()
 
 from app.config import settings, APP_VERSION
 
-# Settings that hold a secret, by name: keys, secrets, tokens, salts and the DSN, and the two connection URLs, whose
-# names do not say they carry a password. The gate keeps its own copy of this rule, the oracle its tests read.
-_SECRET_SUFFIXES = ("_KEY", "_SECRET", "_TOKEN", "_SALT", "_DSN")
+# Settings that hold a secret, by name: keys, secrets, tokens, salts, passwords and the DSN, and the two connection
+# URLs, whose names do not say they carry a password. The gate keeps its own copy of this rule, the oracle its tests
+# read.
+_SECRET_SUFFIXES = ("_KEY", "_SECRET", "_TOKEN", "_SALT", "_PASSWORD", "_DSN")
 _CONNECTION_URLS = ("DATABASE_URL", "REDIS_URL")
 # The shortest text Sentry's value scrubber withholds. Settings bound no secret's length but SECRET_KEY's (32), and the
 # shortest real secret, the Alpha Vantage key, has 16 characters; a shorter text is no credential (a port, which the URL
@@ -53,18 +54,22 @@ def _secret_values() -> tuple[str, ...]:
 
 
 def _withhold(node: Any, secret_values: tuple[str, ...]) -> Any:
-    """The node with each occurrence of each secret value, in any string at any depth (a key too), replaced by
-    "[Filtered]", the placeholder of the SDK's own scrubber. What reaches the hooks holds mappings, lists and scalars:
-    the serializer, and for a log or a metric the SDK's attribute formatting, turn every other value into text, a log
-    record's `extra` with Sentry logs on apart."""
-    if isinstance(node, str):
-        for secret in secret_values:
-            node = node.replace(secret, "[Filtered]")
+    """The node with each occurrence of each secret value, in any text at any depth (a key too), replaced by
+    "[Filtered]", the placeholder of the SDK's own scrubber. Mappings and lists are walked; None, booleans and numbers
+    stay as they are; any other value becomes its repr first, scrubbed: the SDK would turn it into text after the hook
+    (a log record's `extra` value, a log's body that is not text), where nothing scrubs it."""
+    if node is None or isinstance(node, (bool, int, float)):
         return node
     if isinstance(node, dict):
         return {_withhold(key, secret_values): _withhold(value, secret_values) for key, value in node.items()}
     if isinstance(node, list):
         return [_withhold(item, secret_values) for item in node]
+    if not isinstance(node, str):
+        from sentry_sdk.utils import safe_repr
+
+        node = safe_repr(node)
+    for secret in secret_values:
+        node = node.replace(secret, "[Filtered]")
     return node
 
 
@@ -128,8 +133,7 @@ def _sentry_options() -> dict:
         # Each secret setting's value and each connection URL's password, wherever an item holds it, on every channel
         # that carries text; the hooks run after the event scrubber and the serializer. Never set `max_value_length`:
         # the serializer would cut a string inside a secret and leave a prefix no hook matches. `before_send_span`
-        # acts only under span streaming (`trace_lifecycle`), which stays off, and so does `enable_logs`: a log record's
-        # `extra` value that is not text, a mapping or a list would reach Sentry as its repr, built after the hook.
+        # acts only under span streaming (`trace_lifecycle`), which stays off.
         "before_send": withhold_secret_values,
         "before_send_transaction": withhold_secret_values,
         "before_send_log": withhold_secret_values,

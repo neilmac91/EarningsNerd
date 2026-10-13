@@ -16,8 +16,9 @@ own message quotes its value; it holds no secret). A settings object prints no v
 `scripts/smoke_resend.py` print a secret's presence and length only; a malformed `DATABASE_URL` or `REDIS_URL` is
 reported by its error's type, never the parser's message, which can quote the password. Sentry receives no frame's
 local variables, and the `X-Internal-Token` header, every outbound request's query string, the credential keys of a
-request body, each secret setting's value and each connection URL's password (8 characters or more) reach it as
-`[Filtered]`, wherever an error, a transaction, a log or a metric holds them (`main._sentry_options`). The rules,
+request body, each secret setting's whole value and each connection URL's password (8 characters or more; the limits
+are in the lesson) reach it as `[Filtered]`, wherever an error, a transaction, a log or a metric holds them
+(`main._sentry_options`). The rules,
 their gates and the echoes not yet gated: `lessons/ops-never-echo-environment-values.md`. To debug a value, read it
 from its source (Secret Manager, `backend/.env`).
 
@@ -92,7 +93,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `TASKS_WORK_TIMEOUT_SECONDS` | `480` | Hard child work deadline, greater than zero and at most 480 seconds; child is killed and reaped before HTTP completion on timeout or disconnect. |
 | `POSTHOG_API_KEY` | `""` | Server-side PostHog credential. |
 | `POSTHOG_HOST` | `"https://us.i.posthog.com"` | Server-side PostHog ingestion origin. |
-| `SENTRY_DSN` | `""` | Error tracking DSN; empty disables SDK setup. Events carry stack frames, source lines, messages and breadcrumbs, not local variables (`main._sentry_options`), and one hook (`before_send`, `before_send_transaction`, `before_send_log`, `before_send_metric`) withholds each secret setting's value (8 characters or more) and each connection URL's password wherever an error, a transaction, a log or a metric holds them. Never set the SDK's `data_collection` option: it disables the event scrubber and turns local variables back on. Never set `trace_lifecycle`: span streaming sends request headers as span attributes, which neither scrubber reads. Never set `max_value_length`: the serializer, which runs before that hook, would cut a string inside a secret. Never set `enable_logs`: a log record's `extra` value that is not text, a mapping or a list would reach Sentry as its repr, which the SDK builds after that hook. |
+| `SENTRY_DSN` | `""` | Error tracking DSN; empty disables SDK setup. Events carry stack frames, source lines, messages and breadcrumbs, not local variables (`main._sentry_options`), and one hook (`before_send`, `before_send_transaction`, `before_send_log`, `before_send_metric`) withholds each secret setting's whole value (8 characters or more) and each connection URL's password wherever an error, a transaction, a log or a metric holds them, in any text and in the repr of any other value (a log record's `extra` with Sentry logs on). Never set the SDK's `data_collection` option: it disables the event scrubber and turns local variables back on. Never set `trace_lifecycle`: span streaming sends request headers as span attributes, which neither scrubber reads. Never set `max_value_length`: the serializer, which runs before that hook, would cut a string inside a secret. |
 | `SENTRY_RELEASE` | `""` | Release tag; CI supplies the Git SHA; empty allows SDK detection. |
 | `RESEND_API_KEY` | `""` | Outbound email credential; required for sending. |
 | `RESEND_BASE_URL` | `"https://api.resend.com"` | Resend API origin. |
