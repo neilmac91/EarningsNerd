@@ -1501,6 +1501,35 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request):
     assert [entry["name"] for entry in metrics["items"]] == ["job.failures"]
 
 
+@pytest.mark.parametrize("overlap", ["Filtered", "Filtered] then"], ids=["inside", "edge"])
+def test_no_placeholder_holds_or_forms_a_secret(monkeypatch, request, overlap):
+    # Codex's case on #1297: a weak secret that overlaps the placeholder, inside it (IP_HASH_SALT=Filtered passes every
+    # check) or across its edge, rode inside `[Filtered]` or formed with the text beside it, so a scrubbed event sent
+    # it. The placeholder is the first that no secret overlaps.
+    import sentry_sdk
+
+    token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
+    envelopes = _scrubbing_envelopes(request, monkeypatch, INTERNAL_JOB_TOKEN=token, IP_HASH_SALT=overlap)
+    sentry_sdk.capture_message(f"{token} then {overlap}")
+    sentry_sdk.flush()
+    (event,) = _of(envelopes, "event")
+    assert event["message"] == "[Withheld] then [Withheld]"
+    assert overlap not in json.dumps(envelopes)
+
+
+def test_sentry_stays_off_when_every_placeholder_overlaps_a_secret(monkeypatch):
+    # Weak secrets that overlap every placeholder fail the options at startup, so main.py's init, which catches the
+    # failure, leaves Sentry off rather than send a placeholder that holds one; the error names no value.
+    import main
+    from app.config import settings
+
+    for name, word in {"IP_HASH_SALT": "Filtered", "FMP_API_KEY": "Withheld", "POSTHOG_API_KEY": "Redacted"}.items():
+        monkeypatch.setattr(settings, name, word)
+    with pytest.raises(ValueError) as info:
+        main._sentry_options()
+    assert str(info.value) == "every placeholder overlaps a secret setting's value"
+
+
 def test_the_value_scrubber_reads_the_settings_once_at_startup(monkeypatch, request):
     # The values are read when `_sentry_options()` runs, as main.py's one call does at startup, and never again, by
     # any path: not at the first item, not per item, and a value set afterwards is not withheld.

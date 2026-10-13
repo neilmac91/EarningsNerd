@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 import asyncio
 import re
 import threading
+from functools import lru_cache
 from typing import Any, Callable
 from urllib.parse import unquote
 from dotenv import load_dotenv
@@ -53,11 +54,39 @@ def _secret_values() -> tuple[str, ...]:
     return tuple(sorted((value for value in values if len(value) >= _MIN_SECRET_LENGTH), key=lambda v: (-len(v), v)))
 
 
+# The placeholder of the SDK's own scrubber, then others: a secret value that overlaps one (a weak salt equal to
+# `Filtered`, or one that starts with `Filtered]`) would ride inside it, or form where it meets the text around it.
+_PLACEHOLDERS = ("[Filtered]", "[Withheld]", "[Redacted]", "<Filtered>", "<Withheld>", "<Redacted>")
+
+
+def _overlaps(secret: str, placeholder: str) -> bool:
+    """Whether a secret can occur in a text once a placeholder stands in it: inside the placeholder, around it, or
+    across either of its edges (the secret ending in the placeholder's start, or starting with its end)."""
+    edges = range(1, len(placeholder))
+    return (
+        secret in placeholder
+        or placeholder in secret
+        or any(secret.endswith(placeholder[:i]) or secret.startswith(placeholder[i:]) for i in edges)
+    )
+
+
+@lru_cache(maxsize=8)
+def _placeholder(secret_values: tuple[str, ...]) -> str:
+    """The first placeholder no secret value overlaps, the SDK's own `[Filtered]` unless a weak secret does: no
+    placeholder can then hold a secret or form one with the text beside it, however often the text is replaced. If
+    every placeholder overlaps one, this raises, and main's startup turns Sentry off rather than send one."""
+    for placeholder in _PLACEHOLDERS:
+        if not any(_overlaps(secret, placeholder) for secret in secret_values):
+            return placeholder
+    raise ValueError("every placeholder overlaps a secret setting's value")
+
+
 def _withhold(node: Any, secret_values: tuple[str, ...]) -> Any:
-    """The node with each occurrence of each secret value, in any text at any depth (a key too), replaced by
-    "[Filtered]", the placeholder of the SDK's own scrubber. Mappings and lists are walked; None, booleans and numbers
-    stay as they are; any other value becomes its repr first, scrubbed: the SDK would turn it into text after the hook
-    (a log record's `extra` value, a log's body that is not text), where nothing scrubs it."""
+    """The node with each occurrence of each secret value, in any text at any depth (a key too), replaced by the
+    placeholder (`_placeholder`: the SDK's own `[Filtered]` unless a secret overlaps it). Mappings and lists are walked;
+    None, booleans and numbers stay as they are; any other value becomes its repr first, scrubbed: the SDK would turn
+    it into text after the hook (a log record's `extra` value, a log's body that is not text), where nothing scrubs
+    it."""
     if node is None or isinstance(node, (bool, int, float)):
         return node
     if isinstance(node, dict):
@@ -68,8 +97,9 @@ def _withhold(node: Any, secret_values: tuple[str, ...]) -> Any:
         from sentry_sdk.utils import safe_repr
 
         node = safe_repr(node)
+    placeholder = _placeholder(secret_values)
     for secret in secret_values:
-        node = node.replace(secret, "[Filtered]")
+        node = node.replace(secret, placeholder)
     return node
 
 
@@ -80,6 +110,8 @@ def _value_scrubber(secret_values: tuple[str, ...]) -> Callable[[dict[str, Any],
     `type` and its trace context's keys are the protocol's, never user data, and the SDK reads them after the hook (an
     event's `event_id` and `type`, a log's `attributes`, a profile's `contexts.trace.trace_id`): a secret equal to one
     of those words, such as a weak salt, leaves them as they are."""
+
+    _placeholder(secret_values)  # every placeholder overlapped fails here, at startup, not on the first item
 
     def scrub(mapping: dict[str, Any]) -> dict[str, Any]:
         return {key: _withhold(value, secret_values) for key, value in mapping.items()}

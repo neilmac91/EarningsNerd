@@ -79,7 +79,11 @@ of a log's body that is not text only after `before_send_log` returns.
   one hook (`main._value_scrubber`) that turns each occurrence, in any string of an error or check-in, a transaction
   with its spans, a log or a metric (keys included), of each secret setting's value (stripped, so a value stored with a
   newline is found where an error quotes it escaped) and of each connection URL's password, as written and
-  percent-decoded, into `[Filtered]`; in a URL missing its `@host` the password is the text a parser reads as the port.
+  percent-decoded, into a placeholder; in a URL missing its `@host` the password is the text a parser reads as the
+  port. The placeholder is the SDK's own `[Filtered]` unless a weak secret overlaps it (equals `Filtered`, say, or
+  starts with `Filtered]`), then the first of `[Withheld]`, `[Redacted]`, `<Filtered>`, `<Withheld>` and `<Redacted>`
+  that none overlaps, so no placeholder can hold a secret or form one with the text beside it; if every one is
+  overlapped, the options fail at startup and Sentry stays off.
   The walk is total: mappings and lists are walked, None, booleans and numbers kept, and any other value becomes its
   repr first and is scrubbed there, so no text the SDK builds after the hook can hold a secret, and turning Sentry
   logs on (`enable_logs`, or the logging integration's `capture_sentry_logs`) sends none either. The item's own keys,
@@ -220,8 +224,10 @@ of a log's body that is not text only after `before_send_log` returns.
   `start_timestamp`, `time_unix_nano`, `severity_number`, `transaction`, `timestamp`, `check_in`) break no item: the
   error, the transaction, the check-in, the log and the metric are each sent, as their own kind, with those fields;
   a scan fails any Sentry `capture_event` call (through any import of the package) and any `set_context("trace", ...)`
-  in the backend, which would put user data in the fields the hook keeps; and a scrubber that raises sends nothing:
-  the error, the check-in, the transaction, the log and the metric are each lost to `callback_error`.
+  in the backend, which would put user data in the fields the hook keeps; a secret overlapping `[Filtered]`, inside it
+  or across its edge, moves the placeholder to `[Withheld]` and appears nowhere in the envelope, and weak secrets that
+  overlap every placeholder fail the options with an error that names no value; and a scrubber that raises sends
+  nothing: the error, the check-in, the transaction, the log and the metric are each lost to `callback_error`.
 - **compare_digest.** An AST walk fails any `compare_digest` call in the backend, by its name or a name
   `from hmac|secrets import compare_digest as ...` gives it, whose two arguments are not both bytes by their
   form: a UTF-8 `.encode(...)` or `bytes(x, ...)`, a `.digest()`, a bytes literal, a base64 encoding of bytes or a
