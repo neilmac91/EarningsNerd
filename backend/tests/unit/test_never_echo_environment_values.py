@@ -1545,18 +1545,19 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
     # Codex's case on #1297, and the coordination comment's ask for schema-aware coverage: a weak secret equal to a key
     # of Sentry's protocol below an item's top level (IP_HASH_SALT=parent_span_id passes every check) renamed that key
     # in each child span, breadcrumb, frame or monitor config. Every key of 8 characters or more that the SDK's own
-    # items carry outside user data (as each hook received them, from one capture of every structure on every
-    # channel), each taken as a secret, leaves every item's structure as it was. The keys come from the SDK's items,
-    # not from main's list: a key on a structure the capture builds fails here until main._PROTOCOL_KEYS has it, and an
-    # SDK upgrade fails the pin below until the capture is checked against it again.
+    # items carry outside user data (as each hook received them, from one capture of the structures the design checks
+    # found the SDK builds, on every channel), each taken as a secret, leaves every item's structure as it was. The keys
+    # come from the SDK's items, not from main's list: a key on a structure the capture builds fails here until
+    # main._PROTOCOL_KEYS has it, and an SDK upgrade fails the pin below until the capture is checked against it again.
     import copy
 
     import sentry_sdk
 
     import main
 
-    # The capture reaches every structure this SDK builds under main's options (the design check of #1297 read the
-    # SDK for them); an upgrade can add one the capture does not reach, so it fails here until that is checked again.
+    # The capture reaches the structures the design checks of #1297 found this SDK builds under main's options (not a
+    # subprocess span, errno mechanism data or a gauge); an upgrade can add one it does not reach, so it fails here
+    # until the capture is checked again.
     assert sentry_sdk.VERSION == "2.71.0"
 
     received = []

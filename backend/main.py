@@ -63,9 +63,10 @@ def _secret_values() -> tuple[str, ...]:
 # weak secret equal to one (or inside one) leaves the item's structure whole, and the SDK finds the keys it reads after
 # the hook (an event's `event_id`, a log's `attributes`, a profile's `contexts.trace.trace_id`): such a secret is no
 # secret from Sentry, whose items all spell these words. Every other key, and every key in user data, is scrubbed. A
-# name shorter than _MIN_SECRET_LENGTH needs no entry (no secret fits in it), so the list is complete for that floor
-# only; the gate derives the set it checks from the SDK's own items and fails on a missing or a dead entry. Continuous
-# profiling, which main does not configure, would add `profiler_id` (its profile context).
+# name shorter than _MIN_SECRET_LENGTH needs no entry (no secret fits in it), so the list is complete for that floor,
+# on the structures the gate's capture builds; the gate derives the set it checks from the SDK's items there and
+# fails on a missing entry there or a dead one. Continuous profiling, which main does not configure, would add
+# `profiler_id` (its profile context).
 _PROTOCOL_KEYS = frozenset(
     """
     abs_path attributes breadcrumbs category check_in_id checkin_margin context_line contexts description duration
