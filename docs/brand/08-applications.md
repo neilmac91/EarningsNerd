@@ -68,16 +68,22 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `WeekView.tsx`): the coverage chip and the "+N more" and "Show top 5" controls rest in the ink,
   sage only under the pointer (D-030). `tests/unit/calendarCoverageChip.spec.tsx` renders the page
   on a bounded payload under the known universe: the chip shows there and nowhere else.
-- **Counts elsewhere in the product** (D-030): the dashboard feed's "See all N companies" link, the
-  check-email countdown, the period quick picks, the narrative's "Show the N source figures"
+- **Counts elsewhere in the product** (D-030): the dashboard feed's "See all N companies" link,
+  the check-email countdown, the period quick picks, the narrative's "Show the N source figures"
   summary and its bracketed Sources chip, the data notes' checked count, the peer rank and the
-  summary's section index rest in the ink. The controls among them take the count control recipe
-  (`frontend/DESIGN_SYSTEM.md`): the whole label in the secondary ink as one text run, sage under
-  the pointer, and a countdown at full strength while its control waits. `brandCopyRules.spec.ts`
-  rule 2 reads the whole app and follows sage through a class, a ui Button or Badge variant, a
-  resting state such as `aria-pressed:`, `visited:` or `focus:`, an opacity modifier and a
-  component that sets it or is given it, and its count-control check fails a sage control that
-  holds its count in a span of its own ink; its header names what stays review-checked.
+  summary's section index rest in the ink, and so do the values beside them: a What-changed chip's
+  rising delta on the dashboard (the primary ink, the icon carrying the direction), the filing
+  viewer's "Showing ·" caption, which prints a section's name, and the "Sources & checks" links,
+  which under the fundamentals chart print a figure's fiscal year. The controls among them take
+  the count control recipe (`frontend/DESIGN_SYSTEM.md`): the whole label in the secondary ink as
+  one text run, sage under the pointer (a link set among lines of text keeps its underline), and a
+  countdown at full strength while its control waits. `brandCopyRules.spec.ts` rule 2 reads the
+  whole app and follows sage through a class, a ui Button or Badge variant, a resting state such
+  as `aria-pressed:`, `visited:` or `focus:`, an opacity modifier and a component that sets it or
+  is given it, reads a same-file literal through the chains of consts, fields, indices,
+  destructuring and map callbacks its header names, and its count-control check fails a sage
+  control that holds its count in a span of its own ink; its header names what stays
+  review-checked.
 - **Exports and mail** (`backend/app/services/export_service.py`, `excel_export_service.py`,
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the

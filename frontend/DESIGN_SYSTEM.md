@@ -216,8 +216,9 @@ Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DE
 Count control    A link or control whose label carries a count, a date, an index name or a price (D-030):
                  the whole label rests in text-text-secondary-light dark:text-text-secondary-dark as one
                  text run and turns hover:text-brand-strong dark:hover:text-brand-strong-dark under the
-                 pointer (with hover:underline on a link, hover:bg-brand-weak on a button), keyboard focus
-                 drawing the ring below. Never a sage label with the count in a span of its own: the control
+                 pointer (with hover:underline on a link, hover:bg-brand-weak on a button; a link set among
+                 lines of text keeps its underline at rest, since its ink no longer marks it), keyboard
+                 focus drawing the ring below. Never a sage label with the count in a span of its own: the control
                  then rests in sage while it carries a value, and the rule keeps sage for the pointer. A
                  countdown on a control that waits (aria-disabled) rests in the same ink at full strength,
                  so the number stays legible. Gate: brandCopyRules.spec.ts rule 2, whose count-control check

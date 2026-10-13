@@ -225,3 +225,70 @@ export function P128() { return <span className="text-brand-strong">4</span> } /
 // A shadowing binding is not the mapped element: the inner destructured label is a prop's string.
 const LABELS_129 = ['Step 2']
 export function P129({ rows }: { rows: { label: string }[] }) { return <p>{LABELS_129.map((label) => <b key={label}>{rows.map(({ label }) => <span key={label} className="text-brand-strong">{label}</span>)}</b>)}</p> } // clean
+// A literal array's element however the map callback takes it: destructured, renamed, a tuple's member, a
+// field at depth, destructured in the callback's body; the array through a call that keeps its members, and
+// through a spread.
+const STEPS_130 = [{ step: 'Step 2', meta: { step: 'Step 3' } }]
+export function P130() { return <p>{STEPS_130.map(({ step }) => <span key={step} className="text-brand-strong">{step}</span>)}</p> } // flag
+export function P131() { return <p>{STEPS_130.map(({ step: s }) => <span key={s} className="text-brand-strong">{s}</span>)}</p> } // flag
+const PAIRS_132 = [['Q1', 'Revenue']]
+export function P132() { return <p>{PAIRS_132.map(([q]) => <span key={q} className="text-brand-strong">{q}</span>)}</p> } // flag
+export function P133() { return <p>{STEPS_130.map((item) => <span key={item.step} className="text-brand-strong">{item.meta.step}</span>)}</p> } // flag
+export function P134() { return <p>{STEPS_130.map((item) => { const { step } = item; return <span key={step} className="text-brand-strong">{step}</span> })}</p> } // flag
+const LABELS_135 = ['Step 2', 'Step 3']
+export function P135() { return <p>{LABELS_135.slice(0, 1).map((label) => <span key={label} className="text-brand-strong">{label}</span>)}</p> } // flag
+export function P136() { return <p>{[...LABELS_135, 'Margin'].map((label) => <span key={label} className="text-brand-strong">{label}</span>)}</p> } // flag
+// A same-file const read by a field or an index; a key the scan cannot read may be any member, so all are read.
+const CONFIG_137 = { step: 'Step 2', name: 'Revenue' }
+export function P137() { return <span className="text-brand-strong">{CONFIG_137.step}</span> } // flag
+export function P138() { return <span className="text-brand-strong">{LABELS_135[0]}</span> } // flag
+export function P139({ i }: { i: number }) { return <span className="text-brand-strong">{LABELS_135[i]}</span> } // flag
+// A template's substitutions render with it, written inline or held in a const.
+export function P140() { return <p>{LABELS_135.map((label) => <span key={label} className="text-brand-strong">{`Go to ${label}`}</span>)}</p> } // flag
+const STEP_141 = 'Step 2'
+export function P141() { const label = `Go to ${STEP_141}`; return <span className="text-brand-strong">{label}</span> } // flag
+// Look-alikes: words destructured from a literal array, a const's word field, a prop's array (runtime data, not a
+// literal), and words read by a key the scan cannot read.
+const WORDS_142 = [{ name: 'Revenue' }, { name: 'Margin' }]
+export function P142() { return <p>{WORDS_142.map(({ name }) => <span key={name} className="text-brand-strong">{name}</span>)}</p> } // clean
+export function P143() { return <span className="text-brand-strong">{CONFIG_137.name}</span> } // clean
+export function P144({ rows }: { rows: { label: string }[] }) { return <p>{rows.map(({ label }) => <span key={label} className="text-brand-strong">{label}</span>)}</p> } // clean
+const NAMES_145 = ['Revenue', 'Margin']
+export function P145({ i }: { i: number }) { return <span className="text-brand-strong">{NAMES_145[i]}</span> } // clean
+// A class that is no const: destructured from a class map read by a key, with a fallback (the dashboard's
+// What-changed chip), destructured by a field and renamed, and a map callback's element's class field.
+const TONE_146 = { up: { cls: 'text-brand-strong' }, down: { cls: 'text-text-secondary-light' } }
+export function P146({ n, dir }: { n: number; dir: 'up' | 'down' }) { const { cls } = TONE_146[dir] ?? TONE_146.down; return <span className={`rounded-full ${cls}`}>{n}</span> } // flag
+export function P147({ n }: { n: number }) { const { cls: tone } = TONE_146.up; return <span className={tone}>{n}</span> } // flag
+const CHIPS_148 = [{ cls: 'text-brand-strong', quiet: 'text-text-secondary-light' }]
+export function P148({ n }: { n: number }) { return <p>{CHIPS_148.map((chip) => <span key={chip.cls} className={chip.cls}>{n}</span>)}</p> } // flag
+// Look-alikes: the same reads selecting a class that is not sage.
+export function P149({ n }: { n: number }) { const { cls } = TONE_146.down; return <span className={cls}>{n}</span> } // clean
+export function P150({ n }: { n: number }) { return <p>{CHIPS_148.map((chip) => <span key={chip.quiet} className={chip.quiet}>{n}</span>)}</p> } // clean
+// A value the server sends as text (a formatted delta) renders as a name would: no digit or type to read.
+export function P151({ display }: { display: string }) { return <span className="text-brand-strong">{display}</span> } // gap
+// A const that holds a member or a keyed read of a literal, read by a field or destructured (the admin badges'
+// `const config = MAP[status] ?? MAP.x; const { className } = config`).
+const STEPS_152 = [{ step: 'Step 2' }]
+export function P152() { const first = STEPS_152[0]; return <span className="text-brand-strong">{first.step}</span> } // flag
+const STATUS_153 = { live: { cls: 'text-brand-strong' }, quiet: { cls: 'text-text-secondary-light' } }
+export function P153({ n, s }: { n: number; s: 'live' | 'quiet' }) { const config = STATUS_153[s] ?? STATUS_153.quiet; const { cls } = config; return <span className={cls}>{n}</span> } // flag
+// A nested map over an element's field; an index into an array with a spread, which may land on any member, so
+// the gate fails closed; an object spread; a shorthand property.
+const GROUPS_154 = [{ items: ['Step 2'] }]
+export function P154() { return <div>{GROUPS_154.map((g, i) => <p key={i}>{g.items.map((it) => <span key={it} className="text-brand-strong">{it}</span>)}</p>)}</div> } // flag
+const ALL_155 = [...LABELS_135, 'Margin']
+export function P155() { return <span className="text-brand-strong">{ALL_155[2]}</span> } // flag
+const COPY_156 = { ...CONFIG_137, title: 'Overview' }
+export function P156() { return <span className="text-brand-strong">{COPY_156.step}</span> } // flag
+const STEP_157 = 'Step 2'
+const COPY_157 = { STEP_157 }
+export function P157() { return <span className="text-brand-strong">{COPY_157.STEP_157}</span> } // flag
+// Look-alikes: words through the same chains.
+export function P158() { const first = WORDS_142[0]; return <span className="text-brand-strong">{first.name}</span> } // clean
+const GROUPS_159 = [{ items: ['Revenue', 'Margin'] }]
+export function P159() { return <div>{GROUPS_159.map((g, i) => <p key={i}>{g.items.map((it) => <span key={it} className="text-brand-strong">{it}</span>)}</p>)}</div> } // clean
+// A conditional written in a literal's field is read as written: the scan cannot tie it to the element's other
+// fields (a plan's button variant and its label), so it stays review-checked.
+const PLANS_160 = [{ cta: Math.random() > 0.5 ? 'Start 7-day trial' : 'Upgrade' }]
+export function P160() { return <p>{PLANS_160.map((plan) => <span key={plan.cta} className="text-brand-strong">{plan.cta}</span>)}</p> } // gap

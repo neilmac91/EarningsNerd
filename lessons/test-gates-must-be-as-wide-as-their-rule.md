@@ -66,7 +66,10 @@ what the score shows, and keep the header and the cases in step: a form the rule
 gate passes is planted as a gap, never as a look-alike, and each gap the header says the cases mark
 has one. For a gate that reads code (a source scan, an AST walk), keep the planted cases as the
 gate's fixture and score them in its own spec, so CI reruns the score on every change and the next
-review extends the cases instead of starting over.
+review extends the cases instead of starting over. When a review finds one form of a claim the gate
+already makes that it misses, probe the claim's whole family before fixing that form: a reader that
+gains one syntax per review is matching forms, not following the value, and the fix is a reader that
+follows it.
 
 Corollary for the anti-vacuity floor: assert the scanner actually found things (>100 files,
 >100 tests). A narrow gate and a broken walk look identical from the outside — both green.
@@ -97,6 +100,15 @@ fix had stopped reading, and their fixes turned up 3 more; the forms became the 
 `frontend/tests/unit/fixtures/brandRule2Forms.tsx`, scored on every run. Read against its own
 header, that fixture still marked a fiscal year held in a string (`FY{y}`) clean though the gate
 leaves it to review, planted no index name held in a string though the header named one, and the
-header missed a date or an index name written in words; all three are now gap forms. Companion to
+header missed a date or an index name written in words; all three are now gap forms. Codex's
+reviews of `8a946b2` and `ee581e3` then each found one more form of a claim the header already made
+(a class const inside a conditional; a mapped array's element), and a probe of the second's family
+at `19ed8fb` found six more ways a literal's value reached the JSX unread (a destructured element, a
+renamed one, a tuple's member, a nested field, a `.slice()` chain, a template's substitution).
+Codex's review of `19ed8fb` found the same of a class, one destructured from a map, and the round's
+lens found a const holding a keyed read (`const config = MAP[s] ?? MAP.x`) that both readers lost.
+One resolver, a single walk through any chain of consts, fields, indices, destructuring and map
+callbacks, replaced the readers written per form; the gate at `19ed8fb` misread the 21 forms planted
+for it. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.
