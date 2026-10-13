@@ -566,9 +566,10 @@ export interface SectionChangesOk extends SectionChangesBase {
 }
 
 export interface SectionChangesNotOk extends SectionChangesBase {
-  /** `pending`: a side is not extracted yet; `no_prior`: no earlier same-form original; `unavailable`:
-   *  nothing to compare as things stand (`reason` says why: form_not_supported, current_<status>,
-   *  prior_<status>, prior_outside_window). */
+  /** `pending`: a side is not extracted yet and the hourly batch will extract it; `no_prior`: no earlier
+   *  same-form original; `unavailable`: nothing to compare as things stand (`reason` says why:
+   *  form_not_supported, current_<status>, prior_<status>, or a side with no row that the batch will not
+   *  select: current_outside_window / prior_outside_window, current_outside_cohort / prior_outside_cohort). */
   status: 'pending' | 'no_prior' | 'unavailable'
   reason: string
   current?: SectionSide
