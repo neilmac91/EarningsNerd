@@ -5,8 +5,10 @@ import { CheckCircleIcon, ClockIcon, ProhibitIcon, WarningCircleIcon } from '@/l
 import type { InviteStatus } from '@/features/admin/api/admin-api'
 
 /**
- * Status pill for an invite. Uses semantic tokens (never color alone — each carries an icon +
- * label) per the design system: pending=info, used=success, expired=warning, revoked=neutral.
+ * Status pill for an invite: pending=info, used=success, expired=warning, revoked=neutral, each with
+ * an icon and a label (never color alone). The status chip recipe (DESIGN_SYSTEM.md §4): the status
+ * ink on the quiet ground, white with a hairline in light and the bare hairline in dark, so the label
+ * clears 4.5:1 on the row at rest and under its hover tint (tests/unit/statusChipContrast.spec.ts).
  */
 const STATUS_CONFIG: Record<
   InviteStatus,
@@ -16,25 +18,25 @@ const STATUS_CONFIG: Record<
     label: 'Pending',
     Icon: ClockIcon,
     className:
-      'border-info-light/40 bg-info-light/10 text-info-light dark:border-info-dark/40 dark:bg-info-dark/15 dark:text-info-dark',
+      'border-border-light bg-white dark:border-border-dark dark:bg-transparent text-info-text dark:text-info-dark',
   },
   used: {
     label: 'Used',
     Icon: CheckCircleIcon,
     className:
-      'border-success-light/40 bg-success-light/10 text-success-light dark:border-success-dark/40 dark:bg-success-dark/15 dark:text-success-dark',
+      'border-border-light bg-white dark:border-border-dark dark:bg-transparent text-success-light dark:text-success-dark',
   },
   expired: {
     label: 'Expired',
     Icon: WarningCircleIcon,
     className:
-      'border-warning-light/40 bg-warning-light/10 text-warning-light dark:border-warning-dark/40 dark:bg-warning-dark/15 dark:text-warning-dark',
+      'border-border-light bg-white dark:border-border-dark dark:bg-transparent text-warning-light dark:text-warning-dark',
   },
   revoked: {
     label: 'Revoked',
     Icon: ProhibitIcon,
     className:
-      'border-border-light bg-black/[0.04] text-text-tertiary-light dark:border-white/10 dark:bg-white/5 dark:text-text-secondary-dark',
+      'border-border-light bg-white dark:border-border-dark dark:bg-transparent text-text-tertiary-light dark:text-text-secondary-dark',
   },
 }
 

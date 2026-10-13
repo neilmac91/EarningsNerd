@@ -413,6 +413,16 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  eslint.designRules.mjs); <Badge variant="warning"> = warning tint
                  (replaces raw-amber hand-rolls; "Superseded"). beat/miss/new double as tonal recipes via icon={null}.
 
+Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBadge): icon + label, the
+                 status INK on the quiet ground, never the status tint: `border-border-light bg-white
+                 dark:border-border-dark dark:bg-transparent` + info-text / success-light / warning-light
+                 (dark: info-dark / success-dark / warning-dark), neutral = tertiary / secondary-dark.
+                 Light labels measure 5.0 to 7.1:1 on the white chip. Dark has no fill, so the row's
+                 white/5 hover tint is the only layer: 5.77 to 6.83:1 at rest, 4.97 to 5.89:1 on a
+                 hovered row (Badge's quiet white/5 on the chip as well would drop info-dark to 4.26:1
+                 there). The old recipe, info-light in its own 10% tint, is 4.32:1. Gate:
+                 tests/unit/statusChipContrast.spec.ts.
+
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
                  small Button). GuidanceCard is a STANDALONE centered panel — never nest it inside a

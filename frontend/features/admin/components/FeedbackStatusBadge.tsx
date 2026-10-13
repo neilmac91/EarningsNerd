@@ -1,13 +1,13 @@
 'use client'
 
 import { clsx } from 'clsx'
-import { CheckCircleIcon, ClockIcon, SparkleIcon } from '@/lib/icons'
+import { CheckCircleIcon, ClockIcon, EnvelopeSimpleIcon } from '@/lib/icons'
 import type { FeedbackStatus } from '@/features/admin/api/admin-api'
 
 /**
- * Status pill for a feedback item. Uses semantic tokens (never color alone — each carries an
- * icon + label) per the design system, mirroring InviteStatusBadge: new=info, triaged=warning,
- * resolved=success.
+ * Status pill for a feedback item, mirroring InviteStatusBadge: new=info (an unread envelope; the
+ * sparkle is reserved for the AI summary chip), triaged=warning, resolved=success, each with an icon
+ * and a label (never color alone), on the status chip recipe (DESIGN_SYSTEM.md §4).
  */
 const STATUS_CONFIG: Record<
   FeedbackStatus,
@@ -15,21 +15,21 @@ const STATUS_CONFIG: Record<
 > = {
   new: {
     label: 'New',
-    Icon: SparkleIcon,
+    Icon: EnvelopeSimpleIcon,
     className:
-      'border-info-light/40 bg-info-light/10 text-info-light dark:border-info-dark/40 dark:bg-info-dark/15 dark:text-info-dark',
+      'border-border-light bg-white dark:border-border-dark dark:bg-transparent text-info-text dark:text-info-dark',
   },
   triaged: {
     label: 'Triaged',
     Icon: ClockIcon,
     className:
-      'border-warning-light/40 bg-warning-light/10 text-warning-light dark:border-warning-dark/40 dark:bg-warning-dark/15 dark:text-warning-dark',
+      'border-border-light bg-white dark:border-border-dark dark:bg-transparent text-warning-light dark:text-warning-dark',
   },
   resolved: {
     label: 'Resolved',
     Icon: CheckCircleIcon,
     className:
-      'border-success-light/40 bg-success-light/10 text-success-light dark:border-success-dark/40 dark:bg-success-dark/15 dark:text-success-dark',
+      'border-border-light bg-white dark:border-border-dark dark:bg-transparent text-success-light dark:text-success-dark',
   },
 }
 

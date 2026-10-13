@@ -13,7 +13,7 @@ vi.mock('@/features/admin/api/admin-api', () => ({
 }))
 
 // sonner's Toaster is rendered globally in the real app, not here; stub toast calls.
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
 
 import AdminInvitesPage from '@/app/admin/invites/page'
 import {
@@ -67,7 +67,30 @@ describe('AdminInvitesPage', () => {
   it('shows the empty state when there are no invites', async () => {
     vi.mocked(listInvites).mockResolvedValue([])
     renderPage()
-    expect(await screen.findByText(/No invites yet/i)).toBeInTheDocument()
+    // One plain line in the card (ADM-07, ADM-09): no title, no nested GuidanceCard.
+    const empty = await screen.findByText(/No invites yet/i)
+    expect(empty).toHaveAttribute('role', 'status')
+    expect(empty).toHaveTextContent(/^No invites yet\. Send your first one above\.$/)
+    expect(screen.queryByText(/No Invites Found/i)).not.toBeInTheDocument()
+  })
+
+  it('names a link-only invite\'s actions by what it is, not "this invite" (ADM-22)', async () => {
+    vi.mocked(listInvites).mockResolvedValue([{ ...invite, id: 3, email: null }])
+    renderPage()
+    // The visible labels stay "Resend" and "Revoke".
+    expect(await screen.findByRole('button', { name: 'Resend this link-only invite' })).toHaveTextContent('Resend')
+    expect(screen.getByRole('button', { name: 'Revoke this link-only invite' })).toHaveTextContent('Revoke')
+  })
+
+  it('shows a load failure as a Notice with a Retry that refetches (ADM-11)', async () => {
+    vi.mocked(listInvites).mockRejectedValueOnce(new Error('network')).mockResolvedValue([invite])
+    const user = userEvent.setup()
+    renderPage()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Could not load the invites.')
+    await user.click(within(alert).getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('alice@example.com')).toBeInTheDocument()
+    expect(listInvites).toHaveBeenCalledTimes(2)
   })
 
   it('updates the live counter as valid/invalid emails are entered', async () => {

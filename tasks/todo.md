@@ -52,6 +52,7 @@ Engineering:
 - [ ] E13 — Suppressing the [critique's](../.impeccable/critique/2026-10-04T16-43-55Z__frontend-app-filing-id-page-tsx.md#design-specificity-verdict-mixed) quotation `side-tab` false positive and sanctioned `--ease-pop` warning is CANCEL-RECOMMENDED; old consent/dialog harnesses wait for reuse, memoization for measurements, and missing-prior web/export dashes for a compatible backend batch.
 - [ ] E14 — IN-FLIGHT: prevent disabled hover/active tint [#1262](https://github.com/neilmac91/EarningsNerd/pull/1262). Drafts remain unmerged; Modal-host Escape is CANCEL-RECOMMENDED because Modal has no native-dialog host, and the founder-only class-7 SQL read is PREPARE.
 - [ ] E15 — IN-FLIGHT: Insider gain/loss ink [#1262](https://github.com/neilmac91/EarningsNerd/pull/1262) pass local acceptance. Analysis Run’s locked native-disabled contract remains a separate founder decision.
+- [ ] E25 — POSTPONE (brand sweep records PR): `DEFAULT_INVITE_MESSAGE` (`frontend/features/admin/lib/shareLinks.ts`) and the invite email (`email_service.py`) differ on purpose; narrow `docs/voice-and-style.md` "Copy that is also code" to say so, as a doc narrowing, not a parity test (audit ADM-04).
 
 ## What to doubt first
 

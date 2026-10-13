@@ -129,7 +129,7 @@ export default function EmailChipsInput({
   const chipClasses = (kind: ChipKind): string => {
     switch (kind) {
       case 'invalid':
-        return 'border-error-light/40 bg-error-light/10 text-error-light dark:border-error-dark/40 dark:bg-error-dark/15 dark:text-error-dark'
+        return 'border-error-light/40 bg-error-light/10 text-error-light dark:border-error-dark/40 dark:bg-error-dark/10 dark:text-error-dark'
       case 'invited':
         return 'border-border-light bg-black/[0.04] text-text-tertiary-light dark:border-white/10 dark:bg-white/5 dark:text-text-secondary-dark'
       default:
@@ -159,15 +159,13 @@ export default function EmailChipsInput({
             >
               {chip.kind === 'invalid' && <WarningCircleIcon className="h-3.5 w-3.5 flex-shrink-0" />}
               <span className="truncate">{chip.email}</span>
-              {chip.kind === 'invited' && (
-                <span className="text-data-xs uppercase tracking-eyebrow opacity-70">invited</span>
-              )}
+              {chip.kind === 'invited' && <span className="flex-shrink-0">· already invited</span>}
               <button
                 type="button"
                 onClick={() => removeChip(chip.email)}
                 disabled={disabled}
                 aria-label={`Remove ${chip.email}`}
-                className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ml-0.5 rounded-full p-0.5 transition-colors hover:bg-black/10 disabled:opacity-50 dark:hover:bg-white/10"
+                className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ml-0.5 rounded-full p-1 transition-colors hover:bg-black/10 disabled:opacity-50 dark:hover:bg-white/10"
               >
                 <XIcon className="h-3 w-3" />
               </button>

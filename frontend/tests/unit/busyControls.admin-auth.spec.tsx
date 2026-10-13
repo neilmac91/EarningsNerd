@@ -27,7 +27,7 @@ vi.mock('@/features/auth/api/auth-api', () => ({
   getCurrentUserSafe: vi.fn(),
   resendVerification: vi.fn(),
 }))
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
 // Chrome around the units under test: AuthShell's theme toggle, SiteChrome's header/footer.
 vi.mock('@/components/ThemeToggle', () => ({ ThemeToggle: () => null }))
 vi.mock('@/components/Header', () => ({ default: () => null }))
@@ -178,7 +178,7 @@ describe('Admin invites: Send invites stays focusable', () => {
     expect(createInvite).toHaveBeenCalledTimes(1)
     // Only the early return stops a no-op send now: without it this run would clear the batch's
     // results (and their invite links) and relist the just-sent address as skipped.
-    expect(screen.getByText('1 invite sent')).toBeInTheDocument()
+    expect(screen.getByText('1 created · 1 emailed')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument()
     expect(toast.success).toHaveBeenCalledTimes(1)
   })
@@ -195,7 +195,7 @@ describe('Admin invites: Send invites stays focusable', () => {
 
     expectInertButFocused(send)
     expect(send).not.toHaveAttribute('aria-busy')
-    // No "0 invites sent" toast and no post-send refetch of the list.
+    // No "0 invites created" toast and no post-send refetch of the list.
     expect(toast.success).not.toHaveBeenCalled()
     expect(toast.error).not.toHaveBeenCalled()
     expect(listInvites).toHaveBeenCalledTimes(1)
