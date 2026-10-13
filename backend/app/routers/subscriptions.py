@@ -213,7 +213,12 @@ async def create_checkout_session(
         billing_cycle = "monthly" if price_id == settings.STRIPE_PRICE_MONTHLY_ID else "yearly"
         session_kwargs = {
             "customer": customer.id,
-            "payment_method_types": ["card"],
+            # Stripe API 2026-09-30.endive (the version stripe-python 16 pins) removed
+            # `payment_method_types` from Checkout Session create and answers it with a 400.
+            # `allowed_payment_method_types` filters the Dashboard's payment-method
+            # configuration, so this checkout stays card-only for as long as card is enabled
+            # there; an incompatible method is dropped instead of erroring.
+            "allowed_payment_method_types": ["card"],
             "line_items": [{
                 "price": price_id,
                 "quantity": 1,
@@ -318,7 +323,7 @@ async def stripe_webhook(
         except stripe.error.SignatureVerificationError:
             raise HTTPException(status_code=400, detail="Invalid signature")
 
-        # stripe-python v15's StripeObject is not dict-like. Verification above authenticates
+        # stripe-python's StripeObject (v15 onward) is not dict-like. Verification above authenticates
         # these exact bytes; validate/consume their plain JSON representation instead.
         event = json.loads(payload)
         if not isinstance(event, dict):

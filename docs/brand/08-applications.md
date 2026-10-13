@@ -59,7 +59,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   "Contact us", then one line on what to write about. "What to expect" keeps the response time
   (typically within 1–2 business days), the support hours (Monday–Friday, 9:00 AM–5:00 PM EST) and the
   automated confirmation email; the hours, their time zone and the confirmation claim wait on the
-  founder (F27), because `backend/app/routers/contact.py` logs a failed confirmation send and still
+  founder (F37), because `backend/app/routers/contact.py` logs a failed confirmation send and still
   answers success. The form's limits are the server's (`tests/unit/contactValidationParity.spec.ts`
   reads `backend/app/schemas/contact.py`), so a one-letter name is refused before sending, counted
   in code points as the server counts, and an email whose shape the server's `EmailStr` refuses
