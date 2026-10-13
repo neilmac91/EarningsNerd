@@ -168,6 +168,29 @@ def test_valid_referral_bumps_referrer_priority_and_sends_referral_email(client,
     assert emails["referral"][0]["new_position"] == watchlist_router.calculate_waitlist_position(1, 1)
 
 
+def test_duplicate_join_with_a_valid_code_credits_the_referrer_once(client, session_factory, emails):
+    """The same email joining twice with a valid referral code is answered already_registered the
+    second time and credits the referrer once: the existing-email check runs before the referral
+    lookup, so no priority bump and no second referral mail."""
+    referrer_email = _seed_referrer(session_factory, code="ref00001")
+    email = _email()
+    first = _join(client, email=email, referral_code="ref00001")
+    assert first.status_code == 200 and first.json()["success"] is True
+
+    again = _join(client, email=email, referral_code="ref00001")
+    assert again.status_code == 200, again.text
+    body = again.json()
+    assert body["success"] is False and body["error"] == "already_registered"
+    assert body["referral_code"] == first.json()["referral_code"]
+
+    with session_factory() as s:
+        referrer = s.query(WaitlistSignup).filter_by(email=referrer_email).one()
+        assert referrer.priority_score == 1
+        assert s.query(WaitlistSignup).filter_by(email=email).count() == 1
+    assert [r["to_email"] for r in emails["referral"]] == [referrer_email]
+    assert len(emails["welcome"]) == 1
+
+
 def test_welcome_email_sent_flag_tracks_the_send(client, session_factory, emails):
     ok_email = _email()
     ok = _join(client, email=ok_email)
