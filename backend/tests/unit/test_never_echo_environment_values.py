@@ -920,6 +920,86 @@ def test_main_passes_sentry_only_its_options():
     assert found == ["main.py: sentry_sdk.init(**_sentry_options())"]
 
 
+def _sentry_calls(tree: ast.Module, name: str) -> list[str]:
+    """Each call of sentry_sdk's function `name` in the module, through any import of the package or its modules
+    (`sentry_sdk.capture_event`, `sdk.api.capture_event`), or the function imported from either under any name."""
+    modules, functions = {"sentry_sdk"}, set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules |= {
+                alias.asname or alias.name.split(".")[0]
+                for alias in node.names
+                if alias.name.split(".")[0] == "sentry_sdk"
+            }
+        elif isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "sentry_sdk":
+            functions |= {alias.asname or alias.name for alias in node.names if alias.name == name}
+            modules |= {alias.asname or alias.name for alias in node.names if alias.name != name}
+    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+    return [
+        ast.unparse(call)
+        for call in calls
+        if ast.unparse(call.func) in functions
+        or (ast.unparse(call.func).endswith(f".{name}") and ast.unparse(call.func).split(".")[0] in modules)
+    ]
+
+
+def _trace_contexts(tree: ast.Module) -> list[str]:
+    """Each `set_context("trace", ...)` call in the module, on any receiver (a scope, the package)."""
+    return [
+        ast.unparse(node)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and ast.unparse(node.func).split(".")[-1] == "set_context"
+        and node.args
+        and isinstance(node.args[0], ast.Constant)
+        and node.args[0].value == "trace"
+    ]
+
+
+def test_no_backend_code_writes_the_fields_the_value_scrubber_keeps():
+    # The value scrubber keeps an item's own keys, its `type` and its trace context's keys (main._value_scrubber),
+    # because the SDK builds them from the protocol's names and never from user data. A hand-built event
+    # (`capture_event`) or a trace context set by hand would put user data there, unscrubbed: neither exists.
+    found = [
+        f"{path.relative_to(BACKEND_DIR).as_posix()}: {call}"
+        for path in _scanned_files()
+        for tree in [ast.parse(path.read_text(encoding="utf-8"))]
+        for call in (*_sentry_calls(tree, "capture_event"), *_trace_contexts(tree))
+    ]
+    assert found == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import sentry_sdk\nsentry_sdk.capture_event(event)",
+        "import sentry_sdk as sdk\nsdk.api.capture_event(event)",
+        "from sentry_sdk import capture_event as send\nsend(event)",
+        "from sentry_sdk import api\napi.capture_event(event)",
+        "import sentry_sdk\nsentry_sdk.set_context('trace', {})",
+        "scope = get_scope()\nscope.set_context('trace', {})",
+        "from app.services.posthog_client import capture_event\ncapture_event(user, event)",
+        "scope = get_scope()\nscope.set_context('job', {})",
+    ],
+    ids=[
+        "package",
+        "module-alias",
+        "function-alias",
+        "submodule",
+        "set-trace",
+        "scope-trace",
+        "posthog",
+        "other-context",
+    ],
+)
+def test_the_kept_fields_scan_follows_imports(source):
+    tree = ast.parse(source)
+    found = [*_sentry_calls(tree, "capture_event"), *_trace_contexts(tree)]
+    assert found == (
+        [] if source.endswith(("capture_event(user, event)", "set_context('job', {})")) else [source.splitlines()[1]]
+    )
+
+
 @pytest.mark.parametrize(
     "source",
     [
@@ -1216,6 +1296,9 @@ def test_sentry_withholds_a_secret_value_wherever_it_rides(monkeypatch, request,
     sentry_sdk.flush()
     sent = json.dumps(envelopes)
     assert "job failed for [Filtered], retried with [Filtered]" in sent  # sent, each occurrence withheld where it stood
+    if carrier == "span":  # the envelope's trace header repeats the transaction's name
+        traces = [headers["trace"] for kind, headers in envelopes if kind == "headers" and "trace" in headers]
+        assert [trace.get("transaction") for trace in traces] == ["job failed for [Filtered], retried with [Filtered]"]
     leaked = _fragments(token, sent, width=8)
     assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry ({carrier})"
 
@@ -1326,7 +1409,8 @@ def test_the_value_scrubber_keeps_numbers_and_withholds_a_secret_in_any_other_va
 def test_sentry_logs_withhold_a_secret_in_a_value_that_is_not_text(monkeypatch, request, caplog, switch):
     # With Sentry logs on (either switch), the logging integration sends a record's `extra` values as they are, and
     # the SDK's logger a body that is not text; the SDK turns each into text after the hook (a repr, a str), where
-    # nothing scrubs it. The scrubber turns each into its repr first and withholds the secret there.
+    # nothing scrubs it. The scrubber walks a mapping and turns any other such value into its repr first, withholding
+    # the secret there.
     import sentry_sdk
     from sentry_sdk import logger as sentry_logger
     from sentry_sdk.integrations.logging import LoggingIntegration
@@ -1418,24 +1502,27 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request):
 
 
 def test_the_value_scrubber_reads_the_settings_once_at_startup(monkeypatch, request):
-    # The values are read when `_sentry_options()` runs, as main.py's one call does at startup, and never again: not
-    # at the first item, not per item.
+    # The values are read when `_sentry_options()` runs, as main.py's one call does at startup, and never again, by
+    # any path: not at the first item, not per item, and a value set afterwards is not withheld.
     import sentry_sdk
     from sentry_sdk import logger as sentry_logger
 
     import main
+    from app.config import settings
 
     reads = []
     read = main._secret_values
     monkeypatch.setattr(main, "_secret_values", lambda: reads.append("read") or read())
-    envelopes = request.getfixturevalue("sentry_envelopes")
+    first, later = (_fabricated(f"INTERNAL_JOB_TOKEN {when}", string.ascii_uppercase) for when in ("first", "later"))
+    envelopes = _scrubbing_envelopes(request, monkeypatch, INTERNAL_JOB_TOKEN=first)
     assert reads == ["read"]
-    sentry_sdk.capture_message("job failed")
+    monkeypatch.setattr(settings, "INTERNAL_JOB_TOKEN", later)
+    sentry_sdk.capture_message(f"{first} {later}")
     sentry_sdk.capture_message("job failed again")
     sentry_logger.warning("job failed")
     sentry_sdk.flush()
-    assert len(_of(envelopes, "event")) == 2 and _of(envelopes, "log")
-    assert reads == ["read"]
+    assert [event["message"] for event in _of(envelopes, "event")] == [f"[Filtered] {later}", "job failed again"]
+    assert _of(envelopes, "log") and reads == ["read"]
 
 
 def test_a_failing_value_scrubber_sends_nothing(monkeypatch, sentry_envelopes):
@@ -1463,6 +1550,7 @@ def test_a_failing_value_scrubber_sends_nothing(monkeypatch, sentry_envelopes):
     lost = _of(sentry_envelopes, "lost")
     for category in ("error", "transaction", "log_item", "trace_metric"):
         assert ["callback_error", category] in lost
+    assert lost.count(["callback_error", "error"]) == 2  # the message and the check-in
 
 
 def test_an_alpha_vantage_error_carries_no_key(monkeypatch, caplog):

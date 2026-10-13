@@ -47,9 +47,9 @@ an exception or a log line (a breadcrumb), or held under any key its denylist do
 context, a request, a span's data), still reached Sentry; a `DATABASE_URL` missing its `@host` with an all-digit
 password parses, and the driver's connection error quotes the digits as the port. Building the value scrubber showed
 one more channel: the SDK's own logger and metrics API send logs and metrics past `before_send` and the event
-scrubber, whatever `enable_logs` says. Its review found where text is still made after the hooks: the SDK turns a log
-record's `extra` value that is not text, a number, a mapping or a list into its repr, and a log's body that is not
-text into its str, only after `before_send_log` returns.
+scrubber, whatever `enable_logs` says. Its review found where text is still made after the hooks: the SDK builds the
+repr of a log record's `extra` value (anything but text or a number, a mapping and a mixed list included) and the str
+of a log's body that is not text only after `before_send_log` returns.
 
 **Rule.**
 - The settings class sets `hide_input_in_errors`, so a validation error's text (`str`, `repr`, and so a
@@ -85,7 +85,8 @@ text into its str, only after `before_send_log` returns.
   logs on (`enable_logs`, or the logging integration's `capture_sentry_logs`) sends none either. The item's own keys,
   its `type` and its trace context's keys stay as they are: they are the protocol's, never user data, and the SDK reads
   them after the hook (an event's `event_id` and `type`, a log's `attributes`, a profile's `contexts.trace.trace_id`),
-  so a weak secret equal to one of those words cannot break a capture.
+  so a weak secret equal to one of those words cannot break a capture. Nothing in the backend writes them by hand: no
+  hand-built event (`capture_event`) and no trace context set by hand.
   A secret setting is named by the output walk's rule (below), which main.py copies. The values are read once, when
   `main._sentry_options()` runs at startup, and matched longest first, so a URL quoted whole goes whole. A text under 8
   characters is left: settings bound no secret's length but `SECRET_KEY`'s, the shortest real secret (the Alpha Vantage
@@ -214,11 +215,13 @@ text into its str, only after `before_send_log` returns.
   arrives with them `[Filtered]`; a value stored with a trailing newline is withheld where an error quotes it escaped;
   an 8-character value is withheld while a 7-character one, an empty one, a URL's port and an IPv6 host are not, and a
   setting holding `None` is skipped, not a failure that would turn Sentry off; the values are read once, when the
-  options are built, never at an item; secrets equal to protocol words (`event_id`, `trace_id`, `attributes`,
+  options are built, never at an item, by any path (a value set afterwards is not withheld); the trace header names the
+  transaction with the secret withheld; secrets equal to protocol words (`event_id`, `trace_id`, `attributes`,
   `start_timestamp`, `time_unix_nano`, `severity_number`, `transaction`, `timestamp`, `check_in`) break no item: the
   error, the transaction, the check-in, the log and the metric are each sent, as their own kind, with those fields;
-  and a scrubber that raises sends nothing: the error, the check-in, the transaction, the log and the metric are each
-  lost to `callback_error`.
+  a scan fails any Sentry `capture_event` call (through any import of the package) and any `set_context("trace", ...)`
+  in the backend, which would put user data in the fields the hook keeps; and a scrubber that raises sends nothing:
+  the error, the check-in, the transaction, the log and the metric are each lost to `callback_error`.
 - **compare_digest.** An AST walk fails any `compare_digest` call in the backend, by its name or a name
   `from hmac|secrets import compare_digest as ...` gives it, whose two arguments are not both bytes by their
   form: a UTF-8 `.encode(...)` or `bytes(x, ...)`, a `.digest()`, a bytes literal, a base64 encoding of bytes or a
@@ -261,9 +264,11 @@ each with its reason:
   (code locations), sessions (release-health counts) and attachments (none sent) pass no hook; the envelope's trace
   header is taken from the scrubbed event. Frame variables stay off whatever the scrubber does: a frame holds values
   in forms it cannot match. Over-redaction is accepted: a secret that equals ordinary text (a weak salt equal to the
-  domain) withholds that text, one equal to a protocol word renames that word in nested fields (a breadcrumb's or a
-  span's field, an attribute's name), and the public-by-design values the rule names (`STRIPE_PUBLISHABLE_KEY`,
-  `POSTHOG_API_KEY`, `SENTRY_DSN`) are withheld too;
+  domain) withholds that text; one equal to a protocol word replaces that word everywhere but the fields the SDK reads,
+  in nested fields' names, where colliding names collapse into one `[Filtered]` (a child span loses its `trace_id` and
+  timestamps, the trace header its `trace_id`), and in protocol values (a check-in's `in_progress`), so Sentry may
+  drop such a span or check-in, though no capture fails; and the public-by-design values the rule names
+  (`STRIPE_PUBLISHABLE_KEY`, `POSTHOG_API_KEY`, `SENTRY_DSN`) are withheld too;
 - the output walk sees only a direct read in a call it names as an output, not an alias (`url = settings.REDIS_URL`),
   a helper the value is handed to or an object holding it (`stripe.api_key`), and the message walk reads
   `app/config.py` only and does not follow `globals()`, `setattr` or `sys.modules`;

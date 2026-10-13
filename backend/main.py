@@ -142,10 +142,11 @@ def _sentry_options() -> dict:
                 "id_token",
             ]
         ),
-        # Each secret setting's value and each connection URL's password, wherever an item holds it, on every channel
-        # that carries text; the hooks run after the event scrubber and the serializer. Never set `max_value_length`:
-        # the serializer would cut a string inside a secret and leave a prefix no hook matches. `before_send_span`
-        # acts only under span streaming (`trace_lifecycle`), which stays off.
+        # Each secret setting's value and each connection URL's password, wherever an item holds it (the protocol's own
+        # fields aside, which the SDK reads after the hook: `_value_scrubber`), on every channel that carries text; the
+        # hooks run after the event scrubber and the serializer. Never set `max_value_length`: the serializer would cut
+        # a string inside a secret and leave a prefix no hook matches. `before_send_span` acts only under span
+        # streaming (`trace_lifecycle`), which stays off.
         "before_send": withhold_secret_values,
         "before_send_transaction": withhold_secret_values,
         "before_send_log": withhold_secret_values,
