@@ -27,7 +27,7 @@ const LIVE: ExampleData = {
   qualityTier: 'full',
   metrics: [
     { label: 'Revenue', value: '$416.2B', deltaPercent: 6.4 },
-    { label: 'Net Income', value: '$112.0B', deltaPercent: 19.5 },
+    { label: 'Net income', value: '$112.0B', deltaPercent: 19.5 },
     { label: 'Diluted EPS', value: '$7.46', deltaPercent: -1.2 },
   ],
   evidence: { excerpt: EXCERPT, url: 'https://www.sec.gov/Archives/edgar/data/320193/doc.htm#:~:text=Substantially' },
@@ -63,8 +63,9 @@ describe('HeroExample', () => {
     expect(heading.startsWith('Substantially all of the Company’s manufacturing')).toBe(true)
     expect(screen.getByText(heading).className).toContain('font-semibold')
     const quote = container.querySelector('blockquote') as HTMLElement
-    expect(quote.textContent!.length).toBeLessThanOrEqual(182)
-    expect(quote.textContent).toMatch(/^Substantially all of the Company’s manufacturing .* …$/)
+    // The filing's words in quotation marks, the closing one after the clip's ellipsis.
+    expect(quote.textContent!.length).toBeLessThanOrEqual(184)
+    expect(quote.textContent).toMatch(/^“Substantially all of the Company’s manufacturing .* …”$/)
     const chip = screen.getByRole('link', { name: /Located in the filing/ })
     expect(chip).toHaveAttribute('href', LIVE.evidence!.url)
     expect(chip).toHaveAttribute('target', '_blank')
@@ -74,6 +75,32 @@ describe('HeroExample', () => {
     const { container } = render(<HeroExample example={null} />)
     expect(container.querySelector('blockquote')).toBeNull()
     expect(screen.queryByRole('link', { name: /Located in the filing/ })).toBeNull()
+  })
+
+  it('claims an XBRL source only for the checked fallback; live figures send the reader to the filing', () => {
+    const { container, unmount } = render(<HeroExample example={LIVE} />)
+    const live = screen.getByRole('link', { name: 'Source filing · check the figures on SEC EDGAR' })
+    expect(live).toHaveAttribute('href', LIVE.secUrl)
+    expect(container.querySelectorAll('dl [title]')).toHaveLength(0)
+    expect(container.innerHTML).not.toMatch(/XBRL/)
+    unmount()
+
+    const fallback = render(<HeroExample example={null} />)
+    expect(screen.getByRole('link', { name: "Figures from the company's XBRL filing · verify on SEC EDGAR" })).toBeInTheDocument()
+    const titles = [...fallback.container.querySelectorAll('dl [title]')].map((el) => el.getAttribute('title'))
+    expect(titles).toEqual([
+      'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+      'us-gaap:NetIncomeLoss',
+      'us-gaap:EarningsPerShareDiluted',
+    ])
+  })
+
+  it('rings the EDGAR link like every other Tab stop', () => {
+    render(<HeroExample example={LIVE} />)
+    const edgar = screen.getByRole('link', { name: /on SEC EDGAR$/ })
+    for (const cls of ['focus-visible:outline-none', 'focus-visible:shadow-ring-brand', 'dark:focus-visible:shadow-ring-brand-dark']) {
+      expect(edgar.className.split(/\s+/)).toContain(cls)
+    }
   })
 
   it('leads into the example with a text link, not a tinted box', () => {

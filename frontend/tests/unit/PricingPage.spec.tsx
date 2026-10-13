@@ -19,7 +19,7 @@ const mockCheckoutStarted = vi.fn()
 const mockPricingViewed = vi.fn()
 const mockPush = vi.fn()
 const mockSearchParams = new URLSearchParams()
-const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false }))
+const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false, ENABLE_ANALYSIS: false }))
 vi.mock('@/lib/featureFlags', () => flags)
 // Test-only capture of the real onClick each card Button was rendered with, keyed by
 // `${variant}:${label}` (Free = secondary, Pro = primary; both cards share a label while the
@@ -114,6 +114,7 @@ describe('PricingPage', () => {
     mockGetRegistrationConfig.mockResolvedValue({ mode: 'public', beta_promo_enabled: false })
     Array.from(mockSearchParams.keys()).forEach((key) => mockSearchParams.delete(key))
     flags.ENABLE_PRO_TRIAL = false
+    flags.ENABLE_ANALYSIS = false
     localStorage.clear()
     capturedOnClick.clear()
     mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com' })
@@ -496,5 +497,17 @@ describe('PricingPage', () => {
       expect(screen.queryByText(trialNote)).not.toBeInTheDocument()
     }
     expect(mockPricingViewed.mock.calls).toEqual([[pickMonthly ? 'monthly' : 'yearly']])
+  })
+
+  // Multi-Period Analysis ships behind ENABLE_ANALYSIS (its route 404s while the flag is off), so the
+  // Pro plan lists it only while it ships (audit pub/F06; the landing half is in analysis-route-hidden.spec.tsx).
+  it.each([false, true])('lists Multi-Period Analysis on the Pro plan only while the flag ships it (flag %s)', async (on) => {
+    flags.ENABLE_ANALYSIS = on
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+    const { container } = renderPricing()
+    await screen.findByRole('button', { name: /current plan/i })
+    expect(screen.getByText('Ask this Filing, with cited answers')).toBeInTheDocument()
+    if (on) expect(container).toHaveTextContent('Unlimited Multi-Period Analysis')
+    else expect(container).not.toHaveTextContent(/Multi-Period/)
   })
 })

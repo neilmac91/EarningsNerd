@@ -43,15 +43,17 @@ const FALLBACK: ExampleData = {
   qualityTier: null,
   metrics: [
     { label: 'Revenue', value: '$416.2B', deltaPercent: 6.4 },
-    { label: 'Net Income', value: '$112.0B', deltaPercent: 19.5 },
+    { label: 'Net income', value: '$112.0B', deltaPercent: 19.5 },
     { label: 'Diluted EPS', value: '$7.46', deltaPercent: 22.7 },
   ],
 }
 
-// XBRL concepts behind the fallback metrics (shown as hover receipts).
+// XBRL concepts behind the fallback metrics (shown as hover receipts). Only the fallback carries
+// them: its values were checked against the XBRL by hand, while a live figure is the summary's own
+// financial highlight, which the hero cannot vouch for as an XBRL match.
 const FALLBACK_CONCEPTS: Record<string, string> = {
   Revenue: 'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
-  'Net Income': 'us-gaap:NetIncomeLoss',
+  'Net income': 'us-gaap:NetIncomeLoss',
   'Diluted EPS': 'us-gaap:EarningsPerShareDiluted',
 }
 
@@ -78,7 +80,7 @@ function Figure({ metric, isFallback }: { metric: ExampleMetric; isFallback: boo
   const delta = formatDelta(metric.deltaPercent)
   const direction = directionOf(metric.deltaPercent)
   return (
-    <div className="min-w-0 py-3 pl-3 first:pl-0" title={isFallback ? FALLBACK_CONCEPTS[metric.label] : 'Reported in the filing’s XBRL data'}>
+    <div className="min-w-0 py-3 pl-3 first:pl-0" title={isFallback ? FALLBACK_CONCEPTS[metric.label] : undefined}>
       <dt className={cx('truncate text-xs', MUTED)}>{metric.label}</dt>
       <dd className={cx('mt-1 whitespace-nowrap font-data text-sm font-semibold tabular-nums sm:text-base', INK)}>{metric.value}</dd>
       {delta && (
@@ -174,8 +176,9 @@ function HeroExample({
                 {excerptHeadings([evidence.excerpt])[0]}
                 <EnRef label="[1]" />
               </p>
+              {/* The filing's words, so they wear quotation marks; the closing one follows the ellipsis. */}
               <blockquote className={cx('en-marked px-3.5 py-2.5 font-editorial text-base leading-relaxed', INK)}>
-                {clip(evidence.excerpt)}
+                “{clip(evidence.excerpt)}”
               </blockquote>
               {evidence.url && (
                 <div>
@@ -195,15 +198,20 @@ function HeroExample({
           target="_blank"
           rel="noopener noreferrer"
           className={cx(
-            'inline-flex items-center gap-1 font-data text-xs underline-offset-2 transition-colors duration-fast',
+            'inline-flex items-center gap-1 self-start rounded-sm font-data text-xs underline-offset-2 transition-colors duration-fast',
             'hover:text-brand-strong hover:underline dark:hover:text-brand-strong-dark',
+            'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
             MUTED,
           )}
         >
           <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-          {data.metrics.length > 0
-            ? "Figures from the company's XBRL filing · verify on SEC EDGAR"
-            : 'Source filing · read on SEC EDGAR'}
+          {/* Only the checked fallback says its figures came from the XBRL; live figures are the
+              summary's, so the link sends the reader to the filing to check them. */}
+          {data.metrics.length === 0
+            ? 'Source filing · read on SEC EDGAR'
+            : isFallback
+              ? "Figures from the company's XBRL filing · verify on SEC EDGAR"
+              : 'Source filing · check the figures on SEC EDGAR'}
         </a>
 
         {/* Into the real example: a text link (the hero's primary action lives beside the headline). */}

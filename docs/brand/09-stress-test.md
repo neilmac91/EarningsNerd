@@ -75,6 +75,13 @@ shortening and stays. The first broke the device's own misuse rule, so the revie
 the mark onto "the source", the words the device stands for, without changing a word of the
 served headline.
 
+The October 2026 audit found two more on the hero (pub/F08, pub/F09): the evidence row set the
+filing's words without quotation marks, and a live figure's hover and link said its figures came
+from the XBRL filing, which the hero cannot vouch for. The excerpt now wears quotation marks, and a
+live example's link reads "Source filing · check the figures on SEC EDGAR" with no XBRL hover; the
+XBRL wording stays on the checked fallback (08-applications.md §1). The sameness scores above are
+not rescored here; that waits for the records PR.
+
 ## 4. The second review
 
 The routine-tier review of the whole branch (one Opus lens, a Sonnet refuter for each blocker)

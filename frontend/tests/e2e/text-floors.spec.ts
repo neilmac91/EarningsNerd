@@ -116,6 +116,25 @@ const ROUTES: Route[] = [
   },
 ]
 
+/**
+ * The rest of the public pages (BG-29), each answered by answerSiteApi (no backend). Kept apart from ROUTES
+ * so the cases below that pick a route by its index keep theirs. /waitlist's example falls back to its h2
+ * card here; waitlistPage.spec.tsx reads the outline with the example loaded.
+ */
+const PUBLIC_ROUTES: Route[] = [
+  { name: 'waitlist', path: '/waitlist', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByLabel('Email address')).toBeVisible() },
+  { name: 'login', path: '/login', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
+  { name: 'register', path: '/register', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
+  { name: 'forgot password', path: '/forgot-password', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
+  { name: 'contact', path: '/contact', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
+  { name: 'security', path: '/security', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Security' })).toBeVisible() },
+  // CI builds with NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH off, so /search is the 404 page (app/search/layout.tsx).
+  { name: 'search (flag off)', path: '/search', status: 404, open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible() },
+]
+
+/** The auth pages render in AuthShell, which has no site footer (components/SiteChrome.tsx AUTH_ROUTES). */
+const AUTH_SHELL = new Set(['/login', '/register', '/forgot-password'])
+
 async function visit(page: Page, baseURL: string, route: Route) {
   await page.addInitScript(() => {
     try {
@@ -128,7 +147,7 @@ async function visit(page: Page, baseURL: string, route: Route) {
   const response = await page.goto(route.path)
   if (route.status) expect(response?.status()).toBe(route.status)
   await route.ready(page)
-  await expect(page.getByRole('contentinfo')).toBeVisible()
+  if (!AUTH_SHELL.has(route.path)) await expect(page.getByRole('contentinfo')).toBeVisible()
   await page.evaluate(() => document.fonts.ready)
 }
 
@@ -192,7 +211,7 @@ const headingSkips = (page: Page) =>
 test.describe('main routes at 1440x900, light theme', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  for (const route of ROUTES) {
+  for (const route of [...ROUTES, ...PUBLIC_ROUTES]) {
     test(`${route.name}: muted ink clears AA and the heading outline skips no level`, async ({ page, baseURL }) => {
       await visit(page, baseURL!, route)
       await page.mouse.move(0, 0)
@@ -214,7 +233,7 @@ test.describe('main routes at 1440x900, light theme', () => {
       const outline = await headingSkips(page)
       expect.soft(outline.dom, `skipped heading levels on ${route.name} (DOM order)`).toEqual([])
       expect.soft(outline.exposed, `skipped heading levels on ${route.name} (accessibility tree)`).toEqual([])
-      expect.soft(outline.footer.join(' '), 'the footer opens its own h2 before its h3 column titles').toMatch(/^H2( H3)+$/)
+      if (!AUTH_SHELL.has(route.path)) expect.soft(outline.footer.join(' '), 'the footer opens its own h2 before its h3 column titles').toMatch(/^H2( H3)+$/)
     })
   }
 })

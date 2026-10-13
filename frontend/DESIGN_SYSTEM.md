@@ -842,10 +842,10 @@ The footer opens its own section with a visually hidden h2 ("Site links") before
 titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
 `tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
 accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a signed-in /dashboard,
-the 404, and four page-level card states (a filing without a summary for a guest and for a
-signed-in reader whose run fails, a writer error, an empty watchlist). Known exception, not
-visited: /waitlist when its example loads (the example has no heading, so the h1 is followed by the
-problem cards' h3).
+the 404, /waitlist (its problem cards are h2, since the example beside the form has no heading),
+/login, /register, /forgot-password (the auth shell, which has no site footer), /contact, /security,
+/search while its flag is off (the 404), and four page-level card states (a filing without a summary
+for a guest and for a signed-in reader whose run fails, a writer error, an empty watchlist).
 
 ## 6. Cards must *lift*, not tint
 
