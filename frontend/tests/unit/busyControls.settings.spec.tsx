@@ -580,11 +580,9 @@ describe('NotificationPreferencesForm', () => {
     expectBusyAndFocused(tenK)
     fireEvent.click(tenK)
     fireEvent.click(screen.getByRole('switch', { name: 'Quarterly reports (10-Q)' }))
-    fireEvent.change(screen.getByRole('combobox', { name: 'Digest frequency' }), { target: { value: 'weekly' } })
     await settle()
     expect(api.updateNotificationPreferences).toHaveBeenCalledTimes(1)
     expect(api.updateNotificationPreferences.mock.calls[0][0]).toEqual({ notify_10k: true })
-    expect(screen.getByRole('combobox', { name: 'Digest frequency' })).toHaveValue('daily')
 
     await act(async () => put.resolve({ ...prefs, notify_10k: true }))
     await waitFor(() => expect(tenK).toHaveAttribute('aria-checked', 'true'))
@@ -593,26 +591,15 @@ describe('NotificationPreferencesForm', () => {
     expect(document.activeElement).toBe(tenK)
   })
 
-  it('the digest select keeps focus through its save and ignores a second change meanwhile', async () => {
-    api.getNotificationPreferences.mockResolvedValue(prefs)
-    const put = deferred<NotificationPreferences>()
-    api.updateNotificationPreferences.mockReturnValue(put.promise)
+  // DSW-01: no job reads a digest frequency (run_daily_digest sends once a day for everyone), so the
+  // row states the cadence and offers no choice; notificationPreferencesConsumed.spec.ts holds it.
+  it('states the daily digest as a fact, with no control that saves a frequency', async () => {
+    api.getNotificationPreferences.mockResolvedValue({ ...prefs, digest: 'weekly' })
     renderWithClient(<NotificationPreferencesForm />)
 
-    const digest = await screen.findByRole('combobox', { name: 'Digest frequency' })
-    digest.focus()
-    fireEvent.change(digest, { target: { value: 'weekly' } })
-    await waitFor(() => expect(digest).toHaveAttribute('aria-busy', 'true'))
-    expectBusyAndFocused(digest)
-    fireEvent.change(digest, { target: { value: 'immediate' } })
-    await settle()
-    expect(api.updateNotificationPreferences).toHaveBeenCalledTimes(1)
-    expect(api.updateNotificationPreferences.mock.calls[0][0]).toEqual({ digest: 'weekly' })
-
-    await act(async () => put.resolve({ ...prefs, digest: 'weekly' }))
-    await waitFor(() => expect(digest).toHaveValue('weekly'))
-    expect(digest).not.toHaveAttribute('aria-disabled')
-    expect(digest).not.toBeDisabled()
-    expect(document.activeElement).toBe(digest)
+    expect(await screen.findByText('Alerts that aren\'t real-time arrive in one email a day.')).toBeInTheDocument()
+    expect(screen.getByText('Daily')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Filing alerts' })).toBeInTheDocument()
   })
 })

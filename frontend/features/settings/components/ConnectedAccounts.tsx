@@ -4,7 +4,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { KeyIcon, LinkIcon, SignOutIcon, WarningCircleIcon } from '@/lib/icons'
+import { KeyIcon, SignOutIcon, WarningCircleIcon } from '@/lib/icons'
 import {
   getConnections,
   unlinkProvider,
@@ -80,7 +80,6 @@ export default function ConnectedAccounts() {
   return (
     <Card className="p-6 mb-6">
       <div className="flex items-center gap-3 mb-2">
-        <LinkIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2
           ref={headingRef}
           tabIndex={-1}

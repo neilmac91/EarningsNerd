@@ -8,6 +8,8 @@
  * response exists. Never hardcode the numbers elsewhere — `tests/unit/planLimitsLockstep.spec.ts`
  * fails when a value diverges from the backend or a bare literal reappears in copy.
  */
+import { ENABLE_ANALYSIS } from './featureFlags'
+
 export const FREE_SUMMARY_LIMIT = 5
 export const FREE_EARNINGS_ALERT_LIMIT = 3
 
@@ -18,3 +20,15 @@ export const FREE_EARNINGS_ALERT_LIMIT = 3
  */
 export const FREE_COPILOT_QUESTIONS = 3
 export const FREE_HISTORY_RETENTION_DAYS = 90
+
+/**
+ * What Pro adds, as the one hand-typed list the product shows (the upgrade dialog and anything that
+ * composes it). Multi-Period Analysis is named only while NEXT_PUBLIC_ENABLE_ANALYSIS ships it, read
+ * at call time so the flag decides each render. `tests/unit/analysis-route-hidden.spec.tsx` renders
+ * the dialog both ways and fails on a second "Pro includes" list anywhere else in the source.
+ */
+export function proIncludes(): string {
+  const items = ['unlimited summaries', 'hourly filing alerts', '8-K alerts', 'exports']
+  if (ENABLE_ANALYSIS) items.push('Multi-Period Analysis')
+  return `Pro includes ${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}.`
+}

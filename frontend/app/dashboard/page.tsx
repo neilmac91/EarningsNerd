@@ -8,7 +8,7 @@ import { getUsage, getSubscriptionStatus, createPortalSession } from '@/features
 import { getSavedSummaries, deleteSavedSummary, SavedSummary } from '@/features/summaries/api/summaries-api'
 import { getWatchlistInsights } from '@/features/watchlist/api/watchlist-api'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircleIcon, LightningIcon, TrashIcon, WarningCircleIcon } from '@/lib/icons'
 import Link from 'next/link'
 import { formatLocalDate } from '@/lib/format'
@@ -21,7 +21,7 @@ import EarningsCalendar from '@/features/dashboard/components/EarningsCalendar'
 import YourCompanies from '@/features/dashboard/components/YourCompanies'
 import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import analytics from '@/lib/analytics'
-import { Badge, Button, buttonVariants, Card, GuidanceCard, SkeletonStat, SkeletonText } from '@/components/ui'
+import { Badge, Button, buttonVariants, Card, GuidanceCard, Notice, SkeletonStat, SkeletonText } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
@@ -166,6 +166,17 @@ export default function DashboardPage() {
     }
   }, [user])
 
+  // Stripe's success_url (backend routers/subscriptions.py) lands here with ?success=true. Read after
+  // hydration from window.location, not useSearchParams(): that hook outside a Suspense boundary bails
+  // the page out of the server HTML. The notice only reads the subscription query the page already
+  // holds; the webhook can land after the redirect, so a plan still Free is not called Pro.
+  const [checkoutReturned, setCheckoutReturned] = useState(false)
+  useEffect(() => {
+    const returned = new URLSearchParams(window.location.search).get('success') === 'true'
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot post-hydration read of the return flag, as the filing page reads its URL flags; reading window.location during render would mismatch the server HTML
+    if (returned) setCheckoutReturned(true)
+  }, [])
+
   // One header for the skeleton and the loaded page. Usage and subscription only start once the user
   // resolves, so by the time the grid replaces the bones the header already carries the real name and
   // the Log out action, and the grid lands without a shift. The name arriving on a cold load moves
@@ -261,8 +272,21 @@ export default function DashboardPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
-        {/* Reverse-trial countdown (renders only while a Pro trial is active) */}
-        <TrialBanner status={subscription?.status} trialEnd={subscription?.trial_end} className="mb-6" />
+        {checkoutReturned && subscription && (
+          subscription.is_pro ? (
+            <Notice variant="success" title="Pro is active" className="mb-6" />
+          ) : (
+            <Notice
+              variant="info"
+              title="Checkout finished; your plan updates in a moment"
+              description="Reload this page if it still shows Free."
+              className="mb-6"
+            />
+          )
+        )}
+
+        {/* The trial's end date (renders only while the resolved plan is a live Pro trial) */}
+        <TrialBanner isPro={subscription?.is_pro} status={subscription?.status} trialEnd={subscription?.trial_end} className="mb-6" />
 
         {/* Usage-warning banner surfaced at the top where it will actually be seen (the plan/usage
             strip lives in the side column). */}

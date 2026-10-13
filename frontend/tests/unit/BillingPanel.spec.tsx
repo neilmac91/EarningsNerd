@@ -77,6 +77,9 @@ describe('BillingPanel', () => {
 
     const subscribeLink = await screen.findByRole('link', { name: /subscribe to pro/i })
     expect(subscribeLink).toHaveAttribute('href', '/pricing')
+    // The trial line states the end date, never a countdown from the browser clock (DSW-17).
+    expect(screen.getByText('Pro trial ends Jun 25, 2026.')).toBeInTheDocument()
+    expect(screen.queryByText(/days? left/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /manage billing/i })).not.toBeInTheDocument()
   })
 
@@ -92,7 +95,7 @@ describe('BillingPanel', () => {
     renderPanel()
     expect(await screen.findByText('Free', { exact: true })).toBeInTheDocument()
     expect(screen.queryByText('Pro (trial)', { exact: true })).not.toBeInTheDocument()
-    expect(screen.queryByText(/in your Pro trial/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Pro trial ends/)).not.toBeInTheDocument()
     if (customerId) {
       expect(screen.getByRole('button', { name: /manage billing/i })).toBeInTheDocument()
       expect(screen.queryByRole('link', { name: /upgrade to pro/i })).not.toBeInTheDocument()

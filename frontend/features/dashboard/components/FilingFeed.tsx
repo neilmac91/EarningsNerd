@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useRef } from 'react'
 import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRightIcon, NewspaperIcon } from '@/lib/icons'
+import { ArrowRightIcon } from '@/lib/icons'
 import { getDashboardFeed } from '@/features/dashboard/api/dashboard-api'
 import { GuidanceCard, Skeleton } from '@/components/ui'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
@@ -62,7 +62,6 @@ export default function FilingFeed({
     <section>
       <div className="mb-4">
         <div className="flex items-center gap-2">
-          <NewspaperIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
           <h2
             ref={headingRef}
             tabIndex={-1}

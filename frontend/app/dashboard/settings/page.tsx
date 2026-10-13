@@ -272,7 +272,7 @@ export default function SettingsPage() {
                     loadingText="Deleting..."
                     leftIcon={<TrashIcon className="h-4 w-4" />}
                   >
-                    Confirm Deletion
+                    Delete my account
                   </Button>
 
                   <Button

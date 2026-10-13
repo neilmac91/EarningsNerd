@@ -35,33 +35,40 @@ interface CurrentUser {
 // while it lived in PricingContent the whole body (H1, plans, prices, FAQ) shipped as the spinner
 // fallback and crawlers saw no content. Renders nothing — it resolves the incoming billing cycle
 // and reacts to Stripe's return params without removing the plans from server HTML.
-function PricingQueryEffects({ onBillingResolved }: { onBillingResolved: (cycle: BillingCycle) => void }) {
+function PricingQueryEffects({ onBillingResolved, onCheckoutCanceled }: {
+  onBillingResolved: (cycle: BillingCycle) => void
+  onCheckoutCanceled: (canceled: boolean) => void
+}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const requestedBilling = searchParams.get('billing')
+  const checkoutCanceled = searchParams.get('canceled') === 'true'
 
   useEffect(() => {
     onBillingResolved(billingCycleFromQuery(requestedBilling))
   }, [requestedBilling, onBillingResolved])
 
+  // Stripe's cancel_url (backend routers/subscriptions.py) returns here with ?canceled=true; the page
+  // says so beside its intro. Presentation only: nothing about the plan or checkout changes.
   useEffect(() => {
-    // Handle success/cancel from Stripe
+    onCheckoutCanceled(checkoutCanceled)
+  }, [checkoutCanceled, onCheckoutCanceled])
+
+  useEffect(() => {
+    // Handle success from Stripe: refresh subscription status
     if (searchParams.get('success') === 'true') {
-      // Refresh subscription status
       router.refresh()
-    }
-    if (searchParams.get('canceled') === 'true') {
-      // Handle cancellation
     }
   }, [searchParams, router])
 
   return null
 }
 
-function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
+function PricingContent({ billingCycle, setBillingCycle, billingResolved, checkoutCanceled }: {
   billingCycle: BillingCycle
   setBillingCycle: (cycle: BillingCycle) => void
   billingResolved: boolean
+  checkoutCanceled: boolean
 }) {
   const router = useRouter()
   const yearlyLabelId = useId()
@@ -315,6 +322,12 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
             downgrade at any time.
           </p>
 
+          {checkoutCanceled && (
+            <div className="mt-6 mx-auto max-w-2xl text-left">
+              <Notice variant="info" title="Checkout cancelled" description="Nothing was charged." />
+            </div>
+          )}
+
           {identityUnavailable ? (
             // Identity failed with nothing retained: an account error, not a guest view. Each Notice is
             // keyed: unkeyed, React would reuse "Retry account check" as "Retry subscription" when one
@@ -566,6 +579,7 @@ export default function PricingPage() {
   // until it resolves, do not record a view or offer a checkout for the wrong incoming cycle.
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('yearly')
   const [billingResolved, setBillingResolved] = useState(false)
+  const [checkoutCanceled, setCheckoutCanceled] = useState(false)
   const resolveBilling = useCallback((cycle: BillingCycle) => {
     setBillingCycle(cycle)
     setBillingResolved(true)
@@ -574,9 +588,14 @@ export default function PricingPage() {
   return (
     <>
       <Suspense fallback={null}>
-        <PricingQueryEffects onBillingResolved={resolveBilling} />
+        <PricingQueryEffects onBillingResolved={resolveBilling} onCheckoutCanceled={setCheckoutCanceled} />
       </Suspense>
-      <PricingContent billingCycle={billingCycle} setBillingCycle={setBillingCycle} billingResolved={billingResolved} />
+      <PricingContent
+        billingCycle={billingCycle}
+        setBillingCycle={setBillingCycle}
+        billingResolved={billingResolved}
+        checkoutCanceled={checkoutCanceled}
+      />
     </>
   )
 }

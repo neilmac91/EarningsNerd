@@ -68,6 +68,20 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
   verification mail ends "Verify your email address and you can start reading."
+- **Settings and subscription** (`frontend/features/settings/`, `frontend/features/subscriptions/`,
+  D-033): Filing alerts offer only what the alert jobs read. The digest row states "Daily" ("Alerts
+  that aren't real-time arrive in one email a day.") in place of a frequency select no job honoured;
+  real-time alerts read "An email from the hourly filing check, instead of the daily digest." and
+  8-K alerts "Current reports on material events." The Pro list in the upgrade dialog is one shared
+  string that names Multi-Period Analysis only while that flag ships it. The trial banner and the
+  billing panel state the trial's end date ("Your Pro trial ends Jun 25, 2026."), never a countdown,
+  and the banner shows only while the resolved plan is a live Pro trial. Commerce carries the
+  Lightning glyph (the Pro badge, the trial banner), "Analyze trends" a chart glyph, and the
+  sparkle stays on the AI summary chip; the dead SubscriptionGate is gone. The locked overlay reads
+  "Upgrade to Pro". Section headings in settings and on the dashboard carry no icon. The dashboard
+  answers a finished checkout ("Pro is active", or "Checkout finished; your plan updates in a
+  moment" while the webhook lands) and pricing a cancelled one ("Checkout cancelled. Nothing was
+  charged."), reading only the subscription query and the return URL.
 
 ## 4. The mark's files and the icons
 

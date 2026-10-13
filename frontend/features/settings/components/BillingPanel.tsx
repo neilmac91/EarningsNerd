@@ -4,7 +4,7 @@ import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { useRef } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { CreditCardIcon, SparkleIcon } from '@/lib/icons'
+import { LightningIcon } from '@/lib/icons'
 import {
   getSubscriptionStatus,
   getUsage,
@@ -23,13 +23,6 @@ import { SkeletonText } from '@/components/ui/Skeleton'
 import { queryKeys } from '@/lib/queryKeys'
 import { untilPageReturns } from '@/lib/untilPageReturns'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
-
-function daysUntil(value: string | null): number | null {
-  if (!value) return null
-  const end = new Date(value).getTime()
-  if (Number.isNaN(end)) return null
-  return Math.max(0, Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24)))
-}
 
 export default function BillingPanel() {
   const identityQuery = useQuery({
@@ -70,8 +63,7 @@ export default function BillingPanel() {
   if (identityUnavailable || subscriptionUnavailable) {
     return (
       <Card className="p-6 mb-6">
-        <div className="flex items-center gap-3 mb-4">
-          <CreditCardIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+        <div className="mb-4">
           <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark">Billing</h2>
         </div>
         <Notice
@@ -95,13 +87,11 @@ export default function BillingPanel() {
   const isPro = Boolean(sub?.is_pro)
   // The API resolves expired trial rows to Free even while their raw status stays trialing.
   const isTrialing = isPro && sub?.status === 'trialing'
-  const trialDays = isTrialing ? daysUntil(sub?.trial_end ?? null) : null
   const planLabel = isTrialing ? 'Pro (trial)' : isPro ? 'Pro' : 'Free'
 
   return (
     <Card className="p-6 mb-6">
-      <div className="flex items-center gap-3 mb-4">
-        <CreditCardIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+      <div className="mb-4">
         <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark">Billing</h2>
       </div>
 
@@ -130,7 +120,7 @@ export default function BillingPanel() {
                   carries state text like "Pro (trial)" that must stay sentence case. */}
               <Badge
                 variant={isPro ? 'brand' : 'free'}
-                icon={isPro ? <SparkleIcon className="h-3.5 w-3.5" /> : null}
+                icon={isPro ? <LightningIcon className="h-3.5 w-3.5" /> : null}
               >
                 {planLabel}
               </Badge>
@@ -161,11 +151,10 @@ export default function BillingPanel() {
             )}
           </div>
 
-          {/* Trial countdown */}
-          {isTrialing && trialDays !== null && (
+          {/* Trial end: the date, never a countdown (docs/voice-and-style.md: patient). */}
+          {isTrialing && sub?.trial_end && (
             <div className="rounded-lg border border-brand-border bg-brand-weak dark:border-white/10 dark:bg-white/5 px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              <strong>{trialDays} {trialDays === 1 ? 'day' : 'days'} left</strong> in your Pro trial
-              {sub?.trial_end ? ` · ends ${formatLocalDate(sub.trial_end, 'MMM d, yyyy')}` : ''}.
+              Pro trial ends {formatLocalDate(sub.trial_end, 'MMM d, yyyy')}.
             </div>
           )}
 

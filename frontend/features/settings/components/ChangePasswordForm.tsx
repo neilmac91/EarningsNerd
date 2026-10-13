@@ -3,7 +3,7 @@
 import { queryKeys } from '@/lib/queryKeys'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircleIcon, KeyIcon } from '@/lib/icons'
+import { CheckCircleIcon } from '@/lib/icons'
 import { changePassword, getConnections } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Button, primaryUnavailableClass } from '@/components/ui/Button'
@@ -75,7 +75,6 @@ export default function ChangePasswordForm() {
   return (
     <Card className="p-6 mb-6">
       <div className="flex items-center gap-3 mb-2">
-        <KeyIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
           {hasPassword ? 'Change password' : 'Set a password'}
         </h2>

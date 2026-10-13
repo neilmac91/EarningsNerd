@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircleIcon, UserIcon } from '@/lib/icons'
+import { CheckCircleIcon } from '@/lib/icons'
 import { getCurrentUserSafe, updateProfile } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Button, primaryUnavailableClass } from '@/components/ui/Button'
@@ -37,7 +37,6 @@ export default function ProfileForm() {
   return (
     <Card className="p-6 mb-6">
       <div className="flex items-center gap-3 mb-4">
-        <UserIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Profile</h2>
       </div>
 

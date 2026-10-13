@@ -1,9 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { SparkleIcon } from '@/lib/icons'
+import { LightningIcon } from '@/lib/icons'
+import { formatLocalDate } from '@/lib/format'
 
 interface TrialBannerProps {
+  /** The resolved plan (GET /api/subscriptions/subscription `is_pro`). An expired trial row keeps its
+   *  raw `trialing` status after the API resolves it to Free, so status alone never decides. */
+  isPro: boolean | null | undefined
   /** Subscription status from GET /api/subscriptions/subscription. */
   status: string | null | undefined
   /** ISO timestamp of trial end (trial_end). */
@@ -12,32 +16,27 @@ interface TrialBannerProps {
   className?: string
 }
 
-function daysRemaining(trialEnd: string): number | null {
-  const end = new Date(trialEnd).getTime()
-  if (Number.isNaN(end)) return null
-  return Math.max(0, Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24)))
-}
-
 /**
- * Shows "N days left in your Pro trial" while a reverse trial is active. Renders nothing for
- * non-trialing users (or expired/unknown trials), so it's safe to drop into any authed surface.
+ * States the date a live Pro trial ends. Renders nothing unless the plan resolves to Pro while the
+ * status is trialing (lessons/frontend-trial-labels-use-entitlements.md), so an expired trial with a
+ * stale trial_end never reads as current. The date, not a countdown: the voice is patient. The glyph
+ * is Lightning, commerce's mark; the sparkle belongs to the AI summary chip alone.
  */
-export default function TrialBanner({ status, trialEnd, className = '' }: TrialBannerProps) {
-  if (status !== 'trialing' || !trialEnd) return null
-  const days = daysRemaining(trialEnd)
-  if (days === null || days <= 0) return null
+export default function TrialBanner({ isPro, status, trialEnd, className = '' }: TrialBannerProps) {
+  if (!isPro || status !== 'trialing') return null
+  // trial_end is a Stripe instant; formatLocalDate reports its UTC calendar day, as BillingPanel does.
+  const endsOn = formatLocalDate(trialEnd, 'MMM d, yyyy')
+  if (!endsOn) return null
 
   return (
     <div className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-border dark:border-brand-dark/40 bg-brand-strong/10 dark:bg-brand-dark/15 px-4 py-3 ${className}`}>
       <div className="flex items-center gap-2 text-sm text-text-primary-light dark:text-text-primary-dark">
-        <SparkleIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
-        <span>
-          <strong>{days} {days === 1 ? 'day' : 'days'} left</strong> in your Pro trial.
-        </span>
+        <LightningIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
+        <span>Your Pro trial ends {endsOn}.</span>
       </div>
       <Link
         href="/pricing"
-        className="rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark px-3 py-1.5 text-xs font-semibold transition"
+        className="rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark px-3 py-1.5 text-xs font-semibold transition"
       >
         Keep Pro
       </Link>
