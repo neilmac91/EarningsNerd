@@ -10,17 +10,23 @@ const ALLOWED_PATHS = new Set([
   '/reset-password',
   '/pricing',
   '/privacy',
+  '/terms',
   '/security',
   '/contact',
   '/robots.txt',
   '/sitemap.xml',
   '/favicon.ico',
+  // The site's own files stay reachable while the gate is up (WAITLIST_MODE=true is the rollback
+  // state): the social card every shared link previews with, the touch icon and the PWA manifest.
+  '/og-image.png',
+  '/apple-touch-icon.png',
+  '/manifest.webmanifest',
 ])
 
 // Demo surfaces are reachable even while the waitlist gate is up, so prospective users
 // can experience the core product (choose company -> pick filing -> get summary) before
 // signing up. The homepage `/` stays gated and still routes to /waitlist.
-const ALLOWED_PREFIXES = ['/_next', '/api', '/public', '/assets', '/company', '/filing']
+const ALLOWED_PREFIXES = ['/_next', '/api', '/public', '/assets', '/icons/', '/company', '/filing']
 
 // Protected routes that require authentication
 const PROTECTED_ROUTES = ['/dashboard', '/profile', '/settings', '/admin']

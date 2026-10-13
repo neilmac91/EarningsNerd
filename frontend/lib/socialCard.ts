@@ -1,0 +1,15 @@
+/**
+ * The site social card: public/og-image.png, rendered from scripts/brand/og-template.html by
+ * `npm run brand:assets`. This is the one place its URL is typed (routeMetadata.spec.ts holds it).
+ * Bump `?v=` whenever the committed card changes so social scrapers fetch the new pixels.
+ *
+ * Next replaces a nested `openGraph` or `twitter` object wholesale rather than merging it with the
+ * root layout's, so every page that sets its own openGraph carries `images: [SOCIAL_CARD]` too. A
+ * page-specific card (company or filing) waits for founder decision D8.
+ */
+export const SOCIAL_CARD = {
+  url: '/og-image.png?v=5',
+  width: 1200,
+  height: 630,
+  alt: 'EarningsNerd: the summary that shows its work',
+} as const

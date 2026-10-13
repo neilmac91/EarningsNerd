@@ -9,6 +9,7 @@ import CookieConsent from '@/components/CookieConsent'
 import { PrivateAnalytics } from './private-analytics'
 import { fetchSignupConfig } from '@/lib/serverApi'
 import { resolveAccessMode } from '@/features/marketing/lib/access'
+import { SOCIAL_CARD } from '@/lib/socialCard'
 
 // Type v2 — fixed roles, self-hosted via next/font (zero layout shift; the runtime
 // font switcher is retired). Inter loads WITH the variable opsz axis: that is what
@@ -41,29 +42,21 @@ const THEME_BOOTSTRAP = `(function(){try{
 }catch(e){}})();`
 
 export const metadata: Metadata = {
-  title: 'EarningsNerd | AI-powered SEC filing analysis',
+  // 'Page | EarningsNerd': the page first, the brand last (D-035). A plain string, no template: every
+  // route's own layout or page writes its whole title, and routeMetadata.spec.ts holds the form.
+  title: 'AI summaries of SEC filings | EarningsNerd',
   description: 'The summary that shows its work. AI summaries of 10-Ks and 10-Qs from SEC EDGAR, with figures checked against the company’s XBRL where they can be.',
   keywords: ['SEC filings', '10-K', '10-Q', 'financial analysis', 'earnings', 'stock analysis', 'AI summaries', 'SEC EDGAR'],
   metadataBase: new URL('https://www.earningsnerd.io'),
+  // No title or description here: Next fills og:title, og:description and the twitter pair from each
+  // page's own title and description, so a shared /pricing link previews as Pricing, not as the site.
   openGraph: {
-    title: 'EarningsNerd | AI-powered SEC filing analysis',
-    description: 'The summary that shows its work. AI summaries of 10-Ks and 10-Qs, with figures checked against the company’s XBRL where they can be.',
     type: 'website',
-    images: [
-      {
-        // Bump when the committed card changes so social scrapers fetch the current pixels.
-        url: '/og-image.png?v=4',
-        width: 1200,
-        height: 630,
-        alt: 'EarningsNerd: the summary that shows its work',
-      },
-    ],
+    images: [SOCIAL_CARD],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'EarningsNerd | AI-powered SEC filing analysis',
-    description: 'The summary that shows its work. AI summaries of 10-Ks and 10-Qs, with figures checked against the company’s XBRL where they can be.',
-    images: ['/og-image.png?v=4'],
+    images: [SOCIAL_CARD.url],
   },
   icons: {
     // favicon.ico carries 16/32/48; the self-backgrounded appicon SVG scales

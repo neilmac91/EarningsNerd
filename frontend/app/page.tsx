@@ -13,6 +13,7 @@ import CtaBanner from '@/features/marketing/components/CtaBanner'
 import { betaPricingActive, resolveAccessMode } from '@/features/marketing/lib/access'
 import { DEFAULT_HEADLINE, pageTitleFor } from '@/features/marketing/lib/headline'
 import { LOGO_DEV_ENABLED } from '@/lib/featureFlags'
+import { SOCIAL_CARD } from '@/lib/socialCard'
 import { fetchExampleData, fetchReportingThisWeek, fetchSignupConfig } from '@/lib/serverApi'
 
 const SITE_URL = 'https://www.earningsnerd.io'
@@ -37,21 +38,14 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     type: 'website',
     url: '/',
-    images: [
-      {
-        // Same card as the root layout (a nested `openGraph` replaces the layout's, not merges).
-        url: '/og-image.png?v=4',
-        width: 1200,
-        height: 630,
-        alt: 'EarningsNerd: the summary that shows its work',
-      },
-    ],
+    // Same card as the root layout (a nested `openGraph` replaces the layout's, not merges).
+    images: [SOCIAL_CARD],
   },
   twitter: {
     card: 'summary_large_image',
     title: pageTitleFor(DEFAULT_HEADLINE),
     description: DESCRIPTION,
-    images: ['/og-image.png?v=4'],
+    images: [SOCIAL_CARD.url],
   },
 }
 

@@ -5,6 +5,7 @@ import CompanyPageClient from './page-client'
 import { fetchCompanyServer, fetchCompanyFilingsServer } from '@/lib/serverApi'
 import type { Company } from '@/features/companies/api/companies-api'
 import { edgarCompanyUrl } from '@/features/companies/lib/edgar'
+import { SOCIAL_CARD } from '@/lib/socialCard'
 
 const SITE_URL = 'https://www.earningsnerd.io'
 
@@ -29,12 +30,17 @@ export async function generateMetadata({ params }: CompanyPageProps): Promise<Me
   const company = result.status === 'ok' ? result.data : null
   const displayName = formatCompanyName(company?.name) || ticker
 
-  const title = company
-    ? `${displayName} (${ticker}) SEC Filings & AI Summaries | EarningsNerd`
-    : `${ticker} SEC Filings & AI Summaries | EarningsNerd`
-  const description =
-    `${displayName} 10-K and 10-Q filings with AI summaries: financial highlights, ` +
-    'risk factors, and management commentary, sourced from SEC EDGAR.'
+  const unsupported = company?.coverage_status === 'unsupported_foreign'
+
+  // With the company unknown (backend unreachable) the ticker stands alone, never "AAPL (AAPL)".
+  const label = company ? `${displayName} (${ticker})` : ticker
+  const title = `${label} SEC filings and AI summaries | EarningsNerd`
+  // The description says what the page holds: an issuer that files no financial reports with the SEC
+  // gets the same sentence its page shows, never a promise of summaries it cannot have.
+  const description = unsupported
+    ? company?.coverage_reason ||
+      `${displayName} does not file financial reports with the SEC, so EarningsNerd has no filings to analyze.`
+    : `${label} filings from SEC EDGAR, with AI summaries that show their work.`
 
   return {
     title,
@@ -42,19 +48,21 @@ export async function generateMetadata({ params }: CompanyPageProps): Promise<Me
     alternates: { canonical: `/company/${ticker}` },
     // Honest empty states are for people, not the index: an unsupported foreign issuer's page
     // has no filings and never will, so keep it out of search results.
-    ...(company?.coverage_status === 'unsupported_foreign'
-      ? { robots: { index: false, follow: true } }
-      : {}),
+    ...(unsupported ? { robots: { index: false, follow: true } } : {}),
+    // This openGraph replaces the root layout's wholesale, so it carries the site card itself. A
+    // company-specific card waits for founder decision D8.
     openGraph: {
       title,
       description,
       type: 'website',
       url: `${SITE_URL}/company/${ticker}`,
+      images: [SOCIAL_CARD],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
+      images: [SOCIAL_CARD.url],
     },
   }
 }

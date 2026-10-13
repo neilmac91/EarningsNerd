@@ -10,7 +10,7 @@ import WaitlistExample, { WaitlistExamplePending } from '@/features/waitlist/com
 // While the waitlist gate is up, this page is the de-facto homepage — it needs
 // its own metadata and a self-canonical so search engines index something real.
 export const metadata: Metadata = {
-  title: 'EarningsNerd | The 10-K, read for you, with receipts',
+  title: 'The 10-K, read for you, with receipts | EarningsNerd',
   description:
     'Join the EarningsNerd waitlist. AI summaries of SEC filings: financials, risks, and trends, sourced directly from SEC EDGAR.',
   alternates: {

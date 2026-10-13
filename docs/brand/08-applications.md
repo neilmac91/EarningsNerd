@@ -25,7 +25,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 | Sample data | `lib/landing-samples.ts` | Every sample on the page is Apple's FY2025 10-K against FY2024: revenue $416.2B vs $391.0B (+6.4%), net income $112.0B vs $93.7B (+19.5%) and diluted EPS $7.46 vs $6.08 (+22.7%) from SEC companyfacts; Services $109.2B vs $96.2B (+13.5%), a dimensioned fact companyfacts does not carry, from the 10-K's own inline XBRL; and the verbatim Item 7 sentence on Services (00-audit.md §4, D-021). The Multi-Period demo is the one exception (§8). |
 | Notable filings | `app/page.tsx`, `features/filings/components/NotableFilings.tsx` | Unmounted (see §7). |
 | Footer | `components/Footer.tsx` | The tagline, "The summary that shows its work." |
-| Metadata | `app/page.tsx`, `app/layout.tsx`, `app/manifest.ts` | Descriptions and the social image's alt text say what the product does in the voice; the Safari pinned-tab icon is declared (`mask-icon`, §4). |
+| Metadata | `app/page.tsx`, `app/layout.tsx`, `app/manifest.ts`, `lib/socialCard.ts` | Descriptions and the social image's alt text say what the product does in the voice; the Safari pinned-tab icon is declared (`mask-icon`, §4). Titles put the page first and the brand last ("Read the filing faster. Keep the source in view \| EarningsNerd"); the root default is "AI summaries of SEC filings \| EarningsNerd", and the root's social preview carries no title or description of its own, so Next fills both from each page (D-035). |
 
 ## 2. The other public surfaces
 
@@ -55,6 +55,19 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   (`frontend/app/posthog-provider.tsx`); Vercel Web Analytics is cookieless and runs for every
   visitor, which is why the clause names analytics cookies. The categories, the controls and the
   privacy link are unchanged.
+
+- **Metadata and the social card** (every `app/**/page.tsx` and `layout.tsx`, `lib/socialCard.ts`,
+  `scripts/brand/og-template.html`): every route's tab and shared-link preview reads
+  "<Page name> | EarningsNerd" in sentence case, from its own page or from a `layout.tsx` beside a
+  client page (dashboard, settings, watchlist, the account pages, the admin pages), and every private
+  route stays out of the index. Company and filing pages carry the site card, since a page-level
+  `openGraph` replaces the root one; their descriptions say what the page holds in each state (a
+  foreign issuer with no SEC reports is told as such, a filing with no summary yet claims none), and
+  a filing's title names its filed date. The card's URL is typed once (`?v=5`); its headline breaks
+  before "shows its work." so the highlight never crosses a line, and the highlight's hairline is 2px.
+  Under `WAITLIST_MODE=true` (the rollback state) the card, the icons, the manifest and /terms stay
+  reachable. A company-specific or filing-specific card waits for the founder (D8). Gates:
+  `routeMetadata.spec.ts`, `markSingleSource.spec.ts`, `middleware.spec.ts`.
 
 ## 3. Inside the product
 
