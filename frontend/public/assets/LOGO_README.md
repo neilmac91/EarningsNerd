@@ -43,10 +43,11 @@ Never inline the mark by hand — compose the components:
 `npm run brand:assets` (see `scripts/generate-brand-assets.mjs`) regenerates the
 committed binaries from this directory: `favicon.ico`, `apple-touch-icon.png`
 (180, full-bleed — Apple applies its own corner mask), `icons/icon-{192,512}.png`
-(+ `-maskable` full-bleed variants, mark at 0.62 for the r=40% safe zone), and
+(+ `-maskable` full-bleed variants, mark at 0.62 for the r=40% safe zone),
 `og-image.png` (deterministic Playwright render with the committed Inter woff2), and the
-sage mark raster in two places, `assets/earningsnerd-mark-sage.png` here and
-`backend/app/assets/brand/earningsnerd-mark.png`.
+sage mark raster, written twice from one buffer: `assets/earningsnerd-mark-sage.png` (served
+at a fixed URL for mail) and `backend/app/assets/brand/earningsnerd-mark.png` (embedded in the
+Excel export).
 
 ## Rules
 
