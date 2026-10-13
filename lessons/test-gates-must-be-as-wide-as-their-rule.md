@@ -62,8 +62,9 @@ just fixed shows the gate catches that site; it says nothing about the other for
 take. Before a record says what a gate holds, plant one case for each way the rule can be broken
 and one for each look-alike that must pass, mark each flag or clean, run the gate over them and
 record the score. Name in the gate's header what stays out of reach, so the record claims only
-what the score shows, and keep the planted cases with the PR (its body) so the next review reruns
-and extends them instead of starting over.
+what the score shows. For a gate that reads code (a source scan, an AST walk), keep the planted
+cases as the gate's fixture and score them in its own spec, so CI reruns the score on every change
+and the next review extends the cases instead of starting over.
 
 Corollary for the anti-vacuity floor: assert the scanner actually found things (>100 files,
 >100 tests). A narrow gate and a broken walk look identical from the outside — both green.
@@ -84,8 +85,13 @@ on every site it fixed, and its records said no sage element anywhere rendered a
 a wrapper component, a block-bodied callback, SVG text, among others) and failed 3 that must pass
 (a literal "10-K", a primary Button or a neutral Badge inside sage text). After it asked the
 components for their colours and followed sage through variants, states and components, it scored
-50 of 50. The review of `88f801c` widened the same probe to 74 forms and found 17 more mismatches (sage
-given to a component where it is used, a comparison read as a number, a size or `text-inherit` read
-as a colour, a visited or focused sage count, a control holding its count in a span of its own ink,
-a const another function declares, among others); fixed, it scored 74 of 74. Companion to `arch-structural-gates-over-prose-rules.md`, which says to build the gate;
-this one says how wide to build it.
+50 of 50. The review of `88f801c`, with the forms its fixes turned up, widened the probe to 74; at
+`88f801c` rule 2 misread 17 of them (sage given to a component where it is used, a comparison read
+as a number, a size or `text-inherit` read as a colour, a visited or focused sage count, a control
+holding its count in a span of its own ink, a const another function declares, among others), and
+fixed it named every form that breaks the rule and passed every look-alike and the known gap. The
+next reviews asked for the score to run in CI and added 42 forms, among them a chained `&&` the fix
+had stopped reading; the forms became the spec's fixture,
+`frontend/tests/unit/fixtures/brandRule2Forms.tsx`, 116 of them, scored on every run. Companion to
+`arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
+build it.

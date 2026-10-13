@@ -115,7 +115,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - test-eval-iteration-ergonomics.md — Exploit prompt-cache and pinned-accession ergonomics when iterating on evals
 - test-fixture-months-are-never-the-wall-clock-month.md — Seed fixture months that can never be the wall-clock month; pin the clock where cases depend on it
 - test-fresh-bytecode-prefix-before-trusting-local-timing.md — Give every local Python run on this Mac a fresh bytecode-cache prefix before trusting its timing
-- test-gates-must-be-as-wide-as-their-rule.md — A gate narrower than its rule is worse than no gate; evaluate the source, don't text-match it, and score it on planted forms of the rule before a record says what it holds
+- test-gates-must-be-as-wide-as-their-rule.md — A gate narrower than its rule is worse than no gate; evaluate the source, don't text-match it, and score it on planted forms of the rule before a record says what it holds, kept as its fixture when the gate reads code
 - test-isolate-process-wide-contextvars.md — Isolate process-wide ContextVars per test; CI's file order can hide a leak
 - test-judge-context-parity.md — Give an LLM judge the same (or a superset of the) grounding the generator used
 - test-layout-numbers-are-one-environments-run.md — Accept a layout measurement on its invariants, never on equal pixels; one pinned browser still measures differently on another machine
