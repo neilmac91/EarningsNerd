@@ -182,6 +182,27 @@ describe('brand rule 1: matching claims keep their scope', () => {
     }
     expect(offenders, 'say what the server checks: "where they can be checked", "checkable figures"').toEqual([])
   })
+
+  // The same scope for answers and citations (ASK-01, ASK-02, ASK-04): an Ask answer can carry an uncited
+  // figure or no citation at all (a not-disclosed verdict), and an XBRL citation is not filing text, so no
+  // copy promises that each answer or citation is exact, that a figure is never guessed, or that every
+  // claim is one click from proof. Say what the card shows: "cited passages you can check".
+  const ABSOLUTE_CLAIMS = [
+    /\b(?:each|every)\b[^.]{0,40}?\bexact\b/i,
+    /\bnever guessed\b/i,
+    /\bverifiable in one click\b/i,
+  ]
+  it('no shipped string or JSX text promises an exact citation for each answer, a figure never guessed, or one-click proof', () => {
+    const offenders: string[] = []
+    for (const { rel, sf } of SOURCES) {
+      visit(sf, (n) => {
+        if (ts.isImportDeclaration(n.parent ?? n) || ts.isExportDeclaration(n.parent ?? n)) return
+        const text = literalText(n)
+        if (text !== null && !ts.isNumericLiteral(n) && ABSOLUTE_CLAIMS.some((claim) => claim.test(text)) && !SCOPE.test(text)) offenders.push(where(rel, sf, n, text))
+      })
+    }
+    expect(offenders, 'scope the claim to what the answer card shows: "cited passages you can check against the filing"').toEqual([])
+  })
 })
 
 describe('brand rule 1b: the nine-part outline keeps its scope', () => {

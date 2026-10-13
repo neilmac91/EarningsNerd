@@ -538,10 +538,6 @@ const ALLOW_RETRY_LABEL: Record<string, { sites: string[]; reason: string }> = {
     sites: ['Button "Retry"'],
     reason: STREAM_RESTART + 'Re-asks a copilot question whose answer stream failed.',
   },
-  'features/filings/components/AskFilingAnswer.tsx': {
-    sites: ['Button "Retry"'],
-    reason: STREAM_RESTART + "The design system's reference copilot answer (0 importers), as CopilotMessage.",
-  },
   'features/calendar/components/EarningsCalendarPage.tsx': {
     sites: ['Button "Try again"'],
     reason: '"Try again" on the calendar error card: open in rule (h) (also in ALLOW_RETRY).',
@@ -551,8 +547,8 @@ const ALLOW_RETRY_LABEL: Record<string, { sites: string[]; reason: string }> = {
     reason: 'The full-text search Retry: open in rule (h) (also in ALLOW_RETRY).',
   },
 }
-const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 9
-const MAX_RETRY_LABEL_PINNED_SITES = 9
+const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 8
+const MAX_RETRY_LABEL_PINNED_SITES = 8
 
 /** Sites not covered by their file's pins, as `file:line: expr`. Each pin covers one site. */
 function unpinned(foundSites: Map<string, Site[]>, allow: Record<string, { sites: string[] }>): string[] {

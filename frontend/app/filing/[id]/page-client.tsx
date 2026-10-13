@@ -251,7 +251,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
       <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
         <div className="text-center">
           <h1 className="text-2xl font-semibold mb-4 text-text-primary-light dark:text-text-primary-dark">Filing not found</h1>
-          <Link href="/" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
+          <Link href="/" className="text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
             Go back home
           </Link>
         </div>

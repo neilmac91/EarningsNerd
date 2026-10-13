@@ -4,7 +4,7 @@ import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { SparkleIcon, XIcon } from '@/lib/icons'
+import { ChatCircleTextIcon, XIcon } from '@/lib/icons'
 import {
   askFilingStream,
   isCopilotPaywallError,
@@ -96,9 +96,9 @@ export default function AskCopilotRail({
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  // The standalone overlay panel container — owns the mobile focus trap (when !embedded).
+  // The standalone overlay panel container: owns the mobile focus trap (when !embedded).
   const panelRef = useRef<HTMLDivElement>(null)
-  // The standalone launcher (closed state) — focus returns here when the sheet closes.
+  // The standalone launcher (closed state): focus returns here when the sheet closes.
   const launcherRef = useRef<HTMLButtonElement>(null)
   // Keep the last asked question so the Retry button can re-run it.
   const lastQuestionRef = useRef<string | null>(null)
@@ -145,7 +145,7 @@ export default function AskCopilotRail({
   const { data: usage } = useQuery({
     queryKey: queryKeys.usage.byUser(user?.id),
     queryFn: getUsage,
-    // /usage is auth-gated — never fire it for an anon user (a guaranteed 401 from a public page).
+    // /usage is auth-gated: never fire it for an anon user (a guaranteed 401 from a public page).
     enabled: !!user && isAuthenticated && open,
     staleTime: 60_000,
   })
@@ -157,7 +157,7 @@ export default function AskCopilotRail({
   const canAsk = isPro || freeHasTaste
 
   // Anchor each turn ONCE, at ask time: the question + "Reading…" placeholder scroll into view,
-  // which is exactly where the answer will start. Deliberately NOT bottom-following the stream —
+  // which is exactly where the answer will start. Deliberately NOT bottom-following the stream:
   // that parked the reader at the sources list when the answer completed, forcing a scroll back
   // up to read from the start (field report). The reader scrolls at their own pace. One initial
   // scroll still runs when a restored history hydrates, so reopening shows the latest exchange.
@@ -326,7 +326,7 @@ export default function AskCopilotRail({
           })
           setIsStreaming(false)
           abortRef.current = null
-          // A question was metered server-side on completion — refresh the "N of M left" pill.
+          // A question was metered server-side on completion: refresh the "N of M left" pill.
           queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
         },
         onError: (msg) => {
@@ -347,7 +347,7 @@ export default function AskCopilotRail({
 
   const handleSubmit = (question: string) => {
     // Guard on canAsk too (not just the disabled composer) so a starter-question click can't slip
-    // past an exhausted FREE taste — the server would 403 anyway, but fail fast client-side.
+    // past an exhausted FREE taste: the server would 403 anyway, but fail fast client-side.
     if (isStreaming || !canAsk) return
     runQuestion(question, messagesRef.current)
   }
@@ -372,10 +372,12 @@ export default function AskCopilotRail({
     setUpgradeOpen(true)
   }
 
-  // Need a summary to cite against — don't render the rail at all without one.
+  // Need a summary to cite against: don't render the rail at all without one.
   if (!summaryAvailable) return null
 
-  const subjectLabel = ticker || companyName || 'this filing'
+  // "AAPL’s 10-K" when the issuer is known, else "this 10-K" (never "this filing’s 10-K").
+  const subjectName = ticker || companyName
+  const subjectFiling = subjectName ? `${subjectName}’s ${filingType}` : `this ${filingType}`
 
   // Who sees the conversation vs the teaser (roadmap 2.2): PRO and FREE-with-taste get the composer.
   // An authed FREE user who exhausts mid-session keeps the conversation (messages.length > 0) with
@@ -401,7 +403,7 @@ export default function AskCopilotRail({
         {messages.length === 0 ? (
           <div>
             <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              Ask anything about {subjectLabel}’s {filingType}. Answers are grounded in the filing and
+              Ask anything about {subjectFiling}. Answers are grounded in the filing and
               cite the excerpts they came from.
             </p>
             <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">
@@ -413,7 +415,7 @@ export default function AskCopilotRail({
                   key={q}
                   type="button"
                   onClick={() => handleSubmit(q)}
-                  className="rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:bg-brand-weak/70 dark:hover:bg-white/10"
+                  className="rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:bg-brand-weak/70 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 >
                   {q}
                 </button>
@@ -438,12 +440,14 @@ export default function AskCopilotRail({
         )}
       </div>
 
-      {/* Composer — Send locked (aria-disabled, still focusable) while streaming, or once a FREE
+      {/* Composer: Send locked (aria-disabled, still focusable) while streaming, or once a FREE
           user has spent their taste. */}
       <CopilotComposer ref={composerRef} onSubmit={handleSubmit} locked={isStreaming || !canAsk} />
 
       {/* Honest usage line. PRO: a calm monthly count. FREE: the lifetime taste balance, then a
-          gentle upsell at exhaustion (the conversation above stays put). */}
+          gentle upsell at exhaustion (the conversation above stays put). Pro's questions are capped
+          too, so no line promises an uncapped plan; the cap comes from the usage response
+          (planLimitsLockstep.spec.ts holds that word out of this directory). */}
       {isPro && usage && (
         <p className="px-4 pb-2 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
           {Math.max(usage.qa_limit - usage.qa_used, 0).toLocaleString()} of{' '}
@@ -457,18 +461,23 @@ export default function AskCopilotRail({
             <button
               type="button"
               onClick={() => handleUpgrade('copilot_free_taste')}
-              className="font-semibold text-brand-strong hover:underline dark:text-brand-strong-dark"
+              className="font-semibold text-brand-strong hover:underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             >
-              Upgrade for unlimited
+              Upgrade to Pro
             </button>
           </p>
         ) : (
           <div className="px-4 pb-3 pt-1 text-center">
             <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-              You’ve used your {freeTasteTotal} free Copilot question{freeTasteTotal === 1 ? '' : 's'}.
+              You’ve used your {freeTasteTotal} free question{freeTasteTotal === 1 ? '' : 's'}.
             </p>
+            {usage.qa_limit > 0 && (
+              <p className="mt-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                {`Pro includes ${usage.qa_limit.toLocaleString('en-US')} questions a month.`}
+              </p>
+            )}
             <Button size="sm" className="mt-1" onClick={() => handleUpgrade('copilot_free_taste_exhausted')}>
-              Upgrade to Pro for unlimited questions
+              Upgrade to Pro
             </Button>
           </div>
         )
@@ -480,7 +489,7 @@ export default function AskCopilotRail({
     <UpgradeModal
       open={upgradeOpen}
       onClose={() => setUpgradeOpen(false)}
-      feature="The filing Copilot"
+      feature="Ask this Filing"
     />
   )
 
@@ -508,7 +517,7 @@ export default function AskCopilotRail({
         className="fixed z-40 inline-flex items-center gap-2 rounded-full bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
         aria-label="Ask this Filing"
       >
-        <SparkleIcon className="h-4 w-4" />
+        <ChatCircleTextIcon className="h-4 w-4" aria-hidden="true" />
         Ask this Filing
         <kbd className="ml-1 hidden rounded border border-black/25 bg-black/10 px-1.5 py-0.5 text-data-xs font-semibold leading-none sm:inline-block">
           ⌘K
@@ -540,7 +549,7 @@ export default function AskCopilotRail({
         {/* Header */}
         <div className="flex items-center justify-between gap-2 border-b border-border-light dark:border-white/10 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
-            <SparkleIcon className="h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" />
+            <ChatCircleTextIcon className="h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
             <h2 className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Ask this Filing</h2>
             <Badge
               variant="brand"
@@ -554,7 +563,7 @@ export default function AskCopilotRail({
             type="button"
             onClick={() => onOpenChange(false)}
             aria-label="Close"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             <XIcon className="h-4 w-4" />
           </button>

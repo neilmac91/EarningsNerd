@@ -102,4 +102,24 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
     }
     expect(offenders, 'use FREE_SUMMARY_LIMIT / FREE_EARNINGS_ALERT_LIMIT from lib/planLimits instead').toEqual([])
   })
+
+  // Pro's Copilot questions are capped (COPILOT_MONTHLY_QUESTION_CAP, a fair-use 429 past it), so no copy
+  // offers "unlimited" questions (ASK-03). The cap is read from the usage response (qa_limit), never typed.
+  // The Copilot's own surfaces carry no "unlimited" at all; the plan surfaces keep it off question nouns
+  // (whether Pro summaries stay "unlimited" is a founder decision, pub/F05, so that clause is not here).
+  it('no Copilot or plan surface promises unlimited questions', () => {
+    const COPILOT_DIR = path.join('features', 'filings', 'components', 'copilot')
+    const QUESTION = /\bunlimited\s+(?:\w+\s+){0,2}(?:questions?|answers?|copilot|ask this filing)\b|\b(?:questions?|copilot|ask this filing)\b[^.]{0,30}\bunlimited\b/i
+    const offenders: string[] = []
+    for (const dir of [COPILOT_DIR, path.join('features', 'subscriptions')]) {
+      for (const file of walk(path.join(frontendDir, dir))) {
+        readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
+          if (dir === COPILOT_DIR ? /\bunlimited\b/i.test(line) : QUESTION.test(line)) {
+            offenders.push(`${path.relative(frontendDir, file)}:${index + 1}: ${line.trim()}`)
+          }
+        })
+      }
+    }
+    expect(offenders, "say what the plan includes, from the usage response: `Pro includes ${usage.qa_limit} questions a month.`").toEqual([])
+  })
 })

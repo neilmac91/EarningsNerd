@@ -113,7 +113,7 @@ describe('AskCopilotRail', () => {
     renderRail({ open: true, isPro: false })
     // Richer teaser: value prop + upsell CTA (no streaming). The CTA opens the contextual upgrade
     // modal and records the click, rather than navigating to a raw /pricing link.
-    expect(screen.getByText(/cited to the exact filing text/i)).toBeInTheDocument()
+    expect(screen.getByText(/cited passages you can check against the filing/i)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /upgrade to pro/i }))
     expect(analytics.paywallCtaClicked).toHaveBeenCalledWith(
       expect.objectContaining({ filingId: 42, entryPoint: 'copilot_rail' }),
@@ -136,7 +136,45 @@ describe('AskCopilotRail', () => {
     // Composer (not the teaser) once usage confirms taste remains, plus an honest count.
     expect(await screen.findByLabelText(/ask about this filing/i)).toBeInTheDocument()
     expect(screen.getByText(/2 of 3 free questions left/i)).toBeInTheDocument()
-    expect(screen.queryByText(/cited to the exact filing text/i)).not.toBeInTheDocument()
+    // Pro's questions are capped too, so the upsell names the plan and promises no "unlimited" (ASK-03).
+    expect(screen.getByRole('button', { name: 'Upgrade to Pro' })).toBeInTheDocument()
+    expect(screen.queryByText(/unlimited/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/cited passages you can check against the filing/i)).not.toBeInTheDocument()
+  })
+
+  it('a FREE user who spends the last question keeps the conversation, with the cap from usage and no "unlimited"', async () => {
+    let captured: CopilotHandlers | null = null
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => {
+      captured = handlers
+    })
+    mockGetUsage.mockResolvedValue({
+      ...PRO_USAGE, is_pro: false, qa_used: 0,
+      copilot_free_taste_used: 2, copilot_free_taste_total: 3,
+    })
+    const user = userEvent.setup()
+    renderRail({ open: true, isPro: false })
+    await user.type(await screen.findByLabelText(/ask about this filing/i), 'anything')
+    await user.click(screen.getByRole('button', { name: /^send$/i }))
+
+    mockGetUsage.mockResolvedValue({
+      ...PRO_USAGE, is_pro: false, qa_used: 0,
+      copilot_free_taste_used: 3, copilot_free_taste_total: 3,
+    })
+    await act(async () => {
+      captured!.onComplete({ answer: 'Revenue grew.', citations: [], grounded: 0, kind: 'answer', followups: [] })
+    })
+
+    // One product name in the sentence (D-034), and Pro's monthly cap read from the usage response.
+    expect(await screen.findByText('You’ve used your 3 free questions.')).toBeInTheDocument()
+    expect(screen.getByText('Pro includes 1,000 questions a month.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Upgrade to Pro' })).toBeInTheDocument()
+    expect(screen.queryByText(/unlimited|copilot/i)).not.toBeInTheDocument()
+  })
+
+  it('names the filing without a possessive on "this filing" when the issuer is unknown', () => {
+    renderRail({ open: true, ticker: null, companyName: null })
+    expect(screen.getByText(/ask anything about this 10-Q\./i)).toBeInTheDocument()
+    expect(screen.queryByText(/this filing’s/i)).not.toBeInTheDocument()
   })
 
   it('shows the teaser for a FREE user who has spent all their free questions', async () => {
@@ -147,7 +185,7 @@ describe('AskCopilotRail', () => {
     renderRail({ open: true, isPro: false })
 
     // Exhausted + no conversation yet → the locked teaser (its CTA upsells).
-    expect(await screen.findByText(/cited to the exact filing text/i)).toBeInTheDocument()
+    expect(await screen.findByText(/cited passages you can check against the filing/i)).toBeInTheDocument()
     expect(screen.queryByLabelText(/ask about this filing/i)).not.toBeInTheDocument()
   })
 

@@ -33,7 +33,10 @@ describe('CopilotTeaser', () => {
     const onUpgrade = vi.fn()
     render(<CopilotTeaser {...baseProps} onUpgrade={onUpgrade} />)
 
-    expect(screen.getByText(/never guessed/i)).toBeInTheDocument()
+    // Claims scoped to what the answer card shows (ASK-01, ASK-02; brandCopyRules rule 1).
+    expect(screen.getByText('Cited passages you can check against the filing')).toBeInTheDocument()
+    expect(screen.getByText('Figures from XBRL show the tag they came from')).toBeInTheDocument()
+    expect(screen.queryByText(/never guessed|every answer|exact filing text/i)).not.toBeInTheDocument()
     // The CTA is a button that opens the contextual upgrade modal (not a raw /pricing link).
     const cta = screen.getByRole('button', { name: /upgrade to pro/i })
     fireEvent.click(cta)
@@ -47,6 +50,18 @@ describe('CopilotTeaser', () => {
         entryPoint: 'copilot_rail',
       }),
     )
+  })
+
+  it("blurs a sample from Apple's verified FY2025 10-K, with the sequential markers a live answer shows", () => {
+    const { container } = render(<CopilotTeaser {...baseProps} />)
+    const sample = container.querySelector('[aria-hidden="true"]')!
+    expect(sample).toHaveTextContent('AAPL · 10-K · FY2025')
+    expect(sample).toHaveTextContent(
+      'Services net sales were $109.2B, up 13.5% from $96.2B [1]. Management attributes the increase to advertising, the App Store and cloud services [2].',
+    )
+    expect(sample).toHaveTextContent('2 matched sources')
+    // The server renumbers every marker, so a live answer never shows [F1].
+    expect(sample.textContent).not.toMatch(/\[F\d+\]/)
   })
 
   it('uses the issuer in the heading, falling back cleanly when unknown', () => {

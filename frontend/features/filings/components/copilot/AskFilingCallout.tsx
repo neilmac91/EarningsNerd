@@ -14,7 +14,7 @@ interface AskFilingCalloutProps {
 
 /**
  * End-of-summary discovery surface: a calm, on-brand callout placed directly under the analysis that
- * turns the just-finished read into the next action — ask the filing a question. Doubles as a
+ * turns the just-finished read into the next action: ask the filing a question. Doubles as a
  * capability hint via 3 broad starter prompts (NN/g: persistent labeled affordance + suggested
  * prompts is the highest-leverage, lowest-annoyance way to surface a chat feature). FREE users open
  * the same rail and land on the existing upsell teaser, so the gating is preserved.
@@ -25,40 +25,35 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
   return (
     <section
       aria-labelledby="ask-filing-callout-heading"
-      className="rounded-xl border border-brand-border bg-brand-weak dark:border-white/10 dark:bg-white/5 p-6"
+      // An inset well inside the summary (DESIGN.md › Cards): panel fill, one hairline, 8px radius, no
+      // shadow; the heading carries the tone, so no icon tile sits beside it.
+      className="rounded border border-border-light bg-panel-light dark:border-white/10 dark:bg-panel-dark p-6"
     >
-      <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark">
-          <ChatCircleTextIcon className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <div className="min-w-0">
-          {/* h2: a sibling of the summary's sections (each an h2), not a subsection of the last one. */}
-          <h2
-            id="ask-filing-callout-heading"
-            className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark"
+      {/* h2: a sibling of the summary's sections (each an h2), not a subsection of the last one. */}
+      <h2
+        id="ask-filing-callout-heading"
+        className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark"
+      >
+        Ask {subjectLabel} anything
+      </h2>
+      <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+        Answers come from this filing, with cited passages you can check. Try one:
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {starters.map((q) => (
+          <button
+            key={q}
+            type="button"
+            onClick={() => onAsk(q, 'summary_starter')}
+            className="rounded-full border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 px-3 py-1.5 text-left text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
-            Ask {subjectLabel} anything
-          </h2>
-          <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Get plain-English answers, each cited to the exact filing text. Try a starter question:
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {starters.map((q) => (
-              <button
-                key={q}
-                type="button"
-                onClick={() => onAsk(q, 'summary_starter')}
-                className="rounded-full border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 px-3 py-1.5 text-left text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-          <Button className="mt-4" onClick={() => onAsk('', 'summary_cta')} leftIcon={<ChatCircleTextIcon className="h-4 w-4" aria-hidden="true" />}>
-            Ask this filing
-          </Button>
-        </div>
+            {q}
+          </button>
+        ))}
       </div>
+      <Button className="mt-4" onClick={() => onAsk('', 'summary_cta')} leftIcon={<ChatCircleTextIcon className="h-4 w-4" aria-hidden="true" />}>
+        Ask this filing
+      </Button>
     </section>
   )
 }

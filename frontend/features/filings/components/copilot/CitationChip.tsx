@@ -9,7 +9,7 @@ import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerific
 import { useEvidencePopoverKeys } from './useEvidencePopoverKeys'
 
 // Only render a citation as an active link when it's an http(s) URL. Defense-in-depth against a
-// malicious/unexpected scheme (e.g. javascript:) reaching the href — the backend builds these from
+// malicious/unexpected scheme (e.g. javascript:) reaching the href: the backend builds these from
 // SEC URLs, but the excerpt portion is model-influenced, so we validate before linking. Defined in
 // this leaf component (and re-imported by CopilotMessage/FilingViewer) to avoid a circular import.
 export const isHttpUrl = (url: string | null): url is string =>
@@ -32,7 +32,7 @@ const CLOSE_DELAY_MS = 120
  * Clicking highlights the passage in the in-app filing viewer when one is mounted (see
  * FilingViewerContext); otherwise it degrades to a SEC-jump anchor (`#:~:text=` deep link). The
  * hover/focus popover (verbatim excerpt + verified/cited + "open original") is rendered through a
- * **portal** with fixed positioning so it can't be clipped by the rail's scroll container — and so
+ * **portal** with fixed positioning so it can't be clipped by the rail's scroll container, and so
  * its links are genuinely clickable. A short close delay bridges the gap from chip to popover.
  */
 export default function CitationChip({ citation }: CitationChipProps) {
@@ -136,14 +136,15 @@ export default function CitationChip({ citation }: CitationChipProps) {
 
   // XBRL figure chips ([F1]) read as hard data, distinct from filing-text excerpt chips ([1]):
   // the same bordered brand-tint chip (the v2.2 marker treatment), with the mono/tabular register
-  // marking figures. Inline markers fall under the WCAG 2.5.8 inline-target exception (18px).
+  // marking figures. Inline markers fall under the WCAG 2.5.8 inline-target exception (18px). The
+  // in-text marker is 12px, never smaller than the provenance chip (tests/unit/dataXsAllowlist.spec.ts).
   const isFact = isXbrlCitation(citation)
   const chipBase =
-    'inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 font-data text-data-xs font-semibold leading-none align-baseline transition-colors ' +
+    'inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 font-data text-xs font-semibold leading-none align-baseline transition-colors ' +
     'border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 ' +
     'dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark ' +
     'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
-  // chipBase is already mono (font-data); .tnum adds only the tabular flag —
+  // chipBase is already mono (font-data); .tnum adds only the tabular flag:
   // the DS spelling for data surfaces that already carry the data face.
   const chipClass = isFact ? `${chipBase} tnum` : chipBase
 
@@ -178,7 +179,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
       </a>
     )
   } else {
-    // No viewer and no usable URL: a non-navigating button — the popover is still reachable.
+    // No viewer and no usable URL: a non-navigating button, and the popover is still reachable.
     trigger = (
       <button type="button" {...triggerHandlers}>
         {marker}
@@ -212,12 +213,12 @@ export default function CitationChip({ citation }: CitationChipProps) {
               {excerpt}
             </span>
             {verified ? (
-              <span className="mt-2 flex items-center gap-1 text-data-xs font-medium text-brand-strong dark:text-brand-strong-dark">
+              <span className="mt-2 flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark">
                 <CheckCircleIcon className="h-3 w-3 shrink-0" />
                 {citationVerificationLabel(citation)}
               </span>
             ) : (
-              <span className="mt-2 flex items-center gap-1 text-data-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
+              <span className="mt-2 flex items-center gap-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
                 <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
                 Cited
               </span>
@@ -233,7 +234,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
                 href={fragment_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 flex items-center gap-1 text-data-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark"
+                className="mt-2 flex items-center gap-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
                 Open original

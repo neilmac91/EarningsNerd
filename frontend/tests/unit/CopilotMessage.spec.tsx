@@ -17,7 +17,11 @@ vi.mock('next/link', () => ({
 import CopilotMessage, {
   type CopilotMessageData,
 } from '@/features/filings/components/copilot/CopilotMessage'
-import type { CopilotCitation } from '@/features/filings/api/copilot-api'
+import {
+  isCopilotFairUseLimit,
+  isCopilotPaywallError,
+  type CopilotCitation,
+} from '@/features/filings/api/copilot-api'
 
 const verifiedCitation: CopilotCitation = {
   n: 1,
@@ -119,6 +123,8 @@ describe('CopilotMessage citation chips', () => {
     expect(screen.getByText(/does not verify every claim in the answer/)).toBeInTheDocument()
     expect(screen.getAllByText(excerpt.excerpt)).toHaveLength(2)
     expect(screen.getByText('3 matched sources')).toBeInTheDocument()
+    // The count is said once (ASK-14): no second "citations · source checks" tally beside it.
+    expect(screen.queryByText(/source checks|\d+ citations?\b/i)).not.toBeInTheDocument()
     const textChip = screen.getByRole('link', { name: /citation 3:/i })
     expect(textChip).toHaveAttribute('href', excerpt.fragment_url)
     fireEvent.focus(textChip)
@@ -161,7 +167,11 @@ describe('CopilotMessage not-disclosed redirect', () => {
   it('points to the right filing type + the company’s filings for a 10-Q', () => {
     render(<CopilotMessage message={notDisclosed()} ticker="AAPL" filingType="10-Q" />)
     // 10-Q → nudge toward the 10-K for annual-only details.
-    expect(screen.getByText(/usually live in the company’s 10-K/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Full risk factors and the business overview usually live in the company’s 10-K. Executive pay is usually in its proxy statement.',
+      ),
+    ).toBeInTheDocument()
     const link = screen.getByRole('link', { name: /browse AAPL’s other filings/i })
     expect(link).toHaveAttribute('href', '/company/AAPL')
   })
@@ -246,5 +256,58 @@ describe('CopilotMessage follow-up chips', () => {
     const msg = doneMessage({ followups: ['Q?'] })
     render(<CopilotMessage message={msg} showFollowups={false} onFollowup={() => {}} />)
     expect(screen.queryByText('Ask next')).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * statusTintsOnlyForStatus: a plan gate (a spent free allowance, a Pro-only 403, the Pro fair-use 429) is
+ * a plan fact, not a failure. It renders in the quiet answer card, role="status", with no error token
+ * anywhere in it; the error tint and role="alert" stay for real failures (DESIGN_SYSTEM.md "Ask answer";
+ * ASK-10). The sentences are the backend's own (backend/app/dependencies.py, routers/summaries.py).
+ */
+describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
+  const TASTE_SPENT = "You've used your 3 free Copilot questions. Upgrade to Pro to access this feature."
+  const FAIR_USE =
+    "You've reached this month's fair-use limit of 1000 Copilot questions. It resets at the start of next month."
+  const errorMessage = (error: string): CopilotMessageData => ({ id: 'e1', role: 'assistant', content: '', status: 'error', error })
+  const errorTokens = (root: HTMLElement) =>
+    [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))]
+      .flatMap((el) => (el.getAttribute('class') ?? '').split(/\s+/))
+      .filter((token) => /(?:^|:)(?:text|bg|border|ring|shadow)-error\b/.test(token))
+
+  it('classifies the backend sentences: the fair-use 429 is a plan gate with no upgrade', () => {
+    expect(isCopilotPaywallError(TASTE_SPENT)).toBe(true)
+    expect(isCopilotFairUseLimit(TASTE_SPENT)).toBe(false)
+    expect(isCopilotPaywallError(FAIR_USE)).toBe(true)
+    expect(isCopilotFairUseLimit(FAIR_USE)).toBe(true)
+    expect(isCopilotPaywallError('The answer could not be completed. Please try again.')).toBe(false)
+  })
+
+  it('a spent allowance is the quiet card with the server sentence and Upgrade to Pro', () => {
+    const onUpgrade = vi.fn()
+    render(<CopilotMessage message={errorMessage(TASTE_SPENT)} isPaywallError onUpgrade={onUpgrade} onRetry={vi.fn()} />)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    const card = screen.getByRole('status')
+    expect(card).toHaveTextContent(TASTE_SPENT)
+    expect(errorTokens(card)).toEqual([])
+    fireEvent.click(within(card).getByRole('button', { name: 'Upgrade to Pro' }))
+    expect(onUpgrade).toHaveBeenCalledTimes(1)
+    expect(within(card).queryByRole('button', { name: /retry/i })).not.toBeInTheDocument()
+  })
+
+  it('the Pro fair-use cap is the same quiet card, with no button (upgrading cannot lift it)', () => {
+    render(<CopilotMessage message={errorMessage(FAIR_USE)} isPaywallError onUpgrade={vi.fn()} onRetry={vi.fn()} />)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    const card = screen.getByRole('status')
+    expect(card).toHaveTextContent(FAIR_USE)
+    expect(errorTokens(card)).toEqual([])
+    expect(within(card).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('a real failure keeps the error tint, role="alert" and Retry', () => {
+    render(<CopilotMessage message={errorMessage('The answer could not be completed. Please try again.')} onRetry={vi.fn()} />)
+    const bubble = screen.getByRole('alert')
+    expect(errorTokens(bubble).length).toBeGreaterThan(0)
+    expect(within(bubble).getByRole('button', { name: /retry/i })).toBeInTheDocument()
   })
 })

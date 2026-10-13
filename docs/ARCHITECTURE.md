@@ -285,7 +285,7 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
   chrome + `ui/` only (allowlist-enforced). Key components and homes:
   `features/summaries/components/` (SummarySections + section renderers,
   FinancialMetricsTable, SummaryDisplay), `features/filings/components/` (NotableFilings,
-  AskFilingAnswer, copilot/), `features/companies/components/` (CompanySearch),
+  copilot/), `features/companies/components/` (CompanySearch),
   `features/analysis/components/` (Multi-Period Analysis),
   `app/filing/[id]/StreamingSummaryDisplay.tsx` (live generation UX).
 - **Query keys** come exclusively from `lib/queryKeys.ts` (ESLint-enforced) — one factory
