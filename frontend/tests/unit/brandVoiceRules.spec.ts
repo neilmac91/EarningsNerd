@@ -158,8 +158,9 @@ export function titleCaseWords(text: string): string[] {
 
 /** The texts an expression can render where copy is read in context (a button label, a heading, a
     title): each literal leaf of a conditional, of a logical and/or/nullish expression and of a
-    parenthesised one, so `{busy ? 'Sending Message' : 'Send Message'}` is read as both labels. The
-    condition of an `&&` renders nothing a reader sees; any other expression reads as `{x}`. */
+    parenthesised one, so `{busy ? 'Sending Message' : 'Send Message'}` is read as both labels, and the
+    texts of a JSX element or fragment in such a branch (`{busy ? <span>Sending now</span> : 'Send'}`).
+    The condition of an `&&` renders nothing a reader sees; any other expression reads as `{x}`. */
 function renderedVariants(expr: ts.Expression): string[] {
   if (ts.isParenthesizedExpression(expr)) return renderedVariants(expr.expression)
   if (ts.isConditionalExpression(expr)) return [...renderedVariants(expr.whenTrue), ...renderedVariants(expr.whenFalse)]
@@ -169,20 +170,33 @@ function renderedVariants(expr: ts.Expression): string[] {
     if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken)
       return [...renderedVariants(expr.left), ...renderedVariants(expr.right)]
   }
+  if (ts.isJsxElement(expr) || ts.isJsxFragment(expr)) return childTexts(expr).map((t) => t.replace(/\s+/g, ' '))
   return [literalText(expr) ?? '{x}']
 }
 
-/** Bounds the combinations an element with several conditionals can render. */
+/** The most combinations of its conditionals' leaves one element is read in. Past it the element is not
+    sliced to its first combinations (that would drop whole branches unread): the scan throws, naming the
+    element and its count, and the gate fails until the element is split or the bound raised. Today's
+    tree reads at most 4 per heading or button. */
 const MAX_VARIANTS = 32
 
-/** The texts an element can render, one per combination of its conditionals' leaves, other
-    expressions read as `{x}`. */
-function elementTexts(element: ts.JsxElement): string[] {
+const where = (node: ts.Node) => {
+  const sf = node.getSourceFile()
+  return `${sf.fileName}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`
+}
+
+/** The texts an element or fragment's children can render, one per combination of its conditionals'
+    leaves, other expressions read as `{x}`. An attribute is never label text, so a child's attributes
+    (an icon's `className={a ? 'x' : 'y'}`) are not read and add no combinations. */
+function childTexts(owner: ts.JsxElement | ts.JsxFragment): string[] {
   let texts = ['']
+  let count = 1
   const append = (options: string[]) => {
-    texts = texts.flatMap((t) => options.map((o) => t + o)).slice(0, MAX_VARIANTS)
+    count *= options.length
+    texts = count > MAX_VARIANTS ? [] : texts.flatMap((t) => options.map((o) => t + o))
   }
   const visit = (node: ts.Node) => {
+    if (ts.isJsxAttributes(node)) return
     if (ts.isJsxText(node)) append([node.text])
     else if (ts.isJsxExpression(node)) {
       append(node.expression ? renderedVariants(node.expression) : ['{x}'])
@@ -190,9 +204,16 @@ function elementTexts(element: ts.JsxElement): string[] {
     }
     ts.forEachChild(node, visit)
   }
-  element.children.forEach(visit)
-  return [...new Set(texts.map((t) => t.replace(/\s+/g, ' ').trim()))]
+  owner.children.forEach(visit)
+  if (count > MAX_VARIANTS) {
+    const tag = ts.isJsxElement(owner) ? tagOf(owner.openingElement) : ''
+    throw new Error(`${where(owner)} <${tag}> renders ${count} combinations of its conditionals, more than MAX_VARIANTS (${MAX_VARIANTS}) reads: split the element or raise the bound`)
+  }
+  return texts
 }
+
+/** The texts an element can render (childTexts, whitespace collapsed, each once). */
+const elementTexts = (element: ts.JsxElement) => [...new Set(childTexts(element).map((t) => t.replace(/\s+/g, ' ').trim()))]
 
 /** The first of the texts a node can render that breaks sentence case. */
 const titleCased = (texts: string[]) => texts.find((t) => titleCaseWords(t).length)
@@ -293,7 +314,14 @@ const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
 const VOICE_RESIDUE_MAX = { entries: 23, violations: 66 }
 
 describe('brand voice rules (docs/brand/07-voice.md)', () => {
-  const findings = FILES.flatMap((file) => voiceFindings(readFileSync(file, 'utf8'), rel(file)))
+  // An element past MAX_VARIANTS throws; the residue test reports it rather than the whole file failing to load.
+  let findings: Finding[] = []
+  let scanError: unknown
+  try {
+    findings = FILES.flatMap((file) => voiceFindings(readFileSync(file, 'utf8'), rel(file)))
+  } catch (error) {
+    scanError = error
+  }
 
   it('reads the app (a scan that finds no copy must not pass)', () => {
     expect(FILES.length).toBeGreaterThan(300)
@@ -301,6 +329,7 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
   })
 
   it('every violation is in the residue, and every residue count is current', () => {
+    if (scanError) throw scanError
     const counts = new Map<string, Finding[]>()
     for (const f of findings) {
       const key = `${f.rel} ${f.clause}`
@@ -354,6 +383,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       "      <h3>{count > 0 && 'Recent Filings'}</h3>",
       "      <Modal title={name ?? 'Delete Account'} />",
       "      <Button>{busy ? 'Sending message' : 'Send message'} {count || 'none'}</Button>",
+      "      <Button>{busy ? 'Send' : 'Send Again Later'}<Icon className={a ? 'x' : 'y'} /><Icon className={b ? 'x' : 'y'} /></Button>",
+      "      <h2>{busy ? <span>Loading Filings</span> : 'Filings'}</h2>",
+      "      <button>{busy ? <>Sending Now</> : 'Send'}</button>",
       '    </div>',
       '  )',
       '}',
@@ -374,7 +406,21 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '19 sentenceCase',
       '20 sentenceCase',
       '21 sentenceCase',
+      '23 sentenceCase',
+      '24 sentenceCase',
+      '25 sentenceCase',
     ])
+    // An attribute is never label text: the icons' className leaves are not read into the label.
+    expect(voiceFindings(src, 'features/probe/Probe.tsx').filter((f) => f.line >= 23).map((f) => f.text)).toEqual([
+      'Send Again Later',
+      'Loading Filings',
+      'Sending Now',
+    ])
+    // Past MAX_VARIANTS the scan throws, naming the element and its count, instead of dropping branches.
+    const sixConditionals = "export const P = () => <Button>{a ? 'x' : 'y'}{b ? 'x' : 'y'}{c ? 'x' : 'y'}{d ? 'x' : 'y'}{e ? 'x' : 'y'}{f ? 'x' : 'Send Again Later'}</Button>"
+    expect(() => voiceFindings(sixConditionals, 'features/probe/Six.tsx')).toThrow(
+      'features/probe/Six.tsx:1 <Button> renders 64 combinations of its conditionals, more than MAX_VARIANTS (32) reads',
+    )
     // A metadata title read through generateMetadata's conditional.
     expect(
       voiceFindings("export async function generateMetadata() { return { title: ok ? 'Filing Summary' : 'Filing' } }", 'app/probe/page.tsx').map((f) => `${f.clause} ${f.text}`),
