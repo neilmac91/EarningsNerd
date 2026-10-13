@@ -112,7 +112,10 @@ security items do not reach this deployment.
 - 16:13 UTC: #1304 merged as `95ac033` (frontend group). Vercel served the new bundle: the
   production chunk carries posthog-js `LIB_VERSION="1.438.7"` (curl readback); no backend deploy.
 - 16:13 UTC: #1300 merged as `02411fb` (this directory and the edgartools hold; records only).
-- 16:18 UTC: #1302 merged as `6113751` (backend group). `deploy-backend`: {{DEPLOY1302}}
+- 16:18 UTC: #1302 merged as `6113751` (backend group). `deploy-backend` [job 115418160027](https://github.com/neilmac91/EarningsNerd/actions/runs/38429472853/job/115418160027)
+  succeeded at 16:45 UTC, `apply_migrations: applied=0 skipped=43`, revisions `earningsnerd-backend-00504-flk`
+  and `earningsnerd-task-worker-00054-pjv` at 100%, `/health/detailed` healthy in the job and on a readback at
+  16:46 UTC; its `copilot-eval` draw passed 18/18 (36 calls, estimated USD 0.006607).
 - #1305 merged as `{{MERGE1305}}` (stripe 16 + checkout fix). `deploy-backend`: {{DEPLOY1305}}
 - Paid `copilot-eval` draws on #1302 and #1305 ran under the founder's merge instruction without a
   prior reservation line; {{COST}}. The private ledger is the chief's to settle (todo F23).
