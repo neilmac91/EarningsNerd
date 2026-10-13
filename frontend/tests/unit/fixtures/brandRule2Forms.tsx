@@ -721,6 +721,10 @@ export function P461({ n }: { n: number }) { const child = Children.only(<span>{
 export function P462() { return <span className="text-brand-strong">{React.Children.only(<b>Step 2</b>)}</span> } // flag
 export function P463() { const child = Children.only(<b>Revenue</b>); return <div className="text-brand-strong">{child}</div> } // clean
 export function P464({ n }: { n: number }) { const action = Children.only(<button>See <span className="text-text-secondary-light">{n}</span></button>); return <div className="text-brand-strong">{action}</div> } // flag
+// Codex's review of 1dd291dd: Children reached through a name held for it, and a helper destructured from it (P385's
+// form for only); the checker names both.
+export function P465({ n }: { n: number }) { const Kids = Children; return <span className="text-brand-strong">{Kids.toArray(<span>{n}</span>)}</span> } // flag
+export function P466({ n }: { n: number }) { const { only } = Children; return <span className="text-brand-strong">{only(<span>{n}</span>)}</span> } // flag
 // What the file puts in an array or an object after making it: a push, a splice's inserts, an index or a field it
 // sets, through a field chain or a key the scan cannot read, a className built that way, a count control, an
 // index into an array a push filled, which may land on any member, and a conditional put there, read as code.

@@ -148,6 +148,6 @@ object it read but not where a clone's props hand the name over, and a spread of
 `Object.assign`. A second session fixing the same finding at the same time (`d3f1522c`) read `flat`,
 which this probe had missed; listing the family from the language instead, every array method that
 returns its receiver's members, found five more (`toSpliced`, `with`, `splice`, `fill` and
-`copyWithin`), and `pop` and `shift`, which return one. In all, 97 forms broke the rule unread at
+`copyWithin`), and `pop` and `shift`, which return one. In all, 99 forms broke the rule unread at
 `f5526d3`, and it failed 4 look-alikes. Companion to `arch-structural-gates-over-prose-rules.md`,
 which says to build the gate; this one says how wide to build it.
