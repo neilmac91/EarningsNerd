@@ -7,8 +7,15 @@
  * PWNED_PASSWORD_CHECK_ENABLED holds its default (true), one found in the HaveIBeenPwned corpus
  * (`backend/app/services/pwned_passwords.py`). The field's `minLength`, the strength meter's
  * "Too short" and the sentence a page shows read these two constants, so the number is never typed
- * by hand. `tests/unit/passwordRulesLockstep.spec.ts` fails when the mirror drifts from the backend,
- * when the breach check's default turns off under the sentence, or when a file spells the length out.
+ * by hand. `tests/unit/passwordRulesLockstep.spec.tsx` fails when the mirror drifts from the backend,
+ * when the validator gains a rule beyond length, when the breach check's default turns off under the
+ * sentence, or when a password-handling file spells the length out or drops the field's minimum.
+ *
+ * Not mirrored: the server's ceiling (password_utils.PASSWORD_MAX_LENGTH, 128 characters, far past
+ * any passphrase a person types) and its unit (Python counts code points; the browser's `minLength`
+ * and `.length` count UTF-16 units, so a password of astral characters such as emoji can clear the
+ * field and still be refused). Either way the server refuses with a 422 whose `detail` is a list, and
+ * how that reads on the form is the API client's (`lib/api/client.ts`), not this module's.
  */
 export const PASSWORD_MIN_LENGTH = 12
 

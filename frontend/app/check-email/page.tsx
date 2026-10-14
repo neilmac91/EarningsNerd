@@ -55,25 +55,32 @@ function CheckEmailContent() {
       <h1 className="mt-6 text-center text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
         Check your inbox
       </h1>
+      {/* Register lands here after sending a link; the account menu's "Verify your email" lands here
+          without one. So the page never says a link was just sent: it names where links go, and Resend
+          is what sends one. */}
       {email ? (
         <>
           <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            We sent a verification link to
+            We send verification links to
           </p>
           <p className="mt-1 text-center text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
             {email}
           </p>
           <p className="mt-4 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Open the link to verify your email address. It expires in 24 hours.
+            Open the newest one to verify your email address. Each link expires 24 hours after we send it.
           </p>
         </>
       ) : (
         // Reached without an address (verify-email's "Resend verification email" link): nothing to
         // resend to, so the page says where a new link comes from instead of offering Resend.
-        <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          Open the newest verification link we sent you. Need a new one? Sign in and choose Verify your
-          email from the account menu.
-        </p>
+        <>
+          <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            Open the newest verification link we sent you.
+          </p>
+          <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            Need a new one? Sign in, open the account menu and choose Verify your email.
+          </p>
+        </>
       )}
 
       {resendStatus === 'sent' && (

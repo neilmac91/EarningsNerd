@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { verifyEmail } from '@/features/auth/api/auth-api'
-import { isApiError, getErrorMessage } from '@/lib/api/types'
+import { verifyEmailFailureMessage } from '@/features/auth/lib/verifyEmailFailure'
 import Link from 'next/link'
 import { CheckCircleIcon, CircleNotchIcon, XCircleIcon } from '@/lib/icons'
 import AuthShell from '@/features/auth/components/AuthShell'
@@ -36,7 +36,7 @@ function VerifyEmailContent() {
       })
       .catch((err: unknown) => {
         setStatus('error')
-        setErrorMessage(isApiError(err) ? getErrorMessage(err) : 'The link has expired, or a newer one replaced it.')
+        setErrorMessage(verifyEmailFailureMessage(err))
       })
   }, [token, router, queryClient])
 
@@ -61,7 +61,7 @@ function VerifyEmailContent() {
               Email verified
             </h1>
             <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              Your email address is confirmed. Taking you to EarningsNerd…
+              Your email address is confirmed. Taking you to the home page…
             </p>
             <Link href="/" className="mt-6 inline-block rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark text-sm font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
               Continue to EarningsNerd

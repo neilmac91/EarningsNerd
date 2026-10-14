@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import RegisterForm from '@/features/auth/components/RegisterForm'
+import RegisterPage from '@/app/register/page'
+import type { SignupConfig } from '@/lib/serverApi'
+import { PASSWORD_MIN_LENGTH } from '@/lib/passwordRules'
 
 /**
  * The signup page offers social sign-up only where the backend would accept it: never to an
@@ -29,6 +32,13 @@ const { startOAuthWithInvite } = vi.hoisted(() => ({ startOAuthWithInvite: vi.fn
 vi.mock('@/features/auth/api/auth-api', () => ({
   register: vi.fn(() => new Promise(() => {})),
   startOAuthWithInvite,
+}))
+
+// The register page's one read of the server's config: what the promo and invite gate say comes from here.
+const { fetchSignupConfig } = vi.hoisted(() => ({ fetchSignupConfig: vi.fn<() => Promise<SignupConfig | null>>() }))
+vi.mock('@/lib/serverApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/serverApi')>()),
+  fetchSignupConfig,
 }))
 
 const socialLink = (provider: 'Google' | 'Apple') =>
@@ -128,5 +138,43 @@ describe('RegisterForm promises Pro only while the beta promo is configured', ()
   it('open registration keeps the free-plan subhead', () => {
     render(<RegisterForm inviteOnly={false} betaPromoActive={false} />)
     expect(screen.getByText(/free AI summaries a month\. No credit card required\./)).toBeInTheDocument()
+  })
+
+  describe('the register page passes the server config through', () => {
+    beforeEach(() => searchParams.set('invite', 'tok'))
+
+    it('invite-only with the promo off: no Pro', async () => {
+      fetchSignupConfig.mockResolvedValue({ mode: 'invite_only', beta_promo_enabled: false })
+      render(await RegisterPage())
+      expect(screen.getByText(INVITE_SUBHEAD)).toBeInTheDocument()
+      expect(screen.queryByText(/\bPro\b/)).toBeNull()
+    })
+
+    it('invite-only with the promo on: the Pro sentences', async () => {
+      fetchSignupConfig.mockResolvedValue({ mode: 'invite_only', beta_promo_enabled: true })
+      render(await RegisterPage())
+      expect(screen.getByText(PRO_SUBHEAD)).toBeInTheDocument()
+    })
+
+    it('an unreachable backend fails closed: the invite gate, no Pro', async () => {
+      fetchSignupConfig.mockResolvedValue(null)
+      render(await RegisterPage())
+      expect(screen.getByText(INVITE_SUBHEAD)).toBeInTheDocument()
+      expect(screen.queryByText(/\bPro\b/)).toBeNull()
+    })
+  })
+})
+
+describe('RegisterForm strength meter', () => {
+  beforeEach(() => Array.from(searchParams.keys()).forEach((key) => searchParams.delete(key)))
+
+  it('reads "Weak" for the first password past the floor, and "Too short" one character under it', () => {
+    render(<RegisterForm inviteOnly={false} betaPromoActive={false} />)
+    fireEvent.click(screen.getByRole('button', { name: /sign up with email/i }))
+    const password = screen.getByLabelText('Password')
+    fireEvent.change(password, { target: { value: 'a'.repeat(PASSWORD_MIN_LENGTH - 1) } })
+    expect(screen.getByText('Too short')).toBeInTheDocument()
+    fireEvent.change(password, { target: { value: 'a'.repeat(PASSWORD_MIN_LENGTH) } })
+    expect(screen.getByText('Weak')).toBeInTheDocument()
   })
 })

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { EyeIcon, EyeSlashIcon } from '@/lib/icons'
 import { inputClasses } from '@/components/ui/Input'
+import { PASSWORD_MIN_LENGTH } from '@/lib/passwordRules'
 
 type PasswordFieldProps = {
   id: string
@@ -29,15 +30,20 @@ const STRENGTH_COLORS = [
   'bg-success-light dark:bg-success-dark',
 ]
 
-/** A password under the field's minimum is "Too short" whatever else it holds: the server rejects it. */
-function scorePassword(pw: string, minLength = 0): number {
-  if (!pw || pw.length < minLength) return 0
-  let score = 0
-  if (pw.length >= 8) score++
-  if (pw.length >= 12) score++
+/** Length beyond the floor that earns the meter's second bar. */
+const LENGTH_STEP = 4
+
+/**
+ * A password under the floor is "Too short" whatever else it holds: the server rejects it. Clearing the
+ * floor is one bar ("Weak"); length past it by LENGTH_STEP, letters with digits, and a symbol add one each.
+ */
+function scorePassword(pw: string, floor: number): number {
+  if (!pw || pw.length < floor) return 0
+  let score = 1
+  if (pw.length >= floor + LENGTH_STEP) score++
   if (/\d/.test(pw) && /[a-zA-Z]/.test(pw)) score++
   if (/[^a-zA-Z0-9]/.test(pw)) score++
-  return Math.min(score, 4)
+  return score
 }
 
 export default function PasswordField({
@@ -54,7 +60,8 @@ export default function PasswordField({
   autoFocus,
 }: PasswordFieldProps) {
   const [show, setShow] = useState(false)
-  const score = showStrength ? scorePassword(value, minLength) : 0
+  // The meter scores against the server's floor unless the field is told otherwise.
+  const score = showStrength ? scorePassword(value, minLength ?? PASSWORD_MIN_LENGTH) : 0
 
   return (
     <div>

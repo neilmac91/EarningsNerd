@@ -1,37 +1,68 @@
 import { readdirSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 /**
- * Every colour is a light/dark pair (DESIGN_SYSTEM.md §1, CLAUDE.md rules 11 and 12). The ESLint design
+ * Every colour is a light/dark pair (DESIGN_SYSTEM.md §2, CLAUDE.md rules 11 and 12). The ESLint design
  * rules stop raw hex and palette colours; nothing stopped a theme token from shipping without its dark
  * half: the password strength meter's bars were `bg-error-light`, `bg-warning-light` and
  * `bg-success-light` alone, so dark mode drew the light theme's colours on navy (the 2026-10 audit, UA-44).
  *
  * The rule: a colour class whose token ends in `-light` (`bg-error-light`, `hover:border-flat-light`,
- * `text-text-secondary-light/50`) has a `dark:` twin in the same class list: a `dark:` class on the same
- * property (bg, text, border, ring, …) under the same other variants (`hover:`, `aria-disabled:`, in any
- * order). The twin's value is free (`dark:hover:bg-white/5` twins `hover:bg-brand-weak`'s row, and
- * `dark:bg-brand-dark/15` twins `bg-brand-strong/10`); only its presence is checked.
+ * `text-text-secondary-light/50`) has a `dark:` twin in the same class list: a `dark:` colour class on the
+ * same property (bg, text, border, border-t, ring, ring-offset, …) under the same other variants (`hover:`,
+ * `aria-disabled:`, in any order). The twin's colour is free (`dark:hover:bg-white/5` twins
+ * `hover:bg-brand-weak`'s row, and `dark:bg-brand-dark/15` twins `bg-brand-strong/10`), but it must be a
+ * colour: a token from tailwind.config.js, white, black, transparent, current, a palette step or an
+ * arbitrary colour. `dark:text-sm`, `dark:border-0` or `dark:bg-none` is not a twin.
  *
  * A class list is one string or template literal, or every static string inside one call to the class
  * joiners (`cx`, `clsx`, `cn`) or one inline `[…].join(…)`, since those build a single className. A value in
- * a lookup table (`STRENGTH_COLORS[score]`) is a class list of its own and carries its own twin.
+ * a lookup table (`STRENGTH_COLORS[score]`) is a class list of its own and carries its own twin. In a
+ * stylesheet under the scanned directories (app/globals.css), each `@apply …;` is a class list.
  *
- * THEME_PAIR_RESIDUE holds what the scan found on the day it landed, counted per file. It only shrinks: a
- * new unpaired class fails (an unlisted file, or a listed count that rises), a fixed one fails until its
- * count is lowered or its line deleted, and the list is capped at the seed (THEME_PAIR_RESIDUE_MAX).
+ * THEME_PAIR_RESIDUE holds what the scan finds, counted per file, and THEME_PAIR_RESIDUE_MAX equals its
+ * totals: a new unpaired class fails (an unlisted file, or a listed count that rises), a fixed one fails
+ * until its count is lowered or its line deleted, and the cap moves down with the list in the same commit,
+ * so a shrink leaves no headroom for a later class to refill.
  */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 
-const PROPERTIES = 'bg|text|border|ring|fill|stroke|from|via|to|divide|outline|decoration|accent|caret|placeholder|shadow'
-/** A colour utility on a `-light` theme token, with an optional opacity (`/50`, `/[0.06]`). */
-const LIGHT_TOKEN = new RegExp(`^(${PROPERTIES})-[a-z0-9-]+-light(?:/\\S+)?$`)
-const PROPERTY = new RegExp(`^(${PROPERTIES})-`)
+/** Longest first: `border-t-…` and `ring-offset-…` are their own properties. */
+const PROPERTY = /^(ring-offset|border-[xytblrse]|bg|text|border|ring|fill|stroke|from|via|to|divide|outline|decoration|accent|caret|placeholder|shadow)-(.+)$/
+const OPACITY = /\/(?:\d+|\[[^\]]+\])$/
 const JOINERS = new Set(['cx', 'clsx', 'cn'])
+
+/** The colour names Tailwind resolves here: the config's tokens, the built-ins, and the default palette. */
+function colourNames(colors: Record<string, unknown>, prefix = ''): string[] {
+  return Object.entries(colors).flatMap(([key, value]) => {
+    const name = key === 'DEFAULT' ? prefix : prefix ? `${prefix}-${key}` : key
+    return typeof value === 'object' && value !== null ? colourNames(value as Record<string, unknown>, name) : [name]
+  })
+}
+const TAILWIND = createRequire(import.meta.url)('../../tailwind.config.js') as {
+  theme: { colors?: Record<string, unknown>; extend: { colors: Record<string, unknown> } }
+}
+const COLOURS = new Set([
+  ...colourNames(TAILWIND.theme.extend.colors),
+  ...colourNames(TAILWIND.theme.colors ?? {}),
+  'white', 'black', 'transparent', 'current', 'inherit',
+])
+const PALETTE_STEP = /^(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(50|[1-9]00|950)$/
+const ARBITRARY_COLOUR = /^\[(?:#|rgba?\(|hsla?\(|color:)/
+const isColour = (value: string) => {
+  const bare = value.replace(OPACITY, '')
+  return COLOURS.has(bare) || PALETTE_STEP.test(bare) || ARBITRARY_COLOUR.test(bare)
+}
+/** A colour utility on a `-light` theme token, with an optional opacity (`/50`, `/[0.06]`): its property. */
+function lightProperty(utility: string): string | undefined {
+  const match = PROPERTY.exec(utility)
+  return match && /-light$/.test(match[2].replace(OPACITY, '')) ? match[1] : undefined
+}
 
 type Finding = { rel: string; line: number; className: string }
 
@@ -39,7 +70,7 @@ function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) return entry.name === 'node_modules' ? [] : sourceFiles(full)
-    return /\.tsx?$/.test(entry.name) && !/\.(spec|test)\.tsx?$/.test(entry.name) && !entry.name.endsWith('.d.ts') ? [full] : []
+    return /\.(tsx?|css)$/.test(entry.name) && !/\.(spec|test)\.tsx?$/.test(entry.name) && !entry.name.endsWith('.d.ts') ? [full] : []
   })
 }
 
@@ -54,16 +85,16 @@ function unpaired(classList: string): string[] {
   const darkKeys = new Set(
     classes.flatMap((token) => {
       const { variants, utility } = splitClass(token)
-      const property = PROPERTY.exec(utility)?.[1]
-      if (!variants.includes('dark') || !property) return []
-      return [`${variants.filter((v) => v !== 'dark').sort().join(':')}|${property}`]
+      const match = PROPERTY.exec(utility)
+      if (!variants.includes('dark') || !match || !isColour(match[2])) return []
+      return [`${variants.filter((v) => v !== 'dark').sort().join(':')}|${match[1]}`]
     }),
   )
   return classes.filter((token) => {
     const { variants, utility } = splitClass(token)
-    const match = LIGHT_TOKEN.exec(utility)
-    if (variants.includes('dark') || !match) return false
-    return !darkKeys.has(`${[...variants].sort().join(':')}|${match[1]}`)
+    const property = lightProperty(utility)
+    if (variants.includes('dark') || !property) return false
+    return !darkKeys.has(`${[...variants].sort().join(':')}|${property}`)
   })
 }
 
@@ -121,9 +152,18 @@ function themePairFindings(source: string, rel: string): Finding[] {
   return findings
 }
 
-/** Unpaired on 2026-10-13, per file. Each line names who owns the fix, or why the class stays light. */
+/** A stylesheet's `@apply …;` lines, each a class list. */
+function applyFindings(source: string, rel: string): Finding[] {
+  return source.split('\n').flatMap((text, index) =>
+    [...text.matchAll(/@apply\s+([^;]+);/g)].flatMap((m) => unpaired(m[1]).map((className) => ({ rel, line: index + 1, className }))),
+  )
+}
+
+/** Unpaired per file, re-seeded on 2026-10-14 after main merged in. Each line names who owns the fix, or why the class stays light. */
 const THEME_PAIR_RESIDUE: Record<string, number> = {
-  'components/CookieConsent.tsx': 3, // the consent dialog's checkboxes: border-border-light alone (brand-chrome-primitives' Checkbox)
+  // The consent dialog's checkboxes: border-border-light alone. #1289's Checkbox pairs them; the later of
+  // #1289 and #1310 to land deletes this line and lowers the cap to { files: 4, classes: 4 }.
+  'components/CookieConsent.tsx': 3,
   'components/EarningsNerdLogo.tsx': 1, // the forced-light mode (`mode="light"`) is light on purpose: no dark twin
   'components/ThemeToggle.tsx': 1, // the pre-mount placeholder's ink, before the theme is known
   'components/ui/Button.tsx': 1, // the destructive fill is red-700 under a white label in both themes
@@ -134,12 +174,21 @@ const THEME_PAIR_RESIDUE_MAX = { files: 5, classes: 7 }
 const FILES = SCAN_DIRS.flatMap((dir) => sourceFiles(path.join(ROOT, dir)))
 const rel = (file: string) => path.relative(ROOT, file).split(path.sep).join('/')
 
-describe('every -light theme token has its dark: twin (DESIGN_SYSTEM.md §1)', () => {
-  const findings = FILES.flatMap((file) => themePairFindings(readFileSync(file, 'utf8'), rel(file)))
+const findingsIn = (file: string): Finding[] => {
+  const source = readFileSync(file, 'utf8')
+  return file.endsWith('.css') ? applyFindings(source, rel(file)) : themePairFindings(source, rel(file))
+}
 
-  it('reads the app (a scan that finds no source must not pass)', () => {
+describe('every -light theme token has its dark: twin (DESIGN_SYSTEM.md §2)', () => {
+  const findings = FILES.flatMap(findingsIn)
+
+  it('reads the app and its stylesheet (a scan that finds no source must not pass)', () => {
     expect(FILES.length).toBeGreaterThan(300)
-    expect(FILES.map(rel)).toEqual(expect.arrayContaining(['features/auth/components/PasswordField.tsx', 'components/ui/Notice.tsx']))
+    expect(FILES.map(rel)).toEqual(
+      expect.arrayContaining(['features/auth/components/PasswordField.tsx', 'components/ui/Notice.tsx', 'app/globals.css']),
+    )
+    // Every -light token the app uses is a colour this scan knows, so no twin is refused for a name it lacks.
+    expect(['error-light', 'text-secondary-light', 'border-light', 'brand-weak', 'white', 'red-700'].filter((v) => !isColour(v))).toEqual([])
   })
 
   it('every unpaired class is in the residue, and every residue count is current', () => {
@@ -158,10 +207,15 @@ describe('every -light theme token has its dark: twin (DESIGN_SYSTEM.md §1)', (
     expect(problems, 'give each -light class its dark: twin in the same class list').toEqual([])
   })
 
-  it('the residue only shrinks', () => {
+  it('the cap equals the residue, so a shrink moves it down in the same commit', () => {
     const counts = Object.values(THEME_PAIR_RESIDUE)
-    expect(counts.length, 'THEME_PAIR_RESIDUE gained a file').toBeLessThanOrEqual(THEME_PAIR_RESIDUE_MAX.files)
-    expect(counts.reduce((sum, n) => sum + n, 0), 'THEME_PAIR_RESIDUE gained a class').toBeLessThanOrEqual(THEME_PAIR_RESIDUE_MAX.classes)
+    expect(counts.length, 'THEME_PAIR_RESIDUE_MAX.files must equal the files in THEME_PAIR_RESIDUE: lower it with the list, never raise it').toBe(
+      THEME_PAIR_RESIDUE_MAX.files,
+    )
+    expect(
+      counts.reduce((sum, n) => sum + n, 0),
+      'THEME_PAIR_RESIDUE_MAX.classes must equal the classes in THEME_PAIR_RESIDUE: lower it with the list, never raise it',
+    ).toBe(THEME_PAIR_RESIDUE_MAX.classes)
   })
 
   it('the scan catches what it is for (a self-check on a fixed source)', () => {
@@ -174,6 +228,13 @@ describe('every -light theme token has its dark: twin (DESIGN_SYSTEM.md §1)', (
       "  return <p className={`h-1 ${on ? 'text-success-light' : ''} dark:text-white`}>x</p>",
       '}',
       "const wrongVariant = 'hover:text-error-light dark:text-error-dark'",
+      // A dark: utility that is not a colour is not a twin.
+      "const size = 'text-text-secondary-light dark:text-sm'",
+      "const width = 'border border-border-light dark:border-0'",
+      "const image = 'bg-error-light dark:bg-none'",
+      "const align = 'text-text-secondary-light dark:text-center'",
+      // A side border is its own property; a colour twin on that side pairs it.
+      "const side = 'border-t border-t-border-light dark:border-t-border-dark ring-offset-background-light dark:ring-offset-background-dark'",
     ].join('\n')
     expect(themePairFindings(src, 'probe.tsx').map((f) => `${f.line} ${f.className}`)).toEqual([
       '1 bg-warning-light',
@@ -182,6 +243,15 @@ describe('every -light theme token has its dark: twin (DESIGN_SYSTEM.md §1)', (
       '6 text-success-light',
       // The twin must sit under the same variants: dark:text-… is not dark:hover:text-….
       '8 hover:text-error-light',
+      '9 text-text-secondary-light',
+      '10 border-border-light',
+      '11 bg-error-light',
+      '12 text-text-secondary-light',
     ])
+    const css = [
+      '.a { @apply text-text-primary-light dark:text-text-primary-dark; }',
+      '.b { @apply border-b border-border-light px-3; }',
+    ].join('\n')
+    expect(applyFindings(css, 'probe.css').map((f) => `${f.line} ${f.className}`)).toEqual(['2 border-border-light'])
   })
 })

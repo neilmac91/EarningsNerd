@@ -39,7 +39,7 @@ const RESEND_LIMITED = "We can't send another link right now. Use the newest lin
 /**
  * Global, graceful intercept of the backend's "verify your email" 403. The axios
  * interceptor dispatches EMAIL_VERIFICATION_REQUIRED_EVENT when an unverified user
- * hits a gated action (generate / checkout); this modal turns that into a friendly
+ * hits the one gated action (checkout, `backend/app/routers/subscriptions.py`); this modal turns that into a friendly
  * resend prompt instead of a raw error toast.
  *
  * v3 (DS-04): composed on ui/Modal — the focus trap, Escape, focus return, scroll lock

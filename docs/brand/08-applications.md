@@ -35,22 +35,32 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   FY2025 sentence, and the $416.2B figure with its direction chip. The three grey placeholder bars
   are gone. This is the brand pane beside the login and register forms; the auth logic and
   `features/auth/api/auth-api.ts` are untouched. The pages around it say only what the code does.
-  /check-email: "Open the link to verify your email address. It expires in 24 hours."; reached
-  without an address it offers no Resend and says where a new link comes from (the account menu's
-  "Verify your email"). /verify-email shows the server's reason for a refused link through the
-  shared `getErrorMessage` (fallback "The link has expired, or a newer one replaced it.") and, on
-  success, "Your email address is confirmed." (signing in and reading never waited on it).
+  /check-email names where links go ("We send verification links to" the address) and never says one
+  was just sent, since the account menu's "Verify your email" lands there without sending: "Open the
+  newest one to verify your email address. Each link expires 24 hours after we send it.", and Resend is
+  what sends. Reached without an address it offers no Resend and says "Open the newest verification
+  link we sent you." then "Need a new one? Sign in, open the account menu and choose Verify your
+  email.". /verify-email shows the endpoint's own reason for a refused link (its two 400 details,
+  listed in `features/auth/lib/verifyEmailFailure.ts` and held to `backend/app/routers/auth.py`),
+  "The link has expired, or a newer one replaced it." for a 400 without one, and "We couldn't check
+  the link just now. Reload this page to try again." for a lost connection, a timeout or a server
+  error, never the API client's own text; on success, "Your email address is confirmed. Taking you
+  to the home page…" (signing in and reading never waited on it). The verification banner says
+  "Verify your email to subscribe.": checkout is the one action the server gates on a verified email.
   /reset-password and the register form state one rule from `frontend/lib/passwordRules.ts`, mirrored
   from the server's `PASSWORD_MIN_LENGTH`: "At least 12 characters. A longer passphrase is stronger.
   Breached passwords are rejected." (true while `PWNED_PASSWORD_CHECK_ENABLED` keeps its default), and
-  the strength meter reads "Too short" under that minimum; its bars carry dark twins
-  (`tests/unit/themePairs.spec.ts` holds every `-light` token to one). The login page's Google and
-  Apple account-conflict error says the email already has an account that could not be linked and to
-  sign in with email and password. The register subhead follows the server's config: an invited
-  visitor is promised Pro only while the beta promo is on (`betaPricingActive`), otherwise "Your invite
-  opens an account during the private beta."; an uninvited visitor under the invite gate gets no
-  subhead, the private-beta notice says it. Every page link and button on these routes carries the
-  brand focus ring.
+  the strength meter reads "Too short" under that minimum and "Weak" at it, adding a bar for four
+  characters past it, for letters with digits and for a symbol; its bars carry dark twins
+  (`tests/unit/themePairs.spec.ts` holds every `-light` colour class to a `dark:` colour twin, outside
+  a listed residue of five files). The login page's Google and Apple account-conflict error names the
+  provider tried: "This email already has an EarningsNerd account, and the two could not be linked.
+  Sign in the way you created that account, verify your email, and Google will link once both sides
+  have verified it." The register subhead follows the server's config: under the invite gate an
+  invited visitor is promised Pro only while the beta promo is on (`betaPricingActive`), otherwise
+  reads "Your invite opens an account during the private beta."; an uninvited visitor under the gate
+  gets no subhead, the private-beta notice says it; open registration shows the free-plan line to
+  everyone, invited or not. Every page link and button on these routes carries the brand focus ring.
 - **Pricing** (`frontend/app/pricing/page.tsx`): the free plan's call to action reads the
   registration mode (`features/marketing/api/access-api.ts`, the client twin of the server's
   `fetchSignupConfig`), so a guest under the invite gate sees "Request an invite" and goes to the

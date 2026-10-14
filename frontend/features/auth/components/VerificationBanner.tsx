@@ -13,7 +13,8 @@ const DISMISS_KEY = 'verifyBannerDismissed'
 
 /**
  * Slim, session-dismissible banner shown to logged-in users who haven't verified
- * their email yet (email_verified gates AI generation + checkout on the backend).
+ * their email yet. On the backend only checkout checks email_verified
+ * (`backend/app/routers/subscriptions.py`); generating and reading summaries never wait on it.
  */
 export default function VerificationBanner() {
   const pathname = usePathname()
@@ -79,7 +80,7 @@ export default function VerificationBanner() {
           {resent ? (
             <>Verification email sent. Check your inbox.</>
           ) : (
-            <>Verify your email to generate summaries and subscribe.</>
+            <>Verify your email to subscribe.</>
           )}
         </p>
         {!resent && (

@@ -43,7 +43,10 @@ hairlines-as-meaning) ≥ 3:1.
 
 Every color on a surface that renders in **both** themes must be a light/dark **pair**:
 `bg-x-light dark:bg-x-dark`, `text-…-light dark:text-…-dark`. Never ship a single-theme color on a
-shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
+shared surface (it caused white-on-cream and dark-on-cream bugs across the app). Gate:
+`tests/unit/themePairs.spec.ts` holds the `-light` half app-wide, stylesheet `@apply` lines included: each
+`-light` colour class needs a `dark:` colour class on the same property under the same variants, in the
+same class list (its residue is listed per file, with a cap equal to it).
 
 - **Muted text on dark = `secondary`, never `tertiary-dark`** (`text-text-tertiary-dark` fails WCAG AA
   on dark panels). Pattern for muted: `text-text-tertiary-light dark:text-text-secondary-dark`.
@@ -900,7 +903,10 @@ carries no claim and is `aria-hidden` (the in-text marker is the accessible one)
 ## 9. Exemptions
 
 - **Google / Apple sign-in buttons**: keep their brand-mandated surfaces (white / black). Only
-  their focus rings get rebranded.
+  their focus rings get rebranded. The exemption protects the provider's mandated look (Google: the
+  white surface, the multicolour "G", the hairline and the label ink its branding guideline sets); it does
+  not excuse a stale value. When the consent screens are set up (`tasks/todo.md` F38), check the button
+  against Google's current guideline and record the values here.
 - **Status + financial colors are semantic** — keep them; reserve loud status colors for genuine
   state. A default guidance/info container is subdued/brand-tinted, not loud blue (see `GuidanceCard`).
 - **Progress / step / completion indicators use the BRAND accent (sage), not success-green.**
