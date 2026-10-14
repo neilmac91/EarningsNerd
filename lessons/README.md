@@ -15,6 +15,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 ## Operations & workflow (every task)
 
 - ops-a-bare-proceed-continues-the-last-instruction.md — Read a bare "proceed" as the founder's last instruction on the decision; only without one does it accept your recommendation
+- ops-a-flag-several-processes-read-is-set-in-every-env-map.md — List every process that reads a flag and flip it in every deploy map it is configured from, with its job cadence, in one change (partly gated by `backend/tests/unit/test_section_changes_flag_placement.py` for `ENABLE_SECTION_CHANGES`; the next multi-process flag's gate is review-checked)
 - ops-a-piped-gate-does-not-gate.md — Run every verification step of a committing chain unpiped with its exit status checked explicitly; the records-gate wrapper carries the rule
 - ops-auth-lookups-must-let-request-cleanup-progress.md — Keep authentication pool waits off the event loop while preserving request-owned sessions
 - ops-bound-drain-batches-to-job-memory.md — Bound a regeneration batch by the job container's memory, not by its time budget alone
@@ -71,6 +72,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - arch-code-owned-render-eligibility.md — Keep application-owned render eligibility separate from model payloads and generation stamps
 - arch-committed-universe-fail-open.md — Bound discovery surfaces to a committed universe with a fail-open filter
 - arch-corroborate-semantic-events.md — Corroborate a semantic event; never derive it from a regulatory category alone
+- arch-cross-filing-counts-are-read-behind-an-access-check.md — Read `section_reviews` through `section_review_service` and the cached comparison counts through an allow-listed caller that checks the flag and the viewer's access, never raw (partly gated by `backend/tests/unit/test_section_review_rows_read_through_the_service_allowlist.py` and `backend/tests/unit/test_wording_summaries_access_allowlist.py`, which pin every reader by file and scope; that a listed scope makes its check is review-checked)
 - arch-drop-neutral-amplifiers-with-risk.md — Don't ship an amplifier that adds no measurable quality but any fabrication risk
 - arch-edit-causal-directive-add-example.md — Edit the directive that causes the behavior and pair it with a worked example
 - arch-fk-safe-bulk-deletes.md — Make destructive bulk deletes FK-safe by construction, not by trusting the test DB
@@ -88,6 +90,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - arch-redis-off-in-prod.md — Production runs with Redis OFF — the two-tier cache is L1-only in prod
 - arch-sitemap-page-eligibility.md — Match sitemap eligibility to the existing page predicates
 - arch-source-supplements-preserve-existing-context.md — Retain complete bounded omitted source without displacing existing context
+- arch-sqlalchemy-json-none-is-json-null.md — A JSON column's None is a JSON null, not SQL NULL: read "no value yet" off a scalar column (partly gated by `backend/tests/unit/test_wording_summaries_access_allowlist.py` for `diff_summary`; other JSON columns are review-checked)
 - arch-stop-tuning-prose-know-the-floor.md — Stop tuning prompt prose when judge flags are heterogeneous or prompt-compliant
 - arch-structural-gates-over-prose-rules.md — Encode every "never do X again" rule as a machine-checked gate, not prose
 - arch-validate-inline-source-identities.md — Validate namespace bindings and qualified tags before selecting inline source facts
@@ -123,6 +126,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - test-leave-the-tree-alone-during-a-background-suite.md — Leave the working tree untouched while a background full-suite run reads it
 - test-parser-callback-positions.md — Match whole-input callbacks to exact raw-source positions before accepting event capacity
 - test-persistent-sqlite-db-goes-stale.md — The dev SQLite DB (backend/earningsnerd.db) is persistent — rm it after a schema change; the test suite never uses it
+- test-pin-a-row-lock-with-a-statement-spy.md — Pin a row lock with a statement spy; a race test under SQLite cannot see FOR UPDATE
 - test-probes-assert-what-only-success-renders.md — A probe asserts what only a successful render shows, counted from its input; a heading that also frames the error state proves nothing
 - test-proofs-run-on-committed-state.md — Mechanical proofs must run against committed state — a proof that cannot fail proves nothing
 - test-pure-move-ast-proof.md — Verify "pure move" refactors with an AST-normalized per-symbol diff, not by eyeballing the diff
@@ -142,10 +146,12 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - brand-a-promise-names-what-the-code-enforces.md — Before a public sentence promises a behaviour, trace each surface it covers to the code that enforces it, flag defaults included, and scope the sentence to those (partly gated by `frontend/tests/unit/brandCopyRules.spec.ts`, rules 1, 1b and 1c; a new kind of promise is review-checked)
 - brand-the-mark-is-protected.md — Never change the EN monogram or the wordmark; brand work composes around them (arrangements, clear space and minimum sizes only) (partly gated by `frontend/tests/unit/markSingleSource.spec.ts`, which holds the outlines and their placement, and `wordmarkSingleSource.spec.ts`; the colours, the wordmark's composition and the small-size rule are review-checked)
 - frontend-check-brand-layouts-at-200-percent-text.md — Check a brand layout at 390px under a 200% root font: a figure pair wraps on its own content width, and a positioned twin centres on its anchor's measured midpoint
+- frontend-auth-optional-reads-wait-for-the-session-read.md — A per-viewer read served by an auth-optional endpoint waits for the session read, keys by the reader, reconciles a Pro teaser once and has one owner (partly gated by `frontend/tests/unit/whatChangedReadOwner.spec.ts`; the next such endpoint is review-checked)
 - frontend-busy-controls-stay-focusable.md — A control busy with its own request stays focusable: aria-disabled plus an early return, never native disabled (partly gated by `frontend/tests/unit/busyControlsStayFocusable.spec.ts` (AST scan of every .tsx); the keyboard and focus hand-off rules are not)
 - frontend-check-luminance-vs-background.md — Verify surface luminance against the actual background, not token validity
 - frontend-citation-offset-boundaries.md — Resolve citation starts to the first matched character's text node and pin the actual flash target
 - frontend-client-exports-need-next-build.md — Never call a 'use client' module's export from server code; the gate checks what next build may not render
+- frontend-count-a-completion-on-the-transition-the-server-names.md — Count a completion event on the transition the server names (`completed_now`), never on the client's optimistic count; `scope` serializes requests, not optimistic writes
 - frontend-design-docs-need-agent-entrypoints.md — Connect new design references to agent entrypoints, authority and maintenance
 - frontend-dialog-opener-outlives-the-dialog.md — Keep a dialog's opener mounted while the dialog is open, so focus has somewhere to return
 - frontend-dialog-openers-stay-focusable.md — Keep a dialog's opener focusable through its pending and cooldown states — aria-disabled, not native disabled

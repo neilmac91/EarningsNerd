@@ -3,7 +3,8 @@
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import Link from 'next/link'
 import { ArrowRightIcon, MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
-import { FeedItem, WhatChangedItem } from '@/features/dashboard/api/dashboard-api'
+import { FeedItem, WhatChangedItem, WordingChangesSummary } from '@/features/dashboard/api/dashboard-api'
+import { plural } from '@/features/filings/lib/sectionChanges'
 import { formatLocalDate } from '@/lib/format'
 import analytics from '@/lib/analytics'
 import CompanyLogo from '@/components/CompanyLogo'
@@ -45,6 +46,21 @@ function ctaLabel(status: string): string {
   return 'Generate summary'
 }
 
+/** The card's one line on the risk factors' wording (E27, PR B), in the Compare periods card's words,
+ *  with the Pro reader's own progress through the change queue after it; nothing when the filing has
+ *  no comparison yet or its own section only refers back to the annual report. */
+export function wordingLine(wording: WordingChangesSummary | null | undefined): string | null {
+  if (!wording || wording.reference_only) return null
+  if (wording.prior_reference_only) return 'Risk factors restated in full.'
+  if (!wording.has_changes) return 'No wording changes in the risk factors.'
+  const line = `${plural(wording.items_total, 'paragraph')} of risk factors changed.`
+  const review = wording.review
+  if (!review) return line
+  if (review.completed_at) return `${line} Reviewed.`
+  if (review.labeled > 0) return `${line} ${review.labeled} of ${wording.items_total} marked.`
+  return line
+}
+
 function MetricChip({ item }: { item: WhatChangedItem }) {
   const { Icon, cls } = DIRECTION[item.direction] ?? DIRECTION.flat
   return (
@@ -60,6 +76,7 @@ function MetricChip({ item }: { item: WhatChangedItem }) {
 
 export default function WhatChangedCard({ item }: { item: FeedItem }) {
   const { what_changed: wc, company } = item
+  const wording = wordingLine(item.wording_changes)
   return (
     <Link
       href={`/filing/${item.filing_id}`}
@@ -103,6 +120,7 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
             No comparison figures for this one yet. The summary has the full picture.
           </p>
         )}
+        {wording && <p className="mt-2 text-xs tnum text-text-secondary-light dark:text-text-secondary-dark">{wording}</p>}
 
         <div className="mt-3 flex items-center gap-1 text-sm font-medium text-brand-strong dark:text-brand-strong-dark">
           {ctaLabel(item.summary_status)}
