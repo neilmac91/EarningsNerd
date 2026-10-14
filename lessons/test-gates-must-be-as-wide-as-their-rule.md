@@ -190,7 +190,10 @@ handed the className it never returns and `Object.assign` with a style map after
 same-file helper's call reads what it returns alone and the last source that sets a `className` wins;
 and its review of `2f988e9` three more in the same two readers, so a rest parameter's member read by
 an index is that argument alone, and an object's `className` is read property by property, last
-first, spreads of sources opened. A gate widened finding by finding needs its look-alikes planted
-with each copy, or the next review names the false positive. Companion to
-`arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
-build it.
+first, spreads of sources opened; and its review of `69d1137` three more there, a key written as a
+constant, a value reached through an alias and a negative `at()` index, so one reader reads a
+className wherever it is written, the attribute's value and an object's key's alike, and a rest
+member is counted as `at()` counts, from the end too, each argument a spread's length could leave at
+the place read. A gate widened finding by finding needs its look-alikes planted with each copy, or
+the next review names the false positive. Companion to `arch-structural-gates-over-prose-rules.md`,
+which says to build the gate; this one says how wide to build it.
