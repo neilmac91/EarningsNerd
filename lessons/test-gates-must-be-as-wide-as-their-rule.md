@@ -185,10 +185,21 @@ read by a string or a constant, the props taken through a declaration's array an
 were planted beside them, ahead of a review. Its review of `9643b93` then turned the other way, to two
 look-alikes the widened read flagged: a style map's `className` and a helper handed another object
 beside a call handing it the props; so the field counts only when its receiver holds the props, and
-a helper's parameter is bound at the call being read alone. A gate widened finding by finding needs
-its look-alikes planted with each copy, or the next review names the false positive. Companion to
-`arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
-build it.
+a helper's parameter is bound at the call being read alone; its review of `d55931f` two more, a helper
+handed the className it never returns and `Object.assign` with a style map after the props, so a
+same-file helper's call reads what it returns alone and the last source that sets a `className` wins;
+and its review of `2f988e9` three more in the same two readers, so a rest parameter's member read by
+an index is that argument alone, and an object's `className` is read property by property, last
+first, spreads of sources opened; and its review of `69d1137` three more there, a key written as a
+constant, a value reached through an alias and a negative `at()` index, so one reader reads a
+className wherever it is written, the attribute's value and an object's key's alike, and a rest
+member is counted as `at()` counts, from the end too, each argument a spread's length could leave at
+the place read; and its review of `056a071` two more, a spread before the rest's own place and an
+`at()` index with a fraction, so every argument a call hands is read by the places a spread could
+leave it, a fixed parameter's and a rest's alike, and an index is read as the runtime reads it. A
+gate widened finding by finding needs its look-alikes planted with each copy, or the next review
+names the false positive. Companion to `arch-structural-gates-over-prose-rules.md`, which says to
+build the gate; this one says how wide to build it.
 
 **Recurrence (2026-10-14, the Copilot's links)**: rule 2 read every component the app renders.
 Fixing the Copilot's links, which had waited on the founder's call, found the prose links' rule in

@@ -129,9 +129,11 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    style or on a pseudo-element, a library component's internals, a component created inside
  *    another's render, reading that one's children through a closure (the lint's
  *    react-hooks/static-components forbids one), and SVG text coloured by attribute (the chart
- *    theme, which carries no sage). A forwarded className is read under the name the props give it
- *    and through a same-file variable holding it. Neither check reads one a component forwards
- *    through a spread or a conditional return. The one-source check reads one the component joins with its
+ *    theme, which carries no sage). A forwarded className is read under the name the props give it,
+ *    through a same-file variable or helper holding it and through an object's `className` key, the
+ *    arguments of a same-file call at the places a spread among them could leave them, a spread's own
+ *    members unread. Neither check reads one a component forwards through a spread or a conditional
+ *    return. The one-source check reads one the component joins with its
  *    own ink, which the ink check leaves to review, and reads an ink a label sets in one state only
  *    (`dark:text-…`) as its own. The waitlist counter's own spec covers the count on the public
  *    pages. The stylesheet check reads app/globals.css: no rule sets sage ink at rest, by @apply (an
@@ -1890,68 +1892,193 @@ function forwardsClassName(fn: ts.FunctionLikeDeclaration): boolean {
     return !!opening && takesClassName(opening)
   })
 }
-/** Whether an element's className reads the `className` its component is handed: the `className` field of what holds
+/** Whether an element's className reads the `className` its component is handed (`readsClassName`). */
+function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
+  const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className')
+  return !!attr?.initializer && readsClassName(attr.initializer, opening, new Map(), new Set())
+}
+/** Whether an expression reads the `className` the component around `at` is handed: the `className` field of what holds
     the props (`props.className`, `props['className']`, `props[KEY]`, the key read by a string or a same-file constant),
     the name a destructuring of the props gives it (`({ className: cls })`, `const { className: cls } = props`,
     `({ className: cls } = props)` assigned later: a binding keyed `className` in what holds the props, `holdsProps`), a
     same-file variable holding either, by its initializer or any value the file assigns it (`const cls = className`,
     `cls = props.className`), or a same-file helper returning one (`pick(props)`), its parameters bound at that call,
-    each identifier resolved through the checker. A field of some other object (`THEME.className`) is no read of it. */
-function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
-  const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className')
-  if (!attr?.initializer) return false
-  const sf = opening.getSourceFile()
-  const seen = new Set<ts.Node>()
-  // `calls`: the arguments of the same-file calls on the way, so a helper's parameter is read at the call being read,
-  // not at every call in the file (`pick(props)` beside `className={pick(THEME)}`).
-  const reads = (node: ts.Node, calls: Calls): boolean => {
-    let found = false
-    visit(node, (m) => {
-      if (found) return
-      // The `className` field of what holds the props.
-      if ((ts.isPropertyAccessExpression(m) && m.name.text === 'className') || (ts.isElementAccessExpression(m) && isClassNameKey(m.argumentExpression, sf))) {
-        if (holdsProps(m.expression, opening, new Set(), calls)) found = true
+    each identifier resolved through the checker, a shorthand property's (`{ className }`) to the value it repeats. A
+    field of some other object (`THEME.className`) is no read of it. `calls` carries the arguments of the same-file
+    calls on the way, so a helper's parameter is read at the call being read, not at every call in the file
+    (`pick(props)` beside `className={pick(THEME)}`); `seen` the declarations read on the way, afresh at each helper's
+    call, so a variable's cycle ends and a helper called twice is read at each call; `holding` what `holdsProps` has
+    read on the way in, so an object whose `className` reads its own ends. */
+function readsClassName(node: ts.Node, at: ts.Node, calls: Calls, seen: Set<ts.Node>, holding: ReadonlySet<ts.Node> = new Set()): boolean {
+  const sf = at.getSourceFile()
+  let found = false
+  const scan = (m: ts.Node): void => {
+    if (found) return
+    // The `className` field of what holds the props.
+    if ((ts.isPropertyAccessExpression(m) && m.name.text === 'className') || (ts.isElementAccessExpression(m) && isClassNameKey(m.argumentExpression, sf))) {
+      if (holdsProps(m.expression, at, new Set(holding), calls)) found = true
+      return
+    }
+    // A member of a rest parameter read by an index (`parts[0]`, `parts.at(-1)`) is the argument at that place alone, or
+    // the arguments a spread among them could leave there.
+    const members = restMembers(m, calls)
+    if (members) {
+      if (members.some((arg) => readsClassName(arg, at, calls, seen, holding))) found = true
+      return
+    }
+    // A same-file helper's call reads what the helper returns, its parameters bound at this call
+    // (`className={pick(props)}`), and not an argument the helper does not return (`fixed(props.className)`). A call
+    // the scan cannot read into (`cx`, a library's), and a helper's call to itself, pass their arguments through, so
+    // they are read.
+    if (ts.isCallExpression(m)) {
+      const fns = functionsOf(m.expression).filter((fn) => !calls.has(fn))
+      if (fns.length) {
+        for (const fn of fns) if (returnedExpressions(fn).some((r) => readsClassName(r, at, new Map([...calls, [fn, m.arguments]]), new Set(), holding))) found = true
         return
       }
-      // A same-file helper's return, its parameters bound at this call (`className={pick(props)}`).
-      if (ts.isCallExpression(m)) {
-        if (seen.has(m)) return
-        seen.add(m)
-        for (const fn of functionsOf(m.expression)) if (returnedExpressions(fn).some((r) => reads(r, new Map([...calls, [fn, m.arguments]])))) found = true
-        return
+    }
+    if (!ts.isIdentifier(m)) return void ts.forEachChild(m, scan)
+    const shorthand = ts.isShorthandPropertyAssignment(m.parent) && m.parent.name === m ? m.parent : undefined
+    const declaration = (shorthand ? CHECKER.getShorthandAssignmentValueSymbol(shorthand) : CHECKER.getSymbolAtLocation(m))?.valueDeclaration
+    if (!declaration || seen.has(declaration)) return
+    seen.add(declaration)
+    if (ts.isBindingElement(declaration)) {
+      if (namesClassName(declaration.propertyName ?? declaration.name) && holdsProps(bindingRoot(declaration), at, new Set(holding), calls)) found = true
+    } else if (ts.isVariableDeclaration(declaration)) {
+      // What the name holds (`variableValues`): the value at its place, walked into by the steps a destructuring
+      // assignment leaves (`[cls] = [props.className]` holds the array at 0), read as the initializer is; or the
+      // `className` field of what holds the props, taken by one (`({ className: cls } = props)`, `[{ className: cls }]
+      // = [props]`), the steps before the field walked first.
+      for (const { value, steps } of variableValues(declaration)) {
+        if (atSteps(value, steps, sf).some((v) => readsClassName(v, at, calls, seen, holding))) found = true
+        if (steps[steps.length - 1] === 'className' && atSteps(value, steps.slice(0, -1), sf).some((h) => holdsProps(h, at, new Set(holding), calls))) found = true
       }
-      if (!ts.isIdentifier(m)) return
-      const declaration = CHECKER.getSymbolAtLocation(m)?.valueDeclaration
-      if (!declaration || seen.has(declaration)) return
-      seen.add(declaration)
-      if (ts.isBindingElement(declaration)) {
-        const key = declaration.propertyName ?? declaration.name
-        const named = keyOf(key) === 'className' || (ts.isComputedPropertyName(key) && isClassNameKey(key.expression, sf))
-        if (named && holdsProps(bindingRoot(declaration), opening, new Set(), calls)) found = true
-      } else if (ts.isVariableDeclaration(declaration)) {
-        // What the name holds (`variableValues`): the value at its place, walked into by the steps a destructuring
-        // assignment leaves (`[cls] = [props.className]` holds the array at 0), read as the initializer is; or the
-        // `className` field of what holds the props, taken by one (`({ className: cls } = props)`, `[{ className: cls }]
-        // = [props]`), the steps before the field walked first.
-        for (const { value, steps } of variableValues(declaration)) {
-          if (atSteps(value, steps, sf).some((v) => reads(v, calls))) found = true
-          if (steps[steps.length - 1] === 'className' && atSteps(value, steps.slice(0, -1), sf).some((h) => holdsProps(h, opening, new Set(), calls))) found = true
-        }
-      } else if (ts.isParameter(declaration)) {
-        // A helper's parameter holds what the call on the way hands it (`pass(props.className)`).
-        const arg = calls.get(declaration.parent)?.[declaration.parent.parameters.indexOf(declaration)]
-        if (arg && !ts.isSpreadElement(arg) && !declaration.dotDotDotToken && reads(arg, calls)) found = true
-      }
-    })
-    return found
+    } else if (ts.isParameter(declaration)) {
+      // A helper's parameter holds what the call on the way hands it (`pass(props.className)`), a rest parameter the
+      // arguments from its place on (a same-file joiner), each read at the places a spread among the arguments could
+      // leave it (`argumentsAt`).
+      const args = calls.get(declaration.parent) ?? []
+      const index = declaration.parent.parameters.indexOf(declaration)
+      const handed = declaration.dotDotDotToken ? argumentsFrom(args, index) : argumentsAt(args, index, 0)
+      if (handed.some((arg) => readsClassName(arg, at, calls, seen, holding))) found = true
+    }
   }
-  return reads(attr.initializer, new Map())
+  scan(node)
+  return found
+}
+/** Where an object's `className` comes from, the last write winning: 'props' when what holds the props is spread in or
+    merged last, or a `className` key reads theirs (`{ ...props }`, `Object.assign({}, THEME, props)`, `{ className:
+    props.className }`, the key written as is, by a string or by a same-file constant, its value read as a className
+    attribute's is, `readsClassName`); 'own' when a `className` key of its own or an object known to set one comes last
+    (`{ ...props, className: 'x' }`, `Object.assign({}, props, THEME)`); null when the scan cannot tell. Object.assign's
+    sources are read in order, a spread of an array literal opened; a source the scan cannot read is passed over. */
+function classNameFrom(e: ts.Expression, at: ts.Node, seen: Set<ts.Node>, calls: Calls): 'props' | 'own' | null {
+  const x = unwrap(e)
+  const sources: ts.Expression[] = []
+  if (ts.isCallExpression(x) && objectCall(x, 'assign')) {
+    for (const a of openSpreads(x.arguments)) if (!ts.isSpreadElement(a) && !ts.isOmittedExpression(a)) sources.push(a)
+  } else if (ts.isObjectLiteralExpression(x)) {
+    for (const m of [...x.properties].reverse()) {
+      if (ts.isSpreadAssignment(m)) {
+        const from = classNameFrom(m.expression, at, new Set(seen), calls)
+        if (from) return from
+      } else if ((ts.isPropertyAssignment(m) || ts.isShorthandPropertyAssignment(m)) && namesClassName(m.name)) {
+        return readsClassName(ts.isPropertyAssignment(m) ? m.initializer : m.name, at, calls, new Set(), seen) ? 'props' : 'own'
+      }
+    }
+    return null
+  } else {
+    if (holdsProps(x, at, new Set(seen), calls)) return 'props'
+    return setsOwnClassName(x) ? 'own' : null
+  }
+  for (const source of sources.reverse()) {
+    const from = classNameFrom(source, at, new Set(seen), calls)
+    if (from) return from
+  }
+  return null
+}
+/** Whether an expression is known to set a `className` of its own: an object literal with the key, through a spread of
+    one, or a same-file variable holding one. */
+function setsOwnClassName(e: ts.Expression, seen = new Set<ts.Node>()): boolean {
+  const x = unwrap(e)
+  if (seen.has(x)) return false
+  seen.add(x)
+  if (ts.isObjectLiteralExpression(x)) {
+    return x.properties.some((m) => ts.isSpreadAssignment(m) ? setsOwnClassName(m.expression, seen)
+      : (ts.isPropertyAssignment(m) || ts.isShorthandPropertyAssignment(m)) && namesClassName(m.name))
+  }
+  const declaration = ts.isIdentifier(x) ? CHECKER.getSymbolAtLocation(x)?.valueDeclaration : undefined
+  return !!declaration && ts.isVariableDeclaration(declaration) && variableValues(declaration).some(({ value, steps }) => !steps.length && setsOwnClassName(value, seen))
 }
 /** The arguments of the same-file calls a read is inside, by the function called. */
 type Calls = ReadonlyMap<ts.Node, ts.NodeArray<ts.Expression>>
+/** A call's arguments with each spread of an array literal opened into its elements (`f(...[a, b], c)` hands `a`,
+    `b`, `c`), so each lands at its place; any other spread stays as written. */
+const openSpreads = (list: readonly ts.Expression[]): ts.Expression[] => list.flatMap((a) => {
+  const inner = ts.isSpreadElement(a) ? unwrap(a.expression) : undefined
+  return inner && ts.isArrayLiteralExpression(inner) ? openSpreads(inner.elements) : [a]
+})
+/** The arguments a call could hand to the parameter at `from` when `index` is 0, or to the member at `index` of the
+    rest parameter starting at `from` (`fromEnd`: that member counted from the arguments' end): each argument, spreads
+    of array literals opened, whose place some length of the spreads before it (after it, from the end) puts there,
+    none when no spread sits before it and its place is another (`first(...xs, a, b)` could hand `a` first, never
+    `b`; `last(h, ...xs)` handed `c` alone holds no member). A spread's own members are not read. */
+function argumentsAt(args: readonly ts.Expression[], from: number, index: number, fromEnd = false): ts.Expression[] {
+  const opened = openSpreads(args)
+  const reaches = (fixed: number, spreads: number, place: number): boolean => (spreads ? fixed - spreads <= place : fixed === place)
+  return opened.filter((a, j) => {
+    if (ts.isSpreadElement(a)) return false
+    const before = opened.slice(0, j).filter(ts.isSpreadElement).length
+    if (!fromEnd) return reaches(j, before, from + index)
+    const after = opened.slice(j + 1).filter(ts.isSpreadElement).length
+    return (before > 0 || j >= from) && reaches(opened.length - 1 - j, after, index)
+  })
+}
+/** The arguments a call could hand to the rest parameter starting at `from`, used whole: each argument at or past that
+    place, or that a spread before it could push there. A spread's own members are not read. */
+function argumentsFrom(args: readonly ts.Expression[], from: number): ts.Expression[] {
+  const opened = openSpreads(args)
+  return opened.filter((a, j) => !ts.isSpreadElement(a) && (j >= from || opened.slice(0, j).some(ts.isSpreadElement)))
+}
+/** The members of a rest parameter an index could read (`parts[0]`, `parts.at(0)`; `parts.at(-1)` counted from the
+    end), bound at the call being read: the arguments that place could hold (`argumentsAt`), none when the index is
+    past the arguments handed. `at()` truncates its index as the runtime does (`at(0.5)` is `at(0)`) and counts a
+    negative one from the end; brackets name a member by an integer at or past 0 alone (`parts[-1]`, `parts[0.5]`
+    name none), and an infinite index names none either way. Undefined for any other node. */
+function restMembers(node: ts.Node, calls: Calls): ts.Expression[] | undefined {
+  let receiver: ts.Expression | undefined
+  let step: number | null = null
+  const byAt = ts.isCallExpression(node)
+  if (ts.isElementAccessExpression(node)) { receiver = node.expression; step = numericIndex(node.argumentExpression) }
+  else if (byAt && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'at' && node.arguments[0]) {
+    receiver = node.expression.expression
+    step = numericIndex(node.arguments[0])
+  }
+  if (!receiver || step === null) return undefined
+  const id = unwrap(receiver)
+  const declaration = ts.isIdentifier(id) ? CHECKER.getSymbolAtLocation(id)?.valueDeclaration : undefined
+  if (!declaration || !ts.isParameter(declaration) || !declaration.dotDotDotToken) return undefined
+  const args = calls.get(declaration.parent)
+  if (!args) return undefined
+  const from = declaration.parent.parameters.indexOf(declaration)
+  if (!Number.isFinite(step)) return []
+  if (byAt) step = Math.trunc(step)
+  else if (step < 0 || !Number.isInteger(step)) return []
+  return step < 0 ? argumentsAt(args, from, -step - 1, true) : argumentsAt(args, from, step)
+}
+/** A numeric index, a negative one (`-1`) or a fraction included; null for any other key. */
+function numericIndex(key: ts.Expression): number | null {
+  const k = unwrap(key)
+  if (ts.isPrefixUnaryExpression(k) && k.operator === ts.SyntaxKind.MinusToken && ts.isNumericLiteral(k.operand)) return -Number(k.operand.text.replace(/_/g, ''))
+  return ts.isNumericLiteral(k) ? Number(k.text.replace(/_/g, '')) : null
+}
 /** Whether a key expression names `className`: a string, or a same-file constant holding one (`literalValues`). */
 const isClassNameKey = (key: ts.Expression, sf: ts.SourceFile): boolean =>
   accessStep(key) === 'className' || (ts.isIdentifier(unwrap(key)) && literalValues(key, sf).includes('className'))
+/** Whether a property's or a binding's name is `className`, written as is, by a string, or by a same-file constant
+    (`{ [KEY]: … }`, `const { [KEY]: cls } = props`). */
+const namesClassName = (name: ts.PropertyName | ts.BindingName): boolean =>
+  keyOf(name) === 'className' || (ts.isComputedPropertyName(name) && isClassNameKey(name.expression, name.getSourceFile()))
 /** What a value holds at the steps a destructuring assignment leaves (`[cls] = [props.className]` holds the array at 0,
     `[{ className: cls }] = [props]` the array at 0 then `className`): the expressions the binding walk meets once the
     steps are walked in (`walkLiterals`, stopped there), each read as written; the value itself when there are none. */
@@ -1978,8 +2105,7 @@ function holdsProps(node: ts.Node, at: ts.Node, seen = new Set<ts.Node>(), calls
   seen.add(node)
   if (ts.isParameter(node)) {
     for (let p: ts.Node | undefined = at; p; p = p.parent) if (p === node.parent) return true
-    const arg = calls.get(node.parent)?.[node.parent.parameters.indexOf(node)]
-    return !node.dotDotDotToken && !!arg && !ts.isSpreadElement(arg) && holdsProps(arg, at, seen, calls)
+    return !node.dotDotDotToken && argumentsAt(calls.get(node.parent) ?? [], node.parent.parameters.indexOf(node), 0).some((arg) => holdsProps(arg, at, seen, calls))
   }
   if (ts.isBindingElement(node)) {
     if (node.dotDotDotToken) return holdsProps(bindingRoot(node), at, seen, calls)
@@ -1991,13 +2117,14 @@ function holdsProps(node: ts.Node, at: ts.Node, seen = new Set<ts.Node>(), calls
   if (ts.isVariableDeclaration(node)) {
     return variableValues(node).some(({ value, steps }) => atSteps(value, steps, node.getSourceFile()).some((v) => holdsProps(v, at, seen, calls)))
   }
-  if (ts.isObjectLiteralExpression(node)) return node.properties.some((m) => ts.isSpreadAssignment(m) && holdsProps(m.expression, at, seen, calls))
+  if (ts.isObjectLiteralExpression(node)) return classNameFrom(node, at, seen, calls) === 'props'
   const value = unwrap(node as ts.Expression)
   if (value !== node) return holdsProps(value, at, seen, calls)
   // A call holds what its same-file function returns (`get()`), its parameters bound at the call, useMemo what its
-  // callback returns, and Object.assign its target with its sources' fields.
+  // callback returns, and Object.assign its target with its sources' fields, the last source that sets a `className`
+  // winning (`classNameFrom`).
   if (ts.isCallExpression(value)) {
-    if (objectCall(value, 'assign')) return value.arguments.some((a) => !ts.isSpreadElement(a) && holdsProps(a, at, seen, calls))
+    if (objectCall(value, 'assign')) return classNameFrom(value, at, seen, calls) === 'props'
     const fns = [...functionsOf(value.expression), ...(isUseMemo(value) && value.arguments[0] ? functionsOf(value.arguments[0]) : [])]
     return fns.some((fn) => returnedExpressions(fn).some((r) => holdsProps(r, at, seen, new Map([...calls, [fn, value.arguments]]))))
   }
