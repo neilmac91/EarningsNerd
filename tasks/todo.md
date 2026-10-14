@@ -53,6 +53,8 @@ Engineering:
 - [ ] E15 — IN-FLIGHT: Insider gain/loss ink [#1262](https://github.com/neilmac91/EarningsNerd/pull/1262), merged October 12 (`a902fd9e`) after passing local acceptance. Analysis Run’s locked native-disabled contract remains a separate founder decision.
 - [ ] E20 — PREPARE (CODE RED chief): the Resend webhook signs with the raw `whsec_` string and compares a hex HMAC, while the Svix scheme Resend uses keys the HMAC with the secret's base64-decoded body and sends base64 signatures, so genuine webhooks may never verify (it fails closed); check against Resend's and Svix's documentation, fix with a test on a known signature, high tier, the merge deploys the backend (#1281's second review; `code-red-20261004/runtime/control/DECISIONS-25.md`).
 - [ ] E21 — POSTPONE: move react, react-dom and @types/react to 19 before Next 17, as a deliberate PR with the test stack checked; Next 16.4.0 (#1304) prints "React 18 support is deprecated in Next.js 16 and will be removed in Next.js 17" at build (#1304's review).
+- [ ] E44 — DO (after the series, D-032): "Try again" (busy "Trying again…") becomes RetryButton's default everywhere, as the one retry verb; the move retires the "Retry" entries of busyControlsStayFocusable.spec.ts's label allowlist and lowers its caps with them. Until then RetryButton reads "Retry" and no surface adds a third form.
+- [ ] E51 — DO (after the series, D-032): the `new` chip takes the brand tint with the sage dot (the `badge-new` token off the warning tint in DESIGN.md and tailwind.config.js, both themes), with #1290 as the rider; until then the chip keeps the warning tint it ships with.
 
 ## What to doubt first
 
