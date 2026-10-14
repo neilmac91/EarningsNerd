@@ -127,7 +127,8 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    through a same-file variable or helper holding it and through an object's `className` key, the
  *    arguments of a same-file call at the places a spread among them could leave them, a spread laid
  *    out by the lengths its type allows (a hole below an open run kept) and its members read at each
- *    place it could cover, a tuple const opened while the file writes nothing into it, a rest
+ *    place it could cover, a same-file const array literal opened by its elements, a tuple's or an
+ *    array's, while the file never writes into it nor reorders it in place, a rest
  *    parameter's member by an index the checker reads as one number, counted from the end as `at()`
  *    and `length - N` count, or taken by a destructuring of the rest; every name, literal, field and
  *    same-file call on the way is read with the calls on the way kept, a destructured name with what
@@ -1905,10 +1906,10 @@ type Calls = ReadonlyMap<ts.Node, ts.NodeArray<ts.Expression>>
 /** A value a read meets, with the calls it was met inside, so its reader binds a helper's parameters there. */
 interface Found { value: ts.Expression; calls: Calls }
 /** A call's arguments laid out by place: each argument as written; a spread of an array literal, or of a same-file
-    const typed as a readonly tuple and holding one (`const PREFIX: readonly [string] = ['x']`, `as const`), opened
-    into its elements (`f(...[a, b], c)` hands `a`, `b`, `c`); any other spread as the lengths its type gives it
-    (`spreadLength`) and its members, any of which may land at a place it covers. A tuple the file can write into or
-    reorder (`prefix[0] = …`, `prefix.reverse()`) is not opened, nor a const typed as an array. */
+    const holding one that the file never writes into nor reorders in place (`const PREFIX = ['x']`, a tuple's type or
+    an array's), opened into its elements (`f(...[a, b], c)` hands `a`, `b`, `c`); any other spread, one the file
+    writes into or reorders among them (`prefix[0] = …`, `Object.assign(prefix, …)`, `prefix.reverse()`), as the
+    lengths its type gives it (`spreadLength`) and its members, any of which may land at a place it covers. */
 type Laid = { node: ts.Expression } | { spread: ts.Expression; lengths: Lengths }
 /** The lengths a spread, or a run of arguments, can have: each one in `some` (sorted, below `from`), and every length
     from `from` on (Infinity when no run is open), so a hole below an open run is kept. */
@@ -1932,11 +1933,35 @@ function layOut(args: readonly ts.Expression[]): Laid[] {
     if (ts.isArrayLiteralExpression(inner)) return layOut(inner.elements)
     const type = CHECKER.getTypeAtLocation(inner)
     const declaration = ts.isIdentifier(inner) ? CHECKER.getSymbolAtLocation(inner)?.valueDeclaration : undefined
-    const held = declaration && ts.isVariableDeclaration(declaration) && ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const && declaration.initializer ? unwrap(declaration.initializer) : undefined
-    const readonly = tupleMembers(type).every((t) => CHECKER.isTupleType(t) && ((t as ts.TypeReference).target as ts.TupleType).readonly)
-    if (held && ts.isArrayLiteralExpression(held) && readonly) return layOut(held.elements)
+    const constant = declaration && ts.isVariableDeclaration(declaration) && ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const ? declaration : undefined
+    const held = constant?.initializer && unwrap(constant.initializer)
+    // The file's writes into it are `variableValues`' (an index, a push, `Object.assign` onto it); its reorders, `reordered`'s.
+    if (constant && held && ts.isArrayLiteralExpression(held) && variableValues(constant).length === 1 && !reordered(constant)) return layOut(held.elements)
     return [{ spread: inner, lengths: spreadLength(type) }]
   })
+}
+/** The methods that move or drop an array's members in place, for which `variableValues` records no value. */
+const REORDERS = new Set(['reverse', 'sort', 'copyWithin', 'shift', 'pop'])
+const REORDERED = new Map<ts.SourceFile, Set<ts.Symbol>>()
+/** Whether the file reorders a variable's array in place: calls a method that moves or drops its members on it
+    (`prefix.reverse()`, `prefix.shift()`), or deletes one (`delete prefix[0]`), the names indexed once per file. A
+    method called through a key or through `call` is read as a call the scan does not know. */
+function reordered(declaration: ts.VariableDeclaration): boolean {
+  const sf = declaration.getSourceFile()
+  let names = REORDERED.get(sf)
+  if (!names) {
+    const found = new Set<ts.Symbol>()
+    visit(sf, (n) => {
+      const target = ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && REORDERS.has(n.expression.name.text) ? n.expression.expression
+        : ts.isDeleteExpression(n) ? n.expression : undefined
+      const place = target && placeOf(target)
+      const symbol = place && CHECKER.getSymbolAtLocation(place.root)
+      if (symbol) found.add(symbol)
+    })
+    REORDERED.set(sf, (names = found))
+  }
+  const symbol = CHECKER.getSymbolAtLocation(declaration.name)
+  return !!symbol && names.has(symbol)
 }
 /** A type's members: a union's, or the type itself. */
 const tupleMembers = (type: ts.Type): ts.Type[] => (type.isUnion() ? type.types : [type])
