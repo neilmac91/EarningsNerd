@@ -1733,7 +1733,8 @@ function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
 }
 /** Whether a binding element destructures what a parameter of a function around the element holds (the component's
     props, or a render callback's), as the parameter itself (`({ className: cls })`) or through a variable holding it
-    (`const { className: cls } = props`, `const p = props`), not some other object (`const { className: cls } = theme`). */
+    (`const { className: cls } = props`, `const p = props`), a rest of it (`({ n, ...rest })`) or an object spreading it
+    (`{ ...props }`), not some other object (`const { className: cls } = theme`). */
 function isPropsBinding(binding: ts.BindingElement, at: ts.Node): boolean {
   let root: ts.Node = binding
   while (ts.isBindingElement(root) || ts.isObjectBindingPattern(root) || ts.isArrayBindingPattern(root)) root = root.parent
@@ -1745,8 +1746,18 @@ function isPropsBinding(binding: ts.BindingElement, at: ts.Node): boolean {
       for (let p: ts.Node | undefined = at; p; p = p.parent) if (p === node.parent) return true
       return false
     }
-    if (!ts.isVariableDeclaration(node) || !node.initializer) return false
-    const value = unwrap(node.initializer)
+    // A rest of the props holds the rest of them.
+    if (ts.isBindingElement(node) && node.dotDotDotToken) {
+      let up: ts.Node = node
+      while (ts.isBindingElement(up) || ts.isObjectBindingPattern(up) || ts.isArrayBindingPattern(up)) up = up.parent
+      return fromParameter(up)
+    }
+    return ts.isVariableDeclaration(node) && !!node.initializer && holdsProps(node.initializer)
+  }
+  // What holds the props: the name of a parameter, a variable or a rest holding them, or an object spreading one.
+  const holdsProps = (e: ts.Expression): boolean => {
+    const value = unwrap(e)
+    if (ts.isObjectLiteralExpression(value)) return value.properties.some((m) => ts.isSpreadAssignment(m) && holdsProps(m.expression))
     const declaration = ts.isIdentifier(value) ? CHECKER.getSymbolAtLocation(value)?.valueDeclaration : undefined
     return !!declaration && fromParameter(declaration)
   }
