@@ -1,4 +1,4 @@
 E       AssertionError: assert 'Adjusted EBIT (a)$8.5 - $10.5 billion' in 'OUTLOOK\n\nWe provided 2026 Company guidance in our earnings release furnished on Form 8-K dated April\xa029, 2026. \...gy\n\n53\n\nItem 2.  Management’s Discussion and Analysis of Financial Condition and Results of Operations (Continued)'
 tests/unit/test_outlook_source_coverage.py:49: AssertionError
 FAILED tests/unit/test_outlook_source_coverage.py::test_original_ford_complete_outlook_reaches_primary_and_forward_recovery_without_displacement
-1 failed, 7 passed, 9 warnings in 4.36s
+1 failed, 7 passed, 9 warnings in 3.97s
