@@ -8,7 +8,7 @@ import ts from 'typescript'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { Badge, buttonVariants, type BadgeVariant, type ButtonVariant } from '@/components/ui'
+import { Badge, buttonVariants, countControlClass, type BadgeVariant, type ButtonVariant, type CountControlKind } from '@/components/ui'
 import { HEADLINES } from '@/features/marketing/lib/headline'
 
 /**
@@ -84,9 +84,13 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    label. Its sage is its own or the element's around it where it is rendered: where it is written,
  *    where the file's bindings carry it when it is held elsewhere (reported there), and, for a
  *    control a component renders in the ink it inherits, where the component is used or the sage
- *    className the component hands to the element it returns. The planted forms in
- *    tests/unit/fixtures/brandRule2Forms.tsx, one per way the rule can be broken, per look-alike that
- *    must pass and per known gap, are scored on every run, so the gate's reach is held as well as its
+ *    className the component hands to the element it returns. The count control has one source,
+ *    countControlClass (components/ui/countControl.ts), read as the classes it returns for the kind
+ *    named, and the third check fails a control whose label carries a count and whose classes
+ *    written in its file turn it sage under the pointer: a hand-built copy of the recipe. The
+ *    planted forms in tests/unit/fixtures/brandRule2Forms.tsx, one per way the rule can be broken,
+ *    per look-alike that must pass and per known gap, are scored on every run, so the gate's
+ *    reach is held as well as its
  *    verdict on the app. Out of a source scan's reach, and so review-checked (the fixture marks each
  *    as a gap): a value held in a string (a date or an index name computed as text, or any value the
  *    server or the model sends as text) or written in words; a value bound outside the file's own
@@ -106,7 +110,8 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    to), a value held in a Map, a method the scan names by what follows the dot (an array's,
  *    Object's, a push) called through a key instead (`labels['slice'](0)`), read as a call it does
  *    not know, a React utility called through call, apply or Reflect.apply, whose callee is lib's,
- *    or held under a type of its own in another file or a class's field; beyond the fixture, a
+ *    or held under a type of its own in another file or a class's field, and the count control's
+ *    recipe rebuilt in another file's helper; beyond the fixture, a
  *    literal another file holds, a colour set by an inline style or on a pseudo-element, a library
  *    component's internals, a component created inside another's render, reading that one's
  *    children through a closure (the lint's react-hooks/static-components forbids one), and SVG
@@ -777,15 +782,20 @@ function readClassName(opening: ts.JsxOpeningLikeElement): ts.Node[] {
   return nodes
 }
 
-/** Every string a className attribute can produce, split into tokens. */
-function classTokens(opening: ts.JsxOpeningLikeElement): string[] {
+/** Every string a className attribute can produce, split into tokens, with the count control's recipe wherever a
+    call composes it (`countControlTokens`); `written` reads the classes written in the file alone. */
+function classTokens(opening: ts.JsxOpeningLikeElement, written = false): string[] {
   const parts: string[] = []
-  for (const node of classNameNodes(opening)) {
-    visit(node, (n) => {
-      const text = ts.isJsxText(n) ? null : literalText(n)
-      if (text !== null) parts.push(text)
-    })
+  const read = (n: ts.Node): void => {
+    if (countControlCall(n)) {
+      if (!written) parts.push(...countControlTokens(n))
+      return
+    }
+    const text = ts.isJsxText(n) ? null : literalText(n)
+    if (text !== null) parts.push(text)
+    ts.forEachChild(n, read)
   }
+  for (const node of classNameNodes(opening)) read(node)
   return parts.join(' ').split(/\s+/).filter(Boolean)
 }
 
@@ -963,6 +973,22 @@ const VARIANT_COMPONENTS = new Map(([
   const fn = declaredFunction(rel, name)
   return [fn as ts.Node, { inks, fallback: defaultVariant(fn, name) }] as const
 }))
+
+/** The count control's recipe (components/ui/countControl.ts): a call to it in a className is read as the classes the
+    helper returns for the kind it names, or for every kind when the scan cannot read the kind, so a site that composes
+    it is read as if the recipe were written there. The kinds are asked of the helper's own type. */
+const COUNT_CONTROL = declaredFunction('components/ui/countControl.ts', 'countControlClass')
+const COUNT_KINDS = unionMembers('components/ui/countControl.ts', 'CountControlKind') as CountControlKind[]
+function countControlCall(n: ts.Node): n is ts.CallExpression {
+  if (!ts.isCallExpression(n)) return false
+  const declaration = declarationOf(unwrap(n.expression))
+  return !!declaration && functionOf(declaration) === COUNT_CONTROL
+}
+function countControlTokens(call: ts.CallExpression): string[] {
+  const named = call.arguments[0] ? variantLiterals(call.arguments[0]) : []
+  const kinds = named.length && named.every((kind) => (COUNT_KINDS as string[]).includes(kind)) ? (named as CountControlKind[]) : COUNT_KINDS
+  return kinds.flatMap((kind) => countControlClass(kind).split(/\s+/))
+}
 
 const COMPARISONS = new Set([
   ts.SyntaxKind.LessThanToken, ts.SyntaxKind.GreaterThanToken, ts.SyntaxKind.LessThanEqualsToken, ts.SyntaxKind.GreaterThanEqualsToken,
@@ -1663,6 +1689,29 @@ function heldValues(sf: ts.SourceFile): Offence[] {
   return out
 }
 
+/** A class token that turns the text sage under the pointer: a sage colour behind hover: or active: (a group- or
+    peer- form included). */
+function sageUnderPointer(token: string): boolean {
+  const parts = splitVariants(token)
+  const utility = parts.pop()!.replace(/^!/, '')
+  return SAGE.test(utility) && parts.some((variant) => ACTIVITY.test(variant))
+}
+
+/** Rule 2's third check over one file, the count control's one source: a control whose label carries a count (a
+    digit in its text, or a value, in any ink) and whose classes written in the file turn it sage under the pointer has
+    rebuilt the count control by hand. It composes countControlClass (components/ui/countControl.ts) instead, so a change
+    to the recipe reaches every count at once. */
+function handRolledCountControls(sf: ts.SourceFile): Offence[] {
+  const out: Offence[] = []
+  visit(sf, (n) => {
+    if (!ts.isJsxElement(n) || !isControl(n.openingElement) || !classTokens(n.openingElement, true).some(sageUnderPointer)) return
+    const counts = inkTexts(n.children, sf).some(({ text }) => carriesDigit(text))
+      || inkValues(n.children, sf, [], n.openingElement).length > 0 || ownInkCounts(n, sf).length > 0
+    if (counts) out.push({ node: n, text: `<${n.openingElement.tagName.getText(sf)}>` })
+  })
+  return out
+}
+
 describe('brand rule 2: sage never colours a number', () => {
   // Each offence once: a text reached two ways (a helper's return read as a value and walked as JSX) is one.
   const inApp = (check: (sf: ts.SourceFile) => Offence[]) =>
@@ -1678,11 +1727,15 @@ describe('brand rule 2: sage never colours a number', () => {
     expect(inApp(heldValues), 'rest the whole label in the ink, sage under the pointer (the count control, frontend/DESIGN_SYSTEM.md)').toEqual([])
   })
 
+  it('a control whose label carries a count composes the count control, its one source', () => {
+    expect(inApp(handRolledCountControls), 'compose countControlClass (components/ui/countControl.ts) beside the shape; never rebuild the recipe by hand').toEqual([])
+  })
+
   it('scores every planted form in tests/unit/fixtures/brandRule2Forms.tsx as its mark says', () => {
     const sf = PROGRAM.getSourceFile(FORMS)
     if (!sf) throw new Error(`${FORMS} is not in the program`)
     const lineOf = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
-    const named = new Set([...sageValues(sf), ...heldValues(sf)].map(({ node }) => lineOf(node)))
+    const named = new Set([...sageValues(sf), ...heldValues(sf), ...handRolledCountControls(sf)].map(({ node }) => lineOf(node)))
     const forms = sf.text.split('\n').flatMap((text, i) => {
       const mark = /^export function (P\d+)\b.*\/\/ (flag|clean|gap)$/.exec(text)
       return mark ? [{ name: mark[1], line: i + 1, mark: mark[2] }] : []

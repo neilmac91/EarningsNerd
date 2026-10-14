@@ -1,3 +1,4 @@
+import { countControlClass, cx } from '@/components/ui'
 import { needsSourceCheck, qualityReasons, sourceUrl, type QualityValue } from '@/features/analysis/lib/provenance'
 
 /** Small disclosure shared by the filing-scoped and peer-series surfaces. */
@@ -15,7 +16,7 @@ export default function SourceChecks({ values }: { values: (QualityValue & { lab
         {unavailable.map((value, index) => <p key={`unavailable-${index}`}>{value.label}: unavailable. {qualityReasons(value).join(' ')}</p>)}
         {values.map((value, index) => {
           const href = sourceUrl(value.source_url ?? value.provenance?.source_url)
-          return href ? <p key={index}><a href={href} target="_blank" rel="noopener noreferrer" className="rounded text-text-secondary-light underline hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark">{value.label} · original SEC filing</a></p> : null
+          return href ? <p key={index}><a href={href} target="_blank" rel="noopener noreferrer" className={cx('rounded', countControlClass('inline'))}>{value.label} · original SEC filing</a></p> : null
         })}
       </div>
     </details>

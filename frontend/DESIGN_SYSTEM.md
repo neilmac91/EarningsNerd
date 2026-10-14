@@ -213,19 +213,27 @@ Link as button   buttonVariants({ variant, size })  — the class-string factory
                  tests/unit/inputClassesNoOverrides.spec.tsx.
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
-Count control    A link or control whose label carries a count, a date, an index name or a price (D-030):
-                 the whole label rests in text-text-secondary-light dark:text-text-secondary-dark as one
-                 text run and turns hover:text-brand-strong dark:hover:text-brand-strong-dark under the
-                 pointer (with hover:underline on a link, hover:bg-brand-weak on a button; a link set among
-                 lines of text keeps its underline at rest, since its ink no longer marks it), keyboard
-                 focus drawing the ring below. Never a sage label with the count in a span of its own: the control
-                 then rests in sage while it carries a value, and the rule keeps sage for the pointer. A
-                 countdown on a control that waits (aria-disabled) rests in the same ink at full strength,
-                 so the number stays legible. Gate: brandCopyRules.spec.ts rule 2, whose count-control check
-                 fails a control resting in sage, its own or its parent's where it is rendered (held in the
-                 same file or rendered by a component included, and a component that renders its children
-                 inside a control counting as one), that holds its count in a span of its own ink (written
-                 inline or held in the same file; a count a component renders inside one is review-checked).
+Count control    A link or control whose label carries a count, a date, an index name or a price
+                 (D-030) composes countControlClass(kind) from components/ui/countControl.ts beside
+                 its own shape (size, padding, width, a border), never the recipe by hand. The whole
+                 label rests in text-text-secondary-light dark:text-text-secondary-dark as one text
+                 run and turns hover:text-brand-strong dark:hover:text-brand-strong-dark under the
+                 pointer, keyboard focus drawing the ring below: 'button' adds the brand tint and the
+                 pressed fill, 'link' an underline under the pointer, 'inline' (a link set among
+                 lines of text) keeps its underline at rest, since its ink no longer marks it, and
+                 'summary' (a disclosure's) turns sage alone. Its chrome (the ring, a hairline, a
+                 selected fill) may be sage where its recipe says so; the label's ink never. Never a
+                 sage label with the count in a span of its own: the control then rests in sage while
+                 it carries a value, and the rule keeps sage for the pointer. A countdown on a
+                 control that waits (aria-disabled) rests in the same ink at full strength, so the
+                 number stays legible. Gate: brandCopyRules.spec.ts rule 2. Its count-control check
+                 fails a control resting in sage, its own or its parent's where it is rendered (held
+                 in the same file or rendered by a component included, and a component that renders
+                 its children inside a control counting as one), that holds its count in a span of
+                 its own ink (written inline or held in the same file; a count a component renders
+                 inside one is review-checked). Its one-source check fails a control whose label
+                 carries a count and whose classes written in the file turn it sage under the
+                 pointer. Its header names what else stays review-checked.
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use

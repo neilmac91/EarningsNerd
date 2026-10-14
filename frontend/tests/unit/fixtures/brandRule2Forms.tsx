@@ -12,11 +12,11 @@ import * as React from 'react'
 import * as R from 'react'
 import { Children, cloneElement, cloneElement as clone, createElement, isValidElement, type ReactElement, type ReactNode, useCallback, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Badge, Button, buttonVariants, type BadgeVariant } from '@/components/ui'
+import { Badge, Button, buttonVariants, countControlClass, countControlClass as tally, type BadgeVariant } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
 import Link from 'next/link'
 import { ArrowRightIcon } from '@/lib/icons'
-import { typedOnly } from './brandRule2Kit'
+import { quietLinkClass, typedOnly } from './brandRule2Kit'
 
 const SAGE_LINK = 'text-brand-strong hover:underline'
 export function P01({ n }: { n: number }) { return <a className={SAGE_LINK}>{n}</a> } // flag
@@ -149,8 +149,8 @@ export function P91({ n }: { n: number }) { return <Link className="text-brand-s
 export function P92({ rows }: { rows: { n: number }[] }) { return <ul>{rows.map((r) => { const label = <span className="text-text-secondary-light">{r.n}</span>; return <li key={r.n}><Link className="text-brand-strong" href="/x">See {label}</Link></li> })}</ul> } // flag
 // A control that turns sage on focus, with its count in a span.
 export function P93({ n }: { n: number }) { return <button className="text-text-secondary-light focus-visible:text-brand-strong">Show <span className="text-text-tertiary-light">{n}</span></button> } // flag
-// A control that turns sage only under the pointer, with its count in a span.
-export function P94({ n }: { n: number }) { return <a href="/x" className="text-text-secondary-light hover:text-brand-strong">See <span className="text-text-tertiary-light">{n}</span></a> } // clean
+// A control that turns sage only under the pointer (the count control's recipe), with its count in a span.
+export function P94({ n }: { n: number }) { return <a href="/x" className={countControlClass('link')}>See <span className="text-text-tertiary-light">{n}</span></a> } // clean
 // An icon given sage.
 export function P95() { return <ArrowRightIcon className="h-4 w-4 text-brand-strong" /> } // clean
 // Children held in a const inside a component that renders them in sage.
@@ -892,3 +892,24 @@ export function P519({ n }: { n: number }) { const apply = (f: (child: ReactNode
 export function P520({ n }: { n: number }) { return <div className="text-brand-strong">{typedOnly(<span>{n}</span>)}</div> } // gap
 class Kit521 { one: (child: ReactNode) => ReactNode = Children.only }
 export function P521({ n }: { n: number }) { return <div className="text-brand-strong">{new Kit521().one(<span>{n}</span>)}</div> } // gap
+// The count control's one source (the chief designer's review of 4e44658): a control whose label carries a count and
+// whose classes written in the file turn it sage under the pointer has rebuilt the recipe by hand, written inline
+// (P522), held in a const (P523), for dark mode alone (P524), through group-hover (P525), on a disclosure's summary
+// (P526) or with its count held in a variable (P527). One that composes countControlClass, written in place, held in a
+// const or imported under another name (P528 to P530), one that turns sage under the pointer without a count (P531),
+// and a count control that never turns sage (P532) are no copy.
+export function P522({ n }: { n: number }) { return <button type="button" className="text-text-secondary-light hover:bg-brand-weak hover:text-brand-strong">Show {n}</button> } // flag
+const QUIET523 = 'text-text-secondary-light underline-offset-4 hover:text-brand-strong hover:underline'
+export function P523({ n }: { n: number }) { return <a href="/x" className={QUIET523}>See all {n}</a> } // flag
+export function P524({ n }: { n: number }) { return <a href="/x" className="text-text-secondary-light dark:text-text-secondary-dark dark:hover:text-brand-strong-dark">See all {n}</a> } // flag
+export function P525({ n }: { n: number }) { return <a href="/x" className="group text-text-secondary-light group-hover:text-brand-strong">See all {n}</a> } // flag
+export function P526({ n }: { n: number }) { return <details><summary className="cursor-pointer text-text-secondary-light hover:text-brand-strong">Show the {n} figures</summary></details> } // flag
+export function P527({ n }: { n: number }) { const label = `See all ${n}`; return <a href="/x" className="text-text-secondary-light hover:text-brand-strong">{label}</a> } // flag
+export function P528({ n }: { n: number }) { return <button type="button" className={cx('h-8 px-3 text-xs', countControlClass('button'))}>Show {n}</button> } // clean
+export function P529({ n }: { n: number }) { const pick = countControlClass('link'); return <a href="/x" className={pick}>See all {n}</a> } // clean
+export function P530({ n }: { n: number }) { return <a href="/x" className={tally('inline')}>See all {n}</a> } // clean
+export function P531() { return <button type="button" className="text-text-secondary-light hover:text-brand-strong">Show more</button> } // clean
+export function P532({ n }: { n: number }) { return <a href="/x" className="text-text-primary-light hover:underline">See all {n}</a> } // clean
+// Out of a source scan's reach, and so review-checked: the recipe rebuilt in a helper of another file, whose classes
+// the scan does not read (P533).
+export function P533({ n }: { n: number }) { return <a href="/x" className={quietLinkClass()}>See all {n}</a> } // gap

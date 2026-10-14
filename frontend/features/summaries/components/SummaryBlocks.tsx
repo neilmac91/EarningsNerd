@@ -1,7 +1,7 @@
 'use client'
 
 import { useId, useMemo, useRef, type ReactNode, type Ref } from 'react'
-import { Badge } from '@/components/ui'
+import { Badge, countControlClass, cx } from '@/components/ui'
 import { useOverflowRegion } from '@/hooks/useOverflowRegion'
 import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
 import { Callout } from '@/features/summaries/components/Callout'
@@ -221,7 +221,7 @@ function MobileSectionNav({ sections }: { sections: PageSection[] }) {
           <li key={section.id} className="shrink-0">
             <a
               href={`#${section.id}`}
-              className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border border-border-light bg-panel-light px-3 text-xs font-medium text-text-secondary-light shadow-e1 transition-colors hover:bg-brand-weak hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark dark:shadow-none dark:hover:bg-white/5 dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+              className={cx('inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border border-border-light bg-panel-light px-3 text-xs font-medium shadow-e1 dark:border-white/10 dark:bg-panel-dark dark:shadow-none', countControlClass('button'))}
             >
               <span aria-hidden="true" className="font-data text-text-tertiary-light dark:text-text-secondary-dark">
                 {sectionIndex(i)}

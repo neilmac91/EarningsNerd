@@ -6,7 +6,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRightIcon, NewspaperIcon } from '@/lib/icons'
 import { getDashboardFeed } from '@/features/dashboard/api/dashboard-api'
-import { GuidanceCard, Skeleton } from '@/components/ui'
+import { GuidanceCard, Skeleton, countControlClass, cx } from '@/components/ui'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import WhatChangedCard from './WhatChangedCard'
 import FeedOnboarding from './FeedOnboarding'
@@ -125,7 +125,7 @@ export default function FilingFeed({
                   the pointer (the count control, DESIGN_SYSTEM.md; D-030): one text run, one underline. */}
               <Link
                 href="/dashboard/watchlist"
-                className="inline-flex items-center gap-1 rounded-lg text-sm font-medium text-text-secondary-light underline-offset-4 transition-colors duration-fast hover:text-brand-strong hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+                className={cx('inline-flex items-center gap-1 rounded-lg text-sm font-medium', countControlClass('link'))}
               >
                 {overflowLabel}
                 <ArrowRightIcon className="h-4 w-4" />

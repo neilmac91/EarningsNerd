@@ -11,6 +11,7 @@
 ============================================================================= */
 
 import { useState } from 'react'
+import { countControlClass } from '@/components/ui'
 import { cx } from '@/components/ui/cx'
 import { formatLocalDate } from '@/lib/format'
 import type { CalendarEvent } from '../api/calendar-api'
@@ -97,7 +98,7 @@ function DayColumn({
               <button
                 type="button"
                 onClick={() => onShowMore(day.iso)}
-                className="mt-1.5 h-7 w-full rounded-lg text-xs font-semibold text-text-secondary-light transition-colors duration-fast hover:bg-brand-weak hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+                className={cx('mt-1.5 h-7 w-full rounded-lg text-xs font-semibold', countControlClass('button'))}
               >
                 +{hidden} more
               </button>
@@ -169,7 +170,7 @@ function MobileDay({
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              className="mt-2 h-9 w-full rounded-lg border border-dashed border-brand-border text-sm font-semibold text-text-secondary-light transition-colors duration-fast hover:bg-brand-weak hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-brand-border-dark dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+              className={cx('mt-2 h-9 w-full rounded-lg border border-dashed border-brand-border text-sm font-semibold dark:border-brand-border-dark', countControlClass('button'))}
             >
               {expanded ? 'Show top 5' : `+${hidden} more`}
             </button>

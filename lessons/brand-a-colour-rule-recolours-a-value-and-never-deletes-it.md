@@ -13,10 +13,11 @@ the count in a secondary-ink span inside the still-sage control. The review of `
 fading to 2.2:1 on cream, while every other count control in the PR rested in the ink.
 
 **Rule**: When a colour, type or device rule forbids a value's current styling, change the styling
-and keep the value rendered. A control that carries a count takes the count control recipe
-(`frontend/DESIGN_SYSTEM.md`, beside the accent link): the whole label rests in the secondary ink as
-one text run and turns sage only under the pointer, and a countdown on a control that waits rests in
-the same ink at full strength. Do not satisfy the rule with a sage label around a count in its own
+and keep the value rendered. A control that carries a count composes the count control,
+`countControlClass` (`frontend/components/ui/countControl.ts`; `frontend/DESIGN_SYSTEM.md`, beside the
+accent link): the whole label rests in the secondary ink as one text run and turns sage only under the
+pointer, and a countdown on a control that waits rests in the same ink at full strength. Compose it;
+do not copy its classes, since a recipe copied to each site drifts one site at a time. Do not satisfy the rule with a sage label around a count in its own
 span: the control then rests in sage while it carries a value, and the rule keeps sage for the
 pointer. Remove a value only as a copy decision, named as a copy change in the PR's What with its
 reason, never as the way to turn a gate green.
@@ -30,3 +31,7 @@ and the countdown on `frontend/app/check-email/page.tsx` to the count control re
 counts rendered; `brandCopyRules.spec.ts` rule 2 keeps them out of sage, and its count-control check
 (added after the review of `88f801c`, which found the recipe claiming a gate it did not have) fails a
 control resting in sage that holds its count in a span of its own ink, the form `cc2df56` shipped.
+The chief designer's review of `4e44658` (2026-10-13) found the recipe rebuilt by hand at seven sites
+(the period picks, the week view's two controls, the feed link, the Sources links, the narrative's
+summary and the mobile section chips), which `countControlClass` now serves; rule 2's one-source check
+fails a control that carries a count and turns sage under the pointer by classes written in its file.
