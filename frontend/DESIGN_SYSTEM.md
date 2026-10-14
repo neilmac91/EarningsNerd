@@ -472,7 +472,7 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  every width inside the shell. Gate: earningsnerd/no-hand-rolled-toggle-group
                  (eslint.designRules.mjs) fails a role="group" holding an aria-pressed <button> or
                  <Button> anywhere outside components/ui/SegmentedControl.tsx. A hand-built row
-                 without role="group" is outside its reach (FeedbackWidget's type row, E27).
+                 without role="group" is outside its reach (FeedbackWidget's type row, E35).
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
