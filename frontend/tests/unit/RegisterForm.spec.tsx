@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import RegisterForm from '@/features/auth/components/RegisterForm'
 import RegisterPage from '@/app/register/page'
 import type { SignupConfig } from '@/lib/serverApi'
-import { PASSWORD_MIN_LENGTH } from '@/lib/passwordRules'
+import { PASSWORD_MIN_LENGTH, PASSWORD_RULE } from '@/lib/passwordRules'
 
 /**
  * The signup page offers social sign-up only where the backend would accept it: never to an
@@ -162,11 +162,29 @@ describe('RegisterForm promises Pro only while the beta promo is configured', ()
       expect(screen.getByText(INVITE_SUBHEAD)).toBeInTheDocument()
       expect(screen.queryByText(/\bPro\b/)).toBeNull()
     })
+
+    it('open registration with the promo configured: the free-plan line, no Pro, invited or not', async () => {
+      // /api/auth/registration reports the promo whatever the mode (backend/app/routers/auth.py), and
+      // the promo applies only under the invite gate, so the page reads it through betaPricingActive.
+      fetchSignupConfig.mockResolvedValue({ mode: 'public', beta_promo_enabled: true })
+      render(await RegisterPage())
+      expect(screen.getByText(/free AI summaries a month\. No credit card required\./)).toBeInTheDocument()
+      expect(screen.queryByText(/\bPro\b/)).toBeNull()
+    })
   })
 })
 
-describe('RegisterForm strength meter', () => {
+describe('RegisterForm password field: the rule and the meter', () => {
   beforeEach(() => Array.from(searchParams.keys()).forEach((key) => searchParams.delete(key)))
+
+  it("states the server's rule from the shared constant, with the field's minimum", () => {
+    // The hint is the one sentence passwordRulesLockstep holds to the server, so a hand-typed hint
+    // fails here whatever its wording.
+    render(<RegisterForm inviteOnly={false} betaPromoActive={false} />)
+    fireEvent.click(screen.getByRole('button', { name: /sign up with email/i }))
+    expect(screen.getByText(PASSWORD_RULE)).toBeInTheDocument()
+    expect(screen.getByLabelText('Password')).toHaveAttribute('minLength', String(PASSWORD_MIN_LENGTH))
+  })
 
   it('reads "Weak" for the first password past the floor, and "Too short" one character under it', () => {
     render(<RegisterForm inviteOnly={false} betaPromoActive={false} />)

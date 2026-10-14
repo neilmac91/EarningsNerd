@@ -13,8 +13,11 @@ const DISMISS_KEY = 'verifyBannerDismissed'
 
 /**
  * Slim, session-dismissible banner shown to logged-in users who haven't verified
- * their email yet. On the backend only checkout checks email_verified
- * (`backend/app/routers/subscriptions.py`); generating and reading summaries never wait on it.
+ * their email yet. Checkout is the one action that refuses an unverified email, with a 403
+ * (`backend/app/routers/subscriptions.py`); generating and reading summaries never wait on it. A
+ * Google or Apple sign-in links to an existing account only once both sides have verified the email
+ * (`backend/app/services/oauth_account_service.py`), which the login page's conflict sentence says,
+ * so the banner's line names subscribing alone.
  */
 export default function VerificationBanner() {
   const pathname = usePathname()

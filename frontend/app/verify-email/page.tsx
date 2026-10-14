@@ -82,8 +82,9 @@ function VerifyEmailContent() {
             </p>
             <div className="mt-6 space-y-2 text-sm">
               <p>
+                {/* /check-email without an address offers no Resend: it says where a new link comes from. */}
                 <Link href="/check-email" className="rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
-                  Resend verification email
+                  Get a new link
                 </Link>
               </p>
               <p className="text-text-tertiary-light dark:text-text-secondary-dark">

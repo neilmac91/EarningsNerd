@@ -44,9 +44,12 @@ hairlines-as-meaning) ≥ 3:1.
 Every color on a surface that renders in **both** themes must be a light/dark **pair**:
 `bg-x-light dark:bg-x-dark`, `text-…-light dark:text-…-dark`. Never ship a single-theme color on a
 shared surface (it caused white-on-cream and dark-on-cream bugs across the app). Gate:
-`tests/unit/themePairs.spec.ts` holds the `-light` half app-wide, stylesheet `@apply` lines included: each
-`-light` colour class needs a `dark:` colour class on the same property under the same variants, in the
-same class list (its residue is listed per file, with a cap equal to it).
+`tests/unit/themePairs.spec.ts` holds the light half app-wide, stylesheets included: each colour class on a
+`-light` token, or on a token beside a `<name>-dark` (`brand-weak`, `gain`), needs a `dark:` colour class
+on the same property under the same variants, in the same class list. A twin under a condition, or one
+that is itself a light token, does not count, and a stylesheet rule block's `@apply` lines are one list.
+Tokens with no dark sibling (the chart palette, `overlay`, and the `-text` and `-emphasis` inks) are not
+read. Its residue is listed per file, with a cap equal to it.
 
 - **Muted text on dark = `secondary`, never `tertiary-dark`** (`text-text-tertiary-dark` fails WCAG AA
   on dark panels). Pattern for muted: `text-text-tertiary-light dark:text-text-secondary-dark`.

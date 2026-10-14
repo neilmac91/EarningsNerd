@@ -38,29 +38,38 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   /check-email names where links go ("We send verification links to" the address) and never says one
   was just sent, since the account menu's "Verify your email" lands there without sending: "Open the
   newest one to verify your email address. Each link expires 24 hours after we send it.", and Resend is
-  what sends. Reached without an address it offers no Resend and says "Open the newest verification
-  link we sent you." then "Need a new one? Sign in, open the account menu and choose Verify your
-  email.". /verify-email shows the endpoint's own reason for a refused link (its two 400 details,
-  listed in `features/auth/lib/verifyEmailFailure.ts` and held to `backend/app/routers/auth.py`),
-  "The link has expired, or a newer one replaced it." for a 400 without one, and "We couldn't check
-  the link just now. Reload this page to try again." for a lost connection, a timeout or a server
-  error, never the API client's own text; on success, "Your email address is confirmed. Taking you
-  to the home page…" (signing in and reading never waited on it). The verification banner says
-  "Verify your email to subscribe.": checkout is the one action the server gates on a verified email.
+  what sends. Reached without an address (verify-email's "Get a new link") it offers no Resend and
+  says "Open the newest verification link we sent you." then "Need a new one? Sign in, open the
+  account menu and choose Verify your email.". /verify-email shows the endpoint's own reason for a
+  refused link (its two 400 details, listed in `features/auth/lib/verifyEmailFailure.ts` and held to
+  `backend/app/routers/auth.py`), "The link has expired, or a newer one replaced it." for a 400
+  without one, and "We couldn't check the link just now. Reload this page to try again." for a lost
+  connection, a timeout or a server error, never the API client's own text; on success, "Your email
+  address is confirmed. Taking you to the home page…" (reading and a password sign-in never waited on
+  it). The verification banner says "Verify your email to subscribe.", and the dialog that checkout's
+  403 opens says "Subscribing requires a verified email. We send verification links to" the address:
+  checkout is the one action that refuses an unverified email, with a 403
+  (`tests/unit/authPagesCopy.spec.tsx` holds that 403 to `backend/app/routers/subscriptions.py`), and
+  a Google or Apple sign-in links to an existing account only once both sides have verified the
+  email, as the login page's conflict sentence says.
   /reset-password and the register form state one rule from `frontend/lib/passwordRules.ts`, mirrored
   from the server's `PASSWORD_MIN_LENGTH`: "At least 12 characters. A longer passphrase is stronger.
   Breached passwords are rejected." (true while `PWNED_PASSWORD_CHECK_ENABLED` keeps its default), and
   the strength meter reads "Too short" under that minimum and "Weak" at it, adding a bar for four
   characters past it, for letters with digits and for a symbol; its bars carry dark twins
-  (`tests/unit/themePairs.spec.ts` holds every `-light` colour class to a `dark:` colour twin, outside
-  a listed residue of five files). The login page's Google and Apple account-conflict error names the
+  (`tests/unit/themePairs.spec.ts` holds every colour class on a light half, a `-light` token or one
+  beside a `<name>-dark` such as `brand-weak`, to a `dark:` colour twin, outside a listed residue of
+  fourteen files). The login page's Google and Apple account-conflict error names the
   provider tried: "This email already has an EarningsNerd account, and the two could not be linked.
   Sign in the way you created that account, verify your email, and Google will link once both sides
   have verified it." The register subhead follows the server's config: under the invite gate an
   invited visitor is promised Pro only while the beta promo is on (`betaPricingActive`), otherwise
   reads "Your invite opens an account during the private beta."; an uninvited visitor under the gate
   gets no subhead, the private-beta notice says it; open registration shows the free-plan line to
-  everyone, invited or not. Every page link and button on these routes carries the brand focus ring.
+  everyone, invited or not. That invite-path Pro line is a founder claim, like the pricing pages'
+  "Unlimited" line (the founder's review files both under F32, now F41 on brand-public-pages, #1311):
+  this one is conditional on the server's promo config, while the pricing lines wait on F41's
+  decision. Every page link and button on these routes carries the brand focus ring.
 - **Pricing** (`frontend/app/pricing/page.tsx`): the free plan's call to action reads the
   registration mode (`features/marketing/api/access-api.ts`, the client twin of the server's
   `fetchSignupConfig`), so a guest under the invite gate sees "Request an invite" and goes to the

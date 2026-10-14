@@ -71,7 +71,7 @@ function CheckEmailContent() {
           </p>
         </>
       ) : (
-        // Reached without an address (verify-email's "Resend verification email" link): nothing to
+        // Reached without an address (verify-email's "Get a new link"): nothing to
         // resend to, so the page says where a new link comes from instead of offering Resend.
         <>
           <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
