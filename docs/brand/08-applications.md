@@ -15,7 +15,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 | Hero headline | `frontend/features/marketing/components/HeroHeadline.tsx`, `lib/headline.ts` | The accent phrase carries the mark (`.en-mark`) on the primary ink instead of sage text. Variant A ("Read the filing faster. Keep the source in view.") survives as the served default, with the mark under "the source" so it never breaks across lines; B and C become "Read it faster. Check it anyway." and "The summary that shows its work." |
 | Hero subhead and access line | `LandingHero.tsx` | "AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company's XBRL where they can be, and quotes against the filing's own text." The scope is the server's: it checks a figure only when the metric maps to an XBRL concept of at least $1M (`backend/app/services/provenance_service.py`). The access line is unchanged ("Private beta · request an invite"). |
 | Hero example | `HeroExample.tsx` | The fallback is Apple's FY2025 10-K (filed 2025-10-31) with the verified figures; the evidence row is a `MarkedCopy` block: the claim with its `[1]` bracket, the bracket's twin in the margin, and the filing's sentence in a `.en-marked` blockquote set in the editorial face. Live data renders the same way. |
-| Founder slot | `FounderNote.tsx`, `lib/founderNote.ts` | Mounted under the hero example; renders nothing while `FOUNDER_NOTE` is `null` (see §6). |
+| Founder slot | Retired | The empty component, configuration and hero mount have been removed (see §6). |
 | Trust strip | `TrustStrip.tsx` | Four statements the product keeps, no hedges: sourced from SEC EDGAR; risk excerpts are the filing's own words (main said "quoted excerpts"; a Forward Signals quote can stand unmatched, so the founder's review narrowed it); one summary per filing, generated once and shared; not investment advice. |
 | Claims strip | `MeasuredClaims.tsx` | "Figures / Risks / Nine parts / SEC EDGAR", each with the behaviour it names, in place of the four pseudo-statistics; the figures line says the server checks them where it can, and the risks line that unmatched excerpts are withheld and counted. |
 | Evidence section | `EvidenceSection.tsx`, `TraceToSourceDemo.tsx`, `CatchCard.tsx` (new) | "Figures with their receipts." over the FY2025 Financial Highlights table (the two totals read SEC XBRL; the per-share row reads Cited, as a real payload's would) and the trace demo; beneath them the catch, "The number you remember": $391.0B from memory (FY2024, struck through) beside $416.2B in the filing (FY2025) with its chip, `{ } Total net sales · SEC XBRL`; the two amounts share a line while they fit and stack when they do not, at 200% text and in the desktop column (`tests/e2e/catch-card-reflow.spec.ts`). |
@@ -112,11 +112,10 @@ email footer uses the app's own sentence form of the disclaimer (D-017).
 
 ## 6. The founder slot
 
-`frontend/features/marketing/lib/founderNote.ts` exports `FOUNDER_NOTE: FounderNote | null`,
-`null` today, and `FounderNote.tsx` renders nothing until it holds a sentence and a name. The
-slot is a figure with a blockquote and a caption, placed under the hero example, in the first
-person: the one place on the site where the founder speaks as a person. The brief's reader-quote
-slot stays unrendered; nothing is invented to fill either ([01-interview.md](01-interview.md) A5).
+The dormant slot has been retired: its empty configuration, component and hero mount are
+removed. It rendered nothing under the committed configuration, so the landing page's visible
+content is unchanged. The brief's reader-quote slot stays unrendered
+([01-interview.md](01-interview.md) A5).
 
 ## 7. Notable filings
 
@@ -128,7 +127,6 @@ known-good set, a size floor, or 10-K and 10-Q only). The mount gate
 
 ## 8. Left for the founder
 
-- The founder sentence for §6.
 - The Multi-Period demo (`frontend/features/analysis/demo/demo-analysis.json`) is a pipeline
   snapshot ending at FY2024; it is regenerated through the pipeline, not edited, so the landing
   page shows FY2019 to FY2024 in that one demo until the founder runs it to FY2025.
@@ -161,7 +159,7 @@ New gates, each with a mutation proof in the PR (CLAUDE.md rule 12):
   there, at the default, 20px and 32px root sizes.
 - `tests/e2e/catch-card-reflow.spec.ts`: the catch card's amounts never overlap or leave the card,
   at 390px (default and 200% text), 320px and 1280px under a 200% root font, in both themes.
-- `founderNote.spec.tsx`: the slot renders nothing until filled, then the sentence and signature.
+- `founderNote.spec.tsx` was retired with the unused slot described in §6.
 - `waitlistCounter.spec.tsx`: no number below the floor, no "0+" frame, the count in neutral ink.
 
 The design gates
