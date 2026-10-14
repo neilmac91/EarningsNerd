@@ -18,15 +18,19 @@ import { SOCIAL_CARD } from '@/lib/socialCard'
  *      that does (as app/login/layout.tsx does).
  *   2. Every title reads '<Page name> | EarningsNerd' in sentence case (proper nouns, acronyms and the
  *      company's own name allowed).
- *   3. Every private route resolves robots to index: false, and no public route (nor the root layout)
- *      resolves it to noindex. Each route is classified below, so a new route fails until someone
+ *   3. Every private route resolves robots to index: false. No public route resolves it to noindex
+ *      from its page's static metadata or from any layout above the page, the root included: Next takes
+ *      robots from the deepest segment that sets it, the page over its layouts. The two generated pages
+ *      set none in their indexable states, so the layouts above them decide there; each keeps one state
+ *      out by design (part 7). Each route is classified below, so a new route fails until someone
  *      decides which it is.
  *   4. Next replaces a nested openGraph or twitter wholesale, so every one a page or layout sets carries
  *      the site card itself ([SOCIAL_CARD], [SOCIAL_CARD.url]); the root's carry no title or description,
  *      so Next fills both from each page.
  *   5. No description says 'AI-powered' or carries an em-dash.
  *   6. The card's URL with its cache-busting ?v= is typed only in lib/socialCard.ts.
- *   7. The two generateMetadata routes (company, filing) are run in each state with serverApi mocked.
+ *   7. The two generateMetadata routes (company, filing) are run in each state with serverApi mocked;
+ *      each state sets its own openGraph and twitter with the card, or neither, so the root's apply.
  *
  * The static checks read each file's TypeScript AST, so a `title:` inside page content never counts.
  */
@@ -74,8 +78,6 @@ const PUBLIC_ROUTES = [
 ]
 /** The routes whose metadata is computed per request; part 7 runs them. */
 const GENERATED = ['app/company/[ticker]/page.tsx', 'app/filing/[id]/page.tsx']
-/** The public routes whose metadata is static, so this file's robots can be read without running it. */
-const STATIC_PUBLIC_ROUTES = PUBLIC_ROUTES.filter((r) => !GENERATED.includes(path.posix.join('app', r, 'page.tsx')))
 
 /** Sentence case after the brand suffix: only a sentence's first word, a proper noun or an acronym is capitalised. */
 function titleProblems(title: string, names: string[] = []): string[] {
@@ -115,30 +117,46 @@ interface RouteFile {
   isClient: boolean
   /** The `export const metadata` object, when there is one. */
   metadata?: ts.ObjectLiteralExpression
+  /** Why the file's metadata export cannot be read as an object literal, when it cannot. */
+  unreadable?: string
   generates: boolean
   source: ts.SourceFile
 }
+
+/** `{ … } satisfies Metadata`, `{ … } as Metadata` and parentheses still hold the object literal. */
+const unwrap = (node: ts.Expression): ts.Expression =>
+  ts.isSatisfiesExpression(node) || ts.isAsExpression(node) || ts.isParenthesizedExpression(node) ? unwrap(node.expression) : node
 
 function readRouteFile(file: string, text = readFileSync(file, 'utf8')): RouteFile {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const first = source.statements[0]
   const isClient = !!first && ts.isExpressionStatement(first) && ts.isStringLiteral(first.expression) && first.expression.text === 'use client'
   let metadata: ts.ObjectLiteralExpression | undefined
+  let unreadable: string | undefined
   let generates = false
   for (const stmt of source.statements) {
+    // `export { metadata }` and `export * from` hand Next metadata this reading cannot see.
+    if (ts.isExportDeclaration(stmt)) {
+      const clause = stmt.exportClause
+      const names = !clause ? ['*'] : ts.isNamedExports(clause) ? clause.elements.map((e) => e.name.text) : [clause.name.text]
+      if (names.some((n) => ['*', 'metadata', 'generateMetadata'].includes(n))) unreadable = `${stmt.getText()} exports metadata the spec cannot read`
+      continue
+    }
     const exported = ts.canHaveModifiers(stmt) && ts.getModifiers(stmt)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
     if (!exported) continue
     if (ts.isVariableStatement(stmt)) {
       for (const decl of stmt.declarationList.declarations) {
-        if (ts.isIdentifier(decl.name) && decl.name.text === 'metadata' && decl.initializer && ts.isObjectLiteralExpression(decl.initializer)) {
-          metadata = decl.initializer
+        if (ts.isIdentifier(decl.name) && decl.name.text === 'metadata') {
+          const value = decl.initializer && unwrap(decl.initializer)
+          if (value && ts.isObjectLiteralExpression(value)) metadata = value
+          else unreadable = `metadata is ${decl.initializer?.getText() ?? 'declared with no value'}, not an object literal the spec can read`
         }
         if (ts.isIdentifier(decl.name) && decl.name.text === 'generateMetadata') generates = true
       }
     }
     if (ts.isFunctionDeclaration(stmt) && stmt.name?.text === 'generateMetadata') generates = true
   }
-  return { file, isClient, metadata, generates, source }
+  return { file, isClient, metadata, unreadable, generates, source }
 }
 
 const prop = (obj: ts.ObjectLiteralExpression, name: string) =>
@@ -188,18 +206,46 @@ const byPath = new Map(ROUTE_FILES.map((rf) => [rel(rf.file), rf]))
 const PAGES = ROUTE_FILES.filter((rf) => path.basename(rf.file) === 'page.tsx')
 const routeOf = (page: RouteFile) => path.relative(APP, path.dirname(page.file)).split(path.sep).join('/')
 
+const UNREADABLE = Symbol('a robots the spec cannot read')
+
 /**
- * Whether a file's static metadata keeps its route out of the index: undefined when it sets no robots,
- * true for 'noindex' in a string or an index that is not the literal true (an expression it cannot read
- * counts as noindex, so it fails loudly), false otherwise.
+ * The robots a file's static metadata sets: undefined when it sets none, and UNREADABLE when it may set one
+ * this reading cannot see (a metadata export that is not an object literal, a spread or a computed key in
+ * the metadata, or a robots that is not a plain `robots: …` property). Every robots check reads through it.
  */
-function setsNoindex(rf: RouteFile): boolean | undefined {
-  const robots = rf.metadata && prop(rf.metadata, 'robots')?.initializer
+function robotsOf(rf: RouteFile): ts.Expression | typeof UNREADABLE | undefined {
+  if (rf.unreadable) return UNREADABLE
+  if (!rf.metadata) return undefined
+  const members = rf.metadata.properties
+  if (members.some((p) => ts.isSpreadAssignment(p) || (p.name && ts.isComputedPropertyName(p.name)))) return UNREADABLE
+  const robots = members.find((p) => p.name && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) && p.name.text === 'robots')
   if (!robots) return undefined
-  if (ts.isStringLiteralLike(robots)) return /noindex/i.test(robots.text)
+  return ts.isPropertyAssignment(robots) ? robots.initializer : UNREADABLE
+}
+
+/**
+ * Whether a robots value keeps its page out of an index, as Next renders it (resolveRobots in
+ * next/dist/lib/metadata/resolvers/resolve-basics.js). A string goes out as written. An object goes out as
+ * index or noindex from its index (an absent one writes neither) plus its other directives, and its
+ * googleBot, a string or an object of the same shape, goes out as a googlebot tag of its own, which Google
+ * obeys alongside robots. So noindex is: a `noindex`, `none` or `unavailable_after` directive in a string;
+ * an index that is not the literal true; an `unavailable_after` key (the page leaves the index on that
+ * date); or a googleBot that is any of these. A value or key this reading cannot see counts as noindex
+ * too, so it fails loudly and is written as a literal instead.
+ */
+function robotsNoindex(robots: ts.Expression): boolean {
+  if (ts.isStringLiteralLike(robots)) return robots.text.split(/[\s,]+/).some((d) => /^(noindex|none|unavailable_after(:.*)?)$/i.test(d))
   if (!ts.isObjectLiteralExpression(robots)) return true
+  if (robots.properties.some((p) => !ts.isPropertyAssignment(p) || !(ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)))) return true
   const index = prop(robots, 'index')?.initializer
-  return index ? index.kind !== ts.SyntaxKind.TrueKeyword : false
+  const googleBot = prop(robots, 'googleBot')?.initializer
+  return (!!index && index.kind !== ts.SyntaxKind.TrueKeyword) || !!prop(robots, 'unavailable_after') || (!!googleBot && robotsNoindex(googleBot))
+}
+
+/** Whether a file's static metadata keeps its route out of the index: undefined when it sets no robots. */
+function setsNoindex(rf: RouteFile): boolean | undefined {
+  const robots = robotsOf(rf)
+  return robots === undefined ? undefined : robots === UNREADABLE || robotsNoindex(robots)
 }
 
 /** What a page-level openGraph or twitter must carry: the site card itself, not any image and not none. */
@@ -250,8 +296,11 @@ describe('route metadata: every route names itself, page first and brand last', 
     expect(titled.length, `${rel(page.file)} has no title of its own, so its tab reads the root default`).toBeGreaterThan(0)
   })
 
-  it('reads every metadata title as a string it can check', () => {
-    const unreadable = ROUTE_FILES.flatMap((rf) => (rf.metadata ? metadataTexts(rf, rf.metadata).unreadable : []))
+  it('reads every metadata export as an object literal, and every title in it as a string it can check', () => {
+    const unreadable = ROUTE_FILES.flatMap((rf) => [
+      ...(rf.unreadable ? [`${rel(rf.file)}: ${rf.unreadable}`] : []),
+      ...(rf.metadata ? metadataTexts(rf, rf.metadata).unreadable : []),
+    ])
     expect(unreadable).toEqual([])
     expect(ROUTE_FILES.filter((rf) => rf.generates).map((rf) => rel(rf.file)).sort(), 'generateMetadata routes this spec runs').toEqual(GENERATED)
   })
@@ -288,27 +337,65 @@ describe('route metadata: every route names itself, page first and brand last', 
   })
 
   it.each(PRIVATE_ROUTES.map((r) => [r] as const))('private route /%s stays out of the index', (route) => {
-    // The deepest segment that sets robots decides it, as Next resolves it.
-    const setter = chain(route).find((rf) => rf.metadata && prop(rf.metadata, 'robots'))
-    const robots = setter?.metadata && prop(setter.metadata, 'robots')?.initializer
-    const index = robots && ts.isObjectLiteralExpression(robots) ? prop(robots, 'index')?.initializer : undefined
+    // The deepest segment that sets robots decides it, as Next resolves it; only a literal { index: false } passes.
+    const setter = chain(route).find((rf) => robotsOf(rf) !== undefined)
+    const robots = setter && robotsOf(setter)
+    const index = robots && robots !== UNREADABLE && ts.isObjectLiteralExpression(robots) ? prop(robots, 'index')?.initializer : undefined
     expect(index?.kind, `/${route} does not resolve robots to { index: false }`).toBe(ts.SyntaxKind.FalseKeyword)
   })
 
-  it.each(STATIC_PUBLIC_ROUTES.map((r) => [r] as const))('public route /%s stays in the index', (route) => {
-    // The deepest segment that sets robots decides it, as Next resolves it; the root layout counts.
+  it.each(PUBLIC_ROUTES.map((r) => [r] as const))('public route /%s stays in the index', (route) => {
+    // The deepest segment that sets robots decides it, as Next resolves it (mergeMetadata assigns robots per
+    // segment, root to leaf, page last); the root layout counts. A generated page has no static metadata and
+    // sets no robots in its indexable states (part 7 asserts it), so for it the walk goes on to the layouts,
+    // from its own segment up to the root, and the deepest of them that sets robots decides those states.
     const setter = chain(route).find((rf) => setsNoindex(rf) !== undefined)
     expect(setter && setsNoindex(setter) ? rel(setter.file) : undefined, `/${route} resolves robots to noindex`).toBeUndefined()
   })
 
   it('self-check: the robots and card readers flag what they must', () => {
-    const probe = (body: string) => readRouteFile('app/zzprobe/page.tsx', `export const metadata = ${body}`)
+    const file = (text: string) => readRouteFile('app/zzprobe/page.tsx', text)
+    const probe = (body: string) => file(`export const metadata = ${body}`)
+    // No robots at all, then the forms that keep a page in the index.
     expect(setsNoindex(probe("{ title: 'Probe | EarningsNerd' }"))).toBeUndefined()
-    expect(setsNoindex(probe('{ robots: { index: false } }'))).toBe(true)
-    expect(setsNoindex(probe("{ robots: 'noindex, follow' }"))).toBe(true)
-    expect(setsNoindex(probe('{ robots: ROBOTS }')), 'an unreadable robots counts as noindex').toBe(true)
-    expect(setsNoindex(probe('{ robots: { index: true, follow: false } }'))).toBe(false)
-    expect(setsNoindex(probe('{ robots: { follow: false } }'))).toBe(false)
+    expect(setsNoindex(probe("{ title: 'Probe | EarningsNerd' } satisfies Metadata"))).toBeUndefined()
+    for (const robots of [
+      '{ index: true, follow: false }',
+      '{ follow: false }',
+      "'index, follow'",
+      "'max-image-preview:none'",
+      "{ index: true, googleBot: 'index, follow' }",
+    ]) expect(setsNoindex(probe(`{ robots: ${robots} }`)), `${robots} keeps the page in the index`).toBe(false)
+    // One case per form Next renders as noindex.
+    for (const robots of [
+      '{ index: false }',
+      '{ index: false, follow: true }',
+      "'noindex'",
+      "'noindex, nofollow'",
+      "'NoIndex, follow'",
+      "'none'",
+      "'unavailable_after: 2026-01-01'",
+      "{ unavailable_after: '2026-01-01' }",
+      '{ index: true, googleBot: { index: false } }',
+      "{ googleBot: 'noindex' }",
+      "{ googleBot: 'none' }",
+    ]) expect(setsNoindex(probe(`{ robots: ${robots} }`)), `${robots} is noindex`).toBe(true)
+    expect(setsNoindex(probe('{ robots: { index: false } } satisfies Metadata')), 'read through satisfies').toBe(true)
+    // What this reading cannot see counts as noindex, so it fails loudly.
+    for (const text of [
+      'export const metadata = { robots: ROBOTS }',
+      'export const metadata = { robots: { index: INDEX } }',
+      'export const metadata = { robots: { ...BASE } }',
+      'export const metadata = { robots: { index: true, googleBot: BOT } }',
+      'export const metadata = { robots }',
+      "export const metadata = { ...NOINDEX, title: 'Probe | EarningsNerd' }",
+      "export const metadata = { ['robots']: { index: true } }",
+      'export const metadata = NOINDEX',
+      "export { metadata } from './shared'",
+      "export * from './shared'",
+    ]) expect(setsNoindex(file(text)), `${text} counts as noindex`).toBe(true)
+    expect(file('export const metadata = NOINDEX').unreadable).toBe('metadata is NOINDEX, not an object literal the spec can read')
+    expect(file("export * as shared from './shared'").unreadable, 'a namespace export hands Next no metadata').toBeUndefined()
     const card = (body: string) => {
       const metadata = probe(body).metadata!
       return [...cardProblems(metadata, 'openGraph'), ...cardProblems(metadata, 'twitter')]
@@ -322,7 +409,8 @@ describe('route metadata: every route names itself, page first and brand last', 
   })
 
   it('sets no robots in the root layout, so no public page is noindexed site-wide', () => {
-    expect(prop(byPath.get('app/layout.tsx')!.metadata!, 'robots')?.getText(), 'the root layout sets robots').toBeUndefined()
+    const robots = robotsOf(byPath.get('app/layout.tsx')!)
+    expect(robots === UNREADABLE ? UNREADABLE.description : robots?.getText(), 'the root layout sets robots').toBeUndefined()
   })
 
   it.each(ROUTE_FILES.filter((rf) => rf.metadata && (prop(rf.metadata, 'openGraph') || prop(rf.metadata, 'twitter'))).map((rf) => [rel(rf.file), rf] as const))('%s carries the site card in the openGraph and twitter it sets', (_name, rf) => {
@@ -395,35 +483,42 @@ async function filingMetadata(filing: unknown, summary: unknown, id = '42'): Pro
   return generateMetadata({ params: Promise.resolve({ id }) })
 }
 
-/** The checks every generated state shares: the title's form, the description's words, the card on any openGraph. */
-function expectWellFormed(meta: Metadata, names: string[]) {
+/**
+ * The checks every generated state shares: the title's form, the description's words, and the site card. A
+ * state sets its own openGraph and twitter, each with the card and the state's title ('own'), or neither
+ * ('root'): Next then keeps the root's, which carry the card and no title, so it fills og:title and
+ * twitter:title from the state's own (the root test above holds both).
+ */
+function expectWellFormed(meta: Metadata, names: string[], card: 'own' | 'root') {
   expect(titleProblems(String(meta.title), names)).toEqual([])
   expect(descriptionProblems(String(meta.description ?? ''))).toEqual([])
-  if (meta.openGraph) {
-    expect(meta.openGraph.images, 'a page-level openGraph carries the site card').toEqual([SOCIAL_CARD])
-    expect(meta.openGraph.title).toBe(meta.title)
+  if (card === 'root') {
+    expect([meta.openGraph, meta.twitter], 'this state sets no openGraph or twitter of its own').toEqual([undefined, undefined])
+    return
   }
+  expect(meta.openGraph?.images, 'a page-level openGraph carries the site card').toEqual([SOCIAL_CARD])
+  expect(meta.twitter?.images, 'a page-level twitter carries the site card').toEqual([SOCIAL_CARD.url])
+  expect([meta.openGraph?.title, meta.twitter?.title], 'og:title and twitter:title').toEqual([meta.title, meta.title])
 }
 
 describe('company page metadata, in each state', () => {
   it('a covered company: its name, the card, and a description of what the page holds', async () => {
     const meta = await companyMetadata({ status: 'ok', data: APPLE })
-    expectWellFormed(meta, ['Apple Inc.'])
+    expectWellFormed(meta, ['Apple Inc.'], 'own')
     expect(meta.title).toBe('Apple Inc. (AAPL) SEC filings and AI summaries | EarningsNerd')
     expect(meta.description).toBe('Apple Inc. (AAPL) filings from SEC EDGAR, with AI summaries that show their work.')
-    expect(meta.twitter).toMatchObject({ images: [SOCIAL_CARD.url] })
     expect(meta.robots).toBeUndefined()
   })
 
   it('an issuer that files no financial reports: the page’s own reason, never a promise of summaries', async () => {
     const reason = 'This issuer trades in the U.S. as an unsponsored ADR and does not file financial reports with the SEC.'
     const withReason = await companyMetadata({ status: 'ok', data: { ...ADR, coverage_reason: reason } }, 'NSRGY')
-    expectWellFormed(withReason, ['Nestle S.A.'])
+    expectWellFormed(withReason, ['Nestle S.A.'], 'own')
     expect(withReason.description).toBe(reason)
     expect(withReason.robots).toEqual({ index: false, follow: true })
 
     const bare = await companyMetadata({ status: 'ok', data: ADR }, 'NSRGY')
-    expectWellFormed(bare, ['Nestle S.A.'])
+    expectWellFormed(bare, ['Nestle S.A.'], 'own')
     expect(bare.description).toBe('Nestle S.A. does not file financial reports with the SEC, so EarningsNerd has no filings to analyze.')
     expect(bare.description).not.toMatch(/summar/i)
 
@@ -436,9 +531,10 @@ describe('company page metadata, in each state', () => {
     }
   })
 
-  it('the backend unreachable: the ticker alone, never "AAPL (AAPL)"', async () => {
-    const meta = await companyMetadata({ status: 'unavailable' })
-    expectWellFormed(meta, [])
+  // 'not-found' is the page's real 404; its metadata takes the same branch as an unreachable backend.
+  it.each(['unavailable', 'not-found'])('the company %s: the ticker alone, never "AAPL (AAPL)"', async (status) => {
+    const meta = await companyMetadata({ status })
+    expectWellFormed(meta, [], 'own')
     expect(meta.title).toBe('AAPL SEC filings and AI summaries | EarningsNerd')
     expect(meta.description).toBe('AAPL filings from SEC EDGAR, with AI summaries that show their work.')
   })
@@ -450,14 +546,14 @@ describe('filing page metadata, in each state', () => {
 
   it('a summary ready: the filed date, ": AI summary", indexable, the card', async () => {
     const meta = await filingMetadata({ status: 'ok', data: FILING }, READY)
-    expectWellFormed(meta, ['Apple Inc.'])
+    expectWellFormed(meta, ['Apple Inc.'], 'own')
     expect(meta.title).toBe('Apple Inc. (AAPL) 10-K filed October 31, 2025: AI summary | EarningsNerd')
     expect(meta.robots).toBeUndefined()
   })
 
   it('a stub: no summary claimed in the title or the description, out of the index, the card', async () => {
     const meta = await filingMetadata({ status: 'ok', data: FILING }, { status: 'ok', data: null })
-    expectWellFormed(meta, ['Apple Inc.'])
+    expectWellFormed(meta, ['Apple Inc.'], 'own')
     expect(meta.title).toBe('Apple Inc. (AAPL) 10-K filed October 31, 2025 | EarningsNerd')
     expect(meta.description).toBe('Apple Inc.’s 10-K, filed October 31, 2025, as published on SEC EDGAR.')
     expect(meta.robots).toEqual({ index: false, follow: true })
@@ -466,21 +562,24 @@ describe('filing page metadata, in each state', () => {
   it('a stub with no company and no filed date: the clauses drop, nothing is invented', async () => {
     const bare = { ...FILING, filing_date: '', company: undefined } as unknown as Filing
     const meta = await filingMetadata({ status: 'ok', data: bare }, { status: 'ok', data: null })
-    expectWellFormed(meta, [])
+    expectWellFormed(meta, [], 'own')
     expect(meta.title).toBe('10-K | EarningsNerd')
     expect(meta.description).toBe('10-K as published on SEC EDGAR.')
   })
 
-  it('the backend unreachable: a generic title in sentence case, and "an SEC"', async () => {
-    const meta = await filingMetadata({ status: 'unavailable' }, { status: 'unavailable' })
-    expectWellFormed(meta, [])
+  // 'not-found' is the page's real 404; its metadata takes the same branch as an unreachable backend. Neither
+  // knows the filing, so neither sets an openGraph or twitter of its own: the root's carry the card.
+  it.each(['unavailable', 'not-found'])('the filing %s: a generic title in sentence case, and "an SEC"', async (status) => {
+    const meta = await filingMetadata({ status }, { status })
+    expectWellFormed(meta, [], 'root')
     expect(meta.title).toBe('SEC filing | EarningsNerd')
     expect(meta.description).toBe('An SEC filing, as published on SEC EDGAR.')
   })
 
   it('a legacy ticker URL: canonical on the company page, title in sentence case', async () => {
     const meta = await filingMetadata({ status: 'ok', data: FILING }, READY, 'aapl')
-    expectWellFormed(meta, [])
+    // Canonical on the company page, so it sets no card of its own: the root's apply.
+    expectWellFormed(meta, [], 'root')
     expect(meta.title).toBe('AAPL SEC filings | EarningsNerd')
   })
 })

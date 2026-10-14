@@ -62,7 +62,12 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   (dashboard, settings, watchlist, the account pages, the admin pages), in sentence case on every
   route but the four pinned in `routeMetadata.spec.ts`'s `TITLE_RESIDUE` (/contact and /search, recased
   by their own PRs; /privacy and /terms, recased only with a legal-date bump). Every private route
-  stays out of the index; no public route, and not the root layout, sets noindex. Company and filing
+  stays out of the index. No layout above a public page sets noindex, the root layout included, and
+  no public page does either, but for two states kept out by design, each with
+  `robots: { index: false, follow: true }` so crawlers still follow its links: a company page for an
+  issuer whose coverage status is `unsupported_foreign`, which has no filings and never will, and a
+  filing page with no summary to show yet, a stub that would read as one of thousands of
+  near-duplicates and joins the index once its summary exists. Company and filing
   pages carry the site card, since a page-level `openGraph` replaces the root one; their titles and
   descriptions say what the page holds in each state (a foreign issuer with no SEC reports is told as
   such, a filing with no summary yet claims none), and a filing's title names its filed date. The
