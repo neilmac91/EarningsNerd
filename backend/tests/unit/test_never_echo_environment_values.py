@@ -1289,14 +1289,14 @@ def test_sentry_withholds_a_password_read_as_the_port(monkeypatch, request):
     assert not leaked, f"{leaked} eight-character fragments of the fabricated password reached Sentry"
 
 
-
-@pytest.mark.parametrize("form", ["query", "raw-slash"])
+@pytest.mark.parametrize("form", ["query", "query-rendered", "raw-slash"])
 def test_sentry_withholds_a_password_wherever_a_driver_reads_one(monkeypatch, request, form):
     # Codex's case on #1297 (49716c9): SQLAlchemy passes a `password` query parameter to the driver and renders it
-    # whole even with hide_password (re-sorting the query, so the rendering differs from the setting), and redis-py
-    # reads one, but the scrubber took a password from the authority only; and SQLAlchemy reads an authority password
-    # holding a raw "/" to the last "@", past where the authority ends. Each password, as written and as the driver
-    # reads it, and an engine's rendering of its URL arrive "[Filtered]".
+    # whole even with hide_password (re-sorting the query, so the rendering differs from the setting, and quoting the
+    # value as quote_plus does, which the URL may write otherwise: a raw "/"), and redis-py reads one, but the scrubber
+    # took a password from the authority only; and SQLAlchemy reads an authority password holding a raw "/" to the
+    # first "@" after the user name's ":" (the only "@" app.database accepts), past where the authority ends. Each
+    # password, as written and as the driver reads it, and an engine's rendering of its URL arrive "[Filtered]".
     import sentry_sdk
     from redis.connection import parse_url
     from sqlalchemy import create_engine
@@ -1315,6 +1315,13 @@ def test_sentry_withholds_a_password_wherever_a_driver_reads_one(monkeypatch, re
         rendered = repr(create_engine(urls["DATABASE_URL"]))
         assert written in rendered and urls["DATABASE_URL"] not in rendered  # only the password can withhold it there
         quoted = [written, read, redis, rendered]
+    elif form == "query-rendered":  # the round-17 check's R17V-1: SQLAlchemy renders a raw "/" as %2F
+        written = read = f"{database[:20]}/{database[20:]}"
+        urls = {"DATABASE_URL": f"postgresql://app@db.invalid/app?sslmode=require&password={written}"}
+        assert make_url(urls["DATABASE_URL"]).query["password"] == read
+        rendered = repr(create_engine(urls["DATABASE_URL"]))
+        assert written not in rendered and f"{database[:20]}%2F{database[20:]}" in rendered
+        quoted = [written, rendered]
     else:
         written = read = f"{database[:20]}/{database[20:]}"
         urls = {"DATABASE_URL": f"postgresql://app:{written}@db.invalid/app"}
@@ -1330,19 +1337,22 @@ def test_sentry_withholds_a_password_wherever_a_driver_reads_one(monkeypatch, re
 
 
 def test_a_url_sqlalchemy_cannot_parse_still_gives_its_password():
-    # The password SQLAlchemy parses joins the authority's, never replaces it: a URL SQLAlchemy refuses (a port that is
-    # no number) still gives the authority's password, as written and percent-decoded, and building the values does
-    # not fail, which would turn Sentry off.
+    # The passwords SQLAlchemy parses join the URL rules' own, never replace them: a URL SQLAlchemy refuses (a port that
+    # is no number) still gives the authority's password and a `password` query parameter, each as written and
+    # decoded, and building the values does not fail, which would turn Sentry off. Only here does the query rule alone
+    # give a value: in the gate's other query forms SQLAlchemy's reading or its rendering gives the value as written.
     from sqlalchemy.engine import make_url
 
     import main
 
     password = _fabricated("DATABASE_URL unparsed password", string.ascii_uppercase)
-    written = f"{password[:20]}%40{password[20:]}"
-    url = f"postgresql://app:{written}@db.invalid:notaport/app"
+    query = _fabricated("DATABASE_URL unparsed query password", string.ascii_uppercase)
+    written, in_query = f"{password[:20]}%40{password[20:]}", f"{query[:20]}%2B{query[20:]}"
+    url = f"postgresql://app:{written}@db.invalid:notaport/app?password={in_query}"
     with pytest.raises(ValueError):
         make_url(url)
-    assert {written, f"{password[:20]}@{password[20:]}"} <= main._url_passwords(url)
+    decoded = {f"{password[:20]}@{password[20:]}", f"{query[:20]}+{query[20:]}"}
+    assert {written, in_query} | decoded <= main._url_passwords(url)
 
 
 def test_sentry_withholds_a_secret_stored_with_a_newline(monkeypatch, request):
