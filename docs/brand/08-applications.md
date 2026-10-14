@@ -83,10 +83,12 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   flags a hand-rolled eyebrow chip around a form as well as a `Badge`, alone or leading a meta line
   such as "{form} · Filed {ago}" (the notable-filing card, dormant off `/`, moved to the data face
   with it). The form toggles, "Clear dates" and Retry (a `RetryButton`) carry the brand ring, the
-  result rows an inset one inside the clipped list. The field stops at the 400 characters the
-  backend accepts; an error shows the backend's own detail, or the surface's sentence ("Search did
-  not load. Try again in a minute.") when the body carried none. The description no longer promises
-  every filing, and the title is in sentence case.
+  result rows an inset one inside the clipped list. The rows and the unselected form toggles brighten
+  on hover to the row tint (`brand-weak`), never darken. The field stops at the length the backend
+  accepts, and `tests/unit/searchQueryLimitParity.spec.tsx` reads that bound from the router; an
+  error shows the backend's own detail, or the surface's sentence ("Search did not load. Try again
+  in a minute.") when the body carried none, a bodiless 503 or 413 included. The description no
+  longer promises every filing, and the title is in sentence case.
 
 ## 4. The mark's files and the icons
 

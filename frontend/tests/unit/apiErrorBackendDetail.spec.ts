@@ -44,6 +44,7 @@ describe('ApiError.backendDetail', () => {
   it.each([
     ['a 502 HTML gateway page', 502, '<html>Bad Gateway</html>', 'A server error occurred. Please try again later.'],
     ['a 413 with no detail', 413, {}, 'Request failed with status code 413'],
+    ['a bodiless 503', 503, '', 'Service temporarily unavailable. Please try again in a moment.'],
     ['an empty detail', 429, { detail: '' }, 'Too many requests. Please wait a moment before trying again.'],
   ])('is undefined for %s, where detail is the client fallback', async (_name, status, data, detail) => {
     respondWith(status, data)

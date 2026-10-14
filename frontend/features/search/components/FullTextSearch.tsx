@@ -52,8 +52,9 @@ export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
                 href={href}
                 target="_blank"
                 rel="noreferrer"
-                // The list clips its rows (overflow-hidden), so the ring sits inside the row.
-                className={`${rowClass} transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:shadow-ring-brand-inset dark:hover:bg-white/5 dark:focus-visible:shadow-ring-brand-inset-dark`}
+                // The list clips its rows (overflow-hidden), so the ring sits inside the row. Hover brightens
+                // to the product's row tint (DESIGN_SYSTEM.md section 6), never darkens.
+                className={`${rowClass} transition-colors hover:bg-brand-weak focus-visible:outline-none focus-visible:shadow-ring-brand-inset dark:hover:bg-white/5 dark:focus-visible:shadow-ring-brand-inset-dark`}
               >
                 {inner}
               </a>
@@ -138,7 +139,8 @@ export default function FullTextSearch() {
           placeholder="Search the full text of filings…"
           aria-label="Search the full text of SEC filings"
           aria-busy={isFetching || undefined}
-          // The backend refuses a query over 400 characters (routers/search.py, max_length=400).
+          // The backend refuses a longer query (routers/search.py, `q: str = Query(..., max_length=...)`);
+          // tests/unit/searchQueryLimitParity.spec.tsx reads that bound and holds this one to it.
           maxLength={400}
           className={inputClasses({ leadingIcon: true, trailingIcon: true })}
         />
@@ -149,6 +151,8 @@ export default function FullTextSearch() {
       <div className="flex flex-wrap gap-2">
         {FORM_FILTERS.map((form) => {
           const active = forms.includes(form)
+          // An unselected toggle brightens like a result row (brand-weak); in dark it rests on white/5,
+          // so its hover steps to white/10, as the product's other chip toggles do.
           return (
             <button
               key={form}
@@ -158,7 +162,7 @@ export default function FullTextSearch() {
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${
                 active
                   ? 'border-brand-border dark:border-brand-dark/40 bg-brand-weak dark:bg-brand-dark/15 text-brand-strong dark:text-brand-strong-dark'
-                  : 'border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-black/[0.03] dark:hover:bg-white/10'
+                  : 'border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/10'
               }`}
             >
               {form}

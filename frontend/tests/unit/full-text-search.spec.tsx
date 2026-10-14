@@ -1,12 +1,13 @@
 import React from 'react'
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { AxiosError, AxiosHeaders, type AxiosAdapter, type InternalAxiosRequestConfig } from 'axios'
 
 vi.mock('@/features/search/api/search-api', () => ({ searchFullText: vi.fn() }))
 
 import FullTextSearch, { FullTextSearchResults } from '@/features/search/components/FullTextSearch'
 import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
-import { ApiError } from '@/lib/api/client'
+import api, { ApiError } from '@/lib/api/client'
 
 /** An ApiError as lib/api/client builds it when the response body carried a string `detail`. */
 const deferred = <T,>() => {
@@ -15,6 +16,26 @@ const deferred = <T,>() => {
   return { promise, resolve }
 }
 const fromBackend = (status: number, detail: string) => Object.assign(new ApiError(status, detail), { backendDetail: detail })
+
+/**
+ * The search request as lib/api/client fails it when the response has the given status and body: the
+ * real response interceptor runs, so `detail` is the client's own fallback (a bodiless 503's "Service
+ * temporarily unavailable" sentence) or axios's text (a bodiless 413), never typed out here.
+ */
+async function failThroughClient(status: number, data: unknown): Promise<never> {
+  const original = api.defaults.adapter
+  const adapter: AxiosAdapter = (config: InternalAxiosRequestConfig) => {
+    const response = { status, statusText: '', data, headers: new AxiosHeaders(), config }
+    return Promise.reject(new AxiosError(`Request failed with status code ${status}`, AxiosError.ERR_BAD_RESPONSE, config, null, response))
+  }
+  api.defaults.adapter = adapter
+  try {
+    await api.get('/api/search/full-text')
+  } finally {
+    api.defaults.adapter = original
+  }
+  throw new Error('the stub adapter did not fail the request')
+}
 
 const hit: FullTextSearchHit = {
   accession_no: '0000320193-24-000123',
@@ -58,7 +79,7 @@ describe('FullTextSearchResults', () => {
     expect(container.textContent).toContain('Apple Inc.')
   })
 
-  it('sets the form code as data-face text, never a chip, and rings the row link inside the clipped list', () => {
+  it('sets the form code as data-face text, never a chip, and rings and tints the row link inside the clipped list', () => {
     render(<FullTextSearchResults hits={[hit]} />)
     const form = screen.getByText('10-K')
     expect(form).toHaveClass('font-data')
@@ -69,6 +90,9 @@ describe('FullTextSearchResults', () => {
       'focus-visible:shadow-ring-brand-inset',
       'dark:focus-visible:shadow-ring-brand-inset-dark',
     )
+    // Hover brightens to the product's row tint (DESIGN_SYSTEM.md section 6), never darkens.
+    expect(screen.getByRole('link')).toHaveClass('hover:bg-brand-weak', 'dark:hover:bg-white/5')
+    expect(screen.getByRole('link').className).not.toMatch(/hover:bg-black/)
   })
 
   it('renders one row per hit', () => {
@@ -136,17 +160,24 @@ describe('FullTextSearch controls and errors', () => {
   }
   const search = (q: string) => fireEvent.change(screen.getByLabelText(/Search the full text/i), { target: { value: q } })
 
-  it('caps the query at the 400 characters the backend accepts, so its 422 cannot occur', () => {
-    renderSearch()
-    expect(screen.getByLabelText(/Search the full text/i)).toHaveAttribute('maxLength', '400')
-  })
-
   it('rings the form toggles and Clear dates', () => {
     renderSearch()
     fireEvent.change(screen.getByLabelText('Filed on or after'), { target: { value: '2023-01-01' } })
     for (const control of [screen.getByRole('button', { name: '10-K' }), screen.getByRole('button', { name: 'Clear dates' })]) {
       expect(control).toHaveClass('focus-visible:outline-none', 'focus-visible:shadow-ring-brand', 'dark:focus-visible:shadow-ring-brand-dark')
     }
+  })
+
+  it('an unselected form toggle brightens like a result row; a selected one keeps its tint', () => {
+    renderSearch()
+    const toggle = screen.getByRole('button', { name: '10-K' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    // In dark it rests on white/5, so its hover steps to white/10 (the product's chip toggles).
+    expect(toggle).toHaveClass('hover:bg-brand-weak', 'dark:hover:bg-white/10')
+    expect(toggle.className).not.toMatch(/hover:bg-black/)
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(toggle).toHaveClass('bg-brand-weak', 'dark:bg-brand-dark/15')
   })
 
   it('shows a backend detail (the 429) verbatim, and its Retry runs the search again', async () => {
@@ -166,15 +197,30 @@ describe('FullTextSearch controls and errors', () => {
     // FastAPI's 422 carries a list, which reached the UI as "[object Object]" before lib/api/client read it.
     ['a validation list in place of a detail', new ApiError(422, [{ loc: ['query', 'q'], msg: 'too long' }] as unknown as string)],
     ['an error that is not an ApiError', new Error('boom')],
-    // lib/api/client's own fallbacks and axios's text fill `detail` when the body carried none (an HTML
-    // gateway page, a 4xx without a detail): they are not the backend's words.
-    ['a 502 whose detail is the client fallback', new ApiError(502, 'A server error occurred. Please try again later.')],
-    ["a 413 carrying axios's message", new ApiError(413, 'Request failed with status code 413')],
   ])('shows its own sentence for %s', async (_name, error) => {
     vi.mocked(searchFullText).mockRejectedValueOnce(error)
     renderSearch()
     search('going concern')
     expect(await screen.findByRole('alert')).toHaveTextContent('Search did not load. Try again in a minute.')
+  })
+
+  // lib/api/client's own fallbacks and axios's text fill `detail` when the body carried none: they are
+  // not the backend's words. These run the real interceptor, beside the 429 above.
+  it.each([
+    ["a bodiless 503 (the client's sentence)", 503, ''],
+    ["a bodiless 413 (axios's message)", 413, ''],
+    ['a 502 HTML gateway page (the client fallback)', 502, '<html>Bad Gateway</html>'],
+  ])('shows its own sentence for %s, never the client text in detail', async (_name, status, data) => {
+    const thrown = await failThroughClient(status, data).catch((err: unknown) => err)
+    expect(thrown).toBeInstanceOf(ApiError)
+    const clientText = (thrown as ApiError).detail
+    expect(clientText).toBeTruthy()
+    vi.mocked(searchFullText).mockImplementationOnce(() => failThroughClient(status, data))
+    renderSearch()
+    search('going concern')
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Search did not load. Try again in a minute.')
+    expect(alert).not.toHaveTextContent(clientText)
   })
 
   it("shows the backend's own detail word for word (the 502)", async () => {
