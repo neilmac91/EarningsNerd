@@ -915,7 +915,7 @@ carries no claim and is `aria-hidden` (the in-text marker is the accessible one)
 
 ## 8. Theme mechanics
 
-- **One** `<ThemeToggle/>`, in the global `Header` (desktop + mobile). No page-level toggles.
+- **One** `<ThemeToggle/>`, in the global `Header` (desktop + mobile; below a 24rem viewport it sits in the mobile menu, not the bar, so the bar keeps one row under enlarged text: tests/e2e/reflow-200.spec.ts). No page-level toggles.
 - `app/layout.tsx` runs a **pre-paint theme bootstrap script** (saved `localStorage.theme`, else
   light; there is no system-preference detection) to prevent FOUC, and `ThemeProvider` re-syncs to
   the same value after hydration. Keep `suppressHydrationWarning` on `<html>`.

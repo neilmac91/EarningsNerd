@@ -113,7 +113,7 @@ export default function Header({
         {/* Left: Logo */}
         <div className="flex items-center">
           {/* Design sizes: 36px mark, 20px wordmark. Below `sm` the bar also carries the theme
-              toggle, the short account CTA and the menu button at 44px each, so the wordmark
+              toggle (above 24rem), the short account CTA and the menu button at 44px each, so the wordmark
               yields to the mark alone (the footer's rendition) rather than overflow the viewport. */}
           <Link href="/" className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark" aria-label="EarningsNerd home">
             <EarningsNerdLogo variant="icon-only" iconClassName="h-9 w-9" mode="auto" />
@@ -167,13 +167,17 @@ export default function Header({
         </div>
 
         {/* Mobile actions: 44px touch targets on the icon controls; the short account CTA sits in
-            the bar (not only inside the menu) so a logged-out visitor always has the next step. When
-            enlarged text leaves no room beside the logo, the bar wraps and this group takes its own
-            row at the right (tests/e2e/reflow-200.spec.ts). */}
-        <div className="ml-auto flex min-w-0 items-center gap-1 lg:hidden">
-          <ThemeToggle className="min-h-11 min-w-11" />
+            the bar (not only inside the menu) so a logged-out visitor always has the next step.
+            Below a 24rem viewport (a phone with enlarged text) the bar keeps one row: the theme
+            toggle, a preference rather than a next step, moves into the menu, the account link
+            narrows its padding, and the group lines up from its min-content width (basis-0,
+            min-w-min) rather than its one-line width, so the link's label wraps before the group
+            leaves the logo's row. Only when even that cannot sit beside the logo does the bar wrap
+            and this group take its own row at the right (tests/e2e/reflow-200.spec.ts). */}
+        <div className="flex min-w-min grow basis-0 items-center justify-end gap-1 lg:hidden">
+          <ThemeToggle className="min-h-11 min-w-11 [@media(max-width:24rem)]:hidden" />
           {(user === null || isError) && (
-            <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'min-h-11 min-w-0 py-2' })}>
+            <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'min-h-11 min-w-0 py-2 [@media(max-width:24rem)]:px-2' })}>
               {account.ctaShort}
             </Link>
           )}
@@ -266,6 +270,11 @@ export default function Header({
                   <Skeleton className="h-9 w-full rounded-lg" />
                 </span>
               )}
+            </div>
+            {/* Below a 24rem viewport the theme toggle lives here, not in the bar (see the mobile actions). */}
+            <div className="mt-3 hidden items-center justify-between border-t border-border-light px-3 pt-3 dark:border-white/[0.06] [@media(max-width:24rem)]:flex">
+              <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">Theme</span>
+              <ThemeToggle className="min-h-11 min-w-11" />
             </div>
           </nav>
         </div>

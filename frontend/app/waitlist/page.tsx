@@ -197,7 +197,11 @@ export default function WaitlistPage() {
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="rounded-3xl border border-border-light bg-panel-light p-8 shadow-e2 dark:shadow-none dark:border-border-dark dark:bg-panel-dark md:p-10">
-          <h2 className="break-words text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+          {/* At 200% text "transparency" is wider than the panel. [hyphens:auto] (with <html lang="en">) breaks it
+              on a hyphen where the browser has a hyphenation dictionary; break-words is the fallback where it has
+              none (Chromium on Linux, the e2e browser), so the page never scrolls sideways
+              (tests/e2e/reflow-200.spec.ts). #1311 retitles this panel; both classes can go when the two meet. */}
+          <h2 className="break-words text-3xl font-semibold text-text-primary-light [hyphens:auto] dark:text-text-primary-dark">
             Built for trust and transparency
           </h2>
           <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">

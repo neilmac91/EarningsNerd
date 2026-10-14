@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 vi.mock('next/link', () => ({
@@ -15,7 +15,10 @@ vi.mock('next/navigation', () => ({
 }))
 
 // Stub chrome/children so the test isolates Header's auth-state branching.
-vi.mock('@/components/ThemeToggle', () => ({ ThemeToggle: () => null }))
+// The toggle renders its className so the placement test below can read where it shows.
+vi.mock('@/components/ThemeToggle', () => ({
+  ThemeToggle: ({ className = '' }: { className?: string }) => <button type="button" data-testid="theme-toggle" className={className} aria-label="Switch theme" />,
+}))
 vi.mock('@/components/EarningsNerdLogo', () => ({ default: () => null }))
 vi.mock('@/features/notifications/components/NotificationBell', () => ({
   default: () => <div data-testid="notification-bell" />,
@@ -126,6 +129,39 @@ describe('Header auth state', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+// Below a 24rem viewport (a phone with enlarged text, or a 360px or 375px phone) the bar keeps one row:
+// the theme toggle, a preference rather than a next step, leaves the bar for the mobile menu, so the bar
+// is the logo, the account link and the menu button. Above 24rem it stays in the bar and the menu has
+// none. jsdom applies no media query, so this reads the classes that place it; the geometry is
+// tests/e2e/reflow-200.spec.ts's one-row case.
+describe('Header theme toggle placement', () => {
+  const NARROW_HIDDEN = '[@media(max-width:24rem)]:hidden'
+  const NARROW_SHOWN = '[@media(max-width:24rem)]:flex'
+
+  it('sits in the bar above 24rem and inside the mobile menu below it', async () => {
+    vi.mocked(getCurrentUserSafe).mockResolvedValue(null)
+    renderHeader()
+    await screen.findByRole('link', { name: ACCESS_COPY.invite.ctaShort })
+
+    // Menu closed: the desktop group's toggle and the mobile bar's, which yields below 24rem.
+    const [desktop, bar] = screen.getAllByTestId('theme-toggle')
+    expect(screen.getAllByTestId('theme-toggle')).toHaveLength(2)
+    expect(desktop.className.split(' ')).not.toContain(NARROW_HIDDEN)
+    expect(bar.className.split(' ')).toContain(NARROW_HIDDEN)
+    expect(bar.parentElement).toContainElement(screen.getByRole('link', { name: ACCESS_COPY.invite.ctaShort }))
+
+    // Menu open: a third toggle inside the mobile navigation, in a row shown only below 24rem.
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }))
+    const menu = screen.getByRole('navigation', { name: 'Mobile navigation' })
+    const inMenu = within(menu).getByTestId('theme-toggle')
+    expect(inMenu.className.split(' ')).not.toContain(NARROW_HIDDEN)
+    const row = inMenu.parentElement!.className.split(' ')
+    expect(row).toContain('hidden')
+    expect(row).toContain(NARROW_SHOWN)
+    expect(screen.getAllByTestId('theme-toggle')).toHaveLength(3)
   })
 })
 

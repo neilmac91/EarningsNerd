@@ -24,6 +24,15 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * (min-w-0) until a label spills over its neighbours, with nothing past the edge. So in the header or
  * the auth bar no two controls overlap, and no control's text paints beyond its own box sideways.
  *
+ * The site header also keeps one row at 390px and 200% for a guest: below a 24rem viewport its theme
+ * toggle moves into the mobile menu, so the bar is the logo, the account link and the menu button, and
+ * the link's label wraps before the bar does. Before that the bar wrapped to two rows, 239px of an
+ * 844px viewport (28%), sticky on every scroll. One row is asserted from the bar's own boxes: the
+ * header is no taller than its tallest item plus the bar's vertical padding and the header's border
+ * (one row's worth, 151px here with the label on two lines), where a second row adds that row and the
+ * row gap. At 360px and 200% the "Request invite" label's longest word and the two controls do not
+ * fit beside the logo, so the bar wraps there, the fallback, and this check is not made at that width.
+ *
  * Consent is seeded, so the consent bar stays closed: it is fixed, adds nothing to the document's
  * scroll width, and its own reflow is not measured here. Light theme only, since a theme changes no
  * geometry. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is
@@ -40,6 +49,8 @@ type Route = {
   chrome: (page: Page) => Locator
   /** The bar that holds it, whose controls must neither overlap nor spill their text. */
   bar: (page: Page) => Locator
+  /** The site header for a guest: one row at 390px, at both text sizes. */
+  oneRow?: boolean
 }
 
 /** A guest: the session check answers 401, so the header settles on its signed-out link; nothing else is served. */
@@ -58,6 +69,7 @@ const ACCOUNT = /^(Sign up|Request invite)$/
 const siteHeader = {
   chrome: (page: Page) => page.getByRole('banner').getByRole('link', { name: ACCOUNT }),
   bar: (page: Page) => page.getByRole('banner').filter({ has: page.getByRole('link', { name: ACCOUNT }) }),
+  oneRow: true,
 }
 /** The auth shell has no site header; its top bar's "Back to home" link sat past the edge. */
 const authShellBar = {
@@ -143,6 +155,19 @@ const collisions = (bar: Locator): Promise<string[]> =>
     return found
   })
 
+/** The header against one row's worth: its tallest item (the logo, or the action group) plus the bar's
+    vertical padding and the header's bottom border. A second row adds that row and the row gap. */
+const rows = (header: Locator) =>
+  header.evaluate((el) => {
+    const bar = el.firstElementChild as HTMLElement
+    const style = getComputedStyle(bar)
+    const items = [...bar.children].filter((c) => c.checkVisibility()).map((c) => c.getBoundingClientRect())
+    const tallest = Math.max(...items.map((r) => r.height))
+    const oneRow = tallest + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(getComputedStyle(el).borderBottomWidth)
+    const tops = items.map((r) => Math.round(r.top))
+    return { height: Math.round(el.getBoundingClientRect().height), oneRow: Math.ceil(oneRow), tallest: Math.round(tallest), tops }
+  })
+
 const why = ({ scrollWidth, clientWidth, widest }: Overflow) =>
   `scrollWidth ${scrollWidth}px against clientWidth ${clientWidth}px; past the edge: ${widest.join('; ') || 'nothing outside a clipping box'}`
 
@@ -213,16 +238,44 @@ for (const route of ROUTES) {
     const enlarged = await measure(page)
     expect(enlarged.scrollWidth, `${route.path} at 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
     expect(await collisions(route.bar(page)), `${route.path} at 200% text: the bar's controls`).toEqual([])
+    if (route.oneRow) {
+      const header = await rows(route.bar(page))
+      expect(header.height, `${route.path} at 200% text: the site header is one row, ${header.height}px against one row's worth ${header.oneRow}px (its tallest item ${header.tallest}px; item tops ${header.tops.join(', ')}px)`).toBeLessThanOrEqual(header.oneRow + 1)
+    }
   })
 }
 
-/** The wrapped header must not cover what is pinned under it. At 200% text the site header wraps to
-    about 239px; the filing page's section nav, once stuck, sits below the header's measured height
-    (`--site-header-h`, components/Header.tsx), not below a fixed 4rem (128px here), which left its
-    chips under the header and sent a tap on the first one to the theme toggle. Scrolled well past the
-    nav's own place, its first link lies wholly below the header's bottom edge, a hit at its centre
-    reaches it, and focusing it leaves it so. */
-test('filing (/filing/3) keeps the stuck section nav below the wrapped header at 200% text', async ({ page, baseURL }) => {
+/** Below 24rem the theme toggle is a menu item, not a bar control: at 390px and 200% the bar shows none,
+    and the open menu shows one, which still switches the theme. */
+test('home (/) moves the theme toggle into the mobile menu at 200% text', async ({ page, baseURL }) => {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('theme', 'light')
+      localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+    } catch {}
+  })
+  await answerGuest(page, baseURL!)
+  await page.goto('/')
+  await h1(page)
+  await expect(siteHeader.chrome(page)).toBeVisible()
+  const toggle = siteHeader.bar(page).getByRole('button', { name: /^Switch to (dark|light) mode$/ })
+  await expect(toggle, 'at the default text size the bar carries the toggle').toBeVisible()
+  await doubleText(page)
+  await expect(toggle, 'at 200% text the bar carries no toggle').toBeHidden()
+  await siteHeader.bar(page).getByRole('button', { name: 'Open menu' }).click()
+  const inMenu = page.getByRole('navigation', { name: 'Mobile navigation' }).getByRole('button', { name: 'Switch to dark mode' })
+  await expect(inMenu).toBeVisible()
+  await inMenu.click()
+  await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/)
+})
+
+/** The header must not cover what is pinned under it. At 200% text the site header is about 151px
+    (one row; 239px when it wrapped to two); the filing page's section nav, once stuck, sits below the
+    header's measured height (`--site-header-h`, components/Header.tsx), not below a fixed 4rem (128px
+    here), which left its chips under the header and sent a tap on the first one to a header control.
+    Scrolled well past the nav's own place, its first link lies wholly below the header's bottom edge,
+    a hit at its centre reaches it, and focusing it leaves it so. */
+test('filing (/filing/3) keeps the stuck section nav below the header at 200% text', async ({ page, baseURL }) => {
   await page.addInitScript(() => {
     try {
       localStorage.setItem('theme', 'light')
