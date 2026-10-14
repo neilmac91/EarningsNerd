@@ -364,6 +364,13 @@ describe('exportPanelPng header', () => {
     // Bottom: the mark sits inside the last strip of the canvas.
     expect(mark.y).toBeGreaterThanOrEqual(canvasHeight - MARK_STAMP.stripHeight)
     expect(mark.y + (mark.h ?? 0)).toBeLessThanOrEqual(canvasHeight)
+    // One lockup: the mark ends exactly one wordmarkGap before "Earnings", so a mark that drifts
+    // from the wordmark (another corner, a wider gap) fails here.
+    expect(mark.x + (mark.w ?? 0) + MARK_STAMP.wordmarkGap).toBe(earnings.x)
+    // Clear space (LOGO_README.md): one E-bar, 11 of the mark's 73.2 viewBox units, above and below.
+    const clearSpace = ((mark.h ?? 0) * 11) / 73.2
+    expect(mark.y - (canvasHeight - MARK_STAMP.stripHeight), 'clear space above the mark').toBeGreaterThanOrEqual(clearSpace)
+    expect(canvasHeight - (mark.y + (mark.h ?? 0)), 'clear space below the mark').toBeGreaterThanOrEqual(clearSpace)
   })
 
   it('carries resolved text and tspan font stacks into the isolated SVG image', async () => {
