@@ -1735,6 +1735,12 @@ function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
         if (holdsProps(m.expression, opening, new Set(), calls)) found = true
         return
       }
+      // A member of a rest parameter read by an index (`parts[0]`, `parts.at(0)`) is the argument at that place alone.
+      const indexed = restMember(m, calls)
+      if (indexed) {
+        if (indexed.arg && !ts.isSpreadElement(indexed.arg) && reads(indexed.arg, calls)) found = true
+        return
+      }
       // A same-file helper's call reads what the helper returns, its parameters bound at this call
       // (`className={pick(props)}`), and not an argument the helper does not return (`fixed(props.className)`). A call
       // the scan cannot read into (`cx`, a library's) passes its arguments through, so they are read.
@@ -1778,6 +1784,43 @@ function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
   }
   return reads(attr.initializer, new Map())
 }
+/** Where an object's `className` comes from, the last write winning: 'props' when what holds the props is spread in or
+    merged last, or a `className` key reads theirs (`{ ...props }`, `Object.assign({}, THEME, props)`, `{ className:
+    props.className }`); 'own' when a `className` key of its own or an object known to set one comes last (`{ ...props,
+    className: 'x' }`, `Object.assign({}, props, THEME)`); null when the scan cannot tell. Object.assign's sources are
+    read in order, a spread of an array literal opened; a source the scan cannot read is passed over. */
+function classNameFrom(e: ts.Expression, at: ts.Node, seen: Set<ts.Node>, calls: Calls): 'props' | 'own' | null {
+  const x = unwrap(e)
+  const sources: ts.Expression[] = []
+  if (ts.isCallExpression(x) && objectCall(x, 'assign')) {
+    for (const a of x.arguments) {
+      const inner = ts.isSpreadElement(a) ? unwrap(a.expression) : undefined
+      if (inner && ts.isArrayLiteralExpression(inner)) inner.elements.forEach((m) => { if (!ts.isSpreadElement(m) && !ts.isOmittedExpression(m)) sources.push(m) })
+      else if (!inner) sources.push(a)
+    }
+  } else if (ts.isObjectLiteralExpression(x)) {
+    for (const m of [...x.properties].reverse()) {
+      if (ts.isSpreadAssignment(m)) {
+        const from = classNameFrom(m.expression, at, new Set(seen), calls)
+        if (from) return from
+      } else if ((ts.isPropertyAssignment(m) || ts.isShorthandPropertyAssignment(m)) && keyOf(m.name) === 'className') {
+        const value = ts.isPropertyAssignment(m) ? unwrap(m.initializer) : m.name
+        const theirs = (ts.isPropertyAccessExpression(value) && value.name.text === 'className' && holdsProps(value.expression, at, new Set(seen), calls))
+          || (ts.isElementAccessExpression(value) && isClassNameKey(value.argumentExpression, x.getSourceFile()) && holdsProps(value.expression, at, new Set(seen), calls))
+        return theirs ? 'props' : 'own'
+      }
+    }
+    return null
+  } else {
+    if (holdsProps(x, at, new Set(seen), calls)) return 'props'
+    return setsOwnClassName(x) ? 'own' : null
+  }
+  for (const source of sources.reverse()) {
+    const from = classNameFrom(source, at, new Set(seen), calls)
+    if (from) return from
+  }
+  return null
+}
 /** Whether an expression is known to set a `className` of its own: an object literal with the key, through a spread of
     one, or a same-file variable holding one. */
 function setsOwnClassName(e: ts.Expression, seen = new Set<ts.Node>()): boolean {
@@ -1793,6 +1836,25 @@ function setsOwnClassName(e: ts.Expression, seen = new Set<ts.Node>()): boolean 
 }
 /** The arguments of the same-file calls a read is inside, by the function called. */
 type Calls = ReadonlyMap<ts.Node, ts.NodeArray<ts.Expression>>
+/** A member of a rest parameter read by a numeric index (`parts[0]`, `parts.at(0)`), bound at the call being read: the
+    argument at that place, or none when the index is past the arguments handed. Undefined for any other node. */
+function restMember(node: ts.Node, calls: Calls): { arg: ts.Expression | undefined } | undefined {
+  let receiver: ts.Expression | undefined
+  let step: Step = null
+  if (ts.isElementAccessExpression(node)) { receiver = node.expression; step = accessStep(node.argumentExpression) }
+  else if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'at' && node.arguments[0]) {
+    receiver = node.expression.expression
+    step = accessStep(node.arguments[0])
+  }
+  if (!receiver || typeof step !== 'number') return undefined
+  const id = unwrap(receiver)
+  const declaration = ts.isIdentifier(id) ? CHECKER.getSymbolAtLocation(id)?.valueDeclaration : undefined
+  if (!declaration || !ts.isParameter(declaration) || !declaration.dotDotDotToken) return undefined
+  const args = calls.get(declaration.parent)
+  if (!args) return undefined
+  const from = declaration.parent.parameters.indexOf(declaration)
+  return { arg: args.slice(from)[step] }
+}
 /** Whether a key expression names `className`: a string, or a same-file constant holding one (`literalValues`). */
 const isClassNameKey = (key: ts.Expression, sf: ts.SourceFile): boolean =>
   accessStep(key) === 'className' || (ts.isIdentifier(unwrap(key)) && literalValues(key, sf).includes('className'))
@@ -1835,21 +1897,14 @@ function holdsProps(node: ts.Node, at: ts.Node, seen = new Set<ts.Node>(), calls
   if (ts.isVariableDeclaration(node)) {
     return variableValues(node).some(({ value, steps }) => atSteps(value, steps, node.getSourceFile()).some((v) => holdsProps(v, at, seen, calls)))
   }
-  if (ts.isObjectLiteralExpression(node)) return node.properties.some((m) => ts.isSpreadAssignment(m) && holdsProps(m.expression, at, seen, calls))
+  if (ts.isObjectLiteralExpression(node)) return classNameFrom(node, at, seen, calls) === 'props'
   const value = unwrap(node as ts.Expression)
   if (value !== node) return holdsProps(value, at, seen, calls)
   // A call holds what its same-file function returns (`get()`), its parameters bound at the call, useMemo what its
-  // callback returns, and Object.assign its target with its sources' fields: the last source read first, so one that
-  // sets a `className` of its own after the props (`Object.assign({}, props, THEME)`) hides theirs.
+  // callback returns, and Object.assign its target with its sources' fields, the last source that sets a `className`
+  // winning (`classNameFrom`).
   if (ts.isCallExpression(value)) {
-    if (objectCall(value, 'assign')) {
-      for (const a of [...value.arguments].reverse()) {
-        if (ts.isSpreadElement(a)) continue
-        if (holdsProps(a, at, seen, calls)) return true
-        if (setsOwnClassName(a)) return false
-      }
-      return false
-    }
+    if (objectCall(value, 'assign')) return classNameFrom(value, at, seen, calls) === 'props'
     const fns = [...functionsOf(value.expression), ...(isUseMemo(value) && value.arguments[0] ? functionsOf(value.arguments[0]) : [])]
     return fns.some((fn) => returnedExpressions(fn).some((r) => holdsProps(r, at, seen, new Map([...calls, [fn, value.arguments]]))))
   }

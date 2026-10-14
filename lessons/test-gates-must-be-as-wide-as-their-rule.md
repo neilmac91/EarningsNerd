@@ -187,8 +187,10 @@ look-alikes the widened read flagged: a style map's `className` and a helper han
 beside a call handing it the props; so the field counts only when its receiver holds the props, and
 a helper's parameter is bound at the call being read alone; its review of `d55931f` two more, a helper
 handed the className it never returns and `Object.assign` with a style map after the props, so a
-same-file helper's call reads what it returns alone and the last source that sets a `className` wins.
-A gate widened finding by finding needs its look-alikes planted with each copy, or the next review
-names the false positive. Companion to
+same-file helper's call reads what it returns alone and the last source that sets a `className` wins;
+and its review of `2f988e9` three more in the same two readers, so a rest parameter's member read by
+an index is that argument alone, and an object's `className` is read property by property, last
+first, spreads of sources opened. A gate widened finding by finding needs its look-alikes planted
+with each copy, or the next review names the false positive. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.
