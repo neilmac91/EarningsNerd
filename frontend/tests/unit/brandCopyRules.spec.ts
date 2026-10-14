@@ -1708,8 +1708,9 @@ function forwardsClassName(fn: ts.FunctionLikeDeclaration): boolean {
 /** Whether an element's className reads the `className` its component is handed: the name itself (`className={className}`,
     `cx('…', className)`, `props.className`), the name a destructuring of the props gives it (`({ className: cls })`,
     `const { className: cls } = props`, `({ className: cls } = props)` assigned later: a binding keyed `className` in
-    what holds the props, `holdsProps`) or a same-file variable holding either, by its initializer or any value the file
-    assigns it (`const cls = className`, `cls = props.className`), each identifier resolved through the checker. */
+    what holds the props, `holdsProps`), a same-file variable holding either, by its initializer or any value the file
+    assigns it (`const cls = className`, `cls = props.className`), or a same-file helper returning one (`pick(props)`),
+    each identifier resolved through the checker. */
 function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
   const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className')
   if (!attr?.initializer) return false
@@ -1731,6 +1732,10 @@ function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
         for (const { value, steps } of variableValues(declaration)) {
           if (!steps.length ? reads(value) : steps.length === 1 && steps[0] === 'className' && holdsProps(value, opening)) found = true
         }
+      } else if (ts.isFunctionLike(declaration)) {
+        // A same-file helper the className calls reads what it returns (`className={pick(props)}`, `pick` returning
+        // `p.className`), as readClassName reads a helper's classes.
+        if (returnedExpressions(declaration).some(reads)) found = true
       }
     })
     return found

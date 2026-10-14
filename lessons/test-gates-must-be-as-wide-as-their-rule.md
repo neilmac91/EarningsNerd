@@ -175,6 +175,7 @@ destructuring of the props kept whole (`const { className: cls } = props`), so t
 to the parameter through the variables holding it, a rest of it and an object spreading it, the next
 two forms of that family planted before a review named them; and its review of `2a18988` the name
 filled by an assignment (`let cls; ({ className: cls } = props)`), so the name is read through every
-value the file gives it, as the ink check reads a variable. Companion to
+value the file gives it, as the ink check reads a variable, and a same-file helper returning it was
+planted next, ahead of a review. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.
