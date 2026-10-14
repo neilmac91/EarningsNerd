@@ -81,6 +81,15 @@ describe('the what-changed chip', () => {
     }
   })
 
+  it('keeps the wording line under the chips when the feed carries both', () => {
+    const wording = { items_total: 12, has_changes: true, reference_only: false, prior_reference_only: false, review: null }
+    render(<WhatChangedCard item={{ ...feedItem([metric({})]), wording_changes: wording }} />)
+    const chip = chipOf('Revenue')
+    const line = screen.getByText('12 paragraphs of risk factors changed.')
+    expect(chip).not.toContainElement(line)
+    expect(line.className).toMatch(/tnum/)
+  })
+
   it('shows the figure in the data face, with no sr-only word beside it', () => {
     render(<WhatChangedCard item={feedItem([metric({})])} />)
     const chip = chipOf('Revenue')

@@ -95,10 +95,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Counts elsewhere in the product** (D-030): the dashboard feed's "See all N companies" link, the
   check-email countdown, the period quick picks, the narrative's "Show the N source figures" summary
   and its bracketed Sources chip, the data notes' checked count, the peer rank and the summary's
-  section index rest in the ink, and so do the values beside them: a What-changed chip's rising
-  delta on the dashboard (the primary ink, the icon carrying the direction), the filing viewer's
-  "Showing ·" caption, which prints a section's name, and the "Sources & checks" links, which under
-  the fundamentals chart print a figure's fiscal year. The controls among them that turn sage under
+  section index rest in the ink, and so do the values beside them: the filing viewer's "Showing ·"
+  caption, which prints a section's name, and the "Sources & checks" links, which under the
+  fundamentals chart print a figure's fiscal year. A What-changed chip on the dashboard is a figure's
+  change, so it takes the direction chip above (its gain or loss ink with the sign), never sage. The controls among them that turn sage under
   the pointer compose the count control, `countControlClass` (`frontend/DESIGN_SYSTEM.md`): the
   whole label in the secondary ink as one text run, sage under the pointer (a link set among lines
   of text keeps its underline). The calendar day's "+N more", which never turns sage, and the
