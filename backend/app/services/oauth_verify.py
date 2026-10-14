@@ -83,7 +83,8 @@ async def _verify_apple_id_token(id_token: str, raw_nonce: str) -> dict:
     # means the token isn't bound to this auth request (replay/injection) — reject.
     token_nonce = claims.get("nonce")
     expected = hashlib.sha256(raw_nonce.encode()).hexdigest()
-    if not token_nonce or not secrets.compare_digest(token_nonce, expected):
+    # Bytes, not str: compare_digest raises TypeError on a non-ASCII str or a non-str claim.
+    if not token_nonce or not secrets.compare_digest(str(token_nonce).encode(), expected.encode()):
         raise ValueError("Apple id_token nonce missing or mismatched")
 
     return claims

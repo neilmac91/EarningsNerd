@@ -1,6 +1,7 @@
 """Completed filing reads release slots before asynchronous dependency cleanup."""
 
 import asyncio
+import time
 from datetime import date
 
 import httpx
@@ -10,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 
 from app import database
-from app.models import Company, Filing, FilingContentCache, FinancialFact
+from app.models import Company, Filing, FilingContentCache, FinancialFact, Summary
 from app.routers import filings
 from app.services import filing_list_service
 from app.services.filing_amendment_service import expand_amendment_forms
@@ -30,6 +31,8 @@ from main import app
     ("/api/filings/999", "missing"),
     ("/api/filings/999/content", "missing"),
     ("/api/filings/999/fundamentals", "missing"),
+    ("/api/summaries/filing/1/what-changed", "what_changed"),
+    ("/api/summaries/filing/999/what-changed", "missing"),
 ])
 async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     monkeypatch, tmp_path, path, payload_kind
@@ -46,6 +49,7 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     Filing.__table__.create(engine)
     FilingContentCache.__table__.create(engine)
     FinancialFact.__table__.create(engine)
+    Summary.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
     accession = "0000000001-26-000001"
     with sessions() as db:
@@ -105,8 +109,58 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
                     },
                 }]}] if payload_kind == "facts" else []
                 assert payload == {"ticker": "CACHED", "company_name": "Cached fixture", "concepts": concepts}
+            elif payload_kind == "what_changed":
+                # The change report: lookup, report and release in one unit off the event loop.
+                assert payload["has_prior"] is False and payload["prior_filing"] is None
+                assert payload["section_changes"] is None  # ENABLE_SECTION_CHANGES is off
             else:
                 assert payload == {"detail": "Filing not found"}
+        assert engine.pool.checkedout() == 0
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_what_changed_burst_beyond_the_pool_waits_in_the_threadpool_not_on_the_loop(monkeypatch, tmp_path):
+    """The what-changed route holds a connection through CPU work (the wording diff). Six
+    concurrent readers on four slots must queue for a slot off the event loop: with the lookup on
+    the loop, the fifth reader blocked the loop for the whole pool timeout and answered 500 while
+    the first four could not finish."""
+    from app.services import change_report_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'what-changed.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    Company.__table__.create(engine)
+    Filing.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        company = Company(cik="0000000002", ticker="BURST", name="Burst fixture", history_backfilled_at=utcnow())
+        db.add(company)
+        db.flush()
+        db.add(Filing(company_id=company.id, accession_number="0000000002-26-000001", filing_type="10-K",
+                      filing_date=utcnow(), sec_url="https://example.test/burst/", document_url="https://example.test/burst.htm"))
+        db.commit()
+
+    def slow_report(db, filing, *, section_access):
+        time.sleep(0.15)  # the largest corpus pair's diff
+        return {"has_prior": False, "section_changes": None, "filing_id": filing.id}
+
+    monkeypatch.setattr(database, "SessionLocal", sessions)
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(change_report_service, "build_change_report", slow_report)
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
+        ) as client:
+            responses = await asyncio.gather(*[client.get("/api/summaries/filing/1/what-changed") for _ in range(6)])
+        assert [response.status_code for response in responses] == [200] * 6
+        assert all(response.json()["filing_id"] == 1 for response in responses)
         assert engine.pool.checkedout() == 0
     finally:
         engine.dispose()

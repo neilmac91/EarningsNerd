@@ -431,6 +431,24 @@ class Settings(BaseSettings):
     # ACTIVITY); turning both on needs a budget-aware insider scan first (decision record 17).
     ENABLE_INSIDER_ACTIVITY: bool = False
 
+    # "What changed" wording diff (the Change Report's `section_changes` block; tasks/todo.md E27).
+    # When True, the hourly filing-scan job also extracts and stores Item 1A text for the watched
+    # companies' 10-K/10-Q filings (one SEC request per filing, serial, through the shared limiter)
+    # and GET /api/summaries/filing/{id}/what-changed serves the paragraph-paired wording diff
+    # against the prior same-form filing: the first few items for Free/anonymous readers, the whole
+    # list for Pro (entitlements.section_changes). Ships OFF: nothing is fetched or stored and the
+    # report carries `section_changes: null`. scripts/extract_sections.py backfills regardless of
+    # this flag so an operator can warm the table before flipping it.
+    ENABLE_SECTION_CHANGES: bool = False
+    # Filings extracted per scan run (one SEC request each, up to three attempts). The 2026-10
+    # corpus averaged 2.7 s per filing for fetch plus parse (7.7 s for the largest 10-K), so 25
+    # keeps a typical hourly run near a minute and still backfills a watchlist's recent filings
+    # within a day; a document that times out on every attempt costs about three minutes on its own.
+    SECTION_EXTRACTION_BATCH_LIMIT: int = Field(default=25, ge=0, le=500)
+    # Section texts longer than this are recorded as `oversize` without their text. The longest
+    # Item 1A in the 2026-10 corpus of 56 filings was 161k characters.
+    SECTION_TEXT_MAX_CHARS: int = Field(default=400_000, gt=0)
+
     # Restrict the public earnings calendar (and homepage "Reporting This Week" strip) to companies
     # in the S&P 500 or Nasdaq 100 — a tight, defensible, high-signal universe (~515 tickers) instead
     # of the full Alpha Vantage long tail. Membership is the committed app/data/index_membership.json

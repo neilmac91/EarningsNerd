@@ -478,6 +478,15 @@ gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --sc
   --http-method=POST --oauth-service-account-email="${SA}"
 ```
 
+`ENABLE_SECTION_CHANGES` ("what changed" wording diff) goes on **both** the scan job and the
+service: the job's real-time pass stores the Item 1A text (its own `section-extraction` job record;
+`SECTION_EXTRACTION_BATCH_LIMIT` filings per run, one SEC request each through the shared limiter)
+and the service's what-changed endpoint serves the diff. Neither `$ENVV` above nor the service's
+`--update-env-vars` in `ci.yml` sets it, so add it to both when it flips, and add `section-extraction`
+to `JOB_CADENCES`. `python scripts/extract_sections.py --tickers AAPL,MSFT` (or `--all --limit N`)
+warms the `filing_section_text` table by hand before the flip, under its own
+`section-extraction-manual` record; `docs/CONFIGURATION.md` lists the three settings.
+
 Smoke-test each before trusting the schedule:
 ```bash
 gcloud run jobs execute earningsnerd-filing-scan    --region=us-west1

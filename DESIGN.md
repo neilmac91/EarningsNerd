@@ -322,7 +322,7 @@ The palette combines sage, warm cream, espresso and deep navy with distinct sema
 - **Light Sage** (`brand-dark`), **Bright Sage** (`brand-strong-dark`) and **Pressed Dark Sage** (`brand-fill-dark`): dark-mode action states. Primary labels use navy ink throughout these states.
 - **Dark Sage Tint** and **Dark Sage Hairline** (`brand-weak-dark`, `brand-border-dark`): translucent accents on dark surfaces.
 
-**The Separate Signals Rule.** Sage signals brand and activity. Gain/loss signals financial direction; status colors signal actual UI states. Progress indicators use sage until a terminal confirmation warrants success green.
+**The Separate Signals Rule.** Sage signals brand and activity, never a value: a count, a date, an index name or a price rests in the ink everywhere in the app; a control that carries one rests in the ink and turns sage only under the pointer, keyboard focus drawing the ring (the count control in `frontend/DESIGN_SYSTEM.md`), and so does a link in prose, which prints words the product does not write (the reading surfaces' links and a Copilot answer's). Gain/loss signals financial direction; status colors signal actual UI states. Progress indicators use sage until a terminal confirmation warrants success green; a step's number rests in the ink.
 
 ### Neutral
 
@@ -378,7 +378,7 @@ The frontmatter `display` token records the large desktop step and `headline` th
 
 On a public page, Newsreader appears only inside a quoted passage that the product located in a filing (the hero example's evidence row, the social card's excerpt), never for a headline, a tagline or a claim of ours; the italic "Nerd" of the wordmark is Inter and is the brand's only typographic flourish.
 
-In the filing reader, prose children have a 68ch measure and tables/figures can use the 88ch outer rail. AI `.markdown-body` content fills its pane with no measure cap. Summary paragraphs are justified and hyphenated at viewport widths of 640px and above. Below that breakpoint, summary paragraphs remain ragged-right; the original filing reader stays ragged-right at every width. Preserve underlined sage links in both reading surfaces.
+In the filing reader, prose children have a 68ch measure and tables/figures can use the 88ch outer rail. AI `.markdown-body` content fills its pane with no measure cap. Summary paragraphs are justified and hyphenated at viewport widths of 640px and above. Below that breakpoint, summary paragraphs remain ragged-right; the original filing reader stays ragged-right at every width. Links in both reading surfaces, and in a Copilot answer, keep their underline and rest in the prose's own ink, turning sage only under the pointer: they print words the product does not write, a figure or a date among them (the Separate Signals Rule).
 
 ## Layout
 

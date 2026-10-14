@@ -1,7 +1,7 @@
 'use client'
 
 import { useId, useMemo, useState } from 'react'
-import { Button, SegmentedControl, inputClasses } from '@/components/ui'
+import { SegmentedControl, countControlClass, cx, inputClasses } from '@/components/ui'
 import type { AnalysisCoverage, AnalysisMode } from '@/features/analysis/api/analysis-api'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 
@@ -140,15 +140,17 @@ export default function PeriodPicker({ coverage, mode, range, onModeChange, onRa
       {options.some((option) => !option.disabled) && (
         <div role="group" aria-label="Recent period presets" className="flex flex-wrap gap-2">
           {presets.map(({ count, range: preset }) => (
-              <Button
+              <button
                 key={count}
                 type="button"
-                variant="ghost"
-                size="sm"
                 onClick={() => { if (preset) { setAnnouncement(null); onRangeChange(preset) } }}
+                // A count rests in the ink and turns sage only under the pointer, focus drawing the ring (the
+                // count control, D-030), so this is Button sm's shape and weight with the count control's recipe,
+                // not the ghost variant, whose label is sage at rest.
+                className={cx('inline-flex h-8 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-xs font-semibold', countControlClass('button'))}
               >
                 Last {count}
-              </Button>
+              </button>
           ))}
         </div>
       )}
