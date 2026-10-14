@@ -1871,6 +1871,30 @@ def test_a_protocol_word_is_kept_only_in_its_own_kind_of_item(monkeypatch, reque
     assert scrubbed == {"type": "event", "[Filtered]": "x"} and type(scrubbed["type"]) is str
 
 
+def test_a_type_is_kept_only_in_its_own_kind_of_item(monkeypatch, request):
+    # Codex's case on #1297 (21840f6): the hooks put back an item's `type` when it was one any kind carries, so a weak
+    # secret equal to a metric's kind, written as an ordinary error's `type` by an event processor or by hand, rode past
+    # before_send. Each hook puts back only its own kind's (main._ITEM_TYPES): the error's is withheld, and a metric
+    # keeps its own.
+    import sentry_sdk
+
+    envelopes = _scrubbing_envelopes(request, monkeypatch, SECRET_KEY="distribution")
+
+    def write(event, hint):
+        if event.get("message") == "a metric's kind":
+            event["type"] = "distribution"
+        return event
+
+    sentry_sdk.get_isolation_scope().add_event_processor(write)
+    sentry_sdk.capture_message("a metric's kind")
+    sentry_sdk.capture_event({"message": "a metric's kind by hand", "type": "distribution"})
+    sentry_sdk.metrics.distribution("queue.seconds", 2.5, unit="second")
+    sentry_sdk.flush()
+    assert [event["type"] for event in _of(envelopes, "event")] == ["[Filtered]", "[Filtered]"]
+    (metrics,) = _of(envelopes, "trace_metric")
+    assert [entry["type"] for entry in metrics["items"]] == ["distribution"]
+
+
 def test_each_kind_of_event_keeps_only_its_own_kinds_keys(monkeypatch, request):
     # Weak secrets equal to a key only an error's paths hold (`fingerprint`), one only a transaction's hold
     # (`start_timestamp`), one only a check-in's hold (`check_in_id`) and one only a log's and a metric's hold
@@ -1978,7 +2002,7 @@ def test_a_key_is_kept_as_a_protocol_word_only_when_it_is_text():
 
 
 def test_a_type_is_kept_only_when_it_is_text(monkeypatch, request):
-    # The delta check of #1297 (D6-1): an item's `type` is kept only when it is exactly text and one of main._ITEM_TYPES.
+    # The delta check of #1297 (D6-1): an item's `type` is kept only when it is exactly text and one its kind carries.
     # A hand-built event whose `type` is a str subclass posing as `transaction` while its text is a secret is sent as a
     # plain event, its type scrubbed, and no part of the secret reaches Sentry.
     import sentry_sdk

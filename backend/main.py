@@ -142,9 +142,15 @@ _PROTOCOL_PATHS = {
         """,
     }.items()
 }
-# The `type` the SDK gives an item, which it reads after the hook: a transaction, a check-in, a metric's kind. The
-# value scrubber keeps an item's `type` only when it is one of these.
-_ITEM_TYPES = frozenset({"transaction", "check_in", "counter", "gauge", "distribution"})
+# The `type` the SDK gives each kind of item, which it reads after the hook: before_send's check-in, a transaction's,
+# a metric's kinds (an error and a log carry none). Each hook keeps an item's `type` only when it is one of its own
+# kind's, so another kind's word written there is withheld like any value (Codex's case on #1297).
+_ITEM_TYPES = {
+    "event": frozenset({"check_in"}),
+    "transaction": frozenset({"transaction"}),
+    "log": frozenset(),
+    "metric": frozenset({"counter", "gauge", "distribution"}),
+}
 
 # The placeholder of the SDK's own scrubber, then others: a secret value that overlaps one (a weak salt equal to
 # `Filtered`, or one that starts with `Filtered]`) would ride inside it, or form where it meets the text around it.
@@ -223,17 +229,17 @@ def _value_scrubber(secret_values: tuple[str, ...]) -> dict[str, _Hook]:
     before_send), a transaction with its spans (`transaction`, before_send_transaction), a log (`log`, before_send_log)
     and a metric (`metric`, before_send_metric). A hook that raises drops its item (the SDK records a callback error),
     so a failure here never sends one unscrubbed: each hook raises any failure as an Exception, since the SDK sends a
-    log or a metric on after one that is not. Each keeps only the protocol's own keys where the protocol puts them
-    in its item's kind, never a field whole: a key at one of that kind's `_PROTOCOL_PATHS` (`_withhold`; before_send
-    tells a check-in by its `type`, exactly text) and an item's `type` when it is one of `_ITEM_TYPES`. So a weak secret
-    equal to one of their words breaks no item, and nothing that runs before the hooks (an event processor, a
+    log or a metric on after one that is not. Each keeps only the protocol's own keys where the protocol puts them in
+    its item's kind, never a field whole: a key at one of that kind's `_PROTOCOL_PATHS` (`_withhold`; before_send tells
+    a check-in by its `type`, exactly text) and an item's `type` when it is one of that kind's `_ITEM_TYPES`. So a weak
+    secret equal to one of their words breaks no item, and nothing that runs before the hooks (an event processor, a
     hand-built event, a trace context set by hand) can carry a secret past them, but as the protocol's own key at its
     own path in its own kind of item. They also drop the hint's attachments, whose bytes would reach Sentry through no
     hook: the backend sends none."""
 
     _placeholder(secret_values)  # every placeholder overlapped fails here, at startup, not on the first item
 
-    def hook(paths: Callable[[dict[str, Any]], frozenset[tuple[str, ...]]]) -> _Hook:
+    def hook(paths: Callable[[dict[str, Any]], frozenset[tuple[str, ...]]], types: frozenset[str]) -> _Hook:
         def withhold_secret_values(item: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
             hint.pop("attachments", None)  # the SDK sends what is left there after the hook, unscrubbed
             try:
@@ -241,7 +247,7 @@ def _value_scrubber(secret_values: tuple[str, ...]) -> dict[str, _Hook]:
             except BaseException as error:  # the SDK sends a log or a metric on after any failure but an Exception
                 raise RuntimeError("the value scrubber failed") from error
             kind = item.get("type")
-            if type(kind) is str and kind in _ITEM_TYPES:  # exactly text: a subclass could pose as one
+            if type(kind) is str and kind in types:  # exactly text: a subclass could pose as one
                 scrubbed["type"] = kind
             return scrubbed
 
@@ -252,10 +258,10 @@ def _value_scrubber(secret_values: tuple[str, ...]) -> dict[str, _Hook]:
         return _PROTOCOL_PATHS["check_in" if type(kind) is str and kind == "check_in" else "error"]
 
     return {
-        "event": hook(event_paths),
-        "transaction": hook(lambda item: _PROTOCOL_PATHS["transaction"]),
-        "log": hook(lambda item: _PROTOCOL_PATHS["log"]),
-        "metric": hook(lambda item: _PROTOCOL_PATHS["metric"]),
+        "event": hook(event_paths, _ITEM_TYPES["event"]),
+        "transaction": hook(lambda item: _PROTOCOL_PATHS["transaction"], _ITEM_TYPES["transaction"]),
+        "log": hook(lambda item: _PROTOCOL_PATHS["log"], _ITEM_TYPES["log"]),
+        "metric": hook(lambda item: _PROTOCOL_PATHS["metric"], _ITEM_TYPES["metric"]),
     }
 
 
