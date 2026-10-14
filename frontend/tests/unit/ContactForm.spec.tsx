@@ -9,12 +9,13 @@ import { ApiError } from '@/lib/api/client'
  * backend's 429 sentence ("Too many requests. Please try again in 1 hour(s).") holds no "429", so a
  * match on the text never fired. A 422 asks the reader to check the fields, since sending the same
  * values again fails the same way. A 5xx shows the surface's sentence: the route's own 500 detail
- * ("Failed to save contact form submission") is developer wording with no next step. On any other
+ * ("Failed to save contact form submission") is developer wording with no next step, and the
+ * client's own 503 sentence ("Service temporarily unavailable…") stops there too. On any other
  * status the backend's own detail is shown when the body carried one (`ApiError.backendDetail`), and
- * the surface's sentence when it did not: lib/api/client's own fallbacks ("Unable to connect to the
- * server…", "Service temporarily unavailable…") and axios's "Request failed with status code N" sit
- * in `detail` and never reach the reader. The failure is a Notice: role="alert", title "Message not
- * sent". The success heading is an h2 under the page's h1.
+ * the surface's sentence when it did not: lib/api/client's connection fallback ("Unable to connect
+ * to the server…") and axios's "Request failed with status code N" sit in `detail` and never reach
+ * the reader. The failure is a Notice: role="alert", title "Message not sent". The success heading
+ * is an h2 under the page's h1.
  */
 
 const api = vi.hoisted(() => ({ submitContactForm: vi.fn() }))
@@ -87,7 +88,7 @@ describe('ContactForm send errors', () => {
   it.each([
     ['a failed connection', new ApiError(0, 'Unable to connect to the server. Please ensure the backend API is running on https://api.earningsnerd.io')],
     ["axios's message for a bodiless 413", new ApiError(413, 'Request failed with status code 413')],
-    ["the client's own 503 sentence", new ApiError(503, 'Service temporarily unavailable. Please try again in a moment.')],
+    ["the client's own 503 sentence, through the 5xx branch", new ApiError(503, 'Service temporarily unavailable. Please try again in a moment.')],
     ['an empty backend detail on a 4xx', backendError(400, '  ')],
     ['an error that is not the API client', new TypeError('Failed to fetch')],
     ['a thrown string', 'boom'],
