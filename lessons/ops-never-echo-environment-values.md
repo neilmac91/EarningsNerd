@@ -1,6 +1,6 @@
 # Never let a settings error, an output or Sentry carry a secret
 
-Date: 2026-10-11 (follow-ups 2026-10-12, #1281) · Area: ops / secrets
+Date: 2026-10-11 (follow-ups 2026-10-12, #1281; value scrubber 2026-10-13, todo E19) · Area: ops / secrets
 
 **Context.** On two consecutive days a review agent imported `app.config` outside the test harness to
 probe a detail, and environment values reached its own tool output (CODE RED records 22 and 23). The
@@ -42,6 +42,15 @@ The follow-up review (#1281) found the rest:
   printed the key's last four characters; `scripts/validate_db_performance.py` printed a URL without an `@` whole,
   and its hand-rolled mask kept a password passed in the URL's query string and an unescaped `@`'s tail.
 
+Codex's review of #1281 found the last: Sentry's scrubber matches key names, so a secret's value quoted in a message,
+an exception or a log line (a breadcrumb), or held under any key its denylist does not name (an extra, a tag, a
+context, a request, a span's data), still reached Sentry; a `DATABASE_URL` missing its `@host` with an all-digit
+password parses, and the driver's connection error quotes the digits as the port. Building the value scrubber showed
+one more channel: the SDK's own logger and metrics API send logs and metrics past `before_send` and the event
+scrubber, whatever `enable_logs` says. Its review found where text is still made after the hooks: the SDK builds the
+repr of a log record's `extra` value (anything but text, a number or a list of one such type; a mapping and a mixed
+list included) and the str of a log's body that is not text only after `before_send_log` returns.
+
 **Rule.**
 - The settings class sets `hide_input_in_errors`, so a validation error's text (`str`, `repr`, and so a
   traceback or a log line) names the failing field and its reason, never its value. The one exception is
@@ -66,14 +75,74 @@ The follow-up review (#1281) found the rest:
   every frame's file, function, line and five source lines either side; breadcrumbs (log lines at INFO and above, SQL
   statements, HTTP calls without their query string); the request's method, URL and query string, other headers and
   body; the user id, tags, release and environment.
+- Sentry withholds values too: `before_send`, `before_send_transaction`, `before_send_log` and `before_send_metric` are
+  the hooks of `main._value_scrubber`, one per channel, each of which turns each occurrence, in any string of an error
+  or check-in, a transaction with its spans, a log or a metric (keys included), of each secret setting's value
+  (stripped, so a value stored with a newline is found where an error quotes it escaped) and of each connection URL's
+  password, as written and percent-decoded, wherever a driver reads one, into a placeholder: in the authority (in a URL
+  missing its `@host`, the text a parser reads as the port), in a `password` query parameter, also plus-decoded and as
+  SQLAlchemy renders it, which SQLAlchemy passes to the driver and renders whole even with `hide_password` (re-sorting
+  the query and quoting the value as `quote_plus` does, so the rendering differs from the setting) and redis-py reads,
+  and as SQLAlchemy parses it, decoded, a raw `/`, `?` or `#` in it included (Codex's case on #1297). The placeholder is
+  the SDK's own `[Filtered]` unless a weak secret overlaps it (equals `Filtered`, say, or starts with `Filtered]`), then
+  the first of `[Withheld]`, `[Redacted]`, `<Filtered>`, `<Withheld>` and `<Redacted>` that none overlaps, so no
+  placeholder can hold a secret or form one with the text beside it; if every one is overlapped, the options fail at
+  startup and Sentry stays off. The walk is total: mappings and lists are walked, None and booleans kept, a number made
+  exactly a number (int's or float's own value: the log batcher makes text of a number subclass through its own
+  `__str__` or `__repr__` after the hook), every text scrubbed through str's own `replace` (the SDK keeps a str subclass
+  as it is up to the hooks, and a subclass's `replace` could keep the secret: Codex's case on #1297's ready head), and
+  any other value becomes its repr first and is scrubbed there, so no text the SDK builds after the hook can hold a
+  secret, and turning Sentry logs on (`enable_logs`, or the logging integration's `capture_sentry_logs`) sends none
+  either. Each hook keeps only the protocol's own keys where the protocol puts them, never a field whole: a key stays as
+  it is only at one of the paths `main._PROTOCOL_PATHS` gives its item's kind, one set each for an error, a transaction
+  with its spans, a check-in, a log and a metric (before_send tells a check-in by its `type`, exactly text): the path of
+  each key of 8 characters or more from an item's top (a list's items sharing the list's path) as the SDK builds that
+  kind under main's options (an item's own keys; a child span's, a breadcrumb's, an exception's, its mechanism's and its
+  frames', a thread's frames'; a log entry's, a request's, a user's, the SDK info's; the trace context's, its dynamic
+  sampling context's, the response context's; a monitor config's; the serializer's `_meta` note on breadcrumbs, which an
+  error carries and a transaction or a check-in carries once its scope has dropped breadcrumbs past `max_breadcrumbs`;
+  and the names the SDK fills from its API or a request's incoming trace, an event's `fingerprint` and the replay fields
+  an incoming baggage header carries; with continuous profiling, which main does not configure,
+  `contexts.profile.profiler_id` would join them), and only when it and every key above it is exactly text, and an
+  item's `type` when it is exactly text and one the SDK gives that kind (`main._ITEM_TYPES`: before_send's check-in, a
+  transaction's, a metric's kinds; an error and a log carry none, so another kind's word written there is withheld:
+  Codex's case on #1297). The SDK reads some of them after the hook (an event's `event_id` and `type`, a log's
+  `attributes`, a profile's `contexts.trace.trace_id`), so a weak secret equal to one of those words, or inside one,
+  breaks no item. Every other key is scrubbed, whoever wrote it, a protocol word or not: in user data (an event's extra
+  and tags, a span's or a breadcrumb's data, a request's body, headers, cookies and env, a log's or a metric's
+  attributes, a frame's variables, a log entry's params, measurements, the modules), in a context the app set, as a
+  user's own key, in a structure the app nested in the protocol's (a protocol word at a path that is not its own) and at
+  a path the protocol gives another kind of item (a log's `attributes` written into an error): Codex's cases on #1297.
+  So an app that writes a protocol word as a key sends no secret equal to it, and nothing that runs before the hook (an
+  event processor, under any name; a hand-built event; a trace context set by hand) can carry a secret past it, but as
+  the protocol's own key at its own path in its own kind of item, a word the SDK itself writes there, so a secret equal
+  to it is public text (an item whose `type` is a text subclass is scrubbed by its channel's paths and sent as its text
+  says, so it can carry another kind's such word: the SDK writes every type as plain text, and the backend writes none;
+  the round-20 check's R20D-2); no scan of the backend for such writers is needed. A `type` that is not text (only a
+  hand-built event has one) is walked like any value, and the item is sent. A secret setting is named by the output
+  walk's rule (below), which main.py copies. The values are read once, when `main._sentry_options()` runs at startup,
+  and matched longest first, so a URL quoted whole goes whole. A text under 8 characters is left: settings bound no
+  secret's length but `SECRET_KEY`'s, the shortest real secret (the Alpha Vantage key) has 16, a port has at most 5
+  digits, and a shorter text would garble ids, timestamps and SQL wherever it occurred by chance. `before_send` and
+  `before_send_transaction` see each item after the event scrubber and the serializer (the log and metric hooks get
+  theirs unserialized), so never set `max_value_length`: the serializer would cut a string inside a secret and leave a
+  prefix no hook matches. A hook that raises drops its item (`callback_error`), so a failure sends nothing: each hook
+  raises any failure as an Exception, since the SDK sends a log or a metric on, unscrubbed, after one that is not; never
+  move the scrubber into an event processor: one that raises passes the event on, and a global one runs before the
+  request is attached. `before_send_span` acts only under span streaming, which stays off.
 - Nothing prints or logs a secret. An output reports a secret's presence and length, never a character; a
   connection URL's parse error is reported by its type, and an HTTP error from a keyed URL by its status, never
   their messages; a database URL holding more than one `@` is refused; httpx's request log stays at WARNING
   where a key travels in a query string. No output call (a print, log, warn or write call, `click.echo`, `pprint`, a
-  Sentry message, tag, context, extra or breadcrumb) and no raise or assert message reads a secret field directly,
-  the settings object beyond a printable field (`model_dump()`, `__dict__`) or whole (`dict(settings)`,
-  `vars(settings)`, `str.format`, unpacking, iteration), or a secret's environment variable.
-- `hmac.compare_digest` and `secrets.compare_digest` compare bytes (`.encode()` both sides, or a `.digest()`).
+  Sentry message, exception, event, tag or tags, context, extra, user, breadcrumb, or span data or attribute) and no
+  raise or assert message reads a secret field directly, the settings object beyond a printable field
+  (`model_dump()`, `__dict__`) or whole (`dict(settings)`, `vars(settings)`, `str.format`, unpacking, iteration), or a
+  secret's environment variable.
+- `hmac.compare_digest` and `secrets.compare_digest` compare bytes (`.encode()` both sides, or a `.digest()`). A value
+  the caller sends encoded (a base64 signature header) is compared in its encoded form,
+  `compare_digest(base64.b64encode(mac.digest()), signature.encode())`, which cannot raise on a header's value
+  (headers decode as latin-1); never decode the caller's value first: `b64decode` and `bytes.fromhex` raise on a
+  malformed one, and a decoded value held in a name is never bytes by its form, so the gate rejects it.
 - `scripts/deploy_check.py` prints a secret's presence and length, never its characters, and a database
   error's type, never its message. The model id and the provider base URL are identifiers, not secrets, and
   are printed by design.
@@ -146,32 +215,101 @@ The follow-up review (#1281) found the rest:
   `repr`, `str`, `getattr`, `hasattr` and `isinstance` or unpacks or iterates it, reads `self.X` or `getattr(obj,
   "X")` for a secret field, or reads the environment whole or a variable that a secret field, a secret suffix or
   `PASSWORD` names or that an expression computes; all outside `len()`, `bool()`, a comparison and a conditional
-  expression's condition. A secret field is one whose name ends in `_KEY`, `_SECRET`, `_TOKEN`, `_SALT` or `_DSN`, and
-  the two connection URLs.
-- **Sentry.** Built from `main._sentry_options()` with a fabricated DSN and a transport that keeps each envelope, a
-  fixture fails if the options turn local variables back on, send PII, or pass `data_collection` or `trace_lifecycle`.
+  expression's condition. A secret field is one whose name ends in `_KEY`, `_SECRET`, `_TOKEN`, `_SALT`, `_PASSWORD` or
+  `_DSN`, and the two connection URLs.
+- **Sentry.** Built from `main._sentry_options()` with a fabricated DSN and a transport that keeps each envelope item
+  and each lost item's reason, a fixture fails if the options turn local variables back on, send PII, pass
+  `data_collection` or `trace_lifecycle` or configure continuous profiling (`profile_session_sample_rate` or
+  `profile_lifecycle`, at the top level or in `_experiments`), or if the built client cuts strings (`max_value_length`).
   An `/internal/` request whose enqueue fails (a 500 whose frames hold the token in a copied local and in every
   framework frame) and one whose background job fails after the 202 send their errors and three transactions with the
-  header `[Filtered]`, no `vars` and no 8-character fragment of the token; a non-ASCII header is a 401. An Alpha
-  Vantage request's breadcrumb and span carry `http.query` as `[Filtered]` and no fragment of the key. Routes that
-  fail on a JSON body and on a form body holding a fabricated credential under each withheld key send each as
-  `[Filtered]`, on the errors and the transactions. A walk of the API's request body schemas (JSON and form, through
-  references, unions and lists) fails a key that names a credential (`password`, `token`, `secret`, `invite`, `code`,
-  `key`, `otp`, `nonce`, `credential`; `referral_code` is shared by design) unless the denylist holds it and it sits
-  at the body's top level. The match is by substring, so a future key that names such a word but carries no credential
-  (`country_code`, `max_tokens`) goes into the test's `_NOT_CREDENTIALS` with its reason. The backend's one
-  `sentry_sdk.init` call, through any import of the package or its modules, is main.py's, and it takes
-  `_sentry_options()` and nothing else.
+  header `[Filtered]`, no `vars` and no 8-character fragment of the token; a non-ASCII header is a 401. An Alpha Vantage
+  request's breadcrumb and span carry `http.query` as `[Filtered]` and no fragment of the key. Routes that fail on a
+  JSON body and on a form body holding a fabricated credential under each withheld key send each as `[Filtered]`, on the
+  errors and the transactions. A walk of the API's request body schemas (JSON and form, through references, unions and
+  lists) fails a key that names a credential (`password`, `token`, `secret`, `invite`, `code`, `key`, `otp`, `nonce`,
+  `credential`; `referral_code` is shared by design) unless the denylist holds it and it sits at the body's top level.
+  The match is by substring, so a future key that names such a word but carries no credential (`country_code`,
+  `max_tokens`) goes into the test's `_NOT_CREDENTIALS` with its reason. The backend's one `sentry_sdk.init` call,
+  through any import of the package or its modules, is main.py's, and it takes `_sentry_options()` and nothing else.
+- **Sentry values.** Every `before_send*` option the SDK's `ClientConstructor` declares, `before_send_span` apart, is
+  the value scrubber's hook for its channel (errors and check-ins, transactions, logs, metrics), so a hook an upgrade
+  adds fails the gate. With the settings fabricated before the client is built: a token quoted twice in a message, an
+  exception, a log line's breadcrumb, an extra, a tag, a context (as a value and as a key), a user, a request (its path,
+  query string, header and body), a transaction's name (which the envelope's trace header repeats) and a span's name and
+  data, a log sent through the SDK's logger, a metric's attribute and a cron check-in's monitor slug arrives
+  `[Filtered]` at each place it stood, with no 8-character fragment anywhere, envelope and item headers included; with
+  Sentry logs on, through either switch, a log record's tuple and mapping `extra` values and an SDK log whose body is an
+  exception arrive as their repr with the token `[Filtered]`; a setting added under each of the rule's suffixes (a
+  fabricated settings class, `_PASSWORD` included) is withheld with no change to main.py; one message quoting every
+  secret field's value (the gate's own `SECRET_FIELDS`, so main's copy of the rule cannot narrow unseen; the Alpha
+  Vantage key at its 16 characters), each URL whole, the database password as written (an `@` percent-encoded) and
+  decoded, and the Redis password (an `@` unescaped, read to the last `@` as redis-py reads it) arrives as `[Filtered]`
+  for each, nothing else changed; the driver's own error for a URL missing its `@host` with an all-digit password, which
+  quotes the digits as the port, arrives with them `[Filtered]`; a `password` query parameter (the database's, with an
+  encoded `+`, or a raw `/` and an encoded space, which an engine renders `%2F` and `+`, and the Redis one) and an
+  authority password holding a raw `/`, each as written and as the driver reads it, and an engine's rendering of such a
+  URL, arrive `[Filtered]`, a URL SQLAlchemy refuses still gives the authority's password and a `password` query
+  parameter, each as written and decoded, and a query password holding a lone surrogate (an environment byte that is not
+  UTF-8) still gives the values, whose failure would turn Sentry off; a value stored with a trailing newline is withheld
+  where an error quotes it escaped; an 8-character value is withheld while a 7-character one, an empty one, a URL's port
+  and an IPv6 host are not, and a setting holding `None` is skipped, not a failure that would turn Sentry off; the
+  values are read once, when the options are built, never at an item, by any path (a value set afterwards is not
+  withheld); the trace header names the transaction with the secret withheld; secrets equal to protocol words
+  (`event_id`, `trace_id`, `attributes`, `start_timestamp`, `time_unix_nano`, `severity_number`, `transaction`,
+  `timestamp`, `check_in`, `parent_span_id`, `category`, `filename`, `schedule`, `sample_rate`, `distribution`) break no
+  item: errors, transactions, the check-ins, the log and the metrics are each sent, as their own kind and whole, their
+  child spans, breadcrumbs, frames, monitor config, trace header and the gen-AI span the SDK splits out after the hook
+  with their keys, and a distribution keeps its kind; every key of 8 characters or more that the SDK's own items carry
+  outside user data, read from what each hook received in one capture of the structures the design and delta checks
+  found the SDK builds under main's options (on every channel, with breadcrumbs past `max_breadcrumbs` and check-ins
+  inside a request and a span; the capture builds no subprocess span, errno mechanism data or gauge) and each taken as a
+  secret, leaves every item's structure as it was, each list's items compared by index (a key lost in one span or frame
+  shows), so a key on a structure the capture builds fails until `_PROTOCOL_PATHS` has its path for the item's kind, and
+  main keeps exactly the paths each kind's items carry (none missing, none dead or misspelled; the capture sets no
+  context of its own), on the SDK version the capture was checked against (pinned: an upgrade fails until the capture is
+  checked against it again); a weak secret equal to a protocol word (`username`) written by the app as a key in each
+  kind of user data (an extra, a tag, a context of its own, a breadcrumb's data, a span's data and tags, a log's and a
+  metric's attributes, a request's body and headers, a log entry's params) is withheld there while the user's own
+  `username` stays, each field of the gate's copy of the user-data fields holds user data in main (an error's paths),
+  one equal to `trace_id` written as a user's own key, nested by the app in a trace context or as a hand-built event's
+  field is withheld there while the trace context's own `trace_id` stays, and weak secrets equal to a log's
+  `attributes`, a check-in's `check_in_id` and a log's top-level `trace_id`, written into an ordinary error by an event
+  processor or by hand, are withheld there while the error's own trace context keeps its `trace_id` (Codex's cases on
+  #1297), an event whose `type` only poses as `check_in` keeps no check-in key, and a metric's kind written as an
+  ordinary error's `type`, by an event processor or by hand, under a secret equal to it, is withheld there while a
+  metric keeps its own; weak secrets equal to a word that only one kind's paths hold (`fingerprint`, `start_timestamp`,
+  `check_in_id`, `attributes`), written into an error and a transaction by an event processor and into a check-in by
+  hand, are withheld in every kind of event but their own; an int and a float subclass whose `__str__` and `__repr__`
+  quote the secret, sent as a log's body and in a log record's extra with Sentry logs on, send no part of it (and an
+  error's extra keeps them as numbers); a text subclass whose `replace` keeps the secret, written as an error's extra by
+  an event processor and sent as a log's body, attribute and attribute key and a metric's attribute, is withheld in
+  each; a key that only poses as a protocol word (a text subclass, any other object) is withheld or turned into its
+  repr, one that poses as a key above a protocol path keeps nothing below it, and below a key that is not text no key
+  stays, a top-level word included; a secret held as a key in user data (an extra, a tag, a context's name and contents,
+  a user, a breadcrumb's data, a request body, a span's data and tags, a log's and a metric's attributes) is withheld
+  there, and so is one that follows a protocol word in the same key; a trace context set by hand, an attachment on the
+  scope, a hand-built event with the secret as its own key, its `type` and an attachment, and an event processor
+  registered under an assignment alias that writes it as an event's key, a trace context's key and the `type` and
+  attaches it each send it nowhere (no attachment item is sent, by payload or item header; the aliased processor and the
+  hand-set context are shown to have run), and a hand-built event whose `type` is a list is sent, while one whose `type`
+  is a text subclass posing as `check_in` is sent as an event with that type scrubbed; a secret overlapping `[Filtered]`
+  in each of the four ways (inside it, across its end, around it, across its start) moves the placeholder to the first
+  that none overlaps and appears nowhere in the envelope, and weak secrets that overlap every placeholder fail the
+  options with an error that names no value, inside main.py's `try` around its one init, so Sentry stays off and the app
+  starts; and a scrubber that raises sends nothing, whatever it raises (an Exception or one that is not): the error, the
+  check-in, the transaction, the log and the metric are each lost to `callback_error`.
 - **compare_digest.** An AST walk fails any `compare_digest` call in the backend, by its name or a name
   `from hmac|secrets import compare_digest as ...` gives it, whose two arguments are not both bytes by their
   form: a UTF-8 `.encode(...)` or `bytes(x, ...)`, a `.digest()`, a bytes literal, a base64 encoding of bytes or a
-  `token_bytes(...)` (another codec, `ascii`, raises on a non-ASCII value too, and so do `b64decode` and
-  `bytes.fromhex` on a malformed caller value: decode it and refuse a failure before comparing).
+  `token_bytes(...)`. Another codec, `ascii`, raises on a non-ASCII value too, and so do `b64decode` and
+  `bytes.fromhex` on a malformed caller value; a value decoded first and held in a name is not bytes by its form
+  either. Compare in the encoded form instead: `compare_digest(base64.b64encode(mac.digest()), signature.encode())`.
 
 The agent clause is not machine-gated and stays session reading.
 
-**Known ungated echoes.** Three are open follow-ups in `tasks/todo.md` (E17, E18, E19); the rest are accepted
-limits, each with its reason:
+**Known ungated echoes.** Two are open follow-ups in `tasks/todo.md` (E17, E18); the rest are accepted limits,
+each with its reason:
 - `scripts/refresh_index_membership.py --source fmp` logs an HTTP error's message (the FMP URL with its key) and
   lets httpx log each request URL at INFO; the monthly workflow uses the keyless Wikipedia source (todo E17);
 - a provider's own error text can quote a masked key's last four characters (Stripe's and the AI providers'
@@ -186,28 +324,88 @@ limits, each with its reason:
   database check and `/health/detailed` log a driver's connection error, which names the host, port, user and
   database; it carries no password once the URL holds a single `@`, except in a URL missing its `@host`: a password
   whose text before its first `/` or `?` is all digits parses as the port and the rest as the database or a query
-  key, and the connection error (the database driver's, or Redis's) can quote the port or such a query key. The
-  documented production password is hex (`openssl rand -hex 24`) in the Cloud SQL socket form, which keeps its `@`;
+  key, and the connection error (the database driver's, or Redis's) can quote the port or such a query key. Sentry
+  withholds the port's text when it has 8 characters or more (its value scrubber reads it as the password), not the
+  rest, and the log line keeps both. The documented production password is hex (`openssl rand -hex 24`) in the
+  Cloud SQL socket form, which keeps its `@`;
 - `main.py`'s Sentry init-failure line prints a malformed DSN's parse message (its scheme, its project path, or
   the port segment of a legacy key pair without a host); the DSN's key is public by Sentry's design;
-- Sentry scrubs keys, not values (the follow-up's plan named a `before_send` value scrubber; #1281 turned frame
-  variables off instead, and turning them back on would need that scrubber; the scrubber is todo E19): a secret in a
-  log message (a breadcrumb), an exception message or an extra is kept out only at its source. The output walk sees
-  only a direct read in a call it names as an output, not an alias (`url = settings.REDIS_URL`), a helper the value is
-  handed to or an object holding it (`stripe.api_key`), and the message walk reads `app/config.py` only and does not
-  follow `globals()`, `setattr` or `sys.modules`;
+- Sentry's value scrubber matches each value whole, stripped, as the settings held it at startup. A part of one passes
+  (a prefix, a provider's masked last four (todo E18)), and so does another form of it (repr- or JSON-escaped,
+  percent-encoded other than as the URL holds it (a `password` query parameter as SQLAlchemy renders it aside), base64,
+  hex, a case change: the documented secrets are hex or alphanumeric with `_` and `-`, which no such escape changes), a
+  value under 8 characters once stripped (one that reaches 8 only with its surrounding whitespace holds a secret of 7
+  characters or fewer, which the floor leaves as it leaves any: Codex's P2 on `a81a911`, for the founder's call), a
+  password libpq reads under another query key (`sslpassword`, a `dsn` parameter, a key padded with whitespace: the
+  round-17 check's R17U-3), withheld only inside the whole URL, a password holding a raw `/`, `?` or `#` in two forms no
+  driver reads (the round-17 check), as the URL writes it when it also holds a percent-escape (SQLAlchemy's parse gives
+  it decoded, which is withheld, and the authority rule stops at the raw character) and in a URL SQLAlchemy refuses (a
+  port that is no number, which `app.database` refuses at startup), where only its text before the raw character is
+  withheld (nothing in the backend quotes a URL's user info on its own, and an engine's rendering hides it as `***`), a
+  secret that is no settings field (a user's credential, a token a provider returns), another kind's protocol word as a
+  key in an item whose `type` is a text subclass (the SDK writes every type as plain text, and no backend code writes
+  one: the round-20 check's R20D-2), a new secret setting whose name ends in none of the rule's suffixes (the output
+  walk misses it too), and a secret held as a number, which the walk keeps as it is (no setting is one; an all-digit
+  password is text in its URL), and one holding JSON syntax that re-forms where the SDK serializes an item, across a key
+  and its value or from an escaped character (Codex's `message":"`, from an event's `message` key and its value: Codex's
+  P2 on `b7de8cb`): such a secret forms only from texts side by side in the item, so only one made of public text, which
+  such items spell anyway, or one whose parts code holding it writes side by side does. Profiles and sessions pass no
+  hook. The SDK builds a sampled transaction's profile (`profiles_sample_rate`) after its hook, from each sampled
+  frame's file, module, function and line, every live thread's name (the app's `request_` and `edgar_` pool prefixes and
+  `startup-` steps, its libraries', Python's `MainThread`), the host's platform strings and the scrubbed transaction's
+  id, name, trace id, environment, release and start (Codex's P2 on `53016f2`). Code or the host fixes each text, the
+  same whatever a secret is, so a secret shows there only when it equals or sits inside one; a thread named from data,
+  code compiled from data, or continuous profiling (whose chunks pass no hook either; the gate pins main's options to
+  configure none) would change that, and the gate runs with profiles off. A session carries release-health counts and
+  the options' release and environment, which config fixes, so a secret shows there only when it equals or sits inside
+  one of them. Each hook drops a hint's attachments, whose bytes would pass none (the backend sends none); the
+  envelope's trace header is taken from the scrubbed event. Frame variables stay off whatever the scrubber does: a frame
+  holds values in forms it cannot match. Over-redaction is accepted: a secret that equals ordinary text (a weak salt
+  equal to the domain) withholds that text; one equal to a protocol word, which leaves every key at its kind's own
+  paths, replaces that word in values, the protocol's own included (a check-in's `in_progress`, a span's `op`), and in
+  every other key (a log attribute named `sentry.environment` under a secret `environment`), so Sentry may drop such a
+  check-in or lose that attribute, though no capture fails, and a secret equal to or inside `exception` or `stacktrace`
+  renames the serializer's `_meta` note on a stack the SDK drops past 2,000 traceback entries (`MAX_STACK_FRAMES`), so
+  Sentry loses the reason the stack is missing (each raise adds one traceback entry for each frame it unwinds, and
+  Python's default recursion limit of 1,000 keeps one raise to about 1,000 entries, so only a traceback grown past one
+  call stack reaches it: for example one exception instance raised again and again (three times from 667 frames deep,
+  about 1,000 times from a callee its caller catches, about 2,000 times where it is caught, or 667 reads of a failed
+  `concurrent.futures` future), or a traceback carried on to a new exception (`with_traceback`) or built by hand
+  (`types.TracebackType`); nothing in the backend grows a traceback that way or raises the limit: Codex's P2 on
+  `d725600`, the round-19, round-21 and round-22 checks); and the public-by-design values the rule names
+  (`STRIPE_PUBLISHABLE_KEY`, `POSTHOG_API_KEY`, `SENTRY_DSN`) are withheld too;
+- the output walk sees only a direct read in a call it names as an output, not an alias (`url = settings.REDIS_URL`),
+  a helper the value is handed to or an object holding it (`stripe.api_key`), and the message walk reads
+  `app/config.py` only and does not follow `globals()`, `setattr` or `sys.modules`;
 - the library-message test drives its shapes one field at a time, as constructor arguments: a parse behind a
   check other than `startswith` or a known prefix, one that fails only on other input, on two fields together
   or only from the environment is not exercised.
 
-**Evidence.** `backend/app/config.py` (`class Config`, `__repr_args__`); `backend/main.py` (`_sentry_options`);
+**Evidence.** `backend/app/config.py` (`class Config`, `__repr_args__`); `backend/main.py` (`_sentry_options`,
+`_value_scrubber`, `_withhold`, `_secret_values`, `_url_passwords`, `_MIN_SECRET_LENGTH`);
 `backend/app/routers/internal.py` (`_require_internal_token`); `backend/app/database.py` (`_database_url`);
 `backend/app/services/redis_service.py` (`get_redis_pool`); `backend/app/integrations/alpha_vantage.py`
 (`fetch_earnings_calendar`); `backend/scripts/earnings_calendar_job.py` (`_configure_logging`);
 `backend/scripts/deploy_check.py`; `backend/scripts/smoke_resend.py`; `backend/scripts/validate_db_performance.py`;
-sentry-sdk 2.71.0: `client.py` (`_get_options`: `data_collection` drops `event_scrubber`; `_prepare_event`: the
-scrubber, then `serialize` with `max_value_length`, then `before_send`), `utils.py` (`serialize_frame`,
-`walk_exception_chain` honours `__suppress_context__`), `data_collection.py` (`stack_frame_variables` follows
+sentry-sdk 2.71.0: `client.py` (`_get_options`: `data_collection` drops `event_scrubber`, and `before_send_span`
+without span streaming warns; `_prepare_event`: the scrubber, then, once a scope has dropped breadcrumbs past
+`max_breadcrumbs`, a length note on the breadcrumbs of every event it captures (on a transaction or a check-in, an
+empty `values` list), then `serialize` with `max_value_length` (none by default), which writes that note into
+`_meta`, then `before_send` for every event but a transaction and `before_send_transaction` for a transaction, a
+hook that raises an Exception dropping the event as `callback_error` (any other exception drops it too, recorded as
+`before_send`); `capture_event`: the trace header comes from the hooked event; `_capture_telemetry`: logs and
+metrics reach only `before_send_log` and `before_send_metric`, a raise of an Exception dropping the item and any
+other exception passing the item on, unscrubbed (`capture_internal_exceptions` swallows it); the log batcher exists
+whatever `enable_logs` says), `logger.py` and `metrics.py` (the SDK's logger and metrics API, ungated by
+`enable_logs`; a log's body is its template as given), `_log_batcher.py` (`_to_transport_format`: the body's `str`
+and each attribute's `serialize_attribute`, after the hook), `integrations/logging.py` (`_extra_from_record`: a
+record's `extra` values as they are; `capture_sentry_logs`, a class attribute each constructor sets), `scope.py`
+(`apply_to_event`: the scope's breadcrumbs ride on errors only; `run_event_processors`: global processors run
+before the request's, and one that raises passes the event on), `consts.py` (`ClientConstructor`,
+`DEFAULT_MAX_VALUE_LENGTH = None`), `serializer.py` (`_serialize_node_impl` keeps a `str`, a subclass included, as
+it is: `strip_string` returns it whole without `max_value_length`), `utils.py` (`serialize_frame`,
+`walk_exception_chain` honours `__suppress_context__`, `format_attribute` keeps a `str` or a number as it is, and
+it and `serialize_attribute` fall back to `safe_repr`), `data_collection.py` (`stack_frame_variables` follows
 `include_local_variables` only without `data_collection`), `integrations/httpx.py` (`parse_url(...,
 sanitize=False)`), `integrations/_wsgi_common.py` (`SENSITIVE_HEADERS`), `scrubber.py` (`DEFAULT_DENYLIST`, exact
 key matches); CODE RED records 22 (disclosure 4) and 23 (disclosure 3).
