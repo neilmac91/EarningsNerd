@@ -126,9 +126,12 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    theme, which carries no sage). A forwarded className is read under the name the props give it,
  *    through a same-file variable or helper holding it and through an object's `className` key, the
  *    arguments of a same-file call at the places a spread among them could leave them, a spread laid
- *    out by the length the checker knows and its own members unread, a rest parameter's member by an
- *    index the checker reads as one number, counted
- *    from the end as `at()` and `length - N` count, or taken by a destructuring of the rest. Neither
+ *    out by the lengths its type allows (a hole below an open run kept) and its members read at each
+ *    place it could cover, a tuple const opened while the file writes nothing into it, a rest
+ *    parameter's member by an index the checker reads as one number, counted from the end as `at()`
+ *    and `length - N` count, or taken by a destructuring of the rest, and every name and holder on the
+ *    way, a destructured one and a field included (`const [all] = [parts]`, `box.p`), read with the
+ *    calls on the way kept. Neither
  *    check reads one a component forwards through a spread or a conditional return. The one-source
  *    check reads one the component joins with its
  *    own ink, which the ink check leaves to review, and reads an ink a label sets in one state only
@@ -1793,7 +1796,7 @@ function readsClassName(node: ts.Node, at: ts.Node, calls: Calls, seen: Set<ts.N
         const args = calls.get(rest.parameter.parent) ?? []
         const from = rest.parameter.parent.parameters.indexOf(rest.parameter) + rest.offset
         const position = (pattern as ts.ArrayBindingPattern).elements.indexOf(declaration)
-        if (reads(declaration.dotDotDotToken ? argumentsFrom(args, from + position) : argumentsAt(args, from, position))) found = true
+        if (reads(valuesOfHeld(declaration.dotDotDotToken ? argumentsFrom(args, from + position) : argumentsAt(args, from, position), [], sf, calls))) found = true
       } else if (root && ts.isParameter(root)) {
         // The parameter's own pattern: bound at a call on the way, what it holds at the steps (`pick([{ className: cls }])`
         // handed `[props]` holds the props at 0); the component's own props, keyed `className` at the top, the props.
@@ -1831,12 +1834,17 @@ function readsClassName(node: ts.Node, at: ts.Node, calls: Calls, seen: Set<ts.N
     props.className }`, the key written as is, by a string or by a same-file constant, its value read as a className
     attribute's is, `readsClassName`); 'own' when a `className` key of its own or an object known to set one comes last
     (`{ ...props, className: 'x' }`, `Object.assign({}, props, THEME)`); null when the scan cannot tell. Object.assign's
-    sources are read in order, a spread of an array literal opened; a source the scan cannot read is passed over. */
+    sources are read in order, a spread of an array literal opened; a spread the layout cannot open hands its members in
+    an order the scan cannot know, or none, so one of them holding the props wins and the rest are passed over; a
+    source the scan cannot read is passed over. */
 function classNameFrom(e: ts.Expression, at: ts.Node, seen: Set<ts.Node>, calls: Calls): 'props' | 'own' | null {
   const x = unwrap(e)
-  const sources: ts.Expression[] = []
+  const sources: (ts.Expression | ts.Expression[])[] = []
   if (ts.isCallExpression(x) && objectCall(x, 'assign')) {
-    for (const a of layOut(x.arguments)) if ('node' in a && !ts.isOmittedExpression(a.node)) sources.push(a.node)
+    for (const a of layOut(x.arguments)) {
+      if (!('node' in a)) sources.push(valuesAt(a.spread, [null], at.getSourceFile(), calls))
+      else if (!ts.isOmittedExpression(a.node)) sources.push(a.node)
+    }
   } else if (ts.isObjectLiteralExpression(x)) {
     for (const m of [...x.properties].reverse()) {
       if (ts.isSpreadAssignment(m)) {
@@ -1852,6 +1860,10 @@ function classNameFrom(e: ts.Expression, at: ts.Node, seen: Set<ts.Node>, calls:
     return setsOwnClassName(x) ? 'own' : null
   }
   for (const source of sources.reverse()) {
+    if (Array.isArray(source)) {
+      if (source.some((member) => classNameFrom(member, at, new Set(seen), calls) === 'props')) return 'props'
+      continue
+    }
     const from = classNameFrom(source, at, new Set(seen), calls)
     if (from) return from
   }
@@ -1873,23 +1885,25 @@ function setsOwnClassName(e: ts.Expression, seen = new Set<ts.Node>()): boolean 
 /** The arguments of the same-file calls a read is inside, by the function called. */
 type Calls = ReadonlyMap<ts.Node, ts.NodeArray<ts.Expression>>
 /** A call's arguments laid out by place: each argument as written; a spread of an array literal, or of a same-file
-    const typed as a tuple and holding one (`const PREFIX: readonly [string] = ['x']`), opened into its elements
-    (`f(...[a, b], c)` hands `a`, `b`, `c`); any other spread as the least and most members its type gives it
-    (`spreadLength`). A const typed as an array is not opened, since the file may push to it. */
-type Laid = { node: ts.Expression } | Lengths
-/** The lengths a spread, or a run of arguments, can have: a set (`some`, sorted) or every length from one on
-    (`atLeast`). */
-type Lengths = { some: number[] } | { atLeast: number }
-const least = (l: Lengths): number => ('some' in l ? l.some[0] : l.atLeast)
-const most = (l: Lengths): number => ('some' in l ? l.some[l.some.length - 1] : Infinity)
-const has = (l: Lengths, n: number): boolean => ('some' in l ? l.some.includes(n) : n >= l.atLeast)
-/** The lengths two runs make end to end: each sum of a length of one and a length of the other, or every length from
-    the least sum on when either has no most, or when the sums grow past 64. */
+    const typed as a tuple, holding one and never written into (`const PREFIX: readonly [string] = ['x']`), opened into
+    its elements (`f(...[a, b], c)` hands `a`, `b`, `c`); any other spread as the lengths its type gives it
+    (`spreadLength`) and its members, any of which may land at a place it covers. A const typed as an array is not
+    opened, since the file may push to it, nor a tuple the file writes into (`prefix[0] = …`, a push). */
+type Laid = { node: ts.Expression } | { spread: ts.Expression; lengths: Lengths }
+/** The lengths a spread, or a run of arguments, can have: each one in `some` (sorted, below `from`), and every length
+    from `from` on (Infinity when no run is open), so a hole below an open run is kept. */
+type Lengths = { some: number[]; from: number }
+const lengthsOf = (some: Iterable<number>, from = Infinity): Lengths => ({ some: [...new Set(some)].filter((n) => n < from).sort((x, y) => x - y), from })
+const least = (l: Lengths): number => Math.min(l.some[0] ?? Infinity, l.from)
+const most = (l: Lengths): number => (l.from < Infinity ? Infinity : (l.some[l.some.length - 1] ?? -Infinity))
+const has = (l: Lengths, n: number): boolean => n >= l.from || l.some.includes(n)
+/** The lengths two runs make end to end: each sum of a length of one and a length of the other, an open run from the
+    least sum an open run of either takes part in, or every length from the least sum on when the sums grow past 64. */
 function added(a: Lengths, b: Lengths): Lengths {
-  if ('atLeast' in a || 'atLeast' in b) return { atLeast: least(a) + least(b) }
-  const sums = new Set<number>()
-  for (const x of a.some) for (const y of b.some) sums.add(x + y)
-  return sums.size > 64 ? { atLeast: least(a) + least(b) } : { some: [...sums].sort((x, y) => x - y) }
+  const sums: number[] = []
+  for (const x of a.some) for (const y of b.some) sums.push(x + y)
+  const run = lengthsOf(sums, Math.min(a.from + least(b), least(a) + b.from))
+  return run.some.length > 64 ? lengthsOf([], least(a) + least(b)) : run
 }
 function layOut(args: readonly ts.Expression[]): Laid[] {
   return args.flatMap((a): Laid[] => {
@@ -1898,85 +1912,166 @@ function layOut(args: readonly ts.Expression[]): Laid[] {
     if (ts.isArrayLiteralExpression(inner)) return layOut(inner.elements)
     const type = CHECKER.getTypeAtLocation(inner)
     const declaration = ts.isIdentifier(inner) ? CHECKER.getSymbolAtLocation(inner)?.valueDeclaration : undefined
-    const held = declaration && ts.isVariableDeclaration(declaration) && (ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const) && declaration.initializer ? unwrap(declaration.initializer) : undefined
-    if (held && ts.isArrayLiteralExpression(held) && tupleMembers(type).every((t) => CHECKER.isTupleType(t))) return layOut(held.elements)
-    return [spreadLength(type)]
+    const constant = declaration && ts.isVariableDeclaration(declaration) && ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const ? declaration : undefined
+    const held = constant?.initializer && unwrap(constant.initializer)
+    // A tuple the file writes into holds more than its initializer says: `variableValues` reads the writes too.
+    if (constant && held && ts.isArrayLiteralExpression(held) && variableValues(constant).length === 1 && tupleMembers(type).every((t) => CHECKER.isTupleType(t))) {
+      return layOut(held.elements)
+    }
+    return [{ spread: inner, lengths: spreadLength(type) }]
   })
 }
 /** A type's members: a union's, or the type itself. */
 const tupleMembers = (type: ts.Type): ts.Type[] => (type.isUnion() ? type.types : [type])
 /** The lengths a spread of a value of this type can hand: a tuple's fixed length (`readonly [string]`), one with
-    optional elements each length between its least and its fixed, a union of tuples the union of their sets
-    (`[] | [string, string]` hands none or two, never one); one with a rest element every length from its least on, an
-    array or anything else every length. */
+    optional elements each length between its least and its fixed, one with a rest element every length from its least
+    on, and a union of tuples the union of theirs, a hole below an open member kept (`[] | [string, string]` hands none or
+    two, never one, and `[] | [string, string, ...string[]]` none, or two and more); an array or anything else every
+    length. */
 function spreadLength(type: ts.Type): Lengths {
   const each = tupleMembers(type).map((t): Lengths => {
-    if (!CHECKER.isTupleType(t)) return { atLeast: 0 }
+    if (!CHECKER.isTupleType(t)) return lengthsOf([], 0)
     const target = (t as ts.TypeReference).target as ts.TupleType
-    if (target.hasRestElement) return { atLeast: target.minLength }
-    return { some: Array.from({ length: target.fixedLength - target.minLength + 1 }, (_, i) => target.minLength + i) }
+    if (target.hasRestElement) return lengthsOf([], target.minLength)
+    return lengthsOf(Array.from({ length: target.fixedLength - target.minLength + 1 }, (_, i) => target.minLength + i))
   })
-  const open = each.filter((l): l is { atLeast: number } => 'atLeast' in l)
-  if (open.length) return { atLeast: Math.min(...each.map(least)) }
-  return { some: [...new Set(each.flatMap((l) => ('some' in l ? l.some : [])))].sort((x, y) => x - y) }
+  return lengthsOf(each.flatMap((l) => l.some), Math.min(...each.map((l) => l.from)))
 }
 /** The lengths a run of laid-out entries can have, an argument as written counting one. */
 function extent(entries: Laid[]): Lengths {
-  return entries.reduce<Lengths>((acc, e) => added(acc, 'node' in e ? { some: [1] } : e), { some: [0] })
+  return entries.reduce<Lengths>((acc, e) => added(acc, 'node' in e ? lengthsOf([1]) : e.lengths), lengthsOf([0]))
+}
+/** Whether a spread of `lengths`, after a run of `before`, could put one of its members at `place`. */
+function covers(before: Lengths, lengths: Lengths, place: number): boolean {
+  const starts = before.from <= place ? [place] : before.some.filter((b) => b <= place)
+  return starts.length > 0 && most(lengths) >= place - Math.max(...starts) + 1
 }
 /** The arguments a call could hand to the parameter at `from` when `index` is 0, or to the member at `index` of the
-    rest parameter starting at `from` (`fromEnd`: that member counted from the arguments' end): each argument, laid
-    out by place (`layOut`), that the lengths of the spreads before it (after it, from the end) could put there
-    (`first(...xs, a, b)` could hand `a` first, never `b`, and never `a` either when `xs` is a tuple of one;
-    `last(h, ...xs)` handed `c` alone holds no member), the lengths of a spread the set its type allows. A spread's own
-    members are not read. */
-function argumentsAt(args: readonly ts.Expression[], from: number, index: number, fromEnd = false): ts.Expression[] {
+    rest parameter starting at `from` (`fromEnd`: that member counted from the arguments' end), each with the steps to
+    it: each argument, laid out by place (`layOut`), that the lengths of the spreads before it (after it, from the end)
+    could put there (`first(...xs, a, b)` could hand `a` first, never `b`, and never `a` either when `xs` is a tuple of
+    one; `last(h, ...xs)` handed `c` alone holds no member), and the members (`[null]`) of a spread that could cover the
+    place (`first('x', ...xs)` takes no member of `xs`), the lengths of a spread the set its type allows. */
+function argumentsAt(args: readonly ts.Expression[], from: number, index: number, fromEnd = false): Held[] {
   const laid = layOut(args)
-  return laid.flatMap((e, j) => {
-    if (!('node' in e)) return []
+  return laid.flatMap((e, j): Held[] => {
     const before = extent(laid.slice(0, j))
-    if (!fromEnd) return has(before, from + index) ? [e.node] : []
-    return most(before) >= from && has(extent(laid.slice(j + 1)), index) ? [e.node] : []
+    const after = fromEnd ? extent(laid.slice(j + 1)) : before
+    if ('node' in e) return (fromEnd ? most(before) >= from && has(after, index) : has(before, from + index)) ? [{ value: e.node, steps: [] }] : []
+    const there = fromEnd ? most(before) + most(e.lengths) - 1 >= from && covers(after, e.lengths, index) : covers(before, e.lengths, from + index)
+    return there ? [{ value: e.spread, steps: [null] }] : []
   })
 }
 /** The arguments a call could hand to the rest parameter starting at `from`, used whole: each argument the lengths of
-    the spreads before it could put at or past that place. A spread's own members are not read. */
-function argumentsFrom(args: readonly ts.Expression[], from: number): ts.Expression[] {
+    the spreads before it could put at or past that place, and the members of a spread that could reach it. */
+function argumentsFrom(args: readonly ts.Expression[], from: number): Held[] {
   const laid = layOut(args)
-  return laid.flatMap((e, j) => ('node' in e && most(extent(laid.slice(0, j))) >= from ? [e.node] : []))
+  return laid.flatMap((e, j): Held[] => {
+    const before = most(extent(laid.slice(0, j)))
+    if ('node' in e) return before >= from ? [{ value: e.node, steps: [] }] : []
+    return most(e.lengths) >= 1 && before + most(e.lengths) - 1 >= from ? [{ value: e.spread, steps: [null] }] : []
+  })
 }
+/** The declaration a name reads, through the checker: a shorthand property's name (`{ parts }`) the one of the name it
+    repeats. */
+const declarationRead = (id: ts.Identifier): ts.Declaration | undefined =>
+  (id.parent && ts.isShorthandPropertyAssignment(id.parent) && id.parent.name === id ? CHECKER.getShorthandAssignmentValueSymbol(id.parent) : CHECKER.getSymbolAtLocation(id))?.valueDeclaration
+/** What held values hold once their steps, then `steps`, are walked in (`valuesAt`), the calls kept. */
+const valuesOfHeld = (held: Held[], steps: Step[], sf: ts.SourceFile, calls: Calls, seen?: Set<ts.Node>): ts.Expression[] =>
+  held.flatMap((h) => valuesAt(h.value, [...h.steps, ...steps], sf, calls, seen))
 /** What a parameter holds at `steps`, in the calls' context: the arguments the call on the way hands it (`argumentsAt`;
     a rest parameter's member by the first step when it is an index, the whole of them when no step picks one), the
-    remaining steps walked in (`atSteps`). Nothing for a parameter no call on the way binds. */
-function parameterValues(parameter: ts.ParameterDeclaration, steps: Step[], sf: ts.SourceFile, calls: Calls): ts.Expression[] {
+    remaining steps walked in with the calls kept (`valuesAt`). Nothing for a parameter no call on the way binds. */
+function parameterValues(parameter: ts.ParameterDeclaration, steps: Step[], sf: ts.SourceFile, calls: Calls, seen?: Set<ts.Node>): ts.Expression[] {
   const args = calls.get(parameter.parent) ?? []
   const index = parameter.parent.parameters.indexOf(parameter)
-  if (!parameter.dotDotDotToken) return argumentsAt(args, index, 0).flatMap((arg) => atSteps(arg, steps, sf))
+  if (!parameter.dotDotDotToken) return valuesOfHeld(argumentsAt(args, index, 0), steps, sf, calls, seen)
   const [first, ...rest] = steps
   const handed = typeof first === 'number' ? argumentsAt(args, index, first) : first === undefined || first === null ? argumentsFrom(args, index) : []
-  return handed.flatMap((arg) => atSteps(arg, rest, sf))
+  return valuesOfHeld(handed, rest, sf, calls, seen)
 }
-/** What a value holds at `steps`: a parameter a call on the way binds, what that call hands it there
-    (`parameterValues`); a same-file variable, what each value the file gives it holds there, the calls kept, so an
-    alias of a parameter is read at the call on the way too (`const all = parts`); anything else, the parameter of a
-    function around the element included, the expressions the binding walk meets there (`atSteps`). */
+/** What a value holds at `steps`, the calls on the way kept. At no steps it is the value itself, for its reader to
+    resolve, so a name keeps what the reader asks of it (a binding keyed `className`, `({ className: cls } = props)`).
+    A parameter a call on the way binds holds what that call hands it there (`parameterValues`); a same-file variable or
+    a name a destructuring gives, what the file gives it there (`boundValues`), so an alias of a parameter is read at the
+    call on the way too (`const all = parts`, `const [all] = [parts]`); a literal is walked into until the steps run out
+    or a name is met, which is read the same way (`[parts]` at 0 is `parts`, `heldAt`); anything else, the parameter of
+    a function around the element and a declaration met again on the way included, holds what the binding walk meets
+    there (`atSteps`). */
 function valuesAt(value: ts.Expression, steps: Step[], sf: ts.SourceFile, calls: Calls, seen = new Set<ts.Node>()): ts.Expression[] {
+  if (!steps.length) return [value]
   const x = unwrap(value)
-  const declaration = ts.isIdentifier(x) ? CHECKER.getSymbolAtLocation(x)?.valueDeclaration : undefined
-  if (declaration && ts.isParameter(declaration) && calls.has(declaration.parent)) return parameterValues(declaration, steps, sf, calls)
-  if (declaration && ts.isVariableDeclaration(declaration) && ts.isIdentifier(declaration.name) && !seen.has(declaration)) {
+  if (!ts.isIdentifier(x)) return heldAt(x, steps, sf).flatMap((h) => (h.steps.length ? valuesAt(h.value, h.steps, sf, calls, seen) : [h.value]))
+  const declaration = declarationRead(x)
+  if (declaration && !seen.has(declaration)) {
     seen.add(declaration)
-    return variableValues(declaration).flatMap(({ value: held, steps: at }) => valuesAt(held, [...at, ...steps], sf, calls, seen))
+    if (ts.isParameter(declaration) && calls.has(declaration.parent)) return parameterValues(declaration, steps, sf, calls, seen)
+    const bound = boundValues(declaration, steps, sf, calls, seen)
+    if (bound) return bound
   }
   return atSteps(value, steps, sf)
 }
+/** What a same-file variable, or a name a destructuring gives, holds at `steps`, the calls on the way kept: what each
+    value the file gives the variable holds there (`variableValues`), or, for the name, what the variable the
+    destructuring climbs to holds at the name's place, or what the call on the way hands the parameter whose pattern it
+    is (`parameterValues`), each default met on the way beside (`bindingOf`). Undefined for any other declaration, a
+    loop's variable included, which the binding walk reads. */
+function boundValues(declaration: ts.Node, steps: Step[], sf: ts.SourceFile, calls: Calls, seen = new Set<ts.Node>()): ts.Expression[] | undefined {
+  const variable = (d: ts.VariableDeclaration) => !ts.isForOfStatement(d.parent.parent) && !ts.isForInStatement(d.parent.parent)
+  if (ts.isVariableDeclaration(declaration)) {
+    return ts.isIdentifier(declaration.name) && variable(declaration) ? valuesOfHeld(variableValues(declaration), steps, sf, calls, seen) : undefined
+  }
+  if (!ts.isBindingElement(declaration) || !ts.isIdentifier(declaration.name)) return undefined
+  const { declaration: root, steps: place, defaults } = bindingOf(CHECKER.getSymbolAtLocation(declaration.name), steps)
+  if (root && ts.isVariableDeclaration(root) && variable(root)) {
+    return [...valuesOfHeld(defaults, [], sf, calls, seen), ...valuesOfHeld(variableValues(root), place, sf, calls, seen)]
+  }
+  if (root && ts.isParameter(root) && calls.has(root.parent)) return [...valuesOfHeld(defaults, [], sf, calls, seen), ...parameterValues(root, place, sf, calls, seen)]
+  return undefined
+}
+/** What a value holds at `steps`, walked through the literals and the fields on the way until the steps run out or a
+    name is met: each expression met, with the steps left when it is a name (`[parts]` at 0 is `parts`, `box.parts` at 0
+    is `box` at ['parts', 0]), for the caller to resolve. Either branch of a conditional, `??` or `||` is walked; a key
+    the scan cannot read, or an index into an array with a spread, reaches every member or field; anything else (a
+    call, a method) holds what the binding walk meets there (`atSteps`). */
+function heldAt(value: ts.Expression, steps: Step[], sf: ts.SourceFile, depth = 0): Held[] {
+  const x = unwrap(value)
+  if (!steps.length || ts.isIdentifier(x)) return [{ value: x, steps }]
+  if (depth > 24) return []
+  if (ts.isConditionalExpression(x)) return [x.whenTrue, x.whenFalse].flatMap((branch) => heldAt(branch, steps, sf, depth + 1))
+  if (ts.isBinaryExpression(x) && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken].includes(x.operatorToken.kind)) {
+    return [x.left, x.right].flatMap((side) => heldAt(side, steps, sf, depth + 1))
+  }
+  if (ts.isPropertyAccessExpression(x)) return heldAt(x.expression, [x.name.text, ...steps], sf, depth + 1)
+  if (ts.isElementAccessExpression(x)) return heldAt(x.expression, [accessStep(x.argumentExpression), ...steps], sf, depth + 1)
+  const [step, ...rest] = steps
+  if (ts.isArrayLiteralExpression(x)) {
+    if (typeof step === 'string') return []
+    if (step === null || x.elements.some(ts.isSpreadElement)) {
+      return x.elements.flatMap((m) => (ts.isSpreadElement(m) ? heldAt(m.expression, [null, ...rest], sf, depth + 1) : ts.isOmittedExpression(m) ? [] : heldAt(m, rest, sf, depth + 1)))
+    }
+    const member = x.elements[step]
+    return member && !ts.isOmittedExpression(member) ? heldAt(member, rest, sf, depth + 1) : []
+  }
+  if (ts.isObjectLiteralExpression(x)) {
+    return x.properties.flatMap((property): Held[] => {
+      if (ts.isSpreadAssignment(property)) return heldAt(property.expression, steps, sf, depth + 1)
+      const key = property.name ? keyOf(property.name) : undefined
+      if (key === undefined || (step !== null && key !== null && String(key) !== String(step))) return []
+      if (ts.isPropertyAssignment(property)) return heldAt(property.initializer, rest, sf, depth + 1)
+      return ts.isShorthandPropertyAssignment(property) ? [{ value: property.name, steps: rest }] : []
+    })
+  }
+  return atSteps(x, steps, sf).map((v) => ({ value: v, steps: [] }))
+}
 /** The rest parameter an expression reads, and the offset into its members: the parameter itself (`parts`); a rest
     element of a pattern over it, the parameter's own (`(...[h, ...tail])`) or a declaration's whose initializer reads
-    one (`const [, ...tail] = parts`), at the element's place, a tail of a tail added up; or a same-file variable
-    holding one of these alone (`const t = tail`). Undefined for anything else. */
+    one (`const [, ...tail] = parts`), at the element's place, a tail of a tail added up; or a same-file variable or a
+    name a destructuring gives that holds one of these alone (`const t = tail`, `const [t] = [tail]`, `aliasOf`).
+    Undefined for anything else. */
 function restReceiver(e: ts.Expression, seen = new Set<ts.Node>()): { parameter: ts.ParameterDeclaration; offset: number } | undefined {
   const x = unwrap(e)
-  const declaration = ts.isIdentifier(x) ? CHECKER.getSymbolAtLocation(x)?.valueDeclaration : undefined
+  const declaration = ts.isIdentifier(x) ? declarationRead(x) : undefined
   if (!declaration || seen.has(declaration)) return undefined
   seen.add(declaration)
   if (ts.isParameter(declaration)) return declaration.dotDotDotToken ? { parameter: declaration, offset: 0 } : undefined
@@ -1987,11 +2082,22 @@ function restReceiver(e: ts.Expression, seen = new Set<ts.Node>()): { parameter:
       : ts.isVariableDeclaration(root) && root.name === pattern && root.initializer ? restReceiver(root.initializer, seen) : undefined
     return behind && { parameter: behind.parameter, offset: behind.offset + pattern.elements.indexOf(declaration) }
   }
-  if (ts.isVariableDeclaration(declaration) && ts.isIdentifier(declaration.name)) {
-    const values = variableValues(declaration)
-    return values.length === 1 && !values[0].steps.length ? restReceiver(values[0].value, seen) : undefined
+  const alias = aliasOf(declaration)
+  return alias && restReceiver(alias, seen)
+}
+/** The one expression a same-file variable, or a name a destructuring gives, holds, its place walked into (`const [t] =
+    [tail]` holds `tail`); undefined when it holds more than one, a default included, or one with steps left to walk
+    (`const [h] = parts` holds a member of `parts`, not `parts`). */
+function aliasOf(declaration: ts.Node): ts.Expression | undefined {
+  let held: Held[] = []
+  if (ts.isVariableDeclaration(declaration) && ts.isIdentifier(declaration.name)) held = variableValues(declaration)
+  else if (ts.isBindingElement(declaration) && !declaration.dotDotDotToken && ts.isIdentifier(declaration.name)) {
+    const { declaration: root, steps, defaults } = bindingOf(CHECKER.getSymbolAtLocation(declaration.name), [])
+    if (!root || !ts.isVariableDeclaration(root)) return undefined
+    held = [...defaults, ...variableValues(root).map((h) => ({ value: h.value, steps: [...h.steps, ...steps] }))]
   }
-  return undefined
+  const values = held.flatMap((h) => heldAt(h.value, h.steps, declaration.getSourceFile()))
+  return values.length === 1 && !values[0].steps.length ? values[0].value : undefined
 }
 /** The members of a rest parameter an index could read (`parts[0]`, `parts.at(0)`; `parts.at(-1)` and
     `parts[parts.length - 1]` counted from the end; a tail of it the same, from the tail's place, `restReceiver`), bound
@@ -2016,9 +2122,10 @@ function restMembers(node: ts.Node, calls: Calls): ts.Expression[] | undefined {
   const args = calls.get(behind.parameter.parent)
   if (!args) return undefined
   const from = behind.parameter.parent.parameters.indexOf(behind.parameter) + behind.offset
+  const sf = node.getSourceFile()
   const back = lengthBack(key, id)
   if (back !== null) {
-    if (Number.isInteger(back) && back >= 1) return argumentsAt(args, from, back - 1, true)
+    if (Number.isInteger(back) && back >= 1) return valuesOfHeld(argumentsAt(args, from, back - 1, true), [], sf, calls)
     return byAt && !Number.isInteger(back) ? undefined : []
   }
   let step = numericIndex(key)
@@ -2026,7 +2133,7 @@ function restMembers(node: ts.Node, calls: Calls): ts.Expression[] | undefined {
   if (!Number.isFinite(step)) return []
   if (byAt) step = Math.trunc(step)
   else if (step < 0 || !Number.isInteger(step)) return []
-  return step < 0 ? argumentsAt(args, from, -step - 1, true) : argumentsAt(args, from, step)
+  return valuesOfHeld(step < 0 ? argumentsAt(args, from, -step - 1, true) : argumentsAt(args, from, step), [], sf, calls)
 }
 /** A numeric index: a literal, a negative one (`-1`) or a fraction included, or any expression the checker types as
     one number (`const LAST = -1`); null for any other key. */
@@ -2073,28 +2180,35 @@ function bindingRoot(binding: ts.Node): ts.Node {
     render callback's): the parameter itself (`({ className: cls })`), a helper's parameter the call on the way hands them
     (`pick(props)`, read at that call alone), a rest of it (`({ n, ...rest })`), a variable the file gives one of these,
     by its initializer or an assignment, destructured or not (`const p = props`, `const [p] = [props]`, `[p] = [props]`),
-    an object spreading one (`{ ...props }`, `Object.assign({}, props)`) or a same-file function returning one (`get()`);
-    not some other object (`const { className: cls } = theme`). */
+    a helper's pattern handed one (`([p])` handed `[props]`), a field of a same-file object or array holding one (`box.p`),
+    each read with the calls on the way kept, an object spreading one (`{ ...props }`, `Object.assign({}, props)`, a
+    spread of sources among them) or a same-file function returning one (`get()`); not some other object (`const {
+    className: cls } = theme`). */
 function holdsProps(node: ts.Node, at: ts.Node, seen = new Set<ts.Node>(), calls: Calls = new Map()): boolean {
   if (seen.has(node)) return false
   seen.add(node)
   if (ts.isParameter(node)) {
     for (let p: ts.Node | undefined = at; p; p = p.parent) if (p === node.parent) return true
-    return !node.dotDotDotToken && argumentsAt(calls.get(node.parent) ?? [], node.parent.parameters.indexOf(node), 0).some((arg) => holdsProps(arg, at, seen, calls))
+    const handed = argumentsAt(calls.get(node.parent) ?? [], node.parent.parameters.indexOf(node), 0)
+    return !node.dotDotDotToken && valuesOfHeld(handed, [], node.getSourceFile(), calls).some((arg) => holdsProps(arg, at, seen, calls))
   }
   if (ts.isBindingElement(node)) {
     if (node.dotDotDotToken) return holdsProps(bindingRoot(node), at, seen, calls)
-    // A name a declaration's destructuring gives (`const [p] = [props]`): what the variable holds at the name's steps.
-    const { declaration, steps } = bindingOf(ts.isIdentifier(node.name) ? CHECKER.getSymbolAtLocation(node.name) : undefined, [])
-    return !!declaration && ts.isVariableDeclaration(declaration)
-      && variableValues(declaration).some(({ value, steps: held }) => atSteps(value, [...held, ...steps], declaration.getSourceFile()).some((v) => holdsProps(v, at, seen, calls)))
+    // A name a destructuring gives (`const [p] = [props]`, a helper's `([p])` handed `[props]`): what the variable or
+    // the call on the way holds at the name's place, each default beside, the calls kept (`boundValues`).
+    return (boundValues(node, [], node.getSourceFile(), calls) ?? []).some((v) => holdsProps(v, at, seen, calls))
   }
   if (ts.isVariableDeclaration(node)) {
-    return variableValues(node).some(({ value, steps }) => atSteps(value, steps, node.getSourceFile()).some((v) => holdsProps(v, at, seen, calls)))
+    return variableValues(node).some(({ value, steps }) => valuesAt(value, steps, node.getSourceFile(), calls).some((v) => holdsProps(v, at, seen, calls)))
   }
   if (ts.isObjectLiteralExpression(node)) return classNameFrom(node, at, seen, calls) === 'props'
   const value = unwrap(node as ts.Expression)
   if (value !== node) return holdsProps(value, at, seen, calls)
+  // A field of a same-file object or array that holds them (`box.p`, `pair[0]`), read at its step with the calls kept.
+  if (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)) {
+    const step = ts.isPropertyAccessExpression(value) ? value.name.text : accessStep(value.argumentExpression)
+    return valuesAt(value.expression, [step], value.getSourceFile(), calls).some((v) => holdsProps(v, at, seen, calls))
+  }
   // A call holds what its same-file function returns (`get()`), its parameters bound at the call, useMemo what its
   // callback returns, and Object.assign its target with its sources' fields, the last source that sets a `className`
   // winning (`classNameFrom`).
@@ -2103,7 +2217,7 @@ function holdsProps(node: ts.Node, at: ts.Node, seen = new Set<ts.Node>(), calls
     const fns = [...functionsOf(value.expression), ...(isUseMemo(value) && value.arguments[0] ? functionsOf(value.arguments[0]) : [])]
     return fns.some((fn) => returnedExpressions(fn).some((r) => holdsProps(r, at, seen, new Map([...calls, [fn, value.arguments]]))))
   }
-  const declaration = ts.isIdentifier(value) ? CHECKER.getSymbolAtLocation(value)?.valueDeclaration : undefined
+  const declaration = ts.isIdentifier(value) ? declarationRead(value) : undefined
   return !!declaration && holdsProps(declaration, at, seen, calls)
 }
 
