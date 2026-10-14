@@ -122,9 +122,12 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   without an icon tile; the answer counts its matched sources once. Every control in the rail, the
   answer and the reader carries the brand ring. The unused reference renderer `AskFilingAnswer.tsx`
   is gone; DESIGN_SYSTEM.md's "Ask answer" now describes `CopilotMessage`. Gates:
-  `oneProductName.spec.ts` (no copy literal says the name in any case: "Copilot" anywhere, and
-  "copilot" in JSX text or a string of more than one word, so "free copilot questions" fails while an
-  identifier such as `copilot_question_asked` does not; the /security line is its one named residue),
+  `oneProductName.spec.ts` (no copy literal says the name in any case: "Copilot" and "co-pilot" in any
+  literal, and "copilot" in JSX text, a string of more than one word or a template part open at a
+  substitution edge, joined to punctuation or not, so "free copilot questions" and "Ask the copilot: what
+  changed" fail while a one-word identifier such as `copilot_question_asked` or `copilot:paneWidth` and a
+  class list do not; a one-word copy literal such as `title="copilot"` is its known limit; the /security
+  line is its one named residue, counted by mention),
   `brandCopyRules.spec.ts` rule 1 (on every surface under app, components, features, hooks and lib: no
   "each" or "every" before "exact", no each, every or all answers called exact, cited or verified, no
   answers said to be grounded or cited or to cite, no "never guessed", no "verifiable in one click",
