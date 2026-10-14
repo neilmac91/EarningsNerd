@@ -42,7 +42,7 @@ const THEME_BOOTSTRAP = `(function(){try{
 }catch(e){}})();`
 
 export const metadata: Metadata = {
-  // 'Page | EarningsNerd': the page first, the brand last (D-035). A plain string, no template: every
+  // 'Page | EarningsNerd': the page first, the brand last (D-038). A plain string, no template: every
   // route's own layout or page writes its whole title, and routeMetadata.spec.ts holds the form.
   title: 'AI summaries of SEC filings | EarningsNerd',
   description: 'The summary that shows its work. AI summaries of 10-Ks and 10-Qs from SEC EDGAR, with figures checked against the company’s XBRL where they can be.',

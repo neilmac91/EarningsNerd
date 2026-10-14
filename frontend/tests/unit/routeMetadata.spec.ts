@@ -10,7 +10,7 @@ import { HEADLINES, pageTitleFor, type HeadlineVariant } from '@/features/market
 import { SOCIAL_CARD } from '@/lib/socialCard'
 
 /**
- * Route metadata (D-035; docs/brand/08-applications.md §1). Every route names itself in the tab and in
+ * Route metadata (D-038; docs/brand/08-applications.md §1). Every route names itself in the tab and in
  * a shared link's preview, page first and brand last, and every shared page previews with the site card:
  *
  *   1. Each route's title comes from its own page or from a layout in its own directory, never from the

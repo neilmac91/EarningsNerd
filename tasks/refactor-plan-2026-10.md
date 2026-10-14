@@ -45,7 +45,10 @@ folded in (see [Verification](#verification-how-the-plans-claims-were-checked-an
 I2's reader repoints were included in X4; optional X5 was taken. The
 [execution and spend ledger](refactor-closeout-2026-10.md) retains each reviewed head,
 AST/phase proof, gate provenance, evaluation verdict and verified serial release.
-The timestamp and three Wave 0 behavior follow-ups are complete; the founder prompt-byte decision remains open.
+The timestamp and three Wave 0 behavior follow-ups are complete. The founder prompt-byte decision closed with
+#1237's byte-preserving cleanup, and follow-ups 5 and 6 (three comments; the writer keys and the two dedups)
+closed with #1245. #1243 closed the move proof's open findings from #1177 and #1190; its body lists the
+boundaries the proof keeps.
 
 **Measured target correction, 2026-10-11.** Original forecasts below remain historical:
 
@@ -200,8 +203,18 @@ original proposal; these notes are authoritative for what actually shipped.
        - X:871-872 says non-200, but the code treats every 2xx as success;
        - `_compact_xbrl_block`'s docstring (C:290) says an oversized payload returns "", but the code truncates at C:309;
        - the complete-event docstring at T:1718-1719 omits `unverified`, `mismatched` and `invalidated`.
+       **Fixed 2026-10-11 (#1245):** each comment now says what its code does: a non-2xx status, or a 2xx body
+       that is not JSON, gives None; an oversized block is cut at 8,000 characters; the complete event lists
+       every key of both shapes. The anchors that quoted the old wording follow.
     6. Dead code: the writer keys and the two unreachable dedups. The Dead PR's scope stays as decision 4
        set it unless a review reopens it.
+       **Closed 2026-10-11 (#1245):** the writer fields, set only to None, are removed; the readers of a stored
+       `raw_summary["writer_error"]` stay for legacy rows. The trend catalogue's duplicate-id guard is removed:
+       no dataset `build_dataset` returns from SEC facts reaches it, and `test_t0_1_every_catalogue_id_is_unique`
+       pins uniqueness (only a negative fiscal year, which SEC does not report, would clean a key like its
+       positive twin's). The facts identity dedup stays: `quarterly_fact_repair` keeps the last fact per
+       identity without the bulk writer, so on a 10-Q whose quarter and year-to-date share an end date it would
+       pick the year-to-date value.
 - **Wave 0 closed (2026-10-10).** W0.G and all six anchor PRs are merged. The
   [closeout evidence](refactor-wave0-closeout-2026-10.md) links each mutation record, the proof
   hardening in #1174/#1177, the current full-suite baseline and every retained paid run.

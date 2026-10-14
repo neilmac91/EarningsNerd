@@ -65,6 +65,6 @@ phrase, and beneath it a marked line: a margin with `[F1]`, the sentence "Total 
 to $416.2B [F1]", the `{ } Revenue · SEC XBRL` chip and the filing's identity. The figure is the
 verified FY2025 value ([00-audit.md](00-audit.md) §4). Geist Mono joined the committed render fonts
 (`scripts/brand/fonts/GeistMono-latin.woff2`, OFL, the same file the PDF export embeds) so the data
-face renders deterministically. The card's URL, with its `?v=` cache-buster (now `?v=5`), is typed once, in `lib/socialCard.ts` (D-035).
+face renders deterministically. The card's URL, with its `?v=` cache-buster (now `?v=5`), is typed once, in `lib/socialCard.ts` (D-038).
 
 [Before](audit/og-image-v3.jpg) · the new card is `frontend/public/og-image.png`.
