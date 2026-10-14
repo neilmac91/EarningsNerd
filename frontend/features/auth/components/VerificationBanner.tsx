@@ -77,7 +77,9 @@ export default function VerificationBanner() {
 
   return (
     <div className="border-b border-warning-light/30 bg-warning-light/10 text-warning-light dark:border-warning-dark/20 dark:bg-warning-dark/10 dark:text-warning-dark">
-      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
+      {/* One row while it fits. With enlarged text on a phone, "Resend link" and the dismiss wrap onto
+          a second row, the dismiss at its right end, rather than pushing past the viewport. */}
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
         <WarningCircleIcon className="h-4 w-4 shrink-0" />
         <p ref={statusRef} tabIndex={-1} className="flex-1 outline-none">
           {resent ? (
@@ -106,7 +108,7 @@ export default function VerificationBanner() {
           type="button"
           onClick={handleDismiss}
           aria-label="Dismiss"
-          className="shrink-0 rounded p-1 transition-colors hover:bg-warning-dark/15 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+          className="ml-auto shrink-0 rounded p-1 transition-colors hover:bg-warning-dark/15 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
         >
           <XIcon className="h-4 w-4" />
         </button>
