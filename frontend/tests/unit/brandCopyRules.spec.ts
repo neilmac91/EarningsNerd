@@ -125,8 +125,9 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    react-hooks/static-components forbids one), and SVG text coloured by attribute (the chart
  *    theme, which carries no sage). A forwarded className is read under the name the props give it,
  *    through a same-file variable or helper holding it and through an object's `className` key, the
- *    arguments of a same-file call at the places a spread among them could leave them, a spread's own
- *    members unread, a rest parameter's member by an index the checker reads as one number, counted
+ *    arguments of a same-file call at the places a spread among them could leave them, a spread laid
+ *    out by the length the checker knows and its own members unread, a rest parameter's member by an
+ *    index the checker reads as one number, counted
  *    from the end as `at()` and `length - N` count, or taken by a destructuring of the rest. Neither
  *    check reads one a component forwards through a spread or a conditional return. The one-source
  *    check reads one the component joins with its
@@ -1823,7 +1824,7 @@ function classNameFrom(e: ts.Expression, at: ts.Node, seen: Set<ts.Node>, calls:
   const x = unwrap(e)
   const sources: ts.Expression[] = []
   if (ts.isCallExpression(x) && objectCall(x, 'assign')) {
-    for (const a of openSpreads(x.arguments)) if (!ts.isSpreadElement(a) && !ts.isOmittedExpression(a)) sources.push(a)
+    for (const a of layOut(x.arguments)) if ('node' in a && !ts.isOmittedExpression(a.node)) sources.push(a.node)
   } else if (ts.isObjectLiteralExpression(x)) {
     for (const m of [...x.properties].reverse()) {
       if (ts.isSpreadAssignment(m)) {
@@ -1859,33 +1860,60 @@ function setsOwnClassName(e: ts.Expression, seen = new Set<ts.Node>()): boolean 
 }
 /** The arguments of the same-file calls a read is inside, by the function called. */
 type Calls = ReadonlyMap<ts.Node, ts.NodeArray<ts.Expression>>
-/** A call's arguments with each spread of an array literal opened into its elements (`f(...[a, b], c)` hands `a`,
-    `b`, `c`), so each lands at its place; any other spread stays as written. */
-const openSpreads = (list: readonly ts.Expression[]): ts.Expression[] => list.flatMap((a) => {
-  const inner = ts.isSpreadElement(a) ? unwrap(a.expression) : undefined
-  return inner && ts.isArrayLiteralExpression(inner) ? openSpreads(inner.elements) : [a]
-})
-/** The arguments a call could hand to the parameter at `from` when `index` is 0, or to the member at `index` of the
-    rest parameter starting at `from` (`fromEnd`: that member counted from the arguments' end): each argument, spreads
-    of array literals opened, whose place some length of the spreads before it (after it, from the end) puts there,
-    none when no spread sits before it and its place is another (`first(...xs, a, b)` could hand `a` first, never
-    `b`; `last(h, ...xs)` handed `c` alone holds no member). A spread's own members are not read. */
-function argumentsAt(args: readonly ts.Expression[], from: number, index: number, fromEnd = false): ts.Expression[] {
-  const opened = openSpreads(args)
-  const reaches = (fixed: number, spreads: number, place: number): boolean => (spreads ? fixed - spreads <= place : fixed === place)
-  return opened.filter((a, j) => {
-    if (ts.isSpreadElement(a)) return false
-    const before = opened.slice(0, j).filter(ts.isSpreadElement).length
-    if (!fromEnd) return reaches(j, before, from + index)
-    const after = opened.slice(j + 1).filter(ts.isSpreadElement).length
-    return (before > 0 || j >= from) && reaches(opened.length - 1 - j, after, index)
+/** A call's arguments laid out by place: each argument as written; a spread of an array literal, or of a same-file
+    const typed as a tuple and holding one (`const PREFIX: readonly [string] = ['x']`), opened into its elements
+    (`f(...[a, b], c)` hands `a`, `b`, `c`); any other spread as the least and most members its type gives it
+    (`spreadLength`). A const typed as an array is not opened, since the file may push to it. */
+type Laid = { node: ts.Expression } | { min: number; max: number }
+function layOut(args: readonly ts.Expression[]): Laid[] {
+  return args.flatMap((a): Laid[] => {
+    if (!ts.isSpreadElement(a)) return [{ node: a }]
+    const inner = unwrap(a.expression)
+    if (ts.isArrayLiteralExpression(inner)) return layOut(inner.elements)
+    const type = CHECKER.getTypeAtLocation(inner)
+    const declaration = ts.isIdentifier(inner) ? CHECKER.getSymbolAtLocation(inner)?.valueDeclaration : undefined
+    const held = declaration && ts.isVariableDeclaration(declaration) && (ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const) && declaration.initializer ? unwrap(declaration.initializer) : undefined
+    if (held && ts.isArrayLiteralExpression(held) && tupleMembers(type).every((t) => CHECKER.isTupleType(t))) return layOut(held.elements)
+    return [spreadLength(type)]
   })
 }
-/** The arguments a call could hand to the rest parameter starting at `from`, used whole: each argument at or past that
-    place, or that a spread before it could push there. A spread's own members are not read. */
+/** A type's members: a union's, or the type itself. */
+const tupleMembers = (type: ts.Type): ts.Type[] => (type.isUnion() ? type.types : [type])
+/** The least and most members a spread of a value of this type hands: a tuple's fixed length (`readonly [string]`),
+    one with optional or rest elements by its bounds, a union of tuples by the least and most over them
+    (`[] | [string]`); none and any for an array or anything else. */
+function spreadLength(type: ts.Type): { min: number; max: number } {
+  const bounds = tupleMembers(type).map((t) => {
+    if (!CHECKER.isTupleType(t)) return { min: 0, max: Infinity }
+    const target = (t as ts.TypeReference).target as ts.TupleType
+    return { min: target.minLength, max: target.hasRestElement ? Infinity : target.fixedLength }
+  })
+  return { min: Math.min(...bounds.map((b) => b.min)), max: Math.max(...bounds.map((b) => b.max)) }
+}
+/** The least and most arguments a run of laid-out entries puts before (or after) a place. */
+function extent(entries: Laid[]): { min: number; max: number } {
+  return entries.reduce((acc, e) => ('node' in e ? { min: acc.min + 1, max: acc.max + 1 } : { min: acc.min + e.min, max: acc.max + e.max }), { min: 0, max: 0 })
+}
+/** The arguments a call could hand to the parameter at `from` when `index` is 0, or to the member at `index` of the
+    rest parameter starting at `from` (`fromEnd`: that member counted from the arguments' end): each argument, laid
+    out by place (`layOut`), that the lengths of the spreads before it (after it, from the end) could put there
+    (`first(...xs, a, b)` could hand `a` first, never `b`, and never `a` either when `xs` is a tuple of one;
+    `last(h, ...xs)` handed `c` alone holds no member). A spread's own members are not read. */
+function argumentsAt(args: readonly ts.Expression[], from: number, index: number, fromEnd = false): ts.Expression[] {
+  const laid = layOut(args)
+  return laid.flatMap((e, j) => {
+    if (!('node' in e)) return []
+    const before = extent(laid.slice(0, j))
+    if (!fromEnd) return before.min <= from + index && from + index <= before.max ? [e.node] : []
+    const after = extent(laid.slice(j + 1))
+    return before.max >= from && after.min <= index && index <= after.max ? [e.node] : []
+  })
+}
+/** The arguments a call could hand to the rest parameter starting at `from`, used whole: each argument the lengths of
+    the spreads before it could put at or past that place. A spread's own members are not read. */
 function argumentsFrom(args: readonly ts.Expression[], from: number): ts.Expression[] {
-  const opened = openSpreads(args)
-  return opened.filter((a, j) => !ts.isSpreadElement(a) && (j >= from || opened.slice(0, j).some(ts.isSpreadElement)))
+  const laid = layOut(args)
+  return laid.flatMap((e, j) => ('node' in e && extent(laid.slice(0, j)).max >= from ? [e.node] : []))
 }
 /** What a parameter holds at `steps`, in the calls' context: the arguments the call on the way hands it (`argumentsAt`;
     a rest parameter's member by the first step when it is an index, the whole of them when no step picks one), the
