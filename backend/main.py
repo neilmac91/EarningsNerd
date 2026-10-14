@@ -36,8 +36,8 @@ def _url_passwords(url: str) -> set[str]:
     missing its `@host`, up to the authority's end, where a parser reads the port and a driver's error quotes it as
     one; each `password` query parameter, also plus-decoded and as SQLAlchemy renders it (quote_plus), which
     SQLAlchemy passes to the driver (and renders whole, hide_password or not) and redis-py reads; and the password
-    SQLAlchemy parses, which may hold a raw `/`, `?` or `#` that ends the authority. A bracketed (IPv6) host without an
-    `@` holds no password."""
+    SQLAlchemy parses, decoded, which may hold a raw `/`, `?` or `#` that ends the authority. A bracketed (IPv6) host
+    without an `@` holds no password."""
     authority = re.split("[/?#]", url.partition("://")[2], maxsplit=1)[0]
     userinfo, at, host = authority.rpartition("@")
     password = (userinfo if at else "" if host.startswith("[") else host).partition(":")[2]
@@ -52,7 +52,8 @@ def _url_passwords(url: str) -> set[str]:
         return passwords
     query = parsed.query.get("password", ())
     read = set((query,) if isinstance(query, str) else query)
-    return passwords | {parsed.password or ""} | read | {quote_plus(value) for value in read}
+    rendered = {quote_plus(value, errors="replace") for value in read}  # a lone surrogate must not fail Sentry's init
+    return passwords | {parsed.password or ""} | read | rendered
 
 
 def _secret_values() -> tuple[str, ...]:

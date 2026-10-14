@@ -1315,13 +1315,14 @@ def test_sentry_withholds_a_password_wherever_a_driver_reads_one(monkeypatch, re
         rendered = repr(create_engine(urls["DATABASE_URL"]))
         assert written in rendered and urls["DATABASE_URL"] not in rendered  # only the password can withhold it there
         quoted = [written, read, redis, rendered]
-    elif form == "query-rendered":  # the round-17 check's R17V-1: SQLAlchemy renders a raw "/" as %2F
-        written = read = f"{database[:20]}/{database[20:]}"
+    elif form == "query-rendered":  # R17V-1, R18D-3: SQLAlchemy renders a raw "/" as %2F and a space as +
+        written = f"{database[:13]}/{database[13:26]}%20{database[26:]}"
+        read = f"{database[:13]}/{database[13:26]} {database[26:]}"
         urls = {"DATABASE_URL": f"postgresql://app@db.invalid/app?sslmode=require&password={written}"}
         assert make_url(urls["DATABASE_URL"]).query["password"] == read
         rendered = repr(create_engine(urls["DATABASE_URL"]))
-        assert written not in rendered and f"{database[:20]}%2F{database[20:]}" in rendered
-        quoted = [written, rendered]
+        assert written not in rendered and f"{database[:13]}%2F{database[13:26]}+{database[26:]}" in rendered
+        quoted = [written, read, rendered]
     else:
         written = read = f"{database[:20]}/{database[20:]}"
         urls = {"DATABASE_URL": f"postgresql://app:{written}@db.invalid/app"}
@@ -1353,6 +1354,17 @@ def test_a_url_sqlalchemy_cannot_parse_still_gives_its_password():
         make_url(url)
     decoded = {f"{password[:20]}@{password[20:]}", f"{query[:20]}+{query[20:]}"}
     assert {written, in_query} | decoded <= main._url_passwords(url)
+
+
+def test_a_password_no_codec_can_encode_still_gives_the_values():
+    # The round-18 check's R18D-2: an environment byte that is not UTF-8 reaches a setting as a lone surrogate, which
+    # quote_plus cannot encode by default, so building the values failed and Sentry stayed off. They build and hold the
+    # password as SQLAlchemy reads it (SQLAlchemy cannot render such a URL at all).
+    import main
+
+    password = _fabricated("DATABASE_URL undecodable password", string.ascii_uppercase)
+    read = f"{password[:20]}\udce9{password[20:]}"
+    assert read in main._url_passwords(f"postgresql://app@db.invalid/app?sslmode=require&password={read}")
 
 
 def test_sentry_withholds_a_secret_stored_with_a_newline(monkeypatch, request):
