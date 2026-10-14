@@ -339,11 +339,12 @@ describe('account snapshots follow the resolved identity', () => {
     expect(client.getQueryData(queryKeys.subscription.byUser(2))).toBeUndefined()
   })
 
-  it('resets both families even when the ordinary logout request fails', async () => {
+  it('resets the account families, the wording reviews included, even when the ordinary logout request fails', async () => {
     const client = newClient()
     client.setQueryData(queryKeys.currentUser(), makeUser(1))
     client.setQueryData(queryKeys.subscription.byUser(1), { is_pro: true })
     client.setQueryData(queryKeys.usage.byUser(1), { summaries_used: 9 })
+    client.setQueryData(queryKeys.wordingReview.byFiling(42), { status: 'ok', labels: { a1: 'reviewed' } })
     markSessionActive()
     api.defaults.adapter = async () => { throw new Error('offline logout') }
     await expect(logoutAndResetAccount(client, logout)).rejects.toThrow('offline logout')
@@ -351,6 +352,8 @@ describe('account snapshots follow the resolved identity', () => {
     expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
     expect(client.getQueryCache().findAll({ queryKey: queryKeys.subscription.all() })).toHaveLength(0)
     expect(client.getQueryCache().findAll({ queryKey: queryKeys.usage.all() })).toHaveLength(0)
+    // The previous account's labels and receipts never show to the next account in this tab.
+    expect(client.getQueryCache().findAll({ queryKey: queryKeys.wordingReview.all() })).toHaveLength(0)
   })
 })
 
@@ -402,7 +405,9 @@ describe('account query ownership structural gate', () => {
     }
     expect(errors).toEqual([])
     expect(identityWrites).toEqual(['features/auth/lib/accountQueryState.ts'])
-    expect(allWrites).toHaveLength(6) // current user null, watchlist x2, notification x2, saved summaries x1 (Delete prunes its row).
+    // current user null, watchlist x2, notification x2, saved summaries x1 (Delete prunes its row),
+    // wording review x3 (the label applied as it is pressed, its rollback, the server's state).
+    expect(allWrites).toHaveLength(9)
   })
 
   it('all subscription/usage reads carry identity and an enabled condition, never a family prefix', () => {
