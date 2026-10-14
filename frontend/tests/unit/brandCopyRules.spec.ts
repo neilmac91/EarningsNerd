@@ -43,7 +43,8 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    and a join, and one rendered whole renders every member. React's child utilities are named
  *    through the checker, however a call reaches them (an aliased import, a destructured, held or
  *    bound method, a field or a key that holds one, a function that returns one, a name that may be
- *    undefined):
+ *    undefined), and a callee typed over (`const one: (c: ReactNode) => ReactNode = Children.only`)
+ *    is read through the one walk, so every binding above carries one:
  *    Children.toArray keeps the children it is given (one that is no array is a member), Children.map
  *    and forEach hand their callback each, Children.only and cloneElement render the element they are
  *    given, and the children a clone or createElement hands an element (from the third argument on,
@@ -104,12 +105,13 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    put in an array or an object through another name for it (an alias, or a parameter it is handed
  *    to), a value held in a Map, a method the scan names by what follows the dot (an array's,
  *    Object's, a push) called through a key instead (`labels['slice'](0)`), read as a call it does
- *    not know, and a React utility called through call, apply or Reflect.apply, whose callee is
- *    lib's; beyond the fixture, a literal another file holds, a colour set
- *    by an inline style or on a pseudo-element, a library component's internals, a component created
- *    inside another's render, reading that one's children through a closure (the lint's
- *    react-hooks/static-components forbids one), and SVG text coloured by attribute (the chart theme,
- *    which carries no sage). The waitlist counter's own spec covers the count on the public pages.
+ *    not know, a React utility called through call, apply or Reflect.apply, whose callee is lib's,
+ *    or held under a type of its own in another file or a class's field; beyond the fixture, a
+ *    literal another file holds, a colour set by an inline style or on a pseudo-element, a library
+ *    component's internals, a component created inside another's render, reading that one's
+ *    children through a closure (the lint's react-hooks/static-components forbids one), and SVG
+ *    text coloured by attribute (the chart theme, which carries no sage). The waitlist counter's
+ *    own spec covers the count on the public pages.
  * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
  *    figure or a price, the hero's accent phrases included; the margin (`en-margin`) exists only
  *    inside MarkedCopy, and every MarkedCopy carries at least one marker (`EnRef`).
@@ -211,21 +213,47 @@ const keepsArgument = (v: ts.Expression): v is ts.CallExpression | ts.NewExpress
     && v.expression.expression.text === 'Array' && v.expression.name.text === 'from' && v.arguments.length === 1)
 
 /** React's child utilities, which hand JSX through: Children's methods, cloneElement and createElement. A call names one
-    when the checker types what it calls as React's own declaration, however the call reaches it (an aliased import,
-    `React.Children`, a destructured, held or bound method, a field or a key that holds one, a function that returns
-    one, a name that may be undefined), so an array's `map`, the DOM's createElement or a same-file `toArray` is not
-    one, unless it is typed as React's, which fails closed. One called through `call`, `apply` or `Reflect.apply` is
-    a gap, since what is called is lib's. Every call's callee is asked, once: keeping the checker to callees under a
-    utility's name saved about a tenth of a second and left a key and a held name unread. */
+    when what it calls is React's own declaration, however the call reaches it. The checker types it so through an
+    aliased import, `React.Children`, a destructured, held or bound method, a field or a key that holds one, a function
+    that returns one or a name that may be undefined; and a callee whose type is written over (`const one: (c:
+    ReactNode) => ReactNode = Children.only`, a cast, a typed field, member, parameter or return)
+    is read through the one walk (`walkLiterals`), which ends at the first value it reaches that is one, so any binding
+    the walk follows carries a utility, however it is typed. An array's `map`, the DOM's createElement or a same-file
+    `toArray` is not one, unless it is typed as React's, which fails closed. One called through `call`, `apply` or
+    `Reflect.apply` is a gap, since what is called is lib's, and so is one held under a type of its own in another
+    file or in a class's field, which the walk does not follow. Every call's callee is asked, once: keeping the checker
+    to callees under a utility's name saved about a tenth of a second and left a key and a held name unread. */
 const REACT_UTILITIES = new Set(['toArray', 'only', 'map', 'forEach', 'cloneElement', 'createElement'])
 const REACT_TYPES = /[\\/]node_modules[\\/]@types[\\/]react[\\/]/
+/** The React utility a type's call signature is declared as, or undefined. */
+function utilityOf(type: ts.Type): string | undefined {
+  const declaration = CHECKER.getNonNullableType(type).getCallSignatures()[0]?.declaration
+  const name = declaration && !ts.isJSDocSignature(declaration) && declaration.name && ts.isIdentifier(declaration.name) ? declaration.name.text : undefined
+  return name && REACT_UTILITIES.has(name) && REACT_TYPES.test(declaration!.getSourceFile().fileName) ? name : undefined
+}
+/** The React utility a value is once the steps a walk has taken into it are read off its type (`Children` at
+    `only`); a node the walk builds has no type, and an index or a key the scan cannot read names none. */
+function utilityAlong(at: ts.Expression, path: Step[]): string | undefined {
+  if (at.pos < 0) return undefined
+  let type = CHECKER.getTypeAtLocation(at)
+  for (const step of path) {
+    if (typeof step !== 'string') return undefined
+    const property = CHECKER.getPropertyOfType(CHECKER.getNonNullableType(type), step)
+    if (!property) return undefined
+    type = CHECKER.getTypeOfSymbolAtLocation(property, at)
+  }
+  return utilityOf(type)
+}
 const UTILITIES = new Map<ts.Node, string | undefined>()
 function reactUtility(v: ts.Expression): string | undefined {
   if (!ts.isCallExpression(v)) return undefined
   if (!UTILITIES.has(v)) {
-    const declaration = CHECKER.getNonNullableType(CHECKER.getTypeAtLocation(unwrap(v.expression))).getCallSignatures()[0]?.declaration
-    const name = declaration && !ts.isJSDocSignature(declaration) && declaration.name && ts.isIdentifier(declaration.name) ? declaration.name.text : undefined
-    UTILITIES.set(v, name && REACT_UTILITIES.has(name) && REACT_TYPES.test(declaration!.getSourceFile().fileName) ? name : undefined)
+    // A call met again while its callee is read (a helper that calls itself) names no utility.
+    UTILITIES.set(v, undefined)
+    const callee = unwrap(v.expression)
+    let name = utilityAlong(callee, [])
+    if (!name) walkLiterals(callee, callee.getSourceFile(), [], (at, path) => !!(name ??= utilityAlong(at, path)))
+    UTILITIES.set(v, name)
   }
   return UTILITIES.get(v)
 }
@@ -300,14 +328,17 @@ function functionsNamed(e: ts.Expression, seen: Set<ts.Node>): ts.FunctionLikeDe
 }
 
 /** A call that binds a same-file function's parameters: its arguments, by position, or the array whose members it
-    hands the parameter at `at` (read `loose`, a child that is no array being one, for React's Children). */
-interface Site { args?: ts.NodeArray<ts.Expression>; members?: ts.Expression; at?: number; loose?: boolean }
+    hands the parameter at `at` (read `loose`, a child that is no array being one, for React's Children). A site that
+    holds only `when` its call is Children.map's or forEach's, or `unless` it is, is asked when it is read. */
+interface Site { args?: ts.NodeArray<ts.Expression>; members?: ts.Expression; at?: number; loose?: boolean; when?: ts.CallExpression; unless?: ts.CallExpression }
 const SITES = new Map<ts.SourceFile, Map<ts.Node, Site[]>>()
+const handsChildren = (call: ts.CallExpression) => ['map', 'forEach'].includes(reactUtility(call) ?? '')
 /** Where a function's parameters take their values, indexed once per file: every call that names it, every array
     method it is handed to (`rows.map(render)`, its callback written inline or named, the members landing where
     HANDS_MEMBERS says), Array.from's mapper (its source's members), and Children.map's and forEach's callback (the
-    children's). A component's props come from JSX, which the component check reads (its children and className),
-    so a tag is no call here. */
+    children's). Which calls are Children's is asked when a site is read, not while the index is built, since
+    reactUtility's walk reads parameters through this index. A component's props come from JSX, which the component
+    check reads (its children and className), so a tag is no call here. */
 function sitesOf(fn: ts.Node): Site[] {
   const sf = fn.getSourceFile()
   let sites = SITES.get(sf)
@@ -317,12 +348,10 @@ function sitesOf(fn: ts.Node): Site[] {
     visit(sf, (n) => {
       if (!ts.isCallExpression(n)) return
       const callee = unwrap(n.expression)
-      const utility = reactUtility(n)
-      if (utility === 'map' || utility === 'forEach') {
-        if (n.arguments[1]) for (const f of functionsOf(n.arguments[1])) add(f, { members: n.arguments[0], at: 0, loose: true })
-      } else if (ts.isPropertyAccessExpression(callee)) {
+      if (n.arguments[1]) for (const f of functionsOf(n.arguments[1])) add(f, { members: n.arguments[0], at: 0, loose: true, when: n })
+      if (ts.isPropertyAccessExpression(callee)) {
         const at = HANDS_MEMBERS.get(callee.name.text)
-        if (at !== undefined && n.arguments[0]) for (const f of functionsOf(n.arguments[0])) add(f, { members: callee.expression, at })
+        if (at !== undefined && n.arguments[0]) for (const f of functionsOf(n.arguments[0])) add(f, { members: callee.expression, at, unless: n })
         if (callee.name.text === 'from' && ts.isIdentifier(callee.expression) && callee.expression.text === 'Array' && n.arguments[1]) {
           for (const f of functionsOf(n.arguments[1])) add(f, { members: n.arguments[0], at: 0 })
         }
@@ -331,7 +360,7 @@ function sitesOf(fn: ts.Node): Site[] {
     })
     SITES.set(sf, sites = index)
   }
-  return sites.get(fn) ?? []
+  return (sites.get(fn) ?? []).filter((site) => (!site.when || handsChildren(site.when)) && (!site.unless || !handsChildren(site.unless)))
 }
 
 /** A value a name holds, and the steps from it to the name's place (`[label] = LABELS` holds LABELS at index 0). */
@@ -511,13 +540,15 @@ function literalExpressions(e: ts.Expression, sf: ts.SourceFile, path: Step[] = 
   if (!found) cache.set(e, (found = walkLiterals(e, sf, path)))
   return found
 }
-function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[]): ts.Expression[] {
+function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[], stop?: (at: ts.Expression, path: Step[]) => boolean): ts.Expression[] {
   // What an expression holds once the path is walked into it; `inLiteral` marks a value written in a literal.
   const held = (x: ts.Expression, path: Step[], depth: number, inLiteral = false): ts.Expression[] => {
     if (depth > 24) return []
     const at = unwrap(x)
     // Any part of a component's children is its children.
     if (MARKS.has(at)) return [at]
+    // A walk that looks for a value (reactUtility's, for a callee's utility) ends where it finds one.
+    if (stop?.(at, path)) return []
     if (!inLiteral && ts.isConditionalExpression(at)) return [at.whenTrue, at.whenFalse].flatMap((branch) => held(branch, path, depth + 1))
     if (!inLiteral && ts.isBinaryExpression(at) && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken].includes(at.operatorToken.kind)) {
       return [at.left, at.right].flatMap((side) => held(side, path, depth + 1))

@@ -16,6 +16,7 @@ import { Badge, Button, buttonVariants, type BadgeVariant } from '@/components/u
 import { cx } from '@/components/ui/cx'
 import Link from 'next/link'
 import { ArrowRightIcon } from '@/lib/icons'
+import { typedOnly } from './brandRule2Kit'
 
 const SAGE_LINK = 'text-brand-strong hover:underline'
 export function P01({ n }: { n: number }) { return <a className={SAGE_LINK}>{n}</a> } // flag
@@ -863,3 +864,31 @@ export function P382() { const out: string[] = []; const alias = out; alias.push
 export function P383() { const out: string[] = []; fill383(out); return <div className="text-brand-strong">{out}</div> } function fill383(list: string[]) { list.push('Q1') } // gap
 // A value held in a Map: the scan reads what an array, a Set or an object holds, not a Map's entries.
 export function P416() { const byKey = new Map<string, string>(); byKey.set('a', 'Q1'); return <span className="text-brand-strong">{[...byKey.values()]}</span> } // gap
+// Codex's review of 133050c: a React utility held under a type of its own, which the checker reads as the
+// annotation's, not React's declaration, so the callee is read through the one walk: a typed const (P505, the
+// review's form), a cast (P506), a typed variable given one later (P507), typed destructuring (P508), a typed field
+// (P509) or member (P510), a typed parameter handed one (P511) and a typed return (P512);
+// cloneElement, Children.toArray and Children.map so held (P514 to P516); and Children.map held in a typed parameter
+// and called with its callback written in place (P517). A same-file function under the same type (P518), and the
+// typed parameter handed one (P519), are no utility.
+export function P505({ n }: { n: number }) { const one: (child: ReactNode) => ReactNode = Children.only; return <div className="text-brand-strong">{one(<span>{n}</span>)}</div> } // flag
+export function P506({ n }: { n: number }) { const one = Children.only as (child: ReactNode) => ReactNode; return <div className="text-brand-strong">{one(<span>{n}</span>)}</div> } // flag
+export function P507({ n }: { n: number }) { let one: (child: ReactNode) => ReactNode = () => null; if (n > 0) one = Children.only; return <div className="text-brand-strong">{one(<span>{n}</span>)}</div> } // flag
+export function P508({ n }: { n: number }) { const { only: one }: { only: (child: ReactNode) => ReactNode } = Children; return <div className="text-brand-strong">{one(<span>{n}</span>)}</div> } // flag
+export function P509({ n }: { n: number }) { const kit: { one: (child: ReactNode) => ReactNode } = { one: Children.only }; return <div className="text-brand-strong">{kit.one(<span>{n}</span>)}</div> } // flag
+export function P510({ n }: { n: number }) { const kit: [(child: ReactNode) => ReactNode] = [Children.only]; return <div className="text-brand-strong">{kit[0](<span>{n}</span>)}</div> } // flag
+const apply511 = (f: (child: ReactNode) => ReactNode, child: ReactNode) => f(child)
+export function P511({ n }: { n: number }) { return <div className="text-brand-strong">{apply511(Children.only, <span>{n}</span>)}</div> } // flag
+const pick512 = (): ((child: ReactNode) => ReactNode) => Children.only
+export function P512({ n }: { n: number }) { return <div className="text-brand-strong">{pick512()(<span>{n}</span>)}</div> } // flag
+export function P514({ n }: { n: number }) { const copy: (element: ReactElement) => ReactElement = cloneElement; return <div className="text-brand-strong">{copy(<span>{n}</span>)}</div> } // flag
+export function P515() { const list: (children: ReactNode) => ReactNode[] = Children.toArray; return <span className="text-brand-strong">{list(LABELS_161)}</span> } // flag
+export function P516() { const each: (children: ReactNode, fn: (child: ReactNode) => ReactNode) => ReactNode = Children.map; return <p>{each(LABELS_161, (l) => <span className="text-brand-strong">{l}</span>)}</p> } // flag
+export function P517() { const each = (m: (children: ReactNode, fn: (child: ReactNode) => ReactNode) => ReactNode) => m(LABELS_161, (l) => <span className="text-brand-strong">{l}</span>); return <p>{each(Children.map)}</p> } // flag
+export function P518({ n }: { n: number }) { const one: (child: ReactNode) => ReactNode = (child) => (child ? <b>Revenue</b> : null); return <div className="text-brand-strong">{one(<span>{n}</span>)}</div> } // clean
+export function P519({ n }: { n: number }) { const apply = (f: (child: ReactNode) => ReactNode, child: ReactNode) => f(child); return <div className="text-brand-strong">{apply((child) => (child ? <b>Revenue</b> : null), <span>{n}</span>)}</div> } // clean
+// Out of the walk, and so review-checked: a utility held under a type of its own in another file (P520), or in a
+// class's field (P521).
+export function P520({ n }: { n: number }) { return <div className="text-brand-strong">{typedOnly(<span>{n}</span>)}</div> } // gap
+class Kit521 { one: (child: ReactNode) => ReactNode = Children.only }
+export function P521({ n }: { n: number }) { return <div className="text-brand-strong">{new Kit521().one(<span>{n}</span>)}</div> } // gap
