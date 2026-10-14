@@ -155,7 +155,7 @@ export default function WatchlistDashboardPage() {
             variant="empty"
             title="No watchlist companies yet"
             headingLevel="h2"
-            description="Use the search above to follow your first company. When it files a form you chose in Filing alerts, we email you and add it to the bell."
+            description="Use the search above to follow your first company. When it files a form you chose in Filing alerts, we email you and list it under Notifications."
             className={enterClass}
           />
         ) : (

@@ -282,8 +282,8 @@ export default function DashboardPage() {
                 </p>
                 <p className="mt-0.5 text-sm text-warning-light dark:text-warning-dark">
                   {usagePercentage >= 100
-                    ? `You've used all ${summariesLimit} summaries this month. Pro has no monthly limit.`
-                    : `You have ${summariesLeft} ${summariesLeft === 1 ? 'summary' : 'summaries'} left this month. Pro has no monthly limit.`}
+                    ? `You've used all ${summariesLimit} summaries this month.`
+                    : `You have ${summariesLeft} ${summariesLeft === 1 ? 'summary' : 'summaries'} left this month.`}
                 </p>
               </div>
             </div>

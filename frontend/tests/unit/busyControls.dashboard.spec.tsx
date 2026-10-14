@@ -937,9 +937,11 @@ describe('Saved summary Delete', () => {
 
 describe('Monthly limit banner', () => {
   // DSW-22: the banner states the account's own numbers from the usage response, not a plan pitch.
+  // It makes no claim about Pro's limit (PRO_SUMMARY_MONTHLY_CAP is enforced; the pricing claim stays
+  // with the founder, F41 on #1311): the line is matched whole, so a second sentence fails it.
   it.each([
-    [4, 'Almost at your limit', 'You have 1 summary left this month. Pro has no monthly limit.'],
-    [5, 'Limit reached', "You've used all 5 summaries this month. Pro has no monthly limit."],
+    [4, 'Almost at your limit', 'You have 1 summary left this month.'],
+    [5, 'Limit reached', "You've used all 5 summaries this month."],
   ])('with %i of 5 used it reads "%s"', async (used, title, line) => {
     healthyApi()
     api.getUsage.mockResolvedValue({ ...usage, summaries_used: used, summaries_limit: 5 })

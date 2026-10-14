@@ -65,7 +65,7 @@ afterEach(() => {
 // Each prefix with the needs_regeneration the server sends beside it.
 const CASES: Array<{ status: string; needs: boolean; sentence: string; label: string; variant: string }> = [
   { status: 'ready', needs: false, sentence: 'Summary is current.', label: 'Ready', variant: 'beat' },
-  { status: 'generating:summarizing', needs: false, sentence: 'A summary is being written.', label: 'Generating (summarizing)', variant: 'brand' },
+  { status: 'generating:summarizing', needs: false, sentence: 'A summary is being written.', label: 'Generating', variant: 'brand' },
   { status: 'missing', needs: true, sentence: 'No summary yet. Open the filing to generate one.', label: 'No summary yet', variant: 'neutral' },
   {
     status: 'placeholder', needs: true,
@@ -92,6 +92,16 @@ describe('the watchlist card states each summary status', () => {
     expect(summaryStatusBadge(status, needs)).toEqual({ label, variant })
     expect(summaryStatusBadge(status, !needs)).toEqual({ label, variant })
   })
+
+  // The stage after `generating:` is the pipeline's key; the chip never prints it (the filing page's
+  // step log speaks in phrases, not keys), so every stage the server can send reads the same word.
+  it.each(['generating', 'generating:initializing', 'generating:queued', 'generating:fetching', 'generating:parsing',
+    'generating:analyzing', 'generating:summarizing', 'generating:completed', 'generating:partial'])(
+    '%s: the chip reads "Generating" and names no stage key',
+    (status) => {
+      expect(summaryStatusBadge(status, false)).toEqual({ label: 'Generating', variant: 'brand' })
+    },
+  )
 
   it('an unknown prefix falls back on needs_regeneration, in sentence case', () => {
     expect(summaryStatusBadge('queued', true)).toEqual({ label: 'Needs regenerating', variant: 'warning' })
@@ -146,7 +156,7 @@ describe('a failed load', () => {
 
     expect(await screen.findByRole('heading', { level: 2, name: 'No watchlist companies yet' })).toBeInTheDocument()
     expect(
-      screen.getByText('Use the search above to follow your first company. When it files a form you chose in Filing alerts, we email you and add it to the bell.'),
+      screen.getByText('Use the search above to follow your first company. When it files a form you chose in Filing alerts, we email you and list it under Notifications.'),
     ).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: "Couldn't load your watchlist" })).toBeNull()
   })

@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -88,4 +90,23 @@ describe('NotificationBell', () => {
     expect(screen.queryByText('1')).not.toBeInTheDocument()
     expect(markNotificationsSeen).not.toHaveBeenCalled()
   })
+
+  // The header's two menus sit on one rung, the header's own (z-header 50; DESIGN_SYSTEM.md Stacking),
+  // inside its stacking context: the notification menu as the token, the account menu (UserMenu.tsx)
+  // still as the numeric z-50 until its owner moves it to the token.
+  it('opens its menu on the same rung as the account menu, the header rung', async () => {
+    vi.mocked(getNotifications).mockResolvedValue({ items: [], unread_count: 0 })
+    const user = userEvent.setup()
+    renderBell()
+
+    await user.click(await screen.findByRole('button', { name: /notifications/i }))
+    const menu = await screen.findByRole('menu')
+    const rung = (classes: string[]) => classes.filter((c) => /^z-/.test(c)).map((c) => HEADER_RUNG[c] ?? c)
+    expect(rung([...menu.classList])).toEqual([50])
+
+    const userMenu = readFileSync(path.resolve(__dirname, '../../features/auth/components/UserMenu.tsx'), 'utf8')
+    expect(rung(userMenu.match(/(?<![\w-])z-[\w[\]-]+/g) ?? [])).toEqual([50])
+  })
 })
+
+const HEADER_RUNG: Record<string, number> = { 'z-header': 50, 'z-50': 50 }

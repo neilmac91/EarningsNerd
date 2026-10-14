@@ -24,12 +24,14 @@ export function summaryStatusKind(status: string): SummaryStatusKind | null {
 
 /** The badge's label and variant for a status. */
 export function summaryStatusBadge(status: string, needsRegeneration: boolean): { label: string; variant: BadgeVariant } {
-  const detail = status.split(':')[1]
   switch (summaryStatusKind(status)) {
     case 'ready':
       return { label: 'Ready', variant: 'beat' }
     case 'generating':
-      return { label: detail ? `Generating (${detail})` : 'Generating', variant: 'brand' }
+      // One word for every stage: the stage after the colon is the pipeline's key (`summarizing`,
+      // `fetching`, even a stale `completed`), and the filing page's step log speaks in long phrases a
+      // chip cannot carry, so the chip says only that a summary is being written.
+      return { label: 'Generating', variant: 'brand' }
     case 'missing':
       return { label: 'No summary yet', variant: 'neutral' }
     case 'placeholder':

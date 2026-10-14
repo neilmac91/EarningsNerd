@@ -93,7 +93,7 @@ export default function NotificationBell() {
         <div
           role="menu"
           aria-label="Notifications"
-          className="absolute right-0 z-overlay mt-2 w-80 origin-top-right overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none"
+          className="absolute right-0 z-header mt-2 w-80 origin-top-right overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none"
         >
           <div className="border-b border-border-light dark:border-white/10 px-3 py-2.5">
             <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Notifications</p>

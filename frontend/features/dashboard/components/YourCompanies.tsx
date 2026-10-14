@@ -110,7 +110,7 @@ export default function YourCompanies({ insights, isLoading, failure }: YourComp
               const latest = insight.latest_filing
               return (
                 // The status cluster drops to a second line only when the name column would fall below
-                // basis-16 (a long "Generating (<stage>)" badge at ~320–360px); max-w-fit keeps the
+                // basis-16 (a status badge such as "No summary yet" at ~320–360px); max-w-fit keeps the
                 // link hugging its content otherwise, so wider rows lay out exactly as before.
                 <div key={insight.company.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3">
                   <Link
