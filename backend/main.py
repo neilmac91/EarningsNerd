@@ -170,7 +170,8 @@ def _withhold(
     could pose as one), where no key stays.
     Mappings and lists are walked; None, booleans and numbers stay as they are; any other value becomes its repr first,
     scrubbed: the SDK would turn it into text after the hook (a log record's `extra` value, a log's body that is not
-    text), where nothing scrubs it."""
+    text), where nothing scrubs it. A text is scrubbed by str's own `replace`, which returns exactly text: the SDK keeps
+    a str subclass as it is up to the hooks, and the subclass's `replace` could keep the secret."""
     if node is None or isinstance(node, (bool, int, float)):
         return node
     if isinstance(node, dict):
@@ -188,7 +189,7 @@ def _withhold(
         node = safe_repr(node)
     placeholder = _placeholder(secret_values)
     for secret in secret_values:
-        node = node.replace(secret, placeholder)
+        node = str.replace(node, secret, placeholder)  # str's own: a subclass's replace could keep the secret
     return node
 
 

@@ -28,8 +28,8 @@ each gated here:
 - that scrubber matches key names, so a secret's value quoted inside a value (a message, an exception, a breadcrumb, an
   extra, a tag, a context, a user, a request, a span, a log or a metric) still reached Sentry, a malformed
   DATABASE_URL's digits among them, which the driver quotes as the port: main's hooks withhold each secret setting's
-  whole value and each connection URL's password on every channel that carries text, and a hook that fails sends
-  nothing;
+  whole value and each connection URL's password on every channel that carries text (through str's own `replace`,
+  which a text subclass cannot override), and a hook that fails sends nothing;
 - and, for every route at once, no output call (a print, log, warn or write call, `click.echo`, `pprint`, a Sentry
   message, exception, event, tag or tags, context, extra, user, breadcrumb, or span data or attribute) and no raise or
   assert message in the backend reads a secret directly, from the settings object or the environment, and every
@@ -1920,6 +1920,48 @@ def test_a_type_is_kept_only_when_it_is_text(monkeypatch, request):
     assert [event["type"] for event in _of(envelopes, "event")] == ["[Filtered]"] and not _of(envelopes, "transaction")
     leaked = _fragments(token, json.dumps(envelopes), width=8)
     assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry"
+
+
+
+def test_a_text_subclass_cannot_keep_a_secret(monkeypatch, request):
+    # Codex's case on #1297's ready head: the SDK keeps a str subclass as it is up to the hooks (its serializer
+    # included), and the scrubber called the text's own `replace`, which a subclass can override to keep the secret (a
+    # no-op here). It calls str's: such a text written by an event processor as an error's extra, and sent as a log's
+    # body, as a log's attribute and its key, and as a metric's attribute, is withheld in each and comes back exactly
+    # text.
+    import sentry_sdk
+    from sentry_sdk import logger as sentry_logger
+
+    import main
+
+    token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
+    envelopes = _scrubbing_envelopes(request, monkeypatch, INTERNAL_JOB_TOKEN=token)
+
+    class Stubborn(str):
+        def replace(self, *args, **kwargs):
+            return self
+
+    quoted = Stubborn(f"job failed for {token}")
+
+    def write(event, hint):
+        event.setdefault("extra", {})["detail"] = quoted
+        return event
+
+    sentry_sdk.get_isolation_scope().add_event_processor(write)
+    sentry_sdk.capture_message("a subclass")
+    sentry_logger.warning(quoted, attributes={"detail": quoted, Stubborn(token): "a key"})
+    sentry_sdk.metrics.count("job.failures", 1, attributes={"detail": quoted})
+    sentry_sdk.flush()
+    (event,) = _of(envelopes, "event")
+    assert event["extra"]["detail"] == "job failed for [Filtered]"
+    (log,) = [entry for payload in _of(envelopes, "log") for entry in payload["items"]]
+    assert log["body"] == "job failed for [Filtered]"
+    assert log["attributes"]["detail"]["value"] == "job failed for [Filtered]"
+    assert log["attributes"]["[Filtered]"]["value"] == "a key"
+    leaked = _fragments(token, json.dumps(envelopes), width=8)
+    assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry"
+    scrubbed = main._withhold(quoted, (token,))
+    assert scrubbed == "job failed for [Filtered]" and type(scrubbed) is str
 
 
 def test_nothing_written_before_the_hooks_carries_a_secret_past_them(monkeypatch, request):
