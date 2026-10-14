@@ -55,8 +55,9 @@ headers list (a table's rows) or a local without a role word handed on by name (
 no position to a ``field(init=False)``, since ``__init__`` takes no argument for it. A ``field(kw_only=True)``
 holds no position either, since ``__init__`` takes it by name only, and a keyword argument still binds it. A
 class-level ``@dataclass(kw_only=True)`` is not read, so under it a ``field(kw_only=False)`` keeps its declared
-place among the keyword-only fields and a positional argument can bind the wrong field (no scanned module uses
-the class-level form). It reads no record whose class name or module file name says the text is for the model (MODEL_FACING_NAME), such
+place among the keyword-only fields and a positional argument can bind the wrong field; the same holds for a
+``field(kw_only=False)`` after a ``_: KW_ONLY`` sentinel, which the walk drops without moving the fields after it
+(no scanned module uses either form). It reads no record whose class name or module file name says the text is for the model (MODEL_FACING_NAME), such
 as ``recovery_context.py``'s ``RecoveryBlock``, whose labels go into the prompt.
 """
 import ast
@@ -219,8 +220,8 @@ class _Reader(ast.NodeVisitor):
         """Field names of each dataclass or NamedTuple the module defines without inheriting fields, in the order
         ``__init__`` takes them: less any ``field(init=False)``, which takes no argument, and with each
         ``field(kw_only=True)`` after the positional fields, where only a keyword reaches it (a class-level
-        ``@dataclass(kw_only=True)`` is not read: Limits); none for a class, or in a module, whose name says it
-        is for the model."""
+        ``@dataclass(kw_only=True)`` and the ``_: KW_ONLY`` sentinel's reach are not read: Limits); none for a
+        class, or in a module, whose name says it is for the model."""
         records: dict[str, list[str]] = {}
         if model_module:
             return records
