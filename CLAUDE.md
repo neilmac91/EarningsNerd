@@ -70,7 +70,10 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
    chose (its own text + its own XBRL, which carries prior-period comparatives). Never inject
    other filings' content into the prompt or output. Cross-filing insight belongs to the labeled
    surface: the Change Report (`GET /api/summaries/filing/{id}/what-changed`). The old `/api/compare`
-   route was retired (smoke test `test_compare_router_is_gone` locks it at 404).
+   route was retired (smoke test `test_compare_router_is_gone` locks it at 404). The section-text modules
+   (`section_diff`, `filing_section_service`, `section_review_service`, `change_report_service`) stay out of the
+   orchestrator, its stages, the AI layer and Copilot (gate:
+   `tests/unit/test_section_changes_stay_out_of_summaries_allowlist.py`).
 3. **Migrations: no Alembic.** Fresh-DB schema via `create_all` at startup +
    `ensure_additive_columns` self-heals additive columns. Any change to an existing table = a new
    idempotent SQL file in `backend/migrations/`. The deploy applies each file ONCE per

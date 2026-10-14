@@ -2,15 +2,14 @@
 
 import Link from 'next/link'
 import { useId, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { ArrowRightIcon } from '@/lib/icons'
 import { Card, Notice, Skeleton, cx } from '@/components/ui'
-import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { RetryButton } from '@/hooks/useRetainedFailure'
 import type { Filing } from '@/features/filings/api/filings-api'
-import { getWhatChanged } from '@/features/summaries/api/summaries-api'
-import { Change, READ_AS, WHAT_CHANGED_ID } from '@/features/filings/components/WhatChanged'
+import { useWhatChanged } from '@/features/summaries/hooks/useWhatChanged'
+import { Change, READ_AS, WHAT_CHANGED_ID, reportHasContent } from '@/features/filings/components/WhatChanged'
+import { plural, wordingHasContent } from '@/features/filings/lib/sectionChanges'
 import { formatLocalDate } from '@/lib/format'
-import { queryKeys } from '@/lib/queryKeys'
 
 /** Rows the card shows; the change report on the filing page holds the rest. */
 const MAX_ROWS = 3
@@ -22,26 +21,29 @@ const day = (iso: string | null | undefined) => formatLocalDate(iso, 'MMM d, yyy
 
 /**
  * Compare periods (2026-10 critique, 1b and P-07): the company page's entry to the change report of
- * its newest annual report (selectComparisonFiling). The same GET and query key as the filing
- * page's "What changed" section, so following the link renders that section from cache. Each row
- * is a metric, its change in the change report's own vocabulary (the server's display string, or
- * the em dash when it sends none, in its tone's ink after a ▲/▼ glyph) and its "Read as" word, so
- * direction and valence never share one signal. The risk diff stays out until the backend serves
- * one again (change_report_service withholds it). States in place: bones while it loads, Notice +
- * RetryButton on failure, a plain line when the two periods share no comparable figures.
+ * its newest annual report (selectComparisonFiling). The same read and query key as the filing
+ * page's "What changed" section (useWhatChanged), so following the link renders that section from
+ * cache. Each row is a metric, its change in the change report's own vocabulary (the server's
+ * display string, or the em dash when it sends none, in its tone's ink after a ▲/▼ glyph) and its
+ * "Read as" word, so direction and valence never share one signal. Under the rows, one line counts
+ * the Item 1A wording changes the report carries (E27), as the section's wording block details
+ * them. The risk diff stays out until the backend serves one again (change_report_service withholds
+ * it). States in place: bones while it loads, Notice + RetryButton on failure, a plain line when
+ * the two periods share no comparable figures and no wording comparison.
  */
 export function ComparePeriodsCard({ filing }: { filing: Filing }) {
   const headingId = useId()
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const key = queryKeys.whatChanged(filing.id)
-  const query = useQuery({
-    queryKey: key,
-    queryFn: () => getWhatChanged(filing.id),
-    staleTime: 10 * 60 * 1000,
-  })
-  const failure = useRetainedFailure(query, key)
-  const report = query.data
+  const { query, report, failure } = useWhatChanged(filing.id)
   const items = report?.has_changes ? (report.metrics?.items ?? []) : []
+  const wording = wordingHasContent(report?.section_changes) ? report.section_changes : null
+  const wordingLine = wording
+    ? wording.prior.reference_only
+      ? 'Risk factors restated in full.'
+      : wording.has_changes
+        ? `${plural(wording.items_total, 'paragraph')} of risk factors changed.`
+        : 'No wording changes in the risk factors.'
+    : null
   const priorEnded = day(report?.prior_filing?.period_end_date)
 
   return (
@@ -68,7 +70,7 @@ export function ComparePeriodsCard({ filing }: { filing: Filing }) {
             }
           />
         </div>
-      ) : query.isLoading ? (
+      ) : query.isPending ? (
         <div role="status" aria-label="Loading the comparison" className="mt-4">
           <div aria-hidden="true" className={cx('border-t', HAIRLINE)}>
             {[0, 1, 2].map((i) => (
@@ -80,7 +82,7 @@ export function ComparePeriodsCard({ filing }: { filing: Filing }) {
           </div>
           <span className="sr-only">Loading the comparison…</span>
         </div>
-      ) : items.length === 0 ? (
+      ) : !report || !reportHasContent(report) ? (
         <p className={cx('mt-4 text-sm', MUTED)}>
           {report?.has_prior === false
             ? 'No earlier annual report to compare with yet.'
@@ -88,24 +90,34 @@ export function ComparePeriodsCard({ filing }: { filing: Filing }) {
         </p>
       ) : (
         <>
-          <ul role="list" className={cx('mt-4 border-t text-sm', HAIRLINE)}>
-            {items.slice(0, MAX_ROWS).map((item) => (
-              <li key={item.metric} className={cx('flex items-baseline justify-between gap-3 border-b py-2.5', HAIRLINE)}>
-                <span className={cx('min-w-0', INK)}>{item.label}</span>
-                <span className="flex shrink-0 items-baseline gap-2">
-                  <span className="font-data font-semibold tabular-nums">
-                    <Change item={item} />
+          {items.length === 0 && (
+            <p className={cx('mt-4 text-sm', MUTED)}>
+              {report.has_prior === false
+                ? 'No earlier annual report to compare figures with yet.'
+                : 'These two annual reports share no comparable figures yet.'}
+            </p>
+          )}
+          {items.length > 0 && (
+            <ul role="list" className={cx('mt-4 border-t text-sm', HAIRLINE)}>
+              {items.slice(0, MAX_ROWS).map((item) => (
+                <li key={item.metric} className={cx('flex items-baseline justify-between gap-3 border-b py-2.5', HAIRLINE)}>
+                  <span className={cx('min-w-0', INK)}>{item.label}</span>
+                  <span className="flex shrink-0 items-baseline gap-2">
+                    <span className="font-data font-semibold tabular-nums">
+                      <Change item={item} />
+                    </span>
+                    <span className={cx('text-xs', MUTED)}>{READ_AS[item.tone] ?? READ_AS.flat}</span>
                   </span>
-                  <span className={cx('text-xs', MUTED)}>{READ_AS[item.tone] ?? READ_AS.flat}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          )}
           {items.length > MAX_ROWS && (
             <p className={cx('mt-2 text-xs', MUTED)}>
               {items.length - MAX_ROWS} more in the change report.
             </p>
           )}
+          {wordingLine && <p className={cx('mt-2 text-xs tnum', MUTED)}>{wordingLine}</p>}
           <Link
             href={`/filing/${filing.id}#${WHAT_CHANGED_ID}`}
             className={cx(

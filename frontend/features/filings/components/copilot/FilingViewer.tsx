@@ -156,7 +156,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
       {status === 'ready' && (
         <div className="flex min-h-0 flex-1 flex-col">
           {showingLabel && !passageMissing && (
-            <p className="px-4 pt-3 font-data text-xs text-brand-strong dark:text-brand-strong-dark">
+            <p className="px-4 pt-3 font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">
               Showing · {showingLabel}
             </p>
           )}
