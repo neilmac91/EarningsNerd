@@ -6657,6 +6657,21 @@ Full local and hosted verification plus independent exact-head review precede re
   paths; Sentry's other routes and the gate's late findings go to `secret-output-followups-pr-01`. The founder keeps the
   AI-provider key for now. The Monday 06:00–08:00Z readout clean at near-idle load. Twenty-four main runs classified; ten
   deploys read back (healthy; every pin in place). Ledger events 46–52 (USD 0.511964). Closure 175.
+- 2026-10-12 to 2026-10-13 (record 25, `runtime/control/DECISIONS-25.md`): PR #1277 (record 24) merged `3da1c520`
+  (twentieth deploy-skip proof). The founder turned Sentry's frame locals off. The secret-output follow-ups
+  (`secret-output-followups-pr-01`) designed by a workflow, implemented by the chief, reviewed in draft (a high-tier review
+  workflow with refuters and a delta reviewer over three checks: no blocker) and marked ready as PR #1281; its merge held
+  at a request relayed on the PR for another agent's review (founder: F22). The `INHERITED` residue closed by another
+  writer's #1258. Twenty-five main runs classified; one deploy read back (healthy; every pin in place); production read
+  live. Ledger events 53–62 (USD 0.996534). Chief defect 15. Closure 176.
+- 2026-10-13 (record 26, `runtime/control/DECISIONS-26.md`): PR #1294 (record 25) merged `dc2d2d4b` (twenty-first
+  deploy-skip proof). Codex cleared #1281's `3c52519`. E19, the value-level Sentry scrubber
+  (`sentry-value-scrubber-pr-01`), built as PR #1297 on #1281's branch: designed by a workflow, implemented by the
+  chief, reviewed by two high-tier review workflows, design checks and a delta reviewer (no blocker found; the second
+  review four refuters short), redesigned at a relayed request; its release with #1281 held for the founder (F22).
+  Another writer's #1306 left #1281 conflicting with main in `tasks/todo.md`; the resolution prepared, not pushed. Six
+  main runs classified; two other writers' deploys read back (healthy; every pin in place); production read live. Ledger
+  events 63–64 (USD 0.366538). Closure 177.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and

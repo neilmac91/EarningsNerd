@@ -25,6 +25,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 from fastapi.testclient import TestClient
+from stripe.params.checkout import SessionCreateParams
 
 from main import app
 from app.config import MIN_SECRET_KEY_LENGTH, Settings, settings
@@ -66,7 +67,15 @@ def _overrides(monkeypatch):
 
 
 def _create_and_capture(client, **params):
-    """Call the endpoint with Stripe mocked; return the kwargs passed to Session.create."""
+    """Call the endpoint with Stripe mocked; return the kwargs passed to Session.create.
+
+    ``Session.create`` is mocked, so a Stripe 400 can never reach this suite. Every cohort's
+    kwargs are therefore pinned here (rule 12): Stripe API 2026-09-30.endive, the version
+    stripe-python 16 pins, removed ``payment_method_types`` from Checkout Session create and
+    returns 400 when it is sent; ``allowed_payment_method_types`` keeps the checkout card-only;
+    and every key must be one the installed SDK declares for the call, so the next removed
+    parameter fails here instead of in production.
+    """
     session = MagicMock(url="https://checkout.stripe.test/session")
     with patch(
         "app.routers.subscriptions.stripe.Customer.retrieve",
@@ -79,7 +88,12 @@ def _create_and_capture(client, **params):
     assert resp.status_code == 200, resp.text
     assert resp.json()["url"] == "https://checkout.stripe.test/session"
     create.assert_called_once()
-    return create.call_args.kwargs
+    kwargs = create.call_args.kwargs
+    assert "payment_method_types" not in kwargs
+    assert kwargs["allowed_payment_method_types"] == ["card"]
+    declared = set(SessionCreateParams.__annotations__)
+    assert set(kwargs) <= declared, set(kwargs) - declared
+    return kwargs
 
 
 def test_repeat_subscriber_gets_plain_checkout(client):
