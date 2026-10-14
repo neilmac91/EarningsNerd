@@ -28,6 +28,11 @@ const PROFILES = [
 const TABLE = '[data-analysis-metrics] table'
 const NOTES = '[data-analysis-data-notes]'
 
+// The suite's longest file: run in order, it kept one CI worker busy for 15-21 minutes while the other
+// idled. Its tests share nothing (each opens its own page through openAnalysis; no hooks, no mutable
+// module state), so both workers take them.
+test.describe.configure({ mode: 'parallel' })
+
 for (const theme of THEMES) for (const width of [390, 1480]) {
   test.describe(`analysis evidence / ${theme} / ${width}px`, () => {
     test.use({ viewport: { width, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
