@@ -186,7 +186,7 @@ Triggered when Resend accepts the email for delivery.
   "data": {
     "email_id": "re_...",
     "to": "user@example.com",
-    "from": "hello@earningsnerd.com",
+    "from": "hello@inbound.earningsnerd.io",
     "subject": "We received your message",
     "created_at": "2024-01-21T10:00:00.000Z"
   }

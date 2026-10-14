@@ -1,457 +1,65 @@
-# Data Retention Policy
-## EarningsNerd
-
-**Effective Date**: January 22, 2026
-**Policy Owner**: Engineering & Legal Teams
-**Review Frequency**: Annual
-
----
+# Data retention and deletion — implementation review
 
-## 1. Purpose
-
-This policy defines how long EarningsNerd retains user data and the procedures for secure deletion. This policy ensures compliance with:
-- GDPR Article 5(e) - Storage Limitation
-- CCPA/CPRA data minimization requirements
-- PIPEDA Principle 4.5 - Limiting Use, Disclosure, and Retention
-
----
-
-## 2. Retention Schedules
+Reviewed **12 October 2026**. This records current source behaviour and remaining operational checks. It is not an approved legal retention schedule, a compliance certification or proof that every production cleanup has succeeded. The maintained customer copy is [the privacy page source](../frontend/app/privacy/page.tsx); [privacy review notes](legal/PRIVACY_POLICY.md) track unresolved disclosures.
 
-### 2.1 User Account Data
+## 1. Implementation owners
 
-| Data Type | Retention Period | Deletion Trigger | Automated |
-|-----------|------------------|------------------|-----------|
-| Email address | Account lifetime + 30 days after deletion request | User deletion or 2 years inactivity | Partial (deletion request yes; inactivity purge not yet automated) |
-| Hashed password | Account lifetime | User deletion or 2 years inactivity | Partial (see above) |
-| Full name | Account lifetime | User deletion or 2 years inactivity | Partial (see above) |
-| Profile settings | Account lifetime | User deletion or 2 years inactivity | Partial (see above) |
-| Account creation date | Account lifetime + 7 years (audit) | 7 years after account deletion | Yes |
-| Last login timestamp | Account lifetime | User deletion or 2 years inactivity | Partial (see above) |
+[retention_service.py](../backend/app/services/retention_service.py) owns scheduled cleanup criteria. [user_account_service.py](../backend/app/services/user_account_service.py) owns the database step of account deletion; [the users router](../backend/app/routers/users.py) owns provider requests, the audit event and session-cookie clearing. Treat the implementation as the evidence for these behaviours, rather than the historical schedules this document replaces.
 
-**Automation status (2026-09-07)**: the weekly `earningsnerd-retention-purge` job
-(`docs/DEPLOYMENT.md`, `docs/OPERATIONS.md`) applies the rows marked "weekly retention purge
-job" plus expired OAuth states and refresh tokens expired or revoked more than 30 days ago.
-Rows marked "Not yet automated" are applied manually until their jobs exist; inactivity-based
-account deletion needs the warning emails below first and is a founder decision.
+## 2. Scheduled cleanup targets
 
-**Inactivity Definition**: No login for 24 consecutive months
+These are eligibility cutoffs, not a promise of deletion at an exact instant. Cleanup uses bounded batches; `dry_run` counts candidates without deleting. Actual deployment, invocation frequency and successful outcome counts require operational verification.
 
-**Inactivity Warning Process**:
-1. Email warning at 18 months of inactivity
-2. Email warning at 22 months of inactivity
-3. Final email warning at 23 months of inactivity
-4. Automatic deletion at 24 months if no response
+### 2.1 Scope and exclusions
 
-### 2.2 Authentication & Security Data
+The service explicitly excludes inactivity-based account deletion, waitlist/referral records, audit logs, usage counters and billing rows. No inactivity warning/deletion schedule or manual purge of those categories is established by this code. Do not claim a 24-month account purge, one-year waitlist expiry, three-year audit expiry or twelve-month usage expiry.
 
-| Data Type | Retention Period | Deletion Trigger | Automated |
-|-----------|------------------|------------------|-----------|
-| JWT tokens | Until expiration (24 hours) | Token expiry | Yes |
-| Password reset tokens | Until expiration (1 hour) | Token expiry | Yes |
-| Email verification tokens | Until expiration (24 hours) | Token expiry or verification | Yes |
-| Failed login attempts | 7 days | Rolling 7-day window | Yes (weekly retention purge job) |
-| Security audit logs | 3 years | 3 years from event | Not yet automated |
-
-### 2.3 User-Generated Content
-
-| Data Type | Retention Period | Deletion Trigger | Automated |
-|-----------|------------------|------------------|-----------|
-| Search history | 1 year | 1 year from search date OR user deletion | Yes (weekly retention purge job) |
-| Saved summaries | Until user deletes | Manual deletion by user OR account deletion | Partial |
-| Watchlist items | Until user deletes | Manual deletion by user OR account deletion | Partial |
-| Custom notes (if added) | Until user deletes | Manual deletion by user OR account deletion | Partial |
+### 2.2 Authentication and login state
 
-**Note**: User-generated content is deleted when:
-1. User manually deletes the item, OR
-2. User deletes entire account, OR
-3. Account is auto-deleted due to inactivity
+| Target | Source eligibility |
+| --- | --- |
+| Failed-login state | `updated_at` older than seven days, with no current lock or an expired lock |
+| OAuth state | Past `expires_at` |
+| Refresh tokens | Expired or revoked more than thirty days ago |
 
-### 2.4 Usage & Analytics Data
-
-| Data Type | Retention Period | Deletion Trigger | Automated |
-|-----------|------------------|------------------|-----------|
-| Monthly usage counts | Current billing cycle + 12 months | 12 months after billing cycle | Not yet automated |
-| API request logs | 90 days | 90 days from request | Yes |
-| PostHog analytics events | Per PostHog policy (configurable) | PostHog retention setting | Via PostHog |
-| PostHog session recordings | 30 days (if user opted in) | 30 days OR user deletion | Via PostHog |
-| Sentry error logs | 90 days | 90 days OR user deletion | Via Sentry |
-
-**PostHog Configuration**: Set retention to 90 days maximum for all events
+These are cleanup criteria. They do not define every authentication token's lifetime or imply that all expired token rows are immediately erased.
 
-**User Deletion Impact**: When user deletes account, send deletion request to:
-- PostHog (delete user profile and associated events)
-- Sentry (anonymize user in error logs)
+### 2.3 Search history
 
-### 2.5 Communication Data
-
-| Data Type | Retention Period | Deletion Trigger | Automated |
-|-----------|------------------|------------------|-----------|
-| Contact form submissions | 1 year | 1 year from submission date | Yes (weekly retention purge job) |
-| Support ticket emails | 2 years | 2 years from ticket closure | Yes |
-| Marketing email subscriptions | Until unsubscribe | User unsubscribe OR account deletion | Yes |
-| Transactional email logs (Resend) | 30 days | Resend automatic deletion | Via Resend |
-
-### 2.6 Waitlist Data
-
-| Data Type | Retention Period | Deletion Trigger | Automated |
-|-----------|------------------|------------------|-----------|
-| Waitlist signups (unconverted) | 1 year | 1 year from signup OR manual deletion | Not yet automated |
-| Waitlist signups (converted to user) | Merged into user account | Account deletion | Yes |
-| Referral codes | 1 year from last activity | 1 year inactive OR user deletion | Not yet automated |
-| Referral tracking data | 1 year | 1 year from referral event | Not yet automated |
-
-**Conversion Definition**: User signs up for account using waitlist email
-
-### 2.7 Payment & Billing Data
-
-| Data Type | Retention Period | Deletion Trigger | Automated |
-|-----------|------------------|------------------|-----------|
-| Stripe Customer ID | Account lifetime + 7 years | 7 years after account deletion | No (legal hold) |
-| Stripe Subscription ID | Subscription lifetime + 7 years | 7 years after subscription end | No (legal hold) |
-| Billing history | 7 years (tax requirement) | 7 years from transaction | No (legal hold) |
-| Payment method details | N/A (stored by Stripe only) | Immediate (Stripe handles) | Via Stripe |
-| Invoice records | 7 years (tax requirement) | 7 years from invoice date | No (legal hold) |
-
-**Legal Requirement**: Payment data retained for 7 years per US tax law (IRS) and general accounting standards
-
-**Important**: Payment card details are NEVER stored in EarningsNerd database (Stripe PCI-DSS handles)
-
-### 2.8 IP Addresses & Technical Data
+`UserSearch` rows with `created_at` older than **365 days** qualify for cleanup. Account-related rows owned by the user model can also be removed through its deletion cascades. Verify actual purge outcomes before asserting the age of every remaining row.
 
-| Data Type | Retention Period | Deletion Trigger | Automated |
-|-----------|------------------|------------------|-----------|
-| IP addresses (hashed, rate limiting) | 7 days | 7 days from request | Yes |
-| IP addresses (contact form) | **TO BE REMOVED** | Immediate (hash instead) | Implementation pending |
-| Browser fingerprints | N/A (not collected) | N/A | N/A |
-| Device identifiers | N/A (not collected) | N/A | N/A |
-
-**Planned Change**: Replace IP address storage with one-way hashing for privacy
-
----
-
-## 3. Data Deletion Procedures
-
-### 3.1 User-Initiated Deletion
-
-**Endpoint**: `DELETE /api/users/me`
-
-**Process**:
-1. User requests account deletion via settings page
-2. System sends confirmation email with unique deletion link
-3. User clicks confirmation link (24-hour grace period)
-4. System begins deletion process:
-   - Deletes from `users` table (triggers cascade)
-   - Deletes from `user_searches` table
-   - Deletes from `saved_summaries` table
-   - Deletes from `watchlist` table
-   - Deletes from `user_usage` table
-   - Cancels every live Stripe subscription (any status but `canceled` or `incomplete_expired`); the Stripe customer record is kept for the 7-year tax retention in §2.7
-   - Notifies PostHog to delete user profile
-   - Anonymizes user in Sentry error logs
-5. System logs deletion in audit trail (anonymized)
-6. System sends final confirmation email
-7. Deletion completes within 30 days (per GDPR requirement)
-
-**Grace Period**: User can cancel deletion within 24 hours of confirmation
-
-### 3.2 Automated Deletion (Inactivity)
-
-**Schedule**: Daily job at 2:00 AM UTC
+### 2.4 Usage, audit and provider records
 
-**Query**:
-```sql
-SELECT id, email FROM users
-WHERE last_login_at < NOW() - INTERVAL '2 years'
-AND deletion_scheduled_at IS NULL;
-```
+Usage and audit rows are not scheduled targets here. The [audit model](../backend/app/models/audit_log.py) stores account ID and email independently of the user row, so those fields can survive account deletion. [audit_service.py](../backend/app/services/audit_service.py) writes a deletion event before the account is removed. These records are not universally anonymised.
 
-**Process**:
-1. Identify inactive accounts (24 months no login)
-2. Send final warning email: "Your account will be deleted in 7 days"
-3. Set `deletion_scheduled_at = NOW() + 7 days`
-4. Wait 7 days
-5. If no login occurs, proceed with deletion (same as user-initiated)
-
-**Override**: User login resets `last_login_at` and cancels scheduled deletion
-
-### 3.3 Automated Data Cleanup Jobs
-
-**Running job**: `earningsnerd-retention-purge` (Cloud Run job, `backend/scripts/retention_purge.py`),
-scheduled weekly on Sundays at 03:00 UTC; ad hoc through `POST /internal/jobs/retention-purge`
-(`dry_run=true` counts without deleting). It deletes in bounded batches and records counts only
-in the job ledger. Its five targets are the clocked rows of §2:
+PostHog, Sentry, Resend, Google Workspace and hosting logs/backups have separate account settings and data lifecycles. No universal ninety-day event/error limit, thirty-day recording/email-log limit or backup deletion limit has been verified in this review. Do not infer provider erasure from a successful local database deletion.
 
-1. **Search history** — `user_searches` older than 1 year (§2.3)
-2. **Failed-login state** — `login_attempts` untouched for 7 days and not currently locked (§2.2)
-3. **Expired OAuth state** — `oauth_states` past `expires_at` (§2.2)
-4. **Dead refresh tokens** — `refresh_tokens` expired or revoked more than 30 days ago (§2.2;
-   the 30-day grace keeps reuse detection working for the token lifetime)
-5. **Contact-form submissions** — `contact_submissions` older than 1 year (§2.5)
+### 2.5 Contact submissions
 
-**Planned (not yet automated; applied manually until their jobs exist)**:
+`ContactSubmission` rows with `created_at` older than **365 days** qualify for scheduled cleanup. This says nothing about copies in correspondence inboxes or provider email records. No automated two-year support-email purge is established.
 
-1. **Old Waitlist Cleanup** (unconverted only)
-   ```sql
-   DELETE FROM waitlist_signups
-   WHERE created_at < NOW() - INTERVAL '1 year'
-   AND email NOT IN (SELECT email FROM users);
-   ```
+## 3. Account deletion and export
 
-2. **Expired Tokens Cleanup**
-   ```sql
-   DELETE FROM password_reset_tokens
-   WHERE expires_at < NOW();
+An authenticated `DELETE /api/users/me` request drives the following source behaviour:
 
-   DELETE FROM email_verification_tokens
-   WHERE expires_at < NOW();
-   ```
+1. It attempts to cancel eligible Stripe subscriptions while retaining the Stripe customer record. Provider errors are captured in the result rather than proving all provider operations succeeded.
+2. Where configured, it emits a PostHog `$delete` event and flushes it. Sending this event does not confirm that any historical provider-held records were erased.
+3. It clears Sentry context for future events; this does not erase or anonymise all historical Sentry events.
+4. It writes an audit record, then calls `user_account_service.delete_user` to delete the user row and commit the ORM cascades.
+5. It clears sign-in cookies and returns the provider-result statuses. A final confirmation email is a future integration in the current router; this review establishes no separate confirmation-link or twenty-four-hour grace-period workflow.
 
-3. **Old Audit Logs Cleanup**
-   ```sql
-   DELETE FROM audit_logs
-   WHERE created_at < NOW() - INTERVAL '3 years';
-   ```
+Stripe, audit, operational logs and backup copies can remain. The router success message and source comments now acknowledge retained billing, audit and provider records. No fixed tax deadline or jurisdiction is asserted. Only the success-message expectation changed in the deletion endpoint test; its cookie, audit, rollback and Stripe assertions remain intact.
 
-### 3.4 Third-Party Data Deletion
+The authenticated export route is `GET /api/users/export`. [user_data_export_service.py](../backend/app/services/user_data_export_service.py) builds the feature's export. It is not a complete export of every provider's logs, correspondence or backups. Users can use Account Settings or contact **privacy@earningsnerd.io** for help; no response commitment faster than two business days is added.
 
-When user account is deleted, send deletion requests to:
+## 4. Remaining verification and decisions
 
-**Stripe**:
-```python
-stripe.Customer.delete(user.stripe_customer_id)
-# OR mark as deleted and schedule purge after 7 years
-```
+- Confirm the actual cleanup schedule, deployed code, recent successful counts and handling of failures. Existence of a job/service or a passing unit gate is not proof of every production outcome; do not run a destructive purge just to create evidence.
+- Establish meaningful category-specific periods or deletion criteria for billing, audit, usage, waitlist/referrals, correspondence and provider logs. Confirm any genuine preservation requirement before changing retention or deleting data.
+- Review provider deletion acknowledgements and failure handling, including retained Stripe records and historical Sentry events. No provider setting or data was changed by this document.
+- Read actual backup configuration and restore procedures before promising encryption/access details, deletion deadlines or replay of past deletions after a restore. No daily/weekly/monthly backup schedule is assumed.
+- Keep legal scope, identity/contact and international-transfer review items in the privacy companion; no entity, personal identity details, address, jurisdiction, DPO or representative is introduced here.
 
-**PostHog**:
-```python
-posthog.capture(
-    distinct_id=user.id,
-    event='$delete',
-    properties={'$delete': True}
-)
-```
+## 5. Primary references
 
-**Sentry**:
-```python
-# Anonymize user in existing error logs
-# (Sentry doesn't support full deletion, anonymize instead)
-```
-
-**Resend**:
-- Automatically deletes email logs after 30 days (no action needed)
-- Remove from email lists/audiences if applicable
-
----
-
-## 4. Data Retention Exceptions
-
-### 4.1 Legal Hold
-
-Data retention schedules are suspended if:
-- Active litigation or legal investigation
-- Regulatory inquiry or audit
-- Suspected fraud or security incident under investigation
-
-**Process**: Legal team notifies engineering to place hold on specific user accounts
-
-### 4.2 Compliance & Audit Requirements
-
-Some data MUST be retained longer than standard schedule:
-- **Tax records**: 7 years (IRS requirement)
-- **Payment transactions**: 7 years (financial regulations)
-- **Security audit logs**: 3 years (compliance best practice)
-
-### 4.3 Anonymized Data
-
-Data that has been fully anonymized (no PII linkable) may be retained indefinitely for:
-- Product analytics
-- Business intelligence
-- Research and development
-
-**Anonymization Requirements**:
-- Remove all direct identifiers (name, email, user ID)
-- Remove all indirect identifiers (IP, unique device IDs)
-- Aggregate to prevent re-identification
-- No way to link back to individual
-
----
-
-## 5. User Rights & Data Access
-
-### 5.1 Right to Access (GDPR Art. 15, CCPA)
-
-Users can view their data at any time:
-- Profile settings: `/account/settings`
-- Search history: `/account/history`
-- Saved summaries: `/dashboard/saved`
-- Watchlist: `/dashboard/watchlist`
-
-**Data Export**: Users can download all their data via `GET /api/users/me/export`
-
-### 5.2 Right to Rectification (GDPR Art. 16)
-
-Users can update their data:
-- Email: Account settings (requires verification)
-- Name: Account settings
-- Password: Account settings
-- Preferences: Account settings
-
-### 5.3 Right to Erasure (GDPR Art. 17, CCPA)
-
-Users can delete their account at any time via `DELETE /api/users/me` (see section 3.1)
-
-### 5.4 Right to Restriction (GDPR Art. 18)
-
-Users can request processing restriction by contacting privacy@earningsnerd.com
-
----
-
-## 6. Data Minimization Practices
-
-### 6.1 Collection Minimization
-
-**Only collect data that is**:
-- Necessary for service delivery
-- Required for legal compliance
-- Explicitly consented to by user
-
-**Examples**:
-- ✅ Email: Required for account and communication
-- ✅ Password: Required for authentication
-- ❌ Phone number: NOT collected (not necessary)
-- ❌ Physical address: NOT collected (not necessary)
-- ⚠️ IP address: Minimized (hash for rate limiting only)
-
-### 6.2 Storage Minimization
-
-**Practices**:
-- Hash sensitive data when exact value not needed (e.g., IPs)
-- Aggregate usage data where possible (monthly totals vs. individual events)
-- Delete immediately after purpose fulfilled (e.g., expired tokens)
-- Use shortest retention period feasible
-
-### 6.3 Regular Audits
-
-**Quarterly Review**:
-- [ ] Review all data collection points
-- [ ] Verify retention periods are followed
-- [ ] Check for data that can be deleted early
-- [ ] Identify new data being collected
-
----
-
-## 7. Backup & Archive Retention
-
-### 7.1 Database Backups
-
-**Schedule**: Daily incremental, weekly full backup
-
-**Retention**:
-- Daily backups: 7 days
-- Weekly backups: 4 weeks
-- Monthly backups: 12 months
-
-**Deleted Data in Backups**: Deleted user data may persist in backups during retention period but:
-- Backups are encrypted
-- Backups are access-restricted
-- Backups are not used for operational purposes
-- User data in backups is effectively "frozen" and inaccessible
-
-**Post-Retention**: Backups are securely deleted after retention period
-
-### 7.2 Disaster Recovery
-
-In event of data restoration from backup:
-- Re-apply deletions that occurred after backup date
-- Verify deleted users are not restored
-- Audit restored data for compliance
-
----
-
-## 8. Monitoring & Compliance
-
-### 8.1 Automated Monitoring
-
-**Daily Checks**:
-- Cleanup jobs completed successfully
-- No failed deletions
-- Backup retention within limits
-
-**Weekly Checks**:
-- Inactive account identification
-- Warning emails sent successfully
-- Third-party deletion requests acknowledged
-
-**Monthly Checks**:
-- Retention policy adherence (sample audits)
-- Data volume trends
-- Unusual retention patterns
-
-### 8.2 Compliance Reporting
-
-**Quarterly Report** (to management):
-- Number of user deletion requests processed
-- Number of inactive accounts deleted
-- Data volume by category
-- Compliance incidents (if any)
-
-**Annual Report**:
-- Full retention policy effectiveness review
-- Recommendations for policy updates
-- Regulatory changes impact assessment
-
----
-
-## 9. Roles & Responsibilities
-
-| Role | Responsibility |
-|------|---------------|
-| **Engineering Team** | Implement and maintain automated deletion jobs, ensure cascade deletes work |
-| **Legal Team** | Define retention periods, handle legal holds, review policy annually |
-| **Customer Support** | Process user deletion requests, verify identity, handle exceptions |
-| **Security Team** | Audit deletion processes, ensure secure deletion, monitor compliance |
-| **Product Team** | Ensure new features comply with retention policy |
-
----
-
-## 10. Policy Changes
-
-**Version History**:
-
-| Version | Date | Changes | Approved By |
-|---------|------|---------|-------------|
-| 1.0 | 2026-01-22 | Initial policy creation | Pending |
-
-**Review Schedule**: Annual review on January 22 each year
-
-**Change Process**:
-1. Proposed changes reviewed by Legal and Engineering
-2. Privacy impact assessed
-3. User notification if retention periods change
-4. Privacy policy updated to reflect changes
-
----
-
-## 11. Contact & Questions
-
-For questions about this policy:
-- **Privacy Team**: privacy@earningsnerd.com
-- **Data Protection Officer** (if appointed): TBD
-
-For user data requests:
-- **Account Deletion**: Use in-app settings or email privacy@earningsnerd.com
-- **Data Export**: Use in-app settings or email privacy@earningsnerd.com
-- **Other Requests**: privacy@earningsnerd.com
-
----
-
-**Document Status**: DRAFT - Pending Implementation
-
-**Implementation Blockers**:
-- [ ] Automated deletion jobs not yet implemented
-- [ ] User deletion endpoint not yet implemented
-- [ ] Third-party deletion integration not yet implemented
-- [ ] Cleanup job scheduler not yet configured
-
-**Target Implementation Date**: March 31, 2026
+[GDPR Articles 5 and 13](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679) and [EDPB transparency guidance](https://www.edpb.europa.eu/system/files/documents/2023-09/wp260rev01_en.pdf) require meaningful retention information or criteria where applicable. These references do not set a universal period for every EarningsNerd record. [FDPIC notice guidance](https://www.edoeb.admin.ch/en/duty-to-provide-information) requires descriptions grounded in actual processing and relevant disclosures. The remaining operational and legal reviews above are not resolved by this source inventory.

@@ -39,6 +39,9 @@ from typing import Dict, List, Tuple
 
 import httpx
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.public_email_addresses import SUPPORT_EMAIL
+
 logger = logging.getLogger(__name__)
 
 # ~525 unique across both indexes; abort below this so a failed parse never writes a stub list.
@@ -50,7 +53,7 @@ SP500_FLOOR = 480
 NASDAQ100_FLOOR = 90
 
 # Wikipedia 403s the default httpx UA; a descriptive UA per their bot policy gets a 200.
-_WIKI_UA = "EarningsNerd/1.0 (https://earningsnerd.io; contact@earningsnerd.io) python-httpx"
+_WIKI_UA = f"EarningsNerd/1.0 (https://earningsnerd.io; {SUPPORT_EMAIL}) python-httpx"
 _SP500_WIKI = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 _NASDAQ100_WIKI = "https://en.wikipedia.org/wiki/List_of_NASDAQ-100_companies"
 # FMP "stable" API. The legacy /api/v3 (sp500_constituent, nasdaq_constituent) was cut off on

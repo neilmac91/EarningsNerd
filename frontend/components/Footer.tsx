@@ -1,5 +1,7 @@
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import Link from 'next/link'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
+import CookieSettingsButton from '@/components/CookieSettingsButton'
 import { ENABLE_ANALYSIS, ENABLE_CALENDAR } from '@/lib/featureFlags'
 
 type FooterLink = { label: string; href: string }
@@ -17,6 +19,7 @@ const FOOTER_LINKS: Record<string, FooterLink[]> = {
   ],
   Resources: [
     { label: 'Contact', href: '/contact' },
+    { label: CONTACT_ADDRESSES.support, href: contactMailto('support') },
   ],
   Legal: [
     { label: 'Privacy', href: '/privacy' },
@@ -54,12 +57,17 @@ export default function Footer() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+                      className="text-sm [overflow-wrap:anywhere] text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                     >
                       {link.label}
                     </Link>
                   </li>
                 ))}
+                {category === 'Legal' && (
+                  <li>
+                    <CookieSettingsButton />
+                  </li>
+                )}
               </ul>
             </div>
           ))}

@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -47,7 +48,7 @@ export default function DeleteAccountPage() {
     <main className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">
       <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">Delete your account</h1>
       <p className="mt-3 text-text-secondary-light dark:text-text-secondary-dark">
-        This permanently deletes your EarningsNerd account and the personal data associated with it.
+        This permanently deletes your EarningsNerd account and its associated application records.
         <strong className="font-semibold"> This action cannot be undone.</strong>
       </p>
 
@@ -59,8 +60,7 @@ export default function DeleteAccountPage() {
           <li>Your notification preferences and usage records</li>
         </ul>
         <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          Some records may be retained where the law requires it (e.g. billing records for tax
-          purposes). Deleting your account does <strong>not</strong> automatically cancel an active
+          Billing, audit, provider logs and backup copies can remain, as explained in the Privacy Policy. Deleting your account does <strong>not</strong> automatically cancel an active
           subscription billed through the Apple App Store or Google Play. Cancel it in your Apple ID
           or Google Play settings. If you&apos;d like a copy of your data first, you can export it from
           your account settings before deleting.
@@ -75,7 +75,7 @@ export default function DeleteAccountPage() {
           title="Your account has been deleted"
           description={
             <>
-              Your account and associated personal data have been permanently deleted.
+              Your account and associated application records have been deleted. Billing, audit and provider records may remain as described in the Privacy Policy.
               <Link href="/" className="mt-3 inline-block font-medium text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark">
                 Return to home
               </Link>
@@ -123,7 +123,7 @@ export default function DeleteAccountPage() {
               description={
                 <>
                   Please try again or email{' '}
-                  <a href="mailto:privacy@earningsnerd.io" className="underline">privacy@earningsnerd.io</a>.
+                  <a href={contactMailto('privacy')} className="underline">{CONTACT_ADDRESSES.privacy}</a>.
                 </>
               }
             />
@@ -147,7 +147,7 @@ export default function DeleteAccountPage() {
               </Link>
               <p className="mt-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                 Can&apos;t sign in? Email{' '}
-                <a href="mailto:privacy@earningsnerd.io" className="underline">privacy@earningsnerd.io</a>{' '}
+                <a href={contactMailto('privacy')} className="underline">{CONTACT_ADDRESSES.privacy}</a>{' '}
                 from your account email address and we&apos;ll process your deletion request.
               </p>
             </div>

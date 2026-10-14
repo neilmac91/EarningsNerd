@@ -1,9 +1,11 @@
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { Metadata } from 'next'
 import ContactForm from '@/features/contact/components/ContactForm'
+import { Card } from '@/components/ui/Card'
 
 export const metadata: Metadata = {
-  title: 'Contact Us | EarningsNerd',
-  description: "Get in touch with the EarningsNerd team. We're here to help with questions, feedback, or support.",
+  title: 'Contact | EarningsNerd',
+  description: 'Contact EarningsNerd for support, billing, privacy or security questions.',
   alternates: { canonical: '/contact' },
 }
 
@@ -14,12 +16,33 @@ export default function ContactPage() {
         {/* Header */}
         <div className="text-center">
           <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark sm:text-5xl">
-            Contact Us
+            Contact
           </h1>
           <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">
-            Have a question or feedback? We&apos;d love to hear from you.
+            Send a question or share feedback about EarningsNerd.
           </p>
         </div>
+
+        <Card as="section" className="mt-8 p-6">
+          <h2 className="text-lg font-semibold">Email directly</h2>
+          <dl className="mt-4 space-y-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            {([
+              ['support', 'Product help, feedback and general questions'],
+              ['billing', 'Subscriptions, payments and invoices'],
+              ['privacy', 'Personal data and privacy requests'],
+              ['security', 'Private vulnerability and security reports'],
+            ] as const).map(([role, purpose]) => (
+              <div key={role}>
+                <dt>
+                  <a href={contactMailto(role)} className="break-all font-medium text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark">
+                    {CONTACT_ADDRESSES[role]}
+                  </a>
+                </dt>
+                <dd className="mt-1">{purpose}</dd>
+              </div>
+            ))}
+          </dl>
+        </Card>
 
         {/* Contact Form */}
         <div className="mt-12">
@@ -33,13 +56,10 @@ export default function ContactPage() {
           </h2>
           <div className="mt-4 space-y-3 text-text-secondary-light dark:text-text-secondary-dark">
             <div>
-              <span className="font-medium">Response Time:</span> We typically respond within 1-2 business days
+              <span className="font-medium">Response time:</span> The aim is to reply within 2 business days.
             </div>
             <div>
-              <span className="font-medium">Support Hours:</span> Monday - Friday, 9:00 AM - 5:00 PM EST
-            </div>
-            <div>
-              <span className="font-medium">Confirmation:</span> You&apos;ll receive an automated confirmation email immediately after submission
+              Use the form or email the relevant address above.
             </div>
           </div>
         </div>
