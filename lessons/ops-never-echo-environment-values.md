@@ -367,11 +367,12 @@ each with its reason:
   check-in or lose that attribute, though no capture fails, and a secret equal to or inside `exception` or `stacktrace`
   renames the serializer's `_meta` note on a stack the SDK drops past 2,000 traceback entries (`MAX_STACK_FRAMES`), so
   Sentry loses the reason the stack is missing (each raise adds one traceback entry for each frame it unwinds, and
-  Python's default recursion limit of 1,000 keeps one raise to about 1,000 entries, so only one exception instance
-  raised again and again reaches it: three times from 667 frames deep, about 1,000 times from a callee its caller
-  catches, about 2,000 times where it is caught, or a failed `concurrent.futures` future whose `result()` is read 667
-  times; nothing in the backend re-raises one instance that often or from that deep, or raises the limit: Codex's P2 on
-  `d725600`, the round-19 and round-21 checks); and the public-by-design values the rule names
+  Python's default recursion limit of 1,000 keeps one raise to about 1,000 entries, so only a traceback grown past one
+  call stack reaches it: for example one exception instance raised again and again (three times from 667 frames deep,
+  about 1,000 times from a callee its caller catches, about 2,000 times where it is caught, or 667 reads of a failed
+  `concurrent.futures` future), or a traceback carried on to a new exception (`with_traceback`) or built by hand
+  (`types.TracebackType`); nothing in the backend grows a traceback that way or raises the limit: Codex's P2 on
+  `d725600`, the round-19, round-21 and round-22 checks); and the public-by-design values the rule names
   (`STRIPE_PUBLISHABLE_KEY`, `POSTHOG_API_KEY`, `SENTRY_DSN`) are withheld too;
 - the output walk sees only a direct read in a call it names as an output, not an alias (`url = settings.REDIS_URL`),
   a helper the value is handed to or an object holding it (`stripe.api_key`), and the message walk reads
