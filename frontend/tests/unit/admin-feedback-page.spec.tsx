@@ -1,7 +1,7 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Mock the admin API module so the page renders without real network calls.
 vi.mock('@/features/admin/api/admin-api', () => ({
@@ -114,5 +114,53 @@ describe('AdminFeedbackPage', () => {
     await waitFor(() => {
       expect(vi.mocked(updateFeedbackStatus)).toHaveBeenCalledWith(bugReport.id, 'resolved')
     })
+  })
+})
+
+/**
+ * The table scrolls inside its card, never the page (DESIGN_SYSTEM.md §4 "Admin pages"; the #1309 capture review at
+ * 390 found the page 1090px wide and, at 1440, the status selects cut off at the card's edge). Classes are what a
+ * unit test can pin; the capture harness measures the layout they make in a real browser.
+ */
+describe('AdminFeedbackPage: the table scrolls inside its card', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it("holds the table and its rows' visually hidden labels in a positioned scroll box", async () => {
+    vi.mocked(listFeedback).mockResolvedValue([bugReport, featureRequest])
+    renderPage()
+    const box = (await screen.findByText(bugReport.message)).closest('table')!.parentElement!
+    // Each row's status label is sr-only, so position: absolute. Unless the box is its containing block (relative),
+    // the label is laid out against the page, outside the box's clip, and the page scrolls sideways to it.
+    expect(within(box).getByText(`Set status for feedback ${bugReport.id}`)).toHaveClass('sr-only')
+    expect(box).toHaveClass('relative', 'overflow-x-auto')
+    // A table that fits says nothing and adds no Tab stop.
+    expect(box).not.toHaveAttribute('role')
+    expect(box).not.toHaveAttribute('tabindex')
+    expect(screen.queryByText('Scroll horizontally to read all columns.')).not.toBeInTheDocument()
+  })
+
+  it('gives the message column the width the other columns leave, so the status select keeps its own', async () => {
+    vi.mocked(listFeedback).mockResolvedValue([bugReport])
+    renderPage()
+    const message = await screen.findByRole('button', { name: bugReport.message })
+    // w-full takes the rest of the row; a max-width here instead held the column at the message's own width.
+    const cell = message.closest('td')!
+    expect(cell).toHaveClass('w-full')
+    expect(cell.className).not.toMatch(/(^|\s)max-w-/)
+    // A one-line (truncate) message would size the column by its whole text: its intrinsic width is contained,
+    // with a 16rem floor for the phone's scrolling table.
+    expect(message).toHaveClass('[contain:inline-size]', 'min-w-64', 'truncate')
+  })
+
+  it('says the table scrolls, and makes it a named keyboard region, while it is wider than its box', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => 356)
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(() => 1177)
+    vi.mocked(listFeedback).mockResolvedValue([bugReport])
+    renderPage()
+    const region = await screen.findByRole('region', { name: 'Scrollable table: Feedback' })
+    expect(region).toContainElement(screen.getByText(bugReport.message))
+    expect(region).toHaveAttribute('tabindex', '0')
+    expect(region).toHaveAccessibleDescription('Scroll horizontally to read all columns.')
+    expect(region).toHaveClass('focus-visible:shadow-ring-brand', 'dark:focus-visible:shadow-ring-brand-dark')
   })
 })

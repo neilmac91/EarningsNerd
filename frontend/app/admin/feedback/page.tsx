@@ -15,6 +15,7 @@ import {
   type FeedbackType,
 } from '@/features/admin/api/admin-api'
 import FeedbackRow from '@/features/admin/components/FeedbackRow'
+import TableScroll from '@/features/admin/components/TableScroll'
 
 const LIST_LIMIT = 200
 
@@ -118,7 +119,7 @@ export default function AdminFeedbackPage() {
               {hasFilters ? 'No feedback matches these filters.' : 'No feedback yet. Reports appear here as people send them.'}
             </p>
           ) : (
-            <div className="overflow-x-auto">
+            <TableScroll label="Feedback">
               <table className="min-w-full divide-y divide-border-light dark:divide-white/10">
                 <thead className="bg-background-light dark:bg-white/5">
                   <tr>
@@ -139,7 +140,7 @@ export default function AdminFeedbackPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableScroll>
           )}
 
           <p className="border-t border-border-light px-6 py-3 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-secondary-dark">

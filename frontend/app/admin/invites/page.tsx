@@ -27,6 +27,7 @@ import BulkResultSummary, {
   type BulkInviteOutcome,
 } from '@/features/admin/components/BulkResultSummary'
 import InviteRow from '@/features/admin/components/InviteRow'
+import TableScroll from '@/features/admin/components/TableScroll'
 
 const MAX_CONCURRENCY = 4
 const LIST_LIMIT = 200
@@ -393,7 +394,7 @@ export default function AdminInvitesPage() {
               {(invites?.length ?? 0) === 0 ? 'No invites yet. Send your first one above.' : 'No invites match these filters.'}
             </p>
           ) : (
-            <div className="overflow-x-auto">
+            <TableScroll label="Invites">
               <table className="min-w-full divide-y divide-border-light dark:divide-white/10">
                 <thead className="bg-background-light dark:bg-white/5">
                   <tr>
@@ -441,7 +442,7 @@ export default function AdminInvitesPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableScroll>
           )}
 
           <p className="border-t border-border-light px-6 py-3 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-secondary-dark">

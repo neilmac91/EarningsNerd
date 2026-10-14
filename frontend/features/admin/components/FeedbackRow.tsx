@@ -53,13 +53,17 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
       <td className="whitespace-nowrap px-4 py-3 align-top text-sm">
         <FeedbackTypeBadge type={feedback.type} />
       </td>
-      <td className="max-w-md px-4 py-3 align-top text-sm text-text-primary-light dark:text-text-primary-dark">
+      {/* The message column takes the width the others leave (w-full), so the status select keeps its own at 1440,
+          where it was cut off at the card's edge. The button's intrinsic width is contained, or a one-line
+          (truncate) message would size the column by its whole text; min-w-64 is the floor it keeps when the
+          table scrolls on a phone. */}
+      <td className="w-full px-4 py-3 align-top text-sm text-text-primary-light dark:text-text-primary-dark">
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
           title={feedback.message}
           aria-expanded={expanded}
-          className={`block w-full rounded text-left transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark ${
+          className={`block w-full min-w-64 rounded text-left [contain:inline-size] transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark ${
             expanded ? 'whitespace-pre-wrap break-words' : 'truncate'
           }`}
         >

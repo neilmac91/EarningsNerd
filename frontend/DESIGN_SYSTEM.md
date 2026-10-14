@@ -481,6 +481,18 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  <tr> or the <tbody> fail too; both badges held to the recipe; the type chip measured as
                  it renders on FeedbackRow's grounds).
 
+Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside its card, never the page, in
+                 TableScroll (features/admin/components), a `relative overflow-x-auto` box. `relative` makes it the
+                 containing block of what the rows position absolutely, their `sr-only` labels included, which were
+                 laid out against the page, outside the box's clip (FeedbackRow's took the page to 1090px at 390).
+                 While the table is wider than the box, "Scroll horizontally to read all columns." sits above it and
+                 the box is a named region in the Tab order ("Scrollable table: <the card's title>", the brand ring),
+                 through useOverflowRegion, as in SummaryBlocks' GenericTable. FeedbackRow's message column takes the
+                 width the others leave (`w-full` on its cell; the button's intrinsic width contained, with a 16rem
+                 floor), so the status select keeps its own at 1440. Gates: tests/unit/admin-invites-page.spec.tsx
+                 and tests/unit/admin-feedback-page.spec.tsx (the box, the cue while the table fits and while it
+                 overflows, the message column).
+
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
                  small Button). GuidanceCard is a STANDALONE centered panel — never nest it inside a

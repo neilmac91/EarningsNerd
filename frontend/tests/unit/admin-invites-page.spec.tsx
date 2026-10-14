@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Mock the admin API module so the page renders without real network calls.
 vi.mock('@/features/admin/api/admin-api', () => ({
@@ -245,5 +245,39 @@ describe('AdminInvitesPage resend dialog focus return', () => {
     settle(resent)
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(resend).not.toHaveAttribute('aria-busy')
+  })
+})
+
+
+/**
+ * The table scrolls inside its card, never the page (DESIGN_SYSTEM.md §4 "Admin pages"; the #1309 capture review: at
+ * 390 the Status pills were cut off at the card's edge with no cue). Classes are what a unit test can pin; the
+ * capture harness measures the layout they make in a real browser.
+ */
+describe('AdminInvitesPage: the table scrolls inside its card', () => {
+  beforeEach(() => {
+    vi.mocked(listInvites).mockReset()
+  })
+  afterEach(() => vi.restoreAllMocks())
+
+  it('holds the table in a positioned scroll box that says nothing while the table fits', async () => {
+    vi.mocked(listInvites).mockResolvedValue([invite])
+    renderPage()
+    const box = (await screen.findByText('alice@example.com')).closest('table')!.parentElement!
+    expect(box).toHaveClass('relative', 'overflow-x-auto')
+    expect(box).not.toHaveAttribute('role')
+    expect(box).not.toHaveAttribute('tabindex')
+    expect(screen.queryByText('Scroll horizontally to read all columns.')).not.toBeInTheDocument()
+  })
+
+  it('says the table scrolls, and makes it a named keyboard region, while it is wider than its box', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => 356)
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(() => 854)
+    vi.mocked(listInvites).mockResolvedValue([invite])
+    renderPage()
+    const region = await screen.findByRole('region', { name: 'Scrollable table: Invites' })
+    expect(region).toContainElement(screen.getByRole('button', { name: 'Revoke invite to alice@example.com' }))
+    expect(region).toHaveAttribute('tabindex', '0')
+    expect(region).toHaveAccessibleDescription('Scroll horizontally to read all columns.')
   })
 })
