@@ -883,8 +883,8 @@ def sentry_envelopes():
     options.update(traces_sample_rate=1.0, profiles_sample_rate=None)
     sentry_sdk.init(**options)
     try:
-        # The serializer runs before the value hooks and would cut each string at max_value_length (main's options or an
-        # SDK default): a cut inside a secret leaves a prefix that no hook matches.
+        # The serializer runs before before_send and before_send_transaction and would cut each string at
+        # max_value_length (main's options or an SDK default): a cut inside a secret leaves a prefix that no hook matches.
         assert sentry_sdk.get_client().options["max_value_length"] is None
         with sentry_sdk.isolation_scope():  # no breadcrumb or tag left by another test
             yield keep.items
@@ -1798,7 +1798,8 @@ def test_each_kind_of_event_keeps_only_its_own_kinds_keys(monkeypatch, request):
     # (`start_timestamp`), one only a check-in's hold (`check_in_id`) and one only a log's and a metric's hold
     # (`attributes`), written where the item lacks them by an event processor (into an error and a transaction; the
     # SDK runs none on a check-in) and by hand (a check-in): each item keeps only its own kind's. A log or a metric
-    # has no such case: the SDK builds both with fixed top-level keys and runs nothing on them before their hooks.
+    # has no such case: the SDK builds both with fixed top-level keys and runs no event processor on them before their
+    # hooks (the scope fills only their trace_id, span_id and attributes).
     import sentry_sdk
 
     words = {

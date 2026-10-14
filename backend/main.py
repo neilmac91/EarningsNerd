@@ -63,15 +63,15 @@ def _secret_values() -> tuple[str, ...]:
 # with the SDK info, the trace context's keys and its dynamic sampling context's where it carries them, and the names
 # the SDK fills from its API or a request's incoming trace (an event's `fingerprint`; the replay fields an incoming
 # baggage header carries into the dynamic sampling context); a transaction or a check-in captured once its scope has
-# dropped breadcrumbs past `max_breadcrumbs` also carries an empty breadcrumbs list and the serializer's `_meta` note on
-# it. The value scrubber keeps a key only at one of its item kind's paths, so a weak secret equal to one of their words
-# (or inside one) leaves the item's structure whole and the SDK finds the keys it reads after the hook (an event's
-# `event_id`, a log's `attributes`, a profile's `contexts.trace.trace_id`), while the same word anywhere else (in user
-# data, in a context the app set, as a user's own key, in a structure the app nested in the protocol's, at another
-# kind's path: a log's `attributes` written into an error) is scrubbed like any key. A shorter key needs no entry (no
-# secret fits in it), so the lists are complete for that floor, on the structures the gate's capture builds; the gate
-# derives each kind's paths from the SDK's items there and fails on a missing one there or a dead one. Continuous
-# profiling, which main does not configure, would add `contexts.profile.profiler_id`.
+# dropped breadcrumbs past `max_breadcrumbs` also carries `breadcrumbs` with an empty `values` list and the serializer's
+# `_meta` note on it. The value scrubber keeps a key only at one of its item kind's paths, so a weak secret equal to one
+# of their words (or inside one) leaves the item's structure whole and the SDK finds the keys it reads after the hook
+# (an event's `event_id`, a log's `attributes`, a profile's `contexts.trace.trace_id`), while the same word anywhere
+# else (in user data, in a context the app set, as a user's own key, in a structure the app nested in the protocol's, at
+# another kind's path: a log's `attributes` written into an error) is scrubbed like any key. A shorter key needs no
+# entry (no secret fits in it), so the lists are complete for that floor, on the structures the gate's capture builds;
+# the gate derives each kind's paths from the SDK's items there and fails on a missing one there or a dead one.
+# Continuous profiling, which main does not configure, would add `contexts.profile.profiler_id`.
 _PROTOCOL_PATHS = {
     kind: frozenset(tuple(path.split(".")) for path in paths.split())
     for kind, paths in {
@@ -279,10 +279,11 @@ def _sentry_options() -> dict:
             ]
         ),
         # Each secret setting's value and each connection URL's password, wherever an item holds it (the protocol's own
-        # keys and item types aside: `_value_scrubber`), on every channel that carries text; the hooks run after the
-        # event scrubber and the serializer. Never set `max_value_length`: the serializer would cut a string inside a
-        # secret and leave a prefix no hook matches. `before_send_span` acts only under span streaming
-        # (`trace_lifecycle`), which stays off.
+        # keys and item types aside: `_value_scrubber`), on every channel that carries text; `before_send` and
+        # `before_send_transaction` run after the event scrubber and the serializer, and the log and metric hooks get
+        # their items unserialized. Never set `max_value_length`: the serializer would cut a string inside a secret and
+        # leave a prefix no hook matches. `before_send_span` acts only under span streaming (`trace_lifecycle`), which
+        # stays off.
         "before_send": hooks["event"],
         "before_send_transaction": hooks["transaction"],
         "before_send_log": hooks["log"],
