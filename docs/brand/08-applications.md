@@ -112,7 +112,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   passages you can check", in `ProDepth.tsx`, which had said the answer cites the figures and passages
   it used), and the summary's suggested follow-ups say "Tap a question to ask this filing."; the teaser's blurred
   sample is Apple's FY2025 Services answer with sequential [1] and [2] markers and "2 matched
-  sources". The product has one name: "Ask this Filing" on the launcher, the rail and the upgrade
+  sources", cited to passages because the Services figure is a dimensioned fact the Copilot tool cannot
+  fetch, while the landing's Ask demo (#1311) answers total net sales with XBRL chips; §1's Sample data
+  row says which is which. The product has one name: "Ask this Filing" on the launcher, the rail and the upgrade
   dialog, "ask this filing" in a sentence, and the usage lines say "free questions" and "Upgrade to
   Pro", with Pro's monthly cap read from the usage response, never "unlimited". A spent allowance,
   a Pro-only gate and the Pro fair-use cap are a quiet answer card with role="status" and the
