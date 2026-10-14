@@ -86,13 +86,16 @@ describe('HeroExample', () => {
     unmount()
 
     const fallback = render(<HeroExample example={null} />)
-    expect(screen.getByRole('link', { name: "Figures from the company's XBRL filing · verify on SEC EDGAR" })).toBeInTheDocument()
-    const titles = [...fallback.container.querySelectorAll('dl [title]')].map((el) => el.getAttribute('title'))
-    expect(titles).toEqual([
-      'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
-      'us-gaap:NetIncomeLoss',
-      'us-gaap:EarningsPerShareDiluted',
+    expect(screen.getByRole('link', { name: "Figures from the company's XBRL · check them on SEC EDGAR" })).toBeInTheDocument()
+    // The receipt is text in each term, so a keyboard or screen-reader user reaches it; a title hover
+    // alone is a receipt only a mouse can read.
+    const terms = [...fallback.container.querySelectorAll('dl dt')].map((el) => el.textContent)
+    expect(terms).toEqual([
+      'Revenue, XBRL concept us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+      'Net income, XBRL concept us-gaap:NetIncomeLoss',
+      'Diluted EPS, XBRL concept us-gaap:EarningsPerShareDiluted',
     ])
+    for (const receipt of fallback.container.querySelectorAll('dl dt span')) expect(receipt).toHaveClass('sr-only')
   })
 
   it('rings the EDGAR link like every other Tab stop', () => {

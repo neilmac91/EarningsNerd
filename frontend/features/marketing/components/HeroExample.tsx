@@ -48,9 +48,10 @@ const FALLBACK: ExampleData = {
   ],
 }
 
-// XBRL concepts behind the fallback metrics (shown as hover receipts). Only the fallback carries
-// them: its values were checked against the XBRL by hand, while a live figure is the summary's own
-// financial highlight, which the hero cannot vouch for as an XBRL match.
+// XBRL concepts behind the fallback metrics: the receipt is text inside each term, visually hidden
+// so every reader reaches it (the hover repeats it for a mouse). Only the fallback carries them: its
+// values were checked against the XBRL by hand, while a live figure is the summary's own financial
+// highlight, which the hero cannot vouch for as an XBRL match.
 const FALLBACK_CONCEPTS: Record<string, string> = {
   Revenue: 'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
   'Net income': 'us-gaap:NetIncomeLoss',
@@ -79,9 +80,13 @@ function clip(text: string): string {
 function Figure({ metric, isFallback }: { metric: ExampleMetric; isFallback: boolean }) {
   const delta = formatDelta(metric.deltaPercent)
   const direction = directionOf(metric.deltaPercent)
+  const concept = isFallback ? FALLBACK_CONCEPTS[metric.label] : undefined
   return (
-    <div className="min-w-0 py-3 pl-3 first:pl-0" title={isFallback ? FALLBACK_CONCEPTS[metric.label] : undefined}>
-      <dt className={cx('truncate text-xs', MUTED)}>{metric.label}</dt>
+    <div className="min-w-0 py-3 pl-3 first:pl-0" title={concept}>
+      <dt className={cx('truncate text-xs', MUTED)}>
+        {metric.label}
+        {concept && <span className="sr-only">, XBRL concept {concept}</span>}
+      </dt>
       <dd className={cx('mt-1 whitespace-nowrap font-data text-sm font-semibold tabular-nums sm:text-base', INK)}>{metric.value}</dd>
       {delta && (
         <dd className={cx('mt-0.5 whitespace-nowrap font-data text-xs font-medium tabular-nums', directionText[direction])}>
@@ -210,7 +215,7 @@ function HeroExample({
           {data.metrics.length === 0
             ? 'Source filing · read on SEC EDGAR'
             : isFallback
-              ? "Figures from the company's XBRL filing · verify on SEC EDGAR"
+              ? "Figures from the company's XBRL · check them on SEC EDGAR"
               : 'Source filing · check the figures on SEC EDGAR'}
         </a>
 

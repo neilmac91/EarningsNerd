@@ -499,15 +499,31 @@ describe('PricingPage', () => {
     expect(mockPricingViewed.mock.calls).toEqual([[pickMonthly ? 'monthly' : 'yearly']])
   })
 
-  // Multi-Period Analysis ships behind ENABLE_ANALYSIS (its route 404s while the flag is off), so the
-  // Pro plan lists it only while it ships (audit pub/F06; the landing half is in analysis-route-hidden.spec.tsx).
-  it.each([false, true])('lists Multi-Period Analysis on the Pro plan only while the flag ships it (flag %s)', async (on) => {
+  // Multi-Period Analysis ships behind ENABLE_ANALYSIS (its route 404s while the flag is off), and the
+  // Excel export is its workbook, so the Pro plan lists both only while it ships (audit pub/F06; the
+  // landing half is in analysis-route-hidden.spec.tsx).
+  it.each([false, true])('lists Multi-Period Analysis and Excel on the Pro plan only while the flag ships them (flag %s)', async (on) => {
     flags.ENABLE_ANALYSIS = on
     mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
     const { container } = renderPricing()
     await screen.findByRole('button', { name: /current plan/i })
     expect(screen.getByText('Ask this Filing, with cited answers')).toBeInTheDocument()
-    if (on) expect(container).toHaveTextContent('Unlimited Multi-Period Analysis')
-    else expect(container).not.toHaveTextContent(/Multi-Period/)
+    if (on) {
+      expect(container).toHaveTextContent('Unlimited Multi-Period Analysis')
+      expect(screen.getByText('PDF, CSV and Excel exports')).toBeInTheDocument()
+    } else {
+      expect(container).not.toHaveTextContent(/Multi-Period|Excel/)
+      expect(screen.getByText('PDF and CSV exports')).toBeInTheDocument()
+    }
+  })
+
+  // The Free plan names the forms the production API lists, without the "Supported" hedge (the
+  // deploy sets ENABLE_FPI_FILINGS=true; tasks/todo.md F39).
+  it('names the filing forms on the Free plan without a hedge', async () => {
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+    const { container } = renderPricing()
+    await screen.findByRole('button', { name: /current plan/i })
+    expect(screen.getByText('10-K, 10-Q and 20-F filings from SEC EDGAR')).toBeInTheDocument()
+    expect(container).not.toHaveTextContent(/Supported/i)
   })
 })

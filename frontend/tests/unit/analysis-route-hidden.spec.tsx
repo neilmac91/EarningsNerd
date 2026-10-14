@@ -60,7 +60,9 @@ describe('The public pages follow NEXT_PUBLIC_ENABLE_ANALYSIS', () => {
     h.enableAnalysis = false
     const { proText, pricingText } = surfaces()
     expect(proText).not.toMatch(/Multi-Period|periods side by side|Excel export|XLSX/)
-    expect(pricingText).not.toMatch(/Multi-Period/)
+    // The Excel export is the analysis workbook, so the Pro list drops it with the route.
+    expect(pricingText).not.toMatch(/Multi-Period|Excel|XLSX/)
+    expect(pricingText).toContain('PDF and CSV exports')
     // Anti-vacuity: both surfaces rendered their lists.
     expect(proText).toContain('Change Report')
     expect(pricingText).toContain('Unlimited summaries')
@@ -73,5 +75,6 @@ describe('The public pages follow NEXT_PUBLIC_ENABLE_ANALYSIS', () => {
     expect(proText).toContain('Excel export')
     expect(pricingText).toContain('Multi-Period Analysis demo (locked)')
     expect(pricingText).toContain('Unlimited Multi-Period Analysis')
+    expect(pricingText).toContain('PDF, CSV and Excel exports')
   })
 })

@@ -81,6 +81,14 @@ describe('PricingSection', () => {
     expect(monthly).toHaveFocus()
   })
 
+  // The Free card names the forms the production API lists, without the "Supported" hedge (the deploy
+  // sets ENABLE_FPI_FILINGS=true; tasks/todo.md F39), as /pricing does (PricingPage.spec.tsx).
+  it('names the filing forms on the Free card without a hedge', () => {
+    const { container } = renderSection()
+    expect(screen.getByText('10-K, 10-Q and 20-F filings from SEC EDGAR')).toBeInTheDocument()
+    expect(container).not.toHaveTextContent(/Supported/i)
+  })
+
   it('shows the beta line only when showBeta is set', () => {
     const { unmount } = renderSection({ showBeta: false })
     expect(screen.queryByText('Free for beta members')).not.toBeInTheDocument()

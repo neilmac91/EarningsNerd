@@ -242,7 +242,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       description: 'For reading a few filings a month',
       features: [
         `${FREE_SUMMARY_LIMIT} summaries per month`,
-        'Supported 10-K, 10-Q and 20-F filings from SEC EDGAR',
+        '10-K, 10-Q and 20-F filings from SEC EDGAR',
         'The same summaries Pro reads',
         'Company search',
         'Historical filing access',
@@ -269,12 +269,13 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       description: 'For deeper filing research',
       features: [
         'Unlimited summaries',
-        // Listed only while the analysis route ships (it 404s with ENABLE_ANALYSIS off).
+        // Multi-Period Analysis and its Excel workbook are listed only while the analysis route
+        // ships (it 404s with ENABLE_ANALYSIS off).
         ...(ENABLE_ANALYSIS ? ['Unlimited Multi-Period Analysis: 10-year trends, quarterly deltas & AI narrative'] : []),
         'Ask this Filing, with cited answers',
         'Hourly filing alerts',
         '8-K filing alerts',
-        'PDF, CSV and Excel exports',
+        ENABLE_ANALYSIS ? 'PDF, CSV and Excel exports' : 'PDF and CSV exports',
         'Priority support',
       ],
       cta: !accountResolved

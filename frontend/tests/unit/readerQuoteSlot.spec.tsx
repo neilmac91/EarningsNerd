@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
  * The reader-quote slot (docs/brand/01-interview.md §2, "What must stay honest"; audit BG-28): it
  * renders nothing until a real reader supplies their words, so no placeholder testimonial ever ships,
  * and once filled it renders the quote and the attribution exactly. The shipped value is a reader's to
- * give; this spec guards the rules the quote must keep when it arrives. Mirrors founderNote.spec.tsx.
+ * give; this spec guards the rules the quote must keep when it arrives. Mirrors the founder slot's spec, retired with that slot in #1316.
  */
 const slot = vi.hoisted(() => ({ quote: null as null | { quote: string; attribution: string } }))
 vi.mock('@/features/marketing/lib/readerQuote', () => ({

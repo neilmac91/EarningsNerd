@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
-import { cx } from '@/components/ui'
+import { cx } from '@/components/ui/cx'
 import { ArrowRightIcon, BellIcon, ClockCounterClockwiseIcon, FilePdfIcon, FileXlsIcon } from '@/lib/icons'
 import { ENABLE_ANALYSIS } from '@/lib/featureFlags'
 import { FREE_COPILOT_QUESTIONS, FREE_HISTORY_RETENTION_DAYS } from '@/lib/planLimits'

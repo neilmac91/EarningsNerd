@@ -2,6 +2,7 @@ import { createRequire } from 'node:module'
 import { test, expect, type Page } from '@playwright/test'
 import { settled } from './fixtures/contrast'
 import { answerApi, API_ORIGIN, PANE, SUMMARY } from './fixtures/filing3Api'
+import { isAuthRoute } from '../../lib/authShellRoutes'
 
 /**
  * Text floors on the main routes, read from what Chromium renders (critique v3.1 DC-TERTIARY,
@@ -132,8 +133,6 @@ const PUBLIC_ROUTES: Route[] = [
   { name: 'search (flag off)', path: '/search', status: 404, open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible() },
 ]
 
-/** The auth pages render in AuthShell, which has no site footer (components/SiteChrome.tsx AUTH_ROUTES). */
-const AUTH_SHELL = new Set(['/login', '/register', '/forgot-password'])
 
 async function visit(page: Page, baseURL: string, route: Route) {
   await page.addInitScript(() => {
@@ -147,7 +146,8 @@ async function visit(page: Page, baseURL: string, route: Route) {
   const response = await page.goto(route.path)
   if (route.status) expect(response?.status()).toBe(route.status)
   await route.ready(page)
-  if (!AUTH_SHELL.has(route.path)) await expect(page.getByRole('contentinfo')).toBeVisible()
+  // The auth pages render in AuthShell, which has no site footer: the shell's own route list says which.
+  if (!isAuthRoute(route.path)) await expect(page.getByRole('contentinfo')).toBeVisible()
   await page.evaluate(() => document.fonts.ready)
 }
 
@@ -233,7 +233,7 @@ test.describe('main routes at 1440x900, light theme', () => {
       const outline = await headingSkips(page)
       expect.soft(outline.dom, `skipped heading levels on ${route.name} (DOM order)`).toEqual([])
       expect.soft(outline.exposed, `skipped heading levels on ${route.name} (accessibility tree)`).toEqual([])
-      if (!AUTH_SHELL.has(route.path)) expect.soft(outline.footer.join(' '), 'the footer opens its own h2 before its h3 column titles').toMatch(/^H2( H3)+$/)
+      if (!isAuthRoute(route.path)) expect.soft(outline.footer.join(' '), 'the footer opens its own h2 before its h3 column titles').toMatch(/^H2( H3)+$/)
     })
   }
 })

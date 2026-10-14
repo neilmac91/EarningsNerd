@@ -4,22 +4,12 @@ import { usePathname } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import type { AccessMode } from '@/features/marketing/lib/access'
+import { isAuthRoute } from '@/lib/authShellRoutes'
 
-// Auth routes render their own full-screen immersive shell (AuthShell), so the
-// marketing header/footer are suppressed there.
-const AUTH_ROUTES = [
-  '/login',
-  '/register',
-  '/check-email',
-  '/verify-email',
-  '/forgot-password',
-  '/reset-password',
-]
-
-export function isAuthRoute(pathname: string | null): boolean {
-  if (!pathname) return false
-  return AUTH_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
-}
+// Auth routes render their own full-screen immersive shell (AuthShell), so the marketing
+// header/footer are suppressed there. The list lives in lib/authShellRoutes.ts, React-free, so the
+// e2e specs read it too; re-exported for the chrome's other callers.
+export { isAuthRoute }
 
 /**
  * Skip link: the first focusable element on every page with the site header, so keyboard and

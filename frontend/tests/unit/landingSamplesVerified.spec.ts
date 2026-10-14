@@ -20,7 +20,9 @@ import * as samples from '@/features/marketing/lib/landing-samples'
  *  - every Change Report number is a verified raw value, and its percentage the change between them;
  *  - the verified set below is the one 00-audit.md §4 records, digit for digit;
  *  - the Ask answer's markers are sequential [n] matching its citations, never [F1]; an XBRL citation
- *    reads as copilot_tools.fact_to_citation writes one; a passage is the filing's sentence verbatim;
+ *    reads as copilot_tools.fact_to_citation writes one, its label names the concept its section ref
+ *    holds, its figure is that concept's FY2025 value (or growth), and the figure the answer puts
+ *    before its marker rounds from it; a passage is the filing's sentence verbatim;
  *  - no figure row is labelled with a CamelCase or namespaced XBRL concept.
  */
 
@@ -128,6 +130,45 @@ describe('the Ask this Filing sample reads as a live answer does', () => {
     }
     for (const c of passages) expect(AUDIT.replace(/\s+/g, ' '), c.excerpt).toContain(c.excerpt)
     expect(AUDIT.replace(/\s+/g, ' ')).toContain(samples.SAMPLE_TRACE.excerpt)
+  })
+
+  it("ties each XBRL chip's figure to its own concept, and the answer's figure to the chip it cites", () => {
+    // fact_to_citation's label for each concept the samples cite.
+    const LABEL_CONCEPT: Record<string, string> = {
+      Revenue: 'RevenueFromContractWithCustomerExcludingAssessedTax',
+      'Net income': 'NetIncomeLoss',
+      'EPS (diluted)': 'EarningsPerShareDiluted',
+    }
+    const SCALE: Record<string, number> = { B: 1e9, M: 1e6, '': 1 }
+    const decimals = (n: string) => (n.split('.')[1] ?? '').length
+    const xbrl = citations.filter((c) => c.section_ref?.startsWith('XBRL'))
+    expect(xbrl.length).toBeGreaterThan(0)
+    for (const c of xbrl) {
+      const m = c.excerpt.match(/^(Revenue|Net income|EPS \(diluted\)) (?:= \$([\d,.]+)([BM]?) USD|YoY growth = ([\d.]+)%) \(FY(\d{4})\/FY\)$/)
+      expect(m, c.excerpt).not.toBeNull()
+      const [, label, value, unit = '', pct, year] = m as RegExpMatchArray
+      const concept = (c.section_ref as string).replace('XBRL · us-gaap:', '')
+      expect(LABEL_CONCEPT[label], `[${c.n}] label ${label}`).toBe(concept)
+      expect(year, `[${c.n}] period`).toBe('2025')
+      const pair = VERIFIED[concept]
+      // The figure the answer places just before this chip's marker, in the same sentence.
+      const before = answer.slice(0, answer.indexOf(`[${c.n}]`)).split(/\]|\.\s/).pop() ?? ''
+      if (value !== undefined) {
+        const chip = Number(value.replace(/,/g, ''))
+        expect(chip, `[${c.n}] ${c.excerpt}`).toBe(Number((pair[0] / SCALE[unit]).toFixed(decimals(value))))
+        const said = [...before.matchAll(/\$(\d[\d,]*(?:\.\d+)?)([BM]?)/g)].pop()
+        expect(said, `the answer states a figure before [${c.n}]`).toBeDefined()
+        const [, n, u = ''] = said as RegExpMatchArray
+        expect(u, `[${c.n}] unit`).toBe(unit)
+        expect(Number(n.replace(/,/g, '')), `[${c.n}] answer figure`).toBe(Number(chip.toFixed(decimals(n))))
+      } else {
+        expect(pct, `[${c.n}] ${c.excerpt}`).toBe(growth(pair).toFixed(decimals(pct)))
+        const said = [...before.matchAll(/(\d+(?:\.\d+)?)%/g)].pop()
+        expect(said, `the answer states a percentage before [${c.n}]`).toBeDefined()
+        const n = (said as RegExpMatchArray)[1]
+        expect(Number(n), `[${c.n}] answer percentage`).toBe(Number(Number(pct).toFixed(decimals(n))))
+      }
+    }
   })
 })
 

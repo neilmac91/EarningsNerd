@@ -202,9 +202,7 @@ export default function WaitlistPage() {
           <h2 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Before you join
           </h2>
-          <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Data is sourced directly from SEC EDGAR.
-          </p>
+          {/* No lead: the tiles say it, and the first already names the source. */}
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
             {[
               {

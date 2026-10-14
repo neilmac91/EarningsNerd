@@ -28,34 +28,37 @@ import {
  * entry until pricing can resolve account eligibility, rather than selecting a guest trial.
  */
 
-// Multi-Period Analysis ships behind ENABLE_ANALYSIS (its route 404s while the flag is off), so its
-// plan lines are listed only while it ships (tests/unit/analysis-route-hidden.spec.tsx).
-const FREE_ANALYSIS_LINE = 'Multi-Period Analysis demo (locked)'
-const PRO_ANALYSIS_LINE = 'Unlimited Multi-Period Analysis'
-const shipped = (items: readonly string[]) =>
-  ENABLE_ANALYSIS ? items : items.filter((item) => item !== FREE_ANALYSIS_LINE && item !== PRO_ANALYSIS_LINE)
+// A plan line keyed to a flag lists only while that flag ships its feature; `off` is what it reads
+// while the flag is off, if anything. Multi-Period Analysis and its Excel workbook ship behind
+// ENABLE_ANALYSIS (the route 404s while the flag is off; tests/unit/analysis-route-hidden.spec.tsx).
+type Flag = 'analysis'
+type PlanLine = { text: string; flag?: Flag; off?: string }
+// Read at render, so the flag's value is the one the page ships with.
+const isOn = (flag: Flag): boolean => ({ analysis: ENABLE_ANALYSIS })[flag]
+const shipped = (items: readonly PlanLine[]): string[] =>
+  items.flatMap((item) => (!item.flag || isOn(item.flag) ? [item.text] : item.off ? [item.off] : []))
 
 // Free-tier caps are never bare literals (tests/unit/planLimitsLockstep.spec.ts).
-const FREE_FEATURES = [
-  `${FREE_SUMMARY_LIMIT} AI summaries a month`,
-  'Supported 10-K, 10-Q and 20-F filings from SEC EDGAR',
-  'Company search and historical filings',
-  `${FREE_COPILOT_QUESTIONS} Ask this Filing questions`,
-  `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts`,
-  FREE_ANALYSIS_LINE,
-  `${FREE_HISTORY_RETENTION_DAYS}-day summary history`,
-  'Unlimited watchlist',
+const FREE_FEATURES: readonly PlanLine[] = [
+  { text: `${FREE_SUMMARY_LIMIT} AI summaries a month` },
+  { text: '10-K, 10-Q and 20-F filings from SEC EDGAR' },
+  { text: 'Company search and historical filings' },
+  { text: `${FREE_COPILOT_QUESTIONS} Ask this Filing questions` },
+  { text: `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts` },
+  { text: 'Multi-Period Analysis demo (locked)', flag: 'analysis' },
+  { text: `${FREE_HISTORY_RETENTION_DAYS}-day summary history` },
+  { text: 'Unlimited watchlist' },
 ]
 
-const PRO_FEATURES = [
-  'Unlimited summaries',
-  PRO_ANALYSIS_LINE,
-  'Ask this Filing',
-  'Change Report',
-  'Hourly filing alerts and 8-K alerts',
-  'PDF, CSV and Excel exports',
-  'Full summary history',
-  'Priority support',
+const PRO_FEATURES: readonly PlanLine[] = [
+  { text: 'Unlimited summaries' },
+  { text: 'Unlimited Multi-Period Analysis', flag: 'analysis' },
+  { text: 'Ask this Filing' },
+  { text: 'Change Report' },
+  { text: 'Hourly filing alerts and 8-K alerts' },
+  { text: 'PDF, CSV and Excel exports', flag: 'analysis', off: 'PDF and CSV exports' },
+  { text: 'Full summary history' },
+  { text: 'Priority support' },
 ]
 
 const BILLING_OPTIONS = ['monthly', 'annual'] as const

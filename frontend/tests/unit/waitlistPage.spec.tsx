@@ -78,8 +78,11 @@ describe('/waitlist', () => {
 
   it('says where the data comes from without a promise it cannot measure', () => {
     const { container } = render(<WaitlistPage />)
-    expect(screen.getByRole('heading', { level: 2, name: 'Before you join' })).toBeInTheDocument()
-    expect(screen.getByText('Data is sourced directly from SEC EDGAR.')).toBeInTheDocument()
+    const heading = screen.getByRole('heading', { level: 2, name: 'Before you join' })
+    // The tiles follow the heading with no lead to repeat the first tile's source line.
+    expect(heading.nextElementSibling?.tagName).toBe('DIV')
+    expect(screen.getByText('Source: SEC EDGAR')).toBeInTheDocument()
+    expect(container.textContent).not.toMatch(/sourced directly/i)
     expect(screen.getByText('Security')).toBeInTheDocument()
     expect(container.textContent).not.toMatch(/\bclarity\b|not hype|Security-first|trust and transparency/i)
   })
