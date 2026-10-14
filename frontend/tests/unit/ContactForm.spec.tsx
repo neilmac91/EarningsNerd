@@ -11,8 +11,9 @@ import { ApiError } from '@/lib/api/client'
  * values again fails the same way. A 5xx shows the surface's sentence: the route's own 500 detail
  * ("Failed to save contact form submission") is developer wording with no next step, and the
  * client's own 503 sentence ("Service temporarily unavailable…") stops there too. On any other
- * status the backend's own detail is shown when the body carried one (`ApiError.backendDetail`), and
- * the surface's sentence when it did not: lib/api/client's connection fallback ("Unable to connect
+ * status the backend's own detail is shown when the body carried a non-blank one
+ * (`ApiError.backendDetail`; a whitespace-only detail counts as none), and the surface's sentence when
+ * it did not: lib/api/client's connection fallback ("Unable to connect
  * to the server…") and axios's "Request failed with status code N" sit in `detail` and never reach
  * the reader. The failure is a Notice: role="alert", title "Message not sent". The success heading
  * is an h2 under the page's h1.
