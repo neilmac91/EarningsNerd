@@ -120,8 +120,9 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    on the children it is handed), props either is given held in a name or spread into the ones
  *    written in the call (read as none, so the children they hand are unread and a className they
  *    give fails closed), a value put in an array or an object through another name for it (an
- *    alias, or a parameter it is handed to), a value held in a Map, a method the scan names by what
- *    follows the dot (an array's, Object's, a push) called through a key instead
+ *    alias, a parameter it is handed to, or the `this` of a method called through call or apply,
+ *    `parts.unshift.call(parts, …)`), a value held in a Map, a method the scan names by what
+ *    follows the dot (an array's, Object's, a push) called through a key or as a tag instead
  *    (`labels['slice'](0)`), read as a call it does not know, a React utility called through call,
  *    apply or Reflect.apply, whose callee is lib's, or held under a type of its
  *    own in another file or a class's field, and the count control's recipe rebuilt in another
@@ -134,7 +135,8 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    arguments of a same-file call at the places a spread among them could leave them, a spread laid
  *    out by the lengths its type allows (a hole below an open run kept) and its members read at each
  *    place it could cover, a same-file const array literal opened by its elements, a tuple's or an
- *    array's, while the file never writes into it nor reorders it in place, a rest
+ *    array's, while the file never writes into it (a call that changes nothing, `parts.push()`,
+ *    counts, so it fails closed), reorders it in place nor hands it on whole, a rest
  *    parameter's member by an index the checker reads as one number, counted from the end as `at()`
  *    and `length - N` count, or taken by a destructuring of the rest; every name, literal, field and
  *    same-file call on the way is read with the calls on the way kept, a destructured name with what
@@ -450,13 +452,22 @@ const branches = (v: ts.Expression): ts.Expression[] => {
   }
   return [v]
 }
-/** The variable a place is read off and the steps to it (`groups[k].items` is `groups` at [null, 'items']). */
+/** The methods that return the array they are called on. */
+const RETURNS_RECEIVER = new Set(['sort', 'reverse', 'fill', 'copyWithin', 'valueOf'])
+/** The variable a place is read off and the steps to it (`groups[k].items` is `groups` at [null, 'items']), through a
+    call that returns the array it is called on and Object.assign, which returns its target (`parts.sort()[0]` is
+    `parts` at [0]). */
 function placeOf(target: ts.Expression): { root: ts.Identifier; path: Step[] } | undefined {
   const path: Step[] = []
   let x = unwrap(target)
-  while (ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) {
-    path.unshift(ts.isPropertyAccessExpression(x) ? x.name.text : accessStep(x.argumentExpression))
-    x = unwrap(x.expression)
+  for (;;) {
+    const callee = ts.isCallExpression(x) ? unwrap(x.expression) : undefined
+    if (ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) {
+      path.unshift(ts.isPropertyAccessExpression(x) ? x.name.text : accessStep(x.argumentExpression))
+      x = unwrap(x.expression)
+    } else if (ts.isCallExpression(x) && objectCall(x, 'assign')) x = unwrap(x.arguments[0])
+    else if (callee && ts.isPropertyAccessExpression(callee) && RETURNS_RECEIVER.has(callee.name.text)) x = unwrap(callee.expression)
+    else break
   }
   return ts.isIdentifier(x) ? { root: x, path } : undefined
 }
@@ -469,6 +480,11 @@ const placeAt = (path: Step[], value: ts.Expression): ts.Expression[] =>
       step === null ? ts.factory.createComputedPropertyName(ts.factory.createTrue()) : ts.factory.createStringLiteral(step), v)])]),
     ...(typeof step === 'string' ? [] : [placed([v])]),
   ]), [value])
+/** The value at steps into an expression, built as code (`[x, y]` at [1] is `[x, y][1]`), so a place a destructuring
+    writes takes what lands there; a key the scan cannot read is built as `[true]`, as `placeAt` builds one. */
+const stepInto = (value: ts.Expression, steps: Step[]): ts.Expression => steps.reduce<ts.Expression>((v, step) =>
+  typeof step === 'string' ? ts.factory.createPropertyAccessExpression(v, step)
+    : ts.factory.createElementAccessExpression(v, step === null ? ts.factory.createTrue() : step), value)
 const ASSIGNED = new Map<ts.SourceFile, Map<ts.Symbol, Held[]>>()
 /** What a same-file variable holds: its initializer and every value the file assigns it (`label = 'Ready'` in a
     switch, `label += …`, or `[label] = …` and `({ label } = …)` destructured, a default in the pattern and a rest
@@ -496,7 +512,7 @@ function assignedTo(symbol: ts.Symbol | undefined, sf: ts.SourceFile): Held[] {
     const assign = (target: ts.Expression, value: ts.Expression, steps: Step[]): void => {
       const t = unwrap(target)
       if (ts.isIdentifier(t)) add(CHECKER.getSymbolAtLocation(t), { value, steps })
-      else if (!steps.length && (ts.isPropertyAccessExpression(t) || ts.isElementAccessExpression(t))) put(t, value)
+      else if (ts.isPropertyAccessExpression(t) || ts.isElementAccessExpression(t)) put(t, stepInto(value, steps))
       else if (ts.isBinaryExpression(t) && t.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
         assign(t.left, value, steps)
         assign(t.left, t.right, [])
@@ -520,9 +536,14 @@ function assignedTo(symbol: ts.Symbol | undefined, sf: ts.SourceFile): Held[] {
       }
     }
     visit(sf, (n) => {
-      if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && PUTS_MEMBERS.has(n.expression.name.text)) {
-        put(n.expression.expression, placed(n.arguments.slice(...PUTS_MEMBERS.get(n.expression.name.text)!).flatMap(branches)))
+      const callee = ts.isCallExpression(n) ? unwrap(n.expression) : undefined
+      if (ts.isCallExpression(n) && callee && ts.isPropertyAccessExpression(callee) && PUTS_MEMBERS.has(callee.name.text)) {
+        put(callee.expression, placed(n.arguments.slice(...PUTS_MEMBERS.get(callee.name.text)!).flatMap(branches)))
         return
+      }
+      // A for…of that assigns a place or a name each pass (`for (parts[0] of rows)`) puts a member of what it walks.
+      if (ts.isForOfStatement(n) && !ts.isVariableDeclarationList(n.initializer)) {
+        assign(n.initializer, ts.factory.createElementAccessExpression(n.expression, ts.factory.createTrue()), [])
       }
       // Object.assign copies each source's fields into its target; a spread hands it a list of sources, any member of
       // which may be one (read through a key the scan cannot read, `[true]`, as `placeAt` builds one).
@@ -2084,10 +2105,11 @@ type Calls = ReadonlyMap<ts.Node, ts.NodeArray<ts.Expression>>
 /** A value a read meets, with the calls it was met inside, so its reader binds a helper's parameters there. */
 interface Found { value: ts.Expression; calls: Calls }
 /** A call's arguments laid out by place: each argument as written; a spread of an array literal, or of a same-file
-    const holding one that the file never writes into nor reorders in place (`const PREFIX = ['x']`, a tuple's type or
-    an array's), opened into its elements (`f(...[a, b], c)` hands `a`, `b`, `c`); any other spread, one the file
-    writes into or reorders among them (`prefix[0] = …`, `Object.assign(prefix, …)`, `prefix.reverse()`), as the
-    lengths its type gives it (`spreadLength`) and its members, any of which may land at a place it covers. */
+    const holding one that the file never writes into, reorders in place nor hands on whole (`const PREFIX = ['x']`, a
+    tuple's type or an array's), opened into its elements (`f(...[a, b], c)` hands `a`, `b`, `c`); any other spread,
+    one the file writes into, reorders or hands on among them (`prefix[0] = …`, `Object.assign(prefix, …)`,
+    `prefix.reverse()`, `front(prefix)`), as the lengths its type gives it (`spreadLength`) and its members, any of which
+    may land at a place it covers. */
 type Laid = { node: ts.Expression } | { spread: ts.Expression; lengths: Lengths }
 /** The lengths a spread, or a run of arguments, can have: each one in `some` (sorted, below `from`), and every length
     from `from` on (Infinity when no run is open), so a hole below an open run is kept. */
@@ -2113,33 +2135,92 @@ function layOut(args: readonly ts.Expression[]): Laid[] {
     const declaration = ts.isIdentifier(inner) ? CHECKER.getSymbolAtLocation(inner)?.valueDeclaration : undefined
     const constant = declaration && ts.isVariableDeclaration(declaration) && ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const ? declaration : undefined
     const held = constant?.initializer && unwrap(constant.initializer)
-    // The file's writes into it are `variableValues`' (an index, a push, `Object.assign` onto it); its reorders, `reordered`'s.
-    if (constant && held && ts.isArrayLiteralExpression(held) && variableValues(constant).length === 1 && !reordered(constant)) return layOut(held.elements)
+    // The file's writes into it are `variableValues`' (an index, a push, `Object.assign` onto it); its reorders and the
+    // uses that hand it on, `changedUnseen`'s.
+    if (constant && held && ts.isArrayLiteralExpression(held) && variableValues(constant).length === 1 && !changedUnseen(constant)) return layOut(held.elements)
     return [{ spread: inner, lengths: spreadLength(type) }]
   })
 }
 /** The methods that move or drop an array's members in place, for which `variableValues` records no value. */
 const REORDERS = new Set(['reverse', 'sort', 'copyWithin', 'shift', 'pop'])
-const REORDERED = new Map<ts.SourceFile, Set<ts.Symbol>>()
-/** Whether the file reorders a variable's array in place: calls a method that moves or drops its members on it
-    (`prefix.reverse()`, `prefix.shift()`), or deletes one (`delete prefix[0]`), the names indexed once per file. A
-    method called through a key or through `call` is read as a call the scan does not know. */
-function reordered(declaration: ts.VariableDeclaration): boolean {
+const CHANGED_UNSEEN = new Map<ts.SourceFile, Set<ts.Symbol>>()
+/** Whether the file may change a variable's array where `variableValues` records no value: a method that moves or drops
+    its members (`prefix.reverse()`, `prefix.shift()`), a `delete` of one, an increment or a decrement of a place in it
+    (`prefix.length--`), or a use that hands the array on whole, a write there going unseen (`handsOn`): to another
+    name, a function, a callback that may take it, a component's prop, Object.assign's target, a method called through a
+    key, as a tag or through `call`, or one the scan does not know, which may return the array (`const all = prefix`,
+    `front(prefix)`, `prefix['reverse']()`, `prefix.valueOf()`), or an export, to any file that imports it. The names are
+    indexed once per file. */
+function changedUnseen(declaration: ts.VariableDeclaration): boolean {
+  if (ts.getCombinedModifierFlags(declaration) & ts.ModifierFlags.Export) return true
   const sf = declaration.getSourceFile()
-  let names = REORDERED.get(sf)
+  let names = CHANGED_UNSEEN.get(sf)
   if (!names) {
     const found = new Set<ts.Symbol>()
+    const add = (symbol: ts.Symbol | undefined) => { if (symbol) found.add(symbol) }
     visit(sf, (n) => {
-      const target = ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && REORDERS.has(n.expression.name.text) ? n.expression.expression
-        : ts.isDeleteExpression(n) ? n.expression : undefined
+      const callee = ts.isCallExpression(n) ? unwrap(n.expression) : undefined
+      const bumps = (ts.isPrefixUnaryExpression(n) || ts.isPostfixUnaryExpression(n))
+        && (n.operator === ts.SyntaxKind.PlusPlusToken || n.operator === ts.SyntaxKind.MinusMinusToken)
+      const target = callee && ts.isPropertyAccessExpression(callee) && REORDERS.has(callee.name.text) ? callee.expression
+        : ts.isDeleteExpression(n) ? n.expression : bumps ? n.operand : undefined
       const place = target && placeOf(target)
-      const symbol = place && CHECKER.getSymbolAtLocation(place.root)
-      if (symbol) found.add(symbol)
+      if (place) add(CHECKER.getSymbolAtLocation(place.root))
+      if (ts.isShorthandPropertyAssignment(n)) add(CHECKER.getShorthandAssignmentValueSymbol(n))
+      else if (ts.isExportSpecifier(n)) add(CHECKER.getExportSpecifierLocalTargetSymbol(n))
+      else if (ts.isIdentifier(n) && handsOn(n)) add(CHECKER.getSymbolAtLocation(n))
     })
-    REORDERED.set(sf, (names = found))
+    CHANGED_UNSEEN.set(sf, (names = found))
   }
   const symbol = CHECKER.getSymbolAtLocation(declaration.name)
   return !!symbol && names.has(symbol)
+}
+/** The array methods a call reads without handing the array on: those the walks, `variableValues` and REORDERS read,
+    the HANDS_MEMBERS callbacks (`handsOn` reads the callback), and those that test, find, iterate or print. Any other,
+    `valueOf` among them, may return the array itself. */
+const READS_ARRAY = new Set([...KEEPS_MEMBERS, ...ONE_MEMBER, ...MAPS, ...FLATTENS, ...JOINS, ...PUTS_MEMBERS.keys(), ...REORDERS,
+  ...HANDS_MEMBERS.keys(), 'includes', 'indexOf', 'lastIndexOf', 'keys', 'values', 'entries', 'toString', 'toLocaleString'])
+/** Whether a use of a name may hand on what it holds whole, so a write into it there goes unseen (`changedUnseen`):
+    any use but a read that leaves it where it is. A spread copies its members, a destructuring and a for…of or for…in
+    read them (a destructuring assignment's own value is the array, read only where a statement drops it), a type
+    names it, and Object.assign reads it as a source. A member read or written leaves it to `variableValues` and
+    `changedUnseen`, and a call of a method READS_ARRAY names to the walks, `variableValues` and REORDERS, but for a
+    HANDS_MEMBERS callback that may take the array: one not written inline, or one that declares a parameter at the
+    array's place or a rest, or reads `arguments`. A declaration's own name hands nothing on. */
+function handsOn(id: ts.Identifier): boolean {
+  const wraps = (n: ts.Node) => ts.isParenthesizedExpression(n) || ts.isAsExpression(n) || ts.isSatisfiesExpression(n) || ts.isNonNullExpression(n)
+  let at: ts.Node = id
+  while (wraps(at.parent)) at = at.parent
+  const p = at.parent
+  if (ts.isSpreadElement(p) || ts.isQualifiedName(p) || ts.isTypeNode(p)) return false
+  if ((ts.isPropertyAccessExpression(p) || ts.isElementAccessExpression(p)) && p.expression === at) {
+    let callee: ts.Node = p
+    while (wraps(callee.parent)) callee = callee.parent
+    if (ts.isTaggedTemplateExpression(callee.parent) && callee.parent.tag === callee) return true
+    const call = ts.isCallExpression(callee.parent) && callee.parent.expression === callee ? callee.parent : undefined
+    if (!call) return false
+    if (ts.isElementAccessExpression(p) || !READS_ARRAY.has(p.name.text)) return true
+    const member = HANDS_MEMBERS.get(p.name.text)
+    const fn = member === undefined || !call.arguments[0] ? undefined : unwrap(call.arguments[0])
+    if (member === undefined || !fn) return false
+    if (!ts.isArrowFunction(fn) && !ts.isFunctionExpression(fn)) return true
+    return fn.parameters.length > member + 2 || fn.parameters.some((q) => !!q.dotDotDotToken) || (ts.isFunctionExpression(fn) && readsArguments(fn))
+  }
+  if ((ts.isForOfStatement(p) || ts.isForInStatement(p)) && p.expression === at) return false
+  if (ts.isVariableDeclaration(p)) return p.initializer === at && ts.isIdentifier(p.name)
+  if (ts.isBinaryExpression(p) && p.operatorToken.kind === ts.SyntaxKind.EqualsToken && p.right === at) {
+    let use: ts.Node = p
+    while (wraps(use.parent)) use = use.parent
+    return !(ts.isArrayLiteralExpression(p.left) || ts.isObjectLiteralExpression(p.left)) || !ts.isExpressionStatement(use.parent)
+  }
+  return !(ts.isCallExpression(p) && objectCall(p, 'assign') && p.arguments.indexOf(at as ts.Expression) > 0)
+}
+/** Whether a function reads `arguments`, which holds every argument it is handed, the array a callback is handed
+    included. */
+function readsArguments(fn: ts.FunctionExpression): boolean {
+  let found = false
+  visit(fn.body, (n) => { if (ts.isIdentifier(n) && n.text === 'arguments') found = true })
+  return found
 }
 /** A type's members: a union's, or the type itself. */
 const tupleMembers = (type: ts.Type): ts.Type[] => (type.isUnion() ? type.types : [type])

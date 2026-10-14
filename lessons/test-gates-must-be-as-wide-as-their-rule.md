@@ -210,12 +210,18 @@ written into before it is spread, so a spread's lengths keep their holes, its me
 each place it could cover, and every name, literal, field and same-file call on the way is read with
 the calls kept, a value met inside a helper's call carrying that call to its reader; and its review
 of `0e223cb` three more in the layout, so a const array is opened while the file never writes into it
-nor reorders it, whatever its type, the type no stand-in for what the file does to it. A gate widened
+nor reorders it, whatever its type, the type no stand-in for what the file does to it; and its review
+of `c5ec172` one more, a call that changes nothing read as a write, which the gate keeps as it fails
+closed, and taking it found that the opening rule asked only what the file does to the array under
+its own name, so an array handed on whole, to another name, a function, a callback that takes it or a
+call that returns it, is now one the file may change unseen. A gate widened
 finding by finding needs its look-alikes planted with each copy, or the next review names the false
 positive. A context a read carries holds only where every path to a value carries it: the readers kept
 the calls through a name and dropped them through a destructuring, a literal, a holder's field and a
 helper's returned holder, so the misreads came one path at a time until each value carried the calls
-it was met inside. Companion to
+it was met inside. A promise that the file never changes a value holds only over every name the value
+reaches: the opening rule read the array's own name, and the misses came through each name it was
+handed to. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.
 
