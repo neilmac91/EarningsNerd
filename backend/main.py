@@ -168,12 +168,12 @@ def _withhold(
     one of `kept`, the paths the protocol gives the item's kind (`_PROTOCOL_PATHS`; none by default): `path` is the keys
     above the node, a list's items sharing the list's, and None below a key that is not exactly text (a str subclass
     could pose as one), where no key stays.
-    Mappings and lists are walked; None and booleans stay as they are; any other value becomes its repr first,
-    scrubbed: the SDK would turn it into text after the hook (a log record's `extra` value, a log's body that is not
-    text), where nothing scrubs it. A text is scrubbed by str's own `replace`, which returns exactly text, and a number
-    comes back as int's or float's own value, exactly a number: the SDK keeps a subclass of either as it is up to the
-    hooks, the subclass's `replace` could keep the secret, and the log batcher makes text of a number through its own
-    `__str__` or `__repr__` after the hook (a log's body, a value in a mapping attribute)."""
+    Mappings and lists are walked; None and booleans stay as they are; a number comes back as int's or float's own
+    value, exactly a number, and a text is scrubbed by str's own `replace`, which returns exactly text: the SDK keeps a
+    subclass of either as it is up to the hooks, the log batcher makes text of a number through its own `__str__` or
+    `__repr__` after the hook (a log's body, a value in a mapping or mixed-list attribute), and a subclass's `replace`
+    could keep the secret. Any other value becomes its repr first, scrubbed: the SDK would turn it into text after the
+    hook (a log record's `extra` value, a log's body that is not text), where nothing scrubs it."""
     if node is None or type(node) is bool:
         return node
     if isinstance(node, int):
