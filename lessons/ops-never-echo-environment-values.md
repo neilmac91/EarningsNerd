@@ -351,19 +351,20 @@ each with its reason:
 (`fetch_earnings_calendar`); `backend/scripts/earnings_calendar_job.py` (`_configure_logging`);
 `backend/scripts/deploy_check.py`; `backend/scripts/smoke_resend.py`; `backend/scripts/validate_db_performance.py`;
 sentry-sdk 2.71.0: `client.py` (`_get_options`: `data_collection` drops `event_scrubber`, and `before_send_span`
-without span streaming warns; `_prepare_event`: the scrubber, then `serialize` with `max_value_length` (none by
-default), then `before_send` for every event but a transaction and `before_send_transaction` for a transaction, a
-hook that raises dropping the event as `callback_error`; `capture_event`: the trace header comes from the hooked
-event; `_capture_telemetry`: logs and metrics reach only `before_send_log` and `before_send_metric`, a raise
-dropping the item; the log batcher exists whatever `enable_logs` says), `logger.py` and `metrics.py` (the SDK's
-logger and metrics API, ungated by `enable_logs`; a log's body is its template as given), `_log_batcher.py`
-(`_to_transport_format`: the body's `str` and each attribute's `serialize_attribute`, after the hook),
-`integrations/logging.py` (`_extra_from_record`: a record's `extra` values as they are; `capture_sentry_logs`, a
-class attribute each constructor sets), `scope.py` (`apply_to_event`: breadcrumbs ride on errors only;
-`run_event_processors`: global processors run before the request's, and one that raises passes the event on),
-`consts.py` (`ClientConstructor`, `DEFAULT_MAX_VALUE_LENGTH = None`), `utils.py` (`serialize_frame`,
-`walk_exception_chain` honours `__suppress_context__`, `serialize_attribute` and `format_attribute` fall back to
-`safe_repr`), `data_collection.py` (`stack_frame_variables` follows
-`include_local_variables` only without `data_collection`), `integrations/httpx.py` (`parse_url(...,
-sanitize=False)`), `integrations/_wsgi_common.py` (`SENSITIVE_HEADERS`), `scrubber.py` (`DEFAULT_DENYLIST`, exact
-key matches); CODE RED records 22 (disclosure 4) and 23 (disclosure 3).
+without span streaming warns; `_prepare_event`: once a scope has dropped breadcrumbs past `max_breadcrumbs`, a
+`_meta` length note on the breadcrumbs of every event it captures (an empty list on a transaction or a check-in),
+then the scrubber, then `serialize` with `max_value_length` (none by default), then `before_send` for every event
+but a transaction and `before_send_transaction` for a transaction, a hook that raises dropping the event as
+`callback_error`; `capture_event`: the trace header comes from the hooked event; `_capture_telemetry`: logs and
+metrics reach only `before_send_log` and `before_send_metric`, a raise dropping the item; the log batcher exists
+whatever `enable_logs` says), `logger.py` and `metrics.py` (the SDK's logger and metrics API, ungated by
+`enable_logs`; a log's body is its template as given), `_log_batcher.py` (`_to_transport_format`: the body's `str`
+and each attribute's `serialize_attribute`, after the hook), `integrations/logging.py` (`_extra_from_record`: a
+record's `extra` values as they are; `capture_sentry_logs`, a class attribute each constructor sets), `scope.py`
+(`apply_to_event`: the scope's breadcrumbs ride on errors only; `run_event_processors`: global processors run
+before the request's, and one that raises passes the event on), `consts.py` (`ClientConstructor`,
+`DEFAULT_MAX_VALUE_LENGTH = None`), `utils.py` (`serialize_frame`, `walk_exception_chain` honours
+`__suppress_context__`, `serialize_attribute` and `format_attribute` fall back to `safe_repr`),
+`data_collection.py` (`stack_frame_variables` follows `include_local_variables` only without `data_collection`),
+`integrations/httpx.py` (`parse_url(..., sanitize=False)`), `integrations/_wsgi_common.py` (`SENSITIVE_HEADERS`),
+`scrubber.py` (`DEFAULT_DENYLIST`, exact key matches); CODE RED records 22 (disclosure 4) and 23 (disclosure 3).
