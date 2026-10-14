@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import TrialBanner from '@/features/subscriptions/components/TrialBanner'
@@ -17,11 +17,16 @@ vi.mock('next/link', () => ({
  * browser clock. An expired trial keeps status 'trialing' after the API resolves it to Free.
  *
  * trial_end is a Stripe instant, so the date is the day it falls on in the reader's zone. The fixtures sit
- * at midday UTC, one calendar day from UTC-12 to UTC+11, so they read alike in any runner's zone. One case
- * pins a US zone with vi.stubEnv: Node re-reads process.env.TZ when it is assigned (as the per-file pin in
- * filing-date-local-day.spec.tsx relies on), and the case's control proves the pin applied.
+ * at midday UTC, which is the same calendar day only from UTC-12 to UTC+11 (from UTC+12 it is the next day),
+ * so every case reads in UTC, pinned with vi.stubEnv, and one case pins a US zone over it: Node re-reads
+ * process.env.TZ when it is assigned (as the per-file pin in filing-date-local-day.spec.tsx relies on), and
+ * that case's control proves the pin applied.
  */
 describe('TrialBanner', () => {
+  beforeEach(() => {
+    vi.stubEnv('TZ', 'UTC')
+  })
+
   afterEach(() => {
     vi.unstubAllEnvs()
   })

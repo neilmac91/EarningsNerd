@@ -9,11 +9,22 @@ import { describe, expect, it } from 'vitest'
  * belongs in the description ("Checkout finished", then "Your plan updates in a moment."; D-033). Every
  * string literal, template piece and JSX text inside a `title` given to either component (under any import
  * alias) in app, components and features fails here when it holds a semicolon, both arms of a conditional
- * included. A title passed in as a variable is not read.
+ * included. A title passed in as a variable is not read. JSX decodes HTML entities in its text and attribute
+ * strings, so `&apos;` reads as an apostrophe, not as a semicolon, and `&#59;` reads as one.
  */
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const ROOTS = ['app', 'components', 'features']
 const COMPONENTS = new Set(['Notice', 'GuidanceCard'])
+
+/** A JSX text or attribute string as it renders: numeric entities decoded, the common named ones decoded and
+ *  any other named one dropped (none renders a semicolon). A JS string inside braces is not decoded by JSX. */
+const NAMED_ENTITIES: Record<string, string> = { amp: '&', apos: "'", quot: '"', lt: '<', gt: '>', nbsp: ' ' }
+const decodeJsxEntities = (text: string): string =>
+  text.replace(/&(#\d+|#x[\da-f]+|\w+);/gi, (_entity, body: string) =>
+    body[0] !== '#'
+      ? NAMED_ENTITIES[body] ?? ''
+      : String.fromCodePoint(/^#x/i.test(body) ? Number.parseInt(body.slice(2), 16) : Number(body.slice(1))),
+  )
 
 /** Every text piece of every Notice or GuidanceCard title in a source, as `file:line text`. */
 function titleTexts(file: string, text: string): string[] {
@@ -35,7 +46,8 @@ function titleTexts(file: string, text: string): string[] {
       ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateHead(node)
       || ts.isTemplateMiddle(node) || ts.isTemplateTail(node) || ts.isJsxText(node)
     ) {
-      const words = node.text.replace(/\s+/g, ' ').trim()
+      const jsx = ts.isJsxText(node) || (ts.isStringLiteral(node) && ts.isJsxAttribute(node.parent))
+      const words = (jsx ? decodeJsxEntities(node.text) : node.text).replace(/\s+/g, ' ').trim()
       if (words) found.push(`${file}:${source.getLineAndCharacterOfPosition(node.getStart()).line + 1} ${words}`)
     }
     ts.forEachChild(node, pieces)
@@ -72,6 +84,8 @@ describe('A Notice or GuidanceCard title is one phrase', () => {
       'const e = <Notice title="Pro is active" description="Your plan updates; reload" />',
       'const f = <Badge title="a; b" />',
       'const g = <Notice title={message} />',
+      'const h = <Notice title="You&apos;re on Pro" /> // an entity is one character, not a semicolon',
+      'const i = <Notice title={<>Tom &amp; Jerry; a pair &#59; two</>} />',
     ].join('\n')
     expect(titleTexts('fixture.tsx', fixture)).toEqual([
       'fixture.tsx:2 Checkout finished; your plan updates in a moment',
@@ -80,7 +94,11 @@ describe('A Notice or GuidanceCard title is one phrase', () => {
       'fixture.tsx:4 filings; more soon',
       'fixture.tsx:5 Two; clauses',
       'fixture.tsx:6 Pro is active',
+      "fixture.tsx:9 You're on Pro",
+      'fixture.tsx:10 Tom & Jerry; a pair ; two',
     ])
+    // The rule's own test on the decoded text: the entity passes, the real semicolon fails.
+    expect(titleTexts('fixture.tsx', fixture).slice(-2).map((title) => title.includes(';'))).toEqual([false, true])
   })
 
   it('no title in the app joins two clauses with a semicolon', () => {

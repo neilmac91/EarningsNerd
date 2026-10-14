@@ -17,7 +17,8 @@ import DashboardPage from '@/app/dashboard/page'
  *   still says Free. The flag is then dropped from the address, so a second visit to the same page says nothing.
  * - The trial banner keys on the resolved plan (`subscription.is_pro`), never the /me `is_pro` mirror,
  *   which stays true on an expired trial remnant (lessons/frontend-trial-labels-use-entitlements.md). Its
- *   fixtures sit at midday UTC, so the date reads alike in any runner's zone (TrialBanner.spec pins the zone).
+ *   fixtures sit at midday UTC, the same calendar day only from UTC-12 to UTC+11, so every case reads in UTC
+ *   (pinned in beforeEach; TrialBanner.spec covers a US zone).
  */
 
 const api = vi.hoisted(() => ({
@@ -87,10 +88,12 @@ async function renderDashboard(subscription: SubscriptionStatus, me: CurrentUser
 }
 
 beforeEach(() => {
+  vi.stubEnv('TZ', 'UTC')
   api.routerReplace.mockImplementation((href: string) => window.history.replaceState(null, '', href))
 })
 
 afterEach(() => {
+  vi.unstubAllEnvs()
   cleanup()
   Object.values(api).forEach((mock) => mock.mockReset())
   window.history.replaceState(null, '', '/')

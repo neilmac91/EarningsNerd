@@ -49,7 +49,8 @@ describe('Analysis route gating (NEXT_PUBLIC_ENABLE_ANALYSIS)', () => {
  * returns nothing while NEXT_PUBLIC_ENABLE_ANALYSIS is off (the route 404s then). The upgrade dialog's
  * list is the shared sentence proIncludes(); the /pricing Pro card and the landing's two plan cards spread
  * analysisLine() into theirs. The scan below fails on a string or JSX text naming the feature anywhere
- * else in the source, so a second hand-typed list cannot keep advertising it with the flag off.
+ * else in the source, so a second hand-typed list cannot keep advertising it with the flag off. At an
+ * allowed site it reads only the part of the text that names the feature (ALLOWED says why).
  */
 const NAMES_FEATURE = /multi-period analysis/i
 
@@ -62,7 +63,11 @@ const OWNERS = [/^lib\/planLimits\.ts$/, /^app\/analysis\//, /^features\/analysi
  * when exactly one of its parts (between commas, semicolons and full stops) names the feature and that part
  * IS the entry's phrase, and each entry is taken by one site, so every allowed file's count of sites is
  * pinned with equality. A new line naming the feature in an allowed file, a claim built around an allowed
- * phrase ("unlimited Multi-Period Analysis") and an entry no site takes any more all fail.
+ * phrase in the part that names it ("unlimited Multi-Period Analysis") and an entry no site takes any more
+ * all fail. A claim in another part of the same site ("Multi-Period Analysis, unlimited with Pro") is not
+ * read: an entry pins the naming part, not the site's whole text, because #1311 makes the /pricing JSON-LD
+ * description a template whose flag-conditional piece is "multi-period analysis, ", which a whole-text pin
+ * would refuse. Review reads the other parts of an allowed site.
  */
 const ALLOWED: Array<{ file: string; phrase: string; why: string }> = [
   {
@@ -168,6 +173,8 @@ describe('The plan lists name Multi-Period Analysis only while NEXT_PUBLIC_ENABL
     expect(takes('Unlimited Multi-Period Analysis', 'Multi-Period Analysis')).toBe(false)
     expect(takes('Multi-Period Analysis as a workbook, with XBRL-backed metrics.', 'Multi-Period Analysis')).toBe(false)
     expect(takes('Multi-Period Analysis, then Multi-Period Analysis again', 'Multi-Period Analysis')).toBe(false)
+    // Not read, as the ALLOWED comment says: a claim in another part of an allowed site.
+    expect(takes('Multi-Period Analysis, unlimited with Pro', 'Multi-Period Analysis')).toBe(true)
   })
 
   it('no other source file types a line that names Multi-Period Analysis', () => {

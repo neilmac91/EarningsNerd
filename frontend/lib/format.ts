@@ -251,7 +251,8 @@ export const formatInstant = (
   fallback = '',
 ): string => {
   if (!value) return fallback
-  // Bound first, as the lint rule on format(parseISO(x)) asks of a genuine timestamp.
+  // Bound first: format(parseISO(x)) is the shape the date lint flags, and this helper is the path
+  // that lint's message gives a genuine timestamp.
   const instant = parseISO(value)
   return Number.isNaN(instant.getTime()) ? fallback : format(instant, pattern)
 }

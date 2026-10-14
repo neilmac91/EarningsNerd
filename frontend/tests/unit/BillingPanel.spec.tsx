@@ -55,6 +55,9 @@ const baseUsage: Usage = { summaries_used: 0, summaries_limit: null, is_pro: tru
 
 describe('BillingPanel', () => {
   beforeEach(() => {
+    // The midday-UTC fixtures name the same day only from UTC-12 to UTC+11, so the cases read in UTC unless
+    // one pins a zone of its own.
+    vi.stubEnv('TZ', 'UTC')
     mockGetCurrentUserSafe.mockReset()
     mockGetCurrentUserSafe.mockResolvedValue({ id: 1 })
     mockGetSubscriptionStatus.mockReset()
