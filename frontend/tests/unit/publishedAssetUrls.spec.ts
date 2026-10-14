@@ -107,11 +107,15 @@ function nextRoutes(vercel: VercelJson): NextRoutes {
  * Vercel applies them. A legacy route's regex may be spelled `src` or `source`; it is kept as `src`, the
  * spelling reaches() reads as a regex. A legacy route that does nothing but set response headers on the
  * way, as Vercel's cache-control example does (`"headers": { … }, "continue": true`), serves the same file
- * at the same path and passes: its keys are among those in INERT_ROUTE_KEYS, and none of its headers is a
- * Location. Any other key counts, whatever it does: `dest` or `destination`, `status` or `statusCode`,
- * `mitigate`, `locale`, `transforms`, `middlewarePath`, and any key Vercel adds. The bulk redirects
- * vercel.json can import from a file (`bulkRedirectsPath`) are not read here, so the register refuses them
- * until it reads them.
+ * at the same path and passes: its keys are among those in INERT_ROUTE_KEYS, none of its headers is a
+ * Location, and it sets `continue: true`. One without it stops Vercel's matching at itself, skipping the
+ * routes after it in its phase, and whether the file is then served depends on those routes, so the
+ * register refuses it rather than model them: a refusal on the safe side. It reads `routes` as one list,
+ * not by Vercel's phases, so a route after `{ "handle": "filesystem" }`, which a served file never reaches,
+ * is read as one before it, on the same side. Any other key counts, whatever it does: `dest` or
+ * `destination`, `status` or `statusCode`, `mitigate`, `locale`, `transforms`, `middlewarePath`, and any key
+ * Vercel adds. The bulk redirects vercel.json can import from a file (`bulkRedirectsPath`) are not read
+ * here, so the register refuses them until it reads them.
  */
 const INERT_ROUTE_KEYS = new Set(['src', 'source', 'headers', 'continue', 'has', 'missing', 'methods', 'caseSensitive'])
 function routing(): { basePath: string; bulkRedirectsPath?: string; rules: [string, Route][] } {
@@ -121,7 +125,9 @@ function routing(): { basePath: string; bulkRedirectsPath?: string; rules: [stri
     ? next.rewrites
     : [...(next.rewrites.beforeFiles ?? []), ...(next.rewrites.afterFiles ?? []), ...(next.rewrites.fallback ?? [])]
   const moves = (r: LegacyRoute) =>
-    Object.keys(r).some((k) => !INERT_ROUTE_KEYS.has(k)) || Object.keys(r.headers ?? {}).some((h) => h.toLowerCase() === 'location')
+    r.continue !== true
+    || Object.keys(r).some((k) => !INERT_ROUTE_KEYS.has(k))
+    || Object.keys(r.headers ?? {}).some((h) => h.toLowerCase() === 'location')
   const legacy = (vercel.routes ?? []).filter(moves).map(({ src, source, has }): Route => ({ src: src ?? source, has }))
   const named = (where: string, list: Route[] | undefined) => (list ?? []).map((r): [string, Route] => [where, r])
   return {
@@ -196,7 +202,7 @@ describe('published asset URLs', () => {
         `${url} ${KEPT}: vercel.json imports bulk redirects, which this register does not read; teach it to read them first`,
       ).toBeUndefined()
       const hits = rules.filter(([, rule]) => reaches(rule, url)).map(([where, rule]) => `${where} ${rule.source ?? rule.src}`)
-      expect(hits, `${url} ${KEPT}: never redirect or rewrite it`).toEqual([])
+      expect(hits, `${url} ${KEPT}: never redirect or rewrite it (a vercel.json route that only sets headers on it sets "continue": true)`).toEqual([])
     })
   }
 })
