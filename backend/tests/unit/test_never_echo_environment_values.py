@@ -2119,11 +2119,12 @@ def test_nothing_written_before_the_hooks_carries_a_secret_past_them(monkeypatch
     # The hooks keep only the protocol's own keys at its paths for each item's kind and an item's own `type`
     # (main._PROTOCOL_PATHS, main._ITEM_TYPES), never a field whole, and drop a hint's attachments, whose bytes pass no
     # hook, so nothing that runs before them can carry a secret past them, but as the protocol's own key at its own path
-    # in its own kind of item: a trace context set by hand; an attachment on the scope; a hand-built event with the
-    # secret as its own key, its `type` and an attachment; or an event processor, registered under any name (an
-    # assignment alias: Codex's case on #1297), writing it as an event's key, a trace context's key and the `type`, and
-    # attaching it (the high-tier review of 2cc3780). A `type` that is not text (hand-built) is walked like any value,
-    # and the event is sent.
+    # in its own kind of item (or, through a `type` that is a text subclass, at another kind's: main._value_scrubber's
+    # docstring, the round-20 check's R20D-2): a trace context set by hand; an attachment on the scope; a hand-built
+    # event with the secret as its own key, its `type` and an attachment; or an event processor, registered under any
+    # name (an assignment alias: Codex's case on #1297), writing it as an event's key, a trace context's key and the
+    # `type`, and attaching it (the high-tier review of 2cc3780). A `type` that is not text (hand-built) is walked like
+    # any value, and the event is sent.
     import sentry_sdk
     from sentry_sdk.attachments import Attachment
 
