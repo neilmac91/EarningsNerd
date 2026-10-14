@@ -135,15 +135,17 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   said to cite; no citation or source promised for them ("Sources for every answer", "Answers with
   citations", "No answer without a citation"); no "each" or "every" before "exact", no "never guessed", no
   "verifiable in one click"; another word for the same promise ("Every answer comes with receipts"), a
-  claim past the patterns' 40-character reach and one split across literals stay review-checked, and its
-  self-check pins them passing), `copilotClaim.spec.tsx` (the rail, the callout and the coachmark
-  render the one sentence, and no other literal types it), `planLimitsLockstep.spec.ts` (no
-  "unlimited" in the Copilot's directory and, anywhere under app, components, features, hooks and lib,
-  none in one literal before a question, answer, Ask this Filing, Copilot or Q&A noun through up to three
-  modifiers, hyphens and commas included, or up to 30 characters after one, a wrapped line included; a
-  list that names the noun further from the word, as the pricing metadata's "unlimited 10-K and 10-Q
-  analysis, exports, and filing Q&A" does, is review-checked), `dataXsAllowlist.spec.ts` (data-xs sites listed with counts, their totals an equality cap
-  lowered in the same commit as each shrink; the marker and the source-check labels are 12px) and
+  claim past a pattern's reach (40 characters, 20 between an answer and the citation it comes "with") and
+  one split across literals stay review-checked, its self-check pinning them passing, and a negated
+  quantifier ("Not every answer is cited.") fails closed), `copilotClaim.spec.tsx` (the rail, the callout
+  and the coachmark render the one sentence, and no other literal types it), `planLimitsLockstep.spec.ts`
+  (no "unlimited" in the Copilot's directory and, anywhere under app, components, features, hooks and
+  lib, none in one literal before a question, answer, Ask this Filing, Copilot or Q&A noun through up to
+  three modifiers, hyphens and commas included, or up to 30 characters after one, a wrapped line
+  included; a list that names the noun further from the word, as the pricing metadata's "unlimited 10-K
+  and 10-Q analysis, exports, and filing Q&A" does, is review-checked), `dataXsAllowlist.spec.ts` (data-xs
+  sites listed with counts, their totals an equality cap lowered in the same commit as each shrink; the
+  marker and the source-check labels are 12px) and
   `CopilotMessage.spec.tsx` (the plan card is quiet, a real failure keeps the tint).
 
 ## 4. The mark's files and the icons
