@@ -8,8 +8,9 @@ import re
 import threading
 from functools import lru_cache
 from typing import Any, Callable
-from urllib.parse import unquote
+from urllib.parse import unquote, unquote_plus
 from dotenv import load_dotenv
+from sqlalchemy.engine import make_url
 
 # Load environment variables early (Settings reads .env itself; the pre-Settings bootstrap
 # constants in database.py / redis_service.py / edgar/config.py read os.environ directly).
@@ -30,14 +31,26 @@ _MIN_SECRET_LENGTH = 8
 
 
 def _url_passwords(url: str) -> set[str]:
-    """A connection URL's password, as written and percent-decoded: what follows the user name's `:` up to the last
-    `@` of the URL's authority (its text before the first `/`, `?` or `#`) or, in a URL missing its `@host`, up to the
-    authority's end, where a parser reads the port and a driver's error quotes it as one. A bracketed (IPv6) host
-    without an `@` holds no password."""
+    """A connection URL's password wherever a driver reads one, as written and percent-decoded: what follows the user
+    name's `:` up to the last `@` of the URL's authority (its text before the first `/`, `?` or `#`) or, in a URL
+    missing its `@host`, up to the authority's end, where a parser reads the port and a driver's error quotes it as
+    one; each `password` query parameter, which SQLAlchemy passes to the driver (and renders whole, hide_password or
+    not) and redis-py reads; and the password SQLAlchemy parses, which may hold a raw `/`, `?` or `#` that ends the
+    authority. A bracketed (IPv6) host without an `@` holds no password."""
     authority = re.split("[/?#]", url.partition("://")[2], maxsplit=1)[0]
     userinfo, at, host = authority.rpartition("@")
     password = (userinfo if at else "" if host.startswith("[") else host).partition(":")[2]
-    return {password, unquote(password)}
+    passwords = {password, unquote(password)}
+    for pair in url.partition("?")[2].partition("#")[0].split("&"):
+        key, _, value = pair.partition("=")
+        if unquote_plus(key) == "password":
+            passwords |= {value, unquote(value), unquote_plus(value)}
+    try:
+        parsed = make_url(url)
+    except Exception:  # a URL SQLAlchemy cannot parse reaches no engine; the rules above still apply
+        return passwords
+    query = parsed.query.get("password", ())
+    return passwords | {parsed.password or ""} | set((query,) if isinstance(query, str) else query)
 
 
 def _secret_values() -> tuple[str, ...]:

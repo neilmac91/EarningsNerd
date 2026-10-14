@@ -1289,6 +1289,62 @@ def test_sentry_withholds_a_password_read_as_the_port(monkeypatch, request):
     assert not leaked, f"{leaked} eight-character fragments of the fabricated password reached Sentry"
 
 
+
+@pytest.mark.parametrize("form", ["query", "raw-slash"])
+def test_sentry_withholds_a_password_wherever_a_driver_reads_one(monkeypatch, request, form):
+    # Codex's case on #1297 (49716c9): SQLAlchemy passes a `password` query parameter to the driver and renders it
+    # whole even with hide_password (re-sorting the query, so the rendering differs from the setting), and redis-py
+    # reads one, but the scrubber took a password from the authority only; and SQLAlchemy reads an authority password
+    # holding a raw "/" to the last "@", past where the authority ends. Each password, as written and as the driver
+    # reads it, and an engine's rendering of its URL arrive "[Filtered]".
+    import sentry_sdk
+    from redis.connection import parse_url
+    from sqlalchemy import create_engine
+    from sqlalchemy.engine import make_url
+
+    database = _fabricated(f"DATABASE_URL {form} password", string.ascii_uppercase)
+    redis = _fabricated(f"REDIS_URL {form} password", string.ascii_uppercase)
+    if form == "query":
+        written = f"{database[:20]}%2B{database[20:]}"  # an encoded "+", read as one
+        urls = {
+            "DATABASE_URL": f"postgresql://app@db.invalid/app?sslmode=require&password={written}",
+            "REDIS_URL": f"redis://cache.invalid:6379/0?password={redis}",
+        }
+        read = make_url(urls["DATABASE_URL"]).query["password"]
+        assert read == f"{database[:20]}+{database[20:]}" and parse_url(urls["REDIS_URL"])["password"] == redis
+        rendered = repr(create_engine(urls["DATABASE_URL"]))
+        assert written in rendered and urls["DATABASE_URL"] not in rendered  # only the password can withhold it there
+        quoted = [written, read, redis, rendered]
+    else:
+        written = read = f"{database[:20]}/{database[20:]}"
+        urls = {"DATABASE_URL": f"postgresql://app:{written}@db.invalid/app"}
+        assert make_url(urls["DATABASE_URL"]).password == read  # SQLAlchemy's rendering hides this one as ***
+        quoted = [written]
+    envelopes = _scrubbing_envelopes(request, monkeypatch, **urls)
+    sentry_sdk.capture_message(" | ".join(quoted))
+    sentry_sdk.flush()
+    (event,) = _of(envelopes, "event")
+    assert all(part.count("[Filtered]") for part in event["message"].split(" | "))
+    leaked = sum(_fragments(value, json.dumps(envelopes), width=8) for value in (database, redis))
+    assert not leaked, f"{leaked} eight-character fragments of a fabricated password reached Sentry ({form})"
+
+
+def test_a_url_sqlalchemy_cannot_parse_still_gives_its_password():
+    # The password SQLAlchemy parses joins the authority's, never replaces it: a URL SQLAlchemy refuses (a port that is
+    # no number) still gives the authority's password, as written and percent-decoded, and building the values does
+    # not fail, which would turn Sentry off.
+    from sqlalchemy.engine import make_url
+
+    import main
+
+    password = _fabricated("DATABASE_URL unparsed password", string.ascii_uppercase)
+    written = f"{password[:20]}%40{password[20:]}"
+    url = f"postgresql://app:{written}@db.invalid:notaport/app"
+    with pytest.raises(ValueError):
+        make_url(url)
+    assert {written, f"{password[:20]}@{password[20:]}"} <= main._url_passwords(url)
+
+
 def test_sentry_withholds_a_secret_stored_with_a_newline(monkeypatch, request):
     # A secret created with `echo` keeps its newline in the environment, and an error can quote it escaped (a header
     # value's repr, `b'Bearer ...\n'`), where the value as held never appears: the value is withheld stripped.
