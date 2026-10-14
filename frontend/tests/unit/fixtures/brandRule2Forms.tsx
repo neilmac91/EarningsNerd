@@ -1053,8 +1053,12 @@ export function P587({ n }: { n: number }) { return <a href="/x"><Dark587>See al
 // (P591); the props kept whole and destructured later (P594), through a variable holding them (P595), a rest of them (P596)
 // or an object spreading them (P597); the name filled by an assignment, destructured (P598) or not (P599), through an
 // array (P604), nested (P605) or with the props themselves taken through one (P606); and a same-file helper returning
-// it, called in the className (P601) or held first (P602). A destructuring of something other than the props, declared
-// (P592) or assigned (P600), a variable holding another string (P593) and a helper returning one (P603) forward nothing.
+// it, called in the className (P601) or held first (P602); the key read by a string (P607), a computed key (P608) or a
+// same-file constant (P609); the props returned by a same-file function (P610); a helper that destructures the argument
+// the file's calls hand it (P612); and the name filled through a rest target, an array's (P613) or an object's (P614). A
+// destructuring of something other than the props, declared (P592) or assigned (P600), a variable holding another string
+// (P593), a helper returning one (P603), another key of the props (P611) and a helper handed another object (P615)
+// forward nothing.
 function Tally588({ n, className: cls }: { n: number; className?: string }) { return <span className={cls}>See all {n}</span> }
 export function P588({ n }: { n: number }) { return <a href="/x"><Tally588 n={n} className="hover:text-brand-strong" /></a> } // flag
 function Tally589({ n, className }: { n: number; className?: string }) { const cls = className; return <span className={cx(cls, 'font-medium')}>See all {n}</span> }
@@ -1096,3 +1100,23 @@ function Tally605(props: { n: number; className?: string }) { let cls: string | 
 export function P605({ n }: { n: number }) { return <a href="/x"><Tally605 n={n} className="hover:text-brand-strong" /></a> } // flag
 function Tally606(props: { n: number; className?: string }) { let p: { className?: string }; [p] = [props]; const { className: cls } = p; return <span className={cls}>See all {props.n}</span> }
 export function P606({ n }: { n: number }) { return <a href="/x"><Tally606 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally607(props: { n: number; className?: string }) { return <span className={props['className']}>See all {props.n}</span> }
+export function P607({ n }: { n: number }) { return <a href="/x"><Tally607 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally608(props: { n: number; className?: string }) { const { ['className']: cls } = props; return <span className={cls}>See all {props.n}</span> }
+export function P608({ n }: { n: number }) { return <a href="/x"><Tally608 n={n} className="hover:text-brand-strong" /></a> } // flag
+const KEY609 = 'className' as const
+function Tally609(props: { n: number; className?: string }) { const cls = props[KEY609]; return <span className={cls}>See all {props.n}</span> }
+export function P609({ n }: { n: number }) { return <a href="/x"><Tally609 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally610(props: { n: number; className?: string }) { const get = () => props; const { className: cls } = get(); return <span className={cls}>See all {props.n}</span> }
+export function P610({ n }: { n: number }) { return <a href="/x"><Tally610 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally611(props: { n: number; className?: string; tone?: string }) { const cls = props['tone']; return <span className={cls}>See all {props.n}</span> }
+export function P611({ n }: { n: number }) { return <a href="/x"><Tally611 n={n} className="hover:text-brand-strong" /></a> } // clean
+function pick612(p: { className?: string }) { const { className: cls } = p; return cls }
+function Tally612(props: { n: number; className?: string }) { return <span className={pick612(props)}>See all {props.n}</span> }
+export function P612({ n }: { n: number }) { return <a href="/x"><Tally612 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally613(props: { n: number; className?: string }) { let rest: (string | undefined)[]; [...rest] = [props.className]; const cls = rest[0]; return <span className={cls}>See all {props.n}</span> }
+export function P613({ n }: { n: number }) { return <a href="/x"><Tally613 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally614(props: { n: number; className?: string }) { let rest: { className?: string }; ({ ...rest } = props); const { className: cls } = rest; return <span className={cls}>See all {props.n}</span> }
+export function P614({ n }: { n: number }) { return <a href="/x"><Tally614 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally615({ n }: { n: number; className?: string }) { return <span className={pick612(THEME592)}>See all {n}</span> }
+export function P615({ n }: { n: number }) { return <a href="/x"><Tally615 n={n} className="hover:text-brand-strong" /></a> } // clean

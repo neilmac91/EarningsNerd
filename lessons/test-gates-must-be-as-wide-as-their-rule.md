@@ -178,6 +178,9 @@ filled by an assignment (`let cls; ({ className: cls } = props)`), so the name i
 value the file gives it, as the ink check reads a variable, and a same-file helper returning it was
 planted next, ahead of a review; its review of `2a5ec9c` the name filled through an array
 (`[cls] = [props.className]`), so the steps an assignment leaves are walked into the value by the
-ink check's own walk, whatever the path. Companion to
+ink check's own walk, whatever the path; and its review of `3a15929` a helper that destructures the
+argument it is handed and a rest target in an assignment, so a helper's parameter holds what the file's
+calls hand it and a rest target holds the whole, as the walk already read a declaration's; the key
+read by a string or a constant was planted beside them. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.
