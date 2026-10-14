@@ -27,9 +27,10 @@ import CopilotCoachmark from '@/features/filings/components/copilot/CopilotCoach
  * One claim about answers (D-034; docs/brand/08-applications.md §3): the rail's empty state, the
  * end-of-summary callout and the coachmark say the same scoped sentence, COPILOT_CLAIM, and say it by
  * importing it. Each surface is rendered and must show the sentence, so a surface that types a sentence
- * of its own fails here; and no source literal outside copilotClaim.ts spells the sentence, so a surface
- * that types a copy of it fails too (the copy would drift alone). What the sentence may say is
- * brandCopyRules.spec.ts rule 1's job, which scans copilotClaim.ts like any other source.
+ * of its own fails here; and no source literal outside copilotClaim.ts spells the sentence, in any case
+ * (the render checks match it in any case too), so a surface that types a copy of it fails too (the copy
+ * would drift alone). What the sentence may say is brandCopyRules.spec.ts rule 1's job, which scans
+ * copilotClaim.ts like any other source.
  */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
@@ -54,12 +55,18 @@ const visit = (node: ts.Node, fn: (n: ts.Node) => void) => {
   ts.forEachChild(node, (child) => visit(child, fn))
 }
 
-/** The text of a string literal, a template part or JSX text, whitespace collapsed as the page renders it. */
+/** The text of a string literal, a template part or JSX text, whitespace collapsed as the page renders it, lower-cased. */
 function literalText(node: ts.Node): string | null {
-  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isJsxText(node)) return node.text.replace(/\s+/g, ' ')
-  if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) return node.text.replace(/\s+/g, ' ')
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isJsxText(node)) return node.text.replace(/\s+/g, ' ').toLowerCase()
+  if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) return node.text.replace(/\s+/g, ' ').toLowerCase()
   return null
 }
+
+/** Every source file, parsed once at import (about 700 of them), outside any one test's timeout. */
+const SOURCES = SCAN_DIRS.flatMap((dir) => walk(path.join(ROOT, dir))).map((file) => ({
+  rel: path.relative(ROOT, file).split(path.sep).join('/'),
+  sf: ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS),
+}))
 
 describe('one scoped claim about answers (COPILOT_CLAIM)', () => {
   it('is the sentence the answer card can keep', () => {
@@ -90,18 +97,16 @@ describe('one scoped claim about answers (COPILOT_CLAIM)', () => {
     expect(screen.getByText(COPILOT_CLAIM, { exact: false })).toBeInTheDocument()
   })
 
-  it('no source literal outside copilotClaim.ts spells the sentence: each surface imports it', () => {
-    const files = SCAN_DIRS.flatMap((dir) => walk(path.join(ROOT, dir)))
-    const rels = new Set(files.map((file) => path.relative(ROOT, file).split(path.sep).join('/')))
+  it('no source literal outside copilotClaim.ts spells the sentence, in any case: each surface imports it', () => {
+    const rels = new Set(SOURCES.map(({ rel }) => rel))
     expect(rels.size, 'the scan reads the app').toBeGreaterThan(100)
     for (const rel of [HOME, ...SURFACES]) expect(rels.has(rel), rel).toBe(true)
+    const claim = COPILOT_CLAIM.toLowerCase()
     const copies: string[] = []
-    for (const file of files) {
-      const rel = path.relative(ROOT, file).split(path.sep).join('/')
+    for (const { rel, sf } of SOURCES) {
       if (rel === HOME) continue
-      const sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
       visit(sf, (n) => {
-        if (literalText(n)?.includes(COPILOT_CLAIM)) copies.push(`${rel}:${sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1}`)
+        if (literalText(n)?.includes(claim)) copies.push(`${rel}:${sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1}`)
       })
     }
     expect(copies, 'render {COPILOT_CLAIM} from ./copilotClaim instead of typing the sentence').toEqual([])

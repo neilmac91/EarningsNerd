@@ -177,11 +177,12 @@ describe('AskCopilotRail', () => {
     expect(screen.queryByText(/this filing’s/i)).not.toBeInTheDocument()
   })
 
-  it('scopes the empty state to cited passages: not every answer carries a citation', () => {
+  it('drops the old claim from the empty state: not every answer carries a citation', () => {
     renderRail({ open: true })
     // An answer can ship an uncited figure or a not-disclosed verdict with no citation
-    // (copilot_service.py), so the rail never says every answer cites its excerpts (D-034).
-    expect(screen.getByText(/answers come from this filing, with cited passages you can check\./i)).toBeInTheDocument()
+    // (copilot_service.py), so the rail never says every answer cites its excerpts (D-034). The
+    // sentence it says instead is copilotClaim.spec.tsx's case; this one holds the old one out.
+    expect(screen.getByRole('button', { name: /what are the top risks/i })).toBeInTheDocument()
     expect(screen.queryByText(/cite the excerpts they came from|grounded in the filing/i)).not.toBeInTheDocument()
   })
 
