@@ -18,7 +18,7 @@ import type {
 } from '@/features/summaries/api/summaries-api'
 
 /**
- * The Item 1A wording block of the change report (E17, PR B): the filing's own risk-factor text
+ * The Item 1A wording block of the change report (E27, PR B): the filing's own risk-factor text
  * against the prior same-form original, as the backend's paragraph-paired diff serves it. Pins the
  * two forms a viewer can be served (every change for Pro; the counts, the first items and the Pro
  * prompt for everyone else), the redline convention (inserted words in <ins>, removed words in

@@ -1,4 +1,4 @@
--- Per-filing section text (Item 1A) for the "what changed" wording diff (tasks/todo.md E17).
+-- Per-filing section text (Item 1A) for the "what changed" wording diff (tasks/todo.md E27).
 -- Fresh databases receive the same schema through the FilingSectionText model/create_all; this
 -- file brings existing databases level. Idempotent: CREATE TABLE IF NOT EXISTS and catalog-guarded
 -- indexes, so a ledger reset or CI's third pass re-runs it without taking a lock on a live table.

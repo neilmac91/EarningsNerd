@@ -1,7 +1,7 @@
 import type { SectionChanges, SectionChangesOk } from '@/features/summaries/api/summaries-api'
 
 /**
- * Pure readings of the change report's Item 1A wording block (E17), shared by the server-rendered
+ * Pure readings of the change report's Item 1A wording block (E27), shared by the server-rendered
  * report (WhatChanged, the landing page's sample included) and the client components that show and
  * count it. Kept out of WordingChanges.tsx, a client module, so a server render can call them.
  */

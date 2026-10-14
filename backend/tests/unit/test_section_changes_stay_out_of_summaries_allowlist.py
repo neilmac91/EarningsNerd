@@ -1,6 +1,6 @@
 """Structural gate for CLAUDE.md rule 2 (filing-only summaries) over the section-text modules.
 
-The "what changed in the next filing" workflow (tasks/todo.md E17) stores a filing's Item 1A text
+The "what changed in the next filing" workflow (tasks/todo.md E27) stores a filing's Item 1A text
 (``filing_section_text``), diffs it against the PRIOR filing's (``section_diff``) and serves the
 result on the labelled cross-filing surface, the Change Report, with a reader's review of it
 (``section_review_service``). Rule 2 says that content never reaches a summary: user-visible

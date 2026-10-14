@@ -1,4 +1,4 @@
-"""Structural gates for the two rules the Item 1A wording counts carry (tasks/todo.md E17, PR B).
+"""Structural gates for the two rules the Item 1A wording counts carry (tasks/todo.md E27, PR B).
 
 1. **The counts are read behind an access check.** ``filing_section_service`` owns the cached
    comparison (``FilingSectionText.diff_summary``) and the three functions that hand it out with no

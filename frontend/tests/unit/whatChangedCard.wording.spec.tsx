@@ -4,7 +4,7 @@ import WhatChangedCard, { wordingLine } from '@/features/dashboard/components/Wh
 import type { FeedItem } from '@/features/dashboard/api/dashboard-api'
 
 /**
- * The dashboard feed card's one line on the risk factors' wording (E17, PR B): the Compare periods
+ * The dashboard feed card's one line on the risk factors' wording (E27, PR B): the Compare periods
  * card's words for the counts, then the Pro reader's own progress through the change queue. Nothing
  * when the filing has no comparison yet, or its own section only refers back to the annual report.
  */

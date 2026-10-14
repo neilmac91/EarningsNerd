@@ -602,7 +602,7 @@ export const getWhatChanged = async (filingId: number): Promise<ChangeReport> =>
   return response.data
 }
 
-// --- The Pro review of the wording changes (E17, PR B) -----------------------------------------
+// --- The Pro review of the wording changes (E27, PR B) -----------------------------------------
 // A reader labels each change of the section_changes list `reviewed` or `follow_up`; the review is
 // complete when every change carries a label, and the server then freezes a receipt naming the
 // two texts compared. Both endpoints are Pro-only (403 otherwise); labels hang on the changes'

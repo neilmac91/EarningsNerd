@@ -1,5 +1,5 @@
 -- A reader's review of a filing section's wording changes: labels per change, completion and the
--- frozen receipt (tasks/todo.md E17, PR B). Fresh databases receive the same schema through the
+-- frozen receipt (tasks/todo.md E27, PR B). Fresh databases receive the same schema through the
 -- SectionReview model/create_all; this file brings existing databases level. Idempotent: CREATE
 -- TABLE IF NOT EXISTS and catalog-guarded indexes, so a ledger reset or CI's third pass re-runs it
 -- without taking a lock on a live table.

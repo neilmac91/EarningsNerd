@@ -1,4 +1,4 @@
-"""The Pro review of a filing's Item 1A wording changes (E17, PR B): labels and the receipt.
+"""The Pro review of a filing's Item 1A wording changes (E27, PR B): labels and the receipt.
 
 Mounted under ``/api/summaries`` beside the change report that lists the changes. HTTP only: the
 entitlement gate is ``require_entitlement("section_changes")`` (the same flag that serves the full

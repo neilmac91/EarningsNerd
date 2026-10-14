@@ -14,6 +14,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## Operations & workflow (every task)
 
+- ops-a-bare-proceed-continues-the-last-instruction.md — Read a bare "proceed" as the founder's last instruction on the decision; only without one does it accept your recommendation
 - ops-a-flag-several-processes-read-is-set-in-every-env-map.md — List every process that reads a flag and flip it in every deploy map it is configured from, with its job cadence, in one change (partly gated by `backend/tests/unit/test_section_changes_flag_placement.py` for `ENABLE_SECTION_CHANGES`; the next multi-process flag's gate is review-checked)
 - ops-a-piped-gate-does-not-gate.md — Run every verification step of a committing chain unpiped with its exit status checked explicitly; the records-gate wrapper carries the rule
 - ops-auth-lookups-must-let-request-cleanup-progress.md — Keep authentication pool waits off the event loop while preserving request-owned sessions
@@ -32,7 +33,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-job-success-needs-outcome-evidence.md — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 - ops-keep-moving-under-standing-authorization.md — Keep moving under a standing founder authorization; stop only at the boundaries still held
 - ops-mutate-only-committed-state.md — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit
-- ops-never-echo-environment-values.md — Never let a settings error, a settings object or a config check print a secret; a caught error's errors()/json() pass include_input=False, and agent probes run under env -i in an export with no .env at any level
+- ops-never-echo-environment-values.md — Never let a settings error, an output or Sentry carry a secret; a caught error's errors()/json() pass include_input=False, outputs give a secret's presence and length only, Sentry sends no frame locals and withholds each secret setting's whole value on every channel that carries text, and agent probes run under env -i in an export with no .env at any level
 - ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
 - ops-one-test-process-per-worktree.md — give each test process its own database, and never let a test depend on another test's order or leftovers
 - ops-release-cached-filing-reads-before-yield.md — Close completed filing reads before async dependency cleanup can be blocked by a competing checkout
@@ -118,7 +119,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - test-eval-iteration-ergonomics.md — Exploit prompt-cache and pinned-accession ergonomics when iterating on evals
 - test-fixture-months-are-never-the-wall-clock-month.md — Seed fixture months that can never be the wall-clock month; pin the clock where cases depend on it
 - test-fresh-bytecode-prefix-before-trusting-local-timing.md — Give every local Python run on this Mac a fresh bytecode-cache prefix before trusting its timing
-- test-gates-must-be-as-wide-as-their-rule.md — A gate narrower than its rule is worse than no gate; evaluate the source, don't text-match it
+- test-gates-must-be-as-wide-as-their-rule.md — A gate narrower than its rule is worse than no gate; evaluate the source, don't text-match it, and score it on planted forms of the rule before a record says what it holds, kept as its fixture when the gate reads code; when a review finds one form of a claim it misses, probe the claim's whole family, taken from the language's and the framework's binding forms rather than the forms reviews have named, and give a gate's checks one walk
 - test-isolate-process-wide-contextvars.md — Isolate process-wide ContextVars per test; CI's file order can hide a leak
 - test-judge-context-parity.md — Give an LLM judge the same (or a superset of the) grounding the generator used
 - test-layout-numbers-are-one-environments-run.md — Accept a layout measurement on its invariants, never on equal pixels; one pinned browser still measures differently on another machine
@@ -141,6 +142,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## Frontend & design system
 
+- brand-a-colour-rule-recolours-a-value-and-never-deletes-it.md — When a colour, type or device rule forbids a value's styling, restyle and keep the value: a control that carries a count rests in the secondary ink as one text run and turns sage only under the pointer, composing `countControlClass` when it does (the count control, frontend/DESIGN_SYSTEM.md); remove a value only as a named copy decision, never to turn a gate green (partly gated: frontend/tests/unit/filingFeedOverflowCount.spec.tsx and narrative-pane.spec.tsx keep the two counts the founder sent back, brandCopyRules.spec.ts rule 2 keeps a count out of sage, out of a span of its own ink inside a sage control and out of a copy of the recipe written in its file; the general rule is review-checked)
 - brand-a-promise-names-what-the-code-enforces.md — Before a public sentence promises a behaviour, trace each surface it covers to the code that enforces it, flag defaults included, and scope the sentence to those (partly gated by `frontend/tests/unit/brandCopyRules.spec.ts`, rules 1, 1b and 1c; a new kind of promise is review-checked)
 - brand-the-mark-is-protected.md — Never change the EN monogram or the wordmark; brand work composes around them (arrangements, clear space and minimum sizes only) (partly gated by `frontend/tests/unit/markSingleSource.spec.ts`, which holds the outlines and their placement, and `wordmarkSingleSource.spec.ts`; the colours, the wordmark's composition and the small-size rule are review-checked)
 - frontend-check-brand-layouts-at-200-percent-text.md — Check a brand layout at 390px under a 200% root font: a figure pair wraps on its own content width, and a positioned twin centres on its anchor's measured midpoint

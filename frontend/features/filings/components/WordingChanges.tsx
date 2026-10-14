@@ -19,7 +19,7 @@ import { analytics } from '@/lib/analytics'
 import { formatLocalDate } from '@/lib/format'
 
 /**
- * The Item 1A wording block of the change report (E17, PR B): the risk factors' text of this filing
+ * The Item 1A wording block of the change report (E27, PR B): the risk factors' text of this filing
  * against the prior same-form original, as the backend's paragraph-paired diff serves it. Inside the
  * "What changed" section, under its own subheading: a sentence of counts in the data face, then the
  * changes as one hairline list in reading order, each row a label word (Modified, Added, Removed,

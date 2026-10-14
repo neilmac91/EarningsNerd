@@ -326,7 +326,7 @@ def _filing_url(filing_id: int | None, filing_url: str | None) -> str:
 
 
 def wording_changes_line(wording_changes: dict | None, filing_type: str) -> str | None:
-    """The "wording changes in Item 1A" field of a filing alert (tasks/todo.md E17, PR B), from the
+    """The "wording changes in Item 1A" field of a filing alert (tasks/todo.md E27, PR B), from the
     filing's cached comparison summary (``filing_section_service.wording_change_summaries``), or
     None when there is no comparison to report (nothing is written rather than a zero) or the
     filing's own section only points at the annual report. Pro recipients only: the caller
