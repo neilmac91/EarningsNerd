@@ -36,10 +36,7 @@ export default function ContactPage() {
               <span className="font-medium">Response time:</span> typically within 1–2 business days
             </div>
             <div>
-              <span className="font-medium">Support hours:</span> Monday–Friday, 9:00 AM–5:00 PM EST
-            </div>
-            <div>
-              <span className="font-medium">Confirmation:</span> an automated confirmation email as soon as you send
+              <span className="font-medium">Support hours:</span> Monday–Friday, 9:00 AM–5:00 PM ET
             </div>
           </div>
         </div>

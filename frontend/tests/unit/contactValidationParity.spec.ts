@@ -23,6 +23,12 @@ import { CONTACT_LIMITS, isPlausibleEmail } from '@/features/contact/lib/limits'
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const schema = readFileSync(path.resolve(frontendDir, '../backend/app/schemas/contact.py'), 'utf8')
 const createModel = schema.match(/class ContactSubmissionCreate\(BaseModel\):([\s\S]*?)\nclass /)?.[1] ?? ''
+const requirements = readFileSync(path.resolve(frontendDir, '../backend/requirements.txt'), 'utf8')
+
+/** The `package==version` pin of one package in a pip-compiled requirements text, or undefined. */
+function pinOf(text: string, pkg: string): string | undefined {
+  return text.match(new RegExp(`^${pkg}==([^\\s;#\\\\]+)`, 'm'))?.[1]
+}
 
 /** `min_length` or `max_length` of one field's `Field(...)` declaration. */
 function fieldBound(field: string, bound: 'min_length' | 'max_length'): number {
@@ -44,9 +50,10 @@ function validatorFloor(field: string): number {
 
 /**
  * Addresses and the verdict the backend's `EmailStr` gives each (true = accepted). The verdicts come
- * from email-validator 2.3.0 under pydantic 2.13.5, the pins in backend/requirements.txt, produced in
- * the backend's venv as pydantic runs it: `validate_email(address, check_deliverability=False)`, each
- * address checked with `EmailNotValidError` caught as the refusal. The table samples the typo shapes;
+ * from email-validator 2.3.0 under pydantic 2.14.0, the pins in backend/requirements.txt (VERDICT_PINS,
+ * asserted below, so a bump of either re-derives the table in the same PR), produced in the backend's
+ * venv as pydantic runs it: `TypeAdapter(EmailStr).validate_python(address)`, which calls
+ * `validate_email(address, check_deliverability=False)`, each address checked with the refusal caught. The table samples the typo shapes;
  * `EmailStr` also refuses rarer forms the client rule does not check (a reserved domain such as
  * `.test`, a period just before the @-sign, a label opening with a hyphen), and such an address comes
  * back as a 422 that asks the reader to check the fields. The client may be stricter than `EmailStr`
@@ -71,6 +78,8 @@ const EMAIL_SAMPLES: ReadonlyArray<readonly [string, boolean]> = [
   ['ada@example.com.', false],
   ['ada@example.', false],
 ]
+
+const VERDICT_PINS = { 'email-validator': '2.3.0', pydantic: '2.14.0' } as const
 
 const api = vi.hoisted(() => ({ submitContactForm: vi.fn() }))
 vi.mock('@/features/contact/api/contact-api', () => ({ submitContactForm: api.submitContactForm }))
@@ -107,6 +116,20 @@ describe('contact form limits equal the backend schema', () => {
     expect(createModel).toMatch(/^\s+email: EmailStr = Field\(/m)
   })
 
+  it('the email table was derived under the email-validator and pydantic that backend/requirements.txt pins', () => {
+    expect({
+      'email-validator': pinOf(requirements, 'email-validator'),
+      pydantic: pinOf(requirements, 'pydantic'),
+    }).toEqual(VERDICT_PINS)
+  })
+
+  it('self-check: the pin reader takes the package line, never a neighbour that shares its prefix', () => {
+    const sample = 'pydantic-core==2.50.0\n    # via\n    #   email-validator\npydantic==2.14.0\npydantic-settings==2.15.0\n'
+    expect(pinOf(sample, 'pydantic')).toBe('2.14.0')
+    expect(pinOf('pydantic-core==2.50.0\npydantic-settings==2.15.0\n', 'pydantic')).toBeUndefined()
+    expect(pinOf('    # via email-validator\nemail-validator==2.3.0 \\\n', 'email-validator')).toBe('2.3.0')
+  })
+
   it('the client email rule refuses every address EmailStr refuses in the table, and takes the plain ones', () => {
     const verdicts = Object.fromEntries(EMAIL_SAMPLES.map(([address]) => [address, isPlausibleEmail(address)]))
     expect(verdicts).toEqual(Object.fromEntries(EMAIL_SAMPLES))
@@ -128,21 +151,21 @@ describe('contact form limits equal the backend schema', () => {
     fireEvent.change(message, { target: { value: 'A message long enough.' } })
     fireEvent.click(send)
     expect(screen.getByRole('alert')).toHaveTextContent(
-      `Please enter at least ${CONTACT_LIMITS.nameMin} characters for your name.`,
+      `Your name needs at least ${CONTACT_LIMITS.nameMin} characters.`,
     )
 
     fireEvent.change(name, { target: { value: 'A'.repeat(CONTACT_LIMITS.nameMin) } })
     fireEvent.change(message, { target: { value: ` ${'m'.repeat(CONTACT_LIMITS.messageMin - 1)} ` } })
     fireEvent.click(send)
     expect(screen.getByRole('alert')).toHaveTextContent(
-      `Message must be at least ${CONTACT_LIMITS.messageMin} characters long.`,
+      `Your message needs at least ${CONTACT_LIMITS.messageMin} characters.`,
     )
 
     // Five emoji are ten UTF-16 units but five code points, and the server's len() counts five.
     fireEvent.change(message, { target: { value: '\u{1F600}'.repeat(Math.ceil(CONTACT_LIMITS.messageMin / 2)) } })
     fireEvent.click(send)
     expect(screen.getByRole('alert')).toHaveTextContent(
-      `Message must be at least ${CONTACT_LIMITS.messageMin} characters long.`,
+      `Your message needs at least ${CONTACT_LIMITS.messageMin} characters.`,
     )
 
     fireEvent.change(message, { target: { value: 'A message long enough.' } })

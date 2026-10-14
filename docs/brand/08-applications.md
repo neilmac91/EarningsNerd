@@ -57,13 +57,16 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   privacy link are unchanged.
 - **Contact** (`frontend/app/contact/page.tsx`, `frontend/features/contact/components/ContactForm.tsx`):
   "Contact us", then one line on what to write about. "What to expect" keeps the response time
-  (typically within 1–2 business days), the support hours (Monday–Friday, 9:00 AM–5:00 PM EST) and the
-  automated confirmation email; the hours, their time zone and the confirmation claim wait on the
-  founder (F37), because `backend/app/routers/contact.py` logs a failed confirmation send and still
-  answers success. The form's limits are the server's (`tests/unit/contactValidationParity.spec.ts`
+  (typically within 1–2 business days) and the support hours (Monday–Friday, 9:00 AM–5:00 PM ET); the
+  hours wait on the founder (F37). The "automated confirmation email" line is gone: the receipt
+  `backend/app/routers/contact.py` sends carries no copy of the message, and the route answers success
+  when that send fails. The form's limits are the server's (`tests/unit/contactValidationParity.spec.ts`
   reads `backend/app/schemas/contact.py`), so a one-letter name is refused before sending, counted
   in code points as the server counts, and an email whose shape the server's `EmailStr` refuses
   (`ada@gmail`, with no dot in the domain) is refused with "Please enter a valid email address."
+  A name or message under the floor says "Your name needs at least 2 characters." or "Your message
+  needs at least 10 characters.", the numbers read from the limits; the message placeholder is "What
+  happened, or what you'd like to know".
   Every failure shows in an error Notice titled "Message not sent". A rate limit is read from the
   status and says "Too many messages from this connection. Try again in an hour."; a 422 the form
   could not foresee says "Check the fields and send again."; any other failure shows the backend's

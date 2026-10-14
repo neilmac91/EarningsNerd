@@ -66,7 +66,7 @@ export default function ContactForm() {
       return
     }
     if (trimmedLength(name) < CONTACT_LIMITS.nameMin) {
-      setError(`Please enter at least ${CONTACT_LIMITS.nameMin} characters for your name.`)
+      setError(`Your name needs at least ${CONTACT_LIMITS.nameMin} characters.`)
       return
     }
     if (!email.trim()) {
@@ -82,7 +82,7 @@ export default function ContactForm() {
       return
     }
     if (trimmedLength(message) < CONTACT_LIMITS.messageMin) {
-      setError(`Message must be at least ${CONTACT_LIMITS.messageMin} characters long.`)
+      setError(`Your message needs at least ${CONTACT_LIMITS.messageMin} characters.`)
       return
     }
 
@@ -245,7 +245,7 @@ export default function ContactForm() {
             readOnly={isSubmitting}
             rows={6}
             className={clsx(inputClasses(), 'mt-2')}
-            placeholder="Tell us more about your inquiry..."
+            placeholder="What happened, or what you'd like to know"
           />
           <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
             Minimum {CONTACT_LIMITS.messageMin} characters
