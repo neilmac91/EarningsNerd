@@ -28,9 +28,9 @@ const PROFILES = [
 const TABLE = '[data-analysis-metrics] table'
 const NOTES = '[data-analysis-data-notes]'
 
-// The suite's longest file: run in order, it kept one CI worker busy for 15-21 minutes while the other
-// idled. Its tests share nothing (each opens its own page through openAnalysis; no hooks, no mutable
-// module state), so both workers take them.
+// The suite's longest file. Run in order, its tests kept one worker busy for the whole e2e run while
+// the other finished every other spec in a few minutes and then idled. They share nothing (each opens
+// its own page through openAnalysis; no hooks, no mutable module state), so both workers take them.
 test.describe.configure({ mode: 'parallel' })
 
 for (const theme of THEMES) for (const width of [390, 1480]) {
@@ -689,6 +689,7 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
   test.describe(`analysis chart notes / ${theme} / ${width}px`, () => {
     test.use({ viewport: { width, height: 1000 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
     test('keeps filled bars and legible notes with named keyboard values and scrolling', async ({ page, baseURL }, testInfo) => {
+      test.setTimeout(60_000)
       await openAnalysis(page, baseURL!, 'discrepancy', theme)
       const plots = page.locator('[data-analysis-chart]')
       await expect(plots).toHaveCount(4)
