@@ -136,7 +136,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
               type="button"
               onClick={() => setConfirmOpen(true)}
               aria-label={revokeLabel}
-              className="focus-visible:outline-none focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-1.5 text-xs font-medium text-error-light transition-colors hover:bg-error-light/10 dark:text-error-dark dark:hover:bg-error-dark/15"
+              className="focus-visible:outline-none focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-1.5 text-xs font-medium text-error-light transition-colors hover:bg-error-light/10 dark:text-error-dark dark:hover:border-error-dark/40 dark:hover:bg-transparent"
             >
               <ProhibitIcon className="h-3.5 w-3.5" />
               Revoke

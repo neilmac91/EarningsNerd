@@ -1,5 +1,5 @@
 import React from 'react'
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -21,6 +21,7 @@ vi.mock('@/features/admin/api/admin-api', () => ({
   createInvite: vi.fn(),
   resendInvite: vi.fn(),
   revokeInvite: vi.fn(),
+  listFeedback: vi.fn(),
   updateFeedbackStatus: vi.fn(),
 }))
 vi.mock('@/features/auth/api/auth-api', () => ({
@@ -34,12 +35,14 @@ vi.mock('@/components/Header', () => ({ default: () => null }))
 vi.mock('@/components/Footer', () => ({ default: () => null }))
 
 import AdminInvitesPage from '@/app/admin/invites/page'
+import AdminFeedbackPage from '@/app/admin/feedback/page'
 import CheckEmailPage from '@/app/check-email/page'
 import FeedbackRow from '@/features/admin/components/FeedbackRow'
 import VerificationBanner from '@/features/auth/components/VerificationBanner'
 import EmailVerificationModal from '@/features/auth/components/EmailVerificationModal'
 import {
   createInvite,
+  listFeedback,
   listInvites,
   updateFeedbackStatus,
   type FeedbackRecord,
@@ -199,6 +202,80 @@ describe('Admin invites: Send invites stays focusable', () => {
     expect(toast.success).not.toHaveBeenCalled()
     expect(toast.error).not.toHaveBeenCalled()
     expect(listInvites).toHaveBeenCalledTimes(1)
+  })
+})
+
+// A list that failed to load is a Notice with a Retry (ADM-11, ADM-12). The failure is retained
+// (useRetainedFailure), so the Notice and its focused Retry stay up, busy, through the refetch the Retry
+// starts; when data replaces them, the Retry unmounts and hands focus to the list heading.
+describe('Admin list Retry: the Notice holds through the refetch, then focus goes to the list heading', () => {
+  const invite: InviteRecord = {
+    id: 1,
+    email: 'alice@example.com',
+    status: 'pending',
+    cohort: 'beta',
+    expires_at: '2026-07-01T00:00:00Z',
+    used_at: null,
+    user_id: null,
+    created_at: '2026-06-20T00:00:00Z',
+  }
+  const bugReport: FeedbackRecord = {
+    id: 1,
+    user_id: 42,
+    user_email: 'alice@example.com',
+    type: 'bug',
+    message: 'The summary export button does nothing on Safari.',
+    page_url: '/filing/123',
+    status: 'new',
+    created_at: '2026-06-20T00:00:00Z',
+  }
+  const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+
+  async function pressRetryAndHold(list: { mock: { calls: unknown[] } }, failedTitle: string) {
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(failedTitle)
+    const retry = within(alert).getByRole('button', { name: 'Retry' })
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => expect(list.mock.calls).toHaveLength(2))
+    await settle()
+    // Still the Notice, not the skeleton: Retry is busy, focused, and a second press refetches nothing.
+    expect(alert.isConnected).toBe(true)
+    expect(alert).toHaveTextContent(failedTitle)
+    expectBusyAndFocused(retry)
+    fireEvent.click(retry)
+    await settle()
+    expect(list.mock.calls).toHaveLength(2)
+    return retry
+  }
+
+  beforeEach(() => {
+    vi.mocked(listInvites).mockReset()
+    vi.mocked(listFeedback).mockReset()
+  })
+
+  it('invites: keeps the Notice and its focused Retry busy, then hands focus to the Invites heading', async () => {
+    const refetched = deferred<InviteRecord[]>()
+    vi.mocked(listInvites).mockRejectedValueOnce(new Error('network')).mockReturnValueOnce(refetched.promise)
+    withQueryClient(<AdminInvitesPage />)
+    const retry = await pressRetryAndHold(vi.mocked(listInvites), 'Could not load the invites.')
+
+    await act(async () => refetched.resolve([invite]))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    expect(screen.getByText('alice@example.com')).toBeInTheDocument()
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Invites', level: 2 })))
+  })
+
+  it('feedback: keeps the Notice and its focused Retry busy, then hands focus to the Feedback heading', async () => {
+    const refetched = deferred<FeedbackRecord[]>()
+    vi.mocked(listFeedback).mockRejectedValueOnce(new Error('network')).mockReturnValueOnce(refetched.promise)
+    withQueryClient(<AdminFeedbackPage />)
+    const retry = await pressRetryAndHold(vi.mocked(listFeedback), 'Could not load the feedback.')
+
+    await act(async () => refetched.resolve([bugReport]))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    expect(screen.getByText(bugReport.message)).toBeInTheDocument()
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Feedback', level: 2 })))
   })
 })
 

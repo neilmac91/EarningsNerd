@@ -41,6 +41,16 @@ const featureRequest: FeedbackRecord = {
   created_at: '2026-06-21T00:00:00Z',
 }
 
+/** The page's heading outline: SecondaryHeader's h1 first, then the sections, never skipping a level. */
+function expectOutline(h1: string) {
+  const headings = screen.getAllByRole('heading')
+  expect(headings[0]).toHaveTextContent(h1)
+  const levels = headings.map((h) => Number(h.tagName.slice(1)))
+  expect(levels[0]).toBe(1)
+  expect(levels.filter((level) => level === 1)).toHaveLength(1)
+  levels.slice(1).forEach((level, i) => expect(level).toBeLessThanOrEqual(levels[i] + 1))
+}
+
 function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -61,6 +71,7 @@ describe('AdminFeedbackPage', () => {
     renderPage()
 
     expect(screen.getByRole('heading', { name: 'Feedback', level: 2 })).toBeInTheDocument()
+    expectOutline('Feedback')
 
     // Both rows populate once the query resolves.
     expect(await screen.findByText(bugReport.message)).toBeInTheDocument()
