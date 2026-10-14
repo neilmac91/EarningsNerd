@@ -171,12 +171,16 @@ function chipLayers(source: string, file: string, chips: string[], failures: str
   return layers
 }
 
-/** A class list's bg- colours by variant ('', 'hover', 'dark', 'dark:hover'); one it cannot read, or a variant outside `modelled`, fails. */
+/**
+ * A class list's bg- colours by variant ('', 'hover', 'dark', 'dark:hover'), an important one (`!bg-`) keyed
+ * under its variant with a leading `!`; one it cannot read, or a variant outside `modelled`, fails.
+ */
 function backgrounds(className: string, where: string, modelled: string[], failures: string[]): Map<string, Rgba> {
   const found = new Map<string, Rgba>()
   for (const cls of className.split(/\s+/).filter(Boolean)) {
     const parts = classParts(cls)
-    const m = parts.pop()!.match(/^bg-(.+)$/)
+    const utility = parts.pop()!
+    const m = utility.match(/^!?bg-(.+)$/)
     if (!m) continue
     const value = colour(m[1])
     if (!value) {
@@ -184,10 +188,16 @@ function backgrounds(className: string, where: string, modelled: string[], failu
       continue
     }
     const variant = parts.sort().join(':')
-    if (modelled.includes(variant)) found.set(variant, value)
+    if (modelled.includes(variant)) found.set(`${utility.startsWith('!') ? '!' : ''}${variant}`, value)
     else failures.push(`${where}: ${cls} is a ground under a variant this spec does not model`)
   }
   return found
+}
+
+/** The ground that wins among the variants in `order`, highest first: an important one ahead of every plain one, as the cascade ranks them. */
+function winner(found: Map<string, Rgba>, order: string[]): Rgba | undefined {
+  const key = [...order.map((variant) => `!${variant}`), ...order].find((k) => found.has(k))
+  return key === undefined ? undefined : found.get(key)
 }
 
 /** One table's grounds: its tbody's own, under its row's tint at rest and hovered, in each theme. */
@@ -197,10 +207,11 @@ function tableGrounds(table: string, row: string, body: string, where: { row: st
   const grounds: Grounds = { light: [], dark: [] }
   for (const theme of THEMES) {
     // A dark: ground left unset falls back to the light one, as the cascade does. In dark, a row's dark:bg-
-    // also outranks its hover:bg-: Tailwind emits the dark variant later, at the same specificity.
-    const ground = theme === 'dark' ? under.get('dark') ?? under.get('') : under.get('')
-    const rest = theme === 'dark' ? tint.get('dark') ?? tint.get('') : tint.get('')
-    const hover = theme === 'dark' ? tint.get('dark:hover') ?? tint.get('dark') ?? tint.get('hover') ?? tint.get('') : tint.get('hover') ?? tint.get('')
+    // also outranks its hover:bg-: Tailwind emits the dark variant later, at the same specificity. An
+    // important ground (`!bg-`) outranks every plain one that applies, whatever its variant.
+    const ground = winner(under, theme === 'dark' ? ['dark', ''] : [''])
+    const rest = winner(tint, theme === 'dark' ? ['dark', ''] : [''])
+    const hover = winner(tint, theme === 'dark' ? ['dark:hover', 'dark', 'hover', ''] : ['hover', ''])
     if (!ground) {
       failures.push(`${where.body} (${theme}): no bg- ground this spec can resolve`)
       continue
@@ -363,6 +374,12 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
     // With no dark tint of its own, a hovered dark row shows the light hover tint; a row's dark:bg- outranks it.
     expect(tableGrounds('probe', 'hover:bg-background-light', 'bg-panel-light dark:bg-panel-dark', PROBE, []).dark[1][1]).toEqual(colour('background-light'))
     expect(tableGrounds('probe', 'hover:bg-background-light dark:bg-white/5', 'dark:bg-panel-dark', PROBE, []).dark[1][1]).toEqual(over(colour('white/5')!, colour('panel-dark')!))
+    // An important tint is read as that fill, and outranks every plain one: dark:!bg-white/10 holds on a hovered
+    // row over the plain dark:hover:bg-white/5, as the cascade paints it.
+    const important: string[] = []
+    const marked = tableGrounds('probe', 'hover:bg-background-light dark:hover:bg-white/5 dark:!bg-white/10', 'bg-panel-light dark:bg-panel-dark', PROBE, important)
+    measure('status chip info', recipe('info'), marked, important)
+    expect(important).toEqual(['status chip info (dark, probe row): 4.23:1', 'status chip info (dark, probe hovered row): 4.23:1'])
     const lost: string[] = []
     oneClassName('<tbody className={cx("bg-panel-light")} />', 'probe.tsx', 'tbody', lost)
     oneClassName('<tr><td /></tr>', 'probe.tsx', 'tr', lost)
