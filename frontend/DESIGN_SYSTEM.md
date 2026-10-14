@@ -427,8 +427,9 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  #1289's Badge status variants land, the recipe moves onto them.
                  Gate: tests/unit/statusChipContrast.spec.ts (each tone on both tables' rows, at rest and
                  hovered, both themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the
-                 pages' <tbody>; both badges held to the recipe; the type chip measured as it renders on
-                 FeedbackRow's grounds).
+                 pages' <tbody>; every layer between a chip and its <tr> read too, and a cell or wrapper
+                 there that sets a background fails; both badges held to the recipe; the type chip
+                 measured as it renders on FeedbackRow's grounds).
 
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a

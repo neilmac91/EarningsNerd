@@ -18,9 +18,14 @@ import { STATUS_CHIP, STATUS_CHIP_INK, type StatusChipTone } from '@/features/ad
  * CLAUDE.md rule 11). What is behind them is read from the code, never written here: each table's
  * <tbody> ground (app/admin/invites/page.tsx, app/admin/feedback/page.tsx) and its row's own tint
  * (InviteRow's and FeedbackRow's <tr>), from their className strings in the TypeScript AST, at rest and
- * hovered. A <tr> or <tbody> it cannot find, a className that is not a plain string, a tbody with no
- * ground it can resolve or a translucent one, and a ground under a variant it does not model all fail;
- * nothing falls back to a literal. The status chip recipe has one home, features/admin/lib/statusChip.ts:
+ * hovered, and every layer between a chip and that <tr> (its cell, and any wrapper inside it), walked up
+ * from each chip's element in the row's source. Those layers must paint nothing: a bg- utility on one,
+ * under any variant, fails, because a fill there is a design change that comes with a change to this
+ * spec. A <tr> or <tbody> it cannot find, a chip it cannot find or one with no <tr> above it, a component
+ * between a chip and its row, a className that is not a plain string (a layer may carry none) or a layer
+ * with props spread into it, a tbody with no ground it can resolve or a translucent one, and a ground
+ * under a variant it does not model all fail; nothing falls back to a literal, and an inline style or a
+ * stylesheet rule is out of reach. The status chip recipe has one home, features/admin/lib/statusChip.ts:
  * each tone is measured there once per theme on every one of those grounds, from its classes resolved
  * through tailwind.config.js, so a token, recipe or row change is read as it ships: the label ink over
  * the chip's ground, composited over the row. Both status badges are then held to that recipe, status by
@@ -87,17 +92,22 @@ const looksLikeColour = (value: string) => value.startsWith('[') && !/^\[(length
 /** A class's variants and its utility last, split on the colons outside an arbitrary value (`bg-[color:var(--x)]` stays whole). */
 const classParts = (cls: string) => cls.split(/:(?![^[]*\])/)
 
+/** A JSX element's className: its text when it is a plain string (or a string in braces), undefined when it has none, null otherwise. */
+function classNameOf(element: ts.JsxOpeningLikeElement, sf: ts.SourceFile): string | null | undefined {
+  const attr = element.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText(sf) === 'className')
+  if (!attr) return undefined
+  const value = attr.initializer && ts.isJsxExpression(attr.initializer) ? attr.initializer.expression : attr.initializer
+  return value && (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) ? value.text : null
+}
+
 /** The className of the one <tag> in a .tsx source, or null with a failure that names the file. */
 function oneClassName(source: string, file: string, tag: string, failures: string[]): string | null {
   const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-  // Each <tag>'s className: its text when it is a plain string (or a string in braces), null otherwise.
+  // Each <tag>'s className, null when it has none this spec can read.
   const found: Array<string | null> = []
   const visit = (node: ts.Node): void => {
     if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(sf) === tag) {
-      const attr = node.attributes.properties.find((p) => ts.isJsxAttribute(p) && p.name.getText(sf) === 'className')
-      const init = attr && ts.isJsxAttribute(attr) ? attr.initializer : undefined
-      const value = init && ts.isJsxExpression(init) ? init.expression : init
-      found.push(value && (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) ? value.text : null)
+      found.push(classNameOf(node, sf) ?? null)
     }
     ts.forEachChild(node, visit)
   }
@@ -109,6 +119,56 @@ function oneClassName(source: string, file: string, tag: string, failures: strin
       : `${file}: ${found.length} <${tag}> elements, where this spec reads exactly one`,
   )
   return null
+}
+
+/**
+ * The layers between each <chip> in a row's source and the row's <tr>: every element the walk up from the
+ * chip meets, which must be an HTML element with no props spread into it, whose className is a plain
+ * string or absent and sets no bg- utility under any variant, so that the grounds measured here are what
+ * the chip sits on. Returns the layers it read; a chip it cannot find, a walk that meets a component or no
+ * <tr>, a layer it cannot read and a background on one each fail, naming the file and line.
+ */
+function chipLayers(source: string, file: string, chips: string[], failures: string[]): string[] {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const at = (node: ts.Node) => `${file}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`
+  const isRow = (node: ts.Node) => ts.isJsxElement(node) && node.openingElement.tagName.getText(sf) === 'tr'
+  const layers: string[] = []
+  for (const chip of chips) {
+    // Each <chip>: the self-closing element, or the element an opening tag starts.
+    const found: ts.Node[] = []
+    const visit = (node: ts.Node): void => {
+      if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(sf) === chip) {
+        found.push(ts.isJsxOpeningElement(node) ? node.parent : node)
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(sf)
+    if (found.length === 0) failures.push(`${file}: no <${chip}>, so this spec cannot read what is behind it`)
+    for (const element of found) {
+      // Braces, conditionals and fragments render no box of their own; every element up to the <tr> is a layer.
+      let up: ts.Node | undefined = element.parent
+      for (; up && !isRow(up); up = up.parent) {
+        if (!ts.isJsxElement(up)) continue
+        const opening = up.openingElement
+        const where = `${at(up)} <${opening.tagName.getText(sf)}>, between <${chip}> and its <tr>`
+        if (!ts.isIdentifier(opening.tagName) || !/^[a-z]/.test(opening.tagName.text)) {
+          failures.push(`${where}: a component, and this spec does not read what it renders`)
+          continue
+        }
+        const className = classNameOf(opening, sf)
+        if (className === null || opening.attributes.properties.some(ts.isJsxSpreadAttribute)) {
+          failures.push(`${where}: no className string this spec can read`)
+          continue
+        }
+        layers.push(`${at(up)} <${opening.tagName.text}>`)
+        for (const cls of (className ?? '').split(/\s+/).filter(Boolean)) {
+          if (/^!?bg-/.test(classParts(cls).pop()!)) failures.push(`${where}: ${cls} sets a background this spec does not model`)
+        }
+      }
+      if (!up) failures.push(`${at(element)} <${chip}>: no <tr> above it, so this spec cannot read what is behind it`)
+    }
+  }
+  return layers
 }
 
 /** A class list's bg- colours by variant ('', 'hover', 'dark', 'dark:hover'); one it cannot read, or a variant outside `modelled`, fails. */
@@ -154,17 +214,21 @@ function tableGrounds(table: string, row: string, body: string, where: { row: st
   return grounds
 }
 
-/** The tables the chips sit in: each row component, and the page whose <tbody> renders its rows. */
+/** The tables the chips sit in: each row component and the chips it renders, and the page whose <tbody> renders its rows. */
 const TABLES = {
-  invites: { row: 'features/admin/components/InviteRow.tsx', body: 'app/admin/invites/page.tsx' },
-  feedback: { row: 'features/admin/components/FeedbackRow.tsx', body: 'app/admin/feedback/page.tsx' },
+  invites: { row: 'features/admin/components/InviteRow.tsx', chips: ['InviteStatusBadge'], body: 'app/admin/invites/page.tsx' },
+  feedback: { row: 'features/admin/components/FeedbackRow.tsx', chips: ['FeedbackTypeBadge', 'FeedbackStatusBadge'], body: 'app/admin/feedback/page.tsx' },
 }
 /** Why a table's grounds could not be read; every measuring case below fails on any of them. */
 const GROUND_FAILURES: string[] = []
+/** The layers read between each chip and its row's <tr>, as `file:line <tag>`. */
+const LAYERS: string[] = []
 const GROUNDS = Object.fromEntries(
   Object.entries(TABLES).map(([table, files]) => {
     const read = (file: string, tag: string) => oneClassName(readFileSync(path.join(ROOT, file), 'utf8'), file, tag, GROUND_FAILURES)
     const [row, body] = [read(files.row, 'tr'), read(files.body, 'tbody')]
+    // These grounds are what a chip sits on only while every layer between it and the <tr> paints nothing.
+    LAYERS.push(...chipLayers(readFileSync(path.join(ROOT, files.row), 'utf8'), files.row, files.chips, GROUND_FAILURES))
     const where = { row: `${files.row} <tr>`, body: `${files.body} <tbody>` }
     return [table, row === null || body === null ? { light: [], dark: [] } : tableGrounds(table, row, body, where, GROUND_FAILURES)]
   }),
@@ -313,6 +377,33 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
       'probe <tr>: dark:bg-[color:var(--row)] looks like a colour this spec cannot resolve',
       'probe <tbody> (light): a translucent ground, and this spec does not read what shows through it',
       'probe <tbody> (dark): a translucent ground, and this spec does not read what shows through it',
+    ])
+  })
+
+  it('reads every layer between a chip and its row, and fails on a background there or a layer it cannot read', () => {
+    // The rows' own: InviteRow's status cell, FeedbackRow's type cell, and its status cell and the wrapper inside it.
+    expect(LAYERS).toHaveLength(4)
+    // The third review's mutation, a dark fill on a chip's cell, and hover fills on a wrapper inside one.
+    const probe = [
+      '<tr className="hover:bg-background-light">',
+      '  <td className="px-4 dark:bg-white/5"><Chip /></td>',
+      '  <td><div className="flex hover:!bg-black/5 dark:hover:bg-white/10"><>{open && <Chip />}</></div></td>',
+      '  <td className={cx("px-4")}><Chip /></td>',
+      '  <td {...cell}><Tooltip><Chip /></Tooltip></td>',
+      '</tr>',
+      'const lone = <span><Chip /></span>',
+    ].join('\n')
+    const lost: string[] = []
+    expect(chipLayers(probe, 'probe.tsx', ['Chip', 'Badge'], lost)).toEqual(['probe.tsx:2 <td>', 'probe.tsx:3 <div>', 'probe.tsx:3 <td>', 'probe.tsx:7 <span>'])
+    expect(lost).toEqual([
+      'probe.tsx:2 <td>, between <Chip> and its <tr>: dark:bg-white/5 sets a background this spec does not model',
+      'probe.tsx:3 <div>, between <Chip> and its <tr>: hover:!bg-black/5 sets a background this spec does not model',
+      'probe.tsx:3 <div>, between <Chip> and its <tr>: dark:hover:bg-white/10 sets a background this spec does not model',
+      'probe.tsx:4 <td>, between <Chip> and its <tr>: no className string this spec can read',
+      'probe.tsx:5 <Tooltip>, between <Chip> and its <tr>: a component, and this spec does not read what it renders',
+      'probe.tsx:5 <td>, between <Chip> and its <tr>: no className string this spec can read',
+      'probe.tsx:7 <Chip>: no <tr> above it, so this spec cannot read what is behind it',
+      'probe.tsx: no <Badge>, so this spec cannot read what is behind it',
     ])
   })
 })
