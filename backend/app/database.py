@@ -27,7 +27,9 @@ def _database_url() -> URL:
     """settings.DATABASE_URL, parsed. The parser's message is withheld: a URL missing its `@host` puts the
     password where the port goes, and the int() that reads the port quotes it into a startup traceback. A URL holding
     more than one "@" is refused too: an unescaped "@" in the password ends the password there, and the rest becomes
-    the host, the database or a query key, which a driver's connection error quotes."""
+    the host, the database or a query key, which a driver's connection error quotes. The refusal does not advise
+    encoding the "@": the app decodes one, but the deploy's migration step and the Ops workflow's Cloud SQL proxy step
+    split the URL at its first "@" and ":" and hand both parts to psql as written (docs/CONFIGURATION.md)."""
     try:
         url = make_url(settings.DATABASE_URL)
     except Exception as exc:  # noqa: BLE001 — any parse failure
@@ -35,7 +37,10 @@ def _database_url() -> URL:
     else:
         if settings.DATABASE_URL.count("@") <= 1:
             return url
-        problem = "more than one '@'; percent-encode any '@' in the user name or password"
+        problem = (
+            "more than one '@'; keep the user name and password to characters that need no percent-encoding: the "
+            "deploy's migration step and the Ops proxy step read them undecoded"
+        )
     # Raised after the handler, so no traceback chains the parser's error.
     raise RuntimeError(f"DATABASE_URL could not be parsed ({problem}; message withheld: it can quote the password)")
 

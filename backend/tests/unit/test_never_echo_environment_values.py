@@ -2451,16 +2451,21 @@ def test_a_database_url_with_one_at_is_accepted(monkeypatch, shape):
     assert database.engine.url.password in (password, f"{password}@{password}", None)
 
 
-def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
-    # The operator's benchmark reads DATABASE_URL itself: a malformed URL stops it with the parse error's type, and a
-    # well-formed one is printed masked. 127.0.0.1:1 refuses the connection at once; nothing leaves the machine.
+def _import_benchmark(monkeypatch):
+    """Import a fresh scripts/validate_db_performance.py that never reads a developer's .env."""
     import dotenv
 
-    monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)  # never a developer's .env
+    monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)
     monkeypatch.setattr(sys, "path", list(sys.path))
     monkeypatch.syspath_prepend(str(BACKEND_DIR / "scripts"))
     monkeypatch.delitem(sys.modules, "validate_db_performance", raising=False)
-    script = importlib.import_module("validate_db_performance")
+    return importlib.import_module("validate_db_performance")
+
+
+def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
+    # The operator's benchmark reads DATABASE_URL itself: a malformed URL stops it with the parse error's type, and a
+    # well-formed one is printed masked. 127.0.0.1:1 refuses the connection at once; nothing leaves the machine.
+    script = _import_benchmark(monkeypatch)
     password = _fabricated("benchmark password")
     digits = _fabricated("benchmark all-digit password", string.digits)
     urls = (
@@ -2484,6 +2489,29 @@ def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
     assert out.count("FAILED (connection error): OperationalError (message withheld") == 4  # each connect failed
     leaked = _fragments(password, out) + _fragments(digits, out, width=6)
     assert not leaked, f"{leaked} fragments of the fabricated passwords were printed"
+
+
+def test_the_at_refusal_advises_what_the_deploy_can_read(monkeypatch, capsys):
+    # #1281's second review (D-5): both refusals advised percent-encoding the "@", which the app decodes but the
+    # deploy's migration step and the Ops proxy step do not (they split DATABASE_URL at its first "@" and ":" and hand
+    # both parts to psql as written, docs/CONFIGURATION.md), so a URL fixed that way failed the next deploy. Each now
+    # advises characters that need no encoding, in the same words, and neither advises encoding.
+    password = _fabricated("DATABASE_URL password")
+    with pytest.raises(RuntimeError) as info:
+        _import_database(monkeypatch, f"postgresql://app:{password}@{password}@db.invalid/app")
+    script = _import_benchmark(monkeypatch)
+    monkeypatch.setenv("DATABASE_URL", f"postgresql://app:{password}@{password}@127.0.0.1:1/app")
+    with pytest.raises(SystemExit):
+        script.run_validation()
+    problems = [
+        text.split("could not be parsed (", 1)[1].split("; message withheld", 1)[0]
+        for text in (str(info.value), capsys.readouterr().out)
+    ]
+    assert problems[0] == problems[1], problems  # the same words at both sites
+    assert "keep the user name and password to characters that need no percent-encoding" in problems[0]
+    assert "percent-encode" not in problems[0]  # no advice to encode
+    leaked = _fragments(password, "".join(problems))
+    assert not leaked, f"{leaked} four-character fragments of the fabricated password were printed"
 
 
 # Settings fields that hold a secret, by name: keys, secrets, tokens, salts, passwords and the DSN, and the two
