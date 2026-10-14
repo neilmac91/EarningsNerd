@@ -170,6 +170,8 @@ once per element multiplied the walk, so the walk now reads each element's summa
 own-ink check still reads the components inside it again, so a cycle of six controls, each rendering
 the next twice, still takes about 9 s, against 16 s before. Codex's review of `b36e741` then named the
 forwarded className under another name (`({ className: cls })`), which a spelling check missed, so the
-check resolves each identifier a className reads to its declaration. Companion to
+check resolves each identifier a className reads to its declaration; its review of `ffa0227` the same
+destructuring of the props kept whole (`const { className: cls } = props`), so the binding is followed
+to the parameter through the variables holding it. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.

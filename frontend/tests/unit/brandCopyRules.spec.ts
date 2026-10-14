@@ -1706,9 +1706,10 @@ function forwardsClassName(fn: ts.FunctionLikeDeclaration): boolean {
   })
 }
 /** Whether an element's className reads the `className` its component is handed: the name itself (`className={className}`,
-    `cx('…', className)`, `props.className`), the name the props' destructuring gives it (`({ className: cls })`, a binding
-    keyed `className` in a parameter of a function around the element) or a same-file variable holding either (`const cls
-    = className`), each identifier resolved through the checker. */
+    `cx('…', className)`, `props.className`), the name a destructuring of the props gives it (`({ className: cls })`,
+    `const { className: cls } = props`: a binding keyed `className` in the props a function around the element is handed,
+    or a variable holding them) or a same-file variable holding either (`const cls = className`), each identifier resolved
+    through the checker. */
 function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
   const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className')
   if (!attr?.initializer) return false
@@ -1730,14 +1731,26 @@ function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
   }
   return reads(attr.initializer)
 }
-/** Whether a binding element destructures a parameter of a function around the element (the component's props, or a
-    render callback's), not some other object (`const { className: cls } = theme`). */
+/** Whether a binding element destructures what a parameter of a function around the element holds (the component's
+    props, or a render callback's), as the parameter itself (`({ className: cls })`) or through a variable holding it
+    (`const { className: cls } = props`, `const p = props`), not some other object (`const { className: cls } = theme`). */
 function isPropsBinding(binding: ts.BindingElement, at: ts.Node): boolean {
   let root: ts.Node = binding
   while (ts.isBindingElement(root) || ts.isObjectBindingPattern(root) || ts.isArrayBindingPattern(root)) root = root.parent
-  if (!ts.isParameter(root)) return false
-  for (let p: ts.Node | undefined = at; p; p = p.parent) if (p === root.parent) return true
-  return false
+  const seen = new Set<ts.Node>()
+  const fromParameter = (node: ts.Node): boolean => {
+    if (seen.has(node)) return false
+    seen.add(node)
+    if (ts.isParameter(node)) {
+      for (let p: ts.Node | undefined = at; p; p = p.parent) if (p === node.parent) return true
+      return false
+    }
+    if (!ts.isVariableDeclaration(node) || !node.initializer) return false
+    const value = unwrap(node.initializer)
+    const declaration = ts.isIdentifier(value) ? CHECKER.getSymbolAtLocation(value)?.valueDeclaration : undefined
+    return !!declaration && fromParameter(declaration)
+  }
+  return fromParameter(root)
 }
 
 /** The ink an element inherits from the elements around it in its own file: the nearest one that sets an ink. One

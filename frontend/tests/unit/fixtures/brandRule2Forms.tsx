@@ -1050,8 +1050,8 @@ function Dark587({ children }: { children: ReactNode }) { return <span className
 export function P587({ n }: { n: number }) { return <a href="/x"><Dark587>See all {n}</Dark587></a> } // gap
 // Codex's review of `b36e741`: the forwarded className under the name the props' destructuring gives it (P588), a
 // same-file variable holding it (P589) or `props.className` (P590); one handed on to a nested component under such a name
-// (P591). A destructuring of something other than the props (P592) and a variable holding another string (P593) forward
-// nothing.
+// (P591); the props kept whole and destructured later (P594), through a variable holding them (P595). A destructuring of
+// something other than the props (P592) and a variable holding another string (P593) forward nothing.
 function Tally588({ n, className: cls }: { n: number; className?: string }) { return <span className={cls}>See all {n}</span> }
 export function P588({ n }: { n: number }) { return <a href="/x"><Tally588 n={n} className="hover:text-brand-strong" /></a> } // flag
 function Tally589({ n, className }: { n: number; className?: string }) { const cls = className; return <span className={cx(cls, 'font-medium')}>See all {n}</span> }
@@ -1065,3 +1065,7 @@ function Tally592({ n }: { n: number; className?: string }) { const { className:
 export function P592({ n }: { n: number }) { return <a href="/x"><Tally592 n={n} className="hover:text-brand-strong" /></a> } // clean
 function Tally593({ n }: { n: number; className?: string }) { const cls = 'font-medium'; return <span className={cls}>See all {n}</span> }
 export function P593({ n }: { n: number }) { return <a href="/x"><Tally593 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Tally594(props: { n: number; className?: string }) { const { className: cls } = props; return <span className={cls}>See all {props.n}</span> }
+export function P594({ n }: { n: number }) { return <a href="/x"><Tally594 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally595(props: { n: number; className?: string }) { const p = props; const { className: cls } = p; return <span className={cls}>See all {p.n}</span> }
+export function P595({ n }: { n: number }) { return <a href="/x"><Tally595 n={n} className="hover:text-brand-strong" /></a> } // flag
