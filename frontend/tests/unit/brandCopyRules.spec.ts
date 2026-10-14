@@ -1852,6 +1852,8 @@ function allTexts(node: ts.Node, sf: ts.SourceFile): { node: ts.Node; text: stri
 describe('brand rule 1: matching claims keep their scope', () => {
   const UNSCOPED = /\b(?:each|every|all)\s+(?:figure|number)s?\b/i
   const SCOPE = /checkable|can be checked|can check|where (?:they|it) can be/i
+  /** A literal's text with its whitespace collapsed, so a claim wrapped across JSX lines reads as one string. */
+  const flat = (text: string) => text.replace(/\s+/g, ' ')
 
   it('no shipped string or JSX text says "each figure" or "every figure" without the scope beside it', () => {
     const offenders: string[] = []
@@ -1859,7 +1861,7 @@ describe('brand rule 1: matching claims keep their scope', () => {
       visit(sf, (n) => {
         if (ts.isImportDeclaration(n.parent ?? n) || ts.isExportDeclaration(n.parent ?? n)) return
         const text = literalText(n)
-        if (text !== null && !ts.isNumericLiteral(n) && UNSCOPED.test(text) && !SCOPE.test(text)) offenders.push(where(rel, sf, n, text))
+        if (text !== null && !ts.isNumericLiteral(n) && UNSCOPED.test(flat(text)) && !SCOPE.test(flat(text))) offenders.push(where(rel, sf, n, text))
       })
     }
     expect(offenders, 'say what the server checks: "where they can be checked", "checkable figures"').toEqual([])
@@ -1867,37 +1869,68 @@ describe('brand rule 1: matching claims keep their scope', () => {
 
   // The same scope for answers and citations (ASK-01, ASK-02, ASK-04): an Ask answer can carry an uncited
   // figure or no citation at all (a not-disclosed verdict), and an XBRL citation is not filing text, so no
-  // copy on any surface promises that answers are cited, grounded, exact or verified: not of each, every or
-  // all answers ("Every answer is cited to the filing text you can check."), not of answers as such
-  // ("Answers are grounded in the filing and cite the excerpts they came from.", "The answer cites the
-  // XBRL figures and passages it used"), and no figure is "never guessed", no claim "verifiable in one
-  // click". Say what the card shows, as COPILOT_CLAIM does ("Answers come from this filing, with cited
-  // passages you can check."). These phrasings have no honest scoped form, so rule 1's SCOPE does not
-  // excuse them ("Every answer is exact, you can check." fails). The verb is read wide on purpose: "The
-  // answer cites no passage" fails too; say what the card shows instead.
+  // copy on any surface calls answers, responses or replies cited, grounded, exact, verified, sourced or
+  // backed, or promises them a citation or a source; and no figure is "never guessed", no claim "verifiable
+  // in one click". Say what the card shows, as COPILOT_CLAIM does ("Answers come from this filing, with cited
+  // passages you can check."). These phrasings have no honest scoped form, so rule 1's SCOPE does not excuse
+  // them ("Every answer is exact, you can check." fails). The patterns read one sentence of one literal, its
+  // whitespace collapsed (a claim wrapped across JSX lines is one string), and hold exactly this:
+  // - each, every or all, then within 40 characters an answer noun (answer, response, reply, plural too), then
+  //   within 40 more a claim word, a citing verb, a citation noun or "verif…" ("Every answer has a citation",
+  //   "Each reply cites the filing", "All answers are verified");
+  // - an answer noun called one after it: through a copula within 40 characters (is, are, was, were, be, been,
+  //   come, arrive, stay: "Answers to your questions are always cited"), or set off by punctuation or nothing
+  //   ("answers, each cited", "Answers, always cited", "Answers backed by citations"), with adverbs from a
+  //   closed list between (always, all, each, every one, each one, fully, directly, then);
+  // - the claim word before it, at most two other words between, "and" not one of them ("Grounded answers",
+  //   "Fully cited answers", "verified AI answers");
+  // - an answer noun that cites or is citing within 40 characters ("The answer cites the XBRL figures"; the
+  //   verb is read wide on purpose, so "The answer cites no passage" fails too);
+  // - a citation, a source or a claim word before each, every or all of them within 40 characters ("Sources for
+  //   every answer", "Backed by the filing on every reply"), an answer noun with, having or carrying a citation
+  //   or a source within 20 characters ("Answers with citations"), and "no answer without";
+  // - and "each" or "every" before "exact", "never guessed" and "verifiable in one click".
+  // Out of its reach, and so review-checked (the self-check pins each one passing): another noun or verb for the
+  // same promise ("Every answer comes with receipts", "Answers point to the passage they came from", "Proof
+  // behind every answer"), a claim stretched past a pattern's distance, and a claim split across literals or
+  // JSX elements. A negated quantifier fails closed ("Not every answer is cited."): say "Some answers carry no
+  // citation" instead.
+  const ANSWER = String.raw`(?:answers?|responses?|repl(?:y|ies))`
+  const CALLED = String.raw`(?:cited|grounded|exact|verified|sourced|backed)`
+  const CITES = String.raw`(?:cites?|citing)`
+  const CITATION = String.raw`(?:citations?|sources?)`
+  const EVERY = String.raw`(?:each|every|all)`
+  const ADVERB = String.raw`(?:always|all|each|every\s+one|each\s+one|fully|directly|then)`
+  const claim = (source: string) => new RegExp(source, 'i')
   const ABSOLUTE_CLAIMS = [
     /\b(?:each|every)\b[^.]{0,40}?\bexact\b/i,
-    /\b(?:each|every|all)\b[^.]{0,40}?\banswers?\b[^.]{0,40}?\b(?:exact|cite[sd]?|verif)/i,
-    /\banswers?\b[^.]{0,40}?\b(?:are|is)\s+(?:always\s+)?(?:grounded|cited)\b/i,
-    /\banswers?\b[^.]{0,40}?\bcites?\b/i,
+    claim(String.raw`\b${EVERY}\b[^.]{0,40}?\b${ANSWER}\b[^.]{0,40}?\b(?:${CALLED}|${CITES}|${CITATION}|verif)`),
+    claim(String.raw`\b${ANSWER}\b[^.]{0,40}?\b(?:is|are|was|were|be|been|comes?|arrives?|stays?)\s+(?:${ADVERB}\s+)*${CALLED}\b`),
+    claim(String.raw`\b${ANSWER}\b[\s,;:()–—-]+(?:${ADVERB}\s+)*${CALLED}\b`),
+    claim(String.raw`\b${CALLED}\b(?:[\s,]+(?!and\b)[\w-]+){0,2}?[\s,]+${ANSWER}\b`),
+    claim(String.raw`\b${ANSWER}\b[^.]{0,40}?\b${CITES}\b`),
+    claim(String.raw`\b(?:${CITATION}|${CALLED})\b[^.]{0,40}?\b${EVERY}\s+(?:(?:of\s+)?(?:your|the|our)\s+)?${ANSWER}\b`),
+    claim(String.raw`\b${ANSWER}\b[^.]{0,20}?\b(?:with|has|have|carr(?:y|ies)|includes?)\s+(?:(?:a|an|its|their|the)\s+)?${CITATION}\b`),
+    claim(String.raw`\b(?:no|never\s+an?)\s+${ANSWER}\s+without\b`),
     /\bnever guessed\b/i,
     /\bverifiable in one click\b/i,
   ]
+  const absolute = (text: string) => ABSOLUTE_CLAIMS.some((pattern) => pattern.test(flat(text)))
+
   it('no shipped string or JSX text promises that answers are cited, grounded or exact, a figure never guessed, or one-click proof', () => {
     const offenders: string[] = []
     for (const { rel, sf } of SOURCES) {
       visit(sf, (n) => {
         if (ts.isImportDeclaration(n.parent ?? n) || ts.isExportDeclaration(n.parent ?? n)) return
         const text = literalText(n)
-        if (text !== null && !ts.isNumericLiteral(n) && ABSOLUTE_CLAIMS.some((claim) => claim.test(text))) offenders.push(where(rel, sf, n, text))
+        if (text !== null && !ts.isNumericLiteral(n) && absolute(text)) offenders.push(where(rel, sf, n, text))
       })
     }
     expect(offenders, 'scope the claim to what the answer card shows: "cited passages you can check against the filing"').toEqual([])
   })
 
   it('a trailing scope phrase never excuses an absolute claim, and a scoped sentence passes (self-check)', () => {
-    const absolute = (text: string) => ABSOLUTE_CLAIMS.some((claim) => claim.test(text))
-    for (const claim of [
+    for (const promise of [
       'Every answer is exact, you can check.',
       'Every answer is cited to the exact passage you can check',
       'Exact figures pulled from XBRL, never guessed, so you can check them',
@@ -1908,16 +1941,42 @@ describe('brand rule 1: matching claims keep their scope', () => {
       'The answer cites the XBRL figures and passages it used, and each chip says whether we matched the source.',
       'All answers are verified against the filing.',
       'Answers to your questions are always cited.',
-    ]) expect(absolute(claim), claim).toBe(true)
+      // The forms round 3's patterns let through: a quantifier after the noun, the claim word before it, the
+      // citation noun, a source promised, and responses or replies.
+      'plain-English answers, each cited to the filing text', 'Answers, always cited', 'Answers (each cited)', 'answers, each one cited',
+      'Grounded answers you can trust', 'Verified answers', 'Fully cited answers', 'Exact answers from the filing', 'Source-backed answers',
+      'Grounded, plain-English answers', 'verified AI answers', 'Cited and grounded responses', 'Cited replies',
+      'Every answer has a citation', 'Answers backed by citations', 'No answer without a citation', 'Never an answer without a source',
+      'Answers with citations', 'Each answer comes with its sources', 'Sources for every answer', 'A citation for every answer',
+      'Backed by the filing on every reply', 'Every answer is sourced from the filing', 'Answers sourced from the filing',
+      'Answers verified against the filing', 'Responses grounded in the filing', 'Your answers, fully sourced', 'Answers come cited',
+      'Answers are exact', 'Answers are always exact', 'All of your answers are cited', 'Answers you get are always verified',
+      'Every response is cited', 'Every reply is grounded', 'Each reply cites the filing', 'Answers that cite the filing',
+      // Wrapped across JSX lines: the whitespace collapses before the patterns read it.
+      'Every answer is\n            cited to the filing.',
+      'Figures from XBRL,\n            never\n            guessed',
+    ]) expect(absolute(promise), promise).toBe(true)
     for (const scoped of [
       'Answers come from this filing, with cited passages you can check.',
       'Cited passages you can check against the filing',
       'Ask a question of one filing. The answer comes from that filing, with cited passages you can check, and each chip says whether we matched the source or only cited it.',
       'A source match does not verify every claim in the answer.',
       'Figures from XBRL show the tag they came from',
+      'I couldn’t verify the cited evidence, so I couldn’t provide this answer.',
+      'Answers are not always cited', 'A not-disclosed answer is not cited.', 'Cited passages and answers you can check',
+      'Ask this Filing: Get answers on any filing', 'We have an incident response plan to quickly identify, contain, and remediate security issues',
     ]) {
       expect(absolute(scoped), scoped).toBe(false)
     }
+    // Out of reach, pinned so a record cannot claim them: another word for the promise, and a claim past the distance.
+    for (const gap of [
+      'Every answer comes with receipts', 'Answers point to the passage they came from', 'Proof behind every answer',
+      'Every answer you get about any 10-K, 10-Q or 8-K filing is cited',
+    ]) {
+      expect(absolute(gap), gap).toBe(false)
+    }
+    // A negated quantifier fails closed: honest, but read as the claim it negates.
+    for (const negated of ['Not every answer is cited.', 'Not all answers carry a citation.']) expect(absolute(negated), negated).toBe(true)
   })
 })
 

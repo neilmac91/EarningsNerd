@@ -128,10 +128,15 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   changed" fail while a one-word identifier such as `copilot_question_asked` or `copilot:paneWidth` and a
   class list do not; a one-word copy literal such as `title="copilot"` is its known limit; the /security
   line is its one named residue, counted by mention),
-  `brandCopyRules.spec.ts` rule 1 (on every surface under app, components, features, hooks and lib: no
-  "each" or "every" before "exact", no each, every or all answers called exact, cited or verified, no
-  answers said to be grounded or cited or to cite, no "never guessed", no "verifiable in one click",
-  whatever scope phrase follows), `copilotClaim.spec.tsx` (the rail, the callout and the coachmark
+  `brandCopyRules.spec.ts` rule 1 (on every surface under app, components, features, hooks and lib, in
+  one sentence of one literal with its whitespace collapsed, whatever scope phrase follows: no answer,
+  response or reply called cited, grounded, exact, verified, sourced or backed, under each, every or all,
+  through a copula, set off after its noun ("answers, each cited") or before it ("Grounded answers"); none
+  said to cite; no citation or source promised for them ("Sources for every answer", "Answers with
+  citations", "No answer without a citation"); no "each" or "every" before "exact", no "never guessed", no
+  "verifiable in one click"; another word for the same promise ("Every answer comes with receipts"), a
+  claim past the patterns' 40-character reach and one split across literals stay review-checked, and its
+  self-check pins them passing), `copilotClaim.spec.tsx` (the rail, the callout and the coachmark
   render the one sentence, and no other literal types it), `planLimitsLockstep.spec.ts` (no
   "unlimited" in the Copilot's directory and, anywhere under app, components, features, hooks and lib,
   none beside a question, answer, Ask this Filing or Q&A noun, through a hyphenated modifier or a line
