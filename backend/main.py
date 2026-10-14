@@ -234,8 +234,9 @@ def _value_scrubber(secret_values: tuple[str, ...]) -> dict[str, _Hook]:
     a check-in by its `type`, exactly text) and an item's `type` when it is one of that kind's `_ITEM_TYPES`. So a weak
     secret equal to one of their words breaks no item, and nothing that runs before the hooks (an event processor, a
     hand-built event, a trace context set by hand) can carry a secret past them, but as the protocol's own key at its
-    own path in its own kind of item. They also drop the hint's attachments, whose bytes would reach Sentry through no
-    hook: the backend sends none."""
+    own path in its own kind of item, or, through an item's `type` that is a text subclass, scrubbed by its channel's
+    paths and sent as its text says, at another kind's (the SDK writes every type as plain text). They also drop the
+    hint's attachments, whose bytes would reach Sentry through no hook: the backend sends none."""
 
     _placeholder(secret_values)  # every placeholder overlapped fails here, at startup, not on the first item
 

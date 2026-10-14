@@ -1356,7 +1356,7 @@ def test_a_url_sqlalchemy_cannot_parse_still_gives_its_password():
     assert {written, in_query} | decoded <= main._url_passwords(url)
 
 
-def test_a_password_no_codec_can_encode_still_gives_the_values():
+def test_a_password_holding_a_lone_surrogate_still_gives_the_values():
     # The round-18 check's R18D-2: an environment byte that is not UTF-8 reaches a setting as a lone surrogate, which
     # quote_plus cannot encode by default, so building the values failed and Sentry stayed off. They build and hold the
     # password as SQLAlchemy reads it (SQLAlchemy cannot render such a URL at all).
@@ -2003,8 +2003,8 @@ def test_a_key_is_kept_as_a_protocol_word_only_when_it_is_text():
 
 def test_a_type_is_kept_only_when_it_is_text(monkeypatch, request):
     # The delta check of #1297 (D6-1): an item's `type` is kept only when it is exactly text and one its kind carries.
-    # A hand-built event whose `type` is a str subclass posing as `transaction` while its text is a secret is sent as a
-    # plain event, its type scrubbed, and no part of the secret reaches Sentry.
+    # A hand-built event whose `type` is a str subclass posing as `check_in` (the one type before_send keeps) while its
+    # text is a secret is sent as a plain event, its type scrubbed, and no part of the secret reaches Sentry.
     import sentry_sdk
 
     token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
@@ -2012,14 +2012,14 @@ def test_a_type_is_kept_only_when_it_is_text(monkeypatch, request):
 
     class Posing(str):
         def __eq__(self, other):
-            return other == "transaction"
+            return other == "check_in"
 
         def __hash__(self):
-            return hash("transaction")
+            return hash("check_in")
 
     sentry_sdk.capture_event({"message": "posed", "type": Posing(token)})
     sentry_sdk.flush()
-    assert [event["type"] for event in _of(envelopes, "event")] == ["[Filtered]"] and not _of(envelopes, "transaction")
+    assert [event["type"] for event in _of(envelopes, "event")] == ["[Filtered]"] and not _of(envelopes, "check_in")
     leaked = _fragments(token, json.dumps(envelopes), width=8)
     assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry"
 
