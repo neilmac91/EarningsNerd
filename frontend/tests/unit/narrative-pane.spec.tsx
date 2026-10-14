@@ -344,9 +344,19 @@ describe('NarrativePane citation chips', () => {
     expect(screen.queryByText('Some source references need attention')).not.toBeInTheDocument()
   })
 
-  it('says what the Cached badge knows: an earlier run, regenerated when the figures change', () => {
+  it('says what the Cached badge knows in a visible line beside it, never in a title tooltip', () => {
     render(<NarrativePane state={doneState({ completion: doneCompletion({ cached: true }) })} />)
-    expect(screen.getByText('Cached')).toHaveAttribute('title', 'Served from an earlier run of this period range. The next run regenerates it if these figures change.')
+    // A phone and a keyboard never show a title, so the explanation is on the page, in muted ink.
+    expect(screen.getByText('Cached')).not.toHaveAttribute('title')
+    const line = screen.getByText('Served from an earlier run · regenerates if these figures change')
+    expect(line).toHaveClass('text-text-tertiary-light', 'dark:text-text-secondary-dark')
+    expect(line.parentElement).toBe(screen.getByText('Cached').parentElement)
+  })
+
+  it('shows no Cached line on a fresh run', () => {
+    render(<NarrativePane state={doneState()} />)
+    expect(screen.queryByText('Cached')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Served from an earlier run/)).not.toBeInTheDocument()
   })
 
   it('replaces the verified/cached badges with a Sample badge in teaser mode (F3)', () => {
@@ -356,6 +366,7 @@ describe('NarrativePane citation chips', () => {
     expect(screen.getByText('Sample data')).toBeInTheDocument()
     expect(screen.queryByText(/^\d+ sources?$/)).not.toBeInTheDocument()
     expect(screen.queryByText('Cached')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Served from an earlier run/)).not.toBeInTheDocument()
     expect(screen.getByText(/Sources · sample data/)).toBeInTheDocument()
   })
 })

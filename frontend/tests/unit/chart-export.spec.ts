@@ -115,6 +115,13 @@ describe('EXPORT_TEXT token mirror', () => {
   it('mirrors tailwind text.secondary', () => {
     expect(EXPORT_TEXT.secondary).toEqual(text.secondary)
   })
+
+  it("draws the lockup's accent in brand-strong on the light export and brand-dark on the dark one", () => {
+    const brand = (tailwindConfig as { theme: { extend: { colors: { brand: Record<string, string> } } } }).theme.extend
+      .colors.brand
+    expect(MARK_STAMP.fillLight).toBe(brand.strong)
+    expect(MARK_STAMP.fillDark).toBe(brand.dark)
+  })
 })
 
 describe('layoutLegend', () => {
@@ -324,6 +331,39 @@ describe('exportPanelPng header', () => {
     expect(calls[nerdIndex].font).toMatch(/^italic 600 14px /)
     expect(calls[earningsIndex].fill).toBe(EXPORT_TEXT.primary.light)
     expect(calls[nerdIndex].fill).toBe(MARK_STAMP.fillLight)
+  })
+
+  // D-039 (the founder's call): the lockup is drawn opaque in the bottom-right corner, in either theme.
+  it.each([
+    { dark: false, accent: MARK_STAMP.fillLight },
+    { dark: true, accent: MARK_STAMP.fillDark },
+  ])('stamps the lockup opaque and bottom-right (dark: $dark)', async ({ dark, accent }) => {
+    const calls: Array<{ op: string; x: number; y: number; w?: number; h?: number; alpha: number; fill?: string }> = []
+    ctx.drawImage = vi.fn((_image: unknown, x: number, y: number, w?: number, h?: number) => {
+      calls.push({ op: x === 0 ? 'plot' : 'mark', x, y, w, h, alpha: ctx.globalAlpha as number })
+    })
+    ctx.fillText = vi.fn((text: string, x: number, y: number) => {
+      fillTexts.push(text)
+      calls.push({ op: text, x, y, alpha: ctx.globalAlpha as number, fill: ctx.fillStyle as string })
+    })
+    let canvasHeight = 0
+    vi.mocked(HTMLCanvasElement.prototype.toBlob).mockImplementation(function (this: HTMLCanvasElement, cb: BlobCallback) {
+      canvasHeight = this.height / 2 // the export's retina scale; footer geometry is in CSS px
+      cb(new Blob(['png'], { type: 'image/png' }))
+    } as never)
+    await exportPanelPng(makeContainer(), 'x.png', { dark, header: HEADER })
+    const mark = calls.find((c) => c.op === 'mark')!
+    const earnings = calls.find((c) => c.op === 'Earnings')!
+    const nerd = calls.find((c) => c.op === 'Nerd')!
+    expect(MARK_STAMP.alpha).toBe(1)
+    for (const call of [mark, earnings, nerd]) expect(call.alpha, `${call.op} is drawn opaque`).toBe(1)
+    expect(nerd.fill).toBe(accent)
+    expect(imageSources.at(-1)).toContain(encodeURIComponent(`fill="${accent}"`))
+    // Right: the wordmark ends at the inset from the right edge (the stub measures 7px a glyph).
+    expect(nerd.x + 'Nerd'.length * 7).toBe(PLOT_W - MARK_STAMP.inset)
+    // Bottom: the mark sits inside the last strip of the canvas.
+    expect(mark.y).toBeGreaterThanOrEqual(canvasHeight - MARK_STAMP.stripHeight)
+    expect(mark.y + (mark.h ?? 0)).toBeLessThanOrEqual(canvasHeight)
   })
 
   it('carries resolved text and tspan font stacks into the isolated SVG image', async () => {

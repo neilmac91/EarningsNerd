@@ -127,9 +127,9 @@ export const MARK_STAMP = {
   stripHeight: 32,
   markHeight: 25, // about 32px wide: the bare mark's minimum size (smaller needs the app tile)
   inset: 12,
-  alpha: 0.85,
+  alpha: 1, // opaque, bottom-right: the founder's call (decisions-log D-039), never a translucent watermark
   fillLight: '#3C6650', // brand-strong (the mark's own sage)
-  fillDark: '#7FB295', // lightened sage — legible on the dark panel without glowing
+  fillDark: '#7FB295', // brand-dark: lightened sage, legible on the dark panel without glowing
   wordmarkSize: 14, // "EarningsNerd" wordmark after the mark
   wordmarkGap: 9, // mark → wordmark
 } as const
@@ -143,7 +143,7 @@ export const EXPORT_TEXT = {
   secondary: { light: '#374151', dark: '#9CA3AF' },
 } as const
 
-/** Draw the branded footer strip bottom-right as the logo's lockup: the EN mark, then the
+/** Draw the branded footer strip bottom-right, opaque, as the logo's lockup: the EN mark, then the
  *  "EarningsNerd" wordmark (like the site logo: upright ink "Earnings" + italic 600 sage "Nerd", so a
  *  shared image names its source rather than an ambiguous monogram). A mark decode failure still
  *  leaves the wordmark (branding never blocks a download). Coordinates are CSS px — the caller's
