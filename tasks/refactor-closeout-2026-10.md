@@ -366,7 +366,7 @@ Keep separate Rule 7 timestamp and Wave 0 behavior follow-ups (missing-identifie
 NaN, numeric model filing_date, model-supplied structured-output keys), and the
 existing Founder OUTPUT REFERENCE prompt-byte decision until separately resolved.
 This closeout changes three task documents. Original red verdicts and unknown
-costs remain visible; the separate behavior and founder decisions are not closed.
+costs remain visible; the separate behavior follow-ups and the founder decision, open at closeout, are resolved below.
 
 
 ### Follow-ups resolved — 2026-10-11
@@ -378,3 +378,62 @@ all request bytes and existing snapshots. That cleanup closes the remaining deci
 refactor: no prompt instructions, model settings, production flags or baseline scores change.
 The earlier statement that deletion necessarily changes prompt bytes was too broad; activating
 prompt splitting would change them, but deleting the empty reference slot's machinery need not.
+
+The plan's last two follow-ups closed in #1245 (merged as `834f44b5`; [deploy receipt](https://github.com/neilmac91/EarningsNerd/pull/1245#issuecomment-6111392692)):
+three comments now match their code, the always-None summary writer fields and the trend catalogue's unreachable
+duplicate-id guard are removed, and the facts identity dedup stays as protection with an executed counterexample.
+#1243 (merged as `85439925` on 2026-10-13, tests only) closed the move proof's open findings from #1177's re-probe
+and #1190's "Not in this PR", and the findings its own reviews raised: two routine-tier lenses, eleven Codex rounds
+and an AI-assisted review. Three of those findings were defects the PR itself had introduced and then fixed: a
+class-body `COUNT += 1` (a false OK from `d5cff540`), a class's own global stores (a false OK), and a lambda in a
+postponed annotation (a false FAIL). Codex reviewed `13e2f22d` with no findings. The merged head `b8128f4b` only
+merged main in, for #1261's gitleaks fingerprints, and passed `review-gate` on a review override recorded in the
+body and authorized in the PR's session; the override line's quota claim is corrected on the PR
+([comment](https://github.com/neilmac91/EarningsNerd/pull/1243#issuecomment-6156455978)). Its body keeps the proof's retained boundaries with the evidence that merged moves
+stayed within them: known false OKs (a same-name import retarget, and a class body's namespace written by a
+function it calls or reached under another spelling), cross-file import order, and the reach's fail-closed rules,
+`__set_name__` among them. The open threads on #1177, #1190 and #1243 keep the founder's call on those
+boundaries.
+
+### Follow-up spend (outside the programme ceiling)
+
+The programme ledger above is unchanged: USD 3.815166 known plus the USD 0.553850 retained hold. Follow-up work
+after the closeout is accounted separately, once each:
+
+| Work | PRs | Known USD | Source |
+|---|---|---|---|
+| Rule 7 and Wave 0 behavior fixes | #1222, #1224, #1227, #1231 | 1.087982 (ceiling 3.16; no hold) | [receipt](https://github.com/neilmac91/EarningsNerd/pull/1231#issuecomment-6108047072) |
+| Acceptance-runner process groups | #1236 | 0.529476 over three `eval-baseline` jobs (0.177600, 0.172858 cancelled, 0.179018), plus two calls of unknown cost | jobs [114474633624](https://github.com/neilmac91/EarningsNerd/actions/runs/38140985171/job/114474633624), [114480247305](https://github.com/neilmac91/EarningsNerd/actions/runs/38142908321/job/114480247305), [114482117274](https://github.com/neilmac91/EarningsNerd/actions/runs/38143526271/job/114482117274) |
+| OUTPUT REFERENCE cleanup | #1237 | 0.183869 (summary 0.177336, Copilot 0.006533) | [#1237](https://github.com/neilmac91/EarningsNerd/pull/1237) |
+| Follow-ups 5 and 6 | #1245 | 0.183647 (summary 0.177031, Copilot 0.006616) | [#1245](https://github.com/neilmac91/EarningsNerd/pull/1245) |
+| Move-proof hardening | #1243 | 0 (tests only; no paid path) | [#1243](https://github.com/neilmac91/EarningsNerd/pull/1243) |
+
+Each figure is quoted from the receipt or job log its row links, where it sums the calls' logged
+`estimated_cost_usd` (`app/services/llm_pricing.py`); a report's `total_cost_usd: 0.0` and wallet movement are not
+cost evidence. #1236's body gave about USD 0.18 per run. Its
+second job was cancelled when a new head superseded it, after 68 of its 70 attempts had logged usage. The last
+filing's two attempts were in flight at the cancellation (13:31:50Z) and logged none, so their cost is unknown.
+
+### The retained T4 hold
+
+USD 0.553850 stays held. T4's summary run [38094895509](https://github.com/neilmac91/EarningsNerd/actions/runs/38094895509) logged 71 summary calls. One,
+the AMZN 10-K attempt (accession 0001018724-26-000004) at 2026-10-10T23:27:52.389Z, failed after 119 ms with a null
+model, null usage and no cost; its retry at 23:28:05.502Z succeeded at an estimated USD 0.002544. No per-call
+provider billing record is available, so the failed call's cost cannot be established, and the hold is not
+released. The run's artifact expires around 2026-10-24; these facts are kept here.
+
+### Free balance readings for the follow-up work
+
+| UTC | USD | Run | Context |
+|---|---|---|---|
+| 2026-10-11T12:20:28Z | 16.28 | [38138881169](https://github.com/neilmac91/EarningsNerd/actions/runs/38138881169) | #1236 before its evaluations |
+| 2026-10-11T13:00:10.5280611Z | 16.22 | [38141422979](https://github.com/neilmac91/EarningsNerd/actions/runs/38141422979) | #1237 before its evaluations |
+| 2026-10-11T13:17:24.1926996Z | 15.95 | [38142576335](https://github.com/neilmac91/EarningsNerd/actions/runs/38142576335) | #1237 after its evaluations |
+| 2026-10-11T14:03:07Z | 15.51 | [38145608559](https://github.com/neilmac91/EarningsNerd/actions/runs/38145608559) | after #1236's merge |
+| 2026-10-11T15:18:36.1493744Z | 14.88 | [38150729044](https://github.com/neilmac91/EarningsNerd/actions/runs/38150729044) | another session's reading |
+| 2026-10-11T15:58:14.0654598Z | 14.88 | [38153485740](https://github.com/neilmac91/EarningsNerd/actions/runs/38153485740) | before #1245's draft (USD 0.79 reserved) |
+| 2026-10-11T16:27:17.6408655Z | 14.70 | [38155520396](https://github.com/neilmac91/EarningsNerd/actions/runs/38155520396) | after #1245's summary evaluation, before ready |
+| 2026-10-11T17:09:31.9954083Z | 14.69 | [38158460366](https://github.com/neilmac91/EarningsNerd/actions/runs/38158460366) | after #1245's evaluations and merge |
+
+The Wave 0 fixes' readings are in [#1231's receipt](https://github.com/neilmac91/EarningsNerd/pull/1231#issuecomment-6108047072). The readout's other
+runs since the closeout were taken for other work.
