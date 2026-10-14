@@ -176,6 +176,8 @@ to the parameter through the variables holding it, a rest of it and an object sp
 two forms of that family planted before a review named them; and its review of `2a18988` the name
 filled by an assignment (`let cls; ({ className: cls } = props)`), so the name is read through every
 value the file gives it, as the ink check reads a variable, and a same-file helper returning it was
-planted next, ahead of a review. Companion to
+planted next, ahead of a review; its review of `2a5ec9c` the name filled through an array
+(`[cls] = [props.className]`), so the steps an assignment leaves are walked into the value by the
+ink check's own walk, whatever the path. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.

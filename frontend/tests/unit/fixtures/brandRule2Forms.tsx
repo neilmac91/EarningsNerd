@@ -1051,10 +1051,10 @@ export function P587({ n }: { n: number }) { return <a href="/x"><Dark587>See al
 // Codex's review of `b36e741`: the forwarded className under the name the props' destructuring gives it (P588), a
 // same-file variable holding it (P589) or `props.className` (P590); one handed on to a nested component under such a name
 // (P591); the props kept whole and destructured later (P594), through a variable holding them (P595), a rest of them (P596)
-// or an object spreading them (P597); the name filled by an assignment, destructured (P598) or not (P599); and a same-file
-// helper returning it, called in the className (P601) or held first (P602). A destructuring of something other than the
-// props, declared (P592) or assigned (P600), a variable holding another string (P593) and a helper returning one (P603)
-// forward nothing.
+// or an object spreading them (P597); the name filled by an assignment, destructured (P598) or not (P599), through an
+// array (P604), nested (P605) or with the props themselves taken through one (P606); and a same-file helper returning
+// it, called in the className (P601) or held first (P602). A destructuring of something other than the props, declared
+// (P592) or assigned (P600), a variable holding another string (P593) and a helper returning one (P603) forward nothing.
 function Tally588({ n, className: cls }: { n: number; className?: string }) { return <span className={cls}>See all {n}</span> }
 export function P588({ n }: { n: number }) { return <a href="/x"><Tally588 n={n} className="hover:text-brand-strong" /></a> } // flag
 function Tally589({ n, className }: { n: number; className?: string }) { const cls = className; return <span className={cx(cls, 'font-medium')}>See all {n}</span> }
@@ -1090,3 +1090,9 @@ export function P602({ n }: { n: number }) { return <a href="/x"><Tally602 n={n}
 function fixed603() { return 'font-medium' }
 function Tally603({ n }: { n: number; className?: string }) { return <span className={fixed603()}>See all {n}</span> }
 export function P603({ n }: { n: number }) { return <a href="/x"><Tally603 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Tally604(props: { n: number; className?: string }) { let cls: string | undefined; [cls] = [props.className]; return <span className={cls}>See all {props.n}</span> }
+export function P604({ n }: { n: number }) { return <a href="/x"><Tally604 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally605(props: { n: number; className?: string }) { let cls: string | undefined; [{ className: cls }] = [props]; return <span className={cls}>See all {props.n}</span> }
+export function P605({ n }: { n: number }) { return <a href="/x"><Tally605 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally606(props: { n: number; className?: string }) { let p: { className?: string }; [p] = [props]; const { className: cls } = p; return <span className={cls}>See all {props.n}</span> }
+export function P606({ n }: { n: number }) { return <a href="/x"><Tally606 n={n} className="hover:text-brand-strong" /></a> } // flag

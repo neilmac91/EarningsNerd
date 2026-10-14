@@ -1714,6 +1714,7 @@ function forwardsClassName(fn: ts.FunctionLikeDeclaration): boolean {
 function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
   const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className')
   if (!attr?.initializer) return false
+  const sf = opening.getSourceFile()
   const seen = new Set<ts.Node>()
   const reads = (node: ts.Node): boolean => {
     let found = false
@@ -1727,10 +1728,13 @@ function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
         const key = declaration.propertyName ?? declaration.name
         if ((ts.isIdentifier(key) || ts.isStringLiteral(key)) && key.text === 'className' && holdsProps(bindingRoot(declaration), opening)) found = true
       } else if (ts.isVariableDeclaration(declaration)) {
-        // What the name holds (`variableValues`): a value read as the initializer is, or the `className` field of what
-        // holds the props, taken by a destructuring assignment (`({ className: cls } = props)`).
+        // What the name holds (`variableValues`): the value at its place, walked into by the steps a destructuring
+        // assignment leaves (`[cls] = [props.className]` holds the array at 0), read as the initializer is; or the
+        // `className` field of what holds the props, taken by one (`({ className: cls } = props)`, `[{ className: cls }]
+        // = [props]`), the steps before the field walked first.
         for (const { value, steps } of variableValues(declaration)) {
-          if (!steps.length ? reads(value) : steps.length === 1 && steps[0] === 'className' && holdsProps(value, opening)) found = true
+          if (atSteps(value, steps, sf).some(reads)) found = true
+          if (steps[steps.length - 1] === 'className' && atSteps(value, steps.slice(0, -1), sf).some((h) => holdsProps(h, opening))) found = true
         }
       } else if (ts.isFunctionLike(declaration)) {
         // A same-file helper the className calls reads what it returns (`className={pick(props)}`, `pick` returning
@@ -1742,6 +1746,15 @@ function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
   }
   return reads(attr.initializer)
 }
+/** What a value holds at the steps a destructuring assignment leaves (`[cls] = [props.className]` holds the array at 0,
+    `[{ className: cls }] = [props]` the array at 0 then `className`): the expressions the binding walk meets once the
+    steps are walked in (`walkLiterals`, stopped there), each read as written; the value itself when there are none. */
+function atSteps(value: ts.Expression, steps: Step[], sf: ts.SourceFile): ts.Expression[] {
+  if (!steps.length) return [value]
+  const found: ts.Expression[] = []
+  walkLiterals(value, sf, steps, (at, path) => { if (!path.length) found.push(at); return !path.length })
+  return found
+}
 /** The declaration a binding element's destructuring climbs to: a parameter or a variable. */
 function bindingRoot(binding: ts.Node): ts.Node {
   let root: ts.Node = binding
@@ -1750,8 +1763,8 @@ function bindingRoot(binding: ts.Node): ts.Node {
 }
 /** Whether a declaration or an expression holds the props a function around `at` is handed (the component's, or a
     render callback's): the parameter itself (`({ className: cls })`), a rest of it (`({ n, ...rest })`), a variable
-    the file gives one of these, by its initializer or an assignment (`const p = props`), or an object spreading one
-    (`{ ...props }`); not some other object (`const { className: cls } = theme`). */
+    the file gives one of these, by its initializer or an assignment, destructured or not (`const p = props`, `[p] =
+    [props]`), or an object spreading one (`{ ...props }`); not some other object (`const { className: cls } = theme`). */
 function holdsProps(node: ts.Node, at: ts.Node, seen = new Set<ts.Node>()): boolean {
   if (seen.has(node)) return false
   seen.add(node)
@@ -1760,7 +1773,9 @@ function holdsProps(node: ts.Node, at: ts.Node, seen = new Set<ts.Node>()): bool
     return false
   }
   if (ts.isBindingElement(node)) return !!node.dotDotDotToken && holdsProps(bindingRoot(node), at, seen)
-  if (ts.isVariableDeclaration(node)) return variableValues(node).some(({ value, steps }) => !steps.length && holdsProps(value, at, seen))
+  if (ts.isVariableDeclaration(node)) {
+    return variableValues(node).some(({ value, steps }) => atSteps(value, steps, node.getSourceFile()).some((v) => holdsProps(v, at, seen)))
+  }
   if (ts.isObjectLiteralExpression(node)) return node.properties.some((m) => ts.isSpreadAssignment(m) && holdsProps(m.expression, at, seen))
   const value = unwrap(node as ts.Expression)
   if (value !== node) return holdsProps(value, at, seen)
