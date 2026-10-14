@@ -81,7 +81,7 @@ describe('GenerateSignupGate', () => {
   it('offers the free account in public mode, the trial only while it ships', async () => {
     state.registration.mockResolvedValue({ mode: 'public', beta_promo_enabled: false })
     await settled(mount(), 'success')
-    expect(await screen.findByRole('heading', { name: 'Create a free account to analyze this filing' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Create a free account to summarize this filing' })).toBeInTheDocument()
     expect(screen.getByText(new RegExp(`Free accounts get ${FREE_SUMMARY_LIMIT} AI summaries a month`))).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Create free account' }).getAttribute('href')).toMatch(/^\/register\?redirect=/)
     expect(screen.queryByText(/days free/)).toBeNull()

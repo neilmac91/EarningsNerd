@@ -61,7 +61,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): five new loading quips in
   the voice and one kept ("Reading the size-8 fine print…"), signed "Reading the filing"; the stalled line and the timeout error say what happened
   and what to do. The heading "Generation interrupted" stays. The card reads "Generating the summary"
-  and its last step "Writing the summary"; a pending step keeps full opacity in the tertiary ink (it
+  and its four steps read "Fetching the 10-K from SEC EDGAR" (the filing's own form), "Reading the
+  statements, risk factors and MD&A", "Checking figures against the company's XBRL" and "Writing the
+  summary", which the live region announces as they start. Neither "Generating the summary" nor "AI-generated
+  summary" carries a glyph beside it: the sparkle is the AI summary chip's alone. A pending step keeps full opacity in the tertiary ink (it
   sat at 2.1:1 under opacity-40). A slow run reads "Taking longer than usual. Still working on it.",
   signed "Still running", without guessing why. A stored summary that failed reads "This summary did
   not finish" over its own sentence, "The last attempt for this filing did not finish. Retry to

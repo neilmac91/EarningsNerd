@@ -81,7 +81,7 @@ export function GenerateSignupGate({ filing, entryPoint }: { filing: Filing; ent
 
   return (
     <GuidanceCard
-      title="Create a free account to analyze this filing"
+      title="Create a free account to summarize this filing"
       headingLevel="h2"
       description={
         <>

@@ -48,22 +48,22 @@ describe('StreamingSummaryDisplay live region', () => {
     renderAt('parsing')
     await act(async () => {})
     // SkeletonText carries its own role="status" (DS §4), so locate ours by its announcement.
-    const status = screen.getByText('Extracting financial statements, risk factors & MD&A.')
+    const status = screen.getByText('Reading the statements, risk factors and MD&A.')
     expect(status).toHaveAttribute('role', 'status')
     expect(status).toHaveAttribute('aria-live', 'polite')
     expect(status.className).toContain('sr-only')
   })
 
-  it('names the filing type when retrieving from EDGAR', async () => {
+  it('names the filing type when fetching from SEC EDGAR', async () => {
     renderAt('fetching')
     await act(async () => {})
-    expect(screen.getByText('Retrieving 10-K filing from EDGAR.')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByText('Fetching the 10-K from SEC EDGAR.')).toHaveAttribute('aria-live', 'polite')
   })
 
   it('changes only on stage transitions, not on progress ticks', async () => {
     const { rerender } = renderAt('analyzing', 5)
     await act(async () => {})
-    const live = () => screen.getByText(/^(Cross-referencing standardized XBRL financials|Writing the summary)\.$/)
+    const live = () => screen.getByText(/^(Checking figures against the company’s XBRL|Writing the summary)\.$/)
     const before = live().textContent
     rerender(
       <StreamingSummaryDisplay streamingText="" stage="analyzing" message="" filing={filing} elapsedSeconds={20} />,
@@ -98,7 +98,19 @@ describe('StreamingSummaryDisplay step log', () => {
     expect(pending.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-text-tertiary-light', 'dark:text-text-secondary-dark']))
     expect(pending.className).not.toMatch(/text-text-(?:tertiary|secondary)-(?:light|dark)\//)
     for (let el: HTMLElement | null = pending; el; el = el.parentElement) expect(el.className).not.toMatch(/\bopacity-/)
-    expect(screen.getByText('Retrieving 10-K filing from EDGAR').className).toContain('font-medium')
+    expect(screen.getByText('Fetching the 10-K from SEC EDGAR').className).toContain('font-medium')
+  })
+
+  it('reads the four steps in the product voice, the first naming the filing’s own form', async () => {
+    renderAt('fetching')
+    await act(async () => {})
+    const labels = screen.getAllByRole('listitem').map((item) => item.textContent)
+    expect(labels).toEqual([
+      'Fetching the 10-K from SEC EDGAR',
+      'Reading the statements, risk factors and MD&A',
+      'Checking figures against the company’s XBRL',
+      'Writing the summary',
+    ])
   })
 
   it('says a slow run is still running, without guessing why', async () => {
@@ -106,6 +118,21 @@ describe('StreamingSummaryDisplay step log', () => {
     await act(async () => {})
     expect(screen.getByText('Taking longer than usual. Still working on it.')).toBeInTheDocument()
     expect(screen.getByText('Still running')).toBeInTheDocument()
+  })
+})
+
+// No glyph beside a section heading (DESIGN.md › Icons): the sparkle is the AI summary chip's alone, and
+// both headings say what they are in words. The progress card's head and the streamed summary's head
+// carried a 20px sparkle each until the design owner's call on #1288's MEANING thread.
+describe('StreamingSummaryDisplay headings', () => {
+  it('sets no icon beside "Generating the summary" or "AI-generated summary"', async () => {
+    render(<StreamingSummaryDisplay streamingText="Revenue rose." stage="summarizing" message="" filing={filing} />)
+    await act(async () => {})
+    for (const name of ['Generating the summary', 'AI-generated summary']) {
+      const heading = screen.getByRole('heading', { level: 2, name })
+      expect(heading.parentElement!.querySelector(':scope > svg'), name).toBeNull()
+      expect(heading.parentElement!.parentElement!.querySelector(':scope > svg'), name).toBeNull()
+    }
   })
 })
 
