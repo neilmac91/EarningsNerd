@@ -78,8 +78,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   uses (`edgarCompanyUrl`: every form, and EDGAR's own defaults in place of the old `owner=include`
   and `count=40`), in the filing identity's quiet link. `earningsnerd/no-hand-rolled-toggle-group`
   (new ESLint rule) fails a hand-built role="group" of pressed buttons outside the SegmentedControl's
-  own file (a row without role="group" is outside its reach); `tests/unit/formatters.spec.ts` holds `ordinal` and the
-  signed `fmtShares`.
+  own file (a row without role="group" is outside its reach); `tests/unit/segmentedControlOptionCount.spec.ts`
+  (new) fails a SegmentedControl given more than five options, so a long set takes the compact select;
+  `tests/unit/formatters.spec.ts` holds `ordinal` and the signed `fmtShares`.
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
   "$7.5" (a Phase 9 fix; compact figures keep their rounding).

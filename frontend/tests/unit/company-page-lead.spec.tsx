@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { Company } from '@/features/companies/api/companies-api'
 import type { Filing } from '@/features/filings/api/filings-api'
@@ -297,6 +297,37 @@ describe('Company page when the company does not load (CO-05)', () => {
     expect(screen.getByText('No company with a ticker on SEC EDGAR matches "AAPL".')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Go back home' })).toHaveAttribute('href', '/')
+  })
+
+  // networkMode 'online' (the default) holds a first load while the browser is offline: the query is pending with
+  // fetchStatus 'paused', neither loading nor failed to TanStack, and it has no answer yet, so the page keeps its
+  // loading state instead of saying SEC EDGAR has no such ticker. A refetch paused over data keeps the page.
+  it('keeps a first load paused offline as loading, never the not-found card, and loads the page when back online', async () => {
+    onlineManager.setOnline(false)
+    try {
+      api.getCompany.mockResolvedValue(COMPANY)
+      const { client } = renderUnseeded()
+      await waitFor(() => expect(client.getQueryState(queryKeys.company('AAPL'))?.fetchStatus).toBe('paused'))
+      await settle()
+      expect(screen.getByRole('status', { name: 'Loading company' })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Company not found' })).toBeNull()
+      expect(screen.queryByText(/No company with a ticker on SEC EDGAR/)).toBeNull()
+      expect(api.getCompany).not.toHaveBeenCalled()
+
+      act(() => onlineManager.setOnline(true))
+      expect(await screen.findByRole('heading', { level: 1, name: 'Apple Inc.' })).toBeInTheDocument()
+
+      act(() => onlineManager.setOnline(false))
+      act(() => { void client.refetchQueries({ queryKey: queryKeys.company('AAPL') }) })
+      await waitFor(() => expect(client.getQueryState(queryKeys.company('AAPL'))?.fetchStatus).toBe('paused'))
+      await settle()
+      expect(screen.getByRole('heading', { level: 1, name: 'Apple Inc.' })).toBeInTheDocument()
+      expect(screen.queryByRole('status', { name: 'Loading company' })).toBeNull()
+    } finally {
+      // Unmounted first, so going back online resumes nothing this page left paused.
+      cleanup()
+      onlineManager.setOnline(true)
+    }
   })
 
   it('keeps the card and its focused Retry busy through the retry, then hands focus to the "SEC filings" heading', async () => {

@@ -139,13 +139,19 @@ export const ordinal = (n: number): string => {
 
 /**
  * A stored Title Case data label in sentence case, for a control's face (the company page's metric
- * pickers): the first word keeps its capital, every later word goes lower case, and an acronym written in
- * capitals stays ('Net Income' to 'Net income', 'Non-Interest Income' to 'Non-interest income', 'Diluted EPS'
- * stays). The stored labels themselves are E34's.
+ * pickers), word by word on whitespace. A word with no lower-case letter is an acronym and stays as written
+ * ('R&D', 'SG&A', 'U.S.', 'EPS', 'EBITDA'); the first word keeps its capital and every later word goes lower
+ * case ('Net Income' to 'Net income', 'Non-Interest Income' to 'Non-interest income', 'Diluted EPS' stays).
+ * The stored labels themselves are E34's.
  */
-export const sentenceCase = (label: string): string =>
-  label.replace(/[A-Za-z]+/g, (word: string, offset: number) =>
-    offset === 0 || /^[A-Z]{2,}$/.test(word) ? word : word.toLowerCase())
+export const sentenceCase = (label: string): string => {
+  const first = label.search(/\S/)
+  return label.replace(/\S+/g, (word: string, offset: number) => {
+    if (!/[a-z]/.test(word)) return word
+    const lower = word.toLowerCase()
+    return offset === first ? word.charAt(0) + lower.slice(1) : lower
+  })
+}
 
 export const fmtCurrency = (
   value: NumericInput,

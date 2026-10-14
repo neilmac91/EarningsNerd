@@ -88,7 +88,11 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   // A failed load keeps its card, and a focused Retry in it, through the Retry's refetch: the query has
   // no data, so the refetch goes back to pending, and the spinner would otherwise replace the card.
   const companyFailure = useRetainedFailure(companyQuery, companyKey)
-  const companyLoading = companyQuery.isLoading && !companyFailure.failed
+  // A first load paused offline (fetchStatus 'paused': the default networkMode 'online' holds the fetch until
+  // the network returns) is neither loading nor failed to TanStack, yet it has no answer, so it reads as loading
+  // and never as the not-found card. A paused refetch over data is not pending and keeps the page.
+  const companyPaused = companyQuery.isPending && companyQuery.fetchStatus === 'paused'
+  const companyLoading = (companyQuery.isLoading || companyPaused) && !companyFailure.failed
   // A 404 is an answer (no such ticker), not a failure: it gets the not-found card, without a Retry. It
   // reads the held error, not the query's own: a refetch (a reconnect, an invalidation) clears that to
   // null while it runs, and the 404 card would turn into the load-failure card until the answer lands.

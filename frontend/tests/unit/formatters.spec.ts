@@ -36,6 +36,8 @@ describe('numeric formatters', () => {
       ['Revenue', 'Revenue'], ['Net Income', 'Net income'], ['Operating Cash Flow', 'Operating cash flow'],
       ['Non-Interest Income', 'Non-interest income'], ["Shareholders' Equity", "Shareholders' equity"],
       ['Diluted EPS', 'Diluted EPS'], ['EPS', 'EPS'],
+      // An acronym joined by & or . is one word with no lower-case letter: its single letters stay capitals.
+      ['R&D Expense', 'R&D expense'], ['SG&A', 'SG&A'], ['U.S. Revenue', 'U.S. revenue'],
     ]
     for (const [label, text] of cases) expect(sentenceCase(label)).toBe(text)
   })

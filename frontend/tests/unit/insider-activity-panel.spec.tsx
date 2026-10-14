@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -106,6 +106,23 @@ describe('InsiderActivityPanel', () => {
     for (const glyph of screen.getAllByText(/^[▲▼]\s*$/)) expect(glyph).toHaveAttribute('aria-hidden', 'true')
     expect(screen.getByText(/10b5-1 marks a trade scheduled in advance under a trading plan\./)).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Time window' })).toBeInTheDocument()
+  })
+
+  // The company page reaches phones and 200% text: below sm the segments are h-9 (2.25rem) with text-sm, so
+  // they grow with the root; the 26px desktop size (a fixed px height) starts at sm. size="sm" would hold
+  // the phone at 26px, which a 32px root's text-xs line box overflows. FilingIndex's filter does the same.
+  it('sizes the time window with the text on a phone: adaptive segments, 2.25rem below sm and 26px from sm up', async () => {
+    getInsiderActivity.mockResolvedValue(RESP)
+    renderPanel()
+    const group = await screen.findByRole('group', { name: 'Time window' })
+    const segments = within(group).getAllByRole('button')
+    expect(segments.map((segment) => segment.textContent)).toEqual(['90D', '180D', '1Y'])
+    for (const segment of segments) {
+      const classes = segment.className.split(/\s+/)
+      expect(classes).toEqual(expect.arrayContaining(['h-9', 'text-sm', 'sm:h-[26px]', 'sm:text-xs']))
+      expect(classes).not.toContain('h-[26px]')
+      expect(classes).not.toContain('text-xs')
+    }
   })
 
   it('refetches with a new window when the window is changed', async () => {

@@ -155,7 +155,7 @@ export default function InsiderActivityPanel({
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider activity</h2>
         <SegmentedControl
           label="Time window"
-          size="sm"
+          size="adaptive"
           value={String(windowDays)}
           onChange={(v) => setWindowDays(Number(v))}
           options={WINDOWS.map((w) => ({ value: String(w.days), label: w.label, mono: true }))}

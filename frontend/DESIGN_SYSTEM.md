@@ -470,11 +470,17 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  A long option set is not a segmented control: the company page's peer and trend
                  metric pickers (nine and up to 23 options) are a raw compact select beside a visible
                  "Metric" label, inputClasses({ select: true, density: 'compact', autoWidth: true }),
-                 options in sentence case; the insider window (three codes) keeps the control.
+                 options in sentence case; the insider window (three codes) keeps the control. At a
+                 32px root (200% text) on a 320px screen the select is capped at the card's inner width,
+                 so its closed face clips the name ("Revenue" shows four letters); the open list shows
+                 every name whole and nothing overflows (E34).
                  Gate: earningsnerd/no-hand-rolled-toggle-group (eslint.designRules.mjs) fails a
                  role="group" holding an aria-pressed <button> or <Button> anywhere outside
                  components/ui/SegmentedControl.tsx. A hand-built row without role="group" is
                  outside its reach (FeedbackWidget's type row, E35).
+                 Gate: tests/unit/segmentedControlOptionCount.spec.ts fails a SegmentedControl given
+                 more than five options, and pins a site it cannot count statically (FilingIndex's
+                 form filter).
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
