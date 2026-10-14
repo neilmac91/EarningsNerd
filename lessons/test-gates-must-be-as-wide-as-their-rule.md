@@ -173,6 +173,8 @@ forwarded className under another name (`({ className: cls })`), which a spellin
 check resolves each identifier a className reads to its declaration; its review of `ffa0227` the same
 destructuring of the props kept whole (`const { className: cls } = props`), so the binding is followed
 to the parameter through the variables holding it, a rest of it and an object spreading it, the next
-two forms of that family planted before a review named them. Companion to
+two forms of that family planted before a review named them; and its review of `2a18988` the name
+filled by an assignment (`let cls; ({ className: cls } = props)`), so the name is read through every
+value the file gives it, as the ink check reads a variable. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.

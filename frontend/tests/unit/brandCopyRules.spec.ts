@@ -1707,9 +1707,9 @@ function forwardsClassName(fn: ts.FunctionLikeDeclaration): boolean {
 }
 /** Whether an element's className reads the `className` its component is handed: the name itself (`className={className}`,
     `cx('…', className)`, `props.className`), the name a destructuring of the props gives it (`({ className: cls })`,
-    `const { className: cls } = props`: a binding keyed `className` in the props a function around the element is handed,
-    or a variable holding them) or a same-file variable holding either (`const cls = className`), each identifier resolved
-    through the checker. */
+    `const { className: cls } = props`, `({ className: cls } = props)` assigned later: a binding keyed `className` in
+    what holds the props, `holdsProps`) or a same-file variable holding either, by its initializer or any value the file
+    assigns it (`const cls = className`, `cls = props.className`), each identifier resolved through the checker. */
 function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
   const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className')
   if (!attr?.initializer) return false
@@ -1724,44 +1724,43 @@ function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
       seen.add(declaration)
       if (ts.isBindingElement(declaration)) {
         const key = declaration.propertyName ?? declaration.name
-        if ((ts.isIdentifier(key) || ts.isStringLiteral(key)) && key.text === 'className' && isPropsBinding(declaration, opening)) found = true
-      } else if (ts.isVariableDeclaration(declaration) && declaration.initializer && reads(declaration.initializer)) found = true
+        if ((ts.isIdentifier(key) || ts.isStringLiteral(key)) && key.text === 'className' && holdsProps(bindingRoot(declaration), opening)) found = true
+      } else if (ts.isVariableDeclaration(declaration)) {
+        // What the name holds (`variableValues`): a value read as the initializer is, or the `className` field of what
+        // holds the props, taken by a destructuring assignment (`({ className: cls } = props)`).
+        for (const { value, steps } of variableValues(declaration)) {
+          if (!steps.length ? reads(value) : steps.length === 1 && steps[0] === 'className' && holdsProps(value, opening)) found = true
+        }
+      }
     })
     return found
   }
   return reads(attr.initializer)
 }
-/** Whether a binding element destructures what a parameter of a function around the element holds (the component's
-    props, or a render callback's), as the parameter itself (`({ className: cls })`) or through a variable holding it
-    (`const { className: cls } = props`, `const p = props`), a rest of it (`({ n, ...rest })`) or an object spreading it
-    (`{ ...props }`), not some other object (`const { className: cls } = theme`). */
-function isPropsBinding(binding: ts.BindingElement, at: ts.Node): boolean {
+/** The declaration a binding element's destructuring climbs to: a parameter or a variable. */
+function bindingRoot(binding: ts.Node): ts.Node {
   let root: ts.Node = binding
   while (ts.isBindingElement(root) || ts.isObjectBindingPattern(root) || ts.isArrayBindingPattern(root)) root = root.parent
-  const seen = new Set<ts.Node>()
-  const fromParameter = (node: ts.Node): boolean => {
-    if (seen.has(node)) return false
-    seen.add(node)
-    if (ts.isParameter(node)) {
-      for (let p: ts.Node | undefined = at; p; p = p.parent) if (p === node.parent) return true
-      return false
-    }
-    // A rest of the props holds the rest of them.
-    if (ts.isBindingElement(node) && node.dotDotDotToken) {
-      let up: ts.Node = node
-      while (ts.isBindingElement(up) || ts.isObjectBindingPattern(up) || ts.isArrayBindingPattern(up)) up = up.parent
-      return fromParameter(up)
-    }
-    return ts.isVariableDeclaration(node) && !!node.initializer && holdsProps(node.initializer)
+  return root
+}
+/** Whether a declaration or an expression holds the props a function around `at` is handed (the component's, or a
+    render callback's): the parameter itself (`({ className: cls })`), a rest of it (`({ n, ...rest })`), a variable
+    the file gives one of these, by its initializer or an assignment (`const p = props`), or an object spreading one
+    (`{ ...props }`); not some other object (`const { className: cls } = theme`). */
+function holdsProps(node: ts.Node, at: ts.Node, seen = new Set<ts.Node>()): boolean {
+  if (seen.has(node)) return false
+  seen.add(node)
+  if (ts.isParameter(node)) {
+    for (let p: ts.Node | undefined = at; p; p = p.parent) if (p === node.parent) return true
+    return false
   }
-  // What holds the props: the name of a parameter, a variable or a rest holding them, or an object spreading one.
-  const holdsProps = (e: ts.Expression): boolean => {
-    const value = unwrap(e)
-    if (ts.isObjectLiteralExpression(value)) return value.properties.some((m) => ts.isSpreadAssignment(m) && holdsProps(m.expression))
-    const declaration = ts.isIdentifier(value) ? CHECKER.getSymbolAtLocation(value)?.valueDeclaration : undefined
-    return !!declaration && fromParameter(declaration)
-  }
-  return fromParameter(root)
+  if (ts.isBindingElement(node)) return !!node.dotDotDotToken && holdsProps(bindingRoot(node), at, seen)
+  if (ts.isVariableDeclaration(node)) return variableValues(node).some(({ value, steps }) => !steps.length && holdsProps(value, at, seen))
+  if (ts.isObjectLiteralExpression(node)) return node.properties.some((m) => ts.isSpreadAssignment(m) && holdsProps(m.expression, at, seen))
+  const value = unwrap(node as ts.Expression)
+  if (value !== node) return holdsProps(value, at, seen)
+  const declaration = ts.isIdentifier(value) ? CHECKER.getSymbolAtLocation(value)?.valueDeclaration : undefined
+  return !!declaration && holdsProps(declaration, at, seen)
 }
 
 /** The ink an element inherits from the elements around it in its own file: the nearest one that sets an ink. One
