@@ -47,7 +47,8 @@ def verify_webhook_signature(payload: bytes, signature_header: str, secret: str,
             if version != "v1":
                 continue
             # Compare signatures in constant time to prevent timing attacks
-            if hmac.compare_digest(signature, expected_signature):
+            # Bytes, not str: compare_digest raises TypeError on a non-ASCII str, and headers decode as latin-1.
+            if hmac.compare_digest(signature.encode(), expected_signature.encode()):
                 return True
         except ValueError:
             continue  # Ignore malformed signature parts
