@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import {
   FREE_SUMMARY_LIMIT,
@@ -106,15 +107,44 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
   // Pro's Copilot questions are capped (COPILOT_MONTHLY_QUESTION_CAP, a fair-use 429 past it), so no copy
   // offers "unlimited" questions (ASK-03, D-034). The cap is read from the usage response (qa_limit), never
   // typed. The Copilot's own surfaces carry no "unlimited" at all; everywhere else under the source roots
-  // (pricing, marketing, the upgrade surfaces, any page) "unlimited" stays off a question noun, through up to
-  // two modifiers, hyphenated ones included ("unlimited follow-up questions"), and across a line break
-  // (whether Pro summaries stay "unlimited" is a founder decision, pub/F05, so that clause is not here).
+  // (pricing, marketing, the upgrade surfaces, any page) "unlimited" stays off a question noun within one
+  // literal (a string, JSX text, a template with its parts joined; a markdown file's paragraph), its
+  // whitespace collapsed so a wrapped line reads as one: "unlimited" before a question, answer, Ask this
+  // Filing, Copilot or Q&A noun through up to three modifiers, hyphenated ones and commas included
+  // ("unlimited follow-up questions", "Unlimited, cited answers"), or such a noun up to 30 characters
+  // before "unlimited" in the same sentence ("Answers are unlimited on Pro"). A list that puts the noun
+  // further from "unlimited" ("unlimited 10-K and 10-Q analysis, exports, and filing Q&A") and a claim
+  // split across literals are out of its reach and review-checked (whether Pro summaries stay "unlimited"
+  // is a founder decision, pub/F05, so that clause is not here).
   const COPILOT_DIR = path.join('features', 'filings', 'components', 'copilot')
   const QUESTION =
-    /\bunlimited\s+(?:[\w&-]+\s+){0,2}(?:questions?|answers?|copilot|ask this filing|q&a)\b|\b(?:questions?|copilot|ask this filing|q&a)\b[^.]{0,30}\bunlimited\b/gi
-  /** Each line a QUESTION match starts on, read over the whole file so a wrapped JSX sentence is one string. */
-  const questionLines = (source: string): number[] =>
-    [...source.matchAll(QUESTION)].map((match) => source.slice(0, match.index).split('\n').length)
+    /\bunlimited,?\s+(?:[\w&-]+,?\s+){0,3}(?:questions?|answers?|copilot|ask this filing|q&a)\b|\b(?:questions?|answers?|copilot|ask this filing|q&a)\b[^.]{0,30}\bunlimited\b/i
+  const promisesUnlimited = (text: string) => QUESTION.test(text)
+
+  /** Each literal a file holds, whitespace collapsed, with the line it starts on: a string, JSX text or a template
+      with its parts joined (a markdown file's paragraph), so neighbouring array items never join. */
+  function literals(file: string, source: string): { line: number; text: string }[] {
+    if (/\.mdx?$/.test(file)) {
+      let line = 1
+      return source.split(/\n\s*\n/).map((paragraph) => {
+        const at = { line, text: paragraph.replace(/\s+/g, ' ') }
+        line += paragraph.split('\n').length + 1
+        return at
+      })
+    }
+    const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : file.endsWith('.jsx') ? ts.ScriptKind.JSX : file.endsWith('.js') ? ts.ScriptKind.JS : ts.ScriptKind.TS
+    const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, kind)
+    const out: { line: number; text: string }[] = []
+    const visit = (n: ts.Node) => {
+      let text: string | null = null
+      if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) || ts.isJsxText(n)) text = n.text
+      else if (ts.isTemplateExpression(n)) text = [n.head.text, ...n.templateSpans.map((span) => span.literal.text)].join(' ')
+      if (text !== null) out.push({ line: sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1, text: text.replace(/\s+/g, ' ') })
+      ts.forEachChild(n, visit)
+    }
+    visit(sf)
+    return out
+  }
 
   it('no Copilot or plan surface promises unlimited questions', () => {
     const offenders: string[] = []
@@ -125,14 +155,13 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
         const rel = path.relative(frontendDir, file)
         scanned.add(rel.split(path.sep).join('/'))
         const source = readFileSync(file, 'utf8')
-        const lines = source.split('\n')
         if (rel.startsWith(COPILOT_DIR + path.sep)) {
           copilotFiles += 1
-          lines.forEach((line, index) => {
+          source.split('\n').forEach((line, index) => {
             if (/\bunlimited\b/i.test(line)) offenders.push(`${rel}:${index + 1}: ${line.trim()}`)
           })
         } else {
-          for (const line of questionLines(source)) offenders.push(`${rel}:${line}: ${lines[line - 1].trim()}`)
+          for (const { line, text } of literals(file, source)) if (promisesUnlimited(text)) offenders.push(`${rel}:${line}: ${text.trim()}`)
         }
       }
     }
@@ -144,18 +173,33 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
     expect(offenders, "say what the plan includes, from the usage response: `Pro includes ${usage.qa_limit} questions a month.`").toEqual([])
   })
 
-  it('the question clause reads hyphenated modifiers, Q&A and a wrapped line (self-check)', () => {
+  it('the question clause reads one literal: modifiers, a comma, Q&A, answers and a wrapped line (self-check)', () => {
     for (const claim of [
       'Pro includes unlimited follow-up questions.',
       'Unlimited filing Q&A with Pro',
       'Unlimited Ask this Filing questions',
       'Pro includes unlimited\n            questions a month.',
       'Ask this Filing: unlimited on Pro',
+      // A comma, a third modifier, and an answer noun before "unlimited".
+      'Unlimited, cited answers',
+      'Pro includes unlimited plain-English follow-up filing questions.',
+      'Answers are unlimited on Pro',
     ]) {
-      expect(questionLines(claim).length, claim).toBe(1)
+      expect(promisesUnlimited(literals('claim.ts', JSON.stringify(claim))[0].text), claim).toBe(true)
     }
     for (const allowed of ['Unlimited summaries', 'Pro includes 1,000 questions a month.', 'Unlimited Multi-Period Analysis', 'Watchlists are unlimited on both plans.']) {
-      expect(questionLines(allowed), allowed).toEqual([])
+      expect(promisesUnlimited(allowed), allowed).toBe(false)
     }
+    // Out of reach, pinned so a record cannot claim it: the noun further down a list than three modifiers.
+    expect(promisesUnlimited('go Pro for unlimited 10-K and 10-Q analysis, exports, and filing Q&A.')).toBe(false)
+    // Neighbouring array items are separate literals: "Unlimited watchlist" beside the questions line is no claim.
+    const planted = literals('planted.tsx', [
+      'const PRO = [',
+      "  'Ask this Filing questions, 1,000 a month',",
+      "  'Unlimited watchlist',",
+      "  `Unlimited ${'follow-up'} questions`,",
+      ']',
+    ].join('\n'))
+    expect(planted.filter(({ text }) => promisesUnlimited(text)).map(({ line }) => line)).toEqual([4])
   })
 })
