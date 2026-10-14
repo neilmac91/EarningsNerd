@@ -440,7 +440,7 @@ const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
   'features/admin/components/ShareInvite.tsx': { sentenceCase: 1 }, // a known false positive, no PR: the aria-label "Share invite via Messages" names Apple's app; the entry leaves when the label changes
   'features/contact/components/ContactForm.tsx': { sentenceCase: 1 }, // brand-contact-security-presentation (#1303)
   'features/feedback/components/FeedbackWidget.tsx': { emoji: 3 }, // brand-chrome-primitives (#1289)
-  'features/filings/components/copilot/FilingWorkspace.tsx': { sentenceCase: 1 }, // the Copilot rail's next change (no open PR edits this file; the aria-label "Filing source and Ask")
+  'features/filings/components/copilot/FilingWorkspace.tsx': { sentenceCase: 1 }, // the Copilot rail's next change (no open PR edits the flagged line; #1278 edits another line of this file; the aria-label "Filing source and Ask")
   'features/filings/components/copilot/PaneResizer.tsx': { sentenceCase: 1 }, // brand-copilot (#1295; the aria-label "Resize Copilot panel")
   'features/fundamentals/components/FundamentalsTrendChart.tsx': { sentenceCase: 1 }, // brand-company-page (#1292)
   'features/insiders/components/InsiderActivityPanel.tsx': { sentenceCase: 2 }, // brand-company-page (#1292)
