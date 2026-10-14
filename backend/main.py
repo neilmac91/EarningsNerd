@@ -168,12 +168,18 @@ def _withhold(
     one of `kept`, the paths the protocol gives the item's kind (`_PROTOCOL_PATHS`; none by default): `path` is the keys
     above the node, a list's items sharing the list's, and None below a key that is not exactly text (a str subclass
     could pose as one), where no key stays.
-    Mappings and lists are walked; None, booleans and numbers stay as they are; any other value becomes its repr first,
+    Mappings and lists are walked; None and booleans stay as they are; any other value becomes its repr first,
     scrubbed: the SDK would turn it into text after the hook (a log record's `extra` value, a log's body that is not
-    text), where nothing scrubs it. A text is scrubbed by str's own `replace`, which returns exactly text: the SDK keeps
-    a str subclass as it is up to the hooks, and the subclass's `replace` could keep the secret."""
-    if node is None or isinstance(node, (bool, int, float)):
+    text), where nothing scrubs it. A text is scrubbed by str's own `replace`, which returns exactly text, and a number
+    comes back as int's or float's own value, exactly a number: the SDK keeps a subclass of either as it is up to the
+    hooks, the subclass's `replace` could keep the secret, and the log batcher makes text of a number through its own
+    `__str__` or `__repr__` after the hook (a log's body, a value in a mapping attribute)."""
+    if node is None or type(node) is bool:
         return node
+    if isinstance(node, int):
+        return int.__index__(node)
+    if isinstance(node, float):
+        return float.__float__(node)
     if isinstance(node, dict):
         withheld: dict[Any, Any] = {}
         for key, value in node.items():
@@ -200,7 +206,8 @@ def _value_scrubber(secret_values: tuple[str, ...]) -> dict[str, _Hook]:
     """Sentry's hooks on every channel that carries text, one per channel: an error or a check-in (`event`, set as
     before_send), a transaction with its spans (`transaction`, before_send_transaction), a log (`log`, before_send_log)
     and a metric (`metric`, before_send_metric). A hook that raises drops its item (the SDK records a callback error),
-    so a failure here never sends one unscrubbed. Each keeps only the protocol's own keys where the protocol puts them
+    so a failure here never sends one unscrubbed: each hook raises any failure as an Exception, since the SDK sends a
+    log or a metric on after one that is not. Each keeps only the protocol's own keys where the protocol puts them
     in its item's kind, never a field whole: a key at one of that kind's `_PROTOCOL_PATHS` (`_withhold`; before_send
     tells a check-in by its `type`, exactly text) and an item's `type` when it is one of `_ITEM_TYPES`. So a weak secret
     equal to one of their words breaks no item, and nothing that runs before the hooks (an event processor, a
@@ -213,7 +220,10 @@ def _value_scrubber(secret_values: tuple[str, ...]) -> dict[str, _Hook]:
     def hook(paths: Callable[[dict[str, Any]], frozenset[tuple[str, ...]]]) -> _Hook:
         def withhold_secret_values(item: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
             hint.pop("attachments", None)  # the SDK sends what is left there after the hook, unscrubbed
-            scrubbed = _withhold(item, secret_values, paths(item))
+            try:
+                scrubbed = _withhold(item, secret_values, paths(item))
+            except BaseException as error:  # the SDK sends a log or a metric on after any failure but an Exception
+                raise RuntimeError("the value scrubber failed") from error
             kind = item.get("type")
             if type(kind) is str and kind in _ITEM_TYPES:  # exactly text: a subclass could pose as one
                 scrubbed["type"] = kind

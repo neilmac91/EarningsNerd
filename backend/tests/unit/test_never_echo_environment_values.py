@@ -1922,7 +1922,6 @@ def test_a_type_is_kept_only_when_it_is_text(monkeypatch, request):
     assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry"
 
 
-
 def test_a_text_subclass_cannot_keep_a_secret(monkeypatch, request):
     # Codex's case on #1297's ready head: the SDK keeps a str subclass as it is up to the hooks (its serializer
     # included), and the scrubber called the text's own `replace`, which a subclass can override to keep the secret (a
@@ -1958,10 +1957,60 @@ def test_a_text_subclass_cannot_keep_a_secret(monkeypatch, request):
     assert log["body"] == "job failed for [Filtered]"
     assert log["attributes"]["detail"]["value"] == "job failed for [Filtered]"
     assert log["attributes"]["[Filtered]"]["value"] == "a key"
+    (metric,) = [entry for payload in _of(envelopes, "trace_metric") for entry in payload["items"]]
+    assert metric["attributes"]["detail"]["value"] == "job failed for [Filtered]"  # sent, not dropped
     leaked = _fragments(token, json.dumps(envelopes), width=8)
     assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry"
     scrubbed = main._withhold(quoted, (token,))
     assert scrubbed == "job failed for [Filtered]" and type(scrubbed) is str
+
+
+def test_a_number_subclass_cannot_carry_a_secret(monkeypatch, request, caplog):
+    # The round-14 delta check (R14-A2): the scrubber kept an int or float subclass as it was, and with Sentry logs on
+    # the log batcher makes text of a log's body (str) and of a mapping or mixed-list attribute (repr) after the hook,
+    # through the subclass's own __str__ and __repr__, where nothing scrubs it. A number comes back exactly a number:
+    # such a body and such values in a log record's extra send no part of the secret, and an error's extra keeps the
+    # numbers (the envelope encodes a number by its value).
+    import sentry_sdk
+    from sentry_sdk import logger as sentry_logger
+
+    import main
+
+    options = main._sentry_options
+    monkeypatch.setattr(main, "_sentry_options", lambda: {**options(), "enable_logs": True})
+    token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
+    envelopes = _scrubbing_envelopes(request, monkeypatch, INTERNAL_JOB_TOKEN=token)
+
+    class Code(int):
+        def __str__(self):
+            return f"code 5, job failed for {token}"
+
+        __repr__ = __str__
+
+    class Ratio(float):
+        def __str__(self):
+            return f"ratio, job failed for {token}"
+
+        __repr__ = __str__
+
+    caplog.set_level(logging.INFO, logger="app.jobs")
+    sentry_logger.warning(Code(5))
+    sentry_logger.warning(Ratio(0.5))
+    extra = {"codes": [Code(5), "x"], "detail": {"ratio": Ratio(0.5)}}
+    logging.getLogger("app.jobs").warning("job failed", extra=extra)
+    sentry_sdk.set_extra("numbers", {"code": Code(5), "ratio": Ratio(0.5)})
+    sentry_sdk.capture_message("numbers")
+    sentry_sdk.flush()
+    logs = [entry for payload in _of(envelopes, "log") for entry in payload["items"]]
+    assert ["5", "0.5"] == [entry["body"] for entry in logs if entry["body"] in ("5", "0.5")]
+    record = next(entry for entry in logs if entry["attributes"].get("logger.name", {}).get("value") == "app.jobs")
+    assert record["attributes"]["codes"]["value"] == "[5, 'x']"
+    assert record["attributes"]["detail"]["value"] == "{'ratio': 0.5}"
+    (event,) = _of(envelopes, "event")
+    assert event["extra"]["numbers"] == {"code": 5, "ratio": 0.5}
+    leaked = _fragments(token, json.dumps(envelopes), width=8)
+    assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry"
+    assert type(main._withhold(Code(5), (token,))) is int and type(main._withhold(Ratio(0.5), (token,))) is float
 
 
 def test_nothing_written_before_the_hooks_carries_a_secret_past_them(monkeypatch, request):
@@ -2090,10 +2139,17 @@ def test_the_value_scrubber_reads_the_settings_once_at_startup(monkeypatch, requ
     assert _of(envelopes, "log") and reads == ["read"]
 
 
-def test_a_failing_value_scrubber_sends_nothing(monkeypatch, sentry_envelopes):
+class _Halt(BaseException):
+    """An exception that is not an Exception, as KeyboardInterrupt and SystemExit are not."""
+
+
+@pytest.mark.parametrize("error", [RuntimeError, _Halt])
+def test_a_failing_value_scrubber_sends_nothing(monkeypatch, sentry_envelopes, error):
     # The hooks fail closed: an exception inside one drops its item, which the SDK records as lost to a callback error,
-    # instead of sending it unscrubbed, on every channel. (A global event processor would fail open: the SDK passes the
-    # event on when one raises, and it runs before the request is attached.)
+    # instead of sending it unscrubbed, on every channel, whatever the exception. The SDK sends a log or a metric on,
+    # unscrubbed, after one that is not an Exception, so each hook raises any failure as one (the round-14 delta
+    # check's R14-A1). (A global event processor would fail open: the SDK passes the event on when one raises, and it
+    # runs before the request is attached.)
     import sentry_sdk
     from sentry_sdk import logger as sentry_logger
     from sentry_sdk.crons import capture_checkin
@@ -2101,7 +2157,7 @@ def test_a_failing_value_scrubber_sends_nothing(monkeypatch, sentry_envelopes):
     import main
 
     def failing(*arguments):
-        raise RuntimeError("the scrubber failed")
+        raise error("the scrubber failed")
 
     monkeypatch.setattr(main, "_withhold", failing)
     with sentry_sdk.start_transaction(name="job"):
