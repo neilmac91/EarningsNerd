@@ -78,7 +78,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   invite" and "Revoke this link-only invite". The empty lists are one plain line in the card ("No
   invites yet. Send your first one above.", "No feedback yet. Reports appear here as people send
   them."), a failed load is a Notice with a Retry, and the section headings carry no icon. The status
-  chips put the status ink on the quiet ground (DESIGN_SYSTEM.md §4), "New" feedback takes an unread
+  chips put the status ink on the quiet ground (DESIGN_SYSTEM.md §4), the feedback type chip beside
+  them takes the same quiet ground in dark (no fill, its hairline kept), "New" feedback takes an unread
   envelope in place of the sparkle, an already-invited chip reads "· already invited" in its own ink,
   and the remaining admin controls carry the brand ring (`statusChipContrast.spec.ts`,
   `inviteOutcomeEmailed.spec.tsx`, `siteChromeFocusRing.spec.ts`).

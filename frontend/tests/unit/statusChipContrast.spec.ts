@@ -1,24 +1,33 @@
 import { createElement, type FunctionComponent } from 'react'
+import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { render } from '@testing-library/react'
 import type { Config } from 'tailwindcss'
 import resolveConfig from 'tailwindcss/resolveConfig'
+import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import InviteStatusBadge from '@/features/admin/components/InviteStatusBadge'
 import FeedbackStatusBadge from '@/features/admin/components/FeedbackStatusBadge'
-import type { FeedbackStatus, InviteStatus } from '@/features/admin/api/admin-api'
+import FeedbackTypeBadge from '@/features/admin/components/FeedbackTypeBadge'
+import type { FeedbackStatus, FeedbackType, InviteStatus } from '@/features/admin/api/admin-api'
 import { STATUS_CHIP, STATUS_CHIP_INK, type StatusChipTone } from '@/features/admin/lib/statusChip'
 
 /**
- * The admin status chips' labels clear 4.5:1 on what is behind them, in both themes (audit ADM-16a,
- * ADM-16b; CLAUDE.md rule 11). The recipe has one home, features/admin/lib/statusChip.ts: each tone is
- * measured there once per theme per ground, from its classes resolved through tailwind.config.js, so a
- * token or recipe change is read as it ships: the label ink over the chip's ground, composited over the
- * table row the chip sits in, at rest and under the row's hover tint. Both badges are then held to that
- * recipe, status by status. A text- colour this spec cannot resolve fails, and so does a bg- or text-
- * arbitrary value (`bg-[...]`) that looks like a colour and is not a hex or rgb() it can read; a plain
- * unknown token name is skipped, since Tailwind emits no CSS for it either.
+ * The admin chips' labels clear 4.5:1 on what is behind them, in both themes (audit ADM-16a, ADM-16b;
+ * CLAUDE.md rule 11). What is behind them is read from the code, never written here: each table's
+ * <tbody> ground (app/admin/invites/page.tsx, app/admin/feedback/page.tsx) and its row's own tint
+ * (InviteRow's and FeedbackRow's <tr>), from their className strings in the TypeScript AST, at rest and
+ * hovered. A <tr> or <tbody> it cannot find, a className that is not a plain string, a tbody with no
+ * ground it can resolve or a translucent one, and a ground under a variant it does not model all fail;
+ * nothing falls back to a literal. The status chip recipe has one home, features/admin/lib/statusChip.ts:
+ * each tone is measured there once per theme on every one of those grounds, from its classes resolved
+ * through tailwind.config.js, so a token, recipe or row change is read as it ships: the label ink over
+ * the chip's ground, composited over the row. Both status badges are then held to that recipe, status by
+ * status, and FeedbackTypeBadge, the chip beside FeedbackRow's status chip, is measured as it renders on
+ * that row's grounds. A text- colour this spec cannot resolve fails, and so does a bg- or text- arbitrary
+ * value (`bg-[...]`) that looks like a colour and is not a hex or rgb() it can read; a plain unknown token
+ * name is skipped, since Tailwind emits no CSS for it either.
  */
 const require = createRequire(import.meta.url)
 const flattenColorPalette = (require('tailwindcss/lib/util/flattenColorPalette') as { default: (c: unknown) => Record<string, string> }).default
@@ -26,6 +35,10 @@ const ROOT = path.resolve(__dirname, '../..')
 const COLORS = flattenColorPalette(resolveConfig(require(path.join(ROOT, 'tailwind.config.js')) as Config).theme.colors)
 
 type Rgba = [number, number, number, number]
+type Theme = 'light' | 'dark'
+/** What a chip sits on, per theme: a label and the opaque colour behind the chip. */
+type Grounds = Record<Theme, Array<[string, Rgba]>>
+const THEMES: Theme[] = ['light', 'dark']
 
 function rgba(color: string): Rgba {
   if (color.startsWith('#')) {
@@ -69,26 +82,103 @@ const ratio = (a: Rgba, b: Rgba) => {
   return (hi + 0.05) / (lo + 0.05)
 }
 
-/** The rows a chip sits on (InviteRow, FeedbackRow: the tbody's panel, and the row's hover tint over it). */
-const ROWS: Record<'light' | 'dark', Array<[string, Rgba]>> = {
-  light: [
-    ['row', colour('panel-light')!],
-    ['hovered row', colour('background-light')!],
-  ],
-  dark: [
-    ['row', colour('panel-dark')!],
-    ['hovered row', over(colour('white/5')!, colour('panel-dark')!)],
-  ],
-}
-
 /** An arbitrary value that is not a length, a url or a size: a colour this spec must read or refuse. */
 const looksLikeColour = (value: string) => value.startsWith('[') && !/^\[(length:|url\(|position:|[\d.]+(px|rem|em|%)?\])/.test(value)
+/** A class's variants and its utility last, split on the colons outside an arbitrary value (`bg-[color:var(--x)]` stays whole). */
+const classParts = (cls: string) => cls.split(/:(?![^[]*\])/)
+
+/** The className of the one <tag> in a .tsx source, or null with a failure that names the file. */
+function oneClassName(source: string, file: string, tag: string, failures: string[]): string | null {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  // Each <tag>'s className: its text when it is a plain string (or a string in braces), null otherwise.
+  const found: Array<string | null> = []
+  const visit = (node: ts.Node): void => {
+    if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(sf) === tag) {
+      const attr = node.attributes.properties.find((p) => ts.isJsxAttribute(p) && p.name.getText(sf) === 'className')
+      const init = attr && ts.isJsxAttribute(attr) ? attr.initializer : undefined
+      const value = init && ts.isJsxExpression(init) ? init.expression : init
+      found.push(value && (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) ? value.text : null)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  if (found.length === 1 && found[0] !== null) return found[0]
+  failures.push(
+    found.length === 1
+      ? `${file}: the <${tag}> has no className string this spec can read`
+      : `${file}: ${found.length} <${tag}> elements, where this spec reads exactly one`,
+  )
+  return null
+}
+
+/** A class list's bg- colours by variant ('', 'hover', 'dark', 'dark:hover'); one it cannot read, or a variant outside `modelled`, fails. */
+function backgrounds(className: string, where: string, modelled: string[], failures: string[]): Map<string, Rgba> {
+  const found = new Map<string, Rgba>()
+  for (const cls of className.split(/\s+/).filter(Boolean)) {
+    const parts = classParts(cls)
+    const m = parts.pop()!.match(/^bg-(.+)$/)
+    if (!m) continue
+    const value = colour(m[1])
+    if (!value) {
+      if (looksLikeColour(m[1])) failures.push(`${where}: ${cls} looks like a colour this spec cannot resolve`)
+      continue
+    }
+    const variant = parts.sort().join(':')
+    if (modelled.includes(variant)) found.set(variant, value)
+    else failures.push(`${where}: ${cls} is a ground under a variant this spec does not model`)
+  }
+  return found
+}
+
+/** One table's grounds: its tbody's own, under its row's tint at rest and hovered, in each theme. */
+function tableGrounds(table: string, row: string, body: string, where: { row: string; body: string }, failures: string[]): Grounds {
+  const under = backgrounds(body, where.body, ['', 'dark'], failures)
+  const tint = backgrounds(row, where.row, ['', 'hover', 'dark', 'dark:hover'], failures)
+  const grounds: Grounds = { light: [], dark: [] }
+  for (const theme of THEMES) {
+    // A dark: ground left unset falls back to the light one, as the cascade does. In dark, a row's dark:bg-
+    // also outranks its hover:bg-: Tailwind emits the dark variant later, at the same specificity.
+    const ground = theme === 'dark' ? under.get('dark') ?? under.get('') : under.get('')
+    const rest = theme === 'dark' ? tint.get('dark') ?? tint.get('') : tint.get('')
+    const hover = theme === 'dark' ? tint.get('dark:hover') ?? tint.get('dark') ?? tint.get('hover') ?? tint.get('') : tint.get('hover') ?? tint.get('')
+    if (!ground) {
+      failures.push(`${where.body} (${theme}): no bg- ground this spec can resolve`)
+      continue
+    }
+    if (ground[3] < 1) {
+      failures.push(`${where.body} (${theme}): a translucent ground, and this spec does not read what shows through it`)
+      continue
+    }
+    grounds[theme].push([`${table} row`, rest ? over(rest, ground) : ground], [`${table} hovered row`, hover ? over(hover, ground) : ground])
+  }
+  return grounds
+}
+
+/** The tables the chips sit in: each row component, and the page whose <tbody> renders its rows. */
+const TABLES = {
+  invites: { row: 'features/admin/components/InviteRow.tsx', body: 'app/admin/invites/page.tsx' },
+  feedback: { row: 'features/admin/components/FeedbackRow.tsx', body: 'app/admin/feedback/page.tsx' },
+}
+/** Why a table's grounds could not be read; every measuring case below fails on any of them. */
+const GROUND_FAILURES: string[] = []
+const GROUNDS = Object.fromEntries(
+  Object.entries(TABLES).map(([table, files]) => {
+    const read = (file: string, tag: string) => oneClassName(readFileSync(path.join(ROOT, file), 'utf8'), file, tag, GROUND_FAILURES)
+    const [row, body] = [read(files.row, 'tr'), read(files.body, 'tbody')]
+    const where = { row: `${files.row} <tr>`, body: `${files.body} <tbody>` }
+    return [table, row === null || body === null ? { light: [], dark: [] } : tableGrounds(table, row, body, where, GROUND_FAILURES)]
+  }),
+) as Record<keyof typeof TABLES, Grounds>
+const EVERY_GROUND: Grounds = {
+  light: Object.values(GROUNDS).flatMap((g) => g.light),
+  dark: Object.values(GROUNDS).flatMap((g) => g.dark),
+}
 
 /** The chip's text and background colours in one theme, from its class list, and the colour-like classes it could not read. */
-function chipColours(className: string, theme: 'light' | 'dark') {
+function chipColours(className: string, theme: Theme) {
   const found: { text?: Rgba; bg?: Rgba; unread: string[] } = { unread: [] }
   for (const cls of className.split(/\s+/)) {
-    const parts = cls.split(':')
+    const parts = classParts(cls)
     const utility = parts.pop()!
     const variants = parts.join(':')
     if (variants !== (theme === 'dark' ? 'dark' : '')) continue
@@ -107,22 +197,23 @@ function chipColours(className: string, theme: 'light' | 'dark') {
 const TONES = Object.keys(STATUS_CHIP_INK) as StatusChipTone[]
 const recipe = (tone: StatusChipTone) => `${STATUS_CHIP} ${STATUS_CHIP_INK[tone]}`
 
-/** Every tone's label ratio on each row, in one theme, with any class the reader could not read. */
-function measure(name: string, className: string, failures: string[]): number {
+/** A chip's label ratio on each ground, in both themes, with any class the reader could not read. */
+function measure(name: string, className: string, grounds: Grounds, failures: string[]): number {
   let measured = 0
-  for (const theme of ['light', 'dark'] as const) {
+  for (const theme of THEMES) {
     const { text: ink, bg, unread } = chipColours(className, theme)
     for (const cls of unread) failures.push(`${name} (${theme}): ${cls} looks like a colour this spec cannot resolve`)
     // A dark: background left unset falls back to the light one, as the cascade does.
-    const ground = bg ?? (theme === 'dark' ? chipColours(className, 'light').bg : undefined) ?? ([0, 0, 0, 0] as Rgba)
+    const chip = bg ?? (theme === 'dark' ? chipColours(className, 'light').bg : undefined) ?? ([0, 0, 0, 0] as Rgba)
     if (!ink) {
       failures.push(`${name} (${theme}): no ${theme === 'dark' ? 'dark:' : ''}text- colour this spec can resolve`)
       continue
     }
-    for (const [row, rowColour] of ROWS[theme]) {
-      const r = ratio(over(ink, over(ground, rowColour)), over(ground, rowColour))
+    for (const [label, ground] of grounds[theme]) {
+      const behind = over(chip, ground)
+      const r = ratio(over(ink, behind), behind)
       measured += 1
-      if (r < 4.5) failures.push(`${name} (${theme}, ${row}): ${r.toFixed(2)}:1`)
+      if (r < 4.5) failures.push(`${name} (${theme}, ${label}): ${r.toFixed(2)}:1`)
     }
   }
   return measured
@@ -134,15 +225,17 @@ const CHIPS: Array<[string, FunctionComponent<{ status: never }>, string[]]> = [
 ]
 
 const classSet = (className: string) => [...new Set(className.split(/\s+/).filter(Boolean))].sort().join(' ')
+/** The self-checks' own <tr> and <tbody>: their grounds come from class strings written in each case, not from the code. */
+const PROBE = { row: 'probe <tr>', body: 'probe <tbody>' }
 
 describe('admin status chips: the label clears 4.5:1 on its actual ground, both themes (ADM-16a, ADM-16b)', () => {
-  it('every tone of the status chip recipe, at rest and on a hovered row', () => {
-    const failures: string[] = []
+  it('every tone of the status chip recipe, on the rows of both tables at rest and hovered', () => {
+    const failures = [...GROUND_FAILURES]
     let measured = 0
-    for (const tone of TONES) measured += measure(`status chip ${tone}`, recipe(tone), failures)
+    for (const tone of TONES) measured += measure(`status chip ${tone}`, recipe(tone), EVERY_GROUND, failures)
     expect(failures).toEqual([])
-    // Four tones, two themes, two rows: a reader that measured nothing must not pass.
-    expect(measured).toBe(16)
+    // Four tones, two themes, two tables, each row at rest and hovered: a reader that found no ground must not pass.
+    expect(measured).toBe(32)
   })
 
   it('both badges render every status on the recipe, so the measurement above is what ships', () => {
@@ -163,6 +256,19 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
     expect(rendered).toBe(7)
   })
 
+  it('the feedback type chip, every type as it renders, on FeedbackRow at rest and hovered', () => {
+    const failures = [...GROUND_FAILURES]
+    let measured = 0
+    for (const type of ['bug', 'feature', 'general'] satisfies FeedbackType[]) {
+      const { container, unmount } = render(createElement(FeedbackTypeBadge, { type }))
+      measured += measure(`FeedbackTypeBadge ${type}`, (container.firstElementChild as HTMLElement).className, GROUNDS.feedback, failures)
+      unmount()
+    }
+    expect(failures).toEqual([])
+    // Three types, two themes, the row at rest and hovered.
+    expect(measured).toBe(12)
+  })
+
   it('reads a tinted ground and its alpha, so the old recipe would fail', () => {
     // The Pending chip before this change: info.light inside its own 10% tint, on the panel row.
     const { text, bg } = chipColours('border-info-light/40 bg-info-light/10 text-info-light', 'light')
@@ -173,13 +279,40 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
   })
 
   it('measures an arbitrary hex or rgb() ground and refuses one it cannot read', () => {
+    const panel = tableGrounds('probe', '', 'bg-panel-light dark:bg-panel-dark', PROBE, [])
     // The ink's own colour as the chip's ground: 1:1, so it fails on contrast rather than passing.
     const sameInk: string[] = []
-    measure('probe', 'bg-[rgb(29,78,216)] text-info-text dark:text-info-dark', sameInk)
-    expect(sameInk).toContain('probe (light, row): 1.00:1')
+    measure('probe', 'bg-[rgb(29,78,216)] text-info-text dark:text-info-dark', panel, sameInk)
+    expect(sameInk).toContain('probe (light, probe row): 1.00:1')
     const unread: string[] = []
-    measure('probe', 'bg-[hsl(224,76%,48%)] text-info-text dark:text-info-dark', unread)
+    measure('probe', 'bg-[hsl(224,76%,48%)] text-info-text dark:text-info-dark', panel, unread)
     expect(unread).toContain('probe (light): bg-[hsl(224,76%,48%)] looks like a colour this spec cannot resolve')
     expect(chipColours('bg-[url(/x.png)] bg-white text-info-text', 'light').unread).toEqual([])
+  })
+
+  it('reads the row tint and the tbody ground it is given, and fails on one it cannot find', () => {
+    // The second review's mutation: InviteRow's dark hover at white/10.
+    const hovered: string[] = []
+    const grounds = tableGrounds('probe', 'hover:bg-background-light dark:hover:bg-white/10', 'bg-panel-light dark:bg-panel-dark', PROBE, hovered)
+    measure('status chip info', recipe('info'), grounds, hovered)
+    expect(hovered).toEqual(['status chip info (dark, probe hovered row): 4.23:1'])
+    // With no dark tint of its own, a hovered dark row shows the light hover tint; a row's dark:bg- outranks it.
+    expect(tableGrounds('probe', 'hover:bg-background-light', 'bg-panel-light dark:bg-panel-dark', PROBE, []).dark[1][1]).toEqual(colour('background-light'))
+    expect(tableGrounds('probe', 'hover:bg-background-light dark:bg-white/5', 'dark:bg-panel-dark', PROBE, []).dark[1][1]).toEqual(over(colour('white/5')!, colour('panel-dark')!))
+    const lost: string[] = []
+    oneClassName('<tbody className={cx("bg-panel-light")} />', 'probe.tsx', 'tbody', lost)
+    oneClassName('<tr><td /></tr>', 'probe.tsx', 'tr', lost)
+    oneClassName('<td />', 'probe.tsx', 'tr', lost)
+    tableGrounds('probe', 'odd:bg-white dark:bg-[color:var(--row)]', 'divide-y bg-white/5 dark:bg-[hsl(0,0%,10%)]', PROBE, lost)
+    expect(lost).toEqual([
+      'probe.tsx: the <tbody> has no className string this spec can read',
+      'probe.tsx: the <tr> has no className string this spec can read',
+      'probe.tsx: 0 <tr> elements, where this spec reads exactly one',
+      'probe <tbody>: dark:bg-[hsl(0,0%,10%)] looks like a colour this spec cannot resolve',
+      'probe <tr>: odd:bg-white is a ground under a variant this spec does not model',
+      'probe <tr>: dark:bg-[color:var(--row)] looks like a colour this spec cannot resolve',
+      'probe <tbody> (light): a translucent ground, and this spec does not read what shows through it',
+      'probe <tbody> (dark): a translucent ground, and this spec does not read what shows through it',
+    ])
   })
 })
