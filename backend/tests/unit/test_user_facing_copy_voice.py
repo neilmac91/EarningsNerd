@@ -26,9 +26,10 @@ A literal reaches a user when it is:
 6. any literal of a DOCUMENT_MODULES file, whose strings are the text of a mail, a PDF, a CSV, a
    workbook or the summary's own fallback markdown;
 7. an argument of a call to a dataclass or NamedTuple the module itself defines (with no base it
-   inherits fields from), bound by position in field order or by name to a field that is a COPY_FIELDS
-   word or names copy: ``ADSRatio(8, "2026-06-28", source, "BABA")``, whose ``source`` PerAdsNote
-   shows as the per-ADS figure's tooltip;
+   inherits fields from), bound by position in field order (a ``field(init=False)``, which ``__init__``
+   takes no argument for, holds no position) or by name to a field that is a COPY_FIELDS word or names
+   copy: ``ADSRatio(8, "2026-06-28", source, "BABA")``, whose ``source`` PerAdsNote shows as the per-ADS
+   figure's tooltip;
 8. a list under a TABLE_KEYS key of a dict literal (``{"headers": [...]}``): a table's column headings,
    such as the issuer cash-flow table's.
 
@@ -49,7 +50,10 @@ groups so two PRs shrinking different groups merge cleanly.
 Limits (review, not this walk): copy assembled outside these eight shapes in a module that is not a
 document module, such as a positional argument of a class defined elsewhere, a list element outside a
 headers list (a table's rows) or a local without a role word handed on by name (``x = "..."`` then
-``detail=x``); casing below <h2>; and claims, which brandCopyRules.spec.ts reads.
+``detail=x``); casing below <h2>; and claims, which brandCopyRules.spec.ts reads. The record shape gives
+no position to a ``field(init=False)``, since ``__init__`` takes no argument for it. It reads no record whose
+class name or module file name says the text is for the model (MODEL_FACING_NAME), such as
+``recovery_context.py``'s ``RecoveryBlock``, whose labels go into the prompt.
 """
 import ast
 import html
@@ -85,7 +89,8 @@ ROLE_NAME = re.compile(
     re.IGNORECASE,
 )
 # A role name that also says the text is for the model is a prompt part, not copy (RECOVERY_SYSTEM_MESSAGE,
-# copilot/prompt.py's _build_context_message).
+# copilot/prompt.py's _build_context_message); so is a record whose class name or module file name says so
+# (recovery_context.py's RecoveryBlock labels).
 MODEL_FACING_NAME = re.compile(r"system|prompt|schema|instruction|context", re.IGNORECASE)
 # A function in a module with one of these file names builds what the model reads: its returns are not copy.
 PROMPT_MODULES = frozenset({"prompt.py", "prompts.py"})
@@ -189,7 +194,7 @@ def _copy_breaks(text: str) -> Iterator[tuple[int, str]]:
 class _Reader(ast.NodeVisitor):
     """Collect the literals of one module, which of them reach a user, and each literal's scope."""
 
-    def __init__(self, tree: ast.Module, prompt_module: bool = False) -> None:
+    def __init__(self, tree: ast.Module, prompt_module: bool = False, model_module: bool = False) -> None:
         self.prompt_module = prompt_module
         self.constants: dict[str, ast.expr] = {}
         for stmt in tree.body:
@@ -197,7 +202,7 @@ class _Reader(ast.NodeVisitor):
                 self.constants[stmt.targets[0].id] = stmt.value
             elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name) and stmt.value is not None:
                 self.constants[stmt.target.id] = stmt.value
-        self.records = self._records(tree)
+        self.records = self._records(tree, model_module)
         self.skip = self._skipped(tree)
         self.reached: set[int] = set()
         self.literals: list[tuple[ast.AST, str]] = []
@@ -206,11 +211,15 @@ class _Reader(ast.NodeVisitor):
         self.visit(tree)
 
     @staticmethod
-    def _records(tree: ast.Module) -> dict[str, list[str]]:
-        """Field names, in order, of each dataclass or NamedTuple the module defines without inheriting fields."""
+    def _records(tree: ast.Module, model_module: bool = False) -> dict[str, list[str]]:
+        """Field names, in order, of each dataclass or NamedTuple the module defines without inheriting fields,
+        less any ``field(init=False)``, which takes no argument; none for a class, or in a module, whose name
+        says it is for the model."""
         records: dict[str, list[str]] = {}
+        if model_module:
+            return records
         for stmt in tree.body:
-            if not isinstance(stmt, ast.ClassDef):
+            if not isinstance(stmt, ast.ClassDef) or MODEL_FACING_NAME.search(stmt.name):
                 continue
             bases = [_dotted_tail(base) for base in stmt.bases]
             named_tuple = bases == ["NamedTuple"]
@@ -222,6 +231,7 @@ class _Reader(ast.NodeVisitor):
                     item.target.id for item in stmt.body
                     if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name)
                     and not re.search(r"\b(?:ClassVar|KW_ONLY)\b", ast.unparse(item.annotation))
+                    and not _init_false(item.value)
                 ]
         return records
 
@@ -355,6 +365,13 @@ def _dotted_tail(node: ast.expr) -> str:
     return node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else ""
 
 
+def _init_false(value: Optional[ast.expr]) -> bool:
+    """``field(init=False)``: a dataclass field that ``__init__`` takes no argument for."""
+    return isinstance(value, ast.Call) and _dotted_tail(value.func) == "field" and any(
+        k.arg == "init" and isinstance(k.value, ast.Constant) and k.value.value is False for k in value.keywords
+    )
+
+
 def _call_name(node: ast.Call) -> str:
     func = node.func
     return func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else ""
@@ -371,8 +388,14 @@ def _is_log_or_pattern(node: ast.Call) -> bool:
 
 
 def read_module(source: str, path: str) -> tuple[list[Break], int]:
-    """(breaks, copy literals read) for one module; ``path`` (relative to backend/) sets the document mode."""
-    reader = _Reader(ast.parse(source), prompt_module=Path(path).name in PROMPT_MODULES)
+    """(breaks, copy literals read) for one module; ``path`` (relative to backend/) sets the document mode, and
+    its file name the prompt-module and model-record modes."""
+    module = Path(path)
+    reader = _Reader(
+        ast.parse(source),
+        prompt_module=module.name in PROMPT_MODULES,
+        model_module=bool(MODEL_FACING_NAME.search(module.stem)),
+    )
     found: list[Break] = []
     copy = 0
     for node, scope in reader.literals:
@@ -486,12 +509,20 @@ class Derived(Ratio):
     caption: str
 
 
+@dataclass
+class Note:
+    stamp: float = field(init=False)
+    figure: int = 0
+    source: str = ""
+
+
 RATIOS = {
     "a": Ratio(8, "Deposit agreement — 1 ADS = 8 shares", "B — A"),
     "b": Ratio(per_ads=5, ticker="T — M", source="Cover page — 1 ADS = 5 shares"),
 }
 ROWS = [Row("Free cash — flow", "plain — note"), Elsewhere(1, "Defined elsewhere — not read")]
 DERIVED = Derived("Inherited fields — not mapped", "X", "Y", "Z")  # caption, its own field, follows the 3 it inherits
+NOTES = [Note(3, "Cover — 1 ADS = 3 shares")]  # stamp takes no argument: 3 is the figure, the string the source
 TABLE = {
     "headers": ["USD millions — year ended", *YEARS],
     "rows": [["Cash — net", 1]],
@@ -503,6 +534,29 @@ TABLE = {
 _PROMPT_PROBE = '''
 def refusal_message(n):
     return f"No answer — {n} sources!"
+'''
+
+# A record whose class name, or whose module's file name, says it is for the model is a prompt part; the same
+# plain record in any other module is read (recovery_context.py's RecoveryBlock labels go into the prompt).
+_MODEL_RECORD_PROBE = '''
+@dataclass
+class Block:
+    kind: str
+    text: str
+
+
+@dataclass
+class PromptPart:
+    kind: str
+    text: str
+
+
+def recovery():
+    return Block("FILING", "Filing excerpt — model reads this")
+
+
+def rules():
+    return PromptPart("RULES", "Quote the filing — never reword")
 '''
 
 _PAGE = '<p style="color:#6B7280">Hi there</p><h2>Thank You for Writing</h2><h2>Welcome to EarningsNerd</h2>'
@@ -522,6 +576,7 @@ _PROBE_BREAKS = {
     ("em-dash", "Deposit agreement — 1 ADS = 8 shares"),
     ("em-dash", "Cover page — 1 ADS = 5 shares"),
     ("em-dash", "Free cash — flow"),
+    ("em-dash", "Cover — 1 ADS = 3 shares"),
     ("em-dash", "USD millions — year ended"),
 }
 
@@ -560,6 +615,13 @@ def test_the_reader_sees_each_shape_and_lets_the_rest_through():
     assert breaks_in(_PROMPT_PROBE, "app/services/ai/prompts.py") == []
     assert {(b.rule, b.scope) for b in breaks_in(_PROMPT_PROBE, "app/services/copilot/answer.py")} == {
         ("em-dash", "refusal_message"), ("exclamation mark", "refusal_message"),
+    }
+
+    # No record is read in a module whose file name says it is for the model, nor one whose class name says so
+    # anywhere; the plain record in any other module is.
+    assert breaks_in(_MODEL_RECORD_PROBE, "app/services/ai/recovery_context.py") == []
+    assert {(b.rule, b.text) for b in breaks_in(_MODEL_RECORD_PROBE, "app/services/ai/recovery.py")} == {
+        ("em-dash", "Filing excerpt — model reads this"),
     }
 
     # The real Copilot paywall detail is still read: its f-string counts as copy.
