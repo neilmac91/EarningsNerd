@@ -97,6 +97,9 @@ export default function AskCopilotRail({
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  // The conversation's column (messages, composer, usage line): it scrolls as one only when an enlarged
+  // text size makes the composer outgrow what the conversation leaves it.
+  const columnRef = useRef<HTMLDivElement>(null)
   // The standalone overlay panel container: owns the mobile focus trap (when !embedded).
   const panelRef = useRef<HTMLDivElement>(null)
   // The standalone launcher (closed state): focus returns here when the sheet closes.
@@ -177,6 +180,8 @@ export default function AskCopilotRail({
     if (lastStatus === 'reading' || !didInitialScrollRef.current) {
       el.scrollTop = el.scrollHeight
       didInitialScrollRef.current = true
+      // A question asked from a composer scrolled into view brings the conversation back to the top.
+      if (columnRef.current) columnRef.current.scrollTop = 0
     }
   }, [messages, lastStatus])
 
@@ -340,6 +345,9 @@ export default function AskCopilotRail({
           analytics.copilotAnswerErrored({ filingId, message: msg })
           setIsStreaming(false)
           abortRef.current = null
+          // A plan gate (the spent allowance's 403, a Pro-only 403, the fair-use 429) says the counts the
+          // usage line shows are stale: refetch them, so the line agrees with the plan card above it.
+          if (isCopilotPaywallError(msg)) queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
         },
       },
       controller.signal
@@ -398,9 +406,11 @@ export default function AskCopilotRail({
       onUpgrade={() => handleUpgrade('copilot_rail')}
     />
   ) : (
-    <>
+    // At an enlarged text size the composer, its note and the usage line can outgrow the sheet: the
+    // conversation keeps 40vh of it, and past that the column scrolls as one, the composer below.
+    <div ref={columnRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       {/* Messages / empty state */}
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} className="min-h-[40vh] flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
           <div>
             <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -482,7 +492,7 @@ export default function AskCopilotRail({
           </div>
         )
       )}
-    </>
+    </div>
   )
 
   const upgradeModal = (

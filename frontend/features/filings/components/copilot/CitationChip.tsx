@@ -76,7 +76,8 @@ export default function CitationChip({ citation }: CitationChipProps) {
     const aboveSpace = Math.max(0, anchor.top - gap - margin)
     const belowSpace = Math.max(0, window.innerHeight - margin - anchor.bottom - gap)
     // Keep the trigger reachable: viewport clamping alone can put a tall portal over it.
-    // Prefer a full card above, then below; otherwise scroll within the larger side.
+    // Prefer a full card above, then below; otherwise cap the card to the larger side, where its
+    // excerpt gives way first (it scrolls) so the source label and "Open original" stay in view.
     const placeAbove = bounds.height <= aboveSpace ||
       (bounds.height > belowSpace && aboveSpace >= belowSpace)
     card.style.maxHeight = `${placeAbove ? aboveSpace : belowSpace}px`
@@ -204,27 +205,27 @@ export default function CitationChip({ citation }: CitationChipProps) {
             style={{ position: 'fixed', left: pos.left, top: pos.top, transform: 'translateX(-50%)',
               maxWidth: Math.max(0, window.innerWidth - 16), maxHeight: Math.max(0, window.innerHeight - 16),
               overflowY: 'auto' }}
-            className="z-overlay block w-64 rounded-lg border border-border-light bg-panel-light p-3 text-left shadow-e5 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+            className="z-overlay flex w-64 flex-col rounded-lg border border-border-light bg-panel-light p-3 text-left shadow-e5 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
           >
-            <span className="block text-data-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark break-words">
+            <span className="block shrink-0 text-data-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark break-words">
               {header}
             </span>
-            <span className="mt-1.5 block max-h-40 overflow-y-auto border-l-2 border-brand-border dark:border-brand-border-dark pl-2 font-data text-xs text-text-secondary-light dark:text-text-secondary-dark break-words">
+            <span className="mt-1.5 block max-h-40 min-h-0 overflow-y-auto border-l-2 border-brand-border dark:border-brand-border-dark pl-2 font-data text-xs text-text-secondary-light dark:text-text-secondary-dark break-words">
               {excerpt}
             </span>
             {verified ? (
-              <span className="mt-2 flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark">
+              <span className="mt-2 flex shrink-0 items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark">
                 <CheckCircleIcon className="h-3 w-3 shrink-0" />
                 {citationVerificationLabel(citation)}
               </span>
             ) : (
-              <span className="mt-2 flex items-center gap-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
+              <span className="mt-2 flex shrink-0 items-center gap-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
                 <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
                 Cited
               </span>
             )}
             {verified && (
-              <span className="mt-1.5 block text-xs text-text-secondary-light dark:text-text-secondary-dark">
+              <span className="mt-1.5 block shrink-0 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 {SOURCE_MATCH_SCOPE}
               </span>
             )}
@@ -234,7 +235,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
                 href={fragment_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 flex items-center gap-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+                className="mt-2 flex shrink-0 items-center gap-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
                 Open original

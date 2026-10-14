@@ -22,6 +22,16 @@ interface AskFilingCalloutProps {
  */
 export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: AskFilingCalloutProps) {
   const starters = starterQuestions(filingType).slice(0, 3)
+  // The form code wraps whole: at an enlarged text size "10-K" never breaks at its hyphen.
+  const at = subjectLabel.lastIndexOf(filingType)
+  const subject =
+    at < 0 ? subjectLabel : (
+      <>
+        {subjectLabel.slice(0, at)}
+        <span className="whitespace-nowrap">{filingType}</span>
+        {subjectLabel.slice(at + filingType.length)}
+      </>
+    )
 
   return (
     <section
@@ -35,7 +45,7 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
         id="ask-filing-callout-heading"
         className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark"
       >
-        Ask {subjectLabel} anything
+        Ask {subject} anything
       </h2>
       <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
         {COPILOT_CLAIM} Try one:
@@ -52,7 +62,8 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
           </button>
         ))}
       </div>
-      <Button className="mt-4" onClick={() => onAsk('', 'summary_cta')} leftIcon={<ChatCircleTextIcon className="h-4 w-4" aria-hidden="true" />}>
+      {/* wrap: at an enlarged text size the label wraps inside the well instead of running past it. */}
+      <Button wrap className="mt-4 max-w-full" onClick={() => onAsk('', 'summary_cta')} leftIcon={<ChatCircleTextIcon className="h-4 w-4" aria-hidden="true" />}>
         Ask this filing
       </Button>
     </section>

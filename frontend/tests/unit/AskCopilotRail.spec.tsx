@@ -171,6 +171,36 @@ describe('AskCopilotRail', () => {
     expect(screen.queryByText(/unlimited|copilot/i)).not.toBeInTheDocument()
   })
 
+  it('refetches usage after a plan gate, so the usage line agrees with the plan card', async () => {
+    let captured: CopilotHandlers | null = null
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => {
+      captured = handlers
+    })
+    mockGetUsage.mockResolvedValue({
+      ...PRO_USAGE, is_pro: false, qa_used: 0,
+      copilot_free_taste_used: 2, copilot_free_taste_total: 3,
+    })
+    const user = userEvent.setup()
+    renderRail({ open: true, isPro: false })
+    expect(await screen.findByText(/1 of 3 free questions left/i)).toBeInTheDocument()
+    await user.type(screen.getByLabelText(/ask about this filing/i), 'anything')
+    await user.click(screen.getByRole('button', { name: /^send$/i }))
+
+    // The allowance was spent elsewhere first (another tab): the server's 403 says so, and its count moved.
+    mockGetUsage.mockResolvedValue({
+      ...PRO_USAGE, is_pro: false, qa_used: 0,
+      copilot_free_taste_used: 3, copilot_free_taste_total: 3,
+    })
+    const fetched = mockGetUsage.mock.calls.length
+    await act(async () => {
+      captured!.onError("You've used your 3 free Copilot questions. Upgrade to Pro to access this feature.")
+    })
+
+    expect(await screen.findByText('You’ve used your 3 free questions.')).toBeInTheDocument()
+    expect(mockGetUsage.mock.calls.length).toBeGreaterThan(fetched)
+    expect(screen.queryByText(/1 of 3 free questions left/i)).not.toBeInTheDocument()
+  })
+
   it('names the filing without a possessive on "this filing" when the issuer is unknown', () => {
     renderRail({ open: true, ticker: null, companyName: null })
     expect(screen.getByText(/ask anything about this 10-Q\./i)).toBeInTheDocument()
