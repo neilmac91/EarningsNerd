@@ -146,23 +146,25 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
     return out
   }
 
+  // Every source file under the roots, read and parsed once, before any one test's timeout starts.
+  const SCANNED = SOURCE_ROOTS.flatMap((root) => walk(path.join(frontendDir, root))).map((file) => {
+    const source = readFileSync(file, 'utf8')
+    return { file, rel: path.relative(frontendDir, file), source, literals: literals(file, source) }
+  })
+
   it('no Copilot or plan surface promises unlimited questions', () => {
     const offenders: string[] = []
     const scanned = new Set<string>()
     let copilotFiles = 0
-    for (const root of SOURCE_ROOTS) {
-      for (const file of walk(path.join(frontendDir, root))) {
-        const rel = path.relative(frontendDir, file)
-        scanned.add(rel.split(path.sep).join('/'))
-        const source = readFileSync(file, 'utf8')
-        if (rel.startsWith(COPILOT_DIR + path.sep)) {
-          copilotFiles += 1
-          source.split('\n').forEach((line, index) => {
-            if (/\bunlimited\b/i.test(line)) offenders.push(`${rel}:${index + 1}: ${line.trim()}`)
-          })
-        } else {
-          for (const { line, text } of literals(file, source)) if (promisesUnlimited(text)) offenders.push(`${rel}:${line}: ${text.trim()}`)
-        }
+    for (const { rel, source, literals: held } of SCANNED) {
+      scanned.add(rel.split(path.sep).join('/'))
+      if (rel.startsWith(COPILOT_DIR + path.sep)) {
+        copilotFiles += 1
+        source.split('\n').forEach((line, index) => {
+          if (/\bunlimited\b/i.test(line)) offenders.push(`${rel}:${index + 1}: ${line.trim()}`)
+        })
+      } else {
+        for (const { line, text } of held) if (promisesUnlimited(text)) offenders.push(`${rel}:${line}: ${text.trim()}`)
       }
     }
     // The scan reaches the plan surfaces outside the Copilot and subscription directories, not only those two.
