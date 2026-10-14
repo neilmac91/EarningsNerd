@@ -4,9 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getPathMatch } from 'next/dist/shared/lib/router/utils/path-match'
-import { NextRequest } from 'next/server'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { middleware } from '@/middleware'
+import { describe, expect, it } from 'vitest'
 
 /**
  * A published asset URL stays where it was published (CLAUDE.md rule 12;
@@ -16,12 +14,13 @@ import { middleware } from '@/middleware'
  * rewriting its path, changes the image in every message already delivered and on any page that
  * links it. This list is the register of published paths: a change that puts a new asset path in
  * mail adds it here in the same PR. Each path must be its published file in frontend/public, byte
- * for byte (a new rendition takes a new name, so a changed file fails here until it does); pass
- * middleware.ts in both waitlist modes; and be reached by no redirect or rewrite in next.config.js
- * or vercel.json, and no basePath, read in a production build's environment. The origin mail
- * addresses them on is review-checked, and so are the response headers a route or a headers rule sets
- * on them (a Content-Type that stops a mail client showing the image) and anything set only in the
- * Vercel dashboard (a variable a rule reads, or a redirect).
+ * for byte (a new rendition takes a new name, so a changed file fails here until it does); lie outside
+ * the middleware's matcher, so the middleware never runs on it and no branch of it, however it reads
+ * the deployment, can move it; and be reached by no redirect or rewrite in next.config.js or
+ * vercel.json, and no basePath, read in a production build's environment. The origin mail addresses
+ * them on is review-checked, and so are the response headers a route or a headers rule sets on them (a
+ * Content-Type that stops a mail client showing the image) and anything set only in the Vercel
+ * dashboard (a variable a rule reads, or a redirect).
  */
 const PUBLISHED = [
   // The app tile in the transactional mail header (docs/brand/templates/email-header.html) once
@@ -39,15 +38,16 @@ const MAIL_HOST = 'www.earningsnerd.io'
 // The Vercel project's production domains (docs/LAUNCH_CHECKLIST.md › DNS / redirect config): the apex,
 // which redirects to www, and www.
 const PRODUCTION_HOSTS = ['earningsnerd.io', MAIL_HOST]
-// middleware.ts gates every path outside its allow-lists unless WAITLIST_MODE is 'false'.
-const WAITLIST_MODES = ['true', 'false']
 const KEPT = 'is a published URL'
 
 type Route = { source?: string; src?: string; has?: { type: string; value?: unknown }[] }
 /** A vercel.json legacy route: its regex, the response headers it may set, and whatever else it carries. */
 type LegacyRoute = Route & { headers?: Record<string, string> } & Record<string, unknown>
 type NextRoutes = { basePath?: string; redirects: Route[]; rewrites: Route[] | { beforeFiles?: Route[]; afterFiles?: Route[]; fallback?: Route[] } }
-type VercelJson = { build?: { env?: Record<string, string> }; bulkRedirectsPath?: string; redirects?: Route[]; rewrites?: Route[]; routes?: LegacyRoute[] }
+/** A middleware matcher as `next build` compiles it: the regex of the paths the middleware runs on. */
+type Matcher = { regexp: string; originalSource?: string }
+type NextBuild = NextRoutes & { middleware: { file: string; matchers: Matcher[] }[] }
+type VercelJson = { build?: { env?: Record<string, string> }; bulkRedirectsPath?: string; proxy?: unknown; redirects?: Route[]; rewrites?: Route[]; routes?: LegacyRoute[] }
 
 // The system variables Vercel copies under `NEXT_PUBLIC_` for a Next.js build
 // (vercel.com/docs/environment-variables/framework-environment-variables).
@@ -130,33 +130,62 @@ function productionBuildEnv(vercel: VercelJson, productionHost: string): NodeJS.
 }
 
 /**
- * The redirects and rewrites `next build` writes into the deployment, read the way it reads them:
- * Next's own config loader and custom-route loader (next/dist/server/config,
- * next/dist/lib/load-custom-routes), in the build phase and in a production build's environment, so a
- * rule that only a production build enables is read too. They run in a child process, which keeps the
- * test's environment its own; the routes come back as one marked JSON line.
+ * What `next build` takes from next.config.js and the middleware into the deployment, read the way it reads
+ * them:
+ * - the redirects and rewrites, through Next's own config loader and custom-route loader
+ *   (next/dist/server/config, next/dist/lib/load-custom-routes);
+ * - the middleware's matchers, from each middleware or proxy file in the project's root or its src/
+ *   directory, the two places Next's bundler deploys one from, compiled by the static analysis next build
+ *   runs on that file (next/dist/build/get-static-info-including-layouts, with the SWC bindings it loads
+ *   first). That analysis reads the exported `config` from the source, so the matcher cannot depend on
+ *   anything the deployment holds, and next build refuses a config it cannot read, as the child does. It
+ *   agrees with what the bundler deploys on every form a build accepts but `export let config`, which it
+ *   does not read, so the register fails that file, on the safe side. A file with no matcher runs on every
+ *   path (next/dist/build/entries.js).
+ * They are read in the build phase and in a production build's environment, so a rule that only a production
+ * build enables is read too, in a child process, which keeps the test's environment its own; they come back
+ * as one marked JSON line.
  */
-const LOAD_NEXT_ROUTES = `
+const LOAD_NEXT_BUILD = `
+const fs = require('fs')
+const path = require('path')
 const loadConfig = require('next/dist/server/config').default
 const loadCustomRoutes = require('next/dist/lib/load-custom-routes').default
+const { loadBindings } = require('next/dist/build/swc')
+const { getStaticInfoIncludingLayouts } = require('next/dist/build/get-static-info-including-layouts')
+const { MIDDLEWARE_FILENAME, PROXY_FILENAME } = require('next/dist/lib/constants')
 const { PHASE_PRODUCTION_BUILD } = require('next/constants')
 ;(async () => {
-  const config = await loadConfig(PHASE_PRODUCTION_BUILD, process.cwd(), { silent: true })
+  const dir = process.cwd()
+  const config = await loadConfig(PHASE_PRODUCTION_BUILD, dir, { silent: true })
   const { redirects, rewrites } = await loadCustomRoutes(config)
-  process.stdout.write('\\n__ROUTES__' + JSON.stringify({ basePath: config.basePath, redirects, rewrites }) + '\\n')
+  // The analysis parses with SWC, and without the bindings next build loads first it reads no config at all.
+  await loadBindings(config.experimental.useWasmBinary)
+  const convention = new RegExp('^(?:' + MIDDLEWARE_FILENAME + '|' + PROXY_FILENAME + ')\\\\.(?:' + config.pageExtensions.join('|') + ')$')
+  const middleware = []
+  for (const base of [dir, path.join(dir, 'src')].filter((d) => fs.existsSync(d))) {
+    for (const name of fs.readdirSync(base).filter((n) => convention.test(n))) {
+      const pageFilePath = path.join(base, name)
+      const file = path.relative(dir, pageFilePath).split(path.sep).join('/')
+      const info = await getStaticInfoIncludingLayouts({ isInsideAppDir: false, pageFilePath, config, pageExtensions: config.pageExtensions, isDev: false, page: '/' + file.split('.')[0] })
+      if (info.hadUnsupportedValue) throw new Error(file + "'s config is not one next build can read, so it refuses to build")
+      middleware.push({ file, matchers: info.middleware?.matchers ?? [{ regexp: '.*', originalSource: 'every path (no matcher read from its config)' }] })
+    }
+  }
+  process.stdout.write('\\n__BUILD__' + JSON.stringify({ basePath: config.basePath, redirects, rewrites, middleware }) + '\\n')
 })().catch((error) => { console.error(error); process.exit(1) })
 `
 
-function nextRoutes(vercel: VercelJson, productionHost: string): NextRoutes {
+function nextBuild(vercel: VercelJson, productionHost: string): NextBuild {
   // `node -e code a b` gives the code an argv of [node, a, b], as `next build` sees [node, next, build].
-  const out = execFileSync(process.execPath, ['-e', LOAD_NEXT_ROUTES, path.join(FRONTEND, 'node_modules/.bin/next'), 'build'], {
+  const out = execFileSync(process.execPath, ['-e', LOAD_NEXT_BUILD, path.join(FRONTEND, 'node_modules/.bin/next'), 'build'], {
     cwd: FRONTEND,
     env: productionBuildEnv(vercel, productionHost),
     encoding: 'utf8',
   })
-  const line = out.split('\n').find((l) => l.startsWith('__ROUTES__'))
-  if (!line) throw new Error(`next.config.js's routes did not load:\n${out}`)
-  return JSON.parse(line.slice('__ROUTES__'.length))
+  const line = out.split('\n').find((l) => l.startsWith('__BUILD__'))
+  if (!line) throw new Error(`next.config.js or the middleware did not load:\n${out}`)
+  return JSON.parse(line.slice('__BUILD__'.length))
 }
 
 /**
@@ -172,12 +201,13 @@ function nextRoutes(vercel: VercelJson, productionHost: string): NextRoutes {
  * is read as one before it, on the same side. Any other key counts, whatever it does: `dest` or
  * `destination`, `status` or `statusCode`, `mitigate`, `locale`, `transforms`, `middlewarePath`, and any key
  * Vercel adds. The bulk redirects vercel.json can import from a file (`bulkRedirectsPath`) are not read
- * here, so the register refuses them until it reads them.
+ * here, and nor is the Routing Middleware it can name (`proxy`), so the register refuses each until it
+ * reads it.
  */
 const INERT_ROUTE_KEYS = new Set(['src', 'source', 'headers', 'continue', 'has', 'missing', 'methods', 'caseSensitive'])
-function routing(): { basePaths: [string, string][]; bulkRedirectsPath?: string; rules: [string, Route][] } {
+function routing(): { basePaths: [string, string][]; bulkRedirectsPath?: string; rules: [string, Route][]; matchers: [string, Matcher][]; vercelProxy?: unknown } {
   const vercel: VercelJson = JSON.parse(readFileSync(path.join(FRONTEND, 'vercel.json'), 'utf8'))
-  const builds = PRODUCTION_HOSTS.map((host) => ({ read: `read with VERCEL_PROJECT_PRODUCTION_URL=${host}`, next: nextRoutes(vercel, host) }))
+  const builds = PRODUCTION_HOSTS.map((host) => ({ read: `read with VERCEL_PROJECT_PRODUCTION_URL=${host}`, next: nextBuild(vercel, host) }))
   const rewritten = ({ rewrites }: NextRoutes) => Array.isArray(rewrites)
     ? rewrites
     : [...(rewrites.beforeFiles ?? []), ...(rewrites.afterFiles ?? []), ...(rewrites.fallback ?? [])]
@@ -199,6 +229,9 @@ function routing(): { basePaths: [string, string][]; bulkRedirectsPath?: string;
       ...named('vercel.json rewrite', vercel.rewrites),
       ...named('vercel.json route', legacy),
     ],
+    matchers: builds.flatMap(({ read, next }) =>
+      next.middleware.flatMap(({ file, matchers }) => matchers.map((m): [string, Matcher] => [`${file} matcher (${read})`, m]))),
+    vercelProxy: vercel.proxy,
   }
 }
 
@@ -233,10 +266,6 @@ function reaches(rule: Route, url: string): boolean {
   return false
 }
 
-afterEach(() => {
-  vi.unstubAllEnvs()
-})
-
 describe('published asset URLs', () => {
   for (const { url, sha256 } of PUBLISHED) {
     it(`${url} is still its published file in frontend/public`, () => {
@@ -246,11 +275,18 @@ describe('published asset URLs', () => {
       expect(digest, `${url} ${KEPT}: keep its image, and write a new rendition under a new name`).toBe(sha256)
     })
 
-    it.each(WAITLIST_MODES)(`${url} passes the middleware with WAITLIST_MODE=%s`, (mode) => {
-      vi.stubEnv('WAITLIST_MODE', mode)
-      const res = middleware(new NextRequest(new URL(url, `https://${MAIL_HOST}`)))
-      expect(res.headers.get('location'), `${url} ${KEPT}: never redirect it`).toBeNull()
-      expect(res.headers.get('x-middleware-next'), `${url} ${KEPT}: pass it through`).toBe('1')
+    // A matcher's `has` and `missing` conditions are taken to hold. Next matches its regex with regard to
+    // case and Vercel's routing may not, so it is matched both ways and the check can only err toward failing.
+    it(`${url} lies outside the middleware's matcher`, () => {
+      const { matchers, vercelProxy } = (routes ??= routing())
+      expect(
+        vercelProxy,
+        `${url} ${KEPT}: vercel.json names a Routing Middleware (\`proxy\`), which this register does not read; teach it to read it first`,
+      ).toBeUndefined()
+      const hits = matchers
+        .filter(([, m]) => [new RegExp(m.regexp), new RegExp(m.regexp, 'i')].some((r) => r.test(url)))
+        .map(([where, m]) => `${where} ${m.originalSource ?? m.regexp}`)
+      expect(hits, `${url} ${KEPT}: leave it out of the middleware's matcher, so the middleware never runs on it`).toEqual([])
     })
 
     it(`${url} is reached by no redirect or rewrite in next.config.js or vercel.json`, () => {
