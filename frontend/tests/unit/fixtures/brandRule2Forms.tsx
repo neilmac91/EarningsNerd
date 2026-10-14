@@ -1079,6 +1079,10 @@ export function P587({ n }: { n: number }) { return <a href="/x"><Dark587>See al
 // className; a fraction in brackets names no member (P651). Beside them, ahead of a review: a fixed parameter handed
 // a spread before the props (P652) or the className (P655), and a last member read past an empty rest (P653) or one
 // a spread could fill (P654).
+// Ahead of a review, the rest of that family: a last member read through `length - 1` (P656, P657) or an index held
+// by a constant (P658, P659); the rest taken apart by a destructuring, its first member (P660), its second (P661), a
+// rest element's first (P662, P663) or the parameter's own pattern (P664); and a declaration's array destructuring,
+// of the className (P665), of the props (P666) or of a style map's className (P667).
 function Tally588({ n, className: cls }: { n: number; className?: string }) { return <span className={cls}>See all {n}</span> }
 export function P588({ n }: { n: number }) { return <a href="/x"><Tally588 n={n} className="hover:text-brand-strong" /></a> } // flag
 function Tally589({ n, className }: { n: number; className?: string }) { const cls = className; return <span className={cx(cls, 'font-medium')}>See all {n}</span> }
@@ -1235,3 +1239,34 @@ export function P654({ n }: { n: number }) { return <a href="/x"><Tally654 n={n}
 function pass655(className?: string, _tail?: unknown) { return className }
 function Tally655(props: { n: number; className?: string }) { return <span className={pass655(...MORE649, props.className)}>See all {props.n}</span> }
 export function P655({ n }: { n: number }) { return <a href="/x"><Tally655 n={n} className="hover:text-brand-strong" /></a> } // flag
+function last656(...parts: Array<string | undefined>) { return parts[parts.length - 1] }
+function Tally656(props: { n: number; className?: string }) { return <span className={last656(props.className, 'font-medium')}>See all {props.n}</span> }
+export function P656({ n }: { n: number }) { return <a href="/x"><Tally656 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Tally657(props: { n: number; className?: string }) { return <span className={last656('font-medium', props.className)}>See all {props.n}</span> }
+export function P657({ n }: { n: number }) { return <a href="/x"><Tally657 n={n} className="hover:text-brand-strong" /></a> } // flag
+const LAST658 = -1
+function last658(...parts: Array<string | undefined>) { return parts.at(LAST658) }
+function Tally658(props: { n: number; className?: string }) { return <span className={last658(props.className, 'font-medium')}>See all {props.n}</span> }
+export function P658({ n }: { n: number }) { return <a href="/x"><Tally658 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Tally659(props: { n: number; className?: string }) { return <span className={last658('font-medium', props.className)}>See all {props.n}</span> }
+export function P659({ n }: { n: number }) { return <a href="/x"><Tally659 n={n} className="hover:text-brand-strong" /></a> } // flag
+function head660(...parts: Array<string | undefined>) { const [h] = parts; return h }
+function Tally660(props: { n: number; className?: string }) { return <span className={head660(props.className, 'font-medium')}>See all {props.n}</span> }
+export function P660({ n }: { n: number }) { return <a href="/x"><Tally660 n={n} className="hover:text-brand-strong" /></a> } // flag
+function second661(...parts: Array<string | undefined>) { const [, s] = parts; return s }
+function Tally661(props: { n: number; className?: string }) { return <span className={second661(props.className, 'font-medium')}>See all {props.n}</span> }
+export function P661({ n }: { n: number }) { return <a href="/x"><Tally661 n={n} className="hover:text-brand-strong" /></a> } // clean
+function tail662(...parts: Array<string | undefined>) { const [, ...rest] = parts; return rest[0] }
+function Tally662(props: { n: number; className?: string }) { return <span className={tail662('font-medium', props.className)}>See all {props.n}</span> }
+export function P662({ n }: { n: number }) { return <a href="/x"><Tally662 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally663(props: { n: number; className?: string }) { return <span className={tail662(props.className, 'font-medium')}>See all {props.n}</span> }
+export function P663({ n }: { n: number }) { return <a href="/x"><Tally663 n={n} className="hover:text-brand-strong" /></a> } // clean
+function head664(...[h]: Array<string | undefined>) { return h }
+function Tally664(props: { n: number; className?: string }) { return <span className={head664(props.className)}>See all {props.n}</span> }
+export function P664({ n }: { n: number }) { return <a href="/x"><Tally664 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally665(props: { n: number; className?: string }) { const [cls] = [props.className]; return <span className={cls}>See all {props.n}</span> }
+export function P665({ n }: { n: number }) { return <a href="/x"><Tally665 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally666(props: { n: number; className?: string }) { const [{ className: cls }] = [props]; return <span className={cls}>See all {props.n}</span> }
+export function P666({ n }: { n: number }) { return <a href="/x"><Tally666 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally667({ n }: { n: number; className?: string }) { const [cls] = [THEME592.className]; return <span className={cls}>See all {n}</span> }
+export function P667({ n }: { n: number }) { return <a href="/x"><Tally667 n={n} className="hover:text-brand-strong" /></a> } // clean

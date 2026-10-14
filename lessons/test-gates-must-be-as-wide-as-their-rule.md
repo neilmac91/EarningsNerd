@@ -196,7 +196,10 @@ className wherever it is written, the attribute's value and an object's key's al
 member is counted as `at()` counts, from the end too, each argument a spread's length could leave at
 the place read; and its review of `056a071` two more, a spread before the rest's own place and an
 `at()` index with a fraction, so every argument a call hands is read by the places a spread could
-leave it, a fixed parameter's and a rest's alike, and an index is read as the runtime reads it. A
-gate widened finding by finding needs its look-alikes planted with each copy, or the next review
-names the false positive. Companion to `arch-structural-gates-over-prose-rules.md`, which says to
-build the gate; this one says how wide to build it.
+leave it, a fixed parameter's and a rest's alike, and an index is read as the runtime reads it; the
+rest of that family was planted ahead of its review, an index held by a constant or read through
+`length - 1` and the rest taken apart by a destructuring, so a name a destructuring gives is read
+through `bindingOf` wherever it is bound. A gate widened finding by finding needs its look-alikes
+planted with each copy, or the next review names the false positive. Companion to
+`arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
+build it.
