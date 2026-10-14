@@ -199,11 +199,15 @@ the place read; and its review of `056a071` two more, a spread before the rest's
 leave it, a fixed parameter's and a rest's alike, and an index is read as the runtime reads it; the
 rest of that family was planted ahead of its review, an index held by a constant or read through
 `length - 1` and the rest taken apart by a destructuring, so a name a destructuring gives is read
-through `bindingOf` wherever it is bound; and its review of `6ce9969` one more, a spread of a tuple
-read as any length, so a call's arguments are laid out by the lengths the checker knows. A gate
-widened finding by finding needs its look-alikes planted with each copy, or the next review names
-the false positive. Companion to `arch-structural-gates-over-prose-rules.md`, which says to build
-the gate; this one says how wide to build it.
+through `bindingOf` wherever it is bound; its review of `6ce9969` one more, a spread of a tuple read
+as any length, so a call's arguments are laid out by the lengths the checker knows; and its reviews
+of `36313a7` and `c04bb70` five more in that reader, a key nested in a helper's pattern, an alias of
+a parameter read at every call, a rest tail read whole, a default read without its steps and a union
+of tuples read as a range, so every value is read at its steps with the calls kept, and a spread's
+lengths are the set its type allows. A gate widened finding by finding needs its look-alikes planted
+with each copy, or the next review names the false positive. Companion to
+`arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
+build it.
 
 **Recurrence (2026-10-14, the Copilot's links)**: rule 2 read every component the app renders.
 Fixing the Copilot's links, which had waited on the founder's call, found the prose links' rule in

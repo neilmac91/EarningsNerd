@@ -1956,17 +1956,29 @@ function readsClassName(node: ts.Node, at: ts.Node, calls: Calls, seen: Set<ts.N
       // element the arguments from its place on; at any other steps, what the value holds there (`const [cls] =
       // [props.className]`), a parameter read at the call on the way; and its default is read as written.
       const { declaration: root, steps, defaults } = bindingOf(symbol, [])
-      if (reads(defaults.map(({ value }) => value))) found = true
       const pattern = declaration.parent
       const named = namesClassName(declaration.propertyName ?? declaration.name)
-      const rest = root && (ts.isParameter(root) || ts.isVariableDeclaration(root)) && root.name === pattern && ts.isArrayBindingPattern(pattern) ? restParameterBehind(root) : undefined
+      // Each default, read at the steps `bindingOf` records below it (`[{ className: cls } = props]` holds `props` at
+      // `className`), as a held value is.
+      for (const d of defaults) {
+        if (reads(valuesAt(d.value, d.steps, sf, calls))) found = true
+        if (named && d.steps.length && holds(valuesAt(d.value, d.steps.slice(0, -1), sf, calls))) found = true
+      }
+      const rest = root && (ts.isParameter(root) || ts.isVariableDeclaration(root)) && root.name === pattern && ts.isArrayBindingPattern(pattern)
+        ? ts.isParameter(root) ? (root.dotDotDotToken ? { parameter: root, offset: 0 } : undefined) : root.initializer ? restReceiver(root.initializer) : undefined
+        : undefined
       if (rest) {
-        const args = calls.get(rest.parent) ?? []
-        const from = rest.parent.parameters.indexOf(rest)
+        const args = calls.get(rest.parameter.parent) ?? []
+        const from = rest.parameter.parent.parameters.indexOf(rest.parameter) + rest.offset
         const position = (pattern as ts.ArrayBindingPattern).elements.indexOf(declaration)
         if (reads(declaration.dotDotDotToken ? argumentsFrom(args, from + position) : argumentsAt(args, from, position))) found = true
       } else if (root && ts.isParameter(root)) {
-        if (named ? holdsProps(root, at, new Set(holding), calls) : reads(parameterValues(root, steps, sf, calls))) found = true
+        // The parameter's own pattern: bound at a call on the way, what it holds at the steps (`pick([{ className: cls }])`
+        // handed `[props]` holds the props at 0); the component's own props, keyed `className` at the top, the props.
+        if (calls.has(root.parent)) {
+          if (reads(parameterValues(root, steps, sf, calls))) found = true
+          if (named && holds(parameterValues(root, steps.slice(0, -1), sf, calls))) found = true
+        } else if (named && steps.length === 1 && holdsProps(root, at, new Set(holding), calls)) found = true
       } else if (root && ts.isVariableDeclaration(root)) {
         for (const { value, steps: held } of variableValues(root)) {
           if (reads(valuesAt(value, [...held, ...steps], sf, calls))) found = true
@@ -2042,7 +2054,21 @@ type Calls = ReadonlyMap<ts.Node, ts.NodeArray<ts.Expression>>
     const typed as a tuple and holding one (`const PREFIX: readonly [string] = ['x']`), opened into its elements
     (`f(...[a, b], c)` hands `a`, `b`, `c`); any other spread as the least and most members its type gives it
     (`spreadLength`). A const typed as an array is not opened, since the file may push to it. */
-type Laid = { node: ts.Expression } | { min: number; max: number }
+type Laid = { node: ts.Expression } | Lengths
+/** The lengths a spread, or a run of arguments, can have: a set (`some`, sorted) or every length from one on
+    (`atLeast`). */
+type Lengths = { some: number[] } | { atLeast: number }
+const least = (l: Lengths): number => ('some' in l ? l.some[0] : l.atLeast)
+const most = (l: Lengths): number => ('some' in l ? l.some[l.some.length - 1] : Infinity)
+const has = (l: Lengths, n: number): boolean => ('some' in l ? l.some.includes(n) : n >= l.atLeast)
+/** The lengths two runs make end to end: each sum of a length of one and a length of the other, or every length from
+    the least sum on when either has no most, or when the sums grow past 64. */
+function added(a: Lengths, b: Lengths): Lengths {
+  if ('atLeast' in a || 'atLeast' in b) return { atLeast: least(a) + least(b) }
+  const sums = new Set<number>()
+  for (const x of a.some) for (const y of b.some) sums.add(x + y)
+  return sums.size > 64 ? { atLeast: least(a) + least(b) } : { some: [...sums].sort((x, y) => x - y) }
+}
 function layOut(args: readonly ts.Expression[]): Laid[] {
   return args.flatMap((a): Laid[] => {
     if (!ts.isSpreadElement(a)) return [{ node: a }]
@@ -2057,41 +2083,45 @@ function layOut(args: readonly ts.Expression[]): Laid[] {
 }
 /** A type's members: a union's, or the type itself. */
 const tupleMembers = (type: ts.Type): ts.Type[] => (type.isUnion() ? type.types : [type])
-/** The least and most members a spread of a value of this type hands: a tuple's fixed length (`readonly [string]`),
-    one with optional or rest elements by its bounds, a union of tuples by the least and most over them
-    (`[] | [string]`); none and any for an array or anything else. */
-function spreadLength(type: ts.Type): { min: number; max: number } {
-  const bounds = tupleMembers(type).map((t) => {
-    if (!CHECKER.isTupleType(t)) return { min: 0, max: Infinity }
+/** The lengths a spread of a value of this type can hand: a tuple's fixed length (`readonly [string]`), one with
+    optional elements each length between its least and its fixed, a union of tuples the union of their sets
+    (`[] | [string, string]` hands none or two, never one); one with a rest element every length from its least on, an
+    array or anything else every length. */
+function spreadLength(type: ts.Type): Lengths {
+  const each = tupleMembers(type).map((t): Lengths => {
+    if (!CHECKER.isTupleType(t)) return { atLeast: 0 }
     const target = (t as ts.TypeReference).target as ts.TupleType
-    return { min: target.minLength, max: target.hasRestElement ? Infinity : target.fixedLength }
+    if (target.hasRestElement) return { atLeast: target.minLength }
+    return { some: Array.from({ length: target.fixedLength - target.minLength + 1 }, (_, i) => target.minLength + i) }
   })
-  return { min: Math.min(...bounds.map((b) => b.min)), max: Math.max(...bounds.map((b) => b.max)) }
+  const open = each.filter((l): l is { atLeast: number } => 'atLeast' in l)
+  if (open.length) return { atLeast: Math.min(...each.map(least)) }
+  return { some: [...new Set(each.flatMap((l) => ('some' in l ? l.some : [])))].sort((x, y) => x - y) }
 }
-/** The least and most arguments a run of laid-out entries puts before (or after) a place. */
-function extent(entries: Laid[]): { min: number; max: number } {
-  return entries.reduce((acc, e) => ('node' in e ? { min: acc.min + 1, max: acc.max + 1 } : { min: acc.min + e.min, max: acc.max + e.max }), { min: 0, max: 0 })
+/** The lengths a run of laid-out entries can have, an argument as written counting one. */
+function extent(entries: Laid[]): Lengths {
+  return entries.reduce<Lengths>((acc, e) => added(acc, 'node' in e ? { some: [1] } : e), { some: [0] })
 }
 /** The arguments a call could hand to the parameter at `from` when `index` is 0, or to the member at `index` of the
     rest parameter starting at `from` (`fromEnd`: that member counted from the arguments' end): each argument, laid
     out by place (`layOut`), that the lengths of the spreads before it (after it, from the end) could put there
     (`first(...xs, a, b)` could hand `a` first, never `b`, and never `a` either when `xs` is a tuple of one;
-    `last(h, ...xs)` handed `c` alone holds no member). A spread's own members are not read. */
+    `last(h, ...xs)` handed `c` alone holds no member), the lengths of a spread the set its type allows. A spread's own
+    members are not read. */
 function argumentsAt(args: readonly ts.Expression[], from: number, index: number, fromEnd = false): ts.Expression[] {
   const laid = layOut(args)
   return laid.flatMap((e, j) => {
     if (!('node' in e)) return []
     const before = extent(laid.slice(0, j))
-    if (!fromEnd) return before.min <= from + index && from + index <= before.max ? [e.node] : []
-    const after = extent(laid.slice(j + 1))
-    return before.max >= from && after.min <= index && index <= after.max ? [e.node] : []
+    if (!fromEnd) return has(before, from + index) ? [e.node] : []
+    return most(before) >= from && has(extent(laid.slice(j + 1)), index) ? [e.node] : []
   })
 }
 /** The arguments a call could hand to the rest parameter starting at `from`, used whole: each argument the lengths of
     the spreads before it could put at or past that place. A spread's own members are not read. */
 function argumentsFrom(args: readonly ts.Expression[], from: number): ts.Expression[] {
   const laid = layOut(args)
-  return laid.flatMap((e, j) => ('node' in e && extent(laid.slice(0, j)).max >= from ? [e.node] : []))
+  return laid.flatMap((e, j) => ('node' in e && most(extent(laid.slice(0, j))) >= from ? [e.node] : []))
 }
 /** What a parameter holds at `steps`, in the calls' context: the arguments the call on the way hands it (`argumentsAt`;
     a rest parameter's member by the first step when it is an index, the whole of them when no step picks one), the
@@ -2105,24 +2135,46 @@ function parameterValues(parameter: ts.ParameterDeclaration, steps: Step[], sf: 
   return handed.flatMap((arg) => atSteps(arg, rest, sf))
 }
 /** What a value holds at `steps`: a parameter a call on the way binds, what that call hands it there
-    (`parameterValues`); anything else, the parameter of a function around the element included, the expressions the
-    binding walk meets there (`atSteps`). */
-function valuesAt(value: ts.Expression, steps: Step[], sf: ts.SourceFile, calls: Calls): ts.Expression[] {
+    (`parameterValues`); a same-file variable, what each value the file gives it holds there, the calls kept, so an
+    alias of a parameter is read at the call on the way too (`const all = parts`); anything else, the parameter of a
+    function around the element included, the expressions the binding walk meets there (`atSteps`). */
+function valuesAt(value: ts.Expression, steps: Step[], sf: ts.SourceFile, calls: Calls, seen = new Set<ts.Node>()): ts.Expression[] {
   const x = unwrap(value)
   const declaration = ts.isIdentifier(x) ? CHECKER.getSymbolAtLocation(x)?.valueDeclaration : undefined
-  return declaration && ts.isParameter(declaration) && calls.has(declaration.parent) ? parameterValues(declaration, steps, sf, calls) : atSteps(value, steps, sf)
+  if (declaration && ts.isParameter(declaration) && calls.has(declaration.parent)) return parameterValues(declaration, steps, sf, calls)
+  if (declaration && ts.isVariableDeclaration(declaration) && ts.isIdentifier(declaration.name) && !seen.has(declaration)) {
+    seen.add(declaration)
+    return variableValues(declaration).flatMap(({ value: held, steps: at }) => valuesAt(held, [...at, ...steps], sf, calls, seen))
+  }
+  return atSteps(value, steps, sf)
 }
-/** The rest parameter a pattern takes apart: the parameter itself when the pattern is its name (`(...[head])`), or the
-    one a declaration's initializer names (`const [head] = parts`); undefined for any other root. */
-function restParameterBehind(root: ts.ParameterDeclaration | ts.VariableDeclaration): ts.ParameterDeclaration | undefined {
-  if (ts.isParameter(root)) return root.dotDotDotToken ? root : undefined
-  const value = root.initializer ? unwrap(root.initializer) : undefined
-  const declaration = value && ts.isIdentifier(value) ? CHECKER.getSymbolAtLocation(value)?.valueDeclaration : undefined
-  return declaration && ts.isParameter(declaration) && declaration.dotDotDotToken ? declaration : undefined
+/** The rest parameter an expression reads, and the offset into its members: the parameter itself (`parts`); a rest
+    element of a pattern over it, the parameter's own (`(...[h, ...tail])`) or a declaration's whose initializer reads
+    one (`const [, ...tail] = parts`), at the element's place, a tail of a tail added up; or a same-file variable
+    holding one of these alone (`const t = tail`). Undefined for anything else. */
+function restReceiver(e: ts.Expression, seen = new Set<ts.Node>()): { parameter: ts.ParameterDeclaration; offset: number } | undefined {
+  const x = unwrap(e)
+  const declaration = ts.isIdentifier(x) ? CHECKER.getSymbolAtLocation(x)?.valueDeclaration : undefined
+  if (!declaration || seen.has(declaration)) return undefined
+  seen.add(declaration)
+  if (ts.isParameter(declaration)) return declaration.dotDotDotToken ? { parameter: declaration, offset: 0 } : undefined
+  if (ts.isBindingElement(declaration) && declaration.dotDotDotToken && ts.isArrayBindingPattern(declaration.parent)) {
+    const pattern = declaration.parent
+    const root = pattern.parent
+    const behind = ts.isParameter(root) && root.name === pattern ? (root.dotDotDotToken ? { parameter: root, offset: 0 } : undefined)
+      : ts.isVariableDeclaration(root) && root.name === pattern && root.initializer ? restReceiver(root.initializer, seen) : undefined
+    return behind && { parameter: behind.parameter, offset: behind.offset + pattern.elements.indexOf(declaration) }
+  }
+  if (ts.isVariableDeclaration(declaration) && ts.isIdentifier(declaration.name)) {
+    const values = variableValues(declaration)
+    return values.length === 1 && !values[0].steps.length ? restReceiver(values[0].value, seen) : undefined
+  }
+  return undefined
 }
 /** The members of a rest parameter an index could read (`parts[0]`, `parts.at(0)`; `parts.at(-1)` and
-    `parts[parts.length - 1]` counted from the end), bound at the call being read: the arguments that place could hold
-    (`argumentsAt`), none when the index is past the arguments handed. `at()` truncates its index as the runtime does
+    `parts[parts.length - 1]` counted from the end; a tail of it the same, from the tail's place, `restReceiver`), bound
+    at the call being read: the arguments that place could hold (`argumentsAt`), none when the index is past the
+    arguments handed. `at()` truncates its index as the runtime does
     (`at(0.5)` is `at(0)`) and counts a negative one from the end; brackets name a member by an integer at or past 0
     alone (`parts[-1]`, `parts[0.5]`, `parts[parts.length]` name none), and an infinite index names none either way.
     Undefined for any other node, and for an index the scan cannot read, so the rest is read whole. */
@@ -2137,11 +2189,11 @@ function restMembers(node: ts.Node, calls: Calls): ts.Expression[] | undefined {
   }
   if (!receiver || !key) return undefined
   const id = unwrap(receiver)
-  const declaration = ts.isIdentifier(id) ? CHECKER.getSymbolAtLocation(id)?.valueDeclaration : undefined
-  if (!declaration || !ts.isParameter(declaration) || !declaration.dotDotDotToken) return undefined
-  const args = calls.get(declaration.parent)
+  const behind = restReceiver(id)
+  if (!behind) return undefined
+  const args = calls.get(behind.parameter.parent)
   if (!args) return undefined
-  const from = declaration.parent.parameters.indexOf(declaration)
+  const from = behind.parameter.parent.parameters.indexOf(behind.parameter) + behind.offset
   const back = lengthBack(key, id)
   if (back !== null) {
     if (Number.isInteger(back) && back >= 1) return argumentsAt(args, from, back - 1, true)
