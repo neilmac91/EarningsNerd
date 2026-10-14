@@ -123,9 +123,11 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    style or on a pseudo-element, a library component's internals, a component created inside
  *    another's render, reading that one's children through a closure (the lint's
  *    react-hooks/static-components forbids one), and SVG text coloured by attribute (the chart
- *    theme, which carries no sage). A forwarded className is read under the name the props give it
- *    and through a same-file variable holding it. Neither check reads one a component forwards
- *    through a spread or a conditional return. The one-source check reads one the component joins with its
+ *    theme, which carries no sage). A forwarded className is read under the name the props give it,
+ *    through a same-file variable or helper holding it and through an object's `className` key, the
+ *    arguments of a same-file call at the places a spread among them could leave them, a spread's own
+ *    members unread. Neither check reads one a component forwards through a spread or a conditional
+ *    return. The one-source check reads one the component joins with its
  *    own ink, which the ink check leaves to review, and reads an ink a label sets in one state only
  *    (`dark:text-…`) as its own. The waitlist counter's own spec covers the count on the public
  *    pages.
@@ -1775,12 +1777,12 @@ function readsClassName(node: ts.Node, at: ts.Node, calls: Calls, seen: Set<ts.N
       }
     } else if (ts.isParameter(declaration)) {
       // A helper's parameter holds what the call on the way hands it (`pass(props.className)`), a rest parameter the
-      // arguments from its place on (a same-file joiner); a spread's members are read when the spread is an array
-      // literal's.
-      const args = calls.get(declaration.parent)
+      // arguments from its place on (a same-file joiner), each read at the places a spread among the arguments could
+      // leave it (`argumentsAt`).
+      const args = calls.get(declaration.parent) ?? []
       const index = declaration.parent.parameters.indexOf(declaration)
-      const handed = !args ? [] : declaration.dotDotDotToken ? openSpreads(args).slice(index) : openSpreads(args).slice(index, index + 1)
-      if (handed.some((arg) => !ts.isSpreadElement(arg) && readsClassName(arg, at, calls, seen, holding))) found = true
+      const handed = declaration.dotDotDotToken ? argumentsFrom(args, index) : argumentsAt(args, index, 0)
+      if (handed.some((arg) => readsClassName(arg, at, calls, seen, holding))) found = true
     }
   }
   scan(node)
@@ -1838,18 +1840,39 @@ const openSpreads = (list: readonly ts.Expression[]): ts.Expression[] => list.fl
   const inner = ts.isSpreadElement(a) ? unwrap(a.expression) : undefined
   return inner && ts.isArrayLiteralExpression(inner) ? openSpreads(inner.elements) : [a]
 })
+/** The arguments a call could hand to the parameter at `from` when `index` is 0, or to the member at `index` of the
+    rest parameter starting at `from` (`fromEnd`: that member counted from the arguments' end): each argument, spreads
+    of array literals opened, whose place some length of the spreads before it (after it, from the end) puts there,
+    none when no spread sits before it and its place is another (`first(...xs, a, b)` could hand `a` first, never
+    `b`; `last(h, ...xs)` handed `c` alone holds no member). A spread's own members are not read. */
+function argumentsAt(args: readonly ts.Expression[], from: number, index: number, fromEnd = false): ts.Expression[] {
+  const opened = openSpreads(args)
+  const reaches = (fixed: number, spreads: number, place: number): boolean => (spreads ? fixed - spreads <= place : fixed === place)
+  return opened.filter((a, j) => {
+    if (ts.isSpreadElement(a)) return false
+    const before = opened.slice(0, j).filter(ts.isSpreadElement).length
+    if (!fromEnd) return reaches(j, before, from + index)
+    const after = opened.slice(j + 1).filter(ts.isSpreadElement).length
+    return (before > 0 || j >= from) && reaches(opened.length - 1 - j, after, index)
+  })
+}
+/** The arguments a call could hand to the rest parameter starting at `from`, used whole: each argument at or past that
+    place, or that a spread before it could push there. A spread's own members are not read. */
+function argumentsFrom(args: readonly ts.Expression[], from: number): ts.Expression[] {
+  const opened = openSpreads(args)
+  return opened.filter((a, j) => !ts.isSpreadElement(a) && (j >= from || opened.slice(0, j).some(ts.isSpreadElement)))
+}
 /** The members of a rest parameter an index could read (`parts[0]`, `parts.at(0)`; `parts.at(-1)` counted from the
-    end), bound at the call being read: the argument at that place, none when the index is past the arguments handed or
-    negative in brackets (`parts[-1]` names no member), and with a spread among the arguments, each argument the
-    spread's length could leave at that place (`first(...xs, a, b)` reads `a`, which an empty `xs` puts first, and not
-    `b`); a spread of an array literal is opened, any other spread's members are not read. Undefined for any other
-    node. */
+    end), bound at the call being read: the arguments that place could hold (`argumentsAt`), none when the index is
+    past the arguments handed. `at()` truncates its index as the runtime does (`at(0.5)` is `at(0)`) and counts a
+    negative one from the end; brackets name a member by an integer at or past 0 alone (`parts[-1]`, `parts[0.5]`
+    name none), and an infinite index names none either way. Undefined for any other node. */
 function restMembers(node: ts.Node, calls: Calls): ts.Expression[] | undefined {
   let receiver: ts.Expression | undefined
   let step: number | null = null
-  const fromEnd = ts.isCallExpression(node)
+  const byAt = ts.isCallExpression(node)
   if (ts.isElementAccessExpression(node)) { receiver = node.expression; step = numericIndex(node.argumentExpression) }
-  else if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'at' && node.arguments[0]) {
+  else if (byAt && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'at' && node.arguments[0]) {
     receiver = node.expression.expression
     step = numericIndex(node.arguments[0])
   }
@@ -1859,23 +1882,17 @@ function restMembers(node: ts.Node, calls: Calls): ts.Expression[] | undefined {
   if (!declaration || !ts.isParameter(declaration) || !declaration.dotDotDotToken) return undefined
   const args = calls.get(declaration.parent)
   if (!args) return undefined
-  const handed = openSpreads(args).slice(declaration.parent.parameters.indexOf(declaration))
-  if (step < 0 && !fromEnd) return []
-  // Each argument's place with every spread empty (from the end for a negative `at()`), and the spreads before it on
-  // that way, each of which can push it any number of places on.
-  const want = step < 0 ? -step - 1 : step
-  return handed.filter((a, j) => {
-    if (ts.isSpreadElement(a)) return false
-    const fixed = step < 0 ? handed.length - 1 - j : j
-    const spreads = handed.filter((b, k) => ts.isSpreadElement(b) && (step < 0 ? k > j : k < j)).length
-    return spreads ? fixed - spreads <= want : fixed === want
-  })
+  const from = declaration.parent.parameters.indexOf(declaration)
+  if (!Number.isFinite(step)) return []
+  if (byAt) step = Math.trunc(step)
+  else if (step < 0 || !Number.isInteger(step)) return []
+  return step < 0 ? argumentsAt(args, from, -step - 1, true) : argumentsAt(args, from, step)
 }
-/** A numeric index, a negative one (`-1`) included; null for any other key. */
+/** A numeric index, a negative one (`-1`) or a fraction included; null for any other key. */
 function numericIndex(key: ts.Expression): number | null {
   const k = unwrap(key)
-  if (ts.isPrefixUnaryExpression(k) && k.operator === ts.SyntaxKind.MinusToken && ts.isNumericLiteral(k.operand)) return -Number(k.operand.text)
-  return ts.isNumericLiteral(k) ? Number(k.text) : null
+  if (ts.isPrefixUnaryExpression(k) && k.operator === ts.SyntaxKind.MinusToken && ts.isNumericLiteral(k.operand)) return -Number(k.operand.text.replace(/_/g, ''))
+  return ts.isNumericLiteral(k) ? Number(k.text.replace(/_/g, '')) : null
 }
 /** Whether a key expression names `className`: a string, or a same-file constant holding one (`literalValues`). */
 const isClassNameKey = (key: ts.Expression, sf: ts.SourceFile): boolean =>
@@ -1910,8 +1927,7 @@ function holdsProps(node: ts.Node, at: ts.Node, seen = new Set<ts.Node>(), calls
   seen.add(node)
   if (ts.isParameter(node)) {
     for (let p: ts.Node | undefined = at; p; p = p.parent) if (p === node.parent) return true
-    const arg = openSpreads(calls.get(node.parent) ?? [])[node.parent.parameters.indexOf(node)]
-    return !node.dotDotDotToken && !!arg && !ts.isSpreadElement(arg) && holdsProps(arg, at, seen, calls)
+    return !node.dotDotDotToken && argumentsAt(calls.get(node.parent) ?? [], node.parent.parameters.indexOf(node), 0).some((arg) => holdsProps(arg, at, seen, calls))
   }
   if (ts.isBindingElement(node)) {
     if (node.dotDotDotToken) return holdsProps(bindingRoot(node), at, seen, calls)

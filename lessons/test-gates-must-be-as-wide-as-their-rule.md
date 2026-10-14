@@ -194,6 +194,9 @@ first, spreads of sources opened; and its review of `69d1137` three more there, 
 constant, a value reached through an alias and a negative `at()` index, so one reader reads a
 className wherever it is written, the attribute's value and an object's key's alike, and a rest
 member is counted as `at()` counts, from the end too, each argument a spread's length could leave at
-the place read. A gate widened finding by finding needs its look-alikes planted with each copy, or
-the next review names the false positive. Companion to `arch-structural-gates-over-prose-rules.md`,
-which says to build the gate; this one says how wide to build it.
+the place read; and its review of `056a071` two more, a spread before the rest's own place and an
+`at()` index with a fraction, so every argument a call hands is read by the places a spread could
+leave it, a fixed parameter's and a rest's alike, and an index is read as the runtime reads it. A
+gate widened finding by finding needs its look-alikes planted with each copy, or the next review
+names the false positive. Companion to `arch-structural-gates-over-prose-rules.md`, which says to
+build the gate; this one says how wide to build it.
