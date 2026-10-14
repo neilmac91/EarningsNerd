@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
@@ -63,6 +63,10 @@ describe('BillingPanel', () => {
     mockGetUsage.mockResolvedValue(baseUsage)
   })
 
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('sends a no-card trial user to /pricing to subscribe instead of the failing billing portal', async () => {
     // Reverse-trial user: is_pro but NO stripe_customer_id — the portal would 400 for them.
     mockGetSubscriptionStatus.mockResolvedValue({
@@ -70,7 +74,7 @@ describe('BillingPanel', () => {
       is_pro: true,
       status: 'trialing',
       plan: 'pro',
-      trial_end: '2026-06-25T00:00:00Z',
+      trial_end: '2026-06-25T12:00:00Z',
     })
 
     renderPanel()
@@ -81,6 +85,21 @@ describe('BillingPanel', () => {
     expect(screen.getByText('Pro trial ends Jun 25, 2026.')).toBeInTheDocument()
     expect(screen.queryByText(/days? left/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /manage billing/i })).not.toBeInTheDocument()
+  })
+
+  // Both dates are Stripe instants, named by the day each falls on where the reader is (TrialBanner.spec pins
+  // the banner the same way). Under a pinned US zone, 01:05 UTC on Oct 21 is Oct 20.
+  it.each([
+    ['the trial line', { status: 'trialing', trial_end: '2026-10-21T01:05:33Z' }, 'Pro trial ends Oct 20, 2026.'],
+    ['the renewal line', { status: 'active', stripe_customer_id: 'cus_123', current_period_end: '2026-10-21T01:05:33Z' }, 'Oct 20, 2026'],
+  ] as const)('dates %s by the day it falls on where the reader is', async (_, fields, text) => {
+    vi.stubEnv('TZ', 'America/New_York')
+    // Control: the pin applied, so the UTC day (Oct 21) and the reader's day differ.
+    expect(new Date('2026-10-21T01:05:33Z').getTimezoneOffset()).toBe(240)
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub, is_pro: true, plan: 'pro', ...fields })
+
+    renderPanel()
+    expect(await screen.findByText(text)).toBeInTheDocument()
   })
 
   it.each(['soon', '2026-13-45T00:00:00Z'])('states no trial line for an unreadable trial_end (%s), as TrialBanner does', async (trialEnd) => {
@@ -95,7 +114,7 @@ describe('BillingPanel', () => {
     mockGetSubscriptionStatus.mockResolvedValue({
       ...baseSub,
       status: 'trialing',
-      trial_end: '2026-01-01T00:00:00Z',
+      trial_end: '2026-01-01T12:00:00Z',
       stripe_customer_id: customerId,
     })
     mockGetUsage.mockResolvedValue({ ...baseUsage, is_pro: false, summaries_limit: 5 })
@@ -120,7 +139,7 @@ describe('BillingPanel', () => {
       status: 'active',
       plan: 'pro',
       stripe_customer_id: 'cus_123',
-      current_period_end: '2027-06-18T00:00:00Z',
+      current_period_end: '2027-06-18T12:00:00Z',
     })
 
     renderPanel()
@@ -132,7 +151,7 @@ describe('BillingPanel', () => {
   it('keeps same-account details visible after a failed refresh, with a retry that clears the notice', async () => {
     const cached: SubscriptionStatus = {
       ...baseSub, is_pro: true, status: 'active', plan: 'pro', stripe_customer_id: 'cus_123',
-      current_period_end: '2027-06-18T00:00:00Z',
+      current_period_end: '2027-06-18T12:00:00Z',
     }
     mockGetSubscriptionStatus.mockRejectedValueOnce(new Error('refresh failed'))
     mockGetSubscriptionStatus.mockResolvedValue({ ...cached, cancel_at_period_end: true })

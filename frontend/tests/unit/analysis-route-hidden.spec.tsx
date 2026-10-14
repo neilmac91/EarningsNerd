@@ -56,20 +56,52 @@ const NAMES_FEATURE = /multi-period analysis/i
 /** The analysis feature itself (its route, its components, its API errors) and the one typed home. */
 const OWNERS = [/^lib\/planLimits\.ts$/, /^app\/analysis\//, /^features\/analysis\//]
 
-/** Shrink-only: each file names the feature for a reason other than a plan list. */
-const ALLOWED: Record<string, string> = {
-  'components/Header.tsx': 'a nav label that links to the feature, listed only under ENABLE_ANALYSIS',
-  'components/Footer.tsx': 'a nav label that links to the feature, listed only under ENABLE_ANALYSIS',
-  'features/marketing/components/ProDepth.tsx':
-    "the landing's product screen and extras grid for the feature; its flag gating is pub/F06, on the public-pages PR",
-  'app/pricing/layout.tsx':
-    "the /pricing JSON-LD offer description, in the founder-gated 'unlimited' pricing-claim cluster (pub/F05)",
+/**
+ * Shrink-only, and each entry is ONE site, not a file (lessons/arch-gate-reference-values-are-themselves-gated.md
+ * (b)): a site in `file` that names the feature for a reason other than a plan list. A site takes an entry
+ * when exactly one of its parts (between commas, semicolons and full stops) names the feature and that part
+ * IS the entry's phrase, and each entry is taken by one site, so every allowed file's count of sites is
+ * pinned with equality. A new line naming the feature in an allowed file, a claim built around an allowed
+ * phrase ("unlimited Multi-Period Analysis") and an entry no site takes any more all fail.
+ */
+const ALLOWED: Array<{ file: string; phrase: string; why: string }> = [
+  {
+    file: 'components/Header.tsx',
+    phrase: 'Multi-period analysis',
+    why: 'the nav label that links to the feature, listed only under ENABLE_ANALYSIS',
+  },
+  {
+    file: 'components/Footer.tsx',
+    phrase: 'Multi-Period Analysis',
+    why: 'the footer link to the feature, listed only under ENABLE_ANALYSIS',
+  },
+  {
+    file: 'features/marketing/components/ProDepth.tsx',
+    phrase: 'Multi-Period Analysis as a workbook',
+    why: "the landing's Excel export tile, shown with the flag off until pub/F06 gates it (#1311, the public-pages PR)",
+  },
+  {
+    file: 'features/marketing/components/ProDepth.tsx',
+    phrase: 'Multi-Period Analysis',
+    why: "the title of the landing's product-screen row for the feature, shown with the flag off until pub/F06 gates it (#1311)",
+  },
+  {
+    file: 'app/pricing/layout.tsx',
+    phrase: 'multi-period analysis',
+    why: "the /pricing JSON-LD offer description, founder-gated pricing copy (pub/F05); #1311 names the feature there only under the flag",
+  },
+]
+
+/** Whether the one part of a site's text that names the feature is the allowed phrase. */
+function takes(text: string, phrase: string): boolean {
+  const naming = text.split(/[,;.]/).map((part) => part.trim()).filter((part) => NAMES_FEATURE.test(part))
+  return naming.length === 1 && naming[0] === phrase
 }
 
 /** Every string literal, template piece and JSX text in a source that names the feature, by line. */
-function namingSites(file: string, text: string): string[] {
+function namingSites(file: string, text: string): Array<{ line: number; text: string }> {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
-  const sites: string[] = []
+  const sites: Array<{ line: number; text: string }> = []
   const visit = (node: ts.Node): void => {
     if (
       ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateHead(node)
@@ -77,7 +109,7 @@ function namingSites(file: string, text: string): string[] {
     ) {
       const words = node.text.replace(/\s+/g, ' ')
       if (NAMES_FEATURE.test(words)) {
-        sites.push(`${file}:${source.getLineAndCharacterOfPosition(node.getStart()).line + 1} ${words.trim()}`)
+        sites.push({ line: source.getLineAndCharacterOfPosition(node.getStart()).line + 1, text: words.trim() })
       }
     }
     ts.forEachChild(node, visit)
@@ -122,9 +154,20 @@ describe('The plan lists name Multi-Period Analysis only while NEXT_PUBLIC_ENABL
       '// Multi-Period Analysis in a comment is no claim',
       "const capture = <div data-capture=\"multi-period-analysis\" />",
     ].join('\n')
-    expect(namingSites('fixture.tsx', fixture).map((site) => site.split(' ')[0])).toEqual([
-      'fixture.tsx:1', 'fixture.tsx:2', 'fixture.tsx:3', 'fixture.tsx:5',
-    ])
+    expect(namingSites('fixture.tsx', fixture).map((site) => site.line)).toEqual([1, 2, 3, 5])
+  })
+
+  it('an allowance takes only the site whose part naming the feature is its phrase (self-check)', () => {
+    expect(takes('Multi-Period Analysis', 'Multi-Period Analysis')).toBe(true)
+    expect(takes('Multi-Period Analysis as a workbook, with XBRL-backed metrics.', 'Multi-Period Analysis as a workbook')).toBe(true)
+    expect(takes('Unlimited AI summaries of SEC 10-K and 10-Q filings, multi-period analysis, filing Q&A, alerts, and exports.', 'multi-period analysis')).toBe(true)
+    // The piece a flag-conditional JSON-LD description leaves (#1311): the part is still the phrase.
+    expect(takes('multi-period analysis,', 'multi-period analysis')).toBe(true)
+    // A claim built around an allowed phrase, or a second naming, is a new site.
+    expect(takes('Hourly checks for new filings on your watchlist, including 8-Ks, and unlimited Multi-Period Analysis.', 'Multi-Period Analysis')).toBe(false)
+    expect(takes('Unlimited Multi-Period Analysis', 'Multi-Period Analysis')).toBe(false)
+    expect(takes('Multi-Period Analysis as a workbook, with XBRL-backed metrics.', 'Multi-Period Analysis')).toBe(false)
+    expect(takes('Multi-Period Analysis, then Multi-Period Analysis again', 'Multi-Period Analysis')).toBe(false)
   })
 
   it('no other source file types a line that names Multi-Period Analysis', () => {
@@ -137,22 +180,27 @@ describe('The plan lists name Multi-Period Analysis only while NEXT_PUBLIC_ENABL
         return /\.(ts|tsx)$/.test(name) ? [full] : []
       })
     const offenders: string[] = []
-    const allowedHits = new Set<string>()
+    const taken = new Set<number>()
     let ownerHits = 0
     for (const root of roots) {
       for (const file of walk(path.join(frontendDir, root))) {
         const rel = path.relative(frontendDir, file).split(path.sep).join('/')
         const sites = namingSites(rel, readFileSync(file, 'utf8'))
-        if (sites.length === 0) continue
-        if (OWNERS.some((owner) => owner.test(rel))) ownerHits += sites.length
-        else if (rel in ALLOWED) allowedHits.add(rel)
-        else offenders.push(...sites)
+        if (OWNERS.some((owner) => owner.test(rel))) {
+          ownerHits += sites.length
+          continue
+        }
+        for (const site of sites) {
+          const entry = ALLOWED.findIndex((allowed, i) => !taken.has(i) && allowed.file === rel && takes(site.text, allowed.phrase))
+          if (entry === -1) offenders.push(`${rel}:${site.line} ${site.text}`)
+          else taken.add(entry)
+        }
       }
     }
     expect(offenders).toEqual([])
     // Not vacuous: the typed home is scanned and holds the lines.
     expect(ownerHits).toBeGreaterThanOrEqual(4)
-    // Shrink-only: an allowance whose file no longer names the feature goes.
-    expect(Object.keys(ALLOWED).filter((rel) => !allowedHits.has(rel))).toEqual([])
+    // Shrink-only: an allowance no site takes any more goes.
+    expect(ALLOWED.filter((_, i) => !taken.has(i)).map(({ file, phrase }) => `${file}: ${phrase}`)).toEqual([])
   })
 })

@@ -10,11 +10,10 @@ import {
   getUsage,
   createPortalSession,
 } from '@/features/subscriptions/api/subscriptions-api'
-import { formatLocalDate } from '@/lib/format'
-// NOTE: current_period_end / trial_end are genuine Stripe INSTANTS, not calendar dates, so
-// formatLocalDate here reports their UTC calendar day. That is the intended read for a billing
-// boundary (it matches what Stripe shows), but it is the mirror image of the filing-date rule —
-// do not cite these two lines as precedent for rendering a calendar date.
+import { formatInstant } from '@/lib/format'
+// current_period_end and trial_end are Stripe INSTANTS, so both lines name the day each falls on in the
+// reader's own time zone: the day the plan renews or the trial ends where they are. A calendar date
+// (filing_date) keeps its own day through formatLocalDate instead.
 import { Button, buttonVariants } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -89,7 +88,7 @@ export default function BillingPanel() {
   const isTrialing = isPro && sub?.status === 'trialing'
   const planLabel = isTrialing ? 'Pro (trial)' : isPro ? 'Pro' : 'Free'
   // An unreadable trial_end formats to '', and the line then shows nothing, as TrialBanner does.
-  const trialEndsOn = isTrialing ? formatLocalDate(sub?.trial_end, 'MMM d, yyyy') : ''
+  const trialEndsOn = isTrialing ? formatInstant(sub?.trial_end, 'MMM d, yyyy') : ''
 
   return (
     <Card className="p-6 mb-6">
@@ -147,7 +146,7 @@ export default function BillingPanel() {
                   {sub.cancel_at_period_end ? 'Access until' : 'Renews on'}
                 </span>
                 <span className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">
-                  {formatLocalDate(sub.current_period_end, 'MMM d, yyyy')}
+                  {formatInstant(sub.current_period_end, 'MMM d, yyyy')}
                 </span>
               </div>
             )}

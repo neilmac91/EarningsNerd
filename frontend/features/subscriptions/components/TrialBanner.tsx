@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { LightningIcon } from '@/lib/icons'
-import { formatLocalDate } from '@/lib/format'
+import { formatInstant } from '@/lib/format'
 
 interface TrialBannerProps {
   /** The resolved plan (GET /api/subscriptions/subscription `is_pro`). An expired trial row keeps its
@@ -24,8 +24,8 @@ interface TrialBannerProps {
  */
 export default function TrialBanner({ isPro, status, trialEnd, className = '' }: TrialBannerProps) {
   if (!isPro || status !== 'trialing') return null
-  // trial_end is a Stripe instant; formatLocalDate reports its UTC calendar day, as BillingPanel does.
-  const endsOn = formatLocalDate(trialEnd, 'MMM d, yyyy')
+  // trial_end is a Stripe instant: the day it falls on where the reader is, as in BillingPanel.
+  const endsOn = formatInstant(trialEnd, 'MMM d, yyyy')
   if (!endsOn) return null
 
   return (

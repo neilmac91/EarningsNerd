@@ -13,10 +13,11 @@ import DashboardPage from '@/app/dashboard/page'
  * - A plain visit says nothing about a checkout.
  * - `?success=true` says "Pro is active" only when the subscription query says Pro, and "Checkout finished"
  *   (a title, then "Your plan updates in a moment." as its description; a Notice title is one phrase, never
- *   two clauses joined by a semicolon) only while it still says Free. The flag is then dropped from the
- *   address, so a second visit to the same page says nothing.
+ *   two clauses joined by a semicolon, which noticeTitlesAreOnePhrase.spec.ts holds app-wide) only while it
+ *   still says Free. The flag is then dropped from the address, so a second visit to the same page says nothing.
  * - The trial banner keys on the resolved plan (`subscription.is_pro`), never the /me `is_pro` mirror,
- *   which stays true on an expired trial remnant (lessons/frontend-trial-labels-use-entitlements.md).
+ *   which stays true on an expired trial remnant (lessons/frontend-trial-labels-use-entitlements.md). Its
+ *   fixtures sit at midday UTC, so the date reads alike in any runner's zone (TrialBanner.spec pins the zone).
  */
 
 const api = vi.hoisted(() => ({
@@ -139,13 +140,13 @@ describe('Dashboard after checkout', () => {
 describe('Dashboard trial banner (the real TrialBanner)', () => {
   it('shows no banner for an expired trial remnant, even while /me still mirrors is_pro', async () => {
     window.history.replaceState(null, '', '/dashboard')
-    await renderDashboard({ ...free, status: 'trialing', trial_end: '2026-06-25T00:00:00Z' }, { ...user, is_pro: true })
+    await renderDashboard({ ...free, status: 'trialing', trial_end: '2026-06-25T12:00:00Z' }, { ...user, is_pro: true })
     expect(screen.queryByText(/Your Pro trial ends/)).not.toBeInTheDocument()
   })
 
   it('states the end date of a live Pro trial', async () => {
     window.history.replaceState(null, '', '/dashboard')
-    await renderDashboard({ ...pro, status: 'trialing', trial_end: '2026-06-25T00:00:00Z' })
+    await renderDashboard({ ...pro, status: 'trialing', trial_end: '2026-06-25T12:00:00Z' })
     expect(screen.getByText('Your Pro trial ends Jun 25, 2026.')).toBeInTheDocument()
   })
 })

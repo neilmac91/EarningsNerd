@@ -167,6 +167,23 @@ describe('PricingPage', () => {
       expect(mockReplace).toHaveBeenCalledWith('/pricing', { scroll: false })
     })
 
+    it('says nothing about the plan while the subscription query is pending', async () => {
+      mockSearchParams.set('canceled', 'true')
+      let resolveSubscription!: (value: SubscriptionStatus) => void
+      mockGetSubscriptionStatus.mockReturnValue(new Promise<SubscriptionStatus>((resolve) => { resolveSubscription = resolve }))
+      renderPricing()
+
+      await waitFor(() => expect(mockGetSubscriptionStatus).toHaveBeenCalledTimes(1))
+      // The title alone: no description names a plan the query has not answered yet.
+      expect((await screen.findByText(RETURNED)).closest('[role="status"]')).toHaveTextContent(/^You returned from checkout$/)
+      expect(screen.queryByText('You can choose a plan below.')).not.toBeInTheDocument()
+      expect(screen.queryByText('Your plan is Pro.')).not.toBeInTheDocument()
+
+      // Once it answers, the plan joins the notice.
+      resolveSubscription({ ...baseSub })
+      expect(await screen.findByText('You can choose a plan below.')).toBeInTheDocument()
+    })
+
     it('says nothing about a checkout without the flag', async () => {
       mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
       renderPricing()
