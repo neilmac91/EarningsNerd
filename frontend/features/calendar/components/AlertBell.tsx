@@ -31,10 +31,11 @@
        rect, it would detach), as CitationChip's popover does;
      - every close returns focus to the bell unless the user moved it on.
    It is placed where it fits, from its measured height (placeBellPopover):
-   18.75rem wide within the viewport, below the bell, above it when only that
-   side holds it whole, else on the roomier side with its height capped there,
-   scrolling inside. A guessed height ran a tall popover (200% text) off the
-   bottom of the screen.
+   18.75rem wide within the visible viewport, below the bell, above it when only
+   that side holds it whole, else on the roomier side with its height capped
+   there, scrolling inside; never past what the reader can see, the bell in view
+   or not. A guessed height ran a tall popover (200% text) off the bottom of the
+   screen.
    The transparent click-catcher stays: an outside press closes only the
    popover, so it cannot also close the day dialog through its backdrop or
    re-toggle the bell that raised it.
@@ -139,12 +140,18 @@ export function placeBellPopover(
     Math.min(anchor.left + anchor.width / 2 - size.width / 2, area.left + area.width - size.width - POPOVER_MARGIN),
   )
   const top = area.top + POPOVER_MARGIN
-  const below = area.top + area.height - POPOVER_MARGIN - (anchor.bottom + POPOVER_GAP)
-  const above = anchor.top - POPOVER_GAP - top
-  if (size.height <= below) return { left, top: anchor.bottom + POPOVER_GAP, maxHeight: below }
-  if (size.height <= above) return { left, top: anchor.top - POPOVER_GAP - size.height, maxHeight: above }
-  if (Math.max(below, above) < POPOVER_MIN_SIDE) return { left, top, maxHeight: area.height - 2 * POPOVER_MARGIN }
-  return below >= above ? { left, top: anchor.bottom + POPOVER_GAP, maxHeight: below } : { left, top, maxHeight: above }
+  const bottom = area.top + area.height - POPOVER_MARGIN
+  // The bell's edges, held inside the area: a bell out of view (an error that lands after a scroll, or
+  // a page wider than the phone) still leaves the popover where the reader can see it.
+  const belowStart = Math.min(Math.max(anchor.bottom + POPOVER_GAP, top), bottom)
+  const aboveEnd = Math.max(Math.min(anchor.top - POPOVER_GAP, bottom), top)
+  const below = bottom - belowStart
+  const above = aboveEnd - top
+  if (size.height <= below) return { left, top: belowStart, maxHeight: below }
+  // Above, the cap is its own height: should its text grow, it scrolls rather than reach over the bell.
+  if (size.height <= above) return { left, top: aboveEnd - size.height, maxHeight: size.height }
+  if (Math.max(below, above) < POPOVER_MIN_SIDE) return { left, top, maxHeight: bottom - top }
+  return below >= above ? { left, top: belowStart, maxHeight: below } : { left, top, maxHeight: above }
 }
 
 /** What the reader can see. Not window.inner*: on a phone whose page is wider than the screen, Chromium
@@ -263,15 +270,15 @@ export function BellPopover({
   }, [blocked, host])
 
   // Placed from the panel's own height, measured before paint: the first pass renders it below the bell,
-  // and this moves it where it fits. The content's full height (scrollHeight and the borders), so a cap
-  // already on the panel does not shorten the measure.
+  // and this moves it where it fits. Its rendered height, rounded up, or its content's full height
+  // (scrollHeight and the borders) when a cap already on the panel shortens the box.
   const [box, setBox] = useState<(PopoverBox & { width: number }) | null>(null)
   useLayoutEffect(() => {
     const panel = ref.current
     if (!panel) return
     const area = visibleArea()
     const width = popoverWidth(area)
-    const height = panel.scrollHeight + panel.offsetHeight - panel.clientHeight
+    const height = Math.max(Math.ceil(panel.getBoundingClientRect().height), panel.scrollHeight + panel.offsetHeight - panel.clientHeight)
     setBox({ width, ...placeBellPopover(blocked.anchor, { width, height }, area) })
   }, [blocked])
   const area = visibleArea()

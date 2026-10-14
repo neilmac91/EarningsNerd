@@ -703,8 +703,10 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  at the default text size) within 12px of the visible viewport (window.visualViewport: on a
                  phone whose page is wider than the screen, Chromium widens the layout viewport and
                  window.inner* to the page), below its trigger, above it when only that side holds it
-                 whole, otherwise on the roomier side with its height capped there, scrolling inside
-                 (overflow-y-auto, scroll-py-4). Gate: placeBellPopover's cases in BellPopover.spec.tsx.
+                 whole (capped at its own height, so text that grows scrolls rather than reach over the
+                 trigger), otherwise on the roomier side with its height capped there, scrolling inside
+                 (overflow-y-auto, scroll-py-4); a trigger out of view leaves it inside the area too.
+                 Gate: placeBellPopover's cases in BellPopover.spec.tsx.
                  Keyboard: focus moves to the first action unless the user already moved it elsewhere (armed
                  once per open, callbacks through a ref); Escape closes in window capture with preventDefault
                  (stopPropagation alone still closes a native <dialog> beneath); Tab past the last action /

@@ -388,9 +388,10 @@ describe('BellPopover placement', () => {
     inside(box, 300)
   })
 
-  it('goes above the bell when only that side holds it whole', () => {
+  it('goes above the bell when only that side holds it whole, capped at its own height so it never reaches over the bell', () => {
     const box = placeBellPopover(BELL, { width: 366, height: 400 }, PHONE)
     expect(box.top + 400).toBe(BELL.top - 8)
+    expect(box.maxHeight).toBe(400)
     inside(box, 366)
   })
 
@@ -399,6 +400,11 @@ describe('BellPopover placement', () => {
     inside(box, 366)
     expect(box.top + box.maxHeight).toBeLessThanOrEqual(BELL.top - 8) // above: 514px of room against 202 below
     expect(box.maxHeight).toBe(BELL.top - 8 - POPOVER_MARGIN)
+  })
+
+  it('stays inside the visible area when its bell is out of view (below it or above it)', () => {
+    inside(placeBellPopover({ left: 290, top: 1100, bottom: 1188, width: 88 }, { width: 366, height: 500 }, PHONE), 366)
+    inside(placeBellPopover({ left: 290, top: -300, bottom: -212, width: 88 }, { width: 366, height: 500 }, PHONE), 366)
   })
 
   it('places inside the visible area, which on a page wider than the phone is offset in the layout viewport', () => {
