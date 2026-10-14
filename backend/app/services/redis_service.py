@@ -225,12 +225,14 @@ async def get_redis_pool() -> Optional[ConnectionPool]:
                 socket_timeout=5.0,
                 socket_connect_timeout=5.0,
             )
-            logger.info(f"Redis connection pool created for {settings.REDIS_URL} (max_connections={REDIS_MAX_CONNECTIONS})")
+            logger.info(f"Redis connection pool created (max_connections={REDIS_MAX_CONNECTIONS})")  # not the URL: it carries the password
         except RedisError as e:
             logger.warning(f"Failed to create Redis connection pool (Redis error): {e}")
             return None
         except ValueError as e:
-            logger.warning(f"Failed to create Redis connection pool (invalid URL): {e}")
+            # The type only: a URL missing its `@host` puts the password where the port goes, and the port parse
+            # quotes it.
+            logger.warning(f"Failed to create Redis connection pool: REDIS_URL is malformed ({type(e).__name__})")
             return None
     return _pool
 

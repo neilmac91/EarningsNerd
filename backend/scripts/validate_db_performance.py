@@ -58,7 +58,7 @@ def measure_operation(operation_func, description: str) -> tuple[float, any]:
         return elapsed_ms, result
     except Exception as e:
         elapsed_ms = (time.perf_counter() - start) * 1000
-        print(f"  {description}: FAILED after {elapsed_ms:.2f}ms - {e}")
+        print(f"  {description}: FAILED after {elapsed_ms:.2f}ms - {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
         raise
 
 
@@ -71,29 +71,41 @@ def run_validation():
 
     database_url = get_database_url()
 
-    # Mask password in output
-    masked_url = database_url
-    if "@" in masked_url:
-        parts = masked_url.split("@")
-        if ":" in parts[0]:
-            user_pass = parts[0].split(":")
-            if len(user_pass) > 1:
-                masked_url = f"{user_pass[0]}:****@{'@'.join(parts[1:])}"
-
-    print(f"Database: {masked_url}")
-    print()
-
     try:
         from sqlalchemy import create_engine, text
+        from sqlalchemy.engine import make_url
         from sqlalchemy.orm import sessionmaker
         from sqlalchemy.exc import SQLAlchemyError, OperationalError, InterfaceError
     except ImportError:
         print("ERROR: SQLAlchemy not installed. Run: pip install sqlalchemy")
         sys.exit(1)
 
+    # The parse error can quote the password (a URL missing its `@host` puts it where the port goes, and the int() that
+    # parses the port quotes it), so only its type is printed. A URL holding more than one "@" is refused too: an
+    # unescaped "@" in the password ends it there, and the rest becomes the host, the database or a query key, which
+    # this script prints and a driver's error quotes.
+    try:
+        url = make_url(database_url)
+    except Exception as e:  # noqa: BLE001 — any parse failure
+        problem = type(e).__name__
+    else:
+        problem = (
+            None
+            if database_url.count("@") <= 1
+            else "more than one '@'; percent-encode any '@' in the user name or password"
+        )
+    if problem:
+        print(f"ERROR: DATABASE_URL could not be parsed ({problem}; message withheld: it can quote the password)")
+        sys.exit(1)
+    # The backend and host only: SQLAlchemy's masked rendering hides the URL's password but not a password passed in
+    # its query string (?password=...), and a URL missing its `@host` puts a password's leading digits in the port and
+    # the rest past a "/" in the database.
+    print(f"Database: {url.get_backend_name()} at {url.host or 'localhost'}")
+    print()
+
     # Create engine with production-like settings
     engine = create_engine(
-        database_url,
+        url,
         pool_pre_ping=True,
         pool_size=5,
         max_overflow=10,
@@ -123,13 +135,13 @@ def run_validation():
             print("  ⚠️  SLOW (> 100ms)")
         conn.close()
     except OperationalError as e:
-        print(f"  ❌ FAILED (connection error): {e}")
+        print(f"  ❌ FAILED (connection error): {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
         sys.exit(1)
     except InterfaceError as e:
-        print(f"  ❌ FAILED (interface error): {e}")
+        print(f"  ❌ FAILED (interface error): {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
         sys.exit(1)
     except SQLAlchemyError as e:
-        print(f"  ❌ FAILED (database error): {e}")
+        print(f"  ❌ FAILED (database error): {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
         sys.exit(1)
 
     print()
@@ -149,7 +161,7 @@ def run_validation():
             print("  ⚠️  SLOW (> 5ms)")
         session.close()
     except SQLAlchemyError as e:
-        print(f"  ❌ FAILED (database error): {e}")
+        print(f"  ❌ FAILED (database error): {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
 
     print()
     print("3. Table Count Query")
@@ -188,7 +200,7 @@ def run_validation():
 
         session.close()
     except SQLAlchemyError as e:
-        print(f"  ❌ FAILED (database error): {e}")
+        print(f"  ❌ FAILED (database error): {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
 
     print()
     print("4. Connection Pool Health")
@@ -220,7 +232,7 @@ def run_validation():
 
         results["pool_health"] = pool_time
     except SQLAlchemyError as e:
-        print(f"  ❌ FAILED (database error): {e}")
+        print(f"  ❌ FAILED (database error): {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
 
     print()
     print("5. Index Check")
@@ -242,7 +254,7 @@ def run_validation():
 
         session.close()
     except SQLAlchemyError as e:
-        print(f"  ❌ FAILED (database error): {e}")
+        print(f"  ❌ FAILED (database error): {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
 
     print()
     print("=" * 60)

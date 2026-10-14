@@ -583,9 +583,12 @@ Every scheduled job script records an attempt in `earningsnerd_job_runs`, using 
 separate from its business work. The logical names are `pregenerate`, `filing-scan`,
 `filing-digest`, `backfill-facts`, `earnings-calendar-refresh`, `earnings-day-alerts`, and
 `notable-filings`. The weekly report records `data-quality-report` separately, even though it
-runs on the filing-digest Cloud Run job. SIC backfill, financial remediation and the reconciliation-flag audit similarly use
-`backfill-company-sic`, `remediate-financials` and `reconciliation-flag-audit`; these ad hoc
-identities cannot satisfy the scheduled facts heartbeat.
+runs on the filing-digest Cloud Run job, and the Item 1A extraction batch the real-time scan runs
+behind `ENABLE_SECTION_CHANGES` records `section-extraction` on its own row (a failed batch fails
+that row, not the scan's execution; it joins `JOB_CADENCES` when the flag flips). SIC backfill, financial remediation, the reconciliation-flag audit and the
+operator's section backfill similarly use `backfill-company-sic`, `remediate-financials`,
+`reconciliation-flag-audit` and `section-extraction-manual`; these ad hoc identities cannot satisfy a
+scheduled heartbeat.
 
 Each attempt records start, completion, status and numeric counters. Returned provider/send/
 extraction failures and failed commits mark the attempt failed and make the CLI exit nonzero;

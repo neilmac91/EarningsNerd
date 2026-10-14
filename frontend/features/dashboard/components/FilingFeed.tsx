@@ -6,7 +6,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRightIcon } from '@/lib/icons'
 import { getDashboardFeed } from '@/features/dashboard/api/dashboard-api'
-import { GuidanceCard, Skeleton } from '@/components/ui'
+import { GuidanceCard, Skeleton, countControlClass, cx } from '@/components/ui'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import WhatChangedCard from './WhatChangedCard'
 import FeedOnboarding from './FeedOnboarding'
@@ -38,7 +38,7 @@ export default function FilingFeed({
   const isLoading = feedQuery.isLoading && !failure.failed
 
   const visible = data ? data.slice(0, MAX_CARDS) : []
-  // Overflow count comes from the watchlist (companies followed), never data.length — the feed array
+  // Overflow count comes from the watchlist (companies followed), never data.length: the feed array
   // is capped at the fetch limit, so data.length would misreport "See all 20 companies" for a user
   // following 30. When the true count isn't known, drop the number rather than show a wrong one.
   const hasMore =
@@ -120,9 +120,11 @@ export default function FilingFeed({
           </div>
           {hasMore && (
             <div className="mt-4 text-right">
+              {/* The label carries a count, so the link rests in the secondary ink and turns sage under
+                  the pointer (the count control, DESIGN_SYSTEM.md; D-030): one text run, one underline. */}
               <Link
                 href="/dashboard/watchlist"
-                className="inline-flex items-center gap-1 rounded-lg text-sm font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+                className={cx('inline-flex items-center gap-1 rounded-lg text-sm font-medium', countControlClass('link'))}
               >
                 {overflowLabel}
                 <ArrowRightIcon className="h-4 w-4" />

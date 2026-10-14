@@ -100,3 +100,26 @@ describe('FullTextSearch date filters', () => {
     expect(vi.mocked(searchFullText)).not.toHaveBeenCalled()
   })
 })
+
+describe('FullTextSearch form filters', () => {
+  beforeEach(() => vi.mocked(searchFullText).mockReset())
+
+  it('filters on a chip’s form code, not its label ("Form 4" sends 4, the code EFTS matches)', async () => {
+    vi.mocked(searchFullText).mockResolvedValue({ query: '', total: 0, count: 0, hits: [] })
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={qc}>
+        <FullTextSearch />
+      </QueryClientProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '10-K' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Form 4' }))
+    fireEvent.change(screen.getByLabelText(/Search the full text/i), { target: { value: 'insider' } })
+
+    expect(screen.getByRole('button', { name: 'Form 4' })).toHaveAttribute('aria-pressed', 'true')
+    await waitFor(() =>
+      expect(vi.mocked(searchFullText)).toHaveBeenCalledWith(expect.objectContaining({ q: 'insider', forms: '10-K,4' })),
+    )
+  })
+})
