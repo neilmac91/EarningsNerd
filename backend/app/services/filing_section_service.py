@@ -175,6 +175,47 @@ def _section_row(db: Session, filing_id: int) -> Optional[FilingSectionText]:
     )
 
 
+def section_row(db: Session, filing_id: int) -> Optional[FilingSectionText]:
+    """The filing's Item 1A row, whatever its status, or None before any attempt."""
+    return _section_row(db, filing_id)
+
+
+def wording_change_summaries(db: Session, filing_ids: list[int]) -> dict[int, dict[str, Any]]:
+    """Per filing, the cached comparison summary a list or an alert line reads (counts only, never
+    the items): ``items_total``, ``has_changes``, ``reference_only`` (the filing's own section only
+    points at the annual report) and ``prior_reference_only``. Filings without an ``ok`` row or
+    without a comparison yet are absent, so a caller shows nothing rather than a zero.
+
+    "No comparison yet" is read off ``diff_prior_filing_id``, not ``diff_summary``: the JSON column
+    stores the ``None`` that ``compute_diff_summary`` writes as a JSON ``null`` (SQLAlchemy's default
+    ``none_as_null=False``), which ``IS NOT NULL`` admits and which read as a zero comparison, so a
+    filing whose prior was not extracted yet was reported as "no changes"."""
+    if not filing_ids:
+        return {}
+    rows = (
+        db.query(FilingSectionText)
+        .filter(
+            FilingSectionText.filing_id.in_(filing_ids),
+            FilingSectionText.section == SECTION_ITEM_1A,
+            FilingSectionText.status == STATUS_OK,
+            FilingSectionText.diff_prior_filing_id.isnot(None),
+        )
+        .all()
+    )
+    out: dict[int, dict[str, Any]] = {}
+    for row in rows:
+        summary = row.diff_summary
+        if not isinstance(summary, dict):
+            continue
+        out[row.filing_id] = {
+            "items_total": int(summary.get("items_total") or 0),
+            "has_changes": bool(summary.get("has_changes")),
+            "reference_only": bool(summary.get("reference_only")),
+            "prior_reference_only": bool(summary.get("prior_reference_only")),
+        }
+    return out
+
+
 def _upsert(db: Session, filing: Filing, result: ExtractedSection, *, now: datetime) -> FilingSectionText:
     """Write the attempt onto the filing's row.
 
