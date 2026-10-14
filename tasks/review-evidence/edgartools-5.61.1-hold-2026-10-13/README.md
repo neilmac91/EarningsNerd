@@ -84,16 +84,20 @@ blocks it writes. Each seam probe matches the marker occurrence adjacent to its 
 
 - Dependabot force-updated #1285's head from `b802f5cb` to `74de260b` (commit authored
   2026-10-13T17:12:47Z, after the 14:46Z hold comment); the proposal is still 5.61.1, and CI on the
-  new head failed the same Outlook assertion (`1 failed, 7085 passed, 39 skipped`).
+  new head failed the same Outlook assertion
+  ([job 115432918060](https://github.com/neilmac91/EarningsNerd/actions/runs/38436836156/job/115432918060):
+  `1 failed, 7085 passed, 39 skipped`).
 - edgartools 5.62.0 (PyPI 2026-10-11T18:22Z, the only release after 5.61.1; the CHANGELOG's
   Unreleased section is empty and 6.0 is announced for 2026-11-09) was replayed with the method
   above: a Python 3.11.17 environment from main's `requirements.txt` plus `requirements-dev.txt`
-  with edgartools raised to 5.62.0 (`pip check` clean), `dump_sections.py.txt` under 5.58.0 and
-  5.62.0 on main `d69bc69`, then `compare_sections.py.txt`. Evidence in [`5.62.0/`](5.62.0/):
-  `pytest-5.62.0.txt` (1 failed, 7 passed, the same assertion; 8 passed on 5.58.0),
+  with edgartools raised to 5.62.0 (`pip-check-5.62.0.txt`: interpreter, version and `pip check`),
+  `dump_sections.py.txt` under 5.58.0 and 5.62.0 on main `d69bc69`, then `compare_sections.py.txt`. Evidence in [`5.62.0/`](5.62.0/):
+  `pytest-5.62.0.txt` (1 failed, 7 passed, the same assertion; 8 passed on 5.58.0 at `dc2d2d4`,
+  `../pytest-5.58.0.txt`, and again on `d69bc69` in this replay's 5.58.0 environment),
   `content_compare.txt` (Part I Item 2 loses `{')': 1, '%': 2}` and gains nothing; Item 1 keeps its
   character multiset; Part II Item 6 loses the heading and signature block as before),
-  `roic-row.txt` (`ROIC (a)  8.6  %  (12.5`), `probe_table_seams.txt` (all three seams glued),
+  `roic-row.txt` (`ROIC (a)  8.6  %  (12.5`), `probe_table_seams.txt` (all three seams glued at their first occurrence; Item 1's second
+  occurrences keep their blank line, as in 5.61.1),
   `outlook_block.txt` and `diff_outlook_block.txt` (3,117 against 3,118 characters; the row regex
   and `Ford Energy` retained). Every figure equals the 5.61.1 one. In 5.62.0 `fast_table.py`'s
   `_AFFIX_CHARS` is still single characters only; its release notes touch Markdown header paths and
