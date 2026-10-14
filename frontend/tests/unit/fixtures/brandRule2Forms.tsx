@@ -1094,6 +1094,25 @@ export function P587({ n }: { n: number }) { return <a href="/x"><Dark587>See al
 // unused call hands the className (P679, clean; P680, the className first); a rest tail read by an index, at that place
 // alone (P681, clean; P682, the className there), through the tail's alias too (P685); and a binding's default, read at
 // the steps below it, the props (P683) or a style map (P684).
+// Codex's review of `ec660d9`, and its review of #1326's `582de56`: a union of tuples with a hole below an open member
+// never hands the className second (P686), and one without the hole can (P687); a rest parameter aliased by a
+// destructuring, read at the call on the way though an unused call hands the className (P688); a rest tail aliased by
+// one, at the tail's place (P689, clean; P690, the className there); and a tuple const written into before it is
+// spread (P691), which is not opened. Their root: a spread the layout cannot open hands its members at each place it
+// could cover, an array's holding the className (P692) but not where the spread cannot reach (P693), a same-file
+// joiner's wrapper (P694; P695, handed another class beside a call handing it the className) and Object.assign's spread
+// sources (P698). Planting it found more of the same root, each a value read without the calls on its way: a
+// destructured alias of the rest holding the props (P696, clean beside an unused call; P697, the props first), a
+// className-keyed assignment read through an alias (P699), the props handed to a helper's parameter pattern (P700) and
+// the props in a holder's field (P751); the shorthand of the rest in a holder (P752) and a holder's other field (P753)
+// must pass.
+// A routine lens on that round: a destructured name's own writes, through an alias (P762), its className-keyed one
+// (P763), a helper's (P769) and the binding walk's (P770); a helper's returned holder, destructured (P758; P766, handed
+// another class) or read by a field (P759; P767, a style map), inside a literal (P771; P772) or spread (P760); a helper
+// called twice (P754) or a value assigned twice (P755), each read at its own call; a helper that calls itself (P756); a
+// declaration met again at other steps on a sibling branch (P757); a tuple reordered in place (P761), and one typed as
+// writable and never written, read by its length (P768); a helper's pattern handed a style map beside a call handing it
+// the props (P764); and a spread of sources without the props (P765).
 function Tally588({ n, className: cls }: { n: number; className?: string }) { return <span className={cls}>See all {n}</span> }
 export function P588({ n }: { n: number }) { return <a href="/x"><Tally588 n={n} className="hover:text-brand-strong" /></a> } // flag
 function Tally589({ n, className }: { n: number; className?: string }) { const cls = className; return <span className={cx(cls, 'font-medium')}>See all {n}</span> }
@@ -1375,3 +1394,49 @@ function Tally752(props: { n: number; className?: string }) { void pick752(props
 export function P752({ n }: { n: number }) { return <a href="/x"><Tally752 n={n} className="hover:text-brand-strong" /></a> } // clean
 function Tally753({ n, ...rest }: { n: number; className?: string }) { const box = { p: THEME592, q: rest }; return <span className={box.p.className}>See all {n}</span> }
 export function P753({ n }: { n: number }) { return <a href="/x"><Tally753 n={n} className="hover:text-brand-strong" /></a> } // clean
+function get754(p: { className?: string }) { return p }
+function Tally754(props: { n: number; className?: string }) { const both = [get754(THEME592), get754(props)]; return <span className={both[props.n].className}>See all {props.n}</span> }
+export function P754({ n }: { n: number }) { return <a href="/x"><Tally754 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally755(props: { n: number; className?: string }) { let p = get754(THEME592); if (props.n) p = get754(props); return <span className={p.className}>See all {props.n}</span> }
+export function P755({ n }: { n: number }) { return <a href="/x"><Tally755 n={n} className="hover:text-brand-strong" /></a> } // flag
+function deep756(p: { className?: string }, d: number): { className?: string } { if (d > 0) return deep756(p, d - 1); return p }
+function Tally756(props: { n: number; className?: string }) { return <span className={deep756(props, 2).className}>See all {props.n}</span> }
+export function P756({ n }: { n: number }) { return <a href="/x"><Tally756 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally757(props: { n: number; className?: string }) { const box = { a: [THEME592], b: props.n > 0 ? [props] : [THEME592] }; const list = [box.a, box.b]; return <span className={list[props.n][0].className}>See all {props.n}</span> }
+export function P757({ n }: { n: number }) { return <a href="/x"><Tally757 n={n} className="hover:text-brand-strong" /></a> } // flag
+function wrap758(x?: string) { return [x] }
+function Tally758(props: { n: number; className?: string }) { const [cls] = wrap758(props.className); return <span className={cls}>See all {props.n}</span> }
+export function P758({ n }: { n: number }) { return <a href="/x"><Tally758 n={n} className="hover:text-brand-strong" /></a> } // flag
+function box759(p: { className?: string }) { return { p: p } }
+function Tally759(props: { n: number; className?: string }) { return <span className={box759(props).p.className}>See all {props.n}</span> }
+export function P759({ n }: { n: number }) { return <a href="/x"><Tally759 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally760(props: { n: number; className?: string }) { return <span className={first691(...wrap758(props.className))}>See all {props.n}</span> }
+export function P760({ n }: { n: number }) { return <a href="/x"><Tally760 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally761(props: { n: number; className?: string }) { const prefix: [string, string | undefined] = ['font-medium', props.className]; prefix.reverse(); return <span className={first691(...prefix)}>See all {props.n}</span> }
+export function P761({ n }: { n: number }) { return <a href="/x"><Tally761 n={n} className="hover:text-brand-strong" /></a> } // flag
+function first762(...parts: Array<string | undefined>) { let [t] = [parts]; if (parts.length > 1) [t] = [parts.slice(1)]; return t[0] }
+function Tally762(props: { n: number; className?: string }) { return <span className={first762('font-medium', props.className)}>See all {props.n}</span> }
+export function P762({ n }: { n: number }) { return <a href="/x"><Tally762 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally763(props: { n: number; className?: string }) { let { className: cls } = THEME592; if (props.n) cls = props.className ?? cls; return <span className={cls}>See all {props.n}</span> }
+export function P763({ n }: { n: number }) { return <a href="/x"><Tally763 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally764(props: { n: number; className?: string }) { void pick700([props]); return <span className={pick700([THEME592])}>See all {props.n}</span> }
+export function P764({ n }: { n: number }) { return <a href="/x"><Tally764 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Tally765({ n }: { n: number; className?: string }) { const sources = [THEME592]; return <span className={Object.assign({}, ...sources).className}>See all {n}</span> }
+export function P765({ n }: { n: number }) { return <a href="/x"><Tally765 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Tally766(props: { n: number; className?: string }) { void wrap758(props.className); const [cls] = wrap758('font-medium'); return <span className={cls}>See all {props.n}</span> }
+export function P766({ n }: { n: number }) { return <a href="/x"><Tally766 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Tally767(props: { n: number; className?: string }) { void box759(props); return <span className={box759(THEME592).p.className}>See all {props.n}</span> }
+export function P767({ n }: { n: number }) { return <a href="/x"><Tally767 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Tally768(props: { n: number; className?: string }) { const prefix: [string] = ['font-medium']; return <span className={first691(...prefix, props.className)}>See all {props.n}</span> }
+export function P768({ n }: { n: number }) { return <a href="/x"><Tally768 n={n} className="hover:text-brand-strong" /></a> } // clean
+function pick769(...parts: Array<{ className?: string }>) { let [all]: [Array<{ className?: string }>] = [[THEME592]]; all = parts; const [p] = all; return p.className }
+function Tally769(props: { n: number; className?: string }) { return <span className={pick769(props)}>See all {props.n}</span> }
+export function P769({ n }: { n: number }) { return <a href="/x"><Tally769 n={n} className="hover:text-brand-strong" /></a> } // flag
+const CONFIG770 = { label: 'Ready' }
+export function P770({ n }: { n: number }) { let { label } = CONFIG770; if (n) label = 'See all 3'; return <span className="text-brand-strong">{label}</span> } // flag
+function Tally771(props: { n: number; className?: string }) { const [[cls]] = [wrap758(props.className)]; return <span className={cls}>See all {props.n}</span> }
+export function P771({ n }: { n: number }) { return <a href="/x"><Tally771 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally772(props: { n: number; className?: string }) { void wrap758(props.className); const [[cls]] = [wrap758('font-medium')]; return <span className={cls}>See all {props.n}</span> }
+export function P772({ n }: { n: number }) { return <a href="/x"><Tally772 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Tally773(props: { n: number; className?: string }) { void pick769(props); return <span className={pick769(THEME592)}>See all {props.n}</span> }
+export function P773({ n }: { n: number }) { return <a href="/x"><Tally773 n={n} className="hover:text-brand-strong" /></a> } // clean

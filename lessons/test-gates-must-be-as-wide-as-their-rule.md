@@ -207,11 +207,12 @@ of tuples read as a range, so every value is read at its steps with the calls ke
 lengths are the set its type allows; and its review of `ec660d9` three more, a hole below an open
 tuple length and a rest parameter or a rest tail aliased by a destructuring, beside a `const` tuple
 written into before it is spread, so a spread's lengths keep their holes, its members are read at
-each place it could cover, and every name and holder on the way, a destructured one and a field
-included, is read with the calls kept. A gate widened finding by finding needs its look-alikes planted
-with each copy, or the next review names the false positive. A context a read carries holds only
-where every path to a value carries it: the readers kept the calls through a name and dropped them
-through a destructuring, a literal and a holder's field, so the misreads came one path at a time
-until one resolver served them all. Companion to
+each place it could cover, and every name, literal, field and same-file call on the way is read with
+the calls kept, a value met inside a helper's call carrying that call to its reader. A gate widened
+finding by finding needs its look-alikes planted with each copy, or the next review names the false
+positive. A context a read carries holds only where every path to a value carries it: the readers kept
+the calls through a name and dropped them through a destructuring, a literal, a holder's field and a
+helper's returned holder, so the misreads came one path at a time until each value carried the calls
+it was met inside. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.

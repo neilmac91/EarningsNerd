@@ -129,9 +129,11 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    out by the lengths its type allows (a hole below an open run kept) and its members read at each
  *    place it could cover, a tuple const opened while the file writes nothing into it, a rest
  *    parameter's member by an index the checker reads as one number, counted from the end as `at()`
- *    and `length - N` count, or taken by a destructuring of the rest, and every name and holder on the
- *    way, a destructured one and a field included (`const [all] = [parts]`, `box.p`), read with the
- *    calls on the way kept. Neither
+ *    and `length - N` count, or taken by a destructuring of the rest; every name, literal, field and
+ *    same-file call on the way is read with the calls on the way kept, a destructured name with what
+ *    the file assigns it (`const [all] = [parts]`, `box.p`, `wrap(props.className)[0]`), and a value
+ *    met inside a helper's call carries that call to its reader, while what an array method or
+ *    Object's own returns is read by the binding walk, at every call. Neither
  *    check reads one a component forwards through a spread or a conditional return. The one-source
  *    check reads one the component joins with its
  *    own ink, which the ink check leaves to review, and reads an ink a label sets in one state only
@@ -452,7 +454,13 @@ const ASSIGNED = new Map<ts.SourceFile, Map<ts.Symbol, Held[]>>()
     puts in it (`labels.push(…)`, an unshift, a splice or a Set's add, `labels[i] = …`, `row.label = …` or `??=`,
     `||=`, `+=`, and each source's fields `Object.assign(row, …)` copies), the assignments indexed once per file. */
 function variableValues(declaration: ts.VariableDeclaration): Held[] {
-  const sf = declaration.getSourceFile()
+  const symbol = CHECKER.getSymbolAtLocation(declaration.name)
+  return [...(declaration.initializer ? [{ value: declaration.initializer, steps: [] }] : []), ...assignedTo(symbol, declaration.getSourceFile())]
+}
+/** What the file assigns a name and puts in it, by the name's symbol (`variableValues`' index): a name a destructuring
+    gives has its own (`let [t] = [parts]; [t] = [rest]`), which the declaration the destructuring climbs to never
+    holds. */
+function assignedTo(symbol: ts.Symbol | undefined, sf: ts.SourceFile): Held[] {
   let index = ASSIGNED.get(sf)
   if (!index) {
     const found = new Map<ts.Symbol, Held[]>()
@@ -515,8 +523,7 @@ function variableValues(declaration: ts.VariableDeclaration): Held[] {
     })
     ASSIGNED.set(sf, index = found)
   }
-  const symbol = CHECKER.getSymbolAtLocation(declaration.name)
-  return [...(declaration.initializer ? [{ value: declaration.initializer, steps: [] }] : []), ...((symbol && index.get(symbol)) ?? [])]
+  return (symbol && index.get(symbol)) ?? []
 }
 
 /** Where a name is bound: the variable or parameter its destructuring climbs to, the steps from that declaration's
@@ -657,19 +664,23 @@ function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[], stop?: 
     if (reading.has(key)) return defaults
     reading.add(key)
     try {
+      // A name a destructuring gives holds what the file assigns it too (`let { label } = …; label = …`).
+      const own = symbol?.valueDeclaration && ts.isBindingElement(symbol.valueDeclaration)
+        ? assignedTo(symbol, sf).flatMap((v) => held(v.value, [...v.steps, ...path], depth + 1)) : []
+      const given = [...defaults, ...own]
       if (ts.isVariableDeclaration(declaration)) {
         const loop = declaration.parent.parent
-        if (ts.isForOfStatement(loop)) return [...defaults, ...members(loop.expression, depth + 1).flatMap((member) => held(member, steps, depth + 1, true))]
+        if (ts.isForOfStatement(loop)) return [...given, ...members(loop.expression, depth + 1).flatMap((member) => held(member, steps, depth + 1, true))]
         if (ts.isForInStatement(loop)) {
-          return [...defaults, ...(steps.length ? [] : pairs(loop.expression, depth + 1).map(([k]) => k).filter((k) => !ts.isOmittedExpression(k)))]
+          return [...given, ...(steps.length ? [] : pairs(loop.expression, depth + 1).map(([k]) => k).filter((k) => !ts.isOmittedExpression(k)))]
         }
-        return [...defaults, ...variableValues(declaration).flatMap((v) => held(v.value, [...v.steps, ...steps], depth + 1))]
+        return [...given, ...variableValues(declaration).flatMap((v) => held(v.value, [...v.steps, ...steps], depth + 1))]
       }
-      if (!ts.isParameter(declaration)) return defaults
+      if (!ts.isParameter(declaration)) return given
       const at = declaration.parent.parameters.indexOf(declaration)
       // A first parameter read at its children, or by a key the scan cannot read, may be a component's children.
       const children = at === 0 && (steps[0] === 'children' || steps[0] === null) ? [childrenMark(declaration)] : []
-      return [...defaults, ...children, ...sitesOf(declaration.parent).flatMap((site) => {
+      return [...given, ...children, ...sitesOf(declaration.parent).flatMap((site) => {
         if (site.members) {
           return site.at === at && !declaration.dotDotDotToken ? members(site.members, depth + 1, site.loose).flatMap((member) => held(member, steps, depth + 1, true)) : []
         }
@@ -1751,7 +1762,7 @@ function readsClassName(node: ts.Node, at: ts.Node, calls: Calls, seen: Set<ts.N
     // the arguments a spread among them could leave there.
     const members = restMembers(m, calls)
     if (members) {
-      if (members.some((arg) => readsClassName(arg, at, calls, seen, holding))) found = true
+      if (members.some((arg) => readsClassName(arg.value, at, arg.calls, arg.calls === calls ? seen : new Set(), holding))) found = true
       return
     }
     // A same-file helper's call reads what the helper returns, its parameters bound at this call
@@ -1771,8 +1782,9 @@ function readsClassName(node: ts.Node, at: ts.Node, calls: Calls, seen: Set<ts.N
     const declaration = symbol?.valueDeclaration
     if (!declaration || seen.has(declaration)) return
     seen.add(declaration)
-    const reads = (values: ts.Expression[]): boolean => values.some((v) => readsClassName(v, at, calls, seen, holding))
-    const holds = (values: ts.Expression[]): boolean => values.some((h) => holdsProps(h, at, new Set(holding), calls))
+    // A value met inside a helper's call is read with that call's arguments, its declarations afresh.
+    const reads = (values: Found[]): boolean => values.some((v) => readsClassName(v.value, at, v.calls, v.calls === calls ? seen : new Set(), holding))
+    const holds = (values: Found[]): boolean => values.some((h) => holdsProps(h.value, at, new Set(holding), h.calls))
     if (ts.isBindingElement(declaration)) {
       // A name a destructuring gives (`bindingOf`: the parameter or variable it climbs to, and the steps to its place).
       // Keyed `className`, it is the className of what holds the props at the steps before it (`({ className: cls })`,
@@ -1810,6 +1822,12 @@ function readsClassName(node: ts.Node, at: ts.Node, calls: Calls, seen: Set<ts.N
           if (named && holds(valuesAt(value, [...held, ...steps.slice(0, -1)], sf, calls))) found = true
         }
       }
+      // What the file assigns the name itself (`let { className: cls } = THEME; cls = props.className`), read as a
+      // variable's values are.
+      for (const { value, steps: held } of assignedTo(symbol, sf)) {
+        if (reads(valuesAt(value, held, sf, calls))) found = true
+        if (held[held.length - 1] === 'className' && holds(valuesAt(value, held.slice(0, -1), sf, calls))) found = true
+      }
     } else if (ts.isVariableDeclaration(declaration)) {
       // What the name holds (`variableValues`): the value at its place, walked into by the steps a destructuring
       // assignment leaves (`[cls] = [props.className]` holds the array at 0), read as the initializer is; or the
@@ -1839,7 +1857,7 @@ function readsClassName(node: ts.Node, at: ts.Node, calls: Calls, seen: Set<ts.N
     source the scan cannot read is passed over. */
 function classNameFrom(e: ts.Expression, at: ts.Node, seen: Set<ts.Node>, calls: Calls): 'props' | 'own' | null {
   const x = unwrap(e)
-  const sources: (ts.Expression | ts.Expression[])[] = []
+  const sources: (ts.Expression | Found[])[] = []
   if (ts.isCallExpression(x) && objectCall(x, 'assign')) {
     for (const a of layOut(x.arguments)) {
       if (!('node' in a)) sources.push(valuesAt(a.spread, [null], at.getSourceFile(), calls))
@@ -1861,7 +1879,7 @@ function classNameFrom(e: ts.Expression, at: ts.Node, seen: Set<ts.Node>, calls:
   }
   for (const source of sources.reverse()) {
     if (Array.isArray(source)) {
-      if (source.some((member) => classNameFrom(member, at, new Set(seen), calls) === 'props')) return 'props'
+      if (source.some((member) => classNameFrom(member.value, at, new Set(seen), member.calls) === 'props')) return 'props'
       continue
     }
     const from = classNameFrom(source, at, new Set(seen), calls)
@@ -1884,11 +1902,13 @@ function setsOwnClassName(e: ts.Expression, seen = new Set<ts.Node>()): boolean 
 }
 /** The arguments of the same-file calls a read is inside, by the function called. */
 type Calls = ReadonlyMap<ts.Node, ts.NodeArray<ts.Expression>>
+/** A value a read meets, with the calls it was met inside, so its reader binds a helper's parameters there. */
+interface Found { value: ts.Expression; calls: Calls }
 /** A call's arguments laid out by place: each argument as written; a spread of an array literal, or of a same-file
-    const typed as a tuple, holding one and never written into (`const PREFIX: readonly [string] = ['x']`), opened into
-    its elements (`f(...[a, b], c)` hands `a`, `b`, `c`); any other spread as the lengths its type gives it
-    (`spreadLength`) and its members, any of which may land at a place it covers. A const typed as an array is not
-    opened, since the file may push to it, nor a tuple the file writes into (`prefix[0] = …`, a push). */
+    const typed as a readonly tuple and holding one (`const PREFIX: readonly [string] = ['x']`, `as const`), opened
+    into its elements (`f(...[a, b], c)` hands `a`, `b`, `c`); any other spread as the lengths its type gives it
+    (`spreadLength`) and its members, any of which may land at a place it covers. A tuple the file can write into or
+    reorder (`prefix[0] = …`, `prefix.reverse()`) is not opened, nor a const typed as an array. */
 type Laid = { node: ts.Expression } | { spread: ts.Expression; lengths: Lengths }
 /** The lengths a spread, or a run of arguments, can have: each one in `some` (sorted, below `from`), and every length
     from `from` on (Infinity when no run is open), so a hole below an open run is kept. */
@@ -1912,12 +1932,9 @@ function layOut(args: readonly ts.Expression[]): Laid[] {
     if (ts.isArrayLiteralExpression(inner)) return layOut(inner.elements)
     const type = CHECKER.getTypeAtLocation(inner)
     const declaration = ts.isIdentifier(inner) ? CHECKER.getSymbolAtLocation(inner)?.valueDeclaration : undefined
-    const constant = declaration && ts.isVariableDeclaration(declaration) && ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const ? declaration : undefined
-    const held = constant?.initializer && unwrap(constant.initializer)
-    // A tuple the file writes into holds more than its initializer says: `variableValues` reads the writes too.
-    if (constant && held && ts.isArrayLiteralExpression(held) && variableValues(constant).length === 1 && tupleMembers(type).every((t) => CHECKER.isTupleType(t))) {
-      return layOut(held.elements)
-    }
+    const held = declaration && ts.isVariableDeclaration(declaration) && ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const && declaration.initializer ? unwrap(declaration.initializer) : undefined
+    const readonly = tupleMembers(type).every((t) => CHECKER.isTupleType(t) && ((t as ts.TypeReference).target as ts.TupleType).readonly)
+    if (held && ts.isArrayLiteralExpression(held) && readonly) return layOut(held.elements)
     return [{ spread: inner, lengths: spreadLength(type) }]
   })
 }
@@ -1977,12 +1994,12 @@ function argumentsFrom(args: readonly ts.Expression[], from: number): Held[] {
 const declarationRead = (id: ts.Identifier): ts.Declaration | undefined =>
   (id.parent && ts.isShorthandPropertyAssignment(id.parent) && id.parent.name === id ? CHECKER.getShorthandAssignmentValueSymbol(id.parent) : CHECKER.getSymbolAtLocation(id))?.valueDeclaration
 /** What held values hold once their steps, then `steps`, are walked in (`valuesAt`), the calls kept. */
-const valuesOfHeld = (held: Held[], steps: Step[], sf: ts.SourceFile, calls: Calls, seen?: Set<ts.Node>): ts.Expression[] =>
+const valuesOfHeld = (held: Held[], steps: Step[], sf: ts.SourceFile, calls: Calls, seen?: Set<string>): Found[] =>
   held.flatMap((h) => valuesAt(h.value, [...h.steps, ...steps], sf, calls, seen))
 /** What a parameter holds at `steps`, in the calls' context: the arguments the call on the way hands it (`argumentsAt`;
     a rest parameter's member by the first step when it is an index, the whole of them when no step picks one), the
     remaining steps walked in with the calls kept (`valuesAt`). Nothing for a parameter no call on the way binds. */
-function parameterValues(parameter: ts.ParameterDeclaration, steps: Step[], sf: ts.SourceFile, calls: Calls, seen?: Set<ts.Node>): ts.Expression[] {
+function parameterValues(parameter: ts.ParameterDeclaration, steps: Step[], sf: ts.SourceFile, calls: Calls, seen?: Set<string>): Found[] {
   const args = calls.get(parameter.parent) ?? []
   const index = parameter.parent.parameters.indexOf(parameter)
   if (!parameter.dotDotDotToken) return valuesOfHeld(argumentsAt(args, index, 0), steps, sf, calls, seen)
@@ -1990,48 +2007,60 @@ function parameterValues(parameter: ts.ParameterDeclaration, steps: Step[], sf: 
   const handed = typeof first === 'number' ? argumentsAt(args, index, first) : first === undefined || first === null ? argumentsFrom(args, index) : []
   return valuesOfHeld(handed, rest, sf, calls, seen)
 }
-/** What a value holds at `steps`, the calls on the way kept. At no steps it is the value itself, for its reader to
-    resolve, so a name keeps what the reader asks of it (a binding keyed `className`, `({ className: cls } = props)`).
-    A parameter a call on the way binds holds what that call hands it there (`parameterValues`); a same-file variable or
-    a name a destructuring gives, what the file gives it there (`boundValues`), so an alias of a parameter is read at the
-    call on the way too (`const all = parts`, `const [all] = [parts]`); a literal is walked into until the steps run out
-    or a name is met, which is read the same way (`[parts]` at 0 is `parts`, `heldAt`); anything else, the parameter of
-    a function around the element and a declaration met again on the way included, holds what the binding walk meets
-    there (`atSteps`). */
-function valuesAt(value: ts.Expression, steps: Step[], sf: ts.SourceFile, calls: Calls, seen = new Set<ts.Node>()): ts.Expression[] {
-  if (!steps.length) return [value]
+/** What a value holds at `steps`, each with the calls it is met inside (`Found`). At no steps it is the value itself, for
+    its reader to resolve, so a name keeps what the reader asks of it (a binding keyed `className`, `({ className: cls }
+    = props)`). A parameter a call on the way binds holds what that call hands it there (`parameterValues`); a same-file
+    variable or a name a destructuring gives, what the file gives it there (`boundValues`), so an alias of a parameter is
+    read at the call on the way too (`const all = parts`, `const [all] = [parts]`); a same-file helper's call, what the
+    helper returns there, its parameters bound at the call (`wrap(props.className)` returning `[x]` holds the className
+    at 0), a helper's call to itself left to the binding walk; a literal is walked into until the steps run out or a
+    name or a call is met, which is read the same way (`[parts]` at 0 is `parts`, `heldAt`); anything else, the
+    parameter of a function around the element included, holds what the binding walk meets there (`atSteps`). A
+    declaration met again at the same steps, or past 24 of them, is left to the binding walk too. */
+function valuesAt(value: ts.Expression, steps: Step[], sf: ts.SourceFile, calls: Calls, seen = new Set<string>()): Found[] {
+  if (!steps.length) return [{ value, calls }]
   const x = unwrap(value)
-  if (!ts.isIdentifier(x)) return heldAt(x, steps, sf).flatMap((h) => (h.steps.length ? valuesAt(h.value, h.steps, sf, calls, seen) : [h.value]))
+  const walked = (): Found[] => atSteps(value, steps, sf).map((v) => ({ value: v, calls }))
+  if (ts.isCallExpression(x)) {
+    const fns = [...functionsOf(x.expression), ...(isUseMemo(x) && x.arguments[0] ? functionsOf(x.arguments[0]) : [])]
+    if (fns.length) {
+      const fresh = fns.filter((fn) => !calls.has(fn))
+      return fresh.length ? fresh.flatMap((fn) => returnedExpressions(fn).flatMap((r) => valuesAt(r, steps, sf, new Map([...calls, [fn, x.arguments]])))) : walked()
+    }
+  }
+  if (!ts.isIdentifier(x)) return heldAt(x, steps, sf).flatMap((h) => (h.steps.length ? valuesAt(h.value, h.steps, sf, calls, seen) : [{ value: h.value, calls }]))
   const declaration = declarationRead(x)
-  if (declaration && !seen.has(declaration)) {
-    seen.add(declaration)
+  const key = declaration && `${declaration.pos}:${JSON.stringify(steps)}`
+  if (declaration && key && !seen.has(key) && steps.length <= 24) {
+    seen.add(key)
     if (ts.isParameter(declaration) && calls.has(declaration.parent)) return parameterValues(declaration, steps, sf, calls, seen)
     const bound = boundValues(declaration, steps, sf, calls, seen)
     if (bound) return bound
   }
-  return atSteps(value, steps, sf)
+  return walked()
 }
 /** What a same-file variable, or a name a destructuring gives, holds at `steps`, the calls on the way kept: what each
     value the file gives the variable holds there (`variableValues`), or, for the name, what the variable the
     destructuring climbs to holds at the name's place, or what the call on the way hands the parameter whose pattern it
-    is (`parameterValues`), each default met on the way beside (`bindingOf`). Undefined for any other declaration, a
-    loop's variable included, which the binding walk reads. */
-function boundValues(declaration: ts.Node, steps: Step[], sf: ts.SourceFile, calls: Calls, seen = new Set<ts.Node>()): ts.Expression[] | undefined {
+    is (`parameterValues`), each default met on the way and each value the file assigns the name itself beside
+    (`bindingOf`, `assignedTo`). Undefined for any other declaration, a loop's variable included, which the binding walk
+    reads. */
+function boundValues(declaration: ts.Node, steps: Step[], sf: ts.SourceFile, calls: Calls, seen = new Set<string>()): Found[] | undefined {
   const variable = (d: ts.VariableDeclaration) => !ts.isForOfStatement(d.parent.parent) && !ts.isForInStatement(d.parent.parent)
   if (ts.isVariableDeclaration(declaration)) {
     return ts.isIdentifier(declaration.name) && variable(declaration) ? valuesOfHeld(variableValues(declaration), steps, sf, calls, seen) : undefined
   }
   if (!ts.isBindingElement(declaration) || !ts.isIdentifier(declaration.name)) return undefined
-  const { declaration: root, steps: place, defaults } = bindingOf(CHECKER.getSymbolAtLocation(declaration.name), steps)
-  if (root && ts.isVariableDeclaration(root) && variable(root)) {
-    return [...valuesOfHeld(defaults, [], sf, calls, seen), ...valuesOfHeld(variableValues(root), place, sf, calls, seen)]
-  }
-  if (root && ts.isParameter(root) && calls.has(root.parent)) return [...valuesOfHeld(defaults, [], sf, calls, seen), ...parameterValues(root, place, sf, calls, seen)]
+  const symbol = CHECKER.getSymbolAtLocation(declaration.name)
+  const { declaration: root, steps: place, defaults } = bindingOf(symbol, steps)
+  const beside = [...valuesOfHeld(defaults, [], sf, calls, seen), ...valuesOfHeld(assignedTo(symbol, sf), steps, sf, calls, seen)]
+  if (root && ts.isVariableDeclaration(root) && variable(root)) return [...beside, ...valuesOfHeld(variableValues(root), place, sf, calls, seen)]
+  if (root && ts.isParameter(root) && calls.has(root.parent)) return [...beside, ...parameterValues(root, place, sf, calls, seen)]
   return undefined
 }
 /** What a value holds at `steps`, walked through the literals and the fields on the way until the steps run out or a
-    name is met: each expression met, with the steps left when it is a name (`[parts]` at 0 is `parts`, `box.parts` at 0
-    is `box` at ['parts', 0]), for the caller to resolve. Either branch of a conditional, `??` or `||` is walked; a key
+    name or a same-file call is met: each expression met, with the steps left when it is a name or a call (`[parts]` at 0
+    is `parts`, `box.parts` at 0 is `box` at ['parts', 0]), for the caller to resolve. Either branch of a conditional, `??` or `||` is walked; a key
     the scan cannot read, or an index into an array with a spread, reaches every member or field; anything else (a
     call, a method) holds what the binding walk meets there (`atSteps`). */
 function heldAt(value: ts.Expression, steps: Step[], sf: ts.SourceFile, depth = 0): Held[] {
@@ -2044,6 +2073,7 @@ function heldAt(value: ts.Expression, steps: Step[], sf: ts.SourceFile, depth = 
   }
   if (ts.isPropertyAccessExpression(x)) return heldAt(x.expression, [x.name.text, ...steps], sf, depth + 1)
   if (ts.isElementAccessExpression(x)) return heldAt(x.expression, [accessStep(x.argumentExpression), ...steps], sf, depth + 1)
+  if (ts.isCallExpression(x) && (functionsOf(x.expression).length || isUseMemo(x))) return [{ value: x, steps }]
   const [step, ...rest] = steps
   if (ts.isArrayLiteralExpression(x)) {
     if (typeof step === 'string') return []
@@ -2086,15 +2116,16 @@ function restReceiver(e: ts.Expression, seen = new Set<ts.Node>()): { parameter:
   return alias && restReceiver(alias, seen)
 }
 /** The one expression a same-file variable, or a name a destructuring gives, holds, its place walked into (`const [t] =
-    [tail]` holds `tail`); undefined when it holds more than one, a default included, or one with steps left to walk
-    (`const [h] = parts` holds a member of `parts`, not `parts`). */
+    [tail]` holds `tail`); undefined when it holds more than one, a default or a value the file assigns the name
+    included, or one with steps left to walk (`const [h] = parts` holds a member of `parts`, not `parts`). */
 function aliasOf(declaration: ts.Node): ts.Expression | undefined {
   let held: Held[] = []
   if (ts.isVariableDeclaration(declaration) && ts.isIdentifier(declaration.name)) held = variableValues(declaration)
   else if (ts.isBindingElement(declaration) && !declaration.dotDotDotToken && ts.isIdentifier(declaration.name)) {
-    const { declaration: root, steps, defaults } = bindingOf(CHECKER.getSymbolAtLocation(declaration.name), [])
+    const symbol = CHECKER.getSymbolAtLocation(declaration.name)
+    const { declaration: root, steps, defaults } = bindingOf(symbol, [])
     if (!root || !ts.isVariableDeclaration(root)) return undefined
-    held = [...defaults, ...variableValues(root).map((h) => ({ value: h.value, steps: [...h.steps, ...steps] }))]
+    held = [...defaults, ...assignedTo(symbol, declaration.getSourceFile()), ...variableValues(root).map((h) => ({ value: h.value, steps: [...h.steps, ...steps] }))]
   }
   const values = held.flatMap((h) => heldAt(h.value, h.steps, declaration.getSourceFile()))
   return values.length === 1 && !values[0].steps.length ? values[0].value : undefined
@@ -2106,7 +2137,7 @@ function aliasOf(declaration: ts.Node): ts.Expression | undefined {
     (`at(0.5)` is `at(0)`) and counts a negative one from the end; brackets name a member by an integer at or past 0
     alone (`parts[-1]`, `parts[0.5]`, `parts[parts.length]` name none), and an infinite index names none either way.
     Undefined for any other node, and for an index the scan cannot read, so the rest is read whole. */
-function restMembers(node: ts.Node, calls: Calls): ts.Expression[] | undefined {
+function restMembers(node: ts.Node, calls: Calls): Found[] | undefined {
   const byAt = ts.isCallExpression(node)
   let receiver: ts.Expression | undefined
   let key: ts.Expression | undefined
@@ -2187,35 +2218,39 @@ function bindingRoot(binding: ts.Node): ts.Node {
 function holdsProps(node: ts.Node, at: ts.Node, seen = new Set<ts.Node>(), calls: Calls = new Map()): boolean {
   if (seen.has(node)) return false
   seen.add(node)
+  // A value met inside a helper's call is read with that call's arguments, what was seen afresh.
+  const holds = (values: Found[]): boolean => values.some((v) => holdsProps(v.value, at, v.calls === calls ? seen : new Set(), v.calls))
   if (ts.isParameter(node)) {
     for (let p: ts.Node | undefined = at; p; p = p.parent) if (p === node.parent) return true
     const handed = argumentsAt(calls.get(node.parent) ?? [], node.parent.parameters.indexOf(node), 0)
-    return !node.dotDotDotToken && valuesOfHeld(handed, [], node.getSourceFile(), calls).some((arg) => holdsProps(arg, at, seen, calls))
+    return !node.dotDotDotToken && holds(valuesOfHeld(handed, [], node.getSourceFile(), calls))
   }
   if (ts.isBindingElement(node)) {
     if (node.dotDotDotToken) return holdsProps(bindingRoot(node), at, seen, calls)
     // A name a destructuring gives (`const [p] = [props]`, a helper's `([p])` handed `[props]`): what the variable or
-    // the call on the way holds at the name's place, each default beside, the calls kept (`boundValues`).
-    return (boundValues(node, [], node.getSourceFile(), calls) ?? []).some((v) => holdsProps(v, at, seen, calls))
+    // the call on the way holds at the name's place, each default and each value the file assigns it beside, the calls
+    // kept (`boundValues`).
+    return holds(boundValues(node, [], node.getSourceFile(), calls) ?? [])
   }
-  if (ts.isVariableDeclaration(node)) {
-    return variableValues(node).some(({ value, steps }) => valuesAt(value, steps, node.getSourceFile(), calls).some((v) => holdsProps(v, at, seen, calls)))
-  }
+  if (ts.isVariableDeclaration(node)) return variableValues(node).some(({ value, steps }) => holds(valuesAt(value, steps, node.getSourceFile(), calls)))
   if (ts.isObjectLiteralExpression(node)) return classNameFrom(node, at, seen, calls) === 'props'
   const value = unwrap(node as ts.Expression)
   if (value !== node) return holdsProps(value, at, seen, calls)
   // A field of a same-file object or array that holds them (`box.p`, `pair[0]`), read at its step with the calls kept.
   if (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)) {
     const step = ts.isPropertyAccessExpression(value) ? value.name.text : accessStep(value.argumentExpression)
-    return valuesAt(value.expression, [step], value.getSourceFile(), calls).some((v) => holdsProps(v, at, seen, calls))
+    return holds(valuesAt(value.expression, [step], value.getSourceFile(), calls))
   }
-  // A call holds what its same-file function returns (`get()`), its parameters bound at the call, useMemo what its
-  // callback returns, and Object.assign its target with its sources' fields, the last source that sets a `className`
-  // winning (`classNameFrom`).
+  // A call holds what its same-file function returns (`get()`), its parameters bound at the call and what is seen there
+  // read afresh, so a helper called twice is read at each call, useMemo what its callback returns, and Object.assign its
+  // target with its sources' fields, the last source that sets a `className` winning (`classNameFrom`). A call already
+  // being read on the way (a helper's call to itself) is not entered again.
   if (ts.isCallExpression(value)) {
     if (objectCall(value, 'assign')) return classNameFrom(value, at, seen, calls) === 'props'
-    const fns = [...functionsOf(value.expression), ...(isUseMemo(value) && value.arguments[0] ? functionsOf(value.arguments[0]) : [])]
-    return fns.some((fn) => returnedExpressions(fn).some((r) => holdsProps(r, at, seen, new Map([...calls, [fn, value.arguments]]))))
+    const call: ts.CallExpression = value
+    if ([...calls.values()].includes(call.arguments)) return false
+    const fns = [...functionsOf(call.expression), ...(isUseMemo(call) && call.arguments[0] ? functionsOf(call.arguments[0]) : [])]
+    return fns.some((fn) => returnedExpressions(fn).some((r) => holdsProps(r, at, new Set(), new Map([...calls, [fn, call.arguments]]))))
   }
   const declaration = ts.isIdentifier(value) ? declarationRead(value) : undefined
   return !!declaration && holdsProps(declaration, at, seen, calls)
