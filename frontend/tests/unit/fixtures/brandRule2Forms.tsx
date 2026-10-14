@@ -16,7 +16,7 @@ import { Badge, Button, buttonVariants, countControlClass, countControlClass as 
 import { cx } from '@/components/ui/cx'
 import Link from 'next/link'
 import { ArrowRightIcon } from '@/lib/icons'
-import { quietLinkClass, typedOnly } from './brandRule2Kit'
+import { maybeOnly, quietLinkClass, typedOnly } from './brandRule2Kit'
 
 const SAGE_LINK = 'text-brand-strong hover:underline'
 export function P01({ n }: { n: number }) { return <a className={SAGE_LINK}>{n}</a> } // flag
@@ -887,6 +887,12 @@ export function P516() { const each: (children: ReactNode, fn: (child: ReactNode
 export function P517() { const each = (m: (children: ReactNode, fn: (child: ReactNode) => ReactNode) => ReactNode) => m(LABELS_161, (l) => <span className="text-brand-strong">{l}</span>); return <p>{each(Children.map)}</p> } // flag
 export function P518({ n }: { n: number }) { const one: (child: ReactNode) => ReactNode = (child) => (child ? <b>Revenue</b> : null); return <div className="text-brand-strong">{one(<span>{n}</span>)}</div> } // clean
 export function P519({ n }: { n: number }) { const apply = (f: (child: ReactNode) => ReactNode, child: ReactNode) => f(child); return <div className="text-brand-strong">{apply((child) => (child ? <b>Revenue</b> : null), <span>{n}</span>)}</div> } // clean
+// A callee typed as React's own utility is read through its type wherever it comes from, an optional one included
+// (P534, from the companion module). A same-file helper handed a list and a callback hands the callback only what it
+// calls it with, so only Children's map and forEach hand theirs their first argument's members (P535).
+export function P534({ n }: { n: number }) { return <div className="text-brand-strong">{maybeOnly?.(<span>{n}</span>)}</div> } // flag
+const apply535 = (values: number[], render: (label: string) => ReactNode) => (values.length ? render('Revenue') : null)
+export function P535() { return <p>{apply535([1, 2], (label) => <span className="text-brand-strong">{label}</span>)}</p> } // clean
 // Out of the walk, and so review-checked: a utility held under a type of its own in another file (P520), or in a
 // class's field (P521).
 export function P520({ n }: { n: number }) { return <div className="text-brand-strong">{typedOnly(<span>{n}</span>)}</div> } // gap
@@ -902,7 +908,7 @@ export function P522({ n }: { n: number }) { return <button type="button" classN
 const QUIET523 = 'text-text-secondary-light underline-offset-4 hover:text-brand-strong hover:underline'
 export function P523({ n }: { n: number }) { return <a href="/x" className={QUIET523}>See all {n}</a> } // flag
 export function P524({ n }: { n: number }) { return <a href="/x" className="text-text-secondary-light dark:text-text-secondary-dark dark:hover:text-brand-strong-dark">See all {n}</a> } // flag
-export function P525({ n }: { n: number }) { return <a href="/x" className="group text-text-secondary-light group-hover:text-brand-strong">See all {n}</a> } // flag
+export function P525({ n }: { n: number }) { return <a href="/x" className="group text-text-secondary-light"><span className="group-hover:text-brand-strong">See all {n}</span></a> } // flag
 export function P526({ n }: { n: number }) { return <details><summary className="cursor-pointer text-text-secondary-light hover:text-brand-strong">Show the {n} figures</summary></details> } // flag
 export function P527({ n }: { n: number }) { const label = `See all ${n}`; return <a href="/x" className="text-text-secondary-light hover:text-brand-strong">{label}</a> } // flag
 export function P528({ n }: { n: number }) { return <button type="button" className={cx('h-8 px-3 text-xs', countControlClass('button'))}>Show {n}</button> } // clean
@@ -913,3 +919,22 @@ export function P532({ n }: { n: number }) { return <a href="/x" className="text
 // Out of a source scan's reach, and so review-checked: the recipe rebuilt in a helper of another file, whose classes
 // the scan does not read (P533).
 export function P533({ n }: { n: number }) { return <a href="/x" className={quietLinkClass()}>See all {n}</a> } // gap
+// The round-twenty-five lens's copies: the recipe on the label, under the pointer (P536) or the control's group (P537);
+// a same-file wrapper that holds it (P538) or takes it as its className's default (P539); and a class helper written as
+// a function declaration, to the one-source check (P540) and to the ink check (P541). A hover fill, which recolours an
+// icon and never the label (P542), an icon that turns sage beside a count that never does (P543) and a wrapper that
+// composes the helper (P544) are no copy.
+export function P536({ n }: { n: number }) { return <button type="button"><span className="text-text-secondary-light hover:text-brand-strong">Show {n}</span></button> } // flag
+export function P537({ n }: { n: number }) { return <button type="button" className="group"><span className="text-text-secondary-light group-hover:text-brand-strong">+{n} more</span></button> } // flag
+function More538({ children }: { children: ReactNode }) { return <button type="button" className="text-text-secondary-light hover:text-brand-strong">{children}</button> }
+export function P538({ n }: { n: number }) { return <More538>Show {n}</More538> } // flag
+function More539({ className = 'text-text-secondary-light hover:text-brand-strong', children }: { className?: string; children: ReactNode }) { return <button type="button" className={className}>{children}</button> }
+export function P539({ n }: { n: number }) { return <More539>Show {n}</More539> } // flag
+function quiet540() { return 'text-text-secondary-light hover:text-brand-strong' }
+export function P540({ n }: { n: number }) { return <a href="/x" className={quiet540()}>See all {n}</a> } // flag
+function sage541() { return 'text-brand-strong' }
+export function P541({ n }: { n: number }) { return <span className={sage541()}>{n}</span> } // flag
+export function P542({ n }: { n: number }) { return <button type="button" className="text-text-secondary-light hover:fill-brand-strong">Show {n}<svg aria-hidden="true" /></button> } // clean
+export function P543({ n }: { n: number }) { return <a href="/x" className="group text-text-secondary-light">See all {n}<span aria-hidden="true" className="group-hover:text-brand-strong">→</span></a> } // clean
+function Quiet544({ children }: { children: ReactNode }) { return <button type="button" className={countControlClass('button')}>{children}</button> }
+export function P544({ n }: { n: number }) { return <Quiet544>Show {n}</Quiet544> } // clean

@@ -86,37 +86,43 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    control a component renders in the ink it inherits, where the component is used or the sage
  *    className the component hands to the element it returns. The count control has one source,
  *    countControlClass (components/ui/countControl.ts), read as the classes it returns for the kind
- *    named, and the third check fails a control whose label carries a count and whose classes
- *    written in its file turn it sage under the pointer: a hand-built copy of the recipe. The
+ *    named, and the third check fails a control whose label carries a count and that classes written
+ *    in its file turn sage under the pointer, a sage text colour behind a pointer state (a sage fill
+ *    recolours an icon, not the label): a hand-built copy of the recipe, on the control, on the
+ *    element holding the count (a label span, under the control's group too) or on the control a
+ *    same-file wrapper renders its children in, a class helper's return (a function declaration's
+ *    too) and a className default counting as written. A count control that never turns sage, and a
+ *    countdown on a control that waits, rest in the ink outside the helper, review-checked. The
  *    planted forms in tests/unit/fixtures/brandRule2Forms.tsx, one per way the rule can be broken,
- *    per look-alike that must pass and per known gap, are scored on every run, so the gate's
- *    reach is held as well as its
- *    verdict on the app. Out of a source scan's reach, and so review-checked (the fixture marks each
- *    as a gap): a value held in a string (a date or an index name computed as text, or any value the
- *    server or the model sends as text) or written in words; a value bound outside the file's own
- *    calls (a component's prop, which JSX binds and the component check reads only for its children
- *    and className, a count control handed as one included, a hook's state, a callback handed through
- *    another function's parameter); a count a component renders in its own ink inside a sage control,
- *    sage handed to a component through a prop other than className, a className given where a
- *    component is used that the component joins with its own ink (cx joins without merging, so CSS
- *    order decides), hands to an element below the one it returns, or never applies (its ink then
- *    masks the one the component inherits), a conditional written in a literal's field, read as
- *    written since the scan cannot tie it to the element's other fields, a clone's or a created
- *    element's own ink (a created component's, any className cloneElement's or createElement's props
- *    give it, the Slot pattern among them, or sage the element it clones sets on the children it is
- *    handed), props either is given held in a name or spread into the ones written in the call (read
- *    as none, so the children they hand are unread and a className they give fails closed), a value
- *    put in an array or an object through another name for it (an alias, or a parameter it is handed
- *    to), a value held in a Map, a method the scan names by what follows the dot (an array's,
- *    Object's, a push) called through a key instead (`labels['slice'](0)`), read as a call it does
- *    not know, a React utility called through call, apply or Reflect.apply, whose callee is lib's,
- *    or held under a type of its own in another file or a class's field, and the count control's
- *    recipe rebuilt in another file's helper; beyond the fixture, a
- *    literal another file holds, a colour set by an inline style or on a pseudo-element, a library
- *    component's internals, a component created inside another's render, reading that one's
- *    children through a closure (the lint's react-hooks/static-components forbids one), and SVG
- *    text coloured by attribute (the chart theme, which carries no sage). The waitlist counter's
- *    own spec covers the count on the public pages.
+ *    per look-alike that must pass and per known gap, are scored on every run, so the gate's reach
+ *    is held as well as its verdict on the app; and a walk the gate asks of a callee that outruns
+ *    its step budget fails it, naming the call, rather than hang the suite. Out of a source scan's
+ *    reach, and so review-checked (the fixture marks each as a gap): a value held in a string (a
+ *    date or an index name computed as text, or any value the server or the model sends as text) or
+ *    written in words; a value bound outside the file's own calls (a component's prop, which JSX
+ *    binds and the component check reads only for its children and className, a count control handed
+ *    as one included, a hook's state, a callback handed through another function's parameter); a
+ *    count a component renders in its own ink inside a sage control, sage handed to a component
+ *    through a prop other than className, a className given where a component is used that the
+ *    component joins with its own ink (cx joins without merging, so CSS order decides), hands to an
+ *    element below the one it returns, or never applies (its ink then masks the one the component
+ *    inherits), a conditional written in a literal's field, read as written since the scan cannot
+ *    tie it to the element's other fields, a clone's or a created element's own ink (a created
+ *    component's, any className cloneElement's or createElement's props give it, the Slot pattern
+ *    among them, or sage the element it clones sets on the children it is handed), props either is
+ *    given held in a name or spread into the ones written in the call (read as none, so the children
+ *    they hand are unread and a className they give fails closed), a value put in an array or an
+ *    object through another name for it (an alias, or a parameter it is handed to), a value held in
+ *    a Map, a method the scan names by what follows the dot (an array's, Object's, a push) called
+ *    through a key instead (`labels['slice'](0)`), read as a call it does not know, a React utility
+ *    called through call, apply or Reflect.apply, whose callee is lib's, or held under a type of its
+ *    own in another file or a class's field, and the count control's recipe rebuilt in another
+ *    file's helper; beyond the fixture, a literal another file holds, a colour set by an inline
+ *    style or on a pseudo-element, a library component's internals, a component created inside
+ *    another's render, reading that one's children through a closure (the lint's
+ *    react-hooks/static-components forbids one), and SVG text coloured by attribute (the chart
+ *    theme, which carries no sage). The waitlist counter's own spec covers the count on the public
+ *    pages.
  * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
  *    figure or a price, the hero's accent phrases included; the margin (`en-margin`) exists only
  *    inside MarkedCopy, and every MarkedCopy carries at least one marker (`EnRef`).
@@ -250,15 +256,33 @@ function utilityAlong(at: ts.Expression, path: Step[]): string | undefined {
   return utilityOf(type)
 }
 const UTILITIES = new Map<ts.Node, string | undefined>()
+/** The steps one ask of reactUtility may walk, nested asks included. A binding graph that branches out of all
+    proportion then fails rule 2 and names its call, instead of hanging the suite: vitest cannot stop a synchronous
+    walk. Measured on 2026-10-14, the app's and the fixture's costliest ask took 54 steps (of 698 asks). */
+const WALK_BUDGET = 500_000
+let walkSteps: number | undefined
+class WalkBudgetSpent extends Error {}
+const OVER_BUDGET: string[] = []
 function reactUtility(v: ts.Expression): string | undefined {
   if (!ts.isCallExpression(v)) return undefined
   if (!UTILITIES.has(v)) {
     // A call met again while its callee is read (a helper that calls itself) names no utility.
     UTILITIES.set(v, undefined)
     const callee = unwrap(v.expression)
-    let name = utilityAlong(callee, [])
-    if (!name) walkLiterals(callee, callee.getSourceFile(), [], (at, path) => !!(name ??= utilityAlong(at, path)))
-    UTILITIES.set(v, name)
+    const outermost = walkSteps === undefined
+    if (outermost) walkSteps = WALK_BUDGET
+    try {
+      let name = utilityAlong(callee, [])
+      if (!name) walkLiterals(callee, callee.getSourceFile(), [], (at, path) => !!(name ??= utilityAlong(at, path)))
+      UTILITIES.set(v, name)
+    } catch (error) {
+      // A nested ask's spent budget ends the outermost one, which names its call and reads as no utility.
+      if (!(error instanceof WalkBudgetSpent) || !outermost) throw error
+      const sf = v.getSourceFile()
+      OVER_BUDGET.push(`${path.relative(ROOT, sf.fileName)}:${sf.getLineAndCharacterOfPosition(v.getStart()).line + 1} ${v.getText().slice(0, 60)}`)
+    } finally {
+      if (outermost) walkSteps = undefined
+    }
   }
   return UTILITIES.get(v)
 }
@@ -549,6 +573,7 @@ function walkLiterals(e: ts.Expression, sf: ts.SourceFile, path: Step[], stop?: 
   // What an expression holds once the path is walked into it; `inLiteral` marks a value written in a literal.
   const held = (x: ts.Expression, path: Step[], depth: number, inLiteral = false): ts.Expression[] => {
     if (depth > 24) return []
+    if (walkSteps !== undefined && --walkSteps < 0) throw new WalkBudgetSpent()
     const at = unwrap(x)
     // Any part of a component's children is its children.
     if (MARKS.has(at)) return [at]
@@ -763,6 +788,15 @@ function readClassName(opening: ts.JsxOpeningLikeElement): ts.Node[] {
   const nodes: ts.Node[] = [attr.initializer]
   const follow = (node: ts.Node) =>
     visit(node, (n) => {
+      // A call reads what the same-file function it calls returns (`className={quiet()}`, a function declaration's
+      // included); the count control's helper is read by its kind instead (`countControlTokens`).
+      if (ts.isCallExpression(n) && !countControlCall(n)) {
+        for (const r of functionsOf(n.expression).flatMap(returnedExpressions)) {
+          if (nodes.includes(r)) continue
+          nodes.push(r)
+          follow(r)
+        }
+      }
       // A node the scan builds has no parent; none is an identifier (`placeAt`'s unreadable key is `[true]`), and this
       // keeps one from crashing the reader if it ever is.
       if (!ts.isIdentifier(n) || !n.parent || (ts.isPropertyAccessExpression(n.parent) && n.parent.name === n)) return
@@ -1145,12 +1179,12 @@ function elementChildren(call: ts.CallExpression, sf: ts.SourceFile): ts.Express
     it too), whether it renders a number of its own in that inherited ink, which a sage parent colours, whether
     it renders a control in it that holds its count in an ink of its own (the count control's form), and whether it
     renders its children inside a control, which makes it one where it is used (they are that control's label). */
-interface Summary { childrenInk: Ink; inheritsValue: boolean; inheritsControl: boolean; childrenInControl: boolean }
+interface Summary { childrenInk: Ink; inheritsValue: boolean; inheritsControl: boolean; childrenInControl: boolean; childrenInHoverSage: boolean }
 const SUMMARIES = new Map<ts.Node, Summary>()
 function summary(fn: ts.FunctionLikeDeclaration): Summary {
   // A component met again mid-walk (one that renders itself) reads as one that passes its ink through and carries
   // nothing (`memo`).
-  return memo(SUMMARIES, fn, { childrenInk: null, inheritsValue: false, inheritsControl: false, childrenInControl: false }, () => summarize(fn))
+  return memo(SUMMARIES, fn, { childrenInk: null, inheritsValue: false, inheritsControl: false, childrenInControl: false, childrenInHoverSage: false }, () => summarize(fn))
 }
 function summarize(fn: ts.FunctionLikeDeclaration): Summary {
   const sf = fn.getSourceFile()
@@ -1160,6 +1194,10 @@ function summarize(fn: ts.FunctionLikeDeclaration): Summary {
   // How many controls the walk is inside, and whether it has met the children inside one.
   let inControl = 0
   let childrenInControl = false
+  // The elements the walk is inside, outermost first, and whether the control its children render in, or an element
+  // between them, turns them sage under the pointer by classes written in the file (a wrapper holding the recipe).
+  const inside: { opening: ts.JsxOpeningLikeElement; control: boolean }[] = []
+  let childrenInHoverSage = false
   const props = fn.parameters[0]
   const takesChildren = !!props && !!CHECKER.getTypeAtLocation(props).getProperty('children')
   // The children, however the component reaches them from its props: the walk carries their mark (`childrenMark`)
@@ -1182,9 +1220,11 @@ function summarize(fn: ts.FunctionLikeDeclaration): Summary {
     const control = isControl(opening)
     if (next === 'inherit' && ((ts.isJsxElement(el) && control && ownInkCounts(el, sf).length) || inheritsControl(opening))) controls = true
     if (!ts.isJsxElement(el)) return
+    inside.push({ opening, control })
     if (control) inControl++
     children(el.children, next)
     if (control) inControl--
+    inside.pop()
   }
   const children = (list: ts.NodeArray<ts.JsxChild>, ink: 'sage' | 'other' | 'inherit') => {
     list.forEach((child, i) => {
@@ -1202,7 +1242,11 @@ function summarize(fn: ts.FunctionLikeDeclaration): Summary {
     // them, an element held beside them).
     if (isChildren(x)) {
       childInks.add(ink)
-      if (inControl) childrenInControl = true
+      if (inControl) {
+        childrenInControl = true
+        const at = inside.map((entry) => entry.control).lastIndexOf(true)
+        if (inside.slice(at).some((entry) => classTokens(entry.opening, true).some(sageUnderPointer))) childrenInHoverSage = true
+      }
     }
     if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x)) element(x, ink)
     else if (ts.isJsxFragment(x)) children(x.children, ink)
@@ -1235,6 +1279,7 @@ function summarize(fn: ts.FunctionLikeDeclaration): Summary {
     inheritsValue: carries,
     inheritsControl: controls,
     childrenInControl,
+    childrenInHoverSage,
   }
 }
 
@@ -1689,12 +1734,23 @@ function heldValues(sf: ts.SourceFile): Offence[] {
   return out
 }
 
-/** A class token that turns the text sage under the pointer: a sage colour behind hover: or active: (a group- or
-    peer- form included). */
+/** A class token that turns the text sage under the pointer: a sage text colour behind hover: or active: (a group- or
+    peer- form included). A sage fill (`hover:fill-brand-strong`) recolours an icon, never the label, so it is not one. */
 function sageUnderPointer(token: string): boolean {
   const parts = splitVariants(token)
   const utility = parts.pop()!.replace(/^!/, '')
-  return SAGE.test(utility) && parts.some((variant) => ACTIVITY.test(variant))
+  return utility.startsWith('text-') && SAGE.test(utility) && parts.some((variant) => ACTIVITY.test(variant))
+}
+
+/** Whether an element inside a control that holds the control's count turns it sage under the pointer, by classes
+    written in the file: the recipe moved onto the label (`<button className="group"><span className="…
+    group-hover:text-brand-strong">{n} more</span></button>`). An icon that turns sage holds no count. */
+function labelTurnsSage(control: ts.JsxElement, sf: ts.SourceFile): boolean {
+  const holds = (el: ts.JsxElement) =>
+    inkTexts(el.children, sf).some(({ text }) => carriesDigit(text)) || inkValues(el.children, sf, [], el.openingElement).length > 0
+  const inside = (list: ts.NodeArray<ts.JsxChild>): boolean => list.some((child) =>
+    ts.isJsxElement(child) && ((classTokens(child.openingElement, true).some(sageUnderPointer) && holds(child)) || inside(child.children)))
+  return inside(control.children)
 }
 
 /** Rule 2's third check over one file, the count control's one source: a control whose label carries a count (a
@@ -1704,7 +1760,11 @@ function sageUnderPointer(token: string): boolean {
 function handRolledCountControls(sf: ts.SourceFile): Offence[] {
   const out: Offence[] = []
   visit(sf, (n) => {
-    if (!ts.isJsxElement(n) || !isControl(n.openingElement) || !classTokens(n.openingElement, true).some(sageUnderPointer)) return
+    if (!ts.isJsxElement(n) || !isControl(n.openingElement)) return
+    // Its own classes, the label's, or the control a same-file wrapper renders its children in (`<MoreButton>Show
+    // {n}</MoreButton>`) turn it sage under the pointer.
+    const wrapper = componentFunction(n.openingElement)
+    if (!classTokens(n.openingElement, true).some(sageUnderPointer) && !(wrapper && summary(wrapper).childrenInHoverSage) && !labelTurnsSage(n, sf)) return
     const counts = inkTexts(n.children, sf).some(({ text }) => carriesDigit(text))
       || inkValues(n.children, sf, [], n.openingElement).length > 0 || ownInkCounts(n, sf).length > 0
     if (counts) out.push({ node: n, text: `<${n.openingElement.tagName.getText(sf)}>` })
@@ -1727,7 +1787,7 @@ describe('brand rule 2: sage never colours a number', () => {
     expect(inApp(heldValues), 'rest the whole label in the ink, sage under the pointer (the count control, frontend/DESIGN_SYSTEM.md)').toEqual([])
   })
 
-  it('a control whose label carries a count composes the count control, its one source', () => {
+  it('a control whose label carries a count and turns sage under the pointer composes the count control, its one source', () => {
     expect(inApp(handRolledCountControls), 'compose countControlClass (components/ui/countControl.ts) beside the shape; never rebuild the recipe by hand').toEqual([])
   })
 
@@ -1746,6 +1806,11 @@ describe('brand rule 2: sage never colours a number', () => {
     const strays = [...named].filter((line) => !forms.some((form) => form.line === line)).map((line) => `line ${line}`)
     expect(misread, 'rule 2 reads these forms against their marks: fix the gate, or flip the mark with its record (D-030)').toEqual([])
     expect(strays, 'rule 2 named a line that is not a planted form').toEqual([])
+  })
+
+  // Last, so it reads every walk the checks above asked for.
+  it('every walk the gate asks of a callee ends within its budget', () => {
+    expect(OVER_BUDGET, 'a binding graph reactUtility cannot walk within WALK_BUDGET: simplify its bindings, or raise the budget with a measure').toEqual([])
   })
 })
 
