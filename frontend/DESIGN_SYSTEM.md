@@ -491,7 +491,9 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
                  width the others leave (`w-full` on its cell; the button's intrinsic width contained, with a 16rem
                  floor), so the status select keeps its own at 1440. Gates: tests/unit/admin-invites-page.spec.tsx
                  and tests/unit/admin-feedback-page.spec.tsx (the box, the cue while the table fits and while it
-                 overflows, the message column).
+                 overflows, the message column). The section nav (app/admin/layout.tsx) wraps its tabs (`flex-wrap`):
+                 an unwrapped row took the page to 443px at 390 under 200% text. Gate:
+                 tests/unit/admin-layout.spec.tsx.
 
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
