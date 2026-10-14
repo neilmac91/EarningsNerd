@@ -192,9 +192,10 @@ frontend/
 | `trend_analysis_service.py` + `trend_analysis/` | Compatibility façade over domain modules: deterministic YoY/QoQ/CAGR datasets and `F#` markers, code-owned observations, validated selection and cached narrative streaming |
 | `precompute_service.py` | Idempotent per-ticker filing resolution + summary precompute (cron + internal job) |
 | `change_report_service.py` | Period-over-period change report (financial deltas; risk diffs withheld) plus, behind `ENABLE_SECTION_CHANGES`, the `section_changes` wording diff block |
+| `section_review_service.py` | The Pro review of a filing's Item 1A wording changes (`section_reviews`): labels per content-addressed change id, completion when every change is labelled, the receipt (both texts' fingerprints, engine and extractor versions, counts, follow-ups) frozen then; a write locks the reader's row (`FOR UPDATE`) and recovers the insert race; `review_progress` gives the dashboard feed the same reconciled reading (live ids, receipt still matching); served by `routers/section_reviews.py` under `/api/summaries/filing/{id}/wording-review` behind the `section_changes` entitlement |
 | `filing_section_service.py` / `section_diff.py` | Item 1A text per filing (`filing_section_text`): fetched through the SEC transport, located with edgartools' HTML parser (local), stored with status and a cached comparison summary; the watched-cohort batch the filing-scan job runs; `section_diff` is the pure paragraph-paired, word-level diff (page furniture dropped, line-wrapped typesetting re-flowed, exact/moved/fuzzy pairing, content-addressed item ids) |
 | `peers_service.py` / `insider_service.py` | Peer comparison by SIC; Form 4 insider activity (`ownership_extractor.py` parses the Form 4 tables DEFENSIVELY — EdgarTools' DataFrame column casing varies across versions; don't "simplify" the guards) |
-| `dashboard_feed_service.py` / `calendar_service.py` / `filing_scan_service.py` / `notification_service.py` | Personalized feed; earnings calendar; new-filing alerts (dedup); alert prefs |
+| `dashboard_feed_service.py` / `calendar_service.py` / `filing_scan_service.py` / `notification_service.py` | Personalized feed (with the Item 1A wording-change counts and the reader's review progress per card, behind `ENABLE_SECTION_CHANGES`); earnings calendar; new-filing alerts (dedup; a Pro recipient's alert and digest carry the "Risk factor wording" line when the filing's comparison is cached); alert prefs |
 | `notable_filings_service.py` | Homepage "Notable filings": market-wide EFTS scan (8-K item materiality + form weights + owned demand), serve-from-Postgres, self-omitting |
 | `pulse_service.py` | Filing Pulse gauge (pure scoring; kept for roadmap A3). Its original producer — the FMP/Finnhub-backed hot-filings scorer — and the Stocktwits/FMP trending pipeline were torn down 2026-09 (WS-8a) |
 | `turnstile.py` / `pwned_passwords.py` | Turnstile bot defense (dark when unset, fails OPEN on Cloudflare infra errors); breached-password screening |
@@ -266,6 +267,7 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
 | Router | Prefix | Notes |
 |---|---|---|
 | `summaries.py` | `/api/summaries` | SSE generation, copilot Q&A, change reports, exports |
+| `section_reviews.py` | `/api/summaries` | `/filing/{id}/wording-review` (+ `/labels`): the Pro review of a filing's Item 1A wording changes, behind the `section_changes` entitlement |
 | `filings.py` / `companies.py` | `/api/filings`, `/api/companies` | retrieval, search, details |
 | `peers.py` / `insiders.py` | `/api/companies` | `/{ticker}/peers`, `/{ticker}/insiders` |
 | `analysis.py` | `/api/analysis` | Multi-Period Analysis: coverage (auth), dataset + SSE narrative + PDF (Pro `can_analyze_trends` gate) |
@@ -314,7 +316,7 @@ Submodules: `financial_fact.py` (normalized XBRL for peers/time-series),
 `notifications.py` (prefs + dedup ledger), `refresh_token.py` (rotation chain),
 `subscription.py` (`Subscription` + `StripeEvent` idempotency ledger), `waitlist.py`,
 `contact.py`, `audit_log.py`, `job_run.py` (`earningsnerd_job_runs`, independent scheduled-job attempts),
-`filing_section_text.py` (`filing_section_text`: Item 1A text per filing with its extraction status, attempt times and the cached comparison summary). Additional tables via migrations: `invite_codes`,
+`filing_section_text.py` (`filing_section_text`: Item 1A text per filing with its extraction status, attempt times and the cached comparison summary), `section_review.py` (`section_reviews`: a reader's labels, completion time and frozen receipt for one filing section). Additional tables via migrations: `invite_codes`,
 `feedback`, `login_attempts`, `earnings_events` (plus the orphaned `guest_daily_usage` —
 unused since generation became account-required in #619; kept because migrations are re-run-safe, never destructive).
 

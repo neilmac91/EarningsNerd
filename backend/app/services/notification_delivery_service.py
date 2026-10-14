@@ -335,8 +335,11 @@ def due_batch_ids(db: Session, kind: str, now: datetime) -> list[int]:
 
 # --------------------------------------------------------------------------- dispatch
 
-def _item_dicts(db: Session, batch: DeliveryBatch) -> list[dict]:
-    from app.services.filing_scan_service import _filing_date_str
+def _item_dicts(db: Session, batch: DeliveryBatch, user: Optional[User] = None) -> list[dict]:
+    """The batch's filings in the legacy sender / rebuild shape. With the recipient, each item also
+    carries the Item 1A wording summary their plan may read (``alert_wording_changes``), so a
+    rebuilt payload gets the line the selection pass may have been too early for."""
+    from app.services.filing_scan_service import _filing_date_str, alert_wording_changes
 
     out = []
     for item in batch.items:
@@ -348,6 +351,10 @@ def _item_dicts(db: Session, batch: DeliveryBatch) -> list[dict]:
             "company_name": company.name, "ticker": company.ticker, "filing_type": filing.filing_type,
             "filing_date": _filing_date_str(filing.filing_date), "filing_id": filing.id, "filing_url": filing.sec_url,
         })
+    if user is not None and out:
+        wording = alert_wording_changes(db, get_entitlements(user), [d["filing_id"] for d in out])
+        for d in out:
+            d["wording_changes"] = wording.get(d["filing_id"])
     return out
 
 
@@ -414,7 +421,7 @@ def _rebuild_plan(db: Session, batch: DeliveryBatch, user: User, wanted: list[tu
 
     if not wanted:
         return None
-    by_id = {d["filing_id"]: d for d in _item_dicts(db, batch)}
+    by_id = {d["filing_id"]: d for d in _item_dicts(db, batch, user)}
     items = [by_id[item.filing_id] for item, _realtime in wanted if item.filing_id in by_id]
     if not items:
         return None
@@ -531,7 +538,7 @@ async def drain(
         prepared = PreparedSend(
             batch_id=batch.id, kind=batch.kind, to_email=batch.to_email, from_email=batch.from_email, name=user.full_name,
             subject=batch.subject, html=batch.body_html, idempotency_key=batch.idempotency_key,
-            items=_item_dicts(db, batch),
+            items=_item_dicts(db, batch, user),
         )
         item_count = len(batch.items)
         now = clock()

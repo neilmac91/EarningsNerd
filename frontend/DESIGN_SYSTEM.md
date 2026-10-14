@@ -717,7 +717,81 @@ Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page groun
                  report is a card of its own (features/summaries ChangeReportCard): under a legacy markdown
                  summary, under a stored summary that failed, under the signup gate, and under a run that
                  ended in an error or at the monthly limit. It needs no summary, carries the same id
-                 (WHAT_CHANGED_ID, exported beside WhatChanged) and lands the same way.
+                 (WHAT_CHANGED_ID, exported beside WhatChanged) and lands the same way. The report's last block
+                 is the Item 1A wording comparison (Wording changes, next), where the filing has one; the
+                 section and its links appear on either (reportHasContent, exported beside WhatChanged).
+
+Wording changes  <WordingChanges block Heading context>  (features/filings, E27 / PR B) — the Item 1A wording
+                 comparison of the change report: the filing's own risk-factor text against the prior same-form
+                 original, paired paragraph by paragraph on the backend (section_diff), rendered last in the
+                 report under a 14/600 subheading one level below it ("Risk factor wording", then "Item 1A" in the
+                 data face). One sentence of counts in secondary ink with `tnum` ("Against the 10-K for the year
+                 ended …: 13 paragraphs changed: 8 modified, 3 added, 1 removed and 1 moved; 41 unchanged. 120
+                 words added, 64 removed."), then the changes as ONE hairline list in reading order (`<ol>`,
+                 `border-t`, each row `border-b py-4`): a 12px data-face label word in tertiary ink (Modified,
+                 Modified and moved, Added, Removed, Moved) over the paragraph at 14/relaxed. THE REDLINE
+                 CONVENTION: in a modified paragraph the later text runs in secondary ink; an inserted phrase is
+                 `<ins>` underlined (`decoration-2 underline-offset-2`, 500) in PRIMARY ink; a removed phrase is
+                 `<del>` struck through (`decoration-1`) in TERTIARY ink (dark: secondary); each mark opens with an
+                 sr-only word ("added: " / "removed: ") so assistive tech reads the edit, and a legend line under
+                 the list says what the marks mean. A whole added paragraph is `<ins class="no-underline">` in
+                 primary ink, a removed one `<del class="no-underline">` in muted ink, a moved one plain: the label
+                 word carries the state. Neither the brand tint (`.en-mark` means "located") nor a financial tone
+                 (money direction) may mean "edited"; no color is ever the only signal. States as prose, no list:
+                 nothing changed ("No wording changes against … (N paragraphs compared)."); a prior 10-Q that only
+                 referred back to the annual report's risk factors ("… N paragraphs read as new."); a current
+                 filing that only refers back is not shown as compared (wordingHasContent), and a block that is
+                 pending, has no prior or is unavailable renders nothing. The teaser (anonymous and Free: the
+                 counts and the first `entitlements.section_changes_items` items) closes with one line ("N more
+                 changes in this section. Pro shows every change."), a sm primary Button "Upgrade to Pro" that
+                 opens UpgradeModal (feature "Risk factor wording review") and, signed out, the text link "Already
+                 Pro? Sign in" to /login. Events: `wording_changes_viewed` once per form served (not while the
+                 anonymous seed stands in for a signed-in reader's own read: `context.provisional`), and the
+                 paywall pair with entry_point `wording_changes`. The read is per viewer
+                 (features/summaries/hooks/useWhatChanged: the key carries the signed-in reader's id; the
+                 anonymous server seed is that entry's data and the placeholder for the others, and the read
+                 waits for /me, cold or being re-read, so a refreshed token is the one it carries; a Pro
+                 reader served the teaser off a fresh cached /me has /me and the report re-read once). While
+                 the seed stands in for a signed-in reader (`context.provisional`), and when that reader's
+                 own read fails and the seed stays in its place, the teaser's prompt is withheld.
+                 THE REVIEW (the full list in front of a signed-in reader; features/summaries/hooks/
+                 useWordingReview, PUT /wording-review/labels): each row's label line carries a
+                 role="group" ("Mark change N of M") of two pressed-state toggles, "Reviewed" and "Follow
+                 up", 32px, 12px text, `rounded-lg`, a hairline in secondary ink at rest and the brand-weak
+                 fill with brand.strong ink and 600 weight when pressed (weight and fill together, never the
+                 fill alone; `aria-pressed` carries the state; each is named "Reviewed: change N of M" so a
+                 screen reader knows which change). Pressing the set toggle clears it. The list takes the
+                 keys (`aria-keyshortcuts="j k 1 2"`): j/k and the arrows move focus between rows
+                 (`tabIndex={-1}` rows with the brand ring; the toggles stay the Tab stops), 1 and 2 mark
+                 the focused row, as toggles (a held key's repeats mark nothing). Above the list, a 14px
+                 `tnum` progress line in secondary ink (`tabIndex={-1}`, the Retry's focus target; "3 of
+                 12 changes marked, 1 to follow up."; "Loading your review…" until the read settles, the
+                 toggles disabled meanwhile) and a 12px tertiary keys hint. The read's other states, each
+                 over the plain list with no toggles and no hint: a failed read says "Your review didn’t
+                 load." and shows a Notice (error) "Couldn’t load your review" with a sm RetryButton over
+                 useRetainedFailure, as every Retry of a query (§4); a read the server has nothing for
+                 ("unavailable": the comparison the block shows is gone, or the feature is off) says "This
+                 review isn’t available for this comparison yet." and has the report re-read. A label is
+                 applied to the cache as it is pressed and rolled back if the server refuses it; labels
+                 are sent one at a time per review (the mutation's scope), so answers land in press order.
+                 The server alone completes the review (every change labelled); the line then reads "All
+                 12 changes marked, 1 to follow up. Receipt below." and the receipt follows the list as an
+                 inset well (panel fill, one hairline, the 8px radius, no shadow, like Callout): a 14/600
+                 title "Review receipt", a `<dl>` in the 12px data face (Completed, Filing, Against,
+                 Fingerprints as the first 12 hex of each text's SHA-256, Versions, Marked) and a sm
+                 secondary Button "Copy receipt" that writes the full plain-text receipt (every fingerprint
+                 in full, the follow-up change ids, the completion time) with a role="status" "Receipt
+                 copied." beside it. Every change marked but no receipt (the filing text was re-read since
+                 it was frozen, so the server reports the review reopened): the line reads "… No current
+                 receipt." and a row under the list explains and offers a sm secondary Button "Issue a new
+                 receipt" (marks one change again, unchanged). Events: `wording_change_labeled` (label,
+                 kind), `wording_review_completed` once per completion, on the transition the server
+                 names in its answer (`completed_now`), never on the client's guess (items_total,
+                 follow_ups), and `wording_receipt_copied`. The dashboard feed card
+                 (features/dashboard/components/WhatChangedCard, `wordingLine`) carries the same counts
+                 under its figures as one 12px `tnum` line in the Compare periods words ("12 paragraphs of
+                 risk factors changed."), then the reader's own progress ("3 of 12 marked." / "Reviewed."),
+                 reconciled against the live comparison exactly as the review is.
 
 Company identity <CompanyIdentity company latest summaryReady actions>  (features/companies, critique 1b) — the
                  Filing identity vocabulary reused on the company lead (IDENTITY_* classes, Sep, TickerPill
@@ -737,10 +811,12 @@ Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P
                  lg 1fr + 20rem), shown only for selectComparisonFiling (the newest annual report with an
                  earlier annual period listed). Up to three hairline rows: metric · the change in WhatChanged's
                  own vocabulary (exported Change: ▲/▼ glyph + the server's display string or —, in its tone's ink)
-                 · the Read-as word; "N more in the change report."; a sage text link "Open change report →"
-                 to /filing/{id}#what-changed. Same GET and query key as the filing page's section. States in
-                 place: ledger bones, Notice + RetryButton, a plain line when nothing is comparable. No risk
-                 diff until the backend serves one again.
+                 · the Read-as word; "N more in the change report."; one 12px line counting the wording comparison
+                 the report carries ("12 paragraphs of risk factors changed." / "No wording changes in the risk
+                 factors."); a sage text link "Open change report →" to /filing/{id}#what-changed. Same read and
+                 query key as the filing page's section (useWhatChanged). States in place: ledger bones, Notice +
+                 RetryButton, a plain line when nothing is comparable (a wording comparison alone keeps the link,
+                 over the line that no figures compare). No risk diff until the backend serves one again.
 
 Hero example     <HeroExample example>  (features/marketing, critique 1d) — the example IS the product, on ONE
                  surface (rounded-xl panel + hairline + e2, dark: fill + hairline): "Example summary" with the
