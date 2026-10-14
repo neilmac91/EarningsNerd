@@ -79,7 +79,9 @@ Weighed three layouts:
   role: nothing is inert and Tab is not trapped — its transparent catcher only
   turns an outside press into a close; the async error is also a `role="alert"`) with
   Esc, outside-click, Tab-out, bell-moving scroll and resize dismissal and focus return,
-  rendered inside the day `<dialog>` while one is open;
+  rendered inside the day `<dialog>` while one is open, and placed from its measured
+  height inside the visible viewport (below the bell, above it, or capped on the
+  roomier side and scrolling inside);
   `aria-live` on the range heading; every numeral/ticker is `font-data tabular-nums`.
 - **Motion:** token-timed only — `animate-content-in` on the skeleton→content
   flip, shimmer at `duration-ambient`, `motion-safe:` guards. No decorative motion.

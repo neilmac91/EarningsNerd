@@ -30,6 +30,11 @@
      - a scroll that moves the bell, or a resize, closes it (fixed at the bell's
        rect, it would detach), as CitationChip's popover does;
      - every close returns focus to the bell unless the user moved it on.
+   It is placed where it fits, from its measured height (placeBellPopover):
+   18.75rem wide within the viewport, below the bell, above it when only that
+   side holds it whole, else on the roomier side with its height capped there,
+   scrolling inside. A guessed height ran a tall popover (200% text) off the
+   bottom of the screen.
    The transparent click-catcher stays: an outside press closes only the
    popover, so it cannot also close the day dialog through its backdrop or
    re-toggle the bell that raised it.
@@ -37,7 +42,7 @@
    layer instead of rendering inert beneath it.
 ============================================================================= */
 
-import { useEffect, useId, useMemo, useRef } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { BellIcon, LockSimpleIcon, WarningCircleIcon } from '@/lib/icons'
@@ -106,6 +111,56 @@ export function AlertBell({
       <BellIcon weight={on ? 'fill' : 'regular'} className={size === 'sm' ? 'h-4 w-4' : 'h-[18px] w-[18px]'} />
     </button>
   )
+}
+
+/** The popover's inset from the viewport's edges and its gap from the bell, in px. */
+export const POPOVER_MARGIN = 12
+const POPOVER_GAP = 8
+/** The least height a side must offer before the popover takes it; under it, the popover spans the viewport. */
+const POPOVER_MIN_SIDE = 96
+
+type PopoverBox = { left: number; top: number; maxHeight: number }
+/** The visible part of the viewport, in the coordinates a fixed box and getBoundingClientRect share. */
+export type VisibleArea = { left: number; top: number; width: number; height: number }
+
+/**
+ * Where the popover goes, from its measured size and the visible area's: centred on the bell and kept
+ * inside the margins; below the bell when it fits there whole, above it when only that side holds it,
+ * otherwise on the roomier side with its height capped to that side (the panel scrolls inside). When
+ * neither side offers even POPOVER_MIN_SIDE, it spans the area's height. Never past the visible area.
+ */
+export function placeBellPopover(
+  anchor: Pick<DOMRect, 'left' | 'top' | 'bottom' | 'width'>,
+  size: { width: number; height: number },
+  area: VisibleArea,
+): PopoverBox {
+  const left = Math.max(
+    area.left + POPOVER_MARGIN,
+    Math.min(anchor.left + anchor.width / 2 - size.width / 2, area.left + area.width - size.width - POPOVER_MARGIN),
+  )
+  const top = area.top + POPOVER_MARGIN
+  const below = area.top + area.height - POPOVER_MARGIN - (anchor.bottom + POPOVER_GAP)
+  const above = anchor.top - POPOVER_GAP - top
+  if (size.height <= below) return { left, top: anchor.bottom + POPOVER_GAP, maxHeight: below }
+  if (size.height <= above) return { left, top: anchor.top - POPOVER_GAP - size.height, maxHeight: above }
+  if (Math.max(below, above) < POPOVER_MIN_SIDE) return { left, top, maxHeight: area.height - 2 * POPOVER_MARGIN }
+  return below >= above ? { left, top: anchor.bottom + POPOVER_GAP, maxHeight: below } : { left, top, maxHeight: above }
+}
+
+/** What the reader can see. Not window.inner*: on a phone whose page is wider than the screen, Chromium
+    widens the layout viewport (and window.innerWidth/innerHeight) to the page and shows only part of it,
+    so a box placed in the layout viewport's bounds can sit off screen. */
+function visibleArea(): VisibleArea {
+  const vv = window.visualViewport
+  if (vv && vv.width > 0 && vv.height > 0) return { left: vv.offsetLeft, top: vv.offsetTop, width: vv.width, height: vv.height }
+  const root = document.documentElement
+  return { left: 0, top: 0, width: root.clientWidth || window.innerWidth, height: root.clientHeight || window.innerHeight }
+}
+
+/** 18.75rem (300px at the default text size): it grows with the text, within the visible area's margins. */
+function popoverWidth(area: VisibleArea) {
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+  return Math.min(18.75 * rem, area.width - 2 * POPOVER_MARGIN)
 }
 
 /** One popover per page, anchored to the bell that raised `blocked`. */
@@ -207,11 +262,21 @@ export function BellPopover({
     }
   }, [blocked, host])
 
-  const W = 300
-  const margin = 12
-  const left = Math.max(margin, Math.min(blocked.anchor.left + blocked.anchor.width / 2 - W / 2, window.innerWidth - W - margin))
-  const below = blocked.anchor.bottom + 8
-  const top = below + 190 > window.innerHeight ? Math.max(margin, blocked.anchor.top - 178) : below
+  // Placed from the panel's own height, measured before paint: the first pass renders it below the bell,
+  // and this moves it where it fits. The content's full height (scrollHeight and the borders), so a cap
+  // already on the panel does not shorten the measure.
+  const [box, setBox] = useState<(PopoverBox & { width: number }) | null>(null)
+  useLayoutEffect(() => {
+    const panel = ref.current
+    if (!panel) return
+    const area = visibleArea()
+    const width = popoverWidth(area)
+    const height = panel.scrollHeight + panel.offsetHeight - panel.clientHeight
+    setBox({ width, ...placeBellPopover(blocked.anchor, { width, height }, area) })
+  }, [blocked])
+  const area = visibleArea()
+  const width = box?.width ?? popoverWidth(area)
+  const placed = box ?? placeBellPopover(blocked.anchor, { width, height: 0 }, area)
 
   const isError = blocked.kind === 'error'
   const title = isError
@@ -233,8 +298,8 @@ export function BellPopover({
         aria-labelledby={titleId}
         aria-describedby={bodyId}
         tabIndex={-1}
-        style={{ left, top, width: W }}
-        className="fixed rounded-lg outline-none border border-border-light bg-panel-light p-4 shadow-e4 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+        style={{ left: placed.left, top: placed.top, width, maxHeight: box?.maxHeight }}
+        className="fixed overflow-y-auto scroll-py-4 rounded-lg outline-none border border-border-light bg-panel-light p-4 shadow-e4 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
       >
         <div className="flex items-start gap-3">
           <span

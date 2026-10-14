@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { BellPopover } from '@/features/calendar/components/AlertBell'
+import { BellPopover, POPOVER_MARGIN, placeBellPopover } from '@/features/calendar/components/AlertBell'
 import { Modal } from '@/components/ui/Modal'
 import type { BlockedKind, BlockedState } from '@/features/calendar/hooks/useCalendar'
 import { FREE_EARNINGS_ALERT_LIMIT } from '@/lib/planLimits'
@@ -363,5 +363,72 @@ describe('BellPopover', () => {
     const group = screen.getByRole('group')
     expect(group.closest('dialog')).toBeNull()
     expect(document.body).toContainElement(group)
+  })
+})
+
+/**
+ * Placement (the 2026-10-14 capture review of #1301): at 200% text the sign-in popover was 300x808px,
+ * placed below the bell at y=625 from a guessed 190px height, and ran about 590px past the bottom of the
+ * 844px screen. It is now placed from its measured height, inside what the reader can see.
+ */
+describe('BellPopover placement', () => {
+  // The 390x844 phone at 200% text: a bell in the day dialog's first row, the popover 366px wide.
+  const PHONE = { left: 0, top: 0, width: 390, height: 844 }
+  const BELL = { left: 290, top: 534, bottom: 622, width: 88 }
+  const inside = (box: { left: number; top: number; maxHeight: number }, width: number, area = PHONE) => {
+    expect(box.left).toBeGreaterThanOrEqual(area.left + POPOVER_MARGIN)
+    expect(box.left + width).toBeLessThanOrEqual(area.left + area.width - POPOVER_MARGIN)
+    expect(box.top).toBeGreaterThanOrEqual(area.top + POPOVER_MARGIN)
+    expect(box.top + box.maxHeight).toBeLessThanOrEqual(area.top + area.height - POPOVER_MARGIN)
+  }
+
+  it('goes below the bell when it fits there whole', () => {
+    const box = placeBellPopover({ left: 100, top: 100, bottom: 128, width: 28 }, { width: 300, height: 168 }, PHONE)
+    expect(box.top).toBe(136)
+    inside(box, 300)
+  })
+
+  it('goes above the bell when only that side holds it whole', () => {
+    const box = placeBellPopover(BELL, { width: 366, height: 400 }, PHONE)
+    expect(box.top + 400).toBe(BELL.top - 8)
+    inside(box, 366)
+  })
+
+  it('too tall for either side, it takes the roomier one, capped there, and never covers the bell', () => {
+    const box = placeBellPopover(BELL, { width: 366, height: 808 }, PHONE)
+    inside(box, 366)
+    expect(box.top + box.maxHeight).toBeLessThanOrEqual(BELL.top - 8) // above: 514px of room against 202 below
+    expect(box.maxHeight).toBe(BELL.top - 8 - POPOVER_MARGIN)
+  })
+
+  it('places inside the visible area, which on a page wider than the phone is offset in the layout viewport', () => {
+    // Chromium widened this page's layout viewport to 552x1195 and shows 390x844 of it from (24, 25).
+    const area = { left: 24, top: 25, width: 390, height: 844 }
+    const box = placeBellPopover({ left: 314, top: 559, bottom: 647, width: 88 }, { width: 366, height: 808 }, area)
+    inside(box, 366, area)
+  })
+
+  it('renders capped to what it measured, scrolling inside', () => {
+    const scroll = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight')
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.getAttribute('role') === 'group' ? 2000 : 0
+      },
+    })
+    const bell = document.createElement('button')
+    document.body.appendChild(bell)
+    try {
+      render(<BellPopover blocked={blockedFor('signin', bell)} onClose={() => {}} />)
+      const group = screen.getByRole('group', { name: 'Sign in to set earnings alerts' })
+      expect(group).toHaveClass('overflow-y-auto')
+      // jsdom's window is 1024x768; the bell at y 100-128 leaves 620px below, the roomier side.
+      expect(group.style.top).toBe('136px')
+      expect(group.style.maxHeight).toBe(`${768 - POPOVER_MARGIN - 136}px`)
+    } finally {
+      bell.remove()
+      if (scroll) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', scroll)
+      else delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight
+    }
   })
 })

@@ -699,6 +699,12 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  role="group" named by its title and described by its message (an async failure is also
                  announced with role="alert") — on z-overlay, behind a transparent catcher so
                  an outside press closes only the popover; the panel is the Card recipe (dark:shadow-none).
+                 Placed where it fits, from its measured height, never an assumed one: 18.75rem wide (300px
+                 at the default text size) within 12px of the visible viewport (window.visualViewport: on a
+                 phone whose page is wider than the screen, Chromium widens the layout viewport and
+                 window.inner* to the page), below its trigger, above it when only that side holds it
+                 whole, otherwise on the roomier side with its height capped there, scrolling inside
+                 (overflow-y-auto, scroll-py-4). Gate: placeBellPopover's cases in BellPopover.spec.tsx.
                  Keyboard: focus moves to the first action unless the user already moved it elsewhere (armed
                  once per open, callbacks through a ref); Escape closes in window capture with preventDefault
                  (stopPropagation alone still closes a native <dialog> beneath); Tab past the last action /
