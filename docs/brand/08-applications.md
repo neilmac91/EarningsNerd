@@ -78,7 +78,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   it. The trial banner and the billing panel state the trial's end date ("Your Pro trial ends Jun
   25, 2026."), never a countdown, and the banner shows only while the resolved plan is a live Pro
   trial. Commerce carries the Lightning glyph (the Pro badge, the trial banner), "Analyze trends" a
-  chart glyph, and the sparkle leaves commerce (D-031 records where it still sits); the dead
+  chart glyph, and the sparkle leaves commerce (D-031 records that it has no sanctioned site until an AI-summary
+  chip exists); the dead
   SubscriptionGate is gone. The locked overlay reads "Upgrade to Pro". Section headings in settings
   and on the dashboard carry no icon. The dashboard answers a finished checkout ("Pro is active", or
   "Checkout finished" with "Your plan updates in a moment. Reload this page if it still shows Free."
