@@ -191,7 +191,8 @@ frontend/
 | `analysis_data_access.py` | Analysis record reads and short-session ingest/metering/release units; the router keeps HTTP policy, task/stream ownership and call-time collaborator seams |
 | `trend_analysis_service.py` + `trend_analysis/` | Compatibility façade over domain modules: deterministic YoY/QoQ/CAGR datasets and `F#` markers, code-owned observations, validated selection and cached narrative streaming |
 | `precompute_service.py` | Idempotent per-ticker filing resolution + summary precompute (cron + internal job) |
-| `change_report_service.py` | Period-over-period change report (financial deltas + risk diffs) |
+| `change_report_service.py` | Period-over-period change report (financial deltas; risk diffs withheld) plus, behind `ENABLE_SECTION_CHANGES`, the `section_changes` wording diff block |
+| `filing_section_service.py` / `section_diff.py` | Item 1A text per filing (`filing_section_text`): fetched through the SEC transport, located with edgartools' HTML parser (local), stored with status and a cached comparison summary; the watched-cohort batch the filing-scan job runs; `section_diff` is the pure paragraph-paired, word-level diff (page furniture dropped, line-wrapped typesetting re-flowed, exact/moved/fuzzy pairing, content-addressed item ids) |
 | `peers_service.py` / `insider_service.py` | Peer comparison by SIC; Form 4 insider activity (`ownership_extractor.py` parses the Form 4 tables DEFENSIVELY — EdgarTools' DataFrame column casing varies across versions; don't "simplify" the guards) |
 | `dashboard_feed_service.py` / `calendar_service.py` / `filing_scan_service.py` / `notification_service.py` | Personalized feed; earnings calendar; new-filing alerts (dedup); alert prefs |
 | `notable_filings_service.py` | Homepage "Notable filings": market-wide EFTS scan (8-K item materiality + form weights + owned demand), serve-from-Postgres, self-omitting |
@@ -312,7 +313,8 @@ Submodules: `financial_fact.py` (normalized XBRL for peers/time-series),
 `trend_analysis.py` (cached Multi-Period runs keyed by company/mode/range),
 `notifications.py` (prefs + dedup ledger), `refresh_token.py` (rotation chain),
 `subscription.py` (`Subscription` + `StripeEvent` idempotency ledger), `waitlist.py`,
-`contact.py`, `audit_log.py`, `job_run.py` (`earningsnerd_job_runs`, independent scheduled-job attempts). Additional tables via migrations: `invite_codes`,
+`contact.py`, `audit_log.py`, `job_run.py` (`earningsnerd_job_runs`, independent scheduled-job attempts),
+`filing_section_text.py` (`filing_section_text`: Item 1A text per filing with its extraction status, attempt times and the cached comparison summary). Additional tables via migrations: `invite_codes`,
 `feedback`, `login_attempts`, `earnings_events` (plus the orphaned `guest_daily_usage` —
 unused since generation became account-required in #619; kept because migrations are re-run-safe, never destructive).
 
