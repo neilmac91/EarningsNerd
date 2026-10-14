@@ -938,3 +938,13 @@ export function P542({ n }: { n: number }) { return <button type="button" classN
 export function P543({ n }: { n: number }) { return <a href="/x" className="group text-text-secondary-light">See all {n}<span aria-hidden="true" className="group-hover:text-brand-strong">→</span></a> } // clean
 function Quiet544({ children }: { children: ReactNode }) { return <button type="button" className={countControlClass('button')}>{children}</button> }
 export function P544({ n }: { n: number }) { return <Quiet544>Show {n}</Quiet544> } // clean
+// Codex's review of 99f0380: a control whose label is a same-file component that renders its children in a span that
+// turns sage under the pointer (P545, the review's own form) is a copy, read through the component's summary. A label
+// component in the plain ink inside a control that composes the recipe (P546), and one that composes the recipe on the
+// label itself (P547), are no copy.
+function Label545({ children }: { children: ReactNode }) { return <span className="text-text-secondary-light hover:text-brand-strong">{children}</span> }
+export function P545({ n }: { n: number }) { return <a href="/x"><Label545>See all {n}</Label545></a> } // flag
+function Label546({ children }: { children: ReactNode }) { return <span className="font-medium">{children}</span> }
+export function P546({ n }: { n: number }) { return <a href="/x" className={countControlClass('link')}><Label546>See all {n}</Label546></a> } // clean
+function Label547({ children }: { children: ReactNode }) { return <span className={countControlClass('inline')}>{children}</span> }
+export function P547({ n }: { n: number }) { return <a href="/x"><Label547>See all {n}</Label547></a> } // clean

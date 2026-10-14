@@ -155,6 +155,11 @@ destructured from it, `Children` destructured from React itself, and `React['Chi
 reads all four without a rule for each, since it names a utility by the declaration the checker
 resolves its callee to, not by its spelling. A guard kept the checker to callees under a utility's
 name, for speed, and so left one called through a key, or held under a name of its own, unread;
-measured idle, it saved about a tenth of a second, so every callee is now asked. Companion to
+measured idle, it saved about a tenth of a second, so every callee is now asked. Codex's review of
+`99f0380` then found the count control's one-source check blind to a label delegated to a same-file
+component (`<a><CountLabel>See all {n}</CountLabel></a>`, the span's pointer sage inside the
+component): the control's own classes and its label span were covered, the component's were not, so
+the check now reads a component that renders its children in a pointer-sage element as the label's
+classes. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.
