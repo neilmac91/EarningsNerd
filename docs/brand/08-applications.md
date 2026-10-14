@@ -440,7 +440,14 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   warning colour is for status. A signed-out bell offers an email the morning a company reports, and
   its second action follows the registration mode ("Request an invite" while invite-only). The error
   card's "Try again" is a `RetryButton`. `brandCopyRules.spec.ts` rule 1d bans the old claims under
-  the calendar, and `tests/unit/calendarEventRow.spec.tsx` holds the row without a marker.
+  the calendar, and `tests/unit/calendarEventRow.spec.tsx` holds the row without a marker. Every
+  estimated row shows its "usually" note, the lane's glyph and the words on a line of their own, in
+  the week sheet as in the day list and the day dialog, so the footer's sentence describes what the
+  rows show. At 200% text nothing is clipped or overlaps: each view picks its layout by its own
+  width in em (the day list in place of the sheet, a stacked row without its decorative logo, a month
+  day's count of reports in place of its tickers, which a caption says), names wrap instead of
+  truncating and the range label wraps between whole dates (`calendarReflow.spec.tsx`,
+  `calendarEventRow.spec.tsx`).
 - **Full-text search** (`frontend/app/search/page.tsx`, `features/search/components/FullTextSearch.tsx`):
   the form code is set in the data face, not as a chip, and `earningsnerd/no-form-code-badge` now
   flags a hand-rolled eyebrow chip around a form as well as a `Badge`, alone or leading a meta line

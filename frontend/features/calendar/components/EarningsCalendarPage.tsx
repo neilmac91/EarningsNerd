@@ -93,10 +93,17 @@ export default function EarningsCalendarPage() {
     })
   }, [anchor, eventsByDate, todayIso])
 
+  // Each date is one unbreakable run, and the dash keeps to the first, so a label too long for its line
+  // wraps after the dash, never inside a date or before the dash.
   const rangeLabel =
-    view === 'month'
-      ? formatLocalDate(firstOfMonth(anchor), 'MMMM yyyy')
-      : `${formatLocalDate(range.from, 'MMM d')} – ${formatLocalDate(addDaysIso(range.from, 4), 'MMM d, yyyy')}`
+    view === 'month' ? (
+      <span className="whitespace-nowrap">{formatLocalDate(firstOfMonth(anchor), 'MMMM yyyy')}</span>
+    ) : (
+      <>
+        <span className="whitespace-nowrap">{formatLocalDate(range.from, 'MMM d')}&nbsp;–</span>{' '}
+        <span className="whitespace-nowrap">{formatLocalDate(addDaysIso(range.from, 4), 'MMM d, yyyy')}</span>
+      </>
+    )
 
   const navigate = (dir: 1 | -1) => {
     setOpenDay(null)
@@ -141,7 +148,8 @@ export default function EarningsCalendarPage() {
 
       {/* Toolbar */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
+        {/* The range label takes a line of its own when it does not fit beside the controls; it never truncates. */}
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Button variant="secondary" size="sm" onClick={() => { setOpenDay(null); setAnchor(todayIso) }}>
             Today
           </Button>
@@ -163,7 +171,7 @@ export default function EarningsCalendarPage() {
               <CaretRightIcon className="h-4 w-4" />
             </button>
           </div>
-          <h2 aria-live="polite" className="truncate text-base font-semibold sm:text-lg">
+          <h2 aria-live="polite" className="min-w-0 text-base font-semibold sm:text-lg">
             {rangeLabel}
           </h2>
         </div>

@@ -39,10 +39,22 @@ Weighed three layouts:
   month/week renders honestly (e.g. Fri Jul 3 2026 = Independence Day observed).
 - **Top 5 per day** by `anticipation_score` desc; `+N more` opens the day
   dialog (desktop/month) or expands in place (mobile). Day cells never overflow.
+- **Only what fits whole, at any text size.** Each view picks its layout by its
+  own width in em (container queries), so 200% text gets the narrow layout
+  rather than a clipped one: the week shows the five-column sheet from 42.5em
+  and the day list below it; a list or dialog row narrower than 16em drops its
+  decorative logo and stacks (the bell beside the ticker line, the name, note
+  and EPS under it); a month day lists tickers with their session glyph and
+  follow bell from 42em, the tickers alone from 21em, and below that the count
+  of companies reporting, under one-letter weekday heads, with a caption that
+  says so. Names wrap, never truncate, and the range label wraps between whole
+  dates. `tests/unit/calendarReflow.spec.tsx` and `calendarEventRow.spec.tsx`.
 - **Status ladder:** `Est.` (dashed chip, tentative by design) → `Confirmed`
   (brand tint) → `Reported` (quiet chip; EPS actual + calm ▲/▼ in the
   gain/loss *text* tokens). Estimated rows with a habitual slot say
-  "usually before open / after close" (§3.3 — right ~3 times in 4).
+  "usually before open / after close" (§3.3: right about 3 times in 4), on a line
+  of their own after the lane's glyph, in every row kind (the week sheet, the
+  day list, the day dialog), since the page's footer explains "usually".
 - **Alerts:** bell on every row (the subscription is per *company*, so it
   shows on reported rows too — it arms the next quarter).
   - Signed-out → sign-in popover; its second action follows the registration
