@@ -36,6 +36,13 @@
      size + weight, not a second ink). Walnut #3A2E26 retired. */
   --heading-color: #1A1A17;
 
+  /* The checked Checkbox's check in dark (components/ui/Checkbox.tsx): the forms plugin's own check
+     path, drawn in navy #0B1120 (background.dark), the ink every dark primary state puts on Light Sage.
+     Navy on brand-dark is 7.8:1; the plugin's white check on it would be 2.4:1. Applied as
+     dark:checked:[background-image:var(--check-navy)]; tests/unit/checkboxRecipe.spec.tsx reads the
+     fill from here. */
+  --check-navy: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='%230B1120' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+
   /* Tracking ramp — SF-style dynamic tracking: tracked OUT at caption sizes,
      progressively tighter as display sizes grow. Sign flips near 20px.
      SINGLE SOURCE: the fontSize letterSpacing entries in tailwind.config.js

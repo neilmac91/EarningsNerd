@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 import CookieConsent, { type CookiePreferences } from '@/components/CookieConsent'
+import { buttonVariants } from '@/components/ui'
 
 // The "Cookie preferences saved" confirmation is a sonner toast (top-centre Toaster in app/providers.tsx)
 // since EN-02: it must not share the bottom-right corner with the "Ask this Filing" launcher.
@@ -54,6 +55,11 @@ describe('CookieConsent settings dialog', () => {
     expect(screen.getByRole('checkbox', { name: 'Essential cookies' })).toBeDisabled()
     expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).not.toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Session recording' })).not.toBeChecked()
+    // Checkbox lists its props by name, so each category's description reaches the input only through its
+    // aria-describedby forward; a dropped forward would strip these from screen readers.
+    expect(screen.getByRole('checkbox', { name: 'Essential cookies' })).toHaveAccessibleDescription(/^Required for the website to function properly\./)
+    expect(screen.getByRole('checkbox', { name: 'Analytics cookies' })).toHaveAccessibleDescription(/^Help us understand how visitors interact/)
+    expect(screen.getByRole('checkbox', { name: 'Session recording' })).toHaveAccessibleDescription(/^Records your interactions with the site/)
   })
 
   it('Save preferences stores the choices, fires cookieConsentChanged and calls onPreferencesChanged', async () => {
@@ -117,5 +123,16 @@ describe('CookieConsent settings dialog', () => {
     expect(stored()).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
     expect(consentEvents.map((e) => e.analytics)).toEqual([true, false])
     expect(toast.success).toHaveBeenCalledTimes(2)
+  })
+
+  it('the two choices carry equal weight: Essential only and Allow analytics are both secondary, Customize the ghost', async () => {
+    // Refusing must be as easy and as visible as allowing (the EDPB, CNIL and ICO reading of consent): the
+    // two choices share one recipe, and the third action, Customize, sits a step below both.
+    render(<CookieConsent />)
+    const bar = await screen.findByRole('region', { name: 'Cookie consent' })
+    const cls = (name: string) => within(bar).getByRole('button', { name }).className
+    expect(cls('Essential only')).toBe(buttonVariants({ variant: 'secondary' }))
+    expect(cls('Allow analytics')).toBe(buttonVariants({ variant: 'secondary' }))
+    expect(cls('Customize')).toBe(buttonVariants({ variant: 'ghost' }))
   })
 })

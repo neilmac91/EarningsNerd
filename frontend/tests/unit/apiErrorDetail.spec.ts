@@ -75,6 +75,19 @@ describe('client.ts error messages (CAL-12, 422 detail)', () => {
     expect(detailMessage({ code: 'quota' })).toBeUndefined()
   })
 
+  it("detailMessage drops pydantic's prefix from a custom validator's msg, and only at the start", () => {
+    // A field_validator that raises ValueError reaches the client as "Value error, <its sentence>", an
+    // assert as "Assertion failed, <its sentence>": the reader sees the validator's sentence alone.
+    expect(detailMessage([{ msg: 'Value error, Tickers are letters only.', type: 'value_error' }, { msg: 'Field required' }])).toBe('Tickers are letters only.')
+    expect(detailMessage([{ msg: 'Assertion failed, Pick at least one filing.', type: 'assertion_error' }])).toBe('Pick at least one filing.')
+    expect(detailMessage({ msg: 'Value error, Tickers are letters only.' })).toBe('Tickers are letters only.')
+    // Not a prefix: left as the backend wrote it. A string detail is never rewritten.
+    expect(detailMessage([{ msg: 'Expected a value error, got none' }])).toBe('Expected a value error, got none')
+    expect(detailMessage([{ msg: 'Value error,' }])).toBe('Value error,')
+    expect(detailMessage([{ msg: 'Value error, ' }])).toBe('Value error, ')
+    expect(detailMessage('Value error, kept as sent')).toBe('Value error, kept as sent')
+  })
+
   it('no message literal in client.ts names the backend, a URL or the API address', () => {
     const text = readFileSync(CLIENT, 'utf8')
     const sf = ts.createSourceFile(CLIENT, text, ts.ScriptTarget.Latest, true)

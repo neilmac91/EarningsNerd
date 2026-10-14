@@ -25,15 +25,17 @@ export class ApiError extends Error {
 /**
  * The message a backend `detail` carries, as one sentence a person can read. A string detail is the
  * backend's own message. FastAPI's validation 422 sends a list of `{ loc, msg, type }` objects, which
- * used to reach the UI as "[object Object]": its first `msg` stands for it. Anything else yields
- * undefined, so the status-based message below applies.
+ * used to reach the UI as "[object Object]": its first `msg` stands for it, without the "Value error, "
+ * or "Assertion failed, " that pydantic puts before a custom validator's own sentence (a msg that is
+ * only the prefix stays as sent). Anything else yields undefined, so the status-based message below
+ * applies.
  */
 export function detailMessage(detail: unknown): string | undefined {
   if (typeof detail === 'string') return detail || undefined
   const first: unknown = Array.isArray(detail) ? detail[0] : detail
   if (first && typeof first === 'object' && 'msg' in first) {
     const msg = (first as { msg: unknown }).msg
-    if (typeof msg === 'string' && msg) return msg
+    if (typeof msg === 'string' && msg) return msg.replace(/^(?:Value error|Assertion failed), /, '') || msg
   }
   return undefined
 }

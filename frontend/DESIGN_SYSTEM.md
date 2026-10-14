@@ -416,17 +416,24 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  success ink inside any tint of itself falls under 4.5:1 at 12px. beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
                  tests/unit/badgeVariants.spec.tsx, shrink-only for the one row still on them). `new` keeps
-                 its warning tint and pulse until the design owner picks the chip's colour.
+                 its warning tint and pulse for now; the design owner chose the brand tint (bg-brand-weak
+                 text-brand-strong, dark pair) with a sage pulse dot, static under reduced motion, which
+                 lands as its own token change (D-032), so no other colour goes on it meanwhile.
 
 Checkbox         <Checkbox size="sm|md">  — the one checkbox (consent dialog, admin invites); never a raw
-                 <input type="checkbox">. Checked fill brand-strong / dark brand-fill-dark (4.0:1 on
-                 panel-dark, the forms plugin's white check 3.7:1 on it), each stated as `checked:bg-*`
-                 because a `dark:bg-*` ground outranks the plugin's checked fill; the unchecked edge is the
-                 flat ink (4.6:1 / 5.8:1 on panel). Gate: tests/unit/checkboxRecipe.spec.tsx.
+                 <input type="checkbox">. Checked: light brand-strong under the forms plugin's white
+                 check (6.6:1); dark the Primary's recipe, brand-dark (6.1:1 on panel-dark) under a navy
+                 check (7.8:1), drawn by `dark:checked:[background-image:var(--check-navy)]`, the
+                 plugin's check path in #0B1120 declared in app/globals.css (white on brand-dark would be
+                 2.4:1). Each fill is stated as `checked:bg-*` because a `dark:bg-*` ground outranks the
+                 plugin's checked fill; the unchecked edge is the flat ink (4.6:1 / 5.8:1 on panel).
+                 Gate: tests/unit/checkboxRecipe.spec.tsx (the check read from the stylesheet; the dark
+                 state equal to the Primary's dark fill and label ink).
 
 Toast            Sonner's Toaster, rendered by ThemedToaster (app/providers.tsx) with the theme from
                  ThemeProvider (never "system", which reads the OS setting, not the site's toggle) and no
-                 richColors. Every toast is a panel card: border-border / bg-panel / primary ink, shadow-e4
+                 richColors, for good: status shows in the icon only, the Separate Signals Rule applied
+                 to a toast. Every toast is a panel card: border-border / bg-panel / primary ink, shadow-e4
                  light (the ladder's overlay step, as the popovers) and none in dark, each with `!` because
                  Sonner's two-attribute surface rules outrank a utility; the description is secondary ink;
                  a success or error toast keeps the panel and colours only its icon. Gate:

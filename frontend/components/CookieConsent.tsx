@@ -344,13 +344,13 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
             </div>
 
             <div className="flex flex-wrap gap-3 w-full sm:w-auto">
-              <Button variant="secondary" onClick={handleOpenSettings}>
+              <Button variant="ghost" onClick={handleOpenSettings}>
                 Customize
               </Button>
-              <Button variant="ghost" onClick={handleEssentialOnly}>
+              <Button variant="secondary" onClick={handleEssentialOnly}>
                 Essential only
               </Button>
-              <Button onClick={handleAllowAnalytics}>
+              <Button variant="secondary" onClick={handleAllowAnalytics}>
                 Allow analytics
               </Button>
             </div>

@@ -25,8 +25,10 @@
                      from the brand accent), soft tint bg, auto ▲/▼. A
                      direction only, never a status.
      - new:          new-filing pulse — warning tint + a calm pulsing dot
-                     (respects prefers-reduced-motion). The tint stays until
-                     the design owner chooses the chip's colour.
+                     (respects prefers-reduced-motion). The design owner
+                     chose the brand tint with a sage dot (D-032); it lands
+                     as its own token change, and the warning tint stays
+                     until then.
    Casing: `pro` UPPERCASES its label; brand and every other variant stay
    sentence case. icon={null} strips a variant's automatic affordance (the
    ▲ / ▼ glyph or the pulse dot).

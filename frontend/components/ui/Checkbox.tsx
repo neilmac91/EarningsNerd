@@ -7,9 +7,13 @@
    a token, and each state clears the 3:1 floor for a control's parts (WCAG
    1.4.11):
      - checked, light: brand-strong #3C6650, 6.3:1 on panel; white check 6.6:1.
-     - checked, dark:  brand-fill-dark #569272, 4.0:1 on panel-dark; white check
-                       3.7:1. brand-strong (the old dark fill) is 2.2:1 there,
-                       and brand-dark under a white check is 2.4:1.
+     - checked, dark:  brand-dark #7FB295, 6.1:1 on panel-dark, under a navy
+                       check 7.8:1, as every dark primary state puts navy ink
+                       on Light Sage. The plugin's check is a background-image,
+                       so the navy one is the --check-navy variable in
+                       app/globals.css (the plugin's path in #0B1120). The
+                       plugin's white check on brand-dark would be 2.4:1, and
+                       brand-strong (the first dark fill) is 2.2:1 on panel-dark.
      - unchecked: the flat ink as the box's edge, 4.6:1 on panel, 5.8:1 on
                   panel-dark (the hairline border tokens are 1.2:1 and 1.4:1).
    The checked fill is stated per theme (`checked:bg-*`): the plugin paints it
@@ -72,7 +76,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
         aria-describedby={ariaDescribedBy}
         className={cx(
           'h-full w-full rounded border border-flat-light bg-panel-light text-brand-strong checked:border-transparent checked:bg-brand-strong',
-          'dark:border-flat-dark dark:bg-panel-dark dark:text-brand-fill-dark dark:checked:border-transparent dark:checked:bg-brand-fill-dark',
+          'dark:border-flat-dark dark:bg-panel-dark dark:text-brand-dark dark:checked:border-transparent dark:checked:bg-brand-dark dark:checked:[background-image:var(--check-navy)]',
           'focus:ring-0 focus:ring-offset-0 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
           'disabled:cursor-not-allowed disabled:opacity-50',
         )}
