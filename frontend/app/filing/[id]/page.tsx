@@ -34,15 +34,16 @@ const isNumericId = (id: string) => /^\d+$/.test(id)
 // product does not derive. An empty or malformed filing_date drops the clause rather than inventing one.
 const filedOn = (filing: Filing) => formatLocalDate(filing.filing_date, 'MMMM d, yyyy')
 
-// '<Company> (<ticker>) 10-K, filed October 31, 2025: AI summary | EarningsNerd'. A stub (no summary to
-// show) drops ': AI summary', so the title never promises what the page does not hold.
+// '<Company> (<ticker>) 10-K filed October 31, 2025: AI summary | EarningsNerd', with no comma before
+// "filed". A stub (no summary to show) drops ': AI summary', so the title never promises what the page
+// does not hold.
 const filingTitle = (filing: Filing, hasContent: boolean) => {
   const company = filing.company
   const filedDate = filedOn(filing)
   const subject = company
     ? `${formatCompanyName(company.name)} (${company.ticker}) ${filing.filing_type}`
     : filing.filing_type
-  const filed = filedDate ? `, filed ${filedDate}` : ''
+  const filed = filedDate ? ` filed ${filedDate}` : ''
   return `${subject}${filed}${hasContent ? ': AI summary' : ''} | EarningsNerd`
 }
 
@@ -98,8 +99,9 @@ export async function generateMetadata({ params }: FilingPageProps): Promise<Met
     // they'd read as thousands of near-duplicates — but let crawlers follow the links. The page
     // becomes indexable automatically once a summary exists (next revalidation).
     ...(hasContent ? {} : { robots: { index: false, follow: true } }),
-    // This openGraph replaces the root layout's wholesale, so it carries the site card itself (twitter
-    // fills its image from it). A filing-specific card waits for founder decision D8.
+    // This openGraph replaces the root layout's wholesale, so it carries the site card itself, and the
+    // twitter object names it too. A filing-specific card waits for founder decision D8 (tasks/todo.md
+    // F42: a file-based card applies only once both images keys go from here).
     openGraph: {
       title,
       description,

@@ -18,10 +18,12 @@ import { SOCIAL_CARD } from '@/lib/socialCard'
  *      that does (as app/login/layout.tsx does).
  *   2. Every title reads '<Page name> | EarningsNerd' in sentence case (proper nouns, acronyms and the
  *      company's own name allowed).
- *   3. Every private route resolves robots to index: false. Each route is classified below, so a new
- *      route fails until someone decides which it is.
- *   4. Next replaces a nested openGraph wholesale, so every openGraph a page or layout sets carries
- *      images; the root's carries no title or description, so Next fills both from each page.
+ *   3. Every private route resolves robots to index: false, and no public route (nor the root layout)
+ *      resolves it to noindex. Each route is classified below, so a new route fails until someone
+ *      decides which it is.
+ *   4. Next replaces a nested openGraph or twitter wholesale, so every one a page or layout sets carries
+ *      the site card itself ([SOCIAL_CARD], [SOCIAL_CARD.url]); the root's carry no title or description,
+ *      so Next fills both from each page.
  *   5. No description says 'AI-powered' or carries an em-dash.
  *   6. The card's URL with its cache-busting ?v= is typed only in lib/socialCard.ts.
  *   7. The two generateMetadata routes (company, filing) are run in each state with serverApi mocked.
@@ -63,6 +65,8 @@ const DESCRIPTION_RESIDUE: Record<string, { text: string; why: string }> = {
 const PRIVATE_ROUTES = [
   'admin/feedback', 'admin/invites', 'check-email', 'dashboard', 'dashboard/settings', 'dashboard/watchlist',
   'delete-account', 'forgot-password', 'login', 'register', 'reset-password', 'verify-email',
+  // Default-off prototypes (lib/featureFlags.ts); each page sets its own robots.
+  'labs/filing-redlines', 'labs/financial-refresh-review', 'labs/research-evidence-packs',
 ]
 const PUBLIC_ROUTES = [
   '', 'analysis', 'calendar', 'company/[ticker]', 'contact', 'filing/[id]', 'pricing', 'privacy', 'search',
@@ -70,6 +74,8 @@ const PUBLIC_ROUTES = [
 ]
 /** The routes whose metadata is computed per request; part 7 runs them. */
 const GENERATED = ['app/company/[ticker]/page.tsx', 'app/filing/[id]/page.tsx']
+/** The public routes whose metadata is static, so this file's robots can be read without running it. */
+const STATIC_PUBLIC_ROUTES = PUBLIC_ROUTES.filter((r) => !GENERATED.includes(path.posix.join('app', r, 'page.tsx')))
 
 /** Sentence case after the brand suffix: only a sentence's first word, a proper noun or an acronym is capitalised. */
 function titleProblems(title: string, names: string[] = []): string[] {
@@ -113,8 +119,7 @@ interface RouteFile {
   source: ts.SourceFile
 }
 
-function readRouteFile(file: string): RouteFile {
-  const text = readFileSync(file, 'utf8')
+function readRouteFile(file: string, text = readFileSync(file, 'utf8')): RouteFile {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const first = source.statements[0]
   const isClient = !!first && ts.isExpressionStatement(first) && ts.isStringLiteral(first.expression) && first.expression.text === 'use client'
@@ -178,10 +183,36 @@ function metadataTexts(rf: RouteFile, obj: ts.ObjectLiteralExpression) {
   return { titles, descriptions, unreadable }
 }
 
-const ROUTE_FILES = walk(APP).map(readRouteFile)
+const ROUTE_FILES = walk(APP).map((file) => readRouteFile(file))
 const byPath = new Map(ROUTE_FILES.map((rf) => [rel(rf.file), rf]))
 const PAGES = ROUTE_FILES.filter((rf) => path.basename(rf.file) === 'page.tsx')
 const routeOf = (page: RouteFile) => path.relative(APP, path.dirname(page.file)).split(path.sep).join('/')
+
+/**
+ * Whether a file's static metadata keeps its route out of the index: undefined when it sets no robots,
+ * true for 'noindex' in a string or an index that is not the literal true (an expression it cannot read
+ * counts as noindex, so it fails loudly), false otherwise.
+ */
+function setsNoindex(rf: RouteFile): boolean | undefined {
+  const robots = rf.metadata && prop(rf.metadata, 'robots')?.initializer
+  if (!robots) return undefined
+  if (ts.isStringLiteralLike(robots)) return /noindex/i.test(robots.text)
+  if (!ts.isObjectLiteralExpression(robots)) return true
+  const index = prop(robots, 'index')?.initializer
+  return index ? index.kind !== ts.SyntaxKind.TrueKeyword : false
+}
+
+/** What a page-level openGraph or twitter must carry: the site card itself, not any image and not none. */
+const CARD_IMAGES = { openGraph: '[SOCIAL_CARD]', twitter: '[SOCIAL_CARD.url]' } as const
+function cardProblems(obj: ts.ObjectLiteralExpression, key: keyof typeof CARD_IMAGES): string[] {
+  const scope = prop(obj, key)?.initializer
+  if (!scope) return []
+  if (!ts.isObjectLiteralExpression(scope)) return [`${key} is ${scope.getText()}, not an object literal the spec can read`]
+  const images = prop(scope, 'images')?.initializer.getText().replace(/\s+/g, '')
+  return images === CARD_IMAGES[key]
+    ? []
+    : [`${key}.images is ${images ?? 'missing'}, not ${CARD_IMAGES[key]} (a page-level ${key} replaces the root one, images included)`]
+}
 
 /** The page, then its own layout, then each ancestor layout up to the root: Next's resolution order, deepest first. */
 function chain(route: string): RouteFile[] {
@@ -264,9 +295,38 @@ describe('route metadata: every route names itself, page first and brand last', 
     expect(index?.kind, `/${route} does not resolve robots to { index: false }`).toBe(ts.SyntaxKind.FalseKeyword)
   })
 
-  it.each(ROUTE_FILES.filter((rf) => rf.metadata && prop(rf.metadata, 'openGraph')).map((rf) => [rel(rf.file), rf] as const))('%s carries the card in the openGraph it sets', (_name, rf) => {
-    const og = prop(rf.metadata!, 'openGraph')!.initializer
-    expect(ts.isObjectLiteralExpression(og) && prop(og, 'images'), 'a page-level openGraph replaces the root one, images included').toBeTruthy()
+  it.each(STATIC_PUBLIC_ROUTES.map((r) => [r] as const))('public route /%s stays in the index', (route) => {
+    // The deepest segment that sets robots decides it, as Next resolves it; the root layout counts.
+    const setter = chain(route).find((rf) => setsNoindex(rf) !== undefined)
+    expect(setter && setsNoindex(setter) ? rel(setter.file) : undefined, `/${route} resolves robots to noindex`).toBeUndefined()
+  })
+
+  it('self-check: the robots and card readers flag what they must', () => {
+    const probe = (body: string) => readRouteFile('app/zzprobe/page.tsx', `export const metadata = ${body}`)
+    expect(setsNoindex(probe("{ title: 'Probe | EarningsNerd' }"))).toBeUndefined()
+    expect(setsNoindex(probe('{ robots: { index: false } }'))).toBe(true)
+    expect(setsNoindex(probe("{ robots: 'noindex, follow' }"))).toBe(true)
+    expect(setsNoindex(probe('{ robots: ROBOTS }')), 'an unreadable robots counts as noindex').toBe(true)
+    expect(setsNoindex(probe('{ robots: { index: true, follow: false } }'))).toBe(false)
+    expect(setsNoindex(probe('{ robots: { follow: false } }'))).toBe(false)
+    const card = (body: string) => {
+      const metadata = probe(body).metadata!
+      return [...cardProblems(metadata, 'openGraph'), ...cardProblems(metadata, 'twitter')]
+    }
+    expect(card("{ title: 'Probe | EarningsNerd' }")).toEqual([])
+    expect(card('{ openGraph: { images: [SOCIAL_CARD] }, twitter: { images: [ SOCIAL_CARD.url ] } }')).toEqual([])
+    expect(card('{ openGraph: { images: [] } }')).toHaveLength(1)
+    expect(card("{ openGraph: { type: 'website' } }")).toHaveLength(1)
+    expect(card("{ openGraph: { images: ['/other.png'] } }")).toHaveLength(1)
+    expect(card('{ twitter: { images: [SOCIAL_CARD] } }')).toHaveLength(1)
+  })
+
+  it('sets no robots in the root layout, so no public page is noindexed site-wide', () => {
+    expect(prop(byPath.get('app/layout.tsx')!.metadata!, 'robots')?.getText(), 'the root layout sets robots').toBeUndefined()
+  })
+
+  it.each(ROUTE_FILES.filter((rf) => rf.metadata && (prop(rf.metadata, 'openGraph') || prop(rf.metadata, 'twitter'))).map((rf) => [rel(rf.file), rf] as const))('%s carries the site card in the openGraph and twitter it sets', (_name, rf) => {
+    expect([...cardProblems(rf.metadata!, 'openGraph'), ...cardProblems(rf.metadata!, 'twitter')]).toEqual([])
   })
 
   it('leaves the root openGraph and twitter untitled, so each page fills them with its own title', () => {
@@ -275,8 +335,8 @@ describe('route metadata: every route names itself, page first and brand last', 
     for (const key of ['openGraph', 'twitter']) {
       const obj = prop(root.metadata!, key)!.initializer as ts.ObjectLiteralExpression
       expect(['title', 'description'].filter((k) => prop(obj, k)), `the root ${key} sets its own text`).toEqual([])
-      expect(prop(obj, 'images'), `the root ${key} carries the card`).toBeTruthy()
     }
+    expect([...cardProblems(root.metadata!, 'openGraph'), ...cardProblems(root.metadata!, 'twitter')], 'the root carries the site card').toEqual([])
   })
 
   it("types the card's versioned URL only in lib/socialCard.ts", () => {
@@ -363,8 +423,17 @@ describe('company page metadata, in each state', () => {
     expect(withReason.robots).toEqual({ index: false, follow: true })
 
     const bare = await companyMetadata({ status: 'ok', data: ADR }, 'NSRGY')
+    expectWellFormed(bare, ['Nestle S.A.'])
     expect(bare.description).toBe('Nestle S.A. does not file financial reports with the SEC, so EarningsNerd has no filings to analyze.')
     expect(bare.description).not.toMatch(/summar/i)
+
+    // The tab and the shared preview say what the page holds too, as the description does.
+    for (const meta of [withReason, bare]) {
+      expect(meta.title).toBe('Nestle S.A. (NSRGY): no SEC financial reports | EarningsNerd')
+      expect(String(meta.title), 'the title promises filings or summaries the page cannot hold').not.toMatch(/summar|filings/i)
+      expect(meta.openGraph?.title).toBe(meta.title)
+      expect(meta.twitter?.title).toBe(meta.title)
+    }
   })
 
   it('the backend unreachable: the ticker alone, never "AAPL (AAPL)"', async () => {
@@ -382,14 +451,14 @@ describe('filing page metadata, in each state', () => {
   it('a summary ready: the filed date, ": AI summary", indexable, the card', async () => {
     const meta = await filingMetadata({ status: 'ok', data: FILING }, READY)
     expectWellFormed(meta, ['Apple Inc.'])
-    expect(meta.title).toBe('Apple Inc. (AAPL) 10-K, filed October 31, 2025: AI summary | EarningsNerd')
+    expect(meta.title).toBe('Apple Inc. (AAPL) 10-K filed October 31, 2025: AI summary | EarningsNerd')
     expect(meta.robots).toBeUndefined()
   })
 
   it('a stub: no summary claimed in the title or the description, out of the index, the card', async () => {
     const meta = await filingMetadata({ status: 'ok', data: FILING }, { status: 'ok', data: null })
     expectWellFormed(meta, ['Apple Inc.'])
-    expect(meta.title).toBe('Apple Inc. (AAPL) 10-K, filed October 31, 2025 | EarningsNerd')
+    expect(meta.title).toBe('Apple Inc. (AAPL) 10-K filed October 31, 2025 | EarningsNerd')
     expect(meta.description).toBe('Apple Inc.’s 10-K, filed October 31, 2025, as published on SEC EDGAR.')
     expect(meta.robots).toEqual({ index: false, follow: true })
   })

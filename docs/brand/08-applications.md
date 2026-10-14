@@ -58,16 +58,19 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 
 - **Metadata and the social card** (every `app/**/page.tsx` and `layout.tsx`, `lib/socialCard.ts`,
   `scripts/brand/og-template.html`): every route's tab and shared-link preview reads
-  "<Page name> | EarningsNerd" in sentence case, from its own page or from a `layout.tsx` beside a
-  client page (dashboard, settings, watchlist, the account pages, the admin pages), and every private
-  route stays out of the index. Company and filing pages carry the site card, since a page-level
-  `openGraph` replaces the root one; their descriptions say what the page holds in each state (a
-  foreign issuer with no SEC reports is told as such, a filing with no summary yet claims none), and
-  a filing's title names its filed date. The card's URL is typed once (`?v=5`); its headline breaks
-  before "shows its work." so the highlight never crosses a line, and the highlight's hairline is 2px.
-  Under `WAITLIST_MODE=true` (the rollback state) the card, the icons, the manifest and /terms stay
-  reachable. A company-specific or filing-specific card waits for the founder (D8). Gates:
-  `routeMetadata.spec.ts`, `markSingleSource.spec.ts`, `middleware.spec.ts`.
+  "<Page name> | EarningsNerd", from its own page or from a `layout.tsx` beside a client page
+  (dashboard, settings, watchlist, the account pages, the admin pages), in sentence case on every
+  route but the four pinned in `routeMetadata.spec.ts`'s `TITLE_RESIDUE` (/contact and /search, recased
+  by their own PRs; /privacy and /terms, recased only with a legal-date bump). Every private route
+  stays out of the index; no public route, and not the root layout, sets noindex. Company and filing
+  pages carry the site card, since a page-level `openGraph` replaces the root one; their titles and
+  descriptions say what the page holds in each state (a foreign issuer with no SEC reports is told as
+  such, a filing with no summary yet claims none), and a filing's title names its filed date. The
+  card's URL is typed once (`?v=5`); its headline breaks before "shows its work." so the highlight
+  never crosses a line, and the highlight's hairline is 2px. Under `WAITLIST_MODE=true` (the rollback
+  state) the card, the icons, the manifest and /terms stay reachable. A company-specific or
+  filing-specific card waits for the founder (D8). Gates: `routeMetadata.spec.ts`,
+  `markSingleSource.spec.ts`, `middleware.spec.ts`.
 
 ## 3. Inside the product
 

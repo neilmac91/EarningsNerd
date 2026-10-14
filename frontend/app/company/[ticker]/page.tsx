@@ -34,9 +34,12 @@ export async function generateMetadata({ params }: CompanyPageProps): Promise<Me
 
   // With the company unknown (backend unreachable) the ticker stands alone, never "AAPL (AAPL)".
   const label = company ? `${displayName} (${ticker})` : ticker
-  const title = `${label} SEC filings and AI summaries | EarningsNerd`
-  // The description says what the page holds: an issuer that files no financial reports with the SEC
-  // gets the same sentence its page shows, never a promise of summaries it cannot have.
+  // The title and the description say what the page holds: an issuer that files no financial reports
+  // with the SEC is named as such (the description is the same sentence its page shows), never
+  // promised filings or summaries it cannot have.
+  const title = unsupported
+    ? `${label}: no SEC financial reports | EarningsNerd`
+    : `${label} SEC filings and AI summaries | EarningsNerd`
   const description = unsupported
     ? company?.coverage_reason ||
       `${displayName} does not file financial reports with the SEC, so EarningsNerd has no filings to analyze.`
@@ -49,8 +52,9 @@ export async function generateMetadata({ params }: CompanyPageProps): Promise<Me
     // Honest empty states are for people, not the index: an unsupported foreign issuer's page
     // has no filings and never will, so keep it out of search results.
     ...(unsupported ? { robots: { index: false, follow: true } } : {}),
-    // This openGraph replaces the root layout's wholesale, so it carries the site card itself. A
-    // company-specific card waits for founder decision D8.
+    // This openGraph replaces the root layout's wholesale, so it carries the site card itself, and the
+    // twitter object names it too. A company-specific card waits for founder decision D8 (tasks/todo.md
+    // F42: a file-based card applies only once both images keys go from here).
     openGraph: {
       title,
       description,

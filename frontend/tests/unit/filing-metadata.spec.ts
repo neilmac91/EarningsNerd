@@ -54,7 +54,7 @@ describe('filing page metadata', () => {
     // What the filing is and where it comes from, with no claim about a summary (META-11, filing/F24).
     expect(meta.description).toBe('Apple Inc.’s 10-K, filed October 31, 2025, as published on SEC EDGAR.')
     expect(meta.description).not.toMatch(/summary/i)
-    expect(meta.title).toBe('Apple Inc. (AAPL) 10-K, filed October 31, 2025 | EarningsNerd')
+    expect(meta.title).toBe('Apple Inc. (AAPL) 10-K filed October 31, 2025 | EarningsNerd')
     expect(meta.description).not.toMatch(/OPENAI_API_KEY|Apple designs|Generating summary/)
   })
 })

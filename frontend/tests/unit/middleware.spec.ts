@@ -75,4 +75,11 @@ describe('waitlist gate (WAITLIST_MODE=true, the rollback state)', () => {
     expect(middleware(reqFor('/')).headers.get('location')).toContain('/waitlist')
     expect(middleware(reqFor('/og-image.png.html')).headers.get('location')).toContain('/waitlist')
   })
+
+  it("passes the icons directory, not a look-alike path ('/icons/' carries its slash)", () => {
+    expect(middleware(reqFor('/icons/icon-192.png')).headers.get('location')).toBeNull()
+    for (const lookalike of ['/iconsx', '/iconsx/icon-192.png']) {
+      expect(middleware(reqFor(lookalike)).headers.get('location'), `${lookalike} stays gated`).toBe('https://earningsnerd.io/waitlist')
+    }
+  })
 })
