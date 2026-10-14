@@ -82,6 +82,35 @@ describe('NarrativePane readable evidence', () => {
     expect(container.querySelector('code')).toHaveTextContent('USD 60,801,000,000 in 2026Q2')
   })
 
+  it.each([
+    { ratio: '1.0033', relation: 'above' },
+    { ratio: '0.996', relation: 'below' },
+    { ratio: '1.00001', relation: 'above' },
+  ])('preserves $ratio $relation the 1.00x liquidity threshold', ({ ratio, relation }) => {
+    const text = `The current ratio was ${ratio}x, ${relation} 1.00x.`
+    const expected = `The current ratio was ${ratio}×, ${relation} 1.00×.`
+    expect(compactNarrativeText(text)).toBe(expected)
+    const { container } = renderText(text)
+    expect(container.querySelector('.markdown-body')).toHaveTextContent(expected)
+  })
+
+  it('preserves $19.96B below $20.04B across citation and Markdown nodes', () => {
+    const exact = 'Free cash flow of USD 19,960,000,000 [1] was below net income of USD 20,040,000,000 [2].'
+    expect(compactNarrativeText(exact)).toBe(exact)
+    const citations: AnalysisCitation[] = [
+      { ...operands[0], value: 19960000000, excerpt: 'Free cash flow = 19,960,000,000 (2026Q2)' },
+      { ...operands[1], value: 20040000000, excerpt: 'Net income = 20,040,000,000 (2026Q2)' },
+    ]
+    const text = 'Free cash flow of **USD 19,960,000,000** [1] was below net income of _USD 20,040,000,000_ [2]. Source operands: Free cash flow USD 19,960,000,000 in 2026Q2 [1]; Net income USD 20,040,000,000 in 2026Q2 [2].'
+    const { container } = render(<NarrativePane state={doneState({ text, completion: doneCompletion({ narrative: text, citations, grounded: 2 }) })} />)
+    const prose = container.querySelector('.markdown-body')!
+    expect(prose).toHaveTextContent('Free cash flow of USD 19,960,000,000 [1]a was below net income of USD 20,040,000,000 [2]a')
+    expect(prose).not.toHaveTextContent('$20.0B')
+    const evidence = screen.getByRole('list', { name: 'Figures behind this finding', hidden: true })
+    expect(evidence).toHaveTextContent('Free cash flow USD 19,960,000,000')
+    expect(evidence).toHaveTextContent('Net income USD 20,040,000,000')
+  })
+
   it('preserves distinct close amounts across citation and Markdown nodes without rewriting the relation', () => {
     const exact = 'In 2026Q2, free cash flow of USD 1,001,000,000 [1] was below net income of USD 1,004,000,000 [2].'
     expect(compactNarrativeText(exact)).toBe('In Q2 2026, free cash flow of USD 1,001,000,000 [1] was below net income of USD 1,004,000,000 [2].')
