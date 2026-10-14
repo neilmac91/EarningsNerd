@@ -95,8 +95,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   filing reader, the summary or the analysis narrative prints words the product does not write, so
   it rests in its prose's own ink with a quiet underline and turns sage only under the pointer
   (`app/globals.css`); a citation chip among the prose keeps its own chip. `brandCopyRules.spec.ts`
-  rule 2 reads a citation's section name, a change's display and a filing's excerpt as values, and
-  its stylesheet check fails a rule that sets sage at rest.
+  rule 2 reads as a value every field the API types declare that the server or the model writes a
+  figure into (a formatted figure, a date or a period, the text written about the filing, a table's
+  rows and a list's items among it), and fails a field they declare that can hold a string and that
+  it has not classified; its stylesheet check fails a rule that sets sage at rest.
 - **Exports and mail** (`backend/app/services/export_service.py`, `excel_export_service.py`,
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the

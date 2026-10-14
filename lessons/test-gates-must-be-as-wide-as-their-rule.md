@@ -195,4 +195,8 @@ Fixing the Copilot's links, which had waited on the founder's call, found the pr
 `app/globals.css` setting sage at rest by `@apply` on every link in the filing reader, the summary
 and the analysis narrative, where a scan of components never looked. A rule about ink holds wherever
 ink is set: rule 2 now reads the stylesheet, and reads the fields the server and the model write
-figures into by their declared type.
+figures into by their declared type. Its first list of those fields was five names long, and the
+next review named a metric row's formatted figures outside it; so rule 2 classifies every field the
+API types declare that can hold a string, an array of them included, a figure field or a word field,
+and fails one it has not classified.
+A gate keyed on a list of names holds only when a test makes the list exhaustive over its domain.

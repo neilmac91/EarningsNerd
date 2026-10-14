@@ -16,11 +16,16 @@ import { Badge, Button, buttonVariants, countControlClass, countControlClass as 
 import { cx } from '@/components/ui/cx'
 import Link from 'next/link'
 import { ArrowRightIcon } from '@/lib/icons'
-import type { WhatChangedItem } from '@/features/dashboard/api/dashboard-api'
+import type { FeedbackRecord } from '@/features/admin/api/admin-api'
+import type { AnalysisInflection, AnalysisPoint } from '@/features/analysis/api/analysis-api'
+import type { CalendarRangeResult } from '@/features/calendar/api/calendar-api'
+import type { Company } from '@/features/companies/api/companies-api'
+import type { WhatChanged, WhatChangedItem } from '@/features/dashboard/api/dashboard-api'
 import type { CopilotCitation } from '@/features/filings/api/copilot-api'
+import type { Filing } from '@/features/filings/api/filings-api'
 import type { ExampleEvidence } from '@/lib/serverApi'
-import type { RenderedMetricRow } from '@/features/summaries/api/summaries-api'
-import type { RiskFactor } from '@/types/summary'
+import type { RenderedBlock, RenderedMetricRow } from '@/features/summaries/api/summaries-api'
+import type { MetricItem, NormalizedFact, PerAdsValue, RiskFactor } from '@/types/summary'
 import { maybeOnly, quietLinkClass, typedOnly } from './brandRule2Kit'
 
 const SAGE_LINK = 'text-brand-strong hover:underline'
@@ -1184,3 +1189,40 @@ export function P723({ m }: { m: RenderedMetricRow }) { return <span className="
 export function P724() { return { a: ({ children }: { children?: ReactNode }) => <a className="font-semibold text-brand-strong">{children}</a> } } // flag
 export function P725() { return { a: ({ children }: { children?: ReactNode }) => <a className="font-semibold hover:text-brand-strong">{children}</a> } } // clean
 export function P726() { return { a({ children }: { children?: ReactNode }) { return <a className="dark:text-brand-strong-dark">{children}</a> } } } // flag
+// Every field the API types declare that can hold a string is a figure field or a word field. A metric row's
+// formatted figure (P727, Codex's form on #1326), destructured (P728), its camelCase twin (P729), a growth that is a
+// number or "nm" (P730), a date through its own method (P731), a period (P732), a number a reader reads as one (P733)
+// and a headline written about the filing (P734) are figure fields. A ticker (P735), a person's message on a control
+// that turns sage under the pointer (P736), a field whose literals carry no digit (P737) and one whose literal does,
+// a name (P738), are word fields. A figure field copied into a component's own type is unread (P739).
+export function P727({ m }: { m: MetricItem }) { return <span className="text-brand-strong">{m.current_period}</span> } // flag
+export function P728({ m }: { m: MetricItem }) { const { prior_period: prior } = m; return <span className="text-brand-strong">{prior}</span> } // flag
+export function P729({ f }: { f: NormalizedFact }) { return <span className="text-brand-strong">{f.currentPeriod}</span> } // flag
+export function P730({ p }: { p: AnalysisPoint }) { return <span className="text-brand-strong">{p.yoy}</span> } // flag
+export function P731({ f }: { f: Filing }) { return <time className="text-brand-strong">{f.filing_date.slice(0, 7)}</time> } // flag
+export function P732({ p }: { p: AnalysisPoint }) { return <span className="text-brand-strong">{p.fiscal_period}</span> } // flag
+export function P733({ c }: { c: Company }) { return <span className="text-brand-strong">CIK {c.cik}</span> } // flag
+export function P734({ w }: { w: WhatChanged }) { return <p className="text-brand-strong">{w.headline}</p> } // flag
+export function P735({ c }: { c: Company }) { return <span className="font-mono text-brand-strong">{c.ticker}</span> } // clean
+export function P736({ f }: { f: FeedbackRecord }) { return <button type="button" className="text-left hover:text-brand-strong">{f.message}</button> } // clean
+export function P737({ item }: { item: WhatChangedItem }) { return <span className="text-brand-strong">{item.direction}</span> } // clean
+export function P738({ r }: { r: CalendarRangeResult }) { return <span className="text-brand-strong">{r.universe}</span> } // clean
+export function P739({ row }: { row: { current_period: string } }) { return <span className="text-brand-strong">{row.current_period}</span> } // gap
+// An element of a figure field that holds an array is a figure: a list's items mapped (P740), a table's cell indexed
+// (P741) or mapped row by row (P742), the first item destructured past `??` (P743), an item looped over (P744), and the
+// items joined (P748); and a per-ADS ratio's source, which the server writes a figure into (P745). An element of a word
+// field's array (P746), a map over a figure array whose callback renders no figure (P747) and an element of a figure
+// field's name that holds objects, not strings (P750), are no offence. One character of a figure field's text, a drop
+// cap, is left to review (P749): it is a digit when the text begins with one.
+export function P740({ b }: { b: RenderedBlock }) { return <ul>{b.items?.map((item) => <li key={item} className="text-brand-strong">{item}</li>)}</ul> } // flag
+export function P741({ b }: { b: RenderedBlock }) { return <span className="text-brand-strong">{b.rows?.[0]?.[1]}</span> } // flag
+export function P742({ b }: { b: RenderedBlock }) { return <table><tbody>{b.rows?.map((r, i) => <tr key={i}>{r.map((c) => <td key={c} className="text-brand-strong">{c}</td>)}</tr>)}</tbody></table> } // flag
+export function P743({ b }: { b: RenderedBlock }) { const [first] = b.items ?? []; return <span className="text-brand-strong">{first}</span> } // flag
+export function P744({ b }: { b: RenderedBlock }) { const out: ReactNode[] = []; for (const item of b.items ?? []) out.push(<li key={item} className="text-brand-strong">{item}</li>); return <ul>{out}</ul> } // flag
+export function P745({ p }: { p: PerAdsValue }) { return <span className="text-brand-strong">{p.source}</span> } // flag
+export function P746({ f }: { f: AnalysisInflection }) { return <ul>{f.concepts?.map((c) => <li key={c} className="text-brand-strong">{c}</li>)}</ul> } // clean
+export function P747({ b }: { b: RenderedBlock }) { return <ul className="text-brand-strong">{b.items?.map((item) => <li key={item}>Item</li>)}</ul> } // clean
+export function P748({ b }: { b: RenderedBlock }) { return <p className="text-brand-strong">{b.items?.join(' · ')}</p> } // flag
+export function P749({ c }: { c: CopilotCitation }) { return <span className="text-brand-strong">{c.excerpt[0]}</span> } // gap
+function name750(it: WhatChangedItem) { return it.label }
+export function P750({ w }: { w: WhatChanged }) { return <ul>{w.items.map((it) => <li key={it.metric} className="text-brand-strong">{name750(it)}</li>)}</ul> } // clean

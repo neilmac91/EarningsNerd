@@ -74,9 +74,10 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    one counting), a template or a call fed one (a formatter, and so also a lookup such as
  *    labelFor(i) or a helper that builds a label), a number's own method, a same-file variable
  *    holding one, a parameter the file's calls hand one (by the type of what each call gives it,
- *    whatever the parameter's own type), a figure field (a field the app's API types declare as a
- *    change's display, a filing's excerpt or a citation's section_ref: a string the server or the
- *    model writes a figure into, read off the object, held, destructured or handed to a parameter),
+ *    whatever the parameter's own type), a figure field (a field the app's API types declare that
+ *    the server or the model writes a figure into: a formatted figure, a date or a period, or the
+ *    text written about the filing, read off the object, held, destructured or handed to a parameter,
+ *    and an element of one that holds an array, indexed, destructured, looped over or mapped),
  *    or what a callback or a same-file function returns, through conditionals, `||`, `??`, the
  *    right of `&&` (and its left when that can be a number, which renders a 0) and JSX branches; a
  *    comparison is a boolean and renders nothing. A citation whose bracket is its whole text
@@ -104,8 +105,8 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    is held as well as its verdict on the app; and a walk the gate asks of a callee that outruns
  *    its step budget fails it, naming the call, rather than hang the suite. Out of a source scan's
  *    reach, and so review-checked (the fixture marks each as a gap): a value held in a string (a
- *    date or an index name computed as text, or a value the server or the model sends as text in a
- *    field other than the figure fields) or written in words; a value bound outside the file's own
+ *    date or an index name computed as text, a figure field copied into a component's own type, or
+ *    one character of a figure field's text) or written in words; a value bound outside the file's own
  *    calls (a component's prop, which JSX binds and the component check reads only for its children
  *    and className, a count control handed as one included, a hook's state, a callback handed
  *    through another function's parameter); a count a component renders in its own ink inside a
@@ -142,9 +143,11 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    hsl() value and an rgb() value in percentages are its gaps. The markdown-link check fails a
  *    link the app hands react-markdown (its `a`) whose own classes rest in sage. A figure field
  *    counts through its own method too (`c.section_ref?.trim()`), but not through one that returns
- *    a boolean, `?.` included; a metric row's change_display and a risk's source_section_ref are
- *    figure fields as well; and lib/serverApi.ts and types/summary.ts declare API types beside
- *    features/<domain>/api/.
+ *    a boolean, `?.` included. lib/serverApi.ts and types/summary.ts declare API types beside
+ *    features/<domain>/api/, and every field they declare that can hold a string, or an array of
+ *    them, is a figure field or a word field (a name, a code, a status line, a URL, or what a person
+ *    types), by its name; a test fails one that is neither, and a field whose literals carry no
+ *    digit is a word by its type. A map over a figure array renders what its callback returns.
  * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
  *    figure or a price, the hero's accent phrases included; the margin (`en-margin`) exists only
  *    inside MarkedCopy, and every MarkedCopy carries at least one marker (`EnRef`).
@@ -1507,17 +1510,90 @@ function accessStep(key: ts.Expression): Step {
   return ts.isNumericLiteral(k) ? Number(k.text) : ts.isStringLiteral(k) || ts.isNoSubstitutionTemplateLiteral(k) ? k.text : null
 }
 
-/** A string the server or the model writes a figure into is a value, named by the field it is read from: a field the
-    app's API types (`features/<domain>/api/`, `lib/serverApi.ts` for the public pages, and `types/summary.ts`, whose
-    types the summaries' API reads) declare as a change's `display` ("+12.3%") or a metric row's `change_display`, a
-    filing's `excerpt`, or a citation's `section_ref` ("Item 7. MD&A") or a risk's `source_section_ref`. It counts
-    however the file reads it: off the object, held in a name, destructured (renamed or not), handed to a parameter, or
-    through its own method or a formatter (`rendersValue`); a same-named field of any other type is not one. */
-const FIGURE_FIELDS = new Set(['display', 'change_display', 'excerpt', 'section_ref', 'source_section_ref'])
+/** A string the server or the model writes a figure into is a value, named by the field it is read from. Every field
+    the app's API types declare that can hold a string (`features/<domain>/api/`, `lib/serverApi.ts` for the public
+    pages, and `types/summary.ts`, whose types the summaries' API reads) is one of two kinds, by its name, and a test
+    below fails a field that is neither (`apiStringFields`):
+    - a figure field (FIGURE_FIELDS): a formatted figure or a growth ("$416.2B", "+12.3%"), a number a reader reads as
+      one (a CIK, an accession number), a date, a period or a key that names one ("FY2025", "2024Q2"), or the text
+      written about the filing, which quotes its figures (an excerpt, a section's name, an answer, a headline);
+    - a word field (WORD_FIELDS): a name (a company, a person, a metric, a concept, a form, a unit), a code the product
+      reads or a status line (a status, a kind, an error), a URL or an opaque id, or the words a person types.
+    A field whose type admits only string literals without a digit (`'up' | 'down'`) names its words and needs no kind,
+    and a name one type writes a figure into is a figure field in every type that declares it a string or an array of
+    them. A figure field counts however the file reads it: off the object, held in a name, destructured (renamed or
+    not), handed to a parameter, or through its own method or a formatter (`rendersValue`), and an array's elements as
+    well (`figureElement`); a same-named field of a type declared elsewhere is not one. */
+const FIGURE_FIELDS = new Set([
+  // Formatted figures, growths (a number, or "nm") and numbers.
+  'display', 'change_display', 'current_period', 'prior_period', 'currentPeriod', 'priorPeriod', 'value', 'arithmetic',
+  'window_pp_range', 'cagr_window', 'yoy', 'qoq', 'n', 'marker', 'markers',
+  // Numbers a reader reads as one.
+  'accession', 'accession_no', 'accession_number', 'superseded_by_accession', 'cik', 'sic', 'dataset_version',
+  // Dates, periods and the keys that name them.
+  'as_of', 'created_at', 'current_period_end', 'data_as_of', 'earnings_date', 'end_period', 'enddt', 'event_date',
+  'expires_at', 'filed_date', 'filingDate', 'filing_date', 'fiscal_period', 'key', 'last_transaction_date', 'linked_at',
+  'month', 'period', 'period_end', 'period_end_date', 'period_ending', 'period_key', 'periods', 'report_date', 'start_period',
+  'startdt', 'summary_created_at', 'summary_updated_at', 'synced_at', 'timestamp', 'transaction_date', 'trial_end',
+  'used_at', 'week_end', 'week_start',
+  // The text written about the filing, which quotes its figures, a table's or a list's included.
+  'excerpt', 'section_ref', 'source_section_ref', 'answer', 'business_overview', 'commentary', 'comparison_basis',
+  'content', 'coverage_reason', 'description', 'detail', 'followups', 'headers', 'headline', 'items', 'key_changes',
+  'management_discussion', 'markdownContent', 'narrative', 'new', 'notes', 'resolved', 'rows', 'source', 'summary',
+  'supporting_evidence', 'text', 'title',
+])
+const WORD_FIELDS = new Set([
+  // Names.
+  'name', 'company', 'companyName', 'company_name', 'full_name', 'insider_name', 'insider_title', 'speaker', 'ticker',
+  'metric', 'label', 'reason_label', 'concept', 'concepts', 'xbrl_concept', 'raw_tag', 'form', 'forms', 'filing_type',
+  'filingType', 'unit', 'currency', 'reporting_currency', 'exchange', 'cohort', 'provider', 'transaction_label', 'universe',
+  // Codes the product reads, and its status lines.
+  'acquired_disposed', 'channel', 'code', 'coverage_status', 'digest', 'entryPoint', 'error', 'fallback_reason', 'id',
+  'kind', 'plan', 'qualityTier', 'reason', 'reasons', 'referral_code', 'role', 'stage', 'status', 'subscription_status',
+  'summary_status', 'tier', 'time', 'tone', 'transaction_code', 'type', 'writer_error',
+  // URLs and opaque ids.
+  'document', 'document_url', 'fragment_url', 'invite_link', 'pageUrl', 'page_url', 'referral_link', 'secUrl', 'sec_url',
+  'source_url', 'url', 'snapshot_id', 'stripe_customer_id', 'stripe_subscription_id',
+  // The words a person types.
+  'email', 'provider_email', 'user_email', 'message', 'subject', 'q', 'query', 'honeypot',
+])
 const API_MODULES = /[\\/]features[\\/][^\\/]+[\\/]api[\\/]|[\\/]lib[\\/]serverApi\.ts$|[\\/]types[\\/]summary\.ts$/
+/** Whether a type admits only string literals without a digit, null and undefined aside (`'up' | 'down'`): its words. */
+function literalWords(t: ts.Type): boolean {
+  const members = (t.isUnion() ? t.types : [t]).filter((u) => !(u.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)))
+  return members.length > 0 && members.every((u) => u.isStringLiteral() && !/\d/.test(u.value))
+}
+/** Whether a type can hold a string, or an array (of arrays) of them. */
+function holdsStrings(t: ts.Type): boolean {
+  return (t.isUnion() ? t.types : [t]).some((u) => {
+    if (u.flags & ts.TypeFlags.StringLike) return true
+    const member = CHECKER.isArrayType(u) || CHECKER.isTupleType(u) ? CHECKER.getIndexTypeOfType(u, ts.IndexKind.Number) : undefined
+    return !!member && holdsStrings(member)
+  })
+}
 const figureSymbol = (symbol: ts.Symbol | undefined) =>
-  !!symbol && FIGURE_FIELDS.has(symbol.name) && (symbol.declarations ?? []).some((d) => API_MODULES.test(d.getSourceFile().fileName))
-function figureField(e: ts.Expression): boolean {
+  !!symbol && FIGURE_FIELDS.has(symbol.name)
+  && (symbol.declarations ?? []).some((d) => API_MODULES.test(d.getSourceFile().fileName) && holdsStrings(CHECKER.getTypeAtLocation(d)))
+/** Every field the app's API types declare that can hold a string (`holdsStrings`), by name, and whether every
+    declaration of it admits only string literals without a digit (`literalWords`), which name their words and need no
+    kind. */
+function apiStringFields(): Map<string, boolean> {
+  const fields = new Map<string, boolean>()
+  for (const sf of PROGRAM.getSourceFiles()) {
+    if (sf.isDeclarationFile || !API_MODULES.test(sf.fileName)) continue
+    visit(sf, (n) => {
+      if (!(ts.isPropertySignature(n) || ts.isPropertyDeclaration(n))) return
+      const name = keyOf(n.name)
+      const type = CHECKER.getTypeAtLocation(n)
+      if (typeof name !== 'string' || !holdsStrings(type)) return
+      fields.set(name, (fields.get(name) ?? true) && literalWords(type))
+    })
+  }
+  return fields
+}
+/** Whether an expression reads a figure field, or an element of one that holds an array (`figureElement`). */
+const figureField = (e: ts.Expression): boolean => namesFigureField(e) || figureElement(e, [], new Set())
+function namesFigureField(e: ts.Expression): boolean {
   const x = unwrap(e)
   const name = ts.isPropertyAccessExpression(x) ? x.name
     : ts.isElementAccessExpression(x) && ts.isStringLiteralLike(x.argumentExpression) ? x.argumentExpression
@@ -1531,6 +1607,49 @@ function figureField(e: ts.Expression): boolean {
     return !!text && figureSymbol(CHECKER.getPropertyOfType(CHECKER.getTypeAtLocation(declaration.parent), text))
   }
   return figureSymbol(symbol)
+}
+/** Whether an expression reads an element of a figure field that holds an array (a table's `rows`, a list's `items`),
+    each step an index into an array, through the file's bindings: indexed (`block.rows[0][1]`), destructured (`const
+    [first] = block.items`), looped over (`for (const item of block.items)`) or mapped (`block.rows.map((r) => r.map((c)
+    => …))`), as the walk reads a number array's members; through a conditional, `??` or `||` too. */
+function figureElement(e: ts.Expression, steps: Step[], seen: Set<ts.Node>): boolean {
+  return branches(e).some((v) => {
+    const x = unwrap(v)
+    if (seen.has(x)) return false
+    seen.add(x)
+    if (steps.length && namesFigureField(x)) return indexesArrays(CHECKER.getTypeAtLocation(x), steps)
+    if (ts.isElementAccessExpression(x)) {
+      const step = accessStep(x.argumentExpression)
+      return typeof step !== 'string' && figureElement(x.expression, [step, ...steps], seen)
+    }
+    if (!ts.isIdentifier(x)) return false
+    const { declaration, steps: path } = bindingOf(CHECKER.getSymbolAtLocation(x), steps)
+    if (!declaration || declaration.getSourceFile() !== x.getSourceFile()) return false
+    if (ts.isVariableDeclaration(declaration)) {
+      // A for…of variable holds the array's members.
+      const loop = declaration.parent.parent
+      if (ts.isForOfStatement(loop)) return figureElement(loop.expression, [null, ...path], seen)
+      return variableValues(declaration).some((held) => figureElement(held.value, [...held.steps, ...path], seen))
+    }
+    if (!ts.isParameter(declaration) || declaration.dotDotDotToken) return false
+    const at = declaration.parent.parameters.indexOf(declaration)
+    return sitesOf(declaration.parent).some((site) => {
+      if (site.members) return site.at === at && figureElement(site.members, [null, ...path], seen)
+      const arg = site.args?.[at]
+      return !!arg && !ts.isSpreadElement(arg) && figureElement(arg, path, seen)
+    })
+  })
+}
+/** Whether every step indexes an array: an element of a figure field's array is a figure, a character of its string
+    is not (`valueType`). */
+function indexesArrays(t: ts.Type, steps: Step[]): boolean {
+  let type: ts.Type | undefined = t
+  for (const step of steps) {
+    const whole: ts.Type | undefined = type && CHECKER.getNonNullableType(type)
+    if (typeof step === 'string' || !whole || !(CHECKER.isArrayType(whole) || CHECKER.isTupleType(whole))) return false
+    type = CHECKER.getIndexTypeOfType(whole, ts.IndexKind.Number)
+  }
+  return true
 }
 
 /** Whether a type, walked through the steps of a destructuring or a field read, is a number or an array of them, or
@@ -1607,10 +1726,12 @@ function rendersValue(e: ts.Expression, sf: ts.SourceFile, depth = 0): boolean {
     // member through `at` or `find`).
     if (isNumberTyped(x)) return true
     if (ts.isPropertyAccessExpression(x.expression) && isNumberTyped(x.expression.expression)) return true
-    // A figure field's own method returns its words (`c.section_ref?.trim()`), and a formatter fed one renders them
-    // (`String(c.excerpt)`), unless the call returns a boolean, which renders nothing.
+    // A figure field's own method returns its words (`c.section_ref?.trim()`, `block.items.join(', ')`), and a formatter
+    // fed one renders them (`String(c.excerpt)`), unless the call returns a boolean, which renders nothing; a map over
+    // a figure array renders what its callback returns, read below.
     const words = !(CHECKER.getNonNullableType(CHECKER.getTypeAtLocation(x)).flags & ts.TypeFlags.BooleanLike)
-    if (words && ts.isPropertyAccessExpression(x.expression) && figureField(x.expression.expression)) return true
+    if (words && ts.isPropertyAccessExpression(x.expression) && !['map', 'flatMap'].includes(x.expression.name.text)
+      && figureField(x.expression.expression)) return true
     if (method(x, JOINS) && rendersValue(x.expression.expression, sf, depth + 1)) return true
     if (renderedFunctions(x).some((fn) => returnedExpressions(fn).some((r) => rendersValue(r, sf, depth + 1)))) return true
     if (literalExpressions(x, sf).some((v) => v !== x && !asWritten(v) && rendersValue(v, sf, depth + 1))) return true
@@ -2188,6 +2309,14 @@ describe('brand rule 2: sage never colours a number', () => {
   it('nothing the app renders in sage ink at rest carries a digit or a value', () => {
     expect(inApp(sageValues), 'set the number in the ink (text-text-primary / secondary); sage signals brand and activity').toEqual([])
   }, 20_000)
+
+  it('every field the API types declare that can hold a string is a figure field or a word field', () => {
+    const fields = apiStringFields()
+    const unclassified = [...fields].filter(([name, words]) => !words && !FIGURE_FIELDS.has(name) && !WORD_FIELDS.has(name)).map(([name]) => name)
+    const twice = [...FIGURE_FIELDS].filter((name) => WORD_FIELDS.has(name))
+    const stale = [...FIGURE_FIELDS, ...WORD_FIELDS].filter((name) => !fields.has(name))
+    expect({ unclassified, twice, stale }, 'a figure field when the server or the model writes a figure into it, else a word field (FIGURE_FIELDS, WORD_FIELDS)').toEqual({ unclassified: [], twice: [], stale: [] })
+  })
 
   it('no control that rests in sage holds its count in an ink of its own (the count control)', () => {
     expect(inApp(heldValues), 'rest the whole label in the ink, sage under the pointer (the count control, frontend/DESIGN_SYSTEM.md)').toEqual([])
