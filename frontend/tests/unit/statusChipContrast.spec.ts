@@ -31,8 +31,10 @@ import { STATUS_CHIP, STATUS_CHIP_INK, type StatusChipTone } from '@/features/ad
  * the chip's ground, composited over the row. Both status badges are then held to that recipe, status by
  * status, and FeedbackTypeBadge, the chip beside FeedbackRow's status chip, is measured as it renders on
  * that row's grounds. A text- colour this spec cannot resolve fails, and so does a bg- or text- arbitrary
- * value (`bg-[...]`) that looks like a colour and is not a hex or rgb() it can read; a plain unknown token
- * name is skipped, since Tailwind emits no CSS for it either.
+ * value (`bg-[...]`) that looks like a colour and is not a hex or rgb() it can read, or a chip's text- or
+ * bg- colour under the important modifier, which this spec does not rank against the plain ones. A plain
+ * unknown token name is skipped, since Tailwind emits no CSS for it either, and an arbitrary property
+ * (`[background-color:...]`) is out of reach too.
  */
 const require = createRequire(import.meta.url)
 const flattenColorPalette = (require('tailwindcss/lib/util/flattenColorPalette') as { default: (c: unknown) => Record<string, string> }).default
@@ -145,11 +147,12 @@ function chipLayers(source: string, file: string, chips: string[], failures: str
     visit(sf)
     if (found.length === 0) failures.push(`${file}: no <${chip}>, so this spec cannot read what is behind it`)
     for (const element of found) {
-      // Braces, conditionals and fragments render no box of their own; every element up to the <tr> is a layer.
+      // Braces, conditionals and fragments render no box of their own; every element up to the <tr> is a layer,
+      // a self-closing one that takes the chip in a prop (`<Cell render={<Chip />} />`) included.
       let up: ts.Node | undefined = element.parent
       for (; up && !isRow(up); up = up.parent) {
-        if (!ts.isJsxElement(up)) continue
-        const opening = up.openingElement
+        const opening = ts.isJsxElement(up) ? up.openingElement : ts.isJsxSelfClosingElement(up) ? up : undefined
+        if (!opening) continue
         const where = `${at(up)} <${opening.tagName.getText(sf)}>, between <${chip}> and its <tr>`
         if (!ts.isIdentifier(opening.tagName) || !/^[a-z]/.test(opening.tagName.text)) {
           failures.push(`${where}: a component, and this spec does not read what it renders`)
@@ -257,14 +260,13 @@ function chipColours(className: string, theme: Theme) {
     const utility = parts.pop()!
     const variants = parts.join(':')
     if (variants !== (theme === 'dark' ? 'dark' : '')) continue
-    const m = utility.match(/^(text|bg)-(.+)$/)
+    // A colour under the important modifier is refused like one it cannot read: in the browser it outranks
+    // the plain ones, and this spec does not rank it.
+    const m = utility.match(/^(!?)(text|bg)-(.+)$/)
     if (!m) continue
-    const value = colour(m[2])
-    if (!value) {
-      if (looksLikeColour(m[2])) found.unread.push(cls)
-      continue
-    }
-    found[m[1] as 'text' | 'bg'] = value
+    const value = colour(m[3])
+    if (value && !m[1]) found[m[2] as 'text' | 'bg'] = value
+    else if (value || looksLikeColour(m[3])) found.unread.push(cls)
   }
   return found
 }
@@ -362,7 +364,13 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
     const unread: string[] = []
     measure('probe', 'bg-[hsl(224,76%,48%)] text-info-text dark:text-info-dark', panel, unread)
     expect(unread).toContain('probe (light): bg-[hsl(224,76%,48%)] looks like a colour this spec cannot resolve')
-    expect(chipColours('bg-[url(/x.png)] bg-white text-info-text', 'light').unread).toEqual([])
+    // The fourth review's probe: a chip colour under the important modifier, ground or ink, is refused rather
+    // than measured as if it were absent; an important utility that is not a colour is left alone.
+    const important: string[] = []
+    measure('probe', '!bg-[rgb(29,78,216)] text-info-text dark:text-info-dark', panel, important)
+    expect(important).toEqual(['probe (light): !bg-[rgb(29,78,216)] looks like a colour this spec cannot resolve'])
+    expect(chipColours('text-info-text dark:!text-info-dark', 'dark').unread).toEqual(['dark:!text-info-dark'])
+    expect(chipColours('bg-[url(/x.png)] !text-xs bg-white text-info-text', 'light').unread).toEqual([])
   })
 
   it('reads the row tint and the tbody ground it is given, and fails on one it cannot find', () => {
@@ -400,18 +408,20 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
   it('reads every layer between a chip and its row, and fails on a background there or a layer it cannot read', () => {
     // The rows' own: InviteRow's status cell, FeedbackRow's type cell, and its status cell and the wrapper inside it.
     expect(LAYERS).toHaveLength(4)
-    // The third review's mutation, a dark fill on a chip's cell, and hover fills on a wrapper inside one.
+    // The third review's mutation, a dark fill on a chip's cell, and hover fills on a wrapper inside one; the
+    // fourth review's chip in a self-closing component's prop.
     const probe = [
       '<tr className="hover:bg-background-light">',
       '  <td className="px-4 dark:bg-white/5"><Chip /></td>',
       '  <td><div className="flex hover:!bg-black/5 dark:hover:bg-white/10"><>{open && <Chip />}</></div></td>',
       '  <td className={cx("px-4")}><Chip /></td>',
       '  <td {...cell}><Tooltip><Chip /></Tooltip></td>',
+      '  <td><Cell render={<Chip />} /></td>',
       '</tr>',
       'const lone = <span><Chip /></span>',
     ].join('\n')
     const lost: string[] = []
-    expect(chipLayers(probe, 'probe.tsx', ['Chip', 'Badge'], lost)).toEqual(['probe.tsx:2 <td>', 'probe.tsx:3 <div>', 'probe.tsx:3 <td>', 'probe.tsx:7 <span>'])
+    expect(chipLayers(probe, 'probe.tsx', ['Chip', 'Badge'], lost)).toEqual(['probe.tsx:2 <td>', 'probe.tsx:3 <div>', 'probe.tsx:3 <td>', 'probe.tsx:6 <td>', 'probe.tsx:8 <span>'])
     expect(lost).toEqual([
       'probe.tsx:2 <td>, between <Chip> and its <tr>: dark:bg-white/5 sets a background this spec does not model',
       'probe.tsx:3 <div>, between <Chip> and its <tr>: hover:!bg-black/5 sets a background this spec does not model',
@@ -419,7 +429,8 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
       'probe.tsx:4 <td>, between <Chip> and its <tr>: no className string this spec can read',
       'probe.tsx:5 <Tooltip>, between <Chip> and its <tr>: a component, and this spec does not read what it renders',
       'probe.tsx:5 <td>, between <Chip> and its <tr>: no className string this spec can read',
-      'probe.tsx:7 <Chip>: no <tr> above it, so this spec cannot read what is behind it',
+      'probe.tsx:6 <Cell>, between <Chip> and its <tr>: a component, and this spec does not read what it renders',
+      'probe.tsx:8 <Chip>: no <tr> above it, so this spec cannot read what is behind it',
       'probe.tsx: no <Badge>, so this spec cannot read what is behind it',
     ])
   })

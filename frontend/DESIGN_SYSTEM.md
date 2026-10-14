@@ -428,7 +428,7 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  Gate: tests/unit/statusChipContrast.spec.ts (each tone on both tables' rows, at rest and
                  hovered, both themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the
                  pages' <tbody>; every layer between a chip and its <tr> read too, and a cell or wrapper
-                 there that sets a background fails; both badges held to the recipe; the type chip
+                 there carrying a bg- class fails; both badges held to the recipe; the type chip
                  measured as it renders on FeedbackRow's grounds).
 
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
