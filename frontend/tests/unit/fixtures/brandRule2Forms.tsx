@@ -1123,6 +1123,13 @@ export function P587({ n }: { n: number }) { return <a href="/x"><Dark587>See al
 // declaration met again at other steps on a sibling branch (P757); a tuple reordered in place (P761), and one typed as
 // writable and never written, read by its length (P768); a helper's pattern handed a style map beside a call handing it
 // the props (P764); and a spread of sources without the props (P765).
+// Codex's review of `0e223cb`: a const array is opened by its elements while the file never writes into it nor
+// reorders it in place, whatever its type, so a tuple's members keep their places (P775), an array's too (P777), and
+// Object.assign's spread sources their order, the last winning (P776); one written onto by Object.assign (P774) or
+// reordered by a shift (P778), as by the reverse before (P761), is laid out by its members. P654's spread now has a
+// length the file decides at run time, so its last member stays one a spread could fill.
+// A spread the file writes into keeps both readings: Object.assign's sources pushed into it hand the props (P779),
+// and an array pushed into, spread after a first argument, cannot reach the first place (P780).
 function Tally588({ n, className: cls }: { n: number; className?: string }) { return <span className={cls}>See all {n}</span> }
 export function P588({ n }: { n: number }) { return <a href="/x"><Tally588 n={n} className="hover:text-brand-strong" /></a> } // flag
 function Tally589({ n, className }: { n: number; className?: string }) { const cls = className; return <span className={cx(cls, 'font-medium')}>See all {n}</span> }
@@ -1274,7 +1281,7 @@ export function P652({ n }: { n: number }) { return <a href="/x"><Tally652 n={n}
 function last653(_head: string | undefined, ...parts: Array<string | undefined>) { return parts.at(-1) }
 function Tally653(props: { n: number; className?: string }) { return <span className={last653(props.className)}>See all {props.n}</span> }
 export function P653({ n }: { n: number }) { return <a href="/x"><Tally653 n={n} className="hover:text-brand-strong" /></a> } // clean
-function Tally654(props: { n: number; className?: string }) { const more: string[] = []; return <span className={last653(...more, props.className)}>See all {props.n}</span> }
+function Tally654(props: { n: number; className?: string }) { const more: string[] = props.n > 0 ? ['font-semibold'] : []; return <span className={last653(...more, props.className)}>See all {props.n}</span> }
 export function P654({ n }: { n: number }) { return <a href="/x"><Tally654 n={n} className="hover:text-brand-strong" /></a> } // flag
 function pass655(className?: string, _tail?: unknown) { return className }
 function Tally655(props: { n: number; className?: string }) { return <span className={pass655(...MORE649, props.className)}>See all {props.n}</span> }
@@ -1526,3 +1533,17 @@ function Tally772(props: { n: number; className?: string }) { void wrap758(props
 export function P772({ n }: { n: number }) { return <a href="/x"><Tally772 n={n} className="hover:text-brand-strong" /></a> } // clean
 function Tally773(props: { n: number; className?: string }) { void pick769(props); return <span className={pick769(THEME592)}>See all {props.n}</span> }
 export function P773({ n }: { n: number }) { return <a href="/x"><Tally773 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Tally774(props: { n: number; className?: string }) { const prefix = ['font-medium'] as const; Object.assign(prefix, [props.className]); return <span className={first691(...prefix)}>See all {props.n}</span> }
+export function P774({ n }: { n: number }) { return <a href="/x"><Tally774 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally775(props: { n: number; className?: string }) { const parts: [string, string | undefined] = ['font-medium', props.className]; return <span className={first691(...parts)}>See all {props.n}</span> }
+export function P775({ n }: { n: number }) { return <a href="/x"><Tally775 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Tally776(props: { n: number; className?: string }) { const sources = [props, THEME592]; return <span className={Object.assign({}, ...sources).className}>See all {props.n}</span> }
+export function P776({ n }: { n: number }) { return <a href="/x"><Tally776 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Tally777(props: { n: number; className?: string }) { const parts: Array<string | undefined> = ['font-medium', props.className]; return <span className={first691(...parts)}>See all {props.n}</span> }
+export function P777({ n }: { n: number }) { return <a href="/x"><Tally777 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Tally778(props: { n: number; className?: string }) { const parts: Array<string | undefined> = ['font-medium', props.className]; parts.shift(); return <span className={first691(...parts)}>See all {props.n}</span> }
+export function P778({ n }: { n: number }) { return <a href="/x"><Tally778 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally779(props: { n: number; className?: string }) { const sources: Array<{ className?: string }> = [THEME592]; sources.push(props); return <span className={Object.assign({}, ...sources).className}>See all {props.n}</span> }
+export function P779({ n }: { n: number }) { return <a href="/x"><Tally779 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally780(props: { n: number; className?: string }) { const parts: Array<string | undefined> = []; parts.push(props.className); return <span className={first691('font-medium', ...parts)}>See all {props.n}</span> }
+export function P780({ n }: { n: number }) { return <a href="/x"><Tally780 n={n} className="hover:text-brand-strong" /></a> } // clean
