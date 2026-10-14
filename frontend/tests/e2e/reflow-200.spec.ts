@@ -168,6 +168,14 @@ const rows = (header: Locator) =>
     return { height: Math.round(el.getBoundingClientRect().height), oneRow: Math.ceil(oneRow), tallest: Math.round(tallest), tops }
   })
 
+/** The one-row threshold: the header's measured height at most one row's worth (above), with a pixel
+    for rounding. A second row adds at least a 44px control and the bar's 0.5rem row gap, so the margin
+    cannot hide one. */
+async function expectOneRow(header: Locator, at: string) {
+  const r = await rows(header)
+  expect(r.height, `${at}: the site header is one row, ${r.height}px against one row's worth ${r.oneRow}px (its tallest item ${r.tallest}px; item tops ${r.tops.join(', ')}px)`).toBeLessThanOrEqual(r.oneRow + 1)
+}
+
 const why = ({ scrollWidth, clientWidth, widest }: Overflow) =>
   `scrollWidth ${scrollWidth}px against clientWidth ${clientWidth}px; past the edge: ${widest.join('; ') || 'nothing outside a clipping box'}`
 
@@ -232,16 +240,14 @@ for (const route of ROUTES) {
     const atDefault = await measure(page)
     expect(atDefault.scrollWidth, `${route.path} at the default text size: ${why(atDefault)}`).toBeLessThanOrEqual(atDefault.clientWidth)
     expect(await collisions(route.bar(page)), `${route.path} at the default text size: the bar's controls`).toEqual([])
+    if (route.oneRow) await expectOneRow(route.bar(page), `${route.path} at the default text size`)
 
     await doubleText(page)
 
     const enlarged = await measure(page)
     expect(enlarged.scrollWidth, `${route.path} at 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
     expect(await collisions(route.bar(page)), `${route.path} at 200% text: the bar's controls`).toEqual([])
-    if (route.oneRow) {
-      const header = await rows(route.bar(page))
-      expect(header.height, `${route.path} at 200% text: the site header is one row, ${header.height}px against one row's worth ${header.oneRow}px (its tallest item ${header.tallest}px; item tops ${header.tops.join(', ')}px)`).toBeLessThanOrEqual(header.oneRow + 1)
-    }
+    if (route.oneRow) await expectOneRow(route.bar(page), `${route.path} at 200% text`)
   })
 }
 
