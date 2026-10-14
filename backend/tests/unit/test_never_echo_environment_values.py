@@ -1402,12 +1402,14 @@ def test_sentry_withholds_no_value_shorter_than_eight_characters(monkeypatch, re
 
 
 def _capture_every_structure(caplog) -> None:
-    """One capture of the structures the SDK builds under main's options, on every channel, as far as the design checks
-    of #1297 read the SDK (2.71.0): an error with a chained exception (its frames and mechanism), an exception group
-    (its mechanism's links), a log record with its thread's stack, breadcrumbs from a log line and by hand, a user, a
-    request that continues a trace and a log entry; transactions with nested spans, a database query, an outbound HTTP
-    call and an error after it in the trace it heads, a gen-AI span and a response status; a check-in with its monitor
-    config (the SDK's MonitorConfig fields, written out here by hand); a log; a counter and a distribution."""
+    """One capture of the structures the SDK builds under main's options, on every channel, as far as the design and
+    delta checks of #1297 read the SDK (2.71.0): an error with a chained exception (its frames and mechanism), an
+    exception group (its mechanism's links), a log record with its thread's stack, breadcrumbs from a log line and by
+    hand, a user, a request that continues a trace and a log entry; then, past max_breadcrumbs (the SDK's length note),
+    transactions with nested spans, a database query, an outbound HTTP call and an error after it inside the
+    transaction heading its trace, a gen-AI span and a response status; check-ins inside the request, inside a span and
+    with a monitor config (the SDK's MonitorConfig fields, written out here by hand); a log; a counter and a
+    distribution."""
     import sentry_sdk
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -1438,6 +1440,7 @@ def _capture_every_structure(caplog) -> None:
 
     @app.post("/notes/{note}")
     async def notes(note: str, body: dict):
+        capture_checkin(monitor_slug="notes", status="in_progress")  # in a request that continues a trace
         raise RuntimeError("database down")
 
     # A request that continues a trace: the SDK copies the incoming baggage's items into the dynamic sampling context.
@@ -1446,17 +1449,20 @@ def _capture_every_structure(caplog) -> None:
     TestClient(app, raise_server_exceptions=False).post(
         "/notes/1", params={"q": "x"}, json={"note": "x"}, headers=trace
     )
+    for _ in range(101):  # past max_breadcrumbs: a later transaction or check-in carries the SDK's length note
+        sentry_sdk.add_breadcrumb(category="job", message="step")
     engine = create_engine("sqlite://")
     with sentry_sdk.start_transaction(name="job", op="task") as transaction:
         transaction.set_http_status(500)
         with sentry_sdk.start_span(op="job.step", name="step"), sentry_sdk.start_span(op="job.query", name="query"):
             with engine.connect() as connection:
                 connection.execute(text("select 1"))
+            capture_checkin(monitor_slug="nightly", status="in_progress")  # inside a span: its trace context
     with sentry_sdk.start_transaction(name="chat", op="ai"), sentry_sdk.start_span(op="gen_ai.chat", name="chat"):
         pass  # a gen-AI span, which the SDK splits out of its transaction after the hook
     with sentry_sdk.start_transaction(name="fetch", op="fetch"):  # an outbound call: its span and breadcrumb
         httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200))).get("https://api.invalid/x")
-        sentry_sdk.capture_message("fetch failed")  # an error in a trace it heads, after an outbound call
+        sentry_sdk.capture_message("fetch failed")  # inside the transaction heading its trace, after a call
     capture_checkin(
         monitor_slug="nightly",
         status="ok",
@@ -1482,7 +1488,7 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request, 
     # check) renamed the event's own `event_id`, which the SDK reads after the hook, so the capture raised; one equal to
     # a key below it (parent_span_id) renamed that key in each child span. Every key at one of the protocol's own paths
     # for its item's kind and an item's `type` stay as they are (main._PROTOCOL_PATHS, main._ITEM_TYPES): errors,
-    # transactions, a check-in, a log and a metric are each sent, as their own kind and whole, the trace header keeps
+    # transactions, check-ins, a log and a metric are each sent, as their own kind and whole, the trace header keeps
     # its sample rate, and a gen-AI span, which the SDK splits out after the hook, keeps its keys.
     words = {
         "IP_HASH_SALT": "event_id",
@@ -1504,8 +1510,8 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request, 
     envelopes = _scrubbing_envelopes(request, monkeypatch, **words)
     _capture_every_structure(caplog)
     assert not [lost for lost in _of(envelopes, "lost") if lost[0] == "callback_error"]
-    events, transactions, (checkin,) = (_of(envelopes, kind) for kind in ("event", "transaction", "check_in"))
-    assert all("event_id" in event for event in events) and checkin["type"] == "check_in"
+    events, transactions, checkins = (_of(envelopes, kind) for kind in ("event", "transaction", "check_in"))
+    assert all("event_id" in event for event in events) and [item["type"] for item in checkins] == ["check_in"] * 3
     frames = [
         frame
         for event in events
@@ -1519,6 +1525,7 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request, 
     assert job["type"] == "transaction" and {"event_id", "start_timestamp", "timestamp", "transaction"} <= job.keys()
     assert "trace_id" in job["contexts"]["trace"] and len(job["spans"]) == 3
     assert all({"parent_span_id", "start_timestamp", "timestamp", "trace_id"} <= span.keys() for span in job["spans"])
+    (checkin,) = [item for item in checkins if "monitor_config" in item]
     assert {"schedule", "timezone", "checkin_margin"} <= checkin["monitor_config"].keys()
     traces = [headers["trace"] for kind, headers in envelopes if kind == "headers" and "trace" in headers]
     assert traces and all("sample_rate" in trace and "trace_id" in trace for trace in traces)
@@ -1790,7 +1797,8 @@ def test_each_kind_of_event_keeps_only_its_own_kinds_keys(monkeypatch, request):
     # Weak secrets equal to a key only an error's paths hold (`fingerprint`), one only a transaction's hold
     # (`start_timestamp`), one only a check-in's hold (`check_in_id`) and one only a log's and a metric's hold
     # (`attributes`), written where the item lacks them by an event processor (into an error and a transaction; the
-    # SDK runs none on a check-in) and by hand (a check-in): each item keeps only its own kind's.
+    # SDK runs none on a check-in) and by hand (a check-in): each item keeps only its own kind's. A log or a metric
+    # has no such case: the SDK builds both with fixed top-level keys and runs nothing on them before their hooks.
     import sentry_sdk
 
     words = {

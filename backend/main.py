@@ -57,19 +57,21 @@ def _secret_values() -> tuple[str, ...]:
 # Where the protocol puts its own keys, by item kind: the path of each key of _MIN_SECRET_LENGTH characters or more,
 # from an item's top through the keys above it (a list's items share the list's path), as the SDK builds each kind under
 # main's options: an error (its exceptions, their mechanisms and frames, its threads' frames, breadcrumbs and the
-# serializer's `_meta` note on them, log entry, request and user, and the dynamic sampling context of a trace it heads,
-# which names the transaction), a transaction (its spans, request, user and response context), a check-in (its monitor
-# config), a log and a metric, each with the SDK info, the trace context's keys and its dynamic sampling context's where
-# it carries them, and the names the SDK fills from its API or a request's incoming trace (an event's `fingerprint`; the
-# replay fields an incoming baggage header carries into the dynamic sampling context). The value scrubber keeps a key
-# only at one of its item kind's paths, so a weak secret equal to one of their words (or inside one) leaves the item's
-# structure whole and the SDK finds the keys it reads after the hook (an event's `event_id`, a log's `attributes`, a
-# profile's `contexts.trace.trace_id`), while the same word anywhere else (in user data, in a context the app set, as a
-# user's own key, in a structure the app nested in the protocol's, at another kind's path: a log's `attributes` written
-# into an error) is scrubbed like any key. A shorter key needs no entry (no secret fits in it), so the lists are
-# complete for that floor, on the structures the gate's capture builds; the gate derives each kind's paths from the
-# SDK's items there and fails on a missing one there or a dead one. Continuous profiling, which main does not configure,
-# would add `contexts.profile.profiler_id`.
+# serializer's `_meta` note on them, log entry, request and user, and the dynamic sampling context of the trace it is
+# captured in, which names the transaction heading that trace), a transaction (its spans, request, user and response
+# context), a check-in (its monitor config, and the trace context of a span it is captured in), a log and a metric, each
+# with the SDK info, the trace context's keys and its dynamic sampling context's where it carries them, and the names
+# the SDK fills from its API or a request's incoming trace (an event's `fingerprint`; the replay fields an incoming
+# baggage header carries into the dynamic sampling context); a transaction or a check-in captured once its scope has
+# dropped breadcrumbs past `max_breadcrumbs` also carries an empty breadcrumbs list and the serializer's `_meta` note on
+# it. The value scrubber keeps a key only at one of its item kind's paths, so a weak secret equal to one of their words
+# (or inside one) leaves the item's structure whole and the SDK finds the keys it reads after the hook (an event's
+# `event_id`, a log's `attributes`, a profile's `contexts.trace.trace_id`), while the same word anywhere else (in user
+# data, in a context the app set, as a user's own key, in a structure the app nested in the protocol's, at another
+# kind's path: a log's `attributes` written into an error) is scrubbed like any key. A shorter key needs no entry (no
+# secret fits in it), so the lists are complete for that floor, on the structures the gate's capture builds; the gate
+# derives each kind's paths from the SDK's items there and fails on a missing one there or a dead one. Continuous
+# profiling, which main does not configure, would add `contexts.profile.profiler_id`.
 _PROTOCOL_PATHS = {
     kind: frozenset(tuple(path.split(".")) for path in paths.split())
     for kind, paths in {
@@ -93,23 +95,28 @@ _PROTOCOL_PATHS = {
         transaction_info user.username
         """,
         "transaction": """
-        contexts contexts.response contexts.response.status_code contexts.trace.description
+        _meta.breadcrumbs breadcrumbs contexts contexts.response contexts.response.status_code
+        contexts.trace.description contexts.trace.dynamic_sampling_context
+        contexts.trace.dynamic_sampling_context.environment contexts.trace.dynamic_sampling_context.public_key
+        contexts.trace.dynamic_sampling_context.replay_id contexts.trace.dynamic_sampling_context.sample_rand
+        contexts.trace.dynamic_sampling_context.sample_rate contexts.trace.dynamic_sampling_context.trace_id
+        contexts.trace.dynamic_sampling_context.transaction contexts.trace.dynamic_sampling_context.user_segment
+        contexts.trace.parent_span_id contexts.trace.trace_id environment event_id measurements platform
+        request.query_string sdk.integrations sdk.packages server_name spans.description spans.parent_span_id
+        spans.same_process_as_parent spans.start_timestamp spans.timestamp spans.trace_id start_timestamp timestamp
+        transaction transaction_info user.username
+        """,
+        "check_in": """
+        _meta.breadcrumbs breadcrumbs check_in_id contexts contexts.trace.description
         contexts.trace.dynamic_sampling_context contexts.trace.dynamic_sampling_context.environment
         contexts.trace.dynamic_sampling_context.public_key contexts.trace.dynamic_sampling_context.replay_id
         contexts.trace.dynamic_sampling_context.sample_rand contexts.trace.dynamic_sampling_context.sample_rate
         contexts.trace.dynamic_sampling_context.trace_id contexts.trace.dynamic_sampling_context.transaction
         contexts.trace.dynamic_sampling_context.user_segment contexts.trace.parent_span_id contexts.trace.trace_id
-        environment event_id measurements platform request.query_string sdk.integrations sdk.packages server_name
-        spans.description spans.parent_span_id spans.same_process_as_parent spans.start_timestamp spans.timestamp
-        spans.trace_id start_timestamp timestamp transaction transaction_info user.username
-        """,
-        "check_in": """
-        check_in_id contexts contexts.trace.dynamic_sampling_context contexts.trace.dynamic_sampling_context.environment
-        contexts.trace.dynamic_sampling_context.public_key contexts.trace.dynamic_sampling_context.sample_rate
-        contexts.trace.dynamic_sampling_context.trace_id contexts.trace.parent_span_id contexts.trace.trace_id duration
-        environment event_id monitor_config monitor_config.checkin_margin monitor_config.failure_issue_threshold
-        monitor_config.max_runtime monitor_config.recovery_threshold monitor_config.schedule monitor_config.timezone
-        monitor_slug platform sdk.integrations sdk.packages server_name timestamp
+        duration environment event_id monitor_config monitor_config.checkin_margin
+        monitor_config.failure_issue_threshold monitor_config.max_runtime monitor_config.recovery_threshold
+        monitor_config.schedule monitor_config.timezone monitor_slug platform sdk.integrations sdk.packages server_name
+        timestamp
         """,
         "log": """
         attributes severity_number severity_text time_unix_nano trace_id
