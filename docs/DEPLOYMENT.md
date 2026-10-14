@@ -245,8 +245,13 @@ The receipt is retained as the `capacity-readout-<run id>` Actions artifact for 
 `logs-probe: logging.read DENIED (rc=N)` followed by
 `logs-probe: failure class <class> (gcloud's error text withheld)` (`permission_denied`, `not_found`,
 `unavailable` or `error (gcloud exit N)`, classified as `describe-service` classifies), then the number
-of `company_upsert_conflict` entries in the last seven days when that read succeeds. It never prints
-gcloud's own error text, which names the acting principal, and never fails the step.
+of `company_upsert_conflict` entries in the last seven days when that read succeeds. Then, for each of
+the four lines `main.py` prints as Sentry starts or does not, it names the revisions (API service and
+task worker) that printed it in the last seven days, with a count:
+`sentry startup (7d) initialized: <revision> x<n> ...`, and likewise `failed`, `dsn-unset` (no
+`SENTRY_DSN`) and `sdk-missing`, or `none`. After a deploy, the new revision should appear under
+`initialized` and nowhere else. It never prints a log line (the failure line can quote an exception)
+or gcloud's own error text, which names the acting principal, and never fails the step.
 
 ### Rollback (when a bad revision is live)
 

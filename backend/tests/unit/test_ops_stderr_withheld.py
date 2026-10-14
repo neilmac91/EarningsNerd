@@ -67,7 +67,34 @@ gcloud logging read 'jsonPayload.event="company_upsert_conflict" OR textPayload:
 if [ $? -eq 0 ]; then
   echo "company_upsert_conflict entries in last 7d: $(python3 -c 'import json;print(len(json.load(open("/tmp/conflicts.json"))))' 2>/dev/null || echo 0)"
 fi
+# Sentry at startup: main.py prints one of four lines as a revision starts. Name the revisions that printed
+# each in the last seven days, with a count; never the line itself, which can quote an exception.
+if gcloud logging read 'resource.type="cloud_run_revision" AND textPayload:"Sentry error tracking initialized"' \\
+    --freshness=7d --limit=500 --format='value(resource.labels.revision_name)' >/tmp/sentry-initialized.txt 2>/dev/null; then
+  echo "sentry startup (7d) initialized:$(sort /tmp/sentry-initialized.txt | uniq -c | awk '{printf " %s x%s", $2, $1} END {if (!NR) printf " none"}')"
+fi
+if gcloud logging read 'resource.type="cloud_run_revision" AND textPayload:"Sentry initialization failed"' \\
+    --freshness=7d --limit=500 --format='value(resource.labels.revision_name)' >/tmp/sentry-failed.txt 2>/dev/null; then
+  echo "sentry startup (7d) failed:$(sort /tmp/sentry-failed.txt | uniq -c | awk '{printf " %s x%s", $2, $1} END {if (!NR) printf " none"}')"
+fi
+if gcloud logging read 'resource.type="cloud_run_revision" AND textPayload:"SENTRY_DSN not configured"' \\
+    --freshness=7d --limit=500 --format='value(resource.labels.revision_name)' >/tmp/sentry-dsn-unset.txt 2>/dev/null; then
+  echo "sentry startup (7d) dsn-unset:$(sort /tmp/sentry-dsn-unset.txt | uniq -c | awk '{printf " %s x%s", $2, $1} END {if (!NR) printf " none"}')"
+fi
+if gcloud logging read 'resource.type="cloud_run_revision" AND textPayload:"Sentry SDK not available"' \\
+    --freshness=7d --limit=500 --format='value(resource.labels.revision_name)' >/tmp/sentry-sdk-missing.txt 2>/dev/null; then
+  echo "sentry startup (7d) sdk-missing:$(sort /tmp/sentry-sdk-missing.txt | uniq -c | awk '{printf " %s x%s", $2, $1} END {if (!NR) printf " none"}')"
+fi
 """
+# The lines main.py prints as Sentry starts, or does not, that the logs-probe step counts by revision.
+SENTRY_LINES = ("Sentry error tracking initialized", "Sentry initialization failed", "SENTRY_DSN not configured",
+                "Sentry SDK not available")
+# What the fake answers for each Sentry read, in SENTRY_LINES order, and the line the step prints for it.
+SENTRY_ANSWERS = ("earningsnerd-backend-00509-zl7\nearningsnerd-task-worker-00059-nh7\nearningsnerd-backend-00509-zl7\n",
+                  "", "", "")
+SENTRY_PRINTED = ["sentry startup (7d) initialized: earningsnerd-backend-00509-zl7 x2 earningsnerd-task-worker-00059-nh7 x1",
+                  "sentry startup (7d) failed: none", "sentry startup (7d) dsn-unset: none",
+                  "sentry startup (7d) sdk-missing: none"]
 # (gcloud's stderr, its exit status, the closed class all three classifiers name), precedence cases included.
 CORPUS = [
     ("ERROR: (gcloud.logging.read) PERMISSION_DENIED: Permission denied for all log views. " + SENTINEL, 1,
@@ -257,10 +284,13 @@ def _probe_answers(stdout, stderr, code):
              "--freshness=15m", "--limit=3", "--format=value(timestamp)"]
     conflicts = ["logging", "read", 'jsonPayload.event="company_upsert_conflict" OR textPayload:"company_upsert_conflict"',
                  "--freshness=7d", "--limit=20", "--format=json"]
+    sentry = [["logging", "read", f'resource.type="cloud_run_revision" AND textPayload:"{line}"', "--freshness=7d",
+               "--limit=500", "--format=value(resource.labels.revision_name)"] for line in SENTRY_LINES]
     answers = {json.dumps(probe): {"stdout": stdout, "stderr": stderr, "rc": code},
                json.dumps(conflicts): {"stdout": '[{"x": 1}, {"x": 2}]', "stderr": "WARNING: " + SENTINEL},
+               **{json.dumps(read): {"stdout": out, "stderr": "WARNING: " + SENTINEL} for read, out in zip(sentry, SENTRY_ANSWERS)},
                "*": {"stderr": "ERROR: unexpected call " + SENTINEL, "rc": 2}}
-    return answers, [probe, conflicts]
+    return answers, [probe, conflicts, *sentry]
 
 
 def _probe(tmp_path, stdout, stderr, code):
@@ -268,7 +298,7 @@ def _probe(tmp_path, stdout, stderr, code):
     run = steps[PROBE_STEP]["run"]
     assert run == PROBE_RUN
     # The step's own /tmp files move into this test's directory; nothing else in the script changes.
-    assert run.count("/tmp/") == 8
+    assert run.count("/tmp/") == 16
     answers, reads = _probe_answers(stdout, stderr, code)
     result, calls = _step_shell(run, tmp_path, answers)
     assert calls == reads and result.returncode == 0 and result.stderr == ""
@@ -279,8 +309,23 @@ def _probe(tmp_path, stdout, stderr, code):
 def test_logs_probe_prints_permitted_reads_and_conflicts_unchanged(tmp_path):
     lines = _probe(tmp_path, "t1\nt2\nt3\n", "WARNING: " + SENTINEL, 0)
     # GNU wc (the runner) prints "3"; BSD wc (a Mac's local gate) pads the count with spaces.
-    assert len(lines) == 2 and re.fullmatch(r"logs-probe: logging\.read PERMITTED \( *3 recent entries visible\)", lines[0])
-    assert lines[1] == "company_upsert_conflict entries in last 7d: 2"
+    assert len(lines) == 6 and re.fullmatch(r"logs-probe: logging\.read PERMITTED \( *3 recent entries visible\)", lines[0])
+    assert lines[1:] == ["company_upsert_conflict entries in last 7d: 2", *SENTRY_PRINTED]
+
+
+def test_logs_probe_counts_the_lines_main_prints_as_sentry_starts():
+    # The probe's Sentry reads name the lines main.py prints as Sentry starts or does not, so a reworded line there
+    # cannot leave the probe counting nothing; each read prints revision names only (the step is pinned above), never
+    # a line, which can quote an exception.
+    tree = ast.parse((ROOT / "backend/main.py").read_text(encoding="utf-8"))
+    printed = [part.value for node in ast.walk(tree)
+               if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "print"
+               for arg in node.args for part in ast.walk(arg)
+               if isinstance(part, ast.Constant) and isinstance(part.value, str)]
+    missing = [line for line in SENTRY_LINES if not any(line in text for text in printed)]
+    assert not missing, f"main.py no longer prints {missing}: update the logs-probe step's Sentry reads with it"
+    for line in SENTRY_LINES:
+        assert f'textPayload:"{line}"' in PROBE_RUN
 
 
 def _policy_class(monkeypatch, capsys, failure, code):
@@ -311,7 +356,7 @@ def test_logs_probe_names_the_class_gcloud_json_names_never_the_text(tmp_path, m
     lines = _probe(tmp_path, "", stderr, code)
     assert lines == [f"logs-probe: logging.read DENIED (rc={code})",
                      f"logs-probe: failure class {klass} (gcloud's error text withheld)",
-                     "company_upsert_conflict entries in last 7d: 2"]
+                     "company_upsert_conflict entries in last 7d: 2", *SENTRY_PRINTED]
     assert _policy_class(monkeypatch, capsys, stderr, code) == klass
 
 
