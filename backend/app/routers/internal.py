@@ -46,7 +46,8 @@ def _require_internal_token(x_internal_token: Optional[str] = Header(None)) -> N
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Internal job endpoints are not configured.",
         )
-    if not x_internal_token or not hmac.compare_digest(x_internal_token, expected):
+    # Bytes, not str: compare_digest raises TypeError on a non-ASCII str, and headers decode as latin-1.
+    if not x_internal_token or not hmac.compare_digest(x_internal_token.encode(), expected.encode()):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid internal token.")
 
 
