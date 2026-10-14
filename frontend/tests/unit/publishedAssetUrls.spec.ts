@@ -36,6 +36,9 @@ const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 const PUBLIC = path.join(FRONTEND, 'public')
 // The origin mail addresses the published paths on (LOGO_README.md › Rules).
 const MAIL_HOST = 'www.earningsnerd.io'
+// The Vercel project's production domains (docs/LAUNCH_CHECKLIST.md › DNS / redirect config): the apex,
+// which redirects to www, and www.
+const PRODUCTION_HOSTS = ['earningsnerd.io', MAIL_HOST]
 // middleware.ts gates every path outside its allow-lists unless WAITLIST_MODE is 'false'.
 const WAITLIST_MODES = ['true', 'false']
 const KEPT = 'is a published URL'
@@ -46,30 +49,83 @@ type LegacyRoute = Route & { headers?: Record<string, string> } & Record<string,
 type NextRoutes = { basePath?: string; redirects: Route[]; rewrites: Route[] | { beforeFiles?: Route[]; afterFiles?: Route[]; fallback?: Route[] } }
 type VercelJson = { build?: { env?: Record<string, string> }; bulkRedirectsPath?: string; redirects?: Route[]; rewrites?: Route[]; routes?: LegacyRoute[] }
 
+// The system variables Vercel copies under `NEXT_PUBLIC_` for a Next.js build
+// (vercel.com/docs/environment-variables/framework-environment-variables).
+const NEXT_PUBLIC_COPIES = [
+  'VERCEL_ENV', 'VERCEL_TARGET_ENV', 'VERCEL_URL', 'VERCEL_BRANCH_URL', 'VERCEL_PROJECT_PRODUCTION_URL',
+  'VERCEL_HASH_SALT', 'VERCEL_GIT_PROVIDER', 'VERCEL_GIT_REPO_SLUG', 'VERCEL_GIT_REPO_OWNER', 'VERCEL_GIT_REPO_ID',
+  'VERCEL_GIT_COMMIT_REF', 'VERCEL_GIT_COMMIT_SHA', 'VERCEL_GIT_COMMIT_MESSAGE', 'VERCEL_GIT_COMMIT_AUTHOR_LOGIN',
+  'VERCEL_GIT_COMMIT_AUTHOR_NAME', 'VERCEL_GIT_PULL_REQUEST_ID',
+]
+
 /**
- * The environment a production build on Vercel runs in, as far as the repository can say: Next's own
- * NODE_ENV (the phase goes to the loader), the system variables Vercel sets on a production build and
- * the `NEXT_PUBLIC_` copies it adds for a Next.js project, and vercel.json's `build.env` (its `env` goes
- * to functions at run time, not to the build). Of the shell's environment it keeps only PATH and HOME.
- * Next's loader still reads frontend/.env* files, as `next build` does; the repository ignores them, so
- * CI and Vercel have none, and a developer's own copy changes the reading on that machine alone. A rule
- * that depends on a value the repository cannot know (a variable set only in the Vercel dashboard, or a
- * deployment's own URL or commit) is review-checked; next.config.js and vercel.json are high-tier files.
+ * The environment a production build on Vercel runs in, as far as the repository can say:
+ * - every system variable Vercel documents as set at build time
+ *   (vercel.com/docs/environment-variables/system-environment-variables), with the `NEXT_PUBLIC_` copies it
+ *   adds for a Next.js project. One takes the value the repository holds (the production branch, the Git
+ *   provider, the repository's owner and name) or, where it holds none (the deployment's URLs and IDs, the
+ *   project's and the repository's IDs, the commit), a representative one, so a rule that asks whether one
+ *   is set is read as Vercel's build reads it. The ones Vercel sets only while a dashboard setting is on
+ *   (Skew Protection, the automation bypass secret, OIDC federation, an Ignored Build Step's
+ *   VERCEL_GIT_PREVIOUS_SHA) are set as if it were, and all of them as if the project's access to system
+ *   variables were on, so a rule that asks whether one is unset is review-checked. VERCEL_REGION is set at
+ *   run time only. VERCEL_PROJECT_PRODUCTION_URL is the project's shortest production custom domain, which
+ *   the dashboard's domains decide, so the routes are read once for each production host;
+ * - vercel.json's `build.env` (its `env` goes to functions at run time, not to the build);
+ * - what vercel.json's buildCommand, `npm run build`, and its script, `next build`, set before the config is
+ *   read: npm's lifecycle variables, Next's NODE_ENV, NEXT_RUNTIME and TURBOPACK, and the command's
+ *   arguments. The build phase itself goes to the loader.
+ * Of the shell's environment it keeps only PATH and HOME. Next's loader still reads frontend/.env* files, as
+ * `next build` does; the repository ignores them, so CI and Vercel have none, and a developer's own copy
+ * changes the reading on that machine alone. A rule that depends on a value the repository cannot know is
+ * review-checked: a variable set only in the Vercel dashboard, one Vercel's builder sets that its reference
+ * does not list, a production build deployed from the CLI (`npm run deploy`), or the exact URL or commit of
+ * a deployment. next.config.js and vercel.json are high-tier files.
  */
-function productionBuildEnv(vercel: VercelJson): NodeJS.ProcessEnv {
-  return {
-    PATH: process.env.PATH,
-    HOME: process.env.HOME,
+function productionBuildEnv(vercel: VercelJson, productionHost: string): NodeJS.ProcessEnv {
+  const system: Record<string, string> = {
     VERCEL: '1',
     CI: '1',
     VERCEL_ENV: 'production',
     VERCEL_TARGET_ENV: 'production',
+    VERCEL_URL: 'earnings-nerd-production.vercel.app',
+    VERCEL_BRANCH_URL: 'earnings-nerd-git-main.vercel.app',
+    VERCEL_PROJECT_PRODUCTION_URL: productionHost,
+    VERCEL_DEPLOYMENT_ID: 'dpl_production',
+    VERCEL_PROJECT_ID: 'prj_production',
+    VERCEL_SKEW_PROTECTION_ENABLED: '1',
+    VERCEL_AUTOMATION_BYPASS_SECRET: 'bypass',
+    VERCEL_OIDC_TOKEN: 'oidc',
+    VERCEL_HASH_SALT: '1',
+    VERCEL_GIT_PROVIDER: 'github',
+    VERCEL_GIT_REPO_SLUG: 'EarningsNerd',
+    VERCEL_GIT_REPO_OWNER: 'neilmac91',
+    VERCEL_GIT_REPO_ID: '1',
     VERCEL_GIT_COMMIT_REF: 'main',
-    NEXT_PUBLIC_VERCEL_ENV: 'production',
-    NEXT_PUBLIC_VERCEL_TARGET_ENV: 'production',
-    NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF: 'main',
+    VERCEL_GIT_COMMIT_SHA: '0'.repeat(40),
+    VERCEL_GIT_PREVIOUS_SHA: 'f'.repeat(40),
+    VERCEL_GIT_COMMIT_MESSAGE: 'A production build',
+    VERCEL_GIT_COMMIT_AUTHOR_LOGIN: 'author',
+    VERCEL_GIT_COMMIT_AUTHOR_NAME: 'Author',
+    // A production build runs on a push to the production branch, which no pull request triggers.
+    VERCEL_GIT_PULL_REQUEST_ID: '',
+  }
+  const copies = NEXT_PUBLIC_COPIES.map((name) => {
+    // The child drops an undefined value without a word, so a misspelled name would copy nothing.
+    if (!(name in system)) throw new Error(`NEXT_PUBLIC_COPIES names ${name}, which the system variables lack`)
+    return [`NEXT_PUBLIC_${name}`, system[name]]
+  })
+  return {
+    PATH: process.env.PATH,
+    HOME: process.env.HOME,
+    ...system,
+    ...Object.fromEntries(copies),
     ...vercel.build?.env,
+    npm_lifecycle_event: 'build',
+    npm_lifecycle_script: 'next build',
     NODE_ENV: 'production',
+    NEXT_RUNTIME: 'nodejs',
+    TURBOPACK: 'auto',
   }
 }
 
@@ -91,10 +147,11 @@ const { PHASE_PRODUCTION_BUILD } = require('next/constants')
 })().catch((error) => { console.error(error); process.exit(1) })
 `
 
-function nextRoutes(vercel: VercelJson): NextRoutes {
-  const out = execFileSync(process.execPath, ['-e', LOAD_NEXT_ROUTES], {
+function nextRoutes(vercel: VercelJson, productionHost: string): NextRoutes {
+  // `node -e code a b` gives the code an argv of [node, a, b], as `next build` sees [node, next, build].
+  const out = execFileSync(process.execPath, ['-e', LOAD_NEXT_ROUTES, path.join(FRONTEND, 'node_modules/.bin/next'), 'build'], {
     cwd: FRONTEND,
-    env: productionBuildEnv(vercel),
+    env: productionBuildEnv(vercel, productionHost),
     encoding: 'utf8',
   })
   const line = out.split('\n').find((l) => l.startsWith('__ROUTES__'))
@@ -118,12 +175,12 @@ function nextRoutes(vercel: VercelJson): NextRoutes {
  * here, so the register refuses them until it reads them.
  */
 const INERT_ROUTE_KEYS = new Set(['src', 'source', 'headers', 'continue', 'has', 'missing', 'methods', 'caseSensitive'])
-function routing(): { basePath: string; bulkRedirectsPath?: string; rules: [string, Route][] } {
+function routing(): { basePaths: [string, string][]; bulkRedirectsPath?: string; rules: [string, Route][] } {
   const vercel: VercelJson = JSON.parse(readFileSync(path.join(FRONTEND, 'vercel.json'), 'utf8'))
-  const next = nextRoutes(vercel)
-  const rewritten = Array.isArray(next.rewrites)
-    ? next.rewrites
-    : [...(next.rewrites.beforeFiles ?? []), ...(next.rewrites.afterFiles ?? []), ...(next.rewrites.fallback ?? [])]
+  const builds = PRODUCTION_HOSTS.map((host) => ({ read: `read with VERCEL_PROJECT_PRODUCTION_URL=${host}`, next: nextRoutes(vercel, host) }))
+  const rewritten = ({ rewrites }: NextRoutes) => Array.isArray(rewrites)
+    ? rewrites
+    : [...(rewrites.beforeFiles ?? []), ...(rewrites.afterFiles ?? []), ...(rewrites.fallback ?? [])]
   const moves = (r: LegacyRoute) =>
     r.continue !== true
     || Object.keys(r).some((k) => !INERT_ROUTE_KEYS.has(k))
@@ -131,11 +188,13 @@ function routing(): { basePath: string; bulkRedirectsPath?: string; rules: [stri
   const legacy = (vercel.routes ?? []).filter(moves).map(({ src, source, has }): Route => ({ src: src ?? source, has }))
   const named = (where: string, list: Route[] | undefined) => (list ?? []).map((r): [string, Route] => [where, r])
   return {
-    basePath: next.basePath ?? '',
+    basePaths: builds.map(({ read, next }): [string, string] => [read, next.basePath ?? '']),
     bulkRedirectsPath: vercel.bulkRedirectsPath,
     rules: [
-      ...named('next.config.js redirect', next.redirects),
-      ...named('next.config.js rewrite', rewritten),
+      ...builds.flatMap(({ read, next }) => [
+        ...named(`next.config.js redirect (${read})`, next.redirects),
+        ...named(`next.config.js rewrite (${read})`, rewritten(next)),
+      ]),
       ...named('vercel.json redirect', vercel.redirects),
       ...named('vercel.json rewrite', vercel.rewrites),
       ...named('vercel.json route', legacy),
@@ -195,8 +254,8 @@ describe('published asset URLs', () => {
     })
 
     it(`${url} is reached by no redirect or rewrite in next.config.js or vercel.json`, () => {
-      const { basePath, bulkRedirectsPath, rules } = (routes ??= routing())
-      expect(basePath, `${url} ${KEPT}: a basePath moves it`).toBe('')
+      const { basePaths, bulkRedirectsPath, rules } = (routes ??= routing())
+      for (const [read, basePath] of basePaths) expect(basePath, `${url} ${KEPT}: a basePath moves it (${read})`).toBe('')
       expect(
         bulkRedirectsPath,
         `${url} ${KEPT}: vercel.json imports bulk redirects, which this register does not read; teach it to read them first`,
