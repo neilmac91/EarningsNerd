@@ -431,7 +431,7 @@ class Settings(BaseSettings):
     # ACTIVITY); turning both on needs a budget-aware insider scan first (decision record 17).
     ENABLE_INSIDER_ACTIVITY: bool = False
 
-    # "What changed" wording diff (the Change Report's `section_changes` block; tasks/todo.md E17).
+    # "What changed" wording diff (the Change Report's `section_changes` block; tasks/todo.md E27).
     # When True, the hourly filing-scan job also extracts and stores Item 1A text for the watched
     # companies' 10-K/10-Q filings (one SEC request per filing, serial, through the shared limiter)
     # and GET /api/summaries/filing/{id}/what-changed serves the paragraph-paired wording diff

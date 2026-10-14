@@ -12,9 +12,16 @@ except the pre-Settings infra-bootstrap constants in `database.py`, `redis_servi
 and `frontend/lib/featureFlags.ts`. Production uses a mix of Cloud Run environment overrides and Google Secret
 Manager mounts (see [DEPLOYMENT.md](DEPLOYMENT.md)).
 A settings validation error names the failing field and the reason but withholds the value (`REGISTRATION_MODE`'s
-own message quotes its value; it holds no secret). A settings object prints no value, and `scripts/deploy_check.py`
-prints a secret's length and a database error's type only (`lessons/ops-never-echo-environment-values.md`). To debug
-a value, read it from its source (Secret Manager, `backend/.env`).
+own message quotes its value; it holds no secret). A settings object prints no value; `scripts/deploy_check.py` and
+`scripts/smoke_resend.py` print a secret's presence and length only; a malformed `DATABASE_URL` or `REDIS_URL` is
+reported by its error's type, never the parser's message, which can quote the password. Sentry receives no frame's
+local variables, and the `X-Internal-Token` header, every outbound request's query string, the credential keys of a
+request body, each secret setting's whole value and each connection URL's password (8 characters or more; the limits
+are in the lesson) reach it as `[Filtered]` (another placeholder if a weak secret overlaps that one), wherever an
+error, a transaction, a log or a metric holds them
+(`main._sentry_options`). The rules,
+their gates and the echoes not yet gated: `lessons/ops-never-echo-environment-values.md`. To debug a value, read it
+from its source (Secret Manager, `backend/.env`).
 
 > Moved out of CLAUDE.md in the July 2026 refactor (Wave 3 / M3) — this file is now the
 > canonical env reference; keep it in sync with `config.py` when adding fields.
@@ -46,7 +53,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 
 | Setting | Declared default | Purpose / override guidance |
 |---|---|---|
-| `DATABASE_URL` | `"sqlite:///./earningsnerd.db"` | Local SQLite fallback; production refuses SQLite and requires a Postgres/Cloud SQL connection string. |
+| `DATABASE_URL` | `"sqlite:///./earningsnerd.db"` | Local SQLite fallback; production refuses SQLite and requires a Postgres/Cloud SQL connection string. A URL holding more than one `@` stops startup. The app decodes a percent-encoded user name or password, but the deploy's migration step (`ci.yml`) and the Ops workflow's Cloud SQL proxy step (`ops.yml`) split the URL at its first `@` and first `:` and hand both to `psql` undecoded, so an encoded one (an `@` written `%40`, as an IAM user's name would need) fails there: keep both to characters that need no encoding, as the hex password `docs/DEPLOYMENT.md` generates does. |
 | `REDIS_URL` | `"redis://localhost:6379"` | Local Redis endpoint. Production uses the L1 in-memory cache (ADR-0004). |
 | `SKIP_REDIS_INIT` | `false` | Skip Redis initialization; true in hermetic tests and Redis-off deployments. |
 | `SEC_EDGAR_BASE_URL` | `"https://data.sec.gov"` | SEC submissions/companyfacts API origin; calls must use the EDGAR service layer. |
@@ -87,7 +94,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `TASKS_WORK_TIMEOUT_SECONDS` | `480` | Hard child work deadline, greater than zero and at most 480 seconds; child is killed and reaped before HTTP completion on timeout or disconnect. |
 | `POSTHOG_API_KEY` | `""` | Server-side PostHog credential. |
 | `POSTHOG_HOST` | `"https://us.i.posthog.com"` | Server-side PostHog ingestion origin. |
-| `SENTRY_DSN` | `""` | Error tracking DSN; empty disables SDK setup. |
+| `SENTRY_DSN` | `""` | Error tracking DSN; empty disables SDK setup. Events carry stack frames, source lines, messages and breadcrumbs, not local variables (`main._sentry_options`), and the value scrubber's hooks, one per channel (`before_send`, `before_send_transaction`, `before_send_log`, `before_send_metric`), withhold each secret setting's whole value (8 characters or more) and each connection URL's password wherever an error, a transaction, a log or a metric holds them, in any text and in the repr of any other value (a log record's `extra` with Sentry logs on). Never set the SDK's `data_collection` option: it disables the event scrubber and turns local variables back on. Never set `trace_lifecycle`: span streaming sends request headers as span attributes, which neither scrubber reads. Never set `max_value_length`: the serializer, which runs before `before_send` and `before_send_transaction`, would cut a string inside a secret. Never set `profile_session_sample_rate` or `profile_lifecycle`: continuous profiling sends profile chunks, which no hook sees. |
 | `SENTRY_RELEASE` | `""` | Release tag; CI supplies the Git SHA; empty allows SDK detection. |
 | `RESEND_API_KEY` | `""` | Outbound email credential; required for sending. |
 | `RESEND_BASE_URL` | `"https://api.resend.com"` | Resend API origin. |
