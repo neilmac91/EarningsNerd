@@ -10,13 +10,13 @@ Node v22.23.2; npm 10.9.8 (CI's npm, used for npm ci and npm ls); npm 11.21.0 vi
    npm install --package-lock-only --ignore-scripts (10.9.8) from main's lock -> exit 0; lock: node_modules/basic-ftp 5.3.1 (override not applied), node_modules/postcss-selector-parser 7.1.6
 
 2. Nested postcss-selector-parser: overrides.tailwindcss["postcss-selector-parser"] = "^7.1.6" (basic-ftp at the root). Lock regenerated with npm 11 (byte-identical to the root-form lock); rm -rf node_modules; npm ci (10.9.8) exit 0, 1012 packages, one copy at 7.1.6; npm ls --all (10.9.8) right after that install -> exit 1, stderr:
-     npm error extraneous: @emnapi/core@1.10.0 /tmp/claude-0/-home-user-EarningsNerd/***/scratchpad/wt/base/frontend/node_modules/@emnapi/core
-     npm error extraneous: @emnapi/runtime@1.10.0 /tmp/claude-0/-home-user-EarningsNerd/***/scratchpad/wt/base/frontend/node_modules/@emnapi/runtime
-     npm error extraneous: @emnapi/wasi-threads@1.2.1 /tmp/claude-0/-home-user-EarningsNerd/***/scratchpad/wt/base/frontend/node_modules/@emnapi/wasi-threads
-     npm error extraneous: @img/sharp-wasm32@0.35.5 /tmp/claude-0/-home-user-EarningsNerd/***/scratchpad/wt/base/frontend/node_modules/@img/sharp-wasm32
-     npm error extraneous: @tybys/wasm-util@0.10.2 /tmp/claude-0/-home-user-EarningsNerd/***/scratchpad/wt/base/frontend/node_modules/@tybys/wasm-util
-     npm error extraneous: @emnapi/runtime@1.11.3 /tmp/claude-0/-home-user-EarningsNerd/***/scratchpad/wt/base/frontend/node_modules/@img/sharp-wasm32/node_modules/@emnapi/runtime
-     npm error invalid: postcss-selector-parser@7.1.6 /tmp/claude-0/-home-user-EarningsNerd/***/scratchpad/wt/base/frontend/node_modules/postcss-selector-parser
+     npm error extraneous: @emnapi/core@1.10.0 <worktree>/frontend/node_modules/@emnapi/core
+     npm error extraneous: @emnapi/runtime@1.10.0 <worktree>/frontend/node_modules/@emnapi/runtime
+     npm error extraneous: @emnapi/wasi-threads@1.2.1 <worktree>/frontend/node_modules/@emnapi/wasi-threads
+     npm error extraneous: @img/sharp-wasm32@0.35.5 <worktree>/frontend/node_modules/@img/sharp-wasm32
+     npm error extraneous: @tybys/wasm-util@0.10.2 <worktree>/frontend/node_modules/@tybys/wasm-util
+     npm error extraneous: @emnapi/runtime@1.11.3 <worktree>/frontend/node_modules/@img/sharp-wasm32/node_modules/@emnapi/runtime
+     npm error invalid: postcss-selector-parser@7.1.6 <worktree>/frontend/node_modules/postcss-selector-parser
    stdout for the edge: tailwindcss@3.4.19 overridden -> postcss-nested@6.2.0 -> postcss-selector-parser@7.1.6 deduped invalid: "^6.1.1" from node_modules/postcss-nested.
    The six extraneous entries are not this shape's doing: the same six packages (sharp's wasm32 fallback chain) carry the `extraneous` marker in npm ls --all stdout on main and with the root form, where the command exits 0 with an empty stderr; npm 10.9.8 repeats them on stderr only when the run also has an invalid edge. The exit 1 therefore comes from the invalid edge alone.
 
