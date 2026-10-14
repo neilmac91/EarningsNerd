@@ -839,7 +839,7 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  tests/e2e/copilot-highlight-css.spec.ts (a far-right table cell revealed in its own box
                  in real layout, the page unmoved).
 
-Ask answer       <CopilotMessage>  — the SHIPPED copilot contract: status reading|done|error;
+Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
