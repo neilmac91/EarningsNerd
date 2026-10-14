@@ -953,3 +953,8 @@ export function P547({ n }: { n: number }) { return <a href="/x"><Label547>See a
 // (P549).
 export function P548({ n }: { n: number }) { const label = <Label545>See all {n}</Label545>; return <a href="/x">{label}</a> } // flag
 export function P549({ n }: { n: number }) { const label = <Label546>See all {n}</Label546>; return <a href="/x" className={countControlClass('link')}>{label}</a> } // clean
+// Codex's review of 2e946f7: the delegated label rendered through `&&` (P550) or held in an array (P551) is read through
+// the containers on the way; through `&&` in the plain ink inside a control that composes the recipe, it is no copy (P552).
+export function P550({ n, on }: { n: number; on: boolean }) { return <a href="/x">{on && <Label545>See all {n}</Label545>}</a> } // flag
+export function P551({ n }: { n: number }) { const label = [<Label545 key="l">See all {n}</Label545>]; return <a href="/x">{label}</a> } // flag
+export function P552({ n, on }: { n: number; on: boolean }) { return <a href="/x" className={countControlClass('link')}>{on && <Label546>See all {n}</Label546>}</a> } // clean

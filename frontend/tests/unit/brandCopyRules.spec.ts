@@ -1753,7 +1753,8 @@ function sageUnderPointer(token: string): boolean {
     group-hover:text-brand-strong">{n} more</span></button>`), or onto a same-file label component that renders its
     children in such an element (`<a><CountLabel>See all {n}</CountLabel></a>`, read through the component's
     summary), the label written in place or held in a name and rendered here (`const label = <CountLabel>…`, read
-    through the file's bindings). An icon that turns sage holds no count. */
+    through the file's bindings, through a conditional, `&&`, `||`, `??` and an array on the way). An icon that turns
+    sage holds no count. */
 function labelTurnsSage(control: ts.JsxElement, sf: ts.SourceFile): boolean {
   const holds = (el: ts.JsxElement) =>
     inkTexts(el.children, sf).some(({ text }) => carriesDigit(text)) || inkValues(el.children, sf, [], el.openingElement).length > 0
@@ -1767,8 +1768,19 @@ function labelTurnsSage(control: ts.JsxElement, sf: ts.SourceFile): boolean {
     if (ts.isJsxFragment(el)) return inside(el.children)
     return ts.isJsxElement(el) && ((turnsSage(el) && holds(el)) || inside(el.children))
   }
+  // What an expression among the control's children renders: JSX written there, through a conditional, `&&`, `||`,
+  // `??` or an array, and the JSX a name or a call holds through the file's bindings, each value once.
+  const expression = (e: ts.Expression): boolean => {
+    const x = unwrap(e)
+    if (ts.isJsxElement(x) || ts.isJsxFragment(x)) return element(x)
+    if (ts.isJsxSelfClosingElement(x)) return false
+    if (ts.isConditionalExpression(x)) return expression(x.whenTrue) || expression(x.whenFalse)
+    if (ts.isBinaryExpression(x)) return valueOperands(x).some(expression)
+    if (ts.isArrayLiteralExpression(x)) return x.elements.some((m) => !ts.isOmittedExpression(m) && expression(ts.isSpreadElement(m) ? m.expression : m))
+    return heldJsx(x, sf, followed).some(expression)
+  }
   const inside = (list: ts.NodeArray<ts.JsxChild>): boolean => list.some((child) => {
-    if (ts.isJsxExpression(child) && child.expression) return heldJsx(child.expression, sf, followed).some(element)
+    if (ts.isJsxExpression(child)) return !!child.expression && expression(child.expression)
     return element(child as ts.Expression)
   })
   return inside(control.children)

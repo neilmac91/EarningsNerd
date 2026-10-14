@@ -161,6 +161,8 @@ component (`<a><CountLabel>See all {n}</CountLabel></a>`, the span's pointer sag
 component): the control's own classes and its label span were covered, the component's were not, so
 the check now reads a component that renders its children in a pointer-sage element as the label's
 classes; its review of `63b7144` named the same label held in a name before it renders, which the check
-now reads through the held-JSX walk, as the ink checks already did. Companion to
+now reads through the held-JSX walk, as the ink checks already did; and its review of `2e946f7` the
+same label behind `&&` or in an array, so the walk reads the containers on the way, as the ink checks
+do. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.
