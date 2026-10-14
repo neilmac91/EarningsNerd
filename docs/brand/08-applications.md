@@ -71,7 +71,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   700-level gain and loss inks on their soft grounds with the sign kept, never sage, and the glyph is
   decorative. The feed lead names what it shows ("The latest annual or quarterly report from the
   companies you follow."), the limit banner states the account's own count and nothing about
-  Pro's limit (the pricing claim stays with the founder, F41 on #1311), the search card reads "Find
+  Pro's limit (the pricing claim stays with the founder, F41 on #1311, whose decision also moves the
+  plan strip's "Unlimited summaries" on this page and BillingPanel's "Unlimited"), the search card reads "Find
   a company by name or ticker", the plan strip's button reads "Manage billing", and the route error
   boundary is in sentence case with a generic line that names no route ("This page didn't load. The
   error has been logged."). Tickers are set in the data face.
