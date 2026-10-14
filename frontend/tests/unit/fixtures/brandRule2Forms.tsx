@@ -958,3 +958,93 @@ export function P549({ n }: { n: number }) { const label = <Label546>See all {n}
 export function P550({ n, on }: { n: number; on: boolean }) { return <a href="/x">{on && <Label545>See all {n}</Label545>}</a> } // flag
 export function P551({ n }: { n: number }) { const label = [<Label545 key="l">See all {n}</Label545>]; return <a href="/x">{label}</a> } // flag
 export function P552({ n, on }: { n: number; on: boolean }) { return <a href="/x" className={countControlClass('link')}>{on && <Label546>See all {n}</Label546>}</a> } // clean
+// The family of Codex's form (P545), round twenty-seven: the one-source check reads a control's label through the
+// file's bindings. These copy the recipe: a label component that turns its children sage under the control's group
+// (P553), its own count (P554, Codex's form on 820b5a0, held in a name in P571 and behind `&&` in P572; given children
+// too, P576; inside another component, P580), or a number component it holds (P567); one that does it through a second
+// component (P555), inside a wrapper's control (P556), by its className's default (P564) or mapped over its children
+// (P565); one given hover-sage classes that it hands to the element holding its count, whether that element inherits
+// its ink (P559), rests in one of its own (P568) or holds a number component (P582), and whether the classes are given
+// inside another component (P581) or handed on to one that forwards them (P584); and a label span held in a const
+// (P557), returned by a same-file function (P558), behind a conditional (P577), in a fragment (P578) or mapped (P579).
+// These are no copy: a label component that never turns sage (P560), turns an icon sage beside its children (P561),
+// turns a label without a count sage (P562), sets an ink of its own around the children inside its sage (P563), or
+// holds its count in an ink of its own inside the element the forwarded classes reach (P569); one that renders its own
+// count in the plain ink inside a control that composes the recipe (P573), or composes the recipe itself (P574); and
+// one whose count sits in a return the forwarded classes do not reach (P583). A count handed to one as text in a prop
+// of another name is the prop gap (P566); a className forwarded through a conditional return (P585) or a spread (P586),
+// and an ink a label sets in one state only (P587), are gaps too. A ring of five label components, each rendering the
+// next twice (P570), and a clique of six, each rendering the other five (P575), score in time: the walk reads each
+// element's summary once.
+function Label553({ children }: { children: ReactNode }) { return <span className="group-hover:text-brand-strong">{children}</span> }
+export function P553({ n }: { n: number }) { return <a href="/x" className="group text-text-secondary-light"><Label553>See all {n}</Label553></a> } // flag
+function Tally554({ n }: { n: number }) { return <span className="text-text-secondary-light hover:text-brand-strong">See all {n}</span> }
+export function P554({ n }: { n: number }) { return <a href="/x"><Tally554 n={n} /></a> } // flag
+function Outer555({ children }: { children: ReactNode }) { return <Label545>{children}</Label545> }
+export function P555({ n }: { n: number }) { return <button type="button"><Outer555>Show {n}</Outer555></button> } // flag
+function More556({ children }: { children: ReactNode }) { return <button type="button" className="text-text-secondary-light"><Label545>{children}</Label545></button> }
+export function P556({ n }: { n: number }) { return <More556>Show {n}</More556> } // flag
+export function P557({ n }: { n: number }) { const label = <span className="hover:text-brand-strong">See all {n}</span>; return <a href="/x">{label}</a> } // flag
+function label558(n: number) { return <span className="text-text-secondary-light hover:text-brand-strong">Show {n}</span> }
+export function P558({ n }: { n: number }) { return <button type="button">{label558(n)}</button> } // flag
+function Tally559({ n, className }: { n: number; className?: string }) { return <span className={className}>See all {n}</span> }
+export function P559({ n }: { n: number }) { return <a href="/x"><Tally559 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Plain560({ children }: { children: ReactNode }) { return <span className="tabular-nums">{children}</span> }
+export function P560({ n }: { n: number }) { return <a href="/x"><Plain560>See all {n}</Plain560></a> } // clean
+function Arrow561({ children }: { children: ReactNode }) { return <>{children}<span aria-hidden="true" className="group-hover:text-brand-strong">→</span></> }
+export function P561({ n }: { n: number }) { return <a href="/x" className="group text-text-secondary-light"><Arrow561>See all {n}</Arrow561></a> } // clean
+export function P562() { return <a href="/x"><Label545>See all</Label545></a> } // clean
+function Frame563({ children }: { children: ReactNode }) { return <span className="hover:text-brand-strong"><span className="text-text-primary-light">{children}</span></span> }
+export function P563({ n }: { n: number }) { return <a href="/x"><Frame563>See all {n}</Frame563></a> } // clean
+function Label564({ className = 'hover:text-brand-strong', children }: { className?: string; children: ReactNode }) { return <span className={className}>{children}</span> }
+export function P564({ n }: { n: number }) { return <a href="/x"><Label564>See all {n}</Label564></a> } // flag
+function Label565({ children }: { children: ReactNode }) { return <>{Children.map(children, (child) => <span className="hover:text-brand-strong">{child}</span>)}</> }
+export function P565({ n }: { n: number }) { return <a href="/x"><Label565>See all {n}</Label565></a> } // flag
+function Text566({ text }: { text: string }) { return <span className="hover:text-brand-strong">{text}</span> }
+export function P566({ n }: { n: number }) { return <a href="/x"><Text566 text={`See all ${n}`} /></a> } // gap
+function Tally567({ n }: { n: number }) { return <span className="hover:text-brand-strong">See all <Count n={n} /></span> }
+export function P567({ n }: { n: number }) { return <a href="/x"><Tally567 n={n} /></a> } // flag
+function Tally568({ n, className }: { n: number; className?: string }) { return <span className={cx('text-text-secondary-light', className)}>See all {n}</span> }
+export function P568({ n }: { n: number }) { return <a href="/x"><Tally568 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Tally569({ n, className }: { n: number; className?: string }) { return <span className={cx('text-text-secondary-light', className)}>See all <b className="text-text-primary-light">{n}</b></span> }
+export function P569({ n }: { n: number }) { return <a href="/x"><Tally569 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Ring570a({ children, k }: { children: ReactNode; k: number }) { return k > 0 ? <span className="text-text-secondary-light"><Ring570b k={k - 1}>{children}</Ring570b><Ring570b k={k - 1}>{children}</Ring570b></span> : <i className="hover:text-brand-strong">{children}</i> }
+function Ring570b({ children, k }: { children: ReactNode; k: number }) { return k > 0 ? <span className="text-text-secondary-light"><Ring570c k={k - 1}>{children}</Ring570c><Ring570c k={k - 1}>{children}</Ring570c></span> : <i className="hover:text-brand-strong">{children}</i> }
+function Ring570c({ children, k }: { children: ReactNode; k: number }) { return k > 0 ? <span className="text-text-secondary-light"><Ring570d k={k - 1}>{children}</Ring570d><Ring570d k={k - 1}>{children}</Ring570d></span> : <i className="hover:text-brand-strong">{children}</i> }
+function Ring570d({ children, k }: { children: ReactNode; k: number }) { return k > 0 ? <span className="text-text-secondary-light"><Ring570e k={k - 1}>{children}</Ring570e><Ring570e k={k - 1}>{children}</Ring570e></span> : <i className="hover:text-brand-strong">{children}</i> }
+function Ring570e({ children, k }: { children: ReactNode; k: number }) { return k > 0 ? <span className="text-text-secondary-light"><Ring570a k={k - 1}>{children}</Ring570a><Ring570a k={k - 1}>{children}</Ring570a></span> : <i className="hover:text-brand-strong">{children}</i> }
+export function P570({ n }: { n: number }) { return <a href="/x"><Ring570a k={2}>See all {n}</Ring570a></a> } // flag
+export function P571({ n }: { n: number }) { const label = <Tally554 n={n} />; return <a href="/x">{label}</a> } // flag
+export function P572({ n, on }: { n: number; on: boolean }) { return <a href="/x">{on && <Tally554 n={n} />}</a> } // flag
+function Plain573({ n }: { n: number }) { return <span className="font-medium">See all {n}</span> }
+export function P573({ n }: { n: number }) { return <a href="/x" className={countControlClass('link')}><Plain573 n={n} /></a> } // clean
+function Tally574({ n }: { n: number }) { return <span className={countControlClass('inline')}>See all {n}</span> }
+export function P574({ n }: { n: number }) { return <a href="/x"><Tally574 n={n} /></a> } // clean
+function Clique575a({ children, k }: { children: ReactNode; k: number }) { return k > 0 ? <span className="text-text-secondary-light"><Clique575b k={k - 1}>{children}</Clique575b><Clique575c k={k - 1}>{children}</Clique575c><Clique575d k={k - 1}>{children}</Clique575d><Clique575e k={k - 1}>{children}</Clique575e><Clique575f k={k - 1}>{children}</Clique575f></span> : <i className="hover:text-brand-strong">{children}</i> }
+function Clique575b({ children, k }: { children: ReactNode; k: number }) { return k > 0 ? <span className="text-text-secondary-light"><Clique575a k={k - 1}>{children}</Clique575a><Clique575c k={k - 1}>{children}</Clique575c><Clique575d k={k - 1}>{children}</Clique575d><Clique575e k={k - 1}>{children}</Clique575e><Clique575f k={k - 1}>{children}</Clique575f></span> : <i className="hover:text-brand-strong">{children}</i> }
+function Clique575c({ children, k }: { children: ReactNode; k: number }) { return k > 0 ? <span className="text-text-secondary-light"><Clique575a k={k - 1}>{children}</Clique575a><Clique575b k={k - 1}>{children}</Clique575b><Clique575d k={k - 1}>{children}</Clique575d><Clique575e k={k - 1}>{children}</Clique575e><Clique575f k={k - 1}>{children}</Clique575f></span> : <i className="hover:text-brand-strong">{children}</i> }
+function Clique575d({ children, k }: { children: ReactNode; k: number }) { return k > 0 ? <span className="text-text-secondary-light"><Clique575a k={k - 1}>{children}</Clique575a><Clique575b k={k - 1}>{children}</Clique575b><Clique575c k={k - 1}>{children}</Clique575c><Clique575e k={k - 1}>{children}</Clique575e><Clique575f k={k - 1}>{children}</Clique575f></span> : <i className="hover:text-brand-strong">{children}</i> }
+function Clique575e({ children, k }: { children: ReactNode; k: number }) { return k > 0 ? <span className="text-text-secondary-light"><Clique575a k={k - 1}>{children}</Clique575a><Clique575b k={k - 1}>{children}</Clique575b><Clique575c k={k - 1}>{children}</Clique575c><Clique575d k={k - 1}>{children}</Clique575d><Clique575f k={k - 1}>{children}</Clique575f></span> : <i className="hover:text-brand-strong">{children}</i> }
+function Clique575f({ children, k }: { children: ReactNode; k: number }) { return k > 0 ? <span className="text-text-secondary-light"><Clique575a k={k - 1}>{children}</Clique575a><Clique575b k={k - 1}>{children}</Clique575b><Clique575c k={k - 1}>{children}</Clique575c><Clique575d k={k - 1}>{children}</Clique575d><Clique575e k={k - 1}>{children}</Clique575e></span> : <i className="hover:text-brand-strong">{children}</i> }
+export function P575({ n }: { n: number }) { return <a href="/x"><Clique575a k={2}>See all {n}</Clique575a></a> } // flag
+function Label576({ children, n }: { children: ReactNode; n: number }) { return <span className="hover:text-brand-strong">{children} {n}</span> }
+export function P576({ n }: { n: number }) { return <a href="/x"><Label576 n={n}>See all</Label576></a> } // flag
+export function P577({ n }: { n: number }) { return <a href="/x">{n ? <span className="hover:text-brand-strong">Show {n}</span> : null}</a> } // flag
+export function P578({ n }: { n: number }) { return <a href="/x">{<><span className="hover:text-brand-strong">Show {n}</span></>}</a> } // flag
+export function P579({ items }: { items: { count: number }[] }) { return <a href="/x">{items.map((i) => <span key={i.count} className="hover:text-brand-strong">{i.count}</span>)}</a> } // flag
+function Box580({ n }: { n: number }) { return <span><Tally554 n={n} /></span> }
+export function P580({ n }: { n: number }) { return <a href="/x"><Box580 n={n} /></a> } // flag
+function Box581({ n }: { n: number }) { return <span className="text-text-primary-light"><Tally559 n={n} className="hover:text-brand-strong" /></span> }
+export function P581({ n }: { n: number }) { return <a href="/x"><Box581 n={n} /></a> } // flag
+function Tally582({ n, className }: { n: number; className?: string }) { return <span className={className}>See all <Count n={n} /></span> }
+export function P582({ n }: { n: number }) { return <a href="/x"><Tally582 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Two583({ n, className }: { n: number; className?: string }) { if (n === 0) return <span className={className}>None</span>; return <span className="text-text-secondary-light">See all {n}</span> }
+export function P583({ n }: { n: number }) { return <a href="/x"><Two583 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Outer584({ n, className }: { n: number; className?: string }) { return <Tally559 n={n} className={className} /> }
+export function P584({ n }: { n: number }) { return <a href="/x"><Outer584 n={n} className="hover:text-brand-strong" /></a> } // flag
+function Cond585({ n, className }: { n: number; className?: string }) { return n > 0 ? <span className={className}>See all {n}</span> : null }
+export function P585({ n }: { n: number }) { return <a href="/x"><Cond585 n={n} className="hover:text-brand-strong" /></a> } // gap
+function Rest586({ n, ...rest }: { n: number; className?: string }) { return <span {...rest}>See all {n}</span> }
+export function P586({ n }: { n: number }) { return <a href="/x"><Rest586 n={n} className="hover:text-brand-strong" /></a> } // gap
+function Dark587({ children }: { children: ReactNode }) { return <span className="hover:text-brand-strong"><span className="dark:text-text-primary-dark">{children}</span></span> }
+export function P587({ n }: { n: number }) { return <a href="/x"><Dark587>See all {n}</Dark587></a> } // gap

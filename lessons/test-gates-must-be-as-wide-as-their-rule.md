@@ -163,6 +163,11 @@ the check now reads a component that renders its children in a pointer-sage elem
 classes; its review of `63b7144` named the same label held in a name before it renders, which the check
 now reads through the held-JSX walk, as the ink checks already did; and its review of `2e946f7` the
 same label behind `&&` or in an array, so the walk reads the containers on the way, as the ink checks
-do. Companion to
+do. Round twenty-seven read the rest of the family in that walk: a label component's own count,
+self-closing too, which Codex's review of `820b5a0` named, a nested label component and a className
+it forwards. Its review lens found the walk's cost in a cycle of components: a summary read more than
+once per element multiplied the walk, so the walk now reads each element's summary once. A control's
+own-ink check still reads the components inside it again, so a cycle of six controls, each rendering
+the next twice, still takes about 9 s, against 16 s before. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.

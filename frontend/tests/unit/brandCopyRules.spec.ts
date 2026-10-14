@@ -89,11 +89,11 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    named, and the third check fails a control whose label carries a count and that classes written
  *    in its file turn sage under the pointer, a sage text colour behind a pointer state (a sage fill
  *    recolours an icon, not the label): a hand-built copy of the recipe, on the control, on the
- *    element holding the count (a label span, under the control's group too, or a same-file label
- *    component that renders the count in such a span, written in place or held in a name) or on the
- *    control a same-file wrapper renders
- *    its children in, a class helper's return (a function declaration's
- *    too) and a className default counting as written. A count control that never turns sage, and a
+ *    element holding the count (a label span, under the control's group too) or on the control a
+ *    same-file wrapper renders its children in, a class helper's return (a function declaration's
+ *    too) and a className default counting as written. The label is read through the file's bindings
+ *    (a same-file variable, a same-file function's return) and inside an app component in it that
+ *    turns its children or a count of its own sage. A count control that never turns sage, and a
  *    countdown on a control that waits, rest in the ink outside the helper, review-checked. The
  *    planted forms in tests/unit/fixtures/brandRule2Forms.tsx, one per way the rule can be broken,
  *    per look-alike that must pass and per known gap, are scored on every run, so the gate's reach
@@ -123,7 +123,10 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    style or on a pseudo-element, a library component's internals, a component created inside
  *    another's render, reading that one's children through a closure (the lint's
  *    react-hooks/static-components forbids one), and SVG text coloured by attribute (the chart
- *    theme, which carries no sage). The waitlist counter's own spec covers the count on the public
+ *    theme, which carries no sage). Neither check reads a className a component forwards through a
+ *    spread or a conditional return. The one-source check reads one the component joins with its
+ *    own ink, which the ink check leaves to review, and reads an ink a label sets in one state only
+ *    (`dark:text-…`) as its own. The waitlist counter's own spec covers the count on the public
  *    pages.
  * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
  *    figure or a price, the hero's accent phrases included; the margin (`en-margin`) exists only
@@ -1180,13 +1183,30 @@ function elementChildren(call: ts.CallExpression, sf: ts.SourceFile): ts.Express
 /** What a component does with the ink it inherits: the ink its children render in (null when they inherit
     it too), whether it renders a number of its own in that inherited ink, which a sage parent colours, whether
     it renders a control in it that holds its count in an ink of its own (the count control's form), and whether it
-    renders its children inside a control, which makes it one where it is used (they are that control's label). */
-interface Summary { childrenInk: Ink; inheritsValue: boolean; inheritsControl: boolean; childrenInControl: boolean; childrenInHoverSage: boolean; childrenTurnSage: boolean }
+    renders its children inside a control, which makes it one where it is used (they are that control's label). And
+    what the one-source check reads of it: whether classes written in its file turn its children sage under the
+    pointer, inside its control (`childrenInHoverSage`) or anywhere (`childrenTurnSage`, a label component), whether
+    they turn a count of its own so (`countTurnsSage`), and whether it hands its className to the element it returns
+    and renders a count in that element's ink (`rootCount`), which classes given where it is used reach. */
+interface Summary {
+  childrenInk: Ink
+  inheritsValue: boolean
+  inheritsControl: boolean
+  childrenInControl: boolean
+  childrenInHoverSage: boolean
+  childrenTurnSage: boolean
+  countTurnsSage: boolean
+  rootCount: boolean
+}
 const SUMMARIES = new Map<ts.Node, Summary>()
+/** A component met again mid-walk (one that renders itself) reads as one that passes its ink through and carries
+    nothing (`memo`). */
+const NO_SUMMARY: Summary = {
+  childrenInk: null, inheritsValue: false, inheritsControl: false, childrenInControl: false, childrenInHoverSage: false,
+  childrenTurnSage: false, countTurnsSage: false, rootCount: false,
+}
 function summary(fn: ts.FunctionLikeDeclaration): Summary {
-  // A component met again mid-walk (one that renders itself) reads as one that passes its ink through and carries
-  // nothing (`memo`).
-  return memo(SUMMARIES, fn, { childrenInk: null, inheritsValue: false, inheritsControl: false, childrenInControl: false, childrenInHoverSage: false, childrenTurnSage: false }, () => summarize(fn))
+  return memo(SUMMARIES, fn, NO_SUMMARY, () => summarize(fn))
 }
 function summarize(fn: ts.FunctionLikeDeclaration): Summary {
   const sf = fn.getSourceFile()
@@ -1196,12 +1216,41 @@ function summarize(fn: ts.FunctionLikeDeclaration): Summary {
   // How many controls the walk is inside, and whether it has met the children inside one.
   let inControl = 0
   let childrenInControl = false
-  // The elements the walk is inside, outermost first, and whether the control its children render in, or an element
-  // between them, turns them sage under the pointer by classes written in the file (a wrapper holding the recipe);
-  // and whether any element they render in does, control or not (a label component holding the recipe).
-  const inside: { opening: ts.JsxOpeningLikeElement; control: boolean }[] = []
+  // The elements the walk is inside, outermost first, each with what the walk read of it where it met it: whether it
+  // is a control, the ink it sets (textColour) and whether classes written in its file turn what it renders in that
+  // ink sage under the pointer (turnsSageUnderPointer). Whether the control its children render in, or an element
+  // between them, turns them sage under the pointer is a wrapper holding the recipe.
+  const inside: { opening: ts.JsxOpeningLikeElement; control: boolean; own: Ink; turns: boolean }[] = []
   let childrenInHoverSage = false
+  // Whether what renders at the walk's place turns sage under the pointer: the nearest element around it that turns
+  // sage under the pointer comes before any that sets an ink of its own, as a label span holds its count in its own
+  // ink (`labelTurnsSage`).
   let childrenTurnSage = false
+  let countTurnsSage = false
+  const underPointerSage = () => {
+    for (let i = inside.length - 1; i >= 0; i--) {
+      if (inside[i].turns) return true
+      if (inside[i].own !== null) return false
+    }
+    return false
+  }
+  // Whether a count rendered here takes the ink of the element the component returns, which a className it forwards
+  // reaches: the root it sits in takes the className, and no element between them sets an ink of its own. Read only
+  // for a component that forwards it, so a return whose root does not take it holds no such count.
+  const forwards = forwardsClassName(fn)
+  let rootCount = false
+  const inRootInk = () => forwards && inside.length > 0 && takesClassName(inside[0].opening)
+    && inside.slice(1).every((entry) => entry.own === null)
+  // A count rendered here: one in the inherited ink, one an element around it turns sage under the pointer, and one in
+  // the forwarded className's reach. The value is read only when one of them can hold.
+  const counted = (ink: 'sage' | 'other' | 'inherit', counts: () => boolean) => {
+    const pointer = underPointerSage()
+    const root = inRootInk()
+    if ((ink !== 'inherit' && !pointer && !root) || !counts()) return
+    if (ink === 'inherit') carries = true
+    if (pointer) countTurnsSage = true
+    if (root) rootCount = true
+  }
   const props = fn.parameters[0]
   const takesChildren = !!props && !!CHECKER.getTypeAtLocation(props).getProperty('children')
   // The children, however the component reaches them from its props: the walk carries their mark (`childrenMark`)
@@ -1217,14 +1266,33 @@ function summarize(fn: ts.FunctionLikeDeclaration): Summary {
   const followed = new Set<ts.Node>()
   const element = (el: ts.JsxElement | ts.JsxSelfClosingElement, ink: 'sage' | 'other' | 'inherit') => {
     const opening = ts.isJsxElement(el) ? el.openingElement : el
-    const next = textColour(opening) ?? ink
+    // An app component's summary, read once for every fact below: inside a cycle of components a summary is read
+    // afresh each time it is asked for (`memo`), so a second read per element would multiply the walk. A control's
+    // own-ink check (`ownInkCounts`) still reads the components inside it again.
+    const fn = componentFunction(opening)
+    const s = fn ? summary(fn) : undefined
+    const site = siteInk(opening)
+    const own = site ?? (s ? s.childrenInk : null)
+    const next = own ?? ink
     // A spread can carry the children through (`<span {...rest} />`).
     if (takesChildren && opening.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p))) childInks.add(next)
-    if (ink === 'inherit' && inheritsValue(opening)) carries = true
-    const control = isControl(opening)
-    if (next === 'inherit' && ((ts.isJsxElement(el) && control && ownInkCounts(el, sf).length) || inheritsControl(opening))) controls = true
+    // A component that renders a number in the ink it inherits (`inheritsValue`): the ink here, an element around it
+    // that turns sage under the pointer, or the forwarded className's reach colours it.
+    if (site === null && s?.inheritsValue) {
+      if (ink === 'inherit') carries = true
+      if (underPointerSage()) countTurnsSage = true
+      if (inRootInk()) rootCount = true
+    }
+    // A root that hands the forwarded className on to a component that forwards it to its count
+    // (`<Inner n={n} className={className} />`) reaches that count too.
+    if (forwards && !inside.length && s?.rootCount && takesClassName(opening)) rootCount = true
+    // A component that turns a count it renders sage under the pointer itself (`countUnderPointer`).
+    const written = classTokens(opening, true).some(sageUnderPointer)
+    if (s && (s.countTurnsSage || (written && s.rootCount))) countTurnsSage = true
+    const control = isControl(opening, s)
+    if (next === 'inherit' && ((ts.isJsxElement(el) && control && ownInkCounts(el, sf).length) || (site === null && s?.inheritsControl))) controls = true
     if (!ts.isJsxElement(el)) return
-    inside.push({ opening, control })
+    inside.push({ opening, control, own, turns: written || !!s?.childrenTurnSage })
     if (control) inControl++
     children(el.children, next)
     if (control) inControl--
@@ -1232,7 +1300,7 @@ function summarize(fn: ts.FunctionLikeDeclaration): Summary {
   }
   const children = (list: ts.NodeArray<ts.JsxChild>, ink: 'sage' | 'other' | 'inherit') => {
     list.forEach((child, i) => {
-      if (ts.isJsxText(child)) { if (ink === 'inherit' && carriesDigit(child.text)) carries = true }
+      if (ts.isJsxText(child)) { if (carriesDigit(child.text)) counted(ink, () => true) }
       else if (ts.isJsxExpression(child) && child.expression) { if (!citationBracket(list, i) && !bracketTemplate(child.expression)) expression(child.expression, ink) }
       else if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) element(child, ink)
       else if (ts.isJsxFragment(child)) children(child.children, ink)
@@ -1246,12 +1314,14 @@ function summarize(fn: ts.FunctionLikeDeclaration): Summary {
     // them, an element held beside them).
     if (isChildren(x)) {
       childInks.add(ink)
-      if (inside.some((entry) => classTokens(entry.opening, true).some(sageUnderPointer))) childrenTurnSage = true
       if (inControl) {
         childrenInControl = true
+        // The control a wrapper renders follows a control's own rule: an element of it that turns sage under the
+        // pointer copies the recipe whatever ink its children rest in (`handRolledCountControls`).
         const at = inside.map((entry) => entry.control).lastIndexOf(true)
-        if (inside.slice(at).some((entry) => classTokens(entry.opening, true).some(sageUnderPointer))) childrenInHoverSage = true
+        if (inside.slice(at).some((entry) => entry.turns)) childrenInHoverSage = true
       }
+      if (underPointerSage()) childrenTurnSage = true
     }
     if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x)) element(x, ink)
     else if (ts.isJsxFragment(x)) children(x.children, ink)
@@ -1266,13 +1336,13 @@ function summarize(fn: ts.FunctionLikeDeclaration): Summary {
       const fns = renderedFunctions(x).filter((fn) => !followed.has(fn))
       fns.forEach((fn) => followed.add(fn))
       fns.flatMap(returnedExpressions).forEach((r) => expression(r, ink))
-      if (ink === 'inherit' && !callbacksOf(x).length && rendersValue(x, sf)) carries = true
+      if (!callbacksOf(x).length) counted(ink, () => rendersValue(x, sf))
     } else {
       const jsx = ts.isIdentifier(x) || ts.isCallExpression(x) ? heldJsx(x, sf, followed) : []
       jsx.forEach((h) => expression(h, ink))
-      if (!jsx.length && ink === 'inherit') {
+      if (!jsx.length) {
         const text = literalText(x)
-        if (text !== null ? carriesDigit(text) : literalValues(x, sf).some(carriesDigit) || rendersValue(x, sf)) carries = true
+        counted(ink, () => (text !== null ? carriesDigit(text) : literalValues(x, sf).some(carriesDigit) || rendersValue(x, sf)))
       }
     }
   }
@@ -1286,6 +1356,8 @@ function summarize(fn: ts.FunctionLikeDeclaration): Summary {
     childrenInControl,
     childrenInHoverSage,
     childrenTurnSage,
+    countTurnsSage,
+    rootCount,
   }
 }
 
@@ -1629,11 +1701,16 @@ function forwardsClassName(fn: ts.FunctionLikeDeclaration): boolean {
   return returnedExpressions(fn).some((r) => {
     const x = unwrap(r)
     const opening = ts.isJsxElement(x) ? x.openingElement : ts.isJsxSelfClosingElement(x) ? x : undefined
-    const attr = opening?.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className')
-    let forwards = false
-    if (attr?.initializer) visit(attr.initializer, (m) => { if (ts.isIdentifier(m) && m.text === 'className') forwards = true })
-    return forwards
+    return !!opening && takesClassName(opening)
   })
+}
+/** Whether an element's className reads the `className` its component is handed (`className={className}`,
+    `cx('…', className)`). */
+function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
+  const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className')
+  let forwards = false
+  if (attr?.initializer) visit(attr.initializer, (m) => { if (ts.isIdentifier(m) && m.text === 'className') forwards = true })
+  return forwards
 }
 
 /** The ink an element inherits from the elements around it in its own file: the nearest one that sets an ink. One
@@ -1653,11 +1730,11 @@ function inheritedInk(node: ts.Node): Ink {
 /** A control the user activates: a link, a button, a disclosure's summary, any element given an href or an
     onClick, the ui Button family, and an app component that renders its children inside a control (its children
     are that control's label). */
-function isControl(opening: ts.JsxOpeningLikeElement): boolean {
+function isControl(opening: ts.JsxOpeningLikeElement, read?: Summary): boolean {
   if (['a', 'button', 'summary'].includes(opening.tagName.getText())) return true
   if (opening.attributes.properties.some((p) => ts.isJsxAttribute(p) && ['href', 'onClick'].includes(p.name.getText()))) return true
   const fn = componentFunction(opening)
-  return !!fn && (VARIANT_COMPONENTS.get(fn)?.inks === BUTTON_INK || summary(fn).childrenInControl)
+  return !!fn && (VARIANT_COMPONENTS.get(fn)?.inks === BUTTON_INK || (read ?? summary(fn)).childrenInControl)
 }
 
 interface Offence { node: ts.Node; text: string }
@@ -1748,36 +1825,61 @@ function sageUnderPointer(token: string): boolean {
   return utility.startsWith('text-') && SAGE.test(utility) && parts.some((variant) => ACTIVITY.test(variant))
 }
 
-/** Whether an element inside a control that holds the control's count turns it sage under the pointer, by classes
-    written in the file: the recipe moved onto the label (`<button className="group"><span className="…
-    group-hover:text-brand-strong">{n} more</span></button>`), or onto a same-file label component that renders its
-    children in such an element (`<a><CountLabel>See all {n}</CountLabel></a>`, read through the component's
-    summary), the label written in place or held in a name and rendered here (`const label = <CountLabel>…`, read
-    through the file's bindings, through a conditional, `&&`, `||`, `??` and an array on the way). An icon that turns
-    sage holds no count. */
+/** Whether an element's classes written in its file turn what it renders in its own ink sage under the pointer, or,
+    for an app component, whether it renders its children so (`childrenTurnSage`). */
+function turnsSageUnderPointer(opening: ts.JsxOpeningLikeElement): boolean {
+  if (classTokens(opening, true).some(sageUnderPointer)) return true
+  const fn = componentFunction(opening)
+  return !!fn && summary(fn).childrenTurnSage
+}
+
+/** Whether an app component element turns a count it renders sage under the pointer: one of its own, by classes written
+    in its file (`countTurnsSage`), or one in the ink of the element it returns, when the call site gives it classes
+    that do and it hands its className to that element (`rootCount`), whatever ink that element rests in. */
+function countUnderPointer(opening: ts.JsxOpeningLikeElement): boolean {
+  const fn = componentFunction(opening)
+  if (!fn) return false
+  const s = summary(fn)
+  return s.countTurnsSage || (s.rootCount && classTokens(opening, true).some(sageUnderPointer))
+}
+
+/** Whether a control's label turns its count sage under the pointer, by classes written in a file the scan reads: an
+    element of it that holds the count in its own ink and turns sage under the pointer, the recipe moved onto the label
+    (`<button className="group"><span className="… group-hover:text-brand-strong">{n} more</span></button>`), or an app
+    component in it that renders the count so, the children it is handed (`<a><CountLabel>See all {n}</CountLabel></a>`)
+    or a count of its own (`<a><CountLabel n={n} /></a>`, `countUnderPointer`). The label is read written in place or
+    held in a name and rendered here (`const label = <CountLabel>…`, read through the file's bindings, a call's return
+    included), through a conditional, `&&`, `||`, `??` and an array on the way. An icon that turns sage holds no count.
+    A component's className given where it is used is read as reaching the children it is handed, as textColour reads
+    it, so a component that hands it to an icon beside them reads as turning them sage: give the icon its class inside
+    the component. */
 function labelTurnsSage(control: ts.JsxElement, sf: ts.SourceFile): boolean {
   const holds = (el: ts.JsxElement) =>
     inkTexts(el.children, sf).some(({ text }) => carriesDigit(text)) || inkValues(el.children, sf, [], el.openingElement).length > 0
-  const turnsSage = (el: ts.JsxElement): boolean => {
-    if (classTokens(el.openingElement, true).some(sageUnderPointer)) return true
-    const fn = componentFunction(el.openingElement)
-    return !!fn && summary(fn).childrenTurnSage
-  }
   const followed = new Set<ts.Node>()
   const element = (el: ts.Expression): boolean => {
     if (ts.isJsxFragment(el)) return inside(el.children)
-    return ts.isJsxElement(el) && ((turnsSage(el) && holds(el)) || inside(el.children))
+    if (!ts.isJsxElement(el) && !ts.isJsxSelfClosingElement(el)) return false
+    const opening = ts.isJsxElement(el) ? el.openingElement : el
+    if (countUnderPointer(opening)) return true
+    return ts.isJsxElement(el) && ((turnsSageUnderPointer(opening) && holds(el)) || inside(el.children))
   }
   // What an expression among the control's children renders: JSX written there, through a conditional, `&&`, `||`,
-  // `??` or an array, and the JSX a name or a call holds through the file's bindings, each value once.
+  // `??` or an array, the JSX a name or a call holds through the file's bindings, and what a callback returns, each
+  // value once.
   const expression = (e: ts.Expression): boolean => {
     const x = unwrap(e)
-    if (ts.isJsxElement(x) || ts.isJsxFragment(x)) return element(x)
-    if (ts.isJsxSelfClosingElement(x)) return false
+    if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x) || ts.isJsxFragment(x)) return element(x)
     if (ts.isConditionalExpression(x)) return expression(x.whenTrue) || expression(x.whenFalse)
     if (ts.isBinaryExpression(x)) return valueOperands(x).some(expression)
     if (ts.isArrayLiteralExpression(x)) return x.elements.some((m) => !ts.isOmittedExpression(m) && expression(ts.isSpreadElement(m) ? m.expression : m))
-    return heldJsx(x, sf, followed).some(expression)
+    if (heldJsx(x, sf, followed).some(expression)) return true
+    // What a callback the call is handed returns renders here too (`{items.map((i) => <span>…</span>)}`), each once.
+    return ts.isCallExpression(x) && renderedFunctions(x).some((fn) => {
+      if (followed.has(fn)) return false
+      followed.add(fn)
+      return returnedExpressions(fn).some(expression)
+    })
   }
   const inside = (list: ts.NodeArray<ts.JsxChild>): boolean => list.some((child) => {
     if (ts.isJsxExpression(child)) return !!child.expression && expression(child.expression)
@@ -1794,13 +1896,16 @@ function handRolledCountControls(sf: ts.SourceFile): Offence[] {
   const out: Offence[] = []
   visit(sf, (n) => {
     if (!ts.isJsxElement(n) || !isControl(n.openingElement)) return
-    // Its own classes, the label's, or the control a same-file wrapper renders its children in (`<MoreButton>Show
-    // {n}</MoreButton>`) turn it sage under the pointer.
+    const offence = { node: n, text: `<${n.openingElement.tagName.getText(sf)}>` }
+    // The label turns its count sage under the pointer.
+    if (labelTurnsSage(n, sf)) return void out.push(offence)
+    // Or its own classes, or those of the control a wrapper renders its children in (`<MoreButton>Show
+    // {n}</MoreButton>`), turn it sage under the pointer, and its label carries a count in any ink.
     const wrapper = componentFunction(n.openingElement)
-    if (!classTokens(n.openingElement, true).some(sageUnderPointer) && !(wrapper && summary(wrapper).childrenInHoverSage) && !labelTurnsSage(n, sf)) return
+    if (!classTokens(n.openingElement, true).some(sageUnderPointer) && !(wrapper && summary(wrapper).childrenInHoverSage)) return
     const counts = inkTexts(n.children, sf).some(({ text }) => carriesDigit(text))
       || inkValues(n.children, sf, [], n.openingElement).length > 0 || ownInkCounts(n, sf).length > 0
-    if (counts) out.push({ node: n, text: `<${n.openingElement.tagName.getText(sf)}>` })
+    if (counts) out.push(offence)
   })
   return out
 }

@@ -238,8 +238,10 @@ Count control    A link or control whose label carries a count, a date, an index
                  count and that classes written in its file turn sage under the pointer: on the
                  control, on the element holding the count (a label span, under the control's group
                  too), or on the control a same-file wrapper renders its children in, a class
-                 helper's return or a className default included. The two labels outside the helper
-                 are review-checked, and so is what the header names.
+                 helper's return or a className default included. It reads the label through the
+                 file's bindings (a same-file variable, a same-file function's return) and inside an
+                 app component in it that turns its children or a count of its own sage. The two
+                 labels outside the helper are review-checked, and so is what the header names.
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
