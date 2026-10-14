@@ -491,7 +491,7 @@ RATIOS = {
     "b": Ratio(per_ads=5, ticker="T — M", source="Cover page — 1 ADS = 5 shares"),
 }
 ROWS = [Row("Free cash — flow", "plain — note"), Elsewhere(1, "Defined elsewhere — not read")]
-DERIVED = Derived(1, "Inherited fields — not mapped", "X", "Y")
+DERIVED = Derived("Inherited fields — not mapped", "X", "Y", "Z")  # caption, its own field, follows the 3 it inherits
 TABLE = {
     "headers": ["USD millions — year ended", *YEARS],
     "rows": [["Cash — net", 1]],
