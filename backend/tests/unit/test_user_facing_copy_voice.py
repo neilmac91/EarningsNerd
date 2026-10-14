@@ -27,9 +27,10 @@ A literal reaches a user when it is:
    workbook or the summary's own fallback markdown;
 7. an argument of a call to a dataclass or NamedTuple the module itself defines (with no base it
    inherits fields from), bound by position in field order (a ``field(init=False)``, which ``__init__``
-   takes no argument for, holds no position) or by name to a field that is a COPY_FIELDS word or names
-   copy: ``ADSRatio(8, "2026-06-28", source, "BABA")``, whose ``source`` PerAdsNote shows as the per-ADS
-   figure's tooltip;
+   takes no argument for, holds no position, nor does a ``field(kw_only=True)``, which it takes by name
+   only) or by name to a field that is a COPY_FIELDS word or names copy:
+   ``ADSRatio(8, "2026-06-28", source, "BABA")``, whose ``source`` PerAdsNote shows as the per-ADS figure's
+   tooltip;
 8. a list under a TABLE_KEYS key of a dict literal (``{"headers": [...]}``): a table's column headings,
    such as the issuer cash-flow table's.
 
@@ -51,9 +52,10 @@ Limits (review, not this walk): copy assembled outside these eight shapes in a m
 document module, such as a positional argument of a class defined elsewhere, a list element outside a
 headers list (a table's rows) or a local without a role word handed on by name (``x = "..."`` then
 ``detail=x``); casing below <h2>; and claims, which brandCopyRules.spec.ts reads. The record shape gives
-no position to a ``field(init=False)``, since ``__init__`` takes no argument for it. It reads no record whose
-class name or module file name says the text is for the model (MODEL_FACING_NAME), such as
-``recovery_context.py``'s ``RecoveryBlock``, whose labels go into the prompt.
+no position to a ``field(init=False)``, since ``__init__`` takes no argument for it. A ``field(kw_only=True)``
+holds no position either, since ``__init__`` takes it by name only, and a keyword argument still binds it. It
+reads no record whose class name or module file name says the text is for the model (MODEL_FACING_NAME), such
+as ``recovery_context.py``'s ``RecoveryBlock``, whose labels go into the prompt.
 """
 import ast
 import html
@@ -212,9 +214,10 @@ class _Reader(ast.NodeVisitor):
 
     @staticmethod
     def _records(tree: ast.Module, model_module: bool = False) -> dict[str, list[str]]:
-        """Field names, in order, of each dataclass or NamedTuple the module defines without inheriting fields,
-        less any ``field(init=False)``, which takes no argument; none for a class, or in a module, whose name
-        says it is for the model."""
+        """Field names of each dataclass or NamedTuple the module defines without inheriting fields, in the order
+        ``__init__`` takes them: less any ``field(init=False)``, which takes no argument, and with each
+        ``field(kw_only=True)`` after the positional fields, where only a keyword reaches it; none for a class,
+        or in a module, whose name says it is for the model."""
         records: dict[str, list[str]] = {}
         if model_module:
             return records
@@ -227,12 +230,15 @@ class _Reader(ast.NodeVisitor):
                 _dotted_tail(d.func if isinstance(d, ast.Call) else d) == "dataclass" for d in stmt.decorator_list
             )
             if named_tuple or is_dataclass:
-                records[stmt.name] = [
-                    item.target.id for item in stmt.body
+                fields = [
+                    item for item in stmt.body
                     if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name)
                     and not re.search(r"\b(?:ClassVar|KW_ONLY)\b", ast.unparse(item.annotation))
                     and not _init_false(item.value)
                 ]
+                # The stable sort moves each field(kw_only=True) behind the positional fields, as __init__ orders
+                # them: no positional argument binds it, and a keyword still does (dropping it would lose that).
+                records[stmt.name] = [item.target.id for item in sorted(fields, key=lambda item: _kw_only(item.value))]
         return records
 
     @staticmethod
@@ -369,6 +375,13 @@ def _init_false(value: Optional[ast.expr]) -> bool:
     """``field(init=False)``: a dataclass field that ``__init__`` takes no argument for."""
     return isinstance(value, ast.Call) and _dotted_tail(value.func) == "field" and any(
         k.arg == "init" and isinstance(k.value, ast.Constant) and k.value.value is False for k in value.keywords
+    )
+
+
+def _kw_only(value: Optional[ast.expr]) -> bool:
+    """``field(kw_only=True)``: a dataclass field that ``__init__`` takes by keyword only, after every positional one."""
+    return isinstance(value, ast.Call) and _dotted_tail(value.func) == "field" and any(
+        k.arg == "kw_only" and isinstance(k.value, ast.Constant) and k.value.value is True for k in value.keywords
     )
 
 
@@ -516,6 +529,14 @@ class Note:
     source: str = ""
 
 
+@dataclass
+class KwNote:
+    stamp: float = field(kw_only=True, default=0)
+    figure: int = 0
+    source: str = ""
+    caption: str = field(kw_only=True, default="")
+
+
 RATIOS = {
     "a": Ratio(8, "Deposit agreement — 1 ADS = 8 shares", "B — A"),
     "b": Ratio(per_ads=5, ticker="T — M", source="Cover page — 1 ADS = 5 shares"),
@@ -523,6 +544,8 @@ RATIOS = {
 ROWS = [Row("Free cash — flow", "plain — note"), Elsewhere(1, "Defined elsewhere — not read")]
 DERIVED = Derived("Inherited fields — not mapped", "X", "Y", "Z")  # caption, its own field, follows the 3 it inherits
 NOTES = [Note(3, "Cover — 1 ADS = 3 shares")]  # stamp takes no argument: 3 is the figure, the string the source
+# stamp takes a keyword only, so 3 is the figure and the string the source; caption, keyword-only too, binds by name
+KW_NOTES = [KwNote(3, "Cover — 1 ADS"), KwNote(caption="Caption — by name only")]
 TABLE = {
     "headers": ["USD millions — year ended", *YEARS],
     "rows": [["Cash — net", 1]],
@@ -577,6 +600,8 @@ _PROBE_BREAKS = {
     ("em-dash", "Cover page — 1 ADS = 5 shares"),
     ("em-dash", "Free cash — flow"),
     ("em-dash", "Cover — 1 ADS = 3 shares"),
+    ("em-dash", "Cover — 1 ADS"),
+    ("em-dash", "Caption — by name only"),
     ("em-dash", "USD millions — year ended"),
 }
 
