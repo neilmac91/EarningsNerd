@@ -91,7 +91,7 @@ const RING_RESIDUE: Record<string, number> = {
   'app/login/page.tsx': 2, // brand-auth-pages-presentation
   'app/privacy/page.tsx': 10, // legal page: waits on the founder (presentation follow-up)
   'app/reset-password/page.tsx': 2, // brand-auth-pages-presentation
-  'app/security/page.tsx': 5, // brand-contact-security-presentation
+  'app/security/page.tsx': 5, // legal page: waits on the founder (presentation follow-up)
   'app/terms/page.tsx': 4, // legal page: waits on the founder (presentation follow-up)
   'app/verify-email/page.tsx': 3, // brand-auth-pages-presentation
   'app/waitlist/page.tsx': 1, // brand-public-pages

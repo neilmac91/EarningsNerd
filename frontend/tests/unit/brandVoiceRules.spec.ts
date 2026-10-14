@@ -18,8 +18,9 @@ import { describe, expect, it } from 'vitest'
  *    component found to render its title prop into a label; every aria-label; a page's metadata title.
  *    The check is a heuristic, so a false positive goes to the residue with its reason, never to a
  *    weaker regex. Its limits: a label passed through a variable of another name (`const heading =
- *    title`), a component's title read from a spread, and a label built in a function and returned are
- *    not followed; those stay review-checked (lessons/test-gates-must-be-as-wide-as-their-rule.md).
+ *    title`), a component's title read from a spread, a label built in a function and returned, and a
+ *    className styled through a variable (`const btn = buttonVariants()`) are not followed; those stay
+ *    review-checked (lessons/test-gates-must-be-as-wide-as-their-rule.md).
  *  - exclamation: no exclamation mark in copy.
  *  - emoji: no emoji in copy: a character that presents as an emoji by default, or any pictograph
  *    forced to one with U+FE0F. Typographic glyphs (the ▲ ▼ direction marks, ↗ for an external link,
@@ -436,10 +437,10 @@ const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
   'app/terms/page.tsx': { sentenceCase: 4 }, // founder-gated, legal page: its headings wait on the founder (legalDates bump)
   'app/waitlist/page.tsx': { buzzword: 1 }, // brand-public-pages (#1311; BG-23, "clarity")
   'components/CookieConsent.tsx': { sentenceCase: 7 }, // brand-chrome-primitives (#1289; the ModalHeader's "Cookie Preferences" is the seventh)
-  'features/admin/components/ShareInvite.tsx': { sentenceCase: 1 }, // brand-admin (#1309; the aria-label "Share invite via Messages" names Apple's app, so it stays a known false positive unless the label changes)
+  'features/admin/components/ShareInvite.tsx': { sentenceCase: 1 }, // a known false positive, no PR: the aria-label "Share invite via Messages" names Apple's app; the entry leaves when the label changes
   'features/contact/components/ContactForm.tsx': { sentenceCase: 1 }, // brand-contact-security-presentation (#1303)
   'features/feedback/components/FeedbackWidget.tsx': { emoji: 3 }, // brand-chrome-primitives (#1289)
-  'features/filings/components/copilot/FilingWorkspace.tsx': { sentenceCase: 1 }, // brand-copilot (#1295; the aria-label "Filing source and Ask")
+  'features/filings/components/copilot/FilingWorkspace.tsx': { sentenceCase: 1 }, // the Copilot rail's next change (no open PR edits this file; the aria-label "Filing source and Ask")
   'features/filings/components/copilot/PaneResizer.tsx': { sentenceCase: 1 }, // brand-copilot (#1295; the aria-label "Resize Copilot panel")
   'features/fundamentals/components/FundamentalsTrendChart.tsx': { sentenceCase: 1 }, // brand-company-page (#1292)
   'features/insiders/components/InsiderActivityPanel.tsx': { sentenceCase: 2 }, // brand-company-page (#1292)

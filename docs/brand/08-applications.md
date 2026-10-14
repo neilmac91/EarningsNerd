@@ -160,8 +160,8 @@ that PR:
   `SecondaryHeader` and `UpgradeModal`, button labels (a `<Link>` or `<a>` whose className reaches
   `buttonVariants()` included), every aria-label and meta titles, plus the components found across
   the tree to render their children or title into one of those; a label passed through a renamed
-  variable, a spread or a helper function is review-checked
-  (`lessons/test-gates-must-be-as-wide-as-their-rule.md`); no exclamation mark, emoji or banned
+  variable, a spread or a helper function, or a className styled through a variable, is
+  review-checked (`lessons/test-gates-must-be-as-wide-as-their-rule.md`); no exclamation mark, emoji or banned
   buzzword in copy, a placeholder included; no icon inside a heading; no developer wording
   ("backend", an API path, "reader", an HTTP status) in `lib/` and `hooks/`.
 - `reservedGlyphs.spec.ts` (new): the quotes glyph marks a filing passage and the braces an XBRL
