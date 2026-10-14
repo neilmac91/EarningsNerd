@@ -5,9 +5,9 @@ Copilot rail and the analysis page, the summary paywall card, the verify-your-em
 lib/api/client.ts opens. Until an error code replaces the matching (tasks/todo.md), a copy edit on either
 side can switch that UI off. The frontend spec holds both sides, but only in the frontend job; this test
 runs the same tables in pytest, so a backend-only edit fails the local backend gate (ruff, bandit, pytest)
-before it reaches CI. It follows the spec on PR #1288 (brand-copy-gates) at 986cc09e, and reads the way
-that spec reads: docstrings skipped, every literal test inside a matcher function a phrase, a .tsx matcher
-read with its JSX tags.
+before it reaches CI. It follows backendMessageMatches.spec.ts on #1288 (brand-copy-gates), clause 3
+holding the two equal once that spec is on the branch, and reads the way that spec reads: docstrings
+skipped, every literal test inside a matcher function a phrase, a .tsx matcher read with its JSX tags.
 
 1. Every phrase a MATCHERS function tests for occurs in a string literal of a file that writes the
    message, unless UNSOURCED lists it with its reason (shrink-only; its size equals UNSOURCED_MAX). This

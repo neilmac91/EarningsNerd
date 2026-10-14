@@ -52,7 +52,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   the waitlist mails lands on `/waitlist?ref=` (`backend/app/services/waitlist_service.py`), where the
   form submits the code with the waitlist gate up or down, so a referral counts; the success card
   states the bonus once, from `REFERRAL_BONUS` (`features/waitlist/lib/referral.ts`, mirrored from the
-  backend), and the "A numbered spot" card no longer repeats it. The join answers "You're on the
+  backend), and the "A numbered spot" card says your link moves you up without the number. The join answers "You're on the
   waitlist." or "This email is already on the waitlist.", without an exclamation mark.
 - **Consent bar** (`frontend/components/CookieConsent.tsx`): "Cookies on this site", then what the
   cookies do: essential cookies keep you signed in; analytics cookies and session recording stay off

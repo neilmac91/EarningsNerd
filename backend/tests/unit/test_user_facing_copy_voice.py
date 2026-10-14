@@ -24,7 +24,13 @@ A literal reaches a user when it is:
 5. HTML markup, wherever it sits (a closing tag, or a known element whose attributes carry values):
    mail and PDF bodies;
 6. any literal of a DOCUMENT_MODULES file, whose strings are the text of a mail, a PDF, a CSV, a
-   workbook or the summary's own fallback markdown.
+   workbook or the summary's own fallback markdown;
+7. an argument of a call to a dataclass or NamedTuple the module itself defines (with no base it
+   inherits fields from), bound by position in field order or by name to a field that is a COPY_FIELDS
+   word or names copy: ``ADSRatio(8, "2026-06-28", source, "BABA")``, whose ``source`` PerAdsNote
+   shows as the per-ADS figure's tooltip;
+8. a list under a TABLE_KEYS key of a dict literal (``{"headers": [...]}``): a table's column headings,
+   such as the issuer cash-flow table's.
 
 Never read as copy: docstrings, the arguments of logging calls and ``print``, and patterns handed to ``re``.
 
@@ -35,15 +41,15 @@ arguments, since a hex string is only ever a colour.
 
 EXEMPT lists what breaks today, each entry with the PR or decision that owns its fix: a file, or
 ``file::function`` for half of one. It only shrinks: an entry that no longer covers a break fails as
-stale, and EXEMPT_CAP (the count when this gate landed) fails an addition. Delete an entry when its
-owner lands, lower EXEMPT_CAP in the same diff, never raise it. Keep the blank line between owner
+stale, and EXEMPT_CAP (the count of entries) fails an addition. Delete an entry when its
+owner lands, lower EXEMPT_CAP in the same diff, never raise it for new copy (a walk that learns a new
+shape lists what the shape finds and moves the cap in that commit). Keep the blank line between owner
 groups so two PRs shrinking different groups merge cleanly.
 
-Limits (review, not this walk): copy assembled outside these six shapes in a module that is not a
-document module, such as a positional constructor argument, a list element or a local without a role
-word handed on by name (``x = "..."`` then ``detail=x``; two such strings carry
-an em-dash today: the ADS-ratio sources in edgar/ads_ratios.py and the issuer cash-flow table header in
-ai/issuer_cash_disclosure.py); casing below <h2>; and claims, which brandCopyRules.spec.ts reads.
+Limits (review, not this walk): copy assembled outside these eight shapes in a module that is not a
+document module, such as a positional argument of a class defined elsewhere, a list element outside a
+headers list (a table's rows) or a local without a role word handed on by name (``x = "..."`` then
+``detail=x``); casing below <h2>; and claims, which brandCopyRules.spec.ts reads.
 """
 import ast
 import html
@@ -69,6 +75,11 @@ COPY_KEYWORDS = frozenset({
     "detail", "error_detail", "message", "subject", "html", "text", "title", "headline", "label", "speaker",
 })
 COPY_KEYS = frozenset({"detail", "message", "error", "title", "headline", "label", "subject"})
+# A record field that carries copy: the copy keywords, and ``source``, the provenance line a record hands
+# the reader beside the figure it qualifies (ADSRatio.source, PerAdsNote's tooltip).
+COPY_FIELDS = COPY_KEYWORDS | {"source"}
+# A dict key whose list value is a table's column headings.
+TABLE_KEYS = frozenset({"headers"})
 ROLE_NAME = re.compile(
     r"(?:^|_)(?:detail|message|msg|error|hint|footer|title|headline|subject|html|caption|disclaimer|notice|excerpt)$",
     re.IGNORECASE,
@@ -110,23 +121,29 @@ EXEMPT: dict[str, str] = {
 
     "app/routers/contact.py::send_contact_notifications": "backend-mail-templates",
     "app/routers/feedback.py::_notify_admin": "backend-mail-templates",
-    "app/services/email_service.py": "backend-mail-templates",
+    "app/services/email_service.py": (
+        "backend-mail-templates; also the verification mail's 'Verify your email address and you can start "
+        "reading', which promises a gate the code does not have (only checkout checks email_verified)"
+    ),
 
     "app/services/analysis_export_metadata.py": "backend-exports",
     "app/services/excel_export_service.py": "backend-exports",
     "app/services/export_service.py": "backend-exports",
     "app/services/pdf_branding.py": "backend-exports",
 
+    "app/services/ai/issuer_cash_disclosure.py": "backend-copy-high: the issuer cash-flow table's column heading",
     "app/services/fallback_summary.py": "backend-copy-high",
     "app/services/summary_sections.py": "backend-copy-high",
 
-    "app/routers/email.py::send_test_email": "no owner yet: the admin-only Resend test mail",
-    "app/services/trend_analysis/citations.py": "no owner yet: the analysis citation's derived-Q4 label",
-    "app/services/trend_analysis/detectors.py": "no owner yet: the cash-conversion red flag",
+    "app/routers/email.py::send_test_email": "backend-copy-low (tasks/todo.md E45): the admin-only Resend test mail",
+    "app/services/edgar/ads_ratios.py": "backend-copy-low (tasks/todo.md E45): the ADS-ratio sources PerAdsNote shows",
+    "app/services/trend_analysis/citations.py": "backend-copy-low (tasks/todo.md E45): the analysis citation's derived-Q4 label",
+    "app/services/trend_analysis/detectors.py": "backend-copy-low (tasks/todo.md E45): the cash-conversion red flag",
 }
-# The entry count when the gate landed. Lower it with every deletion (two shrinking PRs that conflict
-# on this line keep the smaller number); raising it is the one change this gate exists to refuse.
-EXEMPT_CAP = 18
+# The entry count: 18 when the gate landed, 20 when the walk learned shapes 7 and 8 and listed the two
+# files they found in the same commit. Lower it with every deletion (two shrinking PRs that conflict on
+# this line keep the smaller number); raising it for new copy is the one change this gate exists to refuse.
+EXEMPT_CAP = 20
 
 
 @dataclass(frozen=True)
@@ -180,12 +197,33 @@ class _Reader(ast.NodeVisitor):
                 self.constants[stmt.targets[0].id] = stmt.value
             elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name) and stmt.value is not None:
                 self.constants[stmt.target.id] = stmt.value
+        self.records = self._records(tree)
         self.skip = self._skipped(tree)
         self.reached: set[int] = set()
         self.literals: list[tuple[ast.AST, str]] = []
         self._scope: list[str] = []
         self._functions: list[str] = []
         self.visit(tree)
+
+    @staticmethod
+    def _records(tree: ast.Module) -> dict[str, list[str]]:
+        """Field names, in order, of each dataclass or NamedTuple the module defines without inheriting fields."""
+        records: dict[str, list[str]] = {}
+        for stmt in tree.body:
+            if not isinstance(stmt, ast.ClassDef):
+                continue
+            bases = [_dotted_tail(base) for base in stmt.bases]
+            named_tuple = bases == ["NamedTuple"]
+            is_dataclass = not bases and any(
+                _dotted_tail(d.func if isinstance(d, ast.Call) else d) == "dataclass" for d in stmt.decorator_list
+            )
+            if named_tuple or is_dataclass:
+                records[stmt.name] = [
+                    item.target.id for item in stmt.body
+                    if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name)
+                    and not re.search(r"\b(?:ClassVar|KW_ONLY)\b", ast.unparse(item.annotation))
+                ]
+        return records
 
     @staticmethod
     def _skipped(tree: ast.Module) -> set[int]:
@@ -261,11 +299,19 @@ class _Reader(ast.NodeVisitor):
                 self._reach(keyword.value)
         if _call_name(node) == "HTTPException" and len(node.args) >= 2:
             self._reach(node.args[1])
+        fields = self.records.get(node.func.id) if isinstance(node.func, ast.Name) else None
+        if fields is not None:
+            bound = list(zip(fields, node.args)) + [(k.arg, k.value) for k in node.keywords if k.arg in fields]
+            for field, value in bound:
+                if field in COPY_FIELDS or _names_copy(field):
+                    self._reach(value)
         self.generic_visit(node)
 
     def visit_Dict(self, node: ast.Dict) -> None:
         for key, value in zip(node.keys, node.values):
             if isinstance(key, ast.Constant) and key.value in COPY_KEYS:
+                self._reach(value)
+            elif isinstance(key, ast.Constant) and key.value in TABLE_KEYS and isinstance(value, (ast.List, ast.Tuple)):
                 self._reach(value)
         self.generic_visit(node)
 
@@ -302,6 +348,11 @@ class _Reader(ast.NodeVisitor):
 def _names_copy(name: str) -> bool:
     """A name whose last word says which copy it holds, and that does not say the text is for the model."""
     return bool(ROLE_NAME.search(name)) and not MODEL_FACING_NAME.search(name)
+
+
+def _dotted_tail(node: ast.expr) -> str:
+    """``dataclass`` for ``dataclass`` and ``dataclasses.dataclass``."""
+    return node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else ""
 
 
 def _call_name(node: ast.Call) -> str:
@@ -415,6 +466,37 @@ def build_system_message(n):
 
 def _build_context_message(n):
     return "FILING: Apple — 10-K filed today!"
+
+
+@dataclass(frozen=True)
+class Ratio:
+    per_ads: float
+    source: str
+    ticker: str
+    KIND: ClassVar[str] = "ClassVar — not a field"
+
+
+class Row(NamedTuple):
+    label: str
+    note: str
+
+
+@dataclass
+class Derived(Ratio):
+    caption: str
+
+
+RATIOS = {
+    "a": Ratio(8, "Deposit agreement — 1 ADS = 8 shares", "B — A"),
+    "b": Ratio(per_ads=5, ticker="T — M", source="Cover page — 1 ADS = 5 shares"),
+}
+ROWS = [Row("Free cash — flow", "plain — note"), Elsewhere(1, "Defined elsewhere — not read")]
+DERIVED = Derived(1, "Inherited fields — not mapped", "X", "Y")
+TABLE = {
+    "headers": ["USD millions — year ended", *YEARS],
+    "rows": [["Cash — net", 1]],
+    "request": {"headers": {"X-Note": "a header — not copy"}},
+}
 '''
 
 # A prompt module's role-named returns are prompt parts; the same function elsewhere returns copy.
@@ -437,6 +519,10 @@ _PROBE_BREAKS = {
     ("em-dash", "Oops — no"),
     ("emoji", "Saved ✨"),
     ("exclamation mark", "You have used {} questions!"),
+    ("em-dash", "Deposit agreement — 1 ADS = 8 shares"),
+    ("em-dash", "Cover page — 1 ADS = 5 shares"),
+    ("em-dash", "Free cash — flow"),
+    ("em-dash", "USD millions — year ended"),
 }
 
 
@@ -459,6 +545,14 @@ def test_the_reader_sees_each_shape_and_lets_the_rest_through():
         ("exclamation mark", "Plan — answer as JSON!"),
         ("em-dash", "FILING: Apple — 10-K filed today!"),
         ("exclamation mark", "FILING: Apple — 10-K filed today!"),
+        ("em-dash", "ClassVar — not a field"),
+        ("em-dash", "B — A"),
+        ("em-dash", "T — M"),
+        ("em-dash", "plain — note"),
+        ("em-dash", "Defined elsewhere — not read"),
+        ("em-dash", "Inherited fields — not mapped"),
+        ("em-dash", "Cash — net"),
+        ("em-dash", "a header — not copy"),
     }
 
     # A role-named return in prompt.py or prompts.py is not read; in any other module it is.
