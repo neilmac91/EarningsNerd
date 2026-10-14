@@ -481,7 +481,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
             <Card
               key={plan.name}
               elevation={plan.popular ? 'e3' : 'e2'}
-              className={`relative p-8 ${
+              className={`relative p-6 sm:p-8 ${
                 plan.popular ? 'ring-1 ring-inset ring-brand-strong dark:ring-brand-dark' : ''
               }`}
             >

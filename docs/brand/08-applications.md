@@ -121,7 +121,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   while the query still says Free) and pricing a cancelled one ("You returned from checkout", then
   "You can choose a plan below." or, for an account already on Pro, "Your plan is Pro."), reading
   only the subscription query and the return URL, which says nothing about a charge. Each page drops
-  its return flag from the address once read.
+  its return flag from the address once read. On /pricing a signed-in Pro account's Free card names
+  the plan, "Free plan", disabled, where it read the guest's "Request an invite" (gate:
+  `PricingPage.spec.tsx`).
 
 ## 4. The mark's files and the icons
 

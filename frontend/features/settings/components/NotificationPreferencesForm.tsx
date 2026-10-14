@@ -190,9 +190,10 @@ function PreferenceRows({
           states the cadence instead of offering a choice no job honours. A choice comes back only with
           a reader in the backend (tests/unit/notificationPreferencesConsumed.spec.ts). The cadence is the
           row's value, set in the data face as the filing identity sets its facts, so it reads as a stated
-          fact rather than a label that lost its control. */}
-      <div className="flex items-start justify-between gap-4 py-3">
-        <div className="flex-1">
+          fact rather than a label that lost its control. Its row is the switches' row, so at 200% text the
+          value sits under the description as a switch does. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3">
+        <div className="grow basis-40">
           <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Digest</span>
           <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
             Alerts that aren&apos;t real-time arrive in one email a day.
