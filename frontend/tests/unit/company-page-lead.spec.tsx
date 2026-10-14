@@ -284,10 +284,16 @@ describe('Company page when the company does not load (CO-05)', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Apple Inc.' })).toBeInTheDocument()
   })
 
-  it('reads a 404 as not found, with the scope of the search and no Retry', async () => {
+  it('reads a 404 as not found, an answer in the empty card, with the scope of the search and no Retry', async () => {
     api.getCompany.mockRejectedValue(new ApiError(404, 'Company not found'))
     renderUnseeded()
-    expect(await screen.findByRole('heading', { name: 'Company not found' }, { timeout: 4000 })).toBeInTheDocument()
+    const title = await screen.findByRole('heading', { name: 'Company not found' }, { timeout: 4000 })
+    // A 404 is an answer, not a breakage: the empty variant (role="status", the brand tint), never the
+    // error card's alert and its error tint, which the load failure keeps.
+    expect(title.closest('[role="alert"]')).toBeNull()
+    const card = title.closest('[role="status"]') as HTMLElement
+    expect(card).not.toBeNull()
+    expect(card.innerHTML).not.toMatch(/error-light|error-dark/)
     expect(screen.getByText('No company with a ticker on SEC EDGAR matches "AAPL".')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Go back home' })).toHaveAttribute('href', '/')

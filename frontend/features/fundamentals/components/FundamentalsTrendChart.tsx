@@ -10,9 +10,9 @@ import {
   FundamentalsResponse,
 } from '@/features/fundamentals/api/fundamentals-api'
 import { ApiError } from '@/lib/api/client'
-import { fmtCurrency, fmtPercent } from '@/lib/format'
+import { fmtCurrency, fmtPercent, sentenceCase } from '@/lib/format'
 import { ThemeContext } from '@/components/ThemeProvider'
-import { Card, seriesColor, CHART_SERIES, gridProps, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, SegmentedControl, Skeleton } from '@/components/ui'
+import { Card, seriesColor, CHART_SERIES, gridProps, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton, inputClasses } from '@/components/ui'
 import { needsSourceCheck } from '@/features/analysis/lib/provenance'
 import SourceCheckBadge from '@/features/fundamentals/components/SourceCheckBadge'
 import SourceChecks from '@/features/analysis/components/SourceChecks'
@@ -155,15 +155,19 @@ export default function FundamentalsTrendChart({
           )}
         </div>
         {available.length > 0 && (
-          // Up to 23 metrics: the shell wraps whole segments (flex-wrap) at every width.
-          <SegmentedControl
-            label="Metric"
-            size="adaptive"
-            className="flex-wrap gap-y-1"
-            value={activeKey ?? ''}
-            onChange={setSelected}
-            options={available.map((f) => ({ value: f.key, label: f.label }))}
-          />
+          // Up to 23 metrics: a compact select sized to its content beside its label, never a segmented row.
+          <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
+            Metric
+            <select
+              className={inputClasses({ select: true, density: 'compact', autoWidth: true })}
+              value={activeKey ?? ''}
+              onChange={(event) => setSelected(event.target.value)}
+            >
+              {available.map((f) => (
+                <option key={f.key} value={f.key}>{sentenceCase(f.label)}</option>
+              ))}
+            </select>
+          </label>
         )}
       </div>
 

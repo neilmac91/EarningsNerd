@@ -288,13 +288,14 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
 
   if (!company) {
     // A load failure says so and offers a Retry; it never prints the raw error. Only a 404 (or no
-    // answer at all) reads as "not found".
+    // answer at all) reads as "not found", and a 404 is an answer: the empty variant, like the
+    // coverage card below, so the error tint means something broke.
     const loadFailed = companyFailure.failed && !companyNotFound
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="w-full max-w-md">
           <GuidanceCard
-            variant="error"
+            variant={loadFailed ? 'error' : 'empty'}
             headingRef={companyCardHeadingRef}
             title={loadFailed ? 'Couldn’t load this company' : 'Company not found'}
             description={

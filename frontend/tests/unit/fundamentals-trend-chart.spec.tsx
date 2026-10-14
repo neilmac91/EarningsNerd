@@ -21,6 +21,11 @@ vi.mock('@/features/fundamentals/api/fundamentals-api', () => ({
 import FundamentalsTrendChart from '@/features/fundamentals/components/FundamentalsTrendChart'
 import { CHART_SERIES } from '@/components/ui'
 
+/** The metric picker: a compact select beside its "Metric" label, its options in sentence case. */
+const metricPicker = () => screen.findByRole('combobox', { name: 'Metric' })
+const pick = (picker: HTMLElement, label: string) =>
+  fireEvent.change(picker, { target: { value: (screen.getByRole('option', { name: label }) as HTMLOptionElement).value } })
+
 function renderChart(filingId = 285, subtitle?: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -60,11 +65,11 @@ describe('FundamentalsTrendChart', () => {
     getFilingFundamentals.mockResolvedValue(RESP)
     renderChart()
 
-    // Wait on a data-driven button (the heading also shows during loading).
-    const revenueBtn = await screen.findByRole('button', { name: 'Revenue' })
-    expect(revenueBtn).toHaveAttribute('aria-pressed', 'true')
+    // Wait on the data-driven picker (the heading also shows during loading).
+    const picker = await metricPicker()
+    expect(picker).toHaveValue('revenue')
     expect(screen.getByText('Financial trends')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Net Margin' })).toBeInTheDocument()
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Revenue', 'Net margin'])
     expect(screen.queryByText('some_unfeatured_concept')).not.toBeInTheDocument()
     expect(screen.getByTestId('fundamentals-chart')).toBeInTheDocument()
     // Clean data → no honesty badge.
@@ -85,15 +90,31 @@ describe('FundamentalsTrendChart', () => {
     expect(await screen.findByText('Source check needed')).toBeInTheDocument()
   })
 
-  it('switches the active metric on click', async () => {
+  it('switches the active metric from the select', async () => {
     getFilingFundamentals.mockResolvedValue(RESP)
     renderChart()
 
-    const netMargin = await screen.findByRole('button', { name: 'Net Margin' })
-    fireEvent.click(netMargin)
+    const picker = await metricPicker()
+    pick(picker, 'Net margin')
 
-    expect(netMargin).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: 'Revenue' })).toHaveAttribute('aria-pressed', 'false')
+    expect(picker).toHaveValue('net_margin')
+    expect((screen.getByRole('option', { name: 'Net margin' }) as HTMLOptionElement).selected).toBe(true)
+    expect((screen.getByRole('option', { name: 'Revenue' }) as HTMLOptionElement).selected).toBe(false)
+  })
+
+  it('picks the metric through a compact select sized to its content beside its label, never a segmented row', async () => {
+    getFilingFundamentals.mockResolvedValue(RESP)
+    renderChart()
+
+    const picker = await metricPicker()
+    expect(picker.tagName).toBe('SELECT')
+    expect(picker.closest('label')).toHaveTextContent(/^Metric/)
+    // inputClasses({ select: true, autoWidth: true }): capped at its container, not filling the row.
+    expect(picker.className).toContain('max-w-full')
+    expect(picker.className).not.toMatch(/(^| )w-full( |$)/)
+    expect(picker.className).toContain('pr-9')
+    expect(screen.queryByRole('group', { name: 'Metric' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Revenue' })).toBeNull()
   })
 
   it('rotates the bar color per metric — positional across the visible tabs', async () => {
@@ -102,10 +123,10 @@ describe('FundamentalsTrendChart', () => {
 
     // Revenue is available[0] → chart series color 1 (teal). The unfeatured concept is
     // filtered out, so Net Margin is available[1] → color 2 (honey).
-    await screen.findByRole('button', { name: 'Revenue' })
+    const picker = await metricPicker()
     expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', CHART_SERIES[0])
 
-    fireEvent.click(screen.getByRole('button', { name: 'Net Margin' }))
+    pick(picker, 'Net margin')
     expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', CHART_SERIES[1])
   })
 
@@ -128,16 +149,16 @@ describe('FundamentalsTrendChart', () => {
 
     const walk: [string, string][] = [
       ['Revenue', CHART_SERIES[0]],
-      ['Net Income', CHART_SERIES[1]],
-      ['Gross Profit', CHART_SERIES[2]],
-      ['Operating Income', CHART_SERIES[3]],
-      ['Operating Cash Flow', CHART_SERIES[4]],
-      ['Investing Cash Flow', CHART_SERIES[5]],
-      ['Financing Cash Flow', CHART_SERIES[0]], // index 6 wraps back to color 1
+      ['Net income', CHART_SERIES[1]],
+      ['Gross profit', CHART_SERIES[2]],
+      ['Operating income', CHART_SERIES[3]],
+      ['Operating cash flow', CHART_SERIES[4]],
+      ['Investing cash flow', CHART_SERIES[5]],
+      ['Financing cash flow', CHART_SERIES[0]], // index 6 wraps back to color 1
     ]
-    await screen.findByRole('button', { name: 'Revenue' })
+    const picker = await metricPicker()
     for (const [label, color] of walk) {
-      fireEvent.click(screen.getByRole('button', { name: label }))
+      pick(picker, label)
       expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', color)
     }
   })
@@ -170,7 +191,7 @@ describe('FundamentalsTrendChart', () => {
     )
   })
 
-  it('renders the richer 2.6 metrics (cash-flow + working capital) as buttons when present', async () => {
+  it('offers the richer 2.6 metrics (cash-flow + working capital) as options when present', async () => {
     // Roadmap 2.6 (Phase A): the new concepts self-gate — they only appear when the response
     // carries them (i.e. once RICHER_FINANCIALS_ENABLED extracted them). Here they're present.
     getFilingFundamentals.mockResolvedValue({
@@ -188,19 +209,18 @@ describe('FundamentalsTrendChart', () => {
     })
     renderChart()
 
-    expect(await screen.findByRole('button', { name: 'Investing Cash Flow' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Financing Cash Flow' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Current Assets' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Current Liabilities' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Working Capital' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Current Ratio' })).toBeInTheDocument()
+    await metricPicker()
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Revenue', 'Investing cash flow', 'Financing cash flow', 'Current assets', 'Current liabilities',
+      'Working capital', 'Current ratio',
+    ])
   })
 
   it('fetches by filingId (roadmap B), not any company-wide endpoint', async () => {
     getFilingFundamentals.mockResolvedValue(RESP)
     renderChart(285, 'LLY · figures as reported in this 10-K')
 
-    expect(await screen.findByRole('button', { name: 'Revenue' })).toBeInTheDocument()
+    expect(await metricPicker()).toHaveValue('revenue')
     expect(screen.getByText('LLY · figures as reported in this 10-K')).toBeInTheDocument()
     expect(getFilingFundamentals).toHaveBeenCalledWith(285)
   })

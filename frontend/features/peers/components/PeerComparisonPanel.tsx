@@ -7,9 +7,9 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 
 
 import { getPeers, PeerComparisonResponse } from '@/features/peers/api/peers-api'
 import { ApiError } from '@/lib/api/client'
-import { fmtCurrency, fmtPercent, ordinal } from '@/lib/format'
+import { fmtCurrency, fmtPercent, ordinal, sentenceCase } from '@/lib/format'
 import { ThemeContext } from '@/components/ThemeProvider'
-import { Card, seriesColor, chartTheme, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, SegmentedControl, Skeleton } from '@/components/ui'
+import { Card, seriesColor, chartTheme, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton, inputClasses } from '@/components/ui'
 import { needsSourceCheck } from '@/features/analysis/lib/provenance'
 import SourceCheckBadge from '@/features/fundamentals/components/SourceCheckBadge'
 import SourceChecks from '@/features/analysis/components/SourceChecks'
@@ -133,15 +133,19 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
             </p>
           )}
         </div>
-        {/* Nine metrics outgrow one row: the shell wraps whole segments (flex-wrap) at every width. */}
-        <SegmentedControl
-          label="Metric"
-          size="adaptive"
-          className="flex-wrap gap-y-1"
-          value={metric}
-          onChange={setMetric}
-          options={METRICS.map((m) => ({ value: m.key, label: m.label }))}
-        />
+        {/* Nine metrics: a compact select sized to its content beside its label, never a segmented row. */}
+        <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
+          Metric
+          <select
+            className={inputClasses({ select: true, density: 'compact', autoWidth: true })}
+            value={metric}
+            onChange={(event) => setMetric(event.target.value)}
+          >
+            {METRICS.map((m) => (
+              <option key={m.key} value={m.key}>{sentenceCase(m.label)}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {isLoading ? (

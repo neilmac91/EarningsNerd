@@ -82,15 +82,27 @@ describe('PeerComparisonPanel', () => {
     expect(await screen.findByText(/of 3 on Revenue/)).toHaveTextContent('· 21st percentile')
   })
 
-  it('picks the metric through the SegmentedControl (CO-15): a named group of pressed buttons', async () => {
+  it('picks the metric through a compact select beside its "Metric" label (CO-15), its options in sentence case', async () => {
     getPeers.mockResolvedValue(RESP)
     renderPanel()
-    const group = await screen.findByRole('group', { name: 'Metric' })
-    expect(group.className).toContain('flex-wrap')
-    expect(screen.getByRole('button', { name: 'Revenue' })).toHaveAttribute('aria-pressed', 'true')
-    fireEvent.click(screen.getByRole('button', { name: 'Net Income' }))
+    const picker = await screen.findByRole('combobox', { name: 'Metric' })
+    expect(picker.tagName).toBe('SELECT')
+    expect(picker.closest('label')).toHaveTextContent(/^Metric/)
+    // inputClasses({ select: true, autoWidth: true }): sized to its content, capped at its container,
+    // with the field's brand focus ring; nine metrics are never a row of pressed segments.
+    expect(picker.className).toContain('max-w-full')
+    expect(picker.className).not.toMatch(/(^| )w-full( |$)/)
+    expect(picker.className).toContain('focus:shadow-ring-brand')
+    expect(screen.queryByRole('group', { name: 'Metric' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Revenue' })).toBeNull()
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Revenue', 'Net income', 'Gross profit', 'Operating income', 'Net margin', 'Operating margin',
+      'Gross margin', 'Diluted EPS', 'Total assets',
+    ])
+    expect(picker).toHaveValue('revenue')
+    fireEvent.change(picker, { target: { value: 'net_income' } })
     await waitFor(() => expect(getPeers).toHaveBeenCalledWith('AAPL', 'net_income'))
-    expect(screen.getByRole('button', { name: 'Net Income' }).className).toContain('focus-visible:shadow-ring-brand')
+    expect(picker).toHaveValue('net_income')
   })
 
   it('shows a source check when a shown value is flagged', async () => {

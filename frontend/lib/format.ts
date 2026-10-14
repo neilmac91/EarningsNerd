@@ -137,6 +137,16 @@ export const ordinal = (n: number): string => {
   return `${whole}${suffix}`
 }
 
+/**
+ * A stored Title Case data label in sentence case, for a control's face (the company page's metric
+ * pickers): the first word keeps its capital, every later word goes lower case, and an acronym written in
+ * capitals stays ('Net Income' to 'Net income', 'Non-Interest Income' to 'Non-interest income', 'Diluted EPS'
+ * stays). The stored labels themselves are E34's.
+ */
+export const sentenceCase = (label: string): string =>
+  label.replace(/[A-Za-z]+/g, (word: string, offset: number) =>
+    offset === 0 || /^[A-Z]{2,}$/.test(word) ? word : word.toLowerCase())
+
 export const fmtCurrency = (
   value: NumericInput,
   options?: { currency?: string; digits?: number; compact?: boolean }

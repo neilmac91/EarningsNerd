@@ -1,4 +1,4 @@
-import { fmtCurrency, fmtPercent, fmtShares, ordinal } from '@/lib/format'
+import { fmtCurrency, fmtPercent, fmtShares, ordinal, sentenceCase } from '@/lib/format'
 
 describe('numeric formatters', () => {
   it('formats currency values compactly by default', () => {
@@ -29,6 +29,15 @@ describe('numeric formatters', () => {
     expect(fmtShares(48_000, { signed: true })).toBe('+48.0K')
     expect(fmtShares(0, { signed: true })).toBe('0')
     expect(fmtShares(null)).toBe('')
+  })
+
+  it('puts a stored Title Case metric label in sentence case, keeping the first capital and acronyms', () => {
+    const cases: Array<[string, string]> = [
+      ['Revenue', 'Revenue'], ['Net Income', 'Net income'], ['Operating Cash Flow', 'Operating cash flow'],
+      ['Non-Interest Income', 'Non-interest income'], ["Shareholders' Equity", "Shareholders' equity"],
+      ['Diluted EPS', 'Diluted EPS'], ['EPS', 'EPS'],
+    ]
+    for (const [label, text] of cases) expect(sentenceCase(label)).toBe(text)
   })
 })
 
