@@ -182,6 +182,10 @@ ink check's own walk, whatever the path; and its review of `3a15929` a helper th
 argument it is handed and a rest target in an assignment, so a helper's parameter holds what the file's
 calls hand it and a rest target holds the whole, as the walk already read a declaration's; the key
 read by a string or a constant, the props taken through a declaration's array and `Object.assign`
-were planted beside them, ahead of a review. Companion to
+were planted beside them, ahead of a review. Its review of `9643b93` then turned the other way, to two
+look-alikes the widened read flagged: a style map's `className` and a helper handed another object
+beside a call handing it the props; so the field counts only when its receiver holds the props, and
+a helper's parameter is bound at the call being read alone. A gate widened finding by finding needs
+its look-alikes planted with each copy, or the next review names the false positive. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.
