@@ -123,8 +123,9 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    style or on a pseudo-element, a library component's internals, a component created inside
  *    another's render, reading that one's children through a closure (the lint's
  *    react-hooks/static-components forbids one), and SVG text coloured by attribute (the chart
- *    theme, which carries no sage). Neither check reads a className a component forwards through a
- *    spread or a conditional return. The one-source check reads one the component joins with its
+ *    theme, which carries no sage). A forwarded className is read under the name the props give it
+ *    and through a same-file variable holding it. Neither check reads one a component forwards
+ *    through a spread or a conditional return. The one-source check reads one the component joins with its
  *    own ink, which the ink check leaves to review, and reads an ink a label sets in one state only
  *    (`dark:text-…`) as its own. The waitlist counter's own spec covers the count on the public
  *    pages.
@@ -1704,13 +1705,39 @@ function forwardsClassName(fn: ts.FunctionLikeDeclaration): boolean {
     return !!opening && takesClassName(opening)
   })
 }
-/** Whether an element's className reads the `className` its component is handed (`className={className}`,
-    `cx('…', className)`). */
+/** Whether an element's className reads the `className` its component is handed: the name itself (`className={className}`,
+    `cx('…', className)`, `props.className`), the name the props' destructuring gives it (`({ className: cls })`, a binding
+    keyed `className` in a parameter of a function around the element) or a same-file variable holding either (`const cls
+    = className`), each identifier resolved through the checker. */
 function takesClassName(opening: ts.JsxOpeningLikeElement): boolean {
   const attr = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === 'className')
-  let forwards = false
-  if (attr?.initializer) visit(attr.initializer, (m) => { if (ts.isIdentifier(m) && m.text === 'className') forwards = true })
-  return forwards
+  if (!attr?.initializer) return false
+  const seen = new Set<ts.Node>()
+  const reads = (node: ts.Node): boolean => {
+    let found = false
+    visit(node, (m) => {
+      if (found || !ts.isIdentifier(m)) return
+      if (m.text === 'className') return void (found = true)
+      const declaration = CHECKER.getSymbolAtLocation(m)?.valueDeclaration
+      if (!declaration || seen.has(declaration)) return
+      seen.add(declaration)
+      if (ts.isBindingElement(declaration)) {
+        const key = declaration.propertyName ?? declaration.name
+        if ((ts.isIdentifier(key) || ts.isStringLiteral(key)) && key.text === 'className' && isPropsBinding(declaration, opening)) found = true
+      } else if (ts.isVariableDeclaration(declaration) && declaration.initializer && reads(declaration.initializer)) found = true
+    })
+    return found
+  }
+  return reads(attr.initializer)
+}
+/** Whether a binding element destructures a parameter of a function around the element (the component's props, or a
+    render callback's), not some other object (`const { className: cls } = theme`). */
+function isPropsBinding(binding: ts.BindingElement, at: ts.Node): boolean {
+  let root: ts.Node = binding
+  while (ts.isBindingElement(root) || ts.isObjectBindingPattern(root) || ts.isArrayBindingPattern(root)) root = root.parent
+  if (!ts.isParameter(root)) return false
+  for (let p: ts.Node | undefined = at; p; p = p.parent) if (p === root.parent) return true
+  return false
 }
 
 /** The ink an element inherits from the elements around it in its own file: the nearest one that sets an ink. One

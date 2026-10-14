@@ -168,6 +168,8 @@ self-closing too, which Codex's review of `820b5a0` named, a nested label compon
 it forwards. Its review lens found the walk's cost in a cycle of components: a summary read more than
 once per element multiplied the walk, so the walk now reads each element's summary once. A control's
 own-ink check still reads the components inside it again, so a cycle of six controls, each rendering
-the next twice, still takes about 9 s, against 16 s before. Companion to
+the next twice, still takes about 9 s, against 16 s before. Codex's review of `b36e741` then named the
+forwarded className under another name (`({ className: cls })`), which a spelling check missed, so the
+check resolves each identifier a className reads to its declaration. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.
