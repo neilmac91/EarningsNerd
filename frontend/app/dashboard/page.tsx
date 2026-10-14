@@ -284,8 +284,8 @@ export default function DashboardPage() {
           ) : (
             <Notice
               variant="info"
-              title="Checkout finished; your plan updates in a moment"
-              description="Reload this page if it still shows Free."
+              title="Checkout finished"
+              description="Your plan updates in a moment. Reload this page if it still shows Free."
               className="mb-6"
             />
           )

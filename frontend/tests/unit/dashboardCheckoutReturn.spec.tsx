@@ -11,9 +11,10 @@ import DashboardPage from '@/app/dashboard/page'
  * mocked subscription snapshot with the REAL TrialBanner (BillingPanel.spec's style).
  *
  * - A plain visit says nothing about a checkout.
- * - `?success=true` says "Pro is active" only when the subscription query says Pro, and the "updates in a
- *   moment" notice only while it still says Free. The flag is then dropped from the address, so a second
- *   visit to the same page says nothing.
+ * - `?success=true` says "Pro is active" only when the subscription query says Pro, and "Checkout finished"
+ *   (a title, then "Your plan updates in a moment." as its description; a Notice title is one phrase, never
+ *   two clauses joined by a semicolon) only while it still says Free. The flag is then dropped from the
+ *   address, so a second visit to the same page says nothing.
  * - The trial banner keys on the resolved plan (`subscription.is_pro`), never the /me `is_pro` mirror,
  *   which stays true on an expired trial remnant (lessons/frontend-trial-labels-use-entitlements.md).
  */
@@ -71,7 +72,8 @@ const free: SubscriptionStatus = {
 const pro: SubscriptionStatus = { ...free, is_pro: true, plan: 'pro', status: 'active', stripe_customer_id: 'cus_1' }
 
 const PRO_ACTIVE = 'Pro is active'
-const UPDATING = 'Checkout finished; your plan updates in a moment'
+const UPDATING = 'Checkout finished'
+const UPDATING_DETAIL = 'Your plan updates in a moment. Reload this page if it still shows Free.'
 
 async function renderDashboard(subscription: SubscriptionStatus, me: CurrentUser = user) {
   api.getCurrentUserSafe.mockResolvedValue(me)
@@ -106,6 +108,7 @@ describe('Dashboard after checkout', () => {
     window.history.replaceState(null, '', '/dashboard?success=true&tab=alerts')
     await renderDashboard(free)
     expect(await screen.findByText(UPDATING)).toBeInTheDocument()
+    expect(screen.getByText(UPDATING_DETAIL)).toBeInTheDocument()
     expect(screen.queryByText(PRO_ACTIVE)).not.toBeInTheDocument()
     // Other params are kept; only the return flag goes.
     expect(api.routerReplace).toHaveBeenCalledWith('/dashboard?tab=alerts', { scroll: false })
@@ -115,6 +118,7 @@ describe('Dashboard after checkout', () => {
     cleanup()
     await renderDashboard(free)
     expect(screen.queryByText(UPDATING)).not.toBeInTheDocument()
+    expect(screen.queryByText(UPDATING_DETAIL)).not.toBeInTheDocument()
     expect(screen.queryByText(PRO_ACTIVE)).not.toBeInTheDocument()
   })
 
@@ -123,6 +127,7 @@ describe('Dashboard after checkout', () => {
     await renderDashboard(pro)
     expect(await screen.findByText(PRO_ACTIVE)).toBeInTheDocument()
     expect(screen.queryByText(UPDATING)).not.toBeInTheDocument()
+    expect(screen.queryByText(UPDATING_DETAIL)).not.toBeInTheDocument()
     expect(window.location.pathname + window.location.search).toBe('/dashboard')
 
     cleanup()

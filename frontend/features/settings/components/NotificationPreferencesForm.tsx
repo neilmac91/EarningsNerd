@@ -185,7 +185,9 @@ function PreferenceRows({
 
       {/* The daily digest job sends once a day for everyone and reads no frequency setting, so this row
           states the cadence instead of offering a choice no job honours. A choice comes back only with
-          a reader in the backend (tests/unit/notificationPreferencesConsumed.spec.ts). */}
+          a reader in the backend (tests/unit/notificationPreferencesConsumed.spec.ts). The cadence is the
+          row's value, set in the data face as the filing identity sets its facts, so it reads as a stated
+          fact rather than a label that lost its control. */}
       <div className="flex items-start justify-between gap-4 py-3">
         <div className="flex-1">
           <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Digest</span>
@@ -193,7 +195,7 @@ function PreferenceRows({
             Alerts that aren&apos;t real-time arrive in one email a day.
           </p>
         </div>
-        <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Daily</span>
+        <span className="font-data text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Daily</span>
       </div>
     </div>
   )

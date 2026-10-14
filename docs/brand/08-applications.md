@@ -69,22 +69,23 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
   verification mail ends "Verify your email address and you can start reading."
 - **Settings and subscription** (`frontend/features/settings/`, `frontend/features/subscriptions/`,
-  D-033): Filing alerts offer only what the alert jobs read. The digest row states "Daily" ("Alerts
-  that aren't real-time arrive in one email a day.") in place of a frequency select no job honoured;
-  real-time alerts read "An email from the hourly filing check, instead of the daily digest." and
-  8-K alerts "Current reports on material events." The Pro list in the upgrade dialog is one shared
-  string, and every plan list (the dialog, the /pricing and landing plan cards) names Multi-Period
-  Analysis only through `lib/planLimits.ts`, while that flag ships it. The trial banner and the
-  billing panel state the trial's end date ("Your Pro trial ends Jun 25, 2026."), never a countdown,
-  and the banner shows only while the resolved plan is a live Pro trial. Commerce carries the
-  Lightning glyph (the Pro badge, the trial banner), "Analyze trends" a chart glyph, and the
-  sparkle stays on the AI summary chip; the dead SubscriptionGate is gone. The locked overlay reads
-  "Upgrade to Pro". Section headings in settings and on the dashboard carry no icon. The dashboard
-  answers a finished checkout ("Pro is active", or "Checkout finished; your plan updates in a
-  moment" while the query still says Free) and pricing a cancelled one ("You returned from
-  checkout", then "You can choose a plan below." or, for an account already on Pro, "Your plan is
-  Pro."), reading only the subscription query and the return URL, which says nothing about a
-  charge. Each page drops its return flag from the address once read.
+  D-033): Filing alerts offer only what the alert jobs read. The digest row states "Daily" in the
+  data face ("Alerts that aren't real-time arrive in one email a day.") in place of a frequency
+  select no job honoured; real-time alerts read "An email from the hourly filing check, instead of
+  the daily digest." and 8-K alerts "Current reports on material events." The Pro list in the
+  upgrade dialog is one shared string, and every plan list (the dialog, the /pricing and landing
+  plan cards) names Multi-Period Analysis only through `lib/planLimits.ts`, while that flag ships
+  it. The trial banner and the billing panel state the trial's end date ("Your Pro trial ends Jun
+  25, 2026."), never a countdown, and the banner shows only while the resolved plan is a live Pro
+  trial. Commerce carries the Lightning glyph (the Pro badge, the trial banner), "Analyze trends" a
+  chart glyph, and the sparkle leaves commerce (D-031 records where it still sits); the dead
+  SubscriptionGate is gone. The locked overlay reads "Upgrade to Pro". Section headings in settings
+  and on the dashboard carry no icon. The dashboard answers a finished checkout ("Pro is active", or
+  "Checkout finished" with "Your plan updates in a moment. Reload this page if it still shows Free."
+  while the query still says Free) and pricing a cancelled one ("You returned from checkout", then
+  "You can choose a plan below." or, for an account already on Pro, "Your plan is Pro."), reading
+  only the subscription query and the return URL, which says nothing about a charge. Each page drops
+  its return flag from the address once read.
 
 ## 4. The mark's files and the icons
 

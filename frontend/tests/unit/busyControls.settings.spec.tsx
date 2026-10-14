@@ -592,13 +592,14 @@ describe('NotificationPreferencesForm', () => {
   })
 
   // DSW-01: no job reads a digest frequency (run_daily_digest sends once a day for everyone), so the
-  // row states the cadence and offers no choice; notificationPreferencesConsumed.spec.ts holds it.
+  // row states the cadence and offers no choice; notificationPreferencesConsumed.spec.ts holds it. The
+  // cadence is the row's value in the data face, as the filing identity sets its facts.
   it('states the daily digest as a fact, with no control that saves a frequency', async () => {
     api.getNotificationPreferences.mockResolvedValue({ ...prefs, digest: 'weekly' })
     renderWithClient(<NotificationPreferencesForm />)
 
     expect(await screen.findByText('Alerts that aren\'t real-time arrive in one email a day.')).toBeInTheDocument()
-    expect(screen.getByText('Daily')).toBeInTheDocument()
+    expect(screen.getByText('Daily')).toHaveClass('font-data')
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Filing alerts' })).toBeInTheDocument()
   })
