@@ -948,3 +948,8 @@ function Label546({ children }: { children: ReactNode }) { return <span classNam
 export function P546({ n }: { n: number }) { return <a href="/x" className={countControlClass('link')}><Label546>See all {n}</Label546></a> } // clean
 function Label547({ children }: { children: ReactNode }) { return <span className={countControlClass('inline')}>{children}</span> }
 export function P547({ n }: { n: number }) { return <a href="/x"><Label547>See all {n}</Label547></a> } // clean
+// Codex's review of 63b7144: the same label component held in a name before it renders (P548, the review's own form)
+// is read through the file's bindings; held in the plain ink inside a control that composes the recipe, it is no copy
+// (P549).
+export function P548({ n }: { n: number }) { const label = <Label545>See all {n}</Label545>; return <a href="/x">{label}</a> } // flag
+export function P549({ n }: { n: number }) { const label = <Label546>See all {n}</Label546>; return <a href="/x" className={countControlClass('link')}>{label}</a> } // clean

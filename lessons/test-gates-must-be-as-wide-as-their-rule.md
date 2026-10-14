@@ -160,6 +160,7 @@ measured idle, it saved about a tenth of a second, so every callee is now asked.
 component (`<a><CountLabel>See all {n}</CountLabel></a>`, the span's pointer sage inside the
 component): the control's own classes and its label span were covered, the component's were not, so
 the check now reads a component that renders its children in a pointer-sage element as the label's
-classes. Companion to
+classes; its review of `63b7144` named the same label held in a name before it renders, which the check
+now reads through the held-JSX walk, as the ink checks already did. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.

@@ -90,7 +90,8 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    in its file turn sage under the pointer, a sage text colour behind a pointer state (a sage fill
  *    recolours an icon, not the label): a hand-built copy of the recipe, on the control, on the
  *    element holding the count (a label span, under the control's group too, or a same-file label
- *    component that renders the count in such a span) or on the control a same-file wrapper renders
+ *    component that renders the count in such a span, written in place or held in a name) or on the
+ *    control a same-file wrapper renders
  *    its children in, a class helper's return (a function declaration's
  *    too) and a className default counting as written. A count control that never turns sage, and a
  *    countdown on a control that waits, rest in the ink outside the helper, review-checked. The
@@ -1751,7 +1752,8 @@ function sageUnderPointer(token: string): boolean {
     written in the file: the recipe moved onto the label (`<button className="group"><span className="…
     group-hover:text-brand-strong">{n} more</span></button>`), or onto a same-file label component that renders its
     children in such an element (`<a><CountLabel>See all {n}</CountLabel></a>`, read through the component's
-    summary). An icon that turns sage holds no count. */
+    summary), the label written in place or held in a name and rendered here (`const label = <CountLabel>…`, read
+    through the file's bindings). An icon that turns sage holds no count. */
 function labelTurnsSage(control: ts.JsxElement, sf: ts.SourceFile): boolean {
   const holds = (el: ts.JsxElement) =>
     inkTexts(el.children, sf).some(({ text }) => carriesDigit(text)) || inkValues(el.children, sf, [], el.openingElement).length > 0
@@ -1760,8 +1762,15 @@ function labelTurnsSage(control: ts.JsxElement, sf: ts.SourceFile): boolean {
     const fn = componentFunction(el.openingElement)
     return !!fn && summary(fn).childrenTurnSage
   }
-  const inside = (list: ts.NodeArray<ts.JsxChild>): boolean => list.some((child) =>
-    ts.isJsxElement(child) && ((turnsSage(child) && holds(child)) || inside(child.children)))
+  const followed = new Set<ts.Node>()
+  const element = (el: ts.Expression): boolean => {
+    if (ts.isJsxFragment(el)) return inside(el.children)
+    return ts.isJsxElement(el) && ((turnsSage(el) && holds(el)) || inside(el.children))
+  }
+  const inside = (list: ts.NodeArray<ts.JsxChild>): boolean => list.some((child) => {
+    if (ts.isJsxExpression(child) && child.expression) return heldJsx(child.expression, sf, followed).some(element)
+    return element(child as ts.Expression)
+  })
   return inside(control.children)
 }
 
