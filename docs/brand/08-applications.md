@@ -69,9 +69,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   happened, or what you'd like to know".
   Every failure shows in an error Notice titled "Message not sent". A rate limit is read from the
   status and says "Too many messages from this connection. Try again in an hour."; a 422 the form
-  could not foresee says "Check the fields and send again."; any other failure shows the backend's
-  own detail, or the surface's sentence when the body carried none: "We couldn't send your message.
-  Try again in a minute." The success heading is an h2.
+  could not foresee says "Check the fields and send again."; a 5xx says the surface's sentence, since
+  the route's own 500 detail is developer wording; any other failure shows the backend's own detail,
+  or the surface's sentence when the body carried none: "We couldn't send your message. Try again in
+  a minute." The success heading is an h2.
   The prose links on /contact are underlined and carry the brand focus ring. The /security links
   are unchanged, because /security is a legal page under the founder's boundary; the ring triple
   on its five links rides the founder-gated security-claims PR.

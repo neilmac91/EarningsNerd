@@ -67,10 +67,10 @@ describe('ContactForm send errors', () => {
     expect(await failure()).toBe('Request 429 was refused.')
   })
 
-  it("the backend's own detail is shown as it came", async () => {
+  it("a 5xx shows the surface's sentence, never the route's save-failure string", async () => {
     api.submitContactForm.mockRejectedValue(backendError(500, 'Failed to save contact form submission'))
     fillAndSend()
-    expect(await failure()).toBe('Failed to save contact form submission')
+    expect(await failure()).toBe(SEND_FAILED)
   })
 
   it.each([
