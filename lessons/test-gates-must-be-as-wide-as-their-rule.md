@@ -181,6 +181,7 @@ planted next, ahead of a review; its review of `2a5ec9c` the name filled through
 ink check's own walk, whatever the path; and its review of `3a15929` a helper that destructures the
 argument it is handed and a rest target in an assignment, so a helper's parameter holds what the file's
 calls hand it and a rest target holds the whole, as the walk already read a declaration's; the key
-read by a string or a constant was planted beside them. Companion to
+read by a string or a constant, the props taken through a declaration's array and `Object.assign`
+were planted beside them, ahead of a review. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.
