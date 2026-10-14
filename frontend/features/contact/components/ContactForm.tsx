@@ -18,13 +18,16 @@ const SEND_FAILED = "We couldn't send your message. Try again in a minute."
 
 /** What a failed send tells the reader. The rate limit is read from the status, never from the
     message's words (the backend's 429 sentence has no "429" in it), and so is a 422, which asks the
-    reader to check the fields. Otherwise the backend's own detail, or the surface's sentence when the
-    body carried none: `backendDetail` is set only from a string `detail` in the body, never from
-    the client's status fallbacks or axios's "Request failed with status code N". */
+    reader to check the fields. A 5xx shows the surface's sentence: the route's own 500 detail
+    ("Failed to save contact form submission") is developer wording with no next step. Otherwise the
+    backend's own detail, or the surface's sentence when the body carried none: `backendDetail` is
+    set only from a string `detail` in the body, never from the client's status fallbacks or axios's
+    "Request failed with status code N". */
 function sendErrorMessage(err: unknown): string {
   const status = getErrorStatus(err)
   if (status === 429) return RATE_LIMITED
   if (status === 422) return CHECK_FIELDS
+  if (status !== undefined && status >= 500) return SEND_FAILED
   const detail = err instanceof ApiError ? err.backendDetail : undefined
   return typeof detail === 'string' && detail.trim() ? detail : SEND_FAILED
 }
