@@ -16,6 +16,11 @@ import { Badge, Button, buttonVariants, countControlClass, countControlClass as 
 import { cx } from '@/components/ui/cx'
 import Link from 'next/link'
 import { ArrowRightIcon } from '@/lib/icons'
+import type { WhatChangedItem } from '@/features/dashboard/api/dashboard-api'
+import type { CopilotCitation } from '@/features/filings/api/copilot-api'
+import type { ExampleEvidence } from '@/lib/serverApi'
+import type { RenderedMetricRow } from '@/features/summaries/api/summaries-api'
+import type { RiskFactor } from '@/types/summary'
 import { maybeOnly, quietLinkClass, typedOnly } from './brandRule2Kit'
 
 const SAGE_LINK = 'text-brand-strong hover:underline'
@@ -1096,3 +1101,42 @@ function Tally605(props: { n: number; className?: string }) { let cls: string | 
 export function P605({ n }: { n: number }) { return <a href="/x"><Tally605 n={n} className="hover:text-brand-strong" /></a> } // flag
 function Tally606(props: { n: number; className?: string }) { let p: { className?: string }; [p] = [props]; const { className: cls } = p; return <span className={cls}>See all {props.n}</span> }
 export function P606({ n }: { n: number }) { return <a href="/x"><Tally606 n={n} className="hover:text-brand-strong" /></a> } // flag
+// A figure field (the Copilot's links, D-030): a string the server or the model writes a figure into, read by the field
+// the app's API types declare it as. Off the object (P701), by its name in brackets (P720), held (P702), destructured
+// and renamed (P703), handed to a parameter (P704), mapped (P705), through `??` as the Copilot's locator wrote it
+// (P706), a change's display (P707), a filing's excerpt (P708) and a public page's (P719); through its own method
+// (P714, P716) or a formatter (P715); a hand-rolled locator under the pointer, a copy of the count control (P709); and
+// a parameter destructured from what the call hands it (P713). A same-named field of the file's own type (P710),
+// through a method too (P717), a call on one that returns a boolean, which renders nothing (P718), and a locator that
+// composes the count control (P711) are no offence. One handed to a component's props stays the props gap (P712).
+export function P701({ c }: { c: CopilotCitation }) { return <a href="/x" className="text-brand-strong">{c.section_ref}</a> } // flag
+export function P702({ c }: { c: CopilotCitation }) { const ref = c.section_ref; return <span className="text-brand-strong">{ref}</span> } // flag
+export function P703({ c }: { c: CopilotCitation }) { const { section_ref: ref } = c; return <span className="text-brand-strong">{ref}</span> } // flag
+export function P704({ c }: { c: CopilotCitation }) { const locate = (label: string | null) => <span className="text-brand-strong">{label}</span>; return <p>{locate(c.section_ref)}</p> } // flag
+export function P705({ cs }: { cs: CopilotCitation[] }) { return <ul>{cs.map((c) => <li key={String(c.n)} className="text-brand-strong">{c.section_ref}</li>)}</ul> } // flag
+export function P706({ c }: { c: CopilotCitation }) { return <a href="/x" className="text-brand-strong">{c.section_ref ?? 'View in filing'} ↗</a> } // flag
+export function P707({ item }: { item: WhatChangedItem }) { return <span className="text-brand-strong">{item.display}</span> } // flag
+export function P708({ c }: { c: CopilotCitation }) { return <blockquote className="text-brand-strong">{c.excerpt}</blockquote> } // flag
+export function P709({ c }: { c: CopilotCitation }) { return <a href="/x" className="text-text-secondary-light hover:text-brand-strong">{c.section_ref}</a> } // flag
+export function P713({ c }: { c: CopilotCitation }) { const locate = ({ section_ref }: { section_ref: string | null }) => <span className="text-brand-strong">{section_ref}</span>; return <p>{locate(c)}</p> } // flag
+export function P710() { const style = { display: 'Show all' }; return <span className="text-brand-strong">{style.display}</span> } // clean
+export function P711({ c }: { c: CopilotCitation }) { return <a href="/x" className={cx('text-xs', countControlClass('link'))}>{c.section_ref}</a> } // clean
+function Locator712({ label }: { label: string | null }) { return <span className="text-brand-strong">{label}</span> }
+export function P712({ c }: { c: CopilotCitation }) { return <Locator712 label={c.section_ref} /> } // gap
+export function P714({ c }: { c: CopilotCitation }) { return <span className="text-brand-strong">{c.section_ref?.trim()}</span> } // flag
+export function P715({ c }: { c: CopilotCitation }) { return <span className="text-brand-strong">{String(c.excerpt)}</span> } // flag
+export function P716({ item }: { item: WhatChangedItem }) { return <span className="text-brand-strong">{item.display.toUpperCase()}</span> } // flag
+export function P717() { const own = { section_ref: 'Item 7' }; return <span className="text-brand-strong">{own.section_ref.trim()}</span> } // clean
+export function P718({ c }: { c: CopilotCitation }) { return <span className="text-brand-strong">{c.excerpt.includes('margin') || 'No mention of margin'}</span> } // clean
+export function P719({ e }: { e: ExampleEvidence }) { return <blockquote className="text-brand-strong">{e.excerpt}</blockquote> } // flag
+export function P720({ c }: { c: CopilotCitation }) { return <a href="/x" className="text-brand-strong">{c['section_ref']}</a> } // flag
+// A boolean a figure field's method returns renders nothing, read through `?.` too (P721); a risk's source_section_ref,
+// declared in types/summary.ts (P722), and a metric row's change_display (P723) are figure fields.
+export function P721({ c }: { c: CopilotCitation }) { return <span className="text-brand-strong">{c.section_ref?.startsWith('XBRL') || 'Passage'}</span> } // clean
+export function P722({ r }: { r: RiskFactor }) { return <span className="text-brand-strong">{r.source_section_ref}</span> } // flag
+export function P723({ m }: { m: RenderedMetricRow }) { return <span className="text-brand-strong">{m.change_display}</span> } // flag
+// A link the app renders for markdown prints the prose's words, so its own classes rest in no sage: held under `a` as
+// an arrow (P724) or a method (P726); sage only under the pointer is no copy (P725).
+export function P724() { return { a: ({ children }: { children?: ReactNode }) => <a className="font-semibold text-brand-strong">{children}</a> } } // flag
+export function P725() { return { a: ({ children }: { children?: ReactNode }) => <a className="font-semibold hover:text-brand-strong">{children}</a> } } // clean
+export function P726() { return { a({ children }: { children?: ReactNode }) { return <a className="dark:text-brand-strong-dark">{children}</a> } } } // flag

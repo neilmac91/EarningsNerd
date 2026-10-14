@@ -181,3 +181,10 @@ planted next, ahead of a review; its review of `2a5ec9c` the name filled through
 ink check's own walk, whatever the path. Companion to
 `arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
 build it.
+
+**Recurrence (2026-10-14, the Copilot's links)**: rule 2 read every component the app renders.
+Fixing the Copilot's links, which had waited on the founder's call, found the prose links' rule in
+`app/globals.css` setting sage at rest by `@apply` on every link in the filing reader, the summary
+and the analysis narrative, where a scan of components never looked. A rule about ink holds wherever
+ink is set: rule 2 now reads the stylesheet, and reads the fields the server and the model write
+figures into by their declared type.

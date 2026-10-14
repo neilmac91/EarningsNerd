@@ -378,7 +378,7 @@ The frontmatter `display` token records the large desktop step and `headline` th
 
 On a public page, Newsreader appears only inside a quoted passage that the product located in a filing (the hero example's evidence row, the social card's excerpt), never for a headline, a tagline or a claim of ours; the italic "Nerd" of the wordmark is Inter and is the brand's only typographic flourish.
 
-In the filing reader, prose children have a 68ch measure and tables/figures can use the 88ch outer rail. AI `.markdown-body` content fills its pane with no measure cap. Summary paragraphs are justified and hyphenated at viewport widths of 640px and above. Below that breakpoint, summary paragraphs remain ragged-right; the original filing reader stays ragged-right at every width. Preserve underlined sage links in both reading surfaces.
+In the filing reader, prose children have a 68ch measure and tables/figures can use the 88ch outer rail. AI `.markdown-body` content fills its pane with no measure cap. Summary paragraphs are justified and hyphenated at viewport widths of 640px and above. Below that breakpoint, summary paragraphs remain ragged-right; the original filing reader stays ragged-right at every width. Links in both reading surfaces, and in a Copilot answer, keep their underline and rest in the prose's own ink, turning sage only under the pointer: they print words the product does not write, a figure or a date among them (the Separate Signals Rule).
 
 ## Layout
 
