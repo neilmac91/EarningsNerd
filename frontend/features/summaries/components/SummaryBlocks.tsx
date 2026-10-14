@@ -7,7 +7,8 @@ import FinancialMetricsTable from '@/features/summaries/components/FinancialMetr
 import { Callout } from '@/features/summaries/components/Callout'
 import { SummaryRisks } from '@/features/summaries/components/SummaryRisks'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
-import { WHAT_CHANGED_ID, WhatChanged } from '@/features/filings/components/WhatChanged'
+import { WHAT_CHANGED_ID, WhatChanged, reportHasContent } from '@/features/filings/components/WhatChanged'
+import type { WordingContext } from '@/features/filings/components/WordingChanges'
 import { useSectionArrival } from '@/features/summaries/hooks/useSectionArrival'
 import { SectionEmpty } from './SectionEmpty'
 import { normalizeRisk } from '@/lib/formatters'
@@ -62,8 +63,11 @@ interface SummaryBlocksProps {
   sections: RenderedSection[]
   /** The full summary — read only for the risks section's enriched provenance (source traces). */
   summary: Summary
-  /** The period-over-period change report; rendered as section 02 territory when it has changes. */
+  /** The period-over-period change report; rendered as section 02 territory when it has something
+   *  to show (metric deltas, or the Item 1A wording comparison). */
   whatChanged?: ChangeReport | null
+  /** Who is reading the report, for its wording block's events and teaser. */
+  whatChangedContext?: WordingContext
   /** Optional completion-focus target without introducing a second document heading. */
   firstHeadingRef?: Ref<HTMLHeadingElement>
 }
@@ -81,7 +85,7 @@ interface SummaryBlocksProps {
  * metrics section. Subheadings are 14/600 headings, never uppercase eyebrows (eyebrows are for
  * metric labels only).
  */
-export function SummaryBlocks({ sections, summary, whatChanged, firstHeadingRef }: SummaryBlocksProps) {
+export function SummaryBlocks({ sections, summary, whatChanged, whatChangedContext, firstHeadingRef }: SummaryBlocksProps) {
   // Enriched, placeholder-filtered risks (with source_url/verified) for the risks special-case.
   const risks = useMemo<RiskFactor[]>(() => {
     const sections = summary.raw_summary?.sections as { risks?: unknown; risk_factors?: unknown } | undefined
@@ -101,7 +105,7 @@ export function SummaryBlocks({ sections, summary, whatChanged, firstHeadingRef 
       }
     } | undefined
   )?._risk_source_projection : undefined
-  const withChanges = Boolean(whatChanged?.has_changes) && !(sections ?? []).some((section) => section.id === WHAT_CHANGED_ID)
+  const withChanges = reportHasContent(whatChanged) && !(sections ?? []).some((section) => section.id === WHAT_CHANGED_ID)
   useSectionArrival([...(sections ?? []).map((section) => section.id), ...(withChanges ? [WHAT_CHANGED_ID] : [])].join(' '))
 
   if (!sections?.length) {
@@ -131,7 +135,7 @@ export function SummaryBlocks({ sections, summary, whatChanged, firstHeadingRef 
     pageSections.splice(metricsAt === -1 ? 1 : metricsAt + 1, 0, {
       id: WHAT_CHANGED_ID,
       title: 'What changed',
-      body: <WhatChanged report={whatChanged} bare />,
+      body: <WhatChanged report={whatChanged} bare context={whatChangedContext} />,
     })
   }
 
