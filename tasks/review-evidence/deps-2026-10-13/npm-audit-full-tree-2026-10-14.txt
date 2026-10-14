@@ -1,0 +1,23 @@
+# npm audit --json over frontend/package-lock.json, Node 22.23.2 / npm 10.9.8, 2026-10-14 20:38 UTC, full tree (dev included)
+totals: 19 vulnerabilities (17 high, 2 moderate); 4 advisory roots:
+- basic-ftp <=6.2.0 severity=high effects=['get-uri'] npm-suggested-fix=@lhci/cli@0.13.0 (semver-major=True)
+    https://github.com/advisories/GHSA-c475-qrg2-pj4r high basic-ftp: Quadratic-time CPU denial of service in Client.list() Unix directory-listing parser (RE_LINE backtracking) (vulnerable <=6.2.0)
+- braces * severity=high effects=['chokidar', 'micromatch'] npm-suggested-fix=tailwindcss@4.3.3 (semver-major=True)
+    https://github.com/advisories/GHSA-vfj7-8cjw-p6xm high braces vulnerable to stack-exhaustion denial of service through deeply nested patterns (vulnerable <=3.0.3)
+- extract-zip * severity=high effects=['@puppeteer/browsers'] npm-suggested-fix=@lhci/cli@0.13.0 (semver-major=True)
+    https://github.com/advisories/GHSA-jmr9-qjv8-65gv high extract-zip unvalidated symlink path traversal (vulnerable <=2.0.1)
+    https://github.com/advisories/GHSA-7pqw-9j4j-h8q3 high extract-zip allows arbitrary file writes through symlink archive entries (vulnerable <=2.0.1)
+- postcss-selector-parser <7.1.6 severity=moderate effects=['postcss-nested', 'tailwindcss'] npm-suggested-fix=tailwindcss@4.3.3 (semver-major=True)
+    https://github.com/advisories/GHSA-rj75-hqrm-r3gf moderate PostCSS: Quadratic complexity in flat selector parsing allows CPU exhaustion (vulnerable <7.1.6)
+
+dependency paths (effects chains):
+  braces -> chokidar -> tailwindcss
+  braces -> micromatch -> fast-glob -> @next/eslint-plugin-next -> eslint-config-next
+  braces -> micromatch -> tailwindcss
+  extract-zip -> @puppeteer/browsers -> puppeteer-core -> lighthouse -> @lhci/cli
+  extract-zip -> @puppeteer/browsers -> puppeteer-core -> lighthouse -> @lhci/utils -> @lhci/cli
+  basic-ftp -> get-uri -> pac-proxy-agent -> proxy-agent -> @lhci/cli
+  basic-ftp -> get-uri -> pac-proxy-agent -> proxy-agent -> @puppeteer/browsers -> puppeteer-core -> lighthouse -> @lhci/cli
+  basic-ftp -> get-uri -> pac-proxy-agent -> proxy-agent -> @puppeteer/browsers -> puppeteer-core -> lighthouse -> @lhci/utils -> @lhci/cli
+  postcss-selector-parser -> postcss-nested
+  postcss-selector-parser -> tailwindcss
