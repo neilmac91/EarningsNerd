@@ -174,6 +174,22 @@ merge, close or supersede call) and a dependency audit, with main at `d69bc69`:
   20:13 UTC while the sweep ran, and #1325 received a principal review with a should-fix at 20:15 UTC,
   so none of the three was touched here.
 
+## E53 outcome, 14 October (after 21:40 UTC)
+
+The two roots with fixed releases are closed by #E53PR: forward `overrides` for `basic-ftp`
+(`^6.2.3`) and `postcss-selector-parser` (`^7.1.6`), both at the root of the `overrides` block
+rather than nested under their dependents. Nested, the two forms behave differently under CI's
+npm 10.9.8 and the npm 11 that wrote main's lockfile
+([`e53-override-shape-2026-10-14.txt`](e53-override-shape-2026-10-14.txt)): `@lhci/cli > basic-ftp`
+gives a lockfile npm 10.9.8 rejects (`npm ci`: "Missing: basic-ftp@5.3.1 from lock file"), and
+`tailwindcss > postcss-selector-parser` installs but `npm ls --all` exits 1 on postcss-nested's
+edge. At the root one copy of each resolves under both versions, `npm ci` passes and `npm ls --all`
+exits 0, as on main. The built CSS is byte-identical to main's (three stylesheets, same digests),
+so the postcss-selector-parser half did not fall to F27. Full-tree `npm audit` 19 → 13 (all high;
+roots `braces` and `extract-zip`, F27); production tree 7 → 5. A root override reaches every future
+dependent of its target and the direction gate fails only the backward case, so a new dependent of
+either package is a reason to re-derive the override (the lesson now says so).
+
 ## Open follow-ups
 
 - Founder, after #1305's deploy (F23): open the monthly and the yearly Checkout preview as the free

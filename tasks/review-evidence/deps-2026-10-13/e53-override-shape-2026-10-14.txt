@@ -1,0 +1,27 @@
+E53 override placement: nested versus root forms, observed 2026-10-14
+Node v22.23.2; npm 10.9.8 (CI's npm, used for npm ci and npm ls); npm 11.21.0 via npx (the version that wrote main's lockfile) for lock regeneration. Base: main at 63203457, frontend/.
+
+1. Nested basic-ftp: overrides["@lhci/cli"]["basic-ftp"] = "^6.2.3" (postcss-selector-parser at the root).
+   npx npm@11 install --package-lock-only --ignore-scripts  -> exit 0; lock: node_modules/basic-ftp 6.2.3, node_modules/postcss-selector-parser 7.1.6
+   npm ci (10.9.8) with that lock -> exit 1:
+     npm error code EUSAGE
+     npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+     npm error Missing: basic-ftp@5.3.1 from lock file
+   npm install --package-lock-only --ignore-scripts (10.9.8) from main's lock -> exit 0; lock: node_modules/basic-ftp 5.3.1 (override not applied), node_modules/postcss-selector-parser 7.1.6
+
+2. Nested postcss-selector-parser: overrides.tailwindcss["postcss-selector-parser"] = "^7.1.6" (basic-ftp at the root). Lock regenerated with npm 11 (identical to the root-form lock); npm ci (10.9.8) exit 0; one copy at 7.1.6; npm ls --all (10.9.8), right after the fresh install -> exit 1:
+     npm error invalid: postcss-selector-parser@7.1.6 <worktree>/frontend/node_modules/postcss-selector-parser
+   (from the same run: tailwindcss@3.4.19 overridden; postcss-nested@6.2.0 -> postcss-selector-parser@7.1.6 deduped invalid: "^6.1.1" from node_modules/postcss-nested)
+
+3. Root form (the PR): overrides["basic-ftp"] = "^6.2.3", overrides["postcss-selector-parser"] = "^7.1.6". Lock regenerated with npm 11: 12 changed lines (version, resolved, integrity of the two packages). npm ci (10.9.8) exit 0, 1012 packages; npm ls --all exit 0, no invalid edge (main: exit 0); npm ls basic-ftp postcss-selector-parser:
+     earningsnerd-frontend@1.0.0 <worktree>/frontend
+     +-- @lhci/cli@0.15.1 overridden
+     | `-- proxy-agent@6.4.0
+     |   `-- pac-proxy-agent@7.2.0
+     |     `-- get-uri@6.0.5
+     |       `-- basic-ftp@6.2.3 overridden
+     `-- tailwindcss@3.4.19
+       +-- postcss-nested@6.2.0
+       | `-- postcss-selector-parser@7.1.6 deduped
+       `-- postcss-selector-parser@7.1.6 overridden
+4. Main (63203457) for comparison: npm ci exit 0; npm ls --all exit 0, no invalid edge.
