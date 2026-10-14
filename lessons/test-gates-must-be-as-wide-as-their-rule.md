@@ -57,6 +57,28 @@ keys, spreads and helpers are all covered for free, and no regex needs widening 
 Text-matching is sound only where the format forbids the ambiguity — CSS custom properties
 cannot be quoted or computed, so `globals.css` stays a regex.
 
+*Score the gate on the rule's forms, not only on its sites.* A mutation proof on the site you
+just fixed shows the gate catches that site; it says nothing about the other forms the rule can
+take. Before a record says what a gate holds, plant one case for each way the rule can be broken
+and one for each look-alike that must pass, mark each flag or clean, run the gate over them and
+record the score. Name in the gate's header what stays out of reach, so the record claims only
+what the score shows, and keep the header and the cases in step: a form the rule forbids that the
+gate passes is planted as a gap, never as a look-alike, and each gap the header says the cases mark
+has one. For a gate that reads code (a source scan, an AST walk), keep the planted cases as the
+gate's fixture and score them in its own spec, so CI reruns the score on every change and the next
+review extends the cases instead of starting over. When a review finds one form of a claim the gate
+already makes that it misses, probe the claim's whole family before fixing that form, and take the
+family from the language, not from the forms the reviews have named: for a value, every way a name
+gets one (a declaration and each assignment, destructuring and its default, a loop's variable, a
+parameter at each call of its function, a callback however it is handed over, and what the code
+puts in it after making it), and the framework's calls that move one (React's `Children`,
+`cloneElement` and `createElement`). A reader that gains one syntax per review is matching forms,
+not following the value, and the fix is a reader that follows it. And when a gate has more than one
+check over the same code, give them one walk: a check that follows a value through the bindings
+while its sibling reads only the syntax around it leaves the sibling as narrow as the first reader
+was, and a value the gate must recognise rather than read (a component's children) rides that walk
+as a mark, not a second walk of its own.
+
 Corollary for the anti-vacuity floor: assert the scanner actually found things (>100 files,
 >100 tests). A narrow gate and a broken walk look identical from the outside — both green.
 
@@ -69,5 +91,147 @@ before/after proof: the pre-fix form passed with the mutation present — `Tests
 (17)` for the quoted key, `5 passed (5)` for the `.mjs` orphan, `22 passed (22)` for the
 tracked `build/` orphan, the renamed font variable and the commented-out `--font-heading`
 all at once — which is what makes "the gate was narrower than the rule" a measurement
-rather than a claim. Companion to `arch-structural-gates-over-prose-rules.md`, which says to
-build the gate; this one says how wide to build it.
+rather than a claim. [#1251](https://github.com/neilmac91/EarningsNerd/pull/1251)'s rule 2 in
+`frontend/tests/unit/brandCopyRules.spec.ts` (sage never colours a number) passed its mutation proofs
+on every site it fixed, and its records said no sage element anywhere rendered a digit; scored on
+50 planted forms at `cc2df56`, it missed 15 (a Badge variant, an opacity modifier, a selected state,
+a wrapper component, a block-bodied callback, SVG text, among others) and failed 3 that must pass
+(a literal "10-K", a primary Button or a neutral Badge inside sage text). After it asked the
+components for their colours and followed sage through variants, states and components, it scored
+50 of 50. The review of `88f801c`, with the forms its fixes turned up, widened the probe to 74; at
+`88f801c` rule 2 misread 17 of them (sage given to a component where it is used, a comparison read
+as a number, a size or `text-inherit` read as a colour, a visited or focused sage count, a control
+holding its count in a span of its own ink, a const another function declares, among others), and
+fixed it named every form that breaks the rule and passed every look-alike and the known gap. The
+next two reviews asked for the score to run in CI and added 39 forms, among them a chained `&&` the
+fix had stopped reading, and their fixes turned up 3 more; the forms became the spec's fixture,
+`frontend/tests/unit/fixtures/brandRule2Forms.tsx`, scored on every run. Read against its own
+header, that fixture still marked a fiscal year held in a string (`FY{y}`) clean though the gate
+leaves it to review, planted no index name held in a string though the header named one, and the
+header missed a date or an index name written in words; all three are now gap forms. Codex's
+reviews of `8a946b2` and `ee581e3` then each found one more form of a claim the header already made
+(a class const inside a conditional; a mapped array's element), and a probe of the second's family
+at `19ed8fb` found six more ways a literal's value reached the JSX unread (a destructured element, a
+renamed one, a tuple's member, a nested field, a `.slice()` chain, a template's substitution).
+Codex's review of `19ed8fb` found the same of a class, one destructured from a map, and the round's
+lens found a const holding a keyed read (`const config = MAP[s] ?? MAP.x`) that both readers lost.
+One resolver, a single walk through any chain of consts, fields, indices, destructuring and map
+callbacks, replaced the readers written per form; the gate at `19ed8fb` misread the 21 forms planted
+for it. That probe took its family from the chains the reviews had named, and Codex's review of
+`c9bd846` found the next form among the ways a name is bound: a map's callback held in a name
+(`labels.map(render)`). Probed from the binding forms instead (a named callback however it is held,
+the other array methods, a call's arguments, a rest parameter, a default, a reassigned `let`, a
+loop's variable), and then by the round's lens (a helper's return in a component's inherited ink, a
+number handed to a parameter typed wider, a value held in what a call returns, and a recursion that
+ran for minutes), the fixture gained 100 forms, and the gate at `c9bd846` misreads all 74 of them
+that break the rule. An index of each file's calls, binding a parameter at every call of its
+function and every array method it is handed to, replaced the map-only rule, and a binding met again
+on the walk now ends it. Codex's review of `f00c4be` then found the count-control check still taking
+a control's sage from the syntax around where it is written: a control held as JSX and rendered
+under a sage parent passed, while the text check followed the same JSX to where it renders. Probed
+through the same binding forms and a component boundary, 25 such forms broke the rule unread at
+`f00c4be`; one walk now yields what an element renders in its ink, its texts and its elements, for
+both checks, and a component's summary says whether it renders such a control in the ink it
+inherits. The re-review of `c9bd846` had also named a rest element in a binding pattern, which the
+walk abandoned; it is read as the whole it is taken from. Codex's review of `f5526d3` then found JSX
+that `Children.toArray` normalizes read by neither check: the walks followed the language's array
+methods but not the framework's, and the value walk read an array of JSX only by its type. Probed
+across React's child utilities, the lists a call keeps or a push fills, and the ways a component
+reaches its children, the family broke the rule in forms no walk read; the three walks now read a
+list, and those utilities, through the one resolver. The review of that fix found the component
+summary still finding a component's children by a walk of its own, narrower than the resolver (a
+`Children.map` held in a const, a helper handed them, `forEach` filling an array) and wider where it
+should not be (a row's field named children); the resolver now carries the children from the props
+as a mark, and the summary's walk is gone. Its second review found two more forms of claims the
+header made: children handed by a shorthand (`{ children }`), which the walk resolved inside an
+object it read but not where a clone's props hand the name over, and a spread of sources to
+`Object.assign`. A second session fixing the same finding at the same time (`d3f1522c`) read `flat`,
+which this probe had missed; listing the family from the language instead, every array method that
+returns its receiver's members, found five more (`toSpliced`, `with`, `splice`, `fill` and
+`copyWithin`), and `pop` and `shift`, which return one. In all, 99 forms broke the rule unread at
+`f5526d3`, and it failed 4 look-alikes. Codex's reviews of that session's fixes (`d3f1522`,
+`1dd291d`, `c00788f`, `4e44658`) named in turn `Children.only`, an alias of `Children` or a helper
+destructured from it, `Children` destructured from React itself, and `React['Children']`; the gate
+reads all four without a rule for each, since it names a utility by the declaration the checker
+resolves its callee to, not by its spelling. A guard kept the checker to callees under a utility's
+name, for speed, and so left one called through a key, or held under a name of its own, unread;
+measured idle, it saved about a tenth of a second, so every callee is now asked. Codex's review of
+`99f0380` then found the count control's one-source check blind to a label delegated to a same-file
+component (`<a><CountLabel>See all {n}</CountLabel></a>`, the span's pointer sage inside the
+component): the control's own classes and its label span were covered, the component's were not, so
+the check now reads a component that renders its children in a pointer-sage element as the label's
+classes; its review of `63b7144` named the same label held in a name before it renders, which the check
+now reads through the held-JSX walk, as the ink checks already did; and its review of `2e946f7` the
+same label behind `&&` or in an array, so the walk reads the containers on the way, as the ink checks
+do. Round twenty-seven read the rest of the family in that walk: a label component's own count,
+self-closing too, which Codex's review of `820b5a0` named, a nested label component and a className
+it forwards. Its review lens found the walk's cost in a cycle of components: a summary read more than
+once per element multiplied the walk, so the walk now reads each element's summary once. A control's
+own-ink check still reads the components inside it again, so a cycle of six controls, each rendering
+the next twice, still takes about 9 s, against 16 s before. Codex's review of `b36e741` then named the
+forwarded className under another name (`({ className: cls })`), which a spelling check missed, so the
+check resolves each identifier a className reads to its declaration; its review of `ffa0227` the same
+destructuring of the props kept whole (`const { className: cls } = props`), so the binding is followed
+to the parameter through the variables holding it, a rest of it and an object spreading it, the next
+two forms of that family planted before a review named them; and its review of `2a18988` the name
+filled by an assignment (`let cls; ({ className: cls } = props)`), so the name is read through every
+value the file gives it, as the ink check reads a variable, and a same-file helper returning it was
+planted next, ahead of a review; its review of `2a5ec9c` the name filled through an array
+(`[cls] = [props.className]`), so the steps an assignment leaves are walked into the value by the
+ink check's own walk, whatever the path; and its review of `3a15929` a helper that destructures the
+argument it is handed and a rest target in an assignment, so a helper's parameter holds what the file's
+calls hand it and a rest target holds the whole, as the walk already read a declaration's; the key
+read by a string or a constant, the props taken through a declaration's array and `Object.assign`
+were planted beside them, ahead of a review. Its review of `9643b93` then turned the other way, to two
+look-alikes the widened read flagged: a style map's `className` and a helper handed another object
+beside a call handing it the props; so the field counts only when its receiver holds the props, and
+a helper's parameter is bound at the call being read alone; its review of `d55931f` two more, a helper
+handed the className it never returns and `Object.assign` with a style map after the props, so a
+same-file helper's call reads what it returns alone and the last source that sets a `className` wins;
+and its review of `2f988e9` three more in the same two readers, so a rest parameter's member read by
+an index is that argument alone, and an object's `className` is read property by property, last
+first, spreads of sources opened; and its review of `69d1137` three more there, a key written as a
+constant, a value reached through an alias and a negative `at()` index, so one reader reads a
+className wherever it is written, the attribute's value and an object's key's alike, and a rest
+member is counted as `at()` counts, from the end too, each argument a spread's length could leave at
+the place read; and its review of `056a071` two more, a spread before the rest's own place and an
+`at()` index with a fraction, so every argument a call hands is read by the places a spread could
+leave it, a fixed parameter's and a rest's alike, and an index is read as the runtime reads it; the
+rest of that family was planted ahead of its review, an index held by a constant or read through
+`length - 1` and the rest taken apart by a destructuring, so a name a destructuring gives is read
+through `bindingOf` wherever it is bound; its review of `6ce9969` one more, a spread of a tuple read
+as any length, so a call's arguments are laid out by the lengths the checker knows; and its reviews
+of `36313a7` and `c04bb70` five more in that reader, a key nested in a helper's pattern, an alias of
+a parameter read at every call, a rest tail read whole, a default read without its steps and a union
+of tuples read as a range, so every value is read at its steps with the calls kept, and a spread's
+lengths are the set its type allows; and its review of `ec660d9` three more, a hole below an open
+tuple length and a rest parameter or a rest tail aliased by a destructuring, beside a `const` tuple
+written into before it is spread, so a spread's lengths keep their holes, its members are read at
+each place it could cover, and every name, literal, field and same-file call on the way is read with
+the calls kept, a value met inside a helper's call carrying that call to its reader; and its review
+of `0e223cb` three more in the layout, so a const array is opened while the file never writes into it
+nor reorders it, whatever its type, the type no stand-in for what the file does to it; and its review
+of `c5ec172` one more, a call that changes nothing read as a write, which the gate keeps as it fails
+closed, and taking it found that the opening rule asked only what the file does to the array under
+its own name, so an array handed on whole, to another name, a function, a callback that takes it or a
+call that returns it, is now one the file may change unseen. A gate widened
+finding by finding needs its look-alikes planted with each copy, or the next review names the false
+positive. A context a read carries holds only where every path to a value carries it: the readers kept
+the calls through a name and dropped them through a destructuring, a literal, a holder's field and a
+helper's returned holder, so the misreads came one path at a time until each value carried the calls
+it was met inside. A promise that the file never changes a value holds only over every name the value
+reaches: the opening rule read the array's own name, and the misses came through each name it was
+handed to. Companion to
+`arch-structural-gates-over-prose-rules.md`, which says to build the gate; this one says how wide to
+build it.
+
+**Recurrence (2026-10-14, the Copilot's links)**: rule 2 read every component the app renders.
+Fixing the Copilot's links, which had waited on the founder's call, found the prose links' rule in
+`app/globals.css` setting sage at rest by `@apply` on every link in the filing reader, the summary
+and the analysis narrative, where a scan of components never looked. A rule about ink holds wherever
+ink is set: rule 2 now reads the stylesheet, and reads the fields the server and the model write
+figures into by their declared type. Its first list of those fields was five names long, and the
+next review named a metric row's formatted figures outside it; so rule 2 classifies every field the
+API types declare that can hold a string, an array of them included, a figure field or a word field,
+and fails one it has not classified. A gate keyed on a list of names holds only when a test makes
+the list exhaustive over its domain.

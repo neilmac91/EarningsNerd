@@ -9,8 +9,16 @@ import { FieldSpinner, inputClasses } from '@/components/ui'
 
 // EFTS is a global SEC index (independent of our ENABLE_FPI_FILINGS discovery flag), so the
 // foreign-issuer forms are always searchable. EFTS matches on root_form, which folds amendments
-// (20-F/A, 6-K/A) into the base form — one chip each covers amendments too.
-const FORM_FILTERS = ['10-K', '10-Q', '8-K', '20-F', '6-K', '4'] as const
+// (20-F/A, 6-K/A) into the base form — one chip each covers amendments too. A form whose code is a
+// bare number is labelled by its name ("Form 4"), so the chip reads as a form, not a count.
+const FORM_FILTERS = [
+  { form: '10-K', label: '10-K' },
+  { form: '10-Q', label: '10-Q' },
+  { form: '8-K', label: '8-K' },
+  { form: '20-F', label: '20-F' },
+  { form: '6-K', label: '6-K' },
+  { form: '4', label: 'Form 4' },
+] as const
 
 /**
  * Pure presentational list of full-text search hits. Each row links out to the matched document on
@@ -132,13 +140,13 @@ export default function FullTextSearch() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {FORM_FILTERS.map((form) => {
-          const active = forms.includes(form)
+        {FORM_FILTERS.map((filter) => {
+          const active = forms.includes(filter.form)
           return (
             <button
-              key={form}
+              key={filter.form}
               type="button"
-              onClick={() => toggleForm(form)}
+              onClick={() => toggleForm(filter.form)}
               aria-pressed={active}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                 active
@@ -146,7 +154,7 @@ export default function FullTextSearch() {
                   : 'border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-black/[0.03] dark:hover:bg-white/10'
               }`}
             >
-              {form}
+              {filter.label}
             </button>
           )
         })}

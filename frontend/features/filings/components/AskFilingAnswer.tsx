@@ -36,28 +36,24 @@ import { Fragment, useMemo, type ComponentProps, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cx } from '@/components/ui/cx'
+import { countControlClass } from '@/components/ui/countControl'
 import { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { SkeletonText } from '@/components/ui/Skeleton'
 import { useContentIn } from '@/hooks/useContentIn'
+import { ArrowSquareOutIcon } from '@/lib/icons'
+import type { CopilotCitation } from '@/features/filings/api/copilot-api'
 
 export type CopilotStatus = 'reading' | 'streaming' | 'done' | 'error'
 
-export interface CopilotCitation {
-  /** Marker id as the API emits it — 1, 2… for excerpts; "F1" / "F 2" (any
-      case/spacing) for XBRL facts. NOT an `id: number`. */
-  n: number | string
-  /** Verbatim filing excerpt — or the fact's value/period line for XBRL anchors. */
-  excerpt: string
-  /** Locator, e.g. "10-K · Item 1A · p. 24". XBRL anchors START WITH "XBRL". */
-  section_ref: string | null
-  /** true = the excerpt re-matched the filing text server-side. Drives the
-      Verified/Cited trust badge — the product's trust marker. */
-  verified: boolean
-  /** EDGAR deep link; null renders a non-linked locator, never a dead anchor. */
-  fragment_url: string | null
-}
+/* The citation is the API's own type, so this reference cannot drift from the wire shape: n is the
+   marker id as the API emits it (1, 2… for excerpts; "F1" / "F 2", any case or spacing, for XBRL
+   facts), excerpt the verbatim filing excerpt or the fact's value and period line, section_ref the
+   locator ("10-K · Item 1A · p. 24"; XBRL anchors START WITH "XBRL"), verified the trust marker (the
+   excerpt re-matched the filing server-side) and fragment_url the EDGAR deep link (null renders a
+   non-linked locator, never a dead anchor). */
+export type { CopilotCitation }
 
 export interface AskFilingAnswerProps {
   question: string
@@ -79,11 +75,19 @@ const CHIP = cx(
   'dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark',
 )
 
-const LINK = cx(
-  'text-xs font-semibold text-brand-strong underline-offset-4 hover:underline',
-  'focus-visible:outline-none focus-visible:shadow-ring-brand',
-  'dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark',
-)
+/** A locator prints the citation's section name ("10-K · Item 1A · p. 24"), so it is the count control's link
+    (D-030): the secondary ink at rest, sage and the underline under the pointer, the brand ring on focus. */
+const LOCATOR_LINK = cx('inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm text-xs font-semibold', countControlClass('link'))
+
+/** The locator's new-tab cue, as the production renderer draws it. */
+function OpensOriginal() {
+  return (
+    <>
+      <ArrowSquareOutIcon aria-hidden="true" className="h-3 w-3 shrink-0" />
+      <span className="sr-only"> (opens in a new tab)</span>
+    </>
+  )
+}
 
 /* ------------------------------------------------------- marker grammar -- */
 
@@ -166,9 +170,10 @@ function withMarkers(
 type MdExtra = { node?: unknown }
 
 /** GFM answer manners inside the mono register: quiet block rhythm, reader-
-    style hairline tables, brand links. Every text-bearing element routes its
-    string children through the marker grammar. Markers inside `code` stay
-    literal by design (verbatim register). */
+    style hairline tables, prose links (globals.css's rule for .copilot-answer:
+    the answer's own ink, underlined, sage under the pointer). Every text-bearing
+    element routes its string children through the marker grammar. Markers
+    inside `code` stay literal by design (verbatim register). */
 function buildMdComponents(index: CitationIndex, onCitationClick?: (n: CopilotCitation['n']) => void) {
   const marked = (children: ReactNode) => withMarkers(children, index, onCitationClick)
   return {
@@ -202,7 +207,7 @@ function buildMdComponents(index: CitationIndex, onCitationClick?: (n: CopilotCi
       <del {...rest}>{marked(children)}</del>
     ),
     a: ({ node: _n, children, ...rest }: ComponentProps<'a'> & MdExtra) => (
-      <a {...rest} className={cx(LINK, 'text-sm underline')}>
+      <a {...rest} className="font-semibold">
         {marked(children)}
       </a>
     ),
@@ -391,14 +396,15 @@ export function AskFilingAnswer({
                             {c.section_ref}
                           </span>
                         </div>
-                        <p className="tnum mt-1 font-data text-xs leading-relaxed text-text-primary-light dark:text-text-primary-dark">
+                        <p className="tnum mt-1 break-words font-data text-xs leading-relaxed text-text-primary-light dark:text-text-primary-dark">
                           {c.excerpt}
                         </p>
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-2">
                         {c.fragment_url ? (
-                          <a href={c.fragment_url} onClick={() => onCitationClick?.(c.n)} className={LINK}>
-                            XBRL · EDGAR viewer ↗
+                          <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" onClick={() => onCitationClick?.(c.n)} className={LOCATOR_LINK}>
+                            <span className="min-w-0 break-words">XBRL · EDGAR viewer</span>
+                            <OpensOriginal />
                           </a>
                         ) : null}
                         <TrustBadge verified={c.verified} />
@@ -406,13 +412,14 @@ export function AskFilingAnswer({
                     </div>
                   ) : (
                     <div className="min-w-0">
-                      <blockquote className="border-l-2 border-brand-border pl-3 font-data text-xs leading-relaxed text-text-secondary-light dark:border-brand-border-dark dark:text-text-secondary-dark">
+                      <blockquote className="break-words border-l-2 border-brand-border pl-3 font-data text-xs leading-relaxed text-text-secondary-light dark:border-brand-border-dark dark:text-text-secondary-dark">
                         “{c.excerpt}”
                       </blockquote>
                       <div className="mt-1 flex flex-wrap items-center gap-2">
                         {c.fragment_url ? (
-                          <a href={c.fragment_url} onClick={() => onCitationClick?.(c.n)} className={LINK}>
-                            {c.section_ref ?? 'View in filing'} ↗
+                          <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" onClick={() => onCitationClick?.(c.n)} className={LOCATOR_LINK}>
+                            <span className="min-w-0 break-words">{c.section_ref ?? 'View in filing'}</span>
+                            <OpensOriginal />
                           </a>
                         ) : c.section_ref ? (
                           <span className="text-xs font-medium text-text-tertiary-light dark:text-text-secondary-dark">

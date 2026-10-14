@@ -100,16 +100,25 @@ function CheckEmailContent() {
         {/* In flight and cooling down: aria-disabled (handleResend returns early), not native
             `disabled`. Chromium blurs a focused button that turns disabled, and both states
             follow this button's own activation. Without an email the line is not rendered at
-            all. The aria-disabled look fades the label's ink, not the element, so the focus
-            indicator keeps its strength. */}
+            all, so nothing here is natively disabled. In flight, the aria-disabled look fades the
+            label's ink, not the element, so the focus indicator keeps its strength. */}
         <button
           onClick={handleResend}
           aria-disabled={resendLoading || cooldown > 0 || undefined}
           aria-busy={resendLoading || undefined}
-          className="rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1 font-medium text-brand-strong hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline aria-disabled:cursor-not-allowed aria-disabled:text-brand-strong/50 aria-disabled:no-underline dark:text-brand-strong-dark dark:aria-disabled:text-brand-strong-dark/50"
+          className="group rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1 font-medium disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed"
         >
-          {resendLoading && <CircleNotchIcon className="h-3 w-3 animate-spin motion-reduce:animate-none" />}
-          {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend email'}
+          {resendLoading && <CircleNotchIcon className="h-3 w-3 animate-spin text-brand-strong/50 motion-reduce:animate-none dark:text-brand-strong-dark/50" />}
+          {/* The label sets the ink and draws the underline, so the underline is always the label's
+              colour (a button's own underline is drawn in the button's inherited secondary ink). The
+              countdown carries a number, so it rests in the secondary ink at full strength while the
+              control waits, legible and never sage (D-030); the sage label, its underline under the
+              pointer and its in-flight fade come back with "Resend email". */}
+          {cooldown > 0 ? (
+            <span className="tabular-nums text-text-secondary-light dark:text-text-secondary-dark">Resend in {cooldown}s</span>
+          ) : (
+            <span className="text-brand-strong group-hover:underline group-disabled:no-underline group-aria-disabled:no-underline group-aria-disabled:text-brand-strong/50 dark:text-brand-strong-dark dark:group-aria-disabled:text-brand-strong-dark/50">Resend email</span>
+          )}
         </button>
       </p>
       )}
