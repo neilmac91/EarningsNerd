@@ -12,29 +12,29 @@ import { describe, expect, it } from 'vitest'
  * address, a sent message keeps those addresses for as long as it is kept, and nobody can edit it
  * after sending, so renaming, moving, removing or replacing one of these files, or redirecting or
  * rewriting its path, changes the image in every message already delivered and on any page that
- * links it. This list is the register of published paths: a change that puts a new asset path in
- * mail adds it here in the same PR. Each path must be its published file in frontend/public, byte
- * for byte (a new rendition takes a new name, so a changed file fails here until it does); lie outside
- * the middleware's matcher, so the middleware never runs on it and no branch of it, however it reads
- * the deployment, can move it; and be reached by no redirect or rewrite in next.config.js or
- * vercel.json, and no basePath, read in a production build's environment. The origin mail addresses
- * them on is review-checked, and so are the response headers a route or a headers rule sets on them (a
- * Content-Type that stops a mail client showing the image) and anything set only in the Vercel
- * dashboard (a variable a rule reads, or a redirect).
+ * links it. The register of published paths is publishedAssetUrls.json, beside this spec: the origin
+ * mail addresses them on, and each path with the sha256 of its published file and what it is published
+ * for. A change that puts a new path in mail adds it there in the same PR, and
+ * backend/tests/unit/test_mail_published_assets.py, which reads the same file, fails until it does. Each
+ * path must be its published file in frontend/public, byte for byte (a new rendition takes a new name,
+ * so a changed file fails here until it does); lie outside the middleware's matcher, so the middleware
+ * never runs on it and no branch of it, however it reads the deployment, can move it; and be reached by
+ * no redirect or rewrite in next.config.js or vercel.json, and no basePath, read in a production
+ * build's environment. FRONTEND_URL's default is held to the register's origin by the backend gate;
+ * whether that origin answers without a redirect is review-checked, and so are the response headers a
+ * route or a headers rule sets on these paths (a Content-Type that stops a mail client showing the
+ * image) and anything set only in the Vercel dashboard (a variable a rule reads, or a redirect).
  */
-const PUBLISHED = [
-  // The app tile in the transactional mail header (docs/brand/templates/email-header.html) once
-  // its port into backend/app/services/email_service.py ships.
-  { url: '/assets/earningsnerd-appicon.png', sha256: '8b4018f64120e085a8267aa65b91d9862f044a65e19a884760872f522d695761' },
-  // The bare sage mark's raster, the Excel export's bytes: first offered as the mail header's mark,
-  // kept at its URL since the header took the tile (D-035), though no mail references it.
-  { url: '/assets/earningsnerd-mark-sage.png', sha256: '0556990f3e0484b4690891d39c1d9565a3a5513d1593a4df17327ab302d4691d' },
-]
+type Register = { origin: string; paths: { url: string; sha256: string; use: string }[] }
+const REGISTER = JSON.parse(
+  readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'publishedAssetUrls.json'), 'utf8'),
+) as Register
+const PUBLISHED = REGISTER.paths
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const PUBLIC = path.join(FRONTEND, 'public')
-// The origin mail addresses the published paths on (LOGO_README.md › Rules).
-const MAIL_HOST = 'www.earningsnerd.io'
+// The origin mail addresses the published paths on (LOGO_README.md › Rules), as the register names it.
+const MAIL_HOST = new URL(REGISTER.origin).host
 // The Vercel project's production domains (docs/LAUNCH_CHECKLIST.md › DNS / redirect config): the apex,
 // which redirects to www, and www.
 const PRODUCTION_HOSTS = ['earningsnerd.io', MAIL_HOST]
@@ -265,6 +265,23 @@ function reaches(rule: Route, url: string): boolean {
   if (rule.src !== undefined) return legacyRouteRegex(rule.src).test(url)
   return false
 }
+
+describe('the register', () => {
+  // The backend gate reads the same values, so their shape is pinned here once for both.
+  it('names a bare https origin and each path once, with its sha256 and its use', () => {
+    const origin = new URL(REGISTER.origin)
+    expect(`${origin.protocol}//${origin.host}`, 'the origin is a bare https origin: no path, no trailing slash').toBe(REGISTER.origin)
+    expect(origin.protocol).toBe('https:')
+    const urls = PUBLISHED.map((p) => p.url)
+    expect(urls.length, 'the register lists the published paths').toBeGreaterThan(0)
+    expect(new Set(urls).size, 'each path is registered once').toBe(urls.length)
+    for (const { url, sha256, use } of PUBLISHED) {
+      expect(url, `${url}: a path, with no query or fragment`).toMatch(/^\/[^?#\s]+$/)
+      expect(sha256, `${url}: its published file's sha256, in hex`).toMatch(/^[0-9a-f]{64}$/)
+      expect(use.trim(), `${url}: say what it is published for`).not.toBe('')
+    }
+  })
+})
 
 describe('published asset URLs', () => {
   for (const { url, sha256 } of PUBLISHED) {

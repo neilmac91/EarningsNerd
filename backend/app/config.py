@@ -132,7 +132,10 @@ class Settings(BaseSettings):
     # users. Matches the prod RESEND_FROM_EMAIL secret (overridden by it in prod regardless).
     RESEND_FROM_EMAIL: str = "EarningsNerd <hello@inbound.earningsnerd.io>"
     RESEND_WEBHOOK_SECRET: str = ""  # Webhook signing secret from Resend dashboard
-    FRONTEND_URL: str = "https://earningsnerd.io"
+    # The site's origin that answers without a redirect (the apex answers 307 to it). Mail links,
+    # sign-in redirects and the mail header's tile are built on it, and sent mail keeps the whole
+    # address, so it stays the redirect-free origin. Production sets none and runs on this default.
+    FRONTEND_URL: str = "https://www.earningsnerd.io"
     # Recipient for the weekly data-quality report (P1-9). Founder inbox by default.
     DATA_QUALITY_REPORT_EMAIL: str = "neil@earningsnerd.io"
 

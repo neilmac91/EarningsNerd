@@ -70,23 +70,30 @@ Excel export).
   about 6 mm there, the E's open counters 2.9 mm; the E and the N kiss, which a satin stitch joins
   and the mark survives). Evidence: `docs/brand/05-mark.md`.
 - **Published URLs stay put.** A path that sent mail references is published: a message keeps its
-  image addresses for as long as it is kept, and nobody can edit it after sending. The register
+  image addresses for as long as it is kept, and nobody can edit it after sending. The register,
+  `frontend/tests/unit/publishedAssetUrls.json`, names the origin mail addresses these paths on and
   holds two paths: `/assets/earningsnerd-appicon.png`, the app tile in the transactional mail header
-  once that header's port ships, and `/assets/earningsnerd-mark-sage.png`, the bare mark's raster,
-  first offered as the header's mark and kept at its URL when the header took the tile (D-035); no
-  mail references it, and the rule holds it all the same. Each file stays at its path for good and
-  stays served: never rename, move, remove or replace it, never redirect or rewrite its path, and
-  keep it the same image, byte for byte (regenerating it is fine while it comes back identical); a
-  new rendition takes a new name. Mail addresses these paths on the origin that answers without a
-  redirect (`https://www.earningsnerd.io`), so that origin keeps serving them without one. A change
-  that puts a new asset path in mail adds it to the register in the same PR. Gate:
-  `frontend/tests/unit/publishedAssetUrls.spec.ts`, the register, checks that each file is present
-  and is the file that was published (its sha256), that it lies outside `middleware.ts`'s matcher
-  (which leaves out `/assets/`), so the middleware never runs on it, and that no redirect, rewrite
-  or basePath in `next.config.js` or `vercel.json` reaches it, read in a production build's
-  environment; the origin, the response headers a route or a headers rule sets on these paths (a
-  Content-Type that stops a mail client showing the image), and anything set only in the Vercel
-  dashboard (a variable a rule reads, or a redirect) are review-checked.
+  (`backend/app/services/email_service.py`, `_wrap_html`), and `/assets/earningsnerd-mark-sage.png`,
+  the bare mark's raster, first offered as the header's mark and kept at its URL when the header
+  took the tile (D-035); no mail references it, and the rule holds it all the same. Each file stays
+  at its path for good and stays served: never rename, move, remove or replace it, never redirect or
+  rewrite its path, and keep it the same image, byte for byte (regenerating it is fine while it
+  comes back identical); a new rendition takes a new name. Mail addresses these paths on the origin
+  that answers without a redirect (`https://www.earningsnerd.io`), so that origin keeps serving them
+  without one. A change that puts a new path in mail adds it to the register in the same PR. Gates:
+  `frontend/tests/unit/publishedAssetUrls.spec.ts` checks that each registered file is present and
+  is the file that was published (its sha256), that it lies outside `middleware.ts`'s matcher (which
+  leaves out `/assets/`), so the middleware never runs on it, and that no redirect, rewrite or
+  basePath in `next.config.js` or `vercel.json` reaches it, read in a production build's
+  environment. `backend/tests/unit/test_mail_published_assets.py` holds the backend to the rule: a
+  string in `backend/app` that addresses a file the site serves from `frontend/public` spells a
+  whole registered path, with no origin of the site's in front of it; the header's tile is built on
+  `FRONTEND_URL` with any trailing slash stripped; and `FRONTEND_URL`'s default is the register's
+  origin. Its header names the forms it cannot see (a path joined at run time to another origin, one
+  written without its leading slash, one a route serves). Whether the origin answers without a
+  redirect, the response headers a route or a headers rule sets on these paths (a Content-Type that
+  stops a mail client showing the image), and anything set only in the Vercel dashboard (a variable
+  a rule reads, or a redirect) are review-checked.
 - **Where it goes.** The mark sits top-left on every surface the brand owns (the site header, the
   OG card, the PDF masthead, the email shell, the business card front); the email shell carries it
   as the app tile, which brings its own ground into mail apps that darken a message; the stacked

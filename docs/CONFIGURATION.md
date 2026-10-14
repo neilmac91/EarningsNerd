@@ -100,7 +100,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `RESEND_BASE_URL` | `"https://api.resend.com"` | Resend API origin. |
 | `RESEND_FROM_EMAIL` | `"EarningsNerd <hello@inbound.earningsnerd.io>"` | Sender on a Resend-verified domain; complete surrounding quotes are normalized away. |
 | `RESEND_WEBHOOK_SECRET` | `""` | Resend/Svix webhook signature secret. |
-| `FRONTEND_URL` | `"https://earningsnerd.io"` | Public frontend origin used in email links. |
+| `FRONTEND_URL` | `"https://www.earningsnerd.io"` | Public frontend origin: mail links, sign-in redirects and the mail header's tile (`/assets/earningsnerd-appicon.png`) are built on it. Use the origin that answers without a redirect (the apex answers 307 to www): sent mail keeps the whole address. Set it without a trailing slash: the tile and the waitlist's links strip one, the other links append their paths to it as it is. |
 | `DATA_QUALITY_REPORT_EMAIL` | `"neil@earningsnerd.io"` | Recipient of the operator-run data-quality report. |
 | `SECRET_KEY` | `required` | Required in every environment; at least 32 characters, known placeholders rejected. Prefer 64+ random characters. |
 | `IP_HASH_SALT` | `""` | IP-hash pepper; call sites fall back to SECRET_KEY when empty. |
@@ -283,7 +283,7 @@ REVERSE_TRIAL_DAYS=7
 RESEND_API_KEY=...
 RESEND_FROM_EMAIL=...             # Must be on a Resend-verified domain (else emails silently drop)
 RESEND_WEBHOOK_SECRET=...         # Svix signing secret for the Resend webhook
-FRONTEND_URL=https://earningsnerd.io  # Used in email links (verification, reset)
+FRONTEND_URL=https://www.earningsnerd.io  # Mail links, sign-in redirects, the mail header's tile
 
 # Analytics & Monitoring
 POSTHOG_API_KEY=...

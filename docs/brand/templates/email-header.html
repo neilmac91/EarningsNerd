@@ -2,18 +2,23 @@
 <!--
   Email header and footer line, 600px wide: table layout with inline styles, as mail clients need.
 
-  Where the real thing renders today: backend/app/services/email_service.py, _wrap_html, which
-  wraps every email body in a cream page and a 600px panel and currently shows a text-only
-  wordmark. This block is what its first row would become (lockup, hairline, marked tagline) and
-  the line its footer row would carry. Port the markup into _wrap_html; do not link this file.
+  Where the real thing renders: backend/app/services/email_service.py, _wrap_html, which wraps the
+  body of every mail that module builds in a cream page and a 600px panel, with this header
+  (lockup, hairline, marked tagline) above the panel and this footer line below it. Its markup is
+  this file's, ported: backend/tests/unit/test_mail_header_template.py holds the two to the same
+  tags, the tile's cell aside, so a change to one is a change to the other. Do not link this file.
+  The page around them is _wrap_html's own. Its head sets the charset and the light-only colour
+  scheme, and no viewport: this preview's viewport is for a browser, while the mail is 600px wide,
+  and a mail view fits a page that sets none to its screen. The panel pads its cells, not its
+  table, since classic Outlook ignores a table's padding.
 
   Client notes. The header's mark is the app tile (earningsnerd-appicon.svg, the cream mark on a
   sage squircle), not the bare mark (D-035). Gmail's and Outlook's apps darken a light-only message,
   recolouring its text but leaving its images alone, so the bare sage mark on transparent would fall
   from 5.9:1 on this cream to about 2.5:1 on their dark grey; the tile brings its own ground, and
   its mark keeps 4.4:1 on either. Gmail and Outlook also drop inline SVG, so this preview's svg sits
-  in a cell wrapped for Outlook to skip; the port puts the hosted raster in its place and drops that
-  [if !mso] conditional, since Outlook shows a PNG:
+  in a cell wrapped for Outlook to skip; _wrap_html puts the hosted raster in its place and drops
+  that [if !mso] conditional, since Outlook shows a PNG:
     <img src="{base}/assets/earningsnerd-appicon.png" width="32" height="32" alt=""
       style="display:block;border:0;">
   The raster is 128 px square, written from the SVG by frontend/scripts/generate-brand-assets.mjs.
@@ -23,9 +28,10 @@
   backend/app/services/waitlist_service.py does): a doubled slash answers 308. Sent mail keeps the
   whole address, so the origin is published along with the path: use the origin that answers without
   a redirect (https://www.earningsnerd.io today; the apex answers 307 to it) and keep it answering.
-  FRONTEND_URL defaults to the apex (backend/app/config.py) and production sets none, so the port
-  makes https://www.earningsnerd.io the default in the same PR. The path never moves
-  (frontend/public/assets/LOGO_README.md; frontend/tests/unit/publishedAssetUrls.spec.ts). It is a
+  FRONTEND_URL defaults to https://www.earningsnerd.io (backend/app/config.py), and production
+  sets none, so it runs on that default. The path never moves
+  (frontend/public/assets/LOGO_README.md; the register, frontend/tests/unit/publishedAssetUrls.json,
+  with publishedAssetUrls.spec.ts and backend/tests/unit/test_mail_published_assets.py). It is a
   raster under /assets/, not the PWA's /icons/icon-192.png: the waitlist gate does not pass /icons,
   and the manifest is free to change its icons.
   The @font-face rule points at the repository's Inter for this preview only (the email uses no
@@ -92,7 +98,7 @@
         </table>
       </td>
     </tr>
-    <!-- Body: _wrap_html's panel and its {body} sit in this row, unchanged. -->
+    <!-- Body: _wrap_html's panel, which holds {body} and {footer}, sits in this row. -->
     <tr>
       <td align="center" style="padding:0 12px 32px 12px;">
         <!-- Footer line -->

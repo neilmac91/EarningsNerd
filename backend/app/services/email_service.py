@@ -17,26 +17,100 @@ _ALERT_FOOTER = (
 )
 
 
+# The mail header's mark, the app tile (D-035), as the raster the frontend serves. Sent mail keeps
+# this address for as long as the message is kept, so it is a published URL
+# (frontend/public/assets/LOGO_README.md › Published URLs stay put): the path never moves, and it is
+# built on FRONTEND_URL, the origin that answers without a redirect. Gate:
+# tests/unit/test_mail_published_assets.py.
+_HEADER_TILE_PATH = "/assets/earningsnerd-appicon.png"
+
+
 def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
+    """The page of every mail this module builds: the brand header, the panel that holds ``body``
+    and ``footer``, and the footer line.
+
+    The header (the lockup, a hairline, the marked tagline) and the footer line are
+    ``docs/brand/templates/email-header.html``, ported; tests/unit/test_mail_header_template.py
+    holds the two to the same markup. That preview draws the tile as inline SVG, which Gmail and
+    Outlook drop, so the mail shows the hosted raster in its place, with no Outlook conditional
+    around it (Outlook shows a PNG) and an empty ``alt``: the text wordmark beside it names the
+    brand, and carries it alone where images are blocked. The apps that darken a light-only message
+    recolour its text and leave its images alone, which is why the header carries the tile, on its
+    own ground, and not the bare mark.
+
+    The page sets no viewport: it is 600 px wide, and a mail view fits a page that sets none to its
+    screen, where one set to the device's width would leave the panel's right side off it. The
+    panel's padding is on its cells, which classic Outlook honours (it ignores a table's), so the
+    body lines up under the header there too.
+    """
+    # A trailing slash is stripped, as the waitlist's links strip it: a doubled slash answers 308.
+    tile_url = f"{settings.FRONTEND_URL.rstrip('/')}{_HEADER_TILE_PATH}"
     return f"""
-    <html>
-      <body style="margin:0;padding:0;background:#F4F3EE;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F3EE;padding:32px 12px;">
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="color-scheme" content="light">
+        <meta name="supported-color-schemes" content="light">
+      </head>
+      <body style="margin:0;padding:0;background-color:#F4F3EE;-webkit-text-size-adjust:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="background-color:#F4F3EE;">
           <tr>
-            <td align="center">
-              <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#FBFAF6;border:1px solid #E5E1D8;border-radius:16px;padding:32px;color:#1A1A17;">
+            <td align="center" style="padding:32px 12px 0 12px;">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="width:600px;max-width:600px;background-color:#F4F3EE;">
                 <tr>
-                  <td style="font-size:22px;font-weight:700;color:#1A1A17;">Earnings<em style="color:#3C6650;font-style:italic;">Nerd</em></td>
+                  <td style="padding:0 32px 20px 32px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="vertical-align:middle;padding:0 10px 0 0;line-height:0;">
+                          <img src="{tile_url}" width="32" height="32" alt="" style="display:block;border:0;">
+                        </td>
+                        <td style="vertical-align:middle;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:22px;line-height:30px;font-weight:700;letter-spacing:-0.44px;color:#1A1A17;">Earnings<em style="font-style:italic;color:#3C6650;">Nerd</em></td>
+                      </tr>
+                    </table>
+                  </td>
                 </tr>
                 <tr>
-                  <td style="padding-top:16px;font-size:16px;line-height:1.6;color:#1A1A17;">
+                  <td style="padding:0 32px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr><td height="1" bgcolor="#E5E7EB" style="height:1px;background-color:#E5E7EB;font-size:1px;line-height:1px;">&nbsp;</td></tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:16px 32px 28px 32px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-0.2px;color:#1A1A17;">The summary that <!--[if mso]>shows its work<![endif]--><!--[if !mso]><!--><span style="font-size:5.187px;line-height:0;vertical-align:-1.091px;background-color:#ECF2EE;border-bottom:2px solid #CFE0D6;white-space:nowrap;"><span style="font-size:18px;line-height:0;vertical-align:1.091px;">shows its work</span></span><!--<![endif]-->.</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 12px 24px 12px;">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#FBFAF6" style="max-width:600px;background:#FBFAF6;border:1px solid #E5E1D8;border-radius:16px;color:#1A1A17;">
+                <tr>
+                  <td style="padding:32px 32px 0 32px;border-radius:15px 15px 0 0;font-size:16px;line-height:1.6;color:#1A1A17;">
                     {body}
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding-top:32px;font-size:12px;color:#6B7280;">
+                  <td style="padding:32px;border-radius:0 0 15px 15px;font-size:12px;color:#6B7280;">
                     {footer}
                   </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 12px 32px 12px;">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+                <tr>
+                  <td style="padding:0 32px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr><td height="1" bgcolor="#E5E7EB" style="height:1px;background-color:#E5E7EB;font-size:1px;line-height:1px;">&nbsp;</td></tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:14px 32px 0 32px;font-family:-apple-system,BlinkMacSystemFont,Inter,'Segoe UI',Arial,sans-serif;font-size:12px;line-height:18px;color:#374151;">Data sourced from SEC EDGAR. Not investment advice.</td>
                 </tr>
               </table>
             </td>
