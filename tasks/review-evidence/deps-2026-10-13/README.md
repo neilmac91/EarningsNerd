@@ -165,7 +165,8 @@ merge, close or supersede call) and a dependency audit, with main at `d69bc69`:
   not audit are clean ([`pip-audit-dev-eval-2026-10-14.txt`](pip-audit-dev-eval-2026-10-14.txt)).
   Dispositions: the two roots with fixed releases go to E53 (forward `overrides` in
   `frontend/package.json`, the pattern the @lhci/cli chain already uses, proven by the
-  override-direction gate and a byte comparison of the built CSS); the two without go to F27.
+  override-direction gate and a byte comparison of the built CSS; closed by #1329, see
+  [E53 outcome](#e53-outcome-14-october-1329) below); the two without go to F27.
 - **Other PRs:** 20 are drafts or branches another session pushed or answered within the last
   12–24 hours (the brand series, #1278, #1265, #1314, #1286) and were left alone; #1286 merged at 20:22 UTC (`df8b519`), after the
   sweep's read; #1307 now targets main and #1308 is stacked on #1307; #1035 and #1121 are held by the founder's earlier comments;
@@ -173,6 +174,23 @@ merge, close or supersede call) and a dependency audit, with main at `d69bc69`:
   its closure is open, the founder's call; #1323 and #1324 were merged by their own session at
   20:13 UTC while the sweep ran, and #1325 received a principal review with a should-fix at 20:15 UTC,
   so none of the three was touched here.
+
+## E53 outcome, 14 October (#1329)
+
+The two roots with fixed releases are closed by #1329: forward `overrides` for `basic-ftp`
+(`^6.2.3`) and `postcss-selector-parser` (`^7.1.6`), both at the root of the `overrides` block
+rather than nested under their dependents. Nested, the two forms behave differently under CI's
+npm 10.9.8 and the npm 11 that wrote main's lockfile
+([`e53-override-shape-2026-10-14.txt`](e53-override-shape-2026-10-14.txt)): `@lhci/cli > basic-ftp`
+gives a lockfile npm 10.9.8 rejects (`npm ci`: "Missing: basic-ftp@5.3.1 from lock file"), and
+`tailwindcss > postcss-selector-parser` installs but `npm ls --all` exits 1 on postcss-nested's
+edge (the six `extraneous` markers for sharp's wasm32 fallback in that run's stderr appear in stdout
+on main too and do not fail the command by themselves). At the root one copy of each resolves under both versions, `npm ci` passes and `npm ls --all`
+exits 0, as on main. The built CSS is byte-identical to main's (three stylesheets, same digests),
+so the postcss-selector-parser half did not fall to F27. Full-tree `npm audit` 19 → 13 (all high;
+roots `braces` and `extract-zip`, F27); production tree 7 → 5. A root override reaches every future
+dependent of its target and the direction gate fails only the backward case, so a new dependent of
+either package is a reason to re-derive the override (the lesson now says so).
 
 ## Open follow-ups
 
