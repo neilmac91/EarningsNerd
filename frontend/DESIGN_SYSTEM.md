@@ -84,8 +84,9 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
   write (the filing's, the model's), a figure or a date among them, so `:is(.markdown-body,
   .filing-reader, .copilot-answer) a:not([data-citation-kind])` rests in its prose's own ink with a
   quiet underline (`decoration-text-tertiary-light`, `dark:decoration-text-secondary-dark`,
-  `underline-offset-4`) and turns sage, its underline with it, only under the pointer; keyboard focus
-  draws the brand ring (D-030). A citation chip among the prose (`data-citation-kind`, CitationChip's
+  `underline-offset-4`) and turns sage, its underline with it, only under the pointer, the whole label
+  turning, an emphasis inside it in an ink of its own included; keyboard focus draws the brand ring
+  (D-030). A citation chip among the prose (`data-citation-kind`, CitationChip's
   anchor where no viewer is mounted, as in the homepage's Ask demo) is no prose link and keeps its
   own chip, and a link that wraps draws its ring around each line (`box-decoration-clone`). Gates:
   brandCopyRules.spec.ts rule 2's stylesheet check, with its planted forms in

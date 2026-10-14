@@ -428,7 +428,9 @@
    in its prose's own ink, marked by a quiet underline (the tertiary ink; the
    secondary on navy), and takes sage, its underline with it, only under the
    pointer, keyboard focus drawing the brand ring (D-030: sage never colours a
-   number at rest). The Copilot's answers (.copilot-answer) take the same rule.
+   number at rest). The whole label turns: an emphasis inside it set in an ink
+   of its own (the Copilot's bold, in the primary ink) takes the link's sage
+   too. The Copilot's answers (.copilot-answer) take the same rule.
    A citation chip there ([data-citation-kind], CitationChip's anchor when no
    viewer is mounted, as in the homepage's Ask demo) is no prose link and keeps
    its own chip. A link that wraps draws its ring around each of its lines
@@ -439,6 +441,7 @@
   @apply hover:text-brand-strong hover:decoration-current focus-visible:outline-none focus-visible:shadow-ring-brand;
   @apply dark:decoration-text-secondary-dark dark:hover:text-brand-strong-dark dark:hover:decoration-current dark:focus-visible:shadow-ring-brand-dark;
 }
+:is(.markdown-body, .filing-reader, .copilot-answer) a:not([data-citation-kind]):hover * { color: inherit; }
 
 :is(.markdown-body, .filing-reader) blockquote {
   @apply border-brand-border dark:border-brand-border-dark text-text-secondary-light dark:text-text-secondary-dark;

@@ -8,7 +8,9 @@ import { API_ORIGIN, DOCUMENT, PANE, answerApi, type Theme } from './fixtures/fi
  * brandCopyRules.spec.ts rule 2 holds the stylesheet's source; this spec holds what the cascade paints.
  *
  *  - A link in a Copilot answer (.copilot-answer), in both themes: at rest it takes the answer's ink and draws
- *    its underline; under the pointer it takes the sage of the answer's own citation chip.
+ *    its underline; under the pointer it takes the sage of the answer's own citation chip. A label the model set
+ *    in bold (`[**…**](…)`), in an ink of its own, rests in the answer's ink too and takes that sage whole under
+ *    the pointer.
  *  - The homepage's Ask demo mounts no filing viewer, so its citation chips are anchors: each keeps its chip,
  *    with no underline and its own radius.
  *
@@ -17,11 +19,12 @@ import { API_ORIGIN, DOCUMENT, PANE, answerApi, type Theme } from './fixtures/fi
  */
 
 const LINK = 'Item 8, Note 13'
-// A completed Ask answer whose prose carries a link, in the wire shape copilot-api.ts admits.
+const BOLD = 'FY2025 net sales'
+// A completed Ask answer whose prose carries a link and a bold one, in the wire shape copilot-api.ts admits.
 const ANSWER = {
   type: 'complete',
   kind: 'answer',
-  answer: `Growth came mainly from Services [1], which the segment note in [${LINK}](${DOCUMENT}) breaks out.`,
+  answer: `Growth came mainly from Services [1], which the segment note in [${LINK}](${DOCUMENT}) breaks out; [**${BOLD}**](${DOCUMENT}) are in Item 8.`,
   grounded: 1,
   citations: [
     { n: 1, excerpt: 'Services net sales increased during 2025 compared to 2024 primarily due to higher net sales from advertising, the App Store and cloud services.', section_ref: 'Item 7. MD&A – Products and Services Performance', verified: true, fragment_url: `${DOCUMENT}#:~:text=Services%20net%20sales` },
@@ -40,7 +43,7 @@ async function settle(page: Page, theme: Theme) {
   }, theme)
 }
 
-/** Open filing 3 for a Pro visitor, ask a question and return the answer's link and its citation chip. */
+/** Open filing 3 for a Pro visitor, ask a question and return the answer's links and its citation chip. */
 async function askWithLink(page: Page, baseURL: string, theme: Theme) {
   await answerApi(page, baseURL, 'pro')
   // Registered last, so it runs first: the Ask stream and the CORS preflight its POST sends.
@@ -68,12 +71,14 @@ async function askWithLink(page: Page, baseURL: string, theme: Theme) {
   await composer.fill('What drove revenue?')
   await composer.press('Enter')
   const link = page.locator(PANE).locator('.copilot-answer').getByRole('link', { name: LINK })
+  const bold = page.locator(PANE).locator('.copilot-answer').getByRole('link', { name: BOLD })
   const chip = page.locator(PANE).getByRole('button', { name: /^Citation 1:/ })
   await expect(link).toBeVisible()
+  await expect(bold.locator('strong')).toBeVisible()
   await expect(chip).toBeVisible()
   // The pointer starts off the answer, so the first read is the link at rest.
   await page.mouse.move(2, 2)
-  return { link, chip }
+  return { link, bold, chip }
 }
 
 const style = (el: Locator) =>
@@ -94,7 +99,7 @@ test.describe('a link in a Copilot answer rests in the ink and turns sage under 
 
   for (const theme of ['light', 'dark'] as const) {
     test(theme, async ({ page, baseURL }) => {
-      const { link, chip } = await askWithLink(page, baseURL!, theme)
+      const { link, bold, chip } = await askWithLink(page, baseURL!, theme)
       const sage = (await style(chip)).color
       const rest = await style(link)
       expect(rest.color, 'at rest the link takes the answer’s own ink').toBe(rest.proseInk)
@@ -105,6 +110,15 @@ test.describe('a link in a Copilot answer rests in the ink and turns sage under 
       await link.hover()
       await expect.poll(async () => (await style(link)).color, { message: 'under the pointer the link takes sage' }).toBe(sage)
       await expect.poll(async () => (await style(link)).decoration, { message: 'and its underline with it' }).toBe(sage)
+
+      // The bold label sets an ink of its own (CopilotMessage's strong), which the link's sage must reach.
+      await page.mouse.move(2, 2)
+      const label = bold.locator('strong')
+      const bolded = await style(label)
+      expect(bolded.color, 'at rest the bold label takes the answer’s own ink').toBe(bolded.proseInk)
+      await bold.hover()
+      await expect.poll(async () => (await style(label)).color, { message: 'under the pointer the bold label takes sage' }).toBe(sage)
+      await expect.poll(async () => (await style(bold)).decoration, { message: 'and the underline with it' }).toBe(sage)
     })
   }
 })
