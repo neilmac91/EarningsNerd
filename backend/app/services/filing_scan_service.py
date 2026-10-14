@@ -31,7 +31,7 @@ from app.models.notification_delivery import KIND_FILING_DIGEST, KIND_FILING_REA
 from app.models.notifications import CHANNEL_EMAIL
 from app.services import email_service
 from app.services import notification_delivery_service as delivery
-from app.services.entitlements import get_entitlements
+from app.services.entitlements import Entitlements, get_entitlements
 from app.services.notification_service import evaluate_delivery, get_or_create_preferences
 
 logger = logging.getLogger(__name__)
@@ -105,6 +105,20 @@ def _as_utc(dt: Optional[datetime]) -> Optional[datetime]:
 def _filing_date_str(dt: Optional[datetime]) -> str:
     d = _as_utc(dt)
     return d.date().isoformat() if d else ""
+
+
+def alert_wording_changes(db: Session, ent: Entitlements, filing_ids: list[int]) -> dict[int, dict]:
+    """Per filing, the Item 1A comparison summary the alert's wording line reads
+    (``email_service.wording_changes_line``), for a recipient whose plan has the full change list
+    (``section_changes``) while ENABLE_SECTION_CHANGES is on; empty otherwise, and for every
+    filing whose comparison is not cached yet (the real-time pass usually runs before the
+    extraction batch stores it, so the digest and a rebuilt batch carry the line more often)."""
+    from app.config import settings
+    from app.services.filing_section_service import wording_change_summaries
+
+    if not settings.ENABLE_SECTION_CHANGES or not ent.section_changes or not filing_ids:
+        return {}
+    return wording_change_summaries(db, filing_ids)
 
 
 # --------------------------------------------------------------------------- filing upsert
@@ -287,6 +301,7 @@ async def run_filing_scan(
                     filing_date=_filing_date_str(filing.filing_date),
                     filing_id=filing.id,
                     filing_url=filing.sec_url,
+                    wording_changes=alert_wording_changes(db, ent, [filing.id]).get(filing.id),
                 )
                 delivery.create_batch(
                     db, kind=KIND_FILING_REALTIME, user_id=user.id, subject=subject, html=html,
@@ -369,6 +384,9 @@ async def run_daily_digest(
         if not items:
             continue
 
+        wording = alert_wording_changes(db, ent, [filing.id for _watch, filing in to_log])
+        for (_watch, filing), item in zip(to_log, items):
+            item["wording_changes"] = wording.get(filing.id)
         subject, html = email_service.build_daily_digest(name=user.full_name, items=items)
         created = delivery.create_batch(
             db, kind=KIND_FILING_DIGEST, user_id=uid, subject=subject, html=html,

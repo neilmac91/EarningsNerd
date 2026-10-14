@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 from sqlalchemy.orm import Session
 
-from app.models import BillingPayment, SavedSummary, User, UserSearch, UserUsage, Watchlist
+from app.models import BillingPayment, SavedSummary, SectionReview, User, UserSearch, UserUsage, Watchlist
 from app.utils.datetimes import iso_z, utcnow
 
 
@@ -104,6 +104,22 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
         for payment in payments
     ]
 
+    # The reader's reviews of filings' wording changes (labels per change, the frozen receipts).
+    reviews = db.query(SectionReview).filter(SectionReview.user_id == current_user.id).all()
+    reviews_data = [
+        {
+            "filing_id": review.filing_id,
+            "section": review.section,
+            "labels": review.labels,
+            "engine_version": review.engine_version,
+            "completed_at": review.completed_at.isoformat() if review.completed_at else None,
+            "receipt": review.receipt,
+            "created_at": review.created_at.isoformat() if review.created_at else None,
+            "updated_at": review.updated_at.isoformat() if review.updated_at else None,
+        }
+        for review in reviews
+    ]
+
     # Compile export
     export_data = {
         "profile": profile_data,
@@ -112,6 +128,7 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
         "watchlist": watchlist_data,
         "usage": usage_data,
         "billing_payments": payments_data,
+        "section_reviews": reviews_data,
         "export_timestamp": utcnow().isoformat(),
     }
     return export_data

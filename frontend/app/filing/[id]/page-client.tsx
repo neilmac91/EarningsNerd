@@ -272,7 +272,13 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
   // The change report needs no summary (stored XBRL, free to read): where the page settles without one,
   // under the signup gate and under a run that ended in an error or at the monthly limit, it is a card
   // of its own, and the company page's "Open change report" lands on it there.
-  const changeReportCard = <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} />
+  const changeReportCard = (
+    <ChangeReportCard
+      filingId={filing.id}
+      initialReport={initialChangeReport}
+      context={{ filingId: filing.id, ticker: filing.company?.ticker ?? null, filingType: filing.filing_type, isAuthenticated }}
+    />
+  )
 
   return (
     <FilingViewerProvider
