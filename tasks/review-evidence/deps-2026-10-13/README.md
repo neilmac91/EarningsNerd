@@ -176,7 +176,7 @@ merge, close or supersede call) and a dependency audit, with main at `d69bc69`:
 
 ## E53 outcome, 14 October (after 21:40 UTC)
 
-The two roots with fixed releases are closed by #E53PR: forward `overrides` for `basic-ftp`
+The two roots with fixed releases are closed by #1329: forward `overrides` for `basic-ftp`
 (`^6.2.3`) and `postcss-selector-parser` (`^7.1.6`), both at the root of the `overrides` block
 rather than nested under their dependents. Nested, the two forms behave differently under CI's
 npm 10.9.8 and the npm 11 that wrote main's lockfile
