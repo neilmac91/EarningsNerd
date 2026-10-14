@@ -102,7 +102,9 @@ Nothing here ships, runs in CI or touches production: it is design tooling in th
   both recordings and the baseline's fixture hash were built on. The builder drops the two fields #1225 added:
   the dataset's `data_notes`, and the completion's `narrative_presentation`. Production renders that envelope
   and this builder does not, so the field would arrive as a null, which the current frontend refuses.
-- `measurements/` — the two recorded runs the proposal cites.
+- `measurements/` — the two recorded runs the proposal cites, `current.json` (the build at `97293e7`) and
+  `prototype.json`, and `main-7933ee2.json`, the shipped components on `main` once the review's follow-ups had
+  landed (below).
 - `astra-prompt.md` — the briefing prompt the founder asked for, to paste into the implementing agent's
   session (GPT-6 Astra / Codex). The hand-over of record is the Engineering row in `tasks/todo.md`
   (`AGENTS.md` §7); the proposal's §7 and §9 carry the status and the founder's decisions, and the prompt
@@ -148,11 +150,36 @@ viewport to overflowing content, which hid a phone overflow in the first prototy
    nesting. The result is a visual reference, not the API schema: the provenance `version` is dropped
    and a comparison's operands are flattened to concept, value, period and validation.
 
+## The shipped components on `main` (2026-10-13)
+
+`measurements/main-7933ee2.json` measures `main` at `7933ee2`. By then the open-items sweep had landed the
+review's follow-ups: #1264 (decision 9), #1272 (the narrative's evidence fold), #1273 (decision 4 and the table's
+columns), #1274 (decision 7) and #1275 (the period controls). The run used the same harness, fixtures, state and
+pinned browser as `current.json`, on a build `build-stamped.mjs` stamped from the clean checkout, and was
+written with `--out`. It is a dated measurement, not a baseline: no guard pins it, and the harness refuses to
+overwrite it with a run of another commit. Every probe passed in all 20 configurations, and every defect
+`current.json` records at `97293e7` is gone:
+
+| | `97293e7` (`current.json`) | `main` at `7933ee2` |
+| --- | --- | --- |
+| Page wider than the viewport | 39 / 93 px at 390 / 320; 78 / 425 / 495 px at 200% text | 0 in every configuration |
+| Repeated source-check labels ("Source check needed" and three variants) | 33 | 0 |
+| KPI card content past its card | 54–338 px on phones and at 200% text | 0 |
+| KPI value tops within a row of cards | unequal in 10 of 20 configurations (37 / 53 / 53 / 53 px at 390) | equal in every row (31 px at 390; 31 and 47 px in the two rows at 320, where "Free cash flow" wraps; one card per row at 390 and 320 with 200% text) |
+| Configurations with a header under the sticky column at a rest position | 18 of 20 | 0 of the 18 that scroll (at 1480 the table fits its container) |
+| Clipped cells | 0 | 0 |
+| Period columns | uneven, 77–240 px (154–481 at 200% text), no snapping | equal (77, 76 or 68 px; 152 or 136 at 200% text), snapping whole columns |
+| Narrative citations rendered, as chips and Sources rows | 39 of 39 | 39 of 39 |
+
+The pixel values are one environment's (Chromium 141.0.7390.37 on linux x64, as for the other recordings).
+The zeros, counts and signs are what a run on another machine should reproduce
+(`lessons/test-layout-numbers-are-one-environments-run.md`).
+
 ## Running the harnesses
 
 ```bash
-# These commands write the committed recordings (each harness's default output) and are for retaking them in
-# the recordings' environment; a check on any other machine adds --out <a scratch file> (see the note below them).
+# These commands write the committed recordings and are for retaking them in the recordings' environment; a check
+# on any other machine passes --out <a scratch file> in their place (see the note below them).
 # current components: build the frontend from frontend/ (the critique environment's flags; no backend); the
 # harness serves it. measurements/current.json records main at 97293e7, before Phase 1 landed. To reproduce it,
 # build the frontend in a worktree of that revision (97293e7 has no harness, so the harness runs from this tree and
@@ -174,6 +201,11 @@ npm install --prefix /tmp/pw-1.56 --no-audit --no-fund playwright@1.56.1
 # the harness serves the build itself (`next start` through Next's own CLI, in the same controlled environment,
 # with WAITLIST_MODE=false, which lets /analysis through the middleware, on port 3100 unless --port says otherwise)
 NODE_PATH=/tmp/pw-1.56/node_modules node tasks/analysis-redesign-2026-10/harness/measure-current.mjs --build ../en-97293e7 --shots /tmp/shots
+# The shipped components (measurements/main-7933ee2.json): main at 7933ee2, built in a worktree of its own the same
+# way and measured to a file of its own (the run that wrote it served this checkout at 7933ee2, --build's default)
+git worktree add ../en-7933ee2 7933ee2
+NEXT_PUBLIC_ENABLE_ANALYSIS=true NEXT_PUBLIC_API_BASE_URL=http://localhost:8010 node tasks/analysis-redesign-2026-10/harness/build-stamped.mjs ../en-7933ee2
+NODE_PATH=/tmp/pw-1.56/node_modules node tasks/analysis-redesign-2026-10/harness/measure-current.mjs --build ../en-7933ee2 --out measurements/main-7933ee2.json
 # The harness reads the served checkout's commit, frontend/ tree hash, uncommitted files under frontend/,
 # .next/BUILD_ID and the build's time, refuses a build older than that checkout's last commit touching frontend/
 # (it cannot see which tree a build came from, so build right before measuring), verifies before measuring that
