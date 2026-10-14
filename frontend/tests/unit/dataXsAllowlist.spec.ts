@@ -13,8 +13,11 @@ import { describe, expect, it } from 'vitest'
  *
  * 1. DATA_XS_ALLOWED lists every file whose string literals use the class, with the count and why. It is
  *    shrink-only: a new site fails (an unlisted file, or a count above its line), and a site that leaves
- *    must lower its count or delete its line, so the list never holds a stale permission. The number of
- *    files and sites is capped at the seed (DATA_XS_MAX).
+ *    must lower its count or delete its line, so the list never holds a stale permission. The list's files
+ *    and sites equal DATA_XS_MAX, an equality and not a ceiling (the convention of #1288's
+ *    RING_RESIDUE_MAX): the PR that shrinks the list lowers the cap in the same commit, so a freed slot
+ *    is gone with the site that freed it, and a list line added later fails until the cap is raised in
+ *    review. A line swapped for a line in one commit keeps both totals; the diff shows the added line.
  * 2. Two recipes are held directly, wherever they appear: the in-text marker (a class string with the
  *    18px inline-target box, `min-h-[18px]`) is 12px, and the element that renders a source-check label
  *    (`citationVerificationLabel(…)`) carries no data-xs.
@@ -25,7 +28,7 @@ const DATA_XS = /(?<![\w-])text-data-xs(?![\w-])/
 const DATA_XS_ALL = new RegExp(DATA_XS.source, 'g')
 const TEXT_XS = /(?<![\w-])text-xs(?![\w-])/
 
-/** Each file's text-data-xs sites today, with why the annotation is dense. Shrink-only. */
+/** Each file's text-data-xs sites today, with why the annotation is dense. Shrink-only: lower DATA_XS_MAX with each shrink. */
 const DATA_XS_ALLOWED: Record<string, { count: number; why: string }> = {
   'features/admin/components/EmailChipsInput.tsx': { count: 1, why: "the uppercase 'invited' micro-label inside a chip" },
   'features/analysis/components/DataNoteMark.tsx': { count: 1, why: 'the superscript data-note letter beside a figure' },
@@ -118,10 +121,11 @@ describe('text-data-xs stays on dense annotations (shrink-only)', () => {
     expect(problems).toEqual([])
   })
 
-  it('the list never grows past its seed', () => {
+  it('the list only shrinks: its totals equal DATA_XS_MAX', () => {
     const lines = Object.values(DATA_XS_ALLOWED)
-    expect(lines.length).toBeLessThanOrEqual(DATA_XS_MAX.files)
-    expect(lines.reduce((sum, line) => sum + line.count, 0)).toBeLessThanOrEqual(DATA_XS_MAX.sites)
+    // Equality, not a ceiling: a PR that shrinks the list lowers the cap in the same commit.
+    expect(lines.length, 'DATA_XS_ALLOWED changed its files: move DATA_XS_MAX.files with it in the same commit').toBe(DATA_XS_MAX.files)
+    expect(lines.reduce((sum, line) => sum + line.count, 0), 'DATA_XS_ALLOWED changed its sites: move DATA_XS_MAX.sites with it in the same commit').toBe(DATA_XS_MAX.sites)
   })
 
   it('the in-text citation marker is 12px wherever its recipe is written', () => {

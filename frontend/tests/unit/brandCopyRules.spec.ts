@@ -28,7 +28,7 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    inside MarkedCopy, and every MarkedCopy carries at least one marker (`EnRef`).
  */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const SCAN_DIRS = ['app', 'components', 'features', 'lib']
+const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -185,17 +185,23 @@ describe('brand rule 1: matching claims keep their scope', () => {
 
   // The same scope for answers and citations (ASK-01, ASK-02, ASK-04): an Ask answer can carry an uncited
   // figure or no citation at all (a not-disclosed verdict), and an XBRL citation is not filing text, so no
-  // copy promises that each answer or citation is exact, that a figure is never guessed, or that every
-  // claim is one click from proof. Say what the card shows: "cited passages you can check". These
-  // phrasings have no honest scoped form, so rule 1's SCOPE does not excuse them: "Every answer is exact,
-  // you can check." fails, and only a sentence that is itself scoped (no each or every before "exact", no
-  // "never guessed", no "verifiable in one click") passes.
+  // copy on any surface promises that answers are cited, grounded, exact or verified: not of each, every or
+  // all answers ("Every answer is cited to the filing text you can check."), not of answers as such
+  // ("Answers are grounded in the filing and cite the excerpts they came from.", "The answer cites the
+  // XBRL figures and passages it used"), and no figure is "never guessed", no claim "verifiable in one
+  // click". Say what the card shows, as COPILOT_CLAIM does ("Answers come from this filing, with cited
+  // passages you can check."). These phrasings have no honest scoped form, so rule 1's SCOPE does not
+  // excuse them ("Every answer is exact, you can check." fails). The verb is read wide on purpose: "The
+  // answer cites no passage" fails too; say what the card shows instead.
   const ABSOLUTE_CLAIMS = [
     /\b(?:each|every)\b[^.]{0,40}?\bexact\b/i,
+    /\b(?:each|every|all)\b[^.]{0,40}?\banswers?\b[^.]{0,40}?\b(?:exact|cite[sd]?|verif)/i,
+    /\banswers?\b[^.]{0,40}?\b(?:are|is)\s+(?:always\s+)?(?:grounded|cited)\b/i,
+    /\banswers?\b[^.]{0,40}?\bcites?\b/i,
     /\bnever guessed\b/i,
     /\bverifiable in one click\b/i,
   ]
-  it('no shipped string or JSX text promises an exact citation for each answer, a figure never guessed, or one-click proof', () => {
+  it('no shipped string or JSX text promises that answers are cited, grounded or exact, a figure never guessed, or one-click proof', () => {
     const offenders: string[] = []
     for (const { rel, sf } of SOURCES) {
       visit(sf, (n) => {
@@ -214,8 +220,20 @@ describe('brand rule 1: matching claims keep their scope', () => {
       'Every answer is cited to the exact passage you can check',
       'Exact figures pulled from XBRL, never guessed, so you can check them',
       'Each answer quotes the exact filing text, verifiable in one click',
+      // The answer class: round 1's removed rail sentence, a quantified answer, and the old Pro section line.
+      'Answers are grounded in the filing and cite the excerpts they came from.',
+      'Every answer is cited to the filing text you can check.',
+      'The answer cites the XBRL figures and passages it used, and each chip says whether we matched the source.',
+      'All answers are verified against the filing.',
+      'Answers to your questions are always cited.',
     ]) expect(absolute(claim), claim).toBe(true)
-    for (const scoped of ['Answers come from this filing, with cited passages you can check.', 'Cited passages you can check against the filing']) {
+    for (const scoped of [
+      'Answers come from this filing, with cited passages you can check.',
+      'Cited passages you can check against the filing',
+      'Ask a question of one filing. The answer comes from that filing, with cited passages you can check, and each chip says whether we matched the source or only cited it.',
+      'A source match does not verify every claim in the answer.',
+      'Figures from XBRL show the tag they came from',
+    ]) {
       expect(absolute(scoped), scoped).toBe(false)
     }
   })

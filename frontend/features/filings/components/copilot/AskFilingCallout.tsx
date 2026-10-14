@@ -2,6 +2,7 @@
 
 import { ChatCircleTextIcon } from '@/lib/icons'
 import { starterQuestions } from './starterQuestions'
+import { COPILOT_CLAIM } from './copilotClaim'
 import { Button } from '@/components/ui'
 
 interface AskFilingCalloutProps {
@@ -37,7 +38,7 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
         Ask {subjectLabel} anything
       </h2>
       <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        Answers come from this filing, with cited passages you can check. Try one:
+        {COPILOT_CLAIM} Try one:
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         {starters.map((q) => (

@@ -10,17 +10,23 @@ import { describe, expect, it } from 'vitest'
  * as two features.
  *
  * The scan reads every string literal, template part and JSX text under app, components, features,
- * hooks and lib, the way brandCopyRules.spec.ts reads them, and fails on the capitalised name
- * ("Copilot") or the lowercase phrase "the copilot". Internal identifiers are not copy and do not trip
- * it: the case-sensitive name never matches the lowercase PostHog events ("copilot_question_asked"),
- * tab ids, storage keys or class names ("copilot-answer"), a file or component name ("CopilotMessage")
- * has no word break after the name, and module specifiers (an import, an export, a dynamic import) and
- * console arguments are skipped. NAME_RESIDUE lists each file that still says the name, with the count
- * and why; the count is an equality, so a site that leaves must delete its line.
+ * hooks and lib, the way brandCopyRules.spec.ts reads them, and fails on the name in any case: the
+ * capitalised "Copilot" in any literal, and the word in any case ("free copilot questions", "your filing
+ * copilot", "AI copilot") in JSX text or in a string of more than one word, bounded by whitespace or
+ * sentence punctuation. Internal identifiers are not copy and do not trip it: a one-word string is an id
+ * (the "copilot" tab id), the word joined to an identifier character never matches (the PostHog event
+ * "copilot_question_asked", the class "copilot-answer …", the storage key "copilot:paneWidth", the paths
+ * "./copilot" and "/api/copilot"), a file or component name ("CopilotMessage") has no word break after
+ * the name, and module specifiers (an import, an export, a dynamic import) and console arguments are
+ * skipped. NAME_RESIDUE lists each file that still says the name, with the count and why; the count is
+ * an equality, so a site that leaves must delete its line.
  */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
-const NAMES = [/\bCopilot\b/, /\bthe copilot\b/i]
+/** The capitalised name: copy in any literal, a one-word label included. */
+const NAME = /\bCopilot\b/
+/** The word in any case, unless an identifier character joins it (`_`, `-`, `:`, `/`, `.`, `@`). */
+const WORD = /(?<![\w:/.@-])copilot(?![\w:/-])/i
 
 const NAME_RESIDUE: Record<string, { count: number; why: string }> = {
   'app/security/page.tsx': {
@@ -29,8 +35,9 @@ const NAME_RESIDUE: Record<string, { count: number; why: string }> = {
   },
 }
 
-/** True when a literal's text names the feature the old way. */
-const saysCopilot = (text: string) => NAMES.some((name) => name.test(text))
+/** True when a literal's text names the feature the old way. JSX text is always copy; a string of one word may be an id. */
+const saysCopilot = (text: string, jsxText = false) =>
+  NAME.test(text) || ((jsxText || /\S\s+\S/.test(text.trim())) && WORD.test(text))
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -79,7 +86,7 @@ function sites(): Map<string, string[]> {
   for (const { rel, sf } of SOURCES) {
     visit(sf, (n) => {
       const text = copyText(n)
-      if (text === null || notCopy(n) || !saysCopilot(text)) return
+      if (text === null || notCopy(n) || !saysCopilot(text, ts.isJsxText(n))) return
       const line = sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1
       out.set(rel, [...(out.get(rel) ?? []), `${rel}:${line} ${JSON.stringify(text.trim().slice(0, 80))}`])
     })
@@ -88,7 +95,7 @@ function sites(): Map<string, string[]> {
 }
 
 describe('one product name in copy (D-034)', () => {
-  it('no shipped string or JSX text calls the feature "Copilot" or "the copilot" outside NAME_RESIDUE', () => {
+  it('no shipped string or JSX text calls the feature "Copilot", in any case, outside NAME_RESIDUE', () => {
     const offenders: string[] = []
     for (const [rel, found] of sites()) {
       const listed = NAME_RESIDUE[rel]
@@ -105,11 +112,20 @@ describe('one product name in copy (D-034)', () => {
     for (const [rel, { why }] of Object.entries(NAME_RESIDUE)) expect(why.length, rel).toBeGreaterThan(20)
   })
 
-  it('the classifier flags the old name and leaves internal identifiers alone (self-check)', () => {
-    for (const copy of ['Ask the Copilot', 'Tap a question to ask the Copilot.', 'Copilot questions', 'Open the copilot']) {
+  it('the classifier flags the old name in any case and leaves internal identifiers alone (self-check)', () => {
+    for (const copy of [
+      'Ask the Copilot', 'Tap a question to ask the Copilot.', 'Copilot questions', 'Copilot', 'Open the copilot',
+      // Lowercase, in a sentence: the planted phrases round 2's gate let through.
+      'You have 2 free copilot questions left', 'Meet your filing copilot.', 'An AI copilot for SEC filings', 'copilot answers, cited',
+    ]) {
       expect(saysCopilot(copy), copy).toBe(true)
     }
-    for (const id of ['copilot_question_asked', 'copilot_rail', 'copilot-answer tnum font-data', 'CopilotMessage', './CopilotTeaser', 'copilot:paneWidth', 'Ask this Filing', 'Sign in to ask this filing a question.']) {
+    expect(saysCopilot('copilot', true), 'JSX text of one word is copy').toBe(true)
+    for (const id of [
+      'copilot_question_asked', 'copilot_rail', 'copilot-answer tnum font-data', 'CopilotMessage', './CopilotTeaser',
+      'copilot:paneWidth', 'copilot', 'copilot-1712345678-0', 'GET /api/filings/42/copilot/ask failed', 'Ask this Filing',
+      'Sign in to ask this filing a question.',
+    ]) {
       expect(saysCopilot(id), id).toBe(false)
     }
   })

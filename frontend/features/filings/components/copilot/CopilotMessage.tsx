@@ -455,8 +455,8 @@ export default function CopilotMessage({
                 </p>
               )}
               {message.citations && <SourcesList citations={message.citations} />}
-              {/* Per-answer disclaimer (audit F7): the DS reference component always carried
-                  this line: the wired renderer had dropped it. */}
+              {/* Per-answer disclaimer (audit F7): the line is part of the answer card's contract,
+                  so every done answer carries it. */}
               <AiDisclaimer lead={false} className="mt-2">
                 {SEC_EDGAR_NOT_ADVICE}
               </AiDisclaimer>

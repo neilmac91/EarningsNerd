@@ -104,22 +104,58 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
   })
 
   // Pro's Copilot questions are capped (COPILOT_MONTHLY_QUESTION_CAP, a fair-use 429 past it), so no copy
-  // offers "unlimited" questions (ASK-03). The cap is read from the usage response (qa_limit), never typed.
-  // The Copilot's own surfaces carry no "unlimited" at all; the plan surfaces keep it off question nouns
+  // offers "unlimited" questions (ASK-03, D-034). The cap is read from the usage response (qa_limit), never
+  // typed. The Copilot's own surfaces carry no "unlimited" at all; everywhere else under the source roots
+  // (pricing, marketing, the upgrade surfaces, any page) "unlimited" stays off a question noun, through up to
+  // two modifiers, hyphenated ones included ("unlimited follow-up questions"), and across a line break
   // (whether Pro summaries stay "unlimited" is a founder decision, pub/F05, so that clause is not here).
+  const COPILOT_DIR = path.join('features', 'filings', 'components', 'copilot')
+  const QUESTION =
+    /\bunlimited\s+(?:[\w&-]+\s+){0,2}(?:questions?|answers?|copilot|ask this filing|q&a)\b|\b(?:questions?|copilot|ask this filing|q&a)\b[^.]{0,30}\bunlimited\b/gi
+  /** Each line a QUESTION match starts on, read over the whole file so a wrapped JSX sentence is one string. */
+  const questionLines = (source: string): number[] =>
+    [...source.matchAll(QUESTION)].map((match) => source.slice(0, match.index).split('\n').length)
+
   it('no Copilot or plan surface promises unlimited questions', () => {
-    const COPILOT_DIR = path.join('features', 'filings', 'components', 'copilot')
-    const QUESTION = /\bunlimited\s+(?:\w+\s+){0,2}(?:questions?|answers?|copilot|ask this filing)\b|\b(?:questions?|copilot|ask this filing)\b[^.]{0,30}\bunlimited\b/i
     const offenders: string[] = []
-    for (const dir of [COPILOT_DIR, path.join('features', 'subscriptions')]) {
-      for (const file of walk(path.join(frontendDir, dir))) {
-        readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
-          if (dir === COPILOT_DIR ? /\bunlimited\b/i.test(line) : QUESTION.test(line)) {
-            offenders.push(`${path.relative(frontendDir, file)}:${index + 1}: ${line.trim()}`)
-          }
-        })
+    const scanned = new Set<string>()
+    let copilotFiles = 0
+    for (const root of SOURCE_ROOTS) {
+      for (const file of walk(path.join(frontendDir, root))) {
+        const rel = path.relative(frontendDir, file)
+        scanned.add(rel.split(path.sep).join('/'))
+        const source = readFileSync(file, 'utf8')
+        const lines = source.split('\n')
+        if (rel.startsWith(COPILOT_DIR + path.sep)) {
+          copilotFiles += 1
+          lines.forEach((line, index) => {
+            if (/\bunlimited\b/i.test(line)) offenders.push(`${rel}:${index + 1}: ${line.trim()}`)
+          })
+        } else {
+          for (const line of questionLines(source)) offenders.push(`${rel}:${line}: ${lines[line - 1].trim()}`)
+        }
       }
     }
+    // The scan reaches the plan surfaces outside the Copilot and subscription directories, not only those two.
+    expect(copilotFiles, 'the scan reads the Copilot directory').toBeGreaterThan(10)
+    for (const rel of ['app/pricing/page.tsx', 'app/pricing/layout.tsx', 'features/marketing/components/PricingSection.tsx', 'features/subscriptions/components/UpgradeModal.tsx']) {
+      expect(scanned.has(rel), rel).toBe(true)
+    }
     expect(offenders, "say what the plan includes, from the usage response: `Pro includes ${usage.qa_limit} questions a month.`").toEqual([])
+  })
+
+  it('the question clause reads hyphenated modifiers, Q&A and a wrapped line (self-check)', () => {
+    for (const claim of [
+      'Pro includes unlimited follow-up questions.',
+      'Unlimited filing Q&A with Pro',
+      'Unlimited Ask this Filing questions',
+      'Pro includes unlimited\n            questions a month.',
+      'Ask this Filing: unlimited on Pro',
+    ]) {
+      expect(questionLines(claim).length, claim).toBe(1)
+    }
+    for (const allowed of ['Unlimited summaries', 'Pro includes 1,000 questions a month.', 'Unlimited Multi-Period Analysis', 'Watchlists are unlimited on both plans.']) {
+      expect(questionLines(allowed), allowed).toEqual([])
+    }
   })
 })

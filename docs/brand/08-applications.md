@@ -71,8 +71,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Ask this Filing** (`frontend/features/filings/components/copilot/*`, `features/filings/api/copilot-api.ts`,
   D-034): the teaser, the end-of-summary callout, the coachmark and the rail's empty state claim only
   what the answer card shows ("Cited passages you can check against the filing", "Figures from XBRL
-  show the tag they came from", "Answers come from this filing, with cited passages you can check."),
-  and the summary's suggested follow-ups say "Tap a question to ask this filing."; the teaser's blurred
+  show the tag they came from" and "Answers come from this filing, with cited passages you can check.",
+  the one sentence the rail, the callout and the coachmark import as `COPILOT_CLAIM` from
+  `copilotClaim.ts`), and so does the Pro section's Ask row ("The answer comes from that filing, with cited
+  passages you can check", in `ProDepth.tsx`, which had said the answer cites the figures and passages
+  it used), and the summary's suggested follow-ups say "Tap a question to ask this filing."; the teaser's blurred
   sample is Apple's FY2025 Services answer with sequential [1] and [2] markers and "2 matched
   sources". The product has one name: "Ask this Filing" on the launcher, the rail and the upgrade
   dialog, "ask this filing" in a sentence, and the usage lines say "free questions" and "Upgrade to
@@ -84,12 +87,19 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   without an icon tile; the answer counts its matched sources once. Every control in the rail, the
   answer and the reader carries the brand ring. The unused reference renderer `AskFilingAnswer.tsx`
   is gone; DESIGN_SYSTEM.md's "Ask answer" now describes `CopilotMessage`. Gates:
-  `oneProductName.spec.ts` (no copy literal says "Copilot" or "the copilot"; the /security line is
-  its one named residue), `brandCopyRules.spec.ts` rule 1 (no "each" or "every" before "exact", no
-  "never guessed", no "verifiable in one click", whatever scope phrase follows), `planLimitsLockstep.spec.ts`
-  (no "unlimited" questions), `dataXsAllowlist.spec.ts` (data-xs sites listed with counts; the
-  marker and the source-check labels are 12px) and `CopilotMessage.spec.tsx` (the plan card is quiet,
-  a real failure keeps the tint).
+  `oneProductName.spec.ts` (no copy literal says the name in any case: "Copilot" anywhere, and
+  "copilot" in JSX text or a string of more than one word, so "free copilot questions" fails while an
+  identifier such as `copilot_question_asked` does not; the /security line is its one named residue),
+  `brandCopyRules.spec.ts` rule 1 (on every surface under app, components, features, hooks and lib: no
+  "each" or "every" before "exact", no each, every or all answers called exact, cited or verified, no
+  answers said to be grounded or cited or to cite, no "never guessed", no "verifiable in one click",
+  whatever scope phrase follows), `copilotClaim.spec.tsx` (the rail, the callout and the coachmark
+  render the one sentence, and no other literal types it), `planLimitsLockstep.spec.ts` (no
+  "unlimited" in the Copilot's directory and, anywhere under app, components, features, hooks and lib,
+  none beside a question, answer, Ask this Filing or Q&A noun, through a hyphenated modifier or a line
+  break), `dataXsAllowlist.spec.ts` (data-xs sites listed with counts, their totals an equality cap
+  lowered in the same commit as each shrink; the marker and the source-check labels are 12px) and
+  `CopilotMessage.spec.tsx` (the plan card is quiet, a real failure keeps the tint).
 
 ## 4. The mark's files and the icons
 

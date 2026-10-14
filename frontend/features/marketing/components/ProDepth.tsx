@@ -97,7 +97,7 @@ export default function ProDepth() {
           <div className="mt-12 space-y-12 lg:space-y-16">
             <FeatureRow
               title="Ask this Filing"
-              description={`Ask a question of one filing. The answer cites the XBRL figures and passages it used, and each chip says whether we matched the source or only cited it. Free accounts get ${FREE_COPILOT_QUESTIONS} questions.`}
+              description={`Ask a question of one filing. The answer comes from that filing, with cited passages you can check, and each chip says whether we matched the source or only cited it. Free accounts get ${FREE_COPILOT_QUESTIONS} questions.`}
             >
               <AskFilingDemo />
             </FeatureRow>

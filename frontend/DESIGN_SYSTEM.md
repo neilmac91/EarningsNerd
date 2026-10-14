@@ -91,7 +91,8 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
   captions / uppercase micro-labels (v3 b8 maps every former `text-[10–11px]` text site to it). The
   provenance chip that carries a verification claim is never one of them: it is 12px (P-10, §4), as are
   the in-text citation marker (CitationChip, the analysis narrative's chip) and every source-check label
-  (gate: `tests/unit/dataXsAllowlist.spec.ts`, a shrink-only list of the files that use data-xs). UPPERCASE
+  (gate: `tests/unit/dataXsAllowlist.spec.ts`, a shrink-only list of the files that use data-xs, its file and
+  site totals an equality cap that the PR shrinking the list lowers in the same commit). UPPERCASE
   tracked eyebrows are reserved for metric labels — never card titles (`CardTitle` is sentence case,
   14px/600 heading ink; it shipped as an eyebrow in v2 and was fixed in v2.1) and never document headings.
 - **Section title** (2026-10 critique P-05): the filing summary is a document, so its section headings are

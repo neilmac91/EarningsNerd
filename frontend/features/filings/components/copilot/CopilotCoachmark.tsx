@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react'
 import { ChatCircleTextIcon, XIcon } from '@/lib/icons'
 import { Button } from '@/components/ui'
 import type { FocusHandoff } from '@/hooks/useFocusHandoff'
+import { COPILOT_CLAIM } from './copilotClaim'
 
 interface CopilotCoachmarkProps {
   /** Opens the Copilot rail (also marks the coachmark seen via the parent's `open` effect). */
@@ -46,7 +47,7 @@ export default function CopilotCoachmark({ onTry, tryHandoff, onDismiss, style }
             New: ask this filing anything
           </p>
           <p className="mt-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-            Answers come from this filing, with cited passages you can check.
+            {COPILOT_CLAIM}
           </p>
           <Button
             ref={tryHandoff?.attach}

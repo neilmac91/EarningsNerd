@@ -22,6 +22,7 @@ import { getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import UpgradeModal from '@/features/subscriptions/components/UpgradeModal'
 import { analytics } from '@/lib/analytics'
 import { starterQuestions } from './starterQuestions'
+import { COPILOT_CLAIM } from './copilotClaim'
 import { queryKeys } from '@/lib/queryKeys'
 import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
 
@@ -403,8 +404,7 @@ export default function AskCopilotRail({
         {messages.length === 0 ? (
           <div>
             <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              Ask anything about {subjectFiling}. Answers come from this filing, with cited passages
-              you can check.
+              Ask anything about {subjectFiling}. {COPILOT_CLAIM}
             </p>
             <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">
               Try asking
