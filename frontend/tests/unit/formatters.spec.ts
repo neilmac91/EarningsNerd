@@ -36,10 +36,19 @@ describe('numeric formatters', () => {
       ['Revenue', 'Revenue'], ['Net Income', 'Net income'], ['Operating Cash Flow', 'Operating cash flow'],
       ['Non-Interest Income', 'Non-interest income'], ["Shareholders' Equity", "Shareholders' equity"],
       ['Diluted EPS', 'Diluted EPS'], ['EPS', 'EPS'],
-      // An acronym joined by & or . is one word with no lower-case letter: its single letters stay capitals.
-      ['R&D Expense', 'R&D expense'], ['SG&A', 'SG&A'], ['U.S. Revenue', 'U.S. revenue'],
     ]
     for (const [label, text] of cases) expect(sentenceCase(label)).toBe(text)
+  })
+
+  // The unit is the segment between whitespace, - and /. & and . sit inside one, so R&D, SG&A and U.S. keep their
+  // single capitals (a letter-run rule gave 'R&d'); - and / end one, so an acronym joined to a word keeps its
+  // capitals (a per-word rule gave 'Non-gaap EPS' and 'Debt-to-ebitda').
+  it.each([
+    ['R&D Expense', 'R&D expense'], ['SG&A', 'SG&A'], ['U.S. Revenue', 'U.S. revenue'],
+    ['Non-GAAP EPS', 'Non-GAAP EPS'], ['Adjusted Non-GAAP Income', 'Adjusted non-GAAP income'],
+    ['Debt-to-EBITDA', 'Debt-to-EBITDA'], ['Price/EPS Ratio', 'Price/EPS ratio'],
+  ])('judges an acronym on the segment between whitespace, - and /: %s reads %s', (label, text) => {
+    expect(sentenceCase(label)).toBe(text)
   })
 })
 
