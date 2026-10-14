@@ -79,9 +79,20 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
   word-spacing/rivers in a narrow measure, and even `hyphens: auto` (with `<html lang="en">`) cannot
   hold them down in a phone-width pane. Scoped to the summary only — the real filing reader
   (`.filing-reader`) stays ragged-right. One-block revert.
-  **Links in both surfaces:** Tailwind preflight strips anchor color AND underline, so a shared
-  globals rule restores them — `:is(.markdown-body, .filing-reader) a` =
-  `text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark`.
+  **Links in both surfaces, and in a Copilot answer:** Tailwind preflight strips anchor color AND
+  underline, so a shared globals rule restores them. A prose link prints words the product does not
+  write (the filing's, the model's), a figure or a date among them, so `:is(.markdown-body,
+  .filing-reader, .copilot-answer) a:not([data-citation-kind])` rests in its prose's own ink with a
+  quiet underline (`decoration-text-tertiary-light`, `dark:decoration-text-secondary-dark`,
+  `underline-offset-4`) and turns sage, its underline with it, only under the pointer, the whole label
+  turning, an emphasis inside it in an ink of its own included; keyboard focus draws the brand ring
+  (D-030). A citation chip among the prose (`data-citation-kind`, CitationChip's
+  anchor where no viewer is mounted, as in the homepage's Ask demo) is no prose link and keeps its
+  own chip, and a link that wraps draws its ring around each line (`box-decoration-clone`). Gates:
+  brandCopyRules.spec.ts rule 2's stylesheet check, with its planted forms in
+  `tests/unit/fixtures/brandRule2Styles.css`; its markdown-link check, which fails an `a` the app
+  hands react-markdown resting in sage; and `tests/e2e/prose-links.spec.ts`, which reads what the
+  cascade paints.
 - **Tracking ramp** (`--track-*`): +0.01em ≤12px · 0 at 13–19px · −0.012em 20–24px · −0.016em
   26–32px · −0.02em 34–44px · −0.025em 48px+ · `--track-eyebrow 0.08em` for uppercase micro-labels —
   as the utility **`tracking-eyebrow`** (v3). `tracking-wide/wider/widest/tight/tighter` and arbitrary
@@ -213,6 +224,9 @@ Link as button   buttonVariants({ variant, size })  — the class-string factory
                  tests/unit/inputClassesNoOverrides.spec.tsx.
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
+                 A link that prints words the product does not write rests outside sage instead: a prose
+                 link in its prose's ink (Links in both surfaces, above), and a Copilot source's locator
+                 as the count control below.
 Count control    A link or control whose label carries a count, a date, an index name or a price
                  (D-030) and turns sage under the pointer composes countControlClass(kind) from
                  components/ui/countControl.ts beside its own shape (size, padding, width, a border),
@@ -839,6 +853,10 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
                  change copilot rendering THERE, styled to this design. Its answers arrive whole: the
                  rail takes a message from reading (one pulse dot, "Reading the filing…") straight to
                  done or error; there is no streaming status, token text or caret.
+                 Its links print what the model wrote: an answer's own links take the prose links' rule
+                 (`.copilot-answer`) and keep their weight, and a source's locator ("Item 7. MD&A")
+                 composes countControlClass('link') with the new-tab icon, "(opens in a new tab)" for a
+                 screen reader (D-030).
 ```
 
 - **Radius scale is 4 / 8 / 12 / 16 / 24** — buttons + inputs 12 (`rounded-lg`), chips full,

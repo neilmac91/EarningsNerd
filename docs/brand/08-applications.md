@@ -89,6 +89,16 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   renders its children inside a control counting as one), that holds its count in a span of its own
   ink, and its one-source check fails a count control rebuilt by hand, whose classes written in its
   file turn it sage under the pointer; its header names what stays review-checked.
+- **The Copilot's links and the prose links** (D-030): a Copilot source's locator, which prints a
+  citation's section name as the model wrote it, composes the count control's `link` kind, with the
+  new-tab icon the app's other links to the original draw. A link inside a Copilot answer, the
+  filing reader, the summary or the analysis narrative prints words the product does not write, so
+  it rests in its prose's own ink with a quiet underline and turns sage only under the pointer
+  (`app/globals.css`); a citation chip among the prose keeps its own chip. `brandCopyRules.spec.ts`
+  rule 2 reads as a value every field the API types declare that the server or the model writes a
+  figure into (a formatted figure, a date or a period, the text written about the filing, a table's
+  rows and a list's items among it), and fails a field they declare that can hold a string and that
+  it has not classified; its stylesheet check fails a rule that sets sage at rest.
 - **Exports and mail** (`backend/app/services/export_service.py`, `excel_export_service.py`,
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
