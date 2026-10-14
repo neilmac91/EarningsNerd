@@ -517,6 +517,18 @@ describe('PricingPage', () => {
     }
   })
 
+  // The Product JSON-LD (app/pricing/layout.tsx) sells what the Pro lists sell, so its description
+  // names multi-period analysis only while the flag ships the route.
+  it.each([false, true])('names multi-period analysis in the Product JSON-LD only while the flag ships it (flag %s)', (on) => {
+    flags.ENABLE_ANALYSIS = on
+    const layout = render(<PricingLayout><div /></PricingLayout>)
+    const { description } = JSON.parse(layout.container.querySelector('script[type="application/ld+json"]')!.textContent!)
+    // The rest of the description reads either way, so neither case passes on an empty one.
+    expect(description).toContain('filing Q&A, alerts, and exports.')
+    if (on) expect(description).toContain('multi-period analysis')
+    else expect(description).not.toMatch(/multi-period/i)
+  })
+
   // The Free plan names the forms the production API lists, without the "Supported" hedge (the
   // deploy sets ENABLE_FPI_FILINGS=true; tasks/todo.md F39).
   it('names the filing forms on the Free plan without a hedge', async () => {

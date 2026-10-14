@@ -17,6 +17,8 @@ import * as samples from '@/features/marketing/lib/landing-samples'
  * static fallback in HeroExample.tsx, and checks:
  *  - every dollar figure and percentage is one the verified set yields (a value at one or two decimals
  *    of a billion, a per-share value, or a year-over-year change at one decimal);
+ *  - each hero fallback figure and each Financial Highlights row holds its own label's verified values
+ *    (that scan pools figures across concepts, so Revenue showing net income's figure would pass it);
  *  - every Change Report number is a verified raw value, and its percentage the change between them;
  *  - the verified set below is the one 00-audit.md §4 records, digit for digit;
  *  - the Ask answer's markers are sequential [n] matching its citations, never [F1]; an XBRL citation
@@ -93,6 +95,46 @@ describe('landing sample figures come from the verified Apple FY2025 set', () =>
     // Anti-vacuity: the scan reads the figures the page shows.
     expect(STRINGS.some((s) => s.value.includes('$416.2B'))).toBe(true)
     expect(FALLBACK_SOURCE).toContain('$112.0B')
+  })
+
+  it("holds each hero fallback figure and each Highlights row to its own label's verified values", () => {
+    // The concept behind each label the two show, as the Ask chip clause below ties its labels.
+    const ROW_CONCEPT: Record<string, string> = {
+      Revenue: 'RevenueFromContractWithCustomerExcludingAssessedTax',
+      'Net income': 'NetIncomeLoss',
+      'Diluted EPS': 'EarningsPerShareDiluted',
+    }
+    const SCALE: Record<string, number> = { B: 1e9, M: 1e6, '': 1 }
+    /** A verified value as `shown` writes its figure: in its unit, to its decimals. */
+    const asShown = (v: number, shown: string) => {
+      const [, places = '', unit = ''] = shown.match(/^\$\d+(?:\.(\d+))?([BM]?)$/) ?? []
+      return `$${(v / SCALE[unit]).toFixed(places.length)}${unit}`
+    }
+    /** A change as the hero's formatDelta and a payload's change_display write it. */
+    const signed = (pct: number) => `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`
+    const verified = (at: string, label: string) => {
+      const pair = VERIFIED[ROW_CONCEPT[label]]
+      expect(pair, `${at} ${label}: a label with a verified concept`).toBeDefined()
+      return pair
+    }
+
+    // HeroExample.tsx's fallback metrics, `{ label, value, deltaPercent }`, as written there.
+    const fallback = [...FALLBACK_SOURCE.matchAll(/\{ label: '([^']+)', value: '([^']+)', deltaPercent: (-?\d+(?:\.\d+)?) \}/g)]
+    expect(fallback.length, 'the hero fallback has figures').toBeGreaterThan(0)
+    expect(fallback.length, 'every fallback metric reads as { label, value, deltaPercent }').toBe(FALLBACK_SOURCE.match(/\blabel:/g)?.length)
+    for (const [, label, value, delta] of fallback) {
+      const [current, prior] = verified('HeroExample FALLBACK', label)
+      expect(`${value} ${signed(Number(delta))}`, `HeroExample FALLBACK ${label}`).toBe(`${asShown(current, value)} ${signed(growth([current, prior]))}`)
+    }
+
+    const rows = samples.SAMPLE_FINANCIAL_METRICS
+    expect(rows.length, 'the Highlights table has rows').toBeGreaterThan(0)
+    for (const row of rows) {
+      const [current, prior] = verified('SAMPLE_FINANCIAL_METRICS', row.metric)
+      expect(`${row.current_period} vs ${row.prior_period} ${row.change_display}`, `SAMPLE_FINANCIAL_METRICS ${row.metric}`).toBe(
+        `${asShown(current, row.current_period)} vs ${asShown(prior, row.prior_period)} ${signed(growth([current, prior]))}`,
+      )
+    }
   })
 
   it('every Change Report number is a verified value, and its percentage the change between them', () => {
