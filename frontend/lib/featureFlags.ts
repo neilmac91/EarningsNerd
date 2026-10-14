@@ -162,3 +162,7 @@ export const ENABLE_RESEARCH_EVIDENCE_PACKS =
 /** Local research prototype. Hidden, including direct URLs, unless explicitly enabled. */
 export const ENABLE_FILING_REDLINES =
   process.env.NEXT_PUBLIC_ENABLE_FILING_REDLINES === 'true'
+
+/** Local financial-refresh review prototype. Default off; no navigation entry. */
+export const ENABLE_FINANCIAL_REFRESH_REVIEW =
+  process.env.NEXT_PUBLIC_ENABLE_FINANCIAL_REFRESH_REVIEW === 'true'
