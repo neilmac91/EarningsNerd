@@ -1837,9 +1837,9 @@ function bindingRoot(binding: ts.Node): ts.Node {
 /** Whether a declaration or an expression holds the props a function around `at` is handed (the component's, or a
     render callback's): the parameter itself (`({ className: cls })`), a helper's parameter the file's calls hand them
     (`pick(props)`), a rest of it (`({ n, ...rest })`), a variable
-    the file gives one of these, by its initializer or an assignment, destructured or not (`const p = props`, `[p] =
-    [props]`), an object spreading one (`{ ...props }`) or a same-file function returning one (`get()`); not some other
-    object (`const { className: cls } = theme`). */
+    the file gives one of these, by its initializer or an assignment, destructured or not (`const p = props`, `const [p]
+    = [props]`, `[p] = [props]`), an object spreading one (`{ ...props }`, `Object.assign({}, props)`) or a same-file
+    function returning one (`get()`); not some other object (`const { className: cls } = theme`). */
 function holdsProps(node: ts.Node, at: ts.Node, seen = new Set<ts.Node>()): boolean {
   if (seen.has(node)) return false
   seen.add(node)
@@ -1852,15 +1852,23 @@ function holdsProps(node: ts.Node, at: ts.Node, seen = new Set<ts.Node>()): bool
       return !!arg && !ts.isSpreadElement(arg) && holdsProps(arg, at, seen)
     })
   }
-  if (ts.isBindingElement(node)) return !!node.dotDotDotToken && holdsProps(bindingRoot(node), at, seen)
+  if (ts.isBindingElement(node)) {
+    if (node.dotDotDotToken) return holdsProps(bindingRoot(node), at, seen)
+    // A name a declaration's destructuring gives (`const [p] = [props]`): what the variable holds at the name's steps.
+    const { declaration, steps } = bindingOf(ts.isIdentifier(node.name) ? CHECKER.getSymbolAtLocation(node.name) : undefined, [])
+    return !!declaration && ts.isVariableDeclaration(declaration)
+      && variableValues(declaration).some(({ value, steps: held }) => atSteps(value, [...held, ...steps], declaration.getSourceFile()).some((v) => holdsProps(v, at, seen)))
+  }
   if (ts.isVariableDeclaration(node)) {
     return variableValues(node).some(({ value, steps }) => atSteps(value, steps, node.getSourceFile()).some((v) => holdsProps(v, at, seen)))
   }
   if (ts.isObjectLiteralExpression(node)) return node.properties.some((m) => ts.isSpreadAssignment(m) && holdsProps(m.expression, at, seen))
   const value = unwrap(node as ts.Expression)
   if (value !== node) return holdsProps(value, at, seen)
-  // A call holds what its same-file function returns (`get()`), and useMemo what its callback returns.
+  // A call holds what its same-file function returns (`get()`), useMemo what its callback returns, and Object.assign
+  // its target with its sources' fields.
   if (ts.isCallExpression(value)) {
+    if (objectCall(value, 'assign')) return value.arguments.some((a) => !ts.isSpreadElement(a) && holdsProps(a, at, seen))
     const fns = [...functionsOf(value.expression), ...(isUseMemo(value) && value.arguments[0] ? functionsOf(value.arguments[0]) : [])]
     return fns.flatMap(returnedExpressions).some((r) => holdsProps(r, at, seen))
   }
