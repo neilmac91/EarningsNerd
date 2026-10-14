@@ -4,7 +4,6 @@ import HeroHeadline from '@/features/marketing/components/HeroHeadline'
 import MarketingCta from '@/features/marketing/components/MarketingCta'
 import QuickAccessBar from '@/features/marketing/components/QuickAccessBar'
 import TrustStrip from '@/features/marketing/components/TrustStrip'
-import FounderNote from '@/features/marketing/components/FounderNote'
 import { ArrowRightIcon } from '@/lib/icons'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import { ACCESS_COPY, type AccessMode } from '@/features/marketing/lib/access'
@@ -67,8 +66,6 @@ export default function LandingHero({
           {/* The real pre-generated example summary (ISR), same card at every breakpoint. */}
           <div className="min-w-0">
             <HeroExample example={example} />
-            {/* The human on the page: renders only once the founder approves the sentence. */}
-            <FounderNote />
           </div>
         </div>
         <TrustStrip />
