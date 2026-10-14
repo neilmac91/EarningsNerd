@@ -401,7 +401,7 @@ export const analytics = {
     })
   },
 
-  // The Pro review of the wording changes (E17): one event per label set, one when the reader
+  // The Pro review of the wording changes (E27): one event per label set, one when the reader
   // reaches the end of the queue (the E3 completion measure), one per receipt copied.
   wordingChangeLabeled: (props: {
     filingId: number

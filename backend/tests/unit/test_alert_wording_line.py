@@ -1,4 +1,4 @@
-"""The "wording changes in Item 1A" field of the filing alerts (tasks/todo.md E17, PR B).
+"""The "wording changes in Item 1A" field of the filing alerts (tasks/todo.md E27, PR B).
 
 Pins: the line's three states and its absence (no comparison, or the filing's own section only
 points at the annual report); the renderers carry it in HTML and text; the scan and the digest

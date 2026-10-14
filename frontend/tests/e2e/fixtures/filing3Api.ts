@@ -8,8 +8,9 @@ import type { Page } from '@playwright/test'
  * these fixtures — the public Apple FY2025 10-K as filing 3, its summary a trimmed copy in
  * filing-3-summary.json, and the session / subscription endpoints for an anonymous visitor or a Pro
  * user. Shared by filing-source-chip.spec.ts (EN-01), consent-bar-yields.spec.ts (EN-02),
- * citation-chip-keyboard.spec.ts (EN-01 follow-up, which routes the Ask stream on top) and
- * filing-reader-wide-tables.spec.ts (EN-04, the `tables` content); a spec seeds its own browser
+ * citation-chip-keyboard.spec.ts (EN-01 follow-up, which routes the Ask stream on top),
+ * filing-reader-wide-tables.spec.ts (EN-04, the `tables` content) and prose-links.spec.ts (D-030,
+ * which routes an answer with a link); a spec seeds its own browser
  * state (theme, consent, coachmark) in its own addInitScript.
  */
 export const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin

@@ -30,7 +30,7 @@ import { fmtCurrency, fmtScale, formatLocalDate } from '@/lib/format'
  *  - the risk diff with sentence-case subheads, counts, and neutral +/− glyphs (brand never signals a
  *    state). The backend withholds risk lines today (model-authored labels — change_report_service),
  *    so this block renders only when the payload carries them;
- *  - the Item 1A wording block (E17, PR B: WordingChanges), the filing's own risk-factor text against
+ *  - the Item 1A wording block (E27, PR B: WordingChanges), the filing's own risk-factor text against
  *    the prior same-form original, last, under its own subheading: the one part of the report that is
  *    served per viewer (a teaser, or every change for Pro), which `context` tells it about.
  */

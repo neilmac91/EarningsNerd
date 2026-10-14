@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import { API_ORIGIN, answerApi, type Who } from './fixtures/filing3Api'
 
 /**
- * E17 / PR B: the Item 1A wording block of the change report, in a real Chromium. An anonymous
+ * E27 / PR B: the Item 1A wording block of the change report, in a real Chromium. An anonymous
  * visitor gets the teaser: the counts, the first changes, how many more there are, the Upgrade to
  * Pro button (which opens the upgrade dialog and hands focus back on Escape) and a sign-in link. A
  * Pro user gets every change, no prompt, and the review: pressed-state toggles on each change, the

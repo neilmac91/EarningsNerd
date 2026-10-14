@@ -21,7 +21,7 @@ APP_DIR = BACKEND_DIR / "app"
 # (file relative to backend/, enclosing scope) -> why the call predates the rule.
 ALLOWED_OBJ_CALLS: dict[tuple[str, str], str] = {
     ("app/services/edgar/xbrl_sections.py", "_extract_sections_sync"): (
-        "the USE_EDGARTOOLS_SECTIONS summary-section path; its production hit rate is open item E18"
+        "the USE_EDGARTOOLS_SECTIONS summary-section path; its production hit rate is open item E28"
     ),
     ("app/services/insider_service.py", "_collect_insider_data_sync"): (
         "Form 4 objects for the insider feed, behind ENABLE_INSIDER_ACTIVITY (off in the deploy)"

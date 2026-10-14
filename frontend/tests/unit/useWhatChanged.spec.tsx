@@ -7,7 +7,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import type { ChangeReport } from '@/features/summaries/api/summaries-api'
 
 /**
- * The change report is served per viewer (E17, PR B): a Pro reader gets every Item 1A wording
+ * The change report is served per viewer (E27, PR B): a Pro reader gets every Item 1A wording
  * change, everyone else the teaser. The hook keys the read by the signed-in reader, installs the
  * page's anonymous server seed on the anonymous entry, and issues the read only once /me has
  * settled and is not being re-read. That order is the fix for an expired Pro token: the endpoint

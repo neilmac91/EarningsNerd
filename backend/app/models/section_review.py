@@ -1,4 +1,4 @@
-"""A reader's review of one filing section's wording changes (the Pro review queue, E17 / PR B).
+"""A reader's review of one filing section's wording changes (the Pro review queue, E27 / PR B).
 
 One row per (user, filing, section). ``labels`` maps a change's content-addressed id
 (``section_diff``: stable while the two paragraphs' wording is unchanged) to ``reviewed`` or

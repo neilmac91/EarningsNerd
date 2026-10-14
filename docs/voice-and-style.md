@@ -57,7 +57,7 @@ of one plain sentence, claims backed by a figure with its source, no throat-clea
   inside a summary, a chip, a tally, an export or anything that quotes the filing. The loading
   quips are the one sanctioned playful surface.
 - **First person is allowed and rationed.** "We" for what the product does ("we say so");
-  the founder's "I" only in the approved founder sentence.
+  the founder stays absent from website copy ([A5](brand/01-interview.md#3-the-answers-in-force)).
 - **The filing's words are the filing's.** Quote them exactly, in quotation marks, in the
   filing's face; never paraphrase inside quotation marks; never recase a quoted heading.
 

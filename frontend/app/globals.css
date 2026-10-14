@@ -423,10 +423,25 @@
 
 /* links — Tailwind preflight strips BOTH anchor color and underline, so links
    inside the reader/summary rendered indistinguishable from body text (caught
-   by review on #497). Accent ink + 4px-offset underline, both themes. */
-:is(.markdown-body, .filing-reader) a {
-  @apply text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark;
+   by review on #497). A prose link prints words the product does not write
+   (the filing's own, the model's), a figure or a date among them, so it rests
+   in its prose's own ink, marked by a quiet underline (the tertiary ink; the
+   secondary on navy), and takes sage, its underline with it, only under the
+   pointer, keyboard focus drawing the brand ring (D-030: sage never colours a
+   number at rest). The whole label turns: an emphasis inside it set in an ink
+   of its own (the Copilot's bold, in the primary ink) takes the link's sage
+   too. The Copilot's answers (.copilot-answer) take the same rule.
+   A citation chip there ([data-citation-kind], CitationChip's anchor when no
+   viewer is mounted, as in the homepage's Ask demo) is no prose link and keeps
+   its own chip. A link that wraps draws its ring around each of its lines
+   (box-decoration-clone). Gates: brandCopyRules.spec.ts rule 2, its stylesheet
+   check; tests/e2e/prose-links.spec.ts, what the cascade paints. */
+:is(.markdown-body, .filing-reader, .copilot-answer) a:not([data-citation-kind]) {
+  @apply rounded-sm underline decoration-text-tertiary-light underline-offset-4 box-decoration-clone transition-colors duration-fast;
+  @apply hover:text-brand-strong hover:decoration-current focus-visible:outline-none focus-visible:shadow-ring-brand;
+  @apply dark:decoration-text-secondary-dark dark:hover:text-brand-strong-dark dark:hover:decoration-current dark:focus-visible:shadow-ring-brand-dark;
 }
+:is(.markdown-body, .filing-reader, .copilot-answer) a:not([data-citation-kind]):hover * { color: inherit; }
 
 :is(.markdown-body, .filing-reader) blockquote {
   @apply border-brand-border dark:border-brand-border-dark text-text-secondary-light dark:text-text-secondary-dark;

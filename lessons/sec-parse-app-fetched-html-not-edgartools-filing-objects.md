@@ -19,7 +19,7 @@ accessor for document text: its requests go through edgartools' client, which th
 the same 1 req/s (`EDGAR_RATE_LIMIT_PER_SEC`) but which the app's limiter, breaker and diagnostics
 never see, and they fail wherever the homepage does not resolve. The two sites that predate the
 rule stay as they are: `xbrl_sections.py` (the summary-section path; its production hit rate is
-open item E18) and `insider_service.py` (Form 4 objects, behind `ENABLE_INSIDER_ACTIVITY`). Part
+open item E28) and `insider_service.py` (Form 4 objects, behind `ENABLE_INSIDER_ACTIVITY`). Part
 keys differ by form: a 10-K's Item 1A is Part I, a 10-Q's is Part II; ask for the part first and
 fall back to any part.
 

@@ -29,11 +29,12 @@ function isRecentFiling(value: string | null, withinDays = 14): boolean {
   return diffDays >= 0 && diffDays <= withinDays
 }
 
-// Calm directional chips: brand accent for up, muted neutral for down — never casino red/green.
-// Deliberate exception to financialTone.directionChip (gain/loss tones): a feed of watched
-// companies isn't a P&L readout, so it keeps the calm treatment. Icons still carry direction.
+// Calm directional chips: the icon carries the direction and the ink the value, up in the primary
+// ink and down and flat muted — never sage, which never colours a value (D-030), and never casino
+// red/green. Deliberate exception to financialTone.directionChip (gain/loss tones): a feed of watched
+// companies isn't a P&L readout, so it keeps the calm treatment.
 const DIRECTION = {
-  up: { Icon: TrendUpIcon, cls: 'text-brand-strong dark:text-brand-strong-dark bg-brand-weak dark:bg-white/5' },
+  up: { Icon: TrendUpIcon, cls: 'text-text-primary-light dark:text-text-primary-dark bg-brand-weak dark:bg-white/5' },
   down: { Icon: TrendDownIcon, cls: 'text-text-secondary-light dark:text-text-secondary-dark bg-brand-weak dark:bg-white/5' },
   flat: { Icon: MinusIcon, cls: 'text-text-tertiary-light dark:text-text-secondary-dark bg-brand-weak dark:bg-white/5' },
 } as const
@@ -45,7 +46,7 @@ function ctaLabel(status: string): string {
   return 'Generate summary'
 }
 
-/** The card's one line on the risk factors' wording (E17, PR B), in the Compare periods card's words,
+/** The card's one line on the risk factors' wording (E27, PR B), in the Compare periods card's words,
  *  with the Pro reader's own progress through the change queue after it; nothing when the filing has
  *  no comparison yet or its own section only refers back to the annual report. */
 export function wordingLine(wording: WordingChangesSummary | null | undefined): string | null {

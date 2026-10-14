@@ -58,7 +58,7 @@ const REPORT: ChangeReport = {
   has_changes: true,
 }
 
-/** The Item 1A wording comparison the report may carry (E17): four changed paragraphs, teaser form. */
+/** The Item 1A wording comparison the report may carry (E27): four changed paragraphs, teaser form. */
 const SIDE = { status: 'ok', extracted_at: '2026-10-12T00:00:00+00:00', reference_only: false, char_count: 2400, paragraph_count: 12 }
 const WORDING: SectionChangesOk = {
   section: 'item_1a',
