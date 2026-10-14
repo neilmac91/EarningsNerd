@@ -1571,14 +1571,15 @@ const FIGURE_FIELDS = new Set([
   'window_pp_range', 'cagr_window', 'yoy', 'qoq', 'n', 'marker', 'markers',
   // Numbers a reader reads as one.
   'accession', 'accession_no', 'accession_number', 'superseded_by_accession', 'cik', 'sic', 'dataset_version',
+  'app_version',
   // Dates, periods and the keys that name them.
-  'as_of', 'created_at', 'current_period_end', 'data_as_of', 'earnings_date', 'end_period', 'enddt', 'event_date',
-  'expires_at', 'filed_date', 'filingDate', 'filing_date', 'fiscal_period', 'key', 'last_transaction_date', 'linked_at',
+  'as_of', 'completed_at', 'created_at', 'current_period_end', 'data_as_of', 'earnings_date', 'end_period', 'enddt', 'event_date',
+  'expires_at', 'extracted_at', 'filed_date', 'filingDate', 'filing_date', 'fiscal_period', 'key', 'last_transaction_date', 'linked_at',
   'month', 'period', 'period_end', 'period_end_date', 'period_ending', 'period_key', 'periods', 'report_date', 'start_period',
   'startdt', 'summary_created_at', 'summary_updated_at', 'synced_at', 'timestamp', 'transaction_date', 'trial_end',
   'used_at', 'week_end', 'week_start',
   // The text written about the filing, which quotes its figures, a table's or a list's included.
-  'excerpt', 'section_ref', 'source_section_ref', 'answer', 'business_overview', 'commentary', 'comparison_basis',
+  'excerpt', 'section_ref', 'source_section_ref', 'section_label', 'before', 'after', 'ops', 'answer', 'business_overview', 'commentary', 'comparison_basis',
   'content', 'coverage_reason', 'description', 'detail', 'followups', 'headers', 'headline', 'items', 'key_changes',
   'management_discussion', 'markdownContent', 'narrative', 'new', 'notes', 'resolved', 'rows', 'source', 'summary',
   'supporting_evidence', 'text', 'title',
@@ -1591,10 +1592,10 @@ const WORD_FIELDS = new Set([
   // Codes the product reads, and its status lines.
   'acquired_disposed', 'channel', 'code', 'coverage_status', 'digest', 'entryPoint', 'error', 'fallback_reason', 'id',
   'kind', 'plan', 'qualityTier', 'reason', 'reasons', 'referral_code', 'role', 'stage', 'status', 'subscription_status',
-  'summary_status', 'tier', 'time', 'tone', 'transaction_code', 'type', 'writer_error',
+  'section', 'summary_status', 'tier', 'time', 'tone', 'transaction_code', 'type', 'writer_error',
   // URLs and opaque ids.
   'document', 'document_url', 'fragment_url', 'invite_link', 'pageUrl', 'page_url', 'referral_link', 'secUrl', 'sec_url',
-  'source_url', 'url', 'snapshot_id', 'stripe_customer_id', 'stripe_subscription_id',
+  'source_url', 'url', 'snapshot_id', 'stripe_customer_id', 'stripe_subscription_id', 'sha256', 'follow_up_ids',
   // The words a person types.
   'email', 'provider_email', 'user_email', 'message', 'subject', 'q', 'query', 'honeypot',
 ])
