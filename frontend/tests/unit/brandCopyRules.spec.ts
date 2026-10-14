@@ -1,7 +1,8 @@
-import { readdirSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import postcss from 'postcss'
 import type { Config } from 'tailwindcss'
 import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
@@ -73,11 +74,15 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    one counting), a template or a call fed one (a formatter, and so also a lookup such as
  *    labelFor(i) or a helper that builds a label), a number's own method, a same-file variable
  *    holding one, a parameter the file's calls hand one (by the type of what each call gives it,
- *    whatever the parameter's own type), or what a callback or a same-file function returns, through
- *    conditionals, `||`, `??`, the right of `&&` (and its left when that can be a number, which
- *    renders a 0) and JSX branches; a comparison is a boolean and renders nothing. A citation whose
- *    bracket is its whole text ("[{n}]") and a link that renders its own address are text. The count
- *    control (frontend/DESIGN_SYSTEM.md) is the second check: a control that rests in sage never
+ *    whatever the parameter's own type), a figure field (a field the app's API types declare that
+ *    the server or the model writes a figure into: a formatted figure, a date or a period, or the
+ *    text written about the filing, read off the object, held, destructured or handed to a parameter,
+ *    and an element of one that holds an array, indexed, destructured, looped over or mapped),
+ *    or what a callback or a same-file function returns, through conditionals, `||`, `??`, the
+ *    right of `&&` (and its left when that can be a number, which renders a 0) and JSX branches; a
+ *    comparison is a boolean and renders nothing. A citation whose bracket is its whole text
+ *    ("[{n}]") and a link that renders its own address are text. The count control
+ *    (frontend/DESIGN_SYSTEM.md) is the second check: a control that rests in sage never
  *    holds its count in a span of its own ink, written inline, held in a same-file variable, or
  *    returned by a same-file function its label calls or maps with (its props are not its label); a
  *    component that renders its children inside a control is one where it is used, its children the
@@ -100,24 +105,26 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    is held as well as its verdict on the app; and a walk the gate asks of a callee that outruns
  *    its step budget fails it, naming the call, rather than hang the suite. Out of a source scan's
  *    reach, and so review-checked (the fixture marks each as a gap): a value held in a string (a
- *    date or an index name computed as text, or any value the server or the model sends as text) or
- *    written in words; a value bound outside the file's own calls (a component's prop, which JSX
- *    binds and the component check reads only for its children and className, a count control handed
- *    as one included, a hook's state, a callback handed through another function's parameter); a
- *    count a component renders in its own ink inside a sage control, sage handed to a component
- *    through a prop other than className, a className given where a component is used that the
- *    component joins with its own ink (cx joins without merging, so CSS order decides), hands to an
- *    element below the one it returns, or never applies (its ink then masks the one the component
- *    inherits), a conditional written in a literal's field, read as written since the scan cannot
- *    tie it to the element's other fields, a clone's or a created element's own ink (a created
- *    component's, any className cloneElement's or createElement's props give it, the Slot pattern
- *    among them, or sage the element it clones sets on the children it is handed), props either is
- *    given held in a name or spread into the ones written in the call (read as none, so the children
- *    they hand are unread and a className they give fails closed), a value put in an array or an
- *    object through another name for it (an alias, or a parameter it is handed to), a value held in
- *    a Map, a method the scan names by what follows the dot (an array's, Object's, a push) called
- *    through a key instead (`labels['slice'](0)`), read as a call it does not know, a React utility
- *    called through call, apply or Reflect.apply, whose callee is lib's, or held under a type of its
+ *    date or an index name computed as text, a figure field copied into a component's own type, or
+ *    one character of a figure field's text) or written in words; a value bound outside the file's own
+ *    calls (a component's prop, which JSX binds and the component check reads only for its children
+ *    and className, a count control handed as one included, a hook's state, a callback handed
+ *    through another function's parameter); a count a component renders in its own ink inside a
+ *    sage control, sage handed to a component through a prop other than className, a className
+ *    given where a component is used that the component joins with its own ink (cx joins without
+ *    merging, so CSS order decides), hands to an element below the one it returns, or never applies
+ *    (its ink then masks the one the component inherits), a conditional written in a literal's
+ *    field, read as written since the scan cannot tie it to the element's other fields, a clone's
+ *    or a created element's own ink (a created component's, any className cloneElement's or
+ *    createElement's props give it, the Slot pattern among them, or sage the element it clones sets
+ *    on the children it is handed), props either is given held in a name or spread into the ones
+ *    written in the call (read as none, so the children they hand are unread and a className they
+ *    give fails closed), a value put in an array or an object through another name for it (an
+ *    alias, a parameter it is handed to, or the `this` of a method called through call or apply,
+ *    `parts.unshift.call(parts, …)`), a value held in a Map, a method the scan names by what
+ *    follows the dot (an array's, Object's, a push) called through a key or as a tag instead
+ *    (`labels['slice'](0)`), read as a call it does not know, a React utility called through call,
+ *    apply or Reflect.apply, whose callee is lib's, or held under a type of its
  *    own in another file or a class's field, and the count control's recipe rebuilt in another
  *    file's helper; beyond the fixture, a literal another file holds, a colour set by an inline
  *    style or on a pseudo-element, a library component's internals, a component created inside
@@ -128,7 +135,8 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    arguments of a same-file call at the places a spread among them could leave them, a spread laid
  *    out by the lengths its type allows (a hole below an open run kept) and its members read at each
  *    place it could cover, a same-file const array literal opened by its elements, a tuple's or an
- *    array's, while the file never writes into it nor reorders it in place, a rest
+ *    array's, while the file never writes into it (a call that changes nothing, `parts.push()`,
+ *    counts, so it fails closed), reorders it in place nor hands it on whole, a rest
  *    parameter's member by an index the checker reads as one number, counted from the end as `at()`
  *    and `length - N` count, or taken by a destructuring of the rest; every name, literal, field and
  *    same-file call on the way is read with the calls on the way kept, a destructured name with what
@@ -139,7 +147,20 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
  *    check reads one the component joins with its
  *    own ink, which the ink check leaves to review, and reads an ink a label sets in one state only
  *    (`dark:text-…`) as its own. The waitlist counter's own spec covers the count on the public
- *    pages.
+ *    pages. The stylesheet check reads app/globals.css: no rule sets sage ink at rest, by @apply (an
+ *    arbitrary sage value included) or by a hex, rgb() or theme() value, a selector resting when any
+ *    :is() or :where() argument of it, its :not() dropped, names no pointer state, but the device's
+ *    margin twin and the .text-accent-strong alias, which the checks above read where a className
+ *    names it, so a prose link rests in its prose's own ink. Its planted forms, in
+ *    tests/unit/fixtures/brandRule2Styles.css, are scored the same way; a custom property, an
+ *    hsl() value and an rgb() value in percentages are its gaps. The markdown-link check fails a
+ *    link the app hands react-markdown (its `a`) whose own classes rest in sage. A figure field
+ *    counts through its own method too (`c.section_ref?.trim()`), but not through one that returns
+ *    a boolean, `?.` included. lib/serverApi.ts and types/summary.ts declare API types beside
+ *    features/<domain>/api/, and every field they declare that can hold a string, or an array of
+ *    them, is a figure field or a word field (a name, a code, a status line, a URL, or what a person
+ *    types), by its name; a test fails one that is neither, and a field whose literals carry no
+ *    digit is a word by its type. A map over a figure array renders what its callback returns.
  * 3. The Marked Copy Rule (DESIGN.md › Graphic device): the highlight (`en-mark`) never sits on a
  *    figure or a price, the hero's accent phrases included; the margin (`en-margin`) exists only
  *    inside MarkedCopy, and every MarkedCopy carries at least one marker (`EnRef`).
@@ -161,6 +182,8 @@ const FILES = SCAN_DIRS.flatMap((dir) => walk(path.join(ROOT, dir)))
  *  marked flag, clean or gap. Read in the same program as the app and scored by the last rule 2 test, so a
  *  change to the gate that loses a form, or catches a look-alike, fails here. Outside the scan roots. */
 const FORMS = path.join(ROOT, 'tests/unit/fixtures/brandRule2Forms.tsx')
+/** The stylesheet check's planted forms, one rule per form, scored the same way. */
+const STYLE_FORMS = path.join(ROOT, 'tests/unit/fixtures/brandRule2Styles.css')
 /** One program over the scanned files, so rule 2 can ask the checker what an expression renders (a
  *  number, a template with a number in it, a formatter fed a number), not only what its literals say.
  *  This build is the suite's slowest import (about 11 s on a laptop, outside any test's timeout): the
@@ -429,13 +452,22 @@ const branches = (v: ts.Expression): ts.Expression[] => {
   }
   return [v]
 }
-/** The variable a place is read off and the steps to it (`groups[k].items` is `groups` at [null, 'items']). */
+/** The methods that return the array they are called on. */
+const RETURNS_RECEIVER = new Set(['sort', 'reverse', 'fill', 'copyWithin', 'valueOf'])
+/** The variable a place is read off and the steps to it (`groups[k].items` is `groups` at [null, 'items']), through a
+    call that returns the array it is called on and Object.assign, which returns its target (`parts.sort()[0]` is
+    `parts` at [0]). */
 function placeOf(target: ts.Expression): { root: ts.Identifier; path: Step[] } | undefined {
   const path: Step[] = []
   let x = unwrap(target)
-  while (ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) {
-    path.unshift(ts.isPropertyAccessExpression(x) ? x.name.text : accessStep(x.argumentExpression))
-    x = unwrap(x.expression)
+  for (;;) {
+    const callee = ts.isCallExpression(x) ? unwrap(x.expression) : undefined
+    if (ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) {
+      path.unshift(ts.isPropertyAccessExpression(x) ? x.name.text : accessStep(x.argumentExpression))
+      x = unwrap(x.expression)
+    } else if (ts.isCallExpression(x) && objectCall(x, 'assign')) x = unwrap(x.arguments[0])
+    else if (callee && ts.isPropertyAccessExpression(callee) && RETURNS_RECEIVER.has(callee.name.text)) x = unwrap(callee.expression)
+    else break
   }
   return ts.isIdentifier(x) ? { root: x, path } : undefined
 }
@@ -448,6 +480,11 @@ const placeAt = (path: Step[], value: ts.Expression): ts.Expression[] =>
       step === null ? ts.factory.createComputedPropertyName(ts.factory.createTrue()) : ts.factory.createStringLiteral(step), v)])]),
     ...(typeof step === 'string' ? [] : [placed([v])]),
   ]), [value])
+/** The value at steps into an expression, built as code (`[x, y]` at [1] is `[x, y][1]`), so a place a destructuring
+    writes takes what lands there; a key the scan cannot read is built as `[true]`, as `placeAt` builds one. */
+const stepInto = (value: ts.Expression, steps: Step[]): ts.Expression => steps.reduce<ts.Expression>((v, step) =>
+  typeof step === 'string' ? ts.factory.createPropertyAccessExpression(v, step)
+    : ts.factory.createElementAccessExpression(v, step === null ? ts.factory.createTrue() : step), value)
 const ASSIGNED = new Map<ts.SourceFile, Map<ts.Symbol, Held[]>>()
 /** What a same-file variable holds: its initializer and every value the file assigns it (`label = 'Ready'` in a
     switch, `label += …`, or `[label] = …` and `({ label } = …)` destructured, a default in the pattern and a rest
@@ -475,7 +512,7 @@ function assignedTo(symbol: ts.Symbol | undefined, sf: ts.SourceFile): Held[] {
     const assign = (target: ts.Expression, value: ts.Expression, steps: Step[]): void => {
       const t = unwrap(target)
       if (ts.isIdentifier(t)) add(CHECKER.getSymbolAtLocation(t), { value, steps })
-      else if (!steps.length && (ts.isPropertyAccessExpression(t) || ts.isElementAccessExpression(t))) put(t, value)
+      else if (ts.isPropertyAccessExpression(t) || ts.isElementAccessExpression(t)) put(t, stepInto(value, steps))
       else if (ts.isBinaryExpression(t) && t.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
         assign(t.left, value, steps)
         assign(t.left, t.right, [])
@@ -499,9 +536,14 @@ function assignedTo(symbol: ts.Symbol | undefined, sf: ts.SourceFile): Held[] {
       }
     }
     visit(sf, (n) => {
-      if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && PUTS_MEMBERS.has(n.expression.name.text)) {
-        put(n.expression.expression, placed(n.arguments.slice(...PUTS_MEMBERS.get(n.expression.name.text)!).flatMap(branches)))
+      const callee = ts.isCallExpression(n) ? unwrap(n.expression) : undefined
+      if (ts.isCallExpression(n) && callee && ts.isPropertyAccessExpression(callee) && PUTS_MEMBERS.has(callee.name.text)) {
+        put(callee.expression, placed(n.arguments.slice(...PUTS_MEMBERS.get(callee.name.text)!).flatMap(branches)))
         return
+      }
+      // A for…of that assigns a place or a name each pass (`for (parts[0] of rows)`) puts a member of what it walks.
+      if (ts.isForOfStatement(n) && !ts.isVariableDeclarationList(n.initializer)) {
+        assign(n.initializer, ts.factory.createElementAccessExpression(n.expression, ts.factory.createTrue()), [])
       }
       // Object.assign copies each source's fields into its target; a spread hands it a list of sources, any member of
       // which may be one (read through a key the scan cannot read, `[true]`, as `placeAt` builds one).
@@ -875,7 +917,8 @@ const SAGE = /^(?:text|fill)-(?:brand(?:-[a-z]+)*|accent-strong)(?:\/(?:\d+|\[[^
 /** Utilities that share a colour's prefix and set no ink of their own: the theme's type sizes (read from
     tailwind.config.js, so a size added there is never read as a colour), an arbitrary length, alignment,
     overflow and wrapping, and the parent's own colour (`text-inherit`, `text-current`). */
-const SIZES = Object.keys(resolveConfig(createRequire(import.meta.url)(path.join(ROOT, 'tailwind.config.js')) as Config).theme.fontSize)
+const THEME = resolveConfig(createRequire(import.meta.url)(path.join(ROOT, 'tailwind.config.js')) as Config).theme
+const SIZES = Object.keys(THEME.fontSize)
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const NOT_COLOUR = new RegExp(
   `^text-(?:${SIZES.map(escapeRegExp).join('|')})(?:/[\\w.[\\]-]+)?$`
@@ -1508,17 +1551,166 @@ function accessStep(key: ts.Expression): Step {
   return ts.isNumericLiteral(k) ? Number(k.text) : ts.isStringLiteral(k) || ts.isNoSubstitutionTemplateLiteral(k) ? k.text : null
 }
 
-/** Whether a type, walked through the steps of a destructuring or a field read, is a number or an array of them. */
+/** A string the server or the model writes a figure into is a value, named by the field it is read from. Every field
+    the app's API types declare that can hold a string (`features/<domain>/api/`, `lib/serverApi.ts` for the public
+    pages, and `types/summary.ts`, whose types the summaries' API reads) is one of two kinds, by its name, and a test
+    below fails a field that is neither (`apiStringFields`):
+    - a figure field (FIGURE_FIELDS): a formatted figure or a growth ("$416.2B", "+12.3%"), a number a reader reads as
+      one (a CIK, an accession number), a date, a period or a key that names one ("FY2025", "2024Q2"), or the text
+      written about the filing, which quotes its figures (an excerpt, a section's name, an answer, a headline);
+    - a word field (WORD_FIELDS): a name (a company, a person, a metric, a concept, a form, a unit), a code the product
+      reads or a status line (a status, a kind, an error), a URL or an opaque id, or the words a person types.
+    A field whose type admits only string literals without a digit (`'up' | 'down'`) names its words and needs no kind,
+    and a name one type writes a figure into is a figure field in every type that declares it a string or an array of
+    them. A figure field counts however the file reads it: off the object, held in a name, destructured (renamed or
+    not), handed to a parameter, or through its own method or a formatter (`rendersValue`), and an array's elements as
+    well (`figureElement`); a same-named field of a type declared elsewhere is not one. */
+const FIGURE_FIELDS = new Set([
+  // Formatted figures, growths (a number, or "nm") and numbers.
+  'display', 'change_display', 'current_period', 'prior_period', 'currentPeriod', 'priorPeriod', 'value', 'arithmetic',
+  'window_pp_range', 'cagr_window', 'yoy', 'qoq', 'n', 'marker', 'markers',
+  // Numbers a reader reads as one.
+  'accession', 'accession_no', 'accession_number', 'superseded_by_accession', 'cik', 'sic', 'dataset_version',
+  'app_version',
+  // Dates, periods and the keys that name them.
+  'as_of', 'completed_at', 'created_at', 'current_period_end', 'data_as_of', 'earnings_date', 'end_period', 'enddt', 'event_date',
+  'expires_at', 'extracted_at', 'filed_date', 'filingDate', 'filing_date', 'fiscal_period', 'key', 'last_transaction_date', 'linked_at',
+  'month', 'period', 'period_end', 'period_end_date', 'period_ending', 'period_key', 'periods', 'report_date', 'start_period',
+  'startdt', 'summary_created_at', 'summary_updated_at', 'synced_at', 'timestamp', 'transaction_date', 'trial_end',
+  'used_at', 'week_end', 'week_start',
+  // The text written about the filing, which quotes its figures, a table's or a list's included.
+  'excerpt', 'section_ref', 'source_section_ref', 'section_label', 'before', 'after', 'ops', 'answer', 'business_overview', 'commentary', 'comparison_basis',
+  'content', 'coverage_reason', 'description', 'detail', 'followups', 'headers', 'headline', 'items', 'key_changes',
+  'management_discussion', 'markdownContent', 'narrative', 'new', 'notes', 'resolved', 'rows', 'source', 'summary',
+  'supporting_evidence', 'text', 'title',
+])
+const WORD_FIELDS = new Set([
+  // Names.
+  'name', 'company', 'companyName', 'company_name', 'full_name', 'insider_name', 'insider_title', 'speaker', 'ticker',
+  'metric', 'label', 'reason_label', 'concept', 'concepts', 'xbrl_concept', 'raw_tag', 'form', 'forms', 'filing_type',
+  'filingType', 'unit', 'currency', 'reporting_currency', 'exchange', 'cohort', 'provider', 'transaction_label', 'universe',
+  // Codes the product reads, and its status lines.
+  'acquired_disposed', 'channel', 'code', 'coverage_status', 'digest', 'entryPoint', 'error', 'fallback_reason', 'id',
+  'kind', 'plan', 'qualityTier', 'reason', 'reasons', 'referral_code', 'role', 'stage', 'status', 'subscription_status',
+  'section', 'summary_status', 'tier', 'time', 'tone', 'transaction_code', 'type', 'writer_error',
+  // URLs and opaque ids.
+  'document', 'document_url', 'fragment_url', 'invite_link', 'pageUrl', 'page_url', 'referral_link', 'secUrl', 'sec_url',
+  'source_url', 'url', 'snapshot_id', 'stripe_customer_id', 'stripe_subscription_id', 'sha256', 'follow_up_ids',
+  // The words a person types.
+  'email', 'provider_email', 'user_email', 'message', 'subject', 'q', 'query', 'honeypot',
+])
+const API_MODULES = /[\\/]features[\\/][^\\/]+[\\/]api[\\/]|[\\/]lib[\\/]serverApi\.ts$|[\\/]types[\\/]summary\.ts$/
+/** Whether a type admits only string literals without a digit, null and undefined aside (`'up' | 'down'`): its words. */
+function literalWords(t: ts.Type): boolean {
+  const members = (t.isUnion() ? t.types : [t]).filter((u) => !(u.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)))
+  return members.length > 0 && members.every((u) => u.isStringLiteral() && !/\d/.test(u.value))
+}
+/** Whether a type can hold a string, or an array (of arrays) of them. */
+function holdsStrings(t: ts.Type): boolean {
+  return (t.isUnion() ? t.types : [t]).some((u) => {
+    if (u.flags & ts.TypeFlags.StringLike) return true
+    const member = CHECKER.isArrayType(u) || CHECKER.isTupleType(u) ? CHECKER.getIndexTypeOfType(u, ts.IndexKind.Number) : undefined
+    return !!member && holdsStrings(member)
+  })
+}
+const figureSymbol = (symbol: ts.Symbol | undefined) =>
+  !!symbol && FIGURE_FIELDS.has(symbol.name)
+  && (symbol.declarations ?? []).some((d) => API_MODULES.test(d.getSourceFile().fileName) && holdsStrings(CHECKER.getTypeAtLocation(d)))
+/** Every field the app's API types declare that can hold a string (`holdsStrings`), by name, and whether every
+    declaration of it admits only string literals without a digit (`literalWords`), which name their words and need no
+    kind. */
+function apiStringFields(): Map<string, boolean> {
+  const fields = new Map<string, boolean>()
+  for (const sf of PROGRAM.getSourceFiles()) {
+    if (sf.isDeclarationFile || !API_MODULES.test(sf.fileName)) continue
+    visit(sf, (n) => {
+      if (!(ts.isPropertySignature(n) || ts.isPropertyDeclaration(n))) return
+      const name = keyOf(n.name)
+      const type = CHECKER.getTypeAtLocation(n)
+      if (typeof name !== 'string' || !holdsStrings(type)) return
+      fields.set(name, (fields.get(name) ?? true) && literalWords(type))
+    })
+  }
+  return fields
+}
+/** Whether an expression reads a figure field, or an element of one that holds an array (`figureElement`). */
+const figureField = (e: ts.Expression): boolean => namesFigureField(e) || figureElement(e, [], new Set())
+function namesFigureField(e: ts.Expression): boolean {
+  const x = unwrap(e)
+  const name = ts.isPropertyAccessExpression(x) ? x.name
+    : ts.isElementAccessExpression(x) && ts.isStringLiteralLike(x.argumentExpression) ? x.argumentExpression
+      : ts.isIdentifier(x) ? x : undefined
+  const symbol = name && CHECKER.getSymbolAtLocation(name)
+  const declaration = symbol?.declarations?.[0]
+  // A destructured name reads the field it is taken from, through the type of what is destructured.
+  if (declaration && ts.isBindingElement(declaration) && ts.isObjectBindingPattern(declaration.parent)) {
+    const key = declaration.propertyName ?? declaration.name
+    const text = ts.isIdentifier(key) || ts.isStringLiteralLike(key) ? key.text : undefined
+    return !!text && figureSymbol(CHECKER.getPropertyOfType(CHECKER.getTypeAtLocation(declaration.parent), text))
+  }
+  return figureSymbol(symbol)
+}
+/** Whether an expression reads an element of a figure field that holds an array (a table's `rows`, a list's `items`),
+    each step an index into an array, through the file's bindings: indexed (`block.rows[0][1]`), destructured (`const
+    [first] = block.items`), looped over (`for (const item of block.items)`) or mapped (`block.rows.map((r) => r.map((c)
+    => …))`), as the walk reads a number array's members; through a conditional, `??` or `||` too. */
+function figureElement(e: ts.Expression, steps: Step[], seen: Set<ts.Node>): boolean {
+  return branches(e).some((v) => {
+    const x = unwrap(v)
+    if (seen.has(x)) return false
+    seen.add(x)
+    if (steps.length && namesFigureField(x)) return indexesArrays(CHECKER.getTypeAtLocation(x), steps)
+    if (ts.isElementAccessExpression(x)) {
+      const step = accessStep(x.argumentExpression)
+      return typeof step !== 'string' && figureElement(x.expression, [step, ...steps], seen)
+    }
+    if (!ts.isIdentifier(x)) return false
+    const { declaration, steps: path } = bindingOf(CHECKER.getSymbolAtLocation(x), steps)
+    if (!declaration || declaration.getSourceFile() !== x.getSourceFile()) return false
+    if (ts.isVariableDeclaration(declaration)) {
+      // A for…of variable holds the array's members.
+      const loop = declaration.parent.parent
+      if (ts.isForOfStatement(loop)) return figureElement(loop.expression, [null, ...path], seen)
+      return variableValues(declaration).some((held) => figureElement(held.value, [...held.steps, ...path], seen))
+    }
+    if (!ts.isParameter(declaration) || declaration.dotDotDotToken) return false
+    const at = declaration.parent.parameters.indexOf(declaration)
+    return sitesOf(declaration.parent).some((site) => {
+      if (site.members) return site.at === at && figureElement(site.members, [null, ...path], seen)
+      const arg = site.args?.[at]
+      return !!arg && !ts.isSpreadElement(arg) && figureElement(arg, path, seen)
+    })
+  })
+}
+/** Whether every step indexes an array: an element of a figure field's array is a figure, a character of its string
+    is not (`valueType`). */
+function indexesArrays(t: ts.Type, steps: Step[]): boolean {
+  let type: ts.Type | undefined = t
+  for (const step of steps) {
+    const whole: ts.Type | undefined = type && CHECKER.getNonNullableType(type)
+    if (typeof step === 'string' || !whole || !(CHECKER.isArrayType(whole) || CHECKER.isTupleType(whole))) return false
+    type = CHECKER.getIndexTypeOfType(whole, ts.IndexKind.Number)
+  }
+  return true
+}
+
+/** Whether a type, walked through the steps of a destructuring or a field read, is a number or an array of them, or
+    lands on a figure field (`figureField`). */
 function valueType(t: ts.Type | undefined, steps: Step[], at: ts.Node): boolean {
   let type = t
+  let field: ts.Symbol | undefined
   for (const step of steps) {
     if (!type) return false
     if (typeof step === 'string') {
-      const property = type.getProperty(step)
-      type = property && CHECKER.getTypeOfSymbolAtLocation(property, at)
-    } else type = CHECKER.getIndexTypeOfType(type, ts.IndexKind.Number)
+      field = type.getProperty(step)
+      type = field && CHECKER.getTypeOfSymbolAtLocation(field, at)
+    } else {
+      // An index reads a member, a character of a string field, so the field's words end there.
+      field = undefined
+      type = CHECKER.getIndexTypeOfType(type, ts.IndexKind.Number)
+    }
   }
-  return !!type && (numberType(type) || numberArrayType(type))
+  return figureSymbol(field) || (!!type && (numberType(type) || numberArrayType(type)))
 }
 
 /** Whether the file hands a parameter a value, by the type of what it is given: a number passed to a parameter typed
@@ -1544,7 +1736,8 @@ function boundToValue(e: ts.Expression, sf: ts.SourceFile): boolean {
       return site.at === at && valueType(member, binding.steps, site.members)
     }
     const arg = site.args?.[at]
-    return !!arg && !ts.isSpreadElement(arg) && valueType(CHECKER.getTypeAtLocation(arg), binding.steps, arg)
+    return !!arg && !ts.isSpreadElement(arg)
+      && (valueType(CHECKER.getTypeAtLocation(arg), binding.steps, arg) || (!binding.steps.length && figureField(arg)))
   })
 }
 
@@ -1575,19 +1768,26 @@ function rendersValue(e: ts.Expression, sf: ts.SourceFile, depth = 0): boolean {
     // member through `at` or `find`).
     if (isNumberTyped(x)) return true
     if (ts.isPropertyAccessExpression(x.expression) && isNumberTyped(x.expression.expression)) return true
+    // A figure field's own method returns its words (`c.section_ref?.trim()`, `block.items.join(', ')`), and a formatter
+    // fed one renders them (`String(c.excerpt)`), unless the call returns a boolean, which renders nothing; a map over
+    // a figure array renders what its callback returns, read below.
+    const words = !(CHECKER.getNonNullableType(CHECKER.getTypeAtLocation(x)).flags & ts.TypeFlags.BooleanLike)
+    if (words && ts.isPropertyAccessExpression(x.expression) && !['map', 'flatMap'].includes(x.expression.name.text)
+      && figureField(x.expression.expression)) return true
     if (method(x, JOINS) && rendersValue(x.expression.expression, sf, depth + 1)) return true
     if (renderedFunctions(x).some((fn) => returnedExpressions(fn).some((r) => rendersValue(r, sf, depth + 1)))) return true
     if (literalExpressions(x, sf).some((v) => v !== x && !asWritten(v) && rendersValue(v, sf, depth + 1))) return true
-    return x.arguments.some((a) => !ts.isArrowFunction(unwrap(a)) && !ts.isFunctionExpression(unwrap(a)) && literalText(unwrap(a)) === null && isNumberTyped(a))
+    return x.arguments.some((a) => !ts.isArrowFunction(unwrap(a)) && !ts.isFunctionExpression(unwrap(a)) && literalText(unwrap(a)) === null
+      && (isNumberTyped(a) || (words && figureField(a))))
   }
   if (ts.isIdentifier(x)) {
     const values = localValues(x, sf)
     if (values.length) return values.some((value) => rendersValue(value, sf, depth + 1)) || isNumberTyped(x) || isNumberArray(x)
   }
   if (ts.isIdentifier(x) || ts.isPropertyAccessExpression(x) || ts.isElementAccessExpression(x)) {
-    // A parameter the file hands a number, whatever its own type; and what a name or a field read holds through the
-    // file's bindings that renders one (a template or JSX handed to a helper).
-    if (boundToValue(x, sf)) return true
+    // A figure field; a parameter the file hands a number or one, whatever its own type; and what a name or a field
+    // read holds through the file's bindings that renders one (a template or JSX handed to a helper).
+    if (figureField(x) || boundToValue(x, sf)) return true
     if (literalExpressions(x, sf).some((v) => !asWritten(v) && rendersValue(v, sf, depth + 1))) return true
   }
   return isNumberTyped(x) || isNumberArray(x)
@@ -1906,10 +2106,11 @@ type Calls = ReadonlyMap<ts.Node, ts.NodeArray<ts.Expression>>
 /** A value a read meets, with the calls it was met inside, so its reader binds a helper's parameters there. */
 interface Found { value: ts.Expression; calls: Calls }
 /** A call's arguments laid out by place: each argument as written; a spread of an array literal, or of a same-file
-    const holding one that the file never writes into nor reorders in place (`const PREFIX = ['x']`, a tuple's type or
-    an array's), opened into its elements (`f(...[a, b], c)` hands `a`, `b`, `c`); any other spread, one the file
-    writes into or reorders among them (`prefix[0] = …`, `Object.assign(prefix, …)`, `prefix.reverse()`), as the
-    lengths its type gives it (`spreadLength`) and its members, any of which may land at a place it covers. */
+    const holding one that the file never writes into, reorders in place nor hands on whole (`const PREFIX = ['x']`, a
+    tuple's type or an array's), opened into its elements (`f(...[a, b], c)` hands `a`, `b`, `c`); any other spread,
+    one the file writes into, reorders or hands on among them (`prefix[0] = …`, `Object.assign(prefix, …)`,
+    `prefix.reverse()`, `front(prefix)`), as the lengths its type gives it (`spreadLength`) and its members, any of which
+    may land at a place it covers. */
 type Laid = { node: ts.Expression } | { spread: ts.Expression; lengths: Lengths }
 /** The lengths a spread, or a run of arguments, can have: each one in `some` (sorted, below `from`), and every length
     from `from` on (Infinity when no run is open), so a hole below an open run is kept. */
@@ -1935,33 +2136,92 @@ function layOut(args: readonly ts.Expression[]): Laid[] {
     const declaration = ts.isIdentifier(inner) ? CHECKER.getSymbolAtLocation(inner)?.valueDeclaration : undefined
     const constant = declaration && ts.isVariableDeclaration(declaration) && ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const ? declaration : undefined
     const held = constant?.initializer && unwrap(constant.initializer)
-    // The file's writes into it are `variableValues`' (an index, a push, `Object.assign` onto it); its reorders, `reordered`'s.
-    if (constant && held && ts.isArrayLiteralExpression(held) && variableValues(constant).length === 1 && !reordered(constant)) return layOut(held.elements)
+    // The file's writes into it are `variableValues`' (an index, a push, `Object.assign` onto it); its reorders and the
+    // uses that hand it on, `changedUnseen`'s.
+    if (constant && held && ts.isArrayLiteralExpression(held) && variableValues(constant).length === 1 && !changedUnseen(constant)) return layOut(held.elements)
     return [{ spread: inner, lengths: spreadLength(type) }]
   })
 }
 /** The methods that move or drop an array's members in place, for which `variableValues` records no value. */
 const REORDERS = new Set(['reverse', 'sort', 'copyWithin', 'shift', 'pop'])
-const REORDERED = new Map<ts.SourceFile, Set<ts.Symbol>>()
-/** Whether the file reorders a variable's array in place: calls a method that moves or drops its members on it
-    (`prefix.reverse()`, `prefix.shift()`), or deletes one (`delete prefix[0]`), the names indexed once per file. A
-    method called through a key or through `call` is read as a call the scan does not know. */
-function reordered(declaration: ts.VariableDeclaration): boolean {
+const CHANGED_UNSEEN = new Map<ts.SourceFile, Set<ts.Symbol>>()
+/** Whether the file may change a variable's array where `variableValues` records no value: a method that moves or drops
+    its members (`prefix.reverse()`, `prefix.shift()`), a `delete` of one, an increment or a decrement of a place in it
+    (`prefix.length--`), or a use that hands the array on whole, a write there going unseen (`handsOn`): to another
+    name, a function, a callback that may take it, a component's prop, Object.assign's target, a method called through a
+    key, as a tag or through `call`, or one the scan does not know, which may return the array (`const all = prefix`,
+    `front(prefix)`, `prefix['reverse']()`, `prefix.valueOf()`), or an export, to any file that imports it. The names are
+    indexed once per file. */
+function changedUnseen(declaration: ts.VariableDeclaration): boolean {
+  if (ts.getCombinedModifierFlags(declaration) & ts.ModifierFlags.Export) return true
   const sf = declaration.getSourceFile()
-  let names = REORDERED.get(sf)
+  let names = CHANGED_UNSEEN.get(sf)
   if (!names) {
     const found = new Set<ts.Symbol>()
+    const add = (symbol: ts.Symbol | undefined) => { if (symbol) found.add(symbol) }
     visit(sf, (n) => {
-      const target = ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && REORDERS.has(n.expression.name.text) ? n.expression.expression
-        : ts.isDeleteExpression(n) ? n.expression : undefined
+      const callee = ts.isCallExpression(n) ? unwrap(n.expression) : undefined
+      const bumps = (ts.isPrefixUnaryExpression(n) || ts.isPostfixUnaryExpression(n))
+        && (n.operator === ts.SyntaxKind.PlusPlusToken || n.operator === ts.SyntaxKind.MinusMinusToken)
+      const target = callee && ts.isPropertyAccessExpression(callee) && REORDERS.has(callee.name.text) ? callee.expression
+        : ts.isDeleteExpression(n) ? n.expression : bumps ? n.operand : undefined
       const place = target && placeOf(target)
-      const symbol = place && CHECKER.getSymbolAtLocation(place.root)
-      if (symbol) found.add(symbol)
+      if (place) add(CHECKER.getSymbolAtLocation(place.root))
+      if (ts.isShorthandPropertyAssignment(n)) add(CHECKER.getShorthandAssignmentValueSymbol(n))
+      else if (ts.isExportSpecifier(n)) add(CHECKER.getExportSpecifierLocalTargetSymbol(n))
+      else if (ts.isIdentifier(n) && handsOn(n)) add(CHECKER.getSymbolAtLocation(n))
     })
-    REORDERED.set(sf, (names = found))
+    CHANGED_UNSEEN.set(sf, (names = found))
   }
   const symbol = CHECKER.getSymbolAtLocation(declaration.name)
   return !!symbol && names.has(symbol)
+}
+/** The array methods a call reads without handing the array on: those the walks, `variableValues` and REORDERS read,
+    the HANDS_MEMBERS callbacks (`handsOn` reads the callback), and those that test, find, iterate or print. Any other,
+    `valueOf` among them, may return the array itself. */
+const READS_ARRAY = new Set([...KEEPS_MEMBERS, ...ONE_MEMBER, ...MAPS, ...FLATTENS, ...JOINS, ...PUTS_MEMBERS.keys(), ...REORDERS,
+  ...HANDS_MEMBERS.keys(), 'includes', 'indexOf', 'lastIndexOf', 'keys', 'values', 'entries', 'toString', 'toLocaleString'])
+/** Whether a use of a name may hand on what it holds whole, so a write into it there goes unseen (`changedUnseen`):
+    any use but a read that leaves it where it is. A spread copies its members, a destructuring and a for…of or for…in
+    read them (a destructuring assignment's own value is the array, read only where a statement drops it), a type
+    names it, and Object.assign reads it as a source. A member read or written leaves it to `variableValues` and
+    `changedUnseen`, and a call of a method READS_ARRAY names to the walks, `variableValues` and REORDERS, but for a
+    HANDS_MEMBERS callback that may take the array: one not written inline, or one that declares a parameter at the
+    array's place or a rest, or reads `arguments`. A declaration's own name hands nothing on. */
+function handsOn(id: ts.Identifier): boolean {
+  const wraps = (n: ts.Node) => ts.isParenthesizedExpression(n) || ts.isAsExpression(n) || ts.isSatisfiesExpression(n) || ts.isNonNullExpression(n)
+  let at: ts.Node = id
+  while (wraps(at.parent)) at = at.parent
+  const p = at.parent
+  if (ts.isSpreadElement(p) || ts.isQualifiedName(p) || ts.isTypeNode(p)) return false
+  if ((ts.isPropertyAccessExpression(p) || ts.isElementAccessExpression(p)) && p.expression === at) {
+    let callee: ts.Node = p
+    while (wraps(callee.parent)) callee = callee.parent
+    if (ts.isTaggedTemplateExpression(callee.parent) && callee.parent.tag === callee) return true
+    const call = ts.isCallExpression(callee.parent) && callee.parent.expression === callee ? callee.parent : undefined
+    if (!call) return false
+    if (ts.isElementAccessExpression(p) || !READS_ARRAY.has(p.name.text)) return true
+    const member = HANDS_MEMBERS.get(p.name.text)
+    const fn = member === undefined || !call.arguments[0] ? undefined : unwrap(call.arguments[0])
+    if (member === undefined || !fn) return false
+    if (!ts.isArrowFunction(fn) && !ts.isFunctionExpression(fn)) return true
+    return fn.parameters.length > member + 2 || fn.parameters.some((q) => !!q.dotDotDotToken) || (ts.isFunctionExpression(fn) && readsArguments(fn))
+  }
+  if ((ts.isForOfStatement(p) || ts.isForInStatement(p)) && p.expression === at) return false
+  if (ts.isVariableDeclaration(p)) return p.initializer === at && ts.isIdentifier(p.name)
+  if (ts.isBinaryExpression(p) && p.operatorToken.kind === ts.SyntaxKind.EqualsToken && p.right === at) {
+    let use: ts.Node = p
+    while (wraps(use.parent)) use = use.parent
+    return !(ts.isArrayLiteralExpression(p.left) || ts.isObjectLiteralExpression(p.left)) || !ts.isExpressionStatement(use.parent)
+  }
+  return !(ts.isCallExpression(p) && objectCall(p, 'assign') && p.arguments.indexOf(at as ts.Expression) > 0)
+}
+/** Whether a function reads `arguments`, which holds every argument it is handed, the array a callback is handed
+    included. */
+function readsArguments(fn: ts.FunctionExpression): boolean {
+  let found = false
+  visit(fn.body, (n) => { if (ts.isIdentifier(n) && n.text === 'arguments') found = true })
+  return found
 }
 /** A type's members: a union's, or the type itself. */
 const tupleMembers = (type: ts.Type): ts.Type[] => (type.isUnion() ? type.types : [type])
@@ -2478,6 +2738,103 @@ function handRolledCountControls(sf: ts.SourceFile): Offence[] {
   return out
 }
 
+/** The sage inks a stylesheet can set by value: tailwind.config.js's brand colours, but its tints and hairlines, read
+    as hex, as the rgb() triple a stylesheet may write instead, or through theme(). */
+const SAGE_KEYS = Object.keys(THEME.colors.brand as Record<string, string>).filter((key) => !/weak|border/.test(key))
+const SAGE_HEX = SAGE_KEYS.map((key) => (THEME.colors.brand as Record<string, string>)[key].toLowerCase())
+const SAGE_RGB = SAGE_HEX.map((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(' '))
+function sageValue(value: string): boolean {
+  const v = value.toLowerCase()
+  if (SAGE_HEX.some((hex) => v.includes(hex))) return true
+  for (const m of v.matchAll(/rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/g)) if (SAGE_RGB.includes(`${m[1]} ${m[2]} ${m[3]}`)) return true
+  for (const m of v.matchAll(/theme\(\s*['"]?colors\.brand(?:\.([\w-]+))?/g)) if (!/weak|border/.test(m[1] ?? '')) return true
+  return false
+}
+/** An `@apply` list's tokens as tokenInk reads them, an arbitrary colour (`text-[#3C6650]`) read as the sage it is. */
+const applyTokens = (params: string) => params.split(/\s+/).filter(Boolean).map((token) => {
+  const parts = splitVariants(token)
+  const arbitrary = /^(!?(?:text|fill))-\[(.+?)\](?:\/[^\s]+)?$/.exec(parts[parts.length - 1])
+  return arbitrary && sageValue(arbitrary[2].replace(/_/g, ' ')) ? [...parts.slice(0, -1), `${arbitrary[1]}-brand`].join(':') : token
+})
+/** A selector under the pointer, which the rule leaves sage free to take: hover and active, as ACTIVITY reads a
+    variant. A focused element stays focused while it is read, so a focus selector rests, as `focus:` does. */
+const POINTER_STATE = /:(?:hover|active)\b/
+/** The selectors a selector stands for: each :is() or :where() opened into its arguments, so `:is(a, a:hover)` stands
+    for `a` too, and each :not() dropped, so `a:not(:hover)` matches at rest. */
+function alternatives(selector: string): string[] {
+  const close = (at: number) => {
+    let depth = 0
+    for (let i = at; i < selector.length; i++) {
+      if (selector[i] === '(') depth++
+      else if (selector[i] === ')' && --depth === 0) return i
+    }
+    return selector.length - 1
+  }
+  const open = /:(?:is|where)\(/.exec(selector)
+  if (open) {
+    const from = open.index + open[0].length - 1
+    const to = close(from)
+    const args: string[] = []
+    let depth = 0
+    let last = from + 1
+    for (let i = from + 1; i < to; i++) {
+      if (selector[i] === '(') depth++
+      else if (selector[i] === ')') depth--
+      else if (selector[i] === ',' && depth === 0) { args.push(selector.slice(last, i)); last = i + 1 }
+    }
+    args.push(selector.slice(last, to))
+    return args.flatMap((arg) => alternatives(selector.slice(0, open.index) + arg.trim() + selector.slice(to + 1)))
+  }
+  const not = /:not\(/.exec(selector)
+  if (not) return alternatives(selector.slice(0, not.index) + selector.slice(close(not.index + not[0].length - 1) + 1))
+  return [selector]
+}
+/** The two stylesheet rules that may set sage ink at rest, and why: the device's margin twin prints the reference
+    marker it twins (a bracket, never a value), and `.text-accent-strong` is the sage ink under a class name, which rule
+    2's other checks read where a className names it. */
+/** Rule 2's markdown-link check over one file: a link the app renders for markdown (a function held under the key
+    `a`, as react-markdown's `components` take one, that returns an `<a>`) prints the prose's words, which the scan
+    cannot read: the model's or the filing's, a figure or a date among them. So its own classes rest in no sage, as the
+    prose links' rule in app/globals.css rests it in its prose's ink. */
+function sageMarkdownLinks(sf: ts.SourceFile): Offence[] {
+  const out: Offence[] = []
+  visit(sf, (n) => {
+    const fn = ts.isPropertyAssignment(n) && keyOf(n.name) === 'a' ? unwrap(n.initializer)
+      : ts.isMethodDeclaration(n) && keyOf(n.name) === 'a' ? n : undefined
+    if (!fn || !(ts.isArrowFunction(fn) || ts.isFunctionExpression(fn) || ts.isMethodDeclaration(fn))) return
+    for (const r of returnedExpressions(fn)) {
+      const x = unwrap(r)
+      const opening = ts.isJsxElement(x) ? x.openingElement : ts.isJsxSelfClosingElement(x) ? x : undefined
+      if (opening?.tagName.getText(sf) === 'a' && siteInk(opening) === 'sage') out.push({ node: opening, text: '<a>' })
+    }
+  })
+  return out
+}
+
+const SAGE_AT_REST_RULES = new Set(['.en-margin-mark', '.dark .en-margin-mark', '.text-accent-strong'])
+
+/** Rule 2's stylesheet check, over a stylesheet (app/globals.css): no rule sets sage ink on what it matches at rest, by
+    `@apply` (a token at rest as tokenInk reads one: bare, dark:, a breakpoint, aria-*, data-*, focus: and every state
+    but the pointer's, an arbitrary sage value included) or by a value (`color`, `fill`, `-webkit-text-fill-color`, as
+    hex, rgb() or theme()), but the two rules above. A selector rests when any selector it stands for names no pointer
+    state (`alternatives`). The prose links' rule is the reason: a link in the filing reader, the summary or a Copilot
+    answer prints words the product does not write. */
+function stylesheetSage(file: string): { line: number; selector: string }[] {
+  const out: { line: number; selector: string }[] = []
+  postcss.parse(readFileSync(file, 'utf8')).walkRules((rule) => {
+    const sets = rule.nodes.some((n) =>
+      (n.type === 'atrule' && n.name === 'apply' && tokenInk(applyTokens(n.params), true) === 'sage')
+      || (n.type === 'decl' && /^(?:color|fill|-webkit-text-fill-color)$/.test(n.prop) && sageValue(n.value)))
+    if (!sets) return
+    for (const selector of rule.selectors) {
+      const one = selector.replace(/\s+/g, ' ').trim()
+      if (SAGE_AT_REST_RULES.has(one) || alternatives(one).every((alt) => POINTER_STATE.test(alt))) continue
+      out.push({ line: rule.source?.start?.line ?? 0, selector: one })
+    }
+  })
+  return out
+}
+
 describe('brand rule 2: sage never colours a number', () => {
   // Each offence once: a text reached two ways (a helper's return read as a value and walked as JSX) is one.
   const inApp = (check: (sf: ts.SourceFile) => Offence[]) =>
@@ -2489,6 +2846,14 @@ describe('brand rule 2: sage never colours a number', () => {
     expect(inApp(sageValues), 'set the number in the ink (text-text-primary / secondary); sage signals brand and activity').toEqual([])
   }, 20_000)
 
+  it('every field the API types declare that can hold a string is a figure field or a word field', () => {
+    const fields = apiStringFields()
+    const unclassified = [...fields].filter(([name, words]) => !words && !FIGURE_FIELDS.has(name) && !WORD_FIELDS.has(name)).map(([name]) => name)
+    const twice = [...FIGURE_FIELDS].filter((name) => WORD_FIELDS.has(name))
+    const stale = [...FIGURE_FIELDS, ...WORD_FIELDS].filter((name) => !fields.has(name))
+    expect({ unclassified, twice, stale }, 'a figure field when the server or the model writes a figure into it, else a word field (FIGURE_FIELDS, WORD_FIELDS)').toEqual({ unclassified: [], twice: [], stale: [] })
+  })
+
   it('no control that rests in sage holds its count in an ink of its own (the count control)', () => {
     expect(inApp(heldValues), 'rest the whole label in the ink, sage under the pointer (the count control, frontend/DESIGN_SYSTEM.md)').toEqual([])
   })
@@ -2497,11 +2862,36 @@ describe('brand rule 2: sage never colours a number', () => {
     expect(inApp(handRolledCountControls), 'compose countControlClass (components/ui/countControl.ts) beside the shape; never rebuild the recipe by hand').toEqual([])
   })
 
+  it("a link the app renders for markdown rests in no sage of its own, since it prints the prose's words", () => {
+    expect(inApp(sageMarkdownLinks), "rest the link in its prose's ink (the prose links' rule, app/globals.css), sage under the pointer").toEqual([])
+  })
+
+  it('no stylesheet rule sets sage ink at rest but the two it names', () => {
+    const named = stylesheetSage(path.join(ROOT, 'app/globals.css')).map(({ line, selector }) => `app/globals.css:${line} ${selector}`)
+    expect(named, 'rest the ink outside sage (the prose links: their prose\'s own ink, sage under the pointer)').toEqual([])
+  })
+
+  it('scores every planted stylesheet form in tests/unit/fixtures/brandRule2Styles.css as its mark says', () => {
+    const named = new Set(stylesheetSage(STYLE_FORMS).map(({ line }) => line))
+    const forms: { name: string; line: number; mark: string }[] = []
+    postcss.parse(readFileSync(STYLE_FORMS, 'utf8')).walkRules((rule) => {
+      const before = rule.prev()
+      const mark = before?.type === 'comment' ? /^(S\d+) (flag|clean|gap):/.exec(before.text) : null
+      if (mark) forms.push({ name: mark[1], line: rule.source?.start?.line ?? 0, mark: mark[2] })
+    })
+    expect(forms.filter((form) => form.mark === 'flag').length, 'the fixture plants rules that break the rule').toBeGreaterThan(0)
+    expect(forms.filter((form) => form.mark === 'clean').length, 'the fixture plants look-alikes').toBeGreaterThan(0)
+    const misread = forms.filter((form) => named.has(form.line) !== (form.mark === 'flag')).map((form) => `${form.name} (${form.mark})`)
+    const strays = [...named].filter((line) => !forms.some((form) => form.line === line)).map((line) => `line ${line}`)
+    expect(misread, 'the stylesheet check reads these forms against their marks: fix the check, or flip the mark with its record').toEqual([])
+    expect(strays, 'the stylesheet check named a rule that is not a planted form').toEqual([])
+  })
+
   it('scores every planted form in tests/unit/fixtures/brandRule2Forms.tsx as its mark says', () => {
     const sf = PROGRAM.getSourceFile(FORMS)
     if (!sf) throw new Error(`${FORMS} is not in the program`)
     const lineOf = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
-    const named = new Set([...sageValues(sf), ...heldValues(sf), ...handRolledCountControls(sf)].map(({ node }) => lineOf(node)))
+    const named = new Set([...sageValues(sf), ...heldValues(sf), ...handRolledCountControls(sf), ...sageMarkdownLinks(sf)].map(({ node }) => lineOf(node)))
     const forms = sf.text.split('\n').flatMap((text, i) => {
       const mark = /^export function (P\d+)\b.*\/\/ (flag|clean|gap)$/.exec(text)
       return mark ? [{ name: mark[1], line: i + 1, mark: mark[2] }] : []

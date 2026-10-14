@@ -32,7 +32,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-job-success-needs-outcome-evidence.md — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 - ops-keep-moving-under-standing-authorization.md — Keep moving under a standing founder authorization; stop only at the boundaries still held
 - ops-mutate-only-committed-state.md — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit
-- ops-never-echo-environment-values.md — Never let a settings error, a settings object or a config check print a secret; a caught error's errors()/json() pass include_input=False, and agent probes run under env -i in an export with no .env at any level
+- ops-never-echo-environment-values.md — Never let a settings error, an output or Sentry carry a secret; a caught error's errors()/json() pass include_input=False, outputs give a secret's presence and length only, Sentry sends no frame locals and withholds each secret setting's whole value on every channel that carries text, and agent probes run under env -i in an export with no .env at any level
 - ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
 - ops-one-test-process-per-worktree.md — give each test process its own database, and never let a test depend on another test's order or leftovers
 - ops-release-cached-filing-reads-before-yield.md — Close completed filing reads before async dependency cleanup can be blocked by a competing checkout
@@ -189,6 +189,7 @@ The rule is checked by the named gate; open the lesson only when that gate fails
 - ops-pin-ci-toolchain.md — Pin the lint/security toolchain and select lint rules explicitly — CI must not drift with the tool — gate: `backend/tests/unit/test_migration_lock_safety.py` (unpinned `pip install` check)
 - ops-prove-the-permission-route-before-a-gated-session.md — Prove the permission route with a `--help` no-op in the exact allow-rule form before any gated step; a denial there is a stop, not a failed restore; name the mode (Accept edits, not Plan) — gate: `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`
 - sec-filing-url-format.md — SEC archive URLs: strip CIK leading zeros, strip accession dashes — and sec_url is NOT NULL — gate: `backend/tests/unit/test_filing_url_listeners.py`, `test_sec_gov_importers_allowlist.py`; CLAUDE.md rule 10
+- sec-parse-app-fetched-html-not-edgartools-filing-objects.md — Section text: fetch the primary document through the app transport and parse it locally with edgartools' HTMLParser; the Filing/CompanyReport `obj()` accessors re-fetch through edgartools' own client, outside the app's limiter and breaker, and fail where the homepage does not resolve — gate: `backend/tests/unit/test_edgartools_obj_allowlist.py`
 - test-one-test-home.md — Tests live in exactly one home per stack — a test outside it does not run in CI — gate: `frontend/tests/unit/testHomesAllowlist.spec.ts`
 
 ## Archived (`lessons/archive/`) — superseded by a rule or a gate
