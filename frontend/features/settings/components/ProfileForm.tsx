@@ -6,6 +6,7 @@ import { CheckCircleIcon } from '@/lib/icons'
 import { getCurrentUserSafe, updateProfile } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Button, primaryUnavailableClass } from '@/components/ui/Button'
+import { cx } from '@/components/ui/cx'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { queryKeys } from '@/lib/queryKeys'
@@ -43,7 +44,7 @@ export default function ProfileForm() {
       <div className="space-y-4">
         <div>
           <label className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Email</label>
-          <p className="text-text-primary-light dark:text-text-primary-dark font-medium">{user?.email ?? '—'}</p>
+          <p className="break-words text-text-primary-light dark:text-text-primary-dark font-medium">{user?.email ?? '—'}</p>
         </div>
 
         <div>
@@ -61,7 +62,7 @@ export default function ProfileForm() {
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* aria-disabled + an early return, never native `disabled`: Save holds focus while its
               request is in flight AND when the refetched name makes the form clean (!dirty) right
               after a save. A focused button that turns disabled is blurred to <body> in Chromium. */}
@@ -71,9 +72,10 @@ export default function ProfileForm() {
               if (!dirty) return
               mutation.mutate()
             }}
+            wrap
             loading={mutation.isPending}
             aria-disabled={!dirty || mutation.isPending || undefined}
-            className={!dirty && !mutation.isPending ? primaryUnavailableClass : undefined}
+            className={cx('max-w-full', !dirty && !mutation.isPending && primaryUnavailableClass)}
           >
             Save changes
           </Button>

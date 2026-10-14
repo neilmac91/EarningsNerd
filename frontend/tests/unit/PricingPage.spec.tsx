@@ -257,9 +257,11 @@ describe('PricingPage', () => {
     const currentPlanButtons = screen.getAllByRole('button', { name: /current plan/i })
     expect(currentPlanButtons).toHaveLength(1)
     expect(currentPlanButtons[0]).toBeDisabled()
-    // The Free card is not the user's plan, so it stays the disabled "Create a free account".
-    const freeButton = screen.getByRole('button', { name: /create a free account/i })
+    // The Free card is not the user's plan, and a Pro account is offered no call to action for it: its
+    // disabled button names the plan, never the guest's "Create a free account" or "Request an invite".
+    const freeButton = screen.getByRole('button', { name: /^free plan$/i })
     expect(freeButton).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /create a free account|request an invite/i })).not.toBeInTheDocument()
   })
 
   it('never leaves the Free card stuck on "Processing…"', async () => {

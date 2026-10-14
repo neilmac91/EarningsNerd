@@ -445,6 +445,7 @@ export default function DashboardPage() {
                   </p>
                   <Button
                     variant="secondary"
+                    wrap
                     className="w-full"
                     onClick={() => portalMutation.mutate()}
                     loading={portalMutation.isPending}
@@ -455,7 +456,9 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="mt-3 space-y-3">
-                  <div className="flex items-center justify-between text-sm">
+                  {/* The two counts share a line while they fit and stack when they do not (200% text on
+                      a phone), with a gap between them either way. */}
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
                     <span className="text-text-secondary-light dark:text-text-secondary-dark">
                       {usage?.summaries_used || 0} / {usage?.summaries_limit ?? FREE_SUMMARY_LIMIT} summaries
                     </span>
@@ -478,7 +481,7 @@ export default function DashboardPage() {
                       style={{ width: `${Math.min(100, usagePercentage)}%` }}
                     />
                   </div>
-                  <Link href="/pricing" className={buttonVariants({ variant: 'primary', className: 'w-full' })}>
+                  <Link href="/pricing" className={buttonVariants({ variant: 'primary', wrap: true, className: 'w-full text-center' })}>
                     Upgrade to Pro
                   </Link>
                 </div>

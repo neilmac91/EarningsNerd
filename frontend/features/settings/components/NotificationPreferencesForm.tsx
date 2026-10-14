@@ -37,8 +37,11 @@ function Toggle({
   locked?: boolean
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-3">
-      <div className="flex-1">
+    // The label column keeps 10rem beside the switch or the switch takes the next line, so at 200% text
+    // on a phone it sits under the label instead of hanging past the card (and the column is not
+    // crushed to a word a line). At the default size the row is unchanged.
+    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3">
+      <div className="grow basis-40">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">{label}</span>
           {locked && (

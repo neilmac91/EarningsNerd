@@ -262,12 +262,16 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
         'Historical filing access',
       ],
       // Only the genuinely-free user is "on" the Free plan. A Pro user (paid or trialing) would
-      // otherwise see "Current plan" on BOTH cards, which reads as a contradiction.
+      // otherwise see "Current plan" on BOTH cards, which reads as a contradiction. Nor is a Pro
+      // account offered the guest's access CTA ("Request an invite" or "Create a free account") for
+      // a plan it does not need: its disabled Free button names the plan, a fact and no call to action.
       cta: !accountResolved
         ? unresolvedCta
-        : isAuthenticated && !subscription?.is_pro
-        ? 'Current plan'
-        : access.cta,
+        : !isAuthenticated
+        ? access.cta
+        : subscription?.is_pro
+        ? 'Free plan'
+        : 'Current plan',
       disabled: !accountResolved || isAuthenticated,
       priceId: null,
       betaOriginal: null,
@@ -527,6 +531,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
               <Button
                 variant={plan.popular ? 'primary' : 'secondary'}
                 size="lg"
+                wrap
                 className="w-full"
                 onClick={() => (plan.priceId ? handleUpgrade(plan.priceId) : handleGetStartedFree())}
                 disabled={plan.disabled || (isAuthenticated && !plan.priceId)}

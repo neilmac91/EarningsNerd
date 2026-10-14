@@ -101,8 +101,9 @@ export default function ConnectedAccounts() {
         </div>
       ) : (
         <div className="space-y-3">
-          {/* Password row */}
-          <div className="flex items-center justify-between rounded-lg border border-border-light dark:border-border-dark px-4 py-3">
+          {/* Password row. The value wraps under the label when both do not fit (200% text on a phone),
+              and the gap keeps them apart when they share the line. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-border-light dark:border-border-dark px-4 py-3">
             <div className="flex items-center gap-3">
               <KeyIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
               <span className="text-sm text-text-primary-light dark:text-text-primary-dark">Password</span>
@@ -119,9 +120,9 @@ export default function ConnectedAccounts() {
             return (
               <div
                 key={p.provider}
-                className="flex items-center justify-between rounded-lg border border-border-light dark:border-border-dark px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-border-light dark:border-border-dark px-4 py-3"
               >
-                <div>
+                <div className="min-w-0 [overflow-wrap:anywhere]">
                   <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
                     {providerLabel(p.provider)}
                   </span>
@@ -172,9 +173,11 @@ export default function ConnectedAccounts() {
                 keeps focus while the request is in flight. */}
             <Button
               variant="secondary"
+              wrap
+              className="max-w-full"
               onClick={() => logoutAllMutation.mutate()}
               loading={logoutAllMutation.isPending}
-              leftIcon={<SignOutIcon className="h-4 w-4" />}
+              leftIcon={<SignOutIcon className="h-4 w-4 shrink-0" />}
             >
               Sign out of all devices
             </Button>

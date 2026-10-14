@@ -175,6 +175,8 @@ export default function BillingPanel() {
                  that turns natively disabled is blurred to <body> in Chromium. */
               <Button
                 variant="secondary"
+                wrap
+                className="max-w-full"
                 onClick={() => portal.mutate()}
                 loading={portal.isPending}
               >
@@ -183,7 +185,7 @@ export default function BillingPanel() {
             ) : (
               <Link
                 href="/pricing"
-                className={buttonVariants({ variant: 'primary' })}
+                className={buttonVariants({ variant: 'primary', wrap: true, className: 'max-w-full text-center' })}
               >
                 {isTrialing ? 'Subscribe to Pro' : 'Upgrade to Pro'}
               </Link>
