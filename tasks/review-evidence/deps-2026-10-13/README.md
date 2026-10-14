@@ -137,6 +137,34 @@ security items do not reach this deployment.
 - Dependabot #1282, #1283 and #1284 closed as superseded with a pointer to each replacement; #1285
   stays open as the edgartools tracker under #1063.
 
+## Second sweep, 14 October (19:54 UTC)
+
+A read-only triage of all 29 open pull requests (one agent per PR, two adversarial refuters on every
+merge, close or supersede call) and a dependency audit, with main at `d69bc69`:
+
+- **Dependabot:** no PR opened since 12 October. `.github/dependabot.yml` runs all three ecosystems
+  weekly on Monday (05:00 UTC default), so the next batch is due 2026-10-19; only a security update
+  would arrive mid-week. #1285 is the only open `fix(deps)` PR; its head was force-updated to
+  `74de260b` (still 5.61.1) and edgartools 5.62.0 was replayed and held
+  ([addendum](../edgartools-5.61.1-hold-2026-10-13/README.md#addendum-2026-10-14-head-rebased-5620-replayed)).
+- **Security alerts:** GitHub's push response on 13 October named 4 Dependabot alerts on main (3 high,
+  1 moderate); the session has no alerts API, so they were reconstructed from main's CI audit steps
+  (run 38625718789): `pip-audit -r requirements.txt` finds nothing; `npm audit --omit=dev
+  --audit-level=high` reports 7 (5 high, 2 moderate) from two roots, `braces` 3.0.3
+  (GHSA-vfj7-8cjw-p6xm, high, no fixed version in the tailwindcss 3 chain: chokidar, micromatch,
+  fast-glob) and `postcss-selector-parser` 6.1.4 (GHSA-rj75-hqrm-r3gf, moderate, fixed in 7.1.6,
+  reached through postcss-nested 6.2.0). The only direct dependency involved is `tailwindcss ^3.4.19`;
+  `npm audit fix --force` would install tailwindcss 4, a major that `dependabot.yml` ignores. The
+  remaining two high alerts are not itemised in the logs (the dev-only `@lhci/cli` chain is the likely
+  source, not confirmed). Todo F27.
+- **Other PRs:** 20 are drafts or branches another session pushed or answered within the last
+  12–24 hours (the brand series, #1278, #1265, #1314, #1286) and were left alone; #1307 and #1308 are
+  stacked on #1286 and wait for it; #1035 and #1121 are held by the founder's earlier comments;
+  #1223 is superseded by #1287 (merged 2026-10-13, both research files recreated on main) and only
+  its closure is open, the founder's call; #1323 and #1324 were merged by their own session at
+  20:13 UTC while the sweep ran, and #1325 received a principal review with a should-fix at 20:15 UTC,
+  so none of the three was touched here.
+
 ## Open follow-ups
 
 - Founder, after #1305's deploy (F23): open the monthly and the yearly Checkout preview as the free
@@ -147,4 +175,4 @@ security items do not reach this deployment.
   for `setupIntents.create`; v16 no longer declares it on SetupIntent or PaymentIntent create (E22).
 - React 19 before Next 17 (react, react-dom, @types/react), as a deliberate PR (E21).
 - edgartools: #1285 stays held under #1063 until the Outlook and table-seam regressions are fixed
-  upstream.
+  upstream; 5.62.0 does not fix them, so the next replay is 6.0 (announced for 2026-11-09).
