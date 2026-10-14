@@ -124,7 +124,7 @@ export function buildMarkSvg(fill: string): string {
  *  drowning against a same-hue bar — a footer is legible on every panel/theme with zero data
  *  collision). */
 export const MARK_STAMP = {
-  stripHeight: 32,
+  stripHeight: 33, // 25px mark plus one E-bar of clear space (11/73.2 of its height, 3.76px) above and below
   markHeight: 25, // about 32px wide: the bare mark's minimum size (smaller needs the app tile)
   inset: 12,
   alpha: 1, // opaque, bottom-right: the founder's call (decisions-log D-039), never a translucent watermark
