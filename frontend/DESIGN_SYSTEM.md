@@ -213,6 +213,35 @@ Link as button   buttonVariants({ variant, size })  — the class-string factory
                  tests/unit/inputClassesNoOverrides.spec.tsx.
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
+Count control    A link or control whose label carries a count, a date, an index name or a price
+                 (D-030) and turns sage under the pointer composes countControlClass(kind) from
+                 components/ui/countControl.ts beside its own shape (size, padding, width, a border),
+                 never the recipe by hand. The whole label rests in text-text-secondary-light
+                 dark:text-text-secondary-dark as one text run and turns hover:text-brand-strong
+                 dark:hover:text-brand-strong-dark under the pointer, keyboard focus drawing the ring
+                 below: 'button' adds the brand tint and the pressed fill, 'link' an underline under
+                 the pointer, 'inline' (a link set among lines of text) keeps its underline at rest,
+                 since its ink no longer marks it, and 'summary' (a disclosure's) turns sage alone.
+                 Its chrome (the ring, a hairline, a selected fill) may be sage where its recipe says
+                 so; the label's ink never. Never a sage label with the count in a span of its own:
+                 the control then rests in sage while it carries a value, and the rule keeps sage for
+                 the pointer. Two count-carrying labels stay outside the helper, in the ink: one that
+                 never turns sage (a calendar day's "+N more", whose cell's hover is the white
+                 ground), and a countdown on a control that waits (aria-disabled), which rests in the
+                 secondary ink at full strength beside its own label (check-email), so the number
+                 stays legible. Gate: brandCopyRules.spec.ts rule 2. Its count-control check fails a
+                 control resting in sage, its own or its parent's where it is rendered (held in the
+                 same file or rendered by a component included, and a component that renders its
+                 children inside a control counting as one), that holds its count in a span of its
+                 own ink (written inline or held in the same file; a count a component renders inside
+                 one is review-checked). Its one-source check fails a control whose label carries a
+                 count and that classes written in its file turn sage under the pointer: on the
+                 control, on the element holding the count (a label span, under the control's group
+                 too), or on the control a same-file wrapper renders its children in, a class
+                 helper's return or a className default included. It reads the label through the
+                 file's bindings (a same-file variable, a same-file function's return) and inside an
+                 app component in it that turns its children or a count of its own sage. The two
+                 labels outside the helper are review-checked, and so is what the header names.
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
@@ -363,7 +392,12 @@ Analysis reading <NarrativePane> — compact monetary amounts and quarter labels
 Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly; unavailable modes
                  opt into focusable aria-disabled with visible described reasons. Other callers keep
                  native disabled. The unavailable segment retains the full-strength focus ring.
-                 Recent-period presets are ghost Button actions, not pressed toggles. Visible From/To
+                 Recent-period presets are plain actions in the secondary ink that turn sage under
+                 the pointer, keyboard focus drawing the ring, with Button sm's shape and weight
+                 copied by hand (not ghost Buttons, whose label is sage at rest on a count, D-030),
+                 not pressed toggles; they sit outside the Button size contract on purpose, so a
+                 later change to Button's sizes does not reach them (their labels are three short
+                 words and their row wraps). Visible From/To
                  labels wrap raw compact selects using inputClasses({ select: true, autoWidth: true });
                  font-data and tabular-nums belong to the select itself. Fields fill phones and use
                  intrinsic/em widths on desktop. Analysis's full-width route wrapper is an inline-size
@@ -388,7 +422,7 @@ Analysis KPI     <KpiStrip> — a definition list, two cards across at phone wid
 Data notes strip <DataNotes> — hairlines above and below a native details disclosure on the page
                  ground, below the KPIs. The title uses primary ink; counts use the data face, with
                  review counts in warning ink and every count beside its relevant note letters. When all
-                 populated figures passed, “No figures need review” and a neutral checked count remain
+                 populated figures passed, “No figures need review” and a neutral checked count (in the strip's own ink: sage never colours a number, D-030) remain
                  independent of concerns on comparisons. Unknown validation,
                  unavailable and calculated counts remain separate. Expanded notes use two columns:
                  the letter, then its reason, affected metric/periods and distinct comparison counts.
@@ -642,7 +676,8 @@ Filing identity  <FilingIdentity filing>  (features/filings, 2026-10 critique P-
 
 Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page ground with no card: index + h2 (see
                  §3), body `space-y-4`, `space-y-11` between sections; the sticky TOC sits on the reading
-                 side (lg+), each entry `01 Title` with the index in brand-strong; below lg the jump chips
+                 side (lg+), each entry `01 Title` with the index in the tertiary ink (secondary on navy;
+                 sage never colours a number, D-030); below lg the jump chips
                  carry the same index. Hairlines live inside the content (row tables: header and every row
                  close with a hairline, outer cells flush with the text edge, no outer frame). Body ink for
                  paragraphs and bullets. The change report is the section after the first metrics section
@@ -904,7 +939,9 @@ carries no claim and is `aria-hidden` (the in-text marker is the accessible one)
 - **Status + financial colors are semantic** — keep them; reserve loud status colors for genuine
   state. A default guidance/info container is subdued/brand-tinted, not loud blue (see `GuidanceCard`).
 - **Progress / step / completion indicators use the BRAND accent (sage), not success-green.**
-  Green is for a genuine terminal *confirmation* state; in-progress ticks are brand activity.
+  Green is for a genuine terminal *confirmation* state; in-progress ticks are brand activity. The
+  indicator itself (a bar, a ring, a tick) takes the sage; a step's number or a percentage beside it
+  rests in the ink (D-030).
 
 ## 10. Charts (recharts)
 
