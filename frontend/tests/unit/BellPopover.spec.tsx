@@ -408,27 +408,57 @@ describe('BellPopover placement', () => {
     inside(box, 366, area)
   })
 
-  it('renders capped to what it measured, scrolling inside', () => {
+  /** Renders the popover with its panel measuring `height` tall, and restores jsdom after. */
+  const renderMeasured = (height: number, anchor: DOMRect, run: (group: HTMLElement) => void) => {
     const scroll = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight')
     Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
       configurable: true,
       get(this: HTMLElement) {
-        return this.getAttribute('role') === 'group' ? 2000 : 0
+        return this.getAttribute('role') === 'group' ? height : 0
       },
     })
     const bell = document.createElement('button')
     document.body.appendChild(bell)
     try {
-      render(<BellPopover blocked={blockedFor('signin', bell)} onClose={() => {}} />)
-      const group = screen.getByRole('group', { name: 'Sign in to set earnings alerts' })
-      expect(group).toHaveClass('overflow-y-auto')
-      // jsdom's window is 1024x768; the bell at y 100-128 leaves 620px below, the roomier side.
-      expect(group.style.top).toBe('136px')
-      expect(group.style.maxHeight).toBe(`${768 - POPOVER_MARGIN - 136}px`)
+      render(<BellPopover blocked={{ kind: 'signin', ticker: 'AAPL', message: '', anchor, trigger: bell }} onClose={() => {}} />)
+      run(screen.getByRole('group', { name: 'Sign in to set earnings alerts' }))
     } finally {
       bell.remove()
       if (scroll) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', scroll)
       else delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight
+    }
+  }
+
+  it('renders from the height it measured: above the bell by that height, or capped on the roomier side', () => {
+    // jsdom's window is 1024x768: a bell at y 600-628 has 120px below it and 580 above.
+    const LOW = { left: 100, top: 600, bottom: 628, right: 128, width: 28, height: 28 } as DOMRect
+    renderMeasured(400, LOW, (group) => {
+      expect(group.style.top).toBe(`${600 - 8 - 400}px`)
+    })
+    cleanup()
+    renderMeasured(2000, LOW, (group) => {
+      expect(group).toHaveClass('overflow-y-auto')
+      expect(group.style.top).toBe(`${POPOVER_MARGIN}px`)
+      expect(group.style.maxHeight).toBe(`${600 - 8 - POPOVER_MARGIN}px`)
+    })
+  })
+
+  it('reads the visible area from window.visualViewport, not the layout viewport a wide page stretches', () => {
+    // The phone shows 390x844 of a layout viewport stretched past it (jsdom's window stands for that one).
+    const own = Object.getOwnPropertyDescriptor(window, 'visualViewport')
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: { offsetLeft: 24, offsetTop: 25, width: 390, height: 844 } })
+    try {
+      renderMeasured(2000, { left: 314, top: 559, bottom: 647, right: 402, width: 88, height: 88 } as DOMRect, (group) => {
+        const left = parseFloat(group.style.left)
+        const top = parseFloat(group.style.top)
+        expect(left).toBeGreaterThanOrEqual(24 + POPOVER_MARGIN)
+        expect(left + parseFloat(group.style.width)).toBeLessThanOrEqual(24 + 390 - POPOVER_MARGIN)
+        expect(top).toBeGreaterThanOrEqual(25 + POPOVER_MARGIN)
+        expect(top + parseFloat(group.style.maxHeight)).toBeLessThanOrEqual(25 + 844 - POPOVER_MARGIN)
+      })
+    } finally {
+      if (own) Object.defineProperty(window, 'visualViewport', own)
+      else delete (window as { visualViewport?: unknown }).visualViewport
     }
   })
 })
