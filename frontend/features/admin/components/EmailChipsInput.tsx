@@ -149,17 +149,24 @@ export default function EmailChipsInput({
       {chips.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-2">
           {chips.map((chip) => (
+            // The address and its marker are one group that wraps: when they do not fit on one line the marker goes
+            // under the address and the address truncates, so neither squeezes the other out and the remove button
+            // stays inside the chip (at 200% text a marker that could not shrink left the address no room and pushed
+            // the button past the card). The 16px radius is a pill on one line and a rounded box once the chip
+            // wraps, as SourceTrace's chip is.
             <span
               key={chip.email}
               aria-invalid={chip.kind === 'invalid' || undefined}
               className={clsx(
-                'inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium',
+                'inline-flex max-w-full items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-medium',
                 chipClasses(chip.kind),
               )}
             >
               {chip.kind === 'invalid' && <WarningCircleIcon className="h-3.5 w-3.5 flex-shrink-0" />}
-              <span className="truncate">{chip.email}</span>
-              {chip.kind === 'invited' && <span className="flex-shrink-0">· already invited</span>}
+              <span className="flex min-w-0 flex-wrap gap-x-1.5">
+                <span className="truncate">{chip.email}</span>
+                {chip.kind === 'invited' && <span>·&nbsp;already invited</span>}
+              </span>
               <button
                 type="button"
                 onClick={() => removeChip(chip.email)}

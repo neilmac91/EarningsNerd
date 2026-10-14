@@ -281,3 +281,39 @@ describe('AdminInvitesPage: the table scrolls inside its card', () => {
     expect(region).toHaveAccessibleDescription('Scroll horizontally to read all columns.')
   })
 })
+
+/**
+ * An email chip keeps its address, its marker and its remove button inside it and the card (DESIGN_SYSTEM.md §4
+ * "Admin pages"; the #1309 capture review: at 200% text the already-invited chip squeezed its address out and put
+ * its remove button past the card). Classes are what a unit test can pin; the capture harness measures the layout.
+ */
+describe('AdminInvitesPage: an email chip stays inside its card', () => {
+  beforeEach(() => {
+    vi.mocked(listInvites).mockReset()
+  })
+
+  it('keeps an already-invited address, its marker and its remove button inside the chip', async () => {
+    vi.mocked(listInvites).mockResolvedValue([invite])
+    renderPage()
+    await screen.findByText('alice@example.com')
+    const field = screen.getByLabelText('Email addresses')
+    fireEvent.change(field, { target: { value: 'alice@example.com' } })
+    fireEvent.blur(field)
+    const remove = await screen.findByRole('button', { name: 'Remove alice@example.com' })
+    const chip = remove.parentElement!
+    const address = within(chip).getByText('alice@example.com')
+    const marker = within(chip).getByText('· already invited')
+    // One group that wraps and may shrink below its text: when both do not fit, the marker goes under the address
+    // and the address truncates. A marker that cannot shrink (shrink-0, nowrap) squeezed the address to nothing.
+    const group = address.parentElement!
+    expect(marker.parentElement).toBe(group)
+    expect(group).toHaveClass('flex', 'min-w-0', 'flex-wrap')
+    expect(address).toHaveClass('truncate')
+    expect(marker.className).toBe('')
+    // The button is the chip's own last child; the chip is capped at the card and rounds as a box once it wraps
+    // (a 9999px radius turns a wrapped chip into a capsule whose curve crosses its text).
+    expect([...chip.children].at(-1)).toBe(remove)
+    expect(chip).toHaveClass('max-w-full', 'rounded-xl')
+    expect(chip).not.toHaveClass('rounded-full')
+  })
+})
