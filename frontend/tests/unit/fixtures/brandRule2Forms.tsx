@@ -1061,7 +1061,9 @@ export function P587({ n }: { n: number }) { return <a href="/x"><Dark587>See al
 // (P600), a variable holding another string (P593), a helper returning one (P603), another key of the props (P611), a
 // helper handed another object (P615), even beside a call handing it the props (P620), another object taken through a
 // declaration's array (P618), a style map's `className` by a key (P619) or a field (P621), and a helper's parameter named
-// for the className handed another string (P623) forward nothing.
+// for the className handed another string (P623), a helper handed the className it never returns (P624) and
+// `Object.assign` with a style map's `className` after the props (P625) forward nothing; a same-file joiner handed the
+// className (P627) and `Object.assign` with the props after the style map (P626) do.
 function Tally588({ n, className: cls }: { n: number; className?: string }) { return <span className={cls}>See all {n}</span> }
 export function P588({ n }: { n: number }) { return <a href="/x"><Tally588 n={n} className="hover:text-brand-strong" /></a> } // flag
 function Tally589({ n, className }: { n: number; className?: string }) { const cls = className; return <span className={cx(cls, 'font-medium')}>See all {n}</span> }
@@ -1140,3 +1142,13 @@ function Tally622(props: { n: number; className?: string }) { return <span class
 export function P622({ n }: { n: number }) { return <a href="/x"><Tally622 n={n} className="hover:text-brand-strong" /></a> } // flag
 function Tally623({ n }: { n: number; className?: string }) { return <span className={pass622('font-medium')}>See all {n}</span> }
 export function P623({ n }: { n: number }) { return <a href="/x"><Tally623 n={n} className="hover:text-brand-strong" /></a> } // clean
+function fixed624(_cls?: string) { return 'font-medium' }
+function Tally624(props: { n: number; className?: string }) { return <span className={fixed624(props.className)}>See all {props.n}</span> }
+export function P624({ n }: { n: number }) { return <a href="/x"><Tally624 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Tally625(props: { n: number; className?: string }) { return <span className={Object.assign({}, props, THEME592).className}>See all {props.n}</span> }
+export function P625({ n }: { n: number }) { return <a href="/x"><Tally625 n={n} className="hover:text-brand-strong" /></a> } // clean
+function Tally626(props: { n: number; className?: string }) { return <span className={Object.assign({}, THEME592, props).className}>See all {props.n}</span> }
+export function P626({ n }: { n: number }) { return <a href="/x"><Tally626 n={n} className="hover:text-brand-strong" /></a> } // flag
+function join627(...parts: Array<string | undefined>) { return parts.filter(Boolean).join(' ') }
+function Tally627(props: { n: number; className?: string }) { return <span className={join627('font-medium', props.className)}>See all {props.n}</span> }
+export function P627({ n }: { n: number }) { return <a href="/x"><Tally627 n={n} className="hover:text-brand-strong" /></a> } // flag
