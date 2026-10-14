@@ -153,16 +153,17 @@ merge, close or supersede call) and a dependency audit, with main at `d69bc69`:
   (5 high, 2 moderate). A full-tree `npm audit --json` over the lockfile
   ([`npm-audit-full-tree-2026-10-14.txt`](npm-audit-full-tree-2026-10-14.txt), Node 22.23.2) resolves
   all 19 nodes (17 high, 2 moderate) to four advisory roots, which match GitHub's count and
-  severities: `braces` 3.0.3 (GHSA-vfj7-8cjw-p6xm, high, reached through tailwindcss 3 and
+  severities by package (Dependabot counts per advisory and extract-zip carries two, so one of its two
+  may postdate the 13 October count; unconfirmed): `braces` 3.0.3 (GHSA-vfj7-8cjw-p6xm, high, reached through tailwindcss 3 and
   eslint-config-next; 3.0.3 is the latest release, so no fixed version exists), `extract-zip` 2.0.1
-  (GHSA-jmr9-qjv8-65gv and GHSA-7pqw-9j4j-h8q3, high, dev-only through @lhci/cli, lighthouse and
-  puppeteer; 2.0.1 is the latest release, no fixed version), `basic-ftp` 5.3.1 (GHSA-c475-qrg2-pj4r,
+  (GHSA-jmr9-qjv8-65gv and GHSA-7pqw-9j4j-h8q3, high, dev-only through @lhci/cli, lighthouse,
+  puppeteer-core and @puppeteer/browsers; 2.0.1 is the latest release, no fixed version), `basic-ftp` 5.3.1 (GHSA-c475-qrg2-pj4r,
   high, dev-only through @lhci/cli, proxy-agent and get-uri; fixed in 6.2.1, 6.2.3 released) and
   `postcss-selector-parser` 6.1.4 (GHSA-rj75-hqrm-r3gf, moderate, through tailwindcss 3 and
-  postcss-nested; fixed in 7.1.6). npm's whole-tree remedies are tailwindcss 4 (a major that
+  postcss-nested; fixed in 7.1.6). npm's suggested remedies in that run are tailwindcss 4 (a major that
   `dependabot.yml` keeps off) and a downgrade of @lhci/cli to 0.13.0. The backend manifests CI does
   not audit are clean ([`pip-audit-dev-eval-2026-10-14.txt`](pip-audit-dev-eval-2026-10-14.txt)).
-  Dispositions: the two roots with fixed releases go to E29 (forward `overrides` in
+  Dispositions: the two roots with fixed releases go to E53 (forward `overrides` in
   `frontend/package.json`, the pattern the @lhci/cli chain already uses, proven by the
   override-direction gate and a byte comparison of the built CSS); the two without go to F27.
 - **Other PRs:** 20 are drafts or branches another session pushed or answered within the last
