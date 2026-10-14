@@ -13,8 +13,8 @@ and the repository has no branch protection at all, so no CI check is required a
 
 On 2026-10-13 the gate itself read as passed without checking a review. One update set #1315's
 body and marked it ready, which fired `ready_for_review` and an `edited` event whose payload still
-said draft. The edited run started second, cancelled the ready run's wait through the shared
-concurrency group, then skipped on its draft condition. GitHub reports a job skipped by its `if` as
+said draft. The edited run started second, cancelled the ready run through the shared concurrency
+group before it could wait, then skipped on its draft condition. GitHub reports a job skipped by its `if` as
 success, which a required check counts as passing. So for about two minutes after the other checks
 finished, the pull request could have merged with no review verified. Codex had already finished,
 and the merge waited for a later run that logged the completed review. An audit of the seven
@@ -29,9 +29,10 @@ nothing here, and that comment also re-runs the gate. The `review-gate` check (`
 `backend/scripts/review_gate.py`) enforces exactly this once a ruleset on `main` requires it; a
 required status check needs no approver, so it cannot lock a solo-administrator repository, whereas a
 required pull-request review would (authors cannot approve their own pull requests and there is one
-collaborator). The gate never skips on a pull-request event and fails while the pull request is a
-draft, reading the flag as it is now rather than from the event, so a passing `review-gate` always
-means a completed review of the head or a recorded override.
+collaborator). The gate's job never skips on a pull-request event, and nothing in it may skip or
+soften the gate step. It fails while the pull request is a draft, reading the flag as it is now
+rather than from the event, so the job passes only on a completed review of the head or a recorded
+override.
 
 **Evidence**: #856 timeline and #857; the 2026-09-16 merge audit in `tasks/archive/todo-ledger-through-2026-10-07.md`;
 `backend/tests/unit/test_review_gate.py` (a completed review of another head is `wait`, never

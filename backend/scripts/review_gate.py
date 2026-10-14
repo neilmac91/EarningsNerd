@@ -24,8 +24,8 @@ reads the draft flag from the pull request as it is now, never from the event th
 run. A job skipped by its ``if`` reports success, which a required check counts as passing, and an
 event can still describe a draft after the pull request was marked ready: one update that edits the
 body and marks it ready fires both events, and on #1315 the draft one ran second, cancelled the
-ready run's wait and skipped. So the workflow never skips this job on a pull-request event, and a
-passing check always means a completed review of the head or a recorded override.
+ready run before it could wait, and skipped. So the workflow never skips this job on a pull-request
+event, and the job passes only on a completed review of the head or a recorded override.
 
 The workflow runs on ``pull_request_target`` and checks out the BASE branch, so a pull request can
 edit neither its own gate script nor the workflow definition; and a reviewed short SHA counts only

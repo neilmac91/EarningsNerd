@@ -38,8 +38,10 @@ jobs:
     # Every pull-request event runs this job, drafts included. A job skipped by its `if` reports
     # success, which a required check counts as passing, and an event's payload can still say draft
     # after the pull request was marked ready: on #1315 one update fired `ready_for_review` and an
-    # `edited` event with a draft payload, which ran second, cancelled the ready run's wait and
-    # skipped. The script reads the live draft flag and fails while the pull request is a draft.
+    # `edited` event with a draft payload, which ran second, cancelled the ready run before it could
+    # wait, and skipped. The script reads the live draft flag and fails while the pull request is a
+    # draft. Nothing else in this job may skip or soften the gate step (a step `if`,
+    # `continue-on-error`, `needs`, another step); backend/tests/unit/test_review_gate.py pins its shape.
     if: github.event_name == 'pull_request_target'
     runs-on: ubuntu-latest
     timeout-minutes: 30
