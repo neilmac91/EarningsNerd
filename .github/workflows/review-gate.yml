@@ -35,7 +35,12 @@ concurrency:
 
 jobs:
   review-gate:
-    if: github.event_name == 'pull_request_target' && github.event.pull_request.draft == false
+    # Every pull-request event runs this job, drafts included. A job skipped by its `if` reports
+    # success, which a required check counts as passing, and an event's payload can still say draft
+    # after the pull request was marked ready: on #1315 one update fired `ready_for_review` and an
+    # `edited` event with a draft payload, which ran second, cancelled the ready run's wait and
+    # skipped. The script reads the live draft flag and fails while the pull request is a draft.
+    if: github.event_name == 'pull_request_target'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

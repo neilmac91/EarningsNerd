@@ -482,8 +482,12 @@ Located in `backend/scripts/`:
 
 ### Review gate (rule 12 for the review-wait lesson)
 
-`.github/workflows/review-gate.yml` publishes a `review-gate` status check on every non-draft pull
-request head. It passes only when Codex's "Review Summary" comment reports **Completed** for that
+`.github/workflows/review-gate.yml` publishes a `review-gate` status check on every pull request
+head. While the pull request is a draft the check fails, and marking it ready starts the wait. The
+script reads the draft flag from the pull request as it is now: a job skipped by its condition
+reports success, which a required check counts as passing, and an event can still describe a draft
+after the pull request was marked ready, so the job never skips on a pull-request event. It passes
+only when Codex's "Review Summary" comment reports **Completed** for that
 exact head, or when the pull request body carries a line `Review override: <reason>` (ten or more
 characters); a completed review of an earlier head is not enough, because a push does not
 re-trigger Codex here: after fix commits, comment `@codex review` at once. The gate waits up to

@@ -19,6 +19,14 @@ After pushing commits that address findings, comment ``@codex review`` right awa
 re-triggers nothing here, and the gate waits for a review of the new head. If the review finishes
 after the gate timed out, re-run the failed job (``gh run rerun <run-id> --failed``).
 
+Drafts: the gate fails while the pull request is a draft, and marking it ready starts the wait. It
+reads the draft flag from the pull request as it is now, never from the event that started the
+run. A job skipped by its ``if`` reports success, which a required check counts as passing, and an
+event can still describe a draft after the pull request was marked ready: one update that edits the
+body and marks it ready fires both events, and on #1315 the draft one ran second, cancelled the
+ready run's wait and skipped. So the workflow never skips this job on a pull-request event, and a
+passing check always means a completed review of the head or a recorded override.
+
 The workflow runs on ``pull_request_target`` and checks out the BASE branch, so a pull request can
 edit neither its own gate script nor the workflow definition; and a reviewed short SHA counts only
 when the repository resolves it uniquely to the head and no other commit of the pull request shares
@@ -75,16 +83,24 @@ Resolver = Callable[[str], Optional[str]]  # short SHA -> the unique full SHA in
 
 
 def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[str],
-           pr_commits: Optional[Iterable[str]] = None, resolve: Optional[Resolver] = None) -> Verdict:
-    """Pure decision over the pull request's comments, body and commit list for one head SHA.
+           pr_commits: Optional[Iterable[str]] = None, resolve: Optional[Resolver] = None, *,
+           pr_draft: Optional[bool]) -> Verdict:
+    """Pure decision over the pull request's comments, body, commit list and live draft flag for
+    one head SHA.
 
-    Codex names the reviewed commit by a short SHA. It identifies the head only when the
-    repository resolves that prefix to exactly the head (so a force-pushed reviewed commit that
-    is still an object in the repository keeps a minted lookalike ambiguous) AND no other commit
-    of the pull request shares it."""
+    A draft fails, override or not, and so does a draft flag the API did not report as a boolean
+    (None): the check passes only for a pull request that can merge. Codex names the reviewed
+    commit by a short SHA. It identifies the head only when the repository resolves that prefix to
+    exactly the head (so a force-pushed reviewed commit that is still an object in the repository
+    keeps a minted lookalike ambiguous) AND no other commit of the pull request shares it."""
     head = (head_sha or "").lower()
     if not re.fullmatch(r"[0-9a-f]{40}", head):
         return "fail", f"review-gate: invalid head SHA {head_sha!r}"
+    if pr_draft is None:
+        return "fail", "review-gate: the pull request's draft flag could not be read; failing closed"
+    if pr_draft:
+        return "fail", ("review-gate: the pull request is a draft; this check fails until it is marked ready, "
+                        f"which starts the wait for the Codex review of {head[:7]}")
     reason = override_reason(pr_body)
     if reason:
         return "pass", f"review-gate: override recorded in the pull request body: {reason}"
@@ -140,14 +156,17 @@ def _paged(path: str, token: str) -> List[Any]:
     return items
 
 
-State = Tuple[List[Dict[str, Any]], Optional[str], List[str]]
+State = Tuple[List[Dict[str, Any]], Optional[str], List[str], Optional[bool]]
 
 
 def fetch_state(repo: str, number: str, token: str) -> State:
+    """Comments, body, commit list and draft flag, all read now. The draft flag is None unless the
+    API reports a boolean, which ``decide`` fails closed."""
     comments = _paged(f"repos/{repo}/issues/{number}/comments", token)
     pull = _github(f"repos/{repo}/pulls/{number}", token)
     commits = [str(item.get("sha", "")).lower() for item in _paged(f"repos/{repo}/pulls/{number}/commits", token)]
-    return comments, pull.get("body"), commits
+    draft = pull.get("draft")
+    return comments, pull.get("body"), commits, draft if isinstance(draft, bool) else None
 
 
 def repository_resolver(repo: str, token: str) -> Resolver:
@@ -180,8 +199,8 @@ def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State
         resolve = resolve or repository_resolver(repo, token)
     started = clock()
     while True:
-        comments, body, commits = fetch()
-        verdict, message = decide(head, comments, body, commits, resolve)
+        comments, body, commits, draft = fetch()
+        verdict, message = decide(head, comments, body, commits, resolve, pr_draft=draft)
         print(message)
         if verdict == "pass":
             return 0
