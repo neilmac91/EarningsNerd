@@ -37,7 +37,7 @@ from app.schemas.analysis import (
     ExportDatasetRequest,
     StreamRequest,
 )
-from app.services import facts_service, trend_analysis_service
+from app.services import analysis_data_access, facts_service, trend_analysis_service
 from app.services.durable_tasks import enqueue_task
 from app.services.posthog_client import capture_analysis_inference
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
@@ -78,7 +78,7 @@ def _limits() -> CoverageLimits:
 
 
 def _get_company(db: Session, ticker: str) -> Company:
-    company = db.query(Company).filter(Company.ticker == ticker.upper()).first()
+    company = analysis_data_access.find_company(db, ticker)
     if company is None:
         # The frontend resolves a ticker through GET /api/companies/{ticker} (get-or-create from
         # EDGAR) before calling analysis endpoints, so a miss here means a genuinely unknown ticker.
@@ -88,10 +88,10 @@ def _get_company(db: Session, ticker: str) -> Company:
 
 async def _ingest_with_own_session(company_id: int) -> dict:
     """Run companyfacts ingest in short DB units so it can safely outlive the request."""
-    from app.database import SessionLocal
 
-    return await facts_service.ingest_companyfacts_by_id(
-        company_id, session_factory=SessionLocal
+    return await analysis_data_access.ingest_with_own_session(
+        company_id,
+        ingest_companyfacts_by_id=facts_service.ingest_companyfacts_by_id,
     )
 
 
@@ -118,7 +118,7 @@ async def get_coverage(
     # The dependency session otherwise survives the external SEC wait (and, on timeout, the
     # continuing background task). Everything below uses immutable identity fields plus fresh,
     # short reads after the wait.
-    db.close()
+    analysis_data_access.release_coverage_read(db)
 
     task = asyncio.create_task(_ingest_with_own_session(company_id))
     if settings.DURABLE_TASKS_ENABLED:
@@ -169,7 +169,7 @@ async def get_coverage(
         )
 
     periods = trend_analysis_service.available_periods(db, company_id)
-    synced_at = db.query(Company.facts_synced_at).filter(Company.id == company_id).scalar()
+    synced_at = analysis_data_access.facts_synced_at(db, company_id)
     has_any = bool(periods["annual"] or periods["quarterly"])
     reason = None
     if not has_any:
@@ -266,33 +266,23 @@ def _meter_analysis_best_effort(user_id: int, token: str | None = None) -> bool:
     """Meter one FRESH analysis generation in a fresh DB session (best-effort — a metering failure
     must never break the stream the user already received). Converts the admission lease
     (``token``) in the same commit; returns whether it did, so the caller can release otherwise."""
-    from app.database import SessionLocal
 
-    db = SessionLocal()
-    try:
-        month = convert_reservation(token, db) or get_current_month()
-        increment_user_analysis(user_id, month, db)
-        return True
-    except Exception:  # noqa: BLE001 - metering must not break the stream
-        logger.warning("Failed to meter analysis for user %s", user_id, exc_info=True)
-        return False
-    finally:
-        db.close()
+    return analysis_data_access.meter_analysis_best_effort(
+        user_id,
+        token,
+        convert_reservation=convert_reservation,
+        get_current_month=get_current_month,
+        increment_user_analysis=increment_user_analysis,
+        logger=logger,
+    )
 
 
 def _release_reservation_best_effort(token: str | None) -> None:
     """Give an admission lease back (fresh session; the lease expires on its own if this fails)."""
-    if not token:
-        return
-    from app.database import SessionLocal
 
-    db = SessionLocal()
-    try:
-        release_reservation(token, db)
-    except Exception:  # noqa: BLE001 - never mask the stream outcome
-        logger.warning("Could not release an analysis admission reservation", exc_info=True)
-    finally:
-        db.close()
+    analysis_data_access.release_reservation_best_effort(
+        token, release_reservation=release_reservation, logger=logger
+    )
 
 
 def _emit_analysis_cost_best_effort(user_id: int, ticker: str, mode: str, event: dict) -> None:
@@ -434,7 +424,6 @@ async def export_analysis_pdf(
     db: Session = Depends(get_db),
 ):
     """Export a completed analysis as PDF (Pro `can_export`, the summaries export pattern)."""
-    from app.models import TrendAnalysis
     from app.services.entitlements import get_entitlements
     from app.services.export_service import export_service
     from app.services.trend_analysis.presentation import presentation_is_current
@@ -444,7 +433,7 @@ async def export_analysis_pdf(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="PDF export is a Pro feature. Upgrade to Pro to access this feature.",
         )
-    analysis = db.get(TrendAnalysis, analysis_id)
+    analysis = analysis_data_access.find_analysis(db, analysis_id)
     if analysis is None or not analysis.narrative_md:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found")
     if analysis.prompt_version != trend_analysis_service.PROMPT_VERSION:
@@ -455,7 +444,7 @@ async def export_analysis_pdf(
             status_code=status.HTTP_409_CONFLICT,
             detail="This report is out of date. Run analysis again before exporting.",
         )
-    company = db.get(Company, analysis.company_id)
+    company = analysis_data_access.find_company_by_id(db, analysis.company_id)
     if company is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
 
