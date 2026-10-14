@@ -287,6 +287,19 @@ describe('Financial origin and source checks', () => {
     expect(dialog).toHaveTextContent('Available sources disagree on this figure.')
   })
 
+  it('substitutes current-ratio operands by concept when their input order is reversed', async () => {
+    const provenance: FactProvenance = { ...calculated, formula: 'current_assets / current_liabilities', inputs: [
+      { ...calculated.inputs[0], concept: 'current_liabilities', value: 2000000000 },
+      { ...calculated.inputs[0], concept: 'current_assets', value: 2500000000 },
+    ] }
+    render(<SourceValue point={{ period: '2023Q4', value: 1.25, unit: 'pure', provenance }} label="Current ratio" concept="current_ratio">1.25×</SourceValue>)
+    await userEvent.click(screen.getByRole('button', { name: /View source/ }))
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveTextContent('Current assets ÷ current liabilities')
+    expect(dialog).toHaveTextContent('2,500,000,000 ÷ 2,000,000,000 = 1.25 (ratio)')
+    expect(dialog).toHaveTextContent('As stored: 1.25 (ratio)')
+  })
+
   it('retains the nested reported operands of a quarterly free-cash-flow calculation', async () => {
     const reported: FactProvenance = { ...calculated, method: 'reported', formula: null, inputs: [] }
     const provenance: FactProvenance = { ...calculated, formula: 'operating_cash_flow - abs(capital_expenditures)', inputs: [

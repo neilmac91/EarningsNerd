@@ -1005,7 +1005,8 @@ async def google_callback(
         return RedirectResponse(f"{frontend_url}/login?error=google_invalid", status_code=302)
 
     stored_state = request.cookies.get(_OAUTH_STATE_COOKIE)
-    if not stored_state or not secrets.compare_digest(stored_state, state):
+    # Bytes, not str: compare_digest raises TypeError on a non-ASCII str (a 500 instead of the mismatch redirect).
+    if not stored_state or not secrets.compare_digest(stored_state.encode(), state.encode()):
         return RedirectResponse(f"{frontend_url}/login?error=oauth_state_mismatch", status_code=302)
 
     # An invited sign-up stored its invite hash against this state (google_login); plain sign-ins
