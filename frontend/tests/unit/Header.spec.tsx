@@ -133,10 +133,10 @@ describe('Header auth state', () => {
 })
 
 // Below a 24rem viewport (a phone with enlarged text, or a 360px or 375px phone) the bar keeps one row:
-// the theme toggle, a preference rather than a next step, leaves the bar for the mobile menu, so the bar
-// is the logo, the account link and the menu button. Above 24rem it stays in the bar and the menu has
-// none. jsdom applies no media query, so this reads the classes that place it; the geometry is
-// tests/e2e/reflow-200.spec.ts's one-row case.
+// the theme toggle, a preference rather than a next step, leaves the bar for the mobile menu's first row,
+// so the bar is the logo, the account link and the menu button. Above 24rem it stays in the bar and the
+// menu has none. jsdom applies no media query, so this reads the classes and the order that place it; the
+// geometry is tests/e2e/reflow-200.spec.ts's one-row and 390x664 cases.
 describe('Header theme toggle placement', () => {
   const NARROW_HIDDEN = '[@media(max-width:24rem)]:hidden'
   const NARROW_SHOWN = '[@media(max-width:24rem)]:flex'
@@ -162,6 +162,28 @@ describe('Header theme toggle placement', () => {
     expect(row).toContain('hidden')
     expect(row).toContain(NARROW_SHOWN)
     expect(screen.getAllByTestId('theme-toggle')).toHaveLength(3)
+  })
+
+  // The header is sticky, so an open menu taller than the viewport never scrolls: the Theme row is the
+  // menu's first row, ahead of the nav links, so it opens directly under the bar (the 390x664 case in
+  // tests/e2e/reflow-200.spec.ts), and its toggle is the menu's first Tab stop.
+  it.each([
+    ['a guest', null],
+    ['a signed-in reader', mockUser],
+  ] as const)('puts the Theme row first in the open menu, for %s', async (_who, user) => {
+    vi.mocked(getCurrentUserSafe).mockResolvedValue(user)
+    renderHeader()
+    if (user) await screen.findByTestId('user-menu')
+    else await screen.findByRole('link', { name: ACCESS_COPY.invite.ctaShort })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }))
+    const menu = screen.getByRole('navigation', { name: 'Mobile navigation' })
+    const row = within(menu).getByTestId('theme-toggle').parentElement!
+    const items = [...menu.children]
+    const firstLink = within(menu).getAllByRole('link')[0]
+    expect(items.indexOf(row), "the Theme row is the menu's first row").toBe(0)
+    expect(items.indexOf(row), 'the Theme row precedes the first nav link').toBeLessThan(items.indexOf(firstLink))
+    expect(menu.querySelector('a[href], button')?.getAttribute('data-testid') ?? null, "the menu's first Tab stop is its theme toggle").toBe('theme-toggle')
   })
 })
 

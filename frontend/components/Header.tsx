@@ -193,10 +193,19 @@ export default function Header({
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile menu. A column with a gap, not space-y: above 24rem the Theme row is display:none, which a
+          gap skips, while space-y's sibling margin would still push the first link down. */}
       {mobileMenuOpen && (
         <div className="border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark lg:hidden">
-          <nav className="mx-auto max-w-7xl space-y-1 px-4 pb-4 pt-2" aria-label="Mobile navigation">
+          <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 pb-4 pt-2" aria-label="Mobile navigation">
+            {/* Below a 24rem viewport the theme toggle lives here, not in the bar (see the mobile actions), as the
+                menu's first row: directly under the bar, so it opens in view. The header is sticky, so a menu
+                taller than the viewport never scrolls, and a row at its end sat below the fold on a phone at
+                200% text (tests/e2e/reflow-200.spec.ts). */}
+            <div className="hidden items-center justify-between border-b border-border-light px-3 pb-3 dark:border-white/[0.06] [@media(max-width:24rem)]:flex">
+              <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">Theme</span>
+              <ThemeToggle className="min-h-11 min-w-11" />
+            </div>
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
@@ -207,7 +216,7 @@ export default function Header({
                 {link.label}
               </Link>
             ))}
-            <div className="mt-3 flex flex-col gap-2 border-t border-border-light pt-3 dark:border-white/[0.06]">
+            <div className="flex flex-col gap-2 border-t border-border-light pt-3 dark:border-white/[0.06]">
               {user ? (
                 <>
                   <div className="px-3 pb-1">
@@ -270,11 +279,6 @@ export default function Header({
                   <Skeleton className="h-9 w-full rounded-lg" />
                 </span>
               )}
-            </div>
-            {/* Below a 24rem viewport the theme toggle lives here, not in the bar (see the mobile actions). */}
-            <div className="mt-3 hidden items-center justify-between border-t border-border-light px-3 pt-3 dark:border-white/[0.06] [@media(max-width:24rem)]:flex">
-              <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">Theme</span>
-              <ThemeToggle className="min-h-11 min-w-11" />
             </div>
           </nav>
         </div>

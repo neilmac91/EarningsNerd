@@ -25,18 +25,21 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * the auth bar no two controls overlap, and no control's text paints beyond its own box sideways.
  *
  * The site header also keeps one row at 390px and 200% for a guest: below a 24rem viewport its theme
- * toggle moves into the mobile menu, so the bar is the logo, the account link and the menu button, and
- * the link's label wraps before the bar does. Before that the bar wrapped to two rows, 239px of an
- * 844px viewport (28%), sticky on every scroll. One row is asserted from the bar's own boxes: the
+ * toggle moves into the mobile menu's first row, so the bar is the logo, the account link and the menu
+ * button, and the link's label wraps before the bar does. Before that the bar wrapped to two rows, 239px
+ * of an 844px viewport (28%), sticky on every scroll. One row is asserted from the bar's own boxes: the
  * header is no taller than its tallest item plus the bar's vertical padding and the header's border
  * (one row's worth, 151px here with the label on two lines), where a second row adds that row and the
- * row gap. At 360px and 200% the "Request invite" label's longest word and the two controls do not
- * fit beside the logo, so the bar wraps there, the fallback, and this check is not made at that width.
+ * row gap; at 200% it is also held to 151px, the founder's measure, with 2px of tolerance, since a row
+ * that grows raises its own limit. At 360px and 200% the "Request invite" label's longest word and the
+ * two controls do not fit beside the logo, so the bar wraps there, the fallback, and this check is not
+ * made at that width. The open menu's toggle is in view on a 390x664 phone at 200%, guest or signed in.
  *
  * Consent is seeded, so the consent bar stays closed: it is fixed, adds nothing to the document's
  * scroll width, and its own reflow is not measured here. Light theme only, since a theme changes no
  * geometry. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is
- * answered in the browser, as a guest, and the filing page from fixtures/filing3Api.ts.
+ * answered in the browser, as a guest, and the filing page from fixtures/filing3Api.ts (for a guest, and
+ * for its Pro reader in the signed-in menu case).
  */
 
 type Route = {
@@ -170,11 +173,22 @@ const rows = (header: Locator) =>
 
 /** The one-row threshold: the header's measured height at most one row's worth (above), with a pixel
     for rounding. A second row adds at least a 44px control and the bar's 0.5rem row gap, so the margin
-    cannot hide one. */
-async function expectOneRow(header: Locator, at: string) {
+    cannot hide one. That limit rises with whatever grows inside the row (a label on a third line, a
+    taller mark, more padding), so where a ceiling is given the header is also held to it. */
+async function expectOneRow(header: Locator, at: string, ceiling?: number) {
   const r = await rows(header)
   expect(r.height, `${at}: the site header is one row, ${r.height}px against one row's worth ${r.oneRow}px (its tallest item ${r.tallest}px; item tops ${r.tops.join(', ')}px)`).toBeLessThanOrEqual(r.oneRow + 1)
+  if (ceiling !== undefined) {
+    expect(r.height, `${at}: the site header is at most ${ceiling}px, the founder's one-row measure with its tolerance (its tallest item ${r.tallest}px)`).toBeLessThanOrEqual(ceiling)
+  }
 }
+
+/** The founder's measure is the header's share of the viewport: one row at 390px and 200% text is 151px
+    (the bar's 24px padding above and below, the 102px account link with its label on two lines, the 1px
+    border), 18% of 844px. The ceiling allows 2px over it, a pixel for rounding the measured height and a
+    pixel for a fractional line box: a third line of the label adds 35px at 200%, so the tolerance cannot
+    hide one. */
+const HEADER_AT_200 = 151 + 2
 
 const why = ({ scrollWidth, clientWidth, widest }: Overflow) =>
   `scrollWidth ${scrollWidth}px against clientWidth ${clientWidth}px; past the edge: ${widest.join('; ') || 'nothing outside a clipping box'}`
@@ -247,7 +261,7 @@ for (const route of ROUTES) {
     const enlarged = await measure(page)
     expect(enlarged.scrollWidth, `${route.path} at 200% text: ${why(enlarged)}`).toBeLessThanOrEqual(enlarged.clientWidth)
     expect(await collisions(route.bar(page)), `${route.path} at 200% text: the bar's controls`).toEqual([])
-    if (route.oneRow) await expectOneRow(route.bar(page), `${route.path} at 200% text`)
+    if (route.oneRow) await expectOneRow(route.bar(page), `${route.path} at 200% text`, HEADER_AT_200)
   })
 }
 
@@ -273,6 +287,61 @@ test('home (/) moves the theme toggle into the mobile menu at 200% text', async 
   await expect(inMenu).toBeVisible()
   await inMenu.click()
   await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/)
+})
+
+/** Below 24rem the menu's Theme row is its first row, directly under the bar. The header is sticky, so an
+    open menu taller than the viewport never scrolls: with the row at the menu's end, a guest's toggle sat at
+    713-801px and a signed-in reader's at 979-1067px, below the fold of a phone whose toolbars leave 664px,
+    and neither scrolling nor focus brought it into view. Opened there at 200% text, the menu's toggle lies
+    wholly inside the viewport and switches the theme, for a guest and for a signed-in reader. */
+test.describe('a 390x664 phone at 200% text', () => {
+  test.use({ viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true })
+  const READERS = [
+    {
+      who: 'a guest',
+      path: '/',
+      open: answerGuest,
+      ready: (p: Page) => h1(p),
+      /** The menu's account items have settled: a guest's Log in link. */
+      settled: (menu: Locator) => menu.getByRole('link', { name: 'Log in' }),
+    },
+    {
+      who: 'a signed-in reader',
+      path: '/filing/3',
+      open: (p: Page, b: string) => answerApi(p, b, 'pro'),
+      ready: (p: Page) => expect(p.getByRole('navigation', { name: 'Jump to section' })).toBeVisible(),
+      settled: (menu: Locator) => menu.getByRole('button', { name: 'Log out' }),
+    },
+  ]
+  for (const reader of READERS) {
+    test(`${reader.path} for ${reader.who}: the open menu's theme toggle is in view and switches the theme`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('theme', 'light')
+          localStorage.setItem('en:copilot-coachmark-v1', '1')
+          localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+        } catch {}
+      })
+      await reader.open(page, baseURL!)
+      await page.goto(reader.path)
+      await reader.ready(page)
+      await page.evaluate(() => document.fonts.ready)
+      await doubleText(page)
+
+      await page.getByRole('button', { name: 'Open menu' }).click()
+      const menu = page.getByRole('navigation', { name: 'Mobile navigation' })
+      await expect(reader.settled(menu)).toBeVisible()
+      const toggle = menu.getByRole('button', { name: 'Switch to dark mode' })
+      await expect(toggle).toBeVisible()
+      const box = (await toggle.boundingBox())!
+      const { height } = page.viewportSize()!
+      const at = `the menu's theme toggle (${Math.round(box.y)}-${Math.round(box.y + box.height)}px)`
+      expect(box.y, `${at} starts inside the viewport`).toBeGreaterThanOrEqual(0)
+      expect(box.y + box.height, `${at} ends inside the ${height}px viewport`).toBeLessThanOrEqual(height)
+      await toggle.click()
+      await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/)
+    })
+  }
 })
 
 /** The header must not cover what is pinned under it. At 200% text the site header is about 151px
