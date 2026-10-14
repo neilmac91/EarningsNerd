@@ -71,3 +71,13 @@ tracked `build/` orphan, the renamed font variable and the commented-out `--font
 all at once — which is what makes "the gate was narrower than the rule" a measurement
 rather than a claim. Companion to `arch-structural-gates-over-prose-rules.md`, which says to
 build the gate; this one says how wide to build it.
+
+**Recurrence (2026-10-14, #1288)**: the voice gate's record promised sentence case on "headings,
+card and dialog titles, button labels and meta titles", while the spec read h1 to h3, four title
+props and two button tags. The founder's probe (a ModalHeader child, a CardTitle, a SecondaryHeader
+title, two links styled by `buttonVariants()`, an h4, an aria-label) stayed green, and the live
+"Cookie Preferences" dialog title was never counted. The fix read the record's words as the gate's
+extent: every heading level, the title components, any element whose className reaches the button
+factory, and the components found to render their children or title into one of those, found by a
+fixed-point pass over the tree instead of a hand list. Write the record's sentence from what the
+gate reads, and name the rest as review-checked.

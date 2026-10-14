@@ -34,7 +34,10 @@ const HAND_DRAWN: Array<[Glyph, RegExp]> = [
 type Counts = Partial<Record<Glyph, number>>
 
 const MEANING: Record<string, Counts> = {
-  // The AI summary's marks: the generating header and the summary card's head.
+  // The two heading sparkles (the generating header and the summary card's head). The design owner's
+  // call on #1288: they come off in brand-filing-page (#1293), which edits this file, and this entry is
+  // dropped in that merge; the sparkle then has no sanctioned site until an AI-summary chip exists
+  // (DESIGN.md › Icons: the AI summary chip alone; section headings carry no icon).
   'app/filing/[id]/StreamingSummaryDisplay.tsx': { SparkleIcon: 2 },
   // Source chips: a located passage (quotes) or an XBRL fact (braces).
   'features/filings/components/SourceTrace.tsx': { QuotesIcon: 1, BracketsCurlyIcon: 1 },

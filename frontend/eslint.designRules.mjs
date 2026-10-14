@@ -27,13 +27,17 @@
 //                       shows at once. The globals.css classes that stop themselves in a
 //                       reduced-motion block (SELF_GUARDED_ANIMATIONS) need no guard; the spec holds
 //                       each of them, and every other animation globals.css declares, to that block.
-//   locale-pinned-numbers  A number reads in one locale (en-US) whatever the viewer's browser says, so
-//                       `x.toLocaleString()` and `new Intl.NumberFormat()` with no locale, or with
-//                       `undefined` for it, are banned outside lib/format.ts (eslint.config.mjs turns
-//                       the rule off there). The receiver's type is not read, so a Date's
+//   locale-pinned-numbers  A number or a time reads in one locale (en-US) whatever the viewer's browser
+//                       says, so `x.toLocaleString()`, `x.toLocaleTimeString()` and
+//                       `new Intl.NumberFormat()` with no locale, or with `undefined` for it, are banned
+//                       outside lib/format.ts (eslint.config.mjs turns the rule off there).
+//                       `x.toLocaleDateString()` is not read here: eslint.config.mjs's date rule
+//                       (no-restricted-syntax) bans every call of it, pinned or not, and names
+//                       formatLocalDate, so reading it here too would report one call twice. The receiver's type is not read, so a Date's
 //                       toLocaleString() is caught too: the message names lib/format generally (fmtCount
 //                       and fmtDecimal for a number, a date helper for a date), or pass 'en-US'. A
-//                       locale the scan cannot read (a variable) passes.
+//                       locale the scan cannot read (a variable) passes. `Intl.DateTimeFormat` is not
+//                       read (its one call site, features/calendar/lib/dates.ts, pins 'en-CA').
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), a
@@ -201,6 +205,9 @@ export const noUnguardedAnimation = {
   },
 }
 
+/** The methods that format in the browser's locale when given none. */
+const LOCALE_METHODS = new Set(['toLocaleString', 'toLocaleTimeString'])
+
 /** Whether a call's locale argument is missing or the literal `undefined` (the browser's own locale). */
 const unpinnedLocale = (args) => args.length === 0 || (args[0].type === 'Identifier' && args[0].name === 'undefined')
 
@@ -212,15 +219,16 @@ export const localePinnedNumbers = {
     messages: {
       unpinned:
         '{{call}} with no locale renders in the viewer\'s browser locale. Format the value through the ' +
-        "lib/format.ts helper made for it, or pass 'en-US'.",
+        "lib/format.ts helper made for it (fmtCount or fmtDecimal for a number, a date helper for a date), " +
+        "or pass 'en-US'.",
     },
   },
   create(context) {
     return {
       CallExpression(node) {
         const callee = node.callee
-        if (callee.type !== 'MemberExpression' || callee.computed || callee.property.name !== 'toLocaleString') return
-        if (unpinnedLocale(node.arguments)) context.report({ node, messageId: 'unpinned', data: { call: 'toLocaleString()' } })
+        if (callee.type !== 'MemberExpression' || callee.computed || !LOCALE_METHODS.has(callee.property.name)) return
+        if (unpinnedLocale(node.arguments)) context.report({ node, messageId: 'unpinned', data: { call: `${callee.property.name}()` } })
       },
       NewExpression(node) {
         const callee = node.callee

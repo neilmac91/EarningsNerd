@@ -150,15 +150,25 @@ that PR:
 
 - `no-em-dash-copy.spec.ts`: a literal is exempt only when it is exactly the bare missing-value
   token (a lone em-dash), and a JSX text trimming to it only as the sole child of its element; the
-  summary's quote attribution loses its dash.
+  summary's quote attribution loses its dash: the speaker stands alone on its own line under the
+  quotation, the one device D-031 names for the page and the PDF (the CSV keeps a speaker column).
 - `brandCopyRules.spec.ts`: the public scope is walked from the public routes through the import
   graph (`tests/unit/importWalk.ts`), not listed, so a product component a public page renders
   (SourceTrace, FinancialMetricsTable, CompanySearch) is held to rules 1c and 2.
-- `brandVoiceRules.spec.ts` (new): sentence case on headings, card and dialog titles, button labels
-  and meta titles; no exclamation mark, emoji or banned buzzword in copy; no icon inside a heading;
-  no developer wording ("backend", an API path, "reader", an HTTP status) in `lib/` and `hooks/`.
-- `reservedGlyphs.spec.ts` (new): the quotes glyph marks a filing passage, the braces an XBRL fact
-  and the sparkle the AI summary, nowhere else; a hand-drawn stand-in or the ✨ emoji counts.
+- `brandVoiceRules.spec.ts` (new): sentence case on headings h1 to h6, dialog and card titles
+  (`ModalHeader`, `CardTitle`, `CardHeader`), the title prop of `GuidanceCard`, `Notice`, `Modal`,
+  `SecondaryHeader` and `UpgradeModal`, button labels (a `<Link>` or `<a>` whose className reaches
+  `buttonVariants()` included), every aria-label and meta titles, plus the components found across
+  the tree to render their children or title into one of those; a label passed through a renamed
+  variable, a spread or a helper function is review-checked
+  (`lessons/test-gates-must-be-as-wide-as-their-rule.md`); no exclamation mark, emoji or banned
+  buzzword in copy, a placeholder included; no icon inside a heading; no developer wording
+  ("backend", an API path, "reader", an HTTP status) in `lib/` and `hooks/`.
+- `reservedGlyphs.spec.ts` (new): the quotes glyph marks a filing passage and the braces an XBRL
+  fact, nowhere else; the sparkle belongs to an AI-summary chip, which does not exist yet, so it has
+  no sanctioned site: the two heading sparkles in `StreamingSummaryDisplay.tsx` stay listed only until
+  brand-filing-page removes them and drops their entry in the same merge; a hand-drawn stand-in or
+  the ✨ emoji counts.
 - `backendMessageMatches.spec.ts` (new): every phrase the frontend routes the paywall, the no-retry
   path, the verification event, the dashboard's sign-in redirect or the contact form's rate-limit
   sentence on is written by the code that raises the message (docstrings do not count), or is listed
@@ -169,7 +179,9 @@ that PR:
   scan's limit.
 - ESLint: the raw-colour rule reads `rgb()`, `rgba()`, `hsl()` and `hsla()` as well as hex, in an
   arbitrary utility too; `earningsnerd/locale-pinned-numbers` (new) bans an unpinned
-  `toLocaleString()` or `Intl.NumberFormat` outside `lib/format.ts` (`fmtCount`, `fmtDecimal`).
+  `toLocaleString()`, `toLocaleTimeString()` or `Intl.NumberFormat` outside `lib/format.ts`
+  (`fmtCount`, `fmtDecimal`, or a date helper for a date); `toLocaleDateString()` was already banned
+  outright by the date rule in `eslint.config.mjs`, which names `formatLocalDate`.
 - `siteChromeFocusRing.spec.ts`: the page scan discovers every route's page and the feature
   modules it reaches, in place of four named routes.
 

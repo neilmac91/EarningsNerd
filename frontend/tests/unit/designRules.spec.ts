@@ -184,6 +184,9 @@ ruleTester.run('locale-pinned-numbers', localePinnedNumbers, {
     "n.toLocaleString('en-US', { maximumFractionDigits: 2 })",
     'n.toLocaleString(locale)',
     "new Intl.NumberFormat('en-US', { style: 'percent' })",
+    "d.toLocaleTimeString('en-US')",
+    // Held by the date rule in eslint.config.mjs (every call, pinned or not), not reported twice.
+    'd.toLocaleDateString()',
     "fmtCount(n)",
     // A computed member is not the method by name.
     'n[method]()',
@@ -193,6 +196,7 @@ ruleTester.run('locale-pinned-numbers', localePinnedNumbers, {
     { code: 'Math.round(v).toLocaleString()', errors: [{ messageId: 'unpinned' }] },
     { code: 'value.toLocaleString(undefined, { maximumFractionDigits: 2 })', errors: [{ messageId: 'unpinned' }] },
     { code: 'new Intl.NumberFormat()', errors: [{ messageId: 'unpinned' }] },
+    { code: 'new Date(t).toLocaleTimeString(undefined, { hour: "numeric" })', errors: [{ messageId: 'unpinned', data: { call: 'toLocaleTimeString()' } }] },
     { code: 'new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 })', errors: [{ messageId: 'unpinned' }] },
   ],
 })
@@ -277,13 +281,14 @@ describe('the repository config', SLOW, () => {
     expect(result.messages.every((m) => m.severity === 2)).toBe(true)
   })
 
-  it('reads a raw colour in rgba()/hsla() and an unpinned number format on app code, and spares lib/format.ts', async () => {
+  it('reads a raw colour in rgba()/hsla() and an unpinned number, time or date format on app code, and spares lib/format.ts', async () => {
     const eslint = new ESLint({ cwd: frontendRoot })
     const probe = [
       'export function Probe({ n }: { n: number }) {',
       '  return (',
       '    <div className="shadow-e3 dark:shadow-[0_20px_50px_rgba(15,23,42,0.45)]">',
       '      <span style={{ color: `hsla(120, 20%, 40%, 0.5)` }}>{n.toLocaleString()}</span>',
+      '      <time>{new Date(n).toLocaleTimeString()} {new Date(n).toLocaleDateString()}</time>',
       '    </div>',
       '  )',
       '}',
@@ -294,6 +299,9 @@ describe('the repository config', SLOW, () => {
       '3 no-restricted-syntax',
       '4 earningsnerd/locale-pinned-numbers',
       '4 no-restricted-syntax',
+      // A time through this rule, a date through the date rule: each call reported once.
+      '5 earningsnerd/locale-pinned-numbers',
+      '5 no-restricted-syntax',
     ])
     // The formatter module is the one place a formatter is built; it pins en-US itself.
     const [format] = await eslint.lintText('export const raw = (n: number) => n.toLocaleString()\n', {

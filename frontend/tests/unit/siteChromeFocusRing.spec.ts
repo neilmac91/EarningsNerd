@@ -107,6 +107,7 @@ const RING_RESIDUE: Record<string, number> = {
   'features/companies/components/CompanyIdentity.tsx': 2, // brand-company-page
   'features/companies/components/CompanySearch.tsx': 1, // brand-company-page
   'features/contact/components/ContactForm.tsx': 1, // brand-contact-security-presentation
+  'features/filing-redlines/components/FilingRedlines.tsx': 1, // labs prototype from main (#1252, default-off; E26's owners): its ring sits in a module const the scan cannot read
   'features/filings/components/FilingIdentity.tsx': 3, // brand-company-page
   'features/filings/components/FilingsHistoryNote.tsx': 1, // brand-company-page
   'features/filings/components/SourceTrace.tsx': 6, // brand-filing-page
@@ -128,6 +129,7 @@ const RING_RESIDUE: Record<string, number> = {
   'features/marketing/components/PricingSection.tsx': 2, // brand-public-pages
   'features/marketing/components/TraceToSourceDemo.tsx': 1, // brand-public-pages
   'features/peers/components/PeerComparisonPanel.tsx': 3, // brand-company-page
+  'features/research-evidence-packs/components/ResearchEvidencePacks.tsx': 1, // labs prototype from main (#1253, default-off; E26's owners): its ring sits in a module const the scan cannot read
   'features/search/components/FullTextSearch.tsx': 4, // brand-calendar-search
   'features/subscriptions/components/PeekLocked.tsx': 1, // brand-settings-subscriptions
   'features/subscriptions/components/TrialBanner.tsx': 1, // brand-settings-subscriptions
@@ -136,7 +138,7 @@ const RING_RESIDUE: Record<string, number> = {
   'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
   'features/watchlist/components/PopularTickerChips.tsx': 1, // brand-dashboard-watchlist
 }
-const RING_RESIDUE_MAX = { files: 52, stops: 146 }
+const RING_RESIDUE_MAX = { files: 54, stops: 148 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the
