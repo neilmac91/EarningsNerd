@@ -50,7 +50,8 @@ const PROPER_NOUNS = [
 
 /**
  * Titles owned by other open PRs or by off-limits pages, pinned exactly. An entry whose file no longer
- * carries its title fails as stale, so the list only shrinks: delete the entry when its fix lands.
+ * carries its title fails as stale, so the list only shrinks: delete the entry when its fix lands, and lower
+ * RESIDUE_MAX with it in the same commit.
  */
 const TITLE_RESIDUE: Record<string, { title: string; why: string }> = {
   'app/contact/page.tsx': { title: 'Contact Us | EarningsNerd', why: 'recased by brand-contact-security-presentation' },
@@ -64,6 +65,8 @@ const DESCRIPTION_RESIDUE: Record<string, { text: string; why: string }> = {
     why: 'legal page, edited only with a legal-date bump',
   },
 }
+/** Each residue's size, an equality (lessons/test-allowlist-caps-are-equalities.md, D-040): it moves with its list. */
+const RESIDUE_MAX = { titles: 4, descriptions: 1 }
 
 /** Each route by its directory under app/ ('' is the home page). Private routes stay out of the index. */
 const PRIVATE_ROUTES = [
@@ -334,6 +337,13 @@ describe('route metadata: every route names itself, page first and brand last', 
   it.each(Object.entries(DESCRIPTION_RESIDUE))('residue %s still carries its pinned description (delete the entry once fixed)', (name, { text }) => {
     const rf = byPath.get(name)
     expect(rf?.metadata && metadataTexts(rf, rf.metadata).descriptions, `stale residue: ${name}`).toContain(text)
+  })
+
+  it('holds each residue at its size (an equality, never a ceiling)', () => {
+    expect(Object.keys(TITLE_RESIDUE).length, 'TITLE_RESIDUE changed its entries: move RESIDUE_MAX.titles with it in the same commit').toBe(RESIDUE_MAX.titles)
+    expect(Object.keys(DESCRIPTION_RESIDUE).length, 'DESCRIPTION_RESIDUE changed its entries: move RESIDUE_MAX.descriptions with it in the same commit').toBe(
+      RESIDUE_MAX.descriptions,
+    )
   })
 
   it.each(PRIVATE_ROUTES.map((r) => [r] as const))('private route /%s stays out of the index', (route) => {
