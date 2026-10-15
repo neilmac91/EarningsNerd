@@ -149,14 +149,24 @@ const NUMBER_WORDS = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|tw
 /** A length: digits or a number word at a word's start, or a value the reader could not resolve. */
 const LENGTH = `(?:\\b(?:\\d+|${NUMBER_WORDS})|${GAP})`
 
-/** Whether a piece of copy types a trial length: the trial's own "7 days", or any length in days or weeks
-    (digits, a number word, or a value the reader could not resolve) beside "trial" or "days free". A count
-    of what is left ("{n} days left in your Pro trial", the billing countdown) is not a length. */
-function typesTrialLength(raw: string): boolean {
-  const text = raw.replace(SPACE_FORMS, ' ').replace(HYPHEN_FORMS, '-').replace(/\s+/g, ' ')
-  if (new RegExp(`\\b${TRIAL_DAYS}[- ]days?\\b`, 'i').test(text)) return true
-  const trialContext = /\btrial\b|\bdays? free\b|\bweeks? free\b/i.test(text)
-  return trialContext && new RegExp(`${LENGTH}[- ](?:days?|weeks?)\\b(?! (?:left|remaining|ago)\\b)`, 'i').test(text)
+const normalized = (raw: string) => raw.replace(SPACE_FORMS, ' ').replace(HYPHEN_FORMS, '-').replace(/\s+/g, ' ')
+/** Where a piece of copy types a trial length (an index in its normalized text), or -1: the trial's own
+    "7 days", or any length in days or weeks (digits, a number word, or a value the reader could not
+    resolve) beside "trial" or "days free". A count of what is left ("{n} days left in your Pro trial", the
+    billing countdown) is not a length. */
+function trialLengthAt(raw: string): number {
+  const text = normalized(raw)
+  const own = text.search(new RegExp(`\\b${TRIAL_DAYS}[- ]days?\\b`, 'i'))
+  if (own >= 0) return own
+  if (!/\btrial\b|\bdays? free\b|\bweeks? free\b/i.test(text)) return -1
+  return text.search(new RegExp(`${LENGTH}[- ](?:days?|weeks?)\\b(?! (?:left|remaining|ago)\\b)`, 'i'))
+}
+const typesTrialLength = (raw: string) => trialLengthAt(raw) >= 0
+/** The words around the length a piece of copy types, for a failure message. */
+const aroundLength = (raw: string) => {
+  const text = normalized(raw)
+  const at = trialLengthAt(raw)
+  return `${at > 30 ? '…' : ''}${text.slice(Math.max(0, at - 30), at + 50).trim()}${at + 50 < text.length ? '…' : ''}`
 }
 
 const PLAN_LIMITS = /(?:^|\/)planLimits$/
@@ -371,8 +381,8 @@ export function trialReader(sf: ts.SourceFile): TrialReader {
   visit(sf)
   const typed = copy
     .filter(({ text }) => typesTrialLength(text))
-    .map(({ node, text }) => ({ line: line(node), text: text.replace(new RegExp(GAP, 'g'), '{…}').replace(new RegExp(TRIAL, 'g'), '{TRIAL_DAYS}').trim() }))
-  // One line per piece of copy: a root and a literal inside it can type the same length.
+    .map(({ node, text }) => ({ line: line(node), text: aroundLength(text).replace(new RegExp(GAP, 'g'), '{…}').replace(new RegExp(TRIAL, 'g'), '{TRIAL_DAYS}') }))
+  // One entry per line and length: a root, its readings and a literal inside it can type the same one.
   const unique = new Map(typed.map((t) => [`${t.line} ${t.text}`, t]))
   return { reads, typed: [...unique.values()] }
 }
@@ -415,14 +425,14 @@ describe('the Pro trial length is stated only through TRIAL_DAYS, and only while
       if (rel === path.join('lib', 'planLimits.ts')) continue
       const typed = isCode(file)
         ? readerOf(file).typed
-        : readFileSync(file, 'utf8').split('\n').flatMap((text, i) => (typesTrialLength(text) ? [{ line: i + 1, text: text.trim() }] : []))
+        : readFileSync(file, 'utf8').split('\n').flatMap((text, i) => (typesTrialLength(text) ? [{ line: i + 1, text: aroundLength(text) }] : []))
       for (const { line, text } of typed) {
         const key = `${rel} ${text}`
         if (key in NOT_THE_TRIAL) {
           allowed.add(key)
           continue
         }
-        offenders.push(`${rel}:${line} ${text.slice(0, 80)}`)
+        offenders.push(`${rel}:${line} ${text}`)
       }
     }
     expect(offenders, 'write the trial length as {TRIAL_DAYS} from lib/planLimits').toEqual([])
