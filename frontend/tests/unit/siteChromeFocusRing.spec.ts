@@ -7,7 +7,8 @@ import tailwindcss, { type Config } from 'tailwindcss'
 import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { bindingResolver } from './astBindings'
+import { countControlClass, type CountControlKind } from '@/components/ui/countControl'
+import { bindingResolver, type Binding } from './astBindings'
 import { isLocal, lazyImport, routeFiles, walkImports } from './importWalk'
 
 /**
@@ -24,12 +25,21 @@ import { isLocal, lazyImport, routeFiles, walkImports } from './importWalk'
  * tabIndex the scan cannot prove negative: 0 or more, or a dynamic value such as a roving
  * `tabIndex={selected ? 0 : -1}`, and any contentEditable region the scan cannot prove off). Its className
  * must carry the whole triple, or be the DS factory `buttonVariants(…)`, which composes it (pinned below).
- * A className the scan cannot read (a variable, a call to anything but `buttonVariants` and the DS joiner
- * `cx`) fails: the ring has to be visible in the file. Dynamic parts (a template's `${…}`, a conditional
- * or variable argument of `cx(…)`) are ignored, so the triple must sit in the static text. A props spread
- * fails too, on any element, since it may supply a tabIndex or a className; the one spread the scan reads
- * is a component's own rest props passed to the element that takes its className, as the DS primitives
- * write it (see ownRestProps). Three natively tabbable shapes fail whatever their className, since the
+ * The scan reads a className as the file writes it: a string, a template's static text, `cx(…)` (the DS
+ * joiner) by its readable arguments, `buttonVariants(…)` as the factory, and two more sources of classes.
+ * `countControlClass(…)` imported from `@/components/ui` (the barrel or components/ui/countControl.ts, under
+ * any local name, a namespace member included) is read as the classes the recipe itself returns for the kind
+ * it names: the spec calls the recipe, so the ring is read off it, not trusted by name, and a kind the scan
+ * cannot read counts as the classes every kind countControl.ts declares shares. A `const` the file declares
+ * (at module level or in the function that renders the control) is read as its initializer, read the same
+ * way: `const RING = '…'` composed into `cx(…, RING)`, or `const LINK = cx('…', countControlClass('link'))`
+ * written as the whole className. Anything else (a `let`, a parameter, an import, a field, a call to any
+ * other function) is unreadable: as the whole className it fails, since the ring has to be visible in the
+ * file or come from a recipe the scan reads; as a part (a template's `${…}`, a conditional, an argument of
+ * `cx(…)` the scan cannot read) it is dynamic and ignored, so the triple must sit in what the scan reads.
+ * A props spread fails too, on any element, since it may supply a tabIndex or a className; the one spread
+ * the scan reads is a component's own rest props passed to the element that takes its className, as the DS
+ * primitives write it (see ownRestProps). Three natively tabbable shapes fail whatever their className, since the
  * browser focuses something no class on them reaches (see unstylableStop): an <iframe> in the Tab order,
  * <audio> or <video> with `controls`, and a <details> with no <summary> of its own.
  *
@@ -251,29 +261,70 @@ interface Finding {
   problem: string
 }
 
+/** The count control's recipe, under the modules a file can import it from (`moduleKey`'s form). */
+const COUNT_CONTROL_IMPORTS = { 'components/ui/index': ['countControlClass'], 'components/ui/countControl': ['countControlClass'] }
+/** The count control's kinds, read off the union components/ui/countControl.ts declares (`CountControlKind`), so a
+    kind added there is read here without anyone listing it. */
+const COUNT_KINDS: string[] = (() => {
+  const file = path.join(ROOT, 'components/ui/countControl.ts')
+  const sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+  const alias = sf.statements.find((s): s is ts.TypeAliasDeclaration => ts.isTypeAliasDeclaration(s) && s.name.text === 'CountControlKind')
+  const members = alias && ts.isUnionTypeNode(alias.type) ? alias.type.types : alias ? [alias.type] : []
+  const kinds = members.flatMap((m) => (ts.isLiteralTypeNode(m) && ts.isStringLiteral(m.literal) ? [m.literal.text] : []))
+  if (!kinds.length) throw new Error('components/ui/countControl.ts declares no CountControlKind the scan can read')
+  return kinds
+})()
+const splitClasses = (text: string) => text.split(/\s+/).filter(Boolean)
+/** The classes a `countControlClass(…)` call returns: the recipe's own, called with the kind the call names, or,
+    for a kind the scan cannot read (`countControlClass(kind)`), the classes every declared kind shares. */
+function countControlTokens(arg: ts.Expression | undefined): string[] {
+  const named = arg && (ts.isStringLiteral(arg) || ts.isNoSubstitutionTemplateLiteral(arg)) ? arg.text : undefined
+  if (named !== undefined && COUNT_KINDS.includes(named)) return splitClasses(countControlClass(named as CountControlKind))
+  const lists = COUNT_KINDS.map((kind) => splitClasses(countControlClass(kind as CountControlKind)))
+  return lists[0].filter((token) => lists.every((list) => list.includes(token)))
+}
+
+/** What a file's class expressions are read with: its bindings, to follow a `const` to its initializer, and the
+    count control's recipe under the names the file imports it as. */
+interface ClassContext {
+  resolve: (ref: ts.Identifier) => Binding | undefined
+  isCountControl: (callee: ts.Expression) => boolean
+}
+const classContext = (sf: ts.SourceFile): ClassContext => ({ resolve: bindingResolver(sf), isCountControl: importedName(sf, COUNT_CONTROL_IMPORTS) })
+
 /** The static class tokens of a className attribute, `'factory'` for buttonVariants(…), or null if unreadable. */
-function classTokens(init: ts.JsxAttributeValue | undefined): string[] | 'factory' | null {
+function classTokens(init: ts.JsxAttributeValue | undefined, ctx: ClassContext): string[] | 'factory' | null {
   if (!init) return null
   const expr = ts.isJsxExpression(init) ? init.expression : init
-  return expr ? expressionTokens(expr) : null
+  return expr ? expressionTokens(expr, ctx) : null
 }
 
 /**
  * A class expression's static tokens: a string, a template's static text, `buttonVariants(…)` as
- * 'factory', and `cx(…)`, the DS class joiner (components/ui/cx.ts) the primitives write their classes
- * with, as the tokens of its readable arguments. A conditional or variable argument (`loading && '…'`,
- * the caller's className) is dynamic and ignored, like a template's `${…}`. null: unreadable.
+ * 'factory', `countControlClass(…)` as the classes the recipe returns (countControlTokens), a `const` the
+ * file declares as the tokens of its initializer (a type assertion or parentheses around it read through;
+ * `seen` ends a const that reaches itself), and `cx(…)`, the DS class joiner (components/ui/cx.ts) the
+ * primitives write their classes with, as the tokens of its readable arguments. A conditional, a parameter,
+ * a `let` or any other argument the scan cannot read (`loading && '…'`, the caller's className) is dynamic
+ * and ignored, like a template's `${…}`. null: unreadable.
  */
-function expressionTokens(expr: ts.Expression): string[] | 'factory' | null {
-  if (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) return expr.text.split(/\s+/).filter(Boolean)
-  if (ts.isTemplateExpression(expr)) {
-    const text = [expr.head.text, ...expr.templateSpans.map((s) => s.literal.text)].join(' ')
-    return text.split(/\s+/).filter(Boolean)
+function expressionTokens(expr: ts.Expression, ctx: ClassContext, seen: ReadonlySet<ts.Node> = new Set()): string[] | 'factory' | null {
+  if (ts.isParenthesizedExpression(expr) || ts.isAsExpression(expr) || ts.isSatisfiesExpression(expr) || ts.isNonNullExpression(expr)) {
+    return expressionTokens(expr.expression, ctx, seen)
   }
+  if (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) return splitClasses(expr.text)
+  if (ts.isTemplateExpression(expr)) return splitClasses([expr.head.text, ...expr.templateSpans.map((s) => s.literal.text)].join(' '))
+  if (ts.isIdentifier(expr)) {
+    const decl = ctx.resolve(expr)?.decl
+    if (!decl || !ts.isVariableDeclaration(decl) || !decl.initializer || seen.has(decl)) return null
+    if (!(ts.getCombinedNodeFlags(decl) & ts.NodeFlags.Const)) return null
+    return expressionTokens(decl.initializer, ctx, new Set([...seen, decl]))
+  }
+  if (ts.isCallExpression(expr) && ctx.isCountControl(expr.expression)) return countControlTokens(expr.arguments[0])
   if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression)) {
     if (expr.expression.text === 'buttonVariants') return 'factory'
     if (expr.expression.text === 'cx') {
-      const parts = expr.arguments.map((arg) => expressionTokens(arg))
+      const parts = expr.arguments.map((arg) => expressionTokens(arg, ctx, seen))
       return parts.includes('factory') ? 'factory' : parts.flatMap((part) => (Array.isArray(part) ? part : []))
     }
   }
@@ -490,6 +541,7 @@ function classify(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.
 function scan(root: ts.Node, sf: ts.SourceFile, fieldsSeparately = false): { stops: number; findings: Finding[] } {
   // next/link's default export under whatever name the file imports it as.
   const linkNames = defaultImportNames(sf, (m) => m === 'next/link')
+  const ctx = classContext(sf)
   const findings: Finding[] = []
   let stops = 0
   const visit = (node: ts.Node): void => {
@@ -499,7 +551,7 @@ function scan(root: ts.Node, sf: ts.SourceFile, fieldsSeparately = false): { sto
         stops += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
         const className = attr('className')
-        const tokens = classTokens(className?.initializer)
+        const tokens = classTokens(className?.initializer, ctx)
         if (unstylable) findings.push({ line, tag, problem: unstylable })
         else if (spread) findings.push({ line, tag, problem: 'a props spread the scan cannot read' })
         else if (!className) findings.push({ line, tag, problem: 'no className, so the browser default outline' })
@@ -1056,6 +1108,51 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       'div: a props spread the scan cannot read',
       'NextLink: a props spread the scan cannot read',
       'Menu: a props spread the scan cannot read',
+    ])
+  })
+
+  // The count control's recipe (components/ui/countControl.ts) and a const the file declares are read by what they
+  // hold: the recipe by calling it, so a ring dropped from its INK flags every count control here and in the app.
+  it('the scan reads the count control recipe and a const by what they hold (a self-check on fixed sources)', () => {
+    const ring = 'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
+    expect(COUNT_KINDS, 'the kinds countControl.ts declares').toEqual(expect.arrayContaining(['button', 'link', 'inline', 'summary']))
+    const src = `
+      import NextLink from 'next/link'
+      import { countControlClass, cx } from '@/components/ui'
+      import { countControlClass as countControl } from '@/components/ui/countControl'
+      import * as UI from '@/components/ui'
+      const RING = '${ring}'
+      const LOCATOR = cx('inline-flex gap-1', countControl('link'))
+      let LOOSE = '${ring}'
+      export function A({ kind, open }: { kind: CountControlKind; open: boolean }) {
+        const own = cx('h-8 px-2', RING) as string
+        return (
+          <nav>
+            <NextLink href="/a" className={cx('rounded', countControlClass('link'))}>See all 4 companies</NextLink>
+            <NextLink href="/b" className={cx('rounded')}>See all 4 companies</NextLink>
+            <button className={cx('h-8 px-2', RING, open ? 'a' : 'b')}>Reviewed</button>
+            <button className={cx('h-8 px-2', open ? 'a' : 'b')}>Reviewed</button>
+            <a href="/c" className={LOCATOR}>Item 7</a>
+            <summary className={UI.countControlClass(kind)}>Show 3 figures</summary>
+            <button className={own}>Follow up</button>
+            <button className={cx('h-8 px-2', LOOSE)}>Reviewed</button>
+          </nav>
+        )
+      }
+      export function B() {
+        const countControlClass = (kind: string) => kind
+        return <a href="/d" className={countControlClass('link')}>See all 4 companies</a>
+      }`
+    const { stops, findings } = missingRings(src)
+    expect(stops).toBe(9)
+    expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
+      // The recipe removed from the count link, and the const removed from the button.
+      '14 <NextLink> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      '16 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      // A let may be reassigned, so its ring is not read.
+      '20 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      // A local function of the recipe's name is not the recipe.
+      '26 <a> a className the scan cannot read',
     ])
   })
 
