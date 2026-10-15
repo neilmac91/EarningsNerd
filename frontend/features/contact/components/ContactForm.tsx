@@ -12,6 +12,9 @@ import { Notice } from '@/components/ui/Notice'
 import { ApiError } from '@/lib/api/client'
 import { getErrorStatus } from '@/lib/api/types'
 
+/** The message maximum as the hint and the refusal print it (2,000). */
+const MESSAGE_MAX = CONTACT_LIMITS.messageMax.toLocaleString('en-US')
+
 const RATE_LIMITED = 'Too many messages from this connection. Try again in an hour.'
 const CHECK_FIELDS = 'Check the fields and send again.'
 const SEND_FAILED = "We couldn't send your message. Try again in a minute."
@@ -63,13 +66,19 @@ export default function ContactForm() {
     setError(null)
     setSuccess(false)
 
-    // Client-side validation
+    // Client-side validation. Lengths are checked in code points, as the server's len() counts them;
+    // the fields carry no native maxLength, which counts UTF-16 units and would cut an emoji-heavy
+    // message the server accepts.
     if (!name.trim()) {
       setError('Please enter your name.')
       return
     }
     if (trimmedLength(name) < CONTACT_LIMITS.nameMin) {
       setError(`Your name needs at least ${CONTACT_LIMITS.nameMin} characters.`)
+      return
+    }
+    if (trimmedLength(name) > CONTACT_LIMITS.nameMax) {
+      setError(`Your name can be at most ${CONTACT_LIMITS.nameMax} characters.`)
       return
     }
     if (!email.trim()) {
@@ -80,12 +89,20 @@ export default function ContactForm() {
       setError('Please enter a valid email address.')
       return
     }
+    if (trimmedLength(subject) > CONTACT_LIMITS.subjectMax) {
+      setError(`Your subject can be at most ${CONTACT_LIMITS.subjectMax} characters.`)
+      return
+    }
     if (!message.trim()) {
       setError('Please enter a message.')
       return
     }
     if (trimmedLength(message) < CONTACT_LIMITS.messageMin) {
       setError(`Your message needs at least ${CONTACT_LIMITS.messageMin} characters.`)
+      return
+    }
+    if (trimmedLength(message) > CONTACT_LIMITS.messageMax) {
+      setError(`Your message can be at most ${MESSAGE_MAX} characters.`)
       return
     }
 
@@ -181,7 +198,6 @@ export default function ContactForm() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            maxLength={CONTACT_LIMITS.nameMax}
             readOnly={isSubmitting}
             className="mt-2"
             placeholder="Your name"
@@ -223,7 +239,6 @@ export default function ContactForm() {
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            maxLength={CONTACT_LIMITS.subjectMax}
             readOnly={isSubmitting}
             className="mt-2"
             placeholder="How can we help?"
@@ -244,14 +259,13 @@ export default function ContactForm() {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             required
-            maxLength={CONTACT_LIMITS.messageMax}
             readOnly={isSubmitting}
             rows={6}
             className={clsx(inputClasses(), 'mt-2')}
             placeholder="What happened, or what you'd like to know"
           />
           <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-            Minimum {CONTACT_LIMITS.messageMin} characters
+            {CONTACT_LIMITS.messageMin} to {MESSAGE_MAX} characters
           </p>
         </div>
 

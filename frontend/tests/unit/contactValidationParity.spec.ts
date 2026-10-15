@@ -15,9 +15,10 @@ import { CONTACT_LIMITS, isPlausibleEmail } from '@/features/contact/lib/limits'
  * types the email `EmailStr`; a value the form let through and the server refused came back as a 422
  * the reader could not act on (a one-letter name did, before this gate, and so did `ada@gmail`). This
  * spec reads the Python and holds `features/contact/lib/limits.ts` to it, then renders the form to
- * show the limits are the ones it applies: each field's maxLength, a name or message one character
- * short (in code points, as Python's `len` counts) and an email `EmailStr` refuses, each refused
- * before any request.
+ * show the limits are the ones it applies: a name or message one character short, a name, subject or
+ * message one character long (in code points, as Python's `len` counts: no field carries a native
+ * maxLength, which counts UTF-16 units and would cut a message of 2,000 emoji the server accepts) and
+ * an email `EmailStr` refuses, each refused before any request; the maximum in emoji is sent whole.
  */
 
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -135,14 +136,15 @@ describe('contact form limits equal the backend schema', () => {
     expect(verdicts).toEqual(Object.fromEntries(EMAIL_SAMPLES))
   })
 
-  it('the form applies those limits: maxLength on each field, and a value one short or an email EmailStr refuses is refused before any request', () => {
+  it('the form applies those limits in code points: no native maxLength, and a value one short, one long or an email EmailStr refuses is refused before any request', () => {
     render(createElement(ContactForm))
     const name = screen.getByLabelText(/^Name/)
     const subject = screen.getByLabelText('Subject')
     const message = screen.getByLabelText(/^Message/)
-    expect(name).toHaveAttribute('maxLength', String(CONTACT_LIMITS.nameMax))
-    expect(subject).toHaveAttribute('maxLength', String(CONTACT_LIMITS.subjectMax))
-    expect(message).toHaveAttribute('maxLength', String(CONTACT_LIMITS.messageMax))
+    // A native maxLength counts UTF-16 units and would cut an emoji-heavy value the server accepts.
+    expect(name).not.toHaveAttribute('maxLength')
+    expect(subject).not.toHaveAttribute('maxLength')
+    expect(message).not.toHaveAttribute('maxLength')
 
     const send = screen.getByRole('button', { name: 'Send message' })
     fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'ada@example.com' } })
@@ -168,10 +170,43 @@ describe('contact form limits equal the backend schema', () => {
       `Your message needs at least ${CONTACT_LIMITS.messageMin} characters.`,
     )
 
+    // One over each maximum, in code points, is refused with the sentence that names the bound: the
+    // message case is astral, so its UTF-16 length is twice the count the server would refuse it on.
+    fireEvent.change(message, { target: { value: 'A message long enough.' } })
+    fireEvent.change(name, { target: { value: 'A'.repeat(CONTACT_LIMITS.nameMax + 1) } })
+    fireEvent.click(send)
+    expect(screen.getByRole('alert')).toHaveTextContent(`Your name can be at most ${CONTACT_LIMITS.nameMax} characters.`)
+
+    fireEvent.change(name, { target: { value: 'A'.repeat(CONTACT_LIMITS.nameMin) } })
+    fireEvent.change(subject, { target: { value: 'S'.repeat(CONTACT_LIMITS.subjectMax + 1) } })
+    fireEvent.click(send)
+    expect(screen.getByRole('alert')).toHaveTextContent(`Your subject can be at most ${CONTACT_LIMITS.subjectMax} characters.`)
+
+    fireEvent.change(subject, { target: { value: '' } })
+    fireEvent.change(message, { target: { value: '\u{1F600}'.repeat(CONTACT_LIMITS.messageMax + 1) } })
+    fireEvent.click(send)
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      `Your message can be at most ${CONTACT_LIMITS.messageMax.toLocaleString('en-US')} characters.`,
+    )
+
     fireEvent.change(message, { target: { value: 'A message long enough.' } })
     fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'ada@gmail' } })
     fireEvent.click(send)
     expect(screen.getByRole('alert')).toHaveTextContent('Please enter a valid email address.')
     expect(api.submitContactForm).not.toHaveBeenCalled()
+  })
+
+  it('a message of the maximum in emoji, twice that in UTF-16 units, is sent whole', async () => {
+    api.submitContactForm.mockResolvedValue({})
+    render(createElement(ContactForm))
+    const message = '\u{1F600}'.repeat(CONTACT_LIMITS.messageMax)
+    expect(message.length).toBe(CONTACT_LIMITS.messageMax * 2)
+    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Ada Lovelace' } })
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'ada@example.com' } })
+    fireEvent.change(screen.getByLabelText(/^Message/), { target: { value: message } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+    await screen.findByRole('heading', { name: 'Message sent' })
+    expect(api.submitContactForm).toHaveBeenCalledTimes(1)
+    expect(api.submitContactForm.mock.calls[0][0].message).toBe(message)
   })
 })
