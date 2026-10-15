@@ -279,19 +279,26 @@ describe('CopilotMessage follow-up chips', () => {
 
 /**
  * statusTintsOnlyForStatus: a plan gate (a spent free allowance, a Pro-only 403, the Pro fair-use 429) is
- * a plan fact, not a failure. It renders in the quiet answer card, role="status", with no error token
- * anywhere in it; the error tint and role="alert" stay for real failures (DESIGN_SYSTEM.md "Ask answer";
- * ASK-10). The sentences are the backend's own (backend/app/dependencies.py, routers/summaries.py).
+ * a plan fact, not a failure. It renders in the quiet answer card, role="status", with no status-palette
+ * token anywhere in it (error, warning, success, info, loss or gain: a "limit reached" card that turns amber
+ * regresses as surely as one that turns red); the error tint and role="alert" stay for real failures
+ * (DESIGN_SYSTEM.md "Ask answer"; ASK-10). The sentences are the backend's own (backend/app/dependencies.py,
+ * routers/summaries.py).
  */
 describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
   const TASTE_SPENT = "You've used your 3 free Copilot questions. Upgrade to Pro to access this feature."
   const FAIR_USE =
     "You've reached this month's fair-use limit of 1000 Copilot questions. It resets at the start of next month."
   const errorMessage = (error: string): CopilotMessageData => ({ id: 'e1', role: 'assistant', content: '', status: 'error', error })
-  const errorTokens = (root: HTMLElement) =>
+  /** The class tokens in a subtree that paint with one of the given status inks, through any variant prefix. */
+  const tokensOf = (root: HTMLElement, palette: string) =>
     [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))]
       .flatMap((el) => (el.getAttribute('class') ?? '').split(/\s+/))
-      .filter((token) => /(?:^|:)(?:text|bg|border|ring|shadow)-error\b/.test(token))
+      .filter((token) =>
+        new RegExp(String.raw`(?:^|:)(?:text|bg|border|ring|shadow|outline|divide|fill|stroke|decoration|from|via|to)-(?:${palette})\b`).test(token),
+      )
+  const statusTokens = (root: HTMLElement) => tokensOf(root, 'error|warning|success|info|loss|gain')
+  const errorTokens = (root: HTMLElement) => tokensOf(root, 'error')
 
   it('classifies the backend sentences: the fair-use 429 is a plan gate with no upgrade', () => {
     expect(isCopilotPaywallError(TASTE_SPENT)).toBe(true)
@@ -307,7 +314,7 @@ describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     const card = screen.getByRole('status')
     expect(card).toHaveTextContent(TASTE_SPENT)
-    expect(errorTokens(card)).toEqual([])
+    expect(statusTokens(card)).toEqual([])
     fireEvent.click(within(card).getByRole('button', { name: 'Upgrade to Pro' }))
     expect(onUpgrade).toHaveBeenCalledTimes(1)
     expect(within(card).queryByRole('button', { name: /retry/i })).not.toBeInTheDocument()
@@ -318,7 +325,7 @@ describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     const card = screen.getByRole('status')
     expect(card).toHaveTextContent(FAIR_USE)
-    expect(errorTokens(card)).toEqual([])
+    expect(statusTokens(card)).toEqual([])
     expect(within(card).queryByRole('button')).not.toBeInTheDocument()
   })
 
