@@ -16,8 +16,9 @@ apart (owner decision D4, export-overhaul plan). The shell owns:
 - The design-token PALETTE (DESIGN_SYSTEM.md) — PDFs must never use off-token grays or the
   banned legacy blue.
 - Reader-table manners (D-041, applying D-030): headers in the tertiary ink on no fill, hairline
-  rows, no cell grid; quotes on a neutral hairline. Sage colours only links and the wordmark's
-  "Nerd", never a header, a label or a figure.
+  rows, no cell grid; quotes on a neutral hairline. A link rests in its line's ink with a quiet
+  underline, as the page's prose links do at rest: print has no pointer to turn it sage, and its
+  text can carry an index ("Source filing 1"). Sage colours only the wordmark's "Nerd".
 
 The visual contract is pinned by tests/unit/test_export_service.py (shell assertions + a real
 WeasyPrint render checking page orientation), the mark by tests/unit/test_pdf_mark_geometry.py
@@ -245,6 +246,13 @@ ul, ol {{ margin: 0 0 10px 0; padding-left: 20px; color: {p["ink_secondary"]}; }
 li {{ margin: 3px 0; }}
 .footnote {{ color: {p["ink_tertiary"]}; font-size: 8.5pt; }}
 .ref {{ color: {p["ink_tertiary"]}; }}
+/* Every link rests in its line's ink with a quiet underline in the tertiary ink (D-041): print has
+   no pointer to turn it sage. The rule also keeps WeasyPrint's default link blue off the page. */
+a {{
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: {p["ink_tertiary"]};
+}}
 """
 
 

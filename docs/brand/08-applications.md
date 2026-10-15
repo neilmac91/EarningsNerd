@@ -180,20 +180,21 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   the PDF and follows a middot in the CSV, never a dash. Tables read as the page's reader tables do
   (D-041, applying D-030): headers in the tertiary ink on no fill, hairline rows and no grid, and a
   column of figures right-aligned in the data face by the page's numeric-column rule; quotes sit on
-  a neutral hairline. The workbook's header rows rest in the ink on the neutral ground and its
-  labels in the ink, and links alone keep sage. The tertiary ink is its token (#636A77, 4.80:1 on
-  the masthead's tint). "Sources & methods" is in sentence case wherever it is named; the data
-  notes print a clause for each count that is not zero, singular at one, and the passed count only
-  when no figure needs review; a window reads "FY2022–FY2024 · 3 periods"; an operand's fields
-  read "Accession", "Source tag" and "Filed", and its concept reads as words. The masthead's mark
-  is held to the canonical outlines by `backend/tests/unit/test_pdf_mark_geometry.py`; every
-  export colour to its token and role, every text colour to 4.5:1 on its ground and sage to links
-  and the wordmark by
-  `test_export_palette_parity.py`; the rendered copy (no em-dash but the null token, no exclamation
-  mark or emoji, the headings the exports own in sentence case) by `test_export_voice.py`; the eval's
-  blinding of the generation date by a case in `test_acceptance_readiness.py` that runs it on a real
-  export; and the backend's hand-composed wordmarks to the PDF's and the mail's by
-  `wordmarkSingleSource.spec.ts`.
+  a neutral hairline. A PDF link rests in its line's ink with an underline, as the page's prose
+  links rest, because print has no pointer to turn it sage, so the wordmark's "Nerd" is the only
+  sage text in the exports. The workbook's header rows rest in the ink on the neutral ground and its
+  labels in the ink. The tertiary ink is its token (#636A77, 4.80:1 on the masthead's tint).
+  "Sources & methods" is in sentence case wherever it is named; the data notes print a clause for
+  each count that is not zero, singular at one, and the passed count only when no figure needs
+  review; a window reads "FY2022–FY2024 · 3 periods"; an operand's fields read "Accession", "Source
+  tag" and "Filed", and its concept reads as words. The masthead's mark is held to the canonical
+  outlines by `backend/tests/unit/test_pdf_mark_geometry.py`; every export colour to its token and
+  role, every text colour to 4.5:1 on its ground, sage to the wordmark's "Nerd" and every PDF link
+  to the ink with an underline by `test_export_palette_parity.py`; the rendered copy (no em-dash but
+  the null token, no exclamation mark or emoji, the headings the exports own in sentence case) by
+  `test_export_voice.py`; the eval's blinding of the generation date by a case in
+  `test_acceptance_readiness.py` that runs it on a real export; and the backend's hand-composed
+  wordmarks to the PDF's and the mail's by `wordmarkSingleSource.spec.ts`.
 - **Mail** (`email_service.py`, `app/routers/contact.py`): footers read "EarningsNerd · AI summaries
   of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the verification
   mail ends "Verify your email address and you can start reading."

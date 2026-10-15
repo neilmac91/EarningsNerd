@@ -466,7 +466,6 @@ class ExportService:
                        ".data-notes { list-style: none; padding-left: 0; } "
                        ".methods li { margin-bottom: 4px; } .operands { margin-top: 2px; } "
                        ".metrics-landscape td.num { white-space: nowrap; padding-left: 4px; padding-right: 4px; } "
-                       f".data-note a, .methods a, .sources a {{ color: {PALETTE['brand_strong']}; }} "
                        ".data-note { margin-left: 2px; } .snapshot { overflow-wrap: anywhere; }"),
         )
 

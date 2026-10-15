@@ -15,8 +15,11 @@ and checks the exports as they render:
    background, else the masthead's tint for a masthead rule, else the white page): the masthead's
    document kind, the table header and the tertiary ink among them. Every workbook cell's font
    clears 4.5:1 on its fill, or on white without one.
-4. Sage (D-041, applying D-030 to the exports): in the PDFs, text takes a brand colour only in a link
-   and in the wordmark's "Nerd"; in the workbook, no text does (the sheet tabs keep it).
+4. Sage (D-041, applying D-030 to the exports): the wordmark's "Nerd" is the only text that takes a
+   brand colour. A PDF link rests in its line's ink with an underline, since print has no pointer to
+   turn it sage and a link's text can carry an index ("Source filing 1"): each PDF's stylesheet
+   carries that rule, which also keeps WeasyPrint's default link blue off the page. In the workbook
+   no text takes sage (the sheet tabs keep it).
 5. The wordmark (the PDF rendition of BG-27): "Earnings" in the ink, "Nerd" italic in brand-strong.
 
 Out of reach (review): a colour set in an inline style attribute (the export modules write none) and
@@ -221,18 +224,29 @@ def test_every_text_colour_clears_its_ground():
     assert {".masthead .doc-kind", "th", ".meta", ".footnote", "@page @top-left"} <= checked
 
 
-def test_sage_colours_only_links_and_the_wordmark():
-    """D-041: a header, a label or a figure rests in the ink; sage marks a link (its target is the
-    source) and the wordmark's "Nerd"."""
+def test_sage_colours_only_the_wordmarks_nerd():
+    """D-041: a header, a label, a figure and a link rest in the ink; the wordmark's "Nerd" is the
+    only sage text in the exports."""
     sage_text = []
     for name, html in _pdfs().items():
         for selector, ink, _ in text_colours(html):
             if ink in SAGE:
                 sage_text += [(name, part.strip()) for part in selector.split(",")
-                              if not re.search(r"(?:^|\s)a$", part.strip()) and part.strip() != ".masthead .wordmark em"]
+                              if part.strip() != ".masthead .wordmark em"]
     sage_text += [(where, ink) for where, ink, ground in workbook_colours(_workbook_bytes())
                   if ground is not None and ink in SAGE]
     assert sage_text == []
+
+
+def test_every_pdf_link_rests_in_the_ink_with_an_underline():
+    """Print has no pointer, so a link never turns sage: it keeps its line's ink and an underline in
+    the tertiary ink. Without the rule, WeasyPrint's default stylesheet would paint links blue."""
+    for name, html in _pdfs().items():
+        links = dict(css_rules(stylesheet(html))).get("a")
+        assert links is not None, f"the {name} PDF's stylesheet carries no rule for its links"
+        assert links.get("color") == "inherit" and "underline" in links.get("text-decoration", ""), name
+        assert colour(links.get("text-decoration-color")) == TOKENS["text-tertiary-light"], name
+    assert '<a href="' in _pdfs()["analysis"]  # the fixture renders links (its data-note letters)
 
 
 def test_the_wordmark_reads_earnings_in_the_ink_and_nerd_italic_in_brand_strong():
