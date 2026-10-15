@@ -18,8 +18,10 @@ and checks the exports as they render:
 4. Sage (D-041, applying D-030 to the exports): the wordmark's "Nerd" is the only text that takes a
    brand colour. A PDF link rests in its line's ink with an underline, since print has no pointer to
    turn it sage and a link's text can carry an index ("Source filing 1"): each PDF's stylesheet
-   carries that rule, which also keeps WeasyPrint's default link blue off the page. In the workbook
-   no text takes sage (the sheet tabs keep it).
+   carries that rule, which also keeps WeasyPrint's default link blue off the page, and no rule that
+   styles a link (its last compound an `a`, in any scope) sets a colour other than inherit or an
+   ink, or a text decoration without the underline. In the workbook no text takes sage (the sheet
+   tabs keep it).
 5. The wordmark (the PDF rendition of BG-27): "Earnings" in the ink, "Nerd" italic in brand-strong.
 
 Out of reach (review): a colour set in an inline style attribute (the export modules write none) and
@@ -51,6 +53,7 @@ TOKENS = {name: str(value).upper() for name, value in yaml.safe_load(_FRONTMATTE
 TOKEN_VALUES = set(TOKENS.values())
 SAGE = {value for name, value in TOKENS.items() if name.startswith("brand")}
 WHITE = TOKENS["white"]
+INKS = {TOKENS[name] for name in ("text-primary-light", "text-secondary-light", "text-tertiary-light")}
 
 # Each PALETTE key's token, by role.
 ROLES = {
@@ -133,6 +136,24 @@ def text_colours(html: str) -> list[tuple[str, str, str]]:
         own = colour(decl.get("background") or decl.get("background-color"))
         ground = own or (masthead if selector.startswith(".masthead ") else None) or WHITE
         found.append((selector, ink, ground))
+    return found
+
+
+def link_problems(html: str) -> list[str]:
+    """Each declaration a rule styling a link (its last compound an `a`, in any scope) makes against
+    D-041: a colour other than inherit or an ink, or a text decoration without the underline."""
+    found = []
+    for selector, decl in css_rules(stylesheet(html)):
+        for part in (piece.strip() for piece in selector.split(",")):
+            if not re.match(r"a(?:$|[.#:\[])", re.split(r"[\s>+~]+", part)[-1]):
+                continue
+            for name, value in decl.items():
+                if name == "color" and value != "inherit" and colour(value) not in INKS:
+                    found.append(f"{part} sets {name}: {value}")
+                elif name != "color" and any(normal(hex_value) not in INKS for hex_value in HEX.findall(value)):
+                    found.append(f"{part} sets {name}: {value}")
+                elif name in ("text-decoration", "text-decoration-line") and "underline" not in value:
+                    found.append(f"{part} sets {name}: {value}")
     return found
 
 
@@ -246,6 +267,7 @@ def test_every_pdf_link_rests_in_the_ink_with_an_underline():
         assert links is not None, f"the {name} PDF's stylesheet carries no rule for its links"
         assert links.get("color") == "inherit" and "underline" in links.get("text-decoration", ""), name
         assert colour(links.get("text-decoration-color")) == TOKENS["text-tertiary-light"], name
+        assert link_problems(html) == [], name  # no scoped rule turns a link sage or drops its underline
     assert '<a href="' in _pdfs()["analysis"]  # the fixture renders links (its data-note letters)
 
 
@@ -267,3 +289,10 @@ def test_the_checks_read_what_they_claim():
     assert found == {".masthead .doc-kind": ("#6B7280", "#ECF2EE"), "th": ("#3C6650", WHITE)}
     nested = css_rules("@page { size: A4; @top-left { color: #636A77; } }")
     assert ("@page @top-left", {"color": "#636A77"}) in nested
+    links = ("<style>a { color: inherit; text-decoration: underline; } .sources a { text-decoration: none; } "
+             ".methods > a:link { color: #3C6650; } .x a.y { text-decoration-color: #3C6650; } "
+             ".data-note a { color: blue; } .ok a { color: #374151; } abbr { color: #3C6650; }</style>")
+    assert link_problems(links) == [
+        ".sources a sets text-decoration: none", ".methods > a:link sets color: #3C6650",
+        ".x a.y sets text-decoration-color: #3C6650", ".data-note a sets color: blue",
+    ]
