@@ -119,6 +119,10 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     '<Badge>Top 10</Badge>',
     // A model name is not a form: F-150 reads past the range.
     '<Badge>F-150</Badge>',
+    // Each periodic family pairs its own number and letter: 40-K, 20-Q and 11-F are no form EDGAR writes.
+    '<Badge>40-K</Badge>',
+    '<Badge>20-Q</Badge>',
+    '<span className="uppercase tracking-eyebrow">11-F</span>',
   ],
   invalid: [
     { code: '<Badge variant="neutral">{filing.filing_type}</Badge>', errors: [{ messageId: 'badge' }] },
@@ -147,6 +151,10 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
       errors: [{ messageId: 'badge' }],
     },
     { code: '<Badge>10-Q</Badge>', errors: [{ messageId: 'badge' }] },
+    // The periodic families EDGAR writes, the transition forms among them.
+    { code: '<Badge>10-QT</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<span className="uppercase tracking-eyebrow">11-KT</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<Badge>40-F</Badge>', errors: [{ messageId: 'badge' }] },
     { code: "<Badge>{'20-F/A'}</Badge>", errors: [{ messageId: 'badge' }] },
     // A form field by its short name, a template literal, and the member-expression spelling.
     { code: '<Badge>{f.form}</Badge>', errors: [{ messageId: 'badge' }] },

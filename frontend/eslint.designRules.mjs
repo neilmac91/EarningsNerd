@@ -129,14 +129,15 @@ const isBadge = (name) =>
   (name?.type === 'JSXIdentifier' && name.name === 'Badge') ||
   (name?.type === 'JSXMemberExpression' && name.property.name === 'Badge')
 // The form families the product renders, written as EDGAR writes them: the periodic and current reports
-// (10-K, 10-Q, 10-KT, 20-F, 40-F, 11-K, 8-K, 6-K, 1-A, 1-K, 1-U), the registration statements (S-1 to
+// (10-K and 10-Q with their transition forms 10-KT and 10-QT, 20-F, 40-F, 11-K and 11-KT, 8-K, 6-K, 1-A, 1-K,
+// 1-U), the registration statements (S-1 to
 // S-11 and S-20, SF-1 and SF-3, F-1 to F-10 and F-80, read as ranges, so a number EDGAR retired, S-2 or
 // F-5, counts as a code too; the 424B prospectuses), the ownership and tender families (SC 13D, SC 13G,
 // SC TO, SC 14D9, 13F-HR, 13F-NT), the proxy family (DEF 14A, DEFA14A, DEFM14A, PRE 14A), the fund reports
 // (N-CSR, N-Q, N-PX, N-1A, N-2) and the insider forms written as words (the search's chip labels the
 // code 4 "Form 4"). The letters after a dash are each family's own, so "10-year", "Top 10" and "F-150" are
-// not forms.
-const FORM_CODES = String.raw`(?:10|20|40|11)-[KQF]T?|[86]-K|1-[AKU]|13F-(?:HR|NT)|SC 13[DG]|SC TO-[ICT]|SC 14D9|(?:DEF|DEFA|DEFM|PRE) ?14A|S-(?:[1-9]|1[01]|20)|SF-[13]|F-(?:[1-9]|10|80)|424B\d|N-(?:CSR|Q|PX|1A|2)|Form\s[345]`
+// not forms, and neither is a pairing EDGAR does not write (40-K, 20-Q, 11-F).
+const FORM_CODES = String.raw`10-[KQ]T?|[24]0-F|11-KT?|[86]-K|1-[AKU]|13F-(?:HR|NT)|SC 13[DG]|SC TO-[ICT]|SC 14D9|(?:DEF|DEFA|DEFM|PRE) ?14A|S-(?:[1-9]|1[01]|20)|SF-[13]|F-(?:[1-9]|10|80)|424B\d|N-(?:CSR|Q|PX|1A|2)|Form\s[345]`
 const FORM_CODE = new RegExp(String.raw`^\s*(${FORM_CODES})(\/A)?\s*$`, 'i')
 // A text child that opens with a form code and then only a separator: a middot, bullet or pipe, a comma, colon or
 // semicolon, or a dash set off by a space (`10-Q · Filed `, `8-K, filed`, `10-Q - Filed`); never prose (`10-K filings`,
