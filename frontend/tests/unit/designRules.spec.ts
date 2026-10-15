@@ -109,6 +109,9 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     '<p className="uppercase tracking-eyebrow">Form 4 filings this week</p>',
     // The letters after a dash are each form family's own: a span of years or a rank is not a form.
     '<span className="uppercase tracking-eyebrow">10-year</span>',
+    // A hyphen joined to the code is a word, and a possessive is prose, not a separator.
+    '<span className="uppercase tracking-eyebrow">S-1-style disclosures</span>',
+    "<p className=\"uppercase tracking-eyebrow\">10-K's cover page</p>",
     '<Badge>Top 10</Badge>',
   ],
   invalid: [
@@ -120,6 +123,11 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     { code: '<span className="uppercase tracking-eyebrow">SC 13D</span>', errors: [{ messageId: 'chip' }] },
     { code: '<Badge>13F-HR</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<span className="uppercase tracking-eyebrow">{"SC 13D/A · Filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
+    // A meta line's separator may be a comma, a colon or semicolon, or a dash set off by a space, not only a middot.
+    { code: '<span className="uppercase tracking-eyebrow">10-Q - Filed yesterday</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow">{"8-K, filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<p className="uppercase tracking-eyebrow">DEF 14A: Filed {ago}</p>', errors: [{ messageId: 'chip' }] },
+    { code: '<p className="uppercase tracking-eyebrow">{`10-K – Filed ${ago}`}</p>', errors: [{ messageId: 'chip' }] },
     { code: '<Badge variant="neutral">{data.filingType}</Badge>', errors: [{ messageId: 'badge' }] },
     {
       code: "<Badge variant={/10-Q|6-K/i.test(filing.filing_type) ? 'info' : 'neutral'}>{form}</Badge>",

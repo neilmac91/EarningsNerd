@@ -25,8 +25,9 @@
 //                       cx()/clsx() call), and whose first non-blank child, text or an expression,
 //                       reads a form field anywhere in it (`{hit.form ?? fallback}`,
 //                       `{filing.form.toUpperCase()}`) or holds a code, or text opening with one
-//                       before a separator (`{'10-Q · Filed'}`), followed only by text or
-//                       expressions, as in `{form} • Filed {ago}`.
+//                       before a separator (a middot, bullet or pipe, a comma, colon or semicolon,
+//                       or a dash set off by a space: `{'10-Q · Filed'}`, `10-Q - Filed`), followed
+//                       only by text or expressions, as in `{form} • Filed {ago}`.
 //   no-unguarded-animation (P-09) Every Tailwind animation utility stops under reduced motion
 //                       (WCAG 2.3.3): `motion-safe:animate-x`, or `animate-x` beside a
 //                       `motion-reduce:animate-none` with the same variants in the class text that
@@ -134,8 +135,10 @@ const isBadge = (name) =>
 // code 4 "Form 4"). The letters after a dash are each family's own, so "10-year" and "Top 10" are not forms.
 const FORM_CODES = String.raw`(?:10|20|40|11)-[KQF]T?|[86]-K|1-[AKU]|13F-(?:HR|NT)|SC 13[DG]|SC TO-[ICT]|SC 14D9|(?:DEF|DEFA|DEFM|PRE) ?14A|[SF]-(?:1|3|4|8|11)|424B\d|N-(?:CSR|Q|PX|1A|2)|Form\s[345]`
 const FORM_CODE = new RegExp(String.raw`^\s*(${FORM_CODES})(\/A)?\s*$`, 'i')
-// A text child that opens with a form code and then only a separator (`10-Q · Filed `), never prose (`10-K filings`).
-const FORM_CODE_LEAD = new RegExp(String.raw`^\s*(${FORM_CODES})(\/A)?\s*($|[·•|])`, 'i')
+// A text child that opens with a form code and then only a separator: a middot, bullet or pipe, a comma, colon or
+// semicolon, or a dash set off by a space (`10-Q · Filed `, `8-K, filed`, `10-Q - Filed`); never prose (`10-K filings`,
+// `10-K's cover page`), and a hyphen joined to the code is a word (`S-1-style`).
+const FORM_CODE_LEAD = new RegExp(String.raw`^\s*(${FORM_CODES})(\/A)?(?:\s*(?:$|[·•|,:;–—])|\s+-)`, 'i')
 const CHIP_CLASS = /^(class|className)$/
 const EYEBROW_CHIP = [/(^|:)uppercase$/, /(^|:)tracking-eyebrow$/]
 // The helpers a class binding may call: `const EYEBROW = cx('uppercase', 'tracking-eyebrow')`.
