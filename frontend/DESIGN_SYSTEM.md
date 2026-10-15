@@ -461,6 +461,26 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  eslint.designRules.mjs); <Badge variant="warning"> = warning tint
                  (replaces raw-amber hand-rolls; "Superseded"). beat/miss/new double as tonal recipes via icon={null}.
 
+Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBadge): icon + label on
+                 STATUS_CHIP + STATUS_CHIP_INK[tone] from features/admin/lib/statusChip.ts, the one home
+                 of the recipe (tones info / success / warning / neutral). The status INK sits on the
+                 quiet ground, never the status tint. Light labels measure 5.0 to 7.1:1 on the white
+                 chip. Dark carries no fill, so the row's white/5 hover tint is the only layer: 5.77 to
+                 6.83:1 at rest, 4.97 to 5.89:1 on a hovered row (Badge's quiet white/5 on the chip as
+                 well would drop info-dark to 4.26:1 there). The old recipe, info-light in its own 10%
+                 tint, is 4.32:1. FeedbackTypeBadge, the neutral type chip beside the status chip in
+                 FeedbackRow, keeps its light ground (black/[0.04]: 9.04:1, 8.50:1 hovered) and takes the
+                 same dark one: no fill, its white/10 hairline kept, text-secondary-dark at 5.78:1 at
+                 rest and 4.98:1 on a hovered row (its old white/5 fill measured 4.27:1 there). When
+                 #1289's Badge status variants land, the recipe moves onto them.
+                 Gate: tests/unit/statusChipContrast.spec.ts (each tone on both tables' rows, at rest and
+                 hovered, both themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the
+                 pages' <tbody>; every layer between a chip and its <tr> read too, and a cell or wrapper
+                 there carrying a bg- class fails; a chip colour under any variant but its theme's own
+                 (hover:, focus-visible:, dark:hover:) and an opacity below 100 on the chip, a layer, the
+                 <tr> or the <tbody> fail too; both badges held to the recipe; the type chip measured as
+                 it renders on FeedbackRow's grounds).
+
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
                  small Button). GuidanceCard is a STANDALONE centered panel — never nest it inside a

@@ -13,7 +13,7 @@ vi.mock('@/features/admin/api/admin-api', () => ({
 }))
 
 // sonner's Toaster is rendered globally in the real app, not here; stub toast calls.
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
 
 import AdminInvitesPage from '@/app/admin/invites/page'
 import {
@@ -32,6 +32,16 @@ const invite: InviteRecord = {
   used_at: null,
   user_id: null,
   created_at: '2026-06-20T00:00:00Z',
+}
+
+/** The page's heading outline: SecondaryHeader's h1 first, then the sections, never skipping a level. */
+function expectOutline(h1: string) {
+  const headings = screen.getAllByRole('heading')
+  expect(headings[0]).toHaveTextContent(h1)
+  const levels = headings.map((h) => Number(h.tagName.slice(1)))
+  expect(levels[0]).toBe(1)
+  expect(levels.filter((level) => level === 1)).toHaveLength(1)
+  levels.slice(1).forEach((level, i) => expect(level).toBeLessThanOrEqual(levels[i] + 1))
 }
 
 function renderPage() {
@@ -54,6 +64,7 @@ describe('AdminInvitesPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Invite people' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Invites', level: 2 })).toBeInTheDocument()
+    expectOutline('Invites')
 
     // The row populates once the query resolves.
     expect(await screen.findByText('alice@example.com')).toBeInTheDocument()
@@ -67,7 +78,30 @@ describe('AdminInvitesPage', () => {
   it('shows the empty state when there are no invites', async () => {
     vi.mocked(listInvites).mockResolvedValue([])
     renderPage()
-    expect(await screen.findByText(/No invites yet/i)).toBeInTheDocument()
+    // One plain line in the card (ADM-07, ADM-09): no title, no nested GuidanceCard.
+    const empty = await screen.findByText(/No invites yet/i)
+    expect(empty).toHaveAttribute('role', 'status')
+    expect(empty).toHaveTextContent(/^No invites yet\. Send your first one above\.$/)
+    expect(screen.queryByText(/No Invites Found/i)).not.toBeInTheDocument()
+  })
+
+  it('names a link-only invite\'s actions by what it is, not "this invite" (ADM-22)', async () => {
+    vi.mocked(listInvites).mockResolvedValue([{ ...invite, id: 3, email: null }])
+    renderPage()
+    // The visible labels stay "Resend" and "Revoke".
+    expect(await screen.findByRole('button', { name: 'Resend this link-only invite' })).toHaveTextContent('Resend')
+    expect(screen.getByRole('button', { name: 'Revoke this link-only invite' })).toHaveTextContent('Revoke')
+  })
+
+  it('shows a load failure as a Notice with a Retry that refetches (ADM-11)', async () => {
+    vi.mocked(listInvites).mockRejectedValueOnce(new Error('network')).mockResolvedValue([invite])
+    const user = userEvent.setup()
+    renderPage()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Could not load the invites.')
+    await user.click(within(alert).getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('alice@example.com')).toBeInTheDocument()
+    expect(listInvites).toHaveBeenCalledTimes(2)
   })
 
   it('updates the live counter as valid/invalid emails are entered', async () => {
@@ -85,6 +119,18 @@ describe('AdminInvitesPage', () => {
     // The Send button enables once there is at least one valid, not-already-invited email.
     expect(screen.getByRole('button', { name: /Send invites/i })).toBeEnabled()
     expect(screen.getByRole('button', { name: /Send invites/i })).not.toHaveAttribute('aria-disabled')
+  })
+
+  it('marks an already-invited address in the chip\'s own plain type, not a faded eyebrow (ADM-17)', async () => {
+    vi.mocked(listInvites).mockResolvedValue([invite])
+    renderPage()
+    await screen.findByText('alice@example.com')
+    const field = screen.getByLabelText('Email addresses')
+    fireEvent.change(field, { target: { value: 'alice@example.com' } })
+    fireEvent.blur(field)
+    const marker = await screen.findByText('· already invited')
+    // The marker reads in the chip's own size and ink: no opacity- class and no eyebrow treatment, under any variant.
+    expect([...marker.classList].filter((cls) => /(^|:)(opacity-|text-data-xs$|uppercase$|tracking-eyebrow$)/.test(cls))).toEqual([])
   })
 
   it('disables Send invites when there is nothing valid to send', async () => {
