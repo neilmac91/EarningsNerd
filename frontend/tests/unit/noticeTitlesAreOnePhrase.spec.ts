@@ -7,10 +7,13 @@ import { describe, expect, it } from 'vitest'
 /**
  * A Notice or GuidanceCard title is one phrase, never two clauses joined by a semicolon: the second clause
  * belongs in the description ("Checkout finished", then "Your plan updates in a moment."; D-033). Every
- * string literal, template piece and JSX text inside a `title` given to either component (under any import
- * alias) in app, components and features fails here when it holds a semicolon, both arms of a conditional
- * included. A title passed in as a variable is not read. JSX decodes HTML entities in its text and attribute
- * strings, so `&apos;` reads as an apostrophe, not as a semicolon, and `&#59;` reads as one.
+ * string literal, template piece and JSX text inside a `title` given to either component in app, components
+ * and features fails here when it holds a semicolon, both arms of a conditional included. The component is
+ * read under its name, a named-import alias (`Notice as Banner`), a namespace import (`UI.Notice`) and a
+ * same-file const alias (`const N = Notice`), and the title as an attribute or inside a spread object
+ * literal (`{...{ title: '…' }}`). JSX decodes HTML entities in its text and attribute strings, so `&apos;`
+ * reads as an apostrophe, not as a semicolon, and `&#59;` reads as one. Not read: a title passed in as a
+ * variable, a spread of a variable, and a component reached through another module's re-export.
  */
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const ROOTS = ['app', 'components', 'features']
@@ -37,6 +40,28 @@ function titleTexts(file: string, text: string): string[] {
         if (COMPONENTS.has((element.propertyName ?? element.name).text)) names.add(element.name.text)
       }
     }
+    if (bindings && ts.isNamespaceImport(bindings)) {
+      for (const component of COMPONENTS) names.add(`${bindings.name.text}.${component}`)
+    }
+  }
+  // `const N = Notice` (or `= UI.Notice`), followed until no new alias appears.
+  const aliases: Array<[string, string]> = []
+  const collect = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer
+      && (ts.isIdentifier(node.initializer) || ts.isPropertyAccessExpression(node.initializer))) {
+      aliases.push([node.name.text, node.initializer.getText(source)])
+    }
+    ts.forEachChild(node, collect)
+  }
+  collect(source)
+  for (let grew = true; grew;) {
+    grew = false
+    for (const [alias, target] of aliases) {
+      if (names.has(target) && !names.has(alias)) {
+        names.add(alias)
+        grew = true
+      }
+    }
   }
   const found: string[] = []
   const pieces = (node: ts.Node): void => {
@@ -58,6 +83,14 @@ function titleTexts(file: string, text: string): string[] {
         if (ts.isJsxAttribute(attribute) && attribute.name.getText(source) === 'title' && attribute.initializer) {
           pieces(attribute.initializer)
         }
+        // {...{ title: '…' }}: a spread object literal's title property.
+        if (ts.isJsxSpreadAttribute(attribute) && ts.isObjectLiteralExpression(attribute.expression)) {
+          for (const property of attribute.expression.properties) {
+            if (ts.isPropertyAssignment(property) && property.name.getText(source).replace(/['"]/g, '') === 'title') {
+              pieces(property.initializer)
+            }
+          }
+        }
       }
     }
     ts.forEachChild(node, visit)
@@ -76,7 +109,7 @@ const walk = (dir: string): string[] =>
 describe('A Notice or GuidanceCard title is one phrase', () => {
   it('reads each piece of a title, under an alias and in both arms, and nothing else (self-check)', () => {
     const fixture = [
-      "import { Notice as Banner } from '@/components/ui'",
+      "import { Notice as Banner } from '@/components/ui'; import * as UI from '@/components/ui'",
       'const a = <Notice title="Checkout finished; your plan updates in a moment" />',
       "const b = <GuidanceCard title={week ? 'A quiet week' : 'Loading; please wait'} description=\"x\" />",
       'const c = <Banner title={`${n} filings; more soon`} />',
@@ -86,6 +119,11 @@ describe('A Notice or GuidanceCard title is one phrase', () => {
       'const g = <Notice title={message} />',
       'const h = <Notice title="You&apos;re on Pro" /> // an entity is one character, not a semicolon',
       'const i = <Notice title={<>Tom &amp; Jerry; a pair &#59; two</>} />',
+      'const j = <UI.Notice title="Saved; reload to see it" />',
+      'const N = UI.GuidanceCard',
+      'const k = <N title="Empty; add one" />',
+      "const l = <Notice {...{ title: 'Spread; title' }} />",
+      'const m = <Notice {...props} />',
     ].join('\n')
     expect(titleTexts('fixture.tsx', fixture)).toEqual([
       'fixture.tsx:2 Checkout finished; your plan updates in a moment',
@@ -96,9 +134,12 @@ describe('A Notice or GuidanceCard title is one phrase', () => {
       'fixture.tsx:6 Pro is active',
       "fixture.tsx:9 You're on Pro",
       'fixture.tsx:10 Tom & Jerry; a pair ; two',
+      'fixture.tsx:11 Saved; reload to see it',
+      'fixture.tsx:13 Empty; add one',
+      'fixture.tsx:14 Spread; title',
     ])
     // The rule's own test on the decoded text: the entity passes, the real semicolon fails.
-    expect(titleTexts('fixture.tsx', fixture).slice(-2).map((title) => title.includes(';'))).toEqual([false, true])
+    expect(titleTexts('fixture.tsx', fixture).slice(6, 8).map((title) => title.includes(';'))).toEqual([false, true])
   })
 
   it('no title in the app joins two clauses with a semicolon', () => {
