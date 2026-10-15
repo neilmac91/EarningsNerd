@@ -83,6 +83,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - arch-moved-code-resolves-seams-through-the-patched-module.md — Code moved out of a patched module keeps resolving its collaborators through that module at call time
 - arch-no-precomputed-deltas-in-grounding.md — Don't pre-chew derived deltas into the grounding without a groundedness guardrail
 - arch-one-summary-orchestrator.md — There is ONE summary orchestrator — never add a second generation path
+- arch-only-a-rotated-refresh-token-signals-theft.md — Key the refresh-token theft sweep on a rotated-away token (`replaced_by_id` set), never on any revoked one; before reading a column's state as evidence of an event, list every writer of that column (partly gated by `backend/tests/unit/test_refresh_token_revocation_kinds.py` for refresh tokens; the general clause is review-checked)
 - arch-operand-matches-do-not-authorize-financial-assertions.md — Use tagged operands for bounded withholding without promoting them to assertion authority
 - arch-payments-need-allocation-evidence.md — Measure canonical allocations with explicit attribution, coverage and deletion limits
 - arch-per-process-state-on-cloud-run.md — In-memory state is per-process — count every Cloud Run instance and job before trusting it
