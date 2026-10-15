@@ -13,7 +13,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "^(Bash|mcp__.*[Gg]it[Hh]ub.*)$",
+        "matcher": "^(Bash|mcp__.*[Gg][Ii][Tt][Hh][Uu][Bb].*)$",
         "hooks": [
           {
             "type": "command",

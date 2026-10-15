@@ -9,22 +9,25 @@ rerun-on-review-request job of .github/workflows/review-gate.yml matches.
 .claude/settings.json runs this before every Bash command and every call to an MCP server whose name
 contains "github". It checks
 - such a tool's `title` and `body` arguments, at any depth;
-- a Bash command line that runs `gh pr` or `gh issue` (create or new, comment, edit, review, close,
-  reopen; -R/--repo anywhere before the verb) or `gh api`, or that names api.github.com: the line's
-  whole text, and the files those commands send as a body: gh's `--body-file`, `-F` and `--input`, an
+- a Bash command line whose text names `gh pr` or `gh issue` (create or new, comment, edit, review,
+  close, reopen; -R/--repo anywhere before the verb), `gh api` or api.github.com: the line's whole
+  text, and the files its GitHub writes send as a body: gh's `--body-file`, `-F` and `--input`, an
   `@file` value (gh api's -F key=@file, curl's -d @file), wget's `--post-file`, and, when the body is
-  read from standard input, a file redirected with `<` or piped from `cat`. Files are read from the
-  event's working directory; one larger than 1 MiB, or that is not a regular file, is not read.
+  read from standard input (`-` or /dev/stdin), a file redirected with `<` or piped from `cat`. A
+  GitHub write is a command (lines and `;`, `&&`, `|` separate them; here-document text is not one)
+  whose own word `gh` starts it, or that names api.github.com. Files are read from the event's
+  working directory; one larger than 1 MiB, not a regular file, or under /proc, /sys or /dev is not.
 A refusal is a JSON deny on stdout, which Claude Code hands to Claude as the reason; anything else
 exits 0 with no output. A crash exits 1, which Claude Code reports as a hook error and lets the call
 through. The registered command (`python3 -I -S`: standard library only, no PYTHON* variables or
 site-packages) maps Python's own exit 2 (a script it cannot open) to 1, so a broken install never
 blocks every Bash command and every GitHub call.
 
-Not checked: text a command builds as it runs (a variable, a command substitution, a body piped from
-anything but cat, a file named relative to a directory the command changes into first), the commit
-messages `gh pr create --fill` copies, a GitHub MCP server registered under a name without "github",
-a session that loads no repository hooks, and a person's own write.
+Not checked: text a command builds as it runs (a variable, a command or process substitution, a body
+piped from anything but a plain cat, a file named relative to a directory the command changes into
+first), a command another shell runs (`bash -c '...'`), the commit messages `gh pr create --fill` copies, a GitHub MCP
+server registered under a name without "github", a session that loads no repository hooks, and a
+person's own write.
 Tests: backend/tests/unit/test_codex_mention_guard.py.
 """
 from __future__ import annotations
@@ -45,12 +48,12 @@ GH_WRITE = re.compile(rf"\bgh{_REPO}\s+(?:(?:pr|issue){_REPO}\s+(?:create|new|co
 GITHUB_API = "api.github.com"
 OPERATORS = {"|", "|&", "||", "&&", ";", "&"}
 # Options whose value is the file a command sends as a body: gh pr's and gh issue's --body-file and
-# -F, gh api's --input; wget's --post-file and --body-file. "-" is standard input.
+# -F, gh api's --input; wget's --post-file and --body-file, curl's -T. "-" is standard input.
 GH_FILE_OPTIONS = ("--body-file", "-F", "--input")
-OTHER_FILE_OPTIONS = ("--post-file", "--body-file")
+OTHER_FILE_OPTIONS = ("--post-file", "--body-file", "-T", "--upload-file")
 # An "@file" value: gh api's -F key=@file, curl's -d @file or -d@file, httpie's key=@file.
 AT_FILE = re.compile(r"^(?:[\w.\[\]-]+=|-d)?@(.+)$")
-FILE_MARKERS = ("--body-file", "-F", "--input", "--post-file", "@", "<")
+FILE_MARKERS = ("--body-file", "-F", "--input", "--post-file", "-T", "--upload-file", "@", "<")
 MAX_FILE_BYTES = 1 << 20
 MCP_ROUTE = (
     "a new conversation comment that is the review command alone, with at most the attribution footer, "
@@ -89,9 +92,39 @@ def _tokens(command: str) -> list[str]:
         return command.split()
 
 
+# A here-document's start, `<<DELIM`, `<<-DELIM` or a quoted delimiter; never a here-string's `<<<`.
+HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)([\w.-]+)\1")
+
+
+def _without_heredoc_bodies(command: str) -> str:
+    """The command with backslash-newline continuations joined and each here-document's text dropped
+    (the line's whole text is checked separately), so the newlines left separate commands."""
+    kept, ends = [], []
+    for line in command.replace("\\\n", "").split("\n"):
+        if ends:
+            if line.strip() == ends[0]:
+                ends.pop(0)
+            continue
+        kept.append(line)
+        ends = [match.group(2) for match in HEREDOC.finditer(line)]
+    return "\n".join(kept)
+
+
+def _command_tokens(command: str) -> list[str]:
+    """Shell words, with each newline outside quotes a `;`."""
+    import shlex
+
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars="();<>|&\n")
+        lexer.whitespace, lexer.whitespace_split, lexer.commenters = " \t\r", True, ""
+        return [(token.replace("\n", "") or ";") if "\n" in token else token for token in lexer]
+    except ValueError:  # unbalanced quotes: the plain words still name the files
+        return command.replace("\n", " ; ").split()
+
+
 def _commands(tokens: list[str]) -> list[tuple[str | None, list[str]]]:
-    """The commands of a shell line, each with the operator before it. A here-document's text
-    (everything after `<<`) belongs to no command: it is in the line's text, which is checked whole."""
+    """The commands of a shell line, each with the operator before it, a here-string or
+    here-document marker ending its words."""
     commands, operator, words = [], None, []
     for token in tokens:
         if token in OPERATORS:
@@ -112,17 +145,20 @@ def _files_named(words: list[str], gh: bool) -> tuple[list[str], bool]:
         if word in options and index + 1 < len(words):
             values.append(words[index + 1])
         values += [word[len(option) + 1:] for option in options if word.startswith(option + "=")]
+        if gh and word.startswith("-F") and len(word) > 2 and not word.startswith("-F="):
+            values.append(word[2:])  # an attached -Fbody.md, or gh api's -Fkey=@file (read below)
         at_file = AT_FILE.match(word)
         if at_file:
             values.append(at_file.group(1))
         for value in values:
-            if value == "-":
+            if value in ("-", "/dev/stdin"):
                 stdin = True
             else:
                 names.append(value)
         if word == "<" and index + 1 < len(words):
             redirects.append(words[index + 1])
-    return names + (redirects if stdin else []), stdin
+    # gh reads stdin only when told to (-); a command that names api.github.com, httpie's say, may read it unasked.
+    return names + (redirects if stdin or not gh else []), stdin
 
 
 def _files_sent(command: str, cwd: object):
@@ -131,12 +167,16 @@ def _files_sent(command: str, cwd: object):
         return
     from pathlib import Path
 
-    commands = _commands(_tokens(command))
+    commands = _commands(_command_tokens(_without_heredoc_bodies(command)))
     names = []
     for index, (operator, words) in enumerate(commands):
         line = " ".join(words)
-        gh = GH_WRITE.search(line) is not None
-        if not gh and GITHUB_API not in line:
+        # gh as a word of its own (a quoted 'gh api' in a grep pattern is one word, not a command).
+        gh = any(
+            (word == "gh" or word.endswith("/gh")) and GH_WRITE.match(" ".join(["gh", *words[i + 1:]])) is not None
+            for i, word in enumerate(words)
+        )
+        if not gh and GITHUB_API not in line.lower():
             continue
         files, stdin = _files_named(words, gh)
         names += files
@@ -145,10 +185,12 @@ def _files_sent(command: str, cwd: object):
     base = Path(cwd) if isinstance(cwd, str) and cwd else Path.cwd()
     for name in names:
         try:
-            path = base / Path(name).expanduser()
+            path = (base / Path(name).expanduser()).resolve()
+            if str(path).startswith(("/proc/", "/sys/", "/dev/")):  # a kernel file can block a read
+                continue
             if path.is_file() and path.stat().st_size <= MAX_FILE_BYTES:
                 yield path.read_text(encoding="utf-8", errors="replace")
-        except (OSError, RuntimeError):  # RuntimeError: a ~user that does not exist
+        except (OSError, RuntimeError, ValueError):  # a ~user that does not exist; a NUL in the name
             continue
 
 
@@ -192,10 +234,16 @@ def _reason(where: str, route: str) -> str:
 
 
 def _bash_refusal(command: str, cwd: object) -> str | None:
-    if GH_WRITE.search(command) is None and GITHUB_API not in command:
-        return None
+    writes = GH_WRITE.search(command) is not None or GITHUB_API in command.lower()
     if MENTION.search(command):
+        # The words without their quotes too, so `gh 'pr' comment` is still a gh write.
+        if not writes and "gh" in command:
+            writes = GH_WRITE.search(" ".join(_tokens(command))) is not None
+        if not writes:
+            return None
         return None if _is_review_request_command(command) else _reason("this command", BASH_ROUTE)
+    if not writes:
+        return None
     if any(MENTION.search(text) for text in _files_sent(command, cwd)):
         return _reason("a file this command sends", BASH_ROUTE)
     return None
