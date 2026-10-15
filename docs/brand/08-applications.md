@@ -49,7 +49,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   EDGAR" in place of "Access to all filings": no "Supported" hedge, and 20-F only while
   `NEXT_PUBLIC_ENABLE_FPI_FILINGS` mirrors the API's `ENABLE_FPI_FILINGS` ("10-K and 10-Q filings from SEC
   EDGAR" otherwise; the deploy sets the API's flag on, its code default is off; tasks/todo.md F39). The Pro list reads "Ask
-  this Filing, with cited answers", and names Multi-Period Analysis and "PDF, CSV and Excel exports"
+  this Filing, with cited passages you can check" (it read "with cited answers" until the Ask this Filing
+  PR scoped it: an answer can ship an uncited figure, D-034), and names Multi-Period Analysis and "PDF, CSV and Excel exports"
   only while `NEXT_PUBLIC_ENABLE_ANALYSIS` ships them ("PDF and CSV exports" otherwise: the Excel
   export is the analysis workbook). The check marks are in the brand ink and hidden from
   assistive tech. The history and "Unlimited" lines wait on the founder (pub/F03, pub/F05).
@@ -182,7 +183,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   the one sentence the rail, the callout and the coachmark import as `COPILOT_CLAIM` from
   `copilotClaim.ts`), and so does the Pro section's Ask row ("The answer comes from that filing, with cited
   passages you can check", in `ProDepth.tsx`, which had said the answer cites the figures and passages
-  it used), and the summary's suggested follow-ups say "Tap a question to ask this filing."; the teaser's blurred
+  it used), and so does the pricing page's Pro line ("Ask this Filing, with cited passages you can check",
+  which #1311 had set as "with cited answers"), and the summary's suggested follow-ups say "Tap a question to ask this filing."; the teaser's blurred
   sample is Apple's FY2025 Services answer with sequential [1] and [2] markers and "2 matched
   sources", cited to passages because the Services figure is a dimensioned fact the Copilot tool cannot
   fetch, while the landing's Ask demo (#1311) answers total net sales with XBRL chips; §1's Sample data

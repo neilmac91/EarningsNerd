@@ -273,7 +273,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
         // Multi-Period Analysis and its Excel workbook are listed only while the analysis route
         // ships (it 404s with ENABLE_ANALYSIS off).
         ...(ENABLE_ANALYSIS ? ['Unlimited Multi-Period Analysis: 10-year trends, quarterly deltas & AI narrative'] : []),
-        'Ask this Filing, with cited answers',
+        'Ask this Filing, with cited passages you can check',
         'Hourly filing alerts',
         '8-K filing alerts',
         ENABLE_ANALYSIS ? 'PDF, CSV and Excel exports' : 'PDF and CSV exports',

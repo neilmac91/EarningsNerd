@@ -508,7 +508,7 @@ describe('PricingPage', () => {
     mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
     const { container } = renderPricing()
     await screen.findByRole('button', { name: /current plan/i })
-    expect(screen.getByText('Ask this Filing, with cited answers')).toBeInTheDocument()
+    expect(screen.getByText('Ask this Filing, with cited passages you can check')).toBeInTheDocument()
     if (on) {
       expect(container).toHaveTextContent('Unlimited Multi-Period Analysis')
       expect(screen.getByText('PDF, CSV and Excel exports')).toBeInTheDocument()
