@@ -300,13 +300,16 @@ const isBlank = (expression) => {
   )
 }
 /** An expression that renders nothing on one of its paths: `cond && x`, a conditional with an empty arm (`cond ?
- *  'New · ' : null`), or an empty value itself (null, a boolean, undefined, a blank string). */
+ *  'New · ' : null`), a fallback that may be empty (`label || null`, `note ?? ''`: the right side renders when the left
+ *  is empty, and a value the scan cannot read is taken to render), or an empty value itself (null, a boolean,
+ *  undefined, a blank string). */
 const mayRenderNothing = (expression) => {
   const node = unwrapTs(expression)
   if (!node || isBlank(node)) return true
   if (node.type === 'Literal' && (node.value === null || typeof node.value === 'boolean')) return true
   if (node.type === 'Identifier' && node.name === 'undefined') return true
   if (node.type === 'LogicalExpression' && node.operator === '&&') return true
+  if (node.type === 'LogicalExpression') return mayRenderNothing(node.right)
   if (node.type === 'ConditionalExpression') return mayRenderNothing(node.consequent) || mayRenderNothing(node.alternate)
   return false
 }

@@ -106,7 +106,8 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     // A reset on every path of the class value sets a face of its own: both arms of a conditional, a cx() argument.
     "<span className=\"uppercase tracking-eyebrow\"><span className={plain ? 'normal-case tracking-normal' : 'normal-case'}>{form}</span></span>",
     "<span className=\"uppercase tracking-eyebrow\"><span className={cx('normal-case', size)}>{form}</span></span>",
-    // A conditional whose arms both render a word leads on every path.
+    // A conditional whose arms both render a word leads on every path, and so does a fallback to a word.
+    "<span className=\"uppercase tracking-eyebrow\">{label || 'Latest'} {form}</span>",
     "<span className=\"uppercase tracking-eyebrow\">{isNew ? 'New' : 'Latest'} {form}</span>",
     // A class helper's object form resets the face when the key's value is the literal true.
     "<span className=\"uppercase tracking-eyebrow\"><span className={cx({ 'normal-case tracking-normal': true })}>{form}</span></span>",
@@ -173,7 +174,9 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     { code: "<span className={cx({ uppercase: true, 'tracking-eyebrow': true })}>{form}</span>", errors: [{ messageId: 'chip' }] },
     { code: "const EYEBROW = cx({ uppercase: true, 'tracking-eyebrow': active })\nexport const C = ({ form, active }) => <span className={EYEBROW}>{form}</span>", errors: [{ messageId: 'chip' }] },
     { code: "<span className=\"uppercase tracking-eyebrow\"><span className={cx({ 'normal-case': plain })}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
-    // An expression that renders nothing on one path leaves the form leading there.
+    // An expression that renders nothing on one path leaves the form leading there: a fallback to nothing too.
+    { code: '<span className="uppercase tracking-eyebrow">{label || null}{form}</span>', errors: [{ messageId: 'chip' }] },
+    { code: "<span className=\"uppercase tracking-eyebrow\">{note ?? ''}{filing.form} · Filed {ago}</span>", errors: [{ messageId: 'chip' }] },
     { code: "<span className=\"uppercase tracking-eyebrow\">{isNew && 'New · '}{form}</span>", errors: [{ messageId: 'chip' }] },
     { code: '<span className="uppercase tracking-eyebrow">{isNew ? <b>New</b> : null}{filing.form} · Filed {ago}</span>', errors: [{ messageId: 'chip' }] },
     // Tailwind 3's important modifier sets the same face, under a variant or not.
