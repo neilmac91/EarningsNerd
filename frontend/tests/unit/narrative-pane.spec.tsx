@@ -73,6 +73,19 @@ describe('NarrativePane readable evidence', () => {
   })
 
   it('compacts explicit-currency prose and preserves threshold precision, links and code', () => {
+    for (const { ratio, relation } of [
+      { ratio: '1.0033', relation: 'above' },
+      { ratio: '0.996', relation: 'below' },
+      { ratio: '1.00001', relation: 'above' },
+    ]) {
+      const text = `The current ratio was ${ratio}x, ${relation} 1.00x.`
+      const expected = `The current ratio was ${ratio}×, ${relation} 1.00×.`
+      expect.soft(compactNarrativeText(text), `${ratio} ${relation}: formatter`).toBe(expected)
+      const { container, unmount } = renderText(text)
+      expect.soft(container.querySelector('.markdown-body'), `${ratio} ${relation}: rendered prose`).toHaveTextContent(expected)
+      unmount()
+    }
+
     const { container } = renderText('Revenue was USD 60,801,000,000 in 2026Q2 [1]. EPS was EUR 6.23 per share. The current ratio was 1.00004x, above 1.00x. Other ratio 2.2256x. [Filing](https://example.com/2026Q2) and `USD 60,801,000,000 in 2026Q2`.')
     expect(container.querySelector('.markdown-body')).toHaveTextContent('Revenue was $60.8B in Q2 2026')
     expect(container.querySelector('.markdown-body')).toHaveTextContent('EPS was €6.23')
@@ -83,6 +96,24 @@ describe('NarrativePane readable evidence', () => {
   })
 
   it('preserves distinct close amounts across citation and Markdown nodes without rewriting the relation', () => {
+    {
+      const exact = 'Free cash flow of USD 19,960,000,000 [1] was below net income of USD 20,040,000,000 [2].'
+      expect.soft(compactNarrativeText(exact), '$19.96B below $20.04B: formatter').toBe(exact)
+      const citations: AnalysisCitation[] = [
+        { ...operands[0], value: 19960000000, excerpt: 'Free cash flow = 19,960,000,000 (2026Q2)' },
+        { ...operands[1], value: 20040000000, excerpt: 'Net income = 20,040,000,000 (2026Q2)' },
+      ]
+      const text = 'Free cash flow of **USD 19,960,000,000** [1] was below net income of _USD 20,040,000,000_ [2]. Source operands: Free cash flow USD 19,960,000,000 in 2026Q2 [1]; Net income USD 20,040,000,000 in 2026Q2 [2].'
+      const { container, unmount } = render(<NarrativePane state={doneState({ text, completion: doneCompletion({ narrative: text, citations, grounded: 2 }) })} />)
+      const prose = container.querySelector('.markdown-body')!
+      expect.soft(prose, '$19.96B below $20.04B: rendered relation').toHaveTextContent('Free cash flow of USD 19,960,000,000 [1]a was below net income of USD 20,040,000,000 [2]a')
+      expect.soft(prose, '$19.96B below $20.04B: no rounding collision').not.toHaveTextContent('$20.0B')
+      const evidence = screen.getByRole('list', { name: 'Figures behind this finding', hidden: true })
+      expect.soft(evidence, '$19.96B below $20.04B: free cash flow evidence').toHaveTextContent('Free cash flow USD 19,960,000,000')
+      expect.soft(evidence, '$19.96B below $20.04B: net income evidence').toHaveTextContent('Net income USD 20,040,000,000')
+      unmount()
+    }
+
     const exact = 'In 2026Q2, free cash flow of USD 1,001,000,000 [1] was below net income of USD 1,004,000,000 [2].'
     expect(compactNarrativeText(exact)).toBe('In Q2 2026, free cash flow of USD 1,001,000,000 [1] was below net income of USD 1,004,000,000 [2].')
     const { container } = renderText('In 2026Q2, free cash flow of **USD 1,001,000,000** [1] was below net income of _USD 1,004,000,000_ [2]. Source operands: Free cash flow USD 1,001,000,000 in 2026Q2 [1]; Net income USD 1,004,000,000 in 2026Q2 [2]. Revenue was USD 60,801,000,000. EPS EUR 6.231 per share was below EUR 6.234 per share.')
