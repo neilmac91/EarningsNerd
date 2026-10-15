@@ -5,9 +5,8 @@ import re,json,gzip,subprocess,argparse
 r=Path(__file__).resolve().parents[3];o=r/'tasks/design-system-review-2026-10';archive=r/'.impeccable/critique/2026-10-15T10-26-25Z__frontend-components-ui-index-ts.md'
 files=list(o.rglob('*'))+[archive];md=[p for p in files if p.suffix=='.md'];errors=[];links=0;refs=0
 sha='1f12fc835fcbf525042473ab0e988b4827734f38'
-parser=argparse.ArgumentParser(description='Validate the frozen design review records and an explicit commit range.')
-parser.add_argument('--base',default=sha)
-parser.add_argument('--head',default='HEAD')
+parser=argparse.ArgumentParser(description='Validate design review records in the current checkout, including pending edits. Scope is checked from the base to HEAD plus pending paths.')
+parser.add_argument('--base',default=sha,help='Base revision for the scope check; defaults to the captured source baseline.')
 args=parser.parse_args()
 @lru_cache(maxsize=None)
 def source_text(revision, path):
@@ -59,16 +58,16 @@ if b>=2000000:errors.append(f'image budget {b}')
 index=json.load(open(o/'data/evidence-index.json'))
 for x in index:
  if not (o/x['evidence']).is_file():errors.append('index missing '+x['evidence'])
-def scope_violations(base,head):
+def scope_violations(base):
  base_id=subprocess.check_output(['git','rev-parse','--verify','--end-of-options',f'{base}^{{commit}}'],cwd=r,text=True).strip()
- head_id=subprocess.check_output(['git','rev-parse','--verify','--end-of-options',f'{head}^{{commit}}'],cwd=r,text=True).strip()
+ head_id=subprocess.check_output(['git','rev-parse','--verify','HEAD^{commit}'],cwd=r,text=True).strip()
  committed=subprocess.check_output(['git','diff','--name-only','--no-renames','-z',base_id,head_id,'--'],cwd=r,text=True).split('\0')
  pending=subprocess.check_output(['git','status','--porcelain','--untracked-files=all','--no-renames','-z'],cwd=r,text=True).split('\0')
  paths=set(p for p in committed if p)|{entry[3:] for entry in pending if entry}
  allowed_archive=str(archive.relative_to(r))
  return sorted(path for path in paths if not (path.startswith('tasks/design-system-review-2026-10/') or path==allowed_archive))
 
-errors.extend('scope '+path for path in scope_violations(args.base,args.head))
+errors.extend('scope '+path for path in scope_violations(args.base))
 report=(o/'REPORT.md').read_text()
 score_sums={}
 for heading,next_heading,total in [('### Sameness','### Craft',12),('### Craft','### Impeccable health',20)]:

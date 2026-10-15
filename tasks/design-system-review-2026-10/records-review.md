@@ -33,4 +33,4 @@ None found.
 
 Author disposition: the F2 clarity nit is fixed in REPORT.md as “Multi-Period Analysis demo snapshot”. No other review findings required a change.
 
-Follow-up read-only review: inspected the final pinned-tree source lookup and committed-plus-pending scope checks after GitHub feedback. No material false-pass bug was found. The verification record now describes the explicit base/head range and the scratch application-change/rename probes.
+Follow-up read-only review: inspected the pinned-tree source lookup and committed-plus-pending scope helpers after GitHub feedback. No material false-pass bug was found in those helpers. A subsequent GitHub review identified a CLI mismatch that this pass missed: an arbitrary selected head changed scope while contents still came from the worktree. The author removed that option. The verification record now explicitly describes current-checkout validation and the scratch application-change/rename probes.

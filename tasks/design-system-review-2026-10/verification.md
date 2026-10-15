@@ -66,8 +66,9 @@ Pinned-tree probe: PASS (changed worktree, deleted worktree file, absent pinned 
 
 The complete records validator passes again with the counts above. No application file or gate configuration changed.
 
-The follow-up scope review found that a clean committed application change was invisible to git status. The validator now compares `--base` and `--head` (defaulting to the captured baseline and HEAD), unions those paths with pending changes, and disables rename detection so both the removed and added paths are checked. Pass explicit revisions when reviewing another checkout/range. The independent records reviewer inspected both validator fixes and found no material false-pass issue.
+The follow-up scope review found that a clean committed application change was invisible to git status. The validator now compares `--base` (defaulting to the captured baseline) with the current HEAD, unions those paths with pending changes, and disables rename detection so both the removed and added paths are checked. It validates record contents in the current checkout, including pending edits. To review another revision, check it out first. The briefly introduced `--head` option was removed after review showed that an arbitrary head could select a scope range unrelated to the record contents. The independent records reviewer inspected the pinned-source and committed-scope helpers and found no material false-pass issue in those helpers.
 
 ```text
 Scope probe: PASS (records-only commit accepted; clean committed application change and source-to-record rename rejected)
+Checkout CLI probe: PASS (arbitrary --head rejected before validation)
 ```
