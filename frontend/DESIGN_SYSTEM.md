@@ -972,9 +972,13 @@ titles, so a page whose content ends at h1 (the 404, /analysis, /search) does no
 `tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
 accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a signed-in /dashboard,
 the 404, /waitlist (its problem cards are h2, since the example beside the form has no heading),
-/login, /register, /forgot-password (the auth shell, which has no site footer), /contact, /security,
-/search while its flag is off (the 404), and four page-level card states (a filing without a summary
-for a guest and for a signed-in reader whose run fails, a writer error, an empty watchlist).
+/login, /register, /forgot-password, /check-email, /verify-email and /reset-password (the auth shell,
+which has no site footer; the two token pages are opened without their emailed token), /contact,
+/privacy, /terms, /security, /search while its flag is off (the 404), and four page-level card states
+(a filing without a summary for a guest and for a signed-in reader whose run fails, a writer error,
+an empty watchlist). Two census cases hold that list to its sources, `STATIC_ENTRIES` in
+`app/sitemap.ts` and `AUTH_ROUTES` in `lib/authShellRoutes.ts`, and fail, naming the path, when
+either names a route the spec does not visit.
 
 ## 6. Cards must *lift*, not tint
 

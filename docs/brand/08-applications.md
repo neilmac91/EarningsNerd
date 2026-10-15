@@ -64,9 +64,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   joined heading are h2, so the outline does not skip a level after the h1 when the example beside
   the form loads (it has no heading; `tests/unit/waitlistPage.spec.tsx`); the unused `WaitlistStatus`
   component is deleted, with the `getWaitlistStatus` client it alone called. The example link and the "Join the waitlist" pill carry the brand focus ring.
-  /waitlist, /login, /register, /forgot-password, /contact, /security and the flag-off /search join
-  the routes `tests/e2e/text-floors.spec.ts` visits; it reads which of them render in the auth shell
-  from `lib/authShellRoutes.ts`, the list `SiteChrome.tsx` uses.
+  /waitlist, /login, /register, /forgot-password, /check-email, /verify-email, /reset-password,
+  /contact, /privacy, /terms, /security and the flag-off /search join the routes
+  `tests/e2e/text-floors.spec.ts` visits; two census cases hold the list to the sitemap's static core
+  (`STATIC_ENTRIES`) and the auth shell's routes (`AUTH_ROUTES`), and it reads which of them render
+  in the auth shell from `lib/authShellRoutes.ts`, the list `SiteChrome.tsx` uses.
 - **Consent bar** (`frontend/components/CookieConsent.tsx`): "Cookies on this site", then what the
   cookies do: essential cookies keep you signed in; analytics cookies and session recording stay off
   until allowed. PostHog, the analytics tool that sets cookies, initialises only after consent
