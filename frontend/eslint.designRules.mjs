@@ -228,7 +228,7 @@ const classTokens = (node, keys, binding) => {
 const RESETS_EYEBROW = /^(normal-case|tracking-(?!eyebrow$)[\w[\]-]+)$/
 
 /** The lead of an element's content: its first text or expression in document order, read through its HTML
- *  wrappers at any depth, siblings included, since uppercase and letter-spacing inherit (`<span>{form}</span><span>
+ *  wrappers and fragments at any depth, siblings included, since uppercase and letter-spacing inherit (`<span>{form}</span><span>
  *  · Filed {ago}</span>` inside the chip renders in its face; an empty wrapper, an icon's <i>, is passed over).
  *  Null when a component or a Badge (judged by its own rule) or an element that resets the recipe unconditionally
  *  (a face of its own) comes first; undefined when the content holds no text at all. What follows the lead does
@@ -236,6 +236,12 @@ const RESETS_EYEBROW = /^(normal-case|tracking-(?!eyebrow$)[\w[\]-]+)$/
 function leadChild(node, keys, binding) {
   for (const child of meaningfulChildren(node)) {
     if (child.type === 'JSXText' || child.type === 'JSXExpressionContainer') return child
+    // A fragment renders its children in place: read through it as through a plain wrapper.
+    if (child.type === 'JSXFragment') {
+      const lead = leadChild(child, keys, binding)
+      if (lead !== undefined) return lead
+      continue
+    }
     if (child.type !== 'JSXElement') return null
     const name = child.openingElement.name
     if (name.type !== 'JSXIdentifier' || !/^[a-z]/.test(name.name)) return null
