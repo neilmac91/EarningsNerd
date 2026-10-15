@@ -9,7 +9,8 @@ gate does: an AST walk over ``app/**/*.py`` collects every access to an attribut
 the call (``filing.obj()``), the bare read that aliases the accessor (``loader = filing.obj``,
 then ``loader()``) and the string form: any call that passes ``"obj"`` as an argument, which covers
 ``getattr(filing, "obj")`` and getattr wrappers such as ``sixk_extractor._safe(filing, "obj")``.
-Any way of reaching the accessor starts with one of those. The (file, enclosing scope) pairs are
+Any literal way of reaching the accessor starts with one of those; a name built at runtime (held in a
+variable) is outside an AST walk, and review catches it. The (file, enclosing scope) pairs are
 compared against the three sites that predate the rule. A NEW access anywhere fails with its file:line; a sanctioned site
 that disappears fails too, so the list cannot go stale.
 """

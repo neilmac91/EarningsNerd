@@ -114,20 +114,26 @@ blocks it writes. Each seam probe matches the marker occurrence adjacent to its 
   `Filing.obj()`. The report object that `obj()` returns reads its sections through `html()`.
 - On 5.58.0, `html()` re-reads any primary document that opens with an XML declaration (inline XBRL)
   from the filing's index page. 5.58.0 builds that page's URL without the accession folder, and SEC
-  has answered that form with 403 since early October. So the source returns None for every filing,
-  and each 10-K, 10-Q and 20-F excerpt built since then has come from the regex extractor.
+  has answered that form with 403 since early October. So the source returns None for every filing
+  in every measured run (CI's evaluation and a local reproduction), and each 10-K, 10-Q and 20-F
+  excerpt built since then comes from the regex extractor; production runs the same pin, so it is
+  inferred to match, pending the log count in the E28 record.
 - Upstream fixed this by two routes. 5.61.0 moved the index URL inside the folder. 5.62.0 also stopped
   sending an XML-declared document that already contains HTML to the index page. Each route revives
-  the source on its own, and the 5.62.0 route works even with the folderless URL. Under 5.62.0 the same
-  app call returns all three sections live for AAPL's 10-K and NVDA's 10-Q
-  ([`../e28-native-sections-2026-10-15/bump_5620_results.jsonl`](../e28-native-sections-2026-10-15/bump_5620_results.jsonl),
+  the source on its own, and the 5.62.0 route works even with the folderless URL. Under 5.61.0, 5.61.1
+  and 5.62.0 the same app call returns all three sections live for AAPL's 10-K, and under 5.62.0 for
+  NVDA's 10-Q too
+  ([`../e28-native-sections-2026-10-15/revive_probe_output.txt`](../e28-native-sections-2026-10-15/revive_probe_output.txt),
+  [`../e28-native-sections-2026-10-15/bump_5620_results.jsonl`](../e28-native-sections-2026-10-15/bump_5620_results.jsonl),
   [`../e28-native-sections-2026-10-15/upstream_fixes.txt`](../e28-native-sections-2026-10-15/upstream_fixes.txt)).
 - So any bump to 5.61.0 or later also brings native sections back for every eligible excerpt built
   after it. Stored excerpts are reused, so the October cohort keeps its regex excerpts. This is a
   model-input change, and `backend/evals/RUNBOOK.md` requires it to be measured. A requirements-only
   PR does not trigger `eval-baseline` on its own, so the measurement is a dispatched run, priced
   under the spend rule. In CI's evaluation, summary citation fidelity was 0.97 with native sections
-  (2026-10-03 and 2026-10-04). Without them it was 0.818 to 0.871 (2026-10-07 to 2026-10-15)
+  (2026-10-03 and 2026-10-04). Without them it read 0.818 to 0.841 in the four retained reports
+  (2026-10-07 to 2026-10-15), and decision 3 of `tasks/pr-disposition-2026-10-07.md` recorded 0.818 to
+  0.871 across eight runs on 7 October
   ([`../e28-native-sections-2026-10-15/README.md`](../e28-native-sections-2026-10-15/README.md)).
 - The hold decision itself is unchanged; it rests on the Ford affix and seam regressions. The next
   replay (6.0) must also land E28's decision first. Until it does,

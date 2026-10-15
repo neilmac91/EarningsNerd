@@ -2,11 +2,16 @@
 
 Open item E28 asked for the production hit rate of the `USE_EDGARTOOLS_SECTIONS` summary-section
 path (`backend/app/services/edgar/xbrl_sections.py::_extract_sections_sync`, edgartools
-`Filing.obj()`). Since early October that rate has been zero. Each 10-K, 10-Q and 20-F excerpt built
-since then comes from the regex extractor, while the configuration says native sections are on. CI's
-summary evaluation builds its excerpts fresh on every run. There, mean citation fidelity fell from
-0.97 to a range of 0.818 to 0.871 when native sections stopped. No paid run and no production access
-were used for this record.
+`Filing.obj()`). Since early October the path has returned nothing in every measured run: CI's
+summary evaluation against live SEC and a local reproduction. Production runs the same pinned
+edgartools against the same SEC URL, so its rate is inferred to be zero too. Each 10-K, 10-Q and 20-F
+excerpt built there since then would come from the regex extractor, while the configuration says
+native sections are on. The `Excerpt provenance` log count at the end of this record confirms it.
+
+CI's evaluation builds its excerpts fresh on every run. There, mean citation fidelity fell from 0.97
+to between 0.818 and 0.871 when native sections stopped: the four retained post-switch reports read
+0.818 to 0.841, and decision 3 of `tasks/pr-disposition-2026-10-07.md` recorded 0.818 to 0.871 across
+eight runs on 7 October. No paid run and no production access were used for this record.
 
 ## The cause
 
@@ -15,7 +20,9 @@ object it returns (`TenK`, `TenQ`, `TwentyF`). Those lookups read the primary do
 `Filing.html()`. On edgartools 5.58.0, the pinned version, `html()` sends any primary document that
 starts with an XML declaration to the filing's index page instead (`edgar/_filings.py`,
 `if html.startswith("<?xml"):` then `self.homepage.primary_html_document.download()`). All 32 of the
-golden set's 10-K, 10-Q and 20-F primary documents start that way, as inline XBRL commonly does.
+golden set's 10-K, 10-Q and 20-F primary documents start that way, as inline XBRL commonly does
+([`xml_declaration_check.txt`](xml_declaration_check.txt), from
+[`xml_declaration_check.py.txt`](xml_declaration_check.py.txt)).
 
 5.58.0 builds the index URL without the accession folder:
 `.../edgar/data/320193/0000320193-25-000079-index.html`. SEC answers that form with 403. It serves
@@ -27,24 +34,27 @@ document resolves to None, and every section lookup fails with
 [`probe_sections.py.txt`](probe_sections.py.txt), run on main `1062046`). The pipeline falls back to
 the regex extractor, as it is designed to when a section is missing.
 
-Upstream tracked the 403 as dgunning/edgartools#1421 and fixed it twice
+Upstream fixed it twice; 5.62.0's source cites the issue as GH #1421 (dgunning/edgartools#1421)
 ([`upstream_fixes.txt`](upstream_fixes.txt), read from the published wheels):
 
 - 5.61.0 (on PyPI 2026-10-06) builds the index URL inside the accession folder.
 - 5.62.0 (2026-10-11) treats an XML-declared primary document that contains HTML as the HTML
   itself, so the section lookups no longer load the index page.
 
-Either fix alone revives the path. Under 5.62.0 with the folderless 5.58.0 URL patched back in, the
-same app call returns all three sections for AAPL's 10-K. It makes only the submissions request and
-the submission-file request, with no index-page request ([`revive_probe_output.txt`](revive_probe_output.txt),
-from [`revive_probe.py.txt`](revive_probe.py.txt)).
+Either fix alone revives the path, measured with the app's own section call on AAPL's 10-K
+([`revive_probe_output.txt`](revive_probe_output.txt), from [`revive_probe.py.txt`](revive_probe.py.txt)):
+
+- Under 5.61.0 and 5.61.1 as shipped, the call returns all three sections. It requests the
+  submissions file, the submission file, the foldered index page (200) and the primary document again.
+- Under 5.62.0 with the folderless 5.58.0 URL patched back in, it returns the same three sections and
+  makes only the submissions and submission-file requests, with no index-page request.
 
 ## When it stopped, and what it changed
 
 CI's `eval-baseline` job grounds each golden filing the way the product does. `evals/runner.py::_get_grounding`
-fetches the primary document through the app's SEC service, makes the same sections call, builds the
-excerpt with the same assembly or regex fallback, and calls `summarize_filing`. Its report records
-each excerpt's source. [`eval_excerpt_sources.txt`](eval_excerpt_sources.txt), from
+fetches the primary document through the app's SEC service, makes the same sections call, and builds
+the excerpt with the same assembly or regex fallback; the runner then passes that grounding to
+`summarize_filing`. Its report records each excerpt's source. [`eval_excerpt_sources.txt`](eval_excerpt_sources.txt), from
 [`eval_excerpt_sources.py.txt`](eval_excerpt_sources.py.txt), reads six of those reports (each run
 covers 35 filings twice):
 
@@ -57,19 +67,18 @@ covers 35 filings twice):
 | 37978755392 | 2026-10-09 19:24Z | 0 of 64 | 0.8350 | 56,785 |
 | 38804779839 | 2026-10-15 20:57Z | 0 of 64 | 0.8258 | 56,785 |
 
-The switch falls between October 4 09:29Z and October 7 19:06Z. That window holds the October 5
-issue report, which described the 403 as "currently persistent". Every run since October 7 reports
+The switch falls between October 4 09:29Z and October 7 19:06Z. Every run since October 7 reports
 `supplied_sections: []` for every eligible filing. Every primary document was still fetched live from
 `www.sec.gov` and XBRL grounding was present, so those runs had SEC access. The two native-section
 misses before the switch are ASML's 20-F (both runs). The local parse below finds no sections in that
 document either. The pinned baseline (2026-09-19, flag on) has citation fidelity 0.9648 and mean
 prompt tokens 39,368, which matches the native-section state. The 6-K excerpts are byte-identical in
-all six reports, which confirms that the 6-K path never used native sections.
+all six reports, which confirms that the switch did not touch the 6-K path.
 
 The other dimensions held. Numeric accuracy stayed at 1.0 in all six reports. Currency consistency
 read 0.9998 to 1.0 and coverage 0.9971 to 1.0. Financial depth stayed between 0.77 and 0.80.
-Untraceable dollar figures read 2.1 before the switch and 1.13 to 1.5 after it. Mean latency rose by
-about 0.6 s with the larger prompts.
+Untraceable dollar figures read 2.1 and 2.14 before the switch and 1.13 to 1.5 after it. Mean latency
+read 12.8 and 13.4 s before and 13.4 to 15.0 s after (pinned baseline 13.19 s).
 
 Citation fidelity is a WARN dimension in `backend/evals/regression_gate.py` (tolerance 0.05), so
 every run since the switch has printed a warning and passed.
@@ -91,7 +100,7 @@ A built excerpt is stored and reused, so the switch reached only the excerpts fi
 - Only precompute's `force` path (`precompute_service.py`) and the admin filing reset
   (`admin_filing_service.py`) clear one.
 
-So in production:
+So in production, by the code above and the CI measurement (the log count below confirms it):
 
 - Excerpts stored before the switch are still native.
 - Excerpts first built since early October are regex and stay regex.
@@ -129,12 +138,13 @@ edgartools 5.58.0 ([`dead_path_results.jsonl`](dead_path_results.jsonl), from
 ## The held edgartools bump would revive the path silently
 
 Finding 6 of the hold record for #1285 says that 5.61.0's `Filing.homepage_url` fix does not reach
-`app/`. It does: the section source reaches the index page through `obj()` and `html()`. 5.62.0 adds
-a second route: its `html()` no longer sends inline XBRL to the index page, so it revives the path
-even without the URL fix ([`revive_probe_output.txt`](revive_probe_output.txt)). With 5.62.0 first on the import
+`app/`. It does: the section source reaches the index page through `obj()` and `html()`. Under
+5.61.0 and 5.61.1 the app's call returns all three sections for AAPL's 10-K. 5.62.0 adds a second
+route: its `html()` no longer sends inline XBRL to the index page, so it revives the path even without
+the URL fix ([`revive_probe_output.txt`](revive_probe_output.txt)). With 5.62.0 first on the import
 path, the same app call returns all three sections live for AAPL's 10-K and NVDA's 10-Q
-([`bump_5620_results.jsonl`](bump_5620_results.jsonl)). Taking either version would switch every
-newly built eligible excerpt back to native sections inside a dependency change.
+([`bump_5620_results.jsonl`](bump_5620_results.jsonl)). Taking any of these versions would switch
+every newly built eligible excerpt back to native sections inside a dependency change.
 
 The hold record now carries an addendum
 ([`../edgartools-5.61.1-hold-2026-10-13/README.md`](../edgartools-5.61.1-hold-2026-10-13/README.md#addendum-2026-10-15-finding-6-corrected-e28)).
@@ -174,29 +184,38 @@ that the parse is cheaper than the dead attempt.
    - Adapt the acceptance harness, since sections will come from the bound primary document and not
      from a source call.
    - Retire `obj()` and its allow-list entry, and delete the tripwire.
+   - Gate the native-section share in `evals/regression_gate.py`, and correct
+     `backend/evals/RUNBOOK.md` and the `config.py` comment.
 
    This restores the state the baseline was pinned in, for every excerpt built afterwards. The
    October cohort needs a separate clear-and-regenerate, sized from the log count below.
 
    The PR touches `backend/app/` and `backend/evals/`, so each push runs the paid `eval-baseline`
-   job. The plan's spend rule reserves USD 0.73 per push; measured runs cost USD 0.18 to 0.36. It
-   also needs a `copilot-eval` draw when it is marked ready (reserve USD 0.06). Read the balance
+   job. The plan's spend rule reserves USD 0.73 per push (`tasks/refactor-plan-2026-10.md`). Measured
+   runs cost USD 0.175 off-peak (runs D1 and D3 of `tasks/pr-disposition-2026-10-07.md`) to 0.36
+   (record 18, quoted in the refactor plan). It also needs a `copilot-eval` draw when it is marked
+   ready (reserve USD 0.06). Read the balance
    with the `.github/workflows/deepseek-balance.yml` dispatch first. The last recorded balance is
    USD 7.36 (2026-10-14 12:55Z) against the USD 5 floor. The merge changes model inputs and deploys
    the backend.
 2. **Retire the path.** Remove the dead attempt and its requests, keep the regex excerpt and today's
    scores, and delete the tripwire. This is also a model-input decision, since it fixes today's lower
    citation fidelity in place.
-3. **Take an edgartools bump once #1063 clears.** This revives `obj()` with its edgartools HTTP (the
-   whole submission file per attempt, plus the index page on 5.61.x), which stays outside the app's
-   limiter. The tripwire blocks the bump until the allow-list entry is gone.
+An edgartools bump is not a third option. It would revive `obj()` with its edgartools HTTP (the
+whole submission file per attempt, plus the index page and the primary document again on 5.61.x),
+outside the app's limiter, so it is a revival without the measurement. The tripwire blocks any bump
+until the allow-list entry is gone, so the bump follows whichever decision lands.
 
-Production confirmation is one log query. The API logs `Excerpt provenance: {...}` with a `source`
-field for every excerpt it builds or reuses. A daily count since 2026-10-01 would show the switch in
-production, and would size the October cohort that option 1 regenerates:
+Production confirmation is one log query. `get_or_cache_excerpt` logs `Excerpt provenance: {...}`,
+with a `source` and the `accession`, for every excerpt it builds and for every stored excerpt it
+reuses after the 24-hour freshness window. A reuse inside that window skips the function and logs
+nothing. A daily count since 2026-10-01 shows the switch and sizes the October cohort:
 
 - `edgartools` against `regex_fallback` shows the switch.
-- `legacy_cached_excerpt` counts the reuse of stored excerpts.
+- The cohort is the distinct accessions logged as `regex_fallback` since 2026-10-04, joined to
+  `Filing.filing_type` to keep 10-K, 10-Q and 20-F. It also counts filings that fall back with
+  native sections on (ASML's 20-F did before the switch); those keep a regex excerpt either way.
+- `legacy_cached_excerpt` counts only the stale-cache reuses, so it is a lower bound on reuse.
 
 The CODE RED chief's `logs-probe` route can read these logs. This record did not, because it has no
 production access.
@@ -209,7 +228,10 @@ production access.
 - [`upstream_fixes.txt`](upstream_fixes.txt): the index URL and the `html()` branch in 5.58.0,
   5.61.0, 5.61.1 and 5.62.0, with PyPI upload times.
 - [`revive_probe.py.txt`](revive_probe.py.txt), [`revive_probe_output.txt`](revive_probe_output.txt):
-  5.62.0 revives the path even with 5.58.0's folderless index URL.
+  5.61.0 and 5.61.1 revive the path through the foldered index page; 5.62.0 revives it even with
+  5.58.0's folderless index URL.
+- [`xml_declaration_check.py.txt`](xml_declaration_check.py.txt), [`xml_declaration_check.txt`](xml_declaration_check.txt):
+  all 32 golden 10-K, 10-Q and 20-F primary documents open with an XML declaration.
 - [`eval_excerpt_sources.py.txt`](eval_excerpt_sources.py.txt), [`eval_excerpt_sources.txt`](eval_excerpt_sources.txt):
   excerpt sources, scores and 6-K excerpt hashes per CI run, read from the runs' `eval-report-*`
   artifacts (kept 14 days).

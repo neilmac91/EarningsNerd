@@ -1,6 +1,7 @@
-"""Run the app's section call once under edgartools 5.62.0 (the unpacked wheel first on sys.path; the script prints edgar.__version__).
+"""Run the app's section call once under an unpacked edgartools wheel first on sys.path (PYTHONPATH); the script prints edgar.__version__.
 
-Mode "folderless" patches Filing.homepage_url back to the 5.58.0 form SEC refuses; "as-shipped" leaves 5.62.0 as published.
+Run under 5.62.0 in both modes, and under 5.61.0 and 5.61.1 as shipped.
+Mode "folderless" patches Filing.homepage_url back to the 5.58.0 form SEC refuses; "as-shipped" leaves the release as published.
 httpx2 INFO lines list every request edgartools made. Live SEC, EDGAR_RATE_LIMIT_PER_SEC=1.
 """
 import os, sys, time, logging

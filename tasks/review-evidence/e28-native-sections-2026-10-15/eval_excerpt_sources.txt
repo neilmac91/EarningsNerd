@@ -5,7 +5,7 @@
    28  10-K  edgartools       sections
    22  10-Q  edgartools       sections
    12  20-F  edgartools       sections
-    2  20-F  regex_fallback   no sections
+    2  20-F  regex_fallback   no sections  (ASML x2)
     6  6-K   regex_fallback   no sections
 
   mean_citation_fidelity = 0.9737
@@ -23,7 +23,7 @@
    28  10-K  edgartools       sections
    22  10-Q  edgartools       sections
    12  20-F  edgartools       sections
-    2  20-F  regex_fallback   no sections
+    2  20-F  regex_fallback   no sections  (ASML x2)
     6  6-K   regex_fallback   no sections
 
   mean_citation_fidelity = 0.9717
@@ -104,7 +104,7 @@
   mean_untraceable_dollar_figures = 1.4571
   mean_latency_seconds = 15.011
 
-## 6-K excerpt sha256 (first 12 hex) per report, both runs: the 6-K path does not use native sections
+## 6-K excerpt sha256 (first 12 hex) per report; one value means both runs in that report produced it: the 6-K path does not use native sections
 
   ASML  20261003T205104Z:bd5584b78d7c  20261004T092946Z:bd5584b78d7c  20261007T190622Z:bd5584b78d7c  20261007T231445Z:bd5584b78d7c  20261009T192408Z:bd5584b78d7c  20261015T205751Z:bd5584b78d7c
   PDD   20261003T205104Z:f93f7083dd07  20261004T092946Z:f93f7083dd07  20261007T190622Z:f93f7083dd07  20261007T231445Z:f93f7083dd07  20261009T192408Z:f93f7083dd07  20261015T205751Z:f93f7083dd07
