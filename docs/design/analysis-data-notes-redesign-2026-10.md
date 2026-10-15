@@ -550,7 +550,8 @@ corrections of §11:
   option that stays focusable and carries its reason ("Quarterly data isn't available for this company"),
   the established unavailable recipe, never native `disabled` (#1203 shipped a native `disabled` option;
   §11).
-- Presets as plain actions, `Button variant="ghost" size="sm"`: Last 4 · Last 8 · Last 12 (Last 5 ·
+- Presets as plain actions in the secondary ink with Button sm's shape (not the ghost Button, whose sage
+  label D-030 keeps off a count): Last 4 · Last 8 · Last 12 (Last 5 ·
   Last 10 in annual mode), without `aria-pressed` and without a selected tint: the mode control is the
   one single-choice group in this toolbar, and the summary line already states the range (#1203 shipped
   tinted `aria-pressed` pills; §11).

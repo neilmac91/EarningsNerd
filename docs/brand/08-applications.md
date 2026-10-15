@@ -59,6 +59,30 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   beside them; the dialog's headings and its "Save preferences" button are in sentence case.
   The categories, the handlers and the privacy link are unchanged; the analytics clause in the
   dialog waits on the founder (chrome/F1).
+- **Contact** (`frontend/app/contact/page.tsx`, `frontend/features/contact/components/ContactForm.tsx`):
+  "Contact us", then one line on what to write about. "What to expect" keeps the response time
+  (typically within 1–2 business days); the support-hours line (Monday–Friday, 9:00 AM–5:00 PM ET)
+  is gone, as the founder decided on 2026-10-15 (D-040): an unenforced promise. The "automated
+  confirmation email" line is gone too: the receipt `backend/app/routers/contact.py` sends carries
+  no copy of the message, and the route answers success when that send fails. The form's limits are
+  the server's (`tests/unit/contactValidationParity.spec.ts` reads `backend/app/schemas/contact.py`),
+  so a one-letter name, or a message over 2,000 characters, is refused before sending, counted in
+  code points as the server counts (no field carries a native `maxLength`, which counts UTF-16 units
+  and would cut an emoji-heavy message the server accepts), and an email whose shape the server's
+  `EmailStr` refuses (`ada@gmail`, with no dot in the domain) is refused with "Please enter a valid
+  email address." A name or message under the floor says "Your name needs at least 2 characters."
+  or "Your message needs at least 10 characters."; over its maximum, "Your message can be at most
+  2,000 characters.", the numbers read from the limits, and the hint under the message reads "10 to
+  2,000 characters"; the message placeholder is "What happened, or what you'd like to know".
+  Every failure shows in an error Notice titled "Message not sent". A rate limit is read from the
+  status and says "Too many messages from this connection. Try again in an hour."; a 422 the form
+  could not foresee says "Check the fields and send again."; a 5xx says the surface's sentence, since
+  the route's own 500 detail is developer wording; any other failure shows the backend's own detail,
+  or the surface's sentence when the body carried none: "We couldn't send your message. Try again in
+  a minute." The success heading is an h2.
+  The prose links on /contact are underlined and carry the brand focus ring. The /security links
+  are unchanged, because /security is a legal page under the founder's boundary; the ring triple
+  on its five links rides the founder-gated security-claims PR.
 
 ## 3. Inside the product
 
@@ -68,6 +92,41 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
   "$7.5" (a Phase 9 fix; compact figures keep their rounding).
+- **Calendar** (`frontend/features/calendar/components/EarningsCalendarPage.tsx`, `MonthView.tsx`,
+  `WeekView.tsx`): the coverage chip and the "+N more" and "Show top 5" controls rest in the ink,
+  sage only under the pointer (D-030). `tests/unit/calendarCoverageChip.spec.tsx` renders the page
+  on a bounded payload under the known universe: the chip shows there and nowhere else.
+- **Counts elsewhere in the product** (D-030): the dashboard feed's "See all N companies" link, the
+  check-email countdown, the period quick picks, the narrative's "Show the N source figures" summary
+  and its bracketed Sources chip, the data notes' checked count, the peer rank and the summary's
+  section index rest in the ink, and so do the values beside them: a What-changed chip's rising
+  delta on the dashboard (the primary ink, the icon carrying the direction), the filing viewer's
+  "Showing ·" caption, which prints a section's name, and the "Sources & checks" links, which under
+  the fundamentals chart print a figure's fiscal year. The controls among them that turn sage under
+  the pointer compose the count control, `countControlClass` (`frontend/DESIGN_SYSTEM.md`): the
+  whole label in the secondary ink as one text run, sage under the pointer (a link set among lines
+  of text keeps its underline). The calendar day's "+N more", which never turns sage, and the
+  countdown, at full strength in the same ink while its control waits, rest in the ink outside it.
+  `brandCopyRules.spec.ts` rule 2 reads the whole app and follows sage through a class, a ui Button
+  or Badge variant, a resting state such as `aria-pressed:`, `visited:` or `focus:`, an opacity
+  modifier and a component that sets it or is given it, reads a same-file literal through the file's
+  own bindings its header names (a variable's every value, what the file puts in it included,
+  fields, indices, destructuring with its rest, a loop's variable, a parameter at each of the file's
+  calls, a named callback's included, and React's child utilities), and its count-control check
+  fails a control resting in sage, its own or inherited where it is rendered (a component that
+  renders its children inside a control counting as one), that holds its count in a span of its own
+  ink, and its one-source check fails a count control rebuilt by hand, whose classes written in its
+  file turn it sage under the pointer; its header names what stays review-checked.
+- **The Copilot's links and the prose links** (D-030): a Copilot source's locator, which prints a
+  citation's section name as the model wrote it, composes the count control's `link` kind, with the
+  new-tab icon the app's other links to the original draw. A link inside a Copilot answer, the
+  filing reader, the summary or the analysis narrative prints words the product does not write, so
+  it rests in its prose's own ink with a quiet underline and turns sage only under the pointer
+  (`app/globals.css`); a citation chip among the prose keeps its own chip. `brandCopyRules.spec.ts`
+  rule 2 reads as a value every field the API types declare that the server or the model writes a
+  figure into (a formatted figure, a date or a period, the text written about the filing, a table's
+  rows and a list's items among it), and fails a field they declare that can hold a string and that
+  it has not classified; its stylesheet check fails a rule that sets sage at rest.
 - **Exports and mail** (`backend/app/services/export_service.py`, `excel_export_service.py`,
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
@@ -155,7 +214,7 @@ New gates, each with a mutation proof in the PR (CLAUDE.md rule 12):
 - `brandCopyRules.spec.ts`: shipped copy never says "each figure" or "every figure" without the
   server's scope beside it, never promises nine parts for every filing, and on the public surfaces
   never promises that quotes are withheld or are the filing's own words unless it names risk
-  excerpts; on the public surfaces no sage-coloured element renders a digit; the
+  excerpts; on the public surfaces no sage-coloured element renders a digit (D-030 later widened this to the whole app, to computed values and to the sage a variant, a resting state or a component sets); the
   highlight never sits on a figure or a price, the hero accents included; the margin exists only
   inside `MarkedCopy`, and every `MarkedCopy` carries a marker.
 - `markSingleSource.spec.ts`: every rendition of the EN monogram (the assets, the templates, the

@@ -1,5 +1,7 @@
 export { Button, buttonVariants, primaryUnavailableClass, secondaryUnavailableClass, type ButtonProps, type ButtonVariant, type ButtonSize, type ButtonVariantsOptions } from './Button'
 export { Badge, type BadgeProps, type BadgeVariant } from './Badge'
+// The count control (D-030): a control whose label carries a count rests in the ink, sage under the pointer.
+export { countControlClass, type CountControlKind } from './countControl'
 export {
   Input, Textarea, Select, FieldSpinner, inputClasses, fieldUnavailableClass,
   type InputProps, type TextareaProps, type SelectProps, type InputClassesOptions, type FieldDensity,
