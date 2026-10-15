@@ -19,7 +19,10 @@ success, which a required check counts as passing. So for about two minutes afte
 finished, the pull request could have merged with no review verified. Codex had already finished,
 and the merge waited for a later run that logged the completed review. An audit of the seven
 earlier programme merges (#1222 to #1245) found each one had merged on a run that logged a
-completed review.
+completed review. Re-runs had produced the same skip. On #1319 and #1318 an `@codex review` around
+the ready transition re-ran the draft run, and its new attempt replayed the draft payload. Each
+attempt skipped and cancelled the ready run: runs 38483245956 and 38483284762 on #1319, and
+38482584386 and 38482628083 on #1318.
 
 **Rule**: A review you triggered, by opening a non-draft pull request, marking it ready, or
 commenting `@codex review`, returns for the pull request's current head before you merge, or you
