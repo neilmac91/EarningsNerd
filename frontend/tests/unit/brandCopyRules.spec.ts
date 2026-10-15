@@ -203,7 +203,7 @@ const CHECKER = PROGRAM.getTypeChecker()
     public route renders (SourceTrace, FinancialMetricsTable, CompanySearch) is held to rule 1c without anyone
     naming it (BG-16). */
 const PUBLIC_ROUTES = ['app', 'app/waitlist', 'app/pricing', 'app/login', 'app/register', 'app/forgot-password', 'app/contact', 'app/security',
-  'app/privacy', 'app/terms', 'app/check-email', 'app/verify-email', 'app/reset-password', 'app/search', 'app/company/[ticker]', 'app/filing/[id]']
+  'app/privacy', 'app/terms', 'app/delete-account', 'app/check-email', 'app/verify-email', 'app/reset-password', 'app/search', 'app/company/[ticker]', 'app/filing/[id]']
 const ROUTE_FILES = ['page.tsx', 'layout.tsx', 'not-found.tsx', 'error.tsx', 'global-error.tsx']
 const PUBLIC_ROOTS = PUBLIC_ROUTES.flatMap((dir) => routeFiles(dir, ROUTE_FILES, ROOT).filter((file) => path.posix.dirname(file) === dir))
 const PUBLIC_FILES = new Set(walkImports(PUBLIC_ROOTS, ROOT))
@@ -2961,7 +2961,7 @@ describe('brand rule 3: the Marked Copy Rule', () => {
     for (const dir of PUBLIC_ROUTES) expect(PUBLIC_ROOTS.some((file) => path.posix.dirname(file) === dir), `${dir} has a page`).toBe(true)
     for (const rel of ['app/global-error.tsx', 'app/error.tsx', 'app/not-found.tsx', 'components/Header.tsx', 'components/Footer.tsx', 'components/CookieConsent.tsx',
       'features/auth/components/AuthShell.tsx', 'features/marketing/components/HeroHeadline.tsx', 'features/filings/components/SourceTrace.tsx',
-      'features/summaries/components/FinancialMetricsTable.tsx', 'features/companies/components/CompanySearch.tsx', 'app/check-email/page.tsx',
+      'features/summaries/components/FinancialMetricsTable.tsx', 'features/companies/components/CompanySearch.tsx', 'app/check-email/page.tsx', 'app/delete-account/page.tsx',
       // Reached only through their routes: the company page's peers panel, the filing page's summary.
       'features/peers/components/PeerComparisonPanel.tsx', 'features/summaries/components/SummaryBlocks.tsx']) {
       expect(PUBLIC_FILES.has(rel), `${rel} is public`).toBe(true)
