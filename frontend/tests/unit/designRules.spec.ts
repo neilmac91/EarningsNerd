@@ -96,6 +96,10 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     '<div className="uppercase tracking-eyebrow">{filing.form}<Badge>New</Badge></div>',
     // A component is judged by its own rule (Badge above), not as a hand-rolled chip.
     '<Eyebrow className="uppercase tracking-eyebrow">{form}</Eyebrow>',
+    // A same-file class binding is read as an inline class is: one that is not the eyebrow recipe passes
+    // around a form, and the eyebrow recipe passes on a label that is not a form (FinancialMetricsTable's <dt>).
+    "const DATA = 'font-data text-text-primary-light'\nexport const Code = ({ filing }) => <span className={DATA}>{filing.form}</span>",
+    "const EYEBROW = 'text-xs uppercase tracking-eyebrow'\nexport const Label = () => <dt className={EYEBROW}>Change</dt>",
   ],
   invalid: [
     { code: '<Badge variant="neutral">{filing.filing_type}</Badge>', errors: [{ messageId: 'badge' }] },
@@ -124,6 +128,21 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
       errors: [{ messageId: 'chip' }],
     },
     { code: '<span className="uppercase tracking-eyebrow">{/* code */}10-Q · Filed {ago}</span>', errors: [{ messageId: 'chip' }] },
+    // The first child is read as a Badge's children are (formNode): a form field anywhere in the expression,
+    // and a string that is a code or opens with one before a separator.
+    { code: '<span className="uppercase tracking-eyebrow">{hit.form ?? "—"}</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow">{filing.form.toUpperCase()}</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow">{"10-Q · Filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
+    // The eyebrow recipe held in a same-file binding, read through `className={EYEBROW}`, and one built with
+    // cx() and read through a template.
+    {
+      code: "const EYEBROW = 'uppercase tracking-eyebrow'\nexport const Code = ({ filing }) => <span className={EYEBROW}>{filing.form}</span>",
+      errors: [{ messageId: 'chip' }],
+    },
+    {
+      code: "const EYEBROW = cx('text-xs uppercase', 'tracking-eyebrow')\nexport const Meta = ({ form, ago }) => <p className={`${EYEBROW} mt-1`}>{form} · Filed {ago}</p>",
+      errors: [{ messageId: 'chip' }],
+    },
   ],
 })
 

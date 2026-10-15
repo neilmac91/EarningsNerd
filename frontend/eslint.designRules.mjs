@@ -13,13 +13,18 @@
 //   no-form-code-badge  (P-04) A form code (10-K, 10-Q, 6-K …) is text in the data face, never a
 //                       Badge: a blue chip on 10-Q spent the status colour on a category, and a
 //                       neutral one still reads as a status. The rule flags a <Badge> (or ui.Badge)
-//                       and a hand-rolled chip (an element whose class text sets uppercase and
-//                       tracking-eyebrow and whose first non-blank child is a form field or a form
-//                       code, or text opening with one before a separator, followed only by text or
-//                       expressions, as in `{form} • Filed {ago}`)
 //                       that reads a filing-type field, or holds a literal form code (string,
 //                       template or text), in its children or in a prop that styles it. Descriptive
 //                       props (title, alt, aria-*) may name the form: they describe, not display.
+//                       It flags a hand-rolled chip by the same reading: an HTML element whose class
+//                       text sets uppercase and tracking-eyebrow, written inline or held in a binding
+//                       declared in the same file (`const EYEBROW = 'uppercase tracking-eyebrow'`
+//                       read as `className={EYEBROW}`; the initializer a string, a template or a
+//                       cx()/clsx() call), and whose first non-blank child, text or an expression,
+//                       reads a form field anywhere in it (`{hit.form ?? fallback}`,
+//                       `{filing.form.toUpperCase()}`) or holds a code, or text opening with one
+//                       before a separator (`{'10-Q · Filed'}`), followed only by text or
+//                       expressions, as in `{form} • Filed {ago}`.
 //   no-unguarded-animation (P-09) Every Tailwind animation utility stops under reduced motion
 //                       (WCAG 2.3.3): `motion-safe:animate-x`, or `animate-x` beside a
 //                       `motion-reduce:animate-none` with the same variants in the class text that
@@ -35,7 +40,9 @@
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), a
 // Badge imported under another name, and an animation set outside a class utility (an arbitrary
-// `[animation:…]` property, an inline style).
+// `[animation:…]` property, an inline style). The chip check resolves a class binding declared in
+// the same file only: an imported constant, a class passed in as a prop, an object of recipes
+// (`styles.eyebrow`), a function's return value and a later assignment to the binding stay unread.
 
 import { branchTexts, classUnitVisitors, parseClassToken, splitClassToken } from './eslint.gridBaseTrack.mjs'
 
@@ -99,48 +106,80 @@ const FORM_CODE = /^\s*(10-K|10-Q|8-K|20-F|40-F|6-K|S-1|S-4|DEF 14A)(\/A)?\s*$/i
 const FORM_CODE_LEAD = /^\s*(10-K|10-Q|8-K|20-F|40-F|6-K|S-1|S-4|DEF 14A)(\/A)?\s*($|[·•|])/i
 const CHIP_CLASS = /^(class|className)$/
 const EYEBROW_CHIP = [/(^|:)uppercase$/, /(^|:)tracking-eyebrow$/]
+// The helpers a class binding may call: `const EYEBROW = cx('uppercase', 'tracking-eyebrow')`.
+const CLASS_HELPER = /^(cx|clsx)$/
 
-/** Every string an attribute's value can contribute (literals and template chunks), joined. */
-function attributeText(node, keys, out = []) {
+/** Every string an attribute's value can contribute (literals and template chunks), joined. An identifier
+ *  contributes what `binding` reads for it: the class text of a binding declared in the same file. */
+function attributeText(node, keys, binding, out = []) {
   if (!node || typeof node.type !== 'string') return out
   if (node.type === 'Literal' && typeof node.value === 'string') out.push(node.value)
   if (node.type === 'TemplateElement') out.push(node.value.cooked ?? node.value.raw)
-  for (const key of keys[node.type] ?? []) for (const child of [node[key]].flat()) attributeText(child, keys, out)
+  if (node.type === 'Identifier') out.push(...binding(node))
+  for (const key of keys[node.type] ?? []) {
+    for (const child of [node[key]].flat()) attributeText(child, keys, binding, out)
+  }
   return out
 }
 
-/** A field that holds a form (`form`, `hit.form`, `filing?.filing_type`), or a literal form code. */
-function isFormValue(node) {
-  if (!node) return false
-  if (node.type === 'ChainExpression' || node.type === 'TSNonNullExpression') return isFormValue(node.expression)
-  if (node.type === 'Identifier') return FORM_FIELD.test(node.name)
-  if (node.type === 'MemberExpression') return !node.computed && FORM_FIELD.test(node.property.name ?? '')
-  if (node.type === 'Literal') return typeof node.value === 'string' && FORM_CODE.test(node.value)
-  if (node.type === 'TemplateLiteral') return node.expressions.length === 0 && FORM_CODE.test(node.quasis[0].value.cooked ?? '')
-  return false
+/** A binding initializer read as class text: a string, a template, or a cx()/clsx() call. An object of
+ *  recipes, a function or any other expression is not, so `styles.data` never reads `styles.chip`. */
+const isClassShaped = (init) =>
+  (init?.type === 'Literal' && typeof init.value === 'string') ||
+  init?.type === 'TemplateLiteral' ||
+  (init?.type === 'CallExpression' && init.callee.type === 'Identifier' && CLASS_HELPER.test(init.callee.name))
+
+/** The variable an identifier reads, from ESLint's scope analysis; null for a name that is not a
+ *  reference (a property key) and for a global. */
+function resolvedVariable(sourceCode, identifier) {
+  for (let scope = sourceCode.getScope(identifier); scope; scope = scope.upper) {
+    const reference = scope.references.find((r) => r.identifier === identifier)
+    if (reference) return reference.resolved
+  }
+  return null
 }
 
-/** A hand-rolled chip around a form: an HTML element set in eyebrow type (uppercase, tracking-eyebrow)
- *  whose first non-blank child is a form field or a form code (or text opening with a code and then a
- *  separator, `10-Q · Filed `), followed only by text or expressions (the codebase's `{form} • Filed {ago}`
- *  meta line). A Badge by another hand. A sentence that names a form later (`Latest {filing.filing_type}`)
- *  or opens with one as prose (`10-K filings`) is copy, and an element child ends the match. */
-function isEyebrowFormChip(node, keys) {
+/** The first node in `node` that names or spells a form, else null: a form field wherever it sits (`form`,
+ *  `hit.form ?? fallback`, `filing.form.toUpperCase()`), or text (JSX text, a string, a template chunk) that
+ *  `code` matches. A descriptive prop is skipped, and a nested Badge is checked on its own visit. */
+function formNode(node, keys, code = FORM_CODE) {
+  if (!node || typeof node.type !== 'string') return null
+  if (node.type === 'JSXAttribute' && DESCRIPTIVE_PROP.test(node.name?.name ?? '')) return null
+  if (node.type === 'JSXElement' && isBadge(node.openingElement.name)) return null
+  if (node.type === 'Identifier' && FORM_FIELD.test(node.name)) return node
+  if (node.type === 'JSXText' && code.test(node.value)) return node
+  if (node.type === 'Literal' && typeof node.value === 'string' && code.test(node.value)) return node
+  if (node.type === 'TemplateElement' && code.test(node.value.cooked ?? '')) return node
+  for (const key of keys[node.type] ?? []) {
+    for (const child of [node[key]].flat()) {
+      const found = formNode(child, keys, code)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+/** A hand-rolled chip around a form: an HTML element set in eyebrow type (uppercase, tracking-eyebrow, in
+ *  its class text or a same-file binding it reads) whose first non-blank child, text or an expression, shows
+ *  a form by formNode's reading (its strings tested with FORM_CODE_LEAD, so `{'10-Q · Filed'}` counts),
+ *  followed only by text or expressions (the codebase's `{form} • Filed {ago}` meta line). A Badge by
+ *  another hand. A sentence that names a form later (`Latest {filing.filing_type}`) or opens with one as
+ *  prose (`10-K filings`) is copy, and an element child ends the match. The children are read first, so a
+ *  class binding is resolved only around a form. */
+function isEyebrowFormChip(node, keys, binding) {
   const name = node.openingElement.name
   if (name.type !== 'JSXIdentifier' || !/^[a-z]/.test(name.name)) return false
-  const classAttr = node.openingElement.attributes.find((a) => a.type === 'JSXAttribute' && CHIP_CLASS.test(a.name?.name ?? ''))
-  const tokens = classAttr ? attributeText(classAttr.value, keys).join(' ').split(/\s+/) : []
-  if (!EYEBROW_CHIP.every((pattern) => tokens.some((token) => pattern.test(token)))) return false
   const children = node.children.filter(
     (c) =>
       !(c.type === 'JSXText' && c.value.trim() === '') &&
       !(c.type === 'JSXExpressionContainer' && c.expression.type === 'JSXEmptyExpression'),
   )
   if (children.length === 0) return false
-  const [first, ...rest] = children
-  if (!rest.every((c) => c.type === 'JSXText' || c.type === 'JSXExpressionContainer')) return false
-  if (first.type === 'JSXText') return FORM_CODE_LEAD.test(first.value)
-  return first.type === 'JSXExpressionContainer' && isFormValue(first.expression)
+  if (!children.every((c) => c.type === 'JSXText' || c.type === 'JSXExpressionContainer')) return false
+  if (!formNode(children[0], keys, FORM_CODE_LEAD)) return false
+  const classAttr = node.openingElement.attributes.find((a) => a.type === 'JSXAttribute' && CHIP_CLASS.test(a.name?.name ?? ''))
+  const tokens = classAttr ? attributeText(classAttr.value, keys, binding).join(' ').split(/\s+/) : []
+  return EYEBROW_CHIP.every((pattern) => tokens.some((token) => pattern.test(token)))
 }
 
 export const noFormCodeBadge = {
@@ -158,31 +197,27 @@ export const noFormCodeBadge = {
     },
   },
   create(context) {
-    const keys = context.sourceCode.visitorKeys
-    // The first node in a Badge's props or children that names or spells a form, else null. A
-    // nested Badge is checked on its own visit.
-    const formNode = (node) => {
-      if (!node || typeof node.type !== 'string') return null
-      if (node.type === 'JSXAttribute' && DESCRIPTIVE_PROP.test(node.name?.name ?? '')) return null
-      if (node.type === 'JSXElement' && isBadge(node.openingElement.name)) return null
-      if (node.type === 'Identifier' && FORM_FIELD.test(node.name)) return node
-      if (node.type === 'JSXText' && FORM_CODE.test(node.value)) return node
-      if (node.type === 'Literal' && typeof node.value === 'string' && FORM_CODE.test(node.value)) return node
-      if (node.type === 'TemplateElement' && FORM_CODE.test(node.value.cooked ?? '')) return node
-      for (const key of keys[node.type] ?? []) {
-        for (const child of [node[key]].flat()) {
-          const found = formNode(child)
-          if (found) return found
-        }
-      }
-      return null
+    const { sourceCode } = context
+    const keys = sourceCode.visitorKeys
+    // The class text of the binding an identifier in a class attribute names (`className={EYEBROW}`,
+    // `cx(EYEBROW, 'mt-1')`): a same-file declaration whose initializer is class-shaped, read as an inline
+    // class is. An import, a parameter or prop and a destructured name give nothing; `seen` stops a binding
+    // that reads itself.
+    const bindingClassText = (identifier, seen = new Set()) => {
+      const def = resolvedVariable(sourceCode, identifier)?.defs[0]
+      const init = def?.type === 'Variable' && def.node.id.type === 'Identifier' ? def.node.init : null
+      if (!isClassShaped(init) || seen.has(init)) return []
+      seen.add(init)
+      return attributeText(init, keys, (inner) => bindingClassText(inner, seen))
     }
     return {
       JSXElement(node) {
-        if (isEyebrowFormChip(node, keys)) return context.report({ node: node.openingElement, messageId: 'chip' })
+        if (isEyebrowFormChip(node, keys, bindingClassText)) {
+          return context.report({ node: node.openingElement, messageId: 'chip' })
+        }
         if (!isBadge(node.openingElement.name)) return
         for (const part of [...node.openingElement.attributes, ...node.children]) {
-          const found = formNode(part)
+          const found = formNode(part, keys)
           if (found) return context.report({ node: found, messageId: 'badge' })
         }
       },
