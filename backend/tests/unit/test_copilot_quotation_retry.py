@@ -305,7 +305,7 @@ async def test_native_sdk_retry_deadline_is_the_earlier_caller_or_75s_budget(mon
     # 0.34s against a 0.2s bound), and a real 0.5s deadline still covered the SDK's first request,
     # which detects the platform in a worker thread.
     honoured, decoy = 30.0, 60.0
-    calls, closed, own, cutoffs, timers, entered_at_request = [], [], [], [], [], []
+    calls, closed, own, cutoffs, timers, entered, entered_at_request = [], [], [], [], [], [], []
     first_chunk_consumed = asyncio.Event()
     monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", honoured if limit == "wrapper" else decoy)
     real_chat_deadline = copilot_chat.chat_deadline
@@ -314,10 +314,21 @@ async def test_native_sdk_retry_deadline_is_the_earlier_caller_or_75s_budget(mon
         own.append(real_chat_deadline())
         return own[-1]
 
+    class Entered:  # the timeout the chat path builds, saying when it is entered
+        def __init__(self, timeout):
+            self.timeout = timeout
+
+        async def __aenter__(self):
+            entered.append(self.timeout)
+            return await self.timeout.__aenter__()
+
+        async def __aexit__(self, *exc):
+            return await self.timeout.__aexit__(*exc)
+
     def recording_timeout_at(when):
         cutoffs.append(when)
         timers.append(asyncio.timeout_at(when))
-        return timers[-1]
+        return Entered(timers[-1])
 
     monkeypatch.setattr(copilot_chat, "chat_deadline", recording_chat_deadline)
     monkeypatch.setattr(copilot_chat, "asyncio", SimpleNamespace(**{**vars(asyncio), "timeout_at": recording_timeout_at}))
@@ -333,7 +344,7 @@ async def test_native_sdk_retry_deadline_is_the_earlier_caller_or_75s_budget(mon
 
     def handler(request):
         calls.append(request)
-        entered_at_request.append(len(timers))
+        entered_at_request.append(len(entered))
         return httpx2.Response(200, headers={"content-type": "text/event-stream"}, stream=Body())
 
     async with service_for(handler) as service:
@@ -350,7 +361,7 @@ async def test_native_sdk_retry_deadline_is_the_earlier_caller_or_75s_budget(mon
         output = await asyncio.wait_for(task, 10)
     assert output[-1].startswith(STREAM_ERROR_SENTINEL)
     assert len(calls) == (0 if limit == "expired" else 1)
-    assert entered_at_request == ([] if limit == "expired" else [1])  # the timeout was entered before the request
+    assert entered_at_request == ([] if limit == "expired" else [1])  # the request went out inside the timeout
     assert len(closed) == len(calls)
     [own_budget] = own
     expected = {"caller": [deadline], "wrapper": [own_budget], "expired": []}[limit]  # an expired one enters none
