@@ -184,6 +184,9 @@ ruleTester.run('locale-pinned-numbers', localePinnedNumbers, {
     "n.toLocaleString('en-US', { maximumFractionDigits: 2 })",
     'n.toLocaleString(locale)',
     "new Intl.NumberFormat('en-US', { style: 'percent' })",
+    // Without `new` it returns the same formatter, read the same way.
+    "Intl.NumberFormat('en-US').format(n)",
+    "new Intl.NumberFormat(['en-US'])",
     "d.toLocaleTimeString('en-US')",
     // Held by the date rule in eslint.config.mjs (every call, pinned or not), not reported twice.
     'd.toLocaleDateString()',
@@ -198,6 +201,11 @@ ruleTester.run('locale-pinned-numbers', localePinnedNumbers, {
     { code: 'new Intl.NumberFormat()', errors: [{ messageId: 'unpinned' }] },
     { code: 'new Date(t).toLocaleTimeString(undefined, { hour: "numeric" })', errors: [{ messageId: 'unpinned', data: { call: 'toLocaleTimeString()' } }] },
     { code: 'new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 })', errors: [{ messageId: 'unpinned' }] },
+    // Called without `new`, and an empty locale list: both are the browser's own locale.
+    { code: 'Intl.NumberFormat().format(n)', errors: [{ messageId: 'unpinned', data: { call: 'Intl.NumberFormat()' } }] },
+    { code: 'new Intl.NumberFormat([])', errors: [{ messageId: 'unpinned', data: { call: 'new Intl.NumberFormat()' } }] },
+    { code: 'Intl.NumberFormat([], { style: "percent" })', errors: [{ messageId: 'unpinned', data: { call: 'Intl.NumberFormat()' } }] },
+    { code: 'n.toLocaleString([])', errors: [{ messageId: 'unpinned', data: { call: 'toLocaleString()' } }] },
   ],
 })
 

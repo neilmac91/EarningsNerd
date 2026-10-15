@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
@@ -9,21 +10,60 @@ import { describe, expect, it } from 'vitest'
  * marks a passage from the filing, the curly braces an XBRL fact, and the sparkle the AI summary alone.
  * Spent elsewhere (on an upgrade button, a status badge, a reader's quote) the glyph stops meaning
  * anything (chrome/F24). This gate counts, per file, every use of SparkleIcon, QuotesIcon and
- * BracketsCurlyIcon from @/lib/icons or the Phosphor package (under any local name), every hand-drawn
- * stand-in (a local component named for one of them that draws its own <svg>), and the ✨ emoji:
+ * BracketsCurlyIcon imported from @/lib/icons (by that alias or a relative path to it) or from the
+ * Phosphor package at any of its entries (`@phosphor-icons/react`, its `ssr` and `dist/…` subpaths, a
+ * per-icon path), under any local name and under Phosphor's deprecated alias for the glyph (`Sparkle`,
+ * `Quotes`, `BracketsCurly`, read off the package's own per-icon declarations): a named import, a member
+ * of a namespace import (`<Icons.SparkleIcon />`, `Icons['QuotesIcon']`) and a member destructured from
+ * one (`const { SparkleIcon: Spark } = Icons`). It counts every hand-drawn stand-in (a local component
+ * named for one of them that draws its own <svg>), and the ✨ emoji, against two lists:
  *
  *  - MEANING lists the sites that use a glyph for its meaning. A new one is a design decision, made in
  *    review against DESIGN.md.
  *  - RESIDUE lists what the audit found spent elsewhere on 2026-10-12, with the PR that removes it.
  *    Shrink-only: a fixed use fails until its count is lowered, a new one fails, and the list's size
  *    equals RESIDUE_MAX, seeded at the audit's count and lowered in the same commit as each shrink.
+ *
+ * Review-checked, out of the scan's reach: a namespace member read by a key it cannot read
+ * (`Icons[name]`), and a glyph re-exported through a module of the app's own other than lib/icons.ts.
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 const GLYPHS = ['SparkleIcon', 'QuotesIcon', 'BracketsCurlyIcon'] as const
 type Glyph = (typeof GLYPHS)[number]
-const ICON_MODULES = new Set(['@/lib/icons', '@phosphor-icons/react'])
+const PHOSPHOR = '@phosphor-icons/react'
+/** Whether an import draws from the icon modules: @/lib/icons, by its alias or a path relative to the importing
+    file, or the Phosphor package at any entry (`@phosphor-icons/react/dist/ssr`, `@phosphor-icons/react/Sparkle`). */
+function isIconModule(specifier: string, fileName: string): boolean {
+  if (specifier === PHOSPHOR || specifier.startsWith(`${PHOSPHOR}/`)) return true
+  const target = specifier.startsWith('@/')
+    ? specifier.slice(2)
+    : specifier.startsWith('.')
+      ? path.posix.normalize(path.posix.join(path.posix.dirname(fileName), specifier))
+      : specifier
+  return target.replace(/\.tsx?$/, '').replace(/\/index$/, '') === 'lib/icons'
+}
+/** The names a glyph is exported under, read off Phosphor's own per-icon declaration: `dist/csr/Sparkle.d.ts`
+    exports SparkleIcon and its deprecated alias Sparkle, the same component. */
+const GLYPH_NAMES: Map<string, Glyph> = (() => {
+  const pkg = path.dirname(createRequire(import.meta.url).resolve(`${PHOSPHOR}/package.json`))
+  const names = new Map<string, Glyph>()
+  for (const glyph of GLYPHS) {
+    const file = path.join(pkg, 'dist/csr', `${glyph.replace(/Icon$/, '')}.d.ts`)
+    const sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true)
+    for (const st of sf.statements) {
+      if (ts.isVariableStatement(st) && st.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) {
+        for (const d of st.declarationList.declarations) if (ts.isIdentifier(d.name)) names.set(d.name.text, glyph)
+      }
+      if (ts.isExportDeclaration(st) && st.exportClause && ts.isNamedExports(st.exportClause)) {
+        for (const el of st.exportClause.elements) names.set(el.name.text, glyph)
+      }
+    }
+    if (names.get(glyph) !== glyph) throw new Error(`${file} no longer exports ${glyph}: read the glyph's names again`)
+  }
+  return names
+})()
 /** A local component drawing one of the glyphs by hand. */
 const HAND_DRAWN: Array<[Glyph, RegExp]> = [
   ['SparkleIcon', /sparkle/i],
@@ -83,16 +123,31 @@ export function glyphUses(source: string, fileName: string): Counts {
     counts[glyph] = (counts[glyph] ?? 0) + n
   }
   const local = new Map<string, Glyph>()
+  const namespaces = new Set<string>()
   for (const stmt of sf.statements) {
-    if (!ts.isImportDeclaration(stmt) || !ts.isStringLiteral(stmt.moduleSpecifier) || !ICON_MODULES.has(stmt.moduleSpecifier.text)) continue
+    if (!ts.isImportDeclaration(stmt) || !ts.isStringLiteral(stmt.moduleSpecifier) || !isIconModule(stmt.moduleSpecifier.text, fileName)) continue
     const bindings = stmt.importClause?.namedBindings
     if (bindings && ts.isNamedImports(bindings)) {
       for (const el of bindings.elements) {
-        const imported = (el.propertyName ?? el.name).text as Glyph
-        if (GLYPHS.includes(imported)) local.set(el.name.text, imported)
+        const glyph = GLYPH_NAMES.get((el.propertyName ?? el.name).text)
+        if (glyph) local.set(el.name.text, glyph)
       }
     }
+    // A namespace import (`import * as Icons from '@/lib/icons'`) draws a glyph through its members.
+    if (bindings && ts.isNamespaceImport(bindings)) namespaces.add(bindings.name.text)
   }
+  // A member destructured from a namespace (`const { SparkleIcon: Spark } = Icons`) is a local name for its glyph.
+  const destructure = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer && ts.isIdentifier(node.initializer) && namespaces.has(node.initializer.text)) {
+      for (const el of node.name.elements) {
+        const key = el.propertyName ?? el.name
+        const glyph = ts.isIdentifier(key) || ts.isStringLiteral(key) ? GLYPH_NAMES.get(key.text) : undefined
+        if (glyph && ts.isIdentifier(el.name)) local.set(el.name.text, glyph)
+      }
+    }
+    ts.forEachChild(node, destructure)
+  }
+  destructure(sf)
   // Hand-drawn stand-ins: a function or const named for a glyph whose body draws an <svg>.
   const drawn = new Map<string, Glyph>()
   const drawsSvg = (node: ts.Node) => {
@@ -113,11 +168,25 @@ export function glyphUses(source: string, fileName: string): Counts {
     ts.forEachChild(node, declare)
   }
   declare(sf)
+  // A name read as a value: not the name an import or a destructuring binds (a declaration, or the key it
+  // reads), nor a member's or a key's name (`Icons.SparkleIcon` reads the namespace, `{ SparkleIcon: x }` a key).
+  const isReference = (n: ts.Identifier): boolean => {
+    const p = n.parent
+    if (ts.isImportSpecifier(p) || ts.isBindingElement(p) || ts.isJsxAttribute(p)) return false
+    if ((ts.isPropertyAccessExpression(p) || ts.isPropertyAssignment(p) || ts.isQualifiedName(p)) && (ts.isQualifiedName(p) ? p.right : p.name) === n) return false
+    return true
+  }
   const refs = new Map<string, number>()
   const visit = (node: ts.Node): void => {
-    if (ts.isIdentifier(node) && (local.has(node.text) || drawn.has(node.text)) && !ts.isImportSpecifier(node.parent)) {
+    if (ts.isIdentifier(node) && (local.has(node.text) || drawn.has(node.text)) && isReference(node)) {
       // A closing tag repeats its opening tag's name: one use.
       if (!ts.isJsxClosingElement(node.parent)) refs.set(node.text, (refs.get(node.text) ?? 0) + 1)
+    }
+    // A namespace's member, by name or by a literal key (`<Icons.SparkleIcon />`, `Icons['QuotesIcon']`).
+    if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) && ts.isIdentifier(node.expression) && namespaces.has(node.expression.text)) {
+      const key = ts.isPropertyAccessExpression(node) ? node.name.text : ts.isStringLiteralLike(node.argumentExpression) ? node.argumentExpression.text : undefined
+      const glyph = key === undefined ? undefined : GLYPH_NAMES.get(key)
+      if (glyph && !ts.isJsxClosingElement(node.parent)) bump(glyph)
     }
     if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isJsxText(node)) && node.text.includes('✨')) bump('SparkleIcon')
     ts.forEachChild(node, visit)
@@ -173,5 +242,25 @@ describe('reserved glyphs keep their one meaning', () => {
       'const config = { Icon: QuotesIcon }',
     ].join('\n')
     expect(glyphUses(src, 'probe.tsx')).toEqual({ SparkleIcon: 3, QuotesIcon: 3, BracketsCurlyIcon: 1 })
+    // A namespace's members (a self-closing tag, an open-and-close pair counted once, a literal key), a
+    // Phosphor subpath, a deprecated alias, a member destructured from a namespace and a relative path to
+    // lib/icons count; another icon, a key the scan cannot read, and a module named for a glyph do not.
+    const wide = [
+      "import * as Icons from '@/lib/icons'",
+      "import { SparkleIcon as Ssr } from '@phosphor-icons/react/dist/ssr'",
+      "import { Quotes, ArrowRightIcon } from '@phosphor-icons/react'",
+      "import * as Ph from '@phosphor-icons/react/ssr'",
+      "import { BracketsCurlyIcon as Braces } from '../../lib/icons'",
+      "import { SparkleIcon as NotTheIcon } from '@/lib/sparkle'",
+      'const { BracketsCurlyIcon: Curly, SparkleIcon } = Ph',
+      'export const B = ({ name }: { name: string }) => (',
+      '  <>',
+      '    <Icons.SparkleIcon /><Icons.SparkleIcon className="h-4"></Icons.SparkleIcon><Ssr /><SparkleIcon />',
+      "    <Quotes /><span>{Icons['QuotesIcon'] ? 'q' : ''}</span><Braces /><Curly />",
+      '    <ArrowRightIcon /><Icons.ArrowRightIcon />{Icons[name] ? <NotTheIcon /> : null}',
+      '  </>',
+      ')',
+    ].join('\n')
+    expect(glyphUses(wide, 'features/zzprobe/Probe.tsx')).toEqual({ SparkleIcon: 4, QuotesIcon: 2, BracketsCurlyIcon: 2 })
   })
 })

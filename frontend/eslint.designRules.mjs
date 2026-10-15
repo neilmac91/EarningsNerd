@@ -29,14 +29,18 @@
 //                       each of them, and every other animation globals.css declares, to that block.
 //   locale-pinned-numbers  A number or a time reads in one locale (en-US) whatever the viewer's browser
 //                       says, so `x.toLocaleString()`, `x.toLocaleTimeString()` and
-//                       `new Intl.NumberFormat()` with no locale, or with `undefined` for it, are banned
-//                       outside lib/format.ts (eslint.config.mjs turns the rule off there).
+//                       `Intl.NumberFormat()`, with `new` or without it (both return the formatter),
+//                       with no locale, with `undefined` for it or with an empty list (`[]`), each the
+//                       browser's own locale, are banned outside lib/format.ts (eslint.config.mjs turns
+//                       the rule off there).
 //                       `x.toLocaleDateString()` is not read here: eslint.config.mjs's date rule
 //                       (no-restricted-syntax) bans every call of it, pinned or not, and names
 //                       formatLocalDate, so reading it here too would report one call twice. The receiver's type is not read, so a Date's
 //                       toLocaleString() is caught too: the message names lib/format generally (fmtCount
 //                       and fmtDecimal for a number, a date helper for a date), or pass 'en-US'. A
-//                       locale the scan cannot read (a variable) passes. `Intl.DateTimeFormat` is not
+//                       locale the scan cannot read (a variable) passes, and so does `Intl.NumberFormat`
+//                       reached under another name (`const { NumberFormat } = Intl`, `globalThis.Intl`),
+//                       which no file writes today. `Intl.DateTimeFormat` is not
 //                       read (its one call site, features/calendar/lib/dates.ts, pins 'en-CA').
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
@@ -208,8 +212,20 @@ export const noUnguardedAnimation = {
 /** The methods that format in the browser's locale when given none. */
 const LOCALE_METHODS = new Set(['toLocaleString', 'toLocaleTimeString'])
 
-/** Whether a call's locale argument is missing or the literal `undefined` (the browser's own locale). */
-const unpinnedLocale = (args) => args.length === 0 || (args[0].type === 'Identifier' && args[0].name === 'undefined')
+/** Whether a call's locale argument is missing, the literal `undefined` or an empty list (`[]`): each is the browser's
+    own locale. */
+const unpinnedLocale = (args) =>
+  args.length === 0 ||
+  (args[0].type === 'Identifier' && args[0].name === 'undefined') ||
+  (args[0].type === 'ArrayExpression' && args[0].elements.length === 0)
+
+/** Whether a callee is `Intl.NumberFormat`, which returns the same formatter called with `new` or without it. */
+const isIntlNumberFormat = (callee) =>
+  callee.type === 'MemberExpression' &&
+  !callee.computed &&
+  callee.object.type === 'Identifier' &&
+  callee.object.name === 'Intl' &&
+  callee.property.name === 'NumberFormat'
 
 export const localePinnedNumbers = {
   meta: {
@@ -227,18 +243,15 @@ export const localePinnedNumbers = {
     return {
       CallExpression(node) {
         const callee = node.callee
+        if (isIntlNumberFormat(callee)) {
+          if (unpinnedLocale(node.arguments)) context.report({ node, messageId: 'unpinned', data: { call: 'Intl.NumberFormat()' } })
+          return
+        }
         if (callee.type !== 'MemberExpression' || callee.computed || !LOCALE_METHODS.has(callee.property.name)) return
         if (unpinnedLocale(node.arguments)) context.report({ node, messageId: 'unpinned', data: { call: `${callee.property.name}()` } })
       },
       NewExpression(node) {
-        const callee = node.callee
-        const isNumberFormat =
-          callee.type === 'MemberExpression' &&
-          !callee.computed &&
-          callee.object.type === 'Identifier' &&
-          callee.object.name === 'Intl' &&
-          callee.property.name === 'NumberFormat'
-        if (isNumberFormat && unpinnedLocale(node.arguments)) {
+        if (isIntlNumberFormat(node.callee) && unpinnedLocale(node.arguments)) {
           context.report({ node, messageId: 'unpinned', data: { call: 'new Intl.NumberFormat()' } })
         }
       },
