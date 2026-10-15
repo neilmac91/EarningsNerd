@@ -126,6 +126,17 @@ describe('canonical filing link action', () => {
     expect(screen.getByRole('button', { name: 'Copy filing link' })).toBeInTheDocument()
   })
 
+  // The capture review at 200% text on a 320px phone: "Save summary" and "Copy filing link" ran past the
+  // reading column (to 344 and 347px). Each action's label wraps inside its button.
+  it('lets every action\u2019s label wrap inside its button', () => {
+    render(view(true, true, 'full'))
+    for (const name of ['Save summary', 'Copy filing link', 'Export PDF', 'Export CSV']) {
+      const classes = screen.getByRole('button', { name }).className.split(/\s+/)
+      expect(classes, name).toEqual(expect.arrayContaining(['whitespace-normal', 'max-w-full']))
+      expect(classes, name).not.toContain('whitespace-nowrap')
+    }
+  })
+
   it('offers the manual canonical link when the Clipboard API is absent', async () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
     render(view())

@@ -26,7 +26,9 @@ export interface SummaryActionsBarProps {
 
 /**
  * Filing actions above the summary. Clipboard feedback is local; the export handlers
- * come from useSummaryExports; the save mutation is owned by the filing view.
+ * come from useSummaryExports; the save mutation is owned by the filing view. Each action's label
+ * wraps inside its button (`wrap`, max-w-full), so at 200% text on a 320px phone no button runs
+ * past the reading column.
  */
 export function SummaryActionsBar({
   filingId,
@@ -96,6 +98,8 @@ export function SummaryActionsBar({
               // icon rides leftIcon so the spinner replaces it instead of widening the button.
               <Button
                 variant="primary"
+                wrap
+                className="max-w-full"
                 onClick={() => {
                   savePressed.current = true
                   saveMutation.mutate(summaryId)
@@ -110,7 +114,7 @@ export function SummaryActionsBar({
         </div>
       )}
       <div className="min-w-0 space-y-2">
-        <Button type="button" variant="secondary" loading={copyState === 'pending'} onClick={copyFilingLink}>
+        <Button type="button" variant="secondary" wrap className="max-w-full" loading={copyState === 'pending'} onClick={copyFilingLink}>
           <CopyIcon className="h-4 w-4" aria-hidden="true" />
           Copy filing link
         </Button>
@@ -132,11 +136,11 @@ export function SummaryActionsBar({
       {/* Export buttons: Pro only, and only for a summary that finished */}
       {isPro && summaryFinished && (
         <div className="flex flex-wrap items-center gap-3">
-          <Button variant="secondary" onClick={onExportPdf}>
+          <Button variant="secondary" wrap className="max-w-full" onClick={onExportPdf}>
             <DownloadSimpleIcon className="h-4 w-4" />
             Export PDF
           </Button>
-          <Button variant="secondary" onClick={onExportCsv}>
+          <Button variant="secondary" wrap className="max-w-full" onClick={onExportCsv}>
             <FileArrowDownIcon className="h-4 w-4" />
             Export CSV
           </Button>
