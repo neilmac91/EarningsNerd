@@ -3,6 +3,7 @@ workflow that publishes it runs on every pull-request event without write permis
 skips that job, because a skipped job counts as passing; a draft fails it instead."""
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -159,6 +160,46 @@ def test_fetch_state_reads_the_draft_flag_from_the_pull_request_now_and_reports_
     assert review_gate.fetch_state("o/r", "7", "token") == ([], "body", [], draft)
 
 
+def _may_publish_as_review_gate(name: str) -> bool:
+    """Whether a job id or name can be published as the review-gate check. A name holding expressions
+    resolves at run time (`${{ vars.JOB_NAME }}`), so each expression is read as any text and the name
+    counts when its literal parts fit around review-gate; `e2e (${{ matrix.shard }})` cannot."""
+    parts = re.split(r"\$\{\{.*?\}\}", name.strip(), flags=re.DOTALL)
+    return re.fullmatch(".*".join(re.escape(part) for part in parts), "review-gate", re.IGNORECASE) is not None
+
+
+@pytest.mark.parametrize(("name", "publishes"), [
+    ("review-gate", True),
+    (" Review-Gate ", True),
+    ("${{ vars.JOB_NAME }}", True),
+    ("review-${{ matrix.kind }}", True),
+    ("${{ inputs.prefix }}-gate", True),
+    ("e2e (${{ matrix.shard }})", False),
+    ("review-gate-extra", False),
+    ("${{ inputs.caller }} / review-gate", False),
+    ("rerun-on-review-request", False),
+])
+def test_a_name_may_publish_as_review_gate_when_its_literal_parts_fit_around_it(name, publishes):
+    assert _may_publish_as_review_gate(name) is publishes
+
+
+def test_no_job_in_any_other_workflow_publishes_a_check_named_review_gate():
+    # Branch protection matches the required check by name, across every workflow. A job elsewhere whose
+    # id or name is review-gate would publish a second check under it, and a skipped one reports success,
+    # which a required check counts as passing: the bypass #1331 closed for this workflow's own job. A name
+    # built from expressions counts when it can resolve to review-gate.
+    workflows = sorted((ROOT / ".github/workflows").glob("*.y*ml"))
+    assert ROOT / ".github/workflows/review-gate.yml" in workflows
+    publishers = []
+    for path in workflows:
+        jobs = (yaml.load(path.read_text(), Loader=yaml.BaseLoader) or {}).get("jobs") or {}
+        for job_id, job in jobs.items():
+            names = {job_id, job.get("name", job_id)} if isinstance(job, dict) else {job_id}
+            if any(_may_publish_as_review_gate(name) for name in names):
+                publishers.append(f"{path.name}:{job_id}")
+    assert publishers == ["review-gate.yml:review-gate"], publishers
+
+
 def test_workflow_publishes_the_gate_on_every_pull_request_event_without_write_permissions():
     path = ROOT / ".github/workflows/review-gate.yml"
     workflow = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
@@ -174,14 +215,24 @@ def test_workflow_publishes_the_gate_on_every_pull_request_event_without_write_p
     # step `if`, `continue-on-error`, a `needs:` on a job that skips, a `shell` or `defaults` that
     # never runs the script, or another step. So the whole shape is pinned.
     assert set(workflow) == {"name", "on", "permissions", "concurrency", "jobs"}
+    # The trigger set decides where a run attaches: a trigger whose runs attach to a pull request's head
+    # (pull_request_review, push, workflow_dispatch) would skip the gate job there and report success.
+    # issue_comment runs attach to main's HEAD, so their skipped job never satisfies a pull request's check.
+    assert set(workflow["on"]) == {"pull_request_target", "issue_comment"}
+    assert set(workflow["jobs"]) == {"review-gate", "rerun-on-review-request"}
+    assert "name" not in workflow["jobs"]["rerun-on-review-request"]  # no second job can carry the check's name
     assert set(job) == {"if", "runs-on", "timeout-minutes", "steps"}
     assert [sorted(step) for step in job["steps"]] == [["uses", "with"], ["uses", "with"], ["env", "name", "run"]]
     assert "permissions" not in job  # the polling job keeps the workflow-level read-only token
     assert workflow["concurrency"]["cancel-in-progress"] == "true"  # a new push supersedes the wait for the old head
     checkout = job["steps"][0]
-    assert checkout["uses"].startswith("actions/checkout@") and checkout["with"]["ref"] == "${{ github.event.pull_request.base.ref }}"  # trusted base code, never the PR's own gate
-    assert checkout["with"]["persist-credentials"] == "false"
+    assert checkout["uses"].startswith("actions/checkout@")
+    # Both `with` maps whole: a `repository:` input pointing at the head repository would fetch a fork's
+    # branch named like the base and run the fork's copy of the gate script; `path` or a sparse checkout
+    # would fail closed, but the pin leaves nothing to reason about.
+    assert checkout["with"] == {"ref": "${{ github.event.pull_request.base.ref }}", "persist-credentials": "false"}  # trusted base code, never the PR's own gate
     assert job["steps"][1]["uses"].startswith("actions/setup-python@")  # not another action that could rewrite the script
+    assert job["steps"][1]["with"] == {"python-version": "3.11"}
     step = job["steps"][-1]
     assert step["run"] == "python backend/scripts/review_gate.py"
     assert set(step["env"]) == {"GITHUB_TOKEN", "REVIEW_GATE_REPO", "REVIEW_GATE_PR", "REVIEW_GATE_HEAD",
