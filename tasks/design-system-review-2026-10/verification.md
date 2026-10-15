@@ -53,3 +53,15 @@ Final records-check tail:
 ```
 
 The storage helper emitted trailing whitespace after an empty YAML field; it was normalized before the complete-diff whitespace check. No frontend/application test result is implied by the records check.
+
+## Validator review correction
+
+The GitHub review of the inventory follow-up found that immutable source URLs were checked against worktree files. The validator now reads their bytes from the pinned Git tree, caches those reads, and excludes link text from the separate literal-path pass. Literal source citations also use the review baseline; new record paths use the checkout. A checkout must contain the referenced Git object to run this check.
+
+A scratch repository probe changed and then deleted its worktree source while retaining the committed version, and checked an absent committed path. Result:
+
+```text
+Pinned-tree probe: PASS (changed worktree, deleted worktree file, absent pinned path)
+```
+
+The complete records validator passes again with the counts above. No application file or gate configuration changed.

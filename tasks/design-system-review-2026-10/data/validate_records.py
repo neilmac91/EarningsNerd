@@ -1,9 +1,17 @@
 from pathlib import Path
-from urllib.parse import urlsplit,unquote
-import re,json,gzip,hashlib,subprocess
+from urllib.parse import unquote
+from functools import lru_cache
+import re,json,gzip,subprocess
 r=Path(__file__).resolve().parents[3];o=r/'tasks/design-system-review-2026-10';archive=r/'.impeccable/critique/2026-10-15T10-26-25Z__frontend-components-ui-index-ts.md'
 files=list(o.rglob('*'))+[archive];md=[p for p in files if p.suffix=='.md'];errors=[];links=0;refs=0
 sha='1f12fc835fcbf525042473ab0e988b4827734f38'
+@lru_cache(maxsize=None)
+def source_text(revision, path):
+ try:
+  return subprocess.check_output(['git','show',f'{revision}:{path}'],cwd=r,text=True,stderr=subprocess.DEVNULL)
+ except subprocess.CalledProcessError:
+  return None
+
 def anchors(p):
  seen={};out=set()
  for line in p.read_text().splitlines():
@@ -16,22 +24,26 @@ for p in md:
  for m in re.finditer(r'\[[^\n]*?\]\(([^\n]*?)\)',t):
   target=m[1].strip('<>');links+=1
   if target.startswith('https://github.com/neilmac91/EarningsNerd/blob/'):
-   x=target.split('/blob/',1)[1];h,path=x.split('/',1);path,_,frag=path.partition('#');path=unquote(path);q=r/path
+   x=target.split('/blob/',1)[1];h,path=x.split('/',1);path,_,frag=path.partition('#');path=unquote(path)
    if h!=sha:errors.append(f'unexpected source SHA {target}')
-   if not q.is_file():errors.append(f'missing source {target}');continue
+   frozen=source_text(h,path)
+   if frozen is None:errors.append(f'missing source in pinned tree {target}');continue
    if frag.startswith('L'):
     line=int(frag[1:]);refs+=1
-    if not 1<=line<=len(q.read_text().splitlines()):errors.append(f'bad source line {target}')
+    if not 1<=line<=len(frozen.splitlines()):errors.append(f'bad source line {target}')
    continue
   if re.match(r'^[a-z]+:',target):continue
   path,_,frag=target.partition('#');q=(p.parent/unquote(path)).resolve() if path else p
   if not q.exists():errors.append(f'missing link in {p.name}: {target}');continue
   if frag and q.suffix=='.md' and frag not in anchors(q):errors.append(f'missing anchor in {p.name}: {target}')
- # Qualified literal path refs not already links, excluding detector line0 documented attribution.
- for m in re.finditer(r'(?<![\w/])((?:frontend|backend|docs|tasks|lessons)/[\w./%\[\]-]+\.(?:tsx?|css|json|mjs|js|md|py))(?::(\d+))?',t):
+ # Literal source citations use the review baseline. New record paths use this checkout.
+ # Do not validate immutable URL text again against the mutable worktree.
+ literal=re.sub(r'\[[^\n]*?\]\([^\n]*?\)', '', t)
+ for m in re.finditer(r'(?<![\w/])((?:frontend|backend|docs|tasks|lessons)/[\w./%\[\]-]+\.(?:tsx?|css|json|mjs|js|md|py))(?::(\d+))?',literal):
   path=unquote(m[1]);q=r/path
-  if not q.exists():errors.append(f'missing mentioned path {p.name}: {path}');continue
-  if m[2] and int(m[2])>len(q.read_text().splitlines()):errors.append(f'bad mentioned line {p.name}: {m[0]}')
+  content=q.read_text() if path.startswith('tasks/design-system-review-2026-10/') and q.is_file() else source_text(sha,path)
+  if content is None:errors.append(f'missing mentioned path {p.name}: {path}');continue
+  if m[2] and int(m[2])>len(content.splitlines()):errors.append(f'bad mentioned line {p.name}: {m[0]}')
 js=0
 for p in files:
  if p.suffix=='.json':json.loads(p.read_text());js+=1
