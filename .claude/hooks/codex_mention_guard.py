@@ -3,20 +3,25 @@
 The gate for lessons/ops-name-codex-without-its-at-mention.md. The Codex GitHub app starts a cloud
 task when its at-mention appears in a pull request's title, body or comment, mid-sentence and inside
 backticks too, so GitHub text names Codex in words. The one exception is a new conversation comment
-that is the review command alone, with at most the attribution footer: the form the
+that is the review command alone, with at most the attribution footer: a form the
 rerun-on-review-request job of .github/workflows/review-gate.yml matches.
 
 .claude/settings.json runs this before every Bash command and every call to an MCP server whose name
-contains "github". It checks
+contains "github" in any case. It checks
 - such a tool's `title` and `body` arguments, at any depth;
-- a Bash command line whose text names `gh pr` or `gh issue` (create or new, comment, edit, review,
-  close, reopen; -R/--repo anywhere before the verb), `gh api` or api.github.com: the line's whole
-  text, and the files its GitHub writes send as a body: gh's `--body-file`, `-F` and `--input`, an
-  `@file` value (gh api's -F key=@file, curl's -d @file), wget's `--post-file`, and, when the body is
-  read from standard input (`-` or /dev/stdin), a file redirected with `<` or piped from `cat`. A
-  GitHub write is a command (lines and `;`, `&&`, `|` separate them; here-document text is not one)
-  whose own word `gh` starts it, or that names api.github.com. Files are read from the event's
-  working directory; one larger than 1 MiB, not a regular file, or under /proc, /sys or /dev is not.
+- a Bash command line whose text, as written or with its quotes removed, names `gh pr` or `gh issue`
+  (create or new, comment, edit, review, close, reopen; -R/--repo anywhere before the verb),
+  `gh api` or api.github.com: that text, and the files the line's GitHub writes send as a body. A
+  GitHub write is a command (newlines and `;`, `&`, `&&`, `||`, `|` and `|&` separate them, a
+  backslash-newline joins two lines, and a comment or a here-document's text is none) in which a
+  word `gh`, or a path ending in `/gh`, starts a `gh pr`/`gh issue` write or `gh api` wherever it
+  stands (`sudo gh api`), or that names api.github.com. Its files: gh's `--body-file`, `-F`
+  (attached too) and `--input`; an `@file` value (gh api's -F key=@file, curl's -d @file, httpie's
+  key=@file); wget's `--post-file` and `--body-file`; curl's `-T` and `--upload-file`; and a file
+  redirected with `<`, or piped from a plain `cat`, into a command that reads its body from standard
+  input: one given `-`, /dev/stdin or /dev/fd/0, and httpie (`http`, `https`, `xh`), which reads it
+  unasked. Files are read from the event's working directory, each once; one larger than 1 MiB, not
+  a regular file, or under /proc, /sys or /dev is not.
 A refusal is a JSON deny on stdout, which Claude Code hands to Claude as the reason; anything else
 exits 0 with no output. A crash exits 1, which Claude Code reports as a hook error and lets the call
 through. The registered command (`python3 -I -S`: standard library only, no PYTHON* variables or
@@ -25,9 +30,10 @@ blocks every Bash command and every GitHub call.
 
 Not checked: text a command builds as it runs (a variable, a command or process substitution, a body
 piped from anything but a plain cat, a file named relative to a directory the command changes into
-first), a command another shell runs (`bash -c '...'`), the commit messages `gh pr create --fill` copies, a GitHub MCP
-server registered under a name without "github", a session that loads no repository hooks, and a
-person's own write.
+first), a program other than httpie that reads its body from standard input unasked, the body files
+of a command another shell runs (`bash -c '...'`, a here-document fed to a shell), the commit
+messages `gh pr create --fill` copies, a GitHub MCP server registered under a name without "github",
+a session that loads no repository hooks, and a person's own write.
 Tests: backend/tests/unit/test_codex_mention_guard.py.
 """
 from __future__ import annotations
@@ -47,13 +53,18 @@ _REPO = r"(?:\s+(?:-R\s*\S+|--repo(?:=|\s+)\S+))*"  # gh takes -R/--repo before 
 GH_WRITE = re.compile(rf"\bgh{_REPO}\s+(?:(?:pr|issue){_REPO}\s+(?:create|new|comment|edit|review|close|reopen)\b|api\b)")
 GITHUB_API = "api.github.com"
 OPERATORS = {"|", "|&", "||", "&&", ";", "&"}
+# The operators a run of the shell's punctuation characters can hold, longest first.
+SHELL_OPERATORS = ("<<<", "<<", "&&", "||", "|&", ">>", ">&", "<&", "&>", ">|", "\n", "(", ")", ";", "&", "|", "<", ">")
+CONTINUED = ("|", "|&", "&&", "||")  # a line that ends with one of these goes on to the next
 # Options whose value is the file a command sends as a body: gh pr's and gh issue's --body-file and
-# -F, gh api's --input; wget's --post-file and --body-file, curl's -T. "-" is standard input.
+# -F, gh api's --input; wget's --post-file and --body-file, curl's -T and --upload-file.
 GH_FILE_OPTIONS = ("--body-file", "-F", "--input")
 OTHER_FILE_OPTIONS = ("--post-file", "--body-file", "-T", "--upload-file")
-# An "@file" value: gh api's -F key=@file, curl's -d @file or -d@file, httpie's key=@file.
-AT_FILE = re.compile(r"^(?:[\w.\[\]-]+=|-d)?@(.+)$")
-FILE_MARKERS = ("--body-file", "-F", "--input", "--post-file", "-T", "--upload-file", "@", "<")
+# An "@file" value: gh api's -F key=@file and --field=key=@file, curl's -d @file or -d@file, httpie's
+# key=@file and key:=@file.
+AT_FILE = re.compile(r"^(?:(?:[\w.\[\]:-]+=)+|-d)?@(.+)$")
+STDIN = ("-", "/dev/stdin", "/dev/fd/0")
+HTTPIE = ("http", "https", "xh", "xhs")  # httpie and xh read a body from standard input unasked
 MAX_FILE_BYTES = 1 << 20
 MCP_ROUTE = (
     "a new conversation comment that is the review command alone, with at most the attribution footer, "
@@ -92,90 +103,146 @@ def _tokens(command: str) -> list[str]:
         return command.split()
 
 
-# A here-document's start, `<<DELIM`, `<<-DELIM` or a quoted delimiter; never a here-string's `<<<`.
-HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)([\w.-]+)\1")
+# The word after `<<` or `<<-` that starts a here-document: quoted, or bare after an optional
+# backslash. One that starts with a digit is a shift (`1 << 20`), never a delimiter.
+HEREDOC_WORD = re.compile(r"(-?)[ \t]*(?:'([^'\n]*)'|\"([^\"\n]*)\"|\\?([A-Za-z_][\w.-]*))")
 
 
-def _without_heredoc_bodies(command: str) -> str:
-    """The command with backslash-newline continuations joined and each here-document's text dropped
-    (the line's whole text is checked separately), so the newlines left separate commands."""
-    kept, ends = [], []
-    for line in command.replace("\\\n", "").split("\n"):
-        if ends:
-            if line.strip() == ends[0]:
-                ends.pop(0)
+def _script(command: str) -> str:
+    """The command as the shell reads its commands: backslash-newline continuations joined, and each
+    comment and each here-document (its `<<WORD` and its text, up to the line that is WORD) dropped.
+    Quotes are followed across lines, so a `#` or a `<<` inside quotes starts nothing; nor does a
+    `<<<` here-string or a shift such as `1 << 20`."""
+    out, ends, quote, i = [], [], "", 0
+    while i < len(command):
+        char = command[i]
+        if quote:
+            if char == "\\" and quote != "'":  # double quotes and $'...' take escapes
+                out.append(command[i:i + 2])
+                i += 2
+                continue
+            if char == quote[-1]:
+                quote = ""
+        elif char == "\\":
+            if command[i + 1:i + 2] != "\n":  # an escape stays; a backslash-newline joins the lines
+                out.append(command[i:i + 2])
+            i += 2
             continue
-        kept.append(line)
-        ends = [match.group(2) for match in HEREDOC.finditer(line)]
-    return "\n".join(kept)
+        elif char in "'\"":
+            quote = "$'" if char == "'" and command[i - 1:i] == "$" else char
+        elif char == "#" and (i == 0 or command[i - 1] in " \t\n;&|()<>"):
+            i = command.find("\n", i)  # a comment runs to the end of its line
+            if i < 0:
+                break
+            continue
+        elif command.startswith("<<<", i):
+            out.append("<<<")
+            i += 3
+            continue
+        elif command.startswith("<<", i) and (heredoc := HEREDOC_WORD.match(command, i + 2)):
+            ends.append((next(word for word in heredoc.groups()[1:] if word is not None), heredoc.group(1) == "-"))
+            out.append(" ")
+            i = heredoc.end()
+            continue
+        elif char == "\n" and ends:
+            # The here-documents' text follows the line that opened them, each up to a line that is
+            # its word exactly (after its leading tabs, for <<-).
+            out.append("\n")
+            i += 1
+            for word, tabs in ends:
+                while i <= len(command):
+                    end = command.find("\n", i)
+                    end = len(command) if end < 0 else end
+                    line, i = command[i:end], end + 1
+                    if (line.lstrip("\t") if tabs else line) == word:
+                        break
+            ends = []
+            continue
+        out.append(char)
+        i += 1
+    return "".join(out)
 
 
-def _command_tokens(command: str) -> list[str]:
-    """Shell words, with each newline outside quotes a `;`."""
+def _command_tokens(script: str) -> list[str]:
+    """Shell words and operators, each newline outside quotes a `;` unless its line goes on."""
     import shlex
 
     try:
-        lexer = shlex.shlex(command, posix=True, punctuation_chars="();<>|&\n")
+        lexer = shlex.shlex(script, posix=True, punctuation_chars="();<>|&\n")
         lexer.whitespace, lexer.whitespace_split, lexer.commenters = " \t\r", True, ""
-        return [(token.replace("\n", "") or ";") if "\n" in token else token for token in lexer]
+        lexed = list(lexer)
     except ValueError:  # unbalanced quotes: the plain words still name the files
-        return command.replace("\n", " ; ").split()
+        return script.replace("\n", " ; ").split()
+    tokens: list[str] = []
+    for token in lexed:
+        if token.strip("();<>|&\n"):  # a word
+            tokens.append(token)
+            continue
+        while token:  # a run of operator characters, split the way the shell reads it
+            operator = next(op for op in SHELL_OPERATORS if token.startswith(op))
+            token = token[len(operator):]
+            if operator != "\n":
+                tokens.append(operator)
+            elif tokens and tokens[-1] not in CONTINUED:
+                tokens.append(";")
+    return tokens
 
 
 def _commands(tokens: list[str]) -> list[tuple[str | None, list[str]]]:
-    """The commands of a shell line, each with the operator before it, a here-string or
-    here-document marker ending its words."""
-    commands, operator, words = [], None, []
+    """The commands of a shell line, each with the operator before it. The word after a `<<<`
+    here-string is the text it feeds, no word of its command."""
+    commands, operator, words, fed = [], None, [], False
     for token in tokens:
-        if token in OPERATORS:
+        if fed:
+            fed = False
+        elif token in OPERATORS:
             commands.append((operator, words))
             operator, words = token, []
+        elif token == "<<<":
+            fed = True
         else:
             words.append(token)
     commands.append((operator, words))
-    return [(op, next((ws[:i] for i, w in enumerate(ws) if w.startswith("<<")), ws)) for op, ws in commands]
+    return commands
 
 
 def _files_named(words: list[str], gh: bool) -> tuple[list[str], bool]:
     """The files a GitHub-writing command sends as a body, and whether it reads one from stdin."""
-    options = GH_FILE_OPTIONS if gh else OTHER_FILE_OPTIONS
-    names, redirects, stdin = [], [], False
+    options, attached = (GH_FILE_OPTIONS, "-F") if gh else (OTHER_FILE_OPTIONS, "-T")
+    names, redirects, stdin = [], [], not gh and bool(words) and words[0] in HTTPIE
     for index, word in enumerate(words):
         values = []
         if word in options and index + 1 < len(words):
             values.append(words[index + 1])
         values += [word[len(option) + 1:] for option in options if word.startswith(option + "=")]
-        if gh and word.startswith("-F") and len(word) > 2 and not word.startswith("-F="):
-            values.append(word[2:])  # an attached -Fbody.md, or gh api's -Fkey=@file (read below)
+        if word.startswith(attached) and len(word) > 2 and word[2] != "=":
+            values.append(word[2:])  # an attached -Fbody.md or -Tpayload.json; -Fkey=@file is read below
         at_file = AT_FILE.match(word)
         if at_file:
             values.append(at_file.group(1))
         for value in values:
-            if value in ("-", "/dev/stdin"):
+            if value in STDIN:
                 stdin = True
             else:
                 names.append(value)
         if word == "<" and index + 1 < len(words):
             redirects.append(words[index + 1])
-    # gh reads stdin only when told to (-); a command that names api.github.com, httpie's say, may read it unasked.
-    return names + (redirects if stdin or not gh else []), stdin
+    return names + (redirects if stdin else []), stdin
 
 
-def _files_sent(command: str, cwd: object):
-    """The text of each regular file, up to 1 MiB, that a GitHub write on this line sends as a body."""
-    if not any(marker in command for marker in FILE_MARKERS):
-        return
+def _files_sent(script: str, cwd: object):
+    """The text of each regular file, up to 1 MiB, that a GitHub write in this script sends as a body."""
     from pathlib import Path
 
-    commands = _commands(_command_tokens(_without_heredoc_bodies(command)))
+    commands = _commands(_command_tokens(script))
     names = []
     for index, (operator, words) in enumerate(commands):
-        line = " ".join(words)
-        # gh as a word of its own (a quoted 'gh api' in a grep pattern is one word, not a command).
-        gh = any(
-            (word == "gh" or word.endswith("/gh")) and GH_WRITE.match(" ".join(["gh", *words[i + 1:]])) is not None
-            for i, word in enumerate(words)
-        )
+        line, offset, gh = " ".join(words), 0, False
+        for word in words:  # gh as a word of its own or a path to it, wherever it stands (`sudo gh ...`)
+            if (word == "gh" or word.endswith("/gh")) and GH_WRITE.match(line, offset + len(word) - 2):
+                gh = True
+                break
+            offset += len(word) + 1
         if not gh and GITHUB_API not in line.lower():
             continue
         files, stdin = _files_named(words, gh)
@@ -183,7 +250,7 @@ def _files_sent(command: str, cwd: object):
         if stdin and operator in ("|", "|&") and commands[index - 1][1][:1] == ["cat"]:
             names += [word for word in commands[index - 1][1][1:] if not word.startswith("-")]
     base = Path(cwd) if isinstance(cwd, str) and cwd else Path.cwd()
-    for name in names:
+    for name in dict.fromkeys(names):  # each file once
         try:
             path = (base / Path(name).expanduser()).resolve()
             if str(path).startswith(("/proc/", "/sys/", "/dev/")):  # a kernel file can block a read
@@ -234,17 +301,17 @@ def _reason(where: str, route: str) -> str:
 
 
 def _bash_refusal(command: str, cwd: object) -> str | None:
-    writes = GH_WRITE.search(command) is not None or GITHUB_API in command.lower()
-    if MENTION.search(command):
-        # The words without their quotes too, so `gh 'pr' comment` is still a gh write.
-        if not writes and "gh" in command:
-            writes = GH_WRITE.search(" ".join(_tokens(command))) is not None
-        if not writes:
-            return None
-        return None if _is_review_request_command(command) else _reason("this command", BASH_ROUTE)
-    if not writes:
+    text = command.replace("\\\n", "")  # a continuation splits no name
+    writes = GH_WRITE.search(text) is not None or GITHUB_API in text.lower()
+    if not writes and "gh" not in text:
         return None
-    if any(MENTION.search(text) for text in _files_sent(command, cwd)):
+    script = _script(command)
+    words = " ".join(_tokens(script))  # the shell's words, quotes removed: `gh 'pr' comment`, `'ping @'codex`
+    if not writes and GH_WRITE.search(words) is None:
+        return None
+    if MENTION.search(command) or MENTION.search(words):
+        return None if _is_review_request_command(command) else _reason("this command", BASH_ROUTE)
+    if any(MENTION.search(body) for body in _files_sent(script, cwd)):
         return _reason("a file this command sends", BASH_ROUTE)
     return None
 

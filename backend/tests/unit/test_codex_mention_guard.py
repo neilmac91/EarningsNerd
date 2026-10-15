@@ -22,7 +22,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 SETTINGS = ROOT / ".claude" / "settings.json"
 HOOK = ROOT / ".claude" / "hooks" / "codex_mention_guard.py"
-# -I -S: no environment variables, user site or site-packages reach the hook (and it starts in half the time).
+# -I -S: no PYTHON* variables, user site or site-packages reach the hook (and it starts in half the time).
 COMMAND = 'python3 -I -S "$CLAUDE_PROJECT_DIR/.claude/hooks/codex_mention_guard.py" || exit 1'
 MATCHER = "^(Bash|mcp__.*[Gg][Ii][Tt][Hh][Uu][Bb].*)$"
 MENTION = "@" + "codex"
@@ -50,10 +50,10 @@ def _registered() -> list[dict]:
     ]
 
 
-def _run(stdin: str, project_dir: Path = ROOT) -> subprocess.CompletedProcess[str]:
+def _run(stdin: str, project_dir: Path = ROOT, extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     """Run the command .claude/settings.json registers, as Claude Code does (`/bin/sh -c`), within its timeout."""
     [hook] = [hook for entry in _registered() for hook in entry["hooks"]]
-    env = {**os.environ, "CLAUDE_PROJECT_DIR": str(project_dir)}
+    env = {**os.environ, **(extra_env or {}), "CLAUDE_PROJECT_DIR": str(project_dir)}
     return subprocess.run(["sh", "-c", hook["command"]], input=stdin, capture_output=True, text=True, env=env,
                           timeout=hook["timeout"])
 
@@ -65,8 +65,8 @@ def _event(tool: str, tool_input: object, cwd: Path = ROOT) -> str:
     })
 
 
-def _decision(tool: str, tool_input: object, cwd: Path = ROOT) -> dict | None:
-    proc = _run(_event(tool, tool_input, cwd))
+def _decision(tool: str, tool_input: object, cwd: Path = ROOT, extra_env: dict[str, str] | None = None) -> dict | None:
+    proc = _run(_event(tool, tool_input, cwd), extra_env=extra_env)
     assert proc.returncode == 0, proc.stderr
     if not proc.stdout:
         return None
@@ -149,6 +149,8 @@ REFUSED_COMMANDS = {
     "the review command through gh api": f"gh api repos/o/r/issues/1339/comments -f body='{MENTION} review'",
     "a read that carries the mention": (
         f"gh api repos/o/r/issues/1339/comments --jq '.[] | select(.body | startswith(\"{MENTION} review\")) | .id'"),
+    "the mention split by quotes": "gh pr comment 1 --body 'ping @'codex",
+    "the mention split by a backslash": "gh pr comment 1 --body ping\\ @\\codex",
 }
 # Run in a directory holding body.md and payload.json (both carrying the mention) and clean.md.
 REFUSED_FILE_COMMANDS = {
@@ -179,6 +181,29 @@ REFUSED_FILE_COMMANDS = {
     "curl -T": "curl -X POST -T payload.json https://api.github.com/repos/o/r/issues/1/comments",
     "httpie with a redirected body": "http POST https://api.github.com/repos/o/r/issues/1/comments < payload.json",
     "an upper-case API host": "curl -X POST https://API.GITHUB.COM/repos/o/r/issues/1/comments -d @payload.json",
+    "a write after a line that quotes a here-document's marker": (
+        "git commit -m \"fix: drop <<EOF bodies\"\ngh pr create --title x --body-file body.md"),
+    "a write after a shift in a one-line script": "python3 -c \"print(1 << 20)\"\ngh pr comment 1 --body-file body.md",
+    "a write after an arithmetic shift": "echo $((1<<20))\ngh pr comment 1 --body-file body.md",
+    "cat | gh after a line that ends with )": "SHA=$(git rev-parse HEAD)\ncat body.md | gh pr comment 1 --body-file -",
+    "a write after a line that ends with an escaped backslash": "echo C:\\\\\ngh pr comment 1 --body-file body.md",
+    "a write after a here-document whose text ends a line with a backslash": (
+        "cat > /tmp/r.sh <<'EOF'\npytest \\\nEOF\ngh pr comment 1 --body-file body.md"),
+    "a write after a <<- here-document": "cat > /tmp/x <<-EOF\n\tx\n\tEOF\ngh pr comment 1 --body-file body.md",
+    "cat|gh after a comment with an apostrophe": "# don't forget\ncat body.md|gh pr comment 1 --body-file -",
+    "a continuation between pr and its verb": "gh pr \\\n  comment 1 --body-file body.md",
+    "a quoted noun with a body file": "gh 'pr' comment 1 --body-file body.md",
+    "gh named by its path": "/usr/bin/gh pr comment 1 --body-file body.md",
+    "gh after sudo": "sudo gh pr comment 1 --body-file body.md",
+    "curl --upload-file": "curl -X POST --upload-file payload.json https://api.github.com/repos/o/r/issues/1/comments",
+    "curl's attached -Tfile": "curl -X POST -Tpayload.json https://api.github.com/repos/o/r/issues/1/comments",
+    "gh api --field=key=@file": "gh api repos/o/r/issues/1/comments --field=body=@body.md",
+    "a body file after a here-document's marker": "gh pr comment 1 <<'EOF' --body-file body.md\nignored\nEOF",
+    "cat piped into httpie": "cat payload.json | http POST https://api.github.com/repos/o/r/issues/1/comments",
+    "httpie's key:=@file": "http POST https://api.github.com/repos/o/r/issues/1/comments body:=@payload.json",
+    "--body-file /dev/fd/0 with a redirect": "gh pr comment 1 --body-file /dev/fd/0 < body.md",
+    "cat | at a line's end, gh on the next": "cat body.md |\ngh pr comment 1 --body-file -",
+    "a write after a word holding #": "echo issue#5 && gh pr comment 1 --body-file body.md",
 }
 ALLOWED = {
     "the review command alone": (COMMENT, {"body": f"{MENTION} review"}),
@@ -214,28 +239,47 @@ ALLOWED_COMMANDS = {
     "grep -F naming api.github.com over a file with the mention": "grep -n api.github.com -F docs.md",
     "git commit -F before a gh write that sends a clean file": "git commit -F msg.md && gh pr create --title x --body-file clean.md",
     "a here-document that names a file with the mention": "gh pr create --title x --body-file - <<'EOF'\nsee @body.md for the details\nEOF",
-    "a here-document piped into gh that names a file with the mention": (
-        "cat <<'EOF' | gh pr comment 1343 --body-file -\nPer @body.md this is high tier.\nEOF"),
+    "a here-document piped into gh whose text is itself a gh write": (
+        "cat <<'EOF' | gh pr comment 1343 --body-file -\nRun gh api x --input docs.md\nEOF"),
     "here-document text holding shell operators": "cat > /tmp/x.md <<'EOF'\n| 2 | gh api repos/o/r/issues/1/comments --input docs.md |\nEOF",
     "git commit -F on one line, a clean gh write on the next": "git commit -F msg.md\ngh pr create --title x --body-file clean.md",
     "grep for a quoted 'gh api' with -F": "grep -n 'gh api' -F docs.md",
     "a body-file name holding a NUL": "gh pr create --title x --body-file 'a\x00b'",
     "an edit that removes the mention, written as [@]codex": (
         "gh pr view 1337 --json body --jq .body | sed 's/[@]codex review/Codex review command/g' | gh pr edit 1337 --body-file -"),
+    "a read that redirects a file naming the API host": "grep -n 'api.github.com' < docs.md",
+    "a here-string that reads like an @file": "gh api repos/o/r/issues/1/comments --input - <<< '@payload.json'",
+    "a <<\\EOF here-document holding a gh write": (
+        "cat > /tmp/x.md <<\\EOF\n| 2 | gh api repos/o/r/issues/1/comments --input docs.md |\nEOF"),
+    "a here-document ended by a quoted word with a space": (
+        "cat > /tmp/x.md <<'END NOTE'\n| 2 | gh api x --input docs.md |\nEND NOTE"),
+    "an indented end word, still here-document text": "cat > /tmp/x.md <<'EOF'\n  EOF\n| 2 | gh api x --input docs.md |\nEOF",
+    "an end word with a trailing space, still here-document text (bash reads on)": (
+        "cat > /tmp/x.md <<'EOF'\nnotes\nEOF \ngh pr comment 1 --body-file body.md"),
+    "a command substitution's redirect on one line, a clean stdin write on the next": (
+        "X=$(jq . < payload.json)\ngh pr comment 1 --body-file - < clean.md"),
+    "an escaped quote inside double quotes, then a here-document holding a gh write": (
+        "echo \"say \\\"hi\\\"\" && cat > /tmp/x.md <<'EOF'\n| 2 | gh api x --input docs.md |\nEOF"),
+    "an ANSI-C quote holding an escaped quote, then a here-document holding a gh write": (
+        "printf $'it\\'s' && cat > /tmp/x.md <<'EOF'\n| 2 | gh api x --input docs.md |\nEOF"),
 }
-# The lesson's stated limits, which pass through: text a command builds as it runs, a command another
-# shell runs, the commit messages gh pr create --fill copies, and a body file over 1 MiB or that is
-# not a regular file.
+# The lesson's stated limits, which pass through: text a command builds as it runs, a program that
+# reads its body from standard input unasked, the body files of a command another shell runs, the
+# commit messages gh pr create --fill copies, and a body file over 1 MiB or that is not a regular file
+# (one under /proc is the test below).
 KNOWN_GAPS = {
     "a body held in a variable": 'gh pr comment 1 --body "$BODY"',
     "a command substitution": 'gh pr comment 1 --body "$(cat body.md)"',
     "a body file named relative to a directory the command enters": "cd sub && gh pr create --title x --body-file notes.md",
     "the commit messages gh pr create --fill copies": "gh pr create --fill",
     "a command another shell runs": "bash -c 'gh pr comment 1 --body-file body.md'",
+    "a here-document fed to a shell": "bash <<'EOF'\ngh pr comment 1 --body-file body.md\nEOF",
     "a process substitution": "gh pr comment 1 --body-file <(cat body.md)",
     "a body piped from a command other than cat": "jq -r .body payload.json | gh pr comment 1 --body-file -",
     "a body file larger than 1 MiB": "gh pr create --title x --body-file huge.md",
     "a body that is not a regular file (a FIFO)": "gh pr create --title x --body-file pipe.md",
+    "a program that reads its body from standard input unasked": (
+        "python3 post.py https://api.github.com/repos/o/r/issues/1/comments < payload.json"),
 }
 KNOWN_GAP_TOOLS = {
     "a GitHub server registered under a name without github": ("mcp__gh__add_issue_comment", {"body": f"cc {MENTION}"}),
@@ -256,6 +300,7 @@ def bodies(tmp_path_factory: pytest.TempPathFactory) -> Path:
     os.mkfifo(tmp_path / "pipe.md")  # never opened: a read would block the hook until its timeout
     (tmp_path / "sub").mkdir()
     (tmp_path / "sub" / "notes.md").write_text(f"{MENTION} here\n", encoding="utf-8")
+    (tmp_path / "environ.md").symlink_to("/proc/self/environ")
     return tmp_path
 
 
@@ -294,6 +339,17 @@ def test_text_a_command_builds_as_it_runs_is_a_stated_gap(command: str, bodies: 
     assert _decision("Bash", {"command": command, "description": "x"}, cwd=bodies) is None
 
 
+@pytest.mark.parametrize("command", [
+    "gh pr comment 1 --body-file /proc/self/environ",
+    "gh pr comment 1 --body-file environ.md",
+], ids=["by its path", "through a link"])
+def test_a_body_file_under_proc_is_never_read(command: str, bodies: Path) -> None:
+    # A kernel file can block a read (/proc/kmsg). The hook's own environment carries the mention here,
+    # so a read of /proc/self/environ would refuse.
+    decision = _decision("Bash", {"command": command, "description": "x"}, cwd=bodies, extra_env={"PROBE": MENTION})
+    assert decision is None
+
+
 @pytest.mark.parametrize(("tool", "tool_input"), KNOWN_GAP_TOOLS.values(), ids=KNOWN_GAP_TOOLS.keys())
 def test_a_github_server_named_otherwise_is_a_stated_gap(tool: str, tool_input: dict) -> None:
     assert _decision(tool, tool_input) is None
@@ -329,7 +385,7 @@ def test_the_hook_is_registered_before_bash_and_every_github_tool() -> None:
     # Claude Code tests a matcher holding regex characters as an unanchored JavaScript RegExp, which
     # Python's re.search reads the same way for this pattern. Cloud sessions run it through the CLI's
     # own restricted engine (no {n} counts, no lookaround); alternation, ".*" and bracket classes
-    # matched there in live sessions on 81f7724d and 4ee16219 (#1343's body).
+    # matched there in live sessions on 81f7724d, 4ee16219 and db39aa9f (#1343's body).
     matcher = re.compile(MATCHER)
     reached = ("Bash", *GITHUB_WRITE_TOOLS, "mcp__plugin_gh_github__add_issue_comment", "mcp__GitHub__add_issue_comment",
                "mcp__GITHUB__add_issue_comment", "mcp__claude_ai_GitHub__add_issue_comment")
