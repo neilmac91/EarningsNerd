@@ -302,7 +302,7 @@ REFUSED_FILE_COMMANDS = {
     # backquotes, another substitution, and the rest of an EOF) line, which bash pushes back and reads
     # before what waits for the end of the line.
     "a write after a continuation past a waiting here-document's text": (
-        "X=$(cat <<'EOF') \\\nEOF\ngh pr comment 1 --body-file body.md\nEOF"),
+        "X=$(cat <<'EOF') \\\ndon't\nEOF\ngh pr comment 1 --body-file body.md"),
     "a write after a substitution that spans lines past a waiting here-document's text": (
         "X=$(cat <<'EOF') ; Y=$(echo s\nEOF\n)\ngh pr comment 1 --body-file body.md\nEOF"),
     "a write after a single quote that spans a waiting here-document's text": (
@@ -314,7 +314,7 @@ REFUSED_FILE_COMMANDS = {
     "a write after backquotes that span a waiting here-document's text": (
         "X=$(cat <<'EOF') ; echo `echo a\na`'b\nEOF\n`\ngh pr comment 1 --body-file body.md"),
     "a write after a continuation past the text of the words an EOF) end leaves": (
-        "X=$(cat <<'A' <<'B'\na\nA) \\\nB\ngh pr comment 1 --body-file body.md\nB"),
+        "X=$(cat <<'A' <<'B'\na\nA) \\\ndon't\nB\ngh pr comment 1 --body-file body.md"),
     "a write after a quoted substitution whose waiting here-document ends at EOF)": (
         "X=\"$(cat <<'EOF')\"\nEOF)\ngh pr comment 1 --body-file body.md\nEOF"),
     "a write after a subshell holding a substitution whose waiting here-document ends at EOF)": (
@@ -342,8 +342,8 @@ REFUSED_FILE_COMMANDS = {
         + "\ngh pr comment 1 --body-file body.md"),
     "a write after 20 000 here-documents that never end, inside a substitution": (
         "X=$(" + "\n".join(f"x <<W{n}" for n in range(20_000)) + "\n)\ngh pr comment 1 --body-file body.md"),
-    "a write after 12 000 here-documents whose word ends in a blank, never ended, and as many EOF) lines": (
-        "X=$(" + "x <<'EOF '\n" * 12_000 + "EOF)\n" * 12_000 + ")\ngh pr comment 1 --body-file body.md"),
+    "a write after 20 000 here-documents whose word ends in a blank, never ended, and as many EOF) lines": (
+        "X=$(" + "x <<'EOF '\n" * 20_000 + "EOF)\n" * 20_000 + ")\ngh pr comment 1 --body-file body.md"),
 }
 # What the shell may never run, read anyway: the hook reads more than the shell runs where it cannot be
 # sure, and refuses these.
