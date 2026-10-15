@@ -2,7 +2,7 @@ import { createRequire } from 'node:module'
 import { test, expect, type Page } from '@playwright/test'
 import { settled } from './fixtures/contrast'
 import { answerApi, API_ORIGIN, PANE, SUMMARY } from './fixtures/filing3Api'
-import { isAuthRoute } from '../../lib/authShellRoutes'
+import { AUTH_ROUTES, isAuthRoute } from '../../lib/authShellRoutes'
 import { STATIC_ENTRIES } from '../../app/sitemap'
 
 /**
@@ -121,16 +121,21 @@ const ROUTES: Route[] = [
 /**
  * The rest of the public pages (BG-29), each answered by answerSiteApi (no backend). With ROUTES, this list
  * covers every route the sitemap's static core names (STATIC_ENTRIES in app/sitemap.ts, which mirrors the
- * backend's STATIC_PAGES), and the census case below holds it to that; beyond the core it adds the auth
- * pages, /waitlist and the flag-off /search 404. Kept apart from ROUTES so the cases below that pick a route
- * by its index keep theirs. /waitlist's example falls back to its h2 card here; waitlistPage.spec.tsx reads
- * the outline with the example loaded.
+ * backend's STATIC_PAGES) and every AuthShell route (AUTH_ROUTES in lib/authShellRoutes.ts: /login,
+ * /register, /check-email, /verify-email, /forgot-password and /reset-password), and the census cases below
+ * hold it to both; beyond them it adds /waitlist and the flag-off /search 404. Kept apart from ROUTES so the
+ * cases below that pick a route by its index keep theirs. /waitlist's example falls back to its h2 card here;
+ * waitlistPage.spec.tsx reads the outline with the example loaded.
  */
 const PUBLIC_ROUTES: Route[] = [
   { name: 'waitlist', path: '/waitlist', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByLabel('Email address')).toBeVisible() },
   { name: 'login', path: '/login', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
   { name: 'register', path: '/register', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
+  { name: 'check email', path: '/check-email', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Check your inbox' })).toBeVisible() },
+  // Opened without the emailed token: /verify-email settles on its failure state, /reset-password shows its invalid-link notice.
+  { name: 'verify email (no token)', path: '/verify-email', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Verification failed' })).toBeVisible() },
   { name: 'forgot password', path: '/forgot-password', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
+  { name: 'reset password (no token)', path: '/reset-password', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Choose a new password' })).toBeVisible() },
   { name: 'contact', path: '/contact', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
   { name: 'privacy', path: '/privacy', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeVisible() },
   { name: 'terms', path: '/terms', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible() },
@@ -249,6 +254,14 @@ test.describe('main routes at 1440x900, light theme', () => {
     for (const { url } of STATIC_ENTRIES) {
       const path = new URL(url).pathname
       expect.soft(visited, `${path} is in STATIC_ENTRIES (app/sitemap.ts) but no ROUTES or PUBLIC_ROUTES entry visits it`).toContain(path)
+    }
+  })
+
+  // Likewise for the auth pages: a route added to the AuthShell list fails this case until the census visits it.
+  test('the census visits every route in the auth list', () => {
+    const visited = [...ROUTES, ...PUBLIC_ROUTES].map((route) => route.path)
+    for (const path of AUTH_ROUTES) {
+      expect.soft(visited, `${path} is in AUTH_ROUTES (lib/authShellRoutes.ts) but no ROUTES or PUBLIC_ROUTES entry visits it`).toContain(path)
     }
   })
 })
