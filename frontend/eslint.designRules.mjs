@@ -39,9 +39,11 @@
 //                       formatLocalDate, so reading it here too would report one call twice. The receiver's type is not read, so a Date's
 //                       toLocaleString() is caught too: the message names lib/format generally (fmtCount
 //                       and fmtDecimal for a number, a date helper for a date), or pass 'en-US'. A
-//                       locale the scan cannot read (a variable) passes, and so does `Intl.NumberFormat`
-//                       reached under another name (`const { NumberFormat } = Intl`, `globalThis.Intl`),
-//                       which no file writes today. `Intl.DateTimeFormat` is not
+//                       locale other than the literal 'en-US' (or a list of it) is reported too: another
+//                       locale ('de-DE'), or one the scan cannot read (a variable, which may be the
+//                       browser's), since the product formats numbers and times in en-US alone.
+//                       `Intl.NumberFormat` reached under another name (`const { NumberFormat } = Intl`,
+//                       `globalThis.Intl`) passes, which no file writes today. `Intl.DateTimeFormat` is not
 //                       read (its one call site, features/calendar/lib/dates.ts, pins 'en-CA').
 //   no-hand-rolled-toggle-group (CO-15, CO-22, CO-25) One single-choice toggle group app-wide: the
 //                       SegmentedControl (components/ui). The rule reads an element whose role is the literal
@@ -243,6 +245,16 @@ const unpinnedLocale = (args) =>
   (args[0].type === 'Identifier' && args[0].name === 'undefined') ||
   (args[0].type === 'ArrayExpression' && args[0].elements.length === 0)
 
+/** The one locale the product formats numbers and times in; lib/format.ts pins it for every helper. */
+const PINNED_LOCALE = 'en-US'
+const isPinnedLiteral = (node) => node.type === 'Literal' && node.value === PINNED_LOCALE
+/** Whether a call's locale argument is present but not 'en-US' (or a list of it): another locale, or one the rule
+    cannot read (a variable, a call), which may be the browser's. */
+const otherLocale = (args) =>
+  !unpinnedLocale(args) &&
+  !isPinnedLiteral(args[0]) &&
+  !(args[0].type === 'ArrayExpression' && args[0].elements.every((element) => element && isPinnedLiteral(element)))
+
 /** Whether a callee is `Intl.NumberFormat`, which returns the same formatter called with `new` or without it. */
 const isIntlNumberFormat = (callee) =>
   callee.type === 'MemberExpression' &&
@@ -261,23 +273,28 @@ export const localePinnedNumbers = {
         '{{call}} with no locale renders in the viewer\'s browser locale. Format the value through the ' +
         "lib/format.ts helper made for it (fmtCount or fmtDecimal for a number, a date helper for a date), " +
         "or pass 'en-US'.",
+      other:
+        "{{call}} pins {{locale}}, not 'en-US', the one locale the product formats numbers and times in " +
+        "(lib/format.ts). Format the value through the lib/format.ts helper made for it, or pass 'en-US'.",
     },
   },
   create(context) {
+    const report = (node, args, call) => {
+      if (unpinnedLocale(args)) context.report({ node, messageId: 'unpinned', data: { call } })
+      else if (otherLocale(args)) context.report({ node, messageId: 'other', data: { call, locale: context.sourceCode.getText(args[0]) } })
+    }
     return {
       CallExpression(node) {
         const callee = node.callee
         if (isIntlNumberFormat(callee)) {
-          if (unpinnedLocale(node.arguments)) context.report({ node, messageId: 'unpinned', data: { call: 'Intl.NumberFormat()' } })
+          report(node, node.arguments, 'Intl.NumberFormat()')
           return
         }
         if (callee.type !== 'MemberExpression' || callee.computed || !LOCALE_METHODS.has(callee.property.name)) return
-        if (unpinnedLocale(node.arguments)) context.report({ node, messageId: 'unpinned', data: { call: `${callee.property.name}()` } })
+        report(node, node.arguments, `${callee.property.name}()`)
       },
       NewExpression(node) {
-        if (isIntlNumberFormat(node.callee) && unpinnedLocale(node.arguments)) {
-          context.report({ node, messageId: 'unpinned', data: { call: 'new Intl.NumberFormat()' } })
-        }
+        if (isIntlNumberFormat(node.callee)) report(node, node.arguments, 'new Intl.NumberFormat()')
       },
     }
   },

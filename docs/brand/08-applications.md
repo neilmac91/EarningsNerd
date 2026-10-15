@@ -305,9 +305,10 @@ that PR:
   `features`, `hooks` and `lib` on a receiver named for an error or a message (err, error, message,
   msg, detail or reason, read through camelCase such as `errorMessage`); a message held under another
   name outside the api modules is the scan's limit.
-- ESLint: the raw-colour rule reads `rgb()`, `rgba()`, `hsl()` and `hsla()` as well as hex, in an
-  arbitrary utility too; `earningsnerd/locale-pinned-numbers` (new) bans an unpinned
-  `toLocaleString()`, `toLocaleTimeString()` or `Intl.NumberFormat` everywhere, `lib/format.ts`
+- ESLint: the raw-colour rule reads `rgb()`, `rgba()`, `hsl()` and `hsla()` in either case as well as
+  hex, in an arbitrary utility too; `earningsnerd/locale-pinned-numbers` (new) bans an unpinned
+  `toLocaleString()`, `toLocaleTimeString()` or `Intl.NumberFormat`, and one pinning any locale but
+  `'en-US'` (another locale, or a variable), everywhere, `lib/format.ts`
   included, since its formatter cache pins en-US (`fmtCount`, `fmtDecimal`, or a date helper for a date); `toLocaleDateString()` was already banned
   outright by the date rule in `eslint.config.mjs`, which names `formatLocalDate`.
 - `siteChromeFocusRing.spec.ts`: the page scan discovers every route's page and the feature

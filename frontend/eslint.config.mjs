@@ -124,11 +124,11 @@ const CALENDAR_FIELD_RULES = ['Date', 'parseISO'].flatMap((ctor) => {
 // aria-hidden glyphs below the type scale (Badge ▲▼, DataTable ▲▼) and the 40px pricing display
 // figure (its own tracking-[…]) carry an eslint-disable with a reason.
 // The raw-colour rule reads a 6-digit hex (8-digit included) and an rgb(), rgba(), hsl() or hsla()
-// call, in a string, a template chunk or an arbitrary utility (`shadow-[0_20px_50px_rgba(…)]`), since
-// each is a colour no token governs (BG-19). A 3-digit hex is not read: copy such as "PR #619" is one.
-// The mirrors above keep their exemption.
+// call in either case (`RGB(` is the same colour to a browser), in a string, a template chunk or an
+// arbitrary utility (`shadow-[0_20px_50px_rgba(…)]`), since each is a colour no token governs (BG-19).
+// A 3-digit hex is not read: copy such as "PR #619" is one. The mirrors above keep their exemption.
 const DESIGN_HEX_RULE = {
-  selector: 'Literal[value=/#[0-9a-fA-F]{6}|(?:rgba?|hsla?)\\(/]',
+  selector: 'Literal[value=/#[0-9a-f]{6}|(?:rgba?|hsla?)\\(/i]',
   message: 'Raw colour (hex, rgb[a]() or hsl[a]()): use a token (mirrors: motion.ts, financialTone, Chart, chartExport).',
 }
 const DESIGN_PALETTE_RULE = {
