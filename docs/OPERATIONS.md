@@ -491,9 +491,10 @@ only when Codex's "Review Summary" comment reports **Completed** for that
 exact head, or when the pull request body carries a line `Review override: <reason>` (ten or more
 characters); a completed review of an earlier head is not enough, because a push does not
 re-trigger Codex here: after fix commits, comment `@codex review` at once. The gate waits up to
-twenty minutes, then fails naming the remedy; an `@codex review` comment re-runs the pull request's
-latest gate run automatically (the workflow's `issue_comment` job, the only one holding a write
-scope, `actions: write`), so a re-requested review is observed without a manual re-run. Logic in
+twenty minutes, then fails naming the remedy; an `@codex review` comment re-runs the newest gate run
+on the pull request's current head automatically, found by head SHA so a run of any age counts (the
+workflow's `issue_comment` job, the only one holding a write scope, `actions: write`), so a
+re-requested review is observed without a manual re-run. Logic in
 `backend/scripts/review_gate.py` (stdlib only), pinned by `tests/unit/test_review_gate.py`. The
 workflow runs on `pull_request_target` and checks out the **base** branch, so a pull request can edit
 neither its own gate script nor the workflow definition (the job never executes pull-request code and
@@ -502,8 +503,10 @@ trusted; and a reviewed short SHA counts only when the repository resolves it un
 no other commit of the pull request shares it, so a head minted to share a reviewed prefix stays
 unreviewed while the reviewed object exists. Each run takes the workflow definition from `main` as it
 stood at the run's event, and a re-run keeps that definition, so a change here reaches a pull request
-at its next pull-request event. A ready pull request whose latest gate run skipped under the old draft
-condition (before #1331) needs such an event, an edit to its body for instance, not `@codex review`.
+at its next pull-request event. The re-run job never re-runs a skipped run: only a run from before
+#1331 can skip, under its old draft condition, and a re-run would replay the skip. A ready pull
+request whose newest gate run is such a skip needs a new pull-request event, an edit to its body for
+instance, and `@codex review` says so.
 
 The check binds merges through the ruleset on `main` (id 23561253, created 2026-09-16, `gh api
 repos/neilmac91/EarningsNerd/rulesets/23561253` to read it): deletion and force-push of `main`

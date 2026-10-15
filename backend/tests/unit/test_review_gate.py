@@ -1,6 +1,10 @@
 """The review gate (rule 12 for the review-wait lesson): the decision is pure, pinned offline, and the
 workflow that publishes it runs on every pull-request event without write permissions. It never
 skips that job, because a skipped job counts as passing; a draft fails it instead."""
+import json
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -208,3 +212,107 @@ def test_only_explicit_human_requests_rerun_and_comments_cannot_cancel_each_othe
     assert workflow["concurrency"]["group"] == (
         "review-gate-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}"
     )
+
+
+# A stand-in for `gh api` that filters the way the GitHub API does: runs by head_sha when asked, newest
+# first, cut to per_page (30 by default), and `--jq` applied by jq itself. Every call is logged, so a test
+# sees which run, if any, the re-run step asked GitHub to re-run.
+FAKE_GH = r'''#!/usr/bin/env python3
+import json, os, re, subprocess, sys
+from urllib.parse import parse_qs, urlsplit
+
+state = json.load(open(os.environ["FAKE_GH_STATE"]))
+args = sys.argv[1:]
+with open(os.environ["FAKE_GH_LOG"], "a") as log:
+    log.write(json.dumps(args) + "\n")
+if args[:1] != ["api"] or state.get("fail"):
+    sys.exit("gh: HTTP 502")
+method, jq, path, i = "GET", None, None, 1
+while i < len(args):
+    if args[i] in ("-X", "--jq"):
+        method, jq = (args[i + 1], jq) if args[i] == "-X" else (method, args[i + 1])
+        i += 2
+    else:
+        path, i = args[i], i + 1
+url, repo = urlsplit(path), os.environ["REPO"]
+query = parse_qs(url.query)
+if method == "POST" and re.fullmatch(rf"repos/{repo}/actions/runs/\d+/rerun", url.path):
+    sys.exit(0)
+if method != "GET":
+    sys.exit(f"gh: unexpected {method} {path}")
+if url.path == f"repos/{repo}/pulls/{os.environ['PR']}":
+    body = state["pull"]
+elif url.path == f"repos/{repo}/actions/workflows/review-gate.yml/runs":
+    runs = [r for r in state["runs"] if "head_sha" not in query or r["head_sha"] == query["head_sha"][0]]
+    runs.sort(key=lambda r: r["run_number"], reverse=True)
+    body = {"workflow_runs": runs[: int(query.get("per_page", ["30"])[0])]}
+elif re.fullmatch(rf"repos/{repo}/actions/runs/\d+", url.path):
+    body = next(r for r in state["runs"] if str(r["id"]) == url.path.rsplit("/", 1)[1])
+else:
+    sys.exit(f"gh: unexpected {method} {path}")
+out = json.dumps(body)
+if jq is not None:
+    out = subprocess.run(["jq", "-r", jq], input=out, capture_output=True, text=True, check=True).stdout
+sys.stdout.write(out)
+'''
+
+PR_HEAD = "c" * 40
+OLDER_HEAD = "d" * 40
+
+
+def _gate_run(run_id: int, run_number: int, head: str, pr: int, status: str = "completed",
+              conclusion: object = "failure") -> dict:
+    return {"id": run_id, "run_number": run_number, "head_sha": head, "status": status,
+            "conclusion": conclusion, "pull_requests": [{"number": pr}]}
+
+
+# Sixty newer gate runs of other pull requests: more than the 50 newest runs the step used to search.
+NEWER_RUNS_OF_OTHER_PRS = [_gate_run(1000 + n, 200 + n, "e" * 40, 900 + n, conclusion="success") for n in range(60)]
+
+
+def _run_the_rerun_step(tmp_path: Path, state: dict):
+    workflow = yaml.load((ROOT / ".github/workflows/review-gate.yml").read_text(), Loader=yaml.BaseLoader)
+    script = workflow["jobs"]["rerun-on-review-request"]["steps"][-1]["run"]
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "gh").write_text(FAKE_GH)
+    (bin_dir / "gh").chmod(0o755)
+    (tmp_path / "state.json").write_text(json.dumps(state))
+    log = tmp_path / "gh.log"
+    log.write_text("")
+    env = {"PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}", "REPO": "o/r", "PR": "7", "GH_TOKEN": "unused",
+           "FAKE_GH_STATE": str(tmp_path / "state.json"), "FAKE_GH_LOG": str(log)}
+    proc = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, timeout=60)
+    calls = [json.loads(line) for line in log.read_text().splitlines()]
+    return proc, [call for call in calls if call[1:3] == ["-X", "POST"]]
+
+
+requires_jq = pytest.mark.skipif(shutil.which("jq") is None, reason="the fake gh applies --jq with jq, which GitHub's runners ship")
+
+
+@requires_jq
+@pytest.mark.parametrize("case, runs, rerun_id, said", [
+    # The pull request's run is older than the 50 newest runs repo-wide; the head SHA still finds it.
+    ("beyond-the-newest-50", NEWER_RUNS_OF_OTHER_PRS + [_gate_run(55, 100, PR_HEAD, 7)], 55, "re-ran run 55 for #7"),
+    # The newest by run number, whatever order the API lists them in and whatever its conclusion.
+    ("newest-of-several", [_gate_run(50, 90, PR_HEAD, 7, conclusion="success"), _gate_run(51, 95, PR_HEAD, 7),
+                           _gate_run(52, 93, PR_HEAD, 7)], 51, "re-ran run 51 for #7"),
+    # A skip is only a run from before #1331's change; re-running it would replay the skip.
+    ("skipped", [_gate_run(60, 120, PR_HEAD, 7, conclusion="skipped")], None, "old draft condition"),
+    ("in-progress", [_gate_run(61, 121, PR_HEAD, 7, status="in_progress", conclusion=None)], None, "still in_progress"),
+    # A run on an earlier head checks a commit the pull request no longer has.
+    ("only-an-older-head", [_gate_run(62, 122, OLDER_HEAD, 7)], None, "no gate run on #7's head"),
+    ("another-pr-on-this-head", [_gate_run(63, 123, PR_HEAD, 8)], None, "no gate run on #7's head"),
+])
+def test_codex_review_reruns_the_newest_gate_run_on_the_pull_requests_head_and_never_replays_a_skip(
+        tmp_path, case, runs, rerun_id, said):
+    proc, reruns = _run_the_rerun_step(tmp_path, {"pull": {"head": {"sha": PR_HEAD}}, "runs": runs})
+    assert proc.returncode == 0, proc.stderr
+    assert said in proc.stdout, proc.stdout
+    assert reruns == ([["api", "-X", "POST", f"repos/o/r/actions/runs/{rerun_id}/rerun"]] if rerun_id else [])
+
+
+@requires_jq
+def test_the_rerun_step_fails_rather_than_reporting_nothing_to_rerun_when_the_api_fails(tmp_path):
+    proc, reruns = _run_the_rerun_step(tmp_path, {"fail": True, "pull": {}, "runs": []})
+    assert proc.returncode != 0 and reruns == []
