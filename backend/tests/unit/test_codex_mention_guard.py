@@ -234,12 +234,24 @@ REFUSED_FILE_COMMANDS = {
     "a write inside escaped backquotes inside backquotes": "X=`echo \\`gh pr comment 1 --body-file body.md\\``",
     "a write past substitutions nested beyond Python's recursion limit": (
         "echo " + "$(" * 1500 + "x" + ")" * 1500 + " && gh pr comment 1 --body-file body.md"),
-    # Inside $(...), bash also ends a here-document at a line that is its word, blanks and a ).
+    # Inside $(...), <(...) or >(...), bash also ends a here-document at a line that starts with its
+    # word, blanks and a ).
     "a write after a commit message whose here-document ends at EOF)": (
         "git commit -m \"$(cat <<'EOF'\nfix: don't drop it\nEOF)\" && gh pr create --title x --body-file body.md"),
     "a write after a commit message whose here-document ends at EOF )": (
         "git commit -m \"$(cat <<'EOF'\nfix: don't drop it\nEOF )\" && gh pr create --title x --body-file body.md"),
-    # Not here: a substitution inside double quotes, its here-document text holding an odd quote.
+    "a write after a process substitution whose here-document ends at EOF)": (
+        "diff <(cat <<'EOF'\nexpected\nEOF) /dev/null; gh pr comment 1 --body-file body.md && cat > /tmp/notes.md <<'EOF'\n"
+        "notes\nEOF"),
+    "a write after an output process substitution whose here-document ends at EOF)": (
+        "echo x > >(cat <<'EOF'\na\nEOF)\ngh pr comment 1 --body-file body.md\nEOF"),
+    "a write after a here-document whose quoted word ends in a blank, ended at EOF ) after EOF)": (
+        "X=$(cat <<'EOF '\na\nEOF)\nEOF )\ngh pr comment 1 --body-file body.md\nY=$(cat <<'EOF '\nEOF \n)"),
+    "a write after a here-document whose quoted word holds a ), ended at a)b)": (
+        "X=$(cat <<'a)b'\na\na)b)\ngh pr comment 1 --body-file body.md\nY=$(cat <<'a)b'\na)b\n)"),
+    "a write on the EOF) line that is a substitution's first line of here-document text": (
+        "X=$(cat <<'EOF'\nEOF) && gh pr comment 1 --body-file body.md\nEOF"),
+    # The usual form, its end a line of its own and the ) on the next: the odd quote in its text hides nothing.
     "a write after a commit message from a here-document with an odd quote": (
         "git commit -m \"$(cat <<'EOF'\nfix: 5\" screens\nEOF\n)\"\ngh pr comment 1 --body-file body.md"),
     "a write after an escaped space and a #": 'echo a\\ #b && gh pr comment 1 --body-file "my body.md"',
@@ -254,14 +266,40 @@ REFUSED_FILE_COMMANDS = {
         "X=$(cat <<-'EOF'\n\tdon't\n\tEOF) && gh pr comment 1 --body-file body.md"),
     "a write between two substitutions, the first ending at its exact line, the second at EOF)": (
         "X=$(cat <<'EOF'\na\nEOF\n)\ngh pr comment 1 --body-file body.md\nY=$(cat <<'EOF'\nEOF)"),
-    # Outside $(...), even in a subshell, a line holding the word and a ) is here-document text.
+    # Outside $(...), <(...) and >(...), even in a subshell, a line holding the word and a ) is
+    # here-document text.
     "a write after a subshell whose here-document text holds an EOF) line": (
         "(cat <<'EOF'\na\nEOF)\ndon't\nEOF\n) && gh pr comment 1 --body-file body.md"),
+    # A here-document left waiting when its substitution or subshell closes takes its text from the
+    # next line, as in bash: a substitution's first, then those of its line, which a subshell shares.
+    # In arithmetic, << is a shift.
+    "a write after a substitution's waiting here-document, which bash reads before its line's own": (
+        "cat <<A; X=$(cat <<B)\nB\nA\ngh pr comment 1 --body-file body.md\nB"),
+    "a write after a here-document whose text starts inside a subshell opened after it": (
+        "cat <<A; (echo hi\ndon't\nA\n)\ngh pr comment 1 --body-file body.md"),
+    "a write after a here-document whose substitution closes on its opening line": (
+        "X=$(cat <<'EOF')\ndon't\nEOF\ngh pr comment 1 --body-file body.md"),
+    "a write after a here-document whose quoted substitution closes on its opening line": (
+        "X=\"$(cat <<'EOF')\"\ndon't\nEOF\ngh pr comment 1 --body-file body.md"),
+    "a write after a here-document whose subshell closes on its opening line": (
+        "(cat > /tmp/x <<'EOF')\ndon't\nEOF\ngh pr comment 1 --body-file body.md"),
+    "a write after a second here-document, left waiting by the first one's EOF) end": (
+        "X=$(cat <<A <<'B'\na\nA)\ndon't\nB\ngh pr comment 1 --body-file body.md"),
+    "a write after an arithmetic command's shift": "((x = 1 << 2))\ngh pr comment 1 --body-file body.md\n2",
+    "a write after a shift in quoted arithmetic": "echo \"$((1 << 2))\"\ngh pr comment 1 --body-file body.md\n2",
+    # Each here-document's text is read once: a later line that repeats its word is a command.
+    "a write between a here-document's text and a line that repeats its word": (
+        "cat > /tmp/x <<'EOF'\nnotes\nEOF\necho next\ngh pr comment 1 --body-file body.md\nEOF"),
+    "a write between a waiting here-document's text and a line that repeats its word": (
+        "X=$(cat <<'EOF')\ndon't\nEOF\necho next\ngh pr comment 1 --body-file body.md\nEOF"),
     # Large inputs: each must be read well inside the registered timeout.
     "a write past 700 nested substitutions of 50 characters each": (
         "echo " + ("$(echo " + "y" * 50 + " ") * 700 + ")" * 700 + " && gh pr comment 1 --body-file body.md"),
-    "a write after 10 000 here-documents that never end": (
-        "\n".join(f"x <<W{n}" for n in range(10_000)) + "\ngh pr comment 1 --body-file body.md"),
+    "a write after 20 000 here-documents that never end": (
+        "\n".join(f"x <<W{n}" for n in range(20_000)) + "\ngh pr comment 1 --body-file body.md"),
+    "a write after 4 000 lines, each a here-document that never ends and four backquoted ones": (
+        "\n".join(f"x <<W{n} `cat <<a\n` `cat <<b\n` `cat <<c\n` `cat <<d\n`" for n in range(4_000))
+        + "\ngh pr comment 1 --body-file body.md"),
     "a write after 20 000 here-documents that never end, inside a substitution": (
         "X=$(" + "\n".join(f"x <<W{n}" for n in range(20_000)) + "\n)\ngh pr comment 1 --body-file body.md"),
 }
@@ -342,16 +380,25 @@ ALLOWED_COMMANDS = {
     "two here-documents on one line, the second holding a gh write": (
         "cat <<A <<B\na\nA\ngh pr comment 1 --body-file body.md\nB"),
     "a here-document whose word starts with a digit": "cat > /tmp/x <<20\ngh pr comment 1 --body-file body.md\n20",
+    "a here-document whose quoted word ends in a blank, its text holding EOF), EOF<tab>) and a write": (
+        "X=$(cat <<'EOF '\na\nEOF)\nEOF\t)\ngh pr comment 1 --body-file body.md\nEOF \n)"),
+    "a here-document in a substitution, its text holding an indented EOF) and a write": (
+        "X=$(cat <<'EOF'\na\n  EOF)\ngh pr comment 1 --body-file body.md\nEOF\n)"),
 }
 # The lesson's stated limits, which pass through: text a command builds as it runs, a command
-# substitution inside a here-document's text, a program that reads its body from standard input
-# unasked, the body files of a command another shell runs, the commit messages gh pr create --fill
-# copies, and a body file over 1 MiB or that is not a regular file (one under /proc is the test below).
+# substitution inside a here-document's text, an `EOFX)` end, a program that reads its body from
+# standard input unasked, the body files of a command another shell runs, the commit messages
+# gh pr create --fill copies, and a body file over 1 MiB or that is not a regular file (one under
+# /proc is the test below).
 KNOWN_GAPS = {
     "a body held in a variable": 'gh pr comment 1 --body "$BODY"',
     "the output of a command substitution": 'gh pr comment 1 --body "$(cat body.md)"',
     "a URL a command substitution builds": 'curl -X POST "$(echo https://api.github.com/repos/o/r/issues/1/comments)" -d @payload.json',
     "a command substitution inside a here-document's text": "cat <<EOF\n$(gh pr comment 1 --body-file body.md)\nEOF",
+    # Bash ends this here-document at EOFX) and runs the write; the hook reads the text on, and its
+    # apostrophe hides the write.
+    "an EOFX) end inside a substitution": (
+        "git commit -m \"$(cat <<'EOF'\nfix: don't\nEOFX)\" && gh pr create --title x --body-file body.md"),
     "a body file named relative to a directory the command enters": "cd sub && gh pr create --title x --body-file notes.md",
     "the commit messages gh pr create --fill copies": "gh pr create --fill",
     "a command another shell runs": "bash -c 'gh pr comment 1 --body-file body.md'",
