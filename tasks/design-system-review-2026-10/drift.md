@@ -1,0 +1,35 @@
+# Documentation, comment and gate drift
+
+Source-checked on the current main SHA. Historic records are evidence from their dates and are not rewritten merely because source later changed. The attached dossier is briefing data; source wins when it is stale.
+
+| Item | Status | Document/comment | Current source | Smallest action / overlap |
+|---|---|---|---|---|
+| active-statecard-comment | confirmed-known | frontend/components/ui/GuidanceCard.tsx:10. Says components/StateCard.tsx exists with ten importers. | The tracked component is absent; ui/Notice.tsx:4-6 says it replaces the app-owned StateCard. | Rewrite present-tense naming explanation as historical or remove.  |
+| active-statecard-barrel-comment | confirmed-known | frontend/components/ui/index.ts:19. Says guidance name collides with app components/StateCard.tsx. | No such tracked file remains. | Remove stale collision explanation.  |
+| skip-link-autofocus-comment | confirmed-new | frontend/tests/e2e/skip-link.spec.ts:6. Says homepage search takes initial focus by design. | LandingHero.tsx:52-63 explicitly avoids initial focus; CompanySearch defaults autoFocusDesktop=false at31. | Correct comment and consider the homepage in the existing route gate.  |
+| auth-toggle-exception | confirmed-new | frontend/DESIGN_SYSTEM.md:1021. One toggle in global Header; no page-level toggles. | SiteChrome hides Header on six auth routes; AuthShell.tsx:23 owns their toggle. | Document single visible toggle per shell, with auth shell exception. [#1278](https://github.com/neilmac91/EarningsNerd/pull/1278) |
+| inter-download-promise | confirmed-new | frontend/app/layout.tsx:17. Apple users never download Inter. | Inter next/font call at20 uses default preload; Inter remains heading font in globals.css. | State body fallback preference, without network or zero-shift promises.  |
+| only-glow-contract | confirmed-source-ambiguity | frontend/DESIGN_SYSTEM.md:988. Hero search is the only glow. | globals.css:267 adds live dark glass-card hover shadow; AuthShell:60 consumes it. | Preserve scoped glass behavior under code-first precedence; DESIGN.md:416 and globals.css:247-250 explicitly retain it. Clarify the broad sole-glow sentence. [#1278](https://github.com/neilmac91/EarningsNerd/pull/1278), [#1310](https://github.com/neilmac91/EarningsNerd/pull/1310) |
+| copilot-reference-path | in-flight | frontend/features/filings/components/copilot/CopilotMessage.tsx:16. Points to components/AskFilingAnswer.tsx. | Actual reference is features/filings/components/AskFilingAnswer.tsx; [#1295](https://github.com/neilmac91/EarningsNerd/pull/1295) deletes reference entirely and rewrites comment. | Accept [#1295](https://github.com/neilmac91/EarningsNerd/pull/1295) removal; no second PR. [#1295](https://github.com/neilmac91/EarningsNerd/pull/1295) |
+| reference-renderer-contract | in-flight | frontend/features/filings/components/AskFilingAnswer.tsx:14. Unused reference renderer retains streaming state that production never reaches. | Source calls it a reference and notes live Ask never reaches streaming; [#1295](https://github.com/neilmac91/EarningsNerd/pull/1295) removes it. | Treat as known in-flight dead code, not new production caret. [#1295](https://github.com/neilmac91/EarningsNerd/pull/1295) |
+| dossier-caret | dossier-disproved | attached dossier section 8. Claims CopilotMessage has dead streaming caret and docs still describe it. | Current CopilotMessage:23-28 and status union:38 have no streaming; DS:914-931 explicitly explains whole answers. | Record stale briefing lead, not repository defect. [#1295](https://github.com/neilmac91/EarningsNerd/pull/1295) |
+| dossier-settings-header | dossier-disproved | attached dossier section 9. Includes settings among SecondaryHeader consumers. | settings/page.tsx:81-97 has an inline back-link and h1 header. | Use current source in census.  |
+| dossier-numeric-z-count | dossier-narrowed | attached dossier section 9. Seed 26 grep matches across14files. | Fresh AST count:19 numeric z literal occurrences across12files; comments account for some grep hits. | Report AST methodology and preserve sanctioned numeric sites. [#1290](https://github.com/neilmac91/EarningsNerd/pull/1290) |
+| mockup-name | not-a-confirmed-defect | docs/brand/06-system.md:94. Product screens shown as real components, never a mockup/device frame. | Three demos use class mockup-frame but actual product components/citation renderer and simple titlebar, no device frame. | Clarify class naming only if useful; do not infer violation from name. [#1311](https://github.com/neilmac91/EarningsNerd/pull/1311), [#1295](https://github.com/neilmac91/EarningsNerd/pull/1295) |
+| raw-brand-tint-gate | known-open | tasks/decisions-2026-10-09-design-followups.md:315. Calls for gate for brand-weak/brand-border lacking dark pair. | [#1310](https://github.com/neilmac91/EarningsNerd/pull/1310) themePairs detects -light tokens, so bare bg-brand-weak/border-brand-border remain outside that stated scan. | Retain known follow-up; extend themePairs after [#1310](https://github.com/neilmac91/EarningsNerd/pull/1310) if confirming actual unpaired sites. [#1310](https://github.com/neilmac91/EarningsNerd/pull/1310) |
+
+## Gate scope, without inventing a defect
+
+The main-landmark convention has no route-wide gate: skip-link.spec.ts checks #main exactly once on terms, and #main is deliberately a div. The heading rule has an existing text-floors gate, but its visited route/state matrix does not include company/dashboard terminal read failures. These are reproduced source misses, so extend those gates instead of creating parallel specs.
+
+The spinner gate openly documents its syntax limitations and pins the three live legacy screens. The mere existence of limits is not a new defect. E59 already owns allowlist ceilings. The numeric stacking sites are explicitly documented; renaming them may improve consistency, but their numbers alone break no rule.
+
+The Calendar heading lead was dropped after source and browser refutation: its range label is h2 at EarningsCalendarPage.tsx:138, so the default GuidanceCard h3 follows a valid sequence.
+
+## Additional drift found during verification
+
+| Item | Current evidence | Disposition |
+|---|---|---|
+| Equality meta-gate predicts future branch behavior | frontend/tests/unit/allowlistCapsAreEqualities.spec.ts comments say [#1301](https://github.com/neilmac91/EarningsNerd/pull/1301)/#1295 make retry-label caps equalities; inspected open diffs lower counts only. | Correct the present/future claim in D6; E59 owns conversion after integration. |
+| E59 list count | tasks/todo.md:43 calls 21 assertion sites list caps, then excepts two z bounds; the census finds 19 lists and two z maxima. | Record the precise count here; do not edit the founder task list in this review. |
+| Dossier company fundamentals inventory | frontend/features/summaries/components/SummaryDisplay.tsx:24 states fundamentals belong on the filing; production company renders identity/index/Compare periods. | Inventory correction, not a missing chart defect. |

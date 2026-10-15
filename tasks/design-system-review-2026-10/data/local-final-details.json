@@ -1,0 +1,70 @@
+[
+  {
+    "name": "feedback-rest-light-1440",
+    "style": {
+      "padding": "8px 12px",
+      "border": "rgba(0, 0, 0, 0.1)",
+      "background": "rgba(255, 255, 255, 0.7)",
+      "shadow": "none"
+    }
+  },
+  {
+    "name": "analysis-exports-light-1440",
+    "buttons": [
+      "Export PDF",
+      "Refresh analysis",
+      "Export Excel"
+    ]
+  },
+  {
+    "name": "feedback-rest-light-390",
+    "style": {
+      "padding": "8px 12px",
+      "border": "rgba(0, 0, 0, 0.1)",
+      "background": "rgba(255, 255, 255, 0.7)",
+      "shadow": "none"
+    }
+  },
+  {
+    "name": "analysis-exports-light-390",
+    "buttons": [
+      "Export PDF",
+      "Refresh analysis",
+      "Export Excel"
+    ]
+  },
+  {
+    "name": "feedback-rest-dark-1440",
+    "style": {
+      "padding": "8px 12px",
+      "border": "rgba(255, 255, 255, 0.15)",
+      "background": "rgba(255, 255, 255, 0.05)",
+      "shadow": "none"
+    }
+  },
+  {
+    "name": "analysis-exports-dark-1440",
+    "buttons": [
+      "Export PDF",
+      "Refresh analysis",
+      "Export Excel"
+    ]
+  },
+  {
+    "name": "feedback-rest-dark-390",
+    "style": {
+      "padding": "8px 12px",
+      "border": "rgba(255, 255, 255, 0.15)",
+      "background": "rgba(255, 255, 255, 0.05)",
+      "shadow": "none"
+    }
+  },
+  {
+    "name": "analysis-exports-dark-390",
+    "buttons": [
+      "Export PDF",
+      "Refresh analysis",
+      "Export Excel"
+    ]
+  }
+]
