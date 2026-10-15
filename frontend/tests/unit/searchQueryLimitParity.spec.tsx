@@ -54,5 +54,11 @@ describe('the search field limit equals the backend Query bound', () => {
     expect(field.value.length).toBe(bound * 2)
     fireEvent.change(field, { target: { value: emoji.repeat(bound + 1) } })
     expect(Array.from(field.value)).toHaveLength(bound)
+    // The search sends the field's text trimmed, so whitespace before the query is outside the budget: a paste that
+    // opens with a space keeps all `bound` of its characters, and one more is still cut.
+    fireEvent.change(field, { target: { value: ` ${emoji.repeat(bound)}` } })
+    expect(Array.from(field.value.trim())).toHaveLength(bound)
+    fireEvent.change(field, { target: { value: ` ${emoji.repeat(bound + 1)}` } })
+    expect(Array.from(field.value.trim())).toHaveLength(bound)
   })
 })
