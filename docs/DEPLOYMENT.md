@@ -245,8 +245,19 @@ The receipt is retained as the `capacity-readout-<run id>` Actions artifact for 
 `logs-probe: logging.read DENIED (rc=N)` followed by
 `logs-probe: failure class <class> (gcloud's error text withheld)` (`permission_denied`, `not_found`,
 `unavailable` or `error (gcloud exit N)`, classified as `describe-service` classifies), then the number
-of `company_upsert_conflict` entries in the last seven days when that read succeeds. It never prints
-gcloud's own error text, which names the acting principal, and never fails the step.
+of `company_upsert_conflict` entries in the last seven days when that read succeeds. Then, for each of
+the four lines `main.py` prints as Sentry starts or does not, it names the API service's revisions that
+printed it in the last seven days, with a count from the newest 500 entries per kind:
+`sentry startup (7d) initialized: <revision> x<n> ...`, and likewise `failed`, `dsn-unset` (no
+`SENTRY_DSN`) and `sdk-missing`, or `none`; a read that fails prints
+`sentry startup (7d) <kind>: UNVERIFIED (<class>; gcloud's error text withheld)`, with the classes above,
+and the step adds one `::warning::` that names those kinds and the remedy for each class.
+The task worker runs `task_worker_main.py`, which never imports `main.py` and starts no Sentry, so its
+revisions appear under no kind. After a deploy, the API service's new revision should appear under
+`initialized` and nowhere else, with none of the four lines `UNVERIFIED`. Without the SDK, each start
+would count twice under `sdk-missing`, as `app/routers/users.py` logs the same words. It never prints a
+log line (the failure line can quote an exception) or gcloud's own error text, which names the acting
+principal, and never fails the step.
 
 ### Rollback (when a bad revision is live)
 
@@ -477,6 +488,15 @@ gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --sc
   --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-backfill-facts:run" \
   --http-method=POST --oauth-service-account-email="${SA}"
 ```
+
+`ENABLE_SECTION_CHANGES` ("what changed" wording diff) goes on **both** the scan job and the
+service: the job's real-time pass stores the Item 1A text (its own `section-extraction` job record;
+`SECTION_EXTRACTION_BATCH_LIMIT` filings per run, one SEC request each through the shared limiter)
+and the service's what-changed endpoint serves the diff. Neither `$ENVV` above nor the service's
+`--update-env-vars` in `ci.yml` sets it, so add it to both when it flips, and add `section-extraction`
+to `JOB_CADENCES`. `python scripts/extract_sections.py --tickers AAPL,MSFT` (or `--all --limit N`)
+warms the `filing_section_text` table by hand before the flip, under its own
+`section-extraction-manual` record; `docs/CONFIGURATION.md` lists the three settings.
 
 Smoke-test each before trusting the schedule:
 ```bash

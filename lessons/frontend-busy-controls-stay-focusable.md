@@ -64,7 +64,13 @@ clause (EN-05) checks what RetryButton is given: each element of its `failures` 
 hook its module exports, under any name an import gives it; a same-named local or a shadowing parameter is not it),
 inline, through a same-file `const` or either branch of a conditional, or, when it is a prop of the component
 rendering RetryButton, at every JSX use of that component (by its declared name in its own file, by any
-imported name elsewhere; a prop nobody passes fails). RetryButton is matched under its import aliases too. What
+imported name elsewhere; a prop nobody passes fails), or destructured from what a hook in another module returns
+(ComparePeriodsCard's `const { failure } = useWhatChanged(id)`, renamed or not: the hook is a named import, its
+module is read from disk, and every own `return` of that export is an object literal whose property is retained
+there by the same rules, so one hook may hand on another's and a cycle fails; a default value, a nested, rest or
+array pattern, a `let`, a member read, a default import, an export list, a bare `return`, a returned literal that
+spreads another object, a module the scan cannot read or one that exists as both `.ts` and `.tsx` counts as built
+by hand). RetryButton is matched under its import aliases too. What
 the scan cannot prove counts as built by hand: a `let`, a spread element, an empty list (a visible Retry whose
 press retries nothing), any JSX spread on RetryButton (a
 forwarding wrapper) or into such a component. A failure built by hand skips the hold and can carry

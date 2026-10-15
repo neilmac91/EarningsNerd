@@ -122,7 +122,7 @@ export function MonthView({
                     )
                   })}
                 {inMonth && ranked.length > 3 && (
-                  <span className="text-xs font-semibold text-brand-strong dark:text-brand-strong-dark">
+                  <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                     +{ranked.length - 3} more
                   </span>
                 )}

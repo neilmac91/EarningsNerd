@@ -2,6 +2,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,7 @@ from app.database import get_db
 from app.models import User
 from app.routers.auth import get_current_user
 from app.services import calendar_service, dashboard_feed_service
+from app.services.filing_section_service import section_changes_access
 
 router = APIRouter()
 
@@ -28,6 +30,21 @@ class WhatChanged(BaseModel):
     data_quality: str        # ok | partial
 
 
+class WordingReviewProgress(BaseModel):
+    labeled: int
+    completed_at: Optional[str]
+
+
+class WordingChanges(BaseModel):
+    """The Item 1A wording-change counts of the filing's cached comparison (behind
+    ENABLE_SECTION_CHANGES), with the viewer's review progress when they get the full list."""
+    items_total: int
+    has_changes: bool
+    reference_only: bool
+    prior_reference_only: bool
+    review: Optional[WordingReviewProgress]
+
+
 class FeedCompany(BaseModel):
     id: int
     ticker: str
@@ -44,6 +61,7 @@ class FeedItem(BaseModel):
     summary_id: Optional[int]
     summary_status: str
     what_changed: Optional[WhatChanged]
+    wording_changes: Optional[WordingChanges] = None
 
 
 class FeedResponse(BaseModel):
@@ -75,7 +93,16 @@ async def get_dashboard_feed(
 
     DB-only (no live EDGAR on render); cheap enough to serve uncached. Returns an empty list for
     users with no watched companies (the UI renders a guided empty state)."""
-    return {"items": dashboard_feed_service.compose_feed(db, current_user.id, limit=limit)}
+    def feed_for_viewer():
+        # Sync SQLAlchemy off the event loop, the viewer's access included: resolving it reads
+        # the subscription row (a lazy load the auth dependency does not make); the feed is a
+        # handful of queries plus, for a Pro viewer, the cached diffs their review progress is
+        # reconciled against.
+        access = section_changes_access(current_user)
+        return dashboard_feed_service.compose_feed(db, current_user.id, limit=limit, section_access=access)
+
+    items = await run_in_threadpool(feed_for_viewer)
+    return {"items": items}
 
 
 @router.get("/calendar/upcoming", response_model=CalendarResponse)

@@ -6672,6 +6672,14 @@ Full local and hosted verification plus independent exact-head review precede re
   Another writer's #1306 left #1281 conflicting with main in `tasks/todo.md`; the resolution prepared, not pushed. Six
   main runs classified; two other writers' deploys read back (healthy; every pin in place); production read live. Ledger
   events 63–64 (USD 0.366538). Closure 177.
+- 2026-10-13 to 2026-10-14 (record 27, `runtime/control/DECISIONS-27.md`): PR #1296 (record 26) merged `fd6f44c9`
+  (twenty-second deploy-skip proof). #1297's second review completed with no blocker. On the founder's go
+  (2026-10-13T23:15:05Z), #1297 went through thirteen more rounds, each with no blocker, and was folded into #1281's
+  branch (`873a8469`); main merged in (`106fd04c`); one paid round (ledger events 65–66, USD 0.185539); a release
+  check (no blocker). The founder confirmed the merge and accepted three security findings as limits (JSON syntax,
+  profiles, the floor); #1281 merged `378c6e63` and deployed healthy (`earningsnerd-backend-00507-dwb`). E23's draws
+  recorded (event 67, USD 0.189836); #1281's D-5 follow-up is E30. Twenty-two main runs classified; two deploys read
+  back (healthy; every pin in place); production read live. Classifier denial 13; chief defect 16. Closure 178.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and

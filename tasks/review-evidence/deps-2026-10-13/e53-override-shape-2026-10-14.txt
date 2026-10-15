@@ -1,0 +1,36 @@
+E53 override placement: nested versus root forms, observed 2026-10-14
+Node v22.23.2; npm 10.9.8 (CI's npm, used for npm ci and npm ls); npm 11.21.0 via npx (the version that wrote main's lockfile) for lock regeneration. Base: main at 63203457, frontend/.
+
+1. Nested basic-ftp: overrides["@lhci/cli"]["basic-ftp"] = "^6.2.3" (postcss-selector-parser at the root).
+   npx npm@11 install --package-lock-only --ignore-scripts  -> exit 0; lock: node_modules/basic-ftp 6.2.3, node_modules/postcss-selector-parser 7.1.6
+   npm ci (10.9.8) with that lock -> exit 1:
+     npm error code EUSAGE
+     npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+     npm error Missing: basic-ftp@5.3.1 from lock file
+   npm install --package-lock-only --ignore-scripts (10.9.8) from main's lock -> exit 0; lock: node_modules/basic-ftp 5.3.1 (override not applied), node_modules/postcss-selector-parser 7.1.6
+
+2. Nested postcss-selector-parser: overrides.tailwindcss["postcss-selector-parser"] = "^7.1.6" (basic-ftp at the root). Lock regenerated with npm 11 (byte-identical to the root-form lock); rm -rf node_modules; npm ci (10.9.8) exit 0, 1012 packages, one copy at 7.1.6; npm ls --all (10.9.8) right after that install -> exit 1, stderr:
+     npm error extraneous: @emnapi/core@1.10.0 <worktree>/frontend/node_modules/@emnapi/core
+     npm error extraneous: @emnapi/runtime@1.10.0 <worktree>/frontend/node_modules/@emnapi/runtime
+     npm error extraneous: @emnapi/wasi-threads@1.2.1 <worktree>/frontend/node_modules/@emnapi/wasi-threads
+     npm error extraneous: @img/sharp-wasm32@0.35.5 <worktree>/frontend/node_modules/@img/sharp-wasm32
+     npm error extraneous: @tybys/wasm-util@0.10.2 <worktree>/frontend/node_modules/@tybys/wasm-util
+     npm error extraneous: @emnapi/runtime@1.11.3 <worktree>/frontend/node_modules/@img/sharp-wasm32/node_modules/@emnapi/runtime
+     npm error invalid: postcss-selector-parser@7.1.6 <worktree>/frontend/node_modules/postcss-selector-parser
+   stdout for the edge: tailwindcss@3.4.19 overridden -> postcss-nested@6.2.0 -> postcss-selector-parser@7.1.6 deduped invalid: "^6.1.1" from node_modules/postcss-nested.
+   The six extraneous entries are not this shape's doing: the same six packages (sharp's wasm32 fallback chain) carry the `extraneous` marker in npm ls --all stdout on main and with the root form, where the command exits 0 with an empty stderr; npm 10.9.8 repeats them on stderr only when the run also has an invalid edge. The exit 1 therefore comes from the invalid edge alone.
+
+3. Root form (the PR): overrides["basic-ftp"] = "^6.2.3", overrides["postcss-selector-parser"] = "^7.1.6". Lock regenerated with npm 11: 12 changed lines (version, resolved, integrity of the two packages). rm -rf node_modules; npm ci (10.9.8) exit 0, 1012 packages; npm ls --all exit 0, empty stderr, no invalid edge (stdout carries the same six extraneous markers as main); npm ls basic-ftp postcss-selector-parser:
+     earningsnerd-frontend@1.0.0 <worktree>/frontend
+     +-- @lhci/cli@0.15.1 overridden
+     | `-- proxy-agent@6.4.0
+     |   `-- pac-proxy-agent@7.2.0
+     |     `-- get-uri@6.0.5
+     |       `-- basic-ftp@6.2.3 overridden
+     `-- tailwindcss@3.4.19
+       +-- postcss-nested@6.2.0
+       | `-- postcss-selector-parser@7.1.6 deduped
+       `-- postcss-selector-parser@7.1.6 overridden
+4. Main (63203457) for comparison, same procedure: npm ci exit 0, 1012 packages; npm ls --all exit 0, empty stderr, no invalid edge; the six extraneous markers for sharp's wasm32 fallback chain are in its stdout too.
+
+The three shapes were run one after another in one checkout (rm -rf node_modules, npm ci, npm ls --all each time) at 21:45–21:48 UTC; item 1's npm ci failure was captured at 21:26 UTC in the same checkout.
