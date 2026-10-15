@@ -114,6 +114,7 @@ REFUSED = {
     "a body nested in a list (a future tool)": (
         "mcp__github__future_tool", {"comments": [{"path": "a.py", "body": f"{MENTION} here"}]}, "body"),
     "a GitHub server a plugin registers": ("mcp__plugin_gh_github__add_issue_comment", {"body": f"cc {MENTION}"}, "body"),
+    "a GitHub server named in capitals": ("mcp__GitHub__add_issue_comment", {"body": f"cc {MENTION}"}, "body"),
 }
 REFUSED_COMMANDS = {
     "gh pr comment with the mention in prose": f"gh pr comment 1 --body 'ping {MENTION}'",
@@ -136,6 +137,9 @@ REFUSED_COMMANDS = {
     "the review command as a pull request's edited body": f"gh pr edit 1 --body '{MENTION} review'",
     "the review command as the body of the pull request on branch comment": f"gh pr edit comment --body '{MENTION} review'",
     "the review command as an edit of the last comment": f"gh pr comment 1 --edit-last --body '{MENTION} review'",
+    "a second --body after the review command (gh keeps the last)": f"gh pr comment 1 --body '{MENTION} review' --body 'ping {MENTION}'",
+    "a repository flag before the noun": f"gh -R o/r pr create --title 'x {MENTION}' --body y",
+    "a --repo= flag before the noun": f"gh --repo=o/r issue edit 5 --body 'see {MENTION}'",
     "gh issue new": f"gh issue new --title x --body 'cc {MENTION}'",
     "a repository flag before the verb": f"gh pr -R neilmac91/EarningsNerd comment 1339 --body 'ping {MENTION}'",
     "a --repo= flag before the verb": f"gh issue --repo=o/r edit 5 --body 'see {MENTION}'",
@@ -153,6 +157,14 @@ REFUSED_FILE_COMMANDS = {
     "gh api --input": "gh api repos/o/r/issues/1/comments --input payload.json",
     "gh api -F body=@file": "gh api repos/o/r/issues/1/comments -F body=@body.md",
     "curl -d @file": "curl -X POST https://api.github.com/repos/o/r/issues/1/comments -d @payload.json",
+    "curl -d@file": "curl -X POST https://api.github.com/repos/o/r/issues/1/comments -d@payload.json",
+    "wget --post-file=": "wget --post-file=payload.json https://api.github.com/repos/o/r/issues/1/comments",
+    "gh api --input=": "gh api repos/o/r/issues/1/comments --input=payload.json",
+    "a body redirected into --body-file -": "gh pr create --title x --body-file - < body.md",
+    "a body piped from cat into --body-file -": "cat body.md | gh pr comment 1 --body-file -",
+    "a payload redirected into --input -": "gh api repos/o/r/issues/1/comments --input - < payload.json",
+    "a 64 KiB body with the mention at its end": "gh pr create --title x --body-file big.md",
+    "a body that is not valid UTF-8": "gh pr create --title x --body-file bad.md",
 }
 ALLOWED = {
     "the review command alone": (COMMENT, {"body": f"{MENTION} review"}),
@@ -182,29 +194,43 @@ ALLOWED_COMMANDS = {
     "a body file without the mention": "gh pr create --title x --body-file clean.md",
     "the review command for the current branch's pull request": f"gh pr comment --body '{MENTION} review'",
     "the review command with the repository before the verb": f"gh pr -R neilmac91/EarningsNerd comment 1339 --body '{MENTION} review'",
-    "a read that writes the pattern as [@]codex": (
-        "gh api repos/o/r/issues/1339/comments --jq '.[] | select(.body | startswith(\"[@]codex review\")) | .id'"),
+    "a read that writes the pattern as [@]codex, in a regular expression": (
+        "gh api repos/o/r/issues/1339/comments --jq '.[] | select(.body | test(\"^[@]codex review\")) | .id'"),
+    "the review command with the repository before the noun": f"gh -R neilmac91/EarningsNerd pr comment 1339 --body '{MENTION} review'",
+    "grep -F naming api.github.com over a file with the mention": "grep -n api.github.com -F docs.md",
+    "git commit -F before a gh write that sends a clean file": "git commit -F msg.md && gh pr create --title x --body-file clean.md",
+    "a here-document that names a file with the mention": "gh pr create --title x --body-file - <<'EOF'\nsee @body.md for the details\nEOF",
     "an edit that removes the mention, written as [@]codex": (
         "gh pr view 1337 --json body --jq .body | sed 's/[@]codex review/Codex review command/g' | gh pr edit 1337 --body-file -"),
 }
-# The lesson's stated limits, which pass through: text a command builds as it runs, and the commit
-# messages gh pr create --fill copies.
+# The lesson's stated limits, which pass through: text a command builds as it runs, the commit
+# messages gh pr create --fill copies, and a body file over 1 MiB or that is not a regular file.
 KNOWN_GAPS = {
     "a body held in a variable": 'gh pr comment 1 --body "$BODY"',
     "a command substitution": 'gh pr comment 1 --body "$(cat body.md)"',
     "a body file named relative to a directory the command enters": "cd sub && gh pr create --title x --body-file notes.md",
     "the commit messages gh pr create --fill copies": "gh pr create --fill",
+    "a body piped from a command other than cat": "jq -r .body payload.json | gh pr comment 1 --body-file -",
+    "a body file larger than 1 MiB": "gh pr create --title x --body-file huge.md",
+    "a body that is not a regular file (a FIFO)": "gh pr create --title x --body-file pipe.md",
 }
 KNOWN_GAP_TOOLS = {
     "a GitHub server registered under a name without github": ("mcp__gh__add_issue_comment", {"body": f"cc {MENTION}"}),
 }
 
 
-@pytest.fixture
-def bodies(tmp_path: Path) -> Path:
+@pytest.fixture(scope="module")
+def bodies(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    tmp_path = tmp_path_factory.mktemp("bodies")
     (tmp_path / "body.md").write_text(f"Pushed the fix; {MENTION} can look again.\n", encoding="utf-8")
     (tmp_path / "payload.json").write_text(json.dumps({"body": f"{MENTION} review"}), encoding="utf-8")
     (tmp_path / "clean.md").write_text("Pushed the fix; Codex's review command comes next.\n", encoding="utf-8")
+    (tmp_path / "docs.md").write_text(f"Comment `{MENTION} review` after a push.\n", encoding="utf-8")
+    (tmp_path / "msg.md").write_text(f"docs: name {MENTION} in words\n", encoding="utf-8")
+    (tmp_path / "big.md").write_text("x" * (64 << 10) + f" {MENTION}\n", encoding="utf-8")
+    (tmp_path / "bad.md").write_bytes(b"\xff\xfe not UTF-8, then " + MENTION.encode() + b"\n")
+    (tmp_path / "huge.md").write_text("x" * (1 << 20) + f" {MENTION}\n", encoding="utf-8")
+    os.mkfifo(tmp_path / "pipe.md")  # never opened: a read would block the hook until its timeout
     (tmp_path / "sub").mkdir()
     (tmp_path / "sub" / "notes.md").write_text(f"{MENTION} here\n", encoding="utf-8")
     return tmp_path
@@ -279,7 +305,8 @@ def test_the_hook_is_registered_before_bash_and_every_github_tool() -> None:
     assert "disableAllHooks" not in json.loads(SETTINGS.read_text(encoding="utf-8"))
     # Claude Code tests a matcher holding regex characters as an unanchored JavaScript RegExp, which
     # Python's re.search reads the same way for this pattern. Cloud sessions run it through the CLI's
-    # own restricted engine (no {n} counts, no lookaround), so it keeps to alternation and ".*".
+    # own restricted engine (no {n} counts, no lookaround); this pattern's alternation, ".*" and
+    # bracket classes matched there in a live session on 81f7724d (#1343's body).
     matcher = re.compile(MATCHER)
     reached = ("Bash", *GITHUB_WRITE_TOOLS, "mcp__plugin_gh_github__add_issue_comment", "mcp__GitHub__add_issue_comment")
     assert [tool for tool in reached if not matcher.search(tool)] == []
