@@ -19,17 +19,20 @@ page's holds three, the header's, the panel's and the footer line's. Around them
 - puts the body and the footer in the panel's cells, each once and each in a cell of its own, and
   carries one wordmark, the name split by markup into its two styles: the header's;
 - is fluid: the header, the panel and the footer line each take the screen's width up to 600 px
-  (``width="100%"``, ``width:100%;max-width:600px``), and the head sets the template's viewport, so a phone
-  lays the page out at its own width and shows the text at its set size. Nothing a client other than classic
-  Outlook shows sets a width the narrowest phone cannot hold, and classic Outlook, which reads no
-  ``max-width``, holds each column at 600 px through a table only its conditional comments show;
+  (``width="100%"``, ``width:100%;max-width:600px``), and the head sets the template's viewport, once, at the
+  phone's own width (``width=device-width, initial-scale=1``), so a phone lays the page out at its width and
+  shows the text at its set size. No box a client other than classic Outlook shows is set wider than the
+  room its parent gives it on the narrowest phone, and classic Outlook, which reads no ``max-width``, holds
+  each column at 600 px through a table only its conditional comments show;
 - carries no inline SVG, which Gmail and Outlook drop;
 - keeps the header at its set size in a view that enlarges small text, such as one that fits a wider page
   to a phone's screen (``-webkit-text-size-adjust:100%`` on its table), and leaves every other line to the
   view, the panel's and the footer line's;
 - breaks no run of a body's for it: a line that prints a run with nowhere to break, such as a link with
   its token or the reader's name, carries the rule that lets it break anywhere, since on the panel the
-  rule would reach a body's own table and split a column of amounts;
+  rule would reach a body's own table and split a column of amounts; nor does a body lend it to a table;
+- names filing data alone in its footer line, "Filing data sourced from SEC EDGAR. Not investment advice.":
+  it sits on every mail, the earnings-day alert among them, whose report dates come from a provider (D-041);
 - pads no table through its ``style`` attribute (the shell has no ``<style>`` block), since classic
   Outlook ignores a table's padding and the body would sit against the panel's border, out of line with
   the header.
@@ -48,12 +51,15 @@ from app.config import settings
 from app.services import email_service
 from tests.support.mail_styles import (
     LONG_RUN,
+    WIDEST_FIXED,
     fixed_width_problems,
     lent_runs,
     long_run_problems,
     long_runs,
     outlook_width_problems,
+    reach_problems,
     text_size_problems,
+    viewports,
 )
 
 TEMPLATE = Path(__file__).resolve().parents[3] / "docs" / "brand" / "templates" / "email-header.html"
@@ -70,7 +76,8 @@ _QUOTED = re.compile(r"""("[^"]*"|'[^']*')""")
 # decoded and the characters that render as nothing (a soft hyphen, a zero-width space) dropped.
 _WORDMARK = re.compile(r"Earnings\s*(?:<[^>]+>\s*)+Nerd", re.IGNORECASE)
 _INVISIBLE = re.compile("[\u00ad\u200b-\u200d\u2060\ufeff]")
-_VIEWPORT = re.compile(r"""<meta\b[^>]*\bname\s*=\s*["']?viewport\b""", re.IGNORECASE)
+_DEVICE_WIDTH = "width=device-width, initial-scale=1"
+_FOOTER_WORDING = "Filing data sourced from SEC EDGAR. Not investment advice."
 _TABLE_PADDING = re.compile(r"""\bstyle\s*=\s*(?:(["'])(?:(?!\1).)*padding|[^\s"'>]*padding)""", re.IGNORECASE | re.DOTALL)
 
 
@@ -169,6 +176,18 @@ def test_the_header_and_footer_line_are_the_templates(monkeypatch):
     )
 
 
+def test_the_footer_line_names_filing_data_alone():
+    for where, cell in (
+        ("the mail", _outer_cells(_tokens(email_service._wrap_html("<p>Body</p>")))[2]),
+        ("the template", _template_cells()[1]),
+    ):
+        text = html.unescape(" ".join(token for token in cell if not token.startswith("<"))).strip()
+        assert text == _FOOTER_WORDING, (
+            f"{where}'s footer line reads {text!r}: it sits on every mail, the earnings-day alert among them, whose report "
+            f"dates and times come from a provider, so it names the filing data EDGAR sources alone ({_FOOTER_WORDING!r}, D-041)"
+        )
+
+
 def test_the_page_holds_its_slots_and_its_shell_rules():
     body = "<p>Hi Tom &amp; Jerry,</p><p>We received a request to reset your password.</p>"
     footer = "<span>The footer slot.</span>"
@@ -183,7 +202,7 @@ def test_the_page_holds_its_slots_and_its_shell_rules():
     wordmarks = _WORDMARK.findall(_INVISIBLE.sub("", html.unescape(shell)))
     assert len(wordmarks) == 1, "the page carries one wordmark, the header's: the name in prose is no wordmark"
 
-    problems = text_size_problems(page) + fixed_width_problems(page) + outlook_width_problems(page)
+    problems = text_size_problems(page) + fixed_width_problems(page) + outlook_width_problems(page) + reach_problems(page)
     assert not problems, "\n".join(problems)
     plain = email_service._wrap_html(f"<p>{'x' * LONG_RUN}</p>")
     assert long_run_problems(plain) and not lent_runs(plain), (
@@ -195,10 +214,10 @@ def test_the_page_holds_its_slots_and_its_shell_rules():
         "the header, the panel and the footer line each take the screen's width up to 600 px (width=\"100%\" and "
         f"width:100%;max-width:600px), so a phone lays them out at its own width: {columns}"
     )
-    viewports = [t for t in tokens if _VIEWPORT.match(t)]
-    template_viewports = [t for t in _tokens(TEMPLATE.read_text(encoding="utf-8")) if _VIEWPORT.match(t)]
-    assert len(viewports) == 1 and viewports == template_viewports, (
-        f"the page sets the template's viewport, once, so a phone lays it out at its own width: {viewports} against {template_viewports}"
+    sets, template_sets = viewports(page), viewports(TEMPLATE.read_text(encoding="utf-8"))
+    assert sets == template_sets == [_DEVICE_WIDTH], (
+        f"the page sets the template's viewport, once, at the phone's own width ({_DEVICE_WIDTH!r}), so a phone lays it out "
+        f"at that width: {sets} against the template's {template_sets}"
     )
     assert "<svg" not in page.lower(), "Gmail and Outlook drop inline SVG"
     padded = [t for t in tokens if t.lower().startswith("<table") and _TABLE_PADDING.search(t)]
@@ -365,12 +384,17 @@ LONG_RUNS = [
     ("a run across a div set display:initial, which is inline", ((_COPY_LINE, _COPY_LINE + f'<div>{_UNDER}<div style="display:initial">{_UNDER}</div></div>'),), _NOWHERE),
     ("a run across a span with a display no engine takes", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<span style="display:banana">{_UNDER}</span></p>'),), _NOWHERE),
     ("a run across a form feed, where no line breaks", ((_COPY_LINE, _COPY_LINE + f"<p>{_UNDER}\f{_UNDER}</p>"),), _NOWHERE),
+    ("a run across a float, whose two sides join in the line", ((_COPY_LINE, _COPY_LINE + f'<div>{_UNDER}<div style="float:left">y</div>{_UNDER}</div>'),), _NOWHERE),
+    ("a run across a box positioned absolute", ((_COPY_LINE, _COPY_LINE + f'<div>{_UNDER}<div style="position:absolute">y</div>{_UNDER}</div>'),), _NOWHERE),
+    ("a run across a floated image", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<img src="https://e.test/x.png" width="8" alt="" style="float:left">{_UNDER}</p>'),), _NOWHERE),
+    ("a run across an input of type hidden set display:block, which a browser hides all the same", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<input type="hidden" style="display:block" value="y">{_UNDER}</p>'),), _NOWHERE),
+    ("a run across an audio set display:block, which a browser hides all the same", ((_COPY_LINE, _COPY_LINE + f'<p>{_UNDER}<audio style="display:block"></audio>{_UNDER}</p>'),), _NOWHERE),
     ("word-wrap:anywhere alone, which WebKit may drop under that name", ((_BREAK, "word-wrap:anywhere;"),), _NOWHERE),
     ("all:initial after the rule, which resets it", ((_LINE_STYLE, _LINE_STYLE + "all:initial;"),), _NOWHERE),
     ("the rule through var(), which the check does not resolve", ((_BREAK, "overflow-wrap:var(--wrap);word-break:break-word;"),), "takes its value from a function"),
     ("a reset through a var() in brackets, which defers it all the same", ((_LINE_STYLE, _LINE_STYLE + "overflow-wrap:(var(--w));word-break:(var(--w));"),), "takes its value from a function"),
     ("-webkit-line-break:auto after line-break:anywhere, which it resets as its alias", ((_BREAK, "line-break:anywhere;-webkit-line-break:auto;"),), _NOWHERE),
-    ("-webkit-line-break:anywhere alone, which WebKit may drop under that name", ((_BREAK, "-webkit-line-break:anywhere;"),), _NOWHERE),
+    ("-webkit-line-break:anywhere alone, which Blink drops", ((_BREAK, "-webkit-line-break:anywhere;"),), _NOWHERE),
     ("a style block, which the check does not read", (("</head>", "<style>p{white-space:nowrap}</style></head>"),), "<style> block"),
     ("a nowrap span around the link", ((f"<br>{_LONG_LINK}", f'<br><span style="white-space:nowrap;">{_LONG_LINK}</span>'),), _NO_WRAP),
     ("white-space:pre on the line", ((_LINE_STYLE, _LINE_STYLE + "white-space:pre;"),), _NO_WRAP),
@@ -387,7 +411,12 @@ LONG_RUNS = [
     ("revert on a pre, which keeps its own white-space", ((f"<br>{_LONG_LINK}", f'<br><pre style="white-space:revert;">{_LONG_LINK}</pre>'),), _NO_WRAP),
     ("the body's cell set nowrap", ((_BODY_CELL, '<td nowrap style="padding:32px 32px 0 32px;'),), _NO_WRAP),
     ("a header cell of the body's set nowrap", ((_COPY_LINE, _COPY_LINE + f"<table><tr><th nowrap>{_PHRASE}</th></tr></table>"),), _NO_WRAP),
-    ("a wbr under nowrap, which does not break", ((_COPY_LINE, _COPY_LINE + f'<p style="white-space:nowrap;">{_UNDER}<wbr>{_UNDER}</p>'),), _NO_WRAP),
+    ("a wbr under nowrap, which the reader counts no break at, though Chromium breaks there", ((_COPY_LINE, _COPY_LINE + f'<p style="white-space:nowrap;">{_UNDER}<wbr>{_UNDER}</p>'),), _NO_WRAP),
+    ("revert-layer on a nowrap cell's white-space, which keeps the attribute", ((_BODY_CELL, '<td nowrap style="white-space:revert-layer;padding:32px 32px 0 32px;'),), _NO_WRAP),
+    ("white-space:preserve-spaces after nowrap, which Chromium refuses", ((_LINE_STYLE, _LINE_STYLE + "white-space:nowrap;white-space:preserve-spaces;"),), _NO_WRAP),
+    ("text-wrap:avoid-orphans after text-wrap-mode:nowrap, which Chromium refuses", ((_LINE_STYLE, _LINE_STYLE + "text-wrap-mode:nowrap;text-wrap:avoid-orphans;"),), _NO_WRAP),
+    ("a pre's line break collapsed by white-space-collapse, which joins its two halves", ((_COPY_LINE, _COPY_LINE + f'<p style="white-space:pre;white-space-collapse:collapse;">{_UNDER}\n{_UNDER}</p>'),), _NO_WRAP),
+    ("the spaces at a pre's start, which it keeps", ((_COPY_LINE, _COPY_LINE + f"<pre>          {'x' * 9}</pre>"),), _NO_WRAP),
     ("a phrase kept whole, past the threshold with its spaces", ((_COPY_LINE, _COPY_LINE + f'<p style="white-space:nowrap;">{_PHRASE}</p>'),), _NO_WRAP),
     # Pass.
     ("the line as the mails write it", (), None),
@@ -404,6 +433,7 @@ LONG_RUNS = [
     ("white-space:normal after text-wrap-mode:nowrap, which it resets", ((_LINE_STYLE, _LINE_STYLE + "text-wrap-mode:nowrap;white-space:normal;"),), None),
     ("white-space:normal on the line, under a cell set text-wrap-mode:nowrap", ((_LINE_STYLE, _LINE_STYLE + "white-space:normal;"), (_BODY_CELL, _BODY_CELL + "text-wrap-mode:nowrap;")), None),
     ("a nowrap cell whose style reverts the attribute", ((_BODY_CELL, '<td nowrap style="white-space:revert;padding:32px 32px 0 32px;'),), None),
+    ("a float beside a line, each under the threshold", ((_COPY_LINE, _COPY_LINE + f'<div><div style="float:left">{_UNDER}</div>{"y" * 10} {"y" * 10}</div>'),), None),
     ("a run of 17 characters with no rule", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 17}</p>"),), None),
     ("a 17-character phrase kept whole, with spaces at its ends", ((_COPY_LINE, _COPY_LINE + '<p style="white-space:nowrap;">  Read the summary  </p>'),), None),
     ("two blocks side by side, each under the threshold", ((_COPY_LINE, _COPY_LINE + f"<p>{_UNDER}</p><p>{_UNDER}</p>"),), None),
@@ -440,7 +470,7 @@ LENDS = [
     # Lent.
     ("the panel lends overflow-wrap:anywhere", (("border-radius:16px;", "border-radius:16px;overflow-wrap:anywhere;"),), True),
     ("the panel lends word-wrap:anywhere, which Blink takes", (("border-radius:16px;", "border-radius:16px;word-wrap:anywhere;"),), True),
-    ("the panel lends -webkit-line-break:anywhere, which Blink takes", (("border-radius:16px;", "border-radius:16px;-webkit-line-break:anywhere;"),), True),
+    ("the panel lends -webkit-line-break:anywhere, which WebKit may take (Blink drops it)", (("border-radius:16px;", "border-radius:16px;-webkit-line-break:anywhere;"),), True),
     ("the body's cell lends word-break:break-all", ((_BODY_CELL, _BODY_CELL + "word-break:break-all;"),), True),
     ("the panel's wrapper cell lends line-break:anywhere", (('<td align="center" style="padding:0 12px 24px 12px;">', '<td align="center" style="padding:0 12px 24px 12px;line-break:anywhere;">'),), True),
     ("the body lends word-break:break-word", (('<body style="', '<body style="word-break:break-word;'),), True),
@@ -466,12 +496,20 @@ _HEADER_COLUMN = '<table role="presentation" width="100%" cellpadding="0" cellsp
 _PANEL_COLUMN = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#FBFAF6" style="width:100%;'
 _FOOTER_COLUMN = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;'
 _PANEL_STYLE = 'style="width:100%;max-width:600px;background:#FBFAF6;'
-_TOO_WIDE = "more than a 320 px phone holds"
+_TOO_WIDE = "where its parent gives it"
+_SQUEEZED = "squeezes the cell"
+_NATURAL = "natural size"
+_NO_ROOM = "leave its content no room"
 _NOT_RESOLVED = "set by the font, the screen or its parent"
+_BY_CONTENT = "set by its content"
 _NO_OUTLOOK_TABLE = "sits in no table 600 px wide"
 _BODY_LINE = "<p>Copy this link"
-# Each way a page can set a width a phone cannot hold, or leave classic Outlook a column it stretches, as edits of
-# the shell's page, and the look-alikes that hold it.
+_IMAGE = 'src="https://e.test/x.png" alt=""'
+# A body whose own lines fit the narrowest phone, so a planted page that holds fits in Chromium too.
+_WIDTH_BODY = "<p>Hi Ada,</p><p>Copy this link to reset your password.</p>"
+_PANEL_OUTLOOK = _OUTLOOK_TABLE + _INDENT + _PANEL_COLUMN
+# Each way a page can set a box wider than its room on a phone, or leave classic Outlook a column it stretches,
+# as edits of the shell's page, and the look-alikes that hold.
 WIDTHS = [
     # Flagged.
     ("the panel set 600 px wide in its style", ((_PANEL_STYLE, _PANEL_STYLE.replace("width:100%;", "width:600px;")),), _TOO_WIDE),
@@ -479,36 +517,111 @@ WIDTHS = [
     ("the header given a min-width of 600 px", ((_HEADER_STYLE, _HEADER_STYLE.replace("max-width:600px;", "max-width:600px;min-width:600px;")),), _TOO_WIDE),
     ("the footer line's Outlook table shown to every client", ((_OUTLOOK_TABLE + _INDENT + _FOOTER_COLUMN, _OUTLOOK_TABLE[len("<!--[if mso]>") : -len("<![endif]-->")] + _INDENT + _FOOTER_COLUMN),), _TOO_WIDE),
     ("a body table 400 px wide", ((_BODY_LINE, '<table width="400"><tr><td>x</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
-    ("a body cell 300 px wide", ((_BODY_LINE, '<table width="100%"><tr><td width="300">x</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
-    ("a body image 560 px wide", ((_BODY_LINE, '<img src="https://e.test/x.png" width="560" alt="">' + _BODY_LINE),), _TOO_WIDE),
     ("a width with spaces before its number", ((_BODY_LINE, '<table width=" 400"><tr><td>x</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
     ("a width in points", ((_BODY_LINE, '<table style="width:450pt"><tr><td>x</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a body image 560 px wide", ((_BODY_LINE, f'<img {_IMAGE} width="560">' + _BODY_LINE),), _TOO_WIDE),
+    ("an image a pixel wider than the column", ((_BODY_LINE, f'<img {_IMAGE} width="{WIDEST_FIXED + 1}">' + _BODY_LINE),), _TOO_WIDE),
+    ("an image with no width, at its natural size", ((_BODY_LINE, f"<img {_IMAGE}>" + _BODY_LINE),), _NATURAL),
+    ("a fixed width an em cap does not hold", ((_BODY_LINE, f'<img {_IMAGE} width="560" style="max-width:30em">' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table a percentage max-width does not hold in a cell", ((_BODY_LINE, '<table width="560" style="max-width:100%;"><tr><td>x</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed block a percentage max-width does not hold in a cell", ((_BODY_LINE, '<div style="width:560px;max-width:100%;">x</div>' + _BODY_LINE),), _TOO_WIDE),
+    ("a table set wider than its room in percent", ((_BODY_LINE, '<table width="150%"><tr><td>x</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("a min-width over its room", ((_BODY_LINE, '<div style="min-width:150%;">x</div>' + _BODY_LINE),), _TOO_WIDE),
+    ("a full-width block with side padding", ((_BODY_LINE, '<div style="width:100%;padding:0 40px;">x</div>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed block with side padding", ((_BODY_LINE, '<div style="width:230px;padding:0 16px;">x</div>' + _BODY_LINE),), _TOO_WIDE),
+    ("a fixed table in a padded block", ((_BODY_LINE, '<div style="padding:0 20px;"><table width="220"><tr><td>x</td></tr></table></div>' + _BODY_LINE),), _TOO_WIDE),
+    ("an image in a cell its table pads", ((_BODY_LINE, f'<table width="100%" cellpadding="8" cellspacing="0"><tr><td><img {_IMAGE} width="220"></td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("an image in a list's indent", ((_BODY_LINE, f'<ul><li><img {_IMAGE} width="220"></li></ul>' + _BODY_LINE),), _TOO_WIDE),
+    ("an image in a blockquote's margins", ((_BODY_LINE, f'<blockquote><img {_IMAGE} width="200"></blockquote>' + _BODY_LINE),), _TOO_WIDE),
+    ("an image with a side margin", ((_BODY_LINE, f'<img {_IMAGE} width="230" style="margin-left:24px;">' + _BODY_LINE),), _TOO_WIDE),
+    ("a margin wider than the column", ((_BODY_LINE, '<div style="margin-left:250px;">x</div>' + _BODY_LINE),), _NO_ROOM),
+    ("a negative margin", ((_BODY_LINE, '<div style="margin-right:-40px;">x</div>' + _BODY_LINE),), "is negative"),
+    ("a margin in em, which the font sets", ((_BODY_LINE, '<div style="margin-left:2em;">x</div>' + _BODY_LINE),), _NOT_RESOLVED),
+    ("a body cell 300 px wide", ((_BODY_LINE, '<table width="100%"><tr><td width="300">x</td></tr></table>' + _BODY_LINE),), _SQUEEZED),
     ("a width in em, which the font sets", ((_BODY_LINE, '<table style="width:40em"><tr><td>x</td></tr></table>' + _BODY_LINE),), _NOT_RESOLVED),
     ("a width its parent sets", ((_BODY_LINE, '<table style="width:inherit"><tr><td>x</td></tr></table>' + _BODY_LINE),), _NOT_RESOLVED),
+    ("a width its content sets", ((_BODY_LINE, '<p style="width:max-content;">x</p>' + _BODY_LINE),), _BY_CONTENT),
     ("a width through calc()", ((_BODY_LINE, '<table style="width:calc(100% + 20px)"><tr><td>x</td></tr></table>' + _BODY_LINE),), "takes its value from a function"),
-    ("a fixed width an em cap does not hold", ((_BODY_LINE, '<img src="https://e.test/x.png" width="560" style="max-width:30em" alt="">' + _BODY_LINE),), _TOO_WIDE),
-    ("the panel without its Outlook table", ((_OUTLOOK_TABLE + _INDENT + _PANEL_COLUMN, _PANEL_COLUMN),), _NO_OUTLOOK_TABLE),
+    ("revert-layer on a table's width, which keeps its attribute", ((_BODY_LINE, '<table width="600" style="width:revert-layer;"><tr><td>x</td></tr></table>' + _BODY_LINE),), _TOO_WIDE),
+    ("the panel without its Outlook table", ((_PANEL_OUTLOOK, _PANEL_COLUMN),), _NO_OUTLOOK_TABLE),
     ("the header's Outlook table at 640 px", ((_OUTLOOK_TABLE + _INDENT + _HEADER_COLUMN, _OUTLOOK_TABLE.replace('width="600"', 'width="640"') + _INDENT + _HEADER_COLUMN),), _NO_OUTLOOK_TABLE),
     ("the footer line's Outlook table in a block Outlook skips", ((_OUTLOOK_TABLE + _INDENT + _FOOTER_COLUMN, "<!--[if !mso]><!-->" + _OUTLOOK_TABLE[len("<!--[if mso]>") : -len("<![endif]-->")] + "<!--<![endif]-->" + _INDENT + _FOOTER_COLUMN),), _NO_OUTLOOK_TABLE),
+    ("the panel's Outlook table for Outlook before 2007 alone", ((_PANEL_OUTLOOK, _OUTLOOK_TABLE.replace("[if mso]", "[if lt mso 12]") + _INDENT + _PANEL_COLUMN),), _NO_OUTLOOK_TABLE),
+    ("the panel's Outlook table for Internet Explorer outside Outlook", ((_PANEL_OUTLOOK, _OUTLOOK_TABLE.replace("[if mso]", "[if (!mso)&(IE)]") + _INDENT + _PANEL_COLUMN),), _NO_OUTLOOK_TABLE),
+    ("the panel's Outlook table in a revealed block Outlook skips", ((_PANEL_OUTLOOK, "<![if !mso]>" + _OUTLOOK_TABLE[len("<!--[if mso]>") : -len("<![endif]-->")] + "<![endif]>" + _INDENT + _PANEL_COLUMN),), _NO_OUTLOOK_TABLE),
+    ("the panel's Outlook table under a condition the reader cannot parse", ((_PANEL_OUTLOOK, _OUTLOOK_TABLE.replace("[if mso]", "[if mso &]") + _INDENT + _PANEL_COLUMN),), _NO_OUTLOOK_TABLE),
     # Pass.
     ("the shell as it is built", (), None),
-    ("a fixed image held to the screen by its max-width", ((_BODY_LINE, '<img src="https://e.test/x.png" width="560" style="max-width:100%;height:auto;" alt="">' + _BODY_LINE),), None),
-    ("a fixed table held to the screen by its max-width", ((_BODY_LINE, '<table width="560" style="max-width:100%;"><tr><td>x</td></tr></table>' + _BODY_LINE),), None),
-    ("an image as wide as the narrowest phone's text column", ((_BODY_LINE, '<img src="https://e.test/x.png" width="230" alt="">' + _BODY_LINE),), None),
+    ("a fixed image held to the screen by its max-width", ((_BODY_LINE, f'<img {_IMAGE} width="560" style="max-width:100%;height:auto;">' + _BODY_LINE),), None),
+    ("an image with no width held to the screen by its max-width", ((_BODY_LINE, f'<img {_IMAGE} style="max-width:100%;">' + _BODY_LINE),), None),
+    ("an image as wide as the narrowest phone's text column", ((_BODY_LINE, f'<img {_IMAGE} width="{WIDEST_FIXED}">' + _BODY_LINE),), None),
+    ("an image in a blockquote that fits within its margins", ((_BODY_LINE, f'<blockquote><img {_IMAGE} width="150"></blockquote>' + _BODY_LINE),), None),
+    ("a fixed block whose width holds its padding", ((_BODY_LINE, '<div style="box-sizing:border-box;width:230px;padding:0 16px;">x</div>' + _BODY_LINE),), None),
     ("a table set in percent", ((_BODY_LINE, '<table width="80%"><tr><td>x</td></tr></table>' + _BODY_LINE),), None),
+    ("a cell set in percent", ((_BODY_LINE, '<table width="100%"><tr><td width="50%">x</td><td>y</td></tr></table>' + _BODY_LINE),), None),
     ("a table whose style reverts its width attribute", ((_BODY_LINE, '<table width="600" style="width:revert;"><tr><td>x</td></tr></table>' + _BODY_LINE),), None),
+    ("a width attribute on a div, which HTML maps to nothing", ((_BODY_LINE, '<div width="600">x</div>' + _BODY_LINE),), None),
+    ("a width on an inline span, which takes none", ((_BODY_LINE, '<span style="width:300px;">x</span>' + _BODY_LINE),), None),
     ("a fixed width inside Outlook's conditional comment", ((_BODY_LINE, '<!--[if mso]><table width="560"><tr><td><![endif]-->x<!--[if mso]></td></tr></table><![endif]-->' + _BODY_LINE),), None),
     ("a fixed width the page hides", ((_BODY_LINE, '<div style="display:none"><table width="600"><tr><td>x</td></tr></table></div>' + _BODY_LINE),), None),
     ("a body table capped at 600 px that takes the screen's width", ((_BODY_LINE, '<table width="100%" style="max-width:500px;"><tr><td>x</td></tr></table>' + _BODY_LINE),), None),
-    ("the panel's Outlook table written for Outlook 2000 and later", ((_OUTLOOK_TABLE + _INDENT + _PANEL_COLUMN, _OUTLOOK_TABLE.replace("[if mso]", "[if gte mso 9]") + _INDENT + _PANEL_COLUMN),), None),
+    ("a body table in the shell's own fluid form, inside the panel's Outlook table", ((_BODY_LINE, '<table width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;"><tr><td>x</td></tr></table>' + _BODY_LINE),), None),
+    ("the panel's Outlook table written for Outlook 2000 and later", ((_PANEL_OUTLOOK, _OUTLOOK_TABLE.replace("[if mso]", "[if gte mso 9]") + _INDENT + _PANEL_COLUMN),), None),
+    ("the panel's Outlook table for Outlook or Internet Explorer", ((_PANEL_OUTLOOK, _OUTLOOK_TABLE.replace("[if mso]", "[if (gte mso 9)|(IE)]") + _INDENT + _PANEL_COLUMN),), None),
 ]
 
 
 @pytest.mark.parametrize("edits, expected", [case[1:] for case in WIDTHS], ids=[case[0] for case in WIDTHS])
 def test_the_width_checks_score_every_planted_page(edits, expected):
-    page = _scored(_planted(_PLANTED_BODY), edits)
+    page = _scored(_planted(_WIDTH_BODY), edits)
     problems = fixed_width_problems(page) + outlook_width_problems(page)
     if expected is None:
         assert not problems, problems
     else:
         assert any(expected in problem for problem in problems), f"expected {expected!r}, got {problems}"
+
+
+
+# A body that prints a table of amounts, and each way it can lend the break rule to the table, where it splits the
+# amounts in some engine, and the look-alikes that keep the rule to a line or a cell of its own.
+_AMOUNTS = '<table width="100%" cellpadding="0" cellspacing="0"><tr><td>Revenue</td><td>$394,328,000,000</td></tr></table>'
+REACHES = [
+    # Reached.
+    ("the rule on a block around the table", ((_BODY_LINE, f'<div style="{_BREAK}">{_AMOUNTS}</div>' + _BODY_LINE),), True),
+    ("the rule on the table", ((_BODY_LINE, _AMOUNTS.replace('cellspacing="0">', f'cellspacing="0" style="{_BREAK}">') + _BODY_LINE),), True),
+    ("the rule on a row", ((_BODY_LINE, _AMOUNTS.replace("<tr>", f'<tr style="{_BREAK}">') + _BODY_LINE),), True),
+    ("the rule on the panel's body cell", ((_BODY_CELL, _BODY_CELL + _BREAK), (_BODY_LINE, _AMOUNTS + _BODY_LINE)), True),
+    ("word-wrap:anywhere on a block around the table, which Blink takes", ((_BODY_LINE, f'<div style="word-wrap:anywhere;">{_AMOUNTS}</div>' + _BODY_LINE),), True),
+    ("-webkit-line-break:anywhere on a block around the table, which WebKit may take", ((_BODY_LINE, f'<div style="-webkit-line-break:anywhere;">{_AMOUNTS}</div>' + _BODY_LINE),), True),
+    # Not reached.
+    ("the table as a body prints it", ((_BODY_LINE, _AMOUNTS + _BODY_LINE),), False),
+    ("the rule on a line beside the table", ((_BODY_LINE, f'<p style="{_BREAK}">x</p>{_AMOUNTS}' + _BODY_LINE),), False),
+    ("the rule on a cell of its own", ((_BODY_LINE, _AMOUNTS.replace("<td>Revenue", f'<td style="{_BREAK}">Revenue') + _BODY_LINE),), False),
+    ("a block's rule reset on the table", ((_BODY_LINE, f'<div style="{_BREAK}">' + _AMOUNTS.replace('cellspacing="0">', f'cellspacing="0" style="{_RESET}">') + "</div>" + _BODY_LINE),), False),
+]
+
+
+@pytest.mark.parametrize("edits, reached", [case[1:] for case in REACHES], ids=[case[0] for case in REACHES])
+def test_the_reach_check_scores_every_planted_page(edits, reached):
+    problems = reach_problems(_scored(_planted(_WIDTH_BODY), edits))
+    assert bool(problems) is reached, f"expected {'a table the rule reaches' if reached else 'none'}, got {problems}"
+
+
+# Each way a page can set a viewport other than the shell's, and the look-alikes that set the same.
+_SHELL_VIEWPORT = f'<meta name="viewport" content="{_DEVICE_WIDTH}">'
+VIEWPORTS = [
+    # Another viewport.
+    ("a body's own viewport at 600 px", ((_BODY_LINE, '<meta name="viewport" content="width=600">' + _BODY_LINE),), False),
+    ("the shell's viewport at 600 px", ((_SHELL_VIEWPORT, '<meta name="viewport" content="width=600">'),), False),
+    ("the shell's viewport dropped", ((_SHELL_VIEWPORT, ""),), False),
+    # The shell's.
+    ("the shell as it is built", (), True),
+    ("the shell's viewport spaced otherwise", ((_SHELL_VIEWPORT, '<meta name="viewport" content="width=device-width,initial-scale=1">'),), True),
+    ("the shell's viewport named in capitals", ((_SHELL_VIEWPORT, f'<META NAME="Viewport" CONTENT="{_DEVICE_WIDTH}">'),), True),
+]
+
+
+@pytest.mark.parametrize("edits, shells", [case[1:] for case in VIEWPORTS], ids=[case[0] for case in VIEWPORTS])
+def test_the_viewport_check_scores_every_planted_page(edits, shells):
+    sets = viewports(_scored(_planted(_WIDTH_BODY), edits))
+    assert (sets == [_DEVICE_WIDTH]) is shells, f"expected {'the shell viewport alone' if shells else 'another'}, got {sets}"

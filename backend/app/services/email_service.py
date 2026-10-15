@@ -26,10 +26,11 @@ _ALERT_FOOTER = (
 _HEADER_TILE_PATH = "/assets/earningsnerd-appicon.png"
 
 # A line that prints a run with nowhere to break may break it anywhere: a link with its token, a report's
-# hash, or the reader's name, which may be an address typed as a name. Unbroken, the run would hold the fluid
-# panel wider than a phone's screen, and widen it past the header where a view fits a wider page to its screen
-# and enlarges its text. On those lines alone, not on the panel: there it would reach a body's own table and
-# split a column of amounts.
+# hash, the reader's name, which may be an address typed as a name, or a company's as EDGAR spells it
+# ("BIOPHARMACEUTICALS,"). Unbroken, the run would hold the fluid panel wider than a phone's screen, and widen it
+# past the header where a view fits a wider page to its screen and enlarges its text. On those lines alone, or
+# on a cell of their own, not on the panel or a table: there it would reach a body's own table and split a
+# column of amounts.
 _BREAK_ANYWHERE = "overflow-wrap:anywhere;word-break:break-word;"
 
 
@@ -48,15 +49,19 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
 
     The page is fluid: the header, the panel and the footer line each take the screen's width up to
     600 px (``width:100%;max-width:600px``), and the head sets the template's viewport, so a phone lays
-    the page out at its own width and shows the text at its set size, the 16 px body at 16 px. Classic
-    Outlook reads no ``max-width``, so each sits in a 600 px table that only its conditional comments
-    show. A line that prints a run with nowhere to break, such as a link with its token or the reader's
-    name, carries ``_BREAK_ANYWHERE``, so the run cannot hold the page wider than a phone's screen. A
-    view that ignores the viewport, and fits a wider page to its screen, may enlarge text it judges too
-    small: the header keeps the template's ``-webkit-text-size-adjust:100%`` on its table, so its lines
-    keep their proportions there (enlarged, the tagline would outgrow the wordmark), and the panel and
-    the footer line leave their text to the view. The panel's padding is on its cells, which classic
-    Outlook honours (it ignores a table's), so the body lines up under the header there too.
+    the page out at its own width and shows the text at its set size, the 16 px body at 16 px, in
+    portrait at least (iOS may enlarge text in landscape). Classic Outlook reads no ``max-width``, so each
+    sits in a 600 px table that only its conditional comments show. A line that prints a run with nowhere
+    to break, such as a link with its token, the reader's name or a company's, carries
+    ``_BREAK_ANYWHERE``, so the run cannot hold the page wider than a phone's screen. The header keeps the
+    template's ``-webkit-text-size-adjust:100%`` on its table, so a view that enlarges text leaves its
+    lines their proportions (enlarged, the tagline would outgrow the wordmark), and the panel and the
+    footer line leave their text to the view. So the header can show smaller than the body: where a
+    reader sets a larger text size, Blink enlarges the body and leaves the header; and a view that ignores
+    the viewport and fits a wider page to its screen, which no mail client is known to do, shows a short
+    mail at a fraction of its size and may enlarge a long one's body to about three times the header's.
+    The panel's padding is on its cells, which classic Outlook honours (it ignores a table's), so the body
+    lines up under the header there too.
     """
     # A trailing slash is stripped, as the waitlist's links strip it: a doubled slash answers 308.
     tile_url = f"{settings.FRONTEND_URL.rstrip('/')}{_HEADER_TILE_PATH}"
@@ -279,7 +284,7 @@ async def send_verification_email(
     <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">Thanks for creating an EarningsNerd account. Verify your email address and you can start reading.</p>
     <p style="margin:0 0 24px;">
-      <a href="{verification_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Verify my email</a>
+      <a href="{verification_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">Verify my email</a>
     </p>
     <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">This link expires in 24 hours. If you didn&apos;t create an account, you can safely ignore this email.</p>
     <p style="margin:0;font-size:12px;color:#6B7280;{_BREAK_ANYWHERE}">Can&apos;t click the button? Copy this link:<br>{verification_link}</p>
@@ -308,7 +313,7 @@ async def send_invite_email(
     <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">You're invited to the EarningsNerd private beta. Full Pro access, on us.</p>
     <p style="margin:0 0 24px;">
-      <a href="{magic_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Accept your invite</a>
+      <a href="{magic_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">Accept your invite</a>
     </p>
     <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">This is a single-use invite link. No credit card required.</p>
     <p style="margin:0;font-size:12px;color:#6B7280;{_BREAK_ANYWHERE}">Can&apos;t click the button? Copy this link:<br>{magic_link}</p>
@@ -335,7 +340,7 @@ async def send_password_reset_email(
     <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">We received a request to reset your EarningsNerd password.</p>
     <p style="margin:0 0 24px;">
-      <a href="{reset_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Reset my password</a>
+      <a href="{reset_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">Reset my password</a>
     </p>
     <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">This link expires in 1 hour and can only be used once. If you didn&apos;t request a reset, no action is needed.</p>
     <p style="margin:0;font-size:12px;color:#6B7280;{_BREAK_ANYWHERE}">Can&apos;t click the button? Copy this link:<br>{reset_link}</p>
@@ -393,7 +398,7 @@ async def send_account_exists_email(
     <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">Someone tried to create an EarningsNerd account using this email address, but you already have one.</p>
     <p style="margin:0 0 8px;">
-      <a href="{login_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Log in to your account</a>
+      <a href="{login_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">Log in to your account</a>
     </p>
     <p style="margin:16px 0 0;font-size:14px;color:#6B7280;">Forgot your password?
       <a href="{reset_link}" style="color:#3C6650;">Reset it here</a>.
@@ -468,11 +473,11 @@ def render_new_filing_alert(
     )
     html_body = f"""
     <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
-    <p style="margin:0 0 16px;"><strong>{e_company} ({e_ticker})</strong> just filed a
-      <strong>{e_type}</strong> with the SEC ({e_date}).</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}"><strong>{e_company} ({e_ticker})</strong> just filed a
+      <strong>{e_type}</strong> with the SEC <span style="white-space:nowrap;">({e_date}).</span></p>
     {_wording_html(wording, url)}
     <p style="margin:0 0 24px;">
-      <a href="{url}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Read the AI summary</a>
+      <a href="{url}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">Read the AI summary</a>
     </p>
     <p style="margin:0;font-size:13px;color:#6B7280;">We summarise what changed so you don&apos;t have to read the whole filing.</p>
     """
@@ -502,9 +507,9 @@ def render_daily_digest(
     rows_html = "".join(
         f"""
         <tr>
-          <td style="padding:10px 0;border-bottom:1px solid #E5E1D8;">
+          <td style="padding:10px 0;border-bottom:1px solid #E5E1D8;{_BREAK_ANYWHERE}">
             <strong>{html.escape(it['company_name'])} ({html.escape(it['ticker'])})</strong> — {html.escape(it['filing_type'])}
-            <span style="color:#6B7280;">· {html.escape(it['filing_date'])}</span>{_row_wording(it)}<br>
+            <span style="color:#6B7280;white-space:nowrap;">· {html.escape(it['filing_date'])}</span>{_row_wording(it)}<br>
             <a href="{_filing_url(it.get('filing_id'), it.get('filing_url'))}" style="color:#3C6650;">Read the summary →</a>
           </td>
         </tr>"""
@@ -543,11 +548,13 @@ def _dq_section(title: str, rows_html: str, count: int) -> str:
 
 
 def _dq_rows(items: list[dict], cols) -> str:
-    """A borderless HTML table, one row per item; each column callable is escaped before render."""
+    """A borderless HTML table, one row per item; each column callable is escaped before render. Each row's
+    cell breaks a long run anywhere (a hash, an address), the cell and not the table, so the rule reaches no
+    other column."""
     return (
-        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;{_BREAK_ANYWHERE}">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">'
         + "".join(
-            '<tr><td style="padding:6px 0;border-bottom:1px solid #E5E1D8;">'
+            f'<tr><td style="padding:6px 0;border-bottom:1px solid #E5E1D8;{_BREAK_ANYWHERE}">'
             + " · ".join(html.escape(str(col(it))) for col in cols)
             + "</td></tr>"
             for it in items
@@ -679,12 +686,12 @@ def render_earnings_day_alert(
         ticker = html.escape(str(it.get("ticker", "")))
         company = html.escape(str(it.get("company_name") or it.get("ticker") or ""))
         slot = _TIME_LABEL.get((it.get("time") or "").lower())
-        when = f'<span style="color:#6B7280;"> · {slot}</span>' if slot else ""
+        when = f' <span style="color:#6B7280;white-space:nowrap;">· {slot}</span>' if slot else ""
         reported = (it.get("status") == "reported")
         tail = " (results are out)" if reported else ""
         rows_html += f"""
         <tr>
-          <td style="padding:10px 0;border-bottom:1px solid #E5E1D8;">
+          <td style="padding:10px 0;border-bottom:1px solid #E5E1D8;{_BREAK_ANYWHERE}">
             <strong>{company} ({ticker})</strong> reports today{when}{html.escape(tail)}<br>
             <a href="{settings.FRONTEND_URL}/company/{ticker}" style="color:#3C6650;">View {ticker} →</a>
           </td>

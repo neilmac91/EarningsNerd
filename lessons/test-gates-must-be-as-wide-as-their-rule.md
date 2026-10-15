@@ -86,8 +86,12 @@ public surface, not to the callers of one function, with inputs a coverage check
 of the module and a second check holds to the lengths callers send, and read what leaves it (what a
 sender sends, not what a helper returns). Keep the source scan for the code no run reaches, and name in
 each gate's header what it cannot see. Where reading the output needs a model of its reader (how a
-browser reads a page), parse as the sources of truth do, and take what each parsed value means from the
-grammar or score it against the reader itself, not from a table written from memory.
+browser reads a page), parse as the sources of truth do, and take what each parsed value means from what
+the reader does: score each entry of the model's tables against it (the pinned Chromium, for a page),
+read a property once per engine where the engines differ, on the side each check needs, and mark as
+inferred what no build here can show. A grammar says how a value may be written, not what an engine
+takes: `mdn-data` lists display values neither engine takes and gives `word-wrap` no `anywhere`, which
+Blink takes. Model the reader's behaviour, such as a box model, rather than the forms a review names.
 
 Corollary for the anti-vacuity floor: assert the scanner actually found things (>100 files,
 >100 tests). A narrow gate and a broken walk look identical from the outside — both green.
@@ -276,8 +280,14 @@ family, display values neither engine takes read as blocks and `display:inherit`
 `white-space` read apart from the `text-wrap-mode` it sets, an SVG's `<style>` missed under its
 namespaced name, `word-wrap:anywhere` read once for two engines that disagree, and a threshold above
 the runs that widen a phone's column. The gate's inputs also ran every line while their values were too
-short to print the runs the rule is about: every reader was "Ada". When a rule is about how a browser
-reads a page, read the page as a browser builds it; take what each parsed value means from the grammar
-(`mdn-data` in `frontend/node_modules`) or score each entry against the pinned Chromium; read a property
-once per engine where the engines disagree, on the side each check needs; and hold the inputs' values to
-the lengths callers send, not only the lines they run.
+short to print the runs the rule is about: every reader was "Ada". The review after them found the
+same two halves again. The width check read the widths an element declares, while a browser lays boxes
+out: an image at its natural size, a block's padding, a list's indent, a margin, and a table a percentage
+`max-width` does not hold in a cell each held a page wider than a phone with every test green; it now
+gives each box the room its parent leaves, as a box model does. And every company in the inputs was
+"Acme Corp", while EDGAR names carry runs of 18 to 21 characters, which the alerts printed with no rule.
+When a rule is about how a browser reads a page, read the page as a browser builds it; score what each
+parsed value means against the pinned Chromium, not a grammar (`mdn-data` lists `run-in` and gives
+`word-wrap` no `anywhere`), and model what the browser does with it; read a property once per engine
+where the engines disagree, on the side each check needs; and hold every value an input hands in to the
+lengths callers send, not only the lines they run.

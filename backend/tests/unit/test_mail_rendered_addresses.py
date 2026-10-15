@@ -58,12 +58,16 @@ inline styles:
 - a run with nowhere to break, such as a link with its token, can break anywhere once it is long enough
   to fill the panel's text column on the narrowest phone, so it cannot hold the page wider than the
   screen. The inputs print such runs at their real lengths, and a check holds them to it: every input
-  that names the reader passes a name typed as an address, 34 characters, every recipient is an address
-  of 39, and every link a caller hands in carries a 43-character token; the report's hashes and
-  addresses are its own. ``PRINTS_LONG_RUNS``
-  holds how many long runs each render's pages print, page by page;
-- nothing a client other than classic Outlook shows sets a width the narrowest phone cannot hold, and
-  classic Outlook, which reads no ``max-width``, holds each column capped at 600 px at 600 px.
+  that names the reader passes a name typed as an address, 34 characters, and every render that takes a
+  name is given that one; every recipient is an address of 39; every company is a real EDGAR name whose
+  longest run is 19 characters; and every link a caller hands in carries a 43-character token. The
+  report's hashes and addresses are its own. ``PRINTS_LONG_RUNS`` holds how many long runs each render's
+  pages print, page by page;
+- that rule reaches no table, whose amounts it would split;
+- no box a client other than classic Outlook shows is set wider than the room its parent gives it on the
+  narrowest phone, and classic Outlook, which reads no ``max-width``, holds each column capped at 600 px
+  at 600 px;
+- the page sets the shell's viewport alone, at the phone's own width.
 """
 import ast
 import html
@@ -86,7 +90,9 @@ from tests.support.mail_styles import (
     long_run_problems,
     long_runs,
     outlook_width_problems,
+    reach_problems,
     text_size_problems,
+    viewports,
 )
 
 BACKEND = Path(__file__).resolve().parents[2]
@@ -111,12 +117,15 @@ LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "0.0.0.0"})
 TO = "firstname.lastname@recipientcompany.com"
 # A name as a reader may type one: an address, 34 characters with nowhere to break.
 NAME = "firstname.lastname@companyname.com"
+# A company as EDGAR names one, a real registrant: its longest run, "BIOPHARMACEUTICALS,", is 19 characters in
+# capitals, the alert's bold among them.
+COMPANY = "PROVECTUS BIOPHARMACEUTICALS, INC."
 # A link as a caller builds one: a token as secrets.token_urlsafe(32) draws it, 43 characters, here with no
 # hyphen to break at.
 LINK = "https://e.test/reset-password?token=Qm9va3NhbmRjb2ZmZWVhbmRyZWFkaW5nYWxsZGF5MDE"
 WAITLIST = dict(name=NAME, position=3, referral_link=LINK, verification_link=LINK)
 REFERRAL = dict(name=NAME, new_position=2, referral_link=LINK)
-FILING = dict(name=NAME, company_name="Acme Corp", ticker="ACME", filing_type="10-K", filing_date="2026-01-01")
+FILING = dict(name=NAME, company_name=COMPANY, ticker="PVCT", filing_type="10-K", filing_date="2026-01-01")
 ALERTS = [
     dict(FILING, filing_id=1, wording_changes={"has_changes": True, "items_total": 3}),
     dict(FILING, filing_id=1, wording_changes={"has_changes": False, "items_total": 0}),
@@ -124,15 +133,16 @@ ALERTS = [
     dict(FILING, filing_url=LINK),
     FILING,
 ]
-DIGEST_ITEM = {"company_name": "Acme Corp", "ticker": "ACME", "filing_type": "10-K", "filing_date": "2026-01-01"}
+DIGEST_ITEM = {"company_name": COMPANY, "ticker": "PVCT", "filing_type": "10-K", "filing_date": "2026-01-01"}
 DIGEST = dict(name=NAME, items=[
     dict(DIGEST_ITEM, filing_id=1, wording_changes={"has_changes": True, "items_total": 2}),
     dict(DIGEST_ITEM, filing_url=LINK),
     DIGEST_ITEM,
 ])
+# The second is an estimated event, a provider's date, in the shape send_earnings_day_alerts builds.
 EARNINGS = [
-    dict(name=NAME, items=[{"ticker": "ACME", "company_name": "Acme Corp", "time": "bmo"}, {"ticker": "BETA", "status": "reported"}]),
-    dict(name=NAME, items=[{"ticker": "ACME", "company_name": "Acme Corp", "time": "amc"}]),
+    dict(name=NAME, items=[{"ticker": "PVCT", "company_name": COMPANY, "time": "bmo"}, {"ticker": "BETA", "status": "reported"}]),
+    dict(name=NAME, items=[{"ticker": "PVCT", "company_name": COMPANY, "time": "amc", "status": "estimated"}]),
 ]
 CLEAN_REPORT = {"ticker_mismatches": [], "ticker_not_in_file": [], "coverage_gaps": [], "filing_anomalies": [], "partial_reasons": []}
 FULL_REPORT = {
@@ -647,15 +657,15 @@ def test_every_page_sent_keeps_the_headers_set_size_and_leaves_the_rest_to_the_v
 
 
 # How many long runs each render's pages print, page by page in the order of its inputs: the reader's name typed
-# as an address, a link with its token, a report's hashes and addresses. Held as it is, so an input that shortens
-# one fails here too, and a new render is listed with its own.
+# as an address, a company's name, a link with its token, a report's hashes and addresses. Held as it is, so an
+# input that shortens every one a page prints fails here too, and a new render is listed with its own.
 PRINTS_LONG_RUNS = {
     "render_welcome_email": [2], "send_waitlist_welcome_email": [2], "render_referral_success_email": [2],
     "send_referral_success_email": [2], "send_verification_email": [2], "send_invite_email": [1, 2],
     "send_password_reset_email": [2], "send_oauth_linked_email": [1], "send_account_exists_email": [1],
-    "render_new_filing_alert": [1, 1, 1, 1, 1], "build_new_filing_alert": [1, 1, 1, 1, 1],
-    "send_new_filing_alert": [1, 1, 1, 1, 1], "render_daily_digest": [1], "build_daily_digest": [1],
-    "send_daily_digest": [1], "render_earnings_day_alert": [1, 1], "send_earnings_day_alert": [1, 1],
+    "render_new_filing_alert": [2, 2, 2, 2, 2], "build_new_filing_alert": [2, 2, 2, 2, 2],
+    "send_new_filing_alert": [2, 2, 2, 2, 2], "render_daily_digest": [4], "build_daily_digest": [4],
+    "send_daily_digest": [4], "render_earnings_day_alert": [2, 2], "send_earnings_day_alert": [2, 2],
     "render_data_quality_report": [0, 4],
 }
 
@@ -679,13 +689,21 @@ def test_the_inputs_hand_in_the_readers_name_and_each_link_at_their_real_lengths
         for render, inputs in RENDERS.items()
         for i, kwargs in enumerate(inputs)
         for where, value in _caller_values(kwargs, f"{render}[{i}]")
-        if (where.endswith(".name") and value not in (NAME, None, ""))
+        if (where.endswith(".name") and value != NAME)
         or (where.endswith(".to_email") and value != TO)
+        or (where.endswith(".company_name") and value != COMPANY)
         or (where.rsplit(".", 1)[-1].endswith(("_link", "_url")) and value != LINK and ".report." not in where)
     ]
-    assert not short, (
-        "an input that names the reader passes NAME, one that addresses the mail passes TO, and one that hands in a link "
-        "passes LINK, so the lines that print them are held to the long-run rule at the lengths callers send:\n" + "\n".join(short)
+    unnamed = [
+        render
+        for render, inputs in RENDERS.items()
+        if "name" in inspect.signature(getattr(email_service, render)).parameters
+        and not any(kwargs.get("name") == NAME for kwargs in inputs)
+    ]
+    assert not short and not unnamed, (
+        "an input that names the reader passes NAME, and every render that takes a name is given it once at least; one that "
+        "addresses the mail passes TO, one that names a company passes COMPANY, and one that hands in a link passes LINK, so "
+        "the lines that print them are held to the long-run rule at the lengths callers send:\n" + "\n".join(short + unnamed)
     )
 
 
@@ -709,6 +727,21 @@ def test_every_page_sent_holds_its_width_on_a_phone_and_in_outlook(rendered):
         for problem in fixed_width_problems(page) + outlook_width_problems(page)
     ]
     assert not problems, "\n".join(sorted(set(problems)))
+
+
+def test_every_page_sent_keeps_the_break_rule_out_of_its_tables(rendered):
+    problems = [f"{name}: {problem}" for name, page in _pages(rendered) for problem in reach_problems(page)]
+    assert not problems, "\n".join(sorted(set(problems)))
+
+
+def test_every_page_sent_sets_the_shells_viewport_alone(rendered):
+    shell = viewports(email_service._wrap_html("<p>Body</p>"))
+    assert shell == ["width=device-width, initial-scale=1"], f"the shell no longer sets the phone's own width: {shell}"
+    problems = [f"{name}: {sets}" for name, page in _pages(rendered) if (sets := viewports(page)) != shell]
+    assert not problems, (
+        "a page sets a viewport other than the shell's, or another beside it, so a phone may lay it out wider than its "
+        "screen and show its text at a fraction of its size:\n" + "\n".join(sorted(set(problems)))
+    )
 
 
 def _img(src: str) -> str:

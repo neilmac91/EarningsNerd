@@ -7,10 +7,13 @@
 - ``long_run_problems``: a run of characters with nowhere to wrap, such as a link with its token, a report's
   hash or a name typed as an address, can break anywhere once it is long enough to fill the panel's text
   column on the narrowest phone, so it cannot hold the page wider than the screen;
-- ``fixed_width_problems``: the page is fluid down to that phone, so nothing a client other than classic
-  Outlook shows sets a width the phone cannot hold;
+- ``reach_problems``: that rule reaches no table, where it would split a column of amounts, so it sits on
+  the lines that print such a run;
+- ``fixed_width_problems``: no box a client other than classic Outlook shows is set wider than the room its
+  parent gives it on that phone;
 - ``outlook_width_problems``: classic Outlook, which reads no ``max-width``, holds each column capped at
-  600 px at 600 px, through a table only its conditional comments show.
+  600 px at 600 px, through a table only its conditional comments show;
+- ``viewports``: the viewports a page sets, wherever it sets them.
 
 A page is read as a browser builds it, by ``tinyhtml5``, the WHATWG tree builder (``requirements.in``): an
 end tag a browser implies is implied, a ``/>`` on an element that is not void is ignored, the first of two
@@ -20,8 +23,10 @@ comments hold is read only in Outlook's view (``outlook_view``). Each element's 
 CSS reads one, by ``tinycss2``: comments and escapes decoded, a declaration its property cannot take
 dropped, an important declaration over a normal one, and among equals the last. The text properties read
 here are inherited: ``inherit`` and ``unset`` take the parent's value, ``revert`` the element's own default,
-such as ``<pre>``'s, or the parent's. A cell's ``nowrap`` attribute is a presentational hint, below every
-declaration of its ``style`` and reverted with them.
+such as ``<pre>``'s, or the parent's. A cell's ``nowrap`` attribute and a table's ``width``, ``border``,
+``cellpadding`` and ``cellspacing`` are presentational hints, below every declaration of a ``style``: ``revert``
+removes them with the style, and ``revert-layer``, which rolls back to the layer below, keeps them (measured in
+Chromium 141).
 
 Two engines enlarge text, and each reads its own names:
 - Blink, which Android's mail apps run, reads ``text-size-adjust`` and ``-webkit-text-size-adjust`` as one
@@ -33,41 +38,72 @@ Two engines enlarge text, and each reads its own names:
 So a line's size is read once per engine, and each reading must hold the rule.
 
 A run ends where a line may wrap: at a space, a tab, a line break or one of the Unicode spaces a line may
-break after, where the line wraps; at ``<wbr>`` or a zero-width space there; at ``<br>`` or a line break
-``<pre>`` keeps; and at the edge of a block, a table's part or an element placed whole, such as an image or
-a button. It goes on across the tags of every other element, an element the reader does not know and one
-the page hides alike, so a link split by markup is read whole. Within a run, a character can break where
-``overflow-wrap:anywhere``, ``word-break:break-word`` or ``break-all``, or ``line-break:anywhere`` reaches it:
-each lets a word break and shrinks the narrowest width a table can give its cell, which
-``overflow-wrap:break-word`` alone does not. ``word-wrap``, the alias, is read with ``overflow-wrap``: Blink takes
-its ``anywhere``, and WebKit may not, so a run breaks in every engine only where another of those forms reaches
-it, while a shell lends the rule wherever either engine would take it (``lent_runs``); ``-webkit-line-break`` is read
-with ``line-break`` the same way. ``all`` sets every
-property read here to its keyword, in its place among the declarations. A line
-wraps where both kinds of engine wrap it: one that predates ``text-wrap-mode`` reads ``white-space`` alone,
-and one that reads it takes the last of ``white-space``, ``text-wrap`` and ``text-wrap-mode``, the first two
-being shorthands that set it. So ``white-space:nowrap`` or ``pre``, ``text-wrap-mode:nowrap`` and a
-``text-wrap`` with ``nowrap`` keep a run on one line, spaces and all, as do ``<pre>``, ``<nobr>`` and a cell's
-``nowrap`` attribute, and a ``text-wrap-mode:wrap`` does not undo a ``white-space:nowrap``.
+break after, where the line wraps; at ``<wbr>`` or a zero-width space there; at ``<br>`` or a line break the
+line keeps; and at the edge of a block, a table's part or an element placed whole, such as an image or a
+button. It goes on across the tags of every other element, an element the reader does not know and one the
+page hides alike, so a link split by markup is read whole, and across a float or a box positioned absolute
+or fixed, which a browser takes out of the line: the text on either side of one joins, and its own text
+forms runs of its own. Within a run, a character can break where ``overflow-wrap:anywhere``,
+``word-break:break-word`` or ``break-all``, or ``line-break:anywhere`` reaches it: each lets a word break and
+shrinks the narrowest width a table can give its cell, which ``overflow-wrap:break-word`` alone does not. Two
+aliases are read once per engine, since the engines differ on them: ``word-wrap``, read with
+``overflow-wrap``, whose ``anywhere`` Blink takes and WebKit may not, and ``-webkit-line-break``, read with
+``line-break``, whose ``anywhere`` Blink drops (in Chromium 141 ``CSS.supports`` refuses it, and takes the
+alias's other values) and WebKit may take. So a run breaks in every engine only where another of those forms
+reaches it, and a page lends the rule wherever either engine may take it (``lent_runs``, ``reach_problems``).
+That Blink breaks under each form is measured; that WebKit does is inferred from the specifications it
+implements. ``all`` sets every property read here to its keyword, in its place among the declarations.
 
-A width is an element's ``width`` in its ``style`` where one is declared, else its ``width`` attribute as
-HTML maps one: a number is pixels, a number then ``%`` a percentage. A width in pixels, or in another
-absolute unit, is fixed; a percentage or a keyword is not; a width set by the font or the screen, such as
-``em`` or ``vw``, is refused rather than guessed. A fixed width wider than ``WIDEST_FIXED`` fails unless the
-element's ``max-width`` holds it to the screen (a percentage up to 100%, or a fixed width that fits), and a
-fixed ``min-width`` wider than that fails outright. Outlook's view is the page as classic Outlook reads its
-conditional comments: what one meant for Outlook holds shows, what ``<!--[if !mso]><!-->`` holds does not.
+A line wraps where both kinds of engine wrap it: one that predates ``text-wrap-mode`` reads ``white-space``
+alone, and one that reads it takes the last of ``white-space``, ``text-wrap`` and ``text-wrap-mode``, the first
+two being shorthands that set it. So ``white-space:nowrap`` or ``pre``, ``text-wrap-mode:nowrap`` and a
+``text-wrap`` with ``nowrap`` keep a run on one line, spaces and all, as do ``<pre>``, ``<nobr>`` and a cell's
+``nowrap`` attribute, and a ``text-wrap-mode:wrap`` does not undo a ``white-space:nowrap``. A line keeps its
+line breaks, and its spaces, where both kinds keep them: one that reads ``white-space-collapse`` takes the last
+of it and ``white-space``, the older one ``white-space`` alone, and spaces a line keeps count in its runs. A
+value Chromium refuses, such as ``white-space:preserve-spaces`` or ``text-wrap:avoid-orphans``, is dropped, as
+there.
+
+Each box is held to the room its parent gives it on the narrowest phone: 320 px for the page, less each box's
+horizontal margins, borders and padding, as its ``style`` sets them, side by side, shorthand and longhand, in
+px or another absolute unit, or a percentage of the room; else as a browser's own style sheet does: a body's
+8 px margins, a list's 40 px indent, a blockquote's and a figure's 40 px margins, a cell's 1 px padding or
+its table's ``cellpadding``, a table's 2 px spacing or its ``cellspacing``, and a table's ``border``. The
+shell's own boxes leave a body ``WIDEST_FIXED``. A box's width is its ``width`` in its ``style``, else its
+``width`` attribute where HTML maps one (a table's, a cell's, an image's): a number is pixels, a number then
+``%`` a percentage of the room. A table counts its border and padding in its width, and another box adds
+them. A box set wider than its room fails, whether a fixed width, a percentage over 100% or a ``min-width``
+sets it, and so do margins, borders and padding that leave a box's content no room. A ``max-width`` in
+pixels caps a width; one in percent holds an image or another replaced element alone, since in a table's
+cell it does not hold the box's own content (CSS Sizing 3, its cyclic percentages). An image with no width
+shows at its natural size, which the reader does not know, so it fails unless a ``max-width`` holds it. A
+width set by the font or the screen, such as ``em`` or ``vw``, by the parent (``inherit``), or by the content
+(``max-content``) is refused rather than guessed. An inline element's box takes no width. A cell's room is
+its table's whole room, so a cell set wider than its table fails: Chromium squeezes it, while CSS 2.1's
+automatic table layout reads a cell's width as its minimum.
+
+Outlook's view is the page as classic Outlook reads its conditional comments, as Outlook 2016 and later
+(``mso 16``) take their conditions: ``mso`` and ``vml`` true, a version compared, ``IE`` false, and ``!``,
+``&``, ``|`` and brackets as written. What a condition Outlook takes holds shows there, and what one it does not
+take holds does not, in a comment or in a revealed block (``<![if !mso]>``); a condition the reader cannot
+parse hides what it holds. A column capped at 600 px is held when the nearest table around it set to a fixed
+width is 600 px wide.
 
 The reader errs toward asking for the rule: it counts no break a browser may take at a hyphen or after a
-question mark, and no width that holds a run in, such as a fixed table layout or a clipped box, so it may
-ask for the rule where a browser would fit the run. The header is the table capped at 600 px (its
+question mark, or at a ``<wbr>`` under ``nowrap``, where Chromium breaks, and no width that holds a run in, such
+as a fixed table layout or a clipped box, so it may ask for the rule where a browser would fit the run. It
+does not measure what a box's content sets, and so may pass it: a table of amounts whose columns cannot
+narrow, a widget's own width, a cell's share of its table when the table has more than one column (each cell
+is given the table's whole room), the padding an inline box adds to its line, and a run in a box narrower than
+the panel's column, which is measured against the column. The header is the table capped at 600 px (its
 ``max-width``) that holds the wordmark, the name split by markup into its two styles, and a page carries one.
 What the reader does not resolve, it refuses rather than guesses: a ``<style>`` block, an SVG's or MathML's
 included, or a linked stylesheet, whose selectors it does not match, and a value one of its properties takes
-from a function, such as ``calc()`` or ``var()``. It reads no text the page does not show (what
-``display:none`` or the ``hidden`` attribute hides, and the head's), nor an image's ``alt``, which shows only
-where images are blocked; text hidden another way, at ``font-size:0`` or in a box clipped to nothing, it reads
-as shown. A float or a positioned box, which a browser takes out of the line, ends a run where it sits.
+from a function, such as ``calc()`` or ``var()``. It reads no text the page does not show: what
+``display:none`` or the ``hidden`` attribute hides, what a browser's own style sheet hides (the head, and an
+input of type hidden and an audio without its controls, whatever display a page gives them), nor an image's
+``alt``, which shows only where images are blocked. Text hidden another way, at ``font-size:0`` or in a box
+clipped to nothing, it reads as shown.
 """
 from __future__ import annotations
 
@@ -80,14 +116,17 @@ import tinyhtml5
 from tinycss2.ast import Node
 
 # A run this long, with nowhere to break, can fill the panel's text column on the narrowest phone. In
-# Chromium's phone view at 320 px, with Arial set as Liberation Sans, the shortest runs of a token that held
-# the page wider than the screen were 22 characters at 16 px, 21 in bold and 18 at 20 px; where a view fits a
-# wider page to its screen and enlarges its text, they were 26, 25 and 24. The check takes 18, the shortest
-# measured, so every run measured is flagged. A run of wide letters fills the column sooner, and a phone's own
-# font sets the widths there (lessons/test-layout-numbers-are-one-environments-run.md).
+# Chromium's phone view at 320 px, where the mail's font stacks resolve to Inter here, the shortest runs of a
+# token that held the page wider than the screen were 22 characters at 16 px and 21 in bold, the panel's
+# largest text, and 18 at 20 px. The check takes 18, three under the panel's own, so a run of wide letters or a
+# larger font is flagged before it fills the column; a phone's own font sets the widths there
+# (lessons/test-layout-numbers-are-one-environments-run.md). The check holds the view the shell's viewport sets.
+# A view that ignores the viewport, lays the page out wider and enlarges its text, as no mail client is known to,
+# widened the panel from 15 characters at 320 px (16 at 16 px, 15 in bold and at 20 px), and a threshold that
+# low would take the header's own tagline for a long run: the check does not hold that view.
 LONG_RUN = 18
-# The narrowest phone a mail lays out on, and the widest fixed width a page may set there: 320 px, less the
-# page's gutters (12 px a side) and the panel's border and padding (33 px a side).
+# The narrowest phone a mail lays out on, and the room the shell leaves a body there: 320 px, less the page's
+# gutters (12 px a side) and the panel's border and padding (33 px a side).
 NARROWEST_SCREEN = 320
 WIDEST_FIXED = NARROWEST_SCREEN - 2 * 12 - 2 * 33
 
@@ -99,6 +138,11 @@ _KEYWORDS = {  # a one-word value each property can take
     "line-break": {"auto", "loose", "normal", "strict", "anywhere"},
     "-webkit-line-break": {"auto", "loose", "normal", "strict", "anywhere", "after-white-space"},
     "text-wrap-mode": {"wrap", "nowrap"},
+    "white-space-collapse": {"collapse", "preserve", "preserve-breaks", "break-spaces"},
+    "box-sizing": {"content-box", "border-box"},
+    "float": {"left", "right", "none", "inline-start", "inline-end"},
+    "position": {"static", "relative", "absolute", "fixed", "sticky"},
+    "border-collapse": {"separate", "collapse"},
 }
 _SIZING = frozenset({"min-content", "max-content", "fit-content", "stretch", "-webkit-fill-available"})
 _WIDTH_WORDS = {"width": _SIZING | {"auto"}, "min-width": _SIZING | {"auto"}, "max-width": _SIZING | {"none"}}
@@ -108,18 +152,42 @@ _RELATIVE = frozenset({
     "vmax", "svw", "svh", "svi", "svb", "svmin", "svmax", "lvw", "lvh", "lvi", "lvb", "lvmin", "lvmax", "dvw", "dvh",
     "dvi", "dvb", "dvmin", "dvmax", "cqw", "cqh", "cqi", "cqb", "cqmin", "cqmax",
 })
+# The box properties read here, each as the sides it sets: a margin, a padding, a border's width or its style,
+# on the left and the right, as a line of text runs left to right.
+_BOX = {
+    **{f"{kind}{suffix}": (kind, sides) for kind in ("margin", "padding") for suffix, sides in (
+        ("", "box"), ("-left", "left"), ("-right", "right"), ("-inline", "inline"), ("-inline-start", "left"),
+        ("-inline-end", "right"),
+    )},
+    **{f"border{side}-{part}": (f"border-{part}", sides) for part in ("width", "style") for side, sides in (
+        ("", "box"), ("-left", "left"), ("-right", "right"), ("-inline", "inline"), ("-inline-start", "left"),
+        ("-inline-end", "right"),
+    )},
+    **{f"border{side}": ("border", sides) for side, sides in (
+        ("", "both"), ("-left", "left"), ("-right", "right"), ("-inline", "both"), ("-inline-start", "left"),
+        ("-inline-end", "right"),
+    )},
+}
+_BORDER_STYLES = frozenset({"none", "hidden", "dotted", "dashed", "solid", "double", "groove", "ridge", "inset", "outset"})
+_BORDER_WIDTHS = {"thin": "1px", "medium": "3px", "thick": "5px"}
 _READ = frozenset({
-    *_KEYWORDS, *_WIDTH_WORDS, "text-size-adjust", "-webkit-text-size-adjust", "white-space", "text-wrap", "display", "all",
+    *_KEYWORDS, *_WIDTH_WORDS, *_BOX, "border-spacing", "text-size-adjust", "-webkit-text-size-adjust", "white-space",
+    "text-wrap", "display", "all",
 })
 _WHITE_SPACE = {  # each keyword as (keeps line breaks, wraps)
     "normal": (False, True), "nowrap": (False, False), "pre": (True, False),
     "pre-wrap": (True, True), "pre-line": (True, True), "break-spaces": (True, True),
 }
 _MODE_OF = {keyword: "wrap" if wraps else "nowrap" for keyword, (_, wraps) in _WHITE_SPACE.items()}
-# The shorthands' other spellings, their longhands' words: at most one word from each set.
-_COLLAPSE_WORDS = {"collapse": False, "preserve": True, "preserve-breaks": True, "preserve-spaces": False, "break-spaces": True}
+_COLLAPSE_OF = {
+    "normal": "collapse", "nowrap": "collapse", "pre": "preserve", "pre-wrap": "preserve", "pre-line": "preserve-breaks",
+    "break-spaces": "break-spaces",
+}
+# The shorthands' other spellings, their longhands' words: at most one word from each set. Chromium refuses
+# white-space:preserve-spaces and text-wrap:avoid-orphans, which these leave out.
+_COLLAPSE_WORDS = {"collapse": False, "preserve": True, "preserve-breaks": True, "break-spaces": True}
 _MODE_WORDS = {"wrap": True, "nowrap": False}
-_TEXT_WRAP_STYLES = frozenset({"auto", "balance", "stable", "pretty", "avoid-orphans"})
+_TEXT_WRAP_STYLES = frozenset({"auto", "balance", "stable", "pretty"})
 # The display values Blink and WebKit both take: one keyword, or an outer and an inner type with list-item. A
 # value either engine drops, such as run-in or ruby-base, leaves the element its own display.
 _DISPLAY_ONE = frozenset({
@@ -143,25 +211,119 @@ _RUN_EDGES = frozenset({
     "textarea", "video",
     "br",
 })
-# The elements a browser's own style sheet hides, and so lays nothing out for; <audio> without its controls,
-# <input type="hidden"> and a <dialog> that is not open are hidden too.
+# The elements a browser's own style sheet hides, and so lays nothing out for, unless a page gives one a display;
+# <audio> without its controls and <input type="hidden"> it hides whatever display a page gives them, and a
+# <dialog> that is not open it hides too.
 _UNSHOWN = frozenset({
     "area", "base", "basefont", "datalist", "head", "link", "meta", "noembed", "noframes", "param", "rp", "script",
     "source", "style", "template", "title", "track",
 })
+# The box each element makes, as a browser's own style sheet gives it, for the room it takes and leaves.
+_TABLE_PARTS = frozenset({"tbody", "thead", "tfoot", "tr"})
+_CELLS = frozenset({"td", "th"})
+_REPLACED = frozenset({"img", "video", "iframe", "canvas", "svg"})  # placed whole, at a width of their own
+_WIDGETS = frozenset({"audio", "button", "input", "marquee", "meter", "progress", "select", "textarea"})
+_WIDTH_HINTED = frozenset({"table", "td", "th", "col", "colgroup", "hr", "img", "iframe", "video", "canvas"})
+_UA_MARGIN = {"body": (8.0, 8.0), "blockquote": (40.0, 40.0), "figure": (40.0, 40.0), "dd": (40.0, 0.0), "fieldset": (2.0, 2.0)}
+_UA_PADDING = {"ul": (40.0, 0.0), "ol": (40.0, 0.0), "menu": (40.0, 0.0), "dir": (40.0, 0.0), "fieldset": (12.0, 12.0), "button": (6.0, 6.0)}
+_UA_BORDER = {"fieldset": 2.0, "button": 2.0, "hr": 1.0}
 _SPACE = " \t\n\r\f"  # HTML's whitespace, which a line of text is stripped of
 # Where a line may wrap: ASCII spaces and line breaks, and the Unicode spaces a line may break after. A form
 # feed, a no-break space, a figure space and a narrow no-break space are no such place.
 _WRAP_SPACES = " \t\n\r\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2008\u2009\u200a\u205f\u3000"
 _ZERO_WIDTH_SPACE = "\u200b"
 _INVISIBLE = dict.fromkeys(map(ord, "\u00ad\u200b\u200c\u200d\u2060\ufeff"))  # characters that render as nothing
-# A conditional comment: what it holds, and whether a client other than Outlook shows that too.
+# A conditional comment: its condition, whether a client other than Outlook shows what it holds too, and that.
 _CONDITIONAL = re.compile(r"<!--\[if\s+([^\]]+)\]>(<!-->)?(.*?)(?:<!--)?<!\[endif\]-->", re.DOTALL | re.IGNORECASE)
+# A revealed block, which every client but the ones its condition excludes shows.
+_REVEALED = re.compile(r"<!\[if\s+([^\]]+)\]>(.*?)<!\[endif\]>", re.DOTALL | re.IGNORECASE)
+_CONDITION = re.compile(r"\s*(\(|\)|!|&|\||[a-z]+|[0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
+# What classic Outlook 2016 and later take in a condition, at their versions; IE, and what else it names, it does not.
+_OUTLOOK = {"mso": 16.0, "vml": 1.0}
+_COMPARISONS = {"lt": float.__lt__, "lte": float.__le__, "gt": float.__gt__, "gte": float.__ge__}
+_SLACK = 0.5  # px, for the sums of widths written in other units
 
 
 def _number(value: float) -> str:
     """A CSS number as the reader compares it, written out in full."""
     return f"{value:f}".rstrip("0").rstrip(".")
+
+
+def _px(value: str) -> float:
+    """An absolute length as the reader compares it, in px."""
+    unit = value.lstrip("0123456789.")
+    return float(value[: len(value) - len(unit)]) * _ABSOLUTE[unit]
+
+
+def _length(token: Node) -> str | None:
+    """A margin's, a padding's or a border width's token as the reader compares it: px, a percentage, auto or
+    refused, which the font or the screen sets; None when it is none of those."""
+    if token.type == "dimension" and token.lower_unit in _ABSOLUTE:
+        return _number(token.value * _ABSOLUTE[token.lower_unit]) + "px"
+    if token.type == "dimension" and token.lower_unit in _RELATIVE:
+        return "refused"
+    if token.type == "percentage":
+        return _number(token.value) + "%"
+    if token.type == "number" and token.value == 0:
+        return "0px"
+    if token.type == "ident" and token.lower_value == "auto":
+        return "auto"
+    return None
+
+
+def _sides(kind: str, sides: str, values: list[str]) -> list[tuple[str, str]] | None:
+    """The left and right longhands a box declaration sets, with their values, or None when its values do not
+    fit its form."""
+    if sides in ("left", "right"):
+        return [(f"{kind}-{sides}" if kind in ("margin", "padding") else f"border-{sides}-{kind[7:]}", values[0])] if len(values) == 1 else None
+    if sides == "inline" and 1 <= len(values) <= 2:
+        left, right = values[0], values[-1]
+    elif sides == "box" and 1 <= len(values) <= 4:
+        right = values[1] if len(values) > 1 else values[0]
+        left, right = (values[3] if len(values) == 4 else right), right
+    else:
+        return None
+    if kind in ("margin", "padding"):
+        return [(f"{kind}-left", left), (f"{kind}-right", right)]
+    return [(f"border-left-{kind[7:]}", left), (f"border-right-{kind[7:]}", right)]
+
+
+def _box_values(name: str, tokens: list[Node]) -> list[tuple[str, str]] | None:
+    """The longhands a box declaration sets, each with its value, or None when its property cannot take it."""
+    kind, sides = _BOX[name]
+    parts = [token for token in tokens if token.type != "whitespace"]
+    if len(parts) == 1 and parts[0].type == "ident" and parts[0].lower_value in _GLOBAL:
+        keyword = parts[0].lower_value
+        if kind == "border":
+            names = [*(f"border-{side}-{part}" for side in ("left", "right") for part in ("width", "style"))]
+            return [(longhand, keyword) for longhand in names if sides == "both" or f"-{sides}-" in longhand]
+        found = _sides(kind, "inline" if sides == "box" else sides, [keyword])
+        return found
+    if kind == "border":  # a width, a style and a colour, in any order; one left out takes its initial value
+        width = [_BORDER_WIDTHS.get(part.lower_value) if part.type == "ident" else _length(part) for part in parts]
+        widths = [value for value in width if value not in (None, "auto")]
+        styles = [part.lower_value for part in parts if part.type == "ident" and part.lower_value in _BORDER_STYLES]
+        if len(widths) > 1 or len(styles) > 1 or any(value and value.endswith("%") for value in widths):
+            return None
+        chosen = (widths or ["3px"])[0], (styles or ["none"])[0]
+        found = []
+        for side in ("left", "right") if sides == "both" else (sides,):
+            found += [(f"border-{side}-width", chosen[0]), (f"border-{side}-style", chosen[1])]
+        return found
+    if kind == "border-style":
+        values = [part.lower_value for part in parts if part.type == "ident" and part.lower_value in _BORDER_STYLES]
+    elif kind == "border-width":
+        values = [_BORDER_WIDTHS.get(part.lower_value) if part.type == "ident" else _length(part) for part in parts]
+        values = [value for value in values if value not in ("auto",)]
+        if any(value is None or value.endswith("%") for value in values):
+            return None
+    else:
+        values = [_length(part) for part in parts]
+        if any(value is None for value in values) or (kind == "padding" and any(value in ("auto",) or value.startswith("-") for value in values)):
+            return None
+    if len(values) != len(parts):
+        return None
+    return _sides(kind, sides, values)
 
 
 def _value(name: str, tokens: list[Node]) -> str | None:
@@ -184,6 +346,13 @@ def _value(name: str, tokens: list[Node]) -> str | None:
         if part is not None and part.type == "ident" and part.lower_value in _GLOBAL | _WIDTH_WORDS[name]:
             return part.lower_value
         return None
+    if name == "border-spacing":  # the horizontal spacing, in px
+        if len(parts) == 1 and parts[0].type == "ident" and parts[0].lower_value in _GLOBAL:
+            return parts[0].lower_value
+        values = [_length(part) for part in parts]
+        if not 1 <= len(values) <= 2 or any(value is None or value in ("auto",) or value.endswith("%") or value.startswith("-") for value in values):
+            return None
+        return values[0]
     if not parts or any(part.type != "ident" for part in parts):
         return None
     words = [part.lower_value for part in parts]
@@ -226,17 +395,21 @@ def _has_function(tokens: list[Node]) -> bool:
 
 def _declarations(style: str | None) -> tuple[list[tuple[str, bool, str]], list[str]]:
     """Each declaration a style attribute makes that its property can take, in order (name, important,
-    value), and each declaration of a property read here that takes its value from a function."""
+    value), a box shorthand as the longhands it sets, and each declaration of a property read here that takes
+    its value from a function."""
     found, unread = [], []
     for item in tinycss2.parse_blocks_contents(style or "", skip_comments=True, skip_whitespace=True):
         if item.type != "declaration":
             continue
         if item.lower_name in _READ and _has_function(item.value):
             unread.append(f"{item.lower_name}:{tinycss2.serialize(item.value).strip()}")
+        elif item.lower_name in _BOX:
+            found += [(longhand, item.important, value) for longhand, value in _box_values(item.lower_name, item.value) or ()]
         elif (value := _value(item.lower_name, item.value)) is None:
             continue
         elif item.lower_name == "all":  # a CSS-wide keyword, set on every property read here
-            found += [(name, item.important, value) for name in sorted(_READ - {"all"})]
+            longhands = {longhand for name in _BOX for longhand, _ in _box_values(name, item.value) or ()}
+            found += [(name, item.important, value) for name in sorted((_READ - {"all"} - set(_BOX)) | longhands)]
         else:
             found.append((item.lower_name, item.important, value))
     return found, unread
@@ -258,14 +431,18 @@ def _local(tag: str) -> str:
 
 
 def _hidden_by_its_element(element: ElementTree.Element) -> bool:
-    """Whether a browser's own style sheet hides the element: one it always hides, <audio> without its
-    controls, <input type="hidden"> and a <dialog> that is not open."""
+    """Whether a browser's own style sheet hides the element where the page gives it no display: one it always
+    hides, and a <dialog> that is not open."""
     name = _local(element.tag)
-    return (
-        name in _UNSHOWN
-        or (name == "audio" and element.get("controls") is None)
-        or (name == "input" and (element.get("type") or "").strip().lower() == "hidden")
-        or (name == "dialog" and element.get("open") is None)
+    return name in _UNSHOWN or (name == "dialog" and element.get("open") is None)
+
+
+def _hidden_whatever_its_display(element: ElementTree.Element) -> bool:
+    """Whether a browser's own style sheet hides the element over any display a page gives it, as it does
+    <audio> without its controls and <input type="hidden"> (an important declaration)."""
+    name = _local(element.tag)
+    return (name == "audio" and element.get("controls") is None) or (
+        name == "input" and (element.get("type") or "").strip().lower() == "hidden"
     )
 
 
@@ -290,6 +467,12 @@ def _attribute_width(value: str | None) -> str | None:
     if not end:
         return None
     return _number(float(text[:end])) + ("%" if text[end : end + 1] == "%" else "px")
+
+
+def _attribute_pixels(value: str | None) -> float | None:
+    """A ``cellpadding``, ``cellspacing`` or ``border`` attribute as HTML maps it: a number of pixels."""
+    width = _attribute_width(value)
+    return float(width[:-2]) if width and width.endswith("px") else None
 
 
 def _capped(element: ElementTree.Element) -> bool:
@@ -331,48 +514,64 @@ def _take(won: str | None, parent: str, initial: str, own: str | None = None) ->
     return initial if won == "initial" else won
 
 
+def _with_hints(declared: list[tuple[str, bool, str]], hints: list[tuple[str, bool, str]], *names: str) -> str | None:
+    """The value that wins among the style's declarations of ``names`` and the hints below them: revert drops
+    both, and revert-layer rolls back to the hints."""
+    won = _won(declared, *names)
+    if won == "revert-layer":
+        return _won(hints, *names)
+    if won is None:
+        return _won(hints, *names)
+    return won
+
+
 @dataclass(frozen=True)
 class _State:
-    """What an element's text inherits, and whether it shows and sits in the header."""
+    """What an element's text inherits, whether it shows and sits in the header, and the room its content has."""
 
     blink: str = "auto"  # text-size-adjust, as Blink reads it
     webkit: str = "auto"  # as Apple's WebKit reads it: the prefixed name alone
-    overflow_wrap: str = "normal"  # as Blink reads it, word-wrap's anywhere taken
-    overflow_wrap_webkit: str = "normal"  # as WebKit may, word-wrap's anywhere dropped
+    overflow_wrap: str = "normal"  # as Blink reads it: word-wrap's anywhere taken
+    overflow_wrap_strict: str = "normal"  # word-wrap's anywhere dropped, as WebKit may read it
     word_break: str = "normal"
-    line_break: str = "auto"  # as Blink reads it, -webkit-line-break's anywhere taken
-    line_break_webkit: str = "auto"  # as WebKit may, the alias's anywhere dropped
+    line_break: str = "auto"  # as Blink reads it: -webkit-line-break's anywhere dropped
+    line_break_loose: str = "auto"  # -webkit-line-break's anywhere taken, as WebKit may read it
     white_space: str = "normal"  # as an engine that predates text-wrap-mode reads it
     wrap_mode: str = "wrap"  # as one that reads it does: the last of white-space, text-wrap and text-wrap-mode
+    collapse: str = "collapse"  # as one that reads white-space-collapse does: the last of white-space and it
     in_header: bool = False
     shown: bool = True
     inline: bool = False  # whether the element is an inline box, which display:inherit gives its child
+    room: float = NARROWEST_SCREEN  # px across the content's box on the narrowest phone
+    cell_room: float | None = None  # what a table gives each of its cells, for its rows to hand on
+    cell_padding: float | None = None  # the table's cellpadding, a hint on its cells' padding
+    cell_border: float = 0.0  # the table's border attribute's 1 px border on its cells
 
     @property
     def wraps(self) -> bool:
         return _WHITE_SPACE[self.white_space][1] and self.wrap_mode == "wrap"
 
     @property
-    def keeps_breaks(self) -> bool:
-        return _WHITE_SPACE[self.white_space][0]
+    def keeps_breaks(self) -> bool:  # in both kinds of engine
+        return _WHITE_SPACE[self.white_space][0] and self.collapse != "collapse"
 
     @property
-    def collapses(self) -> bool:  # a run of spaces shows as one
-        return self.white_space in ("normal", "nowrap", "pre-line")
+    def collapses(self) -> bool:  # a run of spaces shows as one, in both kinds of engine
+        return self.white_space in ("normal", "nowrap", "pre-line") and self.collapse in ("collapse", "preserve-breaks")
+
+    @property
+    def lends(self) -> bool:  # the rule that lets a run break anywhere, as some engine may take it
+        return self.overflow_wrap == "anywhere" or self.word_break in ("break-word", "break-all") or self.line_break_loose == "anywhere"
 
     @property
     def breaks_anywhere(self) -> bool:  # in every engine
         return self.wraps and (
-            self.overflow_wrap_webkit == "anywhere"
-            or self.word_break in ("break-word", "break-all")
-            or self.line_break_webkit == "anywhere"
+            self.overflow_wrap_strict == "anywhere" or self.word_break in ("break-word", "break-all") or self.line_break == "anywhere"
         )
 
     @property
     def breaks_in_some_engine(self) -> bool:
-        return self.wraps and (
-            self.overflow_wrap == "anywhere" or self.word_break in ("break-word", "break-all") or self.line_break == "anywhere"
-        )
+        return self.wraps and self.lends
 
 
 @dataclass(frozen=True)
@@ -381,35 +580,29 @@ class _Piece:
     state: _State
 
 
-@dataclass(frozen=True)
-class _Width:
-    """The widths a shown element sets: its ``width`` attribute, and its style's winning ``width``,
-    ``min-width`` and ``max-width``."""
-
-    tag: str
-    attribute: str | None
-    width: str | None
-    min_width: str | None
-    max_width: str | None
-
-
 class _Page:
     """The text a page shows, piece by piece and each with what it inherits, read as a browser builds the
-    page, and the widths its shown elements set. A ``None`` among the pieces is an edge a run cannot cross."""
+    page; what its boxes take of the room their parents give them; and the tables the break rule reaches. A
+    ``None`` among the pieces is an edge a run cannot cross."""
 
     def __init__(self, page: str) -> None:
         root = tinyhtml5.parse(page, namespace_html_elements=False)
         self.pieces: list[_Piece | None] = []
-        self.widths: list[_Width] = []
+        self.out_of_line: list[list[_Piece | None]] = []
+        self.box_problems: list[str] = []
+        self.reached: list[str] = []
         self.unread: list[str] = []
         self.headers = _header_tables(root)
         # A style block or a stylesheet applies wherever it sits, in the head or in what the page hides.
         self.stylesheets = sum(1 for element in root.iter() if isinstance(element.tag, str) and _is_stylesheet(element))
         self._walk(root, _State())
+        for pieces in self.out_of_line:  # a float's or a positioned box's text: runs of its own
+            self.pieces += [None, *pieces, None]
 
-    def _state(self, element: ElementTree.Element, parent: _State) -> tuple[_State, bool, list[tuple[str, bool, str]]]:
-        """What the element's text inherits, whether a run goes on across its tags, and its declarations."""
-        tag = element.tag
+    def _state(self, element: ElementTree.Element, parent: _State) -> tuple[_State, bool, list[tuple[str, bool, str]], str | None]:
+        """What the element's text inherits, whether a run goes on across its tags, its declarations, and the
+        display its style gives it."""
+        tag = _local(element.tag)
         declared, unread = _declarations(element.get("style"))
         self.unread += unread
         display = _won(declared, "display")
@@ -422,39 +615,40 @@ class _Page:
         shown = parent.shown and display != "none" and not (display is None and _hidden_by_its_element(element))
         if element.get("hidden") is not None and display is None:
             shown = False
+        shown = shown and not _hidden_whatever_its_display(element)
         # A cell's nowrap attribute: white-space:nowrap below every declaration of its style.
-        hint = [("white-space", False, "nowrap")] if tag in ("td", "th") and element.get("nowrap") is not None else []
-        spacing = hint + declared
+        hints = [("white-space", False, "nowrap")] if tag in _CELLS and element.get("nowrap") is not None else []
+        own_space = _OWN_WHITE_SPACE.get(tag)
         modes = [
             ("wrap-mode", important, _MODE_OF.get(value, value) if name == "white-space" else value)
-            for name, important, value in spacing
+            for name, important, value in declared
             if name in ("white-space", "text-wrap", "text-wrap-mode")
         ]
-        own_space = _OWN_WHITE_SPACE.get(tag)
+        collapses = [
+            ("collapse", important, _COLLAPSE_OF.get(value, value) if name == "white-space" else value)
+            for name, important, value in declared
+            if name in ("white-space", "white-space-collapse")
+        ]
+        hint_modes = [("wrap-mode", False, "nowrap")] if hints else []
+        hint_collapses = [("collapse", False, "collapse")] if hints else []
+        no_alias_anywhere = [d for d in declared if d[0] not in ("word-wrap", "-webkit-line-break") or d[2] != "anywhere"]
         state = replace(
             parent,
             blink=_take(_won(declared, "text-size-adjust", "-webkit-text-size-adjust"), parent.blink, "auto"),
             webkit=_take(_won(declared, "-webkit-text-size-adjust"), parent.webkit, "auto"),
             overflow_wrap=_take(_won(declared, "overflow-wrap", "word-wrap"), parent.overflow_wrap, "normal"),
-            overflow_wrap_webkit=_take(
-                _won([d for d in declared if d[0] != "word-wrap" or d[2] != "anywhere"], "overflow-wrap", "word-wrap"),
-                parent.overflow_wrap_webkit,
-                "normal",
-            ),
+            overflow_wrap_strict=_take(_won(no_alias_anywhere, "overflow-wrap", "word-wrap"), parent.overflow_wrap_strict, "normal"),
             word_break=_take(_won(declared, "word-break"), parent.word_break, "normal"),
-            line_break=_take(_won(declared, "line-break", "-webkit-line-break"), parent.line_break, "auto"),
-            line_break_webkit=_take(
-                _won([d for d in declared if d[0] != "-webkit-line-break" or d[2] != "anywhere"], "line-break", "-webkit-line-break"),
-                parent.line_break_webkit,
-                "auto",
-            ),
-            white_space=_take(_won(spacing, "white-space"), parent.white_space, "normal", own_space),
-            wrap_mode=_take(_won(modes, "wrap-mode"), parent.wrap_mode, "wrap", _MODE_OF[own_space] if own_space else None),
+            line_break=_take(_won(no_alias_anywhere, "line-break", "-webkit-line-break"), parent.line_break, "auto"),
+            line_break_loose=_take(_won(declared, "line-break", "-webkit-line-break"), parent.line_break_loose, "auto"),
+            white_space=_take(_with_hints(declared, hints, "white-space"), parent.white_space, "normal", own_space),
+            wrap_mode=_take(_with_hints(modes, hint_modes, "wrap-mode"), parent.wrap_mode, "wrap", _MODE_OF[own_space] if own_space else None),
+            collapse=_take(_with_hints(collapses, hint_collapses, "collapse"), parent.collapse, "collapse", _COLLAPSE_OF[own_space] if own_space else None),
             in_header=parent.in_header or any(element is header for header in self.headers),
             shown=shown,
         )
-        crossed = _inline(display) if display is not None else _local(tag) not in _RUN_EDGES
-        return replace(state, inline=crossed), crossed, declared
+        crossed = _inline(display) if display is not None else tag not in _RUN_EDGES
+        return replace(state, inline=crossed), crossed, declared, display
 
     def _text(self, text: str | None, state: _State) -> None:
         if text and state.shown:
@@ -463,23 +657,210 @@ class _Page:
     def _walk(self, element: ElementTree.Element, parent: _State) -> None:
         if not isinstance(element.tag, str):  # a comment, Outlook's conditionals among them: no text
             return
-        state, crossed, declared = self._state(element, parent)
+        state, crossed, declared, display = self._state(element, parent)
         if not state.shown:  # out of the layout: its text is not read, its widths hold nothing, and it ends no run
             return
-        self.widths.append(_Width(
-            element.tag, element.get("width"), _won(declared, "width"), _won(declared, "min-width"), _won(declared, "max-width"),
-        ))
-        if element.tag == "wbr":
+        tag = _local(element.tag)
+        floats = _won(declared, "float") not in (None, "none", "initial", "unset", "revert", "revert-layer")
+        out_of_line = floats or _won(declared, "position") in ("absolute", "fixed")
+        state = self._box(element, tag, state, parent, declared, display, out_of_line)
+        if tag in ("table", *_TABLE_PARTS) and state.lends and not (tag != "table" and parent.lends):
+            self.reached.append(f"<{tag}> that reads {' '.join(''.join(element.itertext()).split())[:40]!r}")
+        if tag == "wbr":
             self._text(_ZERO_WIDTH_SPACE, state)
             return
-        if not crossed:
+        if out_of_line:  # out of the line: its text forms runs of its own, and the line runs on across it
+            outer, self.pieces = self.pieces, []
+        if not crossed or out_of_line:
             self.pieces.append(None)
         self._text(element.text, state)
         for child in element:
             self._walk(child, state)
             self._text(child.tail, state)
-        if not crossed:
+        if not crossed or out_of_line:
             self.pieces.append(None)
+        if out_of_line:
+            self.out_of_line.append(self.pieces)
+            self.pieces = outer
+
+    def _side(self, declared, name: str, room: float, ua: float, hint: float | None, named: str) -> float:
+        """A margin's, a padding's or a border width's px on one side, as its style sets it, else as its hint
+        or a browser's own style sheet does."""
+        value = _won(declared, name)
+        if value == "revert-layer" or value is None:
+            return hint if hint is not None else ua
+        if value == "revert":
+            return ua
+        if value in ("initial", "unset", "auto"):
+            return 0.0
+        if value in ("inherit", "refused"):
+            self.box_problems.append(f"{named}'s {name} is set by the font, the screen or its parent, which this check does not resolve: write it in px or %")
+            return 0.0
+        pixels = float(value[:-1]) / 100 * room if value.endswith("%") else float(value[:-2])
+        if pixels < 0:
+            self.box_problems.append(f"{named}'s {name} is negative, which this check does not resolve: lay the box out with positive margins")
+            return 0.0
+        return pixels
+
+    def _border(self, declared, side: str, ua: float, hint: float | None, named: str) -> float:
+        """A border's px on one side: none unless its style shows one; then its width, as its style sets it,
+        else as the table's border attribute or a browser's own style sheet does, else medium's 3 px."""
+        style = _won(declared, f"border-{side}-style")
+        if style in (None, "revert-layer"):
+            shows = hint is not None or ua > 0
+        elif style == "revert":
+            shows = ua > 0
+        else:
+            shows = style not in ("none", "hidden") and style not in _GLOBAL
+        return self._side(declared, f"border-{side}-width", 0.0, ua or 3.0, hint, named) if shows else 0.0
+
+    def _box(self, element, tag: str, state: _State, parent: _State, declared, display: str | None, out_of_line: bool) -> _State:
+        """The element's box: what it takes of the room its parent gives it, each overrun noted, and the
+        state with the room its content has."""
+        named = f"<{tag}>"
+        if display is not None and display not in ("none",):
+            kind = (
+                "inline" if _inline(display)
+                else "replaced" if tag in _REPLACED
+                else "atomic" if display.startswith("inline") or display == "-webkit-inline-box"
+                else "table" if display == "table"
+                else "part" if display in ("table-row-group", "table-header-group", "table-footer-group", "table-row")
+                else "cell" if display == "table-cell" and tag in _CELLS
+                else "block"
+            )
+        else:
+            kind = (
+                "replaced" if tag in _REPLACED
+                else "table" if tag == "table"
+                else "part" if tag in _TABLE_PARTS
+                else "cell" if tag in _CELLS
+                else "atomic" if tag in _WIDGETS
+                else "block" if tag in _RUN_EDGES and tag not in ("br", "col", "colgroup", "math", "caption")
+                else "inline"
+            )
+        if out_of_line and kind in ("inline", "block"):
+            kind = "atomic"  # a float or a positioned box shrinks to its content
+        if kind == "inline":
+            return state
+        if kind == "part":
+            return replace(state, room=parent.cell_room if parent.cell_room is not None else parent.room)
+        room = parent.cell_room if kind == "cell" and parent.cell_room is not None else parent.room
+        ua_margin = _UA_MARGIN.get(tag, (0.0, 0.0))
+        ua_padding = (1.0, 1.0) if kind == "cell" else _UA_PADDING.get(tag, (0.0, 0.0))  # a cell's 1 px
+        padding_hint = parent.cell_padding if kind == "cell" else None  # its table's cellpadding
+        border_attr = _attribute_pixels(element.get("border")) if tag == "table" else None
+        border_hint = border_attr if border_attr else (parent.cell_border if kind == "cell" and parent.cell_border else None)
+        ua_border = _UA_BORDER.get(tag, 0.0)
+        margins = 0.0 if kind == "cell" else sum(  # a cell takes no margin
+            self._side(declared, f"margin-{side}", room, ua, None, named) for side, ua in zip(("left", "right"), ua_margin)
+        )
+        padding = sum(self._side(declared, f"padding-{side}", room, ua, padding_hint, named) for side, ua in zip(("left", "right"), ua_padding))
+        borders = sum(self._border(declared, side, ua_border, border_hint, named) for side in ("left", "right"))
+        extras = padding + borders
+        hinted = _attribute_width(element.get("width")) if tag in _WIDTH_HINTED else None
+        width = _won(declared, "width")
+        if width in (None, "revert-layer"):
+            width = hinted
+        elif width in ("initial", "unset", "revert"):
+            width = None
+        sizing = _won(declared, "box-sizing")
+        border_box = sizing == "border-box" or (sizing is None and kind == "table")
+        cap, cap_held = self._cap(declared, room, kind, named)
+        least = self._least(declared, room, named)
+        content: float
+        if width in _SIZING or width == "auto":
+            if width == "max-content":
+                self.box_problems.append(f"{named}'s width max-content is set by its content, which this check does not measure: give it a width in px or %")
+            width = None
+        if width == "inherit" or (width and width.lstrip("0123456789.") in _RELATIVE):
+            self.box_problems.append(f"{named}'s width {width} is set by the font, the screen or its parent, which this check does not resolve: write it in px or %")
+            width = None
+        if width is None and kind == "replaced" and not cap_held:
+            self.box_problems.append(
+                f"{named} has no width, so it shows at its natural size, which this check does not know: give it a width "
+                f"that fits the {room:g} px its parent gives it on a {NARROWEST_SCREEN} px phone, or max-width:100%"
+            )
+        if width is None:
+            least_box = (least if border_box else least + extras) if least else 0.0
+            if least_box and margins + least_box > room + _SLACK:
+                self.box_problems.append(
+                    f"{named} takes {margins + least_box:g} px across at its min-width, with its borders, padding and margins, where "
+                    f"its parent gives it {room:g} px on a {NARROWEST_SCREEN} px phone: lower the min-width, or set it in %"
+                )
+            elif room - margins - extras < -_SLACK:
+                self.box_problems.append(
+                    f"{named}'s margins, borders and padding take {margins + extras:g} px, and leave its content no room in the "
+                    f"{room:g} px its parent gives it on a {NARROWEST_SCREEN} px phone"
+                )
+            box = max(room - margins, least_box)
+            if cap is not None:
+                box = min(box, cap + (0 if border_box else extras))
+            content = max(min(box, room - margins) - extras, 0.0)
+        else:
+            set_to = float(width[:-1]) / 100 * room if width.endswith("%") else _px(width)
+            set_to = max(min(set_to, cap) if cap is not None else set_to, least)
+            box = set_to if border_box else set_to + extras
+            if kind == "cell" and box > room + _SLACK:
+                self.box_problems.append(
+                    f"{named} is set {set_to:g} px wide where its table gives it {room:g} px on a {NARROWEST_SCREEN} px phone: "
+                    "Chromium squeezes the cell, but CSS 2.1's automatic table layout reads a cell's width as its least, so give it a percentage"
+                )
+            elif kind != "cell" and margins + box > room + _SLACK:
+                advice = (
+                    "hold it to the room with max-width:100%" if kind == "replaced"
+                    else f"let it take the room up to a cap (width:100%;max-width:{set_to:g}px), with classic Outlook's "
+                    "fixed width in a conditional comment"
+                )
+                self.box_problems.append(
+                    f"{named} takes {margins + box:g} px across, with its borders, padding and margins, where its parent gives it "
+                    f"{room:g} px on a {NARROWEST_SCREEN} px phone: {advice}"
+                )
+            content = max(min(box, room - margins) - extras, 0.0)
+        if kind != "table":
+            return replace(state, room=content, cell_room=None)
+        spacing = _attribute_pixels(element.get("cellspacing"))
+        declared_spacing = _won(declared, "border-spacing")
+        if declared_spacing not in (None, "revert-layer"):
+            spacing = 0.0 if declared_spacing in _GLOBAL else float(declared_spacing[:-2])
+        elif spacing is None:
+            spacing = 0.0 if _won(declared, "border-collapse") == "collapse" else 2.0
+        return replace(
+            state,
+            room=content,
+            cell_room=max(content - 2 * spacing, 0.0),
+            cell_padding=_attribute_pixels(element.get("cellpadding")),
+            cell_border=1.0 if border_attr else 0.0,
+        )
+
+    def _cap(self, declared, room: float, kind: str, named: str) -> tuple[float | None, bool]:
+        """A max-width as px, and whether it holds a replaced element to the room."""
+        value = _won(declared, "max-width")
+        if value is None or value in _GLOBAL | _SIZING | {"none"}:
+            return None, False
+        if value.endswith("%"):
+            if kind != "replaced":  # in a table's cell a percentage holds no box's own content
+                return None, False
+            return float(value[:-1]) / 100 * room, float(value[:-1]) <= 100
+        if value.lstrip("0123456789.") in _RELATIVE:
+            self.box_problems.append(f"{named}'s max-width {value} is set by the font, the screen or its parent: write it in px or %")
+            return None, False
+        pixels = _px(value)
+        return pixels, pixels <= room
+
+    def _least(self, declared, room: float, named: str) -> float:
+        """A min-width as px."""
+        value = _won(declared, "min-width")
+        if value is None or value in _GLOBAL | {"auto", "min-content", "fit-content", "stretch", "-webkit-fill-available"}:
+            return 0.0
+        if value == "max-content":
+            self.box_problems.append(f"{named}'s min-width max-content is set by its content, which this check does not measure: write it in px or %")
+            return 0.0
+        if value.endswith("%"):
+            return float(value[:-1]) / 100 * room
+        if value.lstrip("0123456789.") in _RELATIVE:
+            self.box_problems.append(f"{named}'s min-width {value} is set by the font, the screen or its parent, which this check does not resolve: write it in px or %")
+            return 0.0
+        return _px(value)
 
     def refusals(self) -> list[str]:
         """What the page asks of the reader that it does not resolve."""
@@ -501,8 +882,8 @@ class _Page:
 
     def runs(self) -> list[list[tuple[str, _State]]]:
         """Each run of characters the page shows with nowhere between them to wrap, each character with
-        what it inherits. Spaces a line collapses count once, and a run starts and ends at a character that
-        shows."""
+        what it inherits. Spaces a line collapses count once and fall away at a run's ends; spaces it keeps
+        count each."""
         runs: list[list[tuple[str, _State]]] = [[]]
         for piece in self.pieces:
             if piece is None:
@@ -522,9 +903,9 @@ class _Page:
         trimmed = []
         for run in runs:
             start, end = 0, len(run)
-            while start < end and run[start][0] == " ":
+            while start < end and run[start][0] == " " and run[start][1].collapses:
                 start += 1
-            while end > start and run[end - 1][0] == " ":
+            while end > start and run[end - 1][0] == " " and run[end - 1][1].collapses:
                 end -= 1
             if start < end:
                 trimmed.append(run[start:end])
@@ -603,73 +984,128 @@ def long_run_problems(page: str) -> list[str]:
     return problems
 
 
-def _pixels(value: str | None) -> tuple[float | None, bool]:
-    """A width as (pixels, refused): pixels where an absolute unit sets it; refused where the font or the
-    screen sets it, or the parent's width does (``inherit``); neither for a percentage or a keyword."""
-    if value == "inherit":
-        return None, True
-    if value is None or value.endswith("%") or not value[:1].isdigit():
-        return None, False
-    unit = value.lstrip("0123456789.")
-    if unit in _RELATIVE:
-        return None, True
-    return float(value[: len(value) - len(unit)]) * _ABSOLUTE[unit], False
+def reach_problems(page: str) -> list[str]:
+    """Where the rule that lets a run break anywhere reaches a table, in some engine: there it splits a column
+    of amounts, so it sits on the lines that print a run, or on a cell of its own."""
+    parsed = _Page(page)
+    return parsed.refusals() + [
+        f"the rule that lets a run break anywhere reaches the {where}, in some engine: put it on the lines that print "
+        "a run, since in a table it splits a column of amounts"
+        for where in parsed.reached
+    ]
 
 
 def fixed_width_problems(page: str) -> list[str]:
-    """Where a page sets a width the narrowest phone cannot hold, in what a client other than classic Outlook
-    shows: a fixed width wider than ``WIDEST_FIXED`` that no ``max-width`` holds to the screen, or a fixed
-    ``min-width`` wider than that."""
+    """Where a box a client other than classic Outlook shows is set wider than the room its parent gives it on
+    the narrowest phone, or leaves its content no room there."""
     parsed = _Page(page)
-    problems = parsed.refusals()
-    for element in parsed.widths:
-        named = f"<{_local(element.tag)}>"
-        if element.width is None:
-            width = _attribute_width(element.attribute)
-        else:  # the style's width wins over the attribute, and a global keyword reverts it with the attribute
-            width = "auto" if element.width in _GLOBAL - {"inherit"} else element.width
-        cap, cap_refused = _pixels(element.max_width)
-        held = (element.max_width or "").endswith("%") and float(element.max_width[:-1]) <= 100
-        held = held or (cap is not None and cap <= WIDEST_FIXED)
-        for name, value in (("width", width), ("min-width", element.min_width)):
-            pixels, refused = _pixels(value)
-            if refused:
-                problems.append(
-                    f"{named}'s {name} {value} is set by the font, the screen or its parent, which this check does not "
-                    "resolve: write it in px or %"
-                )
-            elif pixels is not None and pixels > WIDEST_FIXED and not (name == "width" and held):
-                problems.append(
-                    f"{named}'s {name} is {pixels:g} px, more than a {NARROWEST_SCREEN} px phone holds: let it take the width "
-                    f"up to a cap (width:100%;max-width:{pixels:g}px), with classic Outlook's fixed width in a conditional comment"
-                )
-        if cap_refused:
-            problems.append(f"{named}'s max-width {element.max_width} is set by the font, the screen or its parent: write it in px or %")
-    return problems
+    return parsed.refusals() + parsed.box_problems
+
+
+def viewports(page: str) -> list[str]:
+    """The content of each viewport ``<meta>`` a page carries, wherever it sits (a browser reads one in the body
+    too), its comma-separated settings spaced one way."""
+    root = tinyhtml5.parse(page, namespace_html_elements=False)
+    return [
+        ", ".join(" ".join(part.split()) for part in (element.get("content") or "").split(",") if part.strip())
+        for element in root.iter()
+        if isinstance(element.tag, str) and _local(element.tag) == "meta" and (element.get("name") or "").strip().lower() == "viewport"
+    ]
+
+
+def _outlook_takes(condition: str) -> bool | None:
+    """Whether classic Outlook, 2016 and later (``mso 16``), takes a conditional comment's condition: None when
+    the reader cannot parse it."""
+    tokens, at = [], 0
+    while at < len(condition):
+        match = _CONDITION.match(condition, at)
+        if not match or not match.group(1):
+            if condition[at:].strip():
+                return None
+            break
+        tokens.append(match.group(1).lower())
+        at = match.end()
+    position = 0
+
+    def peek() -> str | None:
+        return tokens[position] if position < len(tokens) else None
+
+    def take() -> str:
+        nonlocal position
+        position += 1
+        return tokens[position - 1]
+
+    def either() -> bool:
+        value = both()
+        while peek() == "|":
+            take()
+            value = both() or value
+        return value
+
+    def both() -> bool:
+        value = one()
+        while peek() == "&":
+            take()
+            value = one() and value
+        return value
+
+    def one() -> bool:
+        token = take() if peek() is not None else None
+        if token == "!":
+            return not one()
+        if token == "(":
+            value = either()
+            if take() != ")":
+                raise ValueError(condition)
+            return value
+        compare = _COMPARISONS.get(token or "")
+        feature = take() if compare is not None and peek() is not None else token
+        if feature is None or not feature.isalpha():
+            raise ValueError(condition)
+        version = float(take()) if (peek() or "")[:1].isdigit() else None
+        if compare is not None and version is None:
+            raise ValueError(condition)
+        have = _OUTLOOK.get(feature)
+        if have is None:
+            return False
+        if version is None:
+            return True
+        return compare(have, version) if compare is not None else int(have) == int(version)
+
+    try:
+        value = either()
+    except (IndexError, ValueError):
+        return None
+    return value if position == len(tokens) else None
 
 
 def outlook_view(page: str) -> str:
-    """The page as classic Outlook reads its conditional comments: what one meant for Outlook holds shows,
-    and what ``<!--[if !mso]><!-->`` holds does not."""
+    """The page as classic Outlook reads its conditional comments: what one whose condition Outlook takes holds
+    shows, and what another holds does not, in a comment or a revealed block."""
 
     def read(match: re.Match[str]) -> str:
-        condition = match.group(1).strip().lower()
-        return match.group(3) if "mso" in condition and not condition.startswith("!") else ""
+        return match.group(3) if _outlook_takes(match.group(1)) else ""
 
-    return _CONDITIONAL.sub(read, page)
+    def revealed(match: re.Match[str]) -> str:
+        return match.group(2) if _outlook_takes(match.group(1)) else ""
+
+    return _REVEALED.sub(revealed, _CONDITIONAL.sub(read, page))
 
 
 def outlook_width_problems(page: str) -> list[str]:
     """Where classic Outlook, which reads no ``max-width``, would not hold a column capped at 600 px at 600 px:
-    in its view of the page, each such table sits in a table 600 px wide."""
+    in its view of the page, the nearest table around each such column that is set to a fixed width is 600 px
+    wide."""
     root = tinyhtml5.parse(outlook_view(page), namespace_html_elements=False)
     parents = {child: parent for parent in root.iter() for child in parent}
     problems = []
     for table in (element for element in root.iter() if element.tag == "table" and _capped(element)):
-        around = parents.get(table)
-        while around is not None and around.tag != "table":
+        around, width = parents.get(table), None
+        while around is not None:
+            if around.tag == "table" and (width := _attribute_width(around.get("width"))) and width.endswith("px"):
+                break
             around = parents.get(around)
-        if around is None or _attribute_width(around.get("width")) != "600px":
+        if around is None or width != "600px":
             text = " ".join("".join(table.itertext()).split())[:40]
             problems.append(
                 f"in classic Outlook, which reads no max-width, the column capped at 600 px that reads {text!r} sits in no "

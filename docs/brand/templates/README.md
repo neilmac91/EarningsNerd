@@ -12,7 +12,7 @@ the reasoning behind them. Fonts are the committed Inter variable and Geist Mono
 | `business-card-front.svg` | 85 × 55 mm + 3 mm bleed (91 × 61 mm) · 4.1 KB | Card front: horizontal lockup top-left on cream, the tagline with the highlight under "shows its work", the address, fill-in name and role | Print only | Inter, Geist Mono by family name (see Print) |
 | `business-card-back.svg` | 85 × 55 mm + 3 mm bleed (91 × 61 mm) · 2.9 KB | Card back: navy, stacked lockup in its dark colours centred, tagline beneath | Print only | Inter by family name |
 | `pdf-cover.html` | A4 portrait, 210 × 297 mm · 6.8 KB | Cover page for the filing summary PDF: lockup, "Filing summary", the filing identity, the marked headline, the tally line with named fields | `backend/app/services/pdf_branding.py` (`render_branded_pdf`, the page-1 masthead) on the shell that `backend/app/services/export_service.py` (`generate_pdf_html`) builds | `@font-face`, relative: Inter variable, Geist Mono |
-| `email-header.html` | fluid to 600 px, with Outlook's 600 px tables; table layout, inline styles · 9.3 KB | Header block (lockup, hairline, marked tagline) and footer line for transactional email | `backend/app/services/email_service.py`, `_wrap_html` | Inline stacks led by Inter; `@font-face` (Inter) for the preview only |
+| `email-header.html` | fluid to 600 px, with Outlook's 600 px tables; table layout, inline styles · 9.4 KB | Header block (lockup, hairline, marked tagline) and footer line for transactional email | `backend/app/services/email_service.py`, `_wrap_html` | Inline stacks led by Inter; `@font-face` (Inter) for the preview only |
 | `merch-notebook-cover.svg` | A5, 148 × 210 mm · 2.9 KB | Notebook cover: italic "Nerd" large in sage, the margin as a printed rule 18 mm from the left edge, stacked lockup at the foot | Print only | Inter by family name (see Print) |
 | `merch-notebook-cover.png` | 740 × 1050 px | Preview of the notebook cover | n/a | rendered with the committed Inter |
 
@@ -59,8 +59,10 @@ cover's comment says how the backend fills them.
 - **The notebook's margin** is the rule alone. Bracket marks are twins of markers in text
   (06-system.md §6), and a cover carries no text to twin, so none are printed; the owner's own
   marks go beside the rule.
-- **The email footer line** is the app's sentence form, `SEC_EDGAR_NOT_ADVICE` in
-  `frontend/components/AiDisclaimer.tsx`, so the backend has one wording to copy.
+- **The email footer line** names filing data: "Filing data sourced from SEC EDGAR. Not investment
+  advice." It sits on every mail, and an earnings-day alert carries a provider's report dates, so it
+  narrows the app's sentence form, `SEC_EDGAR_NOT_ADVICE` in `frontend/components/AiDisclaimer.tsx`,
+  which labels the Copilot's filing answers alone (D-017, D-041).
 
 ## Rendering
 

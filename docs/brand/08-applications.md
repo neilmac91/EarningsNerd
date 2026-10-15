@@ -213,7 +213,10 @@ PDF cover (A4, with the fields the backend fills named), the email header (a flu
 from the verified FY2025 set; every colour is a token; the mark's paths are byte-identical to
 `earningsnerd-mark-mono.svg`. Two decisions were taken while checking them: the notebook's margin
 carries no printed bracket marks, because a cover has no text for them to twin (D-016), and the
-email footer uses the app's own sentence form of the disclaimer (D-017).
+email footer uses the app's own sentence form of the disclaimer (D-017). The mail's line now names
+filing data alone, "Filing data sourced from SEC EDGAR. Not investment advice.", since an
+earnings-day alert carries a provider's report dates (D-041), and its page is fluid up to 600 px
+(D-042).
 
 ## 6. The founder slot
 
