@@ -582,12 +582,16 @@ async def test_summary_context_reports_once_and_isolates_concurrent_records(monk
 @pytest.mark.asyncio
 async def test_recovery_semaphore_wait_is_inside_parent_deadline(monkeypatch):
     called = []
-    waiting = asyncio.Event()
+    waiting, cancelled = asyncio.Event(), []
 
-    class NoFreeSlot:  # the recovery semaphore, never acquired, saying when the wait starts
+    class NoFreeSlot:  # the recovery semaphore, never acquired, saying when the wait starts and ends
         async def __aenter__(self):
             waiting.set()
-            await asyncio.Event().wait()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                cancelled.append(True)
+                raise
 
         async def __aexit__(self, *exc):
             return False
@@ -623,7 +627,8 @@ async def test_recovery_semaphore_wait_is_inside_parent_deadline(monkeypatch):
                 await asyncio.wait_for(task, 10)
         finally:
             requests._budget.reset(token)
-        assert deadlines[0].expired()
+        # The deadline cancelled the wait itself; a shielded or detached wait would outlive the parent.
+        assert deadlines[0].expired() and cancelled == [True]
     assert called == []
 
 
