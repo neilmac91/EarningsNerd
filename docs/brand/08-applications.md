@@ -102,9 +102,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   history on SEC EDGAR" opens the company's EDGAR list through the shared company link the lead
   uses (`edgarCompanyUrl`: every form, and EDGAR's own defaults in place of the old `owner=include`
   and `count=40`), in the filing identity's quiet link. `earningsnerd/no-hand-rolled-toggle-group`
-  (new ESLint rule) fails a hand-built role="group" of pressed buttons written in the group's own markup,
-  not in a wrapper component or imported under another name, outside the SegmentedControl's own file (a
-  row without role="group" is outside its reach); `tests/unit/segmentedControlOptionCount.spec.ts`
+  (new ESLint rule) fails a hand-built role="group" of pressed buttons outside the SegmentedControl's own
+  file, reading a pressed `<button>` or `<Button>` in the group's own markup, through a same-file wrapper
+  and through the DS Button under another name (a row without role="group", an imported wrapper and a
+  wrapper of a wrapper are outside its reach, review-checked); `tests/unit/segmentedControlOptionCount.spec.ts`
   (new) fails a SegmentedControl given more than five options, so a long set takes the compact select,
   and the filings form filter, a set known only at run time, renders as the toolbar's compact select
   past five (a filer with both domestic and foreign forms), so no SegmentedControl ever shows more than

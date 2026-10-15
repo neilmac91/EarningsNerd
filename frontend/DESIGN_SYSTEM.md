@@ -544,10 +544,13 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  so its closed face clips the name ("Revenue" shows four letters); the open list shows
                  every name whole and nothing overflows (E34).
                  Gate: earningsnerd/no-hand-rolled-toggle-group (eslint.designRules.mjs) fails a
-                 role="group" holding an aria-pressed <button> or <Button> written in the group's own
-                 markup, not in a wrapper component or imported under another name (WordingChanges'
-                 LabelToggle, E62), anywhere outside components/ui/SegmentedControl.tsx. A hand-built
-                 row without role="group" is outside its reach (FeedbackWidget's type row, E35).
+                 role="group" holding an aria-pressed <button> or <Button>, anywhere outside
+                 components/ui/SegmentedControl.tsx. It reads the button in the group's own markup,
+                 through a same-file wrapper component (one level) and through the DS Button imported
+                 under another name. WordingChanges' review row (LabelToggle) carries the rule's one
+                 disable: a second press clears its label, a state the control cannot hold (E62). A row
+                 without role="group" (FeedbackWidget's type row, E35), a wrapper imported from another
+                 file and a wrapper that renders another wrapper are outside its reach (review-checked).
                  Gate: tests/unit/segmentedControlOptionCount.spec.ts fails a SegmentedControl given
                  more than five options (MAX_SEGMENTS, which the primitive exports), and pins a site it
                  cannot count statically (FilingIndex's form filter). FilingIndex counts that set, All
