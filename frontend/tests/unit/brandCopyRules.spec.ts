@@ -201,9 +201,12 @@ const CHECKER = PROGRAM.getTypeChecker()
     boundaries, and each public route's own page and layout. Derived, not listed: PUBLIC_FILES is every module
     these reach through the import graph (tests/unit/importWalk.ts), so a product component the landing or a
     public route renders (SourceTrace, FinancialMetricsTable, CompanySearch) is held to rule 1c without anyone
-    naming it (BG-16). */
+    naming it (BG-16). The calendar and the analysis are flag-gated (NEXT_PUBLIC_ENABLE_CALENDAR,
+    NEXT_PUBLIC_ENABLE_ANALYSIS), on in production and off in CI, so a stranger opens them too: the walk
+    reads them whatever the flags say where it runs. */
 const PUBLIC_ROUTES = ['app', 'app/waitlist', 'app/pricing', 'app/login', 'app/register', 'app/forgot-password', 'app/contact', 'app/security',
-  'app/privacy', 'app/terms', 'app/delete-account', 'app/check-email', 'app/verify-email', 'app/reset-password', 'app/search', 'app/company/[ticker]', 'app/filing/[id]']
+  'app/privacy', 'app/terms', 'app/delete-account', 'app/check-email', 'app/verify-email', 'app/reset-password', 'app/search', 'app/company/[ticker]', 'app/filing/[id]',
+  'app/calendar', 'app/analysis']
 const ROUTE_FILES = ['page.tsx', 'layout.tsx', 'not-found.tsx', 'error.tsx', 'global-error.tsx']
 const PUBLIC_ROOTS = PUBLIC_ROUTES.flatMap((dir) => routeFiles(dir, ROUTE_FILES, ROOT).filter((file) => path.posix.dirname(file) === dir))
 const PUBLIC_FILES = new Set(walkImports(PUBLIC_ROOTS, ROOT))
@@ -2962,15 +2965,16 @@ describe('brand rule 3: the Marked Copy Rule', () => {
     for (const rel of ['app/global-error.tsx', 'app/error.tsx', 'app/not-found.tsx', 'components/Header.tsx', 'components/Footer.tsx', 'components/CookieConsent.tsx',
       'features/auth/components/AuthShell.tsx', 'features/marketing/components/HeroHeadline.tsx', 'features/filings/components/SourceTrace.tsx',
       'features/summaries/components/FinancialMetricsTable.tsx', 'features/companies/components/CompanySearch.tsx', 'app/check-email/page.tsx', 'app/delete-account/page.tsx',
-      // Reached only through their routes: the company page's peers panel, the filing page's summary.
-      'features/peers/components/PeerComparisonPanel.tsx', 'features/summaries/components/SummaryBlocks.tsx']) {
+      // Reached only through their routes: the company page's peers panel, the filing page's summary, and the
+      // flag-gated calendar and analysis, public wherever their flags are on.
+      'features/peers/components/PeerComparisonPanel.tsx', 'features/summaries/components/SummaryBlocks.tsx',
+      'features/calendar/components/MonthView.tsx', 'app/analysis/page.tsx']) {
       expect(PUBLIC_FILES.has(rel), `${rel} is public`).toBe(true)
     }
-    // Out of rule 1c's public reading: the signed-in product (the dashboard, admin) and the flag-gated calendar
-    // (app/calendar 404s while NEXT_PUBLIC_ENABLE_CALENDAR is off, the shipped default). Rule 2 reads them, as
-    // it reads every file (D-030).
-    for (const rel of ['app/dashboard/page.tsx', 'features/calendar/components/MonthView.tsx', 'features/admin/components/InviteRow.tsx']) {
-      expect(PUBLIC_FILES.has(rel), `${rel} is signed-in or flag-gated, outside the public reading`).toBe(false)
+    // Out of rule 1c's public reading: the signed-in product (the dashboard, admin). Rule 2 reads it, as it
+    // reads every file (D-030).
+    for (const rel of ['app/dashboard/page.tsx', 'features/admin/components/InviteRow.tsx']) {
+      expect(PUBLIC_FILES.has(rel), `${rel} is signed-in, outside the public reading`).toBe(false)
     }
     const rels = new Set(SOURCES.map((s) => s.rel))
     for (const rel of ['features/marketing/components/HeroHeadline.tsx', 'features/marketing/components/HeroExample.tsx', 'app/waitlist/page.tsx', 'app/pricing/page.tsx', 'features/auth/components/AuthShell.tsx', 'features/calendar/components/EarningsCalendarPage.tsx', 'features/calendar/components/MonthView.tsx', 'features/calendar/components/WeekView.tsx']) {
