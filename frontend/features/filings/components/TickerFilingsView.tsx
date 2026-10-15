@@ -9,7 +9,7 @@ import { ApiError } from '@/lib/api/client'
 import { getCompany, type Company } from '@/features/companies/api/companies-api'
 import { getCompanyFilings, type Filing } from '@/features/filings/api/filings-api'
 import { CircleNotchIcon } from '@/lib/icons'
-import { GuidanceCard, Skeleton, buttonVariants, cx } from '@/components/ui'
+import { Notice, Skeleton, buttonVariants, cx } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { IDENTITY_LINK } from './FilingIdentity'
@@ -21,7 +21,7 @@ import SupersededFilingNotice from './SupersededFilingNotice'
  *
  * Its failures read as the company page's do (#1292): a load failure says so in a sentence and offers
  * a Retry held through its refetch (useRetainedFailure), a 404 is an answer (no such ticker) and reads
- * as not found, and neither prints the raw error.
+ * as not found, a first load paused offline is still loading, and none prints the raw error.
  */
 export function TickerFilingsView({ ticker }: { ticker: string }) {
   const normalizedTicker = ticker.toUpperCase()
@@ -41,7 +41,11 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
   // A failed load keeps its card, and a focused Retry in it, through the Retry's refetch: the query has
   // no data, so the refetch goes back to pending, and the spinner would otherwise replace the card.
   const companyFailure = useRetainedFailure(companyQuery, companyKey)
-  const companyLoading = companyQuery.isLoading && !companyFailure.failed
+  // A first load paused offline (fetchStatus 'paused': the default networkMode 'online' holds the fetch, or
+  // the retry after a failed one, until the network returns) is neither loading nor failed to TanStack, yet
+  // nothing has answered, so it reads as loading, never as "Company not found". As the company page does.
+  const companyPaused = companyQuery.isPending && companyQuery.fetchStatus === 'paused'
+  const companyLoading = (companyQuery.isLoading || companyPaused) && !companyFailure.failed
   // A 404 is an answer, not a failure: read from the held error, so a refetch that clears the query's own
   // error while it runs does not turn the not-found page into the load-failure page.
   const companyNotFound = companyFailure.error instanceof ApiError && companyFailure.error.status === 404
@@ -68,7 +72,8 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
   }
 
   if (!company) {
-    // A load failure says so and offers a Retry; only a 404 (or no answer at all) reads as not found.
+    // A load failure says so and offers a Retry; only a 404 reads as not found (a request still waiting on
+    // the network is the loading state above).
     const loadFailed = companyFailure.failed && !companyNotFound
     return (
       <div className="min-h-screen bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
@@ -124,7 +129,7 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
               {formatCompanyName(company.name)}
             </h1>
             <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              {company.ticker} • Latest SEC filings
+              {company.ticker} · Latest SEC filings
             </p>
           </div>
           <Link href={`/company/${company.ticker}`} className={buttonVariants({ variant: 'secondary' })}>
@@ -154,13 +159,15 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
               </div>
             )}
 
+            {/* Inside the "Recent filings" card, so the inline Notice: a GuidanceCard is a standalone panel,
+                never nested in a card (DESIGN_SYSTEM.md, GuidanceCard). */}
             {filingsFailure.failed && (
-              <GuidanceCard
+              <Notice
                 variant="error"
                 title="Couldn’t load the filings"
                 description="Try again in a moment."
                 action={
-                  <RetryButton failures={[filingsFailure]} focusTarget={filingsHeadingRef}>
+                  <RetryButton failures={[filingsFailure]} focusTarget={filingsHeadingRef} size="sm">
                     Retry
                   </RetryButton>
                 }
