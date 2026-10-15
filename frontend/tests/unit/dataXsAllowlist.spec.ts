@@ -30,7 +30,6 @@ const TEXT_XS = /(?<![\w-])text-xs(?![\w-])/
 
 /** Each file's text-data-xs sites today, with why the annotation is dense. Shrink-only: lower DATA_XS_MAX with each shrink. */
 const DATA_XS_ALLOWED: Record<string, { count: number; why: string }> = {
-  'features/admin/components/EmailChipsInput.tsx': { count: 1, why: "the uppercase 'invited' micro-label inside a chip" },
   'features/analysis/components/DataNoteMark.tsx': { count: 1, why: 'the superscript data-note letter beside a figure' },
   'features/analysis/components/MetricsTable.tsx': { count: 2, why: 'the column sub-header and the currency caption under a metric' },
   'features/calendar/components/EventRow.tsx': { count: 3, why: 'the compact row: form, ticker and time captions' },
@@ -49,7 +48,7 @@ const DATA_XS_ALLOWED: Record<string, { count: number; why: string }> = {
   'features/marketing/components/SummaryContents.tsx': { count: 1, why: "the contents card's filing caption" },
   'features/notifications/components/NotificationBell.tsx': { count: 1, why: 'the unread count on the bell' },
 }
-const DATA_XS_MAX = { files: 15, sites: 25 }
+const DATA_XS_MAX = { files: 14, sites: 24 }
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
