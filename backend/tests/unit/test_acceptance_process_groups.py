@@ -35,14 +35,17 @@ LEADER = (
 )
 GRANDCHILDREN = {
     "plain": "import time\nprint('ready', flush=True)\ntime.sleep(60)\n",
-    "slow": (  # still handling SIGTERM when the child has already died of it
+    # Still handling SIGTERM when the child has already died of it. It waits for SIGTERM with sigwait, not a Python
+    # handler: CPython runs a handler only at its next check, so a SIGTERM delivered after that check and before
+    # time.sleep enters its syscall left the handler waiting out the whole sleep, and the member read deaf
+    # (CI run 38186685529). A blocked SIGTERM stays pending until sigwait takes it, whenever it arrives.
+    "slow": (
         "import signal, sys, time\n"
-        "def stop(*_):\n"
-        "    time.sleep(0.5)\n"
-        "    sys.exit(0)\n"
-        "signal.signal(signal.SIGTERM, stop)\n"
+        "signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM})\n"
         "print('ready', flush=True)\n"
-        "time.sleep(60)\n"
+        "signal.sigwait({signal.SIGTERM})\n"
+        "time.sleep(0.5)\n"
+        "sys.exit(0)\n"
     ),
     "deaf": (  # ignores SIGTERM: only SIGKILL ends it
         "import signal, time\n"
