@@ -53,8 +53,7 @@ export async function generateMetadata({ params }: CompanyPageProps): Promise<Me
     // has no filings and never will, so keep it out of search results.
     ...(unsupported ? { robots: { index: false, follow: true } } : {}),
     // This openGraph replaces the root layout's wholesale, so it carries the site card itself, and the
-    // twitter object names it too. A company-specific card waits for founder decision D8 (tasks/todo.md
-    // F42: a file-based card applies only once both images keys go from here).
+    // twitter object names it too. The founder declined a company-specific card (D8, decisions log D-040).
     openGraph: {
       title,
       description,

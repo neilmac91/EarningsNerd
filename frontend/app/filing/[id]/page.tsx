@@ -100,8 +100,7 @@ export async function generateMetadata({ params }: FilingPageProps): Promise<Met
     // becomes indexable automatically once a summary exists (next revalidation).
     ...(hasContent ? {} : { robots: { index: false, follow: true } }),
     // This openGraph replaces the root layout's wholesale, so it carries the site card itself, and the
-    // twitter object names it too. A filing-specific card waits for founder decision D8 (tasks/todo.md
-    // F42: a file-based card applies only once both images keys go from here).
+    // twitter object names it too. The founder declined a filing-specific card (D8, decisions log D-040).
     openGraph: {
       title,
       description,

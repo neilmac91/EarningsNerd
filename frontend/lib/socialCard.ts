@@ -4,8 +4,9 @@
  * Bump `?v=` whenever the committed card changes so social scrapers fetch the new pixels.
  *
  * Next replaces a nested `openGraph` or `twitter` object wholesale rather than merging it with the
- * root layout's, so every page that sets its own openGraph carries `images: [SOCIAL_CARD]` too. A
- * page-specific card (company or filing) waits for founder decision D8.
+ * root layout's, so every page that sets its own openGraph carries `images: [SOCIAL_CARD]` too. The
+ * company and filing pages carry it as well: the founder declined page-specific cards (D8, decisions
+ * log D-040).
  */
 export const SOCIAL_CARD = {
   url: '/og-image.png?v=5',

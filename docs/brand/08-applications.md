@@ -120,8 +120,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   such, a filing with no summary yet claims none), and a filing's title names its filed date. The
   card's URL is typed once (`?v=5`); its headline breaks before "shows its work." so the highlight
   never crosses a line, and the highlight's hairline is 2px. Under `WAITLIST_MODE=true` (the rollback
-  state) the card, the icons, the manifest and /terms stay reachable. A company-specific or
-  filing-specific card waits for the founder (D8). Gates: `routeMetadata.spec.ts`,
+  state) the card, the icons, the manifest and /terms stay reachable. The founder declined a
+  company-specific or filing-specific card (D8, D-040). Gates: `routeMetadata.spec.ts`,
   `markSingleSource.spec.ts`, `middleware.spec.ts`.
 
 ## 3. Inside the product
