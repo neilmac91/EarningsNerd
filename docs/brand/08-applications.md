@@ -192,8 +192,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   dialog, "ask this filing" in a sentence, and the usage lines say "free questions" and "Upgrade to
   Pro", with Pro's monthly cap read from the usage response, never "unlimited". A spent allowance,
   a Pro-only gate and the Pro fair-use cap are a quiet answer card with role="status" and the
-  server's sentence (a lightning "Upgrade to Pro" except at the fair-use cap); the error tint stays
-  for real failures. XBRL source rows carry the braces, Ask controls the chat glyph (the landing's Ask demo
+  server's sentence (a lightning "Upgrade to Pro" except at the fair-use cap), announced because the
+  reading card it replaces is already that status region; the error tint stays for real failures. XBRL source rows carry the braces, Ask controls the chat glyph (the landing's Ask demo
   header too, which drew the quotes, a passage's mark) and an upgrade button that carries a glyph the lightning; the in-text marker and every source-check label are 12px; the callout is an inset well
   without an icon tile; the answer counts its matched sources once. Every control in the rail, the
   answer and the reader carries the brand ring. The unused reference renderer `AskFilingAnswer.tsx`

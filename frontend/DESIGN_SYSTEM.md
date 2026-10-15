@@ -966,7 +966,8 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  stay “Cited”. XBRL source rows carry the braces glyph and their tag. The done answer
                  counts “{n} matched source(s)” once. A plan gate (a spent free allowance, a Pro-only
                  403, the Pro fair-use 429) is the quiet answer card with role="status" and the server's
-                 sentence, plus a lightning “Upgrade to Pro” except for the fair-use cap; the error tint
+                 sentence, plus a lightning “Upgrade to Pro” except for the fair-use cap; the reading card
+                 is that status region already, so the sentence is announced when it lands. The error tint
                  and role="alert" stay for real failures. New Ask-this-Filing responses wait for
                  an admitted completion; failed referenced citations and draft answer text are
                  withheld before reaching this renderer. Numeric/text grouping is not a separate

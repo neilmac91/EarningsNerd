@@ -322,6 +322,18 @@ describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
     expect(within(card).queryByRole('button')).not.toBeInTheDocument()
   })
 
+  // A status region announces text added to it, never text it was created with. The rail turns the reading card into
+  // the plan card in place, so the sentence must land in a region that already existed: the reading card itself.
+  it('the plan card is announced: its sentence lands in the status region the reading card already was', () => {
+    const reading: CopilotMessageData = { id: 'e1', role: 'assistant', content: '', status: 'reading' }
+    const { rerender } = render(<CopilotMessage message={reading} onUpgrade={vi.fn()} onRetry={vi.fn()} />)
+    const region = screen.getByRole('status')
+    expect(region).toHaveTextContent(/Reading the filing/)
+    rerender(<CopilotMessage message={errorMessage(TASTE_SPENT)} isPaywallError onUpgrade={vi.fn()} onRetry={vi.fn()} />)
+    expect(screen.getByRole('status')).toBe(region)
+    expect(region).toHaveTextContent(TASTE_SPENT)
+  })
+
   it('a real failure keeps the error tint, role="alert" and Retry', () => {
     render(<CopilotMessage message={errorMessage('The answer could not be completed. Please try again.')} onRetry={vi.fn()} />)
     const bubble = screen.getByRole('alert')

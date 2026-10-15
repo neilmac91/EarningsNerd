@@ -365,7 +365,9 @@ export default function CopilotMessage({
   // --- Assistant: plan card. A spent allowance, a Pro-only gate or the Pro fair-use cap is a plan
   // fact, not a failure: the quiet answer card (panel, hairline, secondary ink, role="status"), never
   // the error tint or role="alert" (CopilotMessage.spec.tsx, statusTintsOnlyForStatus). The server's
-  // sentence says what happened; upgrading cannot lift the fair-use cap, so that card has no button.
+  // sentence says what happened; upgrading cannot lift the fair-use cap, so that card has no button. The
+  // rail turns the reading card into this one, and React keeps the element, so the reading card is already
+  // this status region and a screen reader announces the sentence when it arrives (below).
   if (message.status === 'error' && isPaywallError) {
     const fairUse = isCopilotFairUseLimit(message.error || '')
     return (
@@ -443,7 +445,10 @@ export default function CopilotMessage({
   const showChips = isDone && !!citations && citations.length > 0
 
   return (
-    <div className={ANSWER_CARD}>
+    // While it reads, the card is a status region: a status region announces text added to it, never text it was
+    // created with, so the plan card's sentence (above) is heard because it lands in this element. A done answer
+    // drops the role and is not announced.
+    <div role={isReading ? 'status' : undefined} className={ANSWER_CARD}>
       {isReading ? (
         // A single calm indicator while the answer is grounded: the assistant's
         // background tool activity is deliberately not surfaced to the user.
