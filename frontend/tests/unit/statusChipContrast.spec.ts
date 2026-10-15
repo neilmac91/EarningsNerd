@@ -24,22 +24,33 @@ import { STATUS_CHIP, STATUS_CHIP_INK, type StatusChipTone } from '@/features/ad
  * spec. A <tr> or <tbody> it cannot find, a chip it cannot find or one with no <tr> above it, a component
  * between a chip and its row, a className that is not a plain string (a layer may carry none) or a layer
  * with props spread into it, a tbody with no ground it can resolve or a translucent one, and a ground
- * under a variant it does not model all fail; nothing falls back to a literal, and an inline style or a
- * stylesheet rule is out of reach. The status chip recipe has one home, features/admin/lib/statusChip.ts:
- * each tone is measured there once per theme on every one of those grounds, from its classes resolved
- * through tailwind.config.js, so a token, recipe or row change is read as it ships: the label ink over
- * the chip's ground, composited over the row. Both status badges are then held to that recipe, status by
- * status, and FeedbackTypeBadge, the chip beside FeedbackRow's status chip, is measured as it renders on
- * that row's grounds. A text- colour this spec cannot resolve fails, and so does a bg- or text- arbitrary
- * value (`bg-[...]`) that looks like a colour and is not a hex or rgb() it can read, or a chip's text- or
- * bg- colour under the important modifier, which this spec does not rank against the plain ones. A plain
- * unknown token name is skipped, since Tailwind emits no CSS for it either, and an arbitrary property
- * (`[background-color:...]`) is out of reach too.
+ * under a variant it does not model all fail; nothing falls back to a literal. The status chip recipe has
+ * one home, features/admin/lib/statusChip.ts: each tone is measured there once per theme on every one of
+ * those grounds, from its classes resolved through tailwind.config.js, so a token, recipe or row change is
+ * read as it ships: the label ink over the chip's ground, composited over the row. Both status badges are
+ * then held to that recipe, status by status, and FeedbackTypeBadge, the chip beside FeedbackRow's status
+ * chip, is measured as it renders on that row's grounds. A text- colour this spec cannot resolve fails, and
+ * so does a bg- or text- arbitrary value (`bg-[...]`) that looks like a colour and is not a hex or rgb() it
+ * can read, or a chip's text- or bg- colour under the important modifier, which this spec does not rank
+ * against the plain ones. A chip's text- or bg- colour under any variant but its theme's own (bare in
+ * light, dark: in dark), such as hover:, focus-visible: or dark:hover:, fails too: the chip is measured as
+ * it rests, on its row at rest and hovered, and no state or breakpoint of its own is modelled. An opacity
+ * below 100 under any variant (`opacity-`, `text-opacity-` or `bg-opacity-`, an arbitrary value included),
+ * or an arbitrary one it cannot read, fails on the chip, on a layer between it and its row, and on the <tr>
+ * and the <tbody>: every colour here is measured at full opacity. A plain unknown token name is skipped,
+ * since Tailwind emits no CSS for it either. Out of reach: an inline style or a stylesheet rule; an
+ * arbitrary property (`[background-color:...]`, `[opacity:...]`); anything above the <tbody>, so an opacity
+ * on the <table> or a page wrapper, which fades the chip and its ground together, is not measured; and a
+ * utility that changes what is painted without setting a colour or an opacity (a gradient, a blend mode, a
+ * filter), except that any bg- utility on a layer fails, as above.
  */
 const require = createRequire(import.meta.url)
 const flattenColorPalette = (require('tailwindcss/lib/util/flattenColorPalette') as { default: (c: unknown) => Record<string, string> }).default
 const ROOT = path.resolve(__dirname, '../..')
-const COLORS = flattenColorPalette(resolveConfig(require(path.join(ROOT, 'tailwind.config.js')) as Config).theme.colors)
+const THEME = resolveConfig(require(path.join(ROOT, 'tailwind.config.js')) as Config).theme
+const COLORS = flattenColorPalette(THEME.colors)
+/** The scales the opacity utilities read, by prefix (`opacity-`, `text-opacity-`, `bg-opacity-`), as Tailwind resolves them. */
+const OPACITY: Record<string, Record<string, string>> = { '': THEME.opacity, 'text-': THEME.textOpacity, 'bg-': THEME.backgroundOpacity }
 
 type Rgba = [number, number, number, number]
 type Theme = 'light' | 'dark'
@@ -94,6 +105,29 @@ const looksLikeColour = (value: string) => value.startsWith('[') && !/^\[(length
 /** A class's variants and its utility last, split on the colons outside an arbitrary value (`bg-[color:var(--x)]` stays whole). */
 const classParts = (cls: string) => cls.split(/:(?![^[]*\])/)
 
+/**
+ * An opacity utility's value as a fraction (`opacity-60`, `text-opacity-50`, `bg-opacity-[.5]`, `opacity-[35%]`):
+ * NaN for an arbitrary value it cannot read, undefined for a utility that sets no opacity or a plain key
+ * Tailwind emits no CSS for.
+ */
+function opacity(utility: string): number | undefined {
+  const m = utility.match(/^!?((?:text-|bg-)?)opacity-(.+)$/)
+  if (!m) return undefined
+  const [, prefix, value] = m
+  if (value.startsWith('[') && value.endsWith(']')) {
+    const inner = value.slice(1, -1)
+    return /^[\d.]+%$/.test(inner) ? parseFloat(inner) / 100 : /^[\d.]+$/.test(inner) ? Number(inner) : NaN
+  }
+  return Object.hasOwn(OPACITY[prefix], value) ? Number(OPACITY[prefix][value]) : undefined
+}
+
+/** Why a class, under any variant, fades what this spec measures at full opacity, or null when it does not. */
+function fades(cls: string): string | null {
+  const value = opacity(classParts(cls).pop()!)
+  if (value === undefined || value >= 1) return null
+  return Number.isNaN(value) ? `${cls} looks like an opacity this spec cannot resolve` : `${cls} sets an opacity below 100, which this spec does not model`
+}
+
 /** A JSX element's className: its text when it is a plain string (or a string in braces), undefined when it has none, null otherwise. */
 function classNameOf(element: ts.JsxOpeningLikeElement, sf: ts.SourceFile): string | null | undefined {
   const attr = element.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText(sf) === 'className')
@@ -126,9 +160,10 @@ function oneClassName(source: string, file: string, tag: string, failures: strin
 /**
  * The layers between each <chip> in a row's source and the row's <tr>: every element the walk up from the
  * chip meets, which must be an HTML element with no props spread into it, whose className is a plain
- * string or absent and sets no bg- utility under any variant, so that the grounds measured here are what
- * the chip sits on. Returns the layers it read; a chip it cannot find, a walk that meets a component or no
- * <tr>, a layer it cannot read and a background on one each fail, naming the file and line.
+ * string or absent and sets no bg- utility and no opacity below 100 under any variant, so that the grounds
+ * measured here are what the chip sits on. Returns the layers it read; a chip it cannot find, a walk that
+ * meets a component or no <tr>, a layer it cannot read and a background or an opacity on one each fail,
+ * naming the file and line.
  */
 function chipLayers(source: string, file: string, chips: string[], failures: string[]): string[] {
   const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
@@ -165,7 +200,9 @@ function chipLayers(source: string, file: string, chips: string[], failures: str
         }
         layers.push(`${at(up)} <${opening.tagName.text}>`)
         for (const cls of (className ?? '').split(/\s+/).filter(Boolean)) {
+          const faded = fades(cls)
           if (/^!?bg-/.test(classParts(cls).pop()!)) failures.push(`${where}: ${cls} sets a background this spec does not model`)
+          else if (faded) failures.push(`${where}: ${faded}`)
         }
       }
       if (!up) failures.push(`${at(element)} <${chip}>: no <tr> above it, so this spec cannot read what is behind it`)
@@ -176,11 +213,17 @@ function chipLayers(source: string, file: string, chips: string[], failures: str
 
 /**
  * A class list's bg- colours by variant ('', 'hover', 'dark', 'dark:hover'), an important one (`!bg-`) keyed
- * under its variant with a leading `!`; one it cannot read, or a variant outside `modelled`, fails.
+ * under its variant with a leading `!`; one it cannot read, a variant outside `modelled`, or an opacity below
+ * 100 under any variant, fails.
  */
 function backgrounds(className: string, where: string, modelled: string[], failures: string[]): Map<string, Rgba> {
   const found = new Map<string, Rgba>()
   for (const cls of className.split(/\s+/).filter(Boolean)) {
+    const faded = fades(cls)
+    if (faded) {
+      failures.push(`${where}: ${faded}`)
+      continue
+    }
     const parts = classParts(cls)
     const utility = parts.pop()!
     const m = utility.match(/^!?bg-(.+)$/)
@@ -252,21 +295,31 @@ const EVERY_GROUND: Grounds = {
   dark: Object.values(GROUNDS).flatMap((g) => g.dark),
 }
 
-/** The chip's text and background colours in one theme, from its class list, and the colour-like classes it could not read. */
+/**
+ * The chip's text and background colours in one theme, from its class list (bare in light, dark: in dark),
+ * the colour-like classes it could not read, and why it refuses others there: a text- or bg- colour under any
+ * other variant (hover:, focus-visible:, dark:hover:), and an opacity below 100 under any variant. A dark:
+ * class applies in dark alone and any other in both themes, so a refusal names it in each theme it applies in.
+ */
 function chipColours(className: string, theme: Theme) {
-  const found: { text?: Rgba; bg?: Rgba; unread: string[] } = { unread: [] }
-  for (const cls of className.split(/\s+/)) {
+  const found: { text?: Rgba; bg?: Rgba; unread: string[]; refused: string[] } = { unread: [], refused: [] }
+  for (const cls of className.split(/\s+/).filter(Boolean)) {
     const parts = classParts(cls)
     const utility = parts.pop()!
-    const variants = parts.join(':')
-    if (variants !== (theme === 'dark' ? 'dark' : '')) continue
+    const dark = parts.includes('dark')
+    if (dark && theme === 'light') continue
+    const faded = fades(cls)
+    if (faded) found.refused.push(faded)
+    const m = utility.match(/^(!?)(text|bg)-(.+)$/)
+    const value = m && colour(m[3])
+    if (!m || (!value && !looksLikeColour(m[3]))) continue
+    if (parts.length > (dark ? 1 : 0)) found.refused.push(`${cls} is a chip colour under a variant this spec does not model`)
+    // A bare colour in dark is the light one, read there only where dark sets none.
+    else if (dark !== (theme === 'dark')) continue
     // A colour under the important modifier is refused like one it cannot read: in the browser it outranks
     // the plain ones, and this spec does not rank it.
-    const m = utility.match(/^(!?)(text|bg)-(.+)$/)
-    if (!m) continue
-    const value = colour(m[3])
-    if (value && !m[1]) found[m[2] as 'text' | 'bg'] = value
-    else if (value || looksLikeColour(m[3])) found.unread.push(cls)
+    else if (value && !m[1]) found[m[2] as 'text' | 'bg'] = value
+    else found.unread.push(cls)
   }
   return found
 }
@@ -278,8 +331,9 @@ const recipe = (tone: StatusChipTone) => `${STATUS_CHIP} ${STATUS_CHIP_INK[tone]
 function measure(name: string, className: string, grounds: Grounds, failures: string[]): number {
   let measured = 0
   for (const theme of THEMES) {
-    const { text: ink, bg, unread } = chipColours(className, theme)
+    const { text: ink, bg, unread, refused } = chipColours(className, theme)
     for (const cls of unread) failures.push(`${name} (${theme}): ${cls} looks like a colour this spec cannot resolve`)
+    for (const why of refused) failures.push(`${name} (${theme}): ${why}`)
     // A dark: background left unset falls back to the light one, as the cascade does.
     const chip = bg ?? (theme === 'dark' ? chipColours(className, 'light').bg : undefined) ?? ([0, 0, 0, 0] as Rgba)
     if (!ink) {
@@ -371,6 +425,32 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
     expect(important).toEqual(['probe (light): !bg-[rgb(29,78,216)] looks like a colour this spec cannot resolve'])
     expect(chipColours('text-info-text dark:!text-info-dark', 'dark').unread).toEqual(['dark:!text-info-dark'])
     expect(chipColours('bg-[url(/x.png)] !text-xs bg-white text-info-text', 'light').unread).toEqual([])
+  })
+
+  it('refuses a chip colour under a variant it does not model, and an opacity below 100 wherever it reads classes', () => {
+    // The principal review's mutations, a dark hover fill on the chip and the chip faded, each refused in every
+    // theme it applies in; a text- utility that sets no colour under a variant, and a full opacity, are left alone.
+    const panel = tableGrounds('probe', '', 'bg-panel-light dark:bg-panel-dark', PROBE, [])
+    const chip: string[] = []
+    const planted = 'dark:hover:bg-white/20 focus-visible:!text-white opacity-60 dark:text-opacity-[.5] hover:text-xs opacity-100'
+    expect(measure('probe', `bg-white text-info-text dark:bg-transparent dark:text-info-dark ${planted}`, panel, chip)).toBe(4)
+    expect(chip).toEqual([
+      'probe (light): focus-visible:!text-white is a chip colour under a variant this spec does not model',
+      'probe (light): opacity-60 sets an opacity below 100, which this spec does not model',
+      'probe (dark): dark:hover:bg-white/20 is a chip colour under a variant this spec does not model',
+      'probe (dark): focus-visible:!text-white is a chip colour under a variant this spec does not model',
+      'probe (dark): opacity-60 sets an opacity below 100, which this spec does not model',
+      'probe (dark): dark:text-opacity-[.5] sets an opacity below 100, which this spec does not model',
+    ])
+    // The same opacity refusal on what the chip sits in: the <tbody>, the <tr>, and a layer between them.
+    const under: string[] = []
+    tableGrounds('probe', 'hover:bg-background-light group-hover:opacity-[var(--fade)]', 'bg-panel-light dark:bg-panel-dark dark:bg-opacity-50', PROBE, under)
+    chipLayers('<tr><td className="px-4 hover:opacity-100 aria-disabled:opacity-50"><Chip /></td></tr>', 'probe.tsx', ['Chip'], under)
+    expect(under).toEqual([
+      'probe <tbody>: dark:bg-opacity-50 sets an opacity below 100, which this spec does not model',
+      'probe <tr>: group-hover:opacity-[var(--fade)] looks like an opacity this spec cannot resolve',
+      'probe.tsx:1 <td>, between <Chip> and its <tr>: aria-disabled:opacity-50 sets an opacity below 100, which this spec does not model',
+    ])
   })
 
   it('reads the row tint and the tbody ground it is given, and fails on one it cannot find', () => {
