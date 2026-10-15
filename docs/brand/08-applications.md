@@ -205,15 +205,18 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   class list do not; a one-word copy literal such as `title="copilot"` is its known limit; the /security
   line is its one named residue, counted by mention),
   `brandCopyRules.spec.ts` rule 1 (on every surface under app, components, features, hooks and lib, in
-  one sentence of one literal with its whitespace collapsed, whatever scope phrase follows: no answer,
-  response or reply called cited, grounded, exact, verified, sourced or backed, under each, every or all,
-  through a copula, set off after its noun ("answers, each cited") or before it ("Grounded answers"); none
-  said to cite; no citation or source promised for them ("Sources for every answer", "Answers with
-  citations", "No answer without a citation"); no "each" or "every" before "exact", no "never guessed", no
-  "verifiable in one click"; another word for the same promise ("Every answer comes with receipts"), a
-  claim past a pattern's reach (40 characters, 20 between an answer and the citation it comes "with") and
-  one split across literals stay review-checked, its self-check pinning them passing, and a negated
-  quantifier ("Not every answer is cited.") fails closed), `copilotClaim.spec.tsx` (the rail, the callout
+  one sentence of one literal with its whitespace collapsed, or of one element's inline children read
+  together (`<p>Every answer is <strong>cited</strong> to the filing.</p>`), whatever scope phrase follows:
+  no answer, response or reply called cited, citable, grounded, exact, verified, verifiable, sourced or
+  backed, under each, every or all, through a copula with any adverb between ("Answers are now cited"),
+  set off after its noun ("answers, each cited") or before it ("Grounded answers"); none said to cite; no
+  citation or source promised for them ("Sources for every answer", "Answers with citations", "No answer
+  without a citation"); no "each" or "every" before "exact", no "never guessed", no "verifiable in one
+  click"; another word for the same promise ("Every answer comes with receipts"), a claim past a pattern's
+  reach (40 characters, 20 between an answer and the citation it comes "with") and one split across
+  separate literals stay review-checked, its self-check pinning them passing, and a negated quantifier
+  ("Not every answer is cited.") or an adverb that hedges ("Answers are rarely cited") fails closed while
+  "not" and "only" pass ("Answers are only cited where a passage matched."), `copilotClaim.spec.tsx` (the rail, the callout
   and the coachmark render the one sentence, and no other literal types it), `planLimitsLockstep.spec.ts`
   (no "unlimited" in the Copilot's directory and, anywhere under app, components, features, hooks and
   lib, none in one literal before a question, answer, Ask this Filing, Copilot or Q&A noun through up to

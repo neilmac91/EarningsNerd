@@ -1870,19 +1870,24 @@ describe('brand rule 1: matching claims keep their scope', () => {
 
   // The same scope for answers and citations (ASK-01, ASK-02, ASK-04): an Ask answer can carry an uncited
   // figure or no citation at all (a not-disclosed verdict), and an XBRL citation is not filing text, so no
-  // copy on any surface calls answers, responses or replies cited, grounded, exact, verified, sourced or
-  // backed, or promises them a citation or a source; and no figure is "never guessed", no claim "verifiable
-  // in one click". Say what the card shows, as COPILOT_CLAIM does ("Answers come from this filing, with cited
-  // passages you can check."). These phrasings have no honest scoped form, so rule 1's SCOPE does not excuse
-  // them ("Every answer is exact, you can check." fails). The patterns read one sentence of one literal, its
-  // whitespace collapsed (a claim wrapped across JSX lines is one string), and hold exactly this:
+  // copy on any surface calls answers, responses or replies cited, citable, grounded, exact, verified,
+  // verifiable, sourced or backed, or promises them a citation or a source; and no figure is "never guessed", no
+  // claim "verifiable in one click". Say what the card shows, as COPILOT_CLAIM does ("Answers come from this
+  // filing, with cited passages you can check."). These phrasings have no honest scoped form, so rule 1's SCOPE
+  // does not excuse them ("Every answer is exact, you can check." fails). The patterns read one sentence of one
+  // literal, its whitespace collapsed (a claim wrapped across JSX lines is one string), and of an element's inline
+  // children read together (`<p>Every answer is <strong>cited</strong> to the filing.</p>` is one sentence,
+  // reported at the innermost element that makes it), and hold exactly this:
   // - each, every or all, then within 40 characters an answer noun (answer, response, reply, plural too), then
   //   within 40 more a claim word, a citing verb, a citation noun or "verif…" ("Every answer has a citation",
   //   "Each reply cites the filing", "All answers are verified");
   // - an answer noun called one after it: through a copula within 40 characters (is, are, was, were, be, been,
   //   come, arrive, stay: "Answers to your questions are always cited"), or set off by punctuation or nothing
-  //   ("answers, each cited", "Answers, always cited", "Answers backed by citations"), with adverbs from a
-  //   closed list between (always, all, each, every one, each one, fully, directly, then);
+  //   ("answers, each cited", "Answers, always cited", "Answers backed by citations"), with any adverb
+  //   between: the -ly family ("Answers are carefully verified"), "only" excepted because it scopes ("Answers
+  //   are only cited where a passage matched" passes), and now, still, also, already, often, ever, then,
+  //   always, all, each, both, every one and each one. A negation is no adverb, so "Answers are not always
+  //   cited" passes;
   // - the claim word before it, at most two other words between, "and" not one of them ("Grounded answers",
   //   "Fully cited answers", "verified AI answers");
   // - an answer noun that cites or is citing within 40 characters ("The answer cites the XBRL figures"; the
@@ -1893,15 +1898,16 @@ describe('brand rule 1: matching claims keep their scope', () => {
   // - and "each" or "every" before "exact", "never guessed" and "verifiable in one click".
   // Out of its reach, and so review-checked (the self-check pins each one passing): another noun or verb for the
   // same promise ("Every answer comes with receipts", "Answers point to the passage they came from", "Proof
-  // behind every answer"), a claim stretched past a pattern's distance, and a claim split across literals or
-  // JSX elements. A negated quantifier fails closed ("Not every answer is cited."): say "Some answers carry no
-  // citation" instead.
+  // behind every answer"), a claim stretched past a pattern's distance, and a claim split across string literals
+  // that are not one element's inline children (two array items, a template's substitution). A negated
+  // quantifier fails closed ("Not every answer is cited."): say "Some answers carry no citation" instead, and so
+  // does an adverb that hedges ("Answers are rarely cited").
   const ANSWER = String.raw`(?:answers?|responses?|repl(?:y|ies))`
-  const CALLED = String.raw`(?:cited|grounded|exact|verified|sourced|backed)`
+  const CALLED = String.raw`(?:cited|citable|grounded|exact|verified|verifiable|sourced|backed)`
   const CITES = String.raw`(?:cites?|citing)`
   const CITATION = String.raw`(?:citations?|sources?)`
   const EVERY = String.raw`(?:each|every|all)`
-  const ADVERB = String.raw`(?:always|all|each|every\s+one|each\s+one|fully|directly|then)`
+  const ADVERB = String.raw`(?:(?!only\b)[a-z]+ly|always|now|still|also|already|often|ever|then|all|each|both|every\s+one|each\s+one)`
   const claim = (source: string) => new RegExp(source, 'i')
   const ABSOLUTE_CLAIMS = [
     /\b(?:each|every)\b[^.]{0,40}?\bexact\b/i,
@@ -1918,6 +1924,40 @@ describe('brand rule 1: matching claims keep their scope', () => {
   ]
   const absolute = (text: string) => ABSOLUTE_CLAIMS.some((pattern) => pattern.test(flat(text)))
 
+  /** The text an element's inline children render together: its JSX text, a nested element's own inline text and a
+      string a JSX expression holds; any other expression and a self-closing element read as a space. */
+  function inlineText(el: ts.JsxElement): string {
+    return el.children
+      .map((child) => {
+        if (ts.isJsxText(child)) return child.text
+        if (ts.isJsxElement(child)) return inlineText(child)
+        if (ts.isJsxExpression(child) && child.expression) {
+          const value = unwrap(child.expression)
+          if (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) return value.text
+        }
+        return ' '
+      })
+      .join('')
+  }
+
+  /** The claims an element's inline children make together that no one of them makes alone (the literal scan reports
+      those), at the innermost element that makes it. */
+  function splitClaims(rel: string, sf: ts.SourceFile): string[] {
+    const out: string[] = []
+    visit(sf, (n) => {
+      if (!ts.isJsxElement(n) || !absolute(inlineText(n))) return
+      const onePartSaysIt = n.children.some((child) => {
+        if (ts.isJsxText(child)) return absolute(child.text)
+        if (ts.isJsxElement(child)) return absolute(inlineText(child))
+        if (!ts.isJsxExpression(child) || !child.expression) return false
+        const value = unwrap(child.expression)
+        return (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) && absolute(value.text)
+      })
+      if (!onePartSaysIt) out.push(where(rel, sf, n, flat(inlineText(n))))
+    })
+    return out
+  }
+
   it('no shipped string or JSX text promises that answers are cited, grounded or exact, a figure never guessed, or one-click proof', () => {
     const offenders: string[] = []
     for (const { rel, sf } of SOURCES) {
@@ -1928,6 +1968,32 @@ describe('brand rule 1: matching claims keep their scope', () => {
       })
     }
     expect(offenders, 'scope the claim to what the answer card shows: "cited passages you can check against the filing"').toEqual([])
+  })
+
+  it('no element says it across its inline children either', () => {
+    const offenders = SOURCES.flatMap(({ rel, sf }) => splitClaims(rel, sf))
+    expect(offenders, 'scope the claim to what the answer card shows: "cited passages you can check against the filing"').toEqual([])
+  })
+
+  it('reads an element\'s inline children as one sentence, at the innermost element that makes the claim (self-check)', () => {
+    const planted = ts.createSourceFile('planted.tsx', [
+      'export const A = () => (',
+      '  <div>',
+      '    <p>Every answer is <strong>cited</strong> to the filing.</p>',
+      '    <p>',
+      '      Answers are',
+      '      <em>carefully verified</em>',
+      '      {" against the filing."}',
+      '    </p>',
+      '    <p>Answers come from this filing, with <strong>cited passages</strong> you can check.</p>',
+      '    <p>{"Every answer is cited."}</p>',
+      '  </div>',
+      ')',
+    ].join('\n'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const lines = splitClaims('planted.tsx', planted).map((site) => Number(/:(\d+) /.exec(site)?.[1]))
+    // 3: the claim split by an inline element; 4: the same wrapped across indented JSX lines, an expression among them.
+    // 9 is scoped, and 10 is one literal (the literal scan's case); the div reports none, as each paragraph says its own.
+    expect(lines).toEqual([3, 4])
   })
 
   it('a trailing scope phrase never excuses an absolute claim, and a scoped sentence passes (self-check)', () => {
@@ -1953,6 +2019,10 @@ describe('brand rule 1: matching claims keep their scope', () => {
       'Answers verified against the filing', 'Responses grounded in the filing', 'Your answers, fully sourced', 'Answers come cited',
       'Answers are exact', 'Answers are always exact', 'All of your answers are cited', 'Answers you get are always verified',
       'Every response is cited', 'Every reply is grounded', 'Each reply cites the filing', 'Answers that cite the filing',
+      // The forms the review of c30e4f6d planted, and any adverb between the copula or the noun and the claim word.
+      'Answers are verified against the filing.', 'Every answer comes with a citation.', 'Grounded answers, cited to the filing.',
+      'Answers are now cited to the filing.', 'Answers are carefully verified.', 'Answers, independently verified',
+      'Your answers are still grounded in the filing', 'Every answer is verifiable', 'Verifiable answers', 'Citable answers',
       // Wrapped across JSX lines: the whitespace collapses before the patterns read it.
       'Every answer is\n            cited to the filing.',
       'Figures from XBRL,\n            never\n            guessed',
@@ -1965,6 +2035,7 @@ describe('brand rule 1: matching claims keep their scope', () => {
       'XBRL citations name the tag they came from',
       'I couldn’t verify the cited evidence, so I couldn’t provide this answer.',
       'Answers are not always cited', 'A not-disclosed answer is not cited.', 'Cited passages and answers you can check',
+      'Answers are only cited where a passage matched.', 'Answers are never cited without a passage.',
       'Ask this Filing: Get answers on any filing', 'We have an incident response plan to quickly identify, contain, and remediate security issues',
     ]) {
       expect(absolute(scoped), scoped).toBe(false)
@@ -1976,8 +2047,10 @@ describe('brand rule 1: matching claims keep their scope', () => {
     ]) {
       expect(absolute(gap), gap).toBe(false)
     }
-    // A negated quantifier fails closed: honest, but read as the claim it negates.
-    for (const negated of ['Not every answer is cited.', 'Not all answers carry a citation.']) expect(absolute(negated), negated).toBe(true)
+    // A negated quantifier fails closed: honest, but read as the claim it negates; so does an adverb that hedges.
+    for (const negated of ['Not every answer is cited.', 'Not all answers carry a citation.', 'Answers are rarely cited.']) {
+      expect(absolute(negated), negated).toBe(true)
+    }
   })
 })
 
