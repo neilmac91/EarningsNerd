@@ -147,7 +147,9 @@ const FORM_CODE = new RegExp(String.raw`^\s*(${FORM_CODES})(\/A)?\s*$`, 'i')
 // `10-K's cover page`), and a hyphen joined to the code is a word (`S-1-style`).
 const FORM_CODE_LEAD = new RegExp(String.raw`^\s*(${FORM_CODES})(\/A)?(?:\s*(?:$|[·•|,:;–—])|\s+-)`, 'i')
 const CHIP_CLASS = /^(class|className)$/
-const EYEBROW_CHIP = [/(^|:)uppercase$/, /(^|:)tracking-eyebrow$/]
+// The eyebrow recipe, under a variant or not, with Tailwind 3's important modifier or not (`!uppercase`, `sm:!uppercase`:
+// the same declarations, marked !important).
+const EYEBROW_CHIP = [/(^|:)!?uppercase$/, /(^|:)!?tracking-eyebrow$/]
 // The helpers a class binding may call: `const EYEBROW = cx('uppercase', 'tracking-eyebrow')`.
 const CLASS_HELPER = /^(cx|clsx)$/
 
@@ -225,8 +227,9 @@ const classTokens = (node, keys, binding) => {
 // An inner element that resets the recipe (`normal-case`, or a letter-spacing of its own) is a face of its own, when it
 // resets it unconditionally: a reset under a variant (`sm:normal-case`, `dark:tracking-normal`) leaves the chip's face
 // on in the other branches (a phone, the light theme), and so does one on a single path of its class value
-// (`plain ? 'normal-case' : ''`, `cx(plain && 'normal-case')`), so neither ends the reading.
-const RESETS_EYEBROW = /^(normal-case|tracking-(?!eyebrow$)[\w[\]-]+)$/
+// (`plain ? 'normal-case' : ''`, `cx(plain && 'normal-case')`), so neither ends the reading. An important reset
+// (`!normal-case`) is a reset.
+const RESETS_EYEBROW = /^!?(normal-case|tracking-(?!eyebrow$)[\w[\]-]+)$/
 const intersect = (a, b) => new Set([...a].filter((token) => b.has(token)))
 /** The class tokens a class value sets on every path it can take: a string's, a template's whole static tokens, both
  *  arms' of a conditional, both sides' of `||` and `??`, every argument's of a cx()/clsx() call, and a same-file

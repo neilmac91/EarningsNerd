@@ -106,6 +106,8 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     // A reset on every path of the class value sets a face of its own: both arms of a conditional, a cx() argument.
     "<span className=\"uppercase tracking-eyebrow\"><span className={plain ? 'normal-case tracking-normal' : 'normal-case'}>{form}</span></span>",
     "<span className=\"uppercase tracking-eyebrow\"><span className={cx('normal-case', size)}>{form}</span></span>",
+    // An important reset is a reset.
+    '<span className="uppercase tracking-eyebrow"><span className="!normal-case !tracking-normal">{form}</span></span>',
     // A same-file binding's reset is read by its class-shaped initializer.
     "const PLAIN = 'normal-case tracking-normal'\nexport const Code = ({ form }) => <span className=\"uppercase tracking-eyebrow\"><span className={PLAIN}>{form}</span></span>",
     // A component is judged by its own rule (Badge above), not as a hand-rolled chip.
@@ -162,6 +164,9 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     { code: "<span className=\"uppercase tracking-eyebrow\"><span className={cx(plain && 'normal-case')}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
     { code: "const PLAIN = cx(plain && 'normal-case')\nexport const Code = ({ form }) => <span className=\"uppercase tracking-eyebrow\"><span className={PLAIN}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
     { code: "<span className=\"uppercase tracking-eyebrow\">{' '}{form}</span>", errors: [{ messageId: 'chip' }] },
+    // Tailwind 3's important modifier sets the same face, under a variant or not.
+    { code: '<span className="!uppercase !tracking-eyebrow">{filing.form}</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="sm:!uppercase tracking-eyebrow">{form} · Filed {ago}</span>', errors: [{ messageId: 'chip' }] },
     { code: '<Badge>F-10</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<span className="uppercase tracking-eyebrow">{"SF-3 · Filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
     // A meta line's separator may be a comma, a colon or semicolon, or a dash set off by a space, not only a middot.
