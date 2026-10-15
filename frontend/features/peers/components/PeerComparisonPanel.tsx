@@ -127,7 +127,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
           </div>
           {meaningful && subject?.rank != null && (
             <p className="mt-1 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-              Ranks <span className="font-semibold text-brand-strong dark:text-brand-strong-dark">#{subject.rank}</span>{' '}
+              Ranks <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">#{subject.rank}</span>{' '}
               of {data!.peer_count} on {label}
               {subject.percentile != null ? ` · ${ordinal(Math.round(subject.percentile))} percentile` : ''}
             </p>

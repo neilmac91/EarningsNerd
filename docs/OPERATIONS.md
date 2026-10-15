@@ -482,8 +482,12 @@ Located in `backend/scripts/`:
 
 ### Review gate (rule 12 for the review-wait lesson)
 
-`.github/workflows/review-gate.yml` publishes a `review-gate` status check on every non-draft pull
-request head. It passes only when Codex's "Review Summary" comment reports **Completed** for that
+`.github/workflows/review-gate.yml` publishes a `review-gate` status check on every pull request
+head. While the pull request is a draft the check fails, and marking it ready starts the wait. The
+script reads the draft flag from the pull request as it is now: a job skipped by its condition
+reports success, which a required check counts as passing, and an event can still describe a draft
+after the pull request was marked ready, so the job never skips on a pull-request event. It passes
+only when Codex's "Review Summary" comment reports **Completed** for that
 exact head, or when the pull request body carries a line `Review override: <reason>` (ten or more
 characters); a completed review of an earlier head is not enough, because a push does not
 re-trigger Codex here: after fix commits, comment `@codex review` at once. The gate waits up to
@@ -496,14 +500,16 @@ neither its own gate script nor the workflow definition (the job never executes 
 holds read-only tokens); only the exact Codex GitHub App identity (login, `Bot` type, immutable id) is
 trusted; and a reviewed short SHA counts only when the repository resolves it uniquely to the head and
 no other commit of the pull request shares it, so a head minted to share a reviewed prefix stays
-unreviewed while the reviewed object exists. Because the definition comes from `main`, the gate first
-runs on pull requests opened after it has merged.
+unreviewed while the reviewed object exists. Each run takes the workflow definition from `main` as it
+stood at the run's event, and a re-run keeps that definition, so a change here reaches a pull request
+at its next pull-request event. A ready pull request whose latest gate run skipped under the old draft
+condition (before #1331) needs such an event, an edit to its body for instance, not `@codex review`.
 
 The check binds merges through the ruleset on `main` (id 23561253, created 2026-09-16, `gh api
 repos/neilmac91/EarningsNerd/rulesets/23561253` to read it): deletion and force-push of `main`
 blocked; a pull request required with **zero** approvals and squash as the only merge method;
 required status checks `backend-tests`, `frontend-tests`, `e2e-tests`, `migrations-postgres`,
-`lighthouse` and `review-gate`, each pinned to the GitHub Actions app; no bypass actors, so the rules
+`lighthouse`, `review-gate` and `secret-scan`, each pinned to the GitHub Actions app; no bypass actors, so the rules
 bind the administrator too. A required status check needs no approver, so this does not lock a
 single-collaborator repository; requiring pull-request reviews would, because authors cannot approve
 their own pull requests, and the GitHub default `require_extra_approval_for_unattributed_changes` is
@@ -583,9 +589,12 @@ Every scheduled job script records an attempt in `earningsnerd_job_runs`, using 
 separate from its business work. The logical names are `pregenerate`, `filing-scan`,
 `filing-digest`, `backfill-facts`, `earnings-calendar-refresh`, `earnings-day-alerts`, and
 `notable-filings`. The weekly report records `data-quality-report` separately, even though it
-runs on the filing-digest Cloud Run job. SIC backfill, financial remediation and the reconciliation-flag audit similarly use
-`backfill-company-sic`, `remediate-financials` and `reconciliation-flag-audit`; these ad hoc
-identities cannot satisfy the scheduled facts heartbeat.
+runs on the filing-digest Cloud Run job, and the Item 1A extraction batch the real-time scan runs
+behind `ENABLE_SECTION_CHANGES` records `section-extraction` on its own row (a failed batch fails
+that row, not the scan's execution; it joins `JOB_CADENCES` when the flag flips). SIC backfill, financial remediation, the reconciliation-flag audit and the
+operator's section backfill similarly use `backfill-company-sic`, `remediate-financials`,
+`reconciliation-flag-audit` and `section-extraction-manual`; these ad hoc identities cannot satisfy a
+scheduled heartbeat.
 
 Each attempt records start, completion, status and numeric counters. Returned provider/send/
 extraction failures and failed commits mark the attempt failed and make the CLI exit nonzero;
