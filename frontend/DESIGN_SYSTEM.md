@@ -481,6 +481,26 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  eslint.designRules.mjs); <Badge variant="warning"> = warning tint
                  (replaces raw-amber hand-rolls; "Superseded"). beat/miss/new double as tonal recipes via icon={null}.
 
+Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBadge): icon + label on
+                 STATUS_CHIP + STATUS_CHIP_INK[tone] from features/admin/lib/statusChip.ts, the one home
+                 of the recipe (tones info / success / warning / neutral). The status INK sits on the
+                 quiet ground, never the status tint. Light labels measure 5.0 to 7.1:1 on the white
+                 chip. Dark carries no fill, so the row's white/5 hover tint is the only layer: 5.77 to
+                 6.83:1 at rest, 4.97 to 5.89:1 on a hovered row (Badge's quiet white/5 on the chip as
+                 well would drop info-dark to 4.26:1 there). The old recipe, info-light in its own 10%
+                 tint, is 4.32:1. FeedbackTypeBadge, the neutral type chip beside the status chip in
+                 FeedbackRow, keeps its light ground (black/[0.04]: 9.04:1, 8.50:1 hovered) and takes the
+                 same dark one: no fill, its white/10 hairline kept, text-secondary-dark at 5.78:1 at
+                 rest and 4.98:1 on a hovered row (its old white/5 fill measured 4.27:1 there). When
+                 #1289's Badge status variants land, the recipe moves onto them.
+                 Gate: tests/unit/statusChipContrast.spec.ts (each tone on both tables' rows, at rest and
+                 hovered, both themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the
+                 pages' <tbody>; every layer between a chip and its <tr> read too, and a cell or wrapper
+                 there carrying a bg- class fails; a chip colour under any variant but its theme's own
+                 (hover:, focus-visible:, dark:hover:) and an opacity below 100 on the chip, a layer, the
+                 <tr> or the <tbody> fail too; both badges held to the recipe; the type chip measured as
+                 it renders on FeedbackRow's grounds).
+
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
                  small Button). GuidanceCard is a STANDALONE centered panel — never nest it inside a
@@ -525,7 +545,8 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  is visible, so not a radiogroup/tablist. Shell = panel + hairline + e1, rounded-lg, p-1;
                  segment rounded (8), 600 weight — 12px labels at 26px (sm; adaptive from sm up), 14px at 36px
                  (md; adaptive below sm); selected = the primary colorway (bg-brand + white; dark NAVY ink on
-                 brand-dark). sm 26px · md 36px · adaptive 36px below sm, 26px from sm up. `mono` options set
+                 brand-dark). sm 26px · md 36px · adaptive 36px below sm, 26px from sm up. The 26px height is
+                 1.625rem, so it scales with the root and holds its label at 200% text. `mono` options set
                  codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
                  `fullWidth` stretches the segments across a phone row and wraps them onto another row when
                  they do not fit (a form filter with amendments), so every option stays visible; from sm up
@@ -535,6 +556,27 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  The controlled selected option keeps its primary colourway even if unavailable,
                  so newly loaded coverage never silently changes the selected mode. This is not
                  a busy-state API.
+                 A long option set is not a segmented control: the company page's peer and trend
+                 metric pickers (nine and up to 23 options) are a raw compact select beside a visible
+                 "Metric" label, inputClasses({ select: true, density: 'compact', autoWidth: true }),
+                 options in sentence case; the insider window (three codes) keeps the control. At a
+                 32px root (200% text) on a 320px screen the select is capped at the card's inner width,
+                 so its closed face clips the name ("Revenue" shows four letters); the open list shows
+                 every name whole and nothing overflows (E34).
+                 Gate: earningsnerd/no-hand-rolled-toggle-group (eslint.designRules.mjs) fails a
+                 role="group" holding an aria-pressed <button> or <Button>, anywhere outside
+                 components/ui/SegmentedControl.tsx. It reads the button in the group's own markup,
+                 through a same-file wrapper component (one level) and through the DS Button imported
+                 under another name. WordingChanges' review row (LabelToggle) carries the rule's one
+                 disable: a second press clears its label, a state the control cannot hold (E62). A row
+                 without role="group" (FeedbackWidget's type row, E35), a wrapper imported from another
+                 file and a wrapper that renders another wrapper are outside its reach (review-checked).
+                 Gate: tests/unit/segmentedControlOptionCount.spec.ts fails a SegmentedControl given
+                 more than five options (MAX_SEGMENTS, which the primitive exports), and pins a site it
+                 cannot count statically (FilingIndex's form filter). FilingIndex counts that set, All
+                 plus the company's forms, at run time and renders it past five as the toolbar's compact
+                 select (the year filter's Select, density compact), so no SegmentedControl ever shows
+                 more than five.
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
@@ -997,10 +1039,18 @@ The footer opens its own section with a visually hidden h2 ("Site links") before
 titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
 `tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
 accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a signed-in /dashboard,
-the 404, and four page-level card states (a filing without a summary for a guest and for a
-signed-in reader whose run fails, a writer error, an empty watchlist). Known exception, not
-visited: /waitlist when its example loads (the example has no heading, so the h1 is followed by the
-problem cards' h3).
+the 404, /waitlist (its problem cards are h2, since the example beside the form has no heading),
+/login, /register, /forgot-password, /check-email, /verify-email and /reset-password (the auth shell,
+which has no site footer; the two token pages are opened without their emailed token), /contact,
+/privacy, /terms, /security, /delete-account, /search while its flag is off (the 404), and four
+page-level card states (a filing without a summary for a guest and for a signed-in reader whose run
+fails, a writer error, an empty watchlist). Three census cases hold that list to its sources:
+`STATIC_ENTRIES` in `app/sitemap.ts`, `AUTH_ROUTES` in `lib/authShellRoutes.ts`, and every
+`page.tsx` under `app/`, static or dynamic (a dynamic route by a representative path, /company/AAPL
+for `/company/[ticker]`), which the spec must visit or name in `NOT_VISITED` with its reason (the
+admin pages, the API-rendered /analysis, /calendar and /dashboard/settings, the labs prototypes).
+Each fails, naming the path, when a route has no entry, and a reason for a page the spec visits, or
+that no longer exists, fails too.
 
 ## 6. Cards must *lift*, not tint
 

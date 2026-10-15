@@ -2,8 +2,8 @@ import { Metadata } from 'next'
 import ContactForm from '@/features/contact/components/ContactForm'
 
 export const metadata: Metadata = {
-  title: 'Contact Us | EarningsNerd',
-  description: "Get in touch with the EarningsNerd team. We're here to help with questions, feedback, or support.",
+  title: 'Contact | EarningsNerd',
+  description: 'Questions, feedback or support for EarningsNerd.',
   alternates: { canonical: '/contact' },
 }
 
@@ -14,10 +14,10 @@ export default function ContactPage() {
         {/* Header */}
         <div className="text-center">
           <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark sm:text-5xl">
-            Contact Us
+            Contact us
           </h1>
           <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">
-            Have a question or feedback? We&apos;d love to hear from you.
+            Questions, feedback or a problem with your account: write to us here.
           </p>
         </div>
 
@@ -29,17 +29,11 @@ export default function ContactPage() {
         {/* Contact Information */}
         <div className="mt-12 rounded-lg border border-border-light bg-panel-light p-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
           <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
-            What to Expect
+            What to expect
           </h2>
           <div className="mt-4 space-y-3 text-text-secondary-light dark:text-text-secondary-dark">
             <div>
-              <span className="font-medium">Response Time:</span> We typically respond within 1-2 business days
-            </div>
-            <div>
-              <span className="font-medium">Support Hours:</span> Monday - Friday, 9:00 AM - 5:00 PM EST
-            </div>
-            <div>
-              <span className="font-medium">Confirmation:</span> You&apos;ll receive an automated confirmation email immediately after submission
+              <span className="font-medium">Response time:</span> typically within 1–2 business days
             </div>
           </div>
         </div>
@@ -50,14 +44,14 @@ export default function ContactPage() {
             Looking for quick answers? Check out our{' '}
             <a
               href="/privacy"
-              className="font-medium text-brand-strong underline-offset-4 hover:underline dark:text-brand-strong-dark"
+              className="rounded-sm font-medium text-brand-strong underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
             >
               Privacy Policy
             </a>{' '}
             or{' '}
             <a
               href="/security"
-              className="font-medium text-brand-strong underline-offset-4 hover:underline dark:text-brand-strong-dark"
+              className="rounded-sm font-medium text-brand-strong underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
             >
               Security
             </a>{' '}

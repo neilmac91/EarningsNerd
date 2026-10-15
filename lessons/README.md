@@ -33,6 +33,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-job-success-needs-outcome-evidence.md — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 - ops-keep-moving-under-standing-authorization.md — Keep moving under a standing founder authorization; stop only at the boundaries still held
 - ops-mutate-only-committed-state.md — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit
+- ops-name-codex-without-its-at-mention.md — Name Codex in GitHub text without its at-mention; one outside a review request starts a Codex task (no gate yet: E63)
 - ops-never-echo-environment-values.md — Never let a settings error, an output or Sentry carry a secret; a caught error's errors()/json() pass include_input=False, outputs give a secret's presence and length only, Sentry sends no frame locals and withholds each secret setting's whole value on every channel that carries text, and agent probes run under env -i in an export with no .env at any level
 - ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
 - ops-one-test-process-per-worktree.md — give each test process its own database, and never let a test depend on another test's order or leftovers
@@ -107,6 +108,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 - test-absence-claims-come-from-git-grep.md — Make an absence claim only from `git grep` over every tracked file (and never from a suffix allow-list in a test)
 - test-adversarial-lens-verification.md — Verify large mechanical changes with independent adversarial lenses, not one review pass
+- test-allowlist-caps-are-equalities.md — An allowlist cap is an equality, never a ceiling: the shrinking PR lowers the cap in the same commit (gate: allowlistCapsAreEqualities.spec.ts)
 - test-audit-every-judge-channel-for-truncation.md — Audit every grounding channel the judge sees for its own truncation cap
 - test-audit-file-relative-shims-on-move.md — Audit __file__-relative shims whenever relocating a test or script
 - test-bakeoff-hold-knobs-constant.md — Bake off model swaps with every knob held constant, verified by one raw-inspected call
