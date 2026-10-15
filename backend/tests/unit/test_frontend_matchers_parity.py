@@ -151,8 +151,10 @@ def _ts_literals(source: str, tsx: bool = False) -> tuple[list[_Literal], str]:
     ``FormEvent<HTMLFormElement>`` reads the same way, harmlessly): until its ">" at the same brace depth, a
     "/" belongs to the tag (``</Button>``, ``<Icon />``) and never opens a regex. Tags nest through
     attribute braces (``action={<Button>Go</Button>}``), so the open ones are a stack. Attribute strings are string
-    literals, as TypeScript parses them. JSX text is read as code; react/no-unescaped-entities keeps quotes
-    out of it (``We&apos;ve``), so it opens no literal."""
+    literals, as TypeScript parses them. A template's ``${...}`` counts its braces apart from the code's depth,
+    so a template attribute (``className={`p ${x}`}``) leaves the tag closing at its own depth. JSX text is
+    read as code; react/no-unescaped-entities keeps quotes out of it (``We&apos;ve``), so it opens no
+    literal."""
     literals: list[_Literal] = []
     masked = list(source)
     n = len(source)
@@ -183,9 +185,9 @@ def _ts_literals(source: str, tsx: bool = False) -> tuple[list[_Literal], str]:
                     parts.append(source[j:j + 2])
                     j += 2
                 elif c == "`" and source.startswith("${", j):
-                    depth, j = 1, j + 2
-                    while j < n and depth:
-                        depth += {"{": 1, "}": -1}.get(source[j], 0)
+                    nested, j = 1, j + 2  # the substitution's own braces, never the code's depth
+                    while j < n and nested:
+                        nested += {"{": 1, "}": -1}.get(source[j], 0)
                         j += 1
                     parts.append(" ")
                     substituted = True
@@ -516,6 +518,23 @@ const after = () => error.message.includes('outside')
     read_tsx = {"frontend/probe.tsx": tsx}.__getitem__
     assert phrases(Matcher("probe.tsx", "ProbeError", (), ()), read_tsx) == [
         Phrase("sign\\s+in", True), Phrase("401", False), Phrase("auth", False),
+    ]
+    # A template attribute before a regex test (the review of cd0d38cd): the substitution's braces are its
+    # own, so the tag closes at the code's depth and the "/" of the regex two blocks down still opens it.
+    templated = """
+export default function TemplateProbe({ error }: { error: Error }) {
+  const badge = <span className={`p ${x}`}>Error</span>
+  useEffect(() => {
+    if (error) {
+      setAuth(error.message.includes('401') || /sign\\s+in/i.test(error.message))
+    }
+  }, [error])
+  return badge
+}
+"""
+    read_templated = {"frontend/templated.tsx": templated}.__getitem__
+    assert phrases(Matcher("templated.tsx", "TemplateProbe", (), ()), read_templated) == [
+        Phrase("401", False), Phrase("sign\\s+in", True),
     ]
     dashboard = next(m for m in MATCHERS if m.fn == "DashboardError")
     assert [phrase.text for phrase in phrases(dashboard)] == ["401", "Unauthorized", "authentication", "auth"]
