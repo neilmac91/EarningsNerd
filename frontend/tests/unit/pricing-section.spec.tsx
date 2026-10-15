@@ -10,7 +10,7 @@ import { ACCESS_COPY } from '@/features/marketing/lib/access'
  */
 
 // Live mutable flag so a test can flip ENABLE_PRO_TRIAL without re-importing the component.
-const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false }))
+const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false, ENABLE_ANALYSIS: false, ENABLE_FPI_FILINGS: false }))
 vi.mock('@/lib/featureFlags', () => flags)
 
 vi.mock('@/lib/analytics', () => ({ default: { homepageSectionViewed: vi.fn(), billingCycleToggled: vi.fn() } }))
@@ -79,6 +79,17 @@ describe('PricingSection', () => {
     fireEvent.keyDown(group, { key: 'Home' })
     expect(monthly).toHaveAttribute('aria-checked', 'true')
     expect(monthly).toHaveFocus()
+  })
+
+  // The Free card names 20-F only while NEXT_PUBLIC_ENABLE_FPI_FILINGS mirrors the API's ENABLE_FPI_FILINGS
+  // (tasks/todo.md F39), and never the "Supported" hedge, as /pricing does (PricingPage.spec.tsx).
+  it.each([true, false])('names the filing forms on the Free card without a hedge, 20-F only while the FPI flag ships it (flag %s)', (on) => {
+    flags.ENABLE_FPI_FILINGS = on
+    const { container } = renderSection()
+    expect(screen.getByText(on ? '10-K, 10-Q and 20-F filings from SEC EDGAR' : '10-K and 10-Q filings from SEC EDGAR')).toBeInTheDocument()
+    if (!on) expect(container).not.toHaveTextContent('20-F')
+    expect(container).not.toHaveTextContent(/Supported/i)
+    flags.ENABLE_FPI_FILINGS = false
   })
 
   it('shows the beta line only when showBeta is set', () => {

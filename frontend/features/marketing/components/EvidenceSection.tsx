@@ -4,14 +4,9 @@ import TraceToSourceDemo from '@/features/marketing/components/TraceToSourceDemo
 import CatchCard from '@/features/marketing/components/CatchCard'
 import { SAMPLE_CATCH, SAMPLE_FILING, SAMPLE_FINANCIAL_METRICS, SAMPLE_TRACE } from '@/features/marketing/lib/landing-samples'
 
-// The design's card footer sentence; FinancialMetricsTable renders it in its own CardFooter.
-const TABLE_NOTES = (
-  <>
-    Each row carries its own source label. A metric reads{' '}
-    <span className="font-data text-brand-strong dark:text-brand-strong-dark">SEC XBRL</span> only when the
-    value matched the SEC-filed XBRL figure.
-  </>
-)
+// The card footer explains the one row that does not read SEC XBRL (the lead above already says what
+// each label means); FinancialMetricsTable renders it in its own CardFooter.
+const TABLE_NOTES = 'Diluted EPS reads Cited: per-share figures are not matched to XBRL.'
 
 /**
  * "Figures with their receipts": the evidence block of the landing page. Left, the REAL
