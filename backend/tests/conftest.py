@@ -36,6 +36,23 @@ def _cleanup_test_database():
 atexit.register(_cleanup_test_database)
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_TEST_DB_DIR, "earningsnerd.db")
 
+# EdgarTools keeps its data (EDGAR_LOCAL_DATA_DIR, default ~/.edgar: the HTTP cache and the markers of
+# the cache migrations that importing it runs) and its caches (EDGAR_CACHE_DIR, default ~/.edgar_cache:
+# the pickled anchors TOC extraction reuses) under the home directory, which every run and worker would
+# share, and which a sandbox with a read-only home cannot write: TOC extraction then swallows the error
+# and picks an incomplete fallback (lessons/test-conftest-hermetic-env.md). So each process gets its own,
+# in the temp directory above, before any app import, and they go with it. A value set before pytest
+# started (a developer's) is kept. A value a parent test process assigned is not: xdist's controller and a
+# pytest started from a test pass theirs down in the environment, and EARNINGSNERD_TEST_EDGAR_DIRS names
+# what this file assigned, so each worker and child takes its own. Gate: test_suite_isolation.py.
+_INHERITED_EDGAR_DIRS = os.environ.get("EARNINGSNERD_TEST_EDGAR_DIRS", "").split(os.pathsep)
+_ASSIGNED_EDGAR_DIRS = []
+for _name, _subdir in (("EDGAR_LOCAL_DATA_DIR", "edgar"), ("EDGAR_CACHE_DIR", "edgar-cache")):
+    if not os.environ.get(_name) or os.environ[_name] in _INHERITED_EDGAR_DIRS:
+        os.environ[_name] = os.path.join(_TEST_DB_DIR, _subdir)
+        _ASSIGNED_EDGAR_DIRS.append(os.environ[_name])
+os.environ["EARNINGSNERD_TEST_EDGAR_DIRS"] = os.pathsep.join(_ASSIGNED_EDGAR_DIRS)
+
 # Set mock environment variables for all tests at module level to avoid Pydantic validation errors at import time
 os.environ["SECRET_KEY"] = "test-secret-key-must-be-long-enough-123"
 os.environ["OPENAI_API_KEY"] = "sk-test-key-for-mocking"
