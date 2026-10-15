@@ -108,7 +108,7 @@ class TestWorkbookStructure:
         assert workbook.sheetnames == [
             "Overview",
             "Metrics",
-            "Sources & Methods",
+            "Sources & methods",
             "Revenue & growth",
             "Margins",
             "Cash generation",
@@ -140,7 +140,7 @@ class TestWorkbookStructure:
         wb = load_workbook(io.BytesIO(build_analysis_workbook(nii_only, exported_at=EXPORTED_AT)))
         # No margins / balance-sheet concepts → those panels collapse, like the frontend's.
         assert wb.sheetnames == [
-            "Overview", "Metrics", "Sources & Methods", "Net interest income & growth", "Cash generation",
+            "Overview", "Metrics", "Sources & methods", "Net interest income & growth", "Cash generation",
         ]
 
 
@@ -151,12 +151,26 @@ class TestOverviewSheet:
 
     def test_title_provenance_and_terms(self, workbook):
         texts = self._texts(workbook)
-        assert any("Test & Co — Multi-Period Analysis" in t for t in texts)
+        assert "Test & Co · Multi-Period Analysis" in texts
         assert "TST" in texts
-        assert any("FY2022..FY2024 (3 periods)" in t for t in texts)
+        assert "FY2022–FY2024 · 3 periods" in texts  # the window key as a range; never "FY2022..FY2024"
+        assert "SEC filings and calculations via EarningsNerd · earningsnerd.io" in texts
         assert any("July 06, 2026" in t for t in texts)
         assert any("earningsnerd.io/terms" in t for t in texts)
         assert any("not" in t and "investment" in t for t in texts)  # the disclaimer paragraph
+        # One period reads in the singular.
+        single = _dataset()
+        single.update(period_key="FY2024", periods=single["periods"][2:])
+        overview = load_workbook(io.BytesIO(build_analysis_workbook(single, exported_at=EXPORTED_AT)))["Overview"]
+        assert overview["B12"].value == "FY2024 · 1 period"
+
+    def test_labels_and_headers_rest_in_the_ink(self, workbook):
+        """D-041 (D-030 in the workbook): a fact label and a header row carry the ink, the header on
+        the neutral fill; sage marks the tab only."""
+        overview = workbook["Overview"]
+        assert overview["A10"].value == "Ticker" and str(overview["A10"].font.color.rgb).endswith("1A1A17")
+        header = workbook["Sources & methods"]["A1"]
+        assert str(header.font.color.rgb).endswith("1A1A17") and str(header.fill.start_color.rgb).endswith("F4F3EE")
 
     def test_conventions_are_stated(self, workbook):
         texts = self._texts(workbook)
@@ -178,8 +192,9 @@ class TestMetricsSheet:
         assert ws.freeze_panes == "B2"
         header = ws["A1"]
         assert header.value == "Metric"
-        assert str(header.fill.start_color.rgb).endswith("ECF2EE")
-        assert header.font.bold and str(header.font.color.rgb).endswith("3C6650")
+        # Ink on the neutral ground (background-light), never sage: the period headers are numbers.
+        assert str(header.fill.start_color.rgb).endswith("F4F3EE")
+        assert header.font.bold and str(header.font.color.rgb).endswith("1A1A17")
         assert ws["D1"].value == "FY2022"
 
     def test_number_formats_per_unit(self, workbook):
@@ -195,7 +210,9 @@ class TestMetricsSheet:
     def test_derived_q4_gets_a_comment_never_a_fill(self, workbook):
         ws = workbook["Metrics"]
         derived = ws["F2"]  # revenue FY2024
-        assert derived.comment is not None and "Computed Q4" in derived.comment.text
+        assert derived.comment is not None
+        assert derived.comment.text.endswith(
+            "Computed Q4. Calculation details are unavailable in this older snapshot.")
         assert derived.fill.patternType is None  # no fill — comments only
         assert ws["D2"].comment.text.startswith("Data note a:")  # legacy validation remains unknown
 
@@ -203,7 +220,7 @@ class TestMetricsSheet:
         ws = workbook["Metrics"]
         assert ws["G1"].value == "Window growth" and ws["H1"].value == "Window"
         assert ws["G2"].value == pytest.approx(0.2247) and ws["G2"].number_format == "0.0%"
-        assert ws["H2"].value == "FY2022..FY2024"
+        assert ws["H2"].value == "FY2022–FY2024"
         # Percent series get the pp window figure instead of CAGR.
         assert ws["G3"].value == pytest.approx(4.3) and ws["G3"].number_format == '0.0" pp"'
         # When only CAGR exists, its comment must follow the displayed comparison's basis.
@@ -313,7 +330,7 @@ class TestPanelSheets:
         assert "annual_minus_ytd" in workbook["Metrics"]["F2"].comment.text
         assert workbook["Metrics"]["F4"].value is None
         assert "Use a reported quarterly EPS figure." in workbook["Metrics"]["F4"].comment.text
-        source_sheet = workbook["Sources & Methods"]
+        source_sheet = workbook["Sources & methods"]
         input_row = next(row for row in source_sheet.iter_rows() if row[2].value == "Input 1")
         assert input_row[4].value == 2500 and input_row[4].data_type == "n"
         assert input_row[10].value == "2024-01-01"

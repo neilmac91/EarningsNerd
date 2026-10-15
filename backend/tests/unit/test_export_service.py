@@ -167,12 +167,38 @@ class TestPdfHtml:
         html = service.generate_pdf_html(summary, filing)
         assert "Line one.<br />Line two." in html
 
+    def test_title_meta_quote_and_closing_note_read_in_the_voice(self, service):
+        """A middot between compact labels, the title in sentence case, the attribution on its own
+        line with no dash, the closing note in two sentences (voice-and-style.md, Dashes)."""
+        summary, filing = _make_summary_and_filing(_full_sections())
+        html = service.generate_pdf_html(summary, filing)
+        assert "<h1>BIOGEN INC. · 10-K summary</h1>" in html
+        assert '<br>Source: SEC EDGAR · <span class="data">https://www.sec.gov/Archives/edgar/data/875045/x.htm</span>' in html
+        assert "<blockquote>“We remain focused on execution.”<cite>CEO</cite></blockquote>" in html
+        assert "may be incomplete or\n                contain errors. The authoritative source is always the original SEC filing." in html
+
+    def test_numeric_columns_follow_the_pages_rule(self, service):
+        """F17: a column whose every non-empty cell is a whole figure (or the bare null token) takes
+        class="num" on its header and cells; a figure followed by words stays prose."""
+        from app.services.export_service import numeric_columns
+
+        rows = [
+            ["Revenue", "$9.89B", "(12.4)", "+14.4 ppts", "41% operating margin", "", "61.2%"],
+            ["Margin", "—", "-3.2%", "+2.2%", "$2.1B goodwill", "", "-"],
+        ]
+        assert numeric_columns(rows, 8) == [False, True, True, False, False, False, True, False]
+        html = service.generate_pdf_html(*_make_summary_and_filing(_full_sections()))
+        assert '<th class="num">Current Period</th>' in html and '<td class="num">$9.89B</td>' in html
+        assert "<th>Change</th>" in html and "<td>+14.4 ppts</td>" in html  # "ppts" is a word
+        assert '<th class="num">Revenue</th>' in html and '<td class="num">-5%</td>' in html  # segments
+
 
 class TestCsv:
     def test_opens_with_brand_rows(self, service):
-        """The CSV masthead: BOM, two brand rows, a blank, then the document title.
+        """The CSV masthead: BOM, two brand rows, a blank, then the document title, its dates and
+        its source (the PDF's title and meta line).
 
-        The BOM is load-bearing: the brand row's em dash guarantees non-ASCII on row 1, and
+        The BOM is load-bearing: the brand row's middot guarantees non-ASCII on row 1, and
         Excel on Windows only decodes a CSV as UTF-8 when the file leads with one.
         """
         summary, filing = _make_summary_and_filing(_full_sections())
@@ -182,13 +208,16 @@ class TestCsv:
         assert lines[0] == "EarningsNerd · AI summaries of SEC filings"
         assert lines[1] == "earningsnerd.io"
         assert lines[2] == ""
-        assert "BIOGEN INC." in lines[3]
+        assert lines[3] == "BIOGEN INC. · 10-K summary"
+        assert lines[5].startswith("Generated: ")
+        assert lines[6] == "Source: SEC EDGAR · https://www.sec.gov/Archives/edgar/data/875045/x.htm"
+        assert lines[7] == ""
 
     def test_includes_all_sections(self, service):
         summary, filing = _make_summary_and_filing(_full_sections())
         csv_out = service.generate_csv(summary, filing)
         # Header preserved
-        assert "BIOGEN INC. - 10-K Summary" in csv_out
+        assert "BIOGEN INC. · 10-K summary" in csv_out
         # Every section's content is present (the old CSV dropped all of these):
         for fragment in (
             "Executive Assessment",
@@ -220,7 +249,7 @@ class TestCsv:
         """A quote must not be wrapped in straight " (which csv.writer doubles into \"\"\")."""
         summary, filing = _make_summary_and_filing(_full_sections())
         csv_out = service.generate_csv(summary, filing)
-        assert "“We remain focused on execution.”" in csv_out
+        assert "“We remain focused on execution.” · CEO" in csv_out  # a middot, never a dash
         assert '"""' not in csv_out
 
     def test_change_column_is_computed_ppts_for_margins(self, service):
@@ -370,7 +399,7 @@ class TestAnalysisPdfHtml:
         # Grid: metric row, period headers, missing value, derived dagger, percent formatting.
         # Money renders COMPACT (product display convention; full precision lives in the Excel
         # export) — sub-million values keep their commas.
-        assert "<th>FY2023</th>" in html
+        assert '<th class="num">FY2023</th>' in html  # a period column's header sits over its figures
         assert "Revenue" in html and "$1,000" in html
         assert "—" in html
         assert "$1,500 †" in html
@@ -491,7 +520,7 @@ class TestAnalysisPdfHtml:
         assert html.count("Saved citation-only wording.") == 1
         assert 'A precise ratio [1]<sup class="data-note"><a href="#analysis-data-note-e">e</a></sup>' in html
         assert "1234567890123 EUR" in html and "0.999999999999 pure" in html and "1.0000000000001 pure" in html
-        assert "<th>Q2 2026</th>" in html and "EUR 1.23T" in html and "EUR 0</td>" in html
+        assert '<th class="num">Q2 2026</th>' in html and "EUR 1.23T" in html and "EUR 0</td>" in html
         assert 'n/m fraction<sup class="data-note"><a href="#analysis-data-note-b">b</a></sup>' in html
         workbook = load_workbook(BytesIO(build_analysis_workbook(dataset)))
         assert workbook["Metrics"]["D2"].value == 1234567890123 and workbook["Metrics"]["D2"].data_type == "n"
@@ -502,10 +531,13 @@ class TestAnalysisPdfHtml:
         assert workbook["Metrics"]["D2"].comment.text.startswith("Data note a: Saved source wording <retain>.")
         assert workbook["Metrics"]["E1"].value == "Q2 2026"
         overview = "\n".join(str(c.value) for row in workbook["Overview"] for c in row if c.value)
-        assert "1 figures need review · 1 comparisons need review · 2 unavailable" in overview
+        # Singular at one; the passed count waits until no figure needs review (the page's line).
+        for exported in (html, overview):
+            assert "1 figure needs review · 1 comparison needs review · 2 unavailable" in exported
+            assert "passed automated checks" not in exported
         assert "Data note a: Saved source wording <retain>." in overview
         assert "Saved citation-only wording" not in overview and "raw full-precision dollars" not in overview
-        sources = list(workbook["Sources & Methods"].values)
+        sources = list(workbook["Sources & methods"].values)
         assert next(row for row in sources if row[2] == "QOQ")[16] == "Data note b"
         assert any(row[0] == "EPS" and row[1] == "Q1 2026" and row[4] is None and row[16] == "Data note c" for row in sources)
         assert dataset == before
@@ -534,10 +566,39 @@ class TestAnalysisPdfHtml:
         overview = "\n".join(str(cell.value) for row in workbook["Overview"] for cell in row if cell.value)
 
         for exported in (html, overview):
-            assert "0 figures with no validation record" in exported
-            assert "1 comparison with no validation record" in exported
-            assert "0 figures need review · 4 comparisons need review" in exported
+            # A zero count prints no clause; with no figure needing review, the passed count shows.
+            assert ("4 comparisons need review · 1 comparison with no validation record · "
+                    "4 passed automated checks") in exported
+            assert "0 figures" not in exported and "figures need review" not in exported
         assert vars(analysis) == before
+
+    def test_operands_name_their_source_fields_in_words(self):
+        """F22: an operand's source fields read under the workbook's column names, and its concept
+        as words, never the dataset's snake_case keys."""
+        analysis = self._analysis()
+        analysis.dataset_json["series"][0]["points"][2]["provenance"] = {
+            "method": "calculated", "validation": "passed", "reasons": [], "formula": "annual_minus_ytd",
+            "inputs": [{"concept": "operating_cash_flow", "value": 2500, "unit": "USD",
+                        "period_start": "2024-01-01", "period_end": "2024-12-31",
+                        "accession": "0000123456-25-000001", "raw_tag": "us-gaap:Revenues", "filed_at": "2025-02-14"}],
+        }
+        html = ExportService().generate_analysis_pdf_html(analysis, self._company())
+        assert ("Input 1: operating cash flow = 2500 USD (2024-01-01 to 2024-12-31) · Accession: "
+                "0000123456-25-000001 · Source tag: us-gaap:Revenues · Filed: 2025-02-14") in html
+        assert "raw_tag" not in html and "filed_at" not in html and "accession:" not in html
+
+    def test_titles_ranges_and_note_scopes_read_in_the_voice(self):
+        """F07, F12, F20, F21: the title takes a middot, the appendix heading sentence case, the
+        window key its en-dash range, and each note's scope its singular and no zero clause."""
+        analysis = self._analysis()
+        analysis.dataset_json["series"][0]["points"][0]["provenance"] = {
+            "method": "reported", "validation": "needs_review", "reasons": ["source_conflict"]}
+        html = ExportService().generate_analysis_pdf_html(analysis, self._company())
+        assert "<h1>Test &amp; Co · Multi-Period Analysis</h1>" in html
+        assert "<h2>Sources &amp; methods</h2>" in html and "appear in Sources &amp; methods." in html
+        assert '<span class="data">FY2022–FY2024</span>' in html and "FY2022..FY2024" not in html
+        assert '<span class="ref">(1 figure)</span>' in html
+        assert '<span class="ref">(3 figures)</span>' in html and "0 comparisons" not in html
 
 
 @pytest.mark.asyncio

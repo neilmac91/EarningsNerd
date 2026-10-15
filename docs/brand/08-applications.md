@@ -171,10 +171,32 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   figure into (a formatted figure, a date or a period, the text written about the filing, a table's
   rows and a list's items among it), and fails a field they declare that can hold a string and that
   it has not classified; its stylesheet check fails a rule that sets sage at rest.
-- **Exports and mail** (`backend/app/services/export_service.py`, `excel_export_service.py`,
-  `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
-  summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
-  verification mail ends "Verify your email address and you can start reading."
+- **Exports** (`backend/app/services/export_service.py`, `pdf_branding.py`,
+  `excel_export_service.py`, `analysis_export_metadata.py`): mastheads read "EarningsNerd · AI
+  summaries of SEC filings". Titles take the middot and sentence case ("BIOGEN INC. · 10-K summary",
+  "{company} · Multi-Period Analysis", the feature keeping its name), as do the PDF's source line
+  ("Source: SEC EDGAR · {url}") and the CSV, which now carries that source row under its generated
+  date; the PDF's closing note is two sentences, and a quote's attribution sits on its own line in
+  the PDF and follows a middot in the CSV, never a dash. Tables read as the page's reader tables do
+  (D-041, applying D-030): headers in the tertiary ink on no fill, hairline rows and no grid, and a
+  column of figures right-aligned in the data face by the page's numeric-column rule; quotes sit on
+  a neutral hairline. The workbook's header rows rest in the ink on the neutral ground and its
+  labels in the ink, and links alone keep sage. The tertiary ink is its token (#636A77, 4.80:1 on
+  the masthead's tint). "Sources & methods" is in sentence case wherever it is named; the data
+  notes print a clause for each count that is not zero, singular at one, and the passed count only
+  when no figure needs review; a window reads "FY2022–FY2024 · 3 periods"; an operand's fields
+  read "Accession", "Source tag" and "Filed", and its concept reads as words. The masthead's mark
+  is held to the canonical outlines by `backend/tests/unit/test_pdf_mark_geometry.py`; every
+  export colour to its token and role, every text colour to 4.5:1 on its ground and sage to links
+  and the wordmark by
+  `test_export_palette_parity.py`; the rendered copy (no em-dash but the null token, no exclamation
+  mark, the headings the exports own in sentence case) by `test_export_voice.py`; the eval's
+  blinding of the generation date by a case in `test_acceptance_readiness.py` that runs it on a real
+  export; and the backend's hand-composed wordmarks to the PDF's and the mail's by
+  `wordmarkSingleSource.spec.ts`.
+- **Mail** (`email_service.py`, `app/routers/contact.py`): footers read "EarningsNerd · AI summaries
+  of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the verification
+  mail ends "Verify your email address and you can start reading."
 - **Admin invites and feedback** (`frontend/app/admin/`, `frontend/features/admin/components/`): an
   invite is "created", and "emailed" only when Email invites was on and the backend's best-effort send
   went through (the API's `emailed` flag). A batch reads "3 invites created · 3 emailed", "3 invite

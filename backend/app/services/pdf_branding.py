@@ -15,24 +15,31 @@ apart (owner decision D4, export-overhaul plan). The shell owns:
   Inter resolution inside the SVG and must NOT be inlined) + HTML wordmark + document kind.
 - The design-token PALETTE (DESIGN_SYSTEM.md) — PDFs must never use off-token grays or the
   banned legacy blue.
+- Reader-table manners (D-041, applying D-030): headers in the tertiary ink on no fill, hairline
+  rows, no cell grid; quotes on a neutral hairline. Sage colours only links and the wordmark's
+  "Nerd", never a header, a label or a figure.
 
 The visual contract is pinned by tests/unit/test_export_service.py (shell assertions + a real
-WeasyPrint render checking page orientation).
+WeasyPrint render checking page orientation), the mark by tests/unit/test_pdf_mark_geometry.py
+and every colour, its token and its contrast by tests/unit/test_export_palette_parity.py.
 """
 from pathlib import Path
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
-# Design tokens (frontend/tailwind.config.js / DESIGN_SYSTEM.md) — single source for PDF color.
+# Design tokens (DESIGN.md's frontmatter, which designSnapshotParity holds equal to
+# frontend/tailwind.config.js) — single source for PDF and workbook colour. Each key is one token's
+# role: test_export_palette_parity.py maps it to that token by name.
 PALETTE = {
     "brand": "#4F7A63",
     "brand_strong": "#3C6650",
     "brand_weak": "#ECF2EE",
     "brand_border": "#CFE0D6",
+    "background": "#F4F3EE",
     "panel": "#FBFAF6",
     "ink": "#1A1A17",
     "ink_secondary": "#374151",
-    "ink_tertiary": "#6B7280",
+    "ink_tertiary": "#636A77",
     "border": "#E5E7EB",
 }
 
@@ -193,27 +200,27 @@ p {{ margin: 0 0 9px 0; color: {p["ink_secondary"]}; }}
 }}
 .meta .data {{ font-family: 'Geist Mono', monospace; }}
 
-table {{ border-collapse: collapse; width: 100%; }}
+table {{ border-collapse: collapse; width: 100%; border: 0; }}
 thead {{ display: table-header-group; }}
 tr {{ break-inside: avoid; }}
 th {{
-  background: {p["brand_weak"]};
-  color: {p["brand_strong"]};
+  color: {p["ink_tertiary"]};
   font-weight: 600;
   font-size: 8pt;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-align: left;
   padding: 5px 7px;
-  border: 1px solid {p["border"]};
+  border: 0;
+  border-bottom: 1px solid {p["border"]};
 }}
 td {{
   padding: 4px 7px;
-  border: 1px solid {p["border"]};
+  border: 0;
+  border-bottom: 1px solid {p["border"]};
   font-size: 9pt;
   color: {p["ink_secondary"]};
 }}
-table {{ border: 1px solid {p["brand_border"]}; }}
 td.num, .data {{
   font-family: 'Geist Mono', monospace;
   font-variant-numeric: tabular-nums;
@@ -223,9 +230,16 @@ td.num, th.num {{ text-align: right; }}
 blockquote {{
   margin: 10px 0;
   padding-left: 14px;
-  border-left: 3px solid {p["brand_border"]};
+  border-left: 2px solid {p["border"]};
   color: {p["ink_secondary"]};
   font-style: italic;
+}}
+blockquote cite {{
+  display: block;
+  margin-top: 2px;
+  font-size: 9pt;
+  font-style: normal;
+  color: {p["ink_tertiary"]};
 }}
 ul, ol {{ margin: 0 0 10px 0; padding-left: 20px; color: {p["ink_secondary"]}; }}
 li {{ margin: 3px 0; }}
