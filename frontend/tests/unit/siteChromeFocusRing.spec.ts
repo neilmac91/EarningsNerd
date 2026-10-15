@@ -103,7 +103,6 @@ const RING_RESIDUE: Record<string, number> = {
   'app/security/page.tsx': 5, // legal page: waits on the founder (presentation follow-up)
   'app/terms/page.tsx': 4, // legal page: waits on the founder (presentation follow-up)
   'app/verify-email/page.tsx': 3, // brand-auth-pages-presentation
-  'app/waitlist/page.tsx': 1, // brand-public-pages
   'features/analysis/components/AnalysisPageClient.tsx': 3, // brand-analysis
   'features/analysis/components/DataNotesLink.tsx': 1, // brand-analysis
   'features/analysis/components/NarrativePane.tsx': 1, // brand-analysis
@@ -128,9 +127,7 @@ const RING_RESIDUE: Record<string, number> = {
   'features/fundamentals/components/FundamentalsTrendChart.tsx': 4, // brand-company-page
   'features/insiders/components/InsiderActivityPanel.tsx': 1, // brand-company-page
   'features/marketing/components/CatchCard.tsx': 1, // brand-public-pages
-  'features/marketing/components/ExampleCtaLink.tsx': 1, // brand-public-pages
-  'features/marketing/components/HeroExample.tsx': 2, // brand-public-pages
-  'features/marketing/components/PricingSection.tsx': 2, // brand-public-pages
+  'features/marketing/components/HeroExample.tsx': 1, // #1311 ringed its links; the evidence chip's className is sourceTraceChipClass(), a recipe the scan does not read (brand-filing-page owns SourceTrace)
   'features/marketing/components/TraceToSourceDemo.tsx': 1, // brand-public-pages
   'features/peers/components/PeerComparisonPanel.tsx': 3, // brand-company-page
   'features/search/components/FullTextSearch.tsx': 4, // brand-calendar-search
@@ -141,7 +138,7 @@ const RING_RESIDUE: Record<string, number> = {
   'features/summaries/components/SummaryBlocks.tsx': 1, // brand-filing-page
   'features/watchlist/components/PopularTickerChips.tsx': 1, // brand-dashboard-watchlist
 }
-const RING_RESIDUE_MAX = { files: 47, stops: 133 }
+const RING_RESIDUE_MAX = { files: 44, stops: 128 }
 
 /**
  * Every route layout, template and error boundary under app/ (`app/admin/layout.tsx`'s section nav, the

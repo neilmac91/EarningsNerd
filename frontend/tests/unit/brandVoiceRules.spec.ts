@@ -434,7 +434,6 @@ const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
   'app/search/page.tsx': { sentenceCase: 1 }, // brand-calendar-search (#1301; meta title)
   'app/security/page.tsx': { sentenceCase: 12 }, // founder-gated, legal page: the /security recase lands with its claims (UA ids)
   'app/terms/page.tsx': { sentenceCase: 4 }, // founder-gated, legal page: its headings wait on the founder (legalDates bump)
-  'app/waitlist/page.tsx': { buzzword: 1 }, // brand-public-pages (#1311; BG-23, "clarity")
   'components/CookieConsent.tsx': { sentenceCase: 7 }, // brand-chrome-primitives (#1289; the ModalHeader's "Cookie Preferences" is the seventh)
   'features/admin/components/ShareInvite.tsx': { sentenceCase: 1 }, // a known false positive, no PR: the aria-label "Share invite via Messages" names Apple's app; the entry leaves when the label changes
   'features/feedback/components/FeedbackWidget.tsx': { emoji: 3 }, // brand-chrome-primitives (#1289)
@@ -449,7 +448,7 @@ const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
   'features/summaries/components/SummaryActionsBar.tsx': { sentenceCase: 1 }, // brand-filing-page (#1293)
   'lib/api/client.ts': { developerWording: 1 }, // brand-chrome-primitives (#1289; CAL-12, "backend API")
 }
-const VOICE_RESIDUE_MAX = { entries: 23, violations: 65 }
+const VOICE_RESIDUE_MAX = { entries: 22, violations: 64 }
 
 describe('brand voice rules (docs/brand/07-voice.md)', () => {
   // An element past MAX_VARIANTS throws; the residue test reports it rather than the whole file failing to load.
