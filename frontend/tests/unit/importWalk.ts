@@ -9,6 +9,12 @@ import ts from 'typescript'
  * (`export { Modal } from './Modal'`) leads on only when a reached module takes that name; an `export *`
  * passes the names on. Type-only imports and re-exports render nothing and are not followed.
  *
+ * A JSON module an import reaches is not returned: the walk resolves .ts and .tsx modules only, and the copy
+ * gates (brandVoiceRules, no-em-dash-copy, brandCopyRules) read .ts and .tsx sources, so no copy gate reads
+ * the strings a JSON module holds. Copy held in data a page imports is review-checked: today that is
+ * features/analysis/demo/demo-analysis.json, which features/marketing/lib/landing-samples.ts (the landing's
+ * samples) and features/analysis/components/AnalysisTeaser.tsx import.
+ *
  * Paths are relative to `root` (the frontend directory), with forward slashes.
  */
 

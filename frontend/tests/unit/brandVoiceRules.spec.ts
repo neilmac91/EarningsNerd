@@ -34,7 +34,9 @@ import { describe, expect, it } from 'vitest'
  * strings (imports, class lists, comparisons, identifiers such as hrefs and keys; see isCodeString). An
  * attribute that is not code (CODE_ATTRS) is copy, so a placeholder, an aria-label, an alt or a title is
  * read by the exclamation, emoji and buzzword clauses (and by no-em-dash-copy.spec.ts, which reads every
- * literal).
+ * literal). A JSON module the app imports is data this scan does not read, so the copy it holds
+ * (features/analysis/demo/demo-analysis.json, the landing's samples) is review-checked
+ * (tests/unit/importWalk.ts).
  *
  * DEVELOPER_WORDING's HTTP status is any three-digit number from 400 to 599, so a count in a sentence
  * ("500 companies") fails it too. Its scope (lib/ and hooks/) holds no such sentence today; one that
