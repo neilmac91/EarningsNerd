@@ -19,7 +19,7 @@ const mockCheckoutStarted = vi.fn()
 const mockPricingViewed = vi.fn()
 const mockPush = vi.fn()
 const mockSearchParams = new URLSearchParams()
-const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false, ENABLE_ANALYSIS: false }))
+const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false, ENABLE_ANALYSIS: false, ENABLE_FPI_FILINGS: false }))
 vi.mock('@/lib/featureFlags', () => flags)
 // Test-only capture of the real onClick each card Button was rendered with, keyed by
 // `${variant}:${label}` (Free = secondary, Pro = primary; both cards share a label while the
@@ -115,6 +115,7 @@ describe('PricingPage', () => {
     Array.from(mockSearchParams.keys()).forEach((key) => mockSearchParams.delete(key))
     flags.ENABLE_PRO_TRIAL = false
     flags.ENABLE_ANALYSIS = false
+    flags.ENABLE_FPI_FILINGS = false
     localStorage.clear()
     capturedOnClick.clear()
     mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com' })
@@ -529,13 +530,16 @@ describe('PricingPage', () => {
     else expect(description).not.toMatch(/multi-period/i)
   })
 
-  // The Free plan names the forms the production API lists, without the "Supported" hedge (the
-  // deploy sets ENABLE_FPI_FILINGS=true; tasks/todo.md F39).
-  it('names the filing forms on the Free plan without a hedge', async () => {
+  // The Free plan names 20-F only while NEXT_PUBLIC_ENABLE_FPI_FILINGS mirrors the API's ENABLE_FPI_FILINGS
+  // (the deploy sets the API's flag on, its code default is off; tasks/todo.md F39), and never the
+  // "Supported" hedge.
+  it.each([true, false])('names the filing forms on the Free plan without a hedge, 20-F only while the FPI flag ships it (flag %s)', async (on) => {
+    flags.ENABLE_FPI_FILINGS = on
     mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
     const { container } = renderPricing()
     await screen.findByRole('button', { name: /current plan/i })
-    expect(screen.getByText('10-K, 10-Q and 20-F filings from SEC EDGAR')).toBeInTheDocument()
+    expect(screen.getByText(on ? '10-K, 10-Q and 20-F filings from SEC EDGAR' : '10-K and 10-Q filings from SEC EDGAR')).toBeInTheDocument()
+    if (!on) expect(container).not.toHaveTextContent('20-F')
     expect(container).not.toHaveTextContent(/Supported/i)
   })
 })

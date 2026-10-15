@@ -15,6 +15,7 @@ vi.mock('@/lib/featureFlags', () => ({
     return h.enableAnalysis
   },
   ENABLE_PRO_TRIAL: false,
+  ENABLE_FPI_FILINGS: false,
 }))
 
 import AnalysisLayout from '@/app/analysis/layout'

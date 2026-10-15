@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import { Button, Card, Notice, Switch } from '@/components/ui'
 import analytics from '@/lib/analytics'
-import { ENABLE_ANALYSIS, ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
+import { ENABLE_ANALYSIS, ENABLE_FPI_FILINGS, ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
@@ -242,7 +242,8 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       description: 'For reading a few filings a month',
       features: [
         `${FREE_SUMMARY_LIMIT} summaries per month`,
-        '10-K, 10-Q and 20-F filings from SEC EDGAR',
+        // 20-F only while NEXT_PUBLIC_ENABLE_FPI_FILINGS mirrors the API's ENABLE_FPI_FILINGS (tasks/todo.md F39).
+        ENABLE_FPI_FILINGS ? '10-K, 10-Q and 20-F filings from SEC EDGAR' : '10-K and 10-Q filings from SEC EDGAR',
         'The same summaries Pro reads',
         'Company search',
         'Historical filing access',
