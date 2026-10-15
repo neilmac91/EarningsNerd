@@ -15,10 +15,14 @@
      - warning (v2.2): warning-token tint — replaces raw-amber hand-rolls
                      (UnverifiedBadge).
      - success / error: STATUS chips (a summary is ready, a run failed): the
-                     success/error ink on the quiet ground. Not a tint: the
-                     success ink inside any tint of itself falls under 4.5:1
-                     at 12px (4.2:1 in 10% on panel); on the quiet ground it
-                     holds 5.0:1, error 6.5:1, and 5.5:1 / 4.6:1 in dark.
+                     success/error ink on the quiet ground, white with a
+                     hairline in light and the bare hairline in dark. Not a
+                     tint: the success ink inside any tint of itself falls
+                     under 4.5:1 at 12px (4.2:1 in 10% on panel); on the quiet
+                     ground it holds 5.0:1, error 6.5:1. No fill in dark: on a
+                     row hovered with white/5 a fill of its own would take
+                     error to 3.9:1; with none it holds 4.6:1 there (5.3:1 on
+                     the card at rest).
                      Status is never told with beat/miss: those are data
                      colours.
      - beat / miss:  earnings surprise — gain/loss DATA colors (kept distinct
@@ -76,11 +80,11 @@ const VARIANT: Record<BadgeVariant, string> = {
   warning: 'bg-warning-light/10 text-warning-light dark:bg-warning-dark/15 dark:text-warning-dark',
   success: cx(
     'border border-border-light bg-white text-success-light',
-    'dark:border-border-dark dark:bg-white/5 dark:text-success-dark',
+    'dark:border-border-dark dark:bg-transparent dark:text-success-dark',
   ),
   error: cx(
     'border border-border-light bg-white text-error-light',
-    'dark:border-border-dark dark:bg-white/5 dark:text-error-dark',
+    'dark:border-border-dark dark:bg-transparent dark:text-error-dark',
   ),
   beat: 'bg-gain-soft text-gain-text dark:bg-gain-soft-dark dark:text-gain-dark',
   miss: 'bg-loss-soft text-loss-text dark:bg-loss-soft-dark dark:text-loss-dark',

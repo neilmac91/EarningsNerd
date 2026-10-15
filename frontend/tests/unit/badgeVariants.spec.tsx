@@ -14,8 +14,10 @@ import { Badge } from '@/components/ui'
  *
  * Holds:
  *  - `success` and `error` exist, carry the status tokens and no automatic glyph, and their label clears
- *    4.5:1 on the chip's own ground in both themes (the ground is read from the variant's classes, so a
- *    move to a tint that drops the success ink under the floor fails here);
+ *    4.5:1 on the chip's own ground in both themes, on the card at rest and on a row hovered with the
+ *    product's row tint (`hover:bg-brand-weak dark:hover:bg-white/5`): the ground is read from the variant's
+ *    classes, so a move to a tint that drops the success ink under the floor fails here, and so does a dark
+ *    fill of the chip's own over the row's (error-dark falls to 3.9:1 there);
  *  - Badge.tsx no longer documents beat/miss/new as tonal recipes;
  *  - no `<Badge icon={null}>` in app/, components/ or features/ takes `beat` or `miss` (a literal, or a
  *    variable in a file that names either): a direction without its glyph is a status in data colours.
@@ -58,17 +60,25 @@ const color = (name: string): Rgb => {
   return hex(value)
 }
 
-/** The label ink and the ground it sits on, from the chip's own classes, over the card it sits on. */
-function chipPair(classes: string[], theme: 'light' | 'dark'): { ink: Rgb; ground: Rgb } {
-  const own = classes.filter((c) => (theme === 'dark' ? c.startsWith('dark:') : !c.includes(':'))).map((c) => c.replace(/^dark:/, ''))
+/** What a status chip sits on: the card, or the card under the product's row tint on a hovered row
+    (`hover:bg-brand-weak dark:hover:bg-white/5`, the row token across the product). */
+const rowGround = (theme: 'light' | 'dark', hovered: boolean): Rgb => {
   const card = hex(theme === 'dark' ? C.panel.dark : C.panel.light)
+  if (!hovered) return card
+  return theme === 'dark' ? over(hex('#FFFFFF'), 0.05, card) : hex(C.brand.weak)
+}
+
+/** The label ink and the ground it sits on, from the chip's own classes, over the row it sits on. */
+function chipPair(classes: string[], theme: 'light' | 'dark', hovered = false): { ink: Rgb; ground: Rgb } {
+  const own = classes.filter((c) => (theme === 'dark' ? c.startsWith('dark:') : !c.includes(':'))).map((c) => c.replace(/^dark:/, ''))
+  const card = rowGround(theme, hovered)
   const bg = own.find((c) => c.startsWith('bg-'))?.slice(3)
   // The colour among the text utilities (BASE also sets the size, text-xs).
   const isColor = (name: string) => name === 'white' || typeof C[name.split('-')[0]]?.[name.split('-').slice(1).join('-')] === 'string'
   const text = own.filter((c) => c.startsWith('text-')).map((c) => c.slice(5)).find(isColor)
   if (!text) throw new Error(`no ${theme} label ink in ${classes.join(' ')}`)
   let ground = card
-  if (bg) {
+  if (bg && bg !== 'transparent') {
     const [name, pct] = bg.split('/')
     ground = pct ? over(color(name), Number(pct) / 100, card) : color(name)
   }
@@ -83,8 +93,10 @@ describe('Badge status variants (chrome/F8, chrome/F9)', () => {
     expect(classes).toEqual(expect.arrayContaining([`text-${variant}-light`, `dark:text-${variant}-dark`]))
     expect(chip.textContent).toBe('Ready')
     for (const theme of ['light', 'dark'] as const) {
-      const { ink, ground } = chipPair(classes, theme)
-      expect(Math.round(contrast(ink, ground) * 100) / 100, `${variant} label in ${theme}`).toBeGreaterThanOrEqual(4.5)
+      for (const hovered of [false, true]) {
+        const { ink, ground } = chipPair(classes, theme, hovered)
+        expect(Math.round(contrast(ink, ground) * 100) / 100, `${variant} label in ${theme}${hovered ? ' on a hovered row' : ''}`).toBeGreaterThanOrEqual(4.5)
+      }
     }
   })
 

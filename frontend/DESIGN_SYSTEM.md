@@ -461,7 +461,10 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  eslint.designRules.mjs); <Badge variant="warning"> = warning tint
                  (replaces raw-amber hand-rolls; "Superseded"). <Badge variant="success|error"> = a STATUS
                  chip (a summary is ready, a run failed): the status ink on the quiet ground, since the
-                 success ink inside any tint of itself falls under 4.5:1 at 12px. beat/miss are the
+                 success ink inside any tint of itself falls under 4.5:1 at 12px. In dark the chip
+                 carries no fill, its hairline only, so a hovered row's white/5 is the one layer under
+                 it: error-dark holds 4.6:1 there, where a fill of its own would take it to 3.9:1 (gate:
+                 tests/unit/badgeVariants.spec.tsx, on the card and on a hovered row). beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
                  tests/unit/badgeVariants.spec.tsx, shrink-only for the one row still on them). `new` keeps
                  its warning tint and pulse for now; the design owner chose the brand tint (bg-brand-weak
@@ -502,8 +505,10 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  tint, is 4.32:1. FeedbackTypeBadge, the neutral type chip beside the status chip in
                  FeedbackRow, keeps its light ground (black/[0.04]: 9.04:1, 8.50:1 hovered) and takes the
                  same dark one: no fill, its white/10 hairline kept, text-secondary-dark at 5.78:1 at
-                 rest and 4.98:1 on a hovered row (its old white/5 fill measured 4.27:1 there). When
-                 #1289's Badge status variants land, the recipe moves onto them.
+                 rest and 4.98:1 on a hovered row (its old white/5 fill measured 4.27:1 there). Badge's
+                 success and error status variants carry this dark recipe, no fill; E47 moves the admin
+                 chips onto Badge after the series, with info, warning and neutral status variants of
+                 their own (Badge's info, warning and neutral are the tints and the quiet chip).
                  Gate: tests/unit/statusChipContrast.spec.ts (each tone on both tables' rows, at rest and
                  hovered, both themes, the grounds read from InviteRow's and FeedbackRow's <tr> and the
                  pages' <tbody>; every layer between a chip and its <tr> read too, and a cell or wrapper
