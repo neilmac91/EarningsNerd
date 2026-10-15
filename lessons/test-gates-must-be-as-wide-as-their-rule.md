@@ -235,3 +235,14 @@ next review named a metric row's formatted figures outside it; so rule 2 classif
 API types declare that can hold a string, an array of them included, a figure field or a word field,
 and fails one it has not classified. A gate keyed on a list of names holds only when a test makes
 the list exhaustive over its domain.
+
+**Recurrence (2026-10-15, the wall-clock gate)**: `backend/tests/unit/test_wall_clock_bounds.py`
+reads Python, so it follows values by heuristics, and four review rounds on #1349 each found the
+previous round's fixes had dropped shapes an earlier revision caught: a stored deadline built from a
+duration-named budget, a floor on `abs(remaining)`, plural and numbered elapsed names, a reused name
+appended to a list, a deviation floor. Each fix had been scored on its own new samples and the
+existing ones, while the shapes earlier reviewers had probed lived only in their reports. Every
+probed shape, racing or safe, now sits in the gate's self-test, and a fix to a heuristic gate is
+scored against every earlier revision's samples (a harness that loads each revision's file by path
+and runs all their samples through each) before it is pushed. Record a deliberate trade-off in the
+gate's header in the same commit, or the next review reports it as a regression.
