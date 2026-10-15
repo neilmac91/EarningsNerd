@@ -13,11 +13,11 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "^(Bash|mcp__github__.*)$",
+        "matcher": "^(Bash|mcp__.*[Gg]it[Hh]ub.*)$",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/codex_mention_guard.py\" || exit 1",
+            "command": "python3 -I -S \"$CLAUDE_PROJECT_DIR/.claude/hooks/codex_mention_guard.py\" || exit 1",
             "timeout": 10
           }
         ]

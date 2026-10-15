@@ -23,25 +23,32 @@ files, such as the review gate's workflow comment and `docs/OPERATIONS.md`, name
 documentation.
 
 **Rule**: In a pull request's title, body or comments, and in an issue, write "Codex's review command" or
-"a review request". Never write the at-mention, inside backticks or not, except in a new comment that is
-the review command alone, with at most the attribution footer: the form the condition of
+"a review request". Never write the at-mention, inside backticks or not, except in a new conversation
+comment that is the review command alone, with at most the attribution footer: the form the condition of
 `review-gate.yml`'s `rerun-on-review-request` job matches. Quoting a sentence that contains the mention
 counts as a mention, so paraphrase it. When a pull request's title or body already carries the mention,
 edit it out as a precaution. Nothing showed that an edit starts another task: #1337 kept the mention in
 its title through a push and its ready transition, and no second task came. Leave a comment that carries
 it, as evidence, and do not repeat it.
 
-**Gate**: `.claude/hooks/codex_mention_guard.py`, which `.claude/settings.json` runs before every GitHub
-MCP tool call and every Bash command (`backend/tests/unit/test_codex_mention_guard.py`). It refuses a GitHub
-MCP write whose `title` or `body` carries the mention, and a Bash command that runs `gh pr` or `gh issue`
-(create, comment, edit, review), `gh api`, or curl against api.github.com with the mention anywhere in its
-text. Its one exception is a new comment that is the review command alone, with at most the attribution
-footer: the issue-comment tool's body, or `gh pr comment` with nothing else on the line. It is a
-guardrail, not a boundary. It cannot see text a command reads from a file (`--body-file`, `gh api
---input`) or builds from variables, a session that loads no repository hooks (a cloud session with
-several repositories, a local folder not yet trusted, `disableAllHooks`), or a person's own write, so
-this lesson stays in session reading. A check in a workflow would come too late: Codex sees GitHub's
-event when it is sent, before any workflow reads the text.
+**Gate**: `.claude/hooks/codex_mention_guard.py`, which `.claude/settings.json` runs before every Bash
+command and every call to an MCP server whose name contains "github"
+(`backend/tests/unit/test_codex_mention_guard.py`). It refuses a GitHub MCP write whose `title` or `body`
+carries the mention. It also refuses a Bash command that runs `gh pr` or `gh issue` (create or new,
+comment, edit, review, close, reopen) or `gh api`, or that names api.github.com, when the mention is in
+its text or in a file it names for a body (`--body-file`, `-F`, `--input`, an `@file` value). Reads
+count too, so a command that only reads or edits such text writes the pattern as `[@]codex`. Its one
+exception is a new conversation comment that is the review command alone, with at most the attribution
+footer: the body of the GitHub MCP `add_issue_comment` tool, or a whole command `gh pr comment` (or
+`gh issue comment`) with at most one number, an optional `-R`/`--repo` and that `--body`. A hook that
+crashes or cannot start lets the call through, so the gate fails open. It is a guardrail, not a
+boundary. It cannot see text a command builds as it runs (a variable, a command substitution, a file
+named relative to a directory the command enters first), the commit messages `gh pr create --fill`
+copies, a GitHub MCP server registered under a name without "github", a session that loads no
+repository hooks (a cloud session with several repositories, a local folder not yet trusted,
+`disableAllHooks`), or a person's own write. So this lesson stays in session reading. A check in a
+workflow would come too late: Codex sees GitHub's event when it is sent, before any workflow reads the
+text.
 
 **Evidence**: #1336 comments 6188268721 (the mention) and 6188281463 (Codex's task reply); #1337's
 `renamed` event (2026-10-15 09:59:05 UTC) and comment 6188792348; #1337's corrected title and body.
