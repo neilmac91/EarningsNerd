@@ -39,9 +39,12 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
     own ground, and not the bare mark.
 
     The page sets no viewport: it is 600 px wide, and a mail view fits a page that sets none to its
-    screen, where one set to the device's width would leave the panel's right side off it. The
-    panel's padding is on its cells, which classic Outlook honours (it ignores a table's), so the
-    body lines up under the header there too.
+    screen, where one set to the device's width would leave the panel's right side off it. Its body
+    keeps the template's ``-webkit-text-size-adjust:100%``, so a view that fits the page to a phone's
+    screen shows every line at its set size, scaled with the page; a view that autosizes text
+    enlarges some lines and not others, and the tagline would outgrow the wordmark. The panel's
+    padding is on its cells, which classic Outlook honours (it ignores a table's), so the body lines
+    up under the header there too.
     """
     # A trailing slash is stripped, as the waitlist's links strip it: a doubled slash answers 308.
     tile_url = f"{settings.FRONTEND_URL.rstrip('/')}{_HEADER_TILE_PATH}"

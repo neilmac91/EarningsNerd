@@ -15,7 +15,8 @@ import { describe, expect, it } from 'vitest'
  * links it. The register of published paths is publishedAssetUrls.json, beside this spec: the origin
  * mail addresses them on, and each path with the sha256 of its published file and what it is published
  * for. A change that puts a new path in mail adds it there in the same PR, and
- * backend/tests/unit/test_mail_published_assets.py, which reads the same file, fails until it does. Each
+ * backend/tests/unit/test_mail_published_assets.py, which reads the same file, fails until it does, save in
+ * the forms that gate's header names as out of its reach. A path never leaves the register. Each
  * path must be its published file in frontend/public, byte for byte (a new rendition takes a new name,
  * so a changed file fails here until it does); lie outside the middleware's matcher, so the middleware
  * never runs on it and no branch of it, however it reads the deployment, can move it; and be reached by
@@ -280,6 +281,21 @@ describe('the register', () => {
       expect(sha256, `${url}: its published file's sha256, in hex`).toMatch(/^[0-9a-f]{64}$/)
       expect(use.trim(), `${url}: say what it is published for`).not.toBe('')
     }
+  })
+
+  // Written out here, not read from the register, so dropping an entry from it fails.
+  it('keeps every path published so far', () => {
+    const urls = PUBLISHED.map((p) => p.url)
+    for (const url of ['/assets/earningsnerd-appicon.png', '/assets/earningsnerd-mark-sage.png']) {
+      expect(urls, `${url} ${KEPT}: a path never leaves the register, and one that joins it is added here too`).toContain(url)
+    }
+  })
+
+  it("names the site's canonical origin, the root layout's metadataBase", () => {
+    const layout = readFileSync(path.join(FRONTEND, 'app', 'layout.tsx'), 'utf8')
+    const base = layout.match(/metadataBase:\s*new URL\('([^']+)'\)/)
+    expect(base, 'app/layout.tsx no longer names its metadataBase as a literal URL').not.toBeNull()
+    expect(REGISTER.origin, 'mail addresses the published paths on the canonical origin').toBe(new URL(base![1]).origin)
   })
 })
 

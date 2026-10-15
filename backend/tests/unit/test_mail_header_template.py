@@ -3,11 +3,14 @@
 ``docs/brand/templates/email-header.html`` is the editable preview of the header (the lockup, a
 hairline, the marked tagline) and the footer line, and ``email_service._wrap_html`` carries its
 markup, ported (CLAUDE.md rule 12: a change to one is a change to the other). The two are compared
-tag for tag, plain comments aside, with one difference allowed: the preview's tile is inline SVG in a
-cell Outlook skips, and the mail's is the hosted raster the template's note spells
-(``<img src="{base}/assets/earningsnerd-appicon.png" ...>``), on ``FRONTEND_URL``. Around them, the page:
+tag for tag and text for text, plain comments aside, with whitespace counted as a browser renders it:
+a run of it is one space, and whitespace beside a table's own tags, which renders nothing, is dropped.
+One difference is allowed: the preview's tile is inline SVG in a cell Outlook skips, and the mail's is
+the hosted raster the template's note spells (``<img src="{base}/assets/earningsnerd-appicon.png" ...>``),
+on ``FRONTEND_URL``. Around them, the page:
 
-- puts the body and the footer in the panel's cells, each once;
+- puts the body and the footer in the panel's cells, each once and each in a cell of its own, and
+  carries one wordmark, the header's;
 - carries no inline SVG, which Gmail and Outlook drop, and sets no viewport: it is 600 px wide, and a
   mail view fits a page that sets none to its screen;
 - pads no table, since classic Outlook ignores a table's padding and the body would sit against the
@@ -22,11 +25,24 @@ from app.services import email_service
 TEMPLATE = Path(__file__).resolve().parents[3] / "docs" / "brand" / "templates" / "email-header.html"
 _PLAIN_COMMENT = re.compile(r"<!--\s(?:(?!-->).)*-->", re.DOTALL)  # an Outlook conditional has no space after <!--
 _TILE_IN_NOTE = re.compile(r'<img src="\{base\}[^>]*>', re.DOTALL)
+_TABLE_TAG = re.compile(r"</?(?:table|tbody|tr|td)\b")
 
 
 def _tokens(markup: str) -> list[str]:
-    markup = _PLAIN_COMMENT.sub("", markup)
-    return [" ".join(t.split()) for t in re.split(r"(<[^>]+>)", markup) if t.strip()]
+    """The markup's tags and text, plain comments dropped, spaced as a browser renders them."""
+    pieces = [piece for piece in re.split(r"(<[^>]+>)", _PLAIN_COMMENT.sub("", markup)) if piece]
+    tokens = []
+    for i, piece in enumerate(pieces):
+        before, after = pieces[i - 1 : i], pieces[i + 1 : i + 2]
+        if piece.startswith("<"):
+            tokens.append(" ".join(piece.split()))
+        elif piece.strip():
+            text = re.sub(r"\s+", " ", piece)
+            text = text.lstrip() if before and _TABLE_TAG.match(before[0]) else text
+            tokens.append(text.rstrip() if after and _TABLE_TAG.match(after[0]) else text)
+        elif not any(_TABLE_TAG.match(near) for near in before + after):
+            tokens.append(" ")
+    return tokens
 
 
 def _table(tokens: list[str], opening: str) -> list[str]:
@@ -76,16 +92,18 @@ def test_the_header_and_footer_line_are_the_templates(monkeypatch):
 
 def test_the_page_holds_its_slots_and_its_shell_rules():
     body = "<p>Hi Tom &amp; Jerry,</p><p>We received a request to reset your password.</p>"
-    page = email_service._wrap_html(body, footer="<span>The footer slot.</span>")
+    footer = "<span>The footer slot.</span>"
+    page = email_service._wrap_html(body, footer=footer)
 
     tokens = _tokens(page)
     panel = _table(tokens, next(t for t in tokens if t.startswith("<table") and "border:1px solid #E5E1D8" in t))
     assert page.count(body) == 1 and body in "".join(panel), "the body sits once, in the panel"
-    assert page.count("<span>The footer slot.</span>") == 1 and "<span>The footer slot.</span>" in "".join(panel), (
-        "the footer sits once, in the panel"
-    )
+    assert page.count(footer) == 1 and footer in "".join(panel), "the footer sits once, in the panel"
+    assert "</td>" in page[page.index(body) : page.index(footer)], "the footer has a cell of its own, after the body's"
+    shell = page.replace(body, "").replace(footer, "")
+    assert len(re.findall(r"Earnings\s*<em\b", shell)) == 1, "the page carries one wordmark, the header's"
 
     assert "<svg" not in page, "Gmail and Outlook drop inline SVG"
     assert 'name="viewport"' not in page, "a 600 px page sets no viewport, so a mail view fits it to its screen"
-    padded = [t for t in tokens if t.startswith("<table") and re.search(r"style=\"[^\"]*padding", t)]
+    padded = [t for t in tokens if t.startswith("<table") and re.search(r"""style=(["'])(?:(?!\1).)*padding""", t)]
     assert not padded, f"classic Outlook ignores a table's padding: pad its cells instead: {padded}"

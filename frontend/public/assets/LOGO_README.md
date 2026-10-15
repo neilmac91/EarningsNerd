@@ -85,12 +85,16 @@ Excel export).
   is the file that was published (its sha256), that it lies outside `middleware.ts`'s matcher (which
   leaves out `/assets/`), so the middleware never runs on it, and that no redirect, rewrite or
   basePath in `next.config.js` or `vercel.json` reaches it, read in a production build's
-  environment. `backend/tests/unit/test_mail_published_assets.py` holds the backend to the rule: a
-  string in `backend/app` that addresses a file the site serves from `frontend/public` spells a
-  whole registered path, with no origin of the site's in front of it; the header's tile is built on
-  `FRONTEND_URL` with any trailing slash stripped; and `FRONTEND_URL`'s default is the register's
-  origin. Its header names the forms it cannot see (a path joined at run time to another origin, one
-  written without its leading slash, one a route serves). Whether the origin answers without a
+  environment; that no path leaves the register; and that the register's origin is the root
+  layout's `metadataBase`. `backend/tests/unit/test_mail_published_assets.py` holds the backend to
+  the rule: a string in `backend/app`, read as the code builds it, that addresses a file the site
+  serves from `frontend/public` spells a whole registered path, with nothing filled in after it and
+  no origin of the site's, second slash or unstripped `FRONTEND_URL` in front of it; a registered
+  path is used whole, never changed or handed on; the header's tile is built on `FRONTEND_URL` with
+  any trailing slash stripped; and `FRONTEND_URL`'s default is the register's origin. Its header
+  names the forms it cannot see (a path after a placeholder that holds another origin, one written
+  without its leading slash or after a bare word, an address a function hands back that its caller
+  changes, one a route serves). Whether the origin answers without a
   redirect, the response headers a route or a headers rule sets on these paths (a Content-Type that
   stops a mail client showing the image), and anything set only in the Vercel dashboard (a variable
   a rule reads, or a redirect) are review-checked.
