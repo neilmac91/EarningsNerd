@@ -20,25 +20,27 @@ panel and the footer line below it. Around them, the page:
 - carries no inline SVG, which Gmail and Outlook drop, and sets no viewport: it is 600 px wide, and a
   mail view fits a page that sets none to its screen;
 - keeps the header at its set size where a phone view enlarges text (``-webkit-text-size-adjust:100%``
-  on its table), and leaves every other line to the view, the panel's and the footer line's. Each line
-  is read as a client inherits the property: both its names, the last declaration winning, entities
-  decoded. The page carries no ``<style>`` block, whose selectors this test does not read.
-  ``test_mail_rendered_addresses.py`` holds every page the mail module sends to the same rule;
-- lets the panel break a long word, such as a link's token, so its enlarged text cannot widen it past
-  the header;
+  on its table), and leaves every other line to the view, the panel's and the footer line's;
+- breaks no run of a body's for it: a line that prints a run with nowhere to break, such as a link with
+  its token, carries the rule that lets it break anywhere, since on the panel the rule would reach a
+  body's own table and split a column of amounts;
 - pads no table through its ``style`` attribute (the shell has no ``<style>`` block), since classic
   Outlook ignores a table's padding and the body would sit against the panel's border, out of line with
   the header.
+
+``tests/support/mail_styles.py`` reads the text-size and long-run rules as a client does, in both engines
+that enlarge text, and the planted pages below score it. ``test_mail_rendered_addresses.py`` holds every
+page the mail module sends to both.
 """
 import html
 import re
-from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
 
 from app.config import settings
 from app.services import email_service
+from tests.support.mail_styles import LONG_RUN, long_run_problems, long_runs, text_size_problems
 
 TEMPLATE = Path(__file__).resolve().parents[3] / "docs" / "brand" / "templates" / "email-header.html"
 _PLAIN_COMMENT = re.compile(r"<!--\s(?:(?!-->).)*-->", re.DOTALL)  # an Outlook conditional has no space after <!--
@@ -61,80 +63,6 @@ _TABLE_PADDING = re.compile(r"""\bstyle\s*=\s*(?:(["'])(?:(?!\1).)*padding|[^\s"
 def _tag(piece: str) -> str:
     """A tag with the whitespace between its attributes made one space, its quoted values kept as written."""
     return "".join(part if _QUOTED.fullmatch(part) else _TAG_SPACES.sub(" ", part) for part in _QUOTED.split(piece))
-
-
-# One property under two names: Blink reads both, and Apple's WebKit, which iOS Mail runs, the prefixed one.
-_TEXT_SIZE_NAMES = ("-webkit-text-size-adjust", "text-size-adjust")
-_VOID = frozenset({"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"})
-
-
-def _declared_text_size(style: str) -> tuple[str, bool] | None:
-    """The text-size-adjust a style attribute declares last, by either name, and whether a prefixed
-    declaration of that value is among its declarations; None when it declares none."""
-    found = []
-    for declaration in style.split(";"):
-        name, colon, value = declaration.partition(":")
-        if colon and name.strip().lower() in _TEXT_SIZE_NAMES:
-            found.append((name.strip().lower(), value.strip().lower().removesuffix("!important").strip()))
-    if not found:
-        return None
-    value = found[-1][1]
-    return value, any(name == _TEXT_SIZE_NAMES[0] and v == value for name, v in found)
-
-
-class _TextSizes(HTMLParser):
-    """Each line of text in a page, whether it sits in the header, and the text-size-adjust it inherits.
-    The header is the 600 px table on the page's cream, whatever its style says."""
-
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.stack: list[tuple[str, tuple[str, bool] | None, bool]] = []
-        self.lines: list[tuple[str, bool, str, bool]] = []  # (text, in the header, value, prefixed)
-        self.styles = 0
-
-    def handle_starttag(self, tag, attrs):
-        if tag == "style":
-            self.styles += 1
-        if tag not in _VOID:
-            values = dict(attrs)
-            header = tag == "table" and values.get("width") == "600" and (values.get("bgcolor") or "").upper() == "#F4F3EE"
-            self.stack.append((tag, _declared_text_size(values.get("style") or ""), header))
-
-    def handle_startendtag(self, tag, attrs):
-        if tag == "style":
-            self.styles += 1
-
-    def handle_endtag(self, tag):
-        for i in range(len(self.stack) - 1, -1, -1):
-            if self.stack[i][0] == tag:
-                del self.stack[i:]
-                return
-
-    def handle_data(self, data):
-        if data.strip() and self.lasttag != "style":
-            value, prefixed = next((d for _, d, _ in reversed(self.stack) if d is not None), ("auto", False))
-            self.lines.append((" ".join(data.split())[:40], any(h for _, _, h in self.stack), value, prefixed))
-
-
-def text_size_problems(page: str) -> list[str]:
-    """Where a page breaks the shell's text-size rule: the header keeps its set size on a phone that
-    enlarges text, and every other line is left to the view."""
-    parser = _TextSizes()
-    parser.feed(page)
-    parser.close()
-    problems = []
-    if parser.styles:
-        problems.append("the page carries a <style> block, whose selectors this check does not read: set text-size-adjust inline")
-    if not any(in_header for _, in_header, _, _ in parser.lines):
-        problems.append("no line of the header was found: the check no longer finds the header's table")
-    for text, in_header, value, prefixed in parser.lines:
-        if in_header and value != "100%":
-            problems.append(f"the header's {text!r} is left to the view ({value}): enlarged, the tagline outgrows the wordmark")
-        elif in_header and not prefixed:
-            problems.append(f"the header's {text!r} is held by the unprefixed name alone, which iOS does not read: use -webkit-text-size-adjust")
-        elif not in_header and value != "auto":
-            problems.append(f"{text!r} is held at {value}: leave the text outside the header to the view, which enlarges a long body on a phone")
-    return problems
 
 
 def _tokens(markup: str) -> list[str]:
@@ -222,11 +150,12 @@ def test_the_page_holds_its_slots_and_its_shell_rules():
     wordmarks = _WORDMARK.findall(_INVISIBLE.sub("", html.unescape(shell)))
     assert len(wordmarks) == 1, "the page carries one wordmark, the header's: the name in prose is no wordmark"
 
-    assert "overflow-wrap:anywhere" in panel[0] and "word-break:break-word" in panel[0], (
-        "the panel breaks a long word, such as a link's token, or a view that enlarges its text widens it past the header"
-    )
     problems = text_size_problems(page)
     assert not problems, "\n".join(problems)
+    assert long_run_problems(email_service._wrap_html(f"<p>{'x' * LONG_RUN}</p>")), (
+        "the shell lets a body's runs break for it: put the rule on the lines that print one, since on the panel it "
+        "reaches a body's own table and splits a column of amounts"
+    )
     assert "<svg" not in page.lower(), "Gmail and Outlook drop inline SVG"
     assert not _VIEWPORT.search(page), "a 600 px page sets no viewport, so a mail view fits it to its screen"
     padded = [t for t in tokens if t.lower().startswith("<table") and _TABLE_PADDING.search(t)]
@@ -236,41 +165,156 @@ def test_the_page_holds_its_slots_and_its_shell_rules():
 _PLANTED_BODY = "<p>Hi Ada,</p><p>Copy this link: https://www.earningsnerd.io/reset-password?token=abc</p>"
 _HELD = "-webkit-text-size-adjust:100%;"
 _HEADER_STYLE = 'style="width:600px;max-width:600px;background-color:#F4F3EE;-webkit-text-size-adjust:100%;"'
-# Each way a page can break the text-size rule, as an edit of the shell's page, and the look-alikes that hold it.
+_FOOTER_LINE_TABLE = 'border="0" style="width:600px;max-width:600px;">'
+_LEFT = "is not left to the view"
+_NOT_HELD = "is not held at 100%"
+_TAGLINE_CELL = '<td style="padding:16px 32px 28px 32px;'
+# Each way a page can break the text-size rule, as edits of the shell's page, and the look-alikes that hold it.
 TEXT_SIZES = [
     # Flagged.
-    ("the property back on the body", ('<body style="', f'<body style="{_HELD}'), "outside the header"),
-    ("the property on the html element", ('<html lang="en">', f'<html lang="en" style="{_HELD}">'), "outside the header"),
-    ("the property on the outer table", ('bgcolor="#F4F3EE" style="background-color:#F4F3EE;">', f'bgcolor="#F4F3EE" style="background-color:#F4F3EE;{_HELD}">'), "outside the header"),
-    ("the property on the panel's wrapper cell", ('<td align="center" style="padding:0 12px 24px 12px;">', f'<td align="center" style="padding:0 12px 24px 12px;{_HELD}">'), "outside the header"),
-    ("the property on the panel", ("border-radius:16px;", f"border-radius:16px;{_HELD}"), "outside the header"),
-    ("none on the panel's body cell", ("border-radius:15px 15px 0 0;", "border-radius:15px 15px 0 0;-webkit-text-size-adjust:none;"), "outside the header"),
-    ("the property on a mail's own line", ("<p>Copy this link", f'<p style="{_HELD}">Copy this link'), "outside the header"),
-    ("the property's name spelled with an entity", ('<body style="', '<body style="-webkit-text-size-&#97;djust:100%;'), "outside the header"),
-    ("a style block's reset", ("</head>", "<style>body,table,td{-webkit-text-size-adjust:100%}</style></head>"), "<style> block"),
-    ("the header reopened by a later declaration", (_HEADER_STYLE, _HEADER_STYLE[:-1] + '-webkit-text-size-adjust:auto;"'), "the header's"),
-    ("the header reopened by the unprefixed name", (_HEADER_STYLE, _HEADER_STYLE[:-1] + 'text-size-adjust:auto;"'), "the header's"),
-    ("auto on the tagline's cell", ("padding:16px 32px 28px 32px;", "padding:16px 32px 28px 32px;-webkit-text-size-adjust:auto;"), "the header's"),
-    ("the header held by the unprefixed name alone", (_HEADER_STYLE, _HEADER_STYLE.replace("-webkit-text-size-adjust", "text-size-adjust")), "unprefixed name alone"),
-    ("the header's property dropped", (_HEADER_STYLE, _HEADER_STYLE.replace(_HELD, "")), "the header's"),
-    ("the header's table no longer found", ('width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE"', 'width="640" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE"'), "no line of the header"),
+    ("the property back on the body", (('<body style="', f'<body style="{_HELD}'),), _LEFT),
+    ("the property on the html element", (('<html lang="en">', f'<html lang="en" style="{_HELD}">'),), _LEFT),
+    ("the property on the outer table", (('bgcolor="#F4F3EE" style="background-color:#F4F3EE;">', f'bgcolor="#F4F3EE" style="background-color:#F4F3EE;{_HELD}">'),), _LEFT),
+    ("the property on the panel's wrapper cell", (('<td align="center" style="padding:0 12px 24px 12px;">', f'<td align="center" style="padding:0 12px 24px 12px;{_HELD}">'),), _LEFT),
+    ("the property on the panel", (("border-radius:16px;", f"border-radius:16px;{_HELD}"),), _LEFT),
+    ("the unprefixed name on the panel, which Blink reads", (("border-radius:16px;", "border-radius:16px;text-size-adjust:100%;"),), "Blink reads 100%"),
+    ("none on the panel's body cell", (("border-radius:15px 15px 0 0;", "border-radius:15px 15px 0 0;-webkit-text-size-adjust:none;"),), _LEFT),
+    ("the property on a mail's own line", (("<p>Copy this link", f'<p style="{_HELD}">Copy this link'),), _LEFT),
+    ("the property on a mail's own line after a CSS comment", (("<p>Copy this link", f'<p style="margin:0;/* keep iOS from resizing */{_HELD}">Copy this link'),), _LEFT),
+    ("the property's name spelled with an entity", (('<body style="', '<body style="-webkit-text-size-&#97;djust:100%;'),), _LEFT),
+    ("the property's name spelled with a CSS escape", (('<body style="', '<body style="-webkit-text-size-\\61 djust:100%;'),), _LEFT),
+    ("an important hold over a later auto", (('<body style="', '<body style="-webkit-text-size-adjust:100% !important;-webkit-text-size-adjust:auto;'),), _LEFT),
+    ("a hold in the first of two style attributes", (('<body style="', f'<body style="{_HELD}" style="'),), _LEFT),
+    ("a hold iOS's WebKit reads alone", (('<body style="', f'<body style="{_HELD}text-size-adjust:auto;'),), "iOS's WebKit 100%"),
+    ("a hold on the body, released for Blink alone in the panel and the footer line", (
+        ('<body style="', f'<body style="{_HELD}'),
+        ("border-radius:16px;", "border-radius:16px;text-size-adjust:auto;"),
+        (_FOOTER_LINE_TABLE, 'border="0" style="width:600px;max-width:600px;text-size-adjust:auto;">'),
+    ), "iOS's WebKit 100%"),
+    ("a self-closing span that opens a hold", (("<p>Copy this link", f'<span style="{_HELD}"/><p>Copy this link'),), _LEFT),
+    ("an unclosed b that the parser opens again in the next paragraph", (("<p>Hi Ada,</p>", f'<p>Hi Ada,<b style="{_HELD}"></p>'),), _LEFT),
+    ("a style block's reset", (("</head>", "<style>body,table,td{-webkit-text-size-adjust:100%}</style></head>"),), "<style> block"),
+    ("a self-closing style block's reset", (("</head>", "<style/>body{-webkit-text-size-adjust:100%}</style></head>"),), "<style> block"),
+    ("a linked stylesheet", (("</head>", '<link rel="stylesheet" href="https://e.test/mail.css"></head>'),), "linked stylesheet"),
+    ("the header reopened by a later declaration", ((_HEADER_STYLE, _HEADER_STYLE[:-1] + '-webkit-text-size-adjust:auto;"'),), _NOT_HELD),
+    ("the header reopened by the unprefixed name", ((_HEADER_STYLE, _HEADER_STYLE[:-1] + 'text-size-adjust:auto;"'),), "Blink reads auto"),
+    ("the header reopened for iOS's WebKit alone", ((_HEADER_STYLE, _HEADER_STYLE[:-1] + '-webkit-text-size-adjust:auto;text-size-adjust:100%;"'),), "iOS's WebKit auto"),
+    ("the header held for Blink alone", ((_HEADER_STYLE, _HEADER_STYLE.replace(_HELD, "-webkit-text-size-adjust:auto;text-size-adjust:100%;")),), "iOS's WebKit auto"),
+    ("auto on the tagline's cell", ((_TAGLINE_CELL, _TAGLINE_CELL + "-webkit-text-size-adjust:auto;"),), _NOT_HELD),
+    ("initial on the tagline's cell", ((_TAGLINE_CELL, _TAGLINE_CELL + "-webkit-text-size-adjust:initial;"),), _NOT_HELD),
+    ("a self-closing span that reopens the tagline", (("The summary that ", '<span style="-webkit-text-size-adjust:auto;"/>The summary that '),), _NOT_HELD),
+    ("auto in the first of two style attributes on the tagline's cell", ((_TAGLINE_CELL, '<td style="-webkit-text-size-adjust:auto;" style="'),), _NOT_HELD),
+    ("the header held by the unprefixed name alone", ((_HEADER_STYLE, _HEADER_STYLE.replace("-webkit-text-size-adjust", "text-size-adjust")),), "iOS's WebKit auto"),
+    ("the header held by none", ((_HEADER_STYLE, _HEADER_STYLE.replace("adjust:100%", "adjust:none")),), "stop a reader's own zoom"),
+    ("the header's property dropped", ((_HEADER_STYLE, _HEADER_STYLE.replace(_HELD, "")),), _NOT_HELD),
+    ("the header's table no longer found", (('width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE"', 'width="640" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE"'),), "0 tables that read as the header"),
+    ("a second wordmark, in the body", (("<p>Hi Ada,</p>", "<p>Hi Ada, from Earnings<em>Nerd</em></p>"),), "2 tables that read as the header"),
+    ("the footer line held on the header's cream", ((_FOOTER_LINE_TABLE, f'border="0" bgcolor="#F4F3EE" style="width:600px;max-width:600px;{_HELD}">'),), _LEFT),
     # Pass.
-    ("a space after the colon", (_HEADER_STYLE, _HEADER_STYLE.replace("adjust:100%", "adjust: 100%")), None),
-    ("the property's name in capitals", (_HEADER_STYLE, _HEADER_STYLE.replace("-webkit-text-size-adjust", "-WEBKIT-TEXT-SIZE-ADJUST")), None),
-    ("the header's value marked important", (_HEADER_STYLE, _HEADER_STYLE.replace("adjust:100%;", "adjust:100% !important;")), None),
-    ("the unprefixed name beside the prefixed one", (_HEADER_STYLE, _HEADER_STYLE[:-1] + 'text-size-adjust:100%;"'), None),
-    ("auto on the body", ('<body style="', '<body style="-webkit-text-size-adjust:auto;'), None),
-    ("auto on the panel", ("border-radius:16px;", "border-radius:16px;-webkit-text-size-adjust:auto;"), None),
-    ("the -ms- name on the body, which the engines that enlarge text ignore", ('<body style="', '<body style="-ms-text-size-adjust:100%;'), None),
+    ("a space after the colon", ((_HEADER_STYLE, _HEADER_STYLE.replace("adjust:100%", "adjust: 100%")),), None),
+    ("the property's name in capitals", ((_HEADER_STYLE, _HEADER_STYLE.replace("-webkit-text-size-adjust", "-WEBKIT-TEXT-SIZE-ADJUST")),), None),
+    ("the header's value marked important", ((_HEADER_STYLE, _HEADER_STYLE.replace("adjust:100%;", "adjust:100% !important;")),), None),
+    ("the header's value marked important with a space", ((_HEADER_STYLE, _HEADER_STYLE.replace("adjust:100%;", "adjust:100% ! important;")),), None),
+    ("a CSS comment after the header's value", ((_HEADER_STYLE, _HEADER_STYLE.replace("adjust:100%;", "adjust:100% /* iOS */;")),), None),
+    ("the unprefixed name beside the prefixed one", ((_HEADER_STYLE, _HEADER_STYLE[:-1] + 'text-size-adjust:100%;"'),), None),
+    ("the unprefixed name on a header cell, under the table's prefixed hold", ((_TAGLINE_CELL, _TAGLINE_CELL + "text-size-adjust:100%;"),), None),
+    ("inherit on a header cell", ((_TAGLINE_CELL, _TAGLINE_CELL + "-webkit-text-size-adjust:inherit;"),), None),
+    ("unset on a header cell", ((_TAGLINE_CELL, _TAGLINE_CELL + "-webkit-text-size-adjust:unset;"),), None),
+    ("revert on a header cell", ((_TAGLINE_CELL, _TAGLINE_CELL + "-webkit-text-size-adjust:revert;"),), None),
+    ("a zero-width space inside the wordmark", (("Earnings<em ", "Earnings&#8203;<em "),), None),
+    ("a later value the property cannot take", ((_HEADER_STYLE, _HEADER_STYLE[:-1] + '-webkit-text-size-adjust:banana;"'),), None),
+    ("auto on the body", (('<body style="', '<body style="-webkit-text-size-adjust:auto;'),), None),
+    ("auto on the panel", (("border-radius:16px;", "border-radius:16px;-webkit-text-size-adjust:auto;"),), None),
+    ("the -ms- name on the body, which the engines that enlarge text ignore", (('<body style="', '<body style="-ms-text-size-adjust:100%;'),), None),
+    ("a hold in a CSS comment on the body", (('<body style="', f'<body style="/* {_HELD} */'),), None),
+    ("a hold in the second of two style attributes, which HTML drops", (('<body style="', f'<body style="margin:0;" style="{_HELD}'),), None),
+    ("the footer line on the header's cream, held by nothing", ((_FOOTER_LINE_TABLE, 'border="0" bgcolor="#F4F3EE" style="width:600px;max-width:600px;">'),), None),
+    ("the brand named in the body's prose", (("<p>Hi Ada,</p>", "<p>Hi Ada, from EarningsNerd</p>"),), None),
 ]
 
 
-@pytest.mark.parametrize("edit, expected", [case[1:] for case in TEXT_SIZES], ids=[case[0] for case in TEXT_SIZES])
-def test_the_text_size_check_scores_every_planted_page(edit, expected):
+@pytest.mark.parametrize("edits, expected", [case[1:] for case in TEXT_SIZES], ids=[case[0] for case in TEXT_SIZES])
+def test_the_text_size_check_scores_every_planted_page(edits, expected):
     page = email_service._wrap_html(_PLANTED_BODY, footer="<span>The footer.</span>")
-    old, new = edit
-    assert page.count(old) == 1, f"the planted edit no longer finds {old!r} once in the page"
-    problems = text_size_problems(page.replace(old, new))
+    for old, new in edits:
+        assert page.count(old) == 1, f"the planted edit no longer finds {old!r} once in the page"
+        page = page.replace(old, new)
+    problems = text_size_problems(page)
+    if expected is None:
+        assert not problems, problems
+    else:
+        assert any(expected in problem for problem in problems), f"expected {expected!r}, got {problems}"
+
+
+# A link as the reset, verify and invite mails print it: a token as secrets.token_urlsafe(32) draws one,
+# 43 characters, here with no hyphen to break at.
+_TOKEN = "Qm9va3NhbmRjb2ZmZWVhbmRyZWFkaW5nYWxsZGF5MDE"
+_LONG_LINK = f"https://www.earningsnerd.io/reset-password?token={_TOKEN}"
+_BREAK = email_service._BREAK_ANYWHERE
+_LINE_STYLE = f"margin:0;font-size:12px;color:#6B7280;{_BREAK}"
+_COPY_LINE = f'<p style="{_LINE_STYLE}">Can&apos;t click the button? Copy this link:<br>{_LONG_LINK}</p>'
+_BODY_CELL = '<td style="padding:32px 32px 0 32px;'
+_RESET = "overflow-wrap:normal;word-break:normal;"
+_NOWHERE = "has nowhere to break"
+_NO_WRAP = "cannot wrap"
+# Each way a page can show a long run with nowhere to break, as edits of a page that prints a link, and the
+# look-alikes that break it.
+LONG_RUNS = [
+    # Flagged.
+    ("the rule dropped from the line", ((_LINE_STYLE, "margin:0;font-size:12px;color:#6B7280;"),), _NOWHERE),
+    ("a later reset in the line's style", ((_LINE_STYLE, _LINE_STYLE + _RESET),), _NOWHERE),
+    ("an important reset after the rule", ((_LINE_STYLE, _LINE_STYLE + "overflow-wrap:normal !important;word-break:normal !important;"),), _NOWHERE),
+    ("an inner reset around the link", ((f"<br>{_LONG_LINK}", f'<br><span style="{_RESET}">{_LONG_LINK}</span>'),), _NOWHERE),
+    ("a self-closing span that opens a reset", ((f"<br>{_LONG_LINK}", f'<br><span style="{_RESET}"/>{_LONG_LINK}'),), _NOWHERE),
+    ("the rule in a CSS comment", ((_LINE_STYLE, f"margin:0;font-size:12px;color:#6B7280;/* {_BREAK} */"),), _NOWHERE),
+    ("the rule's values misspelled", ((_BREAK, "overflow-wrap:everywhere;word-break:break-everything;"),), _NOWHERE),
+    ("overflow-wrap:break-word alone, which leaves a cell its narrowest width", ((_BREAK, "overflow-wrap:break-word;"),), _NOWHERE),
+    ("the rule in the second of two style attributes", ((f'<p style="{_LINE_STYLE}">', f'<p style="margin:0;font-size:12px;" style="{_BREAK}">'),), _NOWHERE),
+    ("the link split by inline markup, the rule dropped", ((_COPY_LINE, f"<p>Copy this link:<br>https://www.<b>earningsnerd</b>.io/reset-password?token={_TOKEN}</p>"),), _NOWHERE),
+    ("a run of 30 characters with no rule", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 30}</p>"),), _NOWHERE),
+    ("a run that inline markup splits into pieces under 30", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 20}<b>{'x' * 20}</b></p>"),), _NOWHERE),
+    ("a nowrap span around the link", ((f"<br>{_LONG_LINK}", f'<br><span style="white-space:nowrap;">{_LONG_LINK}</span>'),), _NO_WRAP),
+    ("white-space:pre on the line", ((_LINE_STYLE, _LINE_STYLE + "white-space:pre;"),), _NO_WRAP),
+    ("text-wrap-mode:nowrap on the line", ((_LINE_STYLE, _LINE_STYLE + "text-wrap-mode:nowrap;"),), _NO_WRAP),
+    ("text-wrap:nowrap on the line", ((_LINE_STYLE, _LINE_STYLE + "text-wrap:nowrap;"),), _NO_WRAP),
+    ("a nowrap white-space in its longhands' words", ((_LINE_STYLE, _LINE_STYLE + "white-space:collapse nowrap;"),), _NO_WRAP),
+    ("the link in a nobr", ((f"<br>{_LONG_LINK}", f"<br><nobr>{_LONG_LINK}</nobr>"),), _NO_WRAP),
+    ("the link in a pre, which closes the line", ((f"<br>{_LONG_LINK}", f"<br><pre>{_LONG_LINK}</pre>"),), _NO_WRAP),
+    ("revert on a pre, which keeps its own white-space", ((f"<br>{_LONG_LINK}", f'<br><pre style="white-space:revert;">{_LONG_LINK}</pre>'),), _NO_WRAP),
+    ("the body's cell set nowrap", ((_BODY_CELL, '<td nowrap style="padding:32px 32px 0 32px;'),), _NO_WRAP),
+    ("a wbr under nowrap, which does not break", ((_COPY_LINE, _COPY_LINE + f'<p style="white-space:nowrap;">{"x" * 20}<wbr>{"x" * 20}</p>'),), _NO_WRAP),
+    ("a short phrase kept whole past the threshold", ((_COPY_LINE, _COPY_LINE + '<p style="white-space:nowrap;">Read the AI summary of this filing now</p>'),), _NO_WRAP),
+    # Pass.
+    ("the line as the mails write it", (), None),
+    ("overflow-wrap:anywhere alone", ((_BREAK, "overflow-wrap:anywhere;"),), None),
+    ("word-break:break-word alone", ((_BREAK, "word-break:break-word;"),), None),
+    ("word-break:break-all alone", ((_BREAK, "word-break:break-all;"),), None),
+    ("the alias word-wrap:anywhere", ((_BREAK, "word-wrap:anywhere;"),), None),
+    ("an important rule over a later reset", ((_BREAK, "overflow-wrap:anywhere !important;word-break:break-word !important;" + _RESET),), None),
+    ("the rule on the body's cell, which the line inherits", ((_LINE_STYLE, "margin:0;font-size:12px;color:#6B7280;"), (_BODY_CELL, _BODY_CELL + _BREAK)), None),
+    ("the link split by inline markup, with the rule", ((f"<br>{_LONG_LINK}", f"<br>https://www.<b>earningsnerd</b>.io/reset-password?token={_TOKEN}"),), None),
+    ("pre-wrap with the rule", ((_LINE_STYLE, _LINE_STYLE + "white-space:pre-wrap;"),), None),
+    ("white-space:inherit on the line", ((_LINE_STYLE, _LINE_STYLE + "white-space:inherit;"),), None),
+    ("white-space:initial on the line, in a nowrap cell", ((_LINE_STYLE, _LINE_STYLE + "white-space:initial;"), (_BODY_CELL, '<td nowrap style="padding:32px 32px 0 32px;')), None),
+    ("a run of 29 characters with no rule", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 29}</p>"),), None),
+    ("two blocks side by side, each under 30", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 20}</p><p>{'x' * 20}</p>"),), None),
+    ("a long run the page hides", ((_COPY_LINE, _COPY_LINE + f'<div style="display:none">{"x" * 60}</div>'),), None),
+    ("a long run under the hidden attribute", ((_COPY_LINE, _COPY_LINE + f"<div hidden>{'x' * 60}</div>"),), None),
+    ("a long run in the head's title", (("</head>", f"<title>{'x' * 60}</title></head>"),), None),
+    ("a long run broken by a wbr", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 20}<wbr>{'x' * 20}</p>"),), None),
+    ("a long run broken by a zero-width space", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 20}\u200b{'x' * 20}</p>"),), None),
+    ("a pre whose lines are short", ((_COPY_LINE, _COPY_LINE + f"<pre>{'x' * 20}\n{'x' * 20}</pre>"),), None),
+]
+
+
+@pytest.mark.parametrize("edits, expected", [case[1:] for case in LONG_RUNS], ids=[case[0] for case in LONG_RUNS])
+def test_the_long_run_check_scores_every_planted_page(edits, expected):
+    page = email_service._wrap_html(f"<p>Hi Ada,</p>{_COPY_LINE}", footer="<span>The footer.</span>")
+    assert any(_TOKEN in run for run in long_runs(page)), "the planted page no longer prints its link as one run"
+    for old, new in edits:
+        assert page.count(old) == 1, f"the planted edit no longer finds {old!r} once in the page"
+        page = page.replace(old, new)
+    problems = long_run_problems(page)
     if expected is None:
         assert not problems, problems
     else:

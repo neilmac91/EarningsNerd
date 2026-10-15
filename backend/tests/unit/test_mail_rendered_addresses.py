@@ -50,9 +50,14 @@ new mail fails here until it is rendered. Planted modules score that check. What
   internal admin and team notices, and what a caller adds to a page before it sends it
   (``data_quality_service.run_and_email`` appends the report's text copy, as ``_hidden_text`` would).
 
-It also holds every page it renders to the shell's text-size rule, which ``test_mail_header_template.py``
-states and plants: the header keeps its set size on a phone that enlarges text, and every other line, a
-mail's own included, is left to the view.
+It also holds every page it renders to two of the shell's rules, which ``test_mail_header_template.py``
+states and plants and ``tests/support/mail_styles.py`` reads as a client does:
+- the header keeps its set size where a phone view enlarges text, and every other line, a mail's own
+  included, is left to the view;
+- a run with nowhere to break, such as a link with its token, can break anywhere once it is long enough
+  to fill the panel, so a view that enlarges it cannot widen the panel past the header. The inputs print
+  such runs at their real lengths, a link with a 43-character token and a report's hashes and addresses,
+  and a check holds the renders that print one to ``PRINTS_LONG_RUNS``.
 """
 import ast
 import html
@@ -70,7 +75,7 @@ from urllib.parse import unquote, urljoin, urlsplit
 import pytest
 
 from app.services import email_service
-from tests.unit.test_mail_header_template import text_size_problems
+from tests.support.mail_styles import long_run_problems, long_runs, text_size_problems
 
 BACKEND = Path(__file__).resolve().parents[2]
 REPO = BACKEND.parent
@@ -91,7 +96,9 @@ OTHER_HOSTS = frozenset(urlsplit(origin).hostname for origin in OTHER_ORIGINS)
 LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "0.0.0.0"})
 
 TO = "recipient@example.com"
-LINK = "https://e.test/t"
+# A link as a caller builds one: a token as secrets.token_urlsafe(32) draws it, 43 characters, here with no
+# hyphen to break at.
+LINK = "https://e.test/reset-password?token=Qm9va3NhbmRjb2ZmZWVhbmRyZWFkaW5nYWxsZGF5MDE"
 WAITLIST = dict(name="Ada", position=3, referral_link=LINK, verification_link=LINK)
 REFERRAL = dict(name="Ada", new_position=2, referral_link=LINK)
 FILING = dict(name="Ada", company_name="Acme Corp", ticker="ACME", filing_type="10-K", filing_date="2026-01-01")
@@ -123,7 +130,13 @@ FULL_REPORT = {
     "job_health": [{"job": "filing_scan", "latest_status": "ok", "last_success": None, "stale": True}],
     "summary_audits": {"snapshot_population": 5, "families": {"figure_trace": {
         "recorded": 4, "unavailable": 1, "missing": 1, "malformed": 0, "flagged": 1, "flagged_pct": 25, "counts": {"would_snap": 2}}}},
-    "weekly_readout": {"status": "complete", "reason": None, "dimensions": {"accuracy": 4.5}},
+    "weekly_readout": {
+        "status": "complete", "reason": None, "dimensions": {"accuracy": 4.5},
+        "source_sha": "3f9c2a7d1e0b8c4f6a5d2e1b0c9f8a7e6d5c4b3a",
+        "cohort_sha256": "9b1c3e5a7d9f2b4d6f8a0c2e4a6c8e0b2d4f6a8c0e2a4c6e8a0b2c4d6e8f0a1b",
+        "run_url": "https://github.com/neilmac91/EarningsNerd/actions/runs/38707048863",
+        "artifact_url": "https://github.com/neilmac91/EarningsNerd/actions/runs/38707048863/artifacts/4123456789",
+    },
 }
 
 # Every public function of email_service that builds mail, with inputs that run every line of the module.
@@ -607,10 +620,33 @@ def test_every_address_the_mail_carries_into_the_sites_files_is_registered_and_b
     )
 
 
-def test_every_page_sent_keeps_the_headers_set_size_and_leaves_the_rest_to_the_view(rendered):
+def _pages(rendered: dict) -> list[tuple[str, str]]:
     pages = [(name, sent) for name, strings in rendered["mail"].items() for sent in strings if _PAGE.match(sent)]
     assert len({name for name, _ in pages}) == len(RENDERS), "a render sent no page"
-    problems = [f"{name}: {problem}" for name, page in pages for problem in text_size_problems(page)]
+    return pages
+
+
+def test_every_page_sent_keeps_the_headers_set_size_and_leaves_the_rest_to_the_view(rendered):
+    problems = [f"{name}: {problem}" for name, page in _pages(rendered) for problem in text_size_problems(page)]
+    assert not problems, "\n".join(sorted(set(problems)))
+
+
+# The renders whose pages print a run long enough for the long-run rule to read: a link with its token, a
+# report's hash or address. Held as it is, so inputs that shorten a run fail here too.
+PRINTS_LONG_RUNS = frozenset({
+    "render_welcome_email", "send_waitlist_welcome_email", "render_referral_success_email", "send_referral_success_email",
+    "send_verification_email", "send_invite_email", "send_password_reset_email", "render_data_quality_report",
+})
+
+
+def test_every_long_run_a_page_sent_shows_can_break(rendered):
+    pages = _pages(rendered)
+    printed = {name for name, page in pages if long_runs(page)}
+    assert printed == PRINTS_LONG_RUNS, (
+        f"the renders that print a long run are {sorted(printed)}: hold PRINTS_LONG_RUNS to them, with inputs that print "
+        "each such line at its real length"
+    )
+    problems = [f"{name}: {problem}" for name, page in pages for problem in long_run_problems(page)]
     assert not problems, "\n".join(sorted(set(problems)))
 
 

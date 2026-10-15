@@ -25,6 +25,11 @@ _ALERT_FOOTER = (
 # tests/unit/test_mail_published_assets.py reads the code.
 _HEADER_TILE_PATH = "/assets/earningsnerd-appicon.png"
 
+# A line that prints a run with nowhere to break, a link with its token or a report's hash, may break it
+# anywhere: once a phone view enlarges the run, it would widen the panel past the header. On those lines
+# alone, not on the panel: there it would reach a body's own table and split a column of amounts.
+_BREAK_ANYWHERE = "overflow-wrap:anywhere;word-break:break-word;"
+
 
 def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
     """The page of every mail this module builds: the brand header, the panel that holds ``body``
@@ -45,10 +50,11 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
     template's ``-webkit-text-size-adjust:100%`` on its table, so its lines stay at their set size,
     scaled with the page: enlarged, the tagline would outgrow the wordmark. The panel and the footer
     line leave their text to the view, which enlarges a long body as it did before the header, so
-    there the header can show smaller than the body. The panel breaks a long word, such as a link's
-    token, rather than grow past the header's width once its text is enlarged. Its padding is on its
-    cells, which classic Outlook honours (it ignores a table's), so the body lines up under the header
-    there too.
+    there the header can show smaller than the body, and on a phone narrower than about 350 px smaller
+    than the panel's small print and the footer line too. A line that prints a run with nowhere to
+    break, such as a link with its token, carries ``_BREAK_ANYWHERE``, so the run cannot widen the
+    panel past the header once it is enlarged. The panel's padding is on its cells, which classic
+    Outlook honours (it ignores a table's), so the body lines up under the header there too.
     """
     # A trailing slash is stripped, as the waitlist's links strip it: a doubled slash answers 308.
     tile_url = f"{settings.FRONTEND_URL.rstrip('/')}{_HEADER_TILE_PATH}"
@@ -92,7 +98,7 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
           </tr>
           <tr>
             <td align="center" style="padding:0 12px 24px 12px;">
-              <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#FBFAF6" style="max-width:600px;background:#FBFAF6;border:1px solid #E5E1D8;border-radius:16px;color:#1A1A17;overflow-wrap:anywhere;word-break:break-word;">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#FBFAF6" style="max-width:600px;background:#FBFAF6;border:1px solid #E5E1D8;border-radius:16px;color:#1A1A17;">
                 <tr>
                   <td style="padding:32px 32px 0 32px;border-radius:15px 15px 0 0;font-size:16px;line-height:1.6;color:#1A1A17;">
                     {body}
@@ -164,7 +170,7 @@ def render_welcome_email(
     <p style="margin:0 0 20px;">
       Share your referral link to move up the list. Each successful referral bumps you up <strong>5 spots</strong>.
     </p>
-    <p style="margin:0 0 20px;">
+    <p style="margin:0 0 20px;{_BREAK_ANYWHERE}">
       <a href="{referral_link}" style="color:#3C6650;">{referral_link}</a>
     </p>
     <p style="margin:0 0 24px;">
@@ -196,7 +202,7 @@ def render_referral_success_email(
     <p style="margin:0 0 16px;">{greeting}</p>
     <p style="margin:0 0 16px;">You moved up the EarningsNerd waitlist.</p>
     <p style="margin:0 0 16px;">Your new position: <strong>#{new_position}</strong></p>
-    <p style="margin:0 0 20px;">
+    <p style="margin:0 0 20px;{_BREAK_ANYWHERE}">
       Keep sharing your referral link to climb even faster:
       <a href="{referral_link}" style="color:#3C6650;">{referral_link}</a>
     </p>
@@ -267,7 +273,7 @@ async def send_verification_email(
       <a href="{verification_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Verify my email</a>
     </p>
     <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">This link expires in 24 hours. If you didn&apos;t create an account, you can safely ignore this email.</p>
-    <p style="margin:0;font-size:12px;color:#6B7280;">Can&apos;t click the button? Copy this link:<br>{verification_link}</p>
+    <p style="margin:0;font-size:12px;color:#6B7280;{_BREAK_ANYWHERE}">Can&apos;t click the button? Copy this link:<br>{verification_link}</p>
     """
     text_body = (
         f"{greeting}\n\nVerify your email address and you can start reading.\n\n"
@@ -296,7 +302,7 @@ async def send_invite_email(
       <a href="{magic_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Accept your invite</a>
     </p>
     <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">This is a single-use invite link. No credit card required.</p>
-    <p style="margin:0;font-size:12px;color:#6B7280;">Can&apos;t click the button? Copy this link:<br>{magic_link}</p>
+    <p style="margin:0;font-size:12px;color:#6B7280;{_BREAK_ANYWHERE}">Can&apos;t click the button? Copy this link:<br>{magic_link}</p>
     """
     text_body = (
         f"{greeting}\n\nYou're invited to the EarningsNerd private beta. Full Pro access, on us.\n\n"
@@ -323,7 +329,7 @@ async def send_password_reset_email(
       <a href="{reset_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Reset my password</a>
     </p>
     <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">This link expires in 1 hour and can only be used once. If you didn&apos;t request a reset, no action is needed.</p>
-    <p style="margin:0;font-size:12px;color:#6B7280;">Can&apos;t click the button? Copy this link:<br>{reset_link}</p>
+    <p style="margin:0;font-size:12px;color:#6B7280;{_BREAK_ANYWHERE}">Can&apos;t click the button? Copy this link:<br>{reset_link}</p>
     """
     text_body = (
         f"{greeting}\n\nReset your EarningsNerd password:\n\n"
@@ -530,7 +536,7 @@ def _dq_section(title: str, rows_html: str, count: int) -> str:
 def _dq_rows(items: list[dict], cols) -> str:
     """A borderless HTML table, one row per item; each column callable is escaped before render."""
     return (
-        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">'
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;{_BREAK_ANYWHERE}">'
         + "".join(
             '<tr><td style="padding:6px 0;border-bottom:1px solid #E5E1D8;">'
             + " · ".join(html.escape(str(col(it))) for col in cols)
