@@ -198,19 +198,38 @@ const PROGRAM = ts.createProgram([...FILES, FORMS], { ...PARSED.options, noEmit:
 const CHECKER = PROGRAM.getTypeChecker()
 /** The routes a stranger can open before signing in, the scope rule 1c reads (rule 1c alone: rule 2 reads
     every file under D-030, as rules 1, 1b and 3 do): the root layout (header, footer, consent bar), the root
-    boundaries, and each public route's own page and layout. Derived, not listed: PUBLIC_FILES is every module
-    these reach through the import graph (tests/unit/importWalk.ts), so a product component the landing or a
-    public route renders (SourceTrace, FinancialMetricsTable, CompanySearch) is held to rule 1c without anyone
-    naming it (BG-16). The calendar and the analysis are flag-gated (NEXT_PUBLIC_ENABLE_CALENDAR,
-    NEXT_PUBLIC_ENABLE_ANALYSIS), on in production and off in CI, so a stranger opens them too: the walk
-    reads them whatever the flags say where it runs. The three labs prototypes (app/labs/*, each behind
-    its own NEXT_PUBLIC_ENABLE_* flag and no sign-in; middleware.ts protects /dashboard, /profile,
-    /settings and /admin only) are public wherever a flag is on and the waitlist gate is down, so the walk
-    reads them too, off as they are in production today. */
-const PUBLIC_ROUTES = ['app', 'app/waitlist', 'app/pricing', 'app/login', 'app/register', 'app/forgot-password', 'app/contact', 'app/security',
-  'app/privacy', 'app/terms', 'app/delete-account', 'app/check-email', 'app/verify-email', 'app/reset-password', 'app/search', 'app/company/[ticker]', 'app/filing/[id]',
-  'app/calendar', 'app/analysis', 'app/labs/filing-redlines', 'app/labs/financial-refresh-review', 'app/labs/research-evidence-packs']
+    boundaries, and each public route's own page and layout. Derived, not listed, at both ends. The routes are
+    every directory under app/ that holds a route file (ROUTE_FILES; a private `_folder` is not a route), less
+    the ones middleware.ts sends a signed-out visitor to /login from: its PROTECTED_ROUTES, read from the file
+    and tested as it tests them (`pathname.startsWith(route)`). So a new page (app/about) is read the day it
+    lands, and a route the middleware starts to protect leaves the reading with it. A flag-gated route is
+    public: the calendar and the analysis (NEXT_PUBLIC_ENABLE_CALENDAR, NEXT_PUBLIC_ENABLE_ANALYSIS, on in
+    production and off in CI) and the three labs prototypes (app/labs/*, each behind its own
+    NEXT_PUBLIC_ENABLE_* flag and no sign-in, off in production today) are read whatever the flags say where
+    the walk runs. The files: PUBLIC_FILES is every module these routes reach through the import graph
+    (tests/unit/importWalk.ts), so a product component the landing or a public route renders (SourceTrace,
+    FinancialMetricsTable, CompanySearch) is held to rule 1c without anyone naming it (BG-16). */
 const ROUTE_FILES = ['page.tsx', 'layout.tsx', 'not-found.tsx', 'error.tsx', 'global-error.tsx']
+/** middleware.ts's PROTECTED_ROUTES, the URL prefixes it guards; a file without the list fails the suite. */
+function protectedPrefixes(source: string): string[] {
+  const sf = ts.createSourceFile('middleware.ts', source, ts.ScriptTarget.Latest, true)
+  for (const stmt of sf.statements) {
+    if (!ts.isVariableStatement(stmt)) continue
+    for (const d of stmt.declarationList.declarations) {
+      let init = d.initializer
+      while (init && (ts.isAsExpression(init) || ts.isSatisfiesExpression(init) || ts.isParenthesizedExpression(init))) init = init.expression
+      if (ts.isIdentifier(d.name) && d.name.text === 'PROTECTED_ROUTES' && init && ts.isArrayLiteralExpression(init) && init.elements.length > 0
+        && init.elements.every((e) => ts.isStringLiteral(e))) return init.elements.map((e) => (e as ts.StringLiteral).text)
+    }
+  }
+  throw new Error('middleware.ts declares no PROTECTED_ROUTES list of strings: rule 1c cannot tell the signed-in routes from the public ones')
+}
+/** A route directory's URL path: a route group's `(name)` and a parallel slot's `@name` add no segment. */
+const routeUrl = (dir: string) => `/${dir.split('/').slice(1).filter((segment) => !/^\(.*\)$|^@/.test(segment)).join('/')}`
+const PROTECTED = protectedPrefixes(readFileSync(path.join(ROOT, 'middleware.ts'), 'utf8'))
+const ROUTE_DIRS = [...new Set(routeFiles('app', ROUTE_FILES, ROOT).map((file) => path.posix.dirname(file)))]
+  .filter((dir) => !dir.split('/').some((segment) => segment.startsWith('_')))
+const PUBLIC_ROUTES = ROUTE_DIRS.filter((dir) => !PROTECTED.some((route) => routeUrl(dir).startsWith(route)))
 const PUBLIC_ROOTS = PUBLIC_ROUTES.flatMap((dir) => routeFiles(dir, ROUTE_FILES, ROOT).filter((file) => path.posix.dirname(file) === dir))
 const PUBLIC_FILES = new Set(walkImports(PUBLIC_ROOTS, ROOT))
 const isPublic = (rel: string) => PUBLIC_FILES.has(rel)
@@ -2963,8 +2982,18 @@ describe('brand rule 3: the Marked Copy Rule', () => {
   })
 
   it('the scan sees the surfaces it guards (the rules above stay meaningful)', () => {
-    // Every public route has a root, and the walk reaches the chrome and the product components a stranger meets.
-    for (const dir of PUBLIC_ROUTES) expect(PUBLIC_ROOTS.some((file) => path.posix.dirname(file) === dir), `${dir} has a page`).toBe(true)
+    // The routes come from the tree less the middleware's guarded prefixes: the prefixes are read, the public
+    // reading holds the routes a stranger opens and none the middleware guards, a route group or a parallel slot
+    // adds no URL segment, and a middleware without the list fails rather than reading every route as public.
+    expect(PROTECTED).toEqual(expect.arrayContaining(['/dashboard', '/admin']))
+    expect(PUBLIC_ROUTES).toEqual(expect.arrayContaining(['app', 'app/waitlist', 'app/pricing', 'app/login', 'app/company/[ticker]', 'app/filing/[id]',
+      'app/calendar', 'app/analysis', 'app/labs/filing-redlines', 'app/labs/financial-refresh-review', 'app/labs/research-evidence-packs']))
+    expect(PUBLIC_ROUTES.filter((dir) => /^app\/(dashboard|admin)(\/|$)/.test(dir)), 'a guarded route is outside the public reading').toEqual([])
+    expect(ROUTE_DIRS.filter((dir) => /^app\/(dashboard|admin)(\/|$)/.test(dir)).length, 'the walk sees the guarded routes it leaves out').toBeGreaterThan(0)
+    expect(['app', 'app/(marketing)/about', 'app/@modal/login', 'app/company/[ticker]'].map(routeUrl)).toEqual(['/', '/about', '/login', '/company/[ticker]'])
+    expect(protectedPrefixes("const PROTECTED_ROUTES = ['/a', '/b'] as const")).toEqual(['/a', '/b'])
+    expect(() => protectedPrefixes("const GUARDED = ['/dashboard']")).toThrow('middleware.ts declares no PROTECTED_ROUTES list of strings')
+    // The walk reaches the chrome and the product components a stranger meets.
     for (const rel of ['app/global-error.tsx', 'app/error.tsx', 'app/not-found.tsx', 'components/Header.tsx', 'components/Footer.tsx', 'components/CookieConsent.tsx',
       'features/auth/components/AuthShell.tsx', 'features/marketing/components/HeroHeadline.tsx', 'features/filings/components/SourceTrace.tsx',
       'features/summaries/components/FinancialMetricsTable.tsx', 'features/companies/components/CompanySearch.tsx', 'app/check-email/page.tsx', 'app/delete-account/page.tsx',
