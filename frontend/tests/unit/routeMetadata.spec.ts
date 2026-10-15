@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -19,7 +19,8 @@ import { SOCIAL_CARD } from '@/lib/socialCard'
  *      root default, which the root layout holds, so the home page titles itself; a 'use client' page
  *      cannot export metadata, so its directory carries a layout that does (as app/login/layout.tsx does).
  *   2. Every title reads '<Page name> | EarningsNerd' in sentence case (proper nouns, acronyms and the
- *      company's own name allowed), each headline variant the home page's experiment serves included.
+ *      company's own name allowed), each headline variant the home page's experiment serves included. A
+ *      generated page holds every title template it can return in that form, and titles every state.
  *   3. Every private route resolves robots to index: false. No public route resolves it to noindex
  *      from its page's static metadata or from any layout above the page, the root included: Next takes
  *      robots from the deepest segment that sets it, the page over its layouts. The two generated pages
@@ -38,10 +39,15 @@ import { SOCIAL_CARD } from '@/lib/socialCard'
  * The route files are every page and layout under app/ with an extension Next serves (next.config.js's
  * pageExtensions, else Next's default). Titles and descriptions are checked as Next reads them: each module
  * that exports metadata is imported and its metadata evaluated, so a string built from an imported constant
- * (a plan cap that lib/planLimits mirrors from config) is checked as it renders. Robots and the card are
- * read from each file's TypeScript AST, and what that reading cannot see fails loudly; a spread of another
- * object hides its openGraph or twitter from the card reading, and part 7's runs cover the generated pages'
- * states.
+ * (a plan cap that lib/planLimits mirrors from config) is checked as it renders. The test runs in one
+ * environment, so each must be one text in every environment: no process, window, document or globalThis
+ * read reaches it, in its own file or through a declaration it names, followed into every project module
+ * it imports (lib/featureFlags.ts reads each flag from process.env). Robots and the card are read from each
+ * file's TypeScript AST, and what that reading cannot see fails loudly.
+ *
+ * Limits, left to review and to part 7's runs: a spread of another object hides its openGraph or twitter
+ * from the card reading; a package's code is not followed; a generated title built without a string or a
+ * template that ends with the brand is read only in the states part 7 runs.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -112,9 +118,13 @@ const descriptionProblems = (text: string): string[] => [
   ...(text.includes('—') ? [`"${text}" carries an em-dash`] : []),
 ]
 
-/** An evaluated title or description: a string is checked; anything else (a title template's object) cannot be. */
+/** An evaluated title or description: a string is checked; anything else (a title template's object, null) cannot be. */
 const textProblems = (value: unknown, check: (text: string) => string[]): string[] =>
-  typeof value === 'string' ? check(value) : [`${JSON.stringify(value)} is not a string the spec can check (write the whole text)`]
+  typeof value === 'string'
+    ? check(value)
+    : value === null || value === undefined
+      ? [`a title of ${String(value)} renders no title and drops the layout's`]
+      : [`${JSON.stringify(value)} is not a string the spec can check (write the whole text)`]
 
 // ── The route files ───────────────────────────────────────────────────────────────────────────────
 
@@ -164,9 +174,15 @@ const SCRIPT_KINDS: Record<string, ts.ScriptKind> = {
   '.jsx': ts.ScriptKind.JSX,
   '.js': ts.ScriptKind.JS,
 }
+const parse = (file: string, text: string) =>
+  ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, SCRIPT_KINDS[path.extname(file)] ?? ts.ScriptKind.TSX)
+
+/** Whether a declared name binds a name: itself, or a destructuring (`{ metadata }`, `[metadata]`) that holds it. */
+const bindsName = (binding: ts.BindingName, name: string): boolean =>
+  ts.isIdentifier(binding) ? binding.text === name : binding.elements.some((e) => !ts.isOmittedExpression(e) && bindsName(e.name, name))
 
 function readRouteFile(file: string, text = readFileSync(file, 'utf8')): RouteFile {
-  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, SCRIPT_KINDS[path.extname(file)] ?? ts.ScriptKind.TSX)
+  const source = parse(file, text)
   const first = source.statements[0]
   const isClient = !!first && ts.isExpressionStatement(first) && ts.isStringLiteral(first.expression) && first.expression.text === 'use client'
   let exportsMetadata = false
@@ -193,6 +209,12 @@ function readRouteFile(file: string, text = readFileSync(file, 'utf8')): RouteFi
           else unreadable = `metadata is ${decl.initializer?.getText() ?? 'declared with no value'}, not an object literal the spec can read`
         }
         if (ts.isIdentifier(decl.name) && decl.name.text === 'generateMetadata') generates = true
+        // A destructuring hands Next a metadata or generateMetadata export this reading cannot see.
+        for (const name of ['metadata', 'generateMetadata']) {
+          if (ts.isIdentifier(decl.name) || !bindsName(decl.name, name)) continue
+          exportsMetadata ||= name === 'metadata'
+          unreadable = `${name} is bound by ${decl.name.getText()}, which the spec cannot read`
+        }
       }
     }
     if (ts.isFunctionDeclaration(stmt) && stmt.name?.text === 'generateMetadata') generates = true
@@ -238,15 +260,147 @@ const EVALUATED = new Map<RouteFile, Metadata | undefined>(
   ),
 )
 
-/** Every title and description an evaluated metadata object sets: its own, its openGraph's and its twitter's. */
+/**
+ * Every title and description an evaluated metadata object sets: its own, its openGraph's and its twitter's. A
+ * title key set to null or undefined counts, since Next then renders no title and drops the layout's.
+ */
 function textsIn(meta: Metadata | undefined) {
-  const scopes = [meta, meta?.openGraph, meta?.twitter] as Array<{ title?: unknown; description?: unknown } | null | undefined>
-  const isSet = (value: unknown) => value !== undefined && value !== null
+  type Texts = { title?: unknown; description?: unknown }
+  const scopes = ([meta, meta?.openGraph, meta?.twitter] as Array<Texts | null | undefined>).filter((scope): scope is Texts => !!scope)
   return {
-    titles: scopes.map((scope) => scope?.title).filter(isSet),
-    descriptions: scopes.map((scope) => scope?.description).filter(isSet),
+    titles: scopes.filter((scope) => 'title' in scope).map((scope) => scope.title),
+    descriptions: scopes.map((scope) => scope.description).filter((value) => value !== undefined && value !== null),
   }
 }
+
+// ── One text in every environment ─────────────────────────────────────────────────────────────────
+
+/** The globals a value reads the environment through; each flag in lib/featureFlags.ts reads process.env. */
+const ENV_GLOBALS = new Set(['process', 'window', 'document', 'globalThis'])
+
+/** Project modules, parsed once; undefined where the path is not a file. */
+const MODULES = new Map<string, ts.SourceFile | undefined>()
+function moduleAt(file: string): ts.SourceFile | undefined {
+  if (!MODULES.has(file)) MODULES.set(file, existsSync(file) && statSync(file).isFile() ? parse(file, readFileSync(file, 'utf8')) : undefined)
+  return MODULES.get(file)
+}
+
+/** The module a project import names ('@/…' from the frontend root, './…' from the importer); a package is not followed. */
+function importedModule(from: ts.SourceFile, specifier: string): ts.SourceFile | undefined {
+  const base = specifier.startsWith('@/')
+    ? path.join(FRONTEND, specifier.slice(2))
+    : specifier.startsWith('.')
+      ? path.resolve(path.dirname(from.fileName), specifier)
+      : undefined
+  if (base === undefined) return undefined
+  for (const suffix of ['', '.ts', '.tsx', '.js', '.jsx', '/index.ts', '/index.tsx']) {
+    const found = moduleAt(base + suffix)
+    if (found) return found
+  }
+  return undefined
+}
+
+type Reached = Array<[ts.Node, ts.SourceFile]>
+
+/** What a name stands for at a module's top level: its declaration, or what it imports, followed to the module that declares it. */
+function declarationsOf(name: string, source: ts.SourceFile, visiting = new Set<string>()): Reached {
+  const out: Reached = []
+  for (const stmt of source.statements) {
+    if (ts.isVariableStatement(stmt)) {
+      for (const decl of stmt.declarationList.declarations) if (bindsName(decl.name, name) && decl.initializer) out.push([decl.initializer, source])
+    } else if ((ts.isFunctionDeclaration(stmt) || ts.isClassDeclaration(stmt)) && stmt.name?.text === name) {
+      out.push([stmt, source])
+    } else if (ts.isImportDeclaration(stmt) && ts.isStringLiteral(stmt.moduleSpecifier) && stmt.importClause && !stmt.importClause.isTypeOnly) {
+      const { name: local, namedBindings } = stmt.importClause
+      const element = namedBindings && ts.isNamedImports(namedBindings) ? namedBindings.elements.find((e) => !e.isTypeOnly && e.name.text === name) : undefined
+      const imported =
+        local?.text === name
+          ? 'default'
+          : namedBindings && ts.isNamespaceImport(namedBindings) && namedBindings.name.text === name
+            ? '*'
+            : element && (element.propertyName ?? element.name).text
+      const target = imported && importedModule(source, stmt.moduleSpecifier.text)
+      if (target) out.push(...(imported === '*' ? ([[target, target]] as Reached) : exportsOf(imported!, target, visiting)))
+    }
+  }
+  return out
+}
+
+/** What a module exports under a name, followed through a local it renames and a re-export; a name it cannot place reads the whole module. */
+function exportsOf(name: string, source: ts.SourceFile, visiting = new Set<string>()): Reached {
+  const key = `${source.fileName}#${name}`
+  if (visiting.has(key)) return []
+  visiting.add(key)
+  const out: Reached = []
+  for (const stmt of source.statements) {
+    if (name === 'default' && ts.isExportAssignment(stmt)) out.push([stmt.expression, source])
+    const isDefault = ts.canHaveModifiers(stmt) && ts.getModifiers(stmt)?.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword)
+    if (name === 'default' && isDefault) out.push([stmt, source])
+    if (!ts.isExportDeclaration(stmt)) continue
+    const from = stmt.moduleSpecifier && ts.isStringLiteral(stmt.moduleSpecifier) ? importedModule(source, stmt.moduleSpecifier.text) : undefined
+    if (stmt.exportClause && ts.isNamedExports(stmt.exportClause)) {
+      for (const e of stmt.exportClause.elements.filter((e) => e.name.text === name)) {
+        const inner = (e.propertyName ?? e.name).text
+        if (from) out.push(...exportsOf(inner, from, visiting))
+        else if (inner !== name) out.push(...declarationsOf(inner, source, visiting))
+      }
+    } else if (!stmt.exportClause && from) out.push(...exportsOf(name, from, visiting))
+  }
+  if (name !== 'default') out.push(...declarationsOf(name, source, visiting))
+  return out.length ? out : [[source, source]]
+}
+
+/** A name that refers to nothing by itself: a member's or a key's own name. */
+const isOwnName = (n: ts.Identifier) => {
+  const p = n.parent
+  return (
+    ((ts.isPropertyAccessExpression(p) || ts.isPropertyAssignment(p) || ts.isMethodDeclaration(p) || ts.isPropertySignature(p)) && p.name === n) ||
+    (ts.isBindingElement(p) && p.propertyName === n)
+  )
+}
+
+/**
+ * Where a value can read the environment: an ENV_GLOBALS name in it, or in what a name in it stands for, followed
+ * through its module and every project module it imports. Returns the read as 'file:line', or undefined.
+ */
+function envRead(node: ts.Node, source: ts.SourceFile, seen = new Set<ts.Node>()): string | undefined {
+  if (seen.has(node)) return undefined
+  seen.add(node)
+  let found: string | undefined
+  const visit = (n: ts.Node): void => {
+    if (found) return
+    if (!ts.isIdentifier(n)) return n.forEachChild(visit)
+    if (ENV_GLOBALS.has(n.text)) found = `${rel(source.fileName)}:${source.getLineAndCharacterOfPosition(n.getStart(source)).line + 1}`
+    else if (!isOwnName(n)) for (const [decl, file] of declarationsOf(n.text, source)) found ??= envRead(decl, file, seen)
+  }
+  visit(node)
+  return found
+}
+
+/** Each title and description member of a static metadata literal, its own, its openGraph's and its twitter's, with the node that gives its value. */
+function textMembers(metadata: ts.ObjectLiteralExpression): Array<[string, ts.Node]> {
+  const scopes: Array<[string, ts.ObjectLiteralExpression]> = [['', metadata]]
+  for (const key of ['openGraph', 'twitter']) {
+    const value = prop(metadata, key)?.initializer
+    if (value && ts.isObjectLiteralExpression(value)) scopes.push([`${key}.`, value])
+  }
+  return scopes.flatMap(([prefix, scope]) =>
+    ['title', 'description'].flatMap((key): Array<[string, ts.Node]> => {
+      const m = member(scope, key)
+      if (!m) return []
+      return [[`${prefix}${key}`, ts.isPropertyAssignment(m) ? m.initializer : ts.isShorthandPropertyAssignment(m) ? m.name : m]]
+    }),
+  )
+}
+
+/** Each title or description in a file's static metadata that can read the environment: the test sees only one branch of it. */
+const envProblems = (rf: RouteFile): string[] =>
+  rf.metadata
+    ? textMembers(rf.metadata).flatMap(([key, node]) => {
+        const at = envRead(node, rf.source)
+        return at ? [`${rel(rf.file)}: ${key} reads the environment (${at}), so this test checks one branch of it`] : []
+      })
+    : []
 
 // ── The AST reading: robots and the card ──────────────────────────────────────────────────────────
 
@@ -305,10 +459,16 @@ function cardProblems(obj: ts.ObjectLiteralExpression, key: keyof typeof CARD_IM
   if (!set) return []
   const scope = ts.isPropertyAssignment(set) ? set.initializer : undefined
   if (!scope || !ts.isObjectLiteralExpression(scope)) return [`${key} is ${(scope ?? set).getText()}, not an object literal the spec can read`]
-  const images = prop(scope, 'images')?.initializer.getText().replace(/\s+/g, '')
-  return images === CARD_IMAGES[key]
-    ? []
-    : [`${key}.images is ${images ?? 'missing'}, not ${CARD_IMAGES[key]} (a page-level ${key} replaces the root one, images included)`]
+  const imagesProp = prop(scope, 'images')
+  const images = imagesProp?.initializer.getText().replace(/\s+/g, '')
+  // A spread after the images may replace them; one before them cannot.
+  const later = imagesProp ? scope.properties.slice(scope.properties.indexOf(imagesProp) + 1).filter(ts.isSpreadAssignment) : []
+  return [
+    ...(images === CARD_IMAGES[key]
+      ? []
+      : [`${key}.images is ${images ?? 'missing'}, not ${CARD_IMAGES[key]} (a page-level ${key} replaces the root one, images included)`]),
+    ...later.map((spread) => `${key} spreads ${spread.expression.getText()} after its images, which may replace the card`),
+  ]
 }
 
 /** Every object literal in a file that sets openGraph or twitter: the static metadata, and each state a generated page returns. */
@@ -320,6 +480,55 @@ function socialLiterals(source: ts.SourceFile): ts.ObjectLiteralExpression[] {
   }
   visit(source)
   return out
+}
+
+/** Every title template in a file: a string or a template literal that ends with the brand, each substitution read as a name. */
+function titleTemplates(source: ts.SourceFile): string[] {
+  const out: string[] = []
+  const visit = (n: ts.Node): void => {
+    const text =
+      ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)
+        ? n.text
+        : ts.isTemplateExpression(n)
+          ? n.head.text + n.templateSpans.map((span) => `Ⓝ${span.literal.text}`).join('')
+          : undefined
+    if (text?.endsWith(BRAND)) out.push(text)
+    n.forEachChild(visit)
+  }
+  visit(source)
+  return out
+}
+
+/** The states a file's generateMetadata returns, each an object literal; a return of anything else is reported. */
+function returnedStates(rf: RouteFile): { states: ts.ObjectLiteralExpression[]; unreadable: string[] } {
+  const states: ts.ObjectLiteralExpression[] = []
+  const unreadable: string[] = []
+  const line = (n: ts.Node) => rf.source.getLineAndCharacterOfPosition(n.getStart(rf.source)).line + 1
+  const returned = (value: ts.Expression | undefined, at: ts.Node) => {
+    const literal = value && unwrap(value)
+    if (literal && ts.isObjectLiteralExpression(literal)) states.push(literal)
+    else unreadable.push(`${rel(rf.file)}:${line(at)}: generateMetadata returns ${value?.getText() ?? 'nothing'}, not an object literal the spec can read`)
+  }
+  const visit = (n: ts.Node): void => {
+    if (ts.isFunctionLike(n)) return // a nested function's returns are its own
+    if (ts.isReturnStatement(n)) returned(n.expression, n)
+    n.forEachChild(visit)
+  }
+  for (const stmt of rf.source.statements) {
+    const fns: Array<ts.FunctionLikeDeclaration | undefined> = ts.isFunctionDeclaration(stmt) && stmt.name?.text === 'generateMetadata'
+      ? [stmt]
+      : ts.isVariableStatement(stmt)
+        ? stmt.declarationList.declarations
+            .filter((d) => ts.isIdentifier(d.name) && d.name.text === 'generateMetadata')
+            .map((d) => (d.initializer && (ts.isArrowFunction(d.initializer) || ts.isFunctionExpression(d.initializer)) ? d.initializer : undefined))
+        : []
+    for (const fn of fns) {
+      if (!fn?.body) unreadable.push(`${rel(rf.file)}: generateMetadata is not a function the spec can read`)
+      else if (ts.isBlock(fn.body)) fn.body.forEachChild(visit)
+      else returned(fn.body, fn.body)
+    }
+  }
+  return { states, unreadable }
 }
 
 /** The page, then its own layout, then each ancestor layout up to the root: Next's resolution order, deepest first. */
@@ -368,9 +577,25 @@ describe('route metadata: every route names itself, page first and brand last', 
     expect(textsIn(meta).titles.filter((t) => t !== residue).flatMap((t) => textProblems(t, (text) => titleProblems(text)))).toEqual([])
   })
 
+  it('writes each title and description as one text in every environment (no flag or env read reaches it)', () => {
+    expect(ROUTE_FILES.flatMap((rf) => envProblems(rf))).toEqual([])
+  })
+
   it('titles the home page in that form for every headline variant (HeroHeadline gives the tab the served one)', () => {
     expect((Object.keys(HEADLINES) as HeadlineVariant[]).map(pageTitleFor).flatMap((t) => titleProblems(t))).toEqual([])
   })
+
+  it.each(ROUTE_FILES.filter((rf) => rf.generates).map((rf) => [rel(rf.file), rf] as const))(
+    '%s titles every state it returns, and writes each title template in the form',
+    (name, rf) => {
+      // Part 7 runs the states it lists; these read every state the code returns and every title it can build.
+      const { states, unreadable } = returnedStates(rf)
+      const line = (n: ts.Node) => rf.source.getLineAndCharacterOfPosition(n.getStart(rf.source)).line + 1
+      const untitled = states.filter((obj) => !member(obj, 'title')).map((obj) => `${name}:${line(obj)} returns a state with no title, so its tab reads the root default`)
+      expect(states.length, `${name} returns no state the spec can read`).toBeGreaterThan(0)
+      expect([...unreadable, ...untitled, ...titleTemplates(rf.source).flatMap((t) => titleProblems(t))]).toEqual([])
+    },
+  )
 
   it.each(Object.entries(TITLE_RESIDUE))('residue %s still carries its pinned title (delete the entry once fixed)', (name, { title }) => {
     const rf = byPath.get(name)
@@ -460,7 +685,11 @@ describe('route metadata: every route names itself, page first and brand last', 
       'export const metadata = NOINDEX',
       "export { metadata } from './shared'",
       "export * from './shared'",
+      'export const { metadata } = SHARED',
+      'export const [, metadata] = LIST',
     ]) expect(setsNoindex(file(text)), `${text} counts as noindex`).toBe(true)
+    expect(file('export const { meta: metadata } = SHARED').exportsMetadata, 'a destructured export is imported for its titles').toBe(true)
+    expect(file('export const { generateMetadata } = SHARED').unreadable).toBe('generateMetadata is bound by { generateMetadata }, which the spec cannot read')
     expect(file('export const metadata = NOINDEX').unreadable).toBe('metadata is NOINDEX, not an object literal the spec can read')
     expect(file("export * as shared from './shared'").unreadable, 'a namespace export hands Next no metadata').toBeUndefined()
     const card = (body: string) => {
@@ -474,6 +703,12 @@ describe('route metadata: every route names itself, page first and brand last', 
     expect(card("{ openGraph: { images: ['/other.png'] } }")).toHaveLength(1)
     expect(card('{ twitter: { images: [SOCIAL_CARD] } }')).toHaveLength(1)
     expect(card('{ openGraph }'), 'a shorthand openGraph').toHaveLength(1)
+    expect(card('{ openGraph: { images: [SOCIAL_CARD], ...EXTRA_OG }, twitter: { images: [SOCIAL_CARD.url], ...EXTRA_TW } }'), 'a spread after the images').toHaveLength(2)
+    expect(card('{ openGraph: { ...BASE_OG, images: [SOCIAL_CARD] } }'), 'a spread before the images, which they override').toEqual([])
+    // A title of null renders none and drops the layout's, so it is not read as "no title of its own".
+    expect(textsIn({ title: null } as Metadata).titles.flatMap((t) => textProblems(t, (text) => titleProblems(text)))).toEqual([
+      "a title of null renders no title and drops the layout's",
+    ])
     // Every object literal that sets one is read, so a generated page's state that drops the card fails too.
     const cards = (text: string) => socialLiterals(file(text).source).flatMap((obj) => [...cardProblems(obj, 'openGraph'), ...cardProblems(obj, 'twitter')])
     expect(
@@ -482,6 +717,51 @@ describe('route metadata: every route names itself, page first and brand last', 
         return { title, openGraph: { title, images: [SOCIAL_CARD] }, twitter: { title, images: [SOCIAL_CARD.url] } }
       }`),
     ).toEqual(["openGraph.images is missing, not [SOCIAL_CARD] (a page-level openGraph replaces the root one, images included)"])
+  })
+
+  it('self-check: the environment and the generated-title readers flag what they must', () => {
+    const env = (text: string) => envProblems(readRouteFile(path.join(APP, 'zzprobe/layout.tsx'), text))
+    // The lens's probe: the pricing layout's title and description behind ENABLE_ANALYSIS.
+    expect(
+      env(`import { ENABLE_ANALYSIS } from '@/lib/featureFlags'
+export const metadata = {
+  title: ENABLE_ANALYSIS ? 'Pricing And Multi-Year Plans | EarningsNerd' : 'Pricing | EarningsNerd',
+  description: ENABLE_ANALYSIS ? 'AI-powered plans, with multi-period analysis.' : 'Plans for every investor.',
+}`),
+    ).toHaveLength(2)
+    for (const text of [
+      "const TITLE = process.env.NEXT_PUBLIC_X === 'true' ? 'A | EarningsNerd' : 'B | EarningsNerd'\nexport const metadata = { title: TITLE }",
+      "import { ENABLE_ANALYSIS as on } from '@/lib/featureFlags'\nconst title = `Pricing${on ? ' and analysis' : ''} | EarningsNerd`\nexport const metadata = { openGraph: { title, images: [SOCIAL_CARD] } }",
+      "import * as flags from '@/lib/featureFlags'\nexport const metadata = { description: `Plans${flags.ENABLE_ANALYSIS ? ', with analysis' : ''}.` }",
+      "export const metadata = { title: typeof window === 'undefined' ? 'A | EarningsNerd' : 'B | EarningsNerd' }",
+    ]) expect(env(text), text).toHaveLength(1)
+    // Constants, imported or not, and a helper that reads none: one text in every environment.
+    expect(
+      env(`import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
+import { DEFAULT_HEADLINE, pageTitleFor } from '@/features/marketing/lib/headline'
+const DESCRIPTION = \`Up to \${FREE_SUMMARY_LIMIT} summaries a month.\`
+export const metadata = { title: pageTitleFor(DEFAULT_HEADLINE), description: DESCRIPTION, openGraph: { title: 'Probe | EarningsNerd' } }`),
+    ).toEqual([])
+    // A flag read in another project module, through the constant it exports.
+    const root = mkdtempSync(path.join(tmpdir(), 'route-env-'))
+    try {
+      writeFileSync(path.join(root, 'copy.ts'), "import { ENABLE_ANALYSIS } from '@/lib/featureFlags'\nexport const PRICING_TITLE = ENABLE_ANALYSIS ? 'A | EarningsNerd' : 'B | EarningsNerd'\n")
+      expect(envProblems(readRouteFile(path.join(root, 'layout.tsx'), "import { PRICING_TITLE } from './copy'\nexport const metadata = { title: PRICING_TITLE }"))).toHaveLength(1)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+    // A generated page: a state part 7 does not run has its title template read, and a state with no title is reported.
+    const generated = readRouteFile(
+      path.join(APP, 'zzprobe/page.tsx'),
+      `export async function generateMetadata() {
+  if (otc) return { title: \`\${label} OTC Filings | EarningsNerd\`, openGraph: { title, images: [SOCIAL_CARD] }, twitter: { title, images: [SOCIAL_CARD.url] } }
+  if (delisted) return { description, openGraph: { images: [SOCIAL_CARD] }, twitter: { images: [SOCIAL_CARD.url] } }
+  return { title: \`\${label} SEC filings | EarningsNerd\` }
+}`,
+    )
+    expect(titleTemplates(generated.source).flatMap((t) => titleProblems(t))).toEqual(['"Ⓝ OTC Filings | EarningsNerd": "Filings" is capitalised mid-title (sentence case)'])
+    const { states, unreadable } = returnedStates(generated)
+    expect([states.length, states.filter((obj) => !member(obj, 'title')).length, unreadable]).toEqual([3, 1, []])
   })
 
   it('self-check: the walk reads a page or a layout under every extension Next serves, a planted .ts layout included', () => {
