@@ -177,8 +177,13 @@ def test_workflow_publishes_the_gate_on_every_pull_request_event_without_write_p
     checkout = job["steps"][0]
     assert checkout["uses"].startswith("actions/checkout@") and checkout["with"]["ref"] == "${{ github.event.pull_request.base.ref }}"  # trusted base code, never the PR's own gate
     assert checkout["with"]["persist-credentials"] == "false"
+    assert job["steps"][1]["uses"].startswith("actions/setup-python@")  # not another action that could rewrite the script
     step = job["steps"][-1]
     assert step["run"] == "python backend/scripts/review_gate.py"
+    assert set(step["env"]) == {"GITHUB_TOKEN", "REVIEW_GATE_REPO", "REVIEW_GATE_PR", "REVIEW_GATE_HEAD",
+                                "REVIEW_GATE_TIMEOUT_MINUTES"}  # nothing that could redirect the interpreter
+    assert step["env"]["REVIEW_GATE_REPO"] == "${{ github.repository }}"
+    assert step["env"]["REVIEW_GATE_PR"] == "${{ github.event.pull_request.number }}"  # this pull request's reviews, no other's
     assert step["env"]["REVIEW_GATE_HEAD"] == "${{ github.event.pull_request.head.sha }}"
     assert step["env"]["GITHUB_TOKEN"] == "${{ secrets.GITHUB_TOKEN }}"
     assert int(job["timeout-minutes"]) > int(step["env"]["REVIEW_GATE_TIMEOUT_MINUTES"])
