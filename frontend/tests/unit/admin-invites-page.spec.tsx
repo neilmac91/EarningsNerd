@@ -121,6 +121,18 @@ describe('AdminInvitesPage', () => {
     expect(screen.getByRole('button', { name: /Send invites/i })).not.toHaveAttribute('aria-disabled')
   })
 
+  it('marks an already-invited address in the chip\'s own plain type, not a faded eyebrow (ADM-17)', async () => {
+    vi.mocked(listInvites).mockResolvedValue([invite])
+    renderPage()
+    await screen.findByText('alice@example.com')
+    const field = screen.getByLabelText('Email addresses')
+    fireEvent.change(field, { target: { value: 'alice@example.com' } })
+    fireEvent.blur(field)
+    const marker = await screen.findByText('· already invited')
+    // The marker reads in the chip's own size and ink: no opacity- class and no eyebrow treatment, under any variant.
+    expect([...marker.classList].filter((cls) => /(^|:)(opacity-|text-data-xs$|uppercase$|tracking-eyebrow$)/.test(cls))).toEqual([])
+  })
+
   it('disables Send invites when there is nothing valid to send', async () => {
     vi.mocked(listInvites).mockResolvedValue([])
     renderPage()
