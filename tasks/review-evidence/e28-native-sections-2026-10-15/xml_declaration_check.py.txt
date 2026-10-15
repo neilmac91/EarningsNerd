@@ -1,7 +1,7 @@
 """First bytes of each fetched golden primary document (fetch_docs.py.txt output): does it open with an XML declaration?
 
-Usage: python -I xml_declaration_check.py DOCS_DIR. Reads local files only. Leading whitespace is skipped, as
-edgartools' html() compares the decoded document text with startswith("<?xml").
+Usage: python -I xml_declaration_check.py DOCS_DIR. Reads local files only. The test is the one edgartools 5.58.0's
+Filing.html() applies: the document text starts with "<?xml" at its first byte, nothing stripped.
 """
 import hashlib
 import pathlib
@@ -11,8 +11,7 @@ docs = sorted(pathlib.Path(sys.argv[1]).glob("*.html"))
 opens_xml = 0
 for doc in docs:
     raw = doc.read_bytes()
-    head = raw.lstrip()[:5]
-    xml = head == b"<?xml"
+    xml = raw.startswith(b"<?xml")
     opens_xml += xml
     print(f"{'xml ' if xml else 'html'}  {doc.name:45s} {len(raw):>10,} bytes  sha256 {hashlib.sha256(raw).hexdigest()[:12]}")
 print(f"\n{opens_xml} of {len(docs)} documents open with an XML declaration")
