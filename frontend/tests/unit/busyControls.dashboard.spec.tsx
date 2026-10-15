@@ -937,8 +937,8 @@ describe('Saved summary Delete', () => {
 
 describe('Monthly limit banner', () => {
   // DSW-22: the banner states the account's own numbers from the usage response, not a plan pitch.
-  // It makes no claim about Pro's limit (PRO_SUMMARY_MONTHLY_CAP is enforced; the pricing claim stays
-  // with the founder, F41 on #1311): the banner's whole text is asserted (the title, the count line and
+  // It makes no claim about Pro's limit (PRO_SUMMARY_MONTHLY_CAP is enforced; the founder decided F41 on
+  // 2026-10-15, D-040: "Unlimited" stays on the plan cards, the guardrail is E58's): the banner's whole text is asserted (the title, the count line and
   // the Upgrade link), so a second sentence anywhere in the banner fails it.
   it.each([
     [4, 'Almost at your limit', 'You have 1 summary left this month.'],
