@@ -203,10 +203,13 @@ const CHECKER = PROGRAM.getTypeChecker()
     public route renders (SourceTrace, FinancialMetricsTable, CompanySearch) is held to rule 1c without anyone
     naming it (BG-16). The calendar and the analysis are flag-gated (NEXT_PUBLIC_ENABLE_CALENDAR,
     NEXT_PUBLIC_ENABLE_ANALYSIS), on in production and off in CI, so a stranger opens them too: the walk
-    reads them whatever the flags say where it runs. */
+    reads them whatever the flags say where it runs. The three labs prototypes (app/labs/*, each behind
+    its own NEXT_PUBLIC_ENABLE_* flag and no sign-in; middleware.ts protects /dashboard, /profile,
+    /settings and /admin only) are public wherever a flag is on and the waitlist gate is down, so the walk
+    reads them too, off as they are in production today. */
 const PUBLIC_ROUTES = ['app', 'app/waitlist', 'app/pricing', 'app/login', 'app/register', 'app/forgot-password', 'app/contact', 'app/security',
   'app/privacy', 'app/terms', 'app/delete-account', 'app/check-email', 'app/verify-email', 'app/reset-password', 'app/search', 'app/company/[ticker]', 'app/filing/[id]',
-  'app/calendar', 'app/analysis']
+  'app/calendar', 'app/analysis', 'app/labs/filing-redlines', 'app/labs/financial-refresh-review', 'app/labs/research-evidence-packs']
 const ROUTE_FILES = ['page.tsx', 'layout.tsx', 'not-found.tsx', 'error.tsx', 'global-error.tsx']
 const PUBLIC_ROOTS = PUBLIC_ROUTES.flatMap((dir) => routeFiles(dir, ROUTE_FILES, ROOT).filter((file) => path.posix.dirname(file) === dir))
 const PUBLIC_FILES = new Set(walkImports(PUBLIC_ROOTS, ROOT))
@@ -2965,10 +2968,12 @@ describe('brand rule 3: the Marked Copy Rule', () => {
     for (const rel of ['app/global-error.tsx', 'app/error.tsx', 'app/not-found.tsx', 'components/Header.tsx', 'components/Footer.tsx', 'components/CookieConsent.tsx',
       'features/auth/components/AuthShell.tsx', 'features/marketing/components/HeroHeadline.tsx', 'features/filings/components/SourceTrace.tsx',
       'features/summaries/components/FinancialMetricsTable.tsx', 'features/companies/components/CompanySearch.tsx', 'app/check-email/page.tsx', 'app/delete-account/page.tsx',
-      // Reached only through their routes: the company page's peers panel, the filing page's summary, and the
-      // flag-gated calendar and analysis, public wherever their flags are on.
+      // Reached only through their routes: the company page's peers panel, the filing page's summary, the
+      // flag-gated calendar and analysis, and the labs prototypes, public wherever their flags are on.
       'features/peers/components/PeerComparisonPanel.tsx', 'features/summaries/components/SummaryBlocks.tsx',
-      'features/calendar/components/MonthView.tsx', 'app/analysis/page.tsx']) {
+      'features/calendar/components/MonthView.tsx', 'app/analysis/page.tsx',
+      'features/filing-redlines/components/FilingRedlines.tsx', 'features/research-evidence-packs/components/ResearchEvidencePacks.tsx',
+      'features/financial-refresh-review/components/FinancialRefreshReview.tsx']) {
       expect(PUBLIC_FILES.has(rel), `${rel} is public`).toBe(true)
     }
     // Out of rule 1c's public reading: the signed-in product (the dashboard, admin). Rule 2 reads it, as it
