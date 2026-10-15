@@ -38,3 +38,14 @@ eight-test owner failed with the cache path absent and passed with only that pat
 Keep the failed receipt and correct the local environment; do not replace the fixture or relax
 its source-coverage assertions. This is runner setup guidance, not a change to application
 configuration or the suite's network guard.
+
+**Update (2026-10-15, E25).** Conftest now sets both directories itself, per process (each xdist
+worker too), inside the temp directory that holds the test database, unless they were set before
+pytest started. A read-only home needs neither, and conftest fills in whichever of the two is unset
+or empty; a harness or script that runs the app outside pytest must still set both.
+`tests/unit/test_suite_isolation.py` runs a fresh pytest, serially and with two workers, under an
+empty `HOME`, and checks that EdgarTools writes only inside each process's own temp directory, that
+the directory is gone when the process ends, and that values set beforehand are kept. The two
+evaluation harnesses (`evals/acceptance_executor.py::child_environment`
+and `evals/copilot_bootstrap.py::configure_environment`) set only `EDGAR_LOCAL_DATA_DIR`, so their
+anchor cache still goes to the home directory: E25 in `tasks/todo.md`.

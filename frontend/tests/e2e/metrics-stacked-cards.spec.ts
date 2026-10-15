@@ -772,7 +772,7 @@ test.describe('the landing page sample (the non-bare caller)', () => {
     await expect(evidence.locator('[data-metrics-layout="cards"]')).toBeVisible()
     await expect(evidence.locator('[data-metrics-layout="table"]')).toBeHidden()
     await expect(evidence.getByRole('heading', { name: 'Financial Highlights' })).toBeVisible()
-    await expect(evidence.getByText(/Each row carries its own source label/)).toBeVisible()
+    await expect(evidence.getByText('Diluted EPS reads Cited: per-share figures are not matched to XBRL.')).toBeVisible()
     for (const card of await evidence.locator('[data-metric-card]').all()) {
       expect((await blankRuns(card)).hScroll).toBe(false)
     }

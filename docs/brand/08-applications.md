@@ -14,15 +14,17 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 |---|---|---|
 | Hero headline | `frontend/features/marketing/components/HeroHeadline.tsx`, `lib/headline.ts` | The accent phrase carries the mark (`.en-mark`) on the primary ink instead of sage text. Variant A ("Read the filing faster. Keep the source in view.") survives as the served default, with the mark under "the source" so it never breaks across lines; B and C become "Read it faster. Check it anyway." and "The summary that shows its work." |
 | Hero subhead and access line | `LandingHero.tsx` | "AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company's XBRL where they can be, and quotes against the filing's own text." The scope is the server's: it checks a figure only when the metric maps to an XBRL concept of at least $1M (`backend/app/services/provenance_service.py`). The access line is unchanged ("Private beta · request an invite"). |
-| Hero example | `HeroExample.tsx` | The fallback is Apple's FY2025 10-K (filed 2025-10-31) with the verified figures; the evidence row is a `MarkedCopy` block: the claim with its `[1]` bracket, the bracket's twin in the margin, and the filing's sentence in a `.en-marked` blockquote set in the editorial face. Live data renders the same way. |
+| Hero example | `HeroExample.tsx` | The fallback is Apple's FY2025 10-K (filed 2025-10-31) with the verified figures; the evidence row is a `MarkedCopy` block: the claim with its `[1]` bracket, the bracket's twin in the margin, and the filing's sentence in a `.en-marked` blockquote set in the editorial face. Live data renders the same way. The excerpt wears quotation marks, the closing one after the clip's ellipsis. A live figure carries no XBRL hover and the link reads "Source filing · check the figures on SEC EDGAR", since a live figure is the summary's highlight, which the hero cannot vouch for as an XBRL match; only the checked fallback names its XBRL concepts and reads "Figures from the company's XBRL · check them on SEC EDGAR" (one verb on both links). Each fallback concept is text inside its term, visually hidden, so every reader reaches it; the hover repeats it for a mouse. The link carries the brand focus ring (`tests/unit/hero-example-surface.spec.tsx`). |
 | Founder slot | Retired | The empty component, configuration and hero mount have been removed (see §6). |
 | Trust strip | `TrustStrip.tsx` | Four statements the product keeps, no hedges: sourced from SEC EDGAR; risk excerpts are the filing's own words (main said "quoted excerpts"; a Forward Signals quote can stand unmatched, so the founder's review narrowed it); one summary per filing, generated once and shared; not investment advice. |
 | Claims strip | `MeasuredClaims.tsx` | "Figures / Risks / Nine parts / SEC EDGAR", each with the behaviour it names, in place of the four pseudo-statistics; the figures line says the server checks them where it can, and the risks line that unmatched excerpts are withheld and counted. |
-| Evidence section | `EvidenceSection.tsx`, `TraceToSourceDemo.tsx`, `CatchCard.tsx` (new) | "Figures with their receipts." over the FY2025 Financial Highlights table (the two totals read SEC XBRL; the per-share row reads Cited, as a real payload's would) and the trace demo; beneath them the catch, "The number you remember": $391.0B from memory (FY2024, struck through) beside $416.2B in the filing (FY2025) with its chip, `{ } Total net sales · SEC XBRL`; the two amounts share a line while they fit and stack when they do not, at 200% text and in the desktop column (`tests/e2e/catch-card-reflow.spec.ts`). |
-| Contents | `SummaryContents.tsx` | The nine parts the live schema produces, from The Print to Notable Footnotes, in reading order. |
+| Evidence section | `EvidenceSection.tsx`, `TraceToSourceDemo.tsx`, `CatchCard.tsx` (new) | "Figures with their receipts." over the FY2025 Financial Highlights table (the two totals read SEC XBRL; the per-share row reads Cited, as a real payload's would) and the trace demo; beneath them the catch, "The number you remember": $391.0B from memory (FY2024, struck through) beside $416.2B in the filing (FY2025) with its chip, `{ } Total net sales · SEC XBRL`; the two amounts share a line while they fit and stack when they do not, at 200% text and in the desktop column (`tests/e2e/catch-card-reflow.spec.ts`). The table's footer explains its one Cited row, "Diluted EPS reads Cited: per-share figures are not matched to XBRL.", instead of repeating the lead, and the net income chip reads "Net income", not the concept name `NetIncomeLoss`. |
+| Contents | `SummaryContents.tsx` | The nine parts the live schema produces, from The Print to Notable Footnotes, in reading order. The card's note reads "Up to nine parts": the list is the schema's outline, and the Apple sample's own page omits Segments. |
 | How it works | `HowItWorks.tsx` | Three steps without "supported" or "selected": search any company with a ticker on SEC EDGAR (the coverage search has: SEC's ticker file), pick a filing, read the summary. |
-| Pro section | `ProDepth.tsx`, `ChangeReportDemo.tsx` | "More ways to read one filing." with the Ask, Multi-Period and Change Report demos; the Change Report sample is FY2025 against FY2024. |
-| Sample data | `lib/landing-samples.ts` | Every sample on the page is Apple's FY2025 10-K against FY2024: revenue $416.2B vs $391.0B (+6.4%), net income $112.0B vs $93.7B (+19.5%) and diluted EPS $7.46 vs $6.08 (+22.7%) from SEC companyfacts; Services $109.2B vs $96.2B (+13.5%), a dimensioned fact companyfacts does not carry, from the 10-K's own inline XBRL; and the verbatim Item 7 sentence on Services (00-audit.md §4, D-021). The Multi-Period demo is the one exception (§8). |
+| Pro section | `ProDepth.tsx`, `ChangeReportDemo.tsx` | "More ways to read one filing." with the Ask, Multi-Period and Change Report demos; the Change Report sample is FY2025 against FY2024. The Multi-Period row, its call to action, the Excel tile and the lead's "read its periods side by side" render only while `NEXT_PUBLIC_ENABLE_ANALYSIS` ships the route, which 404s otherwise (`tests/unit/analysis-route-hidden.spec.tsx`). |
+| Pricing section | `PricingSection.tsx` | No "Most popular" badge: the beta has no popularity figure behind one, and the Pro card's brand ring carries the emphasis. The two Multi-Period lines list only while the flag ships it, and the exports line reads "PDF, CSV and Excel exports" only then ("PDF and CSV exports" otherwise), since the Excel export is the analysis workbook. Each line keyed to a flag names it in a field (`flag: 'analysis'`), not by its wording. The Free card reads "10-K, 10-Q and 20-F filings from SEC EDGAR", with no "Supported" hedge, 20-F only while `NEXT_PUBLIC_ENABLE_FPI_FILINGS` mirrors the API's flag (`flag: 'fpi'`; "10-K and 10-Q filings from SEC EDGAR" otherwise). The billing radios carry the brand ring on their own className. |
+| Reader quote | `ReaderQuoteSlot.tsx`, `lib/readerQuote.ts` (new) | Mounted under the pricing section; renders nothing while `READER_QUOTE` is `null`, so no placeholder testimonial ships and the reader-quote slot stays unrendered (§6; 01-interview.md §2; `tests/unit/readerQuoteSlot.spec.tsx`). It fills only with a real reader's words and the naming they approved in writing; the voice rules of #1288 (`brandVoiceRules.spec.ts`) gate the shipped value once that PR merges. The placeholder strings are gone. |
+| Sample data | `lib/landing-samples.ts` | Every sample on the page is Apple's FY2025 10-K against FY2024: revenue $416.2B vs $391.0B (+6.4%), net income $112.0B vs $93.7B (+19.5%) and diluted EPS $7.46 vs $6.08 (+22.7%) from SEC companyfacts; Services $109.2B vs $96.2B (+13.5%), a dimensioned fact companyfacts does not carry, from the 10-K's own inline XBRL; and the verbatim Item 7 sentence on Services (00-audit.md §4, D-021). The Multi-Period demo is the one exception (§8). The Ask demo answers "How much did net sales grow, and what drove Services?" as a live run would: total net sales of $416.2B [1] and its 6.4% growth [2], two XBRL chips written as `copilot_tools.fact_to_citation` writes them (a fact the tool can fetch, and the growth `compute_metric` derives from it), then the Item 7 sentence on Services [3]. The markers are numbered as the server numbers them, never [F1]. `tests/unit/landingSamplesVerified.spec.ts` holds every figure, chip label and marker on the page's samples and the hero fallback to the verified set, ties each XBRL chip's label and figure to the concept its section ref names, and ties the answer's figure before each marker to that chip. The Copilot teaser's blurred sample (`CopilotTeaser.tsx`, #1295) answers a Services question instead: its Services figures are a dimensioned fact the tool cannot fetch, so its citations are passages from the filing, not XBRL facts; the two answers differ for that reason, and the spec clause over the teaser asserts that citation kind once both PRs are on main. |
 | Notable filings | `app/page.tsx`, `features/filings/components/NotableFilings.tsx` | Unmounted (see §7). |
 | Footer | `components/Footer.tsx` | The tagline, "The summary that shows its work." |
 | Metadata | `app/page.tsx`, `app/layout.tsx`, `app/manifest.ts` | Descriptions and the social image's alt text say what the product does in the voice; the Safari pinned-tab icon is declared (`mask-icon`, §4). |
@@ -42,25 +44,95 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   copy. The Pro card's guest path is the upgrade flow's own and unchanged. The plan copy says what
   each plan is for and that the same summaries serve every reader; the annual saving label and the
   trial note are set in the ink, not sage. Prices and limits are untouched: the prices are main's
-  (#1009, merged into this branch), and so are the Pro line and the saving label's wording.
+  (#1009, merged into this branch), and so are the Pro line and the saving label's wording. The Pro
+  card carries no "Most popular" badge. The Free plan reads "10-K, 10-Q and 20-F filings from SEC
+  EDGAR" in place of "Access to all filings": no "Supported" hedge, and 20-F only while
+  `NEXT_PUBLIC_ENABLE_FPI_FILINGS` mirrors the API's `ENABLE_FPI_FILINGS` ("10-K and 10-Q filings from SEC
+  EDGAR" otherwise; the deploy sets the API's flag on, its code default is off; tasks/todo.md F39). The Pro list reads "Ask
+  this Filing, with cited answers", and names Multi-Period Analysis and "PDF, CSV and Excel exports"
+  only while `NEXT_PUBLIC_ENABLE_ANALYSIS` ships them ("PDF and CSV exports" otherwise: the Excel
+  export is the analysis workbook). The check marks are in the brand ink and hidden from
+  assistive tech. The history and "Unlimited" lines wait on the founder (pub/F03, pub/F05).
 - **Waitlist** (`frontend/app/waitlist/page.tsx`, `features/waitlist/components/*`): the headline is
   the fourth brand headline with the mark ("The 10-K, read for you, with receipts."); the three
   cards, three of the four steps and the feature grid are rewritten (search coverage stated as
   companies with a ticker on SEC EDGAR); the share text matches; the counter renders only from 25
   signups (`COUNT_FLOOR`), and its count-up is clamped to that floor so no frame reads "0+"; the
-  count and the step numbers are set in the ink, not sage.
+  count and the step numbers are set in the ink, not sage. The trust panel reads "Before you join"
+  over its three tiles with no lead (the clarity promise is gone, and a lead only repeated the first
+  tile's source line), and its middle tile
+  is "Security", whose body waits on the founder with the /security claims. The problem cards and the
+  joined heading are h2, so the outline does not skip a level after the h1 when the example beside
+  the form loads (it has no heading; `tests/unit/waitlistPage.spec.tsx`); the unused `WaitlistStatus`
+  component is deleted, with the `getWaitlistStatus` client it alone called. The example link and the "Join the waitlist" pill carry the brand focus ring.
+  /waitlist, /login, /register, /forgot-password, /check-email, /verify-email, /reset-password,
+  /contact, /privacy, /terms, /security, /delete-account and the flag-off /search join the routes
+  `tests/e2e/text-floors.spec.ts` visits; three census cases hold the list to the sitemap's static
+  core (`STATIC_ENTRIES`), the auth shell's routes (`AUTH_ROUTES`) and every `page.tsx` under `app/`,
+  static or dynamic (visited, a dynamic route by a representative path, or named in `NOT_VISITED`
+  with its reason), and it reads which of them render in
+  the auth shell from `lib/authShellRoutes.ts`, the list `SiteChrome.tsx` uses.
 - **Consent bar** (`frontend/components/CookieConsent.tsx`): "Cookies on this site", then what the
   cookies do: essential cookies keep you signed in; analytics cookies and session recording stay off
   until allowed. PostHog, the analytics tool that sets cookies, initialises only after consent
   (`frontend/app/posthog-provider.tsx`); Vercel Web Analytics is cookieless and runs for every
   visitor, which is why the clause names analytics cookies. The categories, the controls and the
   privacy link are unchanged.
+- **Contact** (`frontend/app/contact/page.tsx`, `frontend/features/contact/components/ContactForm.tsx`):
+  "Contact us", then one line on what to write about. "What to expect" keeps the response time
+  (typically within 1–2 business days); the support-hours line (Monday–Friday, 9:00 AM–5:00 PM ET)
+  is gone, as the founder decided on 2026-10-15 (D-040): an unenforced promise. The "automated
+  confirmation email" line is gone too: the receipt `backend/app/routers/contact.py` sends carries
+  no copy of the message, and the route answers success when that send fails. The form's limits are
+  the server's (`tests/unit/contactValidationParity.spec.ts` reads `backend/app/schemas/contact.py`),
+  so a one-letter name, or a message over 2,000 characters, is refused before sending, counted in
+  code points as the server counts (no field carries a native `maxLength`, which counts UTF-16 units
+  and would cut an emoji-heavy message the server accepts), and an email whose shape the server's
+  `EmailStr` refuses (`ada@gmail`, with no dot in the domain) is refused with "Please enter a valid
+  email address." A name or message under the floor says "Your name needs at least 2 characters."
+  or "Your message needs at least 10 characters."; over its maximum, "Your message can be at most
+  2,000 characters.", the numbers read from the limits, and the hint under the message reads "10 to
+  2,000 characters"; the message placeholder is "What happened, or what you'd like to know".
+  Every failure shows in an error Notice titled "Message not sent". A rate limit is read from the
+  status and says "Too many messages from this connection. Try again in an hour."; a 422 the form
+  could not foresee says "Check the fields and send again."; a 5xx says the surface's sentence, since
+  the route's own 500 detail is developer wording; any other failure shows the backend's own detail,
+  or the surface's sentence when the body carried none: "We couldn't send your message. Try again in
+  a minute." The success heading is an h2.
+  The prose links on /contact are underlined and carry the brand focus ring. The /security links
+  are unchanged, because /security is a legal page under the founder's boundary; the ring triple
+  on its five links rides the founder-gated security-claims PR.
 
 ## 3. Inside the product
 
 - **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): five new loading quips in
   the voice and one kept ("Reading the size-8 fine print…"), signed "Reading the filing"; the stalled line and the timeout error say what happened
   and what to do. The heading "Generation interrupted" stays.
+- **Company page** (`frontend/app/company/[ticker]/page-client.tsx`,
+  `features/companies/components/CompanySearch.tsx`, `features/peers`, `features/insiders`,
+  `features/fundamentals`, `features/filings/components/FilingsHistoryNote.tsx`,
+  `features/filings/components/FilingIndex.tsx`): a company that fails
+  to load says "Couldn’t load this company" with a Retry and never prints the raw error; only a 404
+  reads "Company not found", an answer in the empty card (the error card stays for the load failure),
+  with the search's scope ("No company with a ticker on SEC EDGAR matches
+  …"). The watched star keeps the button's own ink, its fill and `aria-pressed` carrying the state. The
+  search field reads "Search company or ticker" everywhere (the landing's string) and its result rows
+  take the inset focus ring. Sector peers and financial trends pick their metric through a compact select
+  sized to its content beside its "Metric" label (nine and up to 23 options, in sentence case on its
+  face); insider activity picks its window through the SegmentedControl; headings in sentence case; the
+  percentile is an ordinal ("21st percentile"); a trade's type carries a hidden ▲ or ▼ beside its
+  label and the discretionary net keeps its sign; the 10b5-1 note says what a plan trade is. "Full
+  history on SEC EDGAR" opens the company's EDGAR list through the shared company link the lead
+  uses (`edgarCompanyUrl`: every form, and EDGAR's own defaults in place of the old `owner=include`
+  and `count=40`), in the filing identity's quiet link. `earningsnerd/no-hand-rolled-toggle-group`
+  (new ESLint rule) fails a hand-built role="group" of pressed buttons outside the SegmentedControl's own
+  file, reading a pressed `<button>` or `<Button>` in the group's own markup, through a same-file wrapper
+  and through the DS Button under another name (a row without role="group", an imported wrapper and a
+  wrapper of a wrapper are outside its reach, review-checked); `tests/unit/segmentedControlOptionCount.spec.ts`
+  (new) fails a SegmentedControl given more than five options, so a long set takes the compact select,
+  and the filings form filter, a set known only at run time, renders as the toolbar's compact select
+  past five (a filer with both domestic and foreign forms), so no SegmentedControl ever shows more than
+  five; `tests/unit/formatters.spec.ts` holds `ordinal` and the signed `fmtShares`.
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
   "$7.5" (a Phase 9 fix; compact figures keep their rounding).
@@ -103,6 +175,21 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
   verification mail ends "Verify your email address and you can start reading."
+- **Admin invites and feedback** (`frontend/app/admin/`, `frontend/features/admin/components/`): an
+  invite is "created", and "emailed" only when Email invites was on and the backend's best-effort send
+  went through (the API's `emailed` flag). A batch reads "3 invites created · 3 emailed", "3 invite
+  links created" with email off, or warns "3 invites created · 2 emailed. Copy the rest from the list
+  below."; the results head "3 created · 2 emailed" and mark each link still to share "Not emailed";
+  the resend dialog says "Invite re-sent" and "We emailed it to {email}." only when it was emailed,
+  "New invite link ready" otherwise. A link-only row's actions are named "Resend this link-only
+  invite" and "Revoke this link-only invite". The empty lists are one plain line in the card ("No
+  invites yet. Send your first one above.", "No feedback yet. Reports appear here as people send
+  them."), a failed load is a Notice with a Retry, and the section headings carry no icon. The status
+  chips put the status ink on the quiet ground (DESIGN_SYSTEM.md §4), the feedback type chip beside
+  them takes the same quiet ground in dark (no fill, its hairline kept), "New" feedback takes an unread
+  envelope in place of the sparkle, an already-invited chip reads "· already invited" in its own ink,
+  and the remaining admin controls carry the brand ring (`statusChipContrast.spec.ts`,
+  `inviteOutcomeEmailed.spec.tsx`, `siteChromeFocusRing.spec.ts`).
 - **Multi-Period Analysis** (`frontend/features/analysis/*`, `frontend/app/analysis/page.tsx`): the
   fair-use cap is stated once, in the narrative card, with no plan link; "See plans" stays only beside
   the 403 "Pro feature" gate, and the page's three inline links (Sign in, See plans, Terms) carry the
