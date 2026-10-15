@@ -28,11 +28,19 @@
 //                       reduced-motion block (SELF_GUARDED_ANIMATIONS) need no guard; the spec holds
 //                       each of them, and every other animation globals.css declares, to that block.
 //   no-hand-rolled-toggle-group (CO-15, CO-22, CO-25) One single-choice toggle group app-wide: the
-//                       SegmentedControl (components/ui). An element with role="group" that holds a
-//                       <button> or <Button> carrying aria-pressed, anywhere beneath it (a .map callback
-//                       included), is that control rebuilt by hand, and three such rows on the company page
-//                       had drifted from it (no focus ring, a hover that darkens). The primitive's own file is
-//                       exempt. A group of independent toggles (a multi-select filter row) is not this
+//                       SegmentedControl (components/ui). The rule reads an element whose role is the literal
+//                       "group" (role="group" or role={'group'}) and walks the children written inside it, a
+//                       .map callback and a conditional included, for a <button>, <Button> or <x.Button> tag
+//                       with aria-pressed written on it; one found is that control rebuilt by hand, and three
+//                       such rows on the company page had drifted from it (no focus ring, a hover that darkens).
+//                       The primitive's own file is exempt. The walk reads tags, not what a component renders,
+//                       so two shapes pass unread: a same-file wrapper component that returns the pressed
+//                       <button> (the group holds <Wrapper>), and the DS Button imported under another name
+//                       (`import { Button as X }`). The live site of the first is WordingChanges.tsx's
+//                       LabelToggle (features/filings), and it stays as it is: its toggle clears a label that
+//                       is already set, so "pressed nowhere" is a valid state, which the SegmentedControl
+//                       (always one selected value) cannot hold. E62 (tasks/todo.md) records the widening to
+//                       both shapes. A group of independent toggles (a multi-select filter row) is not this
 //                       control: disable the rule on that line with the reason.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at

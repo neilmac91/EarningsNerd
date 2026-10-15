@@ -101,8 +101,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   history on SEC EDGAR" opens the company's EDGAR list through the shared company link the lead
   uses (`edgarCompanyUrl`: every form, and EDGAR's own defaults in place of the old `owner=include`
   and `count=40`), in the filing identity's quiet link. `earningsnerd/no-hand-rolled-toggle-group`
-  (new ESLint rule) fails a hand-built role="group" of pressed buttons outside the SegmentedControl's
-  own file (a row without role="group" is outside its reach); `tests/unit/segmentedControlOptionCount.spec.ts`
+  (new ESLint rule) fails a hand-built role="group" of pressed buttons written in the group's own markup,
+  not in a wrapper component or imported under another name, outside the SegmentedControl's own file (a
+  row without role="group" is outside its reach); `tests/unit/segmentedControlOptionCount.spec.ts`
   (new) fails a SegmentedControl given more than five options, so a long set takes the compact select;
   `tests/unit/formatters.spec.ts` holds `ordinal` and the signed `fmtShares`.
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
