@@ -154,10 +154,13 @@ const EYEBROW_CHIP = [/(^|:)!?uppercase$/, /(^|:)!?tracking-eyebrow$/]
 const CLASS_HELPER = /^(cx|clsx)$/
 
 /** Every string an attribute's value can contribute (literals and template chunks), joined. An identifier
- *  contributes what `binding` reads for it: the class text of a binding declared in the same file. */
+ *  contributes what `binding` reads for it: the class text of a binding declared in the same file. A class helper's
+ *  object form names its classes by key (`cx({ uppercase: active })`), so a bare key contributes its name, as a quoted
+ *  key contributes its text. */
 function attributeText(node, keys, binding, out = []) {
   if (!node || typeof node.type !== 'string') return out
   if (node.type === 'Literal' && typeof node.value === 'string') out.push(node.value)
+  if (node.type === 'Property' && !node.computed && node.key.type === 'Identifier') out.push(node.key.name)
   if (node.type === 'TemplateElement') out.push(node.value.cooked ?? node.value.raw)
   if (node.type === 'Identifier') out.push(...binding(node))
   for (const key of keys[node.type] ?? []) {
@@ -261,7 +264,18 @@ function guaranteedTokens(raw, init, seen = new Set()) {
   }
   if (node.type === 'CallExpression' && node.callee.type === 'Identifier' && CLASS_HELPER.test(node.callee.name)) {
     const out = new Set()
-    for (const arg of node.arguments) for (const token of guaranteedTokens(arg, init, seen)) out.add(token)
+    for (const arg of node.arguments) {
+      const value = unwrapTs(arg)
+      // An object argument sets a key's classes on every path only when the key's value is the literal true.
+      if (value?.type === 'ObjectExpression') {
+        for (const p of value.properties) {
+          if (p.type !== 'Property' || p.computed || p.value.type !== 'Literal' || p.value.value !== true) continue
+          for (const token of words(p.key.type === 'Identifier' ? p.key.name : String(p.key.value))) out.add(token)
+        }
+        continue
+      }
+      for (const token of guaranteedTokens(arg, init, seen)) out.add(token)
+    }
     return out
   }
   if (node.type === 'Identifier') {
@@ -285,20 +299,35 @@ const isBlank = (expression) => {
     (node?.type === 'TemplateLiteral' && node.expressions.length === 0 && (node.quasis[0].value.cooked ?? '').trim() === '')
   )
 }
+/** An expression that renders nothing on one of its paths: `cond && x`, a conditional with an empty arm (`cond ?
+ *  'New · ' : null`), or an empty value itself (null, a boolean, undefined, a blank string). */
+const mayRenderNothing = (expression) => {
+  const node = unwrapTs(expression)
+  if (!node || isBlank(node)) return true
+  if (node.type === 'Literal' && (node.value === null || typeof node.value === 'boolean')) return true
+  if (node.type === 'Identifier' && node.name === 'undefined') return true
+  if (node.type === 'LogicalExpression' && node.operator === '&&') return true
+  if (node.type === 'ConditionalExpression') return mayRenderNothing(node.consequent) || mayRenderNothing(node.alternate)
+  return false
+}
 
 /** The lead of an element's content: its first text or expression in document order, read through its HTML
  *  wrappers and fragments at any depth, siblings included, since uppercase and letter-spacing inherit (`<span>{form}</span><span>
  *  · Filed {ago}</span>` inside the chip renders in its face; an empty wrapper, an icon's <i>, is passed over).
- *  A blank expression (`{' '}`) is passed over too. Null when a component or a Badge (judged by its own rule) or an
+ *  A blank expression (`{' '}`) is passed over too, and so is one that renders nothing on one path (mayRenderNothing:
+ *  `{isNew && 'New · '}`) unless it can render a form itself. Null when a component or a Badge (judged by its own rule) or an
  *  element that resets the recipe on every path (resetsFace: a face of its own) comes first; undefined when the
  *  content holds no text at all. What follows the lead does not change the face the lead is set in. */
-function leadChild(node, init) {
+function leadChild(node, keys, init) {
   for (const child of meaningfulChildren(node)) {
     if (child.type === 'JSXExpressionContainer' && isBlank(child.expression)) continue
+    // An expression that renders nothing on one path (`{isNew && 'New · '}`) leads only on its other paths, so unless
+    // it can render a form itself the reading goes on to what leads when it renders nothing.
+    if (child.type === 'JSXExpressionContainer' && mayRenderNothing(child.expression) && !formNode(child.expression, keys, FORM_CODE_LEAD)) continue
     if (child.type === 'JSXText' || child.type === 'JSXExpressionContainer') return child
     // A fragment renders its children in place: read through it as through a plain wrapper.
     if (child.type === 'JSXFragment') {
-      const lead = leadChild(child, init)
+      const lead = leadChild(child, keys, init)
       if (lead !== undefined) return lead
       continue
     }
@@ -306,7 +335,7 @@ function leadChild(node, init) {
     const name = child.openingElement.name
     if (name.type !== 'JSXIdentifier' || !/^[a-z]/.test(name.name)) return null
     if (resetsFace(child, init)) return null
-    const lead = leadChild(child, init)
+    const lead = leadChild(child, keys, init)
     if (lead !== undefined) return lead
   }
   return undefined
@@ -323,7 +352,7 @@ function leadChild(node, init) {
 function isEyebrowFormChip(node, keys, binding, init) {
   const name = node.openingElement.name
   if (name.type !== 'JSXIdentifier' || !/^[a-z]/.test(name.name)) return false
-  const lead = leadChild(node, init)
+  const lead = leadChild(node, keys, init)
   if (!lead || !formNode(lead, keys, FORM_CODE_LEAD)) return false
   const tokens = classTokens(node, keys, binding)
   return EYEBROW_CHIP.every((pattern) => tokens.some((token) => pattern.test(token)))
