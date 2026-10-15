@@ -16,9 +16,12 @@ export function resetAccountQueries(
   void queryClient.cancelQueries({ queryKey: queryKeys.currentUser() })
   void queryClient.cancelQueries({ queryKey: queryKeys.subscription.all() })
   void queryClient.cancelQueries({ queryKey: queryKeys.usage.all() })
+  void queryClient.cancelQueries({ queryKey: queryKeys.wordingReview.all() })
   queryClient.setQueryData(queryKeys.currentUser(), null)
   queryClient.removeQueries({ queryKey: queryKeys.subscription.all() })
   queryClient.removeQueries({ queryKey: queryKeys.usage.all() })
+  // The reader's own labels and receipts: another account in this tab starts from its own read.
+  queryClient.removeQueries({ queryKey: queryKeys.wordingReview.all() })
 }
 
 export function subscribeAccountQueryReset(queryClient: QueryClient): () => void {

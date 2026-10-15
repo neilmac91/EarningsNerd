@@ -482,28 +482,46 @@ Located in `backend/scripts/`:
 
 ### Review gate (rule 12 for the review-wait lesson)
 
-`.github/workflows/review-gate.yml` publishes a `review-gate` status check on every non-draft pull
-request head. It passes only when Codex's "Review Summary" comment reports **Completed** for that
+`.github/workflows/review-gate.yml` publishes a `review-gate` status check on every pull request
+head. While the pull request is a draft the check fails, and marking it ready starts the wait. The
+script reads the draft flag from the pull request as it is now: a job skipped by its condition
+reports success, which a required check counts as passing, and an event can still describe a draft
+after the pull request was marked ready, so the job never skips on a pull-request event. It passes
+only when Codex's "Review Summary" comment reports **Completed** for that
 exact head, or when the pull request body carries a line `Review override: <reason>` (ten or more
 characters); a completed review of an earlier head is not enough, because a push does not
 re-trigger Codex here: after fix commits, comment `@codex review` at once. The gate waits up to
-twenty minutes, then fails naming the remedy; an `@codex review` comment re-runs the pull request's
-latest gate run automatically (the workflow's `issue_comment` job, the only one holding a write
-scope, `actions: write`), so a re-requested review is observed without a manual re-run. Logic in
+twenty minutes, then fails naming the remedy; an `@codex review` comment re-runs the newest gate run
+on the pull request's current head automatically (the workflow's `issue_comment` job, the only one
+holding a write scope, `actions: write`), so a re-requested review is observed without a manual
+re-run. The job finds that run by the head commit and the pull request's head branch and repository,
+however many runs other pull requests have had since. GitHub re-runs a run only within 30 days of its
+first attempt, at most 50 times; past that the job fails, giving GitHub's reason and the remedy (push,
+or edit the body). The job reports each outcome only in its own log, in the Actions tab: its run sits
+on `main`'s latest commit, so the pull request's checks do not show it. Logic in
 `backend/scripts/review_gate.py` (stdlib only), pinned by `tests/unit/test_review_gate.py`. The
 workflow runs on `pull_request_target` and checks out the **base** branch, so a pull request can edit
 neither its own gate script nor the workflow definition (the job never executes pull-request code and
 holds read-only tokens); only the exact Codex GitHub App identity (login, `Bot` type, immutable id) is
 trusted; and a reviewed short SHA counts only when the repository resolves it uniquely to the head and
 no other commit of the pull request shares it, so a head minted to share a reviewed prefix stays
-unreviewed while the reviewed object exists. Because the definition comes from `main`, the gate first
-runs on pull requests opened after it has merged.
+unreviewed while the reviewed object exists. Each run takes the workflow definition from `main` as it
+stood at the run's event, and a re-run keeps that definition, so a change here reaches a pull request
+at its next pull-request event. The re-run job never re-runs a skipped run: only a run from before
+#1331 can skip, under its old draft condition, and a re-run would replay the skip. A ready pull
+request whose newest gate run is such a skip needs a new pull-request event, an edit to its body for
+instance. Never re-run such a run by hand ("Re-run all jobs"): it replays the skip, which a required
+check counts as passing. Those runs pass GitHub's 30-day re-run limit around 2026-11-14. A draft whose
+newest gate run is such a skip also shows it as its newest check from the moment it is marked ready
+until its ready run's check appears, a few seconds, or for good when no run starts (an Actions outage,
+or a transition made with a workflow's `GITHUB_TOKEN`): push or edit its body while it is still a
+draft, so its newest check is a real run, then mark it ready.
 
 The check binds merges through the ruleset on `main` (id 23561253, created 2026-09-16, `gh api
 repos/neilmac91/EarningsNerd/rulesets/23561253` to read it): deletion and force-push of `main`
 blocked; a pull request required with **zero** approvals and squash as the only merge method;
 required status checks `backend-tests`, `frontend-tests`, `e2e-tests`, `migrations-postgres`,
-`lighthouse` and `review-gate`, each pinned to the GitHub Actions app; no bypass actors, so the rules
+`lighthouse`, `review-gate` and `secret-scan`, each pinned to the GitHub Actions app; no bypass actors, so the rules
 bind the administrator too. A required status check needs no approver, so this does not lock a
 single-collaborator repository; requiring pull-request reviews would, because authors cannot approve
 their own pull requests, and the GitHub default `require_extra_approval_for_unattributed_changes` is
@@ -583,9 +601,12 @@ Every scheduled job script records an attempt in `earningsnerd_job_runs`, using 
 separate from its business work. The logical names are `pregenerate`, `filing-scan`,
 `filing-digest`, `backfill-facts`, `earnings-calendar-refresh`, `earnings-day-alerts`, and
 `notable-filings`. The weekly report records `data-quality-report` separately, even though it
-runs on the filing-digest Cloud Run job. SIC backfill, financial remediation and the reconciliation-flag audit similarly use
-`backfill-company-sic`, `remediate-financials` and `reconciliation-flag-audit`; these ad hoc
-identities cannot satisfy the scheduled facts heartbeat.
+runs on the filing-digest Cloud Run job, and the Item 1A extraction batch the real-time scan runs
+behind `ENABLE_SECTION_CHANGES` records `section-extraction` on its own row (a failed batch fails
+that row, not the scan's execution; it joins `JOB_CADENCES` when the flag flips). SIC backfill, financial remediation, the reconciliation-flag audit and the
+operator's section backfill similarly use `backfill-company-sic`, `remediate-financials`,
+`reconciliation-flag-audit` and `section-extraction-manual`; these ad hoc identities cannot satisfy a
+scheduled heartbeat.
 
 Each attempt records start, completion, status and numeric counters. Returned provider/send/
 extraction failures and failed commits mark the attempt failed and make the CLI exit nonzero;
