@@ -61,7 +61,7 @@ open on main:
 - The admission test asserted elapsed < 1.2 s and ran 1.22 s.
 - The charge-write test's 0.6 s pipeline deadline expired during a 0.53 s mocked fetch, so no write
   began.
-- A process-group test's grandchild caught SIGTERM in a Python handler and, a few times in a thousand
+- A process-group test's grandchild caught SIGTERM in a Python handler and, about once in a thousand
   runs under load, missed it for its whole 60 s sleep (`test-child-scripts-wait-for-signals.md`).
 A sweep found four more asserts that held only on an idle loop. Each now asserts on the deadline the
 code enters, or on what the code did, not on how long it took, and `tests/unit/test_wall_clock_bounds.py`
