@@ -6,8 +6,9 @@ lesson: an imperative one-line rule as the title, then Date/Area, **Context** (w
 
 **Workflow**: after ANY correction from the founder — or any hard-won discovery — add or update a
 file here (never append to a monolith). At session start read "Operations & workflow (every
-task)" plus the section for your task area; read "Evals, judging, paid runs and the founder's
-machine" only for that work; skip "Enforced by a machine gate" (CI fails those on its own) and
+task)" plus the section for your task area; read "Operations: services, jobs, deploys, billing and
+CI" and "Evals, judging, paid runs and the founder's machine" only for that work; skip "Enforced by
+a machine gate" (CI fails those on its own) and
 "Archived". Filenames are greppable by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`,
 `evals-*`, `ops-*`. Entries are `file — rule`.
 
@@ -15,36 +16,39 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 ## Operations & workflow (every task)
 
 - ops-a-bare-proceed-continues-the-last-instruction.md — Read a bare "proceed" as the founder's last instruction on the decision; only without one does it accept your recommendation
-- ops-a-flag-several-processes-read-is-set-in-every-env-map.md — List every process that reads a flag and flip it in every deploy map it is configured from, with its job cadence, in one change (partly gated by `backend/tests/unit/test_section_changes_flag_placement.py` for `ENABLE_SECTION_CHANGES`; the next multi-process flag's gate is review-checked)
 - ops-a-piped-gate-does-not-gate.md — Run every verification step of a committing chain unpiped with its exit status checked explicitly; the records-gate wrapper carries the rule
-- ops-auth-lookups-must-let-request-cleanup-progress.md — Keep authentication pool waits off the event loop while preserving request-owned sessions
-- ops-bound-drain-batches-to-job-memory.md — Bound a regeneration batch by the job container's memory, not by its time budget alone
-- ops-ci-images-avoid-docker-hub.md — Pull CI and deploy images through a mirror, never anonymously from Docker Hub
-- ops-checkout-never-charges-more-than-the-page-shows.md — Never let checkout charge more than the page shows: lower a price on the backend first, raise it on the page first (a CI job on offer changes and a daily run against the live page check it with the backend's public charge report; a binding change or frontend rollback outside CI is found, not prevented)
 - ops-continue-approved-engineering.md — Continue the approved queue after verified releases and preserve specific founder holds
 - ops-demote-a-lesson-only-when-its-whole-rule-is-gated.md — Demote a lesson from session reading only when every clause of its rule is machine-gated and proven on the bad case
 - ops-denied-reads-report-unverified.md — A denied optional read-back reports UNVERIFIED with a closed failure class; fail closed only on readable evidence
-- ops-deploy-owned-state-needs-a-distinctive-name.md — Give deploy-owned tables a name nothing else could have created; CREATE TABLE IF NOT EXISTS adopts strangers
-- ops-finish-only-job-owned-read-transactions.md — Finish the CLI's read transaction before transport while preserving attached inputs
 - ops-fix-the-exact-cited-site.md — Fix and test the plan's exact cited site, not an adjacent manifestation
 - ops-git-add-atomic-empty-status-gate.md — Require an empty git status after every completing commit; never chain add-path recovery
 - ops-grep-verify-negative-claims.md — Grep-verify every "no X exists" claim from a workstream report before it enters a synthesis
 - ops-hand-over-when-the-harness-refuses-the-conversation.md — Hand over to a fresh session when the harness refuses the conversation, not the action
-- ops-job-success-needs-outcome-evidence.md — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 - ops-keep-moving-under-standing-authorization.md — Keep moving under a standing founder authorization; stop only at the boundaries still held
 - ops-mutate-only-committed-state.md — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit
 - ops-name-codex-without-its-at-mention.md — Name Codex in GitHub text without its at-mention; one outside a review request starts a Codex task (no gate yet: E63)
 - ops-never-echo-environment-values.md — Never let a settings error, an output or Sentry carry a secret; a caught error's errors()/json() pass include_input=False, outputs give a secret's presence and length only, Sentry sends no frame locals and withholds each secret setting's whole value on every channel that carries text, and agent probes run under env -i in an export with no .env at any level
-- ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
 - ops-one-test-process-per-worktree.md — give each test process its own database, and never let a test depend on another test's order or leftovers
-- ops-release-cached-filing-reads-before-yield.md — Close completed filing reads before async dependency cleanup can be blocked by a competing checkout
 - ops-serial-merge-adjacent-line-prs.md — Serialize merges of PRs that edit the same file within a few lines
 - ops-true-config-descriptions-grep-file-moves.md — Make canonized config descriptions literally true and grep the whole repo when moving files
 - ops-unmergeable-pr-runs-no-pull-request-workflows.md — Check the PR's mergeable state before diagnosing missing `pull_request` workflow runs
 - ops-validate-workflow-inputs-before-pipeline.md — Validate workflow inputs before `pipeline()`; a throw inside a stage is a silent drop, and a `null` agent result is no result, never clearance
-- ops-verify-env-updates-reach-session.md — Fingerprint env values in the running shell before debugging a rotated secret
 - ops-verify-plan-gaps-against-code.md — Re-read the actual code before implementing any plan item marked missing, or listing one as open
 - ops-write-down-the-second-anomaly-before-chasing-the-first.md — Write down the second anomaly before chasing the first — a parked finding is a lost finding
+
+## Operations: services, jobs, deploys, billing and CI (read for that work)
+
+- ops-a-flag-several-processes-read-is-set-in-every-env-map.md — List every process that reads a flag and flip it in every deploy map it is configured from, with its job cadence, in one change (partly gated by `backend/tests/unit/test_section_changes_flag_placement.py` for `ENABLE_SECTION_CHANGES`; the next multi-process flag's gate is review-checked)
+- ops-auth-lookups-must-let-request-cleanup-progress.md — Keep authentication pool waits off the event loop while preserving request-owned sessions
+- ops-bound-drain-batches-to-job-memory.md — Bound a regeneration batch by the job container's memory, not by its time budget alone
+- ops-checkout-never-charges-more-than-the-page-shows.md — Never let checkout charge more than the page shows: lower a price on the backend first, raise it on the page first (a CI job on offer changes and a daily run against the live page check it with the backend's public charge report; a binding change or frontend rollback outside CI is found, not prevented)
+- ops-ci-images-avoid-docker-hub.md — Pull CI and deploy images through a mirror, never anonymously from Docker Hub
+- ops-deploy-owned-state-needs-a-distinctive-name.md — Give deploy-owned tables a name nothing else could have created; CREATE TABLE IF NOT EXISTS adopts strangers
+- ops-finish-only-job-owned-read-transactions.md — Finish the CLI's read transaction before transport while preserving attached inputs
+- ops-job-success-needs-outcome-evidence.md — Persist actual job outcomes; swallowed failures and dry runs never advance last success
+- ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
+- ops-release-cached-filing-reads-before-yield.md — Close completed filing reads before async dependency cleanup can be blocked by a competing checkout
+- ops-verify-env-updates-reach-session.md — Fingerprint env values in the running shell before debugging a rotated secret
 
 ## Evals, judging, paid runs and the founder's machine (read for that work)
 
