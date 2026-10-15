@@ -267,12 +267,6 @@ const config = [
       'earningsnerd/no-hand-rolled-toggle-group': 'error',
     },
   },
-  // lib/format.ts owns the pinned formatters (fmtCount, fmtDecimal and the rest), so it is the one
-  // place a number formatter is built; it pins en-US itself (getFormatter).
-  {
-    files: ['lib/format.ts'],
-    rules: { 'earningsnerd/locale-pinned-numbers': 'off' },
-  },
   // The JS color mirrors + the brand-mandated GoogleSignInButton: every gate except the two color rules.
   {
     files: DESIGN_COLOR_EXEMPT,

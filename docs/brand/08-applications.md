@@ -289,7 +289,8 @@ that PR:
   the tree to render their children or title into one of those; a label passed through a renamed
   variable, a spread or a helper function, or a className styled through a variable, is
   review-checked (`lessons/test-gates-must-be-as-wide-as-their-rule.md`); no exclamation mark, emoji or banned
-  buzzword in copy, a placeholder included; no icon inside a heading; no developer wording
+  buzzword in copy, a placeholder included; no icon inside a heading (an icon imported from `lib/icons` or
+  the Phosphor package under any name or through a namespace, or a tag named for one); no developer wording
   ("backend", an API path, "reader", an HTTP status) in `lib/` and `hooks/`.
 - `reservedGlyphs.spec.ts` (new): the quotes glyph marks a filing passage and the braces an XBRL
   fact, nowhere else; the sparkle belongs to an AI-summary chip, which does not exist yet, so it has
@@ -306,8 +307,8 @@ that PR:
   name outside the api modules is the scan's limit.
 - ESLint: the raw-colour rule reads `rgb()`, `rgba()`, `hsl()` and `hsla()` as well as hex, in an
   arbitrary utility too; `earningsnerd/locale-pinned-numbers` (new) bans an unpinned
-  `toLocaleString()`, `toLocaleTimeString()` or `Intl.NumberFormat` outside `lib/format.ts`
-  (`fmtCount`, `fmtDecimal`, or a date helper for a date); `toLocaleDateString()` was already banned
+  `toLocaleString()`, `toLocaleTimeString()` or `Intl.NumberFormat` everywhere, `lib/format.ts`
+  included, since its formatter cache pins en-US (`fmtCount`, `fmtDecimal`, or a date helper for a date); `toLocaleDateString()` was already banned
   outright by the date rule in `eslint.config.mjs`, which names `formatLocalDate`.
 - `siteChromeFocusRing.spec.ts`: the page scan discovers every route's page and the feature
   modules it reaches, in place of the named routes (`PAGE_CONTROL_ROOTS`).

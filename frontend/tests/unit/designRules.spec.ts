@@ -25,7 +25,7 @@ import {
  *    The globals.css classes it exempts must stop themselves there, and so must every other animation
  *    globals.css declares.
  *  - locale-pinned-numbers: a number is formatted in a pinned locale (lib/format's helpers, or 'en-US'),
- *    never the browser's; lib/format.ts, which owns the formatters, is the one file it is off for.
+ *    never the browser's; lib/format.ts, which owns the formatters, is read too (its cache pins en-US).
  *  - the raw-colour selector (eslint.config.mjs DESIGN_HEX_RULE, BG-19) reads rgb[a]()/hsl[a]() as well
  *    as a 6-digit hex, in a string, a template chunk or an arbitrary utility.
  *  - no-hand-rolled-toggle-group (CO-15): a role="group" of aria-pressed buttons is the SegmentedControl,
@@ -407,7 +407,7 @@ describe('the repository config', SLOW, () => {
     expect(result.messages.every((m) => m.severity === 2)).toBe(true)
   })
 
-  it('reads a raw colour in rgba()/hsla() and an unpinned number, time or date format on app code, and spares lib/format.ts', async () => {
+  it('reads a raw colour in rgba()/hsla() and an unpinned number, time or date format on app code, and in lib/format.ts', async () => {
     const eslint = new ESLint({ cwd: frontendRoot })
     const probe = [
       'export function Probe({ n }: { n: number }) {',
@@ -429,11 +429,12 @@ describe('the repository config', SLOW, () => {
       '5 earningsnerd/locale-pinned-numbers',
       '5 no-restricted-syntax',
     ])
-    // The formatter module is the one place a formatter is built; it pins en-US itself.
+    // The formatter module is the one place a formatter is built and pins en-US itself, so the rule reads it
+    // like any other file: a bare call added there fails.
     const [format] = await eslint.lintText('export const raw = (n: number) => n.toLocaleString()\n', {
       filePath: path.join(frontendRoot, 'lib/format.ts'),
     })
-    expect(format.messages.map((m) => m.ruleId)).toEqual([])
+    expect(format.messages.map((m) => m.ruleId)).toEqual(['earningsnerd/locale-pinned-numbers'])
   })
 
   it('reads a same-file wrapper and the DS Button under another name through the app parser (typescript-eslint)', async () => {

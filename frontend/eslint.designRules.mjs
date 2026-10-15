@@ -31,8 +31,9 @@
 //                       says, so `x.toLocaleString()`, `x.toLocaleTimeString()` and
 //                       `Intl.NumberFormat()`, with `new` or without it (both return the formatter),
 //                       with no locale, with `undefined` for it or with an empty list (`[]`), each the
-//                       browser's own locale, are banned outside lib/format.ts (eslint.config.mjs turns
-//                       the rule off there).
+//                       browser's own locale, are banned everywhere, lib/format.ts included: it owns the
+//                       formatters and pins 'en-US' itself (getFormatter), so the rule reads it as it reads
+//                       the app, and a bare call added there fails too.
 //                       `x.toLocaleDateString()` is not read here: eslint.config.mjs's date rule
 //                       (no-restricted-syntax) bans every call of it, pinned or not, and names
 //                       formatLocalDate, so reading it here too would report one call twice. The receiver's type is not read, so a Date's
