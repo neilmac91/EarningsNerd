@@ -222,23 +222,25 @@ const classTokens = (node, keys, binding) => {
   const classAttr = node.openingElement.attributes.find((a) => a.type === 'JSXAttribute' && CHIP_CLASS.test(a.name?.name ?? ''))
   return classAttr ? attributeText(classAttr.value, keys, binding).join(' ').split(/\s+/) : []
 }
-// An inner element that resets the recipe (`normal-case`, or a letter-spacing of its own) is a face of its own.
-const RESETS_EYEBROW = /(^|:)(normal-case|tracking-(?!eyebrow$)[\w[\]-]+)$/
+// An inner element that resets the recipe (`normal-case`, or a letter-spacing of its own) is a face of its own, when it
+// resets it unconditionally: a reset under a variant (`sm:normal-case`, `dark:tracking-normal`) leaves the chip's face
+// on in the other branches (a phone, the light theme), so it does not end the reading.
+const RESETS_EYEBROW = /^(normal-case|tracking-(?!eyebrow$)[\w[\]-]+)$/
 
 /** The lead of an element's content: its first text or expression in document order, read through its HTML
- *  wrappers, siblings included, since uppercase and letter-spacing inherit (`<span>{form}</span><span> · Filed
- *  {ago}</span>` inside the chip renders in its face; an empty wrapper, an icon's <i>, is passed over). Null
- *  when a component or a Badge (judged by its own rule), an element that resets the recipe (a face of its own),
- *  or wrappers nested deeper than three come first; undefined when the content holds no text at all. What follows
- *  the lead does not change the face the lead is set in. */
-function leadChild(node, keys, binding, depth = 0) {
+ *  wrappers at any depth, siblings included, since uppercase and letter-spacing inherit (`<span>{form}</span><span>
+ *  · Filed {ago}</span>` inside the chip renders in its face; an empty wrapper, an icon's <i>, is passed over).
+ *  Null when a component or a Badge (judged by its own rule) or an element that resets the recipe unconditionally
+ *  (a face of its own) comes first; undefined when the content holds no text at all. What follows the lead does
+ *  not change the face the lead is set in. */
+function leadChild(node, keys, binding) {
   for (const child of meaningfulChildren(node)) {
     if (child.type === 'JSXText' || child.type === 'JSXExpressionContainer') return child
-    if (child.type !== 'JSXElement' || depth >= 3) return null
+    if (child.type !== 'JSXElement') return null
     const name = child.openingElement.name
     if (name.type !== 'JSXIdentifier' || !/^[a-z]/.test(name.name)) return null
     if (classTokens(child, keys, binding).some((token) => RESETS_EYEBROW.test(token))) return null
-    const lead = leadChild(child, keys, binding, depth + 1)
+    const lead = leadChild(child, keys, binding)
     if (lead !== undefined) return lead
   }
   return undefined

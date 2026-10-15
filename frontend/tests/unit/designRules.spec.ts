@@ -145,6 +145,11 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     { code: '<div className="uppercase tracking-eyebrow">{filing.form}<Badge>New</Badge></div>', errors: [{ messageId: 'chip' }] },
     { code: '<p className="uppercase tracking-eyebrow">{filing.form}<span className="normal-case tracking-normal">filed today</span></p>', errors: [{ messageId: 'chip' }] },
     { code: '<span className="uppercase tracking-eyebrow"><i className="h-3 w-3" />{form}</span>', errors: [{ messageId: 'chip' }] },
+    // A reset under a variant leaves the face on in the other branch (a phone, the light theme), and wrappers
+    // are read at any depth.
+    { code: '<span className="uppercase tracking-eyebrow"><span className="sm:normal-case">{form}</span></span>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow"><span className="dark:tracking-normal">{form}</span></span>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow"><span><span><span><span>{form}</span></span></span></span></span>', errors: [{ messageId: 'chip' }] },
     { code: '<Badge>F-10</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<span className="uppercase tracking-eyebrow">{"SF-3 · Filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
     // A meta line's separator may be a comma, a colon or semicolon, or a dash set off by a space, not only a middot.
