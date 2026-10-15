@@ -11,7 +11,9 @@ import ts from 'typescript'
  * take the larger where it renders one or the other (a conditional's arms, `||`, `??`, a member read by a key the
  * scan cannot read). It is read through:
  *  - a binding's name, whatever it holds and with its shape kept (an alias of an object is that object; a const,
- *    let or var, by its initializer);
+ *    let or var, by its initializer), resolved by scope: a name reads the nearest enclosing declaration of it, so a
+ *    name two functions each declare reads its own function's binding, and a parameter or a function of that name
+ *    shadows an outer holder;
  *  - a member read by name or literal key (`MARK.alert`, `MARK['alert']`, a nested `A.b.c`), and one read by a key
  *    the scan cannot read (`MARK[kind]`), which may be any property;
  *  - a member destructured from an object (`const { alert: Alert } = MARK`);
@@ -32,8 +34,8 @@ export interface Held<L> {
 export interface HeldValues<L> {
   /** What an expression holds. */
   valueOf(e: ts.Expression): Held<L>
-  /** The bindings that hold a leaf, by name. */
-  holders: Map<string, Held<L>>
+  /** What the binding an identifier reads holds, when it holds a leaf; the binding is resolved by scope. */
+  holderOf(id: ts.Identifier): Held<L> | undefined
   /** The nodes a holder's initializer reads a leaf or another holder through: a hold, not a use. */
   held: Set<ts.Node>
 }
@@ -91,11 +93,61 @@ const propertyKey = (name: ts.PropertyName | ts.BindingName): string | undefined
   ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name) ? name.text : undefined
 
 /**
+ * The declaration a name reads where it is written: the nearest enclosing scope that declares it. A block declares
+ * its `const`, `let`, functions and classes; a function its parameters and every `var` inside it; the file its
+ * imports; a `for` statement and a `catch` clause their own bindings. The node returned is the declaration of a bare
+ * name and the element of a destructured one. Undefined for a global.
+ */
+function scopeResolver(sf: ts.SourceFile): (id: ts.Identifier) => ts.Node | undefined {
+  const declared = new Map<ts.Node, Map<string, ts.Node>>()
+  const declare = (scope: ts.Node | undefined, name: string, node: ts.Node) => {
+    if (!scope) return
+    const names = declared.get(scope) ?? new Map<string, ts.Node>()
+    declared.set(scope, names)
+    if (!names.has(name)) names.set(name, node)
+  }
+  const functionScope = (n: ts.Node) => ts.isSourceFile(n) || ts.isFunctionLike(n) || ts.isModuleBlock(n)
+  const blockScope = (n: ts.Node) =>
+    functionScope(n) || ts.isBlock(n) || ts.isCaseBlock(n) || ts.isCatchClause(n) || ts.isForStatement(n) || ts.isForInStatement(n) || ts.isForOfStatement(n)
+  const enclosing = (n: ts.Node, isScope: (n: ts.Node) => boolean) => {
+    let up = n.parent
+    while (up && !isScope(up)) up = up.parent
+    return up
+  }
+  const bind = (name: ts.BindingName, node: ts.Node, scope: ts.Node | undefined): void => {
+    if (ts.isIdentifier(name)) declare(scope, name.text, node)
+    else for (const el of name.elements) if (!ts.isOmittedExpression(el)) bind(el.name, el, scope)
+  }
+  const visit = (n: ts.Node): void => {
+    if (ts.isVariableDeclaration(n)) {
+      const list = n.parent
+      const blockScoped = ts.isVariableDeclarationList(list) && (list.flags & ts.NodeFlags.BlockScoped) !== 0
+      bind(n.name, n, ts.isCatchClause(list) ? list : enclosing(n, blockScoped ? blockScope : functionScope))
+    } else if (ts.isParameter(n)) bind(n.name, n, n.parent)
+    else if ((ts.isFunctionDeclaration(n) || ts.isClassDeclaration(n)) && n.name) declare(enclosing(n, blockScope), n.name.text, n)
+    else if (ts.isFunctionExpression(n) && n.name) declare(n, n.name.text, n)
+    else if (ts.isImportClause(n) && n.name) declare(sf, n.name.text, n)
+    else if (ts.isImportSpecifier(n) || ts.isNamespaceImport(n)) declare(sf, n.name.text, n)
+    ts.forEachChild(n, visit)
+  }
+  visit(sf)
+  return (id) => {
+    for (let n: ts.Node | undefined = id.parent; n; n = n.parent) {
+      const found = declared.get(n)?.get(id.text)
+      if (found) return found
+    }
+    return undefined
+  }
+}
+
+/**
  * The values of one source. `leafOf` names the leaves an expression is by itself (an import of an icon, a
  * namespace's member), or returns undefined.
  */
 export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L[] | undefined): HeldValues<L> {
-  const holders = new Map<string, Held<L>>()
+  // Keyed by the declaration (scopeResolver), never by the bare name.
+  const holders = new Map<ts.Node, Held<L>>()
+  const declarationOf = scopeResolver(sf)
 
   const valueOf = (e: ts.Expression, record?: Set<ts.Node>): Held<L> => {
     const x = unwrapHeld(e)
@@ -107,7 +159,8 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
       return { leaves, props: null }
     }
     if (ts.isIdentifier(x)) {
-      const holder = holders.get(x.text)
+      const declaration = declarationOf(x)
+      const holder = declaration && holders.get(declaration)
       if (!holder) return empty()
       record?.add(x)
       return holder
@@ -150,7 +203,7 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
         if (leavesOf(value).size > 0) props.set(key, value)
         else props.delete(key)
       }
-      return { leaves: new Set(), props }
+      return { leaves: new Map(), props }
     }
     return empty()
   }
@@ -162,32 +215,32 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
   }
   collect(sf)
 
-  /** What a declaration binds, by name: its initializer's value, or the members it destructures. */
-  const bound = (d: ts.VariableDeclaration, record?: Set<ts.Node>): Array<[string, Held<L>]> => {
-    if (ts.isIdentifier(d.name)) return [[d.name.text, valueOf(d.initializer!, record)]]
+  /** What a declaration binds, by the node that declares each name (scopeResolver's): its initializer's value, or the
+      members it destructures. */
+  const bound = (d: ts.VariableDeclaration, record?: Set<ts.Node>): Array<[ts.Node, Held<L>]> => {
+    if (ts.isIdentifier(d.name)) return [[d, valueOf(d.initializer!, record)]]
     if (!ts.isObjectBindingPattern(d.name)) return []
     const value = valueOf(d.initializer!, record)
     if (!value.props) return []
-    const out: Array<[string, Held<L>]> = []
+    const out: Array<[ts.Node, Held<L>]> = []
     for (const el of d.name.elements) {
       if (el.dotDotDotToken || !ts.isIdentifier(el.name)) continue
       const key = propertyKey(el.propertyName ?? el.name)
       const prop = key === undefined ? undefined : value.props.get(key)
-      if (prop) out.push([el.name.text, prop])
+      if (prop) out.push([el, prop])
     }
     return out
   }
 
   // To a fixed point: each pass reads every declaration with what the passes before it found. In code that runs, a
-  // value stops growing within a pass per binding. A declaration that reads itself (no runtime allows one, but names
-  // are read flat, so two scopes' bindings of one name can) would count without end: the scan throws instead of
-  // settling on an arbitrary count.
+  // value stops growing within a pass per binding. A declaration that reads itself (`const a = <>{a}</>`, which no
+  // runtime allows) would count without end: the scan throws instead of settling on an arbitrary count.
   const total = () => [...holders.values()].reduce((n, value) => n + size(value), 0)
   let settled = false
   for (let pass = 0; !settled && pass <= bindings.length + 1; pass++) {
     const before = total()
     for (const d of bindings) {
-      for (const [name, value] of bound(d)) if (leavesOf(value).size > 0) holders.set(name, value)
+      for (const [declaration, value] of bound(d)) if (leavesOf(value).size > 0) holders.set(declaration, value)
     }
     settled = total() === before
   }
@@ -195,8 +248,12 @@ export function heldValues<L>(sf: ts.SourceFile, leafOf: (e: ts.Expression) => L
 
   const held = new Set<ts.Node>()
   for (const d of bindings) {
-    const names = ts.isIdentifier(d.name) ? [d.name.text] : ts.isObjectBindingPattern(d.name) ? d.name.elements.map((el) => el.name.getText(sf)) : []
-    if (names.some((name) => holders.has(name))) bound(d, held)
+    const declarations: ts.Node[] = ts.isIdentifier(d.name) ? [d] : ts.isObjectBindingPattern(d.name) ? [...d.name.elements] : []
+    if (declarations.some((declaration) => holders.has(declaration))) bound(d, held)
   }
-  return { valueOf: (e) => valueOf(e), holders, held }
+  const holderOf = (id: ts.Identifier) => {
+    const declaration = declarationOf(id)
+    return declaration ? holders.get(declaration) : undefined
+  }
+  return { valueOf: (e) => valueOf(e), holderOf, held }
 }

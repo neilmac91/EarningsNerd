@@ -19,7 +19,7 @@ import { heldValues, leavesOf, memberKey } from './heldValues'
  * of a namespace import (`<Icons.SparkleIcon />`, `Icons['QuotesIcon']`) and a member destructured from
  * one (`const { SparkleIcon: Spark } = Icons`), a namespace held by another name included. A glyph a same-file
  * binding holds counts where the binding is read, never where it is held, by the reading the heading-icon clause
- * shares (tests/unit/heldValues.ts): an alias with its shape kept, a conditional or logical hold and a held
+ * shares (tests/unit/heldValues.ts), each name read by its scope (a name two functions declare reads its own): an alias with its shape kept, a conditional or logical hold and a held
  * element (`const EvidenceGlyph = QuotesIcon`, `const Icon = ok ? BracketsCurlyIcon : QuotesIcon`, `const mark =
  * <QuotesIcon />`, a chain of them) at each reference, each glyph as many times as the value renders it (`const pair =
  * <><QuotesIcon /><QuotesIcon /></>` is two uses at each read; a conditional's, its larger arm's); an object's property (`const GLYPH = { passage: QuotesIcon
@@ -228,7 +228,10 @@ export function glyphUses(source: string, fileName: string): Counts {
       const own = rootsOf(node)
       if (own) tally(own)
       // A holder read whole (rendered, passed on, spread, iterated) reads every glyph it holds, as often as it renders it.
-      else if (!declares(node) && !ownsMember(node) && values.holders.has(node.text)) tally(leavesOf(values.holders.get(node.text)!))
+      else if (!declares(node) && !ownsMember(node)) {
+        const holder = values.holderOf(node)
+        if (holder) tally(leavesOf(holder))
+      }
     }
     if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
       const own = rootsOf(node)
@@ -383,11 +386,19 @@ describe('reserved glyphs keep their one meaning', () => {
       'export const G = () => <>{frag}{frag}{chip}{chip}{pair}{either}</>',
     ].join('\n')
     expect(glyphUses(jsx, 'features/zzprobe/Jsx.tsx')).toEqual({ QuotesIcon: 8 })
-    // Two scopes' bindings of one name that read each other would count without end: the scan throws.
+    // A name two functions declare reads its own function's binding (the review's case): P's Mark is the quotes, Q's
+    // the sparkle twice, and R's is not a glyph, so its read adds nothing.
+    const shadowed = [
+      "import { QuotesIcon, SparkleIcon } from '@/lib/icons'",
+      'export function P() { const Mark = QuotesIcon; return <Mark /> }',
+      'export function Q() { const Mark = SparkleIcon; return <><Mark /><Mark /></> }',
+      'export function R() { const Mark = Other; return <Mark /> }',
+    ].join('\n')
+    expect(glyphUses(shadowed, 'features/zzprobe/Shadowed.tsx')).toEqual({ QuotesIcon: 1, SparkleIcon: 2 })
+    // A declaration that reads itself would count without end: the scan throws.
     const cycle = [
       "import { QuotesIcon } from '@/lib/icons'",
-      'export function A() { const a = <>{b}<QuotesIcon /></>; return a }',
-      'export function B() { const b = <>{a}</>; return b }',
+      'export function A() { const a = <>{a}<QuotesIcon /></>; return a }',
     ].join('\n')
     expect(() => glyphUses(cycle, 'features/zzprobe/Cycle.tsx')).toThrow('features/zzprobe/Cycle.tsx: what a same-file binding holds reads itself')
   })

@@ -27,8 +27,8 @@ import { describe, expect, it } from 'vitest'
  * a time (a name holding the name is followed too), and each reference is held
  * to the same test, so `const DASH = '—'` rendered as `{DASH} {speaker}` fails
  * at the reference, and a token held in an object's property under such a
- * name (`const BOX = { token: '—' }`) is followed to each `BOX.token` read the
- * same way. References are read by name, so a same-named binding in a nested
+ * name (`const BOX = { token: '—' }`, or the shorthand `{ DASH }` of a name
+ * holding it) is followed to each `BOX.token` read the same way. References are read by name, so a same-named binding in a nested
  * scope reads as the token's. A reference the scan cannot see (an export read
  * in another file, a destructured read such as `const { token } = BOX`, an
  * object or array passed on whole), an array's element and what a function or
@@ -90,11 +90,13 @@ function usageOf(token: ts.Node): { value: ts.Node; use: ts.Node } {
 
 /** Every reference to `name` in the file that reads its value: an identifier of that name which is not the
     declaration itself and not the `name` of its parent (a property or attribute of that name, another binding
-    of it, an export of it, which another file reads). */
+    of it, an export of it, which another file reads), except a shorthand property's (`{ DASH }`), which is both
+    the key and a read of the name. */
 function referencesTo(name: string, declared: ts.Identifier, source: ts.SourceFile): ts.Identifier[] {
   const refs: ts.Identifier[] = []
   const visit = (node: ts.Node) => {
-    if (ts.isIdentifier(node) && node.text === name && node !== declared && (node.parent as ts.Node & { name?: ts.Node }).name !== node) {
+    const parent = node.parent as ts.Node & { name?: ts.Node }
+    if (ts.isIdentifier(node) && node.text === name && node !== declared && (parent.name !== node || ts.isShorthandPropertyAssignment(parent))) {
       refs.push(node)
     }
     ts.forEachChild(node, visit)
@@ -130,11 +132,13 @@ function joinedUses(token: ts.Node, source: ts.SourceFile, seen = new Set<string
     seen.add(use.name.text)
     return referencesTo(use.name.text, use.name, source).flatMap((ref) => joinedUses(ref, source, seen))
   }
-  // Held in an object's property under a name: each `NAME.prop` read in the file is held to the same test. A
-  // destructured read, an element of an array and an object passed on whole stay review-checked (the header).
-  if (ts.isPropertyAssignment(use) && use.initializer === value && ts.isObjectLiteralExpression(use.parent)) {
-    const holder = holderOf(use.parent)
-    const prop = ts.isIdentifier(use.name) || ts.isStringLiteral(use.name) ? use.name.text : null
+  // Held in an object's property under a name, written out or as the shorthand of a name holding it (`{ DASH }`):
+  // each `NAME.prop` read in the file is held to the same test. A destructured read, an element of an array and an
+  // object passed on whole stay review-checked (the header).
+  const property = ts.isPropertyAssignment(use) && use.initializer === value ? use : ts.isShorthandPropertyAssignment(use) && use.name === value ? use : null
+  if (property && ts.isObjectLiteralExpression(property.parent)) {
+    const holder = holderOf(property.parent)
+    const prop = ts.isIdentifier(property.name) || ts.isStringLiteral(property.name) ? property.name.text : null
     if (holder && prop !== null && !seen.has(`${holder.name.text}.${prop}`)) {
       seen.add(`${holder.name.text}.${prop}`)
       return referencesTo(holder.name.text, holder.name, source)
@@ -224,6 +228,9 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
       "const BOX = { token: '—' } as const",
       'export const K = ({ speaker }: { speaker: string }) => <cite>{BOX.token} {speaker}</cite>',
       'export const L = ({ v }: { v?: string }) => <td>{v ?? BOX.token}</td>',
+      'const SHORT = { DASH } as const',
+      'export const M = ({ speaker }: { speaker: string }) => <cite>{SHORT.DASH} {speaker}</cite>',
+      'export const N = ({ v }: { v?: string }) => <td>{v ?? SHORT.DASH}</td>',
     ].join('\n')
     // Lines 3 to 7 stand alone (the text, the literal, a fallback, a template beside an empty expression, an
     // attribute's value) and 18 to 19 are read where they are written (a name no line reads, a comparison, a
@@ -232,8 +239,10 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
     // and 17 the right of `+=`. A name holding the token is followed to its references: DASH (20) is rendered
     // beside a sibling at 21 and is a `+` operand at 22; NONE (23) stands alone as a fallback at 24, and HELD
     // (25), which holds NONE, is a template's substitution at 26. BOX (27) holds the token in a property: its
-    // `BOX.token` read sits beside a sibling at 28 and stands alone as a fallback at 29.
-    expect(violationsIn(src, file)).toEqual([8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28].map((line) => `features/zzprobe/Probe.tsx:${line} —`))
+    // `BOX.token` read sits beside a sibling at 28 and stands alone as a fallback at 29. SHORT (30) holds DASH by its
+    // shorthand: its `SHORT.DASH` read sits beside a sibling at 31 (found while DASH's references are followed, so it
+    // comes after 22) and stands alone as a fallback at 32.
+    expect(violationsIn(src, file)).toEqual([8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 31, 26, 28].map((line) => `features/zzprobe/Probe.tsx:${line} —`))
   })
 
   it('finds no em-dash in any string literal, template literal, or JSX text', () => {

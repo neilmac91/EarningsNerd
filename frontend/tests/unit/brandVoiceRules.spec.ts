@@ -826,6 +826,13 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       'Recent Filings',
       'View All Filings',
     ])
+    // A name two functions declare reads its own function's binding: Q's Mark holds no icon, so its heading passes.
+    const shadowed = [
+      "import { BellIcon } from '@/lib/icons'",
+      'export function P() { const Mark = BellIcon; return <h2><Mark />Price alerts</h2> }',
+      'export function Q() { const Mark = Chip; return <h2><Mark />Price alerts</h2> }',
+    ].join('\n')
+    expect(voiceFindings(shadowed, 'features/probe/Shadowed.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual(['2 headingIcon'])
     // Past MAX_VARIANTS the scan throws, naming the element and its count, instead of dropping branches.
     const sixConditionals = "export const P = () => <Button>{a ? 'x' : 'y'}{b ? 'x' : 'y'}{c ? 'x' : 'y'}{d ? 'x' : 'y'}{e ? 'x' : 'y'}{f ? 'x' : 'Send Again Later'}</Button>"
     expect(() => voiceFindings(sixConditionals, 'features/probe/Six.tsx')).toThrow(
