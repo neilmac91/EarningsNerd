@@ -41,7 +41,8 @@ head or a recorded override.
 `backend/tests/unit/test_review_gate.py` (a completed review of another head is `wait`, never
 `pass`; the job's condition is the event name alone, and the trigger set, the job set, the job's keys,
 each step's keys and both steps' `with` maps are pinned, so no new trigger, second job, step `if`,
-`continue-on-error`, `needs`, extra step or checkout input can skip or soften the gate; a draft or an
+`continue-on-error`, `needs`, extra step or checkout input can skip or soften the gate, and no job in
+another workflow may carry the check's name; a draft or an
 unreadable draft flag fails, override or not); GitHub docs on required status checks versus required reviews and administrator
 bypass, and on conditions ("a job that is skipped will report its status as 'Success'"); #1315's
 gate runs [38478316282](https://github.com/neilmac91/EarningsNerd/actions/runs/38478316282)

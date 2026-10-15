@@ -159,6 +159,22 @@ def test_fetch_state_reads_the_draft_flag_from_the_pull_request_now_and_reports_
     assert review_gate.fetch_state("o/r", "7", "token") == ([], "body", [], draft)
 
 
+def test_no_job_in_any_other_workflow_publishes_a_check_named_review_gate():
+    # Branch protection matches the required check by name, across every workflow. A job elsewhere whose
+    # id or name is review-gate would publish a second check under it, and a skipped one reports success,
+    # which a required check counts as passing: the bypass #1331 closed for this workflow's own job.
+    workflows = sorted((ROOT / ".github/workflows").glob("*.y*ml"))
+    assert ROOT / ".github/workflows/review-gate.yml" in workflows
+    publishers = []
+    for path in workflows:
+        jobs = (yaml.load(path.read_text(), Loader=yaml.BaseLoader) or {}).get("jobs") or {}
+        for job_id, job in jobs.items():
+            names = {job_id, job.get("name", job_id)} if isinstance(job, dict) else {job_id}
+            if any(name.strip().casefold() == "review-gate" for name in names):
+                publishers.append(f"{path.name}:{job_id}")
+    assert publishers == ["review-gate.yml:review-gate"], publishers
+
+
 def test_workflow_publishes_the_gate_on_every_pull_request_event_without_write_permissions():
     path = ROOT / ".github/workflows/review-gate.yml"
     workflow = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
