@@ -59,7 +59,7 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
           onClick={() => setExpanded((e) => !e)}
           title={feedback.message}
           aria-expanded={expanded}
-          className={`block w-full text-left transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark ${
+          className={`block w-full rounded text-left transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark ${
             expanded ? 'whitespace-pre-wrap break-words' : 'truncate'
           }`}
         >

@@ -243,6 +243,31 @@ jobs:
           if [ $? -eq 0 ]; then
             echo "company_upsert_conflict entries in last 7d: $(python3 -c 'import json;print(len(json.load(open("/tmp/conflicts.json"))))' 2>/dev/null || echo 0)"
           fi
+          # Sentry at startup: main.py prints one of four lines as an API-service revision starts (the task worker
+          # runs task_worker_main.py, which starts no Sentry and prints none). Name the revisions that printed each in
+          # the last seven days, with a count from the newest 500 entries per kind; never a line itself, which can
+          # quote an exception. A read that fails prints UNVERIFIED with a closed class, never gcloud's text, and the
+          # step adds one warning naming those kinds and the remedy (lessons/ops-denied-reads-report-unverified.md).
+          SCOPE='resource.type="cloud_run_revision" AND resource.labels.service_name="earningsnerd-backend"'
+          UNVERIFIED=""
+          for KIND in "initialized:Sentry error tracking initialized" "failed:Sentry initialization failed" \
+              "dsn-unset:SENTRY_DSN not configured" "sdk-missing:Sentry SDK not available"; do
+            if gcloud logging read "$SCOPE AND textPayload:\"${KIND#*:}\"" --freshness=7d --limit=500 \
+                --format='value(resource.labels.revision_name)' >/tmp/sentry.txt 2>/tmp/sentry.err; then
+              echo "sentry startup (7d) ${KIND%%:*}:$(sort /tmp/sentry.txt | uniq -c | awk '{printf " %s x%s", $2, $1} END {if (!NR) printf " none"}')"
+            else
+              RC=$?
+              if grep -qsF PERMISSION_DENIED /tmp/sentry.err; then CLASS=permission_denied
+              elif grep -qsF NOT_FOUND /tmp/sentry.err; then CLASS=not_found
+              elif grep -qsF -e UNAVAILABLE -e DEADLINE_EXCEEDED /tmp/sentry.err; then CLASS=unavailable
+              else CLASS="error (gcloud exit $RC)"; fi
+              echo "sentry startup (7d) ${KIND%%:*}: UNVERIFIED ($CLASS; gcloud's error text withheld)"
+              UNVERIFIED="$UNVERIFIED ${KIND%%:*}=$CLASS"
+            fi
+          done
+          if [ -n "$UNVERIFIED" ]; then
+            echo "::warning::sentry startup UNVERIFIED:$UNVERIFIED. Not evidence that Sentry started or failed; for permission_denied the Ops identity needs its Logging read role, for not_found check the project and the service, otherwise dispatch logs-probe again."
+          fi
 
       - name: Jobs-channel no-op probe (args override on an existing job)
         if: steps.request.outputs.operation == 'jobs-channel-noop-probe'
