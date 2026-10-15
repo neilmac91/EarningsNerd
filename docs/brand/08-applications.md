@@ -283,7 +283,8 @@ that PR:
   graph (`tests/unit/importWalk.ts`), not listed, so a product component a public page renders
   (SourceTrace, FinancialMetricsTable, CompanySearch) is held to rule 1c, the one rule read on the
   public scope alone (rule 2 reads the whole app under D-030).
-- `brandVoiceRules.spec.ts` (new): sentence case on headings h1 to h6, dialog and card titles
+- `brandVoiceRules.spec.ts` (new): sentence case (a capital first word, no capitalised word after it
+  but a proper noun, never an all-caps label) on headings h1 to h6, dialog and card titles
   (`ModalHeader`, `CardTitle`, `CardHeader`), the title prop of `GuidanceCard`, `Notice`, `Modal`,
   `SecondaryHeader` and `UpgradeModal`, button labels (a `<Link>` or `<a>` whose className reaches
   `buttonVariants()` included), every aria-label and meta titles, plus the components found across

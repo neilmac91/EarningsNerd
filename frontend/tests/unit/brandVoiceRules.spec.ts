@@ -10,8 +10,10 @@ import { isIconModule } from './iconModules'
  * D-031). Until this spec they were prose, and the 2026-10 audit found each of them broken somewhere.
  * It reads the TypeScript AST of every shipped module under app, components, features, hooks and lib:
  *
- *  - sentenceCase: a label is in sentence case: after the first word of a phrase, a capitalised word
- *    must be a proper noun (PROPER_NOUNS). The labels read: the text of a heading (h1 to h6), of a
+ *  - sentenceCase: a label is in sentence case: its first word starts with a capital (or a digit, a
+ *    symbol or an expression), after the first word of a phrase a capitalised word must be a proper noun
+ *    (PROPER_NOUNS), and a label of two or more words is never all capitals (`START FREE TRIAL`; an
+ *    acronym beside lowercase words, `Export CSV`, passes). The labels read: the text of a heading (h1 to h6), of a
  *    dialog or card title (ModalHeader, CardTitle, CardHeader), of a button (<Button>, <button>, and any
  *    element whose className reaches buttonVariants(), such as a <Link> or <a> styled as a button) and
  *    of every component found to render its children into one of those (see discoverReach); the title
@@ -176,20 +178,29 @@ function isCodeString(node: ts.Node, text: string): boolean {
   return looksLikeClasses(text)
 }
 
-/** Capitalised words after a phrase's first word that are not proper nouns. */
+/** The words that break sentence case: a capitalised word after a phrase's first that is not a proper noun, a
+    first word that starts lowercase, and every word of a label two or more words long written all in capitals. */
 export function titleCaseWords(text: string): string[] {
   let t = ` ${text} `
   for (const noun of PROPER_NOUN_RES) t = t.replace(noun, ' {n} ')
   const out: string[] = []
   // A phrase starts again after a sentence stop, a separator, a bracket or quote, or an expression
   // (`{x}`: an icon or a value before a label).
-  for (const segment of t.split(/[.?!|·:;–—]\s+|\s[-–—]\s|\n|\(|\)|["“”]|\{x\}/)) {
+  t.split(/[.?!|·:;–—]\s+|\s[-–—]\s|\n|\(|\)|["“”]|\{x\}/).forEach((segment, index) => {
     const words = segment.trim().split(/\s+/).filter(Boolean)
+    // The label's first word starts with a capital, a digit or a symbol; a lowercase start (`save changes`) is
+    // not sentence case. A later phrase may start lowercase (`{count} companies`, `Filed · today`).
+    const first = words[0]?.replace(/^['‘’]+/, '')
+    if (index === 0 && first && /^\p{Ll}/u.test(first)) out.push(first)
     words.slice(1).forEach((raw) => {
       const word = raw.replace(/^['‘’]+|[,'‘’]+$/g, '')
       if (/^[A-Z][a-z]+(?:['’]s)?$/.test(word)) out.push(word)
     })
-  }
+  })
+  // Two or more words all in capitals (`START FREE TRIAL`) is shouting, not a label; an acronym stands alone or
+  // beside lowercase words (`Export CSV`), and a proper noun reads as `{n}` above.
+  const lettered = t.trim().split(/\s+/).filter((w) => /\p{L}/u.test(w))
+  if (lettered.length >= 2 && lettered.every((w) => /^[A-Z]{2,}[,.!?]?$/.test(w))) out.push(...lettered)
   return out
 }
 
@@ -568,6 +579,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '      <h2><Ring />Doorbells</h2>',
       '      <Notice title="decision-ready insights" />',
       "      <p>{'a game-changing view'}</p>",
+      '      <Button>save changes</Button>',
+      '      <h3>START FREE TRIAL</h3>',
+      '      <h2>{count} companies · SEC EDGAR · Export CSV</h2>',
       '    </div>',
       '  )',
       '}',
@@ -619,9 +633,14 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       // An icon imported under another name, and one reached through a namespace, inside a heading.
       '38 headingIcon',
       '39 headingIcon',
-      // A buzzword in a copy attribute and in a rendered expression, each shaped like a class list.
+      // A buzzword in a copy attribute (its title, lowercase, is not sentence case either) and in a rendered
+      // expression, each shaped like a class list; a lowercase first word and an all-caps label; line 45 passes
+      // (a phrase after an expression, two proper nouns, an acronym beside a lowercase word).
+      '41 sentenceCase',
       '41 buzzword',
       '42 buzzword',
+      '43 sentenceCase',
+      '44 sentenceCase',
     ])
     // An attribute is never label text: the icons' className leaves are not read into the label.
     expect(voiceFindings(src, 'features/probe/Probe.tsx').filter((f) => f.line >= 23 && f.clause === 'sentenceCase').map((f) => f.text)).toEqual([
@@ -638,6 +657,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       'Close Dialog',
       'Quarterly Revenue Trend',
       'Start Free Trial',
+      'decision-ready insights',
+      'save changes',
+      'START FREE TRIAL',
     ])
     // Past MAX_VARIANTS the scan throws, naming the element and its count, instead of dropping branches.
     const sixConditionals = "export const P = () => <Button>{a ? 'x' : 'y'}{b ? 'x' : 'y'}{c ? 'x' : 'y'}{d ? 'x' : 'y'}{e ? 'x' : 'y'}{f ? 'x' : 'Send Again Later'}</Button>"
