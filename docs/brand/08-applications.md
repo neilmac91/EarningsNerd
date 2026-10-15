@@ -55,6 +55,30 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   (`frontend/app/posthog-provider.tsx`); Vercel Web Analytics is cookieless and runs for every
   visitor, which is why the clause names analytics cookies. The categories, the controls and the
   privacy link are unchanged.
+- **Contact** (`frontend/app/contact/page.tsx`, `frontend/features/contact/components/ContactForm.tsx`):
+  "Contact us", then one line on what to write about. "What to expect" keeps the response time
+  (typically within 1–2 business days); the support-hours line (Monday–Friday, 9:00 AM–5:00 PM ET)
+  is gone, as the founder decided on 2026-10-15 (D-040): an unenforced promise. The "automated
+  confirmation email" line is gone too: the receipt `backend/app/routers/contact.py` sends carries
+  no copy of the message, and the route answers success when that send fails. The form's limits are
+  the server's (`tests/unit/contactValidationParity.spec.ts` reads `backend/app/schemas/contact.py`),
+  so a one-letter name, or a message over 2,000 characters, is refused before sending, counted in
+  code points as the server counts (no field carries a native `maxLength`, which counts UTF-16 units
+  and would cut an emoji-heavy message the server accepts), and an email whose shape the server's
+  `EmailStr` refuses (`ada@gmail`, with no dot in the domain) is refused with "Please enter a valid
+  email address." A name or message under the floor says "Your name needs at least 2 characters."
+  or "Your message needs at least 10 characters."; over its maximum, "Your message can be at most
+  2,000 characters.", the numbers read from the limits, and the hint under the message reads "10 to
+  2,000 characters"; the message placeholder is "What happened, or what you'd like to know".
+  Every failure shows in an error Notice titled "Message not sent". A rate limit is read from the
+  status and says "Too many messages from this connection. Try again in an hour."; a 422 the form
+  could not foresee says "Check the fields and send again."; a 5xx says the surface's sentence, since
+  the route's own 500 detail is developer wording; any other failure shows the backend's own detail,
+  or the surface's sentence when the body carried none: "We couldn't send your message. Try again in
+  a minute." The success heading is an h2.
+  The prose links on /contact are underlined and carry the brand focus ring. The /security links
+  are unchanged, because /security is a legal page under the founder's boundary; the ring triple
+  on its five links rides the founder-gated security-claims PR.
 
 ## 3. Inside the product
 
