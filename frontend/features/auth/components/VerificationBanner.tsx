@@ -108,7 +108,7 @@ export default function VerificationBanner() {
           type="button"
           onClick={handleDismiss}
           aria-label="Dismiss"
-          className="ml-auto shrink-0 rounded p-1 transition-colors hover:bg-warning-dark/15 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+          className="ml-auto shrink-0 rounded p-1 transition-colors hover:bg-warning-light/15 dark:hover:bg-warning-dark/15 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
         >
           <XIcon className="h-4 w-4" />
         </button>

@@ -23,6 +23,13 @@ import { describe, expect, it } from 'vitest'
  * twin. Tokens the config gives no dark sibling (the chart palette and overlay, one value in both themes,
  * and `brand-emphasis`, `gain-text`, `loss-text`, `info-text`, `error-emphasis`) are not read.
  *
+ * The other half: a colour class on a dark half (a `-dark` token beside its `-light` or suffixless sibling)
+ * with no `dark:` variant paints the dark theme's colour in the light theme too. UserMenu's unverified dot
+ * wore `ring-background-dark` alone, a navy ring on the cream header, and the verification banner's dismiss
+ * hover tinted the light band with the dark amber. Such a class fails wherever it is, unless its surface is
+ * dark in both themes on purpose, listed in BARE_DARK_RESIDUE. In a stylesheet, a rule block whose every
+ * selector names `.dark` (the config's `darkMode: 'class'`), or that sits inside one, is the dark theme's.
+ *
  * A class list is the strings that always render together: one string, the static parts of one template, or
  * the unconditional strings of one call to the class joiners (`cx`, `clsx`, `cn`), one inline `[…].join(…)`
  * or one `+` chain. A string under a condition (`on && '…'`, a ternary arm, a `clsx({ '…': on })` key, a
@@ -73,6 +80,11 @@ const ARBITRARY_COLOUR = /^\[(?:#|rgba?\(|hsla?\(|color:)/
 const bare = (value: string) => value.replace(OPACITY, '')
 const isColour = (value: string) => COLOURS.has(bare(value)) || PALETTE_STEP.test(bare(value)) || ARBITRARY_COLOUR.test(bare(value))
 const isLightHalf = (value: string) => LIGHT_HALVES.has(bare(value))
+/** The dark halves the config pairs by name: `<name>-dark` beside a `<name>-light` or a `<name>`. */
+const DARK_HALVES = new Set(
+  TOKENS.filter((name) => name.endsWith('-dark') && (COLOURS.has(`${name.slice(0, -5)}-light`) || COLOURS.has(name.slice(0, -5)))),
+)
+const isDarkHalf = (value: string) => DARK_HALVES.has(bare(value))
 /** A colour utility on a light half, with an optional opacity (`/50`, `/[0.06]`): its property. */
 function lightProperty(utility: string): string | undefined {
   const match = PROPERTY.exec(utility)
@@ -211,26 +223,84 @@ function themePairFindings(source: string, rel: string): Finding[] {
   return findings
 }
 
-/** A stylesheet's rule blocks: the `@apply` statements directly inside one `{ … }` style one element, so they are one class list. */
-function applyFindings(source: string, rel: string): Finding[] {
-  // Comments are blanked, their newlines kept, so a switched-off twin pairs nothing and lines still count.
-  const text = source.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, ' '))
-  const lineAt = (offset: number) => text.slice(0, offset).split('\n').length
-  type Apply = { classes: string; line: number }
-  const findings: Finding[] = []
-  const close = (block: Apply[]) => {
-    for (const apply of block) {
-      const shared = block.filter((other) => other !== apply).map((other) => other.classes).join(' ')
-      for (const className of unpaired(apply.classes, shared)) findings.push({ rel, line: apply.line, className })
+type Apply = { classes: string; line: number; dark: boolean }
+/** Whether every selector of a rule (commas inside brackets apart) names the `.dark` class. */
+function darkSelector(selector: string): boolean {
+  const parts: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < selector.length; i++) {
+    if ('([{'.includes(selector[i])) depth++
+    else if (')]}'.includes(selector[i])) depth--
+    else if (selector[i] === ',' && depth === 0) {
+      parts.push(selector.slice(start, i))
+      start = i + 1
     }
   }
-  const open: Apply[][] = [[]]
+  parts.push(selector.slice(start))
+  return parts.every((part) => /\.dark(?![\w-])/.test(part))
+}
+/**
+ * A stylesheet's `@apply` statements, grouped by the rule block they sit directly in (nested blocks apart).
+ * Comments are blanked, their newlines kept, so a switched-off class counts for nothing and lines still count.
+ */
+function applyBlocks(source: string): Apply[][] {
+  const text = source.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, ' '))
+  const lineAt = (offset: number) => text.slice(0, offset).split('\n').length
+  const blocks: Apply[][] = []
+  const open: { applies: Apply[]; dark: boolean }[] = [{ applies: [], dark: false }]
+  let from = 0
   for (const match of text.matchAll(/[{}]|@apply\s+([^;{}]+);/g)) {
-    if (match[0] === '{') open.push([])
-    else if (match[0] === '}') close(open.length > 1 ? (open.pop() as Apply[]) : [])
-    else open[open.length - 1].push({ classes: match[1], line: lineAt(match.index ?? 0) })
+    const at = match.index ?? 0
+    const top = open[open.length - 1]
+    if (match[0] === '{') open.push({ applies: [], dark: top.dark || darkSelector(text.slice(from, at).split(';').pop() ?? '') })
+    else if (match[0] === '}') {
+      if (open.length > 1) blocks.push((open.pop() as { applies: Apply[] }).applies)
+    } else top.applies.push({ classes: match[1], line: lineAt(at), dark: top.dark })
+    from = at + match[0].length
   }
-  open.forEach(close)
+  return [...blocks, ...open.map((block) => block.applies)]
+}
+
+/** A stylesheet's rule blocks: the `@apply` statements directly inside one `{ … }` style one element, so they are one class list. */
+function applyFindings(source: string, rel: string): Finding[] {
+  return applyBlocks(source).flatMap((block) =>
+    block.flatMap((apply) => {
+      const shared = block.filter((other) => other !== apply).map((other) => other.classes).join(' ')
+      return unpaired(apply.classes, shared).map((className) => ({ rel, line: apply.line, className }))
+    }),
+  )
+}
+
+/** The colour classes of `classes` on a dark half with no `dark:` variant: the light theme paints them too. */
+function bareDark(classes: string): string[] {
+  return classes.split(/\s+/).filter(Boolean).filter((token) => {
+    const { variants, utility } = splitClass(token)
+    const match = PROPERTY.exec(utility)
+    return !variants.includes('dark') && !!match && isDarkHalf(match[2])
+  })
+}
+
+/** Every bare dark half in a file: each string or template's static text, and each stylesheet `@apply` outside the dark theme's blocks. */
+function bareDarkFindings(source: string, rel: string): Finding[] {
+  if (rel.endsWith('.css')) {
+    return applyBlocks(source)
+      .flat()
+      .filter((apply) => !apply.dark)
+      .flatMap((apply) => bareDark(apply.classes).map((className) => ({ rel, line: apply.line, className })))
+  }
+  const sf = ts.createSourceFile(rel, source, ts.ScriptTarget.Latest, true, scriptKind(rel))
+  const findings: Finding[] = []
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) return
+    const text = staticText(node)
+    if (text !== undefined) {
+      const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
+      for (const className of bareDark(text)) findings.push({ rel, line, className })
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
   return findings
 }
 
@@ -260,6 +330,43 @@ const THEME_PAIR_RESIDUE: Record<string, Record<string, number>> = {
 }
 const THEME_PAIR_RESIDUE_MAX = { files: 14, classes: 22 }
 
+/** Bare dark halves per file and class: surfaces dark in both themes on purpose. Each entry says why. */
+const BARE_DARK_RESIDUE: Record<string, Record<string, number>> = {
+  // The forced-dark modes (`mode="dark"`) are dark on purpose, beside the forced-light ones above.
+  'components/EarningsNerdLogo.tsx': { 'text-text-primary-dark': 1, 'text-brand-strong-dark': 1 },
+  'components/EarningsNerdLogoIcon.tsx': { 'text-brand-strong-dark': 1 },
+  // The debug payload panel is fixed-dark in both themes (its own comment says so).
+  'features/summaries/components/SummaryDisplay.tsx': { 'bg-panel-dark': 1, 'border-border-dark': 1, 'text-text-primary-dark': 2 },
+}
+const BARE_DARK_RESIDUE_MAX = { files: 3, classes: 7 }
+
+/** What a residue keyed by file and class gets wrong against the scan's findings. */
+function residueProblems(found: Finding[], residue: Record<string, Record<string, number>>, name: string, what: string): string[] {
+  const byFile = new Map<string, Map<string, Finding[]>>()
+  for (const f of found) {
+    const byClass = byFile.get(f.rel) ?? new Map<string, Finding[]>()
+    byClass.set(f.className, [...(byClass.get(f.className) ?? []), f])
+    byFile.set(f.rel, byClass)
+  }
+  const problems: string[] = []
+  for (const file of new Set([...byFile.keys(), ...Object.keys(residue)])) {
+    const byClass = byFile.get(file)
+    if (!byClass) {
+      problems.push(`${file}: none left, delete it from ${name}`)
+      continue
+    }
+    const listed = residue[file] ?? {}
+    for (const className of new Set([...byClass.keys(), ...Object.keys(listed)])) {
+      const list = byClass.get(className) ?? []
+      const allowed = listed[className] ?? 0
+      const lines = list.map((f) => `${f.rel}:${f.line} ${f.className}`)
+      if (list.length > allowed) problems.push(`${file} ${className}: ${list.length} ${what}, ${allowed} in ${name}\n  ${lines.join('\n  ')}`)
+      else if (list.length < allowed) problems.push(`${file} ${className}: ${list.length} ${what}, ${allowed} in ${name}: lower the count, or delete it at none`)
+    }
+  }
+  return problems
+}
+
 const ALL_FILES = SCAN_DIRS.flatMap((dir) => allFiles(path.join(ROOT, dir)))
 const FILES = ALL_FILES.filter(isSource)
 const rel = (file: string) => path.relative(ROOT, file).split(path.sep).join('/')
@@ -269,8 +376,9 @@ const findingsIn = (file: string): Finding[] => {
   return file.endsWith('.css') ? applyFindings(source, rel(file)) : themePairFindings(source, rel(file))
 }
 
-describe('every light-half theme token has its dark: twin (DESIGN_SYSTEM.md §2)', () => {
+describe('every theme token is a light/dark pair: a light half has its dark: twin, a dark half sits under dark: (DESIGN_SYSTEM.md §2)', () => {
   const findings = FILES.flatMap(findingsIn)
+  const bareFindings = FILES.flatMap((file) => bareDarkFindings(readFileSync(file, 'utf8'), rel(file)))
 
   it('reads the app and its stylesheet (a scan that finds no source must not pass)', () => {
     expect(
@@ -286,45 +394,36 @@ describe('every light-half theme token has its dark: twin (DESIGN_SYSTEM.md §2)
     // The light halves come from the config, the suffixless pairs included.
     expect(['error-light', 'border-light', 'brand', 'brand-strong', 'brand-weak', 'brand-border', 'gain', 'loss-soft'].filter((v) => !isLightHalf(v))).toEqual([])
     expect(['brand-dark', 'brand-weak-dark', 'white', 'chart-1', 'brand-emphasis'].filter(isLightHalf)).toEqual([])
+    // And the dark halves, which a class outside `dark:` must not name.
+    expect(['background-dark', 'brand-dark', 'brand-weak-dark', 'text-primary-dark', 'warning-dark'].filter((v) => !isDarkHalf(v))).toEqual([])
+    expect(['background-light', 'brand', 'white', 'black', 'chart-1', 'brand-emphasis'].filter(isDarkHalf)).toEqual([])
   })
 
   it('every unpaired class is in the residue, and every residue count is current', () => {
-    const found = new Map<string, Map<string, Finding[]>>()
-    for (const f of findings) {
-      const byClass = found.get(f.rel) ?? new Map<string, Finding[]>()
-      byClass.set(f.className, [...(byClass.get(f.className) ?? []), f])
-      found.set(f.rel, byClass)
-    }
-    const problems: string[] = []
-    for (const file of new Set([...found.keys(), ...Object.keys(THEME_PAIR_RESIDUE)])) {
-      const byClass = found.get(file)
-      if (!byClass) {
-        problems.push(`${file}: none left, delete it from THEME_PAIR_RESIDUE`)
-        continue
-      }
-      const listed = THEME_PAIR_RESIDUE[file] ?? {}
-      for (const className of new Set([...byClass.keys(), ...Object.keys(listed)])) {
-        const list = byClass.get(className) ?? []
-        const allowed = listed[className] ?? 0
-        const lines = list.map((f) => `${f.rel}:${f.line} ${f.className}`)
-        if (list.length > allowed) problems.push(`${file} ${className}: ${list.length} unpaired, ${allowed} in THEME_PAIR_RESIDUE\n  ${lines.join('\n  ')}`)
-        else if (list.length < allowed) problems.push(`${file} ${className}: ${list.length} unpaired, ${allowed} in THEME_PAIR_RESIDUE: lower the count, or delete it at none`)
-      }
-    }
-    expect(problems, 'give each light-half class its dark: twin in the same class list').toEqual([])
+    expect(residueProblems(findings, THEME_PAIR_RESIDUE, 'THEME_PAIR_RESIDUE', 'unpaired'), 'give each light-half class its dark: twin in the same class list').toEqual([])
   })
 
-  it('the cap equals the residue, so a shrink moves it down in the same commit', () => {
-    const counts = Object.values(THEME_PAIR_RESIDUE).flatMap((byClass) => Object.values(byClass))
-    expect(counts.filter((n) => !Number.isInteger(n) || n < 1), 'a listed count is a whole number of classes: delete an entry at none').toEqual([])
+  it('every dark half outside a dark: variant is in BARE_DARK_RESIDUE, and every count is current', () => {
     expect(
-      Object.keys(THEME_PAIR_RESIDUE).length,
-      'THEME_PAIR_RESIDUE_MAX.files must equal the files in THEME_PAIR_RESIDUE: lower it with the list, never raise it',
-    ).toBe(THEME_PAIR_RESIDUE_MAX.files)
-    expect(
-      counts.reduce((sum, n) => sum + n, 0),
-      'THEME_PAIR_RESIDUE_MAX.classes must equal the classes in THEME_PAIR_RESIDUE: lower it with the list, never raise it',
-    ).toBe(THEME_PAIR_RESIDUE_MAX.classes)
+      residueProblems(bareFindings, BARE_DARK_RESIDUE, 'BARE_DARK_RESIDUE', 'bare'),
+      'put the dark half under dark: beside its light twin (ring-background-light dark:ring-background-dark), or list an always-dark surface',
+    ).toEqual([])
+  })
+
+  it('each cap equals its residue, so a shrink moves it down in the same commit', () => {
+    const residues = [
+      ['THEME_PAIR_RESIDUE', THEME_PAIR_RESIDUE, THEME_PAIR_RESIDUE_MAX],
+      ['BARE_DARK_RESIDUE', BARE_DARK_RESIDUE, BARE_DARK_RESIDUE_MAX],
+    ] as const
+    for (const [name, residue, max] of residues) {
+      const counts = Object.values(residue).flatMap((byClass) => Object.values(byClass))
+      expect(counts.filter((n) => !Number.isInteger(n) || n < 1), `${name}: a listed count is a whole number of classes: delete an entry at none`).toEqual([])
+      expect(Object.keys(residue).length, `${name}_MAX.files must equal the files in ${name}: lower it with the list, never raise it`).toBe(max.files)
+      expect(
+        counts.reduce((sum, n) => sum + n, 0),
+        `${name}_MAX.classes must equal the classes in ${name}: lower it with the list, never raise it`,
+      ).toBe(max.classes)
+    }
   })
 
   it('the scan catches what it is for (a self-check on a fixed source)', () => {
@@ -403,6 +502,39 @@ describe('every light-half theme token has its dark: twin (DESIGN_SYSTEM.md §2)
       '6 bg-error-light',
       '7 border-border-light',
       '8 text-text-secondary-light',
+    ])
+    // A dark half outside `dark:` paints in the light theme: under hover or a condition too.
+    const dark = [
+      "const dot = 'ring-2 ring-background-dark'",
+      "const pairedDot = 'ring-2 ring-background-light dark:ring-background-dark'",
+      "const tint = 'hover:bg-warning-dark/15 dark:hover:bg-warning-dark/25'",
+      "const scoped = 'dark:hover:bg-warning-dark/15 hover:dark:text-brand-strong-dark'",
+      'export function Probe({ on }: { on: boolean }) {',
+      "  return <p className={`p-2 ${on ? 'text-text-primary-dark' : ''}`}>x</p>",
+      '}',
+      "const suffixless = 'bg-brand-dark/15'",
+      // Not a dark half: white, a palette step, a shadow token named for a ring.
+      "const other = 'text-white bg-slate-900 shadow-ring-brand-dark'",
+    ].join('\n')
+    expect(bareDarkFindings(dark, 'probe.tsx').map((f) => `${f.line} ${f.className}`)).toEqual([
+      '1 ring-background-dark',
+      '3 hover:bg-warning-dark/15',
+      '6 text-text-primary-dark',
+      '8 bg-brand-dark/15',
+    ])
+    // In a stylesheet the dark theme is a `.dark` block: every selector of it, or a block inside one.
+    const darkCss = [
+      '.a { @apply bg-panel-dark; }',
+      '.dark .b { @apply bg-panel-dark text-text-primary-dark; }',
+      '@media (min-width: 640px) { .dark .c, .d { @apply border-border-dark; } }',
+      '.e { @apply dark:bg-panel-dark; /* @apply bg-panel-dark; */ }',
+      '.f { @apply text-text-primary-light; .dark & { @apply text-text-primary-dark; } }',
+      '.dark-panel { @apply bg-panel-dark; } :is(.dark .g, .dark .h) { @apply bg-panel-dark; }',
+    ].join('\n')
+    expect(bareDarkFindings(darkCss, 'probe.css').map((f) => `${f.line} ${f.className}`)).toEqual([
+      '1 bg-panel-dark',
+      '3 border-border-dark',
+      '6 bg-panel-dark',
     ])
   })
 })

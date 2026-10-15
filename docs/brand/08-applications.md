@@ -61,7 +61,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   characters past it, for letters with digits and for a symbol; its bars carry dark twins
   (`tests/unit/themePairs.spec.ts` holds every colour class on a light half, a `-light` token or one
   beside a `<name>-dark` such as `brand-weak`, to a `dark:` colour twin, outside a listed residue of
-  fourteen files). The login page's Google and Apple account-conflict error names the
+  fourteen files, and refuses a `-dark` token outside `dark:`, which is why the account menu's
+  unverified dot and the banner's dismiss hover now pair their light and dark values). The login page's Google and Apple account-conflict error names the
   provider tried: "This email already has an EarningsNerd account, and the two could not be linked.
   Sign in the way you created that account and verify your email. Once the email is verified on
   EarningsNerd and Google, try Google again." (verifying links nothing by itself; the provider links on

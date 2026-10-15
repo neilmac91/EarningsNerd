@@ -84,7 +84,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
           {getInitials(user.full_name, user.email)}
           {unverified && (
             <span
-              className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-warning-light dark:bg-warning-dark ring-2 ring-background-dark"
+              className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-warning-light dark:bg-warning-dark ring-2 ring-background-light dark:ring-background-dark"
               aria-hidden="true"
             />
           )}

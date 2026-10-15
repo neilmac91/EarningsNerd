@@ -50,7 +50,10 @@ on the same property under the same variants, in the same class list. A twin und
 that is itself a light token, does not count, and a stylesheet rule block's `@apply` lines are one list.
 Tokens with no dark sibling (the chart palette, `overlay`, and the `-text` and `-emphasis` inks) are not
 read. Its residue is listed per file and class, with a cap equal to it, and every file under the scanned
-directories is read or listed as holding no class list.
+directories is read or listed as holding no class list. The same gate refuses the other half bare: a
+colour class on a `-dark` token with no `dark:` variant paints the dark theme's colour in the light theme
+(a stylesheet block whose every selector names `.dark` is the dark theme's), except on a surface dark in
+both themes on purpose, listed in its own residue (the logos' forced-dark mode, the debug payload panel).
 
 - **Muted text on dark = `secondary`, never `tertiary-dark`** (`text-text-tertiary-dark` fails WCAG AA
   on dark panels). Pattern for muted: `text-text-tertiary-light dark:text-text-secondary-dark`.
