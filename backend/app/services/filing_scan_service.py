@@ -7,7 +7,9 @@ Pro with real-time off) into one email per user.
 
 Eligibility and delivery limits:
 - **No historical spam:** a watcher is only alerted about filings dated after they started watching
-  (``Watchlist.created_at``) or after the last alert (``last_alerted_at``) — the baseline.
+  (``Watchlist.created_at``) or on or after the date of the last alert (``last_alerted_at``) — the
+  baseline. ``Filing.filing_date`` is a calendar date stored as UTC midnight, never an instant, so
+  the baseline and the digest window compare whole days.
 - **Durable delivery (E11b-1):** selection persists a delivery batch (frozen email, provider
   idempotency key, owned filings) before any send; ``notification_delivery_service.drain`` then
   dispatches through fenced claims, so concurrent runs cannot both send one batch and a failed
@@ -203,23 +205,31 @@ def _write_log(db: Session, user_id: int, filing_id: int, channel: str, status: 
         return False
 
 
-def _candidate_filings(filings: list[Filing], baseline: Optional[datetime]) -> list[Filing]:
-    """Filings dated strictly after the baseline (what's new since the user started watching),
-    newest first. This is what prevents alerting on a company's back-catalogue."""
+def _candidate_filings(filings: list[Filing], watch: Watchlist) -> list[Filing]:
+    """Filings new to this watcher (what's new since the user started watching), newest first.
+    This is what prevents alerting on a company's back-catalogue.
+
+    ``filing_date`` is a calendar date stored as UTC midnight. After an alert the baseline is the
+    last alerted filing's date (``last_alerted_at``), and a filing dated that same day is still new:
+    an 8-K and the 10-Q often share a date but land in different scan ticks. ``_already_logged`` and
+    ``delivery.already_owned`` stop the alerted one from being sent again. Before any alert a filing
+    must be dated strictly after the watch began (``created_at``): a filing dated the day the user
+    started watching cannot be told apart from one filed before they did."""
+    watermark = _as_utc(watch.last_alerted_at)
+    started = _as_utc(watch.created_at)
     out = []
     for f in filings:
         fdate = _as_utc(f.filing_date)
         if fdate is None:
             continue
-        if baseline is not None and fdate <= baseline:
+        if watermark is not None:
+            if fdate < watermark:
+                continue
+        elif started is not None and fdate <= started:
             continue
         out.append(f)
     out.sort(key=lambda f: _as_utc(f.filing_date), reverse=True)
     return out
-
-
-def _baseline_for(watch: Watchlist) -> Optional[datetime]:
-    return _as_utc(watch.last_alerted_at) if watch.last_alerted_at else _as_utc(watch.created_at)
 
 
 def _advance_watermark(watch: Watchlist, filing: Filing) -> None:
@@ -285,7 +295,7 @@ async def run_filing_scan(
                 continue
             prefs = get_or_create_preferences(db, user.id)
             ent = get_entitlements(user)
-            for filing in _candidate_filings(filings, _baseline_for(watch)):
+            for filing in _candidate_filings(filings, watch):
                 eligible, realtime = evaluate_delivery(prefs, ent, filing.filing_type)
                 if not eligible or not realtime:
                     continue  # ineligible, or queued for the digest
@@ -323,12 +333,16 @@ async def run_daily_digest(
 ) -> dict:
     """Send one batched email per user for eligible, not-yet-alerted filings in the window.
 
-    Historical NotificationLog rows and filings already owned by a delivery batch are excluded;
-    the digest's membership and payload are frozen on its batch before dispatch.
+    The window opens at the start of the UTC day ``window_hours`` before ``now``: ``filing_date``
+    is a calendar date stored as UTC midnight, so an hour-granular bound would drop every filing
+    dated the day before the run (production runs at 08:00 UTC). A filing that falls in two
+    consecutive windows is still sent once: historical NotificationLog rows and filings already
+    owned by a delivery batch are excluded; the digest's membership and payload are frozen on its
+    batch before dispatch.
     """
     delivery_now = now  # Explicit test clock only; production delivery uses its own live clock.
     now = _as_utc(now or datetime.now(timezone.utc))  # tolerate a naive `now` from callers/tests
-    window_start = now - timedelta(hours=window_hours)
+    window_start = (now - timedelta(hours=window_hours)).replace(hour=0, minute=0, second=0, microsecond=0)
 
     stats = {"digests_sent": 0, "digests_failed": 0, "filings_included": 0}
 
@@ -358,9 +372,8 @@ async def run_daily_digest(
             company = db.get(Company, watch.company_id)
             if company is None:
                 continue
-            baseline = _baseline_for(watch)
             recent = filings_by_company.get(watch.company_id, [])
-            for filing in _candidate_filings(recent, baseline):
+            for filing in _candidate_filings(recent, watch):
                 fdate = _as_utc(filing.filing_date)
                 if fdate is None or fdate < window_start:
                     continue
