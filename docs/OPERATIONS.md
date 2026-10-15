@@ -492,9 +492,11 @@ passing, and an event can still describe a draft after the pull request was mark
 never skips on a pull-request event. Draft or not and override or not, it fails at once while the
 pull request's title, body or any of its commit messages puts a closing keyword (close, fix or resolve,
 in any form) right before an issue or pull request reference, since the merge into `main` would close
-what it names, a pull request included: on 2026-10-09 the merge of #1136 closed #1156 unmerged that way
-(`lessons/ops-closing-keywords-close-what-they-name.md`). The failure lists each reference; an edit to
-the title or body re-runs the check, and a commit message is reworded on the branch. It also fails a
+what it names, a pull request included: on 2026-10-09 the merge of #1136 left #1156 closed, unmerged,
+that way (`lessons/ops-closing-keywords-close-what-they-name.md`). It reads the text as GitHub renders
+it (Markdown escapes dropped, HTML entities decoded) and lists each reference; an edit to the title or
+body re-runs the check, and a commit message is reworded on the branch. Until the edit's run reports, the
+previous result stands on the head, as for drafts below, so merge only after it passes. It also fails a
 pull request that lists 250 commits, the most GitHub's commits endpoint returns, because later commit
 messages would go unread. A squash message typed at merge is outside every pull-request check. It passes
 only when Codex's "Review Summary" comment reports **Completed** for that

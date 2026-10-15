@@ -14,9 +14,10 @@ Closing keywords: the gate fails, draft or not and override or not, while the pu
 body or any of its commit messages puts a closing keyword (close, fix or resolve in any form) before an
 issue or pull request reference. GitHub closes what such a keyword names when the pull request merges
 into the default branch, a pull request included: on 2026-10-09 #1136's body named #1156 that way, and
-its merge closed #1156 unmerged (``lessons/ops-closing-keywords-close-what-they-name.md``). Editing the
-title or body re-runs the gate; a commit message is reworded on the branch. A deliberate close is done
-by hand after the merge. The check fails closed: it also matches forms GitHub does not document (no
+#1156 was left closed, unmerged, by that merge (``lessons/ops-closing-keywords-close-what-they-name.md``).
+Editing the title or body re-runs the gate; a commit message is reworded on the branch. A deliberate
+close is done by hand after the merge. The check reads text as GitHub renders it (Markdown escapes
+dropped, HTML entities decoded) and fails closed: it also matches forms GitHub does not document (no
 space, Markdown marks or a line break between keyword and reference, ``GH-N``, issue and pull URLs),
 and it fails a pull request listing 250 commits, the most GitHub lists, whose later messages it cannot
 read. A squash message typed at merge is outside any pull-request check.
@@ -51,6 +52,7 @@ Stdlib only: this runs before any dependency install.
 """
 from __future__ import annotations
 
+import html
 import json
 import os
 import re
@@ -68,12 +70,21 @@ OVERRIDE = re.compile(r"^\s*Review override:\s*(?P<reason>\S.{9,})\s*$", re.IGNO
 ROW = re.compile(r"\*\*Code Review\*\*\s*\|\s*(?P<status>[^|]*?)\s*\|\s*`(?P<commit>[0-9a-f]{7,40})`", re.IGNORECASE)
 # A closing keyword, then a reference: GitHub documents the keyword in any case with an optional colon,
 # then ``#N`` or ``OWNER/REPO#N``. Between the two this also allows no space, line breaks and Markdown
-# marks, and it takes ``GH-N`` and github.com issue or pull URLs, so an undocumented form fails closed.
-# ``(`` and ``;`` stay out: "fix (#665)" on #674 and "fix; #1285" on #1306 closed nothing at the merge.
+# marks (``_`` included, so the keyword's edges are letters and digits, not ``\b``), and it takes ``GH-N``
+# and github.com issue or pull URLs, so an undocumented form fails closed. ``(`` and ``;`` stay out: "fix
+# (#665)" on #674 and "fix; #1285" on #1306 closed nothing at the merge. A tag stays out too: Dependabot's
+# release notes put a keyword before an HTML link to an upstream issue (``<a href=...>#233</a>``), which
+# names nothing here. The owner starts with a letter or digit, as GitHub requires, so a path such as
+# ``fix-notes/README.md#1-intro`` is not one; owner and repository are bounded (GitHub allows 39 and 100
+# characters), which also keeps a run such as ``fix-fix-fix-...`` linear.
 CLOSING = re.compile(
-    r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b[\s:*_`~>\[]*"
-    r"(?:(?:[\w.-]+/[\w.-]+)?#\d+|GH-\d+|https?://github\.com/[\w.-]+/[\w.-]+/(?:issues|pull)/\d+)",
+    r"(?<![^\W_])(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)(?![^\W_])[\s:*_`~>\[<]*"
+    r"(?:(?:[^\W_][\w.-]{0,99}/[\w.-]{1,100})?#\d+|GH-\d+"
+    r"|https?://(?:www\.)?github\.com/[\w.-]{1,100}/[\w.-]{1,100}/(?:issues|pull)/\d+)",
     re.IGNORECASE)
+# GitHub reads the rendered text: a backslash escape (``\#12``) and an HTML entity (``&#35;12``, ``&nbsp;``)
+# render as the character they stand for, so both are undone before matching.
+ESCAPE = re.compile(r"\\(?=[^\w\s])")
 COMMIT_LIST_CAP = 250  # GitHub's pull-request commits endpoint lists at most 250 commits
 
 Verdict = Tuple[str, str]  # ("pass" | "wait" | "fail", message)
@@ -101,9 +112,9 @@ def override_reason(body: Optional[str]) -> Optional[str]:
 
 
 def closing_references(texts: Iterable[Tuple[str, Optional[str]]]) -> List[str]:
-    """Every closing reference in the (where, text) pairs, as ``where: "keyword #N"``."""
+    """Every closing reference in the (where, text) pairs, read as rendered, as ``where: "keyword #N"``."""
     return [f'{where}: "{" ".join(match.group(0).split())}"'
-            for where, text in texts for match in CLOSING.finditer(text or "")]
+            for where, text in texts for match in CLOSING.finditer(html.unescape(ESCAPE.sub("", text or "")))]
 
 
 Resolver = Callable[[str], Optional[str]]  # short SHA -> the unique full SHA in the repository, or None
