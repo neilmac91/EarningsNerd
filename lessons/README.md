@@ -101,6 +101,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - sec-edgar-resilience-layer.md — Preserve SEC pacing and distinguish selected breaker coverage from limiter-only paths
 - sec-enforce-gates-server-side.md — Enforce every access gate server-side at the mutation endpoint
 - sec-listing-fetch-recent-window-and-cheap-fields.md — List filings in ONE recent-window fetch and read cheap metadata fields — never edgartools properties that hit the network
+- sec-own-a-librarys-silent-input-limit.md — Apply a library's input limit in our own code and test past it; a major bump can turn its silent truncation into an error (partly gated by `backend/tests/unit/test_password_byte_limit.py` for bcrypt's 72 bytes; other libraries' limits are review-checked)
 - sec-runtime-facts-carry-no-duration.md — Runtime per-filing facts carry no duration: abstain, never substitute an annual-looking label
 - sec-xbrl-period-selection.md — XBRL facts: select for the filing's OWN reporting period — fy/fp label the filing, not the fact
 

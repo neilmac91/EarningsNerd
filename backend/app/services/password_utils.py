@@ -1,8 +1,8 @@
 """Password hashing + policy (bcrypt) — extracted from the auth router (roadmap S3).
 
 Pure crypto/policy helpers, no HTTP concern. Re-exported by ``app.routers.auth`` so the endpoints,
-the Pydantic validators, and the existing test imports keep the same surface. Behavior-preserving:
-functions and constants moved verbatim.
+the Pydantic validators, and the existing test imports keep the same surface. Moved verbatim; since
+then hash and verify cut the password to bcrypt's 72-byte limit themselves (``_bcrypt_input``).
 """
 from __future__ import annotations
 
@@ -15,9 +15,11 @@ from app.config import settings
 # bcrypt work factor — pinned explicitly rather than relying on the library default so the cost
 # is visible and stable across bcrypt upgrades.
 BCRYPT_ROUNDS = 12
-# Generous upper bound (NIST 800-63B: accept long passphrases). Note: bcrypt only considers the
-# first 72 bytes of the password; longer inputs are silently truncated by the algorithm.
+# Generous upper bound in characters (NIST 800-63B: accept long passphrases); up to 512 UTF-8 bytes.
 PASSWORD_MAX_LENGTH = 128
+# bcrypt reads only the first 72 bytes of a password. bcrypt 4 dropped the rest silently; bcrypt 5
+# raises ValueError instead, so hash and verify cut the input here (see ``_bcrypt_input``).
+BCRYPT_MAX_PASSWORD_BYTES = 72
 
 
 def validate_password_strength(value: str) -> str:
@@ -34,12 +36,22 @@ def validate_password_strength(value: str) -> str:
     return value
 
 
+def _bcrypt_input(password: str) -> bytes:
+    """The bytes bcrypt reads: the UTF-8 encoding cut to bcrypt's 72-byte limit.
+
+    Exactly bcrypt 4's implicit truncation, so every stored hash keeps verifying and there is no
+    new hash format; bytes past 72 do not contribute to the hash. The cut may split a multibyte
+    character, as bcrypt 4's did. Breach screening still sees the whole password.
+    """
+    return password.encode('utf-8')[:BCRYPT_MAX_PASSWORD_BYTES]
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify password - supports both bcrypt and passlib formats"""
     if not hashed_password:
         return False
     try:
-        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+        return bcrypt.checkpw(_bcrypt_input(plain_password), hashed_password.encode('utf-8'))
     except Exception:
         try:
             from passlib.context import CryptContext
@@ -52,7 +64,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def get_password_hash(password: str) -> str:
     """Hash password using bcrypt with an explicitly-pinned work factor."""
     salt = bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
-    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    hashed = bcrypt.hashpw(_bcrypt_input(password), salt)
     return hashed.decode('utf-8')
 
 
