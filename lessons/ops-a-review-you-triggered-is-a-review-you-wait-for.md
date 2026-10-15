@@ -32,12 +32,15 @@ required pull-request review would (authors cannot approve their own pull reques
 collaborator). The gate's job never skips on a pull-request event, and nothing in it may skip or
 soften the gate step. It fails while the pull request is a draft, reading the flag as it is now
 rather than from the event, so the job passes only on a completed review of the head or a recorded
-override.
+override. That holds for runs created after #1331 merged: a re-run keeps the workflow definition its
+run started with, so a ready pull request whose latest gate run skipped before then needs a new
+pull-request event (an edit to its body), not `@codex review`.
 
 **Evidence**: #856 timeline and #857; the 2026-09-16 merge audit in `tasks/archive/todo-ledger-through-2026-10-07.md`;
 `backend/tests/unit/test_review_gate.py` (a completed review of another head is `wait`, never
-`pass`; the job's condition is the event name alone; a draft or an unreadable draft flag fails,
-override or not); GitHub docs on required status checks versus required reviews and administrator
+`pass`; the job's condition is the event name alone and its whole shape is pinned, so no step `if`,
+`continue-on-error`, `needs` or extra step can skip the gate; a draft or an unreadable draft flag
+fails, override or not); GitHub docs on required status checks versus required reviews and administrator
 bypass, and on conditions ("a job that is skipped will report its status as 'Success'"); #1315's
 gate runs [38478316282](https://github.com/neilmac91/EarningsNerd/actions/runs/38478316282)
 (cancelled) and [38478317070](https://github.com/neilmac91/EarningsNerd/actions/runs/38478317070)

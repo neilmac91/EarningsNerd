@@ -25,7 +25,8 @@ run. A job skipped by its ``if`` reports success, which a required check counts 
 event can still describe a draft after the pull request was marked ready: one update that edits the
 body and marks it ready fires both events, and on #1315 the draft one ran second, cancelled the
 ready run before it could wait, and skipped. So the workflow never skips this job on a pull-request
-event, and the job passes only on a completed review of the head or a recorded override.
+event, and the job passes only on a completed review of the head or a recorded override. A re-run
+keeps the workflow definition its run started with, so that holds for runs created after the change.
 
 The workflow runs on ``pull_request_target`` and checks out the BASE branch, so a pull request can
 edit neither its own gate script nor the workflow definition; and a reviewed short SHA counts only

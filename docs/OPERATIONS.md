@@ -500,8 +500,10 @@ neither its own gate script nor the workflow definition (the job never executes 
 holds read-only tokens); only the exact Codex GitHub App identity (login, `Bot` type, immutable id) is
 trusted; and a reviewed short SHA counts only when the repository resolves it uniquely to the head and
 no other commit of the pull request shares it, so a head minted to share a reviewed prefix stays
-unreviewed while the reviewed object exists. Because the definition comes from `main`, the gate first
-runs on pull requests opened after it has merged.
+unreviewed while the reviewed object exists. Each run takes the workflow definition from `main` as it
+stood at the run's event, and a re-run keeps that definition, so a change here reaches a pull request
+at its next pull-request event. A ready pull request whose latest gate run skipped under the old draft
+condition (before #1331) needs such an event, an edit to its body for instance, not `@codex review`.
 
 The check binds merges through the ruleset on `main` (id 23561253, created 2026-09-16, `gh api
 repos/neilmac91/EarningsNerd/rulesets/23561253` to read it): deletion and force-push of `main`
