@@ -89,7 +89,6 @@ const MEANING: Record<string, Counts> = {
 const RESIDUE: Record<string, Counts> = {
   'app/filing/[id]/StreamingSummaryDisplay.tsx': { SparkleIcon: 2 }, // brand-filing-page: the waiting notice and the free-limit card
   'app/dashboard/watchlist/page.tsx': { SparkleIcon: 1 }, // brand-dashboard-watchlist: "Analyze trends" (DSW-18)
-  'features/admin/components/FeedbackStatusBadge.tsx': { SparkleIcon: 1 }, // brand-admin: the "New" status
   'features/filings/components/copilot/CopilotMessage.tsx': { SparkleIcon: 2 }, // brand-copilot: follow-up chips, upgrade button
   'features/filings/components/copilot/AskCopilotRail.tsx': { SparkleIcon: 2 }, // brand-copilot: launcher and rail header
   'features/filings/components/copilot/CopilotTeaser.tsx': { SparkleIcon: 1 }, // brand-copilot: upgrade button
@@ -103,7 +102,7 @@ const RESIDUE: Record<string, Counts> = {
   'features/marketing/components/AskFilingDemo.tsx': { QuotesIcon: 1 }, // brand-public-pages: the Ask this Filing mark
   'features/filings/components/AskFilingAnswer.tsx': { QuotesIcon: 2 }, // brand-copilot: a hand-drawn quotes glyph as the Ask this Filing mark
 }
-const RESIDUE_MAX = { files: 15, uses: 19 }
+const RESIDUE_MAX = { files: 14, uses: 18 }
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

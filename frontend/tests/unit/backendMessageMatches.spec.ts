@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 /**
  * The frontend routes some UI on the words of an error message: the paywall card instead of Retry, no
  * automatic retry for a permission or sign-in error, the verify-your-email event, the dashboard's sign-in
- * redirect, the contact form's rate-limit sentence. Those words are written in the backend (an
+ * redirect. Those words are written in the backend (an
  * HTTPException detail, a stream error) or in the frontend's own fallback for a status, so a copy edit on
  * either side can silently switch the UI off. Until an error code field replaces the matching
  * (tasks/todo.md), this gate holds both sides together (docs/brand/decisions-log.md D-031):
@@ -46,7 +46,6 @@ const BACKEND = {
   summaries: 'backend/app/routers/summaries.py',
   analysis: 'backend/app/routers/analysis.py',
   subscriptions: 'backend/app/routers/subscriptions.py',
-  contact: 'backend/app/routers/contact.py',
 }
 
 interface Matcher {
@@ -80,9 +79,6 @@ const MATCHERS: Matcher[] = [
   // phrases match. No source is listed: auth.py's and lib/api/client.ts's route paths ("/api/auth/…")
   // would pass "auth" on a URL, not a message.
   { file: 'app/dashboard/error.tsx', fn: 'DashboardError', backend: [], frontend: [] },
-  // Reached by the tree-wide pass (errorMessage). The message is lib/api/client.ts's ApiError: the
-  // contact route's 429 detail or, without one, client.ts's own 429 fallback.
-  { file: 'features/contact/components/ContactForm.tsx', fn: 'handleSubmit', backend: [BACKEND.contact], frontend: ['lib/api/client.ts'] },
 ]
 
 /** Phrases no file writes today, each with its reason. Shrink-only: delete the line when the phrase is
@@ -98,12 +94,11 @@ const UNSOURCED: Record<string, string> = {
   'DashboardError Unauthorized': DASHBOARD_UNSOURCED,
   'DashboardError authentication': DASHBOARD_UNSOURCED,
   'DashboardError auth': DASHBOARD_UNSOURCED,
-  'handleSubmit 429':
-    'the contact route\'s 429 reads "Too many requests. Please try again in 1 hour(s)." and client.ts\'s 429 fallback has no "429" either; brand-contact-security-presentation reads the status instead and deletes this line',
 }
 /** Seeded at 2 when the api modules were scanned; raised to 7 when the scan reached app/dashboard/error.tsx
-    and ContactForm.tsx (2026-10-13). It only falls after. */
-const UNSOURCED_MAX = 7
+    and ContactForm.tsx (2026-10-13); lowered to 6 when #1303 read the contact form's rate limit from the status
+    (2026-10-15), so ContactForm.tsx tests no message word. It only falls after. */
+const UNSOURCED_MAX = 6
 
 /** Literal tests the scan reads that test something other than a message the code writes. */
 const NOT_MESSAGES: Record<string, string> = {

@@ -249,20 +249,20 @@ that PR:
   brand-filing-page removes them and drops their entry in the same merge; a hand-drawn stand-in or
   the ✨ emoji counts.
 - `backendMessageMatches.spec.ts` (new): every phrase the frontend routes the paywall, the no-retry
-  path, the verification event, the dashboard's sign-in redirect or the contact form's rate-limit
-  sentence on is written by the code that raises the message (docstrings do not count), or is listed
-  as unsourced with its reason. No other literal match exists in the api modules (`lib/api`,
-  `features/<domain>/api`), nor anywhere under `app`, `components`, `features`, `hooks` and `lib` on a
-  receiver named for an error or a message (err, error, message, msg, detail or reason, read through
-  camelCase such as `errorMessage`); a message held under another name outside the api modules is the
-  scan's limit.
+  path, the verification event or the dashboard's sign-in redirect on is written by the code that
+  raises the message (docstrings do not count), or is listed as unsourced with its reason (the contact
+  form, once matched on "429", reads the status since #1303). No other literal match exists in the
+  api modules (`lib/api`, `features/<domain>/api`), nor anywhere under `app`, `components`,
+  `features`, `hooks` and `lib` on a receiver named for an error or a message (err, error, message,
+  msg, detail or reason, read through camelCase such as `errorMessage`); a message held under another
+  name outside the api modules is the scan's limit.
 - ESLint: the raw-colour rule reads `rgb()`, `rgba()`, `hsl()` and `hsla()` as well as hex, in an
   arbitrary utility too; `earningsnerd/locale-pinned-numbers` (new) bans an unpinned
   `toLocaleString()`, `toLocaleTimeString()` or `Intl.NumberFormat` outside `lib/format.ts`
   (`fmtCount`, `fmtDecimal`, or a date helper for a date); `toLocaleDateString()` was already banned
   outright by the date rule in `eslint.config.mjs`, which names `formatLocalDate`.
 - `siteChromeFocusRing.spec.ts`: the page scan discovers every route's page and the feature
-  modules it reaches, in place of four named routes.
+  modules it reaches, in place of the named routes (`PAGE_CONTROL_ROOTS`).
 
 Four of them carry a shrink-only residue: `VOICE_RESIDUE`, the glyphs' `RESIDUE`, `RING_RESIDUE`
 and the matchers' `UNSOURCED`. Each holds what the audit found when its gate landed, counted per

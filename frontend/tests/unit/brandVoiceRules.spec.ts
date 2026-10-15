@@ -426,9 +426,6 @@ const TREE_REACH = discoverReach(SOURCES)
  * file, or why the text stays.
  */
 const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
-  'app/admin/feedback/page.tsx': { sentenceCase: 1 }, // brand-admin (#1309)
-  'app/admin/invites/page.tsx': { sentenceCase: 1 }, // brand-admin (#1309)
-  'app/contact/page.tsx': { sentenceCase: 3 }, // brand-contact-security-presentation (#1303)
   'app/dashboard/error.tsx': { sentenceCase: 4 }, // brand-dashboard-watchlist (#1290, DSW-12)
   'app/dashboard/settings/page.tsx': { sentenceCase: 1 }, // brand-settings-subscriptions (#1291)
   'app/error.tsx': { sentenceCase: 1 }, // brand-chrome-primitives (#1289; the development-only details panel)
@@ -440,7 +437,6 @@ const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
   'app/waitlist/page.tsx': { buzzword: 1 }, // brand-public-pages (#1311; BG-23, "clarity")
   'components/CookieConsent.tsx': { sentenceCase: 7 }, // brand-chrome-primitives (#1289; the ModalHeader's "Cookie Preferences" is the seventh)
   'features/admin/components/ShareInvite.tsx': { sentenceCase: 1 }, // a known false positive, no PR: the aria-label "Share invite via Messages" names Apple's app; the entry leaves when the label changes
-  'features/contact/components/ContactForm.tsx': { sentenceCase: 1 }, // brand-contact-security-presentation (#1303)
   'features/feedback/components/FeedbackWidget.tsx': { emoji: 3 }, // brand-chrome-primitives (#1289)
   'features/filings/components/copilot/FilingWorkspace.tsx': { sentenceCase: 1 }, // the Copilot rail's next change (no open PR edits the flagged line; #1278 edits another line of this file; the aria-label "Filing source and Ask")
   'features/filings/components/copilot/PaneResizer.tsx': { sentenceCase: 1 }, // brand-copilot (#1295; the aria-label "Resize Copilot panel")
@@ -453,7 +449,7 @@ const VOICE_RESIDUE: Record<string, Partial<Record<Clause, number>>> = {
   'features/summaries/components/SummaryActionsBar.tsx': { sentenceCase: 1 }, // brand-filing-page (#1293)
   'lib/api/client.ts': { developerWording: 1 }, // brand-chrome-primitives (#1289; CAL-12, "backend API")
 }
-const VOICE_RESIDUE_MAX = { entries: 27, violations: 71 }
+const VOICE_RESIDUE_MAX = { entries: 23, violations: 65 }
 
 describe('brand voice rules (docs/brand/07-voice.md)', () => {
   // An element past MAX_VARIANTS throws; the residue test reports it rather than the whole file failing to load.
