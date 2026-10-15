@@ -37,25 +37,27 @@ command and every call to an MCP server whose name contains "github" in any case
 carries the mention. It also refuses a Bash command line whose text, as written or with its quotes
 removed, names `gh pr` or `gh issue` (create or new, comment, edit, review, close, reopen), `gh api` or
 api.github.com, when the mention is in that text or in a file one of the line's GitHub writes sends as a
-body: gh's `--body-file`, `-F` or `--input`, an `@file` value, wget's `--post-file` or `--body-file`,
-curl's `-T` or `--upload-file`, or a file redirected with `<` or piped from a plain `cat` into a command
-that reads its body from standard input (one given `-`, `/dev/stdin` or `/dev/fd/0`, or httpie wherever
-it stands, which reads it unasked). The line is read as the shell reads it: newlines and `;`, `&`, `&&`,
-`||`, `|` and `|&` separate commands, a here-document's text is no command once its last line comes, a
+body (as the file stands before the command runs): gh's `--body-file`, `-F` or `--input`, an `@file`
+value, wget's `--post-file` or `--body-file`, curl's `-T` or `--upload-file`, or a file redirected with
+`<` or piped from a plain `cat` into a command that reads its body from standard input (one given `-`,
+`/dev/stdin` or `/dev/fd/0`, or httpie wherever it stands, which reads it unasked). The line is read as
+the shell reads it: newlines and `;`, `&`, `&&`, `||`, `|` and `|&` separate commands, a here-document's
+text is no command once its end comes (the line that is its word, or `WORD)` inside `$(...)`), a
 comment's words are read with their quotes inert (so a commented-out write counts), and the text of each
-command substitution, `$(...)` or backquoted, quoted or not, is read as commands of its own. A GitHub
-write is a command in which a word `gh`, or a path ending in `/gh`, starts a `gh pr`/`gh issue` write or
-`gh api` wherever it stands (`sudo gh api`), or that names api.github.com. Reads count too, so a read or
-an edit that searches such text with a regular expression (grep, sed, jq `test()`) writes the pattern as
-`[@]codex`. Its one exception is a new conversation comment that is the review command alone, with at
-most the attribution footer: the body of the GitHub MCP `add_issue_comment` tool, or a whole command
-`gh pr comment` (or `gh issue comment`) with at most one pull-request argument, `-R`/`--repo` if needed,
-and that one `--body`. A hook that crashes or cannot start lets the call through, so the gate fails open.
-It is a guardrail, not a boundary. It cannot see text a command builds as it runs (a variable, the output
-of a command or process substitution, a body piped from anything but a plain `cat`, a file named relative
-to a directory the command enters first), a program other than httpie that reads its body from standard
-input unasked, the body files of a command another shell runs (`bash -c`, a here-document fed to a
-shell), a body file over 1 MiB, not a regular file, or under /proc, /sys or /dev, the commit messages
+command substitution, `$(...)` or backquoted, quoted or not, is read as commands of its own, unless it
+sits in a here-document's text. A GitHub write is a command in which a word `gh`, or a path ending in
+`/gh`, starts a `gh pr`/`gh issue` write or `gh api` wherever it stands (`sudo gh api`), or that names
+api.github.com. Reads count too, so a read or an edit that searches such text with a regular expression
+(grep, sed, jq `test()`) writes the pattern as `[@]codex`. Its one exception is a new conversation
+comment that is the review command alone, with at most the attribution footer: the body of the GitHub MCP
+`add_issue_comment` tool, or a whole command `gh pr comment` (or `gh issue comment`) with at most one
+pull-request argument, `-R`/`--repo` if needed, and that one `--body`. A hook that crashes or cannot
+start lets the call through, so the gate fails open. It is a guardrail, not a boundary. It cannot see
+text a command builds as it runs (a variable, the output of a command or process substitution, a body
+piped from anything but a plain `cat`, a file named relative to a directory the command enters first), a
+command substitution inside a here-document's text, a program other than httpie that reads its body from
+standard input unasked, the body files of a command another shell runs (`bash -c`, a here-document fed to
+a shell), a body file over 1 MiB, not a regular file, or under /proc, /sys or /dev, the commit messages
 `gh pr create --fill` copies, a GitHub MCP server registered under a name without "github", a session
 that loads no repository hooks (a cloud session with several repositories, a local folder not yet
 trusted, `disableAllHooks`), or a person's own write. So this lesson stays in session reading. A check in

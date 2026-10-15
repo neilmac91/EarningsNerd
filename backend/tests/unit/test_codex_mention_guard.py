@@ -183,9 +183,9 @@ REFUSED_FILE_COMMANDS = {
     "httpie with a redirected body": "http POST https://api.github.com/repos/o/r/issues/1/comments < payload.json",
     "an upper-case API host": "curl -X POST https://API.GITHUB.COM/repos/o/r/issues/1/comments -d @payload.json",
     "a write after a line that quotes a here-document's marker": (
-        "git commit -m \"fix: drop <<EOF bodies\"\ngh pr create --title x --body-file body.md"),
-    "a write after a shift inside double quotes": "python3 -c \"print(1 << 20)\"\ngh pr comment 1 --body-file body.md",
-    "a write after an arithmetic shift": "echo $((1<<20))\ngh pr comment 1 --body-file body.md",
+        "git commit -m \"fix: drop <<EOF bodies\"\ngh pr create --title x --body-file body.md\nEOF"),
+    "a write after a shift inside double quotes": "python3 -c \"print(1 << 20)\"\ngh pr comment 1 --body-file body.md\n20",
+    "a write after an arithmetic shift": "echo $((1<<20))\ngh pr comment 1 --body-file body.md\n20",
     "cat | gh after a line that ends with )": "SHA=$(git rev-parse HEAD)\ncat body.md | gh pr comment 1 --body-file -",
     "cat | gh after a subshell's line": "(git status)\ncat body.md | gh pr comment 1 --body-file -",
     "a write after a line that ends with an escaped backslash": "echo C:\\\\\ngh pr comment 1 --body-file body.md",
@@ -220,13 +220,36 @@ REFUSED_FILE_COMMANDS = {
     "a body file named in double quotes with an escaped quote": 'gh pr comment 1 --body-file "it\\"s.md"',
     "a write after double quotes holding an escaped quote": 'echo "a \\" b" && gh pr comment 1 --body-file body.md',
     "a write between a here-string and a line that repeats its word": "cat <<< 'x'\ngh pr comment 1 --body-file body.md\nx",
-    "a write after an arithmetic shift by a name": "echo $(( x << y ))\ngh pr comment 1 --body-file body.md",
+    "a write after an arithmetic shift by a name": "echo $(( x << y ))\ngh pr comment 1 --body-file body.md\ny",
     "a body file named in an ANSI-C quote": "gh pr comment 1 --body-file $'body.md'",
     "gh split by quotes": 'g"h" pr comment 1 --body-file body.md',
-    "a write after a single-quoted here-document marker and #": "echo '<<EOF # x'\ngh pr comment 1 --body-file body.md",
-    "a commented-out write (a comment's words are read)": "# gh pr comment 1 --body-file body.md",
+    "a write after a single-quoted here-document marker and #": "echo '<<EOF # x'\ngh pr comment 1 --body-file body.md\nEOF",
     "httpie after sudo": "sudo http POST https://api.github.com/repos/o/r/issues/1/comments < payload.json",
-    "a write after a here-document whose last line never comes (read on)": (
+    # Finding 3 of the round-6 review: rules no case pinned.
+    "a write after a subshell inside a quoted substitution": 'X="$( (echo a); gh pr comment 1 --body-file body.md )"',
+    "a write after $$ and a single quote": "echo $$'a\\' && echo ' # ' && gh pr comment 1 --body-file \"my body.md\"",
+    "a body file named in a $\"...\" quote": 'gh pr comment 1 --body-file $"body.md"',
+    "a write after a comment holding a double quote": '# 5" screens\ngh pr comment 1 --body-file "my body.md"',
+    "a write after double quotes ending in an escaped backslash": 'echo "C:\\\\" && gh pr comment 1 --body-file body.md',
+    "a write inside escaped backquotes inside backquotes": "X=`echo \\`gh pr comment 1 --body-file body.md\\``",
+    "a write past substitutions nested beyond Python's recursion limit": (
+        "echo " + "$(" * 1500 + "x" + ")" * 1500 + " && gh pr comment 1 --body-file body.md"),
+    # bash ends a here-document inside $(...) at a line that starts with its word and goes on to the ).
+    "a write after a commit message whose here-document ends at EOF)": (
+        "git commit -m \"$(cat <<'EOF'\nfix: don't drop it\nEOF)\" && gh pr create --title x --body-file body.md"),
+    "a write after a commit message whose here-document ends at EOF )": (
+        "git commit -m \"$(cat <<'EOF'\nfix: don't drop it\nEOF )\" && gh pr create --title x --body-file body.md"),
+    "a write after a commit message from a here-document with an odd quote": (
+        "git commit -m \"$(cat <<'EOF'\nfix: 5\" screens\nEOF\n)\"\ngh pr comment 1 --body-file body.md"),
+    "a write after an escaped space and a #": 'echo a\\ #b && gh pr comment 1 --body-file "my body.md"',
+    "an API host split by a continuation": "curl -X POST https://api.git\\\nhub.com/repos/o/r/issues/1/comments -d @payload.json",
+    "an API host split by quotes": "curl -X POST https://api.\"github\".com/repos/o/r/issues/1/comments -d @payload.json",
+}
+# What the shell may never run, read anyway: the hook reads more than the shell runs where it cannot be
+# sure, and refuses these.
+OVER_READ = {
+    "a commented-out write (a comment's words are read)": "# gh pr comment 1 --body-file body.md",
+    "an unterminated here-document's text holding a write, read as commands (bash runs no write)": (
         "cat > /tmp/x.md <<'EOF'\nnotes\nEOF \ngh pr comment 1 --body-file body.md"),
 }
 ALLOWED = {
@@ -304,12 +327,13 @@ ALLOWED_COMMANDS = {
 # (one under /proc is the test below).
 KNOWN_GAPS = {
     "a body held in a variable": 'gh pr comment 1 --body "$BODY"',
-    "a command substitution": 'gh pr comment 1 --body "$(cat body.md)"',
+    "the output of a command substitution": 'gh pr comment 1 --body "$(cat body.md)"',
+    "a command substitution inside a here-document's text": "cat <<EOF\n$(gh pr comment 1 --body-file body.md)\nEOF",
     "a body file named relative to a directory the command enters": "cd sub && gh pr create --title x --body-file notes.md",
     "the commit messages gh pr create --fill copies": "gh pr create --fill",
     "a command another shell runs": "bash -c 'gh pr comment 1 --body-file body.md'",
     "a here-document fed to a shell": "bash <<'EOF'\ngh pr comment 1 --body-file body.md\nEOF",
-    "a process substitution": "gh pr comment 1 --body-file <(cat body.md)",
+    "the output of a process substitution": "gh pr comment 1 --body-file <(cat body.md)",
     "a body piped from a command other than cat": "jq -r .body payload.json | gh pr comment 1 --body-file -",
     "a body file larger than 1 MiB": "gh pr create --title x --body-file huge.md",
     "a body that is not a regular file (a FIFO)": "gh pr create --title x --body-file pipe.md",
@@ -370,6 +394,11 @@ def test_everything_else_goes_through_untouched(tool: str, tool_input: dict) -> 
 @pytest.mark.parametrize("command", ALLOWED_COMMANDS.values(), ids=ALLOWED_COMMANDS.keys())
 def test_other_bash_commands_go_through_untouched(command: str, bodies: Path) -> None:
     assert _decision("Bash", {"command": command, "description": "x"}, cwd=bodies) is None
+
+
+@pytest.mark.parametrize("command", OVER_READ.values(), ids=OVER_READ.keys())
+def test_what_the_shell_may_never_run_is_read_anyway(command: str, bodies: Path) -> None:
+    _refused(_decision("Bash", {"command": command, "description": "x"}, cwd=bodies), "a file this command sends", "[@]codex")
 
 
 @pytest.mark.parametrize("command", KNOWN_GAPS.values(), ids=KNOWN_GAPS.keys())

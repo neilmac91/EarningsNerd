@@ -13,18 +13,19 @@ contains "github" in any case. It checks
   (create or new, comment, edit, review, close, reopen; -R/--repo anywhere before the verb),
   `gh api` or api.github.com: that text, and the files the line's GitHub writes send as a body. The
   line is read as the shell reads it: newlines and `;`, `&`, `&&`, `||`, `|` and `|&` separate
-  commands, a backslash-newline joins two lines, a here-document's text is no command once its last
-  line comes, a comment's words are read with their quotes inert (so a commented-out write counts),
-  and the text of each command substitution, `$(...)` or backquoted, quoted or not, is read as
-  commands of its own. A GitHub write is a command in which a word `gh`, or a path ending in `/gh`,
+  commands, a backslash-newline joins two lines, a here-document's text is no command once its end
+  comes (the line that is its word, or `WORD)` inside `$(...)`), a comment's words are read with
+  their quotes inert (so a commented-out write counts), and the text of each command substitution,
+  `$(...)` or backquoted, quoted or not, is read as commands of its own, unless it sits in a
+  here-document's text. A GitHub write is a command in which a word `gh`, or a path ending in `/gh`,
   starts a `gh pr`/`gh issue` write or `gh api` wherever it stands (`sudo gh api`), or that names
   api.github.com. Its files: gh's `--body-file`, `-F` (attached too) and `--input`; an `@file` value
   (gh api's -F key=@file, curl's -d @file, httpie's key=@file); wget's `--post-file` and
   `--body-file`; curl's `-T` and `--upload-file`; and a file redirected with `<`, or piped from a
   plain `cat`, into a command that reads its body from standard input: one given `-`, /dev/stdin or
   /dev/fd/0, and httpie (`http`, `https`, `xh` or `xhs`, wherever it stands), which reads it
-  unasked. Files are read from the event's working directory, each once; one larger than 1 MiB, not
-  a regular file, or under /proc, /sys or /dev is not.
+  unasked. Files are read from the event's working directory as they stand before the command runs,
+  each once; one larger than 1 MiB, not a regular file, or under /proc, /sys or /dev is not.
 A refusal is a JSON deny on stdout, which Claude Code hands to Claude as the reason; anything else
 exits 0 with no output. A crash exits 1, which Claude Code reports as a hook error and lets the call
 through. The registered command (`python3 -I -S`: standard library only, no PYTHON* variables or
@@ -33,14 +34,17 @@ blocks every Bash command and every GitHub call.
 
 Not checked: text a command builds as it runs (a variable, the output of a command or process
 substitution, a body piped from anything but a plain cat, a file named relative to a directory the
-command changes into first), a program other than httpie that reads its body from standard input
-unasked, the body files of a command another shell runs (`bash -c '...'`, a here-document fed to a
-shell), the commit messages `gh pr create --fill` copies, a GitHub MCP server registered under a
-name without "github", a session that loads no repository hooks, and a person's own write.
+command changes into first), a command substitution inside a here-document's text, a program other
+than httpie that reads its body from standard input unasked, the body files of a command another
+shell runs (`bash -c '...'`, a here-document fed to a shell), the commit messages
+`gh pr create --fill` copies, a GitHub MCP server registered under a name without "github", a
+session that loads no repository hooks, and a person's own write.
 Tests: backend/tests/unit/test_codex_mention_guard.py.
 """
 from __future__ import annotations
 
+import bisect
+import functools
 import json
 import re
 import sys
@@ -121,10 +125,10 @@ def _literal(text: str) -> str:
 
 def _script(command: str) -> str:
     """The command rewritten for a plain word splitter, as the shell reads it: each quoted string one
-    single-quoted word, backslash-newline continuations joined, the quotes in a comment escaped (its
-    words stay), each here-document's `<<WORD` and text dropped once its last line (WORD) comes, and
-    the text of each command substitution, `$(...)` or backquoted, quoted or not, added as lines of
-    its own."""
+    single-quoted word, backslash-newline continuations joined, the quotes, backquotes and backslashes
+    in a comment escaped (its words stay), each here-document's `<<WORD` dropped and its text too once
+    its end comes, and the text of each command substitution, `$(...)` or backquoted, quoted or not,
+    added as lines of its own (in the line, a `$(...)` reads as `$()`)."""
     extra: list[str] = []
     try:
         text = _scan(command, 0, "", extra)[0]
@@ -157,14 +161,13 @@ def _scan(command: str, i: int, closer: str, extra: list[str]) -> tuple[str, int
             extra.append(_script(text))
             out.append(_literal(text))
         elif command.startswith("$(", i):
-            text, end = _scan(command, i + 2, ")", extra)
+            text, i = _scan(command, i + 2, ")", extra)
             extra.append(text)
-            out.append(_literal(command[i:end]))
-            i = end
+            out.append("'$()'")  # its text is read on lines of its own
         elif char == "(":
             text, i = _scan(command, i + 1, ")", extra)
             out.append("(" + text + ")")
-        elif char == "#" and (not out or out[-1][-1] in WORD_START):
+        elif char == "#" and (not out or (out[-1][-1] in WORD_START and out[-1][0] != "\\")):  # `a\ #` is one word
             end = command.find("\n", i)
             end = len(command) if end < 0 else end
             out.append(re.sub(r"(['\"\\\\`])", r"\\\1", command[i:end]))  # its quotes start nothing
@@ -177,9 +180,9 @@ def _scan(command: str, i: int, closer: str, extra: list[str]) -> tuple[str, int
             out.append(" ")
             i = heredoc.end()
         elif char == "\n" and ends:
-            body_end = _heredoc_end(command, i + 1, ends)
+            body_end = _heredoc_end(command, i + 1, ends, closer)
             out.append("\n")
-            i, ends = (i + 1 if body_end is None else body_end), []  # no last line: read on, which only over-reads
+            i, ends = (i + 1 if body_end is None else body_end), []  # no end: read on, so this over-reads
         else:
             out.append(char)
             i += 1
@@ -197,7 +200,8 @@ def _dollars(out: list[str]) -> int:
 
 
 def _quoted(command: str, i: int, kind: str, extra: list[str]) -> tuple[str, int]:
-    """The text of a quoted string from `i`, up to its closing quote, as the shell reads it."""
+    """The text of a quoted string from `i`, up to its closing quote, as the shell reads it (other
+    ANSI-C escapes than \\', \\" and \\\\ stay as written)."""
     if kind == "'":
         end = command.find("'", i)
         end = len(command) if end < 0 else end
@@ -220,10 +224,9 @@ def _quoted(command: str, i: int, kind: str, extra: list[str]) -> tuple[str, int
             text.append(command[i:end])
             i = end
         elif kind == '"' and command.startswith("$(", i):
-            body, end = _scan(command, i + 2, ")", extra)
+            body, i = _scan(command, i + 2, ")", extra)
             extra.append(body)
-            text.append(command[i:end])
-            i = end
+            text.append("$()")
         else:
             text.append(char)
             i += 1
@@ -246,18 +249,35 @@ def _backquoted(command: str, i: int) -> tuple[str, int]:
     return "".join(text), i
 
 
-def _heredoc_end(command: str, i: int, ends: list[tuple[str, bool]]) -> int | None:
+@functools.lru_cache(maxsize=4)
+def _line_ends(command: str) -> tuple[dict[str, list[int]], dict[str, list[int]]]:
+    """Each line's text, as written and after its leading tabs, to the offsets just past such lines."""
+    plain: dict[str, list[int]] = {}
+    tabbed: dict[str, list[int]] = {}
+    past = 0
+    for line in command.split("\n"):
+        past += len(line) + 1
+        plain.setdefault(line, []).append(past)
+        tabbed.setdefault(line.lstrip("\t"), []).append(past)
+    return plain, tabbed
+
+
+def _heredoc_end(command: str, i: int, ends: list[tuple[str, bool]], closer: str) -> int | None:
     """Where the text of these here-documents, from `i`, ends: past the line that is each one's word in
-    turn (after its leading tabs, for <<-); None when a word's line never comes."""
+    turn (after its leading tabs, for <<-), or, inside `$(...)`, just past the word at the start of a
+    line that goes on to the `)`, which bash reads as the end (`EOF)`); None when a word's end never
+    comes."""
     for word, tabs in ends:
-        while True:
-            if i > len(command):
-                return None
-            end = command.find("\n", i)
-            end = len(command) if end < 0 else end
-            line, i = command[i:end], end + 1
-            if (line.lstrip("\t") if tabs else line) == word:
-                break
+        pasts = _line_ends(command)[tabs].get(word, [])
+        k = bisect.bisect_right(pasts, i)
+        if closer:
+            closing = re.compile("^" + ("\t*" if tabs else "") + re.escape(word) + "(?=[ \t]*" + re.escape(closer) + ")", re.M)
+            match = closing.search(command, i, pasts[k] if k < len(pasts) else len(command))
+            if match:
+                return match.end()
+        if k == len(pasts):
+            return None
+        i = pasts[k]
     return i
 
 
@@ -269,7 +289,7 @@ def _command_tokens(script: str) -> list[str]:
         lexer = shlex.shlex(script, posix=True, punctuation_chars="();<>|&\n")
         lexer.whitespace, lexer.whitespace_split, lexer.commenters = " \t\r", True, ""
         lexed = list(lexer)
-    except ValueError:  # unbalanced quotes: the plain words still name the files
+    except ValueError:  # a trailing lone backslash, or unbalanced quotes after the RecursionError fallback
         return script.replace("\n", " ; ").split()
     tokens: list[str] = []
     for token in lexed:
@@ -399,8 +419,9 @@ def _reason(where: str, route: str) -> str:
 
 
 def _bash_refusal(command: str, cwd: object) -> str | None:
-    writes = GH_WRITE.search(command) is not None or GITHUB_API in command.lower()
-    if not writes and "gh" not in command.translate(UNQUOTE):
+    plain = command.replace("\\\n", "").translate(UNQUOTE)  # no quotes, backslashes or continuations
+    writes = GH_WRITE.search(command) is not None or GITHUB_API in plain.lower()
+    if not writes and "gh" not in plain:
         return None
     script = _script(command)
     words = " ".join(_tokens(script))  # the shell's words, quotes removed: `gh 'pr' comment`, `'ping @'codex`
