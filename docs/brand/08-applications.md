@@ -219,10 +219,12 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   "not" and "only" pass ("Answers are only cited where a passage matched."), `copilotClaim.spec.tsx` (the rail, the callout
   and the coachmark render the one sentence, and no other literal types it), `planLimitsLockstep.spec.ts`
   (no "unlimited" in the Copilot's directory and, anywhere under app, components, features, hooks and
-  lib, none in one literal before a question, answer, Ask this Filing, Copilot or Q&A noun through up to
-  three modifiers, hyphens and commas included, or up to 30 characters after one, a wrapped line
-  included; a list that names the noun further from the word, as the pricing metadata's "unlimited 10-K
-  and 10-Q analysis, exports, and filing Q&A" does, is review-checked), `dataXsAllowlist.spec.ts` (data-xs
+  lib, in one literal or one element's inline children read together, a wrapped line included, no list
+  "unlimited" heads, read to the sentence end, with an item that names a question, answer, Ask this Filing,
+  Copilot or Q&A noun and no count of its own, and no such noun up to 30 characters before it; the pricing
+  metadata, which #1311 shipped as "unlimited 10-K and 10-Q analysis, exports, and filing Q&A" and
+  "Unlimited AI summaries …, filing Q&A, …", now gives filing Q&A a sentence of its own, "Pro also
+  includes filing Q&A."), `dataXsAllowlist.spec.ts` (data-xs
   sites listed with counts, their totals an equality cap lowered in the same commit as each shrink; the
   marker and the source-check labels are 12px) and
   `CopilotMessage.spec.tsx` (the plan card is quiet, a real failure keeps the tint).
