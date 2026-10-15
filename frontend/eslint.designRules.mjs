@@ -10,7 +10,8 @@
 //                       text that is always there around it), so `border-l-4 ${tone} … rounded-xl`
 //                       is caught although no single literal holds both classes. A primitive that
 //                       always rounds itself (Card) needs no rounded-* beside the stripe.
-//   no-form-code-badge  (P-04) A form code (10-K, 10-Q, 6-K …) is text in the data face, never a
+//   no-form-code-badge  (P-04) A form code (10-K, 10-Q, 6-K …, and the insider forms the product
+//                       writes as words, Form 3, Form 4 and Form 5) is text in the data face, never a
 //                       Badge: a blue chip on 10-Q spent the status colour on a category, and a
 //                       neutral one still reads as a status. The rule flags a <Badge> (or ui.Badge)
 //                       that reads a filing-type field, or holds a literal form code (string,
@@ -124,9 +125,10 @@ const DESCRIPTIVE_PROP = /^(title|alt|aria-[a-z]+)$/
 const isBadge = (name) =>
   (name?.type === 'JSXIdentifier' && name.name === 'Badge') ||
   (name?.type === 'JSXMemberExpression' && name.property.name === 'Badge')
-const FORM_CODE = /^\s*(10-K|10-Q|8-K|20-F|40-F|6-K|S-1|S-4|DEF 14A)(\/A)?\s*$/i
+// The numbered codes, and the insider forms written as words: the search's chip labels the code 4 "Form 4".
+const FORM_CODE = /^\s*(10-K|10-Q|8-K|20-F|40-F|6-K|S-1|S-4|DEF 14A|Form\s[345])(\/A)?\s*$/i
 // A text child that opens with a form code and then only a separator (`10-Q · Filed `), never prose (`10-K filings`).
-const FORM_CODE_LEAD = /^\s*(10-K|10-Q|8-K|20-F|40-F|6-K|S-1|S-4|DEF 14A)(\/A)?\s*($|[·•|])/i
+const FORM_CODE_LEAD = /^\s*(10-K|10-Q|8-K|20-F|40-F|6-K|S-1|S-4|DEF 14A|Form\s[345])(\/A)?\s*($|[·•|])/i
 const CHIP_CLASS = /^(class|className)$/
 const EYEBROW_CHIP = [/(^|:)uppercase$/, /(^|:)tracking-eyebrow$/]
 // The helpers a class binding may call: `const EYEBROW = cx('uppercase', 'tracking-eyebrow')`.
