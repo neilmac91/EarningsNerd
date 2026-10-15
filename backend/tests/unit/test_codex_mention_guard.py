@@ -295,6 +295,8 @@ REFUSED_FILE_COMMANDS = {
         "X=$(cat <<A; Y=$(cat <<B))\ndon't\nB\nA\ngh pr comment 1 --body-file body.md"),
     "a write after <( inside arithmetic, which is no process substitution": (
         "echo $(( 1 <(cat <<'EOF') ))\ngh pr comment 1 --body-file body.md\nEOF"),
+    "a write in a case branch whose substitution, on the last line, leaves a here-document waiting": (
+        "case A in\nA) X=$(cat <<'A') ; gh pr comment 1 --body-file body.md ;; esac"),
     "a write after a substitution inside arithmetic that leaves a here-document waiting": (
         "echo $(( $(cat >/dev/null <<'EOF') 1 ))\ndon't\nEOF\ngh pr comment 1 --body-file body.md"),
     "a write after a shift in arithmetic that spans a newline": "echo $((1 << x\n))\ngh pr comment 1 --body-file body.md\nx",
@@ -438,6 +440,8 @@ ALLOWED_COMMANDS = {
         "X=$(cat <<'EOF'\na\n  EOF)\ngh pr comment 1 --body-file body.md\nEOF\n)"),
     "a here-document whose quoted word holds a ), its text holding a)bc and a write": (
         "X=$(cat <<'a)b'\na)bc\ngh pr comment 1 --body-file body.md\na)b\n)"),
+    "two substitutions closing on one line, the second's here-document text a write after the first's": (
+        "X=$(cat <<'A') ; Y=$(cat <<'B')\nB\nA\ngh pr comment 1 --body-file body.md\nB"),
 }
 # The lesson's stated limits, which pass through: text a command builds as it runs, a command
 # substitution inside a here-document's text, an `EOFX)` end, the rarer forms bash reads otherwise, a
