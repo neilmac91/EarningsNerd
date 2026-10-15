@@ -21,7 +21,7 @@ python tasks/design-system-review-2026-10/data/validate_records.py
 git diff --check
 ```
 
-The checker validates Markdown links and anchors, immutable source paths and line bounds, JSON/gzip parsing, score totals, plan counts, the JPEG budget and current worktree scope. It does not certify the UI or repeat frontend tests. The report has 6 Distill items (3 S, 3 M), 9 Polish items (2 S, 7 M, including 3 deferred E9 page reworks), and 1 Clarify item (M), all routine.
+The checker validates Markdown links and anchors, immutable source paths and line bounds, JSON/gzip parsing, score totals, plan counts, the JPEG budget and committed plus pending scope. It does not certify the UI or repeat frontend tests. The report has 6 Distill items (3 S, 3 M), 9 Polish items (2 S, 7 M, including 3 deferred E9 page reworks), and 1 Clarify item (M), all routine.
 
 The review source remains 1f12fc835fcbf525042473ab0e988b4827734f38. Delivery main advanced to fdf195d564a7bb880dfd990e347dab629f22eeb4 through PR 1337; a direct diff confirms no frontend or design-source change. The overlapping PR head hashes were unchanged between snapshots. The stored critique fingerprint matches frontend/components/ui/index.ts: sha256:1a68bbbec0ebad07084b263758a6fa2e94439cfd644f68fd6c29b97fa9221dba.
 
@@ -65,3 +65,9 @@ Pinned-tree probe: PASS (changed worktree, deleted worktree file, absent pinned 
 ```
 
 The complete records validator passes again with the counts above. No application file or gate configuration changed.
+
+The follow-up scope review found that a clean committed application change was invisible to git status. The validator now compares `--base` and `--head` (defaulting to the captured baseline and HEAD), unions those paths with pending changes, and disables rename detection so both the removed and added paths are checked. Pass explicit revisions when reviewing another checkout/range. The independent records reviewer inspected both validator fixes and found no material false-pass issue.
+
+```text
+Scope probe: PASS (records-only commit accepted; clean committed application change and source-to-record rename rejected)
+```

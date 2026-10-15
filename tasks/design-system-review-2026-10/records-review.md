@@ -32,3 +32,5 @@ None found.
 - verification.md still contains the author's pending gate-record placeholder. Complete it with actual results before delivery; this is expected in-progress author work, not a review finding.
 
 Author disposition: the F2 clarity nit is fixed in REPORT.md as “Multi-Period Analysis demo snapshot”. No other review findings required a change.
+
+Follow-up read-only review: inspected the final pinned-tree source lookup and committed-plus-pending scope checks after GitHub feedback. No material false-pass bug was found. The verification record now describes the explicit base/head range and the scratch application-change/rename probes.
