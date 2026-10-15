@@ -336,12 +336,12 @@ E59 is already open work. Its inventory is 21 ceiling assertion sites, comprisin
 
 ## Machine evidence
 
-- tokens.json: every custom token definition, utility candidates, source occurrences, CSS variables and class selectors.
-- primitives.json: every UI runtime export, import/reference/invocation sites.
-- shared-recipes.json: shared behavior and styling contracts outside the basic primitive wrappers.
-- raw-twins.json: every matched raw element, mapping/exemption and open-file overlap.
-- allowlists.json and inline-exemptions.json: every scoped list, size, cap form and inline exemption.
-- negative-claims-full-git-grep.json and spacing-full-git-grep.txt: tracked-repository verification of removal leads.
+- [tokens.json](data/tokens.json): every custom token definition, utility candidates, source occurrences, CSS variables and class selectors.
+- [primitives.json](data/primitives.json): every UI runtime export, import/reference/invocation sites.
+- [shared-recipes.json](data/shared-recipes.json): shared behavior and styling contracts outside the basic primitive wrappers.
+- [raw-twins.json](data/raw-twins.json): every matched raw element, mapping/exemption and open-file overlap.
+- [allowlists.json](data/allowlists.json) and [inline-exemptions.json](data/inline-exemptions.json): every scoped list, size, cap form and inline exemption.
+- [negative-claims-full-git-grep.json](data/negative-claims-full-git-grep.json): retained tracked-repository searches for removal leads. The spacing.13, spacing.18 and spacing.gutter zero-use entries come from the static token inventory above; no separate full-repository spacing search receipt is retained. Recheck tracked and indirect consumers before deletion.
 
 Raw candidate discovery is broad and intentionally includes prose links, circles and progress bars before classification. No visual defect is inferred solely from this count. Backend security/domain allowlists are outside this design census.
 

@@ -29,7 +29,7 @@ The plugin storage write succeeded and its trend helper returned the new entry, 
 
 ## Publication follow-up
 
-The independent [scan review](scan-review.md) confirms a false positive in the design inventory's radius identifier. Its identifier field was renamed without changing source values or counts. Gitleaks 8.24.3, verified against the CI-pinned SHA-256, reports no leaks in the current records directory. The exact unpublished [exception patch](data/proposed-secret-scan-exception.patch) covers only the already-published commit's finding. With that one pin supplied through a scratch ignore file, the unchanged full-history command produced:
+The independent [scan review](scan-review.md) confirms a false positive in the design inventory's radius identifier. Its identifier field was renamed without changing source values or counts. Gitleaks 8.24.3, verified against the CI-pinned SHA-256, reports no leaks in the current records directory. The exact [exception patch](data/proposed-secret-scan-exception.patch) covers only the already-published commit's finding. With that one pin supplied through a scratch ignore file, the unchanged full-history command produced:
 
 ```text
 10:41AM INF 2129 commits scanned.
@@ -37,13 +37,13 @@ The independent [scan review](scan-review.md) confirms a false positive in the d
 10:41AM INF no leaks found
 ```
 
-The gate configuration is unchanged. Its history false positive remains a merge blocker until the gate owner accepts that exact exception. The draft-only review-gate failure is expected and no ready/merge action was taken. Codex completed the first published head without major issues; the final records-format follow-up is re-requested and its completion recorded in the PR body.
+Gate configuration is unchanged in this branch. The repository independently merged the same exact exception through [#1342](https://github.com/neilmac91/EarningsNerd/pull/1342), and this PR's secret scan now passes. The exception is no longer a pending founder action. The draft-only review-gate failure is expected and no ready/merge action was taken. Codex completed the first published head without major issues; the final records-format follow-up is re-requested and its completion recorded in the PR body.
 
 Final records-check tail:
 
 ```text
   "markdown_files": 13,
-  "links_checked": 1527,
+  "links_checked": 1601,
   "immutable_source_line_links": 745,
   "json_archives_parsed": 35,
   "jpeg_files": 339,

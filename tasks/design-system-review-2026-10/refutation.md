@@ -22,7 +22,7 @@ Use [#1278](https://github.com/neilmac91/EarningsNerd/pull/1278)'s measured `--s
 
 ### DS-03: survives, P1, known
 
-`useSheetFocusTrap.ts` handles Tab, Escape and restoration but does not make the background inert. The Source sheet is aria-modal while its scrim sits below Header. `source-proof.json` shows a real header-theme activation changing the theme while modal remains true in both themes. This disproves any claim that the existing keyboard trap alone supplies modality.
+`useSheetFocusTrap.ts` handles Tab, Escape and restoration but does not make the background inert. The Source sheet is aria-modal while its scrim sits below Header. [Local interaction proof](data/local-source-proof.json) shows a real header-theme activation changing the theme while modal remains true in both themes. This disproves any claim that the existing keyboard trap alone supplies modality.
 
 The smallest complete scope is inertness for all outside interactive page/chrome subtrees for the modal lifetime, not just disabling the one observed theme control. Preserve desktop nonmodal panes, consent ownership, a nested modal's priority and the restored opener. Do not inert an ancestor that contains the sheet. M, routine, after [#1278](https://github.com/neilmac91/EarningsNerd/pull/1278)/#1289/#1295 reconciliation. Extend `pane-close-focus.spec.ts`, `consent-bar-yields.spec.ts` and the existing hook behavior as appropriate, without a duplicate universal modal gate. Include pointer, keyboard, close/unmount, responsive transition and stacked-modal cases.
 

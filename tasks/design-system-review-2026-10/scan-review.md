@@ -15,4 +15,4 @@ The CI command scans Git history with `--branches --remotes`. A subsequent JSON 
 
 No branch files or gate configuration were edited. Scratch probe files and redacted results are in `/workspace/scratch/scan-review-probe/`.
 
-Author verification: the proposed exact pin was supplied only through a scratch ignore file. The unchanged full branch-history command then scanned 2,129 commits and found no leaks. The working records directory also passed the pinned scanner after the schema change. The patch remains unapplied; no credential rule or gate file changed.
+Author verification: the proposed exact pin was supplied only through a scratch ignore file. The unchanged full branch-history command then scanned 2,129 commits and found no leaks. The working records directory also passed the pinned scanner after the schema change. The patch remains unapplied in this records branch; no credential rule or gate file changed here. During delivery, [#1342](https://github.com/neilmac91/EarningsNerd/pull/1342) independently merged the same exact exception into main, and this PR's subsequent secret-scan check passes.
