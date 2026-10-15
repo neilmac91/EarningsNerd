@@ -42,27 +42,27 @@ value, wget's `--post-file` or `--body-file`, curl's `-T` or `--upload-file`, or
 `<` or piped from a plain `cat` into a command that reads its body from standard input (one given `-`,
 `/dev/stdin` or `/dev/fd/0`, or httpie wherever it stands, which reads it unasked). The line is read as
 the shell reads it: newlines and `;`, `&`, `&&`, `||`, `|` and `|&` separate commands, a here-document's
-text is no command once its end comes (the line that is its word, or `WORD)` inside `$(...)`), a
-comment's words are read with their quotes inert (so a commented-out write counts), and the text of each
-command substitution, `$(...)` or backquoted, quoted or not, is read as commands of its own, unless it
-sits in a here-document's text. A GitHub write is a command in which a word `gh`, or a path ending in
-`/gh`, starts a `gh pr`/`gh issue` write or `gh api` wherever it stands (`sudo gh api`), or that names
-api.github.com. Reads count too, so a read or an edit that searches such text with a regular expression
-(grep, sed, jq `test()`) writes the pattern as `[@]codex`. Its one exception is a new conversation
-comment that is the review command alone, with at most the attribution footer: the body of the GitHub MCP
-`add_issue_comment` tool, or a whole command `gh pr comment` (or `gh issue comment`) with at most one
-pull-request argument, `-R`/`--repo` if needed, and that one `--body`. A hook that crashes or cannot
-start lets the call through, so the gate fails open. It is a guardrail, not a boundary. It cannot see
-text a command builds as it runs (a variable, the output of a command or process substitution, a body
-piped from anything but a plain `cat`, a file named relative to a directory the command enters first), a
-command substitution inside a here-document's text, a program other than httpie that reads its body from
-standard input unasked, the body files of a command another shell runs (`bash -c`, a here-document fed to
-a shell), a body file over 1 MiB, not a regular file, or under /proc, /sys or /dev, the commit messages
-`gh pr create --fill` copies, a GitHub MCP server registered under a name without "github", a session
-that loads no repository hooks (a cloud session with several repositories, a local folder not yet
-trusted, `disableAllHooks`), or a person's own write. So this lesson stays in session reading. A check in
-a workflow would come too late: Codex sees GitHub's event when it is sent, before any workflow reads the
-text.
+text is no command once its end comes (the line that is its word or, inside `$(...)`, one that is its
+word, blanks and a `)`), a comment's words are read with their quotes inert (so a commented-out write
+counts), and the text of each command substitution, `$(...)` or backquoted, quoted or not, is read as
+commands of its own, unless it sits in a here-document's text. A GitHub write is a command in which a
+word `gh`, or a path ending in `/gh`, starts a `gh pr`/`gh issue` write or `gh api` wherever it stands
+(`sudo gh api`), or that names api.github.com. Reads count too, so a read or an edit that searches such
+text with a regular expression (grep, sed, jq `test()`) writes the pattern as `[@]codex`. Its one
+exception is a new conversation comment that is the review command alone, with at most the attribution
+footer: the body of the GitHub MCP `add_issue_comment` tool, or a whole command `gh pr comment` (or
+`gh issue comment`) with at most one pull-request argument, `-R`/`--repo` if needed, and that one
+`--body`. A hook that crashes or cannot start lets the call through, so the gate fails open. It is a
+guardrail, not a boundary. It cannot see text a command builds as it runs (a variable, the output of a
+command or process substitution, a body piped from anything but a plain `cat`, a file named relative to a
+directory the command enters first), a command substitution inside a here-document's text, a program
+other than httpie that reads its body from standard input unasked, the body files of a command another
+shell runs (`bash -c`, a here-document fed to a shell), a body file over 1 MiB, not a regular file, or
+under /proc, /sys or /dev, the commit messages `gh pr create --fill` copies, a GitHub MCP server
+registered under a name without "github", a session that loads no repository hooks (a cloud session with
+several repositories, a local folder not yet trusted, `disableAllHooks`), or a person's own write. So
+this lesson stays in session reading. A check in a workflow would come too late: Codex sees GitHub's
+event when it is sent, before any workflow reads the text.
 
 **Evidence**: #1336 comments 6188268721 (the mention) and 6188281463 (Codex's task reply); #1337's
 `renamed` event (2026-10-15 09:59:05 UTC) and comment 6188792348; #1337's corrected title and body.

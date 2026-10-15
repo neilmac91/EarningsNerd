@@ -14,18 +14,19 @@ contains "github" in any case. It checks
   `gh api` or api.github.com: that text, and the files the line's GitHub writes send as a body. The
   line is read as the shell reads it: newlines and `;`, `&`, `&&`, `||`, `|` and `|&` separate
   commands, a backslash-newline joins two lines, a here-document's text is no command once its end
-  comes (the line that is its word, or `WORD)` inside `$(...)`), a comment's words are read with
-  their quotes inert (so a commented-out write counts), and the text of each command substitution,
-  `$(...)` or backquoted, quoted or not, is read as commands of its own, unless it sits in a
-  here-document's text. A GitHub write is a command in which a word `gh`, or a path ending in `/gh`,
-  starts a `gh pr`/`gh issue` write or `gh api` wherever it stands (`sudo gh api`), or that names
-  api.github.com. Its files: gh's `--body-file`, `-F` (attached too) and `--input`; an `@file` value
-  (gh api's -F key=@file, curl's -d @file, httpie's key=@file); wget's `--post-file` and
-  `--body-file`; curl's `-T` and `--upload-file`; and a file redirected with `<`, or piped from a
-  plain `cat`, into a command that reads its body from standard input: one given `-`, /dev/stdin or
-  /dev/fd/0, and httpie (`http`, `https`, `xh` or `xhs`, wherever it stands), which reads it
-  unasked. Files are read from the event's working directory as they stand before the command runs,
-  each once; one larger than 1 MiB, not a regular file, or under /proc, /sys or /dev is not.
+  comes (the line that is its word or, inside `$(...)`, one that is its word, blanks and a `)`), a
+  comment's words are read with their quotes inert (so a commented-out write counts), and the text
+  of each command substitution, `$(...)` or backquoted, quoted or not, is read as commands of its
+  own, unless it sits in a here-document's text. A GitHub write is a command in which a word `gh`,
+  or a path ending in `/gh`, starts a `gh pr`/`gh issue` write or `gh api` wherever it stands
+  (`sudo gh api`), or that names api.github.com. Its files: gh's `--body-file`, `-F` (attached too)
+  and `--input`; an `@file` value (gh api's -F key=@file, curl's -d @file, httpie's key=@file);
+  wget's `--post-file` and `--body-file`; curl's `-T` and `--upload-file`; and a file redirected
+  with `<`, or piped from a plain `cat`, into a command that reads its body from standard input: one
+  given `-`, /dev/stdin or /dev/fd/0, and httpie (`http`, `https`, `xh` or `xhs`, wherever it
+  stands), which reads it unasked. Files are read from the event's working directory as they stand
+  before the command runs, each once; one larger than 1 MiB, not a regular file, or under /proc,
+  /sys or /dev is not.
 A refusal is a JSON deny on stdout, which Claude Code hands to Claude as the reason; anything else
 exits 0 with no output. A crash exits 1, which Claude Code reports as a hook error and lets the call
 through. The registered command (`python3 -I -S`: standard library only, no PYTHON* variables or
@@ -34,9 +35,10 @@ blocks every Bash command and every GitHub call.
 
 Not checked: text a command builds as it runs (a variable, the output of a command or process
 substitution, a body piped from anything but a plain cat, a file named relative to a directory the
-command changes into first), a command substitution inside a here-document's text, a program other
-than httpie that reads its body from standard input unasked, the body files of a command another
-shell runs (`bash -c '...'`, a here-document fed to a shell), the commit messages
+command changes into first), a command substitution inside a here-document's text, an end bash finds
+inside `$(...)` at a line where other text follows the word before the `)` (`EOFX)`), a program
+other than httpie that reads its body from standard input unasked, the body files of a command
+another shell runs (`bash -c '...'`, a here-document fed to a shell), the commit messages
 `gh pr create --fill` copies, a GitHub MCP server registered under a name without "github", a
 session that loads no repository hooks, and a person's own write.
 Tests: backend/tests/unit/test_codex_mention_guard.py.
@@ -137,8 +139,9 @@ def _script(command: str) -> str:
     return "\n".join([text, *extra])
 
 
-def _scan(command: str, i: int, closer: str, extra: list[str]) -> tuple[str, int]:
-    """The commands from `i` up to `closer` (`)` for a subshell or a substitution, "" for the end)."""
+def _scan(command: str, i: int, closer: str, extra: list[str], comsub: bool = False) -> tuple[str, int]:
+    """The commands from `i` up to `closer` (`)` for a subshell or a substitution, "" for the end);
+    `comsub` when they sit inside a `$(...)`, at any depth."""
     out: list[str] = []
     ends: list[tuple[str, bool]] = []
     while i < len(command):
@@ -161,11 +164,11 @@ def _scan(command: str, i: int, closer: str, extra: list[str]) -> tuple[str, int
             extra.append(_script(text))
             out.append(_literal(text))
         elif command.startswith("$(", i):
-            text, i = _scan(command, i + 2, ")", extra)
+            text, i = _scan(command, i + 2, ")", extra, True)
             extra.append(text)
             out.append("'$()'")  # its text is read on lines of its own
         elif char == "(":
-            text, i = _scan(command, i + 1, ")", extra)
+            text, i = _scan(command, i + 1, ")", extra, comsub)
             out.append("(" + text + ")")
         elif char == "#" and (not out or (out[-1][-1] in WORD_START and out[-1][0] != "\\")):  # `a\ #` is one word
             end = command.find("\n", i)
@@ -180,9 +183,10 @@ def _scan(command: str, i: int, closer: str, extra: list[str]) -> tuple[str, int
             out.append(" ")
             i = heredoc.end()
         elif char == "\n" and ends:
-            body_end = _heredoc_end(command, i + 1, ends, closer)
+            body_end = _heredoc_end(command, i + 1, ends, comsub)
             out.append("\n")
-            i, ends = (i + 1 if body_end is None else body_end), []  # no end: read on, so this over-reads
+            # No end found: read on, as bash does when it finds none.
+            i, ends = (i + 1 if body_end is None else body_end), []
         else:
             out.append(char)
             i += 1
@@ -224,7 +228,7 @@ def _quoted(command: str, i: int, kind: str, extra: list[str]) -> tuple[str, int
             text.append(command[i:end])
             i = end
         elif kind == '"' and command.startswith("$(", i):
-            body, i = _scan(command, i + 2, ")", extra)
+            body, i = _scan(command, i + 2, ")", extra, True)
             extra.append(body)
             text.append("$()")
         else:
@@ -250,34 +254,43 @@ def _backquoted(command: str, i: int) -> tuple[str, int]:
 
 
 @functools.lru_cache(maxsize=4)
-def _line_ends(command: str) -> tuple[dict[str, list[int]], dict[str, list[int]]]:
-    """Each line's text, as written and after its leading tabs, to the offsets just past such lines."""
-    plain: dict[str, list[int]] = {}
-    tabbed: dict[str, list[int]] = {}
-    past = 0
+def _line_index(command: str) -> dict[tuple[str, bool], dict[str, list[int]]]:
+    """Each line's text (as written, and after its leading tabs) to the offsets just past such lines;
+    and, for a line holding a `)`, its text before the first `)` and the blanks before it (as written,
+    and after its leading tabs) to the offsets just past that text."""
+    index: dict[tuple[str, bool], dict[str, list[int]]] = {
+        (kind, tabs): {} for kind in ("line", "paren") for tabs in (False, True)
+    }
+    start = 0
     for line in command.split("\n"):
-        past += len(line) + 1
-        plain.setdefault(line, []).append(past)
-        tabbed.setdefault(line.lstrip("\t"), []).append(past)
-    return plain, tabbed
+        index["line", False].setdefault(line, []).append(start + len(line) + 1)
+        index["line", True].setdefault(line.lstrip("\t"), []).append(start + len(line) + 1)
+        if ")" in line:
+            word = line[:line.index(")")].rstrip(" \t")
+            index["paren", False].setdefault(word, []).append(start + len(word))
+            index["paren", True].setdefault(word.lstrip("\t"), []).append(start + len(word))
+        start += len(line) + 1
+    return index
 
 
-def _heredoc_end(command: str, i: int, ends: list[tuple[str, bool]], closer: str) -> int | None:
+def _heredoc_end(command: str, i: int, ends: list[tuple[str, bool]], comsub: bool) -> int | None:
     """Where the text of these here-documents, from `i`, ends: past the line that is each one's word in
-    turn (after its leading tabs, for <<-), or, inside `$(...)`, just past the word at the start of a
-    line that goes on to the `)`, which bash reads as the end (`EOF)`); None when a word's end never
-    comes."""
+    turn (after its leading tabs, for <<-), or, inside `$(...)`, just past the word of a line that is
+    the word, blanks and a `)`, whichever comes first, as bash reads `EOF)` (its end at a line where
+    other text follows the word before the `)` is not read); None when a word's end never comes."""
+    index = _line_index(command)
     for word, tabs in ends:
-        pasts = _line_ends(command)[tabs].get(word, [])
-        k = bisect.bisect_right(pasts, i)
-        if closer:
-            closing = re.compile("^" + ("\t*" if tabs else "") + re.escape(word) + "(?=[ \t]*" + re.escape(closer) + ")", re.M)
-            match = closing.search(command, i, pasts[k] if k < len(pasts) else len(command))
-            if match:
-                return match.end()
-        if k == len(pasts):
+        lines = index["line", tabs].get(word, [])
+        k = bisect.bisect_right(lines, i)
+        end = lines[k] if k < len(lines) else None
+        if comsub:
+            parens = index["paren", tabs].get(word, [])
+            j = bisect.bisect_left(parens, i)
+            if j < len(parens) and (end is None or parens[j] < end):
+                return parens[j]
+        if end is None:
             return None
-        i = pasts[k]
+        i = end
     return i
 
 
