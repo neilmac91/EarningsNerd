@@ -17,7 +17,7 @@ One fresh read-only records lens found zero blockers, zero should-fix items and 
 Run from the repository root:
 
 ```sh
-python tasks/design-system-review-2026-10/data/validate_records.py
+python tasks/design-system-review-2026-10/data/validate_records.py --base 1f12fc835fcbf525042473ab0e988b4827734f38
 git diff --check
 ```
 
@@ -66,9 +66,12 @@ Pinned-tree probe: PASS (changed worktree, deleted worktree file, absent pinned 
 
 The complete records validator passes again with the counts above. No application file or gate configuration changed.
 
-The follow-up scope review found that a clean committed application change was invisible to git status. The validator now compares `--base` (defaulting to the captured baseline) with the current HEAD, unions those paths with pending changes, and disables rename detection so both the removed and added paths are checked. It validates record contents in the current checkout, including pending edits. To review another revision, check it out first. The briefly introduced `--head` option was removed after review showed that an arbitrary head could select a scope range unrelated to the record contents. The independent records reviewer inspected the pinned-source and committed-scope helpers and found no material false-pass issue in those helpers.
+The follow-up scope review found that a clean committed application change was invisible to git status. The validator now compares the required `--base` argument with the current HEAD, unions those paths with pending changes, and disables rename detection so both the removed and added paths are checked. Choose the actual base of the reviewed change: the archived command above uses this branch's fork point. After rebasing onto newer main, use the new branch base. To verify a merged PR, check out its merge commit and use that commit's first parent; for a squash commit, use its parent. Do not reuse the captured source SHA merely because it appears in this record. Immutable source citations always retain their captured revision, independently of this scope argument. Omitting the base fails with usage guidance instead of silently including unrelated main changes.
+
+The validator checks record contents in the current checkout, including pending edits. To review another revision, check it out first. The briefly introduced `--head` option was removed after review showed that an arbitrary head could select a scope range unrelated to the record contents. The independent records reviewer inspected the pinned-source and committed-scope helpers and found no material false-pass issue in those helpers.
 
 ```text
 Scope probe: PASS (records-only commit accepted; clean committed application change and source-to-record rename rejected)
 Checkout CLI probe: PASS (arbitrary --head rejected before validation)
+Explicit-base probe: PASS (missing base rejected; unrelated main changes excluded; reviewed application change rejected)
 ```

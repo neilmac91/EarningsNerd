@@ -6,7 +6,7 @@ r=Path(__file__).resolve().parents[3];o=r/'tasks/design-system-review-2026-10';a
 files=list(o.rglob('*'))+[archive];md=[p for p in files if p.suffix=='.md'];errors=[];links=0;refs=0
 sha='1f12fc835fcbf525042473ab0e988b4827734f38'
 parser=argparse.ArgumentParser(description='Validate design review records in the current checkout, including pending edits. Scope is checked from the base to HEAD plus pending paths.')
-parser.add_argument('--base',default=sha,help='Base revision for the scope check; defaults to the captured source baseline.')
+parser.add_argument('--base',required=True,help='Actual base commit of the reviewed change for the scope check; independent of the frozen source-citation revision.')
 args=parser.parse_args()
 @lru_cache(maxsize=None)
 def source_text(revision, path):
