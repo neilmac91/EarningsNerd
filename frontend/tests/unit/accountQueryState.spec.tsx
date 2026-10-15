@@ -9,7 +9,7 @@ import type { InternalAxiosRequestConfig } from 'axios'
 import api from '@/lib/api/client'
 import { getCurrentUser, getCurrentUserSafe, login, logout, type CurrentUser } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
-import { logoutAndResetAccount, resetAccountQueries, subscribeAccountQueryReset, acceptLoginAndResetAccount } from '@/features/auth/lib/accountQueryState'
+import { ACCOUNT_QUERY_FAMILIES, logoutAndResetAccount, resetAccountQueries, subscribeAccountQueryReset, acceptLoginAndResetAccount } from '@/features/auth/lib/accountQueryState'
 import { advanceSessionGeneration, clearSessionActive, getSessionGeneration, getExplicitSessionGeneration, assertExplicitSessionGeneration, hasActiveSession, markSessionActive, notifySessionLost } from '@/lib/api/session'
 import { queryKeys } from '@/lib/queryKeys'
 import { refreshAccessToken } from '@/lib/api/refresh'
@@ -355,6 +355,30 @@ describe('account snapshots follow the resolved identity', () => {
     // The previous account's labels and receipts never show to the next account in this tab.
     expect(client.getQueryCache().findAll({ queryKey: queryKeys.wordingReview.all() })).toHaveLength(0)
   })
+
+  it('an account change removes every account-owned snapshot and keeps the shared ones', async () => {
+    const client = newClient()
+    // One entry in each account-owned family; most keys name no reader, so the next account would read them.
+    const owned = [
+      queryKeys.subscription.byUser(1), queryKeys.usage.byUser(1), queryKeys.wordingReview.byFiling(42),
+      queryKeys.savedSummaries(), queryKeys.savedSummaryStatus(5, 1), queryKeys.watchlist(), queryKeys.watchlistInsights(),
+      queryKeys.earningsAlertTickers(), queryKeys.dashboardFeed(), queryKeys.dashboardCalendar(), queryKeys.notifications(),
+      queryKeys.notificationPreferences(), queryKeys.authConnections(), queryKeys.adminInvites(),
+      queryKeys.adminFeedback.list({ status: 'new' }),
+    ]
+    const shared = [
+      queryKeys.company('AAPL'), queryKeys.summary(7), queryKeys.filing(7), queryKeys.registrationConfig(),
+      queryKeys.whatChanged.byViewer(7, 1), // keyed by its reader: the next account reads its own entry
+    ]
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    for (const key of [...owned, ...shared]) client.setQueryData(key, { owner: 1 })
+    markSessionActive()
+    api.defaults.adapter = async (config) => response(config, {})
+    await logoutAndResetAccount(client, logout)
+    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+    expect(owned.filter((key) => client.getQueryData(key) !== undefined)).toEqual([])
+    expect(shared.filter((key) => client.getQueryData(key) === undefined)).toEqual([])
+  })
 })
 
 const frontend = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -366,6 +390,34 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('account query ownership structural gate', () => {
+  it('every query family is classified, and an account change removes exactly the account-owned ones', () => {
+    // A new family in lib/queryKeys.ts fails here until it is placed. An account-owned one joins
+    // ACCOUNT_QUERY_FAMILIES (features/auth/lib/accountQueryState.ts), which logout and login remove.
+    const accountOwned = [
+      'subscription', 'usage', 'wordingReview', 'savedSummaries', 'savedSummaryStatus', 'watchlist', 'watchlistInsights',
+      'earningsAlertTickers', 'dashboardFeed', 'dashboardCalendar', 'notifications', 'notificationPreferences',
+      'authConnections', 'adminInvites', 'adminFeedback',
+    ]
+    const identity = ['currentUser'] // the reset publishes null for it
+    const keyedByTheReader = ['whatChanged']
+    const shared = [
+      'registrationConfig', 'insiders', 'peers', 'calendar', 'fullTextSearch', 'filingFundamentals', 'analysisCoverage',
+      'analysisCompany', 'tickerCompany', 'tickerFilings', 'filing', 'filingContent', 'summary', 'summaryProgress',
+      'company', 'companyFilings', 'companies',
+    ]
+    const classified = [...accountOwned, ...identity, ...keyedByTheReader, ...shared]
+    expect(new Set(classified).size).toBe(classified.length)
+    expect([...classified].sort()).toEqual(Object.keys(queryKeys).sort())
+    type Factory = (...args: unknown[]) => readonly unknown[]
+    const prefixOf = (name: string) => {
+      const entry = (queryKeys as unknown as Record<string, Factory | { all: Factory }>)[name]
+      const factory = typeof entry === 'function' ? entry : entry.all
+      return factory(...Array<unknown>(factory.length).fill('x'))[0]
+    }
+    expect(new Set(ACCOUNT_QUERY_FAMILIES.map((key) => key[0]))).toEqual(new Set(accountOwned.map(prefixOf)))
+    expect(ACCOUNT_QUERY_FAMILIES.every((key) => key.length === 1)).toBe(true) // whole families, by prefix
+  })
+
   it('the canonical fetcher is the only positive current-user publisher', () => {
     const errors: string[] = []
     const identityWrites: string[] = []
