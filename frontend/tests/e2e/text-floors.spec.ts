@@ -1,7 +1,11 @@
+import { readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import path from 'node:path'
 import { test, expect, type Page } from '@playwright/test'
 import { settled } from './fixtures/contrast'
 import { answerApi, API_ORIGIN, PANE, SUMMARY } from './fixtures/filing3Api'
+import { AUTH_ROUTES, isAuthRoute } from '../../lib/authShellRoutes'
+import { STATIC_ENTRIES } from '../../app/sitemap'
 
 /**
  * Text floors on the main routes, read from what Chromium renders (critique v3.1 DC-TERTIARY,
@@ -116,6 +120,88 @@ const ROUTES: Route[] = [
   },
 ]
 
+/**
+ * The rest of the public pages (BG-29), each answered by answerSiteApi (no backend). With ROUTES, this list
+ * covers every route the sitemap's static core names (STATIC_ENTRIES in app/sitemap.ts, which mirrors the
+ * backend's STATIC_PAGES) and every AuthShell route (AUTH_ROUTES in lib/authShellRoutes.ts: /login,
+ * /register, /check-email, /verify-email, /forgot-password and /reset-password), and the census cases below
+ * hold it to both; beyond them it adds /waitlist, /delete-account (the public account-deletion page) and the
+ * flag-off /search 404. A third census case reads every page.tsx under app/, static or dynamic, and fails on one
+ * that no entry visits (a dynamic route by a representative path) unless NOT_VISITED names it with its reason,
+ * so a new public page cannot stay outside the gate in silence. Kept apart from ROUTES so the cases below that pick a route by its index keep theirs.
+ * /waitlist's example falls back to its h2 card here; waitlistPage.spec.tsx reads the outline with the
+ * example loaded.
+ */
+const PUBLIC_ROUTES: Route[] = [
+  { name: 'waitlist', path: '/waitlist', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByLabel('Email address')).toBeVisible() },
+  { name: 'login', path: '/login', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
+  { name: 'register', path: '/register', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
+  { name: 'check email', path: '/check-email', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Check your inbox' })).toBeVisible() },
+  // Opened without the emailed token: /verify-email settles on its failure state, /reset-password shows its invalid-link notice.
+  { name: 'verify email (no token)', path: '/verify-email', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Verification failed' })).toBeVisible() },
+  { name: 'forgot password', path: '/forgot-password', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
+  { name: 'reset password (no token)', path: '/reset-password', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Choose a new password' })).toBeVisible() },
+  { name: 'contact', path: '/contact', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
+  { name: 'privacy', path: '/privacy', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeVisible() },
+  { name: 'terms', path: '/terms', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible() },
+  { name: 'security', path: '/security', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Security' })).toBeVisible() },
+  { name: 'delete account', path: '/delete-account', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Delete your account' })).toBeVisible() },
+  // CI builds with NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH off, so /search is the 404 page (app/search/layout.tsx).
+  { name: 'search (flag off)', path: '/search', status: 404, open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible() },
+]
+
+
+/**
+ * The pages under app/ that no entry visits, by route pattern, each with its reason. A pattern listed here that
+ * the census does visit, or that no longer exists, fails the census case too, so a reason cannot outlive its page.
+ */
+const NOT_VISITED: Record<string, string> = {
+  '/admin/feedback': 'admin only, no admin session in this e2e; admin-feedback-page.spec.tsx pins its outline',
+  '/admin/invites': 'admin only, no admin session in this e2e; admin-invites-page.spec.tsx pins its outline',
+  '/analysis': 'Multi-Period Analysis renders from the API; its surface is brand-analysis (#1299), which adds its entry',
+  '/calendar': 'the earnings calendar renders from the API; its surface is brand-calendar-search (#1301), which adds its entry',
+  '/dashboard/settings': 'signed-in settings; its surface is brand-settings-subscriptions (#1291), which adds its entry',
+  '/labs/filing-redlines': 'a labs prototype outside the brand series (tasks/todo.md E26)',
+  '/labs/financial-refresh-review': 'a labs prototype outside the brand series (tasks/todo.md E26)',
+  '/labs/research-evidence-packs': 'a labs prototype outside the brand series (tasks/todo.md E26)',
+}
+
+/**
+ * Every route under app/ (a page.tsx) as its pattern: a dynamic segment stays as written (`/company/[ticker]`,
+ * `/filing/[id]`), and a route group's parentheses add no segment.
+ */
+function appRoutePatterns(): string[] {
+  const root = path.resolve(__dirname, '../../app')
+  const routes: string[] = []
+  const walk = (dir: string, segments: string[]) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        walk(path.join(dir, entry.name), /^\(.*\)$/.test(entry.name) ? segments : [...segments, entry.name])
+      } else if (entry.name === 'page.tsx') routes.push('/' + segments.join('/'))
+    }
+  }
+  walk(root, [])
+  return routes.sort()
+}
+
+/**
+ * Whether a visited path is an instance of a route pattern: segment by segment, a literal segment must match,
+ * a dynamic one (`[id]`) takes any one segment, a catch-all (`[...rest]`) the rest, an optional catch-all
+ * (`[[...rest]]`) the rest or nothing.
+ */
+function isInstance(pattern: string, visitedPath: string): boolean {
+  const want = pattern.split('/').filter(Boolean)
+  const have = visitedPath.split('/').filter(Boolean)
+  for (let i = 0; i < want.length; i += 1) {
+    const segment = want[i]
+    if (segment.startsWith('[[...')) return true
+    if (segment.startsWith('[...')) return have.length > i
+    if (have[i] === undefined) return false
+    if (!segment.startsWith('[') && segment !== have[i]) return false
+  }
+  return have.length === want.length
+}
+
 async function visit(page: Page, baseURL: string, route: Route) {
   await page.addInitScript(() => {
     try {
@@ -128,7 +214,8 @@ async function visit(page: Page, baseURL: string, route: Route) {
   const response = await page.goto(route.path)
   if (route.status) expect(response?.status()).toBe(route.status)
   await route.ready(page)
-  await expect(page.getByRole('contentinfo')).toBeVisible()
+  // The auth pages render in AuthShell, which has no site footer: the shell's own route list says which.
+  if (!isAuthRoute(route.path)) await expect(page.getByRole('contentinfo')).toBeVisible()
   await page.evaluate(() => document.fonts.ready)
 }
 
@@ -192,7 +279,7 @@ const headingSkips = (page: Page) =>
 test.describe('main routes at 1440x900, light theme', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  for (const route of ROUTES) {
+  for (const route of [...ROUTES, ...PUBLIC_ROUTES]) {
     test(`${route.name}: muted ink clears AA and the heading outline skips no level`, async ({ page, baseURL }) => {
       await visit(page, baseURL!, route)
       await page.mouse.move(0, 0)
@@ -214,9 +301,54 @@ test.describe('main routes at 1440x900, light theme', () => {
       const outline = await headingSkips(page)
       expect.soft(outline.dom, `skipped heading levels on ${route.name} (DOM order)`).toEqual([])
       expect.soft(outline.exposed, `skipped heading levels on ${route.name} (accessibility tree)`).toEqual([])
-      expect.soft(outline.footer.join(' '), 'the footer opens its own h2 before its h3 column titles').toMatch(/^H2( H3)+$/)
+      if (!isAuthRoute(route.path)) expect.soft(outline.footer.join(' '), 'the footer opens its own h2 before its h3 column titles').toMatch(/^H2( H3)+$/)
     })
   }
+
+  // The declared scope: a route added to the sitemap's static core fails this case until the census visits it.
+  test('the census visits every route in the sitemap static core', () => {
+    const visited = [...ROUTES, ...PUBLIC_ROUTES].map((route) => route.path)
+    for (const { url } of STATIC_ENTRIES) {
+      const path = new URL(url).pathname
+      expect.soft(visited, `${path} is in STATIC_ENTRIES (app/sitemap.ts) but no ROUTES or PUBLIC_ROUTES entry visits it`).toContain(path)
+    }
+  })
+
+  // Likewise for the auth pages: a route added to the AuthShell list fails this case until the census visits it.
+  test('the census visits every route in the auth list', () => {
+    const visited = [...ROUTES, ...PUBLIC_ROUTES].map((route) => route.path)
+    for (const path of AUTH_ROUTES) {
+      expect.soft(visited, `${path} is in AUTH_ROUTES (lib/authShellRoutes.ts) but no ROUTES or PUBLIC_ROUTES entry visits it`).toContain(path)
+    }
+  })
+
+  // And the whole app: every page.tsx under app/, static or dynamic, has a visited path that is an instance of
+  // its route pattern (ROUTES, PUBLIC_ROUTES or a card state; /company/AAPL for /company/[ticker], /filing/3 for
+  // /filing/[id]), or NOT_VISITED names the pattern with its reason; a reason for a pattern that is visited or
+  // gone fails too. Codex's reviews of 80bb520e, 79336f81, 26478baa and 62d3fbe0 each found a route the lists
+  // above had missed or could miss; this case reads the inventory itself instead of a list retyped from it.
+  test('the census visits every page under app/, static or dynamic, or names why not', () => {
+    const visited = [...ROUTES, ...PUBLIC_ROUTES, ...CARD_STATES.map((state) => state.route)].map((route) => route.path)
+    const patterns = appRoutePatterns()
+    expect(patterns.length, 'the app directory walk reads the pages').toBeGreaterThan(20)
+    expect(patterns, 'the walk keeps a dynamic segment as written').toContain('/company/[ticker]')
+    const covered = (pattern: string) => visited.some((visitedPath) => isInstance(pattern, visitedPath))
+    for (const pattern of patterns) {
+      if (covered(pattern)) continue
+      expect.soft(NOT_VISITED[pattern], `${pattern} has a page.tsx but no ROUTES, PUBLIC_ROUTES or card-state path is an instance of it, and NOT_VISITED gives no reason`).toBeTruthy()
+    }
+    for (const pattern of Object.keys(NOT_VISITED)) {
+      expect.soft(patterns, `${pattern} is in NOT_VISITED but has no page.tsx: delete its reason`).toContain(pattern)
+      expect.soft(covered(pattern), `${pattern} is in NOT_VISITED and the census visits it: delete its reason`).toBe(false)
+    }
+    // Anti-vacuity for the matcher: a literal mismatch, a dynamic segment, a catch-all and an optional catch-all.
+    expect(isInstance('/company/[ticker]', '/company/AAPL')).toBe(true)
+    expect(isInstance('/company/[ticker]', '/filing/3')).toBe(false)
+    expect(isInstance('/company/[ticker]', '/company')).toBe(false)
+    expect(isInstance('/docs/[...slug]', '/docs/a/b')).toBe(true)
+    expect(isInstance('/docs/[...slug]', '/docs')).toBe(false)
+    expect(isInstance('/docs/[[...slug]]', '/docs')).toBe(true)
+  })
 })
 
 /**

@@ -176,6 +176,24 @@ describe('CompanySearch dropdown', () => {
     fireEvent.click(screen.getByRole('option'))
     expect(push).toHaveBeenCalledWith('/company/AAPL')
   })
+
+  it('rings a result row that takes keyboard focus, inset so the listbox does not clip it (CO-11)', async () => {
+    vi.mocked(searchCompanies).mockResolvedValue([APPLE])
+    renderSearch()
+    type('apple')
+
+    const option = await screen.findByRole('option', {}, { timeout: 3000 })
+    expect(option.className).toContain('focus-visible:shadow-ring-brand-inset')
+    expect(option.className).toContain('dark:focus-visible:shadow-ring-brand-inset-dark')
+  })
+
+  it('states its scope when nothing matches: a company with a ticker on SEC EDGAR (CO-09)', async () => {
+    vi.mocked(searchCompanies).mockResolvedValue([])
+    renderSearch()
+    type('zzzz')
+
+    expect(await screen.findByText('No company with a ticker on SEC EDGAR matches "zzzz".', {}, { timeout: 3000 })).toBeInTheDocument()
+  })
 })
 
 describe('CompanySearch accessible name', () => {
@@ -196,6 +214,11 @@ describe('CompanySearch accessible name', () => {
   it('keeps its own aria-label by default (every other call site)', () => {
     renderSearch()
     expect(screen.getByRole('combobox', { name: 'Search for a company' })).toBeInTheDocument()
+  })
+
+  it("defaults to the landing hero's placeholder, which promises no particular company (CO-09)", () => {
+    renderSearch()
+    expect(screen.getByRole('combobox')).toHaveAttribute('placeholder', 'Search company or ticker')
   })
 })
 

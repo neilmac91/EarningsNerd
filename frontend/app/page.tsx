@@ -17,10 +17,6 @@ import { fetchExampleData, fetchReportingThisWeek, fetchSignupConfig } from '@/l
 
 const SITE_URL = 'https://www.earningsnerd.io'
 
-// The reader-quote slot is designed and built but stays unrendered until a real reader supplies a
-// quote (design tweak `showQuoteSlot`, off). No placeholder testimonial ever ships.
-const SHOW_QUOTE_SLOT = false
-
 const DESCRIPTION =
   'AI summaries of 10-Ks and 10-Qs for investors who still check the source. Figures are checked against the company’s XBRL where they can be, and quotes against the filing’s own text.'
 
@@ -130,8 +126,8 @@ export default async function Home() {
         {/* 7. Pricing */}
         <PricingSection accessMode={accessMode} showBeta={showBeta} />
 
-        {/* Reader quote: designed, unrendered until a real quote exists */}
-        {SHOW_QUOTE_SLOT && <ReaderQuoteSlot />}
+        {/* Reader quote: renders nothing until a real reader's words fill READER_QUOTE (no placeholder ever ships) */}
+        <ReaderQuoteSlot />
 
         {/* 8. Reporting this week — omits itself entirely when there is no live data */}
         <ReportingThisWeek data={reportingThisWeek} />
