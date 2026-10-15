@@ -103,6 +103,11 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     '<span className="uppercase tracking-eyebrow"><Eyebrow>{form}</Eyebrow></span>',
     // Sibling wrappers whose lead is a word, not a form, are copy.
     '<span className="uppercase tracking-eyebrow"><span>Latest</span> <span>{filing.form}</span></span>',
+    // A reset on every path of the class value sets a face of its own: both arms of a conditional, a cx() argument.
+    "<span className=\"uppercase tracking-eyebrow\"><span className={plain ? 'normal-case tracking-normal' : 'normal-case'}>{form}</span></span>",
+    "<span className=\"uppercase tracking-eyebrow\"><span className={cx('normal-case', size)}>{form}</span></span>",
+    // A same-file binding's reset is read by its class-shaped initializer.
+    "const PLAIN = 'normal-case tracking-normal'\nexport const Code = ({ form }) => <span className=\"uppercase tracking-eyebrow\"><span className={PLAIN}>{form}</span></span>",
     // A component is judged by its own rule (Badge above), not as a hand-rolled chip.
     '<Eyebrow className="uppercase tracking-eyebrow">{form}</Eyebrow>',
     // A same-file class binding is read as an inline class is: one that is not the eyebrow recipe passes
@@ -152,6 +157,11 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     { code: '<span className="uppercase tracking-eyebrow"><span><span><span><span>{form}</span></span></span></span></span>', errors: [{ messageId: 'chip' }] },
     // A fragment renders its children in place.
     { code: '<span className="uppercase tracking-eyebrow"><>{form}</> · Filed {ago}</span>', errors: [{ messageId: 'chip' }] },
+    // A reset on one path of the class value leaves the face on in the other; a blank expression is not the lead.
+    { code: "<span className=\"uppercase tracking-eyebrow\"><span className={plain ? 'normal-case' : ''}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className=\"uppercase tracking-eyebrow\"><span className={cx(plain && 'normal-case')}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
+    { code: "const PLAIN = cx(plain && 'normal-case')\nexport const Code = ({ form }) => <span className=\"uppercase tracking-eyebrow\"><span className={PLAIN}>{form}</span></span>", errors: [{ messageId: 'chip' }] },
+    { code: "<span className=\"uppercase tracking-eyebrow\">{' '}{form}</span>", errors: [{ messageId: 'chip' }] },
     { code: '<Badge>F-10</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<span className="uppercase tracking-eyebrow">{"SF-3 · Filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
     // A meta line's separator may be a comma, a colon or semicolon, or a dash set off by a space, not only a middot.

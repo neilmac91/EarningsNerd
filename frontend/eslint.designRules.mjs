@@ -224,29 +224,86 @@ const classTokens = (node, keys, binding) => {
 }
 // An inner element that resets the recipe (`normal-case`, or a letter-spacing of its own) is a face of its own, when it
 // resets it unconditionally: a reset under a variant (`sm:normal-case`, `dark:tracking-normal`) leaves the chip's face
-// on in the other branches (a phone, the light theme), so it does not end the reading.
+// on in the other branches (a phone, the light theme), and so does one on a single path of its class value
+// (`plain ? 'normal-case' : ''`, `cx(plain && 'normal-case')`), so neither ends the reading.
 const RESETS_EYEBROW = /^(normal-case|tracking-(?!eyebrow$)[\w[\]-]+)$/
+const intersect = (a, b) => new Set([...a].filter((token) => b.has(token)))
+/** The class tokens a class value sets on every path it can take: a string's, a template's whole static tokens, both
+ *  arms' of a conditional, both sides' of `||` and `??`, every argument's of a cx()/clsx() call, and a same-file
+ *  binding's by its class-shaped initializer (`init`). `a && b`, and anything else, guarantees nothing; `seen` stops
+ *  a binding that reads itself. */
+function guaranteedTokens(raw, init, seen = new Set()) {
+  const node = unwrapTs(raw)
+  const words = (text) => text.split(/\s+/).filter(Boolean)
+  if (!node) return new Set()
+  if (node.type === 'JSXExpressionContainer') return guaranteedTokens(node.expression, init, seen)
+  if (node.type === 'Literal') return new Set(typeof node.value === 'string' ? words(node.value) : [])
+  if (node.type === 'TemplateLiteral') {
+    const out = new Set()
+    node.quasis.forEach((quasi, i) => {
+      const text = quasi.value.cooked ?? quasi.value.raw
+      const parts = words(text)
+      // A token that touches a substitution is not whole.
+      if (i > 0 && !/^\s/.test(text)) parts.shift()
+      if (i < node.quasis.length - 1 && !/\s$/.test(text)) parts.pop()
+      for (const part of parts) out.add(part)
+    })
+    return out
+  }
+  if (node.type === 'ConditionalExpression') {
+    return intersect(guaranteedTokens(node.consequent, init, seen), guaranteedTokens(node.alternate, init, seen))
+  }
+  if (node.type === 'LogicalExpression') {
+    return node.operator === '&&' ? new Set() : intersect(guaranteedTokens(node.left, init, seen), guaranteedTokens(node.right, init, seen))
+  }
+  if (node.type === 'CallExpression' && node.callee.type === 'Identifier' && CLASS_HELPER.test(node.callee.name)) {
+    const out = new Set()
+    for (const arg of node.arguments) for (const token of guaranteedTokens(arg, init, seen)) out.add(token)
+    return out
+  }
+  if (node.type === 'Identifier') {
+    const target = init(node)
+    if (!target || seen.has(target)) return new Set()
+    seen.add(target)
+    return guaranteedTokens(target, init, seen)
+  }
+  return new Set()
+}
+/** Whether an element's class resets the eyebrow face on every path (RESETS_EYEBROW, guaranteedTokens). */
+const resetsFace = (element, init) => {
+  const classAttr = element.openingElement.attributes.find((a) => a.type === 'JSXAttribute' && CHIP_CLASS.test(a.name?.name ?? ''))
+  return !!classAttr && [...guaranteedTokens(classAttr.value, init)].some((token) => RESETS_EYEBROW.test(token))
+}
+/** An expression that renders only whitespace (`{' '}`): passed over in looking for the lead. */
+const isBlank = (expression) => {
+  const node = unwrapTs(expression)
+  return (
+    (node?.type === 'Literal' && typeof node.value === 'string' && node.value.trim() === '') ||
+    (node?.type === 'TemplateLiteral' && node.expressions.length === 0 && (node.quasis[0].value.cooked ?? '').trim() === '')
+  )
+}
 
 /** The lead of an element's content: its first text or expression in document order, read through its HTML
  *  wrappers and fragments at any depth, siblings included, since uppercase and letter-spacing inherit (`<span>{form}</span><span>
  *  · Filed {ago}</span>` inside the chip renders in its face; an empty wrapper, an icon's <i>, is passed over).
- *  Null when a component or a Badge (judged by its own rule) or an element that resets the recipe unconditionally
- *  (a face of its own) comes first; undefined when the content holds no text at all. What follows the lead does
- *  not change the face the lead is set in. */
-function leadChild(node, keys, binding) {
+ *  A blank expression (`{' '}`) is passed over too. Null when a component or a Badge (judged by its own rule) or an
+ *  element that resets the recipe on every path (resetsFace: a face of its own) comes first; undefined when the
+ *  content holds no text at all. What follows the lead does not change the face the lead is set in. */
+function leadChild(node, init) {
   for (const child of meaningfulChildren(node)) {
+    if (child.type === 'JSXExpressionContainer' && isBlank(child.expression)) continue
     if (child.type === 'JSXText' || child.type === 'JSXExpressionContainer') return child
     // A fragment renders its children in place: read through it as through a plain wrapper.
     if (child.type === 'JSXFragment') {
-      const lead = leadChild(child, keys, binding)
+      const lead = leadChild(child, init)
       if (lead !== undefined) return lead
       continue
     }
     if (child.type !== 'JSXElement') return null
     const name = child.openingElement.name
     if (name.type !== 'JSXIdentifier' || !/^[a-z]/.test(name.name)) return null
-    if (classTokens(child, keys, binding).some((token) => RESETS_EYEBROW.test(token))) return null
-    const lead = leadChild(child, keys, binding)
+    if (resetsFace(child, init)) return null
+    const lead = leadChild(child, init)
     if (lead !== undefined) return lead
   }
   return undefined
@@ -260,10 +317,10 @@ function leadChild(node, keys, binding) {
  *  with one as prose (`10-K filings`) is copy; a component, a Badge or a face-resetting element before the lead
  *  ends the reading, and nothing after it does. The children are read first, so a class binding is resolved
  *  only around a form. */
-function isEyebrowFormChip(node, keys, binding) {
+function isEyebrowFormChip(node, keys, binding, init) {
   const name = node.openingElement.name
   if (name.type !== 'JSXIdentifier' || !/^[a-z]/.test(name.name)) return false
-  const lead = leadChild(node, keys, binding)
+  const lead = leadChild(node, init)
   if (!lead || !formNode(lead, keys, FORM_CODE_LEAD)) return false
   const tokens = classTokens(node, keys, binding)
   return EYEBROW_CHIP.every((pattern) => tokens.some((token) => pattern.test(token)))
@@ -297,9 +354,15 @@ export const noFormCodeBadge = {
       seen.add(init)
       return attributeText(init, keys, (inner) => bindingClassText(inner, seen))
     }
+    // The same binding's class-shaped initializer itself, for the reading of what a class sets on every path.
+    const bindingInit = (identifier) => {
+      const def = resolvedVariable(sourceCode, identifier)?.defs[0]
+      const init = def?.type === 'Variable' && def.node.id.type === 'Identifier' ? def.node.init : null
+      return isClassShaped(init) ? init : null
+    }
     return {
       JSXElement(node) {
-        if (isEyebrowFormChip(node, keys, bindingClassText)) {
+        if (isEyebrowFormChip(node, keys, bindingClassText, bindingInit)) {
           return context.report({ node: node.openingElement, messageId: 'chip' })
         }
         if (!isBadge(node.openingElement.name)) return
