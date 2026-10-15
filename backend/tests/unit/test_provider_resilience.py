@@ -591,11 +591,19 @@ async def test_recovery_semaphore_wait_is_inside_parent_deadline(monkeypatch):
         async def generate():
             return await service._recover_missing_sections(["risks"], "10-K", {}, "filing", {})
 
+        deadlines = []
+
+        def recorded_timeout(seconds):
+            deadlines.append(asyncio.timeout(seconds))
+            return deadlines[-1]
+
+        monkeypatch.setattr(requests, "asyncio", SimpleNamespace(**{**vars(asyncio), "timeout": recorded_timeout}))
         monkeypatch.setattr(requests, "SUMMARY_SECONDS", 0.02)
-        started = asyncio.get_running_loop().time()
         with pytest.raises(TimeoutError):
-            await asyncio.wait_for(generate(), 0.2)
-        assert asyncio.get_running_loop().time() - started < 0.15
+            await asyncio.wait_for(generate(), 10)  # a hang guard; the parent's budget must end the wait
+        # The 20 ms budget, the first timeout bounded_summary enters, is the one that fired. A wall-clock
+        # bound (elapsed < 0.15 s against an outer 0.2 s wait_for) only tells them apart on an idle loop.
+        assert [deadline.expired() for deadline in deadlines] == [True]
     assert called == []
 
 
