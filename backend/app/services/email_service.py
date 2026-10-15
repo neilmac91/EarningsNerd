@@ -41,12 +41,14 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
 
     The page sets no viewport: it is 600 px wide, and a mail view fits a page that sets none to its
     screen, where one set to the device's width would leave the panel's right side off it. A view
-    that fits the page to a phone's screen may enlarge its text to keep it readable. The header and
-    the footer line keep the template's ``-webkit-text-size-adjust:100%``, so their lines stay at their
-    set size, scaled with the page: enlarged, the tagline would outgrow the wordmark. The panel leaves
-    its text to the view, which enlarges a body as it did before the header, so a reset link stays
-    readable on a phone. The panel's padding is on its cells, which classic Outlook honours (it
-    ignores a table's), so the body lines up under the header there too.
+    that fits the page to a phone's screen may enlarge text it judges too small. The header keeps the
+    template's ``-webkit-text-size-adjust:100%`` on its table, so its lines stay at their set size,
+    scaled with the page: enlarged, the tagline would outgrow the wordmark. The panel and the footer
+    line leave their text to the view, which enlarges a long body as it did before the header, so
+    there the header can show smaller than the body. The panel breaks a long word, such as a link's
+    token, rather than grow past the header's width once its text is enlarged. Its padding is on its
+    cells, which classic Outlook honours (it ignores a table's), so the body lines up under the header
+    there too.
     """
     # A trailing slash is stripped, as the waitlist's links strip it: a doubled slash answers 308.
     tile_url = f"{settings.FRONTEND_URL.rstrip('/')}{_HEADER_TILE_PATH}"
@@ -90,7 +92,7 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
           </tr>
           <tr>
             <td align="center" style="padding:0 12px 24px 12px;">
-              <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#FBFAF6" style="max-width:600px;background:#FBFAF6;border:1px solid #E5E1D8;border-radius:16px;color:#1A1A17;">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#FBFAF6" style="max-width:600px;background:#FBFAF6;border:1px solid #E5E1D8;border-radius:16px;color:#1A1A17;overflow-wrap:anywhere;word-break:break-word;">
                 <tr>
                   <td style="padding:32px 32px 0 32px;border-radius:15px 15px 0 0;font-size:16px;line-height:1.6;color:#1A1A17;">
                     {body}
@@ -106,7 +108,7 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
           </tr>
           <tr>
             <td align="center" style="padding:0 12px 32px 12px;">
-              <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;-webkit-text-size-adjust:100%;">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
                 <tr>
                   <td style="padding:0 32px;">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">

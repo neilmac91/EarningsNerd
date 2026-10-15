@@ -49,6 +49,10 @@ new mail fails here until it is rendered. Planted modules score that check. What
 - mail built or finished outside ``email_service``: ``routers/contact.py``'s confirmation (E56), the
   internal admin and team notices, and what a caller adds to a page before it sends it
   (``data_quality_service.run_and_email`` appends the report's text copy, as ``_hidden_text`` would).
+
+It also holds every page it renders to the shell's text-size rule, which ``test_mail_header_template.py``
+states and plants: the header keeps its set size on a phone that enlarges text, and every other line, a
+mail's own included, is left to the view.
 """
 import ast
 import html
@@ -66,6 +70,7 @@ from urllib.parse import unquote, urljoin, urlsplit
 import pytest
 
 from app.services import email_service
+from tests.unit.test_mail_header_template import text_size_problems
 
 BACKEND = Path(__file__).resolve().parents[2]
 REPO = BACKEND.parent
@@ -600,6 +605,13 @@ def test_every_address_the_mail_carries_into_the_sites_files_is_registered_and_b
         "path mail shows in frontend/tests/unit/publishedAssetUrls.json in the same PR, and build its address on "
         "settings.FRONTEND_URL.rstrip('/') (LOGO_README.md > Published URLs stay put):\n" + "\n".join(sorted(set(problems)))
     )
+
+
+def test_every_page_sent_keeps_the_headers_set_size_and_leaves_the_rest_to_the_view(rendered):
+    pages = [(name, sent) for name, strings in rendered["mail"].items() for sent in strings if _PAGE.match(sent)]
+    assert len({name for name, _ in pages}) == len(RENDERS), "a render sent no page"
+    problems = [f"{name}: {problem}" for name, page in pages for problem in text_size_problems(page)]
+    assert not problems, "\n".join(sorted(set(problems)))
 
 
 def _img(src: str) -> str:

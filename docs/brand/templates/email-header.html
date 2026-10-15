@@ -9,10 +9,11 @@
   tags and text, the tile's cell aside, so a change to one is a change to the other. Do not link
   this file. The page around them is _wrap_html's own. Its head sets the charset and the
   light-only colour scheme, and no viewport: this preview's viewport is for a browser, while the
-  mail is 600px wide, and a mail view fits a page that sets none to its screen. The header and the
-  footer line set -webkit-text-size-adjust:100%, so a phone view that enlarges text to keep it
-  readable leaves their proportions alone, and the panel's text is left to the view. The panel pads
-  its cells, not its table, since classic Outlook ignores a table's padding.
+  mail is 600px wide, and a mail view fits a page that sets none to its screen. The header sets
+  -webkit-text-size-adjust:100%, so a phone view that enlarges small text leaves its proportions
+  alone; the panel's text and this footer line's are left to the view, so there the header can show
+  smaller than an enlarged body. The panel pads its cells, not its table, since classic Outlook
+  ignores a table's padding.
 
   Client notes. The header's mark is the app tile (earningsnerd-appicon.svg, the cream mark on a
   sage squircle), not the bare mark (D-035). Gmail's and Outlook's apps darken a light-only message,
@@ -104,7 +105,7 @@
     <tr>
       <td align="center" style="padding:0 12px 32px 12px;">
         <!-- Footer line -->
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;-webkit-text-size-adjust:100%;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
           <tr>
             <td style="padding:0 32px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
