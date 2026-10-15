@@ -40,12 +40,13 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
     own ground, and not the bare mark.
 
     The page sets no viewport: it is 600 px wide, and a mail view fits a page that sets none to its
-    screen, where one set to the device's width would leave the panel's right side off it. Its body
-    keeps the template's ``-webkit-text-size-adjust:100%``, so a view that fits the page to a phone's
-    screen shows every line at its set size, scaled with the page; a view that autosizes text
-    enlarges some lines and not others, and the tagline would outgrow the wordmark. The panel's
-    padding is on its cells, which classic Outlook honours (it ignores a table's), so the body lines
-    up under the header there too.
+    screen, where one set to the device's width would leave the panel's right side off it. A view
+    that fits the page to a phone's screen may enlarge its text to keep it readable. The header and
+    the footer line keep the template's ``-webkit-text-size-adjust:100%``, so their lines stay at their
+    set size, scaled with the page: enlarged, the tagline would outgrow the wordmark. The panel leaves
+    its text to the view, which enlarges a body as it did before the header, so a reset link stays
+    readable on a phone. The panel's padding is on its cells, which classic Outlook honours (it
+    ignores a table's), so the body lines up under the header there too.
     """
     # A trailing slash is stripped, as the waitlist's links strip it: a doubled slash answers 308.
     tile_url = f"{settings.FRONTEND_URL.rstrip('/')}{_HEADER_TILE_PATH}"
@@ -57,11 +58,11 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
         <meta name="color-scheme" content="light">
         <meta name="supported-color-schemes" content="light">
       </head>
-      <body style="margin:0;padding:0;background-color:#F4F3EE;-webkit-text-size-adjust:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+      <body style="margin:0;padding:0;background-color:#F4F3EE;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="background-color:#F4F3EE;">
           <tr>
             <td align="center" style="padding:32px 12px 0 12px;">
-              <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="width:600px;max-width:600px;background-color:#F4F3EE;">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="width:600px;max-width:600px;background-color:#F4F3EE;-webkit-text-size-adjust:100%;">
                 <tr>
                   <td style="padding:0 32px 20px 32px;">
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
@@ -105,7 +106,7 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
           </tr>
           <tr>
             <td align="center" style="padding:0 12px 32px 12px;">
-              <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;-webkit-text-size-adjust:100%;">
                 <tr>
                   <td style="padding:0 32px;">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">

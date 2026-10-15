@@ -9,7 +9,9 @@
   tags and text, the tile's cell aside, so a change to one is a change to the other. Do not link
   this file. The page around them is _wrap_html's own. Its head sets the charset and the
   light-only colour scheme, and no viewport: this preview's viewport is for a browser, while the
-  mail is 600px wide, and a mail view fits a page that sets none to its screen. The panel pads
+  mail is 600px wide, and a mail view fits a page that sets none to its screen. The header and the
+  footer line set -webkit-text-size-adjust:100%, so a phone view that enlarges text to keep it
+  readable leaves their proportions alone, and the panel's text is left to the view. The panel pads
   its cells, not its table, since classic Outlook ignores a table's padding.
 
   Client notes. The header's mark is the app tile (earningsnerd-appicon.svg, the cream mark on a
@@ -57,12 +59,12 @@
   }
 </style>
 </head>
-<body style="margin:0;padding:0;background-color:#F4F3EE;-webkit-text-size-adjust:100%;">
+<body style="margin:0;padding:0;background-color:#F4F3EE;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="background-color:#F4F3EE;">
     <tr>
       <td align="center" style="padding:32px 12px 0 12px;">
         <!-- Header block -->
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="width:600px;max-width:600px;background-color:#F4F3EE;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="width:600px;max-width:600px;background-color:#F4F3EE;-webkit-text-size-adjust:100%;">
           <tr>
             <td style="padding:0 32px 20px 32px;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
@@ -102,7 +104,7 @@
     <tr>
       <td align="center" style="padding:0 12px 32px 12px;">
         <!-- Footer line -->
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;-webkit-text-size-adjust:100%;">
           <tr>
             <td style="padding:0 32px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">

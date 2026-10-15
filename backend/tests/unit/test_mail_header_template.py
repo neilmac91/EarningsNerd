@@ -19,6 +19,9 @@ panel and the footer line below it. Around them, the page:
   carries one wordmark, the name split by markup into its two styles: the header's;
 - carries no inline SVG, which Gmail and Outlook drop, and sets no viewport: it is 600 px wide, and a
   mail view fits a page that sets none to its screen;
+- keeps the header and the footer line at their set size where a phone view enlarges text
+  (``-webkit-text-size-adjust:100%`` on their tables), and leaves the panel's text to the view: the
+  body and the panel set no ``text-size-adjust``;
 - pads no table through its ``style`` attribute (the shell has no ``<style>`` block), since classic
   Outlook ignores a table's padding and the body would sit against the panel's border, out of line with
   the header.
@@ -44,6 +47,7 @@ _QUOTED = re.compile(r"""("[^"]*"|'[^']*')""")
 # decoded and the characters that render as nothing (a soft hyphen, a zero-width space) dropped.
 _WORDMARK = re.compile(r"Earnings\s*(?:<[^>]+>\s*)+Nerd", re.IGNORECASE)
 _INVISIBLE = re.compile("[\u00ad\u200b-\u200d\u2060\ufeff]")
+_KEEPS_SET_SIZE = "-webkit-text-size-adjust:100%"
 _VIEWPORT = re.compile(r"""<meta\b[^>]*\bname\s*=\s*["']?viewport\b""", re.IGNORECASE)
 _TABLE_PADDING = re.compile(r"""\bstyle\s*=\s*(?:(["'])(?:(?!\1).)*padding|[^\s"'>]*padding)""", re.IGNORECASE | re.DOTALL)
 
@@ -117,6 +121,10 @@ def test_the_header_and_footer_line_are_the_templates(monkeypatch):
     assert _table(page, footer_line[0]) == footer_line, (
         "the mail's footer line is no longer the template's (docs/brand/templates/email-header.html): change both"
     )
+    assert all(_KEEPS_SET_SIZE in table[0] for table in (header, footer_line)), (
+        "the header and the footer line keep their set size where a phone view enlarges text: enlarged, the tagline "
+        "would outgrow the wordmark"
+    )
     panel = next(t for t in page if t.startswith("<table") and "border:1px solid #E5E1D8" in t)
     assert page.count(header[0]) == 1 and page.count(footer_line[0]) == 1, "the page carries the header and the footer line once each"
     assert page.index(header[0]) < page.index(panel) < page.index(footer_line[0]), (
@@ -138,6 +146,11 @@ def test_the_page_holds_its_slots_and_its_shell_rules():
     wordmarks = _WORDMARK.findall(_INVISIBLE.sub("", html.unescape(shell)))
     assert len(wordmarks) == 1, "the page carries one wordmark, the header's: the name in prose is no wordmark"
 
+    body_tag = next(t for t in tokens if t.lower().startswith("<body"))
+    assert "text-size-adjust" not in (body_tag + "".join(panel)).lower(), (
+        "the panel's text is left to the view, which enlarges it on a phone to keep a reset link readable: set "
+        "text-size-adjust on the header and the footer line alone"
+    )
     assert "<svg" not in page.lower(), "Gmail and Outlook drop inline SVG"
     assert not _VIEWPORT.search(page), "a 600 px page sets no viewport, so a mail view fits it to its screen"
     padded = [t for t in tokens if t.lower().startswith("<table") and _TABLE_PADDING.search(t)]
