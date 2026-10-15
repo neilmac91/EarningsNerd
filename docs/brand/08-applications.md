@@ -203,8 +203,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   upright and "Nerd" italic 600 in the accent, drawn opaque in the bottom-right corner (D-039). The "up to 10 fiscal years or 12 quarters" caps, and
   the /pricing Pro card's "10-year trends", are written from `lib/planLimits.ts`, which mirrors
   `ANALYSIS_MAX_ANNUAL_PERIODS` and `ANALYSIS_MAX_QUARTERLY_PERIODS` in `backend/app/config.py`
-  (`planLimitsLockstep.spec.ts`: no copy types a count of years or quarters, spaced or hyphenated, outside
-  the privacy policy's retention periods).
+  (`planLimitsLockstep.spec.ts`: no copy types a count of years or quarters, in digits or in words up to
+  twelve, spaced, hyphenated or split across markup, outside the privacy policy's retention periods; its
+  header names the forms it leaves to review, each planted in its fixture).
 
 ## 4. The mark's files and the icons
 
