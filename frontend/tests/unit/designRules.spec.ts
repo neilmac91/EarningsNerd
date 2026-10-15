@@ -105,9 +105,14 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     // around a form, and the eyebrow recipe passes on a label that is not a form (FinancialMetricsTable's <dt>).
     "const DATA = 'font-data text-text-primary-light'\nexport const Code = ({ filing }) => <span className={DATA}>{filing.form}</span>",
     "const EYEBROW = 'text-xs uppercase tracking-eyebrow'\nexport const Label = () => <dt className={EYEBROW}>Change</dt>",
+    // Prose that opens with an insider form's name is copy, as it is for a numbered code.
+    '<p className="uppercase tracking-eyebrow">Form 4 filings this week</p>',
   ],
   invalid: [
     { code: '<Badge variant="neutral">{filing.filing_type}</Badge>', errors: [{ messageId: 'badge' }] },
+    // The insider forms are written as words (the search's "Form 4" chip sends `4`): a code to this rule too.
+    { code: '<Badge>Form 4</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<span className="uppercase tracking-eyebrow">Form 4</span>', errors: [{ messageId: 'chip' }] },
     { code: '<Badge variant="neutral">{data.filingType}</Badge>', errors: [{ messageId: 'badge' }] },
     {
       code: "<Badge variant={/10-Q|6-K/i.test(filing.filing_type) ? 'info' : 'neutral'}>{form}</Badge>",
