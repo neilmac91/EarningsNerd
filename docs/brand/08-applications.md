@@ -95,11 +95,12 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   700-level gain and loss inks on their soft grounds with the sign kept, never sage, and the glyph is
   decorative. The feed lead names what it shows ("The latest annual or quarterly report from the
   companies you follow."), the limit banner states the account's own count and nothing about
-  Pro's limit (the pricing claim stays with the founder, F41 on #1311, whose decision also moves the
-  plan strip's "Unlimited summaries" on this page and BillingPanel's "Unlimited"), the search card reads "Find
-  a company by name or ticker", the plan strip's button reads "Manage billing", and the route error
-  boundary is in sentence case with a generic line that names no route ("This page didn't load. The
-  error has been logged."). Tickers are set in the data face.
+  Pro's limit (F41, decided by the founder on 2026-10-15, D-040: "Unlimited" stays on the plan cards
+  and the lines that quote it, the plan strip's "Unlimited summaries" on this page and BillingPanel's
+  "Unlimited" among them, and the fair-use guardrail is stated once, app-wide, after the series, E58),
+  the search card reads "Find a company by name or ticker", the plan strip's button reads "Manage
+  billing", and the route error boundary is in sentence case with a generic line that names no route
+  ("This page didn't load. The error has been logged."). Tickers are set in the data face.
   `earningsnerd/direction-text-tokens` (new ESLint rule) bans the 600-level gain and loss as text, and
   sage on a direction glyph it can see by name (on the glyph, on the element whose ink it inherits, or
   in a map that pairs it with its classes); `tests/unit/whatChangedChip.spec.tsx` holds the chip, whose
