@@ -108,20 +108,28 @@ blocks it writes. Each seam probe matches the marker occurrence adjacent to its 
 
 ## Addendum, 2026-10-15: finding 6 corrected (E28)
 
-- Finding 6 says 5.61.0's fix of `Filing.homepage_url` and `Filing.html()` does not reach `app/`,
-  because `app/` calls neither. It does reach `app/`, indirectly: the summary's section source
-  `app/services/edgar/xbrl_sections.py::_extract_sections_sync` calls `Filing.obj()`, and `obj()`
-  loads the filing's index page through `homepage_url`. On 5.58.0 SEC answers that URL with 403, so
-  the source has returned None for every filing since early October and every 10-K, 10-Q and 20-F
-  summary excerpt comes from the regex extractor. Under 5.62.0 the same app call returns all three
-  sections live for AAPL's 10-K and NVDA's 10-Q
-  ([`../e28-native-sections-2026-10-15/bump_5620_results.jsonl`](../e28-native-sections-2026-10-15/bump_5620_results.jsonl)).
-- So any bump to 5.61.0 or later also switches every eligible summary excerpt back to native sections:
-  a model-input change that `backend/evals/RUNBOOK.md` requires to be measured. In CI's evaluation,
-  summary citation fidelity was 0.97 with native sections (2026-10-03) and 0.84 without them
-  (2026-10-07 and 2026-10-09)
+- Finding 6 says that 5.61.0's fix of `Filing.homepage_url` and `Filing.html()` does not reach
+  `app/`, because `app/` calls neither of them. It does reach `app/`, indirectly. The summary's
+  section source, `app/services/edgar/xbrl_sections.py::_extract_sections_sync`, calls
+  `Filing.obj()`. The report object that `obj()` returns reads its sections through `html()`.
+- On 5.58.0, `html()` re-reads any primary document that opens with an XML declaration (inline XBRL)
+  from the filing's index page. 5.58.0 builds that page's URL without the accession folder, and SEC
+  has answered that form with 403 since early October. So the source returns None for every filing,
+  and each 10-K, 10-Q and 20-F excerpt built since then has come from the regex extractor.
+- Upstream fixed this by two routes. 5.61.0 moved the index URL inside the folder. 5.62.0 also stopped
+  sending an XML-declared document that already contains HTML to the index page. Each route revives
+  the source on its own, and the 5.62.0 route works even with the folderless URL. Under 5.62.0 the same
+  app call returns all three sections live for AAPL's 10-K and NVDA's 10-Q
+  ([`../e28-native-sections-2026-10-15/bump_5620_results.jsonl`](../e28-native-sections-2026-10-15/bump_5620_results.jsonl),
+  [`../e28-native-sections-2026-10-15/upstream_fixes.txt`](../e28-native-sections-2026-10-15/upstream_fixes.txt)).
+- So any bump to 5.61.0 or later also brings native sections back for every eligible excerpt built
+  after it. Stored excerpts are reused, so the October cohort keeps its regex excerpts. This is a
+  model-input change, and `backend/evals/RUNBOOK.md` requires it to be measured. A requirements-only
+  PR does not trigger `eval-baseline` on its own, so the measurement is a dispatched run, priced
+  under the spend rule. In CI's evaluation, summary citation fidelity was 0.97 with native sections
+  (2026-10-03 and 2026-10-04). Without them it was 0.818 to 0.871 (2026-10-07 to 2026-10-15)
   ([`../e28-native-sections-2026-10-15/README.md`](../e28-native-sections-2026-10-15/README.md)).
-- The hold decision itself is unchanged; it rests on the Ford affix and seam regressions. The
-  next replay (6.0) must also land E28's decision first. Until it does,
-  `backend/tests/unit/test_edgartools_sections_revival_tripwire.py` fails any edgartools that builds
-  the index URL inside the accession folder while the section source still calls `obj()`.
+- The hold decision itself is unchanged; it rests on the Ford affix and seam regressions. The next
+  replay (6.0) must also land E28's decision first. Until it does,
+  `backend/tests/unit/test_edgartools_sections_revival_tripwire.py` fails any edgartools other than
+  5.58.0 while the section source holds its `obj()` allow-list entry.

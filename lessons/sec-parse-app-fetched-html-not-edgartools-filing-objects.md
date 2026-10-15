@@ -17,14 +17,17 @@ primary documents, and `edgar.documents.HTMLParser(ParserConfig(form=form)).pars
 (breaker-exempt CPU work, off the event loop). Do not add a `Filing`, `CompanyReport` or `obj()`
 accessor for document text: its requests go through edgartools' client, which the deploy pins to
 the same 1 req/s (`EDGAR_RATE_LIMIT_PER_SEC`) but which the app's limiter, breaker and diagnostics
-never see, and they fail wherever the homepage does not resolve. The two sites that predate the
+never see, and they fail wherever the homepage does not resolve. The three sites that predate the
 rule stay as they are: `xbrl_sections.py` (the summary-section path, which has returned nothing
-since early October because SEC refuses edgartools 5.58.0's index URL; open item E28) and
-`insider_service.py` (Form 4 objects, behind `ENABLE_INSIDER_ACTIVITY`). Part keys differ by
+since early October: edgartools 5.58.0 re-reads inline-XBRL documents from an index URL SEC refuses;
+open item E28),
+`edgar/sixk_extractor.py` (6-K exhibit text, through a getattr wrapper) and `insider_service.py`
+(Form 4 objects, behind `ENABLE_INSIDER_ACTIVITY`). Part keys differ by
 form: a 10-K's Item 1A is Part I, a 10-Q's is Part II; ask for the part first and fall back to
 any part.
 
 **Evidence**: `backend/app/services/filing_section_service.py::parse_item_1a` and its tests in
 `backend/tests/unit/test_filing_section_service.py`; the corpus measures in the body of PR #1286.
 Gate: `backend/tests/unit/test_edgartools_obj_allowlist.py` (every access to the accessor under
-`app/`, the call, a bare `.obj` read that aliases it or `getattr(x, "obj")`, is on its allow-list).
+`app/`, the call, a bare `.obj` read that aliases it or `"obj"` passed by name to `getattr` or a
+wrapper around it, is on its allow-list).

@@ -1,0 +1,6 @@
+httpx2 HTTP Request: GET https://data.sec.gov/submissions/CIK0000320193.json "HTTP/1.1 200 OK"
+httpx2 HTTP Request: GET https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/0000320193-25-000079.txt "HTTP/1.1 200 OK"
+edgartools 5.62.0 folderless -> {'risk': 68163, 'mda': 18238, 'financials': 62223} 1.8s
+httpx2 HTTP Request: GET https://data.sec.gov/submissions/CIK0000320193.json "HTTP/1.1 200 OK"
+httpx2 HTTP Request: GET https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/0000320193-25-000079.txt "HTTP/1.1 200 OK"
+edgartools 5.62.0 as-shipped -> {'risk': 68163, 'mda': 18238, 'financials': 62223} 1.5s
