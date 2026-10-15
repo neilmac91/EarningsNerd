@@ -54,14 +54,14 @@ that are only stored and never looked up, and patterns created once per worker r
 
 **First week on the parallel gate (2026-10-15).** CI completed about 886 parallel pytest steps between
 2026-10-10 and 2026-10-15, with 9 flaky failures (about 1%). Four of the nine show up only as attempt
-1 of a run a re-run turned green, so a query on failed runs finds fewer than half. Every one
-root-caused so far was a real-time race or a shared-state leak. #1213, #1239, #1244, #1276 and #1236 fixed six. Three were still
+1 of a run a re-run turned green, so a query on failed runs finds fewer than half. Each was a race
+(against the wall clock, or a signal against a syscall) or a shared-state leak. #1213, #1239, #1244, #1276 and #1236 fixed six. Three were still
 open on main:
 - The admission test asserted elapsed < 1.2 s and ran 1.22 s.
 - The charge-write test's 0.6 s pipeline deadline expired during a 0.53 s mocked fetch, so no write
   began.
-- A process-group test saw SIGKILL where SIGTERM was due (the PR that added `test_wall_clock_bounds.py`
-  records its root cause).
+- A process-group test's grandchild caught SIGTERM in a Python handler, and about once in a thousand
+  runs missed it for its whole 60 s sleep (`test-child-scripts-wait-for-signals.md`).
 A sweep found four more asserts that held only on an idle loop. Each now asserts on the deadline the
 code enters, or on what the code did, not on how long it took, and `tests/unit/test_wall_clock_bounds.py`
 fails on a new one.
