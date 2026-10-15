@@ -126,11 +126,12 @@ const CALENDAR_FIELD_RULES = ['Date', 'parseISO'].flatMap((ctor) => {
 // The raw-colour rule reads a 6-digit hex (8-digit included) and an rgb(), rgba(), hsl() or hsla()
 // call in either case (`RGB(` is the same colour to a browser), in a string, a template chunk or an
 // arbitrary utility (`shadow-[0_20px_50px_rgba(…)]`), since each is a colour no token governs (BG-19).
-// A 3- or 4-digit hex is read only where it can be nothing but a colour: inside an arbitrary utility
-// (`bg-[#fff]`) or as the whole literal (`'#000a'`); inside copy ("PR #619") it is not. The mirrors
-// above keep their exemption.
+// A 3- or 4-digit hex is read only where it can be nothing but a colour: inside an arbitrary utility or
+// property, at its start or after a colon, an underscore, a parenthesis or a comma (`bg-[#fff]`,
+// `[color:#fff]`, `shadow-[0_0_0_1px_#abc]`), or as the whole literal (`'#000a'`); inside copy
+// ("PR #619") it is not. The mirrors above keep their exemption.
 const DESIGN_HEX_RULE = {
-  selector: 'Literal[value=/#[0-9a-f]{6}|(?:rgba?|hsla?)\\(|\\[#[0-9a-f]{3,4}\\]|^#[0-9a-f]{3,4}$/i]',
+  selector: 'Literal[value=/#[0-9a-f]{6}|(?:rgba?|hsla?)\\(|\\[(?:[^\\]\\s]*[:_(,])?#[0-9a-f]{3,4}(?![0-9a-f])[^\\]\\s]*\\]|^#[0-9a-f]{3,4}$/i]',
   message: 'Raw colour (hex, rgb[a]() or hsl[a]()): use a token (mirrors: motion.ts, financialTone, Chart, chartExport).',
 }
 const DESIGN_PALETTE_RULE = {

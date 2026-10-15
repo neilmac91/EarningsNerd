@@ -425,6 +425,7 @@ describe('the repository config', SLOW, () => {
       '      <time>{new Date(n).toLocaleTimeString()} {new Date(n).toLocaleDateString()}</time>',
       "      <i className=\"bg-[#fff]\" style={{ background: 'RGB(15 23 42)', fill: '#000a', outlineColor: `HSLA(120 20% 40% / 0.5)` }}>{n.toLocaleString('de-DE')}</i>",
       '      <b title="PR #619 and #abcd inside copy stay">{n}</b>',
+      '      <u className="[color:#fff] [background:#000a] shadow-[0_0_0_1px_#abc]">{n}</u>',
       '    </div>',
       '  )',
       '}',
@@ -445,6 +446,8 @@ describe('the repository config', SLOW, () => {
       '6 no-restricted-syntax',
       '6 no-restricted-syntax',
       '6 no-restricted-syntax',
+      // A short hex inside an arbitrary property or after a separator in an arbitrary value is a colour too.
+      '8 no-restricted-syntax',
     ])
     // The formatter module is the one place a formatter is built and pins en-US itself, so the rule reads it
     // like any other file: a bare call added there fails.
