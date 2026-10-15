@@ -26,9 +26,10 @@ _ALERT_FOOTER = (
 _HEADER_TILE_PATH = "/assets/earningsnerd-appicon.png"
 
 # A line that prints a run with nowhere to break may break it anywhere: a link with its token, a report's
-# hash, or the reader's name, which may be an address typed as a name. Once a phone view enlarges the run, it
-# would widen the panel past the header. On those lines alone, not on the panel: there it would reach a
-# body's own table and split a column of amounts.
+# hash, or the reader's name, which may be an address typed as a name. Unbroken, the run would hold the fluid
+# panel wider than a phone's screen, and widen it past the header where a view fits a wider page to its screen
+# and enlarges its text. On those lines alone, not on the panel: there it would reach a body's own table and
+# split a column of amounts.
 _BREAK_ANYWHERE = "overflow-wrap:anywhere;word-break:break-word;"
 
 
@@ -45,16 +46,16 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
     recolour its text and leave its images alone, which is why the header carries the tile, on its
     own ground, and not the bare mark.
 
-    The page sets no viewport: it is 600 px wide, and a mail view fits a page that sets none to its
-    screen, where one set to the device's width would leave the panel's right side off it. A view
-    that fits the page to a phone's screen may enlarge text it judges too small. The header keeps the
-    template's ``-webkit-text-size-adjust:100%`` on its table, so its lines stay at their set size,
-    scaled with the page: enlarged, the tagline would outgrow the wordmark. The panel and the footer
-    line leave their text to the view, which enlarges a long body as it did before the header, so
-    there the header can show smaller than the body, and on a phone narrower than about 350 px smaller
-    than the panel's small print and the footer line too. A line that prints a run with nowhere to
-    break, such as a link with its token or the reader's name, carries ``_BREAK_ANYWHERE``, so the run
-    cannot widen the panel past the header once it is enlarged. The panel's padding is on its cells, which classic
+    The page is fluid: the header, the panel and the footer line each take the screen's width up to
+    600 px (``width:100%;max-width:600px``), and the head sets the template's viewport, so a phone lays
+    the page out at its own width and shows the text at its set size, the 16 px body at 16 px. Classic
+    Outlook reads no ``max-width``, so each sits in a 600 px table that only its conditional comments
+    show. A line that prints a run with nowhere to break, such as a link with its token or the reader's
+    name, carries ``_BREAK_ANYWHERE``, so the run cannot hold the page wider than a phone's screen. A
+    view that ignores the viewport, and fits a wider page to its screen, may enlarge text it judges too
+    small: the header keeps the template's ``-webkit-text-size-adjust:100%`` on its table, so its lines
+    keep their proportions there (enlarged, the tagline would outgrow the wordmark), and the panel and
+    the footer line leave their text to the view. The panel's padding is on its cells, which classic
     Outlook honours (it ignores a table's), so the body lines up under the header there too.
     """
     # A trailing slash is stripped, as the waitlist's links strip it: a doubled slash answers 308.
@@ -64,6 +65,7 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
     <html lang="en">
       <head>
         <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="color-scheme" content="light">
         <meta name="supported-color-schemes" content="light">
       </head>
@@ -71,7 +73,8 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="background-color:#F4F3EE;">
           <tr>
             <td align="center" style="padding:32px 12px 0 12px;">
-              <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="width:600px;max-width:600px;background-color:#F4F3EE;-webkit-text-size-adjust:100%;">
+              <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="width:100%;max-width:600px;background-color:#F4F3EE;-webkit-text-size-adjust:100%;">
                 <tr>
                   <td style="padding:0 32px 20px 32px;">
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
@@ -95,11 +98,13 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
                   <td style="padding:16px 32px 28px 32px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-0.2px;color:#1A1A17;">The summary that <!--[if mso]>shows its work<![endif]--><!--[if !mso]><!--><span style="font-size:5.187px;line-height:0;vertical-align:-1.091px;background-color:#ECF2EE;border-bottom:2px solid #CFE0D6;white-space:nowrap;"><span style="font-size:18px;line-height:0;vertical-align:1.091px;">shows its work</span></span><!--<![endif]-->.</td>
                 </tr>
               </table>
+              <!--[if mso]></td></tr></table><![endif]-->
             </td>
           </tr>
           <tr>
             <td align="center" style="padding:0 12px 24px 12px;">
-              <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#FBFAF6" style="max-width:600px;background:#FBFAF6;border:1px solid #E5E1D8;border-radius:16px;color:#1A1A17;">
+              <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#FBFAF6" style="width:100%;max-width:600px;background:#FBFAF6;border:1px solid #E5E1D8;border-radius:16px;color:#1A1A17;">
                 <tr>
                   <td style="padding:32px 32px 0 32px;border-radius:15px 15px 0 0;font-size:16px;line-height:1.6;color:#1A1A17;">
                     {body}
@@ -111,11 +116,13 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
                   </td>
                 </tr>
               </table>
+              <!--[if mso]></td></tr></table><![endif]-->
             </td>
           </tr>
           <tr>
             <td align="center" style="padding:0 12px 32px 12px;">
-              <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+              <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
                 <tr>
                   <td style="padding:0 32px;">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -124,9 +131,10 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:14px 32px 0 32px;font-family:-apple-system,BlinkMacSystemFont,Inter,'Segoe UI',Arial,sans-serif;font-size:12px;line-height:18px;color:#374151;">Data sourced from SEC EDGAR. Not investment advice.</td>
+                  <td style="padding:14px 32px 0 32px;font-family:-apple-system,BlinkMacSystemFont,Inter,'Segoe UI',Arial,sans-serif;font-size:12px;line-height:18px;color:#374151;">Filing data sourced from SEC EDGAR. Not investment advice.</td>
                 </tr>
               </table>
+              <!--[if mso]></td></tr></table><![endif]-->
             </td>
           </tr>
         </table>

@@ -1,19 +1,22 @@
 <!doctype html>
 <!--
-  Email header and footer line, 600px wide: table layout with inline styles, as mail clients need.
+  Email header and footer line, a fluid column up to 600px: table layout with inline styles, as mail
+  clients need.
 
   Where the real thing renders: backend/app/services/email_service.py, _wrap_html, which wraps the
-  body of every mail that module builds in a cream page and a 600px panel, with this header
-  (lockup, hairline, marked tagline) above the panel and this footer line below it. Its markup is
-  this file's, ported: backend/tests/unit/test_mail_header_template.py holds the two to the same
-  tags and text, the tile's cell aside, so a change to one is a change to the other. Do not link
-  this file. The page around them is _wrap_html's own. Its head sets the charset and the
-  light-only colour scheme, and no viewport: this preview's viewport is for a browser, while the
-  mail is 600px wide, and a mail view fits a page that sets none to its screen. The header sets
-  -webkit-text-size-adjust:100%, so a phone view that enlarges small text leaves its proportions
-  alone; the panel's text and this footer line's are left to the view, so there the header can show
-  smaller than an enlarged body, and on a phone narrower than about 350px smaller than this footer
-  line too. The panel pads its cells, not its table, since classic Outlook ignores a table's padding.
+  body of every mail that module builds in a cream page and a panel, with this header (lockup,
+  hairline, marked tagline) above the panel and this footer line below it. Its markup is this file's,
+  ported: backend/tests/unit/test_mail_header_template.py holds the two to the same tags and text,
+  cell by cell, the tile's cell aside, so a change to one is a change to the other. Do not link this
+  file. The page around them is _wrap_html's own. Its head sets the charset, this file's viewport and
+  the light-only colour scheme. The header, the panel and the footer line each take the screen's
+  width up to 600px (width:100%;max-width:600px), so a phone lays the page out at its own width and
+  shows the text at its set size. Classic Outlook reads no max-width, so each sits in a 600px table
+  that only Outlook's conditional comments show. The header sets -webkit-text-size-adjust:100%, so a
+  view that fits a wider page to a phone's screen and enlarges small text leaves its proportions
+  alone; the panel's text and this footer line's are left to the view. The panel pads its cells, not
+  its table, since classic Outlook ignores a table's padding. The footer line names filing data, since
+  an earnings-day alert carries a provider's report dates.
 
   Client notes. The header's mark is the app tile (earningsnerd-appicon.svg, the cream mark on a
   sage squircle), not the bare mark (D-035). Gmail's and Outlook's apps darken a light-only message,
@@ -65,7 +68,8 @@
     <tr>
       <td align="center" style="padding:32px 12px 0 12px;">
         <!-- Header block -->
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="width:600px;max-width:600px;background-color:#F4F3EE;-webkit-text-size-adjust:100%;">
+        <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F3EE" style="width:100%;max-width:600px;background-color:#F4F3EE;-webkit-text-size-adjust:100%;">
           <tr>
             <td style="padding:0 32px 20px 32px;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
@@ -99,13 +103,15 @@
             <td style="padding:16px 32px 28px 32px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-0.2px;color:#1A1A17;">The summary that <!--[if mso]>shows its work<![endif]--><!--[if !mso]><!--><span style="font-size:5.187px;line-height:0;vertical-align:-1.091px;background-color:#ECF2EE;border-bottom:2px solid #CFE0D6;white-space:nowrap;"><span style="font-size:18px;line-height:0;vertical-align:1.091px;">shows its work</span></span><!--<![endif]-->.</td>
           </tr>
         </table>
+        <!--[if mso]></td></tr></table><![endif]-->
       </td>
     </tr>
     <!-- Body: _wrap_html puts its panel, which holds {body} and {footer}, in a row of its own here. -->
     <tr>
       <td align="center" style="padding:0 12px 32px 12px;">
         <!-- Footer line -->
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+        <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
           <tr>
             <td style="padding:0 32px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -114,9 +120,10 @@
             </td>
           </tr>
           <tr>
-            <td style="padding:14px 32px 0 32px;font-family:-apple-system,BlinkMacSystemFont,Inter,'Segoe UI',Arial,sans-serif;font-size:12px;line-height:18px;color:#374151;">Data sourced from SEC EDGAR. Not investment advice.</td>
+            <td style="padding:14px 32px 0 32px;font-family:-apple-system,BlinkMacSystemFont,Inter,'Segoe UI',Arial,sans-serif;font-size:12px;line-height:18px;color:#374151;">Filing data sourced from SEC EDGAR. Not investment advice.</td>
           </tr>
         </table>
+        <!--[if mso]></td></tr></table><![endif]-->
       </td>
     </tr>
   </table>

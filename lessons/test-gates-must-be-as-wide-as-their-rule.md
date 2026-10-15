@@ -83,8 +83,11 @@ as a mark, not a second walk of its own.
 a mail carries, the markup a page holds), a reader of the source follows a value only as far as its
 syntax reaches. Run the code and read what it emits. Hold the runs to the emitting module's whole
 public surface, not to the callers of one function, with inputs a coverage check holds to every line
-of the module, and read what leaves it (what a sender sends, not what a helper returns). Keep the
-source scan for the code no run reaches, and name in each gate's header what it cannot see.
+of the module and a second check holds to the lengths callers send, and read what leaves it (what a
+sender sends, not what a helper returns). Keep the source scan for the code no run reaches, and name in
+each gate's header what it cannot see. Where reading the output needs a model of its reader (how a
+browser reads a page), parse as the sources of truth do, and take what each parsed value means from the
+grammar or score it against the reader itself, not from a table written from memory.
 
 Corollary for the anti-vacuity floor: assert the scanner actually found things (>100 files,
 >100 tests). A narrow gate and a broken walk look identical from the outside — both green.
@@ -257,14 +260,24 @@ took. So it now renders every public function of the mail module, with its sends
 line-coverage check holds to every line of the module, and reads each address in what is sent. The
 source scan stays for the code no render reaches, and its header names what it cannot follow.
 
-**Recurrence (2026-10-15, the mail's layout rules)**: #1334 holds two CSS rules on every page the mail
+**Recurrence (2026-10-15, the mail's layout rules)**: #1334 holds CSS rules on every page the mail
 module sends: the header keeps `-webkit-text-size-adjust:100%` and every other line is left to the
-view, and a run with nowhere to break can break anywhere. The first checks read substrings of one tag;
-the next walked the page with `HTMLParser` and approximated how a client reads it. Each review found a
-form of the rule the approximation missed: the property inherited from another element or set by a
-`<style>` block, the unprefixed name that iOS's WebKit ignores, a CSS comment or escape, `!important`
-order, the first of two `style` attributes, a self-closing tag that HTML opens, a `<b>` the parser opens
-again, and a wrap rule reset below the tag the check read. The reader now asks the sources of truth: a
-WHATWG tree builder builds the page, a CSS parser reads each style, and caniuse gives each engine's
-reading of the names. When a rule is about how a browser reads a page, read the page as a browser builds
-it.
+view, a run with nowhere to break can break anywhere, and the page is fluid. The first checks read
+substrings of one tag; the next walked the page with `HTMLParser` and approximated how a client reads
+it. Each review found a form of the rule the approximation missed: the property inherited from another
+element or set by a `<style>` block, the unprefixed name that iOS's WebKit ignores, a CSS comment or
+escape, `!important` order, the first of two `style` attributes, a self-closing tag that HTML opens, a
+`<b>` the parser opens again, and a wrap rule reset below the tag the check read. So the reader parses
+as the sources of truth do: a WHATWG tree builder builds the page and a CSS parser reads each style.
+The next two reviews found that the parse was not the half that failed. What a parsed value means was
+still a hand-written table, and a probe in Chromium found a hole in each: an allowlist of inline
+elements that ended a run at an element it did not know, `line-break:anywhere` missing from the break
+family, display values neither engine takes read as blocks and `display:inherit` as the element's own,
+`white-space` read apart from the `text-wrap-mode` it sets, an SVG's `<style>` missed under its
+namespaced name, `word-wrap:anywhere` read once for two engines that disagree, and a threshold above
+the runs that widen a phone's column. The gate's inputs also ran every line while their values were too
+short to print the runs the rule is about: every reader was "Ada". When a rule is about how a browser
+reads a page, read the page as a browser builds it; take what each parsed value means from the grammar
+(`mdn-data` in `frontend/node_modules`) or score each entry against the pinned Chromium; read a property
+once per engine where the engines disagree, on the side each check needs; and hold the inputs' values to
+the lengths callers send, not only the lines they run.
