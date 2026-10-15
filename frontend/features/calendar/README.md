@@ -1,7 +1,8 @@
 # Earnings calendar — feature pack (`features/calendar/` + `app/calendar/`)
 
-Implements **tasks/earnings-calendar-strategy.md §3.7** (PR #524 branch): the
-anticipated-earnings week/month calendar with per-company earnings-day alerts.
+Implements **tasks/earnings-calendar-strategy.md §3.7** (PR #524 branch): a
+week/month calendar of U.S. earnings dates, estimated or reported, with
+per-company earnings-day alerts.
 Live design spec with every state exercisable: **`Earnings Calendar.dc.html`**
 (project root — Tweaks simulate plan and data states).
 
