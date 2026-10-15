@@ -291,6 +291,10 @@ REFUSED_FILE_COMMANDS = {
     "a write after a shift in quoted arithmetic": "echo \"$((1 << 2))\"\ngh pr comment 1 --body-file body.md\n2",
     "a write after nested substitutions that close on one line, each leaving a here-document": (
         "X=$(cat <<A; Y=$(cat <<B))\nB\nA\ngh pr comment 1 --body-file body.md\nB"),
+    "a write after nested substitutions that close on one line, their texts an odd quote": (
+        "X=$(cat <<A; Y=$(cat <<B))\ndon't\nB\nA\ngh pr comment 1 --body-file body.md"),
+    "a write after <( inside arithmetic, which is no process substitution": (
+        "echo $(( 1 <(cat <<'EOF') ))\ngh pr comment 1 --body-file body.md\nEOF"),
     "a write after a substitution inside arithmetic that leaves a here-document waiting": (
         "echo $(( $(cat >/dev/null <<'EOF') 1 ))\ndon't\nEOF\ngh pr comment 1 --body-file body.md"),
     "a write after a shift in arithmetic that spans a newline": "echo $((1 << x\n))\ngh pr comment 1 --body-file body.md\nx",
@@ -304,7 +308,7 @@ REFUSED_FILE_COMMANDS = {
     "a write after a continuation past a waiting here-document's text": (
         "X=$(cat <<'EOF') \\\ndon't\nEOF\ngh pr comment 1 --body-file body.md"),
     "a write after a substitution that spans lines past a waiting here-document's text": (
-        "X=$(cat <<'EOF') ; Y=$(echo s\nEOF\n)\ngh pr comment 1 --body-file body.md\nEOF"),
+        "X=$(cat <<'EOF') ; Y=$(echo s\ndon't\nEOF\n) ; gh pr comment 1 --body-file body.md"),
     "a write after a single quote that spans a waiting here-document's text": (
         "X=$(cat <<'EOF') ; echo 'a\ndon't\nEOF\nb' ; gh pr comment 1 --body-file body.md"),
     "a write after a double quote that spans a waiting here-document's text": (
@@ -321,8 +325,14 @@ REFUSED_FILE_COMMANDS = {
         "(X=$(cat <<'EOF')\nEOF)\ngh pr comment 1 --body-file body.md\nEOF"),
     "a write on the rest of an EOF) line, before the text of its line's own here-document": (
         "(cat <<A; X=$(cat <<'EOF')\nEOF) ; gh pr comment 1 --body-file body.md\nA"),
-    "a write on the rest of an EOF) line, before the text of a second substitution on its line": (
-        "(X=$(cat <<'EOF') ; Y=$(cat <<'B')\nEOF) ; gh pr comment 1 --body-file body.md\nB"),
+    "a write on the rest of an EOF) line, which bash reads before the rest of the line its substitution closed on": (
+        "( X=$(cat <<'EOF') ; echo 'a\nEOF) ; gh pr comment 1 --body-file body.md\nb'"),
+    "a write on the rest of an EOF) line, read first inside the double quote its substitution closed in": (
+        "echo \"$(cat <<'EOF')\" 'a\nEOF)\" ; gh pr comment 1 --body-file body.md ; echo \"\nb'"),
+    "a write on the rest of the second of two EOF) lines, which bash reads first": (
+        "( X=$(cat <<A <<B\nA) y' ; gh pr comment 1 --body-file body.md\nB) ; echo 'x\n)"),
+    "a write after a second substitution's waiting text, read after the rest of an EOF) line": (
+        "echo \"$(cat <<'EOF') $(cat <<'B')\"\nEOF)\ndon't\nB\ngh pr comment 1 --body-file body.md"),
     "a write before substitutions whose waiting here-documents meet the command's last line": (
         "gh pr comment 1 --body-file body.md; X=$(cat <<A) ; Y=$(cat <<B)\nA"),
     "a write before a line's here-document after a substitution's that ends the command": (

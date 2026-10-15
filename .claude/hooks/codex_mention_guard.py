@@ -15,9 +15,10 @@ contains "github" in any case. It checks
   line is read as the shell reads it: newlines and `;`, `&`, `&&`, `||`, `|` and `|&` separate
   commands, a backslash-newline joins two lines, a here-document's text is no command once its end
   comes (the line that is its word or, for one opened inside `$(...)`, `<(...)` or `>(...)`, one
-  that starts with its word, blanks and a `)`) and is read where bash reads it (a line's
-  here-documents from the line after it; one a substitution leaves waiting when it closes, and the
-  words after an `EOF)` end, at once from the line after the one where that happens; a shift in
+  that starts with its word, blanks and a `)`) and is read where bash reads it: from the next line
+  of the input that no here-document has taken, once the line ends, or at once for one that a
+  substitution leaves waiting when it closes and for the words after an `EOF)` end, the rest of
+  whose line bash reads before the rest of the line it was on, the last such rest first (a shift in
   arithmetic opens none), a comment's words are read with their quotes inert (so a commented-out
   write counts), and the text of each command substitution, `$(...)` or backquoted, quoted or not,
   is read as commands of its own, unless it sits in a here-document's text. A GitHub write is a
@@ -131,6 +132,21 @@ def _literal(text: str) -> str:
     return "'" + text.replace("'", "'\\''") + "'"
 
 
+class _Input:
+    """Where bash reads on past a newline. It takes a here-document's text from its input, the lines after
+    the one it reads: `stream` is where the next line that no here-document has taken starts. After an
+    `EOF)` end it pushes the rest of that line back and reads it first: `links` maps the newline that ends
+    such a rest to where reading goes on (the next rest, or the rest of the line a substitution closed on)."""
+
+    def __init__(self) -> None:
+        self.stream = 0
+        self.links: dict[int, int] = {}
+
+    def after(self, newline: int) -> int:
+        """Where reading goes on past the newline at `newline`."""
+        return self.links.get(newline, max(newline + 1, self.stream))
+
+
 def _script(command: str) -> str:
     """The command rewritten for a plain word splitter, as the shell reads it: each quoted string one
     single-quoted word, backslash-newline continuations joined, the quotes, backquotes and backslashes
@@ -138,22 +154,22 @@ def _script(command: str) -> str:
     its end comes, and the text of each command substitution, `$(...)` or backquoted, quoted or not,
     added as lines of its own (in the line, a `$(...)` reads as `$()`)."""
     extra: list[str] = []
-    try:
-        text = _scan(command, 0, "", extra, {})[0]
+    try:  # every line, the last too, ends with a newline
+        text = _scan(command if command.endswith("\n") else command + "\n", 0, "", extra, _Input())[0]
     except RecursionError:  # substitutions nested past Python's limit: read the line as written
         return command
     return "\n".join([text, *extra])
 
 
 def _scan(
-    command: str, i: int, closer: str, extra: list[str], skips: dict[int, int], comsub: bool = False,
+    command: str, i: int, closer: str, extra: list[str], read: _Input, comsub: bool = False,
     arith: bool = False, ends: list[tuple[str, bool, bool]] | None = None,
 ) -> tuple[str, int]:
     """The commands from `i` up to `closer` (`)` for a subshell or a substitution, "" for the end);
     `comsub` when they sit inside a `$(...)`, `<(...)` or `>(...)`, at any depth, and `arith` inside
-    arithmetic. `ends` holds the here-documents (word, <<-, opened in a substitution) whose text comes
-    after the line, shared with a subshell, which bash reads with the same parser. `skips` maps a
-    newline to where reading goes on past text bash has already read as here-documents."""
+    arithmetic. `ends` holds the here-documents (word, <<-, opened inside a substitution) whose text
+    comes when the line ends, shared with a subshell, which bash reads with the same parser; `read` says
+    where reading goes on past each newline."""
     out: list[str] = []
     ends = [] if ends is None else ends
     while i < len(command):
@@ -162,7 +178,7 @@ def _scan(
             return "".join(out), i + 1
         if char == "\\":
             if command[i + 1:i + 2] == "\n":  # a backslash-newline joins the line to the next one bash reads
-                i = skips.get(i + 1, i + 2)
+                i = read.after(i + 1)
             else:  # an escape stays
                 out.append(command[i:i + 2])
                 i += 2
@@ -171,24 +187,24 @@ def _scan(
             if _dollars(out) % 2:  # $'...', which reads escapes, or $"..."
                 out.pop()
                 kind = "$'" if char == "'" else char
-            text, i = _quoted(command, i + 1, kind, extra, skips)
+            text, i = _quoted(command, i + 1, kind, extra, read)
             out.append(_literal(text))
         elif char == "`":
-            text, i = _backquoted(command, i + 1, skips)
+            text, i = _backquoted(command, i + 1, read)
             extra.append(_script(text))
             out.append(_literal(text))
         elif command.startswith("$(", i):
-            text, i = _substitution(command, i + 2, extra, skips, command.startswith("$((", i))
+            text, i = _substitution(command, i + 2, extra, read, command.startswith("$((", i))
             extra.append(text)
             out.append("'$()'")  # its text is read on lines of its own
         elif char == "(" and not arith and out[-1:] in (["<"], [">"]):  # a process substitution
-            text, i = _substitution(command, i + 1, extra, skips)
+            text, i = _substitution(command, i + 1, extra, read)
             out.append("(" + text + ")")
         elif char == "(":
             if command.startswith("((", i):  # arithmetic, read as one: no here-document opens or is read in it
-                text, i = _scan(command, i + 1, ")", extra, skips, comsub, True)
+                text, i = _scan(command, i + 1, ")", extra, read, comsub, True)
             else:  # a subshell
-                text, i = _scan(command, i + 1, ")", extra, skips, comsub, arith, ends)
+                text, i = _scan(command, i + 1, ")", extra, read, comsub, arith, ends)
             out.append("(" + text + ")")
         elif char == "#" and (not out or (out[-1][-1] in WORD_START and out[-1][0] != "\\")):  # `a\ #` is one word
             end = command.find("\n", i)
@@ -205,41 +221,44 @@ def _scan(
             i = heredoc.end()
         elif char == "\n":
             out.append("\n")
-            i = skips.get(i, i + 1)
-            # The line's here-documents take their text from the next line it reads. After an `EOF)` word,
-            # the rest of that line comes first: bash pushes it back and reads it before.
+            i = read.after(i)
+            # The line's here-documents take their text from the input once reading goes on at a line's
+            # start: past the rest of an `EOF)` line bash pushed back, which it reads first.
             if ends and command[i - 1:i] == "\n":
-                end = _heredoc_end(command, i, ends, skips)
-                # No end found: read the rest as commands, more than bash runs. Bash reads it all as the
-                # text, or, inside a substitution, may end it at an `EOFX)` line, which is not read here.
-                i = i if end is None else end
+                end, pushed = _gather(command, i, ends)
                 ends[:] = []  # in place: a subshell shares them
+                read.stream = max(read.stream, end)
+                i = _push_back(pushed, read, None) if pushed else end
         else:
             out.append(char)
             i += 1
     return "".join(out), i
 
 
-def _substitution(command: str, i: int, extra: list[str], skips: dict[int, int], arith: bool = False) -> tuple[str, int]:
-    """The commands of a `$(...)`, `<(...)` or `>(...)` (`arith` for `$((...))`) from `i` up to its `)`. Bash
-    reads the text of a here-document it leaves waiting at once, from the line after the one it closes on."""
+def _substitution(command: str, i: int, extra: list[str], read: _Input, arith: bool = False) -> tuple[str, int]:
+    """The commands of a `$(...)`, `<(...)` or `>(...)` (`arith` for `$((...))`) from `i` up to its `)`, and
+    where reading goes on. Bash reads the text of a here-document it leaves waiting at once, from its
+    input, and then the rest of any `EOF)` line that text ends at, before the rest of the line it closed on."""
     ends: list[tuple[str, bool, bool]] = []
-    text, i = _scan(command, i, ")", extra, skips, True, arith, ends)
-    _read_ahead(command, command.find("\n", i), ends, skips)
+    text, i = _scan(command, i, ")", extra, read, True, arith, ends)
+    if ends:
+        end, pushed = _gather(command, max(command.find("\n", i) + 1, read.stream), ends)
+        read.stream = max(read.stream, end)
+        if pushed:
+            i = _push_back(pushed, read, i)
     return text, i
 
 
-def _read_ahead(command: str, newline: int, ends: list[tuple[str, bool, bool]], skips: dict[int, int]) -> None:
-    """Find now the text of these here-documents, which bash reads from the line after `newline` (past text
-    read there before), and skip it when that newline comes. With no end, nothing more is skipped."""
-    while ends and newline >= 0:
-        start = skips.get(newline, newline + 1)
-        if command[start - 1:start] == "\n":  # a line's start, not past an `EOF)` word or the command's end
-            end = _heredoc_end(command, start, ends, skips)
-            if end is not None:
-                skips[newline] = end
-            return
-        newline = command.find("\n", start)  # past an `EOF)` word: that line's rest comes first, then the text
+def _push_back(pushed: list[tuple[int, int]], read: _Input, rest: int | None) -> int:
+    """Where reading goes on now: bash reads the rests of the `EOF)` lines it pushed back (each the offset
+    past its word, and its line's newline) last first, then `rest`, the rest of the line a substitution
+    closed on, if any, then its input."""
+    order = pushed[::-1]
+    for (_, newline), (start, _) in zip(order, order[1:]):
+        read.links[newline] = start
+    if rest is not None:
+        read.links[order[-1][1]] = rest
+    return order[0][0]
 
 
 def _dollars(out: list[str]) -> int:
@@ -252,7 +271,7 @@ def _dollars(out: list[str]) -> int:
     return count
 
 
-def _quoted(command: str, i: int, kind: str, extra: list[str], skips: dict[int, int]) -> tuple[str, int]:
+def _quoted(command: str, i: int, kind: str, extra: list[str], read: _Input) -> tuple[str, int]:
     """The text of a quoted string from `i`, up to its closing quote, as the shell reads it (other ANSI-C
     escapes than \\', \\" and \\\\ stay as written), past text bash has read as here-documents."""
     text: list[str] = []
@@ -261,13 +280,13 @@ def _quoted(command: str, i: int, kind: str, extra: list[str], skips: dict[int, 
             end = command.find("'", i)
             end = len(command) if end < 0 else end
             newline = command.find("\n", i, end)
-            while newline >= 0 and newline not in skips:
+            while newline >= 0 and read.after(newline) == newline + 1:
                 newline = command.find("\n", newline + 1, end)
             if newline < 0:
                 text.append(command[i:end])
                 return "".join(text), end + 1
             text.append(command[i:newline + 1])
-            i = skips[newline]
+            i = read.after(newline)
     while i < len(command):
         char = command[i]
         if char == kind[-1]:
@@ -278,23 +297,23 @@ def _quoted(command: str, i: int, kind: str, extra: list[str], skips: dict[int, 
                 text.append("" if escaped == "\n" else escaped if escaped in '"\\$`' else command[i:i + 2])
             else:
                 text.append(escaped if escaped in "'\"\\" else command[i:i + 2])
-            i = skips.get(i + 1, i + 2) if escaped == "\n" else i + 2
+            i = read.after(i + 1) if escaped == "\n" else i + 2
         elif kind == '"' and char == "`":
-            body, end = _backquoted(command, i + 1, skips)
+            body, end = _backquoted(command, i + 1, read)
             extra.append(_script(body))
             text.append(command[i:end])
             i = end
         elif kind == '"' and command.startswith("$(", i):
-            body, i = _substitution(command, i + 2, extra, skips, command.startswith("$((", i))
+            body, i = _substitution(command, i + 2, extra, read, command.startswith("$((", i))
             extra.append(body)
             text.append("$()")
         else:
             text.append(char)
-            i = skips.get(i, i + 1) if char == "\n" else i + 1
+            i = read.after(i) if char == "\n" else i + 1
     return "".join(text), i
 
 
-def _backquoted(command: str, i: int, skips: dict[int, int]) -> tuple[str, int]:
+def _backquoted(command: str, i: int, read: _Input) -> tuple[str, int]:
     """The command inside backquotes from `i`, up to the closing backquote, past text bash has read as
     here-documents."""
     text: list[str] = []
@@ -307,7 +326,7 @@ def _backquoted(command: str, i: int, skips: dict[int, int]) -> tuple[str, int]:
             i += 2
         else:
             text.append(char)
-            i = skips.get(i, i + 1) if char == "\n" else i + 1
+            i = read.after(i) if char == "\n" else i + 1
     return "".join(text), i
 
 
@@ -343,15 +362,17 @@ def _paren_ends(command: str, word: str, tabs: bool) -> list[int]:
             if command.startswith(word, start) and PAREN_END.match(command, start + len(word))]
 
 
-def _heredoc_end(command: str, i: int, ends: list[tuple[str, bool, bool]], skips: dict[int, int]) -> int | None:
-    """Where the text of these here-documents, from `i`, ends: past the line that is each one's word in
-    turn (after its leading tabs, for <<-), or, for one opened inside `$(...)`, `<(...)` or `>(...)`, just
-    past the word of a line that starts with the word, blanks and a `)`, whichever comes first, as bash
-    reads `EOF)` (its end at a line where other text follows the word before the `)` is not read). Bash
-    reads the text of the words after one that ends that way at once, from the next line. None when a
-    word's end never comes."""
+def _gather(command: str, i: int, ends: list[tuple[str, bool, bool]]) -> tuple[int, list[tuple[int, int]]]:
+    """The text of these here-documents, read from `i` as bash reads it, each from where the last ended:
+    up to the line that is its word (after its leading tabs, for <<-), or, for one opened inside `$(...)`,
+    `<(...)` or `>(...)`, up to a line that starts with the word, blanks and a `)`, whichever comes first,
+    as bash reads `EOF)` (its end at a line where other text follows the word before the `)` is not read).
+    Returns where the text ends, or, when a word's end never comes, where its text starts (the rest is
+    read as commands, more than bash runs: it reads it all as the text, or, inside a substitution, may end
+    it at an `EOFX)` line), and each `EOF)` end: the offset past its word and its line's newline."""
     index = _line_index(command)
-    for n, (word, tabs, comsub) in enumerate(ends):
+    pushed: list[tuple[int, int]] = []
+    for word, tabs, comsub in ends:
         lines = index["line", tabs].get(word, [])
         k = bisect.bisect_right(lines, i)
         end = lines[k] if k < len(lines) else None
@@ -359,12 +380,14 @@ def _heredoc_end(command: str, i: int, ends: list[tuple[str, bool, bool]], skips
             pasts = _paren_ends(command, word, tabs)
             j = bisect.bisect_left(pasts, i + len(word))
             if j < len(pasts) and (end is None or pasts[j] - len(word) < end):
-                _read_ahead(command, command.find("\n", pasts[j]), ends[n + 1:], skips)
-                return pasts[j]
+                newline = command.find("\n", pasts[j])
+                pushed.append((pasts[j], newline))
+                i = newline + 1
+                continue
         if end is None:
-            return None
+            break
         i = end
-    return i
+    return i, pushed
 
 
 def _command_tokens(script: str) -> list[str]:
