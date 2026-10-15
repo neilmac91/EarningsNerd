@@ -1,5 +1,5 @@
 import type { AnalysisCitation, AnalysisCompletion, AnalysisDataset } from '../api/analysis-api'
-import { decodeCitationDataNotes } from './dataNotesContract'
+import { DataNotesRejection, decodeCitationDataNotes } from './dataNotesContract'
 import type { DataNotesWire } from './dataNotes'
 import { SOURCE_OPERANDS_PREFIX, type NarrativePart } from './narrativeDisplay'
 
@@ -70,14 +70,15 @@ export function decodeNarrativePresentation(
     || !Number.isSafeInteger(citation.n) || citation.n <= 0)) return invalid()
   const citations = new Map(completion.citations.map((citation) => [citation.n, citation]))
   if (citations.size !== completion.citations.length) return invalid()
-  // The data-notes decoder rejects with a TypeError naming the broken field: it goes to the console for
-  // diagnostics, and the reader gets the one recovery sentence every other decode failure here gives.
-  // Anything else is a defect, not a rejection, and propagates unchanged.
+  // The data-notes decoder rejects with a DataNotesRejection naming the broken field: it goes to the
+  // console for diagnostics, and the reader gets the one recovery sentence every other decode failure
+  // here gives. Anything else, a plain TypeError from inside the decoder included, is a defect, not a
+  // rejection, and propagates unchanged.
   let notes: DataNotesWire
   try {
     notes = decodeCitationDataNotes(value.notes, dataset, completion.citations)
   } catch (error) {
-    if (!(error instanceof TypeError)) throw error
+    if (!(error instanceof DataNotesRejection)) throw error
     console.error('[analysis] data notes rejected:', error)
     return invalid()
   }

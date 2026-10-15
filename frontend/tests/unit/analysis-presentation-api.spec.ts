@@ -5,6 +5,7 @@ import {
   type AnalysisCitation, type AnalysisCompletion, type AnalysisDataset,
 } from '@/features/analysis/api/analysis-api'
 import type { DataNotesWire } from '@/features/analysis/lib/dataNotes'
+import { DataNotesRejection } from '@/features/analysis/lib/dataNotesContract'
 import {
   decodeNarrativePresentation, structuredNarrativeParts,
   type NarrativePresentation,
@@ -143,8 +144,8 @@ describe('analysis presentation API admission', () => {
       .toThrow(new TypeError('The analysis evidence could not be read consistently. Run analysis again to reload the report.'))
     expect(log).toHaveBeenCalledTimes(1)
     expect(log.mock.calls[0][0]).toBe('[analysis] data notes rejected:')
-    expect(log.mock.calls[0][1]).toBeInstanceOf(TypeError)
-    expect((log.mock.calls[0][1] as TypeError).message).toMatch(/^Invalid analysis data notes: /)
+    expect(log.mock.calls[0][1]).toBeInstanceOf(DataNotesRejection)
+    expect((log.mock.calls[0][1] as DataNotesRejection).message).toMatch(/^Invalid analysis data notes: /)
   })
 
   it('lets a data-notes failure that is not a rejection propagate unchanged', () => {
@@ -152,6 +153,17 @@ describe('analysis presentation API admission', () => {
     const fault = new RangeError('engine fault')
     const exploding = new Proxy({}, { get() { throw fault } })
     expect(() => decodeNarrativePresentation({ ...presentation, notes: exploding }, completion, dataset)).toThrow(fault)
+    expect(log).not.toHaveBeenCalled()
+  })
+
+  it('lets a plain TypeError from inside the decoder propagate unchanged: a defect, not a rejection', () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    // The decoder trusts the dataset it is handed (CLAUDE.md rule 9). One whose own data_notes was left
+    // undefined upstream makes its report read take a property of undefined: the engine's plain
+    // TypeError, which surfaces as itself, never as the reader's recovery sentence.
+    const defective: AnalysisDataset = { ...dataset, data_notes: undefined }
+    expect(() => decodeNarrativePresentation(presentation, completion, defective))
+      .toThrow(/^Cannot read properties of undefined \(reading 'notes'\)$/)
     expect(log).not.toHaveBeenCalled()
   })
 
