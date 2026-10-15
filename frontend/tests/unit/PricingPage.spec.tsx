@@ -611,7 +611,7 @@ describe('PricingPage', () => {
       expect(container).toHaveTextContent('Unlimited Multi-Period Analysis')
       expect(screen.getByText('PDF, CSV and Excel exports')).toBeInTheDocument()
     } else {
-      expect(container).not.toHaveTextContent(/Multi-Period|Excel/)
+      expect(container).not.toHaveTextContent(/multi-period|excel/i)
       expect(screen.getByText('PDF and CSV exports')).toBeInTheDocument()
     }
   })
