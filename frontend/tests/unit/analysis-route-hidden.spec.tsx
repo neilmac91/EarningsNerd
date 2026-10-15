@@ -18,11 +18,15 @@ vi.mock('@/lib/featureFlags', () => ({
   get ENABLE_ANALYSIS() {
     return h.enableAnalysis
   },
+  ENABLE_PRO_TRIAL: false,
+  ENABLE_FPI_FILINGS: false,
 }))
 
 import AnalysisLayout from '@/app/analysis/layout'
+import ProDepth from '@/features/marketing/components/ProDepth'
+import PricingSection from '@/features/marketing/components/PricingSection'
 import UpgradeModal from '@/features/subscriptions/components/UpgradeModal'
-import { analysisLine } from '@/lib/planLimits'
+import { ANALYSIS_LINES, shipped, type PlanLine } from '@/lib/planLimits'
 
 describe('Analysis route gating (NEXT_PUBLIC_ENABLE_ANALYSIS)', () => {
   beforeEach(() => {
@@ -43,16 +47,59 @@ describe('Analysis route gating (NEXT_PUBLIC_ENABLE_ANALYSIS)', () => {
   })
 })
 
-/**
- * Shipped-flag truth for the plan lists (DSW-05, D-033): every plan-benefit line that names Multi-Period
- * Analysis is typed once, in lib/planLimits.ts, and reaches a list only through analysisLine(), which
- * returns nothing while NEXT_PUBLIC_ENABLE_ANALYSIS is off (the route 404s then). The upgrade dialog's
- * list is the shared sentence proIncludes(); the /pricing Pro card and the landing's two plan cards spread
- * analysisLine() into theirs. The scan below fails on a string or JSX text naming the feature anywhere
- * else in the source, so a second hand-typed list cannot keep advertising it with the flag off. At an
- * allowed site it reads only the part of the text that names the feature (ALLOWED says why).
- */
 const NAMES_FEATURE = /multi-period analysis/i
+
+/**
+ * The public pages sell Multi-Period Analysis only while the flag ships it (audit pub/F06): the route
+ * 404s with the flag off, so the landing's Pro section and pricing cards must not list it. The /pricing
+ * page's plan list and its Product JSON-LD are held the same way in PricingPage.spec.tsx, which carries
+ * that page's harness.
+ */
+describe('The public pages follow NEXT_PUBLIC_ENABLE_ANALYSIS', () => {
+  const surfaces = () => {
+    const pro = render(<ProDepth />)
+    const proText = pro.container.textContent ?? ''
+    pro.unmount()
+    const pricing = render(<PricingSection accessMode="public" showBeta={false} />)
+    const pricingText = pricing.container.textContent ?? ''
+    pricing.unmount()
+    return { proText, pricingText }
+  }
+
+  it('names no Multi-Period feature on the landing while the flag is off', () => {
+    h.enableAnalysis = false
+    const { proText, pricingText } = surfaces()
+    expect(proText).not.toMatch(/Multi-Period|periods side by side|Excel export|XLSX/i)
+    // The Excel export is the analysis workbook, so the Pro list drops it with the route.
+    expect(pricingText).not.toMatch(/Multi-Period|Excel|XLSX/i)
+    expect(pricingText).toContain('PDF and CSV exports')
+    // Anti-vacuity: both surfaces rendered their lists.
+    expect(proText).toContain('Change Report')
+    expect(pricingText).toContain('Unlimited summaries')
+  })
+
+  it('names it on both while the flag is on', () => {
+    h.enableAnalysis = true
+    const { proText, pricingText } = surfaces()
+    expect(proText).toContain('Multi-Period Analysis')
+    expect(proText).toContain('Excel export')
+    expect(pricingText).toContain('Multi-Period Analysis demo (locked)')
+    expect(pricingText).toContain('Unlimited Multi-Period Analysis')
+    expect(pricingText).toContain('PDF, CSV and Excel exports')
+  })
+})
+
+/**
+ * Shipped-flag truth for the plan lists (DSW-05, D-033, D-040): every plan line the analysis flag decides is
+ * typed once, in lib/planLimits.ts's ANALYSIS_LINES, in #1311's `{ text, flag, off }` shape, and every list
+ * reads its lines through shipped(), which lists a flagged line's text only while NEXT_PUBLIC_ENABLE_ANALYSIS
+ * ships the feature (the route 404s while it is off) and its `off` reading, if any, otherwise. The upgrade
+ * dialog's list is the shared sentence proIncludes(); the /pricing Pro card, its Product JSON-LD and the
+ * landing's two plan cards take ANALYSIS_LINES entries into theirs. The scan below fails on a string or JSX
+ * text naming the feature anywhere else in the source, so a second hand-typed list cannot keep advertising it
+ * with the flag off. At an allowed site it reads only the part of the text that names the feature (ALLOWED
+ * says why).
+ */
 
 /** The analysis feature itself (its route, its components, its API errors) and the one typed home. */
 const OWNERS = [/^lib\/planLimits\.ts$/, /^app\/analysis\//, /^features\/analysis\//]
@@ -83,17 +130,12 @@ const ALLOWED: Array<{ file: string; phrase: string; why: string }> = [
   {
     file: 'features/marketing/components/ProDepth.tsx',
     phrase: 'Multi-Period Analysis as a workbook',
-    why: "the landing's Excel export tile, shown with the flag off until pub/F06 gates it (#1311, the public-pages PR)",
+    why: "the landing's Excel export tile, which ProDepth lists only under ENABLE_ANALYSIS (#1311)",
   },
   {
     file: 'features/marketing/components/ProDepth.tsx',
     phrase: 'Multi-Period Analysis',
-    why: "the title of the landing's product-screen row for the feature, shown with the flag off until pub/F06 gates it (#1311)",
-  },
-  {
-    file: 'app/pricing/layout.tsx',
-    phrase: 'multi-period analysis',
-    why: "the /pricing JSON-LD offer description, founder-gated pricing copy (pub/F05); #1311 names the feature there only under the flag",
+    why: "the title of the landing's product-screen row for the feature, rendered only under ENABLE_ANALYSIS (#1311)",
   },
 ]
 
@@ -141,12 +183,16 @@ describe('The plan lists name Multi-Period Analysis only while NEXT_PUBLIC_ENABL
     ).toBeInTheDocument()
   })
 
-  it('gives every plan list its line only while the flag is on', () => {
-    const lists = ['upgradeDialog', 'pricingPro', 'landingPro', 'landingFree'] as const
+  it('shipped() lists each analysis line only while the flag is on, and its off reading otherwise', () => {
+    const lines: readonly PlanLine[] = Object.values(ANALYSIS_LINES)
     h.enableAnalysis = false
-    for (const list of lists) expect(analysisLine(list)).toEqual([])
+    expect(shipped(lines)).toEqual(lines.flatMap((line) => (line.off ? [line.off] : [])))
+    expect(shipped(lines).join(' ')).not.toMatch(/multi-period|excel/i)
     h.enableAnalysis = true
-    for (const list of lists) expect(analysisLine(list)).toEqual([expect.stringMatching(NAMES_FEATURE)])
+    expect(shipped(lines)).toEqual(lines.map((line) => line.text))
+    // A line with no flag lists either way.
+    h.enableAnalysis = false
+    expect(shipped([{ text: 'Unlimited summaries' }])).toEqual(['Unlimited summaries'])
   })
 
   it('the scan sees strings, template pieces and JSX text, and skips comments and identifiers (self-check)', () => {

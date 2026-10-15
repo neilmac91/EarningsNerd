@@ -10,11 +10,11 @@ import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { CheckIcon } from '@/lib/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import SecondaryHeader from '@/components/SecondaryHeader'
-import { Badge, Button, Card, Notice, Switch } from '@/components/ui'
+import { Button, Card, Notice, Switch } from '@/components/ui'
 import analytics from '@/lib/analytics'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
-import { FREE_SUMMARY_LIMIT, analysisLine } from '@/lib/planLimits'
+import { ANALYSIS_LINES, FILING_FORMS_LINE, FREE_SUMMARY_LIMIT, shipped } from '@/lib/planLimits'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { PRO_PRICING } from './prices'
 import { billingCycleFromQuery, pricingHref, type BillingCycle } from '@/features/subscriptions/lib/pricingRoute'
@@ -254,13 +254,15 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
       price: '$0',
       period: 'forever',
       description: 'For reading a few filings a month',
-      features: [
-        `${FREE_SUMMARY_LIMIT} summaries per month`,
-        'Access to all filings',
-        'The same summaries Pro reads',
-        'Company search',
-        'Historical filing access',
-      ],
+      // 20-F lists only while NEXT_PUBLIC_ENABLE_FPI_FILINGS mirrors the API's flag (tasks/todo.md F39):
+      // lib/planLimits.ts FILING_FORMS_LINE, read through shipped().
+      features: shipped([
+        { text: `${FREE_SUMMARY_LIMIT} summaries per month` },
+        FILING_FORMS_LINE,
+        { text: 'The same summaries Pro reads' },
+        { text: 'Company search' },
+        { text: 'Historical filing access' },
+      ]),
       // Only the genuinely-free user is "on" the Free plan. A Pro user (paid or trialing) would
       // otherwise see "Current plan" on BOTH cards, which reads as a contradiction. Nor is a Pro
       // account offered the guest's access CTA ("Request an invite" or "Create a free account") for
@@ -285,16 +287,17 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
       betaOriginal: showBetaOffer ? proPriceDisplay : null,
       billingNote: showBetaOffer ? null : billingNote,
       description: 'For deeper filing research',
-      features: [
-        'Unlimited summaries',
-        // Listed only while the analysis route ships (lib/planLimits.ts analysisLine).
-        ...analysisLine('pricingPro'),
-        'Ask this Filing: Get answers on any filing',
-        'Hourly filing alerts',
-        '8-K filing alerts',
-        'PDF, CSV & Excel exports',
-        'Priority support',
-      ],
+      // Multi-Period Analysis and its Excel workbook list only while the analysis route ships (it 404s
+      // with the flag off): lib/planLimits.ts types those lines once and shipped() reads the flag.
+      features: shipped([
+        { text: 'Unlimited summaries' },
+        ANALYSIS_LINES.pricingPro,
+        { text: 'Ask this Filing, with cited answers' },
+        { text: 'Hourly filing alerts' },
+        { text: '8-K filing alerts' },
+        ANALYSIS_LINES.exports,
+        { text: 'Priority support' },
+      ]),
       cta: !accountResolved
         ? unresolvedCta
         : isPaidPro
@@ -485,12 +488,8 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
                 plan.popular ? 'ring-1 ring-inset ring-brand-strong dark:ring-brand-dark' : ''
               }`}
             >
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge variant="solid">Most popular</Badge>
-                </div>
-              )}
-
+              {/* No "Most popular" badge: the beta has no popularity figure behind one, and the brand ring
+                  already carries the emphasis. */}
               <div className="text-center mb-6">
                 {/* h2: each plan is a top-level section of the page, beside the FAQ (no h1 → h3 skip). */}
                 <h2 className="text-2xl font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">{plan.name}</h2>
@@ -522,7 +521,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
               <ul className="space-y-4 mb-8">
                 {plan.features.map((feature, index) => (
                   <li key={index} className="flex items-start">
-                    <CheckIcon className="h-5 w-5 text-success-light dark:text-success-dark mr-3 flex-shrink-0 mt-0.5" />
+                    <CheckIcon aria-hidden="true" className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark mr-3 flex-shrink-0 mt-0.5" />
                     <span className="text-text-secondary-light dark:text-text-secondary-dark">{feature}</span>
                   </li>
                 ))}

@@ -251,8 +251,8 @@ const config = [
   // branch with that text only) and parses variant prefixes. It is its own rule, so it covers the
   // design-exempt files too. The 2026-10 critique's gates ride the same plugin and the same class-
   // string walker (eslint.designRules.mjs): no side-tab stripe on a rounded container (P-08), no
-  // form code inside a Badge (P-04), and no animation utility that keeps moving under reduced motion
-  // (P-09).
+  // form code inside a Badge (P-04), no animation utility that keeps moving under reduced motion
+  // (P-09), and no hand-rolled single-choice toggle group outside the SegmentedControl (CO-15).
   {
     files: ['**/*.ts', '**/*.tsx'],
     ignores: TEST_FILES,
@@ -262,6 +262,7 @@ const config = [
       'earningsnerd/no-side-stripe': 'error',
       'earningsnerd/no-form-code-badge': 'error',
       'earningsnerd/no-unguarded-animation': 'error',
+      'earningsnerd/no-hand-rolled-toggle-group': 'error',
     },
   },
   // The JS color mirrors + the brand-mandated GoogleSignInButton: every gate except the two color rules.

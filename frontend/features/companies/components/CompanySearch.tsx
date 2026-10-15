@@ -32,7 +32,7 @@ export default function CompanySearch({
   shortcuts = autoFocusDesktop,
   ariaLabel = 'Search for a company',
   onSelect,
-  placeholder = 'Search any company (e.g., AAPL, Apple, Microsoft)...',
+  placeholder = 'Search company or ticker',
 }: {
   autoFocusDesktop?: boolean
   /** "/" and Cmd/Ctrl+K focus the field from anywhere on the page. Defaults to autoFocusDesktop
@@ -40,7 +40,7 @@ export default function CompanySearch({
   shortcuts?: boolean
   /** Accessible name. Pass null when a visible <label htmlFor="company-search"> names the field. */
   ariaLabel?: string | null
-  /** Field placeholder; the landing hero passes its shorter design copy. */
+  /** Field placeholder. The default is the landing hero's copy: no example tickers, no ellipsis. */
   placeholder?: string
   /**
    * Override the pick behaviour (default navigates to /company/{ticker}). Used by surfaces that
@@ -264,7 +264,7 @@ export default function CompanySearch({
       {/* No Results Message */}
       {!isLoading && !isError && companies && companies.length === 0 && debouncedQuery.length > 0 && (
         <div className="absolute z-10 mt-2 w-full rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark p-4 shadow-e3 dark:shadow-none backdrop-blur-sm">
-          <div className="text-center text-text-secondary-light dark:text-text-secondary-dark">No companies found matching &quot;{debouncedQuery}&quot;</div>
+          <div className="text-center text-text-secondary-light dark:text-text-secondary-dark">No company with a ticker on SEC EDGAR matches &quot;{debouncedQuery}&quot;.</div>
         </div>
       )}
 
@@ -281,7 +281,7 @@ export default function CompanySearch({
                 role="option"
                 aria-selected={index === highlightIndex}
                 onClick={() => handleCompanyClick(company, index)}
-                className={`flex w-full items-start gap-3 border-b border-border-light dark:border-white/10 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-brand-weak dark:hover:bg-white/5 ${
+                className={`flex w-full items-start gap-3 border-b border-border-light dark:border-white/10 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-brand-weak focus-visible:outline-none focus-visible:shadow-ring-brand-inset dark:hover:bg-white/5 dark:focus-visible:shadow-ring-brand-inset-dark ${
                   index === highlightIndex ? 'bg-brand-weak dark:bg-white/10' : ''
                 }`}
               >

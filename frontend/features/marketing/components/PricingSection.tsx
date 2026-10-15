@@ -3,9 +3,9 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
 import Link from 'next/link'
 import { PRO_PRICING } from '@/app/pricing/prices'
-import { Badge } from '@/components/ui/Badge'
 import { buttonVariants } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { cx } from '@/components/ui/cx'
 import SectionImpression from '@/features/marketing/components/SectionImpression'
 import { ACCESS_COPY, type AccessMode } from '@/features/marketing/lib/access'
 import analytics from '@/lib/analytics'
@@ -13,11 +13,14 @@ import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { CheckIcon, SealCheckIcon } from '@/lib/icons'
 import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 import {
-  analysisLine,
+  ANALYSIS_LINES,
+  FILING_FORMS_LINE,
   FREE_COPILOT_QUESTIONS,
   FREE_EARNINGS_ALERT_LIMIT,
   FREE_HISTORY_RETENTION_DAYS,
   FREE_SUMMARY_LIMIT,
+  shipped,
+  type PlanLine,
 } from '@/lib/planLimits'
 
 /**
@@ -29,29 +32,29 @@ import {
  * entry until pricing can resolve account eligibility, rather than selecting a guest trial.
  */
 
-// Free-tier caps are never bare literals (tests/unit/planLimitsLockstep.spec.ts). The Multi-Period
-// Analysis lines come from lib/planLimits.ts analysisLine, listed only while the flag ships the feature,
-// so both lists are built at render.
-const freeFeatures = () => [
-  `${FREE_SUMMARY_LIMIT} AI summaries a month`,
-  'Supported 10-K, 10-Q and 20-F filings from SEC EDGAR',
-  'Company search and historical filings',
-  `${FREE_COPILOT_QUESTIONS} Ask this Filing questions`,
-  `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts`,
-  ...analysisLine('landingFree'),
-  `${FREE_HISTORY_RETENTION_DAYS}-day summary history`,
-  'Unlimited watchlist',
+// Free-tier caps are never bare literals (tests/unit/planLimitsLockstep.spec.ts). A line a flag decides
+// (Multi-Period Analysis and its Excel workbook, 20-F filings) is typed once in lib/planLimits.ts, in the
+// `{ text, flag, off }` shape, and both lists go through its one reader, shipped(), at render (D-033, D-040).
+const FREE_FEATURES: readonly PlanLine[] = [
+  { text: `${FREE_SUMMARY_LIMIT} AI summaries a month` },
+  FILING_FORMS_LINE,
+  { text: 'Company search and historical filings' },
+  { text: `${FREE_COPILOT_QUESTIONS} Ask this Filing questions` },
+  { text: `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts` },
+  ANALYSIS_LINES.landingFree,
+  { text: `${FREE_HISTORY_RETENTION_DAYS}-day summary history` },
+  { text: 'Unlimited watchlist' },
 ]
 
-const proFeatures = () => [
-  'Unlimited summaries',
-  ...analysisLine('landingPro'),
-  'Ask this Filing',
-  'Change Report',
-  'Hourly filing alerts and 8-K alerts',
-  'PDF, CSV and Excel exports',
-  'Full summary history',
-  'Priority support',
+const PRO_FEATURES: readonly PlanLine[] = [
+  { text: 'Unlimited summaries' },
+  ANALYSIS_LINES.landingPro,
+  { text: 'Ask this Filing' },
+  { text: 'Change Report' },
+  { text: 'Hourly filing alerts and 8-K alerts' },
+  ANALYSIS_LINES.exports,
+  { text: 'Full summary history' },
+  { text: 'Priority support' },
 ]
 
 const BILLING_OPTIONS = ['monthly', 'annual'] as const
@@ -126,10 +129,10 @@ export default function PricingSection({
     select(next)
   }
 
+  // The ring sits on each radio's className itself, where the ring scan can read it.
   const radioClass = (option: Billing) =>
     [
       'h-9 rounded px-3.5 text-sm font-semibold transition-colors duration-fast motion-reduce:transition-none',
-      'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       billing === option
         ? 'bg-brand-weak text-text-primary-light dark:bg-brand-weak-dark dark:text-text-primary-dark'
         : `bg-transparent ${MUTED_CLASS}`,
@@ -169,7 +172,7 @@ export default function PricingSection({
                 aria-checked={monthly}
                 tabIndex={monthly ? 0 : -1}
                 onClick={() => select('monthly')}
-                className={radioClass('monthly')}
+                className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', radioClass('monthly'))}
               >
                 Monthly
               </button>
@@ -182,7 +185,7 @@ export default function PricingSection({
                 aria-checked={!monthly}
                 tabIndex={monthly ? -1 : 0}
                 onClick={() => select('annual')}
-                className={radioClass('annual')}
+                className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', radioClass('annual'))}
               >
                 Annual{' '}
                 <span className="font-medium">· save {PRO_PRICING.annualSavingsPercent}%</span>
@@ -203,7 +206,7 @@ export default function PricingSection({
               >
                 {access.cta}
               </Link>
-              <FeatureList items={freeFeatures()} />
+              <FeatureList items={shipped(FREE_FEATURES)} />
             </Card>
 
             {/* The design's brand border is a 1px inset ring here (the pricing page's Pro-card
@@ -214,10 +217,9 @@ export default function PricingSection({
               elevation="e3"
               className="flex flex-col p-5 ring-1 ring-inset ring-brand-border dark:ring-brand-border-dark sm:p-7"
             >
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-xl">Pro</h3>
-                <Badge variant="solid">Most popular</Badge>
-              </div>
+              {/* No "Most popular" badge: the beta has no popularity figure behind one, and the brand ring
+                  already carries the emphasis. */}
+              <h3 className="text-xl">Pro</h3>
               <div className="mt-3 flex items-baseline gap-1.5">
                 <span className={PRICE_CLASS}>{proPrice}</span>
                 <span className={`text-sm ${MUTED_CLASS}`}>per month</span>
@@ -240,7 +242,7 @@ export default function PricingSection({
                   Card required. One trial per account. Cancel any time in the 7 days at no charge.
                 </p>
               )}
-              <FeatureList items={proFeatures()} />
+              <FeatureList items={shipped(PRO_FEATURES)} />
             </Card>
           </div>
         </SectionImpression>

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ANALYSIS_LINES, shipped } from '@/lib/planLimits'
 import { PRO_PRICING } from './prices'
 
 const SITE_URL = 'https://www.earningsnerd.io'
@@ -11,14 +12,21 @@ export const metadata: Metadata = {
   alternates: { canonical: '/pricing' },
 }
 
-// Product/Offer structured data uses the same approved offer as the visible pricing surfaces.
-const PRICING_JSON_LD = {
+// Product/Offer structured data uses the same approved offer as the visible pricing surfaces, and
+// names multi-period analysis only while ENABLE_ANALYSIS ships it, as the Pro lists do (/analysis
+// 404s while the flag is off): its piece is lib/planLimits.ts ANALYSIS_LINES.productJsonLd, read
+// through shipped() at render, as the page and PricingSection read their lines.
+const pricingJsonLd = () => ({
   '@context': 'https://schema.org',
   '@type': 'Product',
   '@id': `${SITE_URL}/pricing#product`,
   name: 'EarningsNerd Pro',
-  description:
-    'Unlimited AI summaries of SEC 10-K and 10-Q filings, multi-period analysis, filing Q&A, alerts, and exports.',
+  description: `${shipped([
+    { text: 'Unlimited AI summaries of SEC 10-K and 10-Q filings' },
+    ANALYSIS_LINES.productJsonLd,
+    { text: 'filing Q&A' },
+    { text: 'alerts' },
+  ]).join(', ')}, and exports.`,
   brand: { '@type': 'Brand', name: 'EarningsNerd' },
   url: `${SITE_URL}/pricing`,
   offers: [
@@ -39,17 +47,17 @@ const PRICING_JSON_LD = {
       availability: 'https://schema.org/InStock',
     },
   ],
-}
+})
 
 // Escape `<` as the JSON-safe `<` so a `</script>` sequence inside the serialized JSON can
 // never terminate the tag (the existing JSON-LD sites serialize static, hand-written objects; this
 // one is the pattern to copy when the payload grows).
-const JSON_LD_HTML = JSON.stringify(PRICING_JSON_LD).replace(/</g, '\\u003c')
+const jsonLdHtml = () => JSON.stringify(pricingJsonLd()).replace(/</g, '\\u003c')
 
 export default function PricingLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON_LD_HTML }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml() }} />
       {children}
     </>
   )
