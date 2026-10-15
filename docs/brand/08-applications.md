@@ -82,6 +82,41 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Financial Highlights** (`frontend/features/summaries/components/FinancialMetricsTable.tsx`): a
   currency row keeps the precision it was served with, so a per-share "$7.46" no longer displays as
   "$7.5" (a Phase 9 fix; compact figures keep their rounding).
+- **Calendar** (`frontend/features/calendar/components/EarningsCalendarPage.tsx`, `MonthView.tsx`,
+  `WeekView.tsx`): the coverage chip and the "+N more" and "Show top 5" controls rest in the ink,
+  sage only under the pointer (D-030). `tests/unit/calendarCoverageChip.spec.tsx` renders the page
+  on a bounded payload under the known universe: the chip shows there and nowhere else.
+- **Counts elsewhere in the product** (D-030): the dashboard feed's "See all N companies" link, the
+  check-email countdown, the period quick picks, the narrative's "Show the N source figures" summary
+  and its bracketed Sources chip, the data notes' checked count, the peer rank and the summary's
+  section index rest in the ink, and so do the values beside them: a What-changed chip's rising
+  delta on the dashboard (the primary ink, the icon carrying the direction), the filing viewer's
+  "Showing ·" caption, which prints a section's name, and the "Sources & checks" links, which under
+  the fundamentals chart print a figure's fiscal year. The controls among them that turn sage under
+  the pointer compose the count control, `countControlClass` (`frontend/DESIGN_SYSTEM.md`): the
+  whole label in the secondary ink as one text run, sage under the pointer (a link set among lines
+  of text keeps its underline). The calendar day's "+N more", which never turns sage, and the
+  countdown, at full strength in the same ink while its control waits, rest in the ink outside it.
+  `brandCopyRules.spec.ts` rule 2 reads the whole app and follows sage through a class, a ui Button
+  or Badge variant, a resting state such as `aria-pressed:`, `visited:` or `focus:`, an opacity
+  modifier and a component that sets it or is given it, reads a same-file literal through the file's
+  own bindings its header names (a variable's every value, what the file puts in it included,
+  fields, indices, destructuring with its rest, a loop's variable, a parameter at each of the file's
+  calls, a named callback's included, and React's child utilities), and its count-control check
+  fails a control resting in sage, its own or inherited where it is rendered (a component that
+  renders its children inside a control counting as one), that holds its count in a span of its own
+  ink, and its one-source check fails a count control rebuilt by hand, whose classes written in its
+  file turn it sage under the pointer; its header names what stays review-checked.
+- **The Copilot's links and the prose links** (D-030): a Copilot source's locator, which prints a
+  citation's section name as the model wrote it, composes the count control's `link` kind, with the
+  new-tab icon the app's other links to the original draw. A link inside a Copilot answer, the
+  filing reader, the summary or the analysis narrative prints words the product does not write, so
+  it rests in its prose's own ink with a quiet underline and turns sage only under the pointer
+  (`app/globals.css`); a citation chip among the prose keeps its own chip. `brandCopyRules.spec.ts`
+  rule 2 reads as a value every field the API types declare that the server or the model writes a
+  figure into (a formatted figure, a date or a period, the text written about the filing, a table's
+  rows and a list's items among it), and fails a field they declare that can hold a string and that
+  it has not classified; its stylesheet check fails a rule that sets sage at rest.
 - **Exports and mail** (`backend/app/services/export_service.py`, `excel_export_service.py`,
   `email_service.py`, `app/routers/contact.py`): mastheads and footers read "EarningsNerd · AI
   summaries of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the
@@ -149,7 +184,7 @@ New gates, each with a mutation proof in the PR (CLAUDE.md rule 12):
 - `brandCopyRules.spec.ts`: shipped copy never says "each figure" or "every figure" without the
   server's scope beside it, never promises nine parts for every filing, and on the public surfaces
   never promises that quotes are withheld or are the filing's own words unless it names risk
-  excerpts; on the public surfaces no sage-coloured element renders a digit; the
+  excerpts; on the public surfaces no sage-coloured element renders a digit (D-030 later widened this to the whole app, to computed values and to the sage a variant, a resting state or a component sets); the
   highlight never sits on a figure or a price, the hero accents included; the margin exists only
   inside `MarkedCopy`, and every `MarkedCopy` carries a marker.
 - `markSingleSource.spec.ts`: every rendition of the EN monogram (the assets, the templates, the

@@ -1,5 +1,6 @@
 """The review gate (rule 12 for the review-wait lesson): the decision is pure, pinned offline, and the
-workflow that publishes it runs on every non-draft pull request head without write permissions."""
+workflow that publishes it runs on every pull-request event without write permissions. It never
+skips that job, because a skipped job counts as passing; a draft fails it instead."""
 from pathlib import Path
 
 import pytest
@@ -49,9 +50,13 @@ def test_parse_summary_reads_status_and_commit_through_the_markup():
     ("prefix-collision", "wait"),            # a head minted with the reviewed commit's 7-hex prefix
     ("prefix-resolves-elsewhere", "wait"),   # the reviewed commit was force-pushed away; the repository still resolves the prefix to it
     ("prefix-unresolvable", "wait"),         # the repository cannot resolve the prefix uniquely
+    ("draft-completed-head", "fail"),        # a draft never passes, even with a completed review of its head
+    ("draft-override", "fail"),              # nor with an override; marking it ready starts a new run
+    ("draft-unreadable", "fail"),            # a draft flag the API did not report as a boolean fails closed
+    ("draft-unreadable-override", "fail"),   # override or not
 ])
 def test_decision_requires_a_completed_review_of_this_exact_head_or_a_recorded_override(case, expected):
-    comments, body, head, commits = [], "Ordinary PR body.", HEAD, [HEAD]
+    comments, body, head, commits, draft = [], "Ordinary PR body.", HEAD, [HEAD], False
     resolve = lambda short: HEAD if HEAD.startswith(short) else None  # noqa: E731 - the repository resolves the prefix to the head
     if case == "completed-head":
         comments = [_summary(COMPLETED, "a834193")]
@@ -84,7 +89,15 @@ def test_decision_requires_a_completed_review_of_this_exact_head_or_a_recorded_o
     elif case == "prefix-unresolvable":
         comments = [_summary(COMPLETED, "a834193")]
         resolve = lambda short: None  # noqa: E731
-    verdict, message = review_gate.decide(head, comments, body, commits, resolve)
+    elif case == "draft-completed-head":
+        comments, draft = [_summary(COMPLETED, "a834193")], True
+    elif case == "draft-override":
+        body, draft = "Review override: Codex bot out of credits; two independent lenses reviewed the diff.\n", True
+    elif case == "draft-unreadable":
+        comments, draft = [_summary(COMPLETED, "a834193")], None
+    elif case == "draft-unreadable-override":
+        body, draft = "Review override: Codex bot out of credits; two independent lenses reviewed the diff.\n", None
+    verdict, message = review_gate.decide(head, comments, body, commits, resolve, pr_draft=draft)
     assert verdict == expected, message
     if case == "completed-other-head":
         assert "7547ef1" in message and "@codex review" in message
@@ -94,26 +107,55 @@ def test_decision_requires_a_completed_review_of_this_exact_head_or_a_recorded_o
         assert "ambiguous" in message
     if case in ("prefix-resolves-elsewhere", "prefix-unresolvable"):
         assert "does not resolve uniquely" in message
+    if case in ("draft-completed-head", "draft-override"):
+        assert "is a draft" in message and "marked ready" in message
+    if case in ("draft-unreadable", "draft-unreadable-override"):
+        assert "failing closed" in message
 
 
 def test_main_polls_until_the_review_completes_and_times_out_honestly(monkeypatch, capsys):
     monkeypatch.setenv("REVIEW_GATE_HEAD", HEAD)
     monkeypatch.setenv("REVIEW_GATE_TIMEOUT_MINUTES", "1")
     monkeypatch.setenv("REVIEW_GATE_POLL_SECONDS", "5")
-    states = iter([([_summary(RUNNING, "a834193")], "body", [HEAD]), ([_summary(COMPLETED, "a834193")], "body", [HEAD])])
+    states = iter([([_summary(RUNNING, "a834193")], "body", [HEAD], False),
+                   ([_summary(COMPLETED, "a834193")], "body", [HEAD], False)])
     sleeps = []
     ticks = iter([0.0, 0.0, 10.0])
     assert review_gate.main(fetch=lambda: next(states), sleep=sleeps.append, clock=lambda: next(ticks, 10.0)) == 0
     assert sleeps == [5.0]
     # Timeout: the review never completes for this head; the failure names the remedy.
     ticks = iter([0.0, 0.0, 30.0, 70.0])
-    assert review_gate.main(fetch=lambda: ([_summary(COMPLETED, "7547ef1")], "body", [HEAD]), sleep=sleeps.append,
+    assert review_gate.main(fetch=lambda: ([_summary(COMPLETED, "7547ef1")], "body", [HEAD], False), sleep=sleeps.append,
                             clock=lambda: next(ticks, 70.0)) == 1
     out = capsys.readouterr().out
     assert "timed out after 1 minutes" in out and "@codex review" in out and "Review override" in out
+    # A draft, or an unreadable draft flag, fails on the first read without waiting, though the head
+    # has a completed review. The clock advances, so a regression that waits times out instead of hanging.
+    for draft, expected in ((True, "is a draft"), (None, "failing closed")):
+        sleeps.clear()
+        ticks = iter([0.0, 0.0, 70.0])
+        assert review_gate.main(fetch=lambda: ([_summary(COMPLETED, "a834193")], "body", [HEAD], draft),
+                                sleep=sleeps.append, clock=lambda: next(ticks, 70.0)) == 1
+        assert sleeps == [] and expected in capsys.readouterr().out
 
 
-def test_workflow_publishes_the_gate_on_every_non_draft_head_without_write_permissions():
+@pytest.mark.parametrize("pull, draft", [
+    ({"draft": True}, True),
+    ({"draft": False}, False),
+    ({}, None),                  # no draft flag at all
+    ({"draft": "false"}, None),  # not a boolean
+])
+def test_fetch_state_reads_the_draft_flag_from_the_pull_request_now_and_reports_a_non_boolean_as_unknown(
+        monkeypatch, pull, draft):
+    def github(path, token):
+        assert path == "repos/o/r/pulls/7"  # the pull request as it is now, not the event that started the run
+        return {**pull, "body": "body"}
+    monkeypatch.setattr(review_gate, "_github", github)
+    monkeypatch.setattr(review_gate, "_paged", lambda path, token: [])
+    assert review_gate.fetch_state("o/r", "7", "token") == ([], "body", [], draft)
+
+
+def test_workflow_publishes_the_gate_on_every_pull_request_event_without_write_permissions():
     path = ROOT / ".github/workflows/review-gate.yml"
     workflow = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
     assert "pull_request" not in workflow["on"]  # the definition must come from the base branch
@@ -121,14 +163,27 @@ def test_workflow_publishes_the_gate_on_every_non_draft_head_without_write_permi
     assert workflow["on"]["issue_comment"]["types"] == ["created"]  # `@codex review` re-runs the gate for an unchanged head
     assert workflow["permissions"] == {"contents": "read", "issues": "read", "pull-requests": "read"}
     job = workflow["jobs"]["review-gate"]
-    assert job["if"] == "github.event_name == 'pull_request_target' && github.event.pull_request.draft == false"
+    # No pull-request event may skip the job: a skipped job reports success, which the required check
+    # counts as passing, and an event's draft flag can be stale. The script reads the live flag.
+    assert job["if"] == "github.event_name == 'pull_request_target'"
+    # Nor may anything else skip or soften the gate step, which would pass the check just the same: a
+    # step `if`, `continue-on-error`, a `needs:` on a job that skips, a `shell` or `defaults` that
+    # never runs the script, or another step. So the whole shape is pinned.
+    assert set(workflow) == {"name", "on", "permissions", "concurrency", "jobs"}
+    assert set(job) == {"if", "runs-on", "timeout-minutes", "steps"}
+    assert [sorted(step) for step in job["steps"]] == [["uses", "with"], ["uses", "with"], ["env", "name", "run"]]
     assert "permissions" not in job  # the polling job keeps the workflow-level read-only token
     assert workflow["concurrency"]["cancel-in-progress"] == "true"  # a new push supersedes the wait for the old head
     checkout = job["steps"][0]
     assert checkout["uses"].startswith("actions/checkout@") and checkout["with"]["ref"] == "${{ github.event.pull_request.base.ref }}"  # trusted base code, never the PR's own gate
     assert checkout["with"]["persist-credentials"] == "false"
+    assert job["steps"][1]["uses"].startswith("actions/setup-python@")  # not another action that could rewrite the script
     step = job["steps"][-1]
     assert step["run"] == "python backend/scripts/review_gate.py"
+    assert set(step["env"]) == {"GITHUB_TOKEN", "REVIEW_GATE_REPO", "REVIEW_GATE_PR", "REVIEW_GATE_HEAD",
+                                "REVIEW_GATE_TIMEOUT_MINUTES"}  # nothing that could redirect the interpreter
+    assert step["env"]["REVIEW_GATE_REPO"] == "${{ github.repository }}"
+    assert step["env"]["REVIEW_GATE_PR"] == "${{ github.event.pull_request.number }}"  # this pull request's reviews, no other's
     assert step["env"]["REVIEW_GATE_HEAD"] == "${{ github.event.pull_request.head.sha }}"
     assert step["env"]["GITHUB_TOKEN"] == "${{ secrets.GITHUB_TOKEN }}"
     assert int(job["timeout-minutes"]) > int(step["env"]["REVIEW_GATE_TIMEOUT_MINUTES"])
