@@ -2452,13 +2452,17 @@ def test_a_database_url_with_one_at_is_accepted(monkeypatch, shape):
 
 
 def _import_benchmark(monkeypatch):
-    """Import a fresh scripts/validate_db_performance.py that never reads a developer's .env."""
+    """Import a fresh scripts/validate_db_performance.py that never reads a developer's .env; teardown restores
+    sys.modules."""
     import dotenv
 
     monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)
     monkeypatch.setattr(sys, "path", list(sys.path))
     monkeypatch.syspath_prepend(str(BACKEND_DIR / "scripts"))
-    monkeypatch.delitem(sys.modules, "validate_db_performance", raising=False)
+    # setitem records what sys.modules held (nothing, the first time), so teardown drops the fresh module again;
+    # delitem records nothing for an absent key and would leave it loaded after the test.
+    monkeypatch.setitem(sys.modules, "validate_db_performance", None)
+    del sys.modules["validate_db_performance"]
     return importlib.import_module("validate_db_performance")
 
 
@@ -2495,7 +2499,8 @@ def test_the_at_refusal_advises_what_the_deploy_can_read(monkeypatch, capsys):
     # #1281's second review (D-5): both refusals advised percent-encoding the "@", which the app decodes but the
     # deploy's migration step and the Ops proxy step do not (they split DATABASE_URL at its first "@" and ":" and hand
     # both parts to psql as written, docs/CONFIGURATION.md), so a URL fixed that way failed the next deploy. Each now
-    # advises characters that need no encoding, in the same words, and neither advises encoding.
+    # advises characters that need no encoding, in the same words, and neither advises encoding: the reason is pinned
+    # whole, and any rewording must still pass the no-encoding check.
     password = _fabricated("DATABASE_URL password")
     with pytest.raises(RuntimeError) as info:
         _import_database(monkeypatch, f"postgresql://app:{password}@{password}@db.invalid/app")
@@ -2508,8 +2513,13 @@ def test_the_at_refusal_advises_what_the_deploy_can_read(monkeypatch, capsys):
         for text in (str(info.value), capsys.readouterr().out)
     ]
     assert problems[0] == problems[1], problems  # the same words at both sites
-    assert "keep the user name and password to characters that need no percent-encoding" in problems[0]
-    assert "percent-encode" not in problems[0]  # no advice to encode
+    advice = "keep the user name and password to characters that need no percent-encoding"
+    assert problems[0] == (
+        f"more than one '@'; {advice}: the deploy's migration step and the Ops proxy step read them undecoded"
+    ), problems[0]
+    # A rewording changes the pin above and must still advise no encoding in any form: no "encod" or "escap" word
+    # beside the advice and no percent-escape such as %40.
+    assert not re.search(r"encod|escap|%[0-9A-Fa-f]{2}", problems[0].replace(advice, ""), re.IGNORECASE), problems[0]
     leaked = _fragments(password, "".join(problems))
     assert not leaked, f"{leaked} four-character fragments of the fabricated password were printed"
 

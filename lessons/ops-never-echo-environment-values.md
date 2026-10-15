@@ -132,7 +132,9 @@ list included) and the str of a log's body that is not text only after `before_s
   request is attached. `before_send_span` acts only under span streaming, which stays off.
 - Nothing prints or logs a secret. An output reports a secret's presence and length, never a character; a
   connection URL's parse error is reported by its type, and an HTTP error from a keyed URL by its status, never
-  their messages; a database URL holding more than one `@` is refused; httpx's request log stays at WARNING
+  their messages; a database URL holding more than one `@` is refused, advising a user name and password of characters
+  that need no percent-encoding and never encoding (the deploy's migration step and the Ops proxy step hand both to
+  `psql` undecoded); httpx's request log stays at WARNING
   where a key travels in a query string. No output call (a print, log, warn or write call, `click.echo`, `pprint`, a
   Sentry message, exception, event, tag or tags, context, extra, user, breadcrumb, or span data or attribute) and no
   raise or assert message reads a secret field directly, the settings object beyond a printable field
@@ -203,7 +205,9 @@ list included) and the str of a log's body that is not text only after `before_s
 - **Outputs.** `smoke_resend` prints the key's length; `redis_service` builds a pool from a URL holding a password and
   refuses a URL missing its `@host`; importing `app.database` with such a URL, or with more than one `@` (its tail in
   the host, the database or a query key), raises a `RuntimeError`, while the Cloud SQL socket form and a
-  percent-encoded `@` parse; the database benchmark stops on each, prints a well-formed URL's backend and host only (a
+  percent-encoded `@` parse (the app decodes it, the deploy does not); both refusals of more than one `@` give one
+  reason, pinned whole, which advises characters that need no percent-encoding and no encoding in any form; the
+  database benchmark stops on each, prints a well-formed URL's backend and host only (a
   query-string password, and passwords whose digits land in the port and the rest in the database, included in the
   test) and its errors by type; an Alpha Vantage 503 is logged and raised as `HTTP 503`, and its throttle notice is
   logged with the key `[Filtered]`, whether the caller degrades or raises; the calendar job's logging setup and the
