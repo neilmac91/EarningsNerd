@@ -1,12 +1,12 @@
 'use client'
 
 import { queryKeys } from '@/lib/queryKeys'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChatTextIcon } from '@/lib/icons'
 import { inputClasses } from '@/components/ui/Input'
-import { GuidanceCard, Skeleton } from '@/components/ui'
+import { Notice, Skeleton } from '@/components/ui'
 import SecondaryHeader from '@/components/SecondaryHeader'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import {
   listFeedback,
@@ -24,17 +24,16 @@ export default function AdminFeedbackPage() {
 
   const filters = { status: statusFilter, type: typeFilter }
 
-  const {
-    data: feedback,
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
+  const feedbackQuery = useQuery({
     // Filtering is server-side, so the active filters are part of the cache key.
     queryKey: queryKeys.adminFeedback.list(filters),
     queryFn: () => listFeedback(filters),
     retry: false,
   })
+  const { data: feedback } = feedbackQuery
+  // Holds the error card, and its focused Retry, through the refetch a Retry starts.
+  const feedbackFailure = useRetainedFailure(feedbackQuery, queryKeys.adminFeedback.list(filters))
+  const feedbackHeadingRef = useRef<HTMLHeadingElement>(null)
 
   const hasFilters = statusFilter !== 'all' || typeFilter !== 'all'
 
@@ -50,12 +49,14 @@ export default function AdminFeedbackPage() {
       <main className="mx-auto max-w-7xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
         <section className="rounded-2xl border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-light px-6 py-4 dark:border-white/10">
-            <div className="flex items-center gap-3">
-              <ChatTextIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-              <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-                Feedback
-              </h2>
-            </div>
+            {/* tabIndex -1: where focus goes if the Retry unmounts while it holds focus. */}
+            <h2
+              ref={feedbackHeadingRef}
+              tabIndex={-1}
+              className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+            >
+              Feedback
+            </h2>
             <div className="flex flex-wrap items-center gap-2">
               <label htmlFor="filter-status" className="sr-only">
                 Filter by status
@@ -89,29 +90,33 @@ export default function AdminFeedbackPage() {
             </div>
           </div>
 
-          {isLoading ? (
+          {feedbackQuery.isLoading && !feedbackFailure.failed ? (
             <div role="status" aria-label="Loading feedback" className="space-y-3 p-6">
               {[0, 1, 2, 3, 4].map((i) => (
                 <Skeleton key={i} className="h-12 w-full" />
               ))}
               <span className="sr-only">Loading feedback…</span>
             </div>
-          ) : isError ? (
+          ) : feedbackFailure.failed ? (
             <div className="p-6">
-              <p className="text-sm text-error-light dark:text-error-dark">
-                {isApiError(error) ? getErrorMessage(error) : 'Failed to load feedback.'}
-              </p>
+              <Notice
+                variant="error"
+                title="Could not load the feedback."
+                description={isApiError(feedbackFailure.error) ? getErrorMessage(feedbackFailure.error) : undefined}
+                action={
+                  <RetryButton size="sm" failures={[feedbackFailure]} focusTarget={feedbackHeadingRef}>
+                    Retry
+                  </RetryButton>
+                }
+              />
             </div>
           ) : (feedback?.length ?? 0) === 0 ? (
-            <GuidanceCard
-              variant="empty"
-              title="No Feedback Found"
-              description={
-                hasFilters
-                  ? 'No feedback matches these filters.'
-                  : 'No feedback yet. Reports will appear here as users submit them.'
-              }
-            />
+            <p
+              role="status"
+              className="px-6 py-10 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark"
+            >
+              {hasFilters ? 'No feedback matches these filters.' : 'No feedback yet. Reports appear here as people send them.'}
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-border-light dark:divide-white/10">

@@ -46,6 +46,10 @@ const ALLOWED: Record<string, { forms: Form[]; why: string }> = {
   },
   'lib/serverApi.ts': { forms: ['fetchWhatChangedServer', 'path'], why: 'the server seed: the anonymous report, fetched on the server for the filing page' },
   'app/filing/[id]/page.tsx': { forms: ['fetchWhatChangedServer'], why: 'fetches the seed and hands it to useWhatChanged through SummaryDisplay' },
+  'features/auth/lib/accountQueryState.ts': {
+    forms: ['family'],
+    why: "lists `.all()` in ACCOUNT_QUERY_FAMILIES, which an account change only cancels and removes (a failed /me reads under the anonymous key with the reader's session)",
+  },
 }
 
 function walk(dir: string, out: string[] = []): string[] {

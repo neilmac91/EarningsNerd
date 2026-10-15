@@ -26,7 +26,7 @@ async function join(message: string | undefined) {
   render(<WaitlistForm source="waitlist" />)
   fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'ada@example.test' } })
   fireEvent.click(screen.getByRole('button', { name: 'Join the waitlist' }))
-  return screen.findByRole('heading', { level: 3 })
+  return screen.findByRole('heading', { level: 2 })
 }
 
 describe('waitlist success card', () => {

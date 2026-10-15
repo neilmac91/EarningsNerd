@@ -14,12 +14,18 @@
                  Selected = the primary-button colorway: bg-brand + white;
                  dark FLIPS to navy ink on brand-dark (white on brand.fill-dark
                  is 3.7:1 — never revert to it).
-     - sizes:    sm 26px (desktop toolbars — the calendar) · md 36px (touch) ·
-                 adaptive = 36px below sm, 26px from sm up.
+     - sizes:    sm 1.625rem, 26px at the default root (desktop toolbars — the
+                 calendar) · md 36px (touch) · adaptive = 36px below sm,
+                 1.625rem from sm up. Heights are rem (px figures here are at
+                 the 16px root), so enlarged text keeps its segments: at a 32px
+                 root text-xs's 32px line box overflowed a fixed 26px.
      - mono:     an option whose label is a code (10-K, 10-Q) sets it in the
                  data face, so a form code reads the same here as in the rows.
      - labels never break (10-K/A breaks at its hyphen and slash otherwise);
                  fullWidth wraps whole segments onto another row instead.
+     - cap:      at most MAX_SEGMENTS (five) options; a longer set is a compact
+                 select beside its label (DESIGN.md). A set known only at run
+                 time (the filings form filter) checks itself against it.
    Focus-visible = ring-brand. No hover:opacity anywhere (it darkens).
 ============================================================================= */
 
@@ -27,6 +33,12 @@ import { type ReactNode } from 'react'
 import { cx } from './cx'
 
 export type SegmentedControlSize = 'sm' | 'md' | 'adaptive'
+
+/** The most options one control holds (DESIGN.md, the SegmentedControl paragraph): every segment shows at once
+ *  and a label never breaks, so a longer set is a compact select. FilingIndex's form filter, a set known only at
+ *  run time, renders as the select past it; tests/unit/segmentedControlOptionCount.spec.ts holds every set it can
+ *  count statically to it. */
+export const MAX_SEGMENTS = 5
 
 export interface SegmentedOption<T extends string> {
   value: T
@@ -65,9 +77,9 @@ const SEGMENT = cx(
 )
 
 const SIZE: Record<SegmentedControlSize, string> = {
-  sm: 'h-[26px] px-3.5 text-xs',
+  sm: 'h-[1.625rem] px-3.5 text-xs',
   md: 'h-9 px-3 text-sm',
-  adaptive: 'h-9 px-3 text-sm sm:h-[26px] sm:px-3.5 sm:text-xs',
+  adaptive: 'h-9 px-3 text-sm sm:h-[1.625rem] sm:px-3.5 sm:text-xs',
 }
 
 const SELECTED = 'bg-brand text-white shadow-e1 dark:bg-brand-dark dark:text-background-dark'
