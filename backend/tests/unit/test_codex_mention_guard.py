@@ -134,6 +134,7 @@ REFUSED_COMMANDS = {
     "gh pr review with a comment": f"gh pr review 1 --comment --body 'over to {MENTION}'",
     "the review command with more text, through gh": f"gh pr comment 1 --body '{MENTION} review and also fix the migration'",
     "the review command as a pull request's edited body": f"gh pr edit 1 --body '{MENTION} review'",
+    "the review command as the body of the pull request on branch comment": f"gh pr edit comment --body '{MENTION} review'",
     "the review command as an edit of the last comment": f"gh pr comment 1 --edit-last --body '{MENTION} review'",
     "gh issue new": f"gh issue new --title x --body 'cc {MENTION}'",
     "a repository flag before the verb": f"gh pr -R neilmac91/EarningsNerd comment 1339 --body 'ping {MENTION}'",
