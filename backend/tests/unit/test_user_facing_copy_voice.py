@@ -43,10 +43,11 @@ arguments, since a hex string is only ever a colour.
 
 EXEMPT lists what breaks today, each entry with the PR or decision that owns its fix: a file, or
 ``file::function`` for half of one. It only shrinks: an entry that no longer covers a break fails as
-stale, and EXEMPT_CAP (the count of entries) fails an addition. Delete an entry when its
-owner lands, lower EXEMPT_CAP in the same diff, never raise it for new copy (a walk that learns a new
-shape lists what the shape finds and moves the cap in that commit). Keep the blank line between owner
-groups so two PRs shrinking different groups merge cleanly.
+stale, and EXEMPT_CAP equals the count of entries (an equality, never a ceiling: D-040), so an addition
+fails and so does a deletion that leaves the cap where it was. Delete an entry when its owner lands and
+lower EXEMPT_CAP in the same diff; never raise it for new copy (a walk that learns a new shape lists what
+the shape finds and moves the cap in that commit). Keep the blank line between owner groups so two PRs
+shrinking different groups merge cleanly.
 
 Limits (review, not this walk): copy assembled outside these eight shapes in a module that is not a
 document module, such as a positional argument of a class defined elsewhere, a list element outside a
@@ -150,9 +151,10 @@ EXEMPT: dict[str, str] = {
     "app/services/trend_analysis/citations.py": "backend-copy-low (tasks/todo.md E45): the analysis citation's derived-Q4 label",
     "app/services/trend_analysis/detectors.py": "backend-copy-low (tasks/todo.md E45): the cash-conversion red flag",
 }
-# The entry count: 18 when the gate landed, 20 when the walk learned shapes 7 and 8 and listed the two
-# files they found in the same commit. Lower it with every deletion (two shrinking PRs that conflict on
-# this line keep the smaller number); raising it for new copy is the one change this gate exists to refuse.
+# The entry count, held as an equality (D-040): 18 when the gate landed, 20 when the walk learned shapes 7
+# and 8 and listed the two files they found in the same commit. Lower it with every deletion, in the same
+# diff; when two shrinking PRs meet, the later merge sets it to the merged list's count, which the equality
+# holds it to. Raising it for new copy is the one change this gate exists to refuse.
 EXEMPT_CAP = 20
 
 
@@ -682,6 +684,9 @@ def test_every_exempt_entry_still_covers_a_break():
 
 
 def test_exempt_only_shrinks():
-    assert len(EXEMPT) <= EXEMPT_CAP, (
-        f"EXEMPT grew to {len(EXEMPT)} entries (cap {EXEMPT_CAP}): fix the copy instead of exempting it"
+    # An equality, as D-040 holds every cap and the twin holds UNSOURCED_MAX: a ceiling would let a deletion
+    # leave the cap where it was, and a later entry would then fit under it with no change to this line.
+    assert len(EXEMPT) == EXEMPT_CAP, (
+        f"EXEMPT has {len(EXEMPT)} entries and EXEMPT_CAP is {EXEMPT_CAP}: lower the cap with each deletion "
+        "in the same diff, and never raise it for new copy (fix the copy instead of exempting it)"
     )
