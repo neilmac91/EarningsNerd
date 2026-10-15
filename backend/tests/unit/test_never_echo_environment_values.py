@@ -2363,7 +2363,8 @@ def test_the_resend_smoke_prints_no_key(monkeypatch, capsys):
     monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)  # never a developer's .env
     monkeypatch.setattr(sys, "path", list(sys.path))
     monkeypatch.syspath_prepend(str(BACKEND_DIR / "scripts"))
-    monkeypatch.delitem(sys.modules, "smoke_resend", raising=False)
+    monkeypatch.setitem(sys.modules, "smoke_resend", None)  # then del: teardown drops the fresh module (see below)
+    del sys.modules["smoke_resend"]
     smoke = importlib.import_module("smoke_resend")
     key = "re_" + _fabricated("RESEND_API_KEY")
 
@@ -2495,12 +2496,13 @@ def test_the_database_benchmark_prints_no_password(monkeypatch, capsys):
     assert not leaked, f"{leaked} fragments of the fabricated passwords were printed"
 
 
-def test_the_at_refusal_advises_what_the_deploy_can_read(monkeypatch, capsys):
+def test_the_at_refusal_advises_what_the_deploy_can_read(monkeypatch, capsys, caplog):
     # #1281's second review (D-5): both refusals advised percent-encoding the "@", which the app decodes but the
     # deploy's migration step and the Ops proxy step do not (they split DATABASE_URL at its first "@" and ":" and hand
     # both parts to psql as written, docs/CONFIGURATION.md), so a URL fixed that way failed the next deploy. Each now
-    # advises characters that need no encoding, in the same words, and neither advises encoding: the reason is pinned
-    # whole, and any rewording must still pass the no-encoding check.
+    # advises characters that need no encoding, in the same words, and neither advises encoding: both refusals are
+    # pinned whole on every channel, and any rewording must still pass the no-encoding check below.
+    caplog.set_level(logging.INFO)
     password = _fabricated("DATABASE_URL password")
     with pytest.raises(RuntimeError) as info:
         _import_database(monkeypatch, f"postgresql://app:{password}@{password}@db.invalid/app")
@@ -2508,19 +2510,23 @@ def test_the_at_refusal_advises_what_the_deploy_can_read(monkeypatch, capsys):
     monkeypatch.setenv("DATABASE_URL", f"postgresql://app:{password}@{password}@127.0.0.1:1/app")
     with pytest.raises(SystemExit):
         script.run_validation()
-    problems = [
-        text.split("could not be parsed (", 1)[1].split("; message withheld", 1)[0]
-        for text in (str(info.value), capsys.readouterr().out)
-    ]
+    captured = capsys.readouterr()
+    texts = [str(info.value), captured.out]
+    problems = [text.split("could not be parsed (", 1)[1].split("; message withheld", 1)[0] for text in texts]
     assert problems[0] == problems[1], problems  # the same words at both sites
-    advice = "keep the user name and password to characters that need no percent-encoding"
-    assert problems[0] == (
-        f"more than one '@'; {advice}: the deploy's migration step and the Ops proxy step read them undecoded"
-    ), problems[0]
-    # A rewording changes the pin above and must still advise no encoding in any form: no "encod" or "escap" word
-    # beside the advice and no percent-escape such as %40.
-    assert not re.search(r"encod|escap|%[0-9A-Fa-f]{2}", problems[0].replace(advice, ""), re.IGNORECASE), problems[0]
-    leaked = _fragments(password, "".join(problems))
+    reason = ("more than one '@'; keep the user name and password to characters that need no percent-encoding: the "
+              "deploy's migration step and the Ops proxy step read them undecoded")
+    refusal = f"DATABASE_URL could not be parsed ({reason}; message withheld: it can quote the password)"
+    banner = "=" * 60 + "\nPostgreSQL Performance Validation\n" + "=" * 60 + "\n\n"
+    assert texts == [refusal, f"{banner}ERROR: {refusal}\n"], texts  # each refusal whole: nothing added elsewhere,
+    assert captured.err == "" and not caplog.records, (captured.err, caplog.text)  # on stderr or in a log either
+    # A rewording changes the pins above and must still advise no encoding in any form: beside the phrase that rules
+    # encoding out and the withheld message's reason, no "encod", "escap", "quot" or "percent" word and no "%" (a
+    # rewording that names an unescaped or encoded "@" only to warn fails too, closed).
+    for text in texts:
+        rest = text.replace("need no percent-encoding", "").replace("it can quote the password", "")
+        assert not re.search(r"encod|escap|quot|percent|%", rest, re.IGNORECASE), text
+    leaked = _fragments(password, "".join(texts))
     assert not leaked, f"{leaked} four-character fragments of the fabricated password were printed"
 
 

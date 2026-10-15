@@ -205,8 +205,8 @@ list included) and the str of a log's body that is not text only after `before_s
 - **Outputs.** `smoke_resend` prints the key's length; `redis_service` builds a pool from a URL holding a password and
   refuses a URL missing its `@host`; importing `app.database` with such a URL, or with more than one `@` (its tail in
   the host, the database or a query key), raises a `RuntimeError`, while the Cloud SQL socket form and a
-  percent-encoded `@` parse (the app decodes it, the deploy does not); both refusals of more than one `@` give one
-  reason, pinned whole, which advises characters that need no percent-encoding and no encoding in any form; the
+  percent-encoded `@` parse (the app decodes it, the deploy does not); both refusals of more than one `@`, pinned
+  whole, give one reason, which advises characters that need no percent-encoding and no encoding in any form; the
   database benchmark stops on each, prints a well-formed URL's backend and host only (a
   query-string password, and passwords whose digits land in the port and the rest in the database, included in the
   test) and its errors by type; an Alpha Vantage 503 is logged and raised as `HTTP 503`, and its throttle notice is
