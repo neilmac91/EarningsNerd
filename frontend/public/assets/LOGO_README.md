@@ -85,16 +85,19 @@ Excel export).
   is the file that was published (its sha256), that it lies outside `middleware.ts`'s matcher (which
   leaves out `/assets/`), so the middleware never runs on it, and that no redirect, rewrite or
   basePath in `next.config.js` or `vercel.json` reaches it, read in a production build's
-  environment; that no path leaves the register; and that the register's origin is the root
-  layout's `metadataBase`. `backend/tests/unit/test_mail_published_assets.py` holds the backend to
-  the rule: a string in `backend/app`, read as the code builds it, that addresses a file the site
-  serves from `frontend/public` spells a whole registered path, with nothing filled in after it and
-  no origin of the site's, second slash or unstripped `FRONTEND_URL` in front of it; a registered
-  path is used whole, never changed or handed on; the header's tile is built on `FRONTEND_URL` with
-  any trailing slash stripped; and `FRONTEND_URL`'s default is the register's origin. Its header
-  names the forms it cannot see (a path after a placeholder that holds another origin, one written
-  without its leading slash or after a bare word, an address a function hands back that its caller
-  changes, one a route serves). Whether the origin answers without a
+  environment; that the register's paths are the list the spec writes out, so no path leaves it;
+  and that the register's origin is the root layout's `metadataBase`. Two gates hold the backend to
+  the rule. `backend/tests/unit/test_mail_rendered_addresses.py` renders every mail
+  `email_service.py` builds, with `FRONTEND_URL` keeping a trailing slash, and reads every address
+  each page carries: one into a file the site serves from `frontend/public` is a whole registered
+  path on `FRONTEND_URL`, the slash stripped, however the code derived it. It sees only what its
+  inputs render, and no mail built without `_wrap_html`. `backend/tests/unit/test_mail_published_assets.py`
+  reads the code, every file in `backend/app`: a string that addresses such a file spells a whole
+  registered path, with nothing filled in after it and no origin of the site's, second slash or
+  unstripped `FRONTEND_URL` in front of it, and a registered path is used whole where the scan can
+  see it. It cannot follow a value, and its header names what it cannot see. The header's tile is
+  built on `FRONTEND_URL` with any trailing slash stripped, and `FRONTEND_URL`'s default is the
+  register's origin. Whether the origin answers without a
   redirect, the response headers a route or a headers rule sets on these paths (a Content-Type that
   stops a mail client showing the image), and anything set only in the Vercel dashboard (a variable
   a rule reads, or a redirect) are review-checked.

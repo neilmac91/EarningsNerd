@@ -1,15 +1,19 @@
-"""Gate: mail addresses a file of the site's only by a registered path, built on FRONTEND_URL.
+"""Gate: the code spells a file of the site's only as a registered path, built on FRONTEND_URL.
 
 Sent mail keeps every address it carries for as long as the message is kept, and nobody can edit it
 after sending, so a file of the site's that the backend puts in mail is published: its path must never
 move or change (``frontend/public/assets/LOGO_README.md`` › Published URLs stay put). The register,
 ``frontend/tests/unit/publishedAssetUrls.json``, names the published paths and the origin mail
 addresses them on, and ``frontend/tests/unit/publishedAssetUrls.spec.ts`` holds each path to its
-file's bytes and keeps the middleware and every redirect and rewrite off it. This gate holds the
-backend to the rule's mail half (CLAUDE.md rule 12). It reads every file in ``backend/app``: the
-Python's strings as the code builds them (an f-string or a ``+`` chain whole, a name bound to a
-registered path read as the path), docstrings and the API's route decorators aside, and every other
-file's text. In them:
+file's bytes and keeps the middleware and every redirect and rewrite off it. Two gates hold the backend
+to the rule's mail half (CLAUDE.md rule 12):
+- this one reads the code: every file in ``backend/app``, mail or not;
+- ``test_mail_rendered_addresses.py`` reads every mail ``email_service.py`` builds, as it is sent, so it
+  checks an address however the code derived it. This scan cannot follow a value.
+
+This scan reads the Python's strings as the code builds them, docstrings and the paths of the API's
+route decorators aside: an f-string or a ``+`` chain whole, and a name bound to a registered path, or
+to an address built on one, read as what it holds. It reads every other file's text. In them:
 
 - the path of a file the site serves from ``frontend/public``, or of one of its directories, where a
   URL path can start (the start of a string, after whitespace, a quote or a backtick, a bracket, "=",
@@ -18,30 +22,47 @@ file's text. In them:
   directory left open for a name to follow (``"/assets/"``, ``f"{base}/icons/{name}"``) fails, so a
   path composed at run time has to be written out whole;
 - no origin of the site's (``earningsnerd.io`` or any host under it, with or without a scheme), no
-  second slash and no ``FRONTEND_URL`` that keeps its trailing slash comes in front of such a path:
-  mail builds it on ``FRONTEND_URL`` with the slash stripped, and a doubled slash answers 308;
-- a registered path is used whole. Its string may sit in the f-string or the concatenation that
-  builds an address, in a template a ``.format``, ``%`` or ``string.Template`` fills, or in a name
-  bound to it once, which is then read only in those places. Anything else
-  fails, since the scan cannot follow the path into code that may change it: an argument, a
-  container's item, a default, a return value, a method or a slice applied to it, a second binding.
-  An address built on one may go anywhere, but no method or slice may change it.
+  second slash and no ``FRONTEND_URL`` that keeps its trailing slash comes in front of such a path: mail
+  builds it on ``FRONTEND_URL`` with the slash stripped, and a doubled slash answers 308. The scan
+  reads ``FRONTEND_URL`` where the f-string or the concatenation names it, and counts it stripped only
+  under ``.rstrip("/")`` or ``.removesuffix("/")``;
+- a registered path is used whole. Its string may sit in the f-string or the concatenation that builds
+  an address, in a template a ``.format``, ``%`` or ``string.Template`` fills, or in a name bound to it
+  once, which is then read only in those places. A string with nothing in front of the path counts as
+  the path. Every other use the scan sees fails: an argument, a container's item, a default, a return
+  value, a method or a slice applied to it, a second binding, a setting the environment can replace.
+  So does a method, a slice, a conversion, a format spec or an in-place add applied to an address built
+  on one, where it is built or through a name that holds it.
 
 The header's tile follows ``FRONTEND_URL`` whatever it is set to, with a trailing slash stripped, and
 ``FRONTEND_URL``'s default is the register's origin.
 
 ``FORMS`` plants a case for each way the rule can be broken and each look-alike that must pass.
 ``test_the_scan_scores_every_planted_form`` writes each case into a directory and scores it through the
-walk that reads ``backend/app``. Out of reach, and planted as gaps:
-- a path written with no slash before it (``"assets/x.png"`` joined to a base that ends in one);
-- a registered path after a placeholder that holds an origin other than ``FRONTEND_URL``, as a
-  variable or as a host filled in (the scan reads the path, not what is filled in before it);
-- a path after a bare word, which reads like a file path (``BASE_URL/assets/x.png``);
-- an address a function hands back, changed by its caller (the scan does not follow a value out of
-  a call);
-- a path the site serves from a route rather than a file (``app/manifest.ts``).
+walk that reads ``backend/app``. Out of the scan's reach, and planted as gaps, one case each:
+- no slash before the path: ``urljoin(base + "/", "assets/x.png")``
+- a path after a bare word: ``BASE_URL/assets/x.png``, which reads like a file path
+- a path spelled with a dot segment or a percent-escape: ``/./assets/``, ``/x/../assets/``, ``%61ssets``
+- a registered path followed by a character the scan reads as its end: ``,``, ``|`` or a backslash
+- a JSON file's escaped slashes: ``\\/assets\\/``
+- a data file's path, changed by the code that reads it
+- a registered path on another origin's variable: the scan reads the path, not what is filled in before it
+- a registered path after another origin filled in as a host
+- FRONTEND_URL read through a name: an alias, a parameter's default, ``getattr``
+- FRONTEND_URL filled into a template: ``.format(base=settings.FRONTEND_URL)``, ``%``
+- an address a function hands back, changed by its caller
+- an address handed to a function that changes it: a helper, ``re.sub``, ``str.replace(u, ...)``, a join
+- an address held in a container or a conditional, then changed: a list, a dict, ``x if c else y``, a walrus
+- an address filled into another template, with a suffix: ``"{}@2x.png".format(u)``, ``%``, ``Template``
+- an address imported from another module, then changed
+- a name bound to a registered path, rebound where the scan does not look: ``global``, ``nonlocal``, ``setattr``
+- a name read through getattr or globals()
+- a Jinja filter applied to a path: ``| replace``, ``~``
+- a path the site serves from a route: ``app/manifest.ts``
 
-Whether the register's origin answers without a redirect is review-checked: this suite runs offline.
+The rendered gate checks what each of these puts in a mail ``email_service.py`` builds, save a path after
+a bare word, which is no address, and a path a route serves, which the register does not hold. Whether
+the register's origin answers without a redirect is review-checked: this suite runs offline.
 """
 import ast
 import json
@@ -63,8 +84,9 @@ ORIGIN = REGISTER["origin"]
 SITE_NAMES = sorted((p.name for p in PUBLIC.iterdir() if not p.name.startswith(".")), key=len, reverse=True)
 _SITE_PATH = re.compile(r"/(?:" + "|".join(map(re.escape, SITE_NAMES)) + r")(?![A-Za-z0-9_.-])")
 # What ends a URL path: whitespace, a quote, markup, a bracket, a separator, a query or a fragment, an
-# entity, a placeholder or an escape. Anything else (";", "@", "+") is read into the path.
-_PATH = re.compile(r"""[^\s"'`<>()\[\],?#&{}%$\\|^]*""")
+# entity for a quote or for markup, a placeholder or an escape. Anything else (";", "@", "+", "&", "&amp;")
+# is read into the path, as a client reads it.
+_PATH = re.compile(r"""(?:[^\s"'`<>()\[\],?#&{}%$\\|^]|&(?!(?:quot|apos|lt|gt|#0*3[49]|#x0*2[27]);))*""", re.IGNORECASE)
 _ORIGIN_BEFORE = re.compile(r"""(?:https?:)?//([^/\s"'`<>]*)/*$""", re.IGNORECASE)
 _SITE_HOST_BEFORE = re.compile(r"(?:^|[^\w.-])(?:[\w-]+\.)*earningsnerd\.io(?::\d+)?/*$", re.IGNORECASE)
 # A placeholder a base is put in, ending right before the path: %s, %(base)s, $base, %BASE%, @BASE@, __BASE__.
@@ -79,6 +101,7 @@ _UNSTRIPPED = "{FRONTEND_URL}"
 _ROUTE_DECORATORS = {"get", "post", "put", "patch", "delete", "head", "options", "api_route", "route", "websocket"}
 _FILLS = {"format", "format_map"}
 _SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+_STRIPS = {"rstrip", "removesuffix"}  # what strips FRONTEND_URL's trailing slash, given a "/"
 
 
 def _site_host(host: str) -> bool:
@@ -153,8 +176,9 @@ def _exports(tree: ast.Module) -> dict[str, tuple[str, bool]]:
     bodies = [tree.body]
     while bodies:
         for statement in bodies.pop():
-            if isinstance(statement, ast.ClassDef):
-                bodies.append(statement.body)
+            if not isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):  # a class, an if, a try, a loop
+                bodies += [getattr(statement, f) for f in ("body", "orelse", "finalbody") if isinstance(getattr(statement, f, None), list)]
+                bodies += [handler.body for handler in getattr(statement, "handlers", [])]
             targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target] if isinstance(statement, ast.AnnAssign) else []
             text = _string(statement.value) if targets and statement.value is not None else None
             if text is not None and _scan(text)[1] and all(isinstance(t, ast.Name) for t in targets):
@@ -205,6 +229,11 @@ def _scan_python(tree: ast.Module, where: str, exported: dict[str, tuple[str, bo
             return render(node.left) + render(node.right)
         if getattr(node, "attr", getattr(node, "id", None)) == "FRONTEND_URL":
             return _UNSTRIPPED
+        if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "str" and len(node.args) == 1 and not node.keywords:
+            return render(node.args[0])
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and render(node.func.value) == _UNSTRIPPED:
+            strips = node.func.attr in _STRIPS and any("/" in (_string(arg) or "") for arg in node.args)
+            return _FIELD if strips else _UNSTRIPPED
         return holds[0] if (holds := bound(node)) else _FIELD
 
     def rendered(node: ast.AST) -> bool:
@@ -236,6 +265,24 @@ def _scan_python(tree: ast.Module, where: str, exported: dict[str, tuple[str, bo
             return up.value is node
         return isinstance(up, ast.Attribute) and up.value is node and up.attr not in _FILLS
 
+    def converted(node: ast.AST) -> bool:
+        """Whether an f-string's field reads ``node`` through a conversion or a format spec."""
+        up = parent.get(node)
+        return isinstance(up, ast.FormattedValue) and up.value is node and (up.conversion != -1 or up.format_spec is not None)
+
+    def bare(node: ast.AST, text: str) -> bool:
+        """Whether ``node`` builds a registered path itself, with nothing in front of it, not an address."""
+        return _string(node) is not None or text.startswith(tuple(REGISTERED))
+
+    def in_settings(node: ast.AST) -> bool:
+        """Whether ``node`` sits in a settings class's body, whose fields the environment can replace."""
+        up = parent.get(node)
+        while up is not None and not isinstance(up, (ast.ClassDef, *_SCOPES)):
+            up = parent.get(up)
+        return isinstance(up, ast.ClassDef) and any(
+            getattr(base, "id", getattr(base, "attr", "")).endswith("Settings") for base in up.bases
+        )
+
     def binding(node: ast.AST) -> list[ast.Name] | None:
         """The names ``node`` is bound to, when it is the whole value of an assignment to names."""
         up = parent.get(node)
@@ -252,30 +299,44 @@ def _scan_python(tree: ast.Module, where: str, exported: dict[str, tuple[str, bo
             and not rendered(node)
         ]
 
-    for node in nodes:
-        if isinstance(node, ast.ImportFrom):
-            for alias in node.names:
-                if alias.name in exported:
-                    names.setdefault((scope(node), alias.asname or alias.name), (*exported[alias.name], None))
-                    held.add(alias.asname or alias.name)
-        elif (_string(node) is not None or isinstance(node, (ast.JoinedStr, ast.BinOp))) and (targets := binding(node)):
-            text = render(node)
-            if _scan(text)[1]:
+    def bind() -> bool:
+        """Record each name bound to a registered path or to an address built on one; whether any was new."""
+        new = False
+        for node in nodes:
+            if isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    key = (scope(node), alias.asname or alias.name)
+                    if alias.name in exported and key not in names:
+                        names[key], new = (*exported[alias.name], None), True
+                        held.add(key[1])
+            elif targets := binding(node):
+                text = render(node)
+                if not _scan(text)[1]:
+                    continue
                 for target in targets:
-                    names.setdefault((scope(target), target.id), (text, _string(node) is not None, target))
-                    held.add(target.id)
+                    key = (scope(target), target.id)
+                    if key not in names:
+                        names[key], new = (text, bare(node, text), target), True
+                        held.add(target.id)
+        return new
+
+    while bind():  # a binding the walk reaches before the one it reads is read on the next pass
+        pass
 
     for node in strings():
-        bad, good = _scan(render(node))
+        text = render(node)
+        bad, good = _scan(text)
         found += [f"{where}:{node.lineno}: {v}" for v in bad]
         for path in good:
             registered.setdefault(path, set()).add(f"{where}:{node.lineno}")
         if not good:
             continue
-        if _string(node) is not None and not (binding(node) or filled(node) or isinstance(parent.get(node), ast.Expr)):
+        if bare(node, text) and not (binding(node) or filled(node) or isinstance(parent.get(node), ast.Expr)):
             found.append(f"{where}:{node.lineno}: {sorted(good)[0]}: a registered path used where the scan cannot follow it")
-        elif _string(node) is None and changed(node):
+        elif not bare(node, text) and (changed(node) or converted(node)):
             found.append(f"{where}:{node.lineno}: an address on {sorted(good)[0]} changed after it is built")
+        if bare(node, text) and in_settings(node):
+            found.append(f"{where}:{node.lineno}: {sorted(good)[0]}: a registered path in a setting the environment can replace")
 
     for node in nodes:
         if isinstance(node, (ast.Name, ast.Attribute)) and isinstance(node.ctx, ast.Load) and (holds := bound(node)):
@@ -283,46 +344,56 @@ def _scan_python(tree: ast.Module, where: str, exported: dict[str, tuple[str, bo
             name = getattr(node, "id", getattr(node, "attr", ""))
             if bare and not (rendered(node) or filled(node)):
                 found.append(f"{where}:{node.lineno}: {name}: a registered path used where the scan cannot follow it")
-            elif not bare and changed(node):
+            elif not bare and (changed(node) or converted(node)):
                 found.append(f"{where}:{node.lineno}: {name}: an address on a registered path changed after it is built")
         elif isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Load) and node.id in held:
             holds = names.get((scope(node), node.id))
             if holds and holds[1] and holds[2] is not node:
                 found.append(f"{where}:{node.lineno}: {node.id}: a name bound to a registered path is bound again")
+            elif holds and holds[2] is not node and isinstance(parent.get(node), ast.AugAssign):
+                found.append(f"{where}:{node.lineno}: {node.id}: an address on a registered path changed after it is built")
     return found, registered
 
 
-def _scan_app(root: Path = APP) -> tuple[list[str], dict[str, set[str]], list[str]]:
+def _text(path: Path) -> str:
+    raw = path.read_bytes()
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("latin-1")  # a binary file, or text in a legacy encoding: read it all the same
+
+
+def _scan_app(root: Path = APP) -> tuple[list[str], dict[str, set[str]], dict[str, int]]:
     """What the gate finds in every file under ``root``, the registered paths it reads with where it
-    reads them, and the files it reads, named from ``root``'s parent (``app/...``)."""
+    reads them, and how many characters of each file it scans, the files named from ``root``'s parent
+    (``app/...``)."""
     files = sorted(p for p in root.rglob("*") if p.is_file() and "__pycache__" not in p.parts)
-    trees = {p: ast.parse(p.read_text(encoding="utf-8")) for p in files if p.suffix == ".py"}
+    texts = {p: _text(p) for p in files}
+    trees = {p: ast.parse(texts[p]) for p in files if p.suffix == ".py"}
     exported: dict[str, tuple[str, bool]] = {}
     for tree in trees.values():
         exported.update(_exports(tree))
     found: list[str] = []
     registered: dict[str, set[str]] = {}
+    scanned: dict[str, int] = {}
     for path in files:
         where = str(path.relative_to(root.parent))
         if path in trees:
             bad, good = _scan_python(trees[path], where, exported)
         else:
-            raw = path.read_bytes()
-            try:
-                text = raw.decode("utf-8")
-            except UnicodeDecodeError:
-                text = raw.decode("latin-1")  # a binary file, or text in a legacy encoding: read it all the same
-            bad, seen = _scan(text)
+            bad, seen = _scan(texts[path])
             bad, good = [f"{where}: {v}" for v in bad], {p: {where} for p in seen}
+        scanned[where] = len(texts[path])
         found += bad
         for path_, places in good.items():
             registered.setdefault(path_, set()).update(places)
-    return found, registered, [str(p.relative_to(root.parent)) for p in files]
+    return found, registered, scanned
 
 
 # The tile's path, and a constant bound to it, as the planted cases spell them.
 _T = '_T = "/assets/earningsnerd-appicon.png"\n'
 # (what, the files under app/ the case writes, "flag" or "pass" or "gap"): a string is app/form.py.
+# An unregistered path is spelled with a name no image will take (earningsnerd-new, -unregistered).
 # "flag" breaks the rule, "pass" is a look-alike, "gap" breaks the rule out of the scan's reach (the
 # header names each one).
 FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
@@ -359,7 +430,7 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a field after a registered constant", _T + 'P = f"{base}{_T}{suffix}"', "flag"),
     ("a registered constant changed by a method", _T + 'P = _T.replace("appicon", "appicon-dark")', "flag"),
     ("a registered constant sliced", _T + 'P = f"{base}{_T[:-4]}@2x.png"', "flag"),
-    ("a registered constant handed to a function", _T + 'P = str(PurePosixPath(_T).with_name("earningsnerd-banner.png"))', "flag"),
+    ("a registered constant handed to a function", _T + 'P = str(PurePosixPath(_T).with_name("earningsnerd-unregistered.png"))', "flag"),
     ("a directory taken from a registered constant", _T + "ASSETS = posixpath.dirname(_T)", "flag"),
     ("a registered constant converted in an f-string", _T + 'P = f"{base}{_T!s}"', "flag"),
     ("a registered constant bound again", _T + '_T = "/assets/earningsnerd-new.png"', "flag"),
@@ -379,6 +450,16 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a registered path changed by a method", 'P = "/assets/earningsnerd-appicon.png".replace("appicon", "x")', "flag"),
     ("an address built on a registered path, changed", 'P = f"{base}/assets/earningsnerd-appicon.png".replace("appicon", "x")', "flag"),
     ("a name holding an address on a registered path, sliced", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = U[:-4] + "@2x.png"', "flag"),
+    # A string with nothing in front of a registered path is the path, and an address is changed however it is read.
+    ("a registered constant in an f-string with nothing before it, handed to a function", _T + 'P = _img(f"{_T}")', "flag"),
+    ("a registered constant after an empty string, in a container", _T + 'P = ["" + _T]', "flag"),
+    ("an address aliased, then changed", 'U = f"{base}/assets/earningsnerd-appicon.png"\nV = U\nP = V.replace("appicon", "x")', "flag"),
+    ("an address added to in place", 'U = f"{base}/assets/earningsnerd-appicon.png"\nU += "@2x.png"', "flag"),
+    ("an address converted in an f-string", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = f"{U!s}@2x.png"', "flag"),
+    ("an address cut by a format spec", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = f"{U:.40}"', "flag"),
+    ("a binding the walk reaches after the one that reads it", 'try:\n    _T = "/assets/earningsnerd-appicon.png"\nexcept ImportError:\n    pass\nU = f"{base}{_T}"\nP = U.replace("appicon", "x")', "flag"),
+    ("a registered constant bound in a block, imported and changed", {"a.py": 'if True:\n    _T = "/assets/earningsnerd-appicon.png"\n', "b.py": 'from a import _T\nP = _T + "@2x.png"'}, "flag"),
+    ("a registered path in a setting the environment can replace", 'class Settings(BaseSettings):\n    MAIL_TILE: str = "/assets/earningsnerd-appicon.png"', "flag"),
     # An origin, a second slash or an unstripped FRONTEND_URL in front of the path.
     ("the apex in front of a registered path", 'P = "https://earningsnerd.io/assets/earningsnerd-appicon.png"', "flag"),
     ("www in front of a registered path", 'P = "https://www.earningsnerd.io/assets/earningsnerd-appicon.png"', "flag"),
@@ -392,15 +473,26 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a doubled slash after a base", 'P = f"{base}//assets/earningsnerd-appicon.png"', "flag"),
     ("FRONTEND_URL with its trailing slash kept", 'P = f"{settings.FRONTEND_URL}/assets/earningsnerd-mark-sage.png"', "flag"),
     ("FRONTEND_URL concatenated with its trailing slash kept", _T + "P = settings.FRONTEND_URL + _T", "flag"),
+    ("FRONTEND_URL stripped of whitespace alone", 'P = f"{settings.FRONTEND_URL.strip()}/assets/earningsnerd-appicon.png"', "flag"),
+    ("FRONTEND_URL converted to a string", 'P = str(settings.FRONTEND_URL) + "/assets/earningsnerd-appicon.png"', "flag"),
+    ("a site origin with a port", 'P = "https://www.earningsnerd.io:443/assets/earningsnerd-appicon.png"', "flag"),
+    # What a client reads into the path, and where only a route's own path is exempt.
+    ("a query written without its question mark", 'P = "/assets/earningsnerd-appicon.png&v=2"', "flag"),
+    ("an escaped ampersand after a registered path", 'P = "<img src=\\"/assets/earningsnerd-appicon.png&amp;v=2\\">"', "flag"),
+    ("an unregistered path in a route decorator's other argument", '@router.get("/api/x", summary="/assets/earningsnerd-new.png")\nasync def x(): ...', "flag"),
+    ("an unregistered path in a decorator that is no route's", '@cache.memoize("/assets/earningsnerd-new.png")\ndef f(): ...', "flag"),
+    ("an unregistered path in a route's body", '@router.get("/api/x")\nasync def x():\n    return "/assets/earningsnerd-new.png"', "flag"),
     # A placeholder host, or a placeholder token, in front of the path.
-    ("an unregistered path after a host filled in by .format", 'P = "https://{host}/assets/earningsnerd-banner.png".format(host=h)', "flag"),
+    ("an unregistered path after a host filled in by .format", 'P = "https://{host}/assets/earningsnerd-unregistered.png".format(host=h)', "flag"),
     ("an unregistered path after a host filled in by %", 'P = "https://%s/icons/icon-192.png" % h', "flag"),
-    ("an unregistered path after a Template host", 'P = Template("https://$host/assets/earningsnerd-banner.png")', "flag"),
-    ("an unregistered path after a Jinja host", {"templates/mail/host.html": '<img src="https://{{host}}/assets/earningsnerd-banner.png">'}, "flag"),
+    ("an unregistered path after a Template host", 'P = Template("https://$host/assets/earningsnerd-unregistered.png")', "flag"),
+    ("an unregistered path after a Jinja host", {"templates/mail/host.html": '<img src="https://{{host}}/assets/earningsnerd-unregistered.png">'}, "flag"),
     ("an unregistered path after a protocol-relative filled-in host", 'P = "//{host}/icons/icon-192.png"', "flag"),
     ("an unregistered path after a %-token", 'P = "%BASE%/assets/earningsnerd-new.png"', "flag"),
     ("an unregistered path after an @-token", 'P = "@BASE@/assets/earningsnerd-new.png"', "flag"),
     ("an unregistered path after a dunder token", 'P = "__BASE__/assets/earningsnerd-new.png"', "flag"),
+    ("an unregistered path after a %(name)s placeholder", 'P = "%(base)s/assets/earningsnerd-new.png" % m', "flag"),
+    ("an unregistered path after a %r placeholder", 'P = "%r/assets/earningsnerd-new.png" % m', "flag"),
     # Look-alikes that must pass.
     ("a registered path on FRONTEND_URL", 'P = f"{settings.FRONTEND_URL.rstrip(\'/\')}/assets/earningsnerd-appicon.png"', "pass"),
     ("a registered constant read whole on FRONTEND_URL", _T + 'P = f"{settings.FRONTEND_URL.rstrip(\'/\')}{_T}"', "pass"),
@@ -422,12 +514,30 @@ FORMS: list[tuple[str, str | dict[str, str | bytes], str]] = [
     ("a directory's name in prose", 'P = "current assets/liabilities"', "pass"),
     ("a longer name that starts like a directory", 'P = "/assets-manifest.json"', "pass"),
     ("an unrelated name with a method", _T + 'P = f"{base}{_T}"\nQ = name.replace("a", "b")', "pass"),
-    # Out of the scan's reach.
+    ("a registered path between escaped quotes", 'P = "src=&quot;/assets/earningsnerd-appicon.png&quot;"', "pass"),
+    ("FRONTEND_URL stripped by removesuffix", 'P = f"{settings.FRONTEND_URL.removesuffix(\'/\')}/assets/earningsnerd-appicon.png"', "pass"),
+    ("an address aliased, read whole", 'U = f"{base}/assets/earningsnerd-appicon.png"\nV = U\nP = f"<img src=\\"{V}\\">"', "pass"),
+    ("an address bound again to another address", 'U = f"{base}/assets/earningsnerd-appicon.png"\nif dark:\n    U = f"{base}/assets/earningsnerd-mark-sage.png"', "pass"),
+    ("a setting that holds no path", 'class Settings(BaseSettings):\n    FRONTEND_URL: str = "https://www.earningsnerd.io"', "pass"),
+    # Out of the scan's reach: the header names each, and the rendered gate checks what each puts in mail.
     ("no slash before the path", 'P = urljoin(base + "/", "assets/earningsnerd-new.png")', "gap"),
+    ("a path after a bare word", 'P = "BASE_URL/assets/earningsnerd-new.png"', "gap"),
+    ("a path spelled with a dot segment or a percent-escape", 'P = "/./assets/earningsnerd-new.png"', "gap"),
+    ("a registered path followed by a character the scan reads as its end", 'P = "/assets/earningsnerd-appicon.png,2x"', "gap"),
+    ("a JSON file's escaped slashes", {"data/mail.json": '{"tile": "\\/assets\\/earningsnerd-new.png"}'}, "gap"),
+    ("a data file's path, changed by the code that reads it", {"data/mail.json": '{"tile": "/assets/earningsnerd-appicon.png"}', "form.py": 'P = TILES["tile"][:-4] + "@2x.png"'}, "gap"),
     ("a registered path on another origin's variable", 'P = f"{settings.API_BASE_URL}/assets/earningsnerd-appicon.png"', "gap"),
     ("a registered path after another origin filled in as a host", 'P = "https://{host}/assets/earningsnerd-appicon.png".format(host=h)', "gap"),
-    ("a path after a bare word", 'P = "BASE_URL/assets/earningsnerd-new.png"', "gap"),
+    ("FRONTEND_URL read through a name", 'base = settings.FRONTEND_URL\nP = f"{base}/assets/earningsnerd-appicon.png"', "gap"),
+    ("FRONTEND_URL filled into a template", 'P = \'<img src="{base}/assets/earningsnerd-appicon.png">\'.format(base=settings.FRONTEND_URL)', "gap"),
     ("an address a function hands back, changed by its caller", 'def u():\n    return f"{base}/assets/earningsnerd-appicon.png"\n\nP = u().replace("appicon", "x")', "gap"),
+    ("an address handed to a function that changes it", 'def _retina(url):\n    return url.replace(".png", "@2x.png")\n\nU = f"{base}/assets/earningsnerd-appicon.png"\nP = _retina(U)', "gap"),
+    ("an address held in a container or a conditional, then changed", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = (U if dark else other).replace("appicon", "x")', "gap"),
+    ("an address filled into another template, with a suffix", 'U = f"{base}/assets/earningsnerd-appicon.png"\nP = "{}@2x.png".format(U)', "gap"),
+    ("an address imported from another module, then changed", {"a.py": 'U = f"{base}/assets/earningsnerd-appicon.png"\n', "b.py": 'from a import U\nP = U.replace("appicon", "x")'}, "gap"),
+    ("a name bound to a registered path, rebound where the scan does not look", _T + "def dark():\n    global _T\n    _T = variant()", "gap"),
+    ("a name read through getattr or globals()", {"a.py": _T, "b.py": 'import a\nP = getattr(a, "_T").replace("appicon", "x")'}, "gap"),
+    ("a Jinja filter applied to a path", {"templates/mail/tile.html": '{{ "/assets/earningsnerd-appicon.png" | replace("appicon", "x") }}'}, "gap"),
     ("a path the site serves from a route", 'P = "/manifest.webmanifest"', "gap"),
 ]
 # One case for each character the header says a URL path can start after. The list is written here,
@@ -446,28 +556,50 @@ def test_the_scan_scores_every_planted_form(tmp_path):
         if bool(found) != (outcome == "flag"):
             wrong.append(f"{what}: expected {'flagged' if outcome == 'flag' else 'clean'}, got {found or 'clean'}")
     assert not wrong, "the scan no longer scores its planted forms:\n" + "\n".join(wrong)
-    gaps = {what for what, _, outcome in FORMS if outcome == "gap"}
-    assert gaps == {
-        "no slash before the path",
-        "a registered path on another origin's variable",
-        "a registered path after another origin filled in as a host",
-        "a path after a bare word",
-        "an address a function hands back, changed by its caller",
-        "a path the site serves from a route",
-    }, "the header names each gap the cases mark: keep the two in step"
+    whats = [what for what, _, _ in FORMS]
+    assert len(set(whats)) == len(whats), "each planted form has a name of its own"
+    gaps = sorted(what for what, _, outcome in FORMS if outcome == "gap")
+    section = __doc__.split("planted as gaps, one case each:\n", 1)[1].split("\n\n", 1)[0]
+    named = sorted(line[2:].split(": ", 1)[0] for line in section.splitlines() if line.startswith("- "))
+    assert gaps == named, "the header names each gap a case marks, and a case marks each gap the header names: keep the two in step"
+    outcomes = [outcome for _, _, outcome in FORMS]
+    assert outcomes.count("flag") >= 107 and outcomes.count("pass") >= 26, "a planted form was dropped: plant a case for each, or say why"
+
+
+def test_the_scan_keeps_every_place_it_reads_a_registered_path(tmp_path):
+    root = tmp_path / "app" / "services"
+    root.mkdir(parents=True)
+    (root / "email_service.py").write_text(_T + 'P = f"{base}{_T}"\n', encoding="utf-8")
+    (root / "waitlist_service.py").write_text(_T, encoding="utf-8")
+    places = _scan_app(root.parent)[1]["/assets/earningsnerd-appicon.png"]
+    assert places == {"app/services/email_service.py:1", "app/services/email_service.py:2", "app/services/waitlist_service.py:1"}, (
+        f"a second module's binding of a registered path hides the first's: {places}"
+    )
+
+
+def _length(path: Path) -> int:
+    """How many characters a file holds, read without the walk's own reader."""
+    raw = path.read_bytes()
+    try:
+        return len(raw.decode("utf-8"))
+    except UnicodeDecodeError:
+        return len(raw)  # latin-1, which the walk falls back to, reads each byte as one character
 
 
 def test_mail_addresses_the_site_only_by_registered_paths():
     assert {"assets", "icons"} <= set(SITE_NAMES), f"frontend/public no longer reads as the site's files: {SITE_NAMES}"
-    found, registered, read = _scan_app()
-    walked = {"app/services/email_service.py", "app/assets/fonts/OFL.txt", "app/data/index_membership.json", "app/assets/brand/earningsnerd-mark.png"}
-    assert walked <= set(read) and len(read) > 200, f"the walk no longer reads every file in backend/app: {len(read)} read"
+    found, registered, scanned = _scan_app()
+    listing = {str(p.relative_to(BACKEND)): _length(p) for p in APP.rglob("*") if p.is_file() and "__pycache__" not in p.parts}
+    unread = sorted(set(listing) ^ set(scanned)) + sorted(f for f in set(listing) & set(scanned) if listing[f] != scanned[f])
+    assert not unread and len(scanned) > 200, f"the walk no longer scans every file in backend/app whole: {unread[:10]}"
     assert not found, (
         "these strings address a file of the site's other than by a whole registered path on FRONTEND_URL, used "
-        "whole. Register a path mail shows in frontend/tests/unit/publishedAssetUrls.json in the same PR, spell it "
-        "whole and build it on settings.FRONTEND_URL.rstrip('/') (LOGO_README.md › Published URLs stay put). A "
-        "string here that is no address mail carries narrows this gate by its shape, never by its name, with a "
-        "planted case (lessons/arch-gate-reference-values-are-themselves-gated.md):\n" + "\n".join(found)
+        "whole. Register a path mail shows in frontend/tests/unit/publishedAssetUrls.json in the same PR. Spell it "
+        "whole where the address is built, on settings.FRONTEND_URL.rstrip('/'), and hand on the address, never the "
+        "path: a registered path may sit in the f-string or the concatenation that builds an address, in a template "
+        "that is filled, or in a name bound to it once and read only there (LOGO_README.md › Published URLs stay "
+        "put). A string here that is no address mail carries narrows this gate by its shape, never by its name, with "
+        "a planted case (lessons/arch-gate-reference-values-are-themselves-gated.md):\n" + "\n".join(found)
     )
     assert any(place.startswith("app/services/email_service.py:") for place in registered.get(email_service._HEADER_TILE_PATH, ())), (
         f"the scan no longer reads the mail header's tile as a registered path in email_service.py: {registered}"

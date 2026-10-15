@@ -20,8 +20,9 @@ _ALERT_FOOTER = (
 # The mail header's mark, the app tile (D-035), as the raster the frontend serves. Sent mail keeps
 # this address for as long as the message is kept, so it is a published URL
 # (frontend/public/assets/LOGO_README.md › Published URLs stay put): the path never moves, and it is
-# built on FRONTEND_URL, the origin that answers without a redirect. Gate:
-# tests/unit/test_mail_published_assets.py.
+# built on FRONTEND_URL, the origin that answers without a redirect. Gates:
+# tests/unit/test_mail_rendered_addresses.py reads the mail as it is sent, and
+# tests/unit/test_mail_published_assets.py reads the code.
 _HEADER_TILE_PATH = "/assets/earningsnerd-appicon.png"
 
 

@@ -31,7 +31,7 @@
   FRONTEND_URL defaults to https://www.earningsnerd.io (backend/app/config.py), and production
   sets none, so it runs on that default. The path never moves
   (frontend/public/assets/LOGO_README.md; the register, frontend/tests/unit/publishedAssetUrls.json,
-  with publishedAssetUrls.spec.ts and backend/tests/unit/test_mail_published_assets.py). It is a
+  with publishedAssetUrls.spec.ts and the backend gates it names). It is a
   raster under /assets/, not the PWA's /icons/icon-192.png: the waitlist gate does not pass /icons,
   and the manifest is free to change its icons.
   The @font-face rule points at the repository's Inter for this preview only (the email uses no

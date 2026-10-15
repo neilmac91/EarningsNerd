@@ -14,9 +14,11 @@ import { describe, expect, it } from 'vitest'
  * rewriting its path, changes the image in every message already delivered and on any page that
  * links it. The register of published paths is publishedAssetUrls.json, beside this spec: the origin
  * mail addresses them on, and each path with the sha256 of its published file and what it is published
- * for. A change that puts a new path in mail adds it there in the same PR, and
- * backend/tests/unit/test_mail_published_assets.py, which reads the same file, fails until it does, save in
- * the forms that gate's header names as out of its reach. A path never leaves the register. Each
+ * for. A change that puts a new path in mail adds it there in the same PR. Two backend gates read the
+ * same file and fail until it does: backend/tests/unit/test_mail_rendered_addresses.py reads every mail
+ * email_service.py builds, and backend/tests/unit/test_mail_published_assets.py reads the code, save in
+ * the forms its header names as out of its reach. A path never leaves the register: its paths are the
+ * list written in this spec, so a path joins both in the same change and neither may drop it. Each
  * path must be its published file in frontend/public, byte for byte (a new rendition takes a new name,
  * so a changed file fails here until it does); lie outside the middleware's matcher, so the middleware
  * never runs on it and no branch of it, however it reads the deployment, can move it; and be reached by
@@ -283,12 +285,15 @@ describe('the register', () => {
     }
   })
 
-  // Written out here, not read from the register, so dropping an entry from it fails.
+  // Written out here, not read from the register, and the register's paths are exactly this list: a path
+  // that joins the register joins the list in the same change, and dropping it from either fails.
   it('keeps every path published so far', () => {
     const urls = PUBLISHED.map((p) => p.url)
-    for (const url of ['/assets/earningsnerd-appicon.png', '/assets/earningsnerd-mark-sage.png']) {
-      expect(urls, `${url} ${KEPT}: a path never leaves the register, and one that joins it is added here too`).toContain(url)
+    const published = ['/assets/earningsnerd-appicon.png', '/assets/earningsnerd-mark-sage.png']
+    for (const url of published) {
+      expect(urls, `${url} ${KEPT}: a path never leaves the register`).toContain(url)
     }
+    expect([...urls].sort(), 'a path that joins the register is written into this list in the same change').toEqual([...published].sort())
   })
 
   it("names the site's canonical origin, the root layout's metadataBase", () => {
