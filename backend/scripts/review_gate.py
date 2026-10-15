@@ -10,6 +10,17 @@ publishes its verdict through the ``review-gate`` job of ``.github/workflows/rev
 Requiring that check in a ruleset on ``main`` (a founder decision) makes the rule binding; a
 required status check needs no approver, so it cannot lock a solo-administrator repository.
 
+Closing keywords: the gate fails, draft or not and override or not, while the pull request's title,
+body or any of its commit messages puts a closing keyword (close, fix or resolve in any form) before an
+issue or pull request reference. GitHub closes what such a keyword names when the pull request merges
+into the default branch, a pull request included: on 2026-10-09 #1136's body named #1156 that way, and
+its merge closed #1156 unmerged (``lessons/ops-closing-keywords-close-what-they-name.md``). Editing the
+title or body re-runs the gate; a commit message is reworded on the branch. A deliberate close is done
+by hand after the merge. The check fails closed: it also matches forms GitHub does not document (no
+space, Markdown marks or a line break between keyword and reference, ``GH-N``, issue and pull URLs),
+and it fails a pull request listing 250 commits, the most GitHub lists, whose later messages it cannot
+read. A squash message typed at merge is outside any pull-request check.
+
 Override: a line ``Review override: <reason>`` (at least ten characters of reason) in the pull
 request body passes the gate with the reason echoed into the job log. That is the rule's own
 escape clause, "wait, or write down why you did not", and it keeps the gate from deadlocking when
@@ -46,7 +57,7 @@ import re
 import sys
 import time
 import urllib.request
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
 SUMMARY_MARKER = "codex-pull-request-review-summary"
 # The exact GitHub App identity that publishes the summary (login, account type and immutable id,
@@ -55,6 +66,15 @@ SUMMARY_MARKER = "codex-pull-request-review-summary"
 CODEX_BOT = {"login": "chatgpt-codex-connector[bot]", "type": "Bot", "id": 199175422}
 OVERRIDE = re.compile(r"^\s*Review override:\s*(?P<reason>\S.{9,})\s*$", re.IGNORECASE | re.MULTILINE)
 ROW = re.compile(r"\*\*Code Review\*\*\s*\|\s*(?P<status>[^|]*?)\s*\|\s*`(?P<commit>[0-9a-f]{7,40})`", re.IGNORECASE)
+# A closing keyword, then a reference: GitHub documents the keyword in any case with an optional colon,
+# then ``#N`` or ``OWNER/REPO#N``. Between the two this also allows no space, line breaks and Markdown
+# marks, and it takes ``GH-N`` and github.com issue or pull URLs, so an undocumented form fails closed.
+# ``(`` and ``;`` stay out: "fix (#665)" on #674 and "fix; #1285" on #1306 closed nothing at the merge.
+CLOSING = re.compile(
+    r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b[\s:*_`~>\[]*"
+    r"(?:(?:[\w.-]+/[\w.-]+)?#\d+|GH-\d+|https?://github\.com/[\w.-]+/[\w.-]+/(?:issues|pull)/\d+)",
+    re.IGNORECASE)
+COMMIT_LIST_CAP = 250  # GitHub's pull-request commits endpoint lists at most 250 commits
 
 Verdict = Tuple[str, str]  # ("pass" | "wait" | "fail", message)
 
@@ -80,23 +100,45 @@ def override_reason(body: Optional[str]) -> Optional[str]:
     return match.group("reason").strip() if match else None
 
 
+def closing_references(texts: Iterable[Tuple[str, Optional[str]]]) -> List[str]:
+    """Every closing reference in the (where, text) pairs, as ``where: "keyword #N"``."""
+    return [f'{where}: "{" ".join(match.group(0).split())}"'
+            for where, text in texts for match in CLOSING.finditer(text or "")]
+
+
 Resolver = Callable[[str], Optional[str]]  # short SHA -> the unique full SHA in the repository, or None
 
 
 def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[str],
            pr_commits: Optional[Iterable[str]] = None, resolve: Optional[Resolver] = None, *,
-           pr_draft: Optional[bool]) -> Verdict:
-    """Pure decision over the pull request's comments, body, commit list and live draft flag for
-    one head SHA.
+           pr_draft: Optional[bool], pr_title: Optional[str] = None,
+           pr_commit_messages: Iterable[Tuple[str, str]] = ()) -> Verdict:
+    """Pure decision over the pull request's comments, title, body, commits (SHAs and messages) and
+    live draft flag for one head SHA.
 
-    A draft fails, override or not, and so does a draft flag the API did not report as a boolean
-    (None): the check passes only for a pull request that can merge. Codex names the reviewed
+    A closing keyword before a reference in the title, the body or a commit message fails first,
+    draft or not and override or not: the merge would close what it names. So does a commit list at
+    GitHub's cap, whose later messages are unread. A draft fails, override or not, and so does a draft
+    flag the API did not report as a boolean (None): the check passes only for a pull request that
+    can merge. Codex names the reviewed
     commit by a short SHA. It identifies the head only when the repository resolves that prefix to
     exactly the head (so a force-pushed reviewed commit that is still an object in the repository
     keeps a minted lookalike ambiguous) AND no other commit of the pull request shares it."""
     head = (head_sha or "").lower()
     if not re.fullmatch(r"[0-9a-f]{40}", head):
         return "fail", f"review-gate: invalid head SHA {head_sha!r}"
+    references = closing_references([("title", pr_title), ("body", pr_body)]
+                                    + [(f"commit {str(sha)[:7]}", message) for sha, message in pr_commit_messages])
+    if references:
+        return "fail", ("review-gate: a closing keyword names an issue or pull request, and the merge would close it: "
+                        + "; ".join(references) + ". Reword each so no form of close, fix or resolve sits right before "
+                        "the reference (\"addressed in #N\", or the reference first: \"#N carries the fix\"), in the "
+                        "title or body (the edit re-runs this check) or by rewording the commit on the branch; close "
+                        "anything you mean to close by hand after the merge")
+    commits = [str(sha).lower() for sha in (pr_commits or [])]
+    if len(commits) >= COMMIT_LIST_CAP:
+        return "fail", (f"review-gate: the pull request lists {len(commits)} commits, the most GitHub lists, so the "
+                        "messages of any later commits are unread; squash the branch to fewer commits")
     if pr_draft is None:
         return "fail", "review-gate: the pull request's draft flag could not be read; failing closed"
     if pr_draft:
@@ -105,7 +147,7 @@ def decide(head_sha: str, comments: Iterable[Dict[str, Any]], pr_body: Optional[
     reason = override_reason(pr_body)
     if reason:
         return "pass", f"review-gate: override recorded in the pull request body: {reason}"
-    known = {str(sha).lower() for sha in (pr_commits or [])} | {head}
+    known = set(commits) | {head}
     latest_other: Optional[str] = None
     for comment in comments:
         body = str((comment or {}).get("body") or "")
@@ -157,17 +199,26 @@ def _paged(path: str, token: str) -> List[Any]:
     return items
 
 
-State = Tuple[List[Dict[str, Any]], Optional[str], List[str], Optional[bool]]
+class State(NamedTuple):
+    comments: List[Dict[str, Any]]
+    body: Optional[str]
+    commits: List[str]
+    draft: Optional[bool]
+    title: Optional[str] = None
+    commit_messages: Tuple[Tuple[str, str], ...] = ()
 
 
 def fetch_state(repo: str, number: str, token: str) -> State:
-    """Comments, body, commit list and draft flag, all read now. The draft flag is None unless the
+    """Comments, body, commits, draft flag and title, all read now. The draft flag is None unless the
     API reports a boolean, which ``decide`` fails closed."""
     comments = _paged(f"repos/{repo}/issues/{number}/comments", token)
     pull = _github(f"repos/{repo}/pulls/{number}", token)
-    commits = [str(item.get("sha", "")).lower() for item in _paged(f"repos/{repo}/pulls/{number}/commits", token)]
+    items = _paged(f"repos/{repo}/pulls/{number}/commits", token)
+    commits = [str(item.get("sha", "")).lower() for item in items]
+    messages = tuple((sha, str((item.get("commit") or {}).get("message") or "")) for sha, item in zip(commits, items))
     draft = pull.get("draft")
-    return comments, pull.get("body"), commits, draft if isinstance(draft, bool) else None
+    return State(comments, pull.get("body"), commits, draft if isinstance(draft, bool) else None,
+                 pull.get("title"), messages)
 
 
 def repository_resolver(repo: str, token: str) -> Resolver:
@@ -200,8 +251,9 @@ def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State
         resolve = resolve or repository_resolver(repo, token)
     started = clock()
     while True:
-        comments, body, commits, draft = fetch()
-        verdict, message = decide(head, comments, body, commits, resolve, pr_draft=draft)
+        state = State(*fetch())
+        verdict, message = decide(head, state.comments, state.body, state.commits, resolve, pr_draft=state.draft,
+                                  pr_title=state.title, pr_commit_messages=state.commit_messages)
         print(message)
         if verdict == "pass":
             return 0
