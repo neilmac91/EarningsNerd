@@ -256,3 +256,15 @@ the page, a partial of `_wrap_html`, a renderer's plain-text copy parsed as mark
 took. So it now renders every public function of the mail module, with its sends recorded, on inputs a
 line-coverage check holds to every line of the module, and reads each address in what is sent. The
 source scan stays for the code no render reaches, and its header names what it cannot follow.
+
+**Recurrence (2026-10-15, the mail's layout rules)**: #1334 holds two CSS rules on every page the mail
+module sends: the header keeps `-webkit-text-size-adjust:100%` and every other line is left to the
+view, and a run with nowhere to break can break anywhere. The first checks read substrings of one tag;
+the next walked the page with `HTMLParser` and approximated how a client reads it. Each review found a
+form of the rule the approximation missed: the property inherited from another element or set by a
+`<style>` block, the unprefixed name that iOS's WebKit ignores, a CSS comment or escape, `!important`
+order, the first of two `style` attributes, a self-closing tag that HTML opens, a `<b>` the parser opens
+again, and a wrap rule reset below the tag the check read. The reader now asks the sources of truth: a
+WHATWG tree builder builds the page, a CSS parser reads each style, and caniuse gives each engine's
+reading of the names. When a rule is about how a browser reads a page, read the page as a browser builds
+it.

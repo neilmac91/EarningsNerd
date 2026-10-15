@@ -25,9 +25,10 @@ _ALERT_FOOTER = (
 # tests/unit/test_mail_published_assets.py reads the code.
 _HEADER_TILE_PATH = "/assets/earningsnerd-appicon.png"
 
-# A line that prints a run with nowhere to break, a link with its token or a report's hash, may break it
-# anywhere: once a phone view enlarges the run, it would widen the panel past the header. On those lines
-# alone, not on the panel: there it would reach a body's own table and split a column of amounts.
+# A line that prints a run with nowhere to break may break it anywhere: a link with its token, a report's
+# hash, or the reader's name, which may be an address typed as a name. Once a phone view enlarges the run, it
+# would widen the panel past the header. On those lines alone, not on the panel: there it would reach a
+# body's own table and split a column of amounts.
 _BREAK_ANYWHERE = "overflow-wrap:anywhere;word-break:break-word;"
 
 
@@ -52,8 +53,8 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
     line leave their text to the view, which enlarges a long body as it did before the header, so
     there the header can show smaller than the body, and on a phone narrower than about 350 px smaller
     than the panel's small print and the footer line too. A line that prints a run with nowhere to
-    break, such as a link with its token, carries ``_BREAK_ANYWHERE``, so the run cannot widen the
-    panel past the header once it is enlarged. The panel's padding is on its cells, which classic
+    break, such as a link with its token or the reader's name, carries ``_BREAK_ANYWHERE``, so the run
+    cannot widen the panel past the header once it is enlarged. The panel's padding is on its cells, which classic
     Outlook honours (it ignores a table's), so the body lines up under the header there too.
     """
     # A trailing slash is stripped, as the waitlist's links strip it: a doubled slash answers 308.
@@ -164,7 +165,7 @@ def render_welcome_email(
 ) -> tuple[str, str]:
     greeting = _greeting(name)
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">You're on the EarningsNerd waitlist.</p>
     <p style="margin:0 0 16px;">Your current position: <strong>#{position}</strong></p>
     <p style="margin:0 0 20px;">
@@ -199,7 +200,7 @@ def render_referral_success_email(
 ) -> tuple[str, str]:
     greeting = _greeting(name)
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">You moved up the EarningsNerd waitlist.</p>
     <p style="margin:0 0 16px;">Your new position: <strong>#{new_position}</strong></p>
     <p style="margin:0 0 20px;{_BREAK_ANYWHERE}">
@@ -267,7 +268,7 @@ async def send_verification_email(
 ) -> None:
     greeting = _greeting(name)
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">Thanks for creating an EarningsNerd account. Verify your email address and you can start reading.</p>
     <p style="margin:0 0 24px;">
       <a href="{verification_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Verify my email</a>
@@ -296,7 +297,7 @@ async def send_invite_email(
     greeting = _greeting(name)
     invite_footer = "You're receiving this because you were invited to the EarningsNerd private beta."
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">You're invited to the EarningsNerd private beta. Full Pro access, on us.</p>
     <p style="margin:0 0 24px;">
       <a href="{magic_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Accept your invite</a>
@@ -323,7 +324,7 @@ async def send_password_reset_email(
 ) -> None:
     greeting = _greeting(name)
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">We received a request to reset your EarningsNerd password.</p>
     <p style="margin:0 0 24px;">
       <a href="{reset_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Reset my password</a>
@@ -354,7 +355,7 @@ async def send_oauth_linked_email(
     react (reset password / contact support) rather than silently merging the identities."""
     greeting = _greeting(name)
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">A <strong>{provider}</strong> sign-in was just linked to your EarningsNerd account.</p>
     <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">If this was you, no action is needed — you can now sign in with {provider}.</p>
     <p style="margin:0;font-size:14px;color:#B91C1C;">If this <strong>wasn&apos;t</strong> you, please reset your password immediately and contact support.</p>
@@ -381,7 +382,7 @@ async def send_account_exists_email(
     """Sent when someone tries to register with an already-registered email (anti-enumeration)."""
     greeting = _greeting(name)
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">Someone tried to create an EarningsNerd account using this email address, but you already have one.</p>
     <p style="margin:0 0 8px;">
       <a href="{login_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Log in to your account</a>
@@ -458,7 +459,7 @@ def render_new_filing_alert(
         html.escape(company_name), html.escape(ticker), html.escape(filing_type), html.escape(filing_date)
     )
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;"><strong>{e_company} ({e_ticker})</strong> just filed a
       <strong>{e_type}</strong> with the SEC ({e_date}).</p>
     {_wording_html(wording, url)}
@@ -502,7 +503,7 @@ def render_daily_digest(
         for it in items
     )
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">New filings from companies you track:</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>
     """
@@ -681,7 +682,7 @@ def render_earnings_day_alert(
           </td>
         </tr>"""
     html_body = f"""
-    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">Companies you follow report earnings today:</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>
     <p style="margin:16px 0 0;font-size:13px;color:#6B7280;">We'll have the AI summary ready shortly after they file.</p>

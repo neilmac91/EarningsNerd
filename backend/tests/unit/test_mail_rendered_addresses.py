@@ -51,13 +51,14 @@ new mail fails here until it is rendered. Planted modules score that check. What
   (``data_quality_service.run_and_email`` appends the report's text copy, as ``_hidden_text`` would).
 
 It also holds every page it renders to two of the shell's rules, which ``test_mail_header_template.py``
-states and plants and ``tests/support/mail_styles.py`` reads as a client does:
+states and plants, and which ``tests/support/mail_styles.py`` reads as the two engines that enlarge text
+read a page's inline styles:
 - the header keeps its set size where a phone view enlarges text, and every other line, a mail's own
   included, is left to the view;
 - a run with nowhere to break, such as a link with its token, can break anywhere once it is long enough
   to fill the panel, so a view that enlarges it cannot widen the panel past the header. The inputs print
-  such runs at their real lengths, a link with a 43-character token and a report's hashes and addresses,
-  and a check holds the renders that print one to ``PRINTS_LONG_RUNS``.
+  such runs at their real lengths: a name typed as an address, a link with a 43-character token, and a
+  report's hashes and addresses. ``PRINTS_LONG_RUNS`` holds how many each render prints.
 """
 import ast
 import html
@@ -96,12 +97,14 @@ OTHER_HOSTS = frozenset(urlsplit(origin).hostname for origin in OTHER_ORIGINS)
 LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "0.0.0.0"})
 
 TO = "recipient@example.com"
+# A name as a reader may type one: an address, 34 characters with nowhere to break.
+NAME = "firstname.lastname@companyname.com"
 # A link as a caller builds one: a token as secrets.token_urlsafe(32) draws it, 43 characters, here with no
 # hyphen to break at.
 LINK = "https://e.test/reset-password?token=Qm9va3NhbmRjb2ZmZWVhbmRyZWFkaW5nYWxsZGF5MDE"
-WAITLIST = dict(name="Ada", position=3, referral_link=LINK, verification_link=LINK)
-REFERRAL = dict(name="Ada", new_position=2, referral_link=LINK)
-FILING = dict(name="Ada", company_name="Acme Corp", ticker="ACME", filing_type="10-K", filing_date="2026-01-01")
+WAITLIST = dict(name=NAME, position=3, referral_link=LINK, verification_link=LINK)
+REFERRAL = dict(name=NAME, new_position=2, referral_link=LINK)
+FILING = dict(name=NAME, company_name="Acme Corp", ticker="ACME", filing_type="10-K", filing_date="2026-01-01")
 ALERTS = [
     dict(FILING, filing_id=1, wording_changes={"has_changes": True, "items_total": 3}),
     dict(FILING, filing_id=1, wording_changes={"has_changes": False, "items_total": 0}),
@@ -110,14 +113,14 @@ ALERTS = [
     FILING,
 ]
 DIGEST_ITEM = {"company_name": "Acme Corp", "ticker": "ACME", "filing_type": "10-K", "filing_date": "2026-01-01"}
-DIGEST = dict(name="Ada", items=[
+DIGEST = dict(name=NAME, items=[
     dict(DIGEST_ITEM, filing_id=1, wording_changes={"has_changes": True, "items_total": 2}),
     dict(DIGEST_ITEM, filing_url=LINK),
     DIGEST_ITEM,
 ])
 EARNINGS = [
-    dict(name="Ada", items=[{"ticker": "ACME", "company_name": "Acme Corp", "time": "bmo"}, {"ticker": "BETA", "status": "reported"}]),
-    dict(name="Ada", items=[{"ticker": "ACME", "company_name": "Acme Corp", "time": "amc"}]),
+    dict(name=NAME, items=[{"ticker": "ACME", "company_name": "Acme Corp", "time": "bmo"}, {"ticker": "BETA", "status": "reported"}]),
+    dict(name=NAME, items=[{"ticker": "ACME", "company_name": "Acme Corp", "time": "amc"}]),
 ]
 CLEAN_REPORT = {"ticker_mismatches": [], "ticker_not_in_file": [], "coverage_gaps": [], "filing_anomalies": [], "partial_reasons": []}
 FULL_REPORT = {
@@ -145,11 +148,11 @@ RENDERS = {
     "send_waitlist_welcome_email": [dict(WAITLIST, to_email=TO)],
     "render_referral_success_email": [REFERRAL],
     "send_referral_success_email": [dict(REFERRAL, to_email=TO)],
-    "send_verification_email": [dict(to_email=TO, name="Ada", verification_link=LINK)],
-    "send_invite_email": [dict(to_email=TO, magic_link=LINK), dict(to_email=TO, magic_link=LINK, name="Ada")],
-    "send_password_reset_email": [dict(to_email=TO, name="Ada", reset_link=LINK)],
-    "send_oauth_linked_email": [dict(to_email=TO, name="Ada", provider="Google")],
-    "send_account_exists_email": [dict(to_email=TO, name="Ada", login_link=LINK, reset_link=LINK)],
+    "send_verification_email": [dict(to_email=TO, name=NAME, verification_link=LINK)],
+    "send_invite_email": [dict(to_email=TO, magic_link=LINK), dict(to_email=TO, magic_link=LINK, name=NAME)],
+    "send_password_reset_email": [dict(to_email=TO, name=NAME, reset_link=LINK)],
+    "send_oauth_linked_email": [dict(to_email=TO, name=NAME, provider="Google")],
+    "send_account_exists_email": [dict(to_email=TO, name=NAME, login_link=LINK, reset_link=LINK)],
     "render_new_filing_alert": ALERTS,
     "build_new_filing_alert": ALERTS,
     "send_new_filing_alert": [dict(alert, to_email=TO) for alert in ALERTS],
@@ -631,19 +634,25 @@ def test_every_page_sent_keeps_the_headers_set_size_and_leaves_the_rest_to_the_v
     assert not problems, "\n".join(sorted(set(problems)))
 
 
-# The renders whose pages print a run long enough for the long-run rule to read: a link with its token, a
-# report's hash or address. Held as it is, so inputs that shorten a run fail here too.
-PRINTS_LONG_RUNS = frozenset({
-    "render_welcome_email", "send_waitlist_welcome_email", "render_referral_success_email", "send_referral_success_email",
-    "send_verification_email", "send_invite_email", "send_password_reset_email", "render_data_quality_report",
-})
+# How many long runs each render's pages print, run by run: the reader's name typed as an address, a link with
+# its token, a report's hashes and addresses. Held as it is, so inputs that shorten one fail here too.
+PRINTS_LONG_RUNS = {
+    "render_welcome_email": 2, "send_waitlist_welcome_email": 2, "render_referral_success_email": 2,
+    "send_referral_success_email": 2, "send_verification_email": 2, "send_invite_email": 2, "send_password_reset_email": 2,
+    "send_oauth_linked_email": 1, "send_account_exists_email": 1, "render_new_filing_alert": 1, "build_new_filing_alert": 1,
+    "send_new_filing_alert": 1, "render_daily_digest": 1, "build_daily_digest": 1, "send_daily_digest": 1,
+    "render_earnings_day_alert": 1, "send_earnings_day_alert": 1, "render_data_quality_report": 4,
+}
 
 
 def test_every_long_run_a_page_sent_shows_can_break(rendered):
     pages = _pages(rendered)
-    printed = {name for name, page in pages if long_runs(page)}
-    assert printed == PRINTS_LONG_RUNS, (
-        f"the renders that print a long run are {sorted(printed)}: hold PRINTS_LONG_RUNS to them, with inputs that print "
+    printed: dict[str, set[str]] = {}
+    for name, page in pages:
+        printed.setdefault(name, set()).update(long_runs(page))
+    counts = {name: len(runs) for name, runs in printed.items() if runs}
+    assert counts == PRINTS_LONG_RUNS, (
+        f"the renders print these numbers of long runs: {counts}. Hold PRINTS_LONG_RUNS to them, with inputs that print "
         "each such line at its real length"
     )
     problems = [f"{name}: {problem}" for name, page in pages for problem in long_run_problems(page)]

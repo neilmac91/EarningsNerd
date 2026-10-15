@@ -22,15 +22,16 @@ panel and the footer line below it. Around them, the page:
 - keeps the header at its set size where a phone view enlarges text (``-webkit-text-size-adjust:100%``
   on its table), and leaves every other line to the view, the panel's and the footer line's;
 - breaks no run of a body's for it: a line that prints a run with nowhere to break, such as a link with
-  its token, carries the rule that lets it break anywhere, since on the panel the rule would reach a
-  body's own table and split a column of amounts;
+  its token or the reader's name, carries the rule that lets it break anywhere, since on the panel the
+  rule would reach a body's own table and split a column of amounts;
 - pads no table through its ``style`` attribute (the shell has no ``<style>`` block), since classic
   Outlook ignores a table's padding and the body would sit against the panel's border, out of line with
   the header.
 
-``tests/support/mail_styles.py`` reads the text-size and long-run rules as a client does, in both engines
-that enlarge text, and the planted pages below score it. ``test_mail_rendered_addresses.py`` holds every
-page the mail module sends to both.
+``tests/support/mail_styles.py`` reads the two rules as the two engines that enlarge text read a page's
+inline styles, and its header names what it does not read. The planted pages below score it, as edits of
+a frozen copy of the shell. ``test_mail_rendered_addresses.py`` holds every page the mail module sends to
+both.
 """
 import html
 import re
@@ -162,6 +163,19 @@ def test_the_page_holds_its_slots_and_its_shell_rules():
     assert not padded, f"classic Outlook ignores a table's padding: pad its cells instead: {padded}"
 
 
+# The planted pages are edits of a frozen copy of the shell, so a change to the shell moves none of their
+# anchors; the checks above read the shell as it is.
+_SHELL = (Path(__file__).resolve().parents[1] / "fixtures" / "mail_shell.html").read_text(encoding="utf-8")
+
+
+def _planted(body: str) -> str:
+    return _SHELL.replace("{body}", body).replace("{footer}", "<span>The footer.</span>")
+
+
+def test_the_frozen_shell_marks_its_two_slots():
+    assert _SHELL.count("{body}") == 1 and _SHELL.count("{footer}") == 1, "the frozen shell no longer marks its two slots once each"
+
+
 _PLANTED_BODY = "<p>Hi Ada,</p><p>Copy this link: https://www.earningsnerd.io/reset-password?token=abc</p>"
 _HELD = "-webkit-text-size-adjust:100%;"
 _HEADER_STYLE = 'style="width:600px;max-width:600px;background-color:#F4F3EE;-webkit-text-size-adjust:100%;"'
@@ -196,6 +210,7 @@ TEXT_SIZES = [
     ("a style block's reset", (("</head>", "<style>body,table,td{-webkit-text-size-adjust:100%}</style></head>"),), "<style> block"),
     ("a self-closing style block's reset", (("</head>", "<style/>body{-webkit-text-size-adjust:100%}</style></head>"),), "<style> block"),
     ("a linked stylesheet", (("</head>", '<link rel="stylesheet" href="https://e.test/mail.css"></head>'),), "linked stylesheet"),
+    ("a hold through calc(), which the check does not resolve", (('<body style="', '<body style="-webkit-text-size-adjust:calc(100%);'),), "takes its value from a function"),
     ("the header reopened by a later declaration", ((_HEADER_STYLE, _HEADER_STYLE[:-1] + '-webkit-text-size-adjust:auto;"'),), _NOT_HELD),
     ("the header reopened by the unprefixed name", ((_HEADER_STYLE, _HEADER_STYLE[:-1] + 'text-size-adjust:auto;"'),), "Blink reads auto"),
     ("the header reopened for iOS's WebKit alone", ((_HEADER_STYLE, _HEADER_STYLE[:-1] + '-webkit-text-size-adjust:auto;text-size-adjust:100%;"'),), "iOS's WebKit auto"),
@@ -235,7 +250,7 @@ TEXT_SIZES = [
 
 @pytest.mark.parametrize("edits, expected", [case[1:] for case in TEXT_SIZES], ids=[case[0] for case in TEXT_SIZES])
 def test_the_text_size_check_scores_every_planted_page(edits, expected):
-    page = email_service._wrap_html(_PLANTED_BODY, footer="<span>The footer.</span>")
+    page = _planted(_PLANTED_BODY)
     for old, new in edits:
         assert page.count(old) == 1, f"the planted edit no longer finds {old!r} once in the page"
         page = page.replace(old, new)
@@ -255,6 +270,8 @@ _LINE_STYLE = f"margin:0;font-size:12px;color:#6B7280;{_BREAK}"
 _COPY_LINE = f'<p style="{_LINE_STYLE}">Can&apos;t click the button? Copy this link:<br>{_LONG_LINK}</p>'
 _BODY_CELL = '<td style="padding:32px 32px 0 32px;'
 _RESET = "overflow-wrap:normal;word-break:normal;"
+# The link split by inline markup into pieces of 15 characters, none long enough to count alone.
+_SPLIT_LINK = "".join(f"<b>{_LONG_LINK[i:i + 15]}</b>" if i % 30 else _LONG_LINK[i:i + 15] for i in range(0, len(_LONG_LINK), 15))
 _NOWHERE = "has nowhere to break"
 _NO_WRAP = "cannot wrap"
 # Each way a page can show a long run with nowhere to break, as edits of a page that prints a link, and the
@@ -270,13 +287,24 @@ LONG_RUNS = [
     ("the rule's values misspelled", ((_BREAK, "overflow-wrap:everywhere;word-break:break-everything;"),), _NOWHERE),
     ("overflow-wrap:break-word alone, which leaves a cell its narrowest width", ((_BREAK, "overflow-wrap:break-word;"),), _NOWHERE),
     ("the rule in the second of two style attributes", ((f'<p style="{_LINE_STYLE}">', f'<p style="margin:0;font-size:12px;" style="{_BREAK}">'),), _NOWHERE),
-    ("the link split by inline markup, the rule dropped", ((_COPY_LINE, f"<p>Copy this link:<br>https://www.<b>earningsnerd</b>.io/reset-password?token={_TOKEN}</p>"),), _NOWHERE),
-    ("a run of 30 characters with no rule", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 30}</p>"),), _NOWHERE),
-    ("a run that inline markup splits into pieces under 30", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 20}<b>{'x' * 20}</b></p>"),), _NOWHERE),
+    ("the link split by inline markup into short pieces, the rule dropped", ((_COPY_LINE, f"<p>Copy this link:<br>{_SPLIT_LINK}</p>"),), _NOWHERE),
+    ("a run of 24 characters with no rule", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 24}</p>"),), _NOWHERE),
+    ("a run that inline markup splits into pieces under 24", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 20}<b>{'x' * 20}</b></p>"),), _NOWHERE),
+    ("a run across an element the reader does not know", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 20}<o:p></o:p>{'x' * 20}</p>"),), _NOWHERE),
+    ("a run across an acronym and an output", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 20}<acronym>{'x' * 10}</acronym><output>{'x' * 10}</output></p>"),), _NOWHERE),
+    ("a run across an element the page hides", ((_COPY_LINE, _COPY_LINE + f'<p>{"x" * 20}<span style="display:none">y</span>{"x" * 20}</p>'),), _NOWHERE),
+    ("a run across an element the hidden attribute hides", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 20}<span hidden>y</span>{'x' * 20}</p>"),), _NOWHERE),
+    ("a run across a div set display:initial, which is inline", ((_COPY_LINE, _COPY_LINE + f'<div>{"x" * 20}<div style="display:initial">{"x" * 20}</div></div>'),), _NOWHERE),
+    ("a run across a span with a display no engine takes", ((_COPY_LINE, _COPY_LINE + f'<p>{"x" * 20}<span style="display:banana">{"x" * 20}</span></p>'),), _NOWHERE),
+    ("a run across a form feed, where no line breaks", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 20}\f{'x' * 20}</p>"),), _NOWHERE),
+    ("word-wrap:anywhere alone, which an engine may drop under that name", ((_BREAK, "word-wrap:anywhere;"),), _NOWHERE),
+    ("the rule through var(), which the check does not resolve", ((_BREAK, "overflow-wrap:var(--wrap);word-break:break-word;"),), "takes its value from a function"),
+    ("a style block, which the check does not read", (("</head>", "<style>p{white-space:nowrap}</style></head>"),), "<style> block"),
     ("a nowrap span around the link", ((f"<br>{_LONG_LINK}", f'<br><span style="white-space:nowrap;">{_LONG_LINK}</span>'),), _NO_WRAP),
     ("white-space:pre on the line", ((_LINE_STYLE, _LINE_STYLE + "white-space:pre;"),), _NO_WRAP),
     ("text-wrap-mode:nowrap on the line", ((_LINE_STYLE, _LINE_STYLE + "text-wrap-mode:nowrap;"),), _NO_WRAP),
     ("text-wrap:nowrap on the line", ((_LINE_STYLE, _LINE_STYLE + "text-wrap:nowrap;"),), _NO_WRAP),
+    ("text-wrap's two words, nowrap among them", ((_LINE_STYLE, _LINE_STYLE + "text-wrap:nowrap pretty;"),), _NO_WRAP),
     ("a nowrap white-space in its longhands' words", ((_LINE_STYLE, _LINE_STYLE + "white-space:collapse nowrap;"),), _NO_WRAP),
     ("the link in a nobr", ((f"<br>{_LONG_LINK}", f"<br><nobr>{_LONG_LINK}</nobr>"),), _NO_WRAP),
     ("the link in a pre, which closes the line", ((f"<br>{_LONG_LINK}", f"<br><pre>{_LONG_LINK}</pre>"),), _NO_WRAP),
@@ -289,15 +317,17 @@ LONG_RUNS = [
     ("overflow-wrap:anywhere alone", ((_BREAK, "overflow-wrap:anywhere;"),), None),
     ("word-break:break-word alone", ((_BREAK, "word-break:break-word;"),), None),
     ("word-break:break-all alone", ((_BREAK, "word-break:break-all;"),), None),
-    ("the alias word-wrap:anywhere", ((_BREAK, "word-wrap:anywhere;"),), None),
+    ("line-break:anywhere alone", ((_BREAK, "line-break:anywhere;"),), None),
     ("an important rule over a later reset", ((_BREAK, "overflow-wrap:anywhere !important;word-break:break-word !important;" + _RESET),), None),
     ("the rule on the body's cell, which the line inherits", ((_LINE_STYLE, "margin:0;font-size:12px;color:#6B7280;"), (_BODY_CELL, _BODY_CELL + _BREAK)), None),
-    ("the link split by inline markup, with the rule", ((f"<br>{_LONG_LINK}", f"<br>https://www.<b>earningsnerd</b>.io/reset-password?token={_TOKEN}"),), None),
+    ("the link split by inline markup into short pieces, with the rule", ((f"<br>{_LONG_LINK}", f"<br>{_SPLIT_LINK}"),), None),
     ("pre-wrap with the rule", ((_LINE_STYLE, _LINE_STYLE + "white-space:pre-wrap;"),), None),
     ("white-space:inherit on the line", ((_LINE_STYLE, _LINE_STYLE + "white-space:inherit;"),), None),
     ("white-space:initial on the line, in a nowrap cell", ((_LINE_STYLE, _LINE_STYLE + "white-space:initial;"), (_BODY_CELL, '<td nowrap style="padding:32px 32px 0 32px;')), None),
-    ("a run of 29 characters with no rule", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 29}</p>"),), None),
-    ("two blocks side by side, each under 30", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 20}</p><p>{'x' * 20}</p>"),), None),
+    ("a run of 23 characters with no rule", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 23}</p>"),), None),
+    ("two blocks side by side, each under 24", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 20}</p><p>{'x' * 20}</p>"),), None),
+    ("a block opened inside a line, each side under 24", ((_COPY_LINE, _COPY_LINE + f"<div>{'x' * 20}<div>{'x' * 20}</div></div>"),), None),
+    ("a long run broken by a thin space", ((_COPY_LINE, _COPY_LINE + f"<p>{'x' * 20}\u2009{'x' * 20}</p>"),), None),
     ("a long run the page hides", ((_COPY_LINE, _COPY_LINE + f'<div style="display:none">{"x" * 60}</div>'),), None),
     ("a long run under the hidden attribute", ((_COPY_LINE, _COPY_LINE + f"<div hidden>{'x' * 60}</div>"),), None),
     ("a long run in the head's title", (("</head>", f"<title>{'x' * 60}</title></head>"),), None),
@@ -309,7 +339,7 @@ LONG_RUNS = [
 
 @pytest.mark.parametrize("edits, expected", [case[1:] for case in LONG_RUNS], ids=[case[0] for case in LONG_RUNS])
 def test_the_long_run_check_scores_every_planted_page(edits, expected):
-    page = email_service._wrap_html(f"<p>Hi Ada,</p>{_COPY_LINE}", footer="<span>The footer.</span>")
+    page = _planted(f"<p>Hi Ada,</p>{_COPY_LINE}")
     assert any(_TOKEN in run for run in long_runs(page)), "the planted page no longer prints its link as one run"
     for old, new in edits:
         assert page.count(old) == 1, f"the planted edit no longer finds {old!r} once in the page"
