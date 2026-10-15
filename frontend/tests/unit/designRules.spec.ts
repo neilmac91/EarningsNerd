@@ -113,6 +113,8 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     '<span className="uppercase tracking-eyebrow">S-1-style disclosures</span>',
     "<p className=\"uppercase tracking-eyebrow\">10-K's cover page</p>",
     '<Badge>Top 10</Badge>',
+    // A model name is not a form: F-150 reads past the range.
+    '<Badge>F-150</Badge>',
   ],
   invalid: [
     { code: '<Badge variant="neutral">{filing.filing_type}</Badge>', errors: [{ messageId: 'badge' }] },
@@ -123,6 +125,10 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     { code: '<span className="uppercase tracking-eyebrow">SC 13D</span>', errors: [{ messageId: 'chip' }] },
     { code: '<Badge>13F-HR</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<span className="uppercase tracking-eyebrow">{"SC 13D/A · Filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
+    // The registration families read as ranges: S-6, F-10 and SF-3 are forms EDGAR writes.
+    { code: '<span className="uppercase tracking-eyebrow">S-6</span>', errors: [{ messageId: 'chip' }] },
+    { code: '<Badge>F-10</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<span className="uppercase tracking-eyebrow">{"SF-3 · Filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
     // A meta line's separator may be a comma, a colon or semicolon, or a dash set off by a space, not only a middot.
     { code: '<span className="uppercase tracking-eyebrow">10-Q - Filed yesterday</span>', errors: [{ messageId: 'chip' }] },
     { code: '<span className="uppercase tracking-eyebrow">{"8-K, filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
