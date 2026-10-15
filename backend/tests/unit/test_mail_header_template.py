@@ -6,7 +6,7 @@ markup, ported (CLAUDE.md rule 12: a change to one is a change to the other). Th
 tag for tag and text for text, plain comments aside, with whitespace counted as a browser renders it:
 - in text, a run of spaces, tabs and line breaks is one space, and a form feed, a no-break or an em
   space renders as itself;
-- whitespace beside a table's own tags renders nothing, and is dropped;
+- whitespace beside a table's own tags renders nothing, a form feed included, and is dropped;
 - in a tag, the whitespace between attributes is one space, and a quoted value is compared as written,
   so a value reflowed in one file is reflowed in the other.
 
@@ -19,9 +19,11 @@ panel and the footer line below it. Around them, the page:
   carries one wordmark, the name split by markup into its two styles: the header's;
 - carries no inline SVG, which Gmail and Outlook drop, and sets no viewport: it is 600 px wide, and a
   mail view fits a page that sets none to its screen;
-- pads no table, since classic Outlook ignores a table's padding and the body would sit against the
-  panel's border, out of line with the header.
+- pads no table through its ``style`` attribute (the shell has no ``<style>`` block), since classic
+  Outlook ignores a table's padding and the body would sit against the panel's border, out of line with
+  the header.
 """
+import html
 import re
 from pathlib import Path
 
@@ -38,8 +40,10 @@ _SPACE = " \t\n\r"
 _SPACES = re.compile(f"[{_SPACE}]+")
 _TAG_SPACES = re.compile(f"[{_SPACE}\f]+")
 _QUOTED = re.compile(r"""("[^"]*"|'[^']*')""")
-# A wordmark is the name split by markup into its two styles, entities and spacing aside.
-_WORDMARK = re.compile(r"Earnings(?:\s|&[#\w]+;)*(?:<[^>]+>(?:\s|&[#\w]+;)*)+Nerd", re.IGNORECASE)
+# A wordmark is the name split by markup into its two styles, read as a client shows it: its entities
+# decoded and the characters that render as nothing (a soft hyphen, a zero-width space) dropped.
+_WORDMARK = re.compile(r"Earnings\s*(?:<[^>]+>\s*)+Nerd", re.IGNORECASE)
+_INVISIBLE = re.compile("[\u00ad\u200b-\u200d\u2060\ufeff]")
 _VIEWPORT = re.compile(r"""<meta\b[^>]*\bname\s*=\s*["']?viewport\b""", re.IGNORECASE)
 _TABLE_PADDING = re.compile(r"""\bstyle\s*=\s*(?:(["'])(?:(?!\1).)*padding|[^\s"'>]*padding)""", re.IGNORECASE | re.DOTALL)
 
@@ -57,11 +61,15 @@ def _tokens(markup: str) -> list[str]:
         before, after = pieces[i - 1 : i], pieces[i + 1 : i + 2]
         if piece.startswith("<"):
             tokens.append(_tag(piece))
-        elif piece.strip(_SPACE):
-            text = _SPACES.sub(" ", piece)
-            text = text.lstrip(_SPACE) if before and _TABLE_TAG.match(before[0]) else text
-            tokens.append(text.rstrip(_SPACE) if after and _TABLE_TAG.match(after[0]) else text)
-        elif not any(_TABLE_TAG.match(near) for near in before + after):
+            continue
+        # Beside a table's own tags, whitespace renders nothing, a form feed included: there the parser
+        # reads it as whitespace too.
+        after_table, before_table = bool(before and _TABLE_TAG.match(before[0])), bool(after and _TABLE_TAG.match(after[0]))
+        text = piece.lstrip(_SPACE + "\f") if after_table else piece
+        text = text.rstrip(_SPACE + "\f") if before_table else text
+        if text.strip(_SPACE):
+            tokens.append(_SPACES.sub(" ", text))
+        elif text and not (after_table or before_table):
             tokens.append(" ")
     return tokens
 
@@ -127,7 +135,8 @@ def test_the_page_holds_its_slots_and_its_shell_rules():
     assert page.count(footer) == 1 and footer in "".join(panel), "the footer sits once, in the panel"
     assert "</td>" in page[page.index(body) : page.index(footer)], "the footer has a cell of its own, after the body's"
     shell = page.replace(body, "").replace(footer, "")
-    assert len(_WORDMARK.findall(shell)) == 1, "the page carries one wordmark, the header's: the name in prose is no wordmark"
+    wordmarks = _WORDMARK.findall(_INVISIBLE.sub("", html.unescape(shell)))
+    assert len(wordmarks) == 1, "the page carries one wordmark, the header's: the name in prose is no wordmark"
 
     assert "<svg" not in page.lower(), "Gmail and Outlook drop inline SVG"
     assert not _VIEWPORT.search(page), "a 600 px page sets no viewport, so a mail view fits it to its screen"

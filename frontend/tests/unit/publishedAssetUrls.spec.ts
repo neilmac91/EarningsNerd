@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest'
  * mail addresses them on, and each path with the sha256 of its published file and what it is published
  * for. A change that puts a new path in mail adds it there in the same PR. Two backend gates read the
  * same file and fail until it does, each within the limits its header names: one renders the mail
- * email_service.py builds and reads every address in it as it is sent
+ * email_service.py builds and reads its addresses as they are sent
  * (backend/tests/unit/test_mail_rendered_addresses.py), and one reads the code
  * (backend/tests/unit/test_mail_published_assets.py). A path never leaves the register: its paths are the
  * list written in this spec, so a path joins both in the same change and neither may drop it. Each

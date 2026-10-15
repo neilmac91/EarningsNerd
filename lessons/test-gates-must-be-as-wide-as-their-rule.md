@@ -30,7 +30,7 @@ rule covers, so it was green while the rule was violated:
 This is more dangerous than having no gate. A missing gate is a known hole; a narrow gate
 reports "enforced" and stops anyone looking.
 
-**Rule**: Five sub-rules, each learned the hard way above.
+**Rule**: Five sub-rules, each learned the hard way; the context above, the evidence and the recurrences below record how.
 
 *Ask the source of truth rather than approximating it.* `git ls-files` is the exact set of
 files in the repo; a hand-written skip list is a guess at what git already knows, and it is
