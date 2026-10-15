@@ -42,11 +42,12 @@ describe('numeric formatters', () => {
 
   // The unit is the segment between whitespace, - and /. & and . sit inside one, so R&D, SG&A and U.S. keep their
   // single capitals (a letter-run rule gave 'R&d'); - and / end one, so an acronym joined to a word keeps its
-  // capitals (a per-word rule gave 'Non-gaap EPS' and 'Debt-to-ebitda').
+  // capitals (a per-word rule gave 'Non-gaap EPS' and 'Debt-to-ebitda'). A capital after a segment's first letter
+  // keeps it as written too: YoY stays and Growth goes lower case (the lower-case test alone gave 'Yoy growth').
   it.each([
     ['R&D Expense', 'R&D expense'], ['SG&A', 'SG&A'], ['U.S. Revenue', 'U.S. revenue'],
     ['Non-GAAP EPS', 'Non-GAAP EPS'], ['Adjusted Non-GAAP Income', 'Adjusted non-GAAP income'],
-    ['Debt-to-EBITDA', 'Debt-to-EBITDA'], ['Price/EPS Ratio', 'Price/EPS ratio'],
+    ['Debt-to-EBITDA', 'Debt-to-EBITDA'], ['Price/EPS Ratio', 'Price/EPS ratio'], ['YoY Growth', 'YoY growth'],
   ])('judges an acronym on the segment between whitespace, - and /: %s reads %s', (label, text) => {
     expect(sentenceCase(label)).toBe(text)
   })

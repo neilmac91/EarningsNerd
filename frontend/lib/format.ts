@@ -142,7 +142,8 @@ export const ordinal = (n: number): string => {
  * pickers), segment by segment, a segment being a run between whitespace, '-' and '/'. A segment with no
  * lower-case letter is an acronym and stays as written: '&' and '.' sit inside a segment, so 'R&D',
  * 'SG&A' and 'U.S.' stay whole, and an acronym joined to a word by '-' or '/' keeps its capitals
- * ('Non-GAAP EPS' and 'Debt-to-EBITDA' stay, 'Price/EPS Ratio' to 'Price/EPS ratio'). Every other
+ * ('Non-GAAP EPS' and 'Debt-to-EBITDA' stay, 'Price/EPS Ratio' to 'Price/EPS ratio'). A segment with a
+ * capital after its first letter stays as written too ('YoY Growth' to 'YoY growth'). Every other
  * segment goes lower case except the label's first character, which stays as written ('Net Income' to
  * 'Net income', 'Non-Interest Income' to 'Non-interest income', 'Adjusted Non-GAAP Income' to
  * 'Adjusted non-GAAP income'). The stored labels themselves are E34's.
@@ -150,7 +151,7 @@ export const ordinal = (n: number): string => {
 export const sentenceCase = (label: string): string => {
   const first = label.search(/[^\s/-]/)
   return label.replace(/[^\s/-]+/g, (segment: string, offset: number) => {
-    if (!/[a-z]/.test(segment)) return segment
+    if (!/[a-z]/.test(segment) || /[A-Za-z].*[A-Z]/.test(segment)) return segment
     const lower = segment.toLowerCase()
     return offset === first ? segment.charAt(0) + lower.slice(1) : lower
   })
