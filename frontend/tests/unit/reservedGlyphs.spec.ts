@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
+import { PHOSPHOR, isIconModule } from './iconModules'
 
 /**
  * Three glyphs carry one meaning each (DESIGN.md › Icons; docs/brand/06-system.md §4): the quotes glyph
@@ -32,18 +33,6 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 const GLYPHS = ['SparkleIcon', 'QuotesIcon', 'BracketsCurlyIcon'] as const
 type Glyph = (typeof GLYPHS)[number]
-const PHOSPHOR = '@phosphor-icons/react'
-/** Whether an import draws from the icon modules: @/lib/icons, by its alias or a path relative to the importing
-    file, or the Phosphor package at any entry (`@phosphor-icons/react/dist/ssr`, `@phosphor-icons/react/Sparkle`). */
-function isIconModule(specifier: string, fileName: string): boolean {
-  if (specifier === PHOSPHOR || specifier.startsWith(`${PHOSPHOR}/`)) return true
-  const target = specifier.startsWith('@/')
-    ? specifier.slice(2)
-    : specifier.startsWith('.')
-      ? path.posix.normalize(path.posix.join(path.posix.dirname(fileName), specifier))
-      : specifier
-  return target.replace(/\.tsx?$/, '').replace(/\/index$/, '') === 'lib/icons'
-}
 /** The names a glyph is exported under, read off Phosphor's own per-icon declaration: `dist/csr/Sparkle.d.ts`
     exports SparkleIcon and its deprecated alias Sparkle, the same component. */
 const GLYPH_NAMES: Map<string, Glyph> = (() => {

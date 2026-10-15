@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
+import { isIconModule } from './iconModules'
 
 /**
  * The voice rules of docs/brand/07-voice.md as one gate (CLAUDE.md rule 12; docs/brand/decisions-log.md
@@ -26,7 +27,11 @@ import { describe, expect, it } from 'vitest'
  *    forced to one with U+FE0F. Typographic glyphs (the ▲ ▼ direction marks, ↗ for an external link,
  *    © ® ™) are text, not emoji.
  *  - buzzword: none of the banned words (BUZZWORDS).
- *  - headingIcon: no icon element inside a heading (a section heading carries no icon; DESIGN.md).
+ *  - headingIcon: no icon element inside a heading (a section heading carries no icon; DESIGN.md). An icon is
+ *    a tag bound to an import from @/lib/icons (by its alias or a relative path) or the Phosphor package (any
+ *    entry), under any local name or as a namespace's member (tests/unit/iconModules.ts), or a tag named
+ *    ...Icon (a hand-drawn component named for its icon); an icon re-exported through another app module is
+ *    review-checked.
  *  - developerWording: copy in lib/ and hooks/ (the fallback errors a user reads) never names the
  *    backend, an API path, a "reader" or an HTTP status number.
  *
@@ -362,6 +367,24 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
   const add = (node: ts.Node, clause: Clause, text: string) =>
     findings.push({ rel, line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1, clause, text: text.replace(/\s+/g, ' ').trim().slice(0, 80) })
   const devScope = rel.startsWith('lib/') || rel.startsWith('hooks/')
+  // An icon by where it comes from, not its local spelling: every name bound to an import from the icon modules,
+  // and every namespace imported from one (so `import { BellIcon as Bell }` and `<Icons.Bell />` are read).
+  const iconNames = new Set<string>()
+  const iconNamespaces = new Set<string>()
+  for (const stmt of sf.statements) {
+    if (!ts.isImportDeclaration(stmt) || !ts.isStringLiteral(stmt.moduleSpecifier) || !isIconModule(stmt.moduleSpecifier.text, rel)) continue
+    const bindings = stmt.importClause?.namedBindings
+    if (bindings && ts.isNamedImports(bindings)) for (const el of bindings.elements) iconNames.add(el.name.text)
+    if (bindings && ts.isNamespaceImport(bindings)) iconNamespaces.add(bindings.name.text)
+  }
+  const isIconTag = (n: ts.JsxOpeningLikeElement): boolean => {
+    const name = n.tagName
+    if (ts.isIdentifier(name)) return iconNames.has(name.text) || /Icon$/.test(name.text)
+    if (ts.isPropertyAccessExpression(name) && ts.isIdentifier(name.expression)) {
+      return iconNamespaces.has(name.expression.text) || /Icon$/.test(name.name.text)
+    }
+    return /Icon$/.test(tagOf(n))
+  }
 
   const visit = (node: ts.Node, inMetadata: boolean): void => {
     // Copy: every literal outside code's own strings.
@@ -385,7 +408,7 @@ function findingsIn(sf: ts.SourceFile, reach: Reach): Finding[] {
         // affordance, not the heading's icon.
         const find = (n: ts.Node) => {
           if (ts.isJsxElement(n) && CONTROLS.has(tagOf(n.openingElement))) return
-          if ((ts.isJsxSelfClosingElement(n) || ts.isJsxOpeningElement(n)) && /Icon$/.test(tagOf(n))) icons.push(n)
+          if ((ts.isJsxSelfClosingElement(n) || ts.isJsxOpeningElement(n)) && isIconTag(n)) icons.push(n)
           ts.forEachChild(n, find)
         }
         node.children.forEach(find)
@@ -532,6 +555,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '      <input placeholder="Search tickers! 🚀" />',
       '      <Panel title="Quarterly Revenue Trend" />',
       '      <Cta>Start Free Trial</Cta>',
+      '      <h2><Bell />Price alerts</h2>',
+      '      <h2><Ph.Bell />Price alerts</h2>',
+      '      <h2><Ring />Doorbells</h2>',
       '    </div>',
       '  )',
       '}',
@@ -539,6 +565,11 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '  return <h5>{title}</h5>',
       '}',
       'const Cta = ({ children }: { children: ReactNode }) => <Link href="/" className={buttonVariants()}>{children}</Link>',
+      // An icon by its import: an alias, and a namespace's member, each from an icon module; Ring comes from
+      // a module that is not one, so its bell is not an icon to the scan.
+      "import { BellIcon as Bell } from '@/lib/icons'",
+      "import * as Ph from '@phosphor-icons/react/dist/ssr'",
+      "import { Bell as Ring } from './bells'",
     ].join('\n')
     expect(voiceFindings(src, 'features/probe/Probe.tsx').map((f) => `${f.line} ${f.clause}`)).toEqual([
       '2 sentenceCase',
@@ -575,6 +606,9 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '35 emoji',
       '36 sentenceCase',
       '37 sentenceCase',
+      // An icon imported under another name, and one reached through a namespace, inside a heading.
+      '38 headingIcon',
+      '39 headingIcon',
     ])
     // An attribute is never label text: the icons' className leaves are not read into the label.
     expect(voiceFindings(src, 'features/probe/Probe.tsx').filter((f) => f.line >= 23 && f.clause === 'sentenceCase').map((f) => f.text)).toEqual([
