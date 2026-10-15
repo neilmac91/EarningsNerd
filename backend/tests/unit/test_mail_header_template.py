@@ -4,9 +4,11 @@
 hairline, the marked tagline) and the footer line, and ``email_service._wrap_html`` carries its
 markup, ported (CLAUDE.md rule 12: a change to one is a change to the other). The two are compared
 tag for tag and text for text, plain comments aside, with whitespace counted as a browser renders it:
-- a run of ASCII whitespace is one space, and a no-break or an em space renders as itself;
+- in text, a run of spaces, tabs and line breaks is one space, and a form feed, a no-break or an em
+  space renders as itself;
 - whitespace beside a table's own tags renders nothing, and is dropped;
-- a quoted attribute value is compared as written.
+- in a tag, the whitespace between attributes is one space, and a quoted value is compared as written,
+  so a value reflowed in one file is reflowed in the other.
 
 One difference is allowed: the preview's tile is inline SVG in a cell Outlook skips, and the mail's is
 the hosted raster the template's note spells (``<img src="{base}/assets/earningsnerd-appicon.png" ...>``),
@@ -14,7 +16,7 @@ on ``FRONTEND_URL``. The page carries the header and the footer line once each, 
 panel and the footer line below it. Around them, the page:
 
 - puts the body and the footer in the panel's cells, each once and each in a cell of its own, and
-  carries one wordmark in its text, the header's;
+  carries one wordmark, the name split by markup into its two styles: the header's;
 - carries no inline SVG, which Gmail and Outlook drop, and sets no viewport: it is 600 px wide, and a
   mail view fits a page that sets none to its screen;
 - pads no table, since classic Outlook ignores a table's padding and the body would sit against the
@@ -30,15 +32,21 @@ TEMPLATE = Path(__file__).resolve().parents[3] / "docs" / "brand" / "templates" 
 _PLAIN_COMMENT = re.compile(r"<!--\s(?:(?!-->).)*-->", re.DOTALL)  # an Outlook conditional has no space after <!--
 _TILE_IN_NOTE = re.compile(r'<img src="\{base\}[^>]*>', re.DOTALL)
 _TABLE_TAG = re.compile(r"</?(?:table|tbody|tr|td)\b")
-# HTML collapses ASCII whitespace alone: a no-break or an em space renders as itself.
-_SPACE = " \t\n\r\f"
+# Text collapses spaces, tabs and line breaks alone: a form feed, a no-break or an em space renders as
+# itself. Between a tag's attributes, a form feed separates too.
+_SPACE = " \t\n\r"
 _SPACES = re.compile(f"[{_SPACE}]+")
+_TAG_SPACES = re.compile(f"[{_SPACE}\f]+")
 _QUOTED = re.compile(r"""("[^"]*"|'[^']*')""")
+# A wordmark is the name split by markup into its two styles, entities and spacing aside.
+_WORDMARK = re.compile(r"Earnings(?:\s|&[#\w]+;)*(?:<[^>]+>(?:\s|&[#\w]+;)*)+Nerd", re.IGNORECASE)
+_VIEWPORT = re.compile(r"""<meta\b[^>]*\bname\s*=\s*["']?viewport\b""", re.IGNORECASE)
+_TABLE_PADDING = re.compile(r"""\bstyle\s*=\s*(?:(["'])(?:(?!\1).)*padding|[^\s"'>]*padding)""", re.IGNORECASE | re.DOTALL)
 
 
 def _tag(piece: str) -> str:
     """A tag with the whitespace between its attributes made one space, its quoted values kept as written."""
-    return "".join(part if _QUOTED.fullmatch(part) else _SPACES.sub(" ", part) for part in _QUOTED.split(piece))
+    return "".join(part if _QUOTED.fullmatch(part) else _TAG_SPACES.sub(" ", part) for part in _QUOTED.split(piece))
 
 
 def _tokens(markup: str) -> list[str]:
@@ -119,12 +127,9 @@ def test_the_page_holds_its_slots_and_its_shell_rules():
     assert page.count(footer) == 1 and footer in "".join(panel), "the footer sits once, in the panel"
     assert "</td>" in page[page.index(body) : page.index(footer)], "the footer has a cell of its own, after the body's"
     shell = page.replace(body, "").replace(footer, "")
-    text = re.sub(r"<[^>]+>", "", shell)
-    assert len(re.findall(r"Earnings\s*Nerd", text, re.IGNORECASE)) == 1, "the page carries one wordmark, the header's"
+    assert len(_WORDMARK.findall(shell)) == 1, "the page carries one wordmark, the header's: the name in prose is no wordmark"
 
     assert "<svg" not in page.lower(), "Gmail and Outlook drop inline SVG"
-    assert 'name="viewport"' not in page, "a 600 px page sets no viewport, so a mail view fits it to its screen"
-    padded = [
-        t for t in tokens if t.lower().startswith("<table") and re.search(r"""style\s*=\s*(["'])(?:(?!\1).)*padding""", t, re.IGNORECASE)
-    ]
+    assert not _VIEWPORT.search(page), "a 600 px page sets no viewport, so a mail view fits it to its screen"
+    padded = [t for t in tokens if t.lower().startswith("<table") and _TABLE_PADDING.search(t)]
     assert not padded, f"classic Outlook ignores a table's padding: pad its cells instead: {padded}"

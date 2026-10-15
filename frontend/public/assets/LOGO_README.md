@@ -87,15 +87,16 @@ Excel export).
   basePath in `next.config.js` or `vercel.json` reaches it, read in a production build's
   environment; that the register's paths are the list the spec writes out, so no path leaves it;
   and that the register's origin is the root layout's `metadataBase`. Two gates hold the backend to
-  the rule. `backend/tests/unit/test_mail_rendered_addresses.py` renders every mail
-  `email_service.py` builds, with `FRONTEND_URL` keeping a trailing slash, and reads every address
-  each page carries: one into a file the site serves from `frontend/public` is a whole registered
-  path on `FRONTEND_URL`, the slash stripped, however the code derived it. It sees only what its
-  inputs render, and no mail built without `_wrap_html`. `backend/tests/unit/test_mail_published_assets.py`
-  reads the code, every file in `backend/app`: a string that addresses such a file spells a whole
-  registered path, with nothing filled in after it and no origin of the site's, second slash or
-  unstripped `FRONTEND_URL` in front of it, and a registered path is used whole where the scan can
-  see it. It cannot follow a value, and its header names what it cannot see. The header's tile is
+  the rule. `backend/tests/unit/test_mail_rendered_addresses.py` renders every public function of
+  `email_service.py`, the module that builds the mail, with inputs that run every line of it and
+  `FRONTEND_URL` keeping a trailing slash, and reads every address in what is sent: one into a file
+  the site serves from `frontend/public` is a whole registered path on `FRONTEND_URL`, the slash
+  stripped, however the code derived it. Its header names what it cannot see, mail built outside
+  `email_service.py` among it. `backend/tests/unit/test_mail_published_assets.py` reads the code,
+  every file in `backend/app`: a string that addresses such a file spells a whole registered path,
+  with nothing filled in after it and no origin of the site's, second slash or unstripped
+  `FRONTEND_URL` in front of it, and a registered path is used whole where the scan can see it. It
+  cannot follow a value through the code, and its header names what it cannot see. The header's tile is
   built on `FRONTEND_URL` with any trailing slash stripped, and `FRONTEND_URL`'s default is the
   register's origin. Whether the origin answers without a
   redirect, the response headers a route or a headers rule sets on these paths (a Content-Type that

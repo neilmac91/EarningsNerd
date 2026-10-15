@@ -30,7 +30,7 @@ rule covers, so it was green while the rule was violated:
 This is more dangerous than having no gate. A missing gate is a known hole; a narrow gate
 reports "enforced" and stops anyone looking.
 
-**Rule**: Three sub-rules, each learned the hard way above.
+**Rule**: Five sub-rules, each learned the hard way above.
 
 *Ask the source of truth rather than approximating it.* `git ls-files` is the exact set of
 files in the repo; a hand-written skip list is a guess at what git already knows, and it is
@@ -78,6 +78,13 @@ check over the same code, give them one walk: a check that follows a value throu
 while its sibling reads only the syntax around it leaves the sibling as narrow as the first reader
 was, and a value the gate must recognise rather than read (a component's children) rides that walk
 as a mark, not a second walk of its own.
+
+*Read the output when the rule is about it.* When the rule constrains what code emits (the addresses
+a mail carries, the markup a page holds), a reader of the source follows a value only as far as its
+syntax reaches. Run the code and read what it emits. Hold the runs to the emitting module's whole
+public surface, not to the callers of one function, with inputs a coverage check holds to every line
+of the module, and read what leaves it (what a sender sends, not what a helper returns). Keep the
+source scan for the code no run reaches, and name in each gate's header what it cannot see.
 
 Corollary for the anti-vacuity floor: assert the scanner actually found things (>100 files,
 >100 tests). A narrow gate and a broken walk look identical from the outside — both green.
@@ -235,3 +242,17 @@ next review named a metric row's formatted figures outside it; so rule 2 classif
 API types declare that can hold a string, an array of them included, a figure field or a word field,
 and fails one it has not classified. A gate keyed on a list of names holds only when a test makes
 the list exhaustive over its domain.
+
+**Recurrence (2026-10-15, the mail's published addresses)**: #1334's asset gate,
+`test_mail_published_assets.py`, read the code that builds mail. It took each f-string and `+` chain
+whole and held what a name bound, and its header claimed that a registered path could not be changed
+once it sat in an address. The second delta review found the address changed, unseen, wherever it went
+after the expression that built it: a helper, an alias, a container, `+=`, a fill, an import. Every form
+the three lenses tried passed. A reader of the source follows a value only as far as its syntax reaches.
+When the rule is about what the code emits, read what it emits.
+`test_mail_rendered_addresses.py` first rendered the callers of `_wrap_html` and read what they
+returned. The third delta review found mail built around them unread: a payload builder that added to
+the page, a partial of `_wrap_html`, a renderer's plain-text copy parsed as markup, and a branch no input
+took. So it now renders every public function of the mail module, with its sends recorded, on inputs a
+line-coverage check holds to every line of the module, and reads each address in what is sent. The
+source scan stays for the code no render reaches, and its header names what it cannot follow.

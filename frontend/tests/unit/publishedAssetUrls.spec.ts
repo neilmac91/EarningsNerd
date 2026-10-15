@@ -15,9 +15,10 @@ import { describe, expect, it } from 'vitest'
  * links it. The register of published paths is publishedAssetUrls.json, beside this spec: the origin
  * mail addresses them on, and each path with the sha256 of its published file and what it is published
  * for. A change that puts a new path in mail adds it there in the same PR. Two backend gates read the
- * same file and fail until it does: backend/tests/unit/test_mail_rendered_addresses.py reads every mail
- * email_service.py builds, and backend/tests/unit/test_mail_published_assets.py reads the code, save in
- * the forms its header names as out of its reach. A path never leaves the register: its paths are the
+ * same file and fail until it does, each within the limits its header names: one renders the mail
+ * email_service.py builds and reads every address in it as it is sent
+ * (backend/tests/unit/test_mail_rendered_addresses.py), and one reads the code
+ * (backend/tests/unit/test_mail_published_assets.py). A path never leaves the register: its paths are the
  * list written in this spec, so a path joins both in the same change and neither may drop it. Each
  * path must be its published file in frontend/public, byte for byte (a new rendition takes a new name,
  * so a changed file fails here until it does); lie outside the middleware's matcher, so the middleware
