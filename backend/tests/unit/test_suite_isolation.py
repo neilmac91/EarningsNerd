@@ -9,6 +9,11 @@ outlives every schema change (lessons/ops-one-test-process-per-worktree.md). Bec
 starts empty, conftest also creates the schema once per process: no test may depend on an earlier
 test (or the app lifespan of an earlier ``TestClient``) having created its tables.
 
+EdgarTools' data and cache directories go in that temp directory too, unless set before pytest starts:
+by default they live under the home directory, where every run and worker would share the pickled
+anchors TOC extraction reuses, and a sandbox's read-only home turns a cache write into an incomplete
+TOC (lessons/test-conftest-hermetic-env.md).
+
 The same conftest gives SQLite tables AUTOINCREMENT ids. PostgreSQL never hands out a sequence value
 twice; SQLite's default max(rowid)+1 re-issues a deleted test's id to the next test, where a child row
 the first test left behind (SQLite here enforces no foreign keys) silently joins the new parent.
@@ -19,6 +24,7 @@ which proves nothing, so ``test_ordered_probes_hold_in_a_fresh_serial_process`` 
 a fixed order in one fresh process.
 """
 import ast
+import json
 import os
 import platform
 import stat
@@ -108,8 +114,9 @@ def test_probe_next_test_starts_with_an_empty_summary_limiter():
     assert not SUMMARY_LIMITER._hits
 
 
-def _fresh_pytest(*args):
-    env = {k: v for k, v in os.environ.items() if not k.startswith(("PYTEST_", "DATABASE_URL"))}
+def _fresh_pytest(*args, environ=None):
+    env = {k: v for k, v in (os.environ if environ is None else environ).items()
+           if not k.startswith(("PYTEST_", "DATABASE_URL"))}
     return subprocess.run(  # nosec B603 - fixed argv: this interpreter running pytest on fixed nodes
         [sys.executable, "-m", "pytest", "-q", "-n", "0", "-p", "no:cacheprovider", "-p", "no:randomly", *args],
         cwd=BACKEND_DIR, env=env, capture_output=True, text=True, timeout=120,
@@ -154,6 +161,48 @@ def test_a_mock_left_on_a_generation_singleton_fails_the_leaking_test(tmp_path):
     assert result.returncode == 1 and "1 passed" in summary and "1 error" in summary, result.stdout[-3000:]
     assert "mock left on a shared generation singleton after the test: " in result.stdout
     assert "get_filing_document" in result.stdout
+
+
+_EDGAR_DIRS = ("EDGAR_LOCAL_DATA_DIR", "EDGAR_CACHE_DIR")
+_EDGAR_PROBE = (
+    "import json, os\n"
+    "from edgar.httpclient import get_cache_directory\n"
+    "from edgar.paths import get_anchor_cache_directory, get_data_directory\n\n"
+    "def test_report_where_edgartools_writes():\n"
+    "    print('EDGAR-DIRS ' + json.dumps({'db': os.environ['DATABASE_URL'], 'dirs': [str(get_data_directory()),\n"
+    "          get_cache_directory(), str(get_anchor_cache_directory())]}))\n"
+)
+
+
+def _edgar_probe(tmp_path, **edgar_env):
+    # HOME is a fresh directory, so anything EdgarTools wrote to its home defaults would show there.
+    home = tmp_path / "home"
+    home.mkdir()
+    probe = tmp_path / "test_edgar_dirs_probe.py"
+    probe.write_text(_EDGAR_PROBE, encoding="utf-8")
+    environ = {k: v for k, v in os.environ.items() if k not in _EDGAR_DIRS}
+    result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", "-s", str(probe),
+                           environ={**environ, **edgar_env, "HOME": str(home)})
+    assert result.returncode == 0, result.stdout[-3000:] + result.stderr[-2000:]
+    report = json.loads(next(line for line in result.stdout.splitlines() if line.startswith("EDGAR-DIRS "))[11:])
+    assert not any(home.iterdir()), sorted(home.rglob("*"))
+    return Path(make_url(report["db"]).database).parent, [Path(d) for d in report["dirs"]]
+
+
+def test_edgartools_writes_only_to_the_processs_temp_directory(tmp_path):
+    # This process: both set, so EdgarTools never falls back to ~/.edgar or ~/.edgar_cache.
+    assert all(os.environ.get(name) for name in _EDGAR_DIRS), {n: os.environ.get(n) for n in _EDGAR_DIRS}
+    private, dirs = _edgar_probe(tmp_path)
+    assert private.name.startswith("earningsnerd-tests-main-"), private
+    assert all(private in d.parents for d in dirs), (private, dirs)
+    assert not private.exists()  # removed with the database when the process ended
+
+
+def test_an_edgartools_directory_set_before_pytest_starts_is_kept(tmp_path):
+    data, cache = tmp_path / "data", tmp_path / "cache"
+    _, dirs = _edgar_probe(tmp_path, EDGAR_LOCAL_DATA_DIR=str(data), EDGAR_CACHE_DIR=str(cache))
+    assert dirs == [data.resolve(), data.resolve() / "_tcache", cache.resolve() / "anchors"], dirs
+    assert all(d.is_dir() for d in dirs)  # a developer's directories outlive the run
 
 
 def test_sqlite_never_reissues_a_deleted_id():

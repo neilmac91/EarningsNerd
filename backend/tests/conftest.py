@@ -36,6 +36,17 @@ def _cleanup_test_database():
 atexit.register(_cleanup_test_database)
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_TEST_DB_DIR, "earningsnerd.db")
 
+# EdgarTools keeps its data (EDGAR_LOCAL_DATA_DIR, default ~/.edgar: the HTTP cache and the markers of
+# the cache migrations that importing it runs) and its caches (EDGAR_CACHE_DIR, default ~/.edgar_cache:
+# the pickled anchors TOC extraction reuses) under the home directory, which every run and worker would
+# share, and which a sandbox with a read-only home cannot write: TOC extraction then swallows the error
+# and picks an incomplete fallback (lessons/test-conftest-hermetic-env.md). So each process gets its own,
+# in the temp directory above, before any app import, and they go with it. A value already set (a
+# developer's, or the parent run's for a pytest started from a test) is kept. Gate: test_suite_isolation.py.
+for _name, _subdir in (("EDGAR_LOCAL_DATA_DIR", "edgar"), ("EDGAR_CACHE_DIR", "edgar-cache")):
+    if not os.environ.get(_name):
+        os.environ[_name] = os.path.join(_TEST_DB_DIR, _subdir)
+
 # Set mock environment variables for all tests at module level to avoid Pydantic validation errors at import time
 os.environ["SECRET_KEY"] = "test-secret-key-must-be-long-enough-123"
 os.environ["OPENAI_API_KEY"] = "sk-test-key-for-mocking"
