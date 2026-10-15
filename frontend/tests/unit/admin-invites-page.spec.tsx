@@ -283,16 +283,18 @@ describe('AdminInvitesPage: the table scrolls inside its card', () => {
 })
 
 /**
- * An email chip keeps its address, its marker and its remove button inside it and the card (DESIGN_SYSTEM.md §4
- * "Admin pages"; the #1309 capture review: at 200% text the already-invited chip squeezed its address out and put
- * its remove button past the card). Classes are what a unit test can pin; the capture harness measures the layout.
+ * An email chip keeps its address, its marker and its remove button inside it and the card, and the marker clear of
+ * the button (DESIGN_SYSTEM.md §4 "Admin pages"; the #1309 capture review: at 200% text the already-invited chip
+ * squeezed its address out and put its remove button past the card; the founder's recheck of #1344: at 320px under
+ * 200% text the marker painted through the button). jsdom lays nothing out, so this case can only pin the classes;
+ * tests/e2e/admin-invite-chip-reflow.spec.ts measures what they paint in Chromium.
  */
 describe('AdminInvitesPage: an email chip stays inside its card', () => {
   beforeEach(() => {
     vi.mocked(listInvites).mockReset()
   })
 
-  it('keeps an already-invited address, its marker and its remove button inside the chip', async () => {
+  it('keeps an already-invited address, its marker and its remove button inside the chip, the marker on a line of its own when the row is narrow', async () => {
     vi.mocked(listInvites).mockResolvedValue([invite])
     renderPage()
     await screen.findByText('alice@example.com')
@@ -309,14 +311,23 @@ describe('AdminInvitesPage: an email chip stays inside its card', () => {
     expect(marker.parentElement).toBe(group)
     expect(group).toHaveClass('flex', 'min-w-0', 'flex-wrap')
     expect(address).toHaveClass('truncate')
-    expect(marker.className).toBe('')
     // The dot is held to "already" by a no-break space, so a wrapped marker never leaves the dot alone at a line's
     // end. getByText's normalizer reads U+00A0 as a space, so the raw text is what pins it.
     expect(marker.textContent).toBe('· already invited')
-    // The button is the chip's own last child; the chip is capped at the card and rounds as a box once it wraps
-    // (a 9999px radius turns a wrapped chip into a capsule whose curve crosses its text).
+    // The button is the chip's own last child, so it stays last in reading and Tab order; the chip is capped at the
+    // card and rounds as a box once it wraps (a 9999px radius turns a wrapped chip into a capsule whose curve
+    // crosses its text).
     expect([...chip.children].at(-1)).toBe(remove)
     expect(chip).toHaveClass('max-w-full', 'rounded-xl')
     expect(chip).not.toHaveClass('rounded-full')
+    // The narrow state. The chip row is an inline-size query container; below 8em of its text size the group is too
+    // narrow for "· already", so it dissolves, the chip wraps with no row gap, the address takes the first line's
+    // free width beside the button, and the marker takes a line of its own under them. The marker carries those two
+    // classes and nothing else (no shrink-0 or nowrap, above).
+    expect(chip.parentElement).toHaveClass('[container-type:inline-size]')
+    expect(chip).toHaveClass('[@container(width<8em)]:flex-wrap', '[@container(width<8em)]:gap-y-0')
+    expect(group).toHaveClass('[@container(width<8em)]:contents')
+    expect(address).toHaveClass('[@container(width<8em)]:flex-1')
+    expect(marker.className).toBe('[@container(width<8em)]:order-last [@container(width<8em)]:basis-full')
   })
 })

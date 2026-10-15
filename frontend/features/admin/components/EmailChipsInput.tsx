@@ -147,25 +147,34 @@ export default function EmailChipsInput({
       </label>
 
       {chips.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-2">
+        <div className="mb-2 flex flex-wrap gap-2 [container-type:inline-size]">
           {chips.map((chip) => (
             // The address and its marker are one group that wraps: when they do not fit on one line the marker goes
             // under the address and the address truncates, so neither squeezes the other out and the remove button
             // stays inside the chip (at 200% text a marker that could not shrink left the address no room and pushed
             // the button past the card). The 16px radius is a pill on one line and a rounded box once the chip
             // wraps, as SourceTrace's chip is.
+            // Below 8em of the row's own text size the group is too narrow for "· already", so it dissolves
+            // (`contents`): the address and the remove button share the first line and the marker takes a line of
+            // its own under them (order-last, basis-full), where it can never paint over the button. An invited chip
+            // needs about 9.6em on one line, so the narrow state never splits a chip that fits; at the default size
+            // it starts at a 128px row, which no phone reaches. Reading and Tab order stay address, marker, button.
             <span
               key={chip.email}
               aria-invalid={chip.kind === 'invalid' || undefined}
               className={clsx(
-                'inline-flex max-w-full items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-medium',
+                'inline-flex max-w-full items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-medium [@container(width<8em)]:flex-wrap [@container(width<8em)]:gap-y-0',
                 chipClasses(chip.kind),
               )}
             >
               {chip.kind === 'invalid' && <WarningCircleIcon className="h-3.5 w-3.5 flex-shrink-0" />}
-              <span className="flex min-w-0 flex-wrap gap-x-1.5">
-                <span className="truncate">{chip.email}</span>
-                {chip.kind === 'invited' && <span>·&nbsp;already invited</span>}
+              <span className="flex min-w-0 flex-wrap gap-x-1.5 [@container(width<8em)]:contents">
+                <span className="truncate [@container(width<8em)]:flex-1">{chip.email}</span>
+                {chip.kind === 'invited' && (
+                  <span className="[@container(width<8em)]:order-last [@container(width<8em)]:basis-full">
+                    ·&nbsp;already invited
+                  </span>
+                )}
               </span>
               <button
                 type="button"

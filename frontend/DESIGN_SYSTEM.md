@@ -498,7 +498,18 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
                  under the address, which truncates, and the remove button stays the chip's last child, inside the
                  card (a marker that could not shrink squeezed the address out at 200% text and pushed the button
                  past the card). Its 16px radius (`rounded-xl`) is a pill on one line and a rounded box once it
-                 wraps, as SourceTrace's chip. Gate: tests/unit/admin-invites-page.spec.tsx.
+                 wraps, as SourceTrace's chip. The chip row is an inline-size query container, and below 8em of its
+                 own text size (`[@container(width<8em)]:`) that group is too narrow for "· already" (the dot is held
+                 to its word by a no-break space), so the group dissolves (`contents`), the chip wraps with no row
+                 gap, the address and the remove button share the first line and the marker takes a line of its own
+                 under them (`order-last basis-full`), where it cannot paint over the button (at 320px under 200%
+                 text it ran across it). An invited chip needs about 9.6em on one line, so the narrow state never
+                 splits a chip that fits; at the default size it starts at a 128px row, so 390 and 1440 keep the
+                 one-line pill. Reading and Tab order stay address, marker, button. The em is the text's actual
+                 size however it is enlarged (a media query's rem is only the browser's text setting), as in the
+                 Analysis KPI strip. Gates: tests/unit/admin-invites-page.spec.tsx (the classes) and
+                 tests/e2e/admin-invite-chip-reflow.spec.ts (what they paint at 320, 390 and 1440px, at the default
+                 size and under a 200% root, in both themes, and at every 10px from 320 to 480px under 200%).
 
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
