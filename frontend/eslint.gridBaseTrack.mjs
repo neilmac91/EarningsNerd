@@ -140,11 +140,11 @@ export function clearedTrack(classText) {
   return null
 }
 
-const isHelperCall = (node) =>
+export const isHelperCall = (node) =>
   node.type === 'CallExpression' && node.callee.type === 'Identifier' && CLASS_HELPERS.has(node.callee.name)
 /** `[…].join(' ')`, `.filter(Boolean)`, `.trim()`: array and string methods that keep every class of their
  *  receiver. Any other call may drop or pick among its inputs. */
-const isPassThrough = (node) => {
+export const isPassThrough = (node) => {
   const { callee } = node
   if (callee.type !== 'MemberExpression' || callee.computed || callee.property.type !== 'Identifier') {
     return false

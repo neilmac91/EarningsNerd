@@ -2,14 +2,16 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ESLint, RuleTester } from 'eslint'
 import { describe, expect, it } from 'vitest'
-import { brandText, direction600Text, directionTextTokens } from '../../eslint.designRules.mjs'
+import { brandText, direction600Text, directionTextTokens, isTextColour } from '../../eslint.designRules.mjs'
 
 /**
  * Pins earningsnerd/direction-text-tokens (eslint.designRules.mjs; D-030, DESIGN.md "Separate Signals"):
  * a delta or a direction chip is text in the 700-level gain/loss inks (lib/financialTone's directionText
  * and directionChip), never the 600-level graphic tones and never sage. Until this rule the 700-level
  * clause of CLAUDE.md rule 11 was review-checked only, and the dashboard's what-changed chips shipped a
- * gain in sage (audit DSW-08, filing/F03).
+ * gain in sage (audit DSW-08, filing/F03). The walk up from a glyph reads every element to the first that
+ * gives it an ink on every render, so a layout or type wrapper never shields the sage above it (the
+ * principal review of #1290).
  */
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -27,6 +29,18 @@ describe('the class scans', () => {
     expect(brandText('text-brand-strong dark:text-brand-strong-dark')).toBe('text-brand-strong')
     expect(brandText('dark:text-brand-dark')).toBe('dark:text-brand-dark')
     expect(brandText('bg-brand-weak text-text-secondary-light')).toBeNull()
+  })
+
+  it('read a text colour from the theme, never a size, an alignment, a wrap or an overflow mode', () => {
+    for (const utility of ['text-brand-strong', 'text-text-secondary-light', 'text-white/70', 'text-gain-text', 'text-[var(--ink)]']) {
+      expect(isTextColour(utility), utility).toBe(true)
+    }
+    for (const utility of [
+      'text-xs', 'text-sm', 'text-sm/6', 'text-6xl', 'text-data-xs', 'text-left', 'text-end', 'text-nowrap', 'text-balance',
+      'text-ellipsis', 'text-clip', 'text-[13px]', 'text-[length:var(--x)]', 'text-inherit', 'text-current', 'text-shadow-sm',
+    ]) {
+      expect(isTextColour(utility), utility).toBe(false)
+    }
   })
 })
 
@@ -52,12 +66,17 @@ ruleTester.run('direction-text-tokens', directionTextTokens, {
     "const DIRECTION = { up: { Icon: TrendUpIcon, cls: 'text-text-secondary-light' } }",
     // An object with sage classes but no trend glyph.
     "const LINK = { Icon: ArrowRightIcon, cls: 'text-brand-strong' }",
-    // The walk stops at the nearest element that sets a class: a neutral one shields the sage link above it.
+    // The walk stops at the nearest element that sets a text colour: a neutral one shields the sage link above it.
     '<a className="text-brand-strong"><span className="text-text-secondary-light">{up ? <TrendUpIcon /> : <TrendDownIcon />}</span></a>',
     // A glyph passed as a prop is not a child: its ink is wherever the prop renders it.
     '<Stat className="text-brand-strong" icon={<TrendUpIcon />} />',
     // A direction map whose computed values stay neutral.
     "const DIRECTION = { up: { Icon: TrendUpIcon, cls: cx('text-text-secondary-light', big && 'text-base') } }",
+    // A nearer text colour wins over the sage above it, past the layout and type wrapper between them.
+    '<a className="text-brand-strong"><span className="text-text-secondary-light dark:text-text-secondary-dark"><span className="inline-flex items-center gap-1 text-sm"><TrendUpIcon />Revenue</span></span></a>',
+    // So does a ternary whose arms both set the ink, and a class part the rule cannot read (the recipe's lookup).
+    '<a className="text-brand-strong"><span className={up ? "text-gain-text" : "text-loss-text"}><TrendUpIcon /></span></a>',
+    '<a className="text-brand-strong"><span className={`inline-flex gap-1 ${directionChip[tone]}`}><TrendUpIcon /></span></a>',
   ],
   invalid: [
     { code: '<span className="text-gain-light">+4.2%</span>', errors: [{ messageId: 'light' }] },
@@ -80,9 +99,32 @@ ruleTester.run('direction-text-tokens', directionTextTokens, {
       errors: [{ messageId: 'brand' }, { messageId: 'brand' }],
     },
     { code: '<span className="dark:text-brand-strong-dark">{up && <TrendUpIcon />}</span>', errors: [{ messageId: 'brand' }] },
-    // Class-less wrappers and fragments pass the ink through to the nearest element that sets one.
+    // Class-less wrappers and fragments pass the ink through to the nearest element that sets a text colour.
     { code: '<span className="text-brand-strong"><span><TrendUpIcon /></span></span>', errors: [{ messageId: 'brand' }] },
     { code: '<p className="text-brand-strong"><>{up && <span><TrendDownIcon /></span>}</></p>', errors: [{ messageId: 'brand' }] },
+    // A wrapper whose classes set no text colour passes the sage above it through: layout classes, a type size.
+    {
+      code: '<span className="text-brand-strong"><span className="flex items-center gap-1"><TrendUpIcon />Revenue</span></span>',
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: '<p className="text-brand-strong dark:text-brand-strong-dark"><span className="text-sm font-medium">{up && <TrendDownIcon />}</span></p>',
+      errors: [{ messageId: 'brand' }],
+    },
+    // So does a colour set only under a variant (light still inherits the sage) or in one branch, and text-current.
+    {
+      code: '<span className="text-brand-strong"><span className="dark:text-text-secondary-dark"><TrendUpIcon /></span></span>',
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: `<span className="text-brand-strong"><span className={cx('flex', muted && 'text-text-secondary-light')}><TrendUpIcon /></span></span>`,
+      errors: [{ messageId: 'brand' }],
+    },
+    {
+      code: '<span className="text-brand-strong"><span className={up ? "text-gain-text" : undefined}><TrendUpIcon /></span></span>',
+      errors: [{ messageId: 'brand' }],
+    },
+    { code: '<span className="text-brand-strong"><span className="text-current"><TrendUpIcon /></span></span>', errors: [{ messageId: 'brand' }] },
     // A direction map's value built by a call or a ternary is read whole.
     { code: "const DIRECTION = { up: { Icon: TrendUpIcon, cls: cx('text-brand-strong') } }", errors: [{ messageId: 'brand' }] },
     { code: "const DIRECTION = { up: { Icon: TrendUpIcon, cls: x ? 'text-brand-strong' : 'text-xs' } }", errors: [{ messageId: 'brand' }] },

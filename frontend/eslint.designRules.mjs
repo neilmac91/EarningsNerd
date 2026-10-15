@@ -22,11 +22,19 @@
 //                       the 600 level and never sage. The rule bans text-gain, text-gain-light, text-loss
 //                       and text-loss-light under any variant (the 600s are graphic tones: 3.0:1 and
 //                       3.9:1 as text on their tints), and a text-brand-* class where it colours a
-//                       direction glyph: on a TrendUpIcon or TrendDownIcon; on the nearest element
-//                       above it that carries a class, reached through a `{…}` child, a ternary or a
-//                       `&&` and through class-less wrappers (the ink it inherits); or anywhere in a
-//                       value of an object that pairs one with its classes (a direction map such as
-//                       { Icon: TrendUpIcon, cls: '…' }, the value a literal, a cx() call or a ternary).
+//                       direction glyph: on a TrendUpIcon or TrendDownIcon; on every element above it,
+//                       reached through `{…}` children, ternaries, `&&` and fragments, up to the first
+//                       whose classes give it an ink on every render (the ink the glyph inherits); or
+//                       anywhere in a value of an object that pairs one with its classes (a direction
+//                       map such as { Icon: TrendUpIcon, cls: '…' }, the value a literal, a cx() call or
+//                       a ternary). An element gives the glyph its ink with a text colour that has no
+//                       variant, in text that always renders or in both arms of a ternary, or with a
+//                       class part the rule cannot read (a lookup such as directionChip[tone], a
+//                       variable, another call), which may hold one. A text colour is `text-` and a
+//                       colour token of tailwind.config.js's resolved theme, never a size (text-sm,
+//                       text-data-xs), an alignment, a wrap or an overflow mode, so a layout or type
+//                       wrapper passes the ink through, as does a colour set only under a variant
+//                       (dark:, hover:, md:) or in one branch.
 //                       Known limits: a glyph reached through a variable rendered elsewhere
 //                       (`const Icon = GLYPH[d]` then `<Icon />`), a glyph imported under another name
 //                       (`TrendUpIcon as Up`), a member-expression glyph in a map
@@ -37,6 +45,10 @@
 //                       element that draws it is elsewhere) are data-flow, out of scope as below; the
 //                       what-changed chip draws its glyph through a variable, so
 //                       tests/unit/whatChangedChip.spec.tsx renders it and holds its colour to directionChip.
+//                       On the walk, an unread part that holds no colour (`${size}`) stops it as an ink
+//                       would, while a colour set only by a clsx object key ({ 'text-x': up }) or by a
+//                       variant that styles the glyph from its parent (`[&>svg]:text-x`) does not, so
+//                       sage above either is flagged.
 //   no-unguarded-animation (P-09) Every Tailwind animation utility stops under reduced motion
 //                       (WCAG 2.3.3): `motion-safe:animate-x`, or `animate-x` beside a
 //                       `motion-reduce:animate-none` with the same variants in the class text that
@@ -54,7 +66,16 @@
 // Badge imported under another name, and an animation set outside a class utility (an arbitrary
 // `[animation:…]` property, an inline style).
 
-import { branchTexts, classUnitVisitors, collectStaticText, parseClassToken, splitClassToken } from './eslint.gridBaseTrack.mjs'
+import { createRequire } from 'node:module'
+import {
+  branchTexts,
+  classUnitVisitors,
+  collectStaticText,
+  isHelperCall,
+  isPassThrough,
+  parseClassToken,
+  splitClassToken,
+} from './eslint.gridBaseTrack.mjs'
 
 const STRIPE_WIDTH = /^border-[ls]-(2|4|8|\[[^\]]+\])$/
 const ROUNDED = /^rounded(-|$)/
@@ -170,12 +191,94 @@ export const direction600Text = (classText) => firstToken(classText, DIRECTION_6
 /** The first sage text class in `classText`, else null. */
 export const brandText = (classText) => firstToken(classText, BRAND_TEXT)
 
+const cjs = createRequire(import.meta.url)
+/** The colours a `text-` class can name, as Tailwind names them (`brand-strong`, `text-secondary-light`,
+ *  `white`; a DEFAULT is its bare family): tailwind.config.js resolved with Tailwind's own palette. `inherit`
+ *  and `current` are left out, since they hand the element its parent's ink. */
+const flatColours = (colours, prefix = '') =>
+  Object.entries(colours).flatMap(([key, value]) => {
+    const name = key === 'DEFAULT' ? prefix : prefix ? `${prefix}-${key}` : key
+    return value && typeof value === 'object' ? flatColours(value, name) : [name]
+  })
+const TEXT_COLOURS = new Set(
+  flatColours(cjs('tailwindcss/resolveConfig')(cjs('./tailwind.config.js')).theme.textColor).filter(
+    (name) => name !== 'inherit' && name !== 'current',
+  ),
+)
+/** An arbitrary value Tailwind reads as a colour: a `color:` hint, a hex, a colour function or a bare
+ *  `var()` (Tailwind's default for `text-[var(--x)]`); a length or anything else is not one. */
+const ARBITRARY_COLOUR = /^\[(?:color:|#|(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(|var\()/
+const OPACITY_MODIFIER = /\/(?:[\w.]+|\[[^\]]*\])$/
+
+/** Whether a utility sets a text colour: `text-` and a colour of the theme, an opacity modifier allowed.
+ *  The colours are read from the theme, not the other utilities denied by name, so no size (text-sm,
+ *  text-data-xs, text-sm/6), alignment, wrap or overflow mode, nor a `text-` utility a later Tailwind adds,
+ *  is ever read as one. */
+export const isTextColour = (utility) => {
+  if (!utility.startsWith('text-')) return false
+  const value = utility.slice('text-'.length)
+  return value.startsWith('[') ? ARBITRARY_COLOUR.test(value) : TEXT_COLOURS.has(value.replace(OPACITY_MODIFIER, ''))
+}
+
+/** Whether `classText` sets a text colour with no variant: the element's ink at rest, in light and at every
+ *  width. */
+const restingColour = (classText) =>
+  classText.split(/\s+/).some((raw) => {
+    if (!raw) return false
+    const { variants, utility } = splitClassToken(raw)
+    return variants.length === 0 && isTextColour(utility)
+  })
+
+/** Whether a class value gives its element an ink of its own on every render, so a glyph inside inherits
+ *  nothing from above: a resting text colour in text that always renders (a string, a template, any class
+ *  helper argument or array element), in both arms of a ternary or both operands of `||`/`??`; or a part
+ *  the rule cannot read (a lookup such as directionChip[tone], a variable, another call), which may hold
+ *  one, as the recipes the messages point to do. An `&&` operand and a clsx object key render only
+ *  sometimes. */
+function ownInk(node) {
+  if (!node) return false
+  switch (node.type) {
+    case 'Literal':
+      return typeof node.value === 'string' && restingColour(node.value)
+    case 'TemplateLiteral':
+      return restingColour(node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(' ')) || node.expressions.some(ownInk)
+    case 'JSXExpressionContainer':
+    case 'TSAsExpression':
+    case 'TSSatisfiesExpression':
+    case 'TSNonNullExpression':
+    case 'ChainExpression':
+      return ownInk(node.expression)
+    case 'JSXEmptyExpression':
+    case 'ObjectExpression':
+      return false
+    case 'Identifier':
+      return node.name !== 'undefined'
+    case 'SpreadElement':
+      return ownInk(node.argument)
+    case 'ConditionalExpression':
+      return ownInk(node.consequent) && ownInk(node.alternate)
+    case 'LogicalExpression':
+      return node.operator !== '&&' && ownInk(node.left) && ownInk(node.right)
+    case 'BinaryExpression':
+      return node.operator === '+' && (ownInk(node.left) || ownInk(node.right))
+    case 'ArrayExpression':
+      return node.elements.some(ownInk)
+    case 'CallExpression':
+      if (isHelperCall(node)) return node.arguments.some(ownInk)
+      if (isPassThrough(node)) return ownInk(node.callee.object)
+      return true
+    default:
+      return true
+  }
+}
+
 const isTrendIcon = (name) =>
   (name?.type === 'JSXIdentifier' && TREND_ICON.test(name.name)) ||
   (name?.type === 'JSXMemberExpression' && TREND_ICON.test(name.property.name))
 
 /** The nodes a glyph's ink passes through on its way up to the element that sets it: a `{…}` child,
- *  a ternary or `&&` around it, a fragment, and an element (which the walk skips when it sets no class). */
+ *  a ternary or `&&` around it, a fragment, and an element (which the walk reads for sage and passes when
+ *  its classes give it no ink on every render: ownInk). */
 const PASS_THROUGH = new Set(['JSXExpressionContainer', 'ConditionalExpression', 'LogicalExpression', 'JSXFragment', 'JSXElement'])
 
 /** Every class text an expression can render, one per branch (see branchTexts). */
@@ -212,17 +315,18 @@ export const directionTextTokens = {
           if (token !== null) return context.report({ node, messageId: 'light', data: { token } })
         }
       }),
-      // A glyph and the element whose ink it inherits: the nearest one above it that carries a class,
-      // through a `{…}` child, a ternary or a `&&`, and through wrappers that set no class.
+      // A glyph and the elements whose ink it may inherit: each one above it, through a `{…}` child, a
+      // ternary or a `&&`, read for sage under any variant and in any branch, up to the first whose
+      // classes give it an ink on every render (ownInk). A wrapper that sets no text colour (`flex
+      // gap-1`, `text-sm`), or sets one only under a variant or in one branch, passes the ink through.
       JSXElement(node) {
         if (!isTrendIcon(node.openingElement.name)) return
         for (const attr of classAttrs(node.openingElement)) reportBrand(attr, textsOf(attr.value))
         for (let up = node.parent; up && PASS_THROUGH.has(up.type); up = up.parent) {
           if (up.type !== 'JSXElement') continue
           const attrs = classAttrs(up.openingElement)
-          if (attrs.length === 0) continue
           for (const attr of attrs) reportBrand(attr, textsOf(attr.value))
-          break
+          if (attrs.some((attr) => ownInk(attr.value))) break
         }
       },
       // A direction map: an object that holds a trend glyph beside the classes it is drawn with. Every
