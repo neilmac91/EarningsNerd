@@ -97,12 +97,12 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     '<span className="uppercase tracking-eyebrow">Latest {filing.filing_type}</span>',
     '<p className="uppercase tracking-eyebrow">Filed {ago} with the {filing.form}</p>',
     '<span className="uppercase tracking-eyebrow">10-K filings this week</span>',
-    // An element after the form ends the match: a composed row, judged element by element.
-    '<div className="uppercase tracking-eyebrow">{filing.form}<Badge>New</Badge></div>',
     // A nested wrapper that resets the recipe sets the code in a face of its own, and a component inside the
     // wrapper is judged by its own rule.
     '<p className="uppercase tracking-eyebrow"><span className="normal-case tracking-normal font-data">{filing.form}</span> · Filed {ago}</p>',
     '<span className="uppercase tracking-eyebrow"><Eyebrow>{form}</Eyebrow></span>',
+    // Sibling wrappers whose lead is a word, not a form, are copy.
+    '<span className="uppercase tracking-eyebrow"><span>Latest</span> <span>{filing.form}</span></span>',
     // A component is judged by its own rule (Badge above), not as a hand-rolled chip.
     '<Eyebrow className="uppercase tracking-eyebrow">{form}</Eyebrow>',
     // A same-file class binding is read as an inline class is: one that is not the eyebrow recipe passes
@@ -138,6 +138,13 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     // The lead read through nested HTML wrappers: uppercase and letter-spacing inherit, so the inner span is the chip.
     { code: '<span className="uppercase tracking-eyebrow"><span>{form}</span></span>', errors: [{ messageId: 'chip' }] },
     { code: '<p className="uppercase tracking-eyebrow"><span><b>{filing.form}</b></span> · Filed {ago}</p>', errors: [{ messageId: 'chip' }] },
+    // Sibling HTML wrappers are read in place: the face inherits into each of them.
+    { code: '<span className="uppercase tracking-eyebrow"><span>{form}</span><span> · Filed {ago}</span></span>', errors: [{ messageId: 'chip' }] },
+    { code: '<p className="uppercase tracking-eyebrow">{filing.form}<span> · Filed {ago}</span></p>', errors: [{ messageId: 'chip' }] },
+    // What follows the lead does not take the chip's face off it: a component, a reset sibling, an empty icon wrapper first.
+    { code: '<div className="uppercase tracking-eyebrow">{filing.form}<Badge>New</Badge></div>', errors: [{ messageId: 'chip' }] },
+    { code: '<p className="uppercase tracking-eyebrow">{filing.form}<span className="normal-case tracking-normal">filed today</span></p>', errors: [{ messageId: 'chip' }] },
+    { code: '<span className="uppercase tracking-eyebrow"><i className="h-3 w-3" />{form}</span>', errors: [{ messageId: 'chip' }] },
     { code: '<Badge>F-10</Badge>', errors: [{ messageId: 'badge' }] },
     { code: '<span className="uppercase tracking-eyebrow">{"SF-3 · Filed"} {ago}</span>', errors: [{ messageId: 'chip' }] },
     // A meta line's separator may be a comma, a colon or semicolon, or a dash set off by a space, not only a middot.

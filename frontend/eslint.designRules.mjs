@@ -22,13 +22,16 @@
 //                       text sets uppercase and tracking-eyebrow, written inline or held in a binding
 //                       declared in the same file (`const EYEBROW = 'uppercase tracking-eyebrow'`
 //                       read as `className={EYEBROW}`; the initializer a string, a template or a
-//                       cx()/clsx() call), and whose first non-blank child, text or an expression,
-//                       reads a form field anywhere in it (`{hit.form ?? fallback}`, read through nested
-//                       HTML wrappers too, since uppercase and letter-spacing inherit: `<span>{form}</span>`),
+//                       cx()/clsx() call), and whose content, read through its HTML wrappers since
+//                       uppercase and letter-spacing inherit (`<span>{form}</span>`, or sibling spans
+//                       `<span>{form}</span><span> · Filed {ago}</span>`), opens with text or an
+//                       expression that reads a form field anywhere in it (`{hit.form ?? fallback}`,
 //                       `{filing.form.toUpperCase()}`) or holds a code, or text opening with one
 //                       before a separator (a middot, bullet or pipe, a comma, colon or semicolon,
-//                       or a dash set off by a space: `{'10-Q · Filed'}`, `10-Q - Filed`), followed
-//                       only by text or expressions, as in `{form} • Filed {ago}`.
+//                       or a dash set off by a space: `{'10-Q · Filed'}`, `10-Q - Filed`), as in
+//                       `{form} • Filed {ago}`. A component, a Badge or an element that resets the
+//                       face before the lead ends the reading (it is judged by its own rule or sets
+//                       its own face); nothing after the lead takes the chip's face off it.
 //   no-unguarded-animation (P-09) Every Tailwind animation utility stops under reduced motion
 //                       (WCAG 2.3.3): `motion-safe:animate-x`, or `animate-x` beside a
 //                       `motion-reduce:animate-none` with the same variants in the class text that
@@ -222,30 +225,33 @@ const classTokens = (node, keys, binding) => {
 // An inner element that resets the recipe (`normal-case`, or a letter-spacing of its own) is a face of its own.
 const RESETS_EYEBROW = /(^|:)(normal-case|tracking-(?!eyebrow$)[\w[\]-]+)$/
 
-/** The lead of an element's content: its first non-blank child, text or an expression, read through nested
- *  HTML wrappers, since uppercase and letter-spacing inherit (`<span className="uppercase tracking-eyebrow">
- *  <span>{form}</span></span>` renders the same chip). Null when a wrapper is a component or a Badge (judged by
- *  its own rule), resets the recipe, or is followed by an element. */
+/** The lead of an element's content: its first text or expression in document order, read through its HTML
+ *  wrappers, siblings included, since uppercase and letter-spacing inherit (`<span>{form}</span><span> · Filed
+ *  {ago}</span>` inside the chip renders in its face; an empty wrapper, an icon's <i>, is passed over). Null
+ *  when a component or a Badge (judged by its own rule), an element that resets the recipe (a face of its own),
+ *  or wrappers nested deeper than three come first; undefined when the content holds no text at all. What follows
+ *  the lead does not change the face the lead is set in. */
 function leadChild(node, keys, binding, depth = 0) {
-  const children = meaningfulChildren(node)
-  if (children.length === 0) return null
-  if (!children.slice(1).every((c) => c.type === 'JSXText' || c.type === 'JSXExpressionContainer')) return null
-  const first = children[0]
-  if (first.type === 'JSXText' || first.type === 'JSXExpressionContainer') return first
-  if (first.type !== 'JSXElement' || depth >= 3) return null
-  const name = first.openingElement.name
-  if (name.type !== 'JSXIdentifier' || !/^[a-z]/.test(name.name)) return null
-  if (classTokens(first, keys, binding).some((token) => RESETS_EYEBROW.test(token))) return null
-  return leadChild(first, keys, binding, depth + 1)
+  for (const child of meaningfulChildren(node)) {
+    if (child.type === 'JSXText' || child.type === 'JSXExpressionContainer') return child
+    if (child.type !== 'JSXElement' || depth >= 3) return null
+    const name = child.openingElement.name
+    if (name.type !== 'JSXIdentifier' || !/^[a-z]/.test(name.name)) return null
+    if (classTokens(child, keys, binding).some((token) => RESETS_EYEBROW.test(token))) return null
+    const lead = leadChild(child, keys, binding, depth + 1)
+    if (lead !== undefined) return lead
+  }
+  return undefined
 }
 
 /** A hand-rolled chip around a form: an HTML element set in eyebrow type (uppercase, tracking-eyebrow, in
- *  its class text or a same-file binding it reads) whose lead (leadChild: its first non-blank child, text or
- *  an expression, read through nested HTML wrappers) shows a form by formNode's reading (its strings tested
- *  with FORM_CODE_LEAD, so `{'10-Q · Filed'}` counts), followed only by text or expressions (the codebase's
- *  `{form} • Filed {ago}` meta line). A Badge by another hand. A sentence that names a form later (`Latest
- *  {filing.filing_type}`) or opens with one as prose (`10-K filings`) is copy, and an element after the lead
- *  ends the match. The children are read first, so a class binding is resolved only around a form. */
+ *  its class text or a same-file binding it reads) whose lead (leadChild: the first text or expression of its
+ *  content, read through its HTML wrappers, siblings included) shows a form by formNode's reading (its strings
+ *  tested with FORM_CODE_LEAD, so `{'10-Q · Filed'}` counts), as the codebase's `{form} • Filed {ago}` meta line
+ *  does. A Badge by another hand. A sentence that names a form later (`Latest {filing.filing_type}`) or opens
+ *  with one as prose (`10-K filings`) is copy; a component, a Badge or a face-resetting element before the lead
+ *  ends the reading, and nothing after it does. The children are read first, so a class binding is resolved
+ *  only around a form. */
 function isEyebrowFormChip(node, keys, binding) {
   const name = node.openingElement.name
   if (name.type !== 'JSXIdentifier' || !/^[a-z]/.test(name.name)) return false
