@@ -6,12 +6,16 @@ import { advanceSessionGeneration, getSessionGeneration, isSessionGenerationCurr
  * so after a logout or login in this tab the next account would read the previous one's snapshot
  * until a refetch; the reset removes them all. `savedSummaries` covers `savedSummaryStatus`, which
  * shares its prefix. tests/unit/accountQueryState.spec.tsx classifies every family in queryKeys as
- * account-owned, keyed by the reader or shared, so a new family cannot escape this list.
+ * account-owned or shared, and every member of an owned family under its one prefix, so a new family
+ * or member cannot escape this list.
  */
 export const ACCOUNT_QUERY_FAMILIES = [
   queryKeys.subscription.all(),
   queryKeys.usage.all(),
   queryKeys.wordingReview.all(), // the reader's own labels and receipts
+  // Keyed by the reader, but a reader whose /me failed reads under the anonymous key with their own
+  // session, so a Pro reader's full report can sit in the entry the next anonymous viewer reads.
+  queryKeys.whatChanged.all(),
   queryKeys.savedSummaries(),
   queryKeys.watchlist(),
   queryKeys.watchlistInsights(),

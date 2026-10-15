@@ -361,6 +361,8 @@ describe('account snapshots follow the resolved identity', () => {
     // One entry in each account-owned family; most keys name no reader, so the next account would read them.
     const owned = [
       queryKeys.subscription.byUser(1), queryKeys.usage.byUser(1), queryKeys.wordingReview.byFiling(42),
+      queryKeys.whatChanged.byViewer(7, 1),
+      queryKeys.whatChanged.byViewer(7, null), // the anonymous entry, which a reader whose /me failed reads with their session
       queryKeys.savedSummaries(), queryKeys.savedSummaryStatus(5, 1), queryKeys.watchlist(), queryKeys.watchlistInsights(),
       queryKeys.earningsAlertTickers(), queryKeys.dashboardFeed(), queryKeys.dashboardCalendar(), queryKeys.notifications(),
       queryKeys.notificationPreferences(), queryKeys.authConnections(), queryKeys.adminInvites(),
@@ -368,7 +370,6 @@ describe('account snapshots follow the resolved identity', () => {
     ]
     const shared = [
       queryKeys.company('AAPL'), queryKeys.summary(7), queryKeys.filing(7), queryKeys.registrationConfig(),
-      queryKeys.whatChanged.byViewer(7, 1), // keyed by its reader: the next account reads its own entry
     ]
     client.setQueryData(queryKeys.currentUser(), makeUser(1))
     for (const key of [...owned, ...shared]) client.setQueryData(key, { owner: 1 })
@@ -394,28 +395,34 @@ describe('account query ownership structural gate', () => {
     // A new family in lib/queryKeys.ts fails here until it is placed. An account-owned one joins
     // ACCOUNT_QUERY_FAMILIES (features/auth/lib/accountQueryState.ts), which logout and login remove.
     const accountOwned = [
-      'subscription', 'usage', 'wordingReview', 'savedSummaries', 'savedSummaryStatus', 'watchlist', 'watchlistInsights',
-      'earningsAlertTickers', 'dashboardFeed', 'dashboardCalendar', 'notifications', 'notificationPreferences',
-      'authConnections', 'adminInvites', 'adminFeedback',
+      'subscription', 'usage', 'wordingReview', 'whatChanged', 'savedSummaries', 'savedSummaryStatus', 'watchlist',
+      'watchlistInsights', 'earningsAlertTickers', 'dashboardFeed', 'dashboardCalendar', 'notifications',
+      'notificationPreferences', 'authConnections', 'adminInvites', 'adminFeedback',
     ]
     const identity = ['currentUser'] // the reset publishes null for it
-    const keyedByTheReader = ['whatChanged']
     const shared = [
       'registrationConfig', 'insiders', 'peers', 'calendar', 'fullTextSearch', 'filingFundamentals', 'analysisCoverage',
       'analysisCompany', 'tickerCompany', 'tickerFilings', 'filing', 'filingContent', 'summary', 'summaryProgress',
       'company', 'companyFilings', 'companies',
     ]
-    const classified = [...accountOwned, ...identity, ...keyedByTheReader, ...shared]
+    const classified = [...accountOwned, ...identity, ...shared]
     expect(new Set(classified).size).toBe(classified.length)
     expect([...classified].sort()).toEqual(Object.keys(queryKeys).sort())
     type Factory = (...args: unknown[]) => readonly unknown[]
-    const prefixOf = (name: string) => {
-      const entry = (queryKeys as unknown as Record<string, Factory | { all: Factory }>)[name]
-      const factory = typeof entry === 'function' ? entry : entry.all
-      return factory(...Array<unknown>(factory.length).fill('x'))[0]
+    // The first element of every key a family builds: its one factory, or each member of an object family.
+    const prefixesOf = (name: string) => {
+      const entry = (queryKeys as unknown as Record<string, Factory | Record<string, Factory>>)[name]
+      const factories = typeof entry === 'function' ? [entry] : Object.values(entry)
+      return new Set(factories.map((factory) => factory(...Array<unknown>(factory.length).fill('x'))[0]))
     }
-    expect(new Set(ACCOUNT_QUERY_FAMILIES.map((key) => key[0]))).toEqual(new Set(accountOwned.map(prefixOf)))
+    // An owned family's members share one prefix, so removing it removes them all; a member under a
+    // prefix of its own (a re-split like the copilot usage key F1 merged) would outlive the account.
+    expect(accountOwned.filter((name) => prefixesOf(name).size !== 1)).toEqual([])
+    const ownedPrefixes = new Set(accountOwned.flatMap((name) => [...prefixesOf(name)]))
+    expect(new Set(ACCOUNT_QUERY_FAMILIES.map((key) => key[0]))).toEqual(ownedPrefixes)
     expect(ACCOUNT_QUERY_FAMILIES.every((key) => key.length === 1)).toBe(true) // whole families, by prefix
+    // No other family builds a key under an owned prefix, or the reset would remove it too.
+    expect([...identity, ...shared].filter((name) => [...prefixesOf(name)].some((prefix) => ownedPrefixes.has(prefix)))).toEqual([])
   })
 
   it('the canonical fetcher is the only positive current-user publisher', () => {
