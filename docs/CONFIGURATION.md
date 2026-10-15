@@ -143,7 +143,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `AI_SUMMARY_THINKING_MAX_TOKENS` | `24000` | Output ceiling for the thinking-mode summary arm (reasoning tokens count toward it). |
 | `AI_SECTION_RECOVERY_MODEL` | `""` | Section-recovery override; empty falls back through AI_FAST_MODEL to AI_DEFAULT_MODEL. |
 | `USE_STRUCTURED_OUTPUT` | `false` | Structured Phase-A response format; off pending eval bake-off. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
-| `USE_EDGARTOOLS_SECTIONS` | `true` | Prefer native section extraction with legacy/thin-section fallback. |
+| `USE_EDGARTOOLS_SECTIONS` | `true` | Prefer native section extraction with legacy/thin-section fallback. **Since early October 2026 the native source returns nothing**: SEC refuses the index URL edgartools 5.58.0 builds, so every 10-K, 10-Q and 20-F excerpt is the regex fallback while the flag reads `true` (E28 in `tasks/todo.md`; `tasks/review-evidence/e28-native-sections-2026-10-15/`). |
 | `AI_QUALITY_GATE` | `true` | Partial summaries persist but do not consume monthly quota. |
 | `AI_FIGURE_TRACE_GATE` | `false` | Untraceable dollar figures tier summaries partial when armed; off keeps advisory audits. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
 | `AI_FORWARD_QUOTE_GATE` | `false` | Drop forward quotes not verbatim in the filing when armed; off keeps advisory audits. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
@@ -221,7 +221,7 @@ AI_FAST_MODEL=                                # Optional cheaper model for low-r
 AI_SECTION_RECOVERY_MODEL=                    # Optional override for section recovery (falls back to AI_FAST_MODEL)
 RECOVERY_MAX_CONCURRENCY=3                    # Max concurrent calls for section recovery
 USE_STRUCTURED_OUTPUT=false                   # Phase-A structured extraction (JSON response_format)
-USE_EDGARTOOLS_SECTIONS=true                  # Native edgartools section extraction (vs legacy regex)
+USE_EDGARTOOLS_SECTIONS=true                  # Native edgartools section extraction (vs legacy regex); its source returns nothing since early October 2026 (E28)
 AI_QUALITY_GATE=true                          # Partial summaries don't consume user quota
 AI_FIGURE_TRACE_GATE=false                    # T3.2 number-diff gate: when on, an untraceable DOLLAR figure in summary prose tiers "partial". Default off (advisory: list attached to the verdict for measurement, never affects tier) until the corpus FP rate is measured
 AI_ATTRIBUTION_GATE=false                     # #805 path step 4: drop unstated causal clauses when on; advisory audit when off

@@ -98,6 +98,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## SEC / EDGAR data
 
+- sec-an-upstream-fix-can-revive-a-dormant-path.md — Judge an SEC-library bump by every accessor our code calls, not only the functions its fixes name: a fix can revive a dormant input path, and that is a model-input change to measure and decide before the bump (partly gated by `backend/tests/unit/test_edgartools_sections_revival_tripwire.py` for the summary's section source)
 - sec-edgar-resilience-layer.md — Preserve SEC pacing and distinguish selected breaker coverage from limiter-only paths
 - sec-enforce-gates-server-side.md — Enforce every access gate server-side at the mutation endpoint
 - sec-listing-fetch-recent-window-and-cheap-fields.md — List filings in ONE recent-window fetch and read cheap metadata fields — never edgartools properties that hit the network

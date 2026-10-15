@@ -1,0 +1,53 @@
+# Per-run excerpt sources and summary scores read from CI eval-baseline report artifacts
+
+## run 37152414706 (2026-10-03T20:51Z; #1079 head 976d802 merged with main; report eval_20261003T205104Z.json; use_edgartools_sections=True)
+
+   28  10-K   edgartools       sections
+   22  10-Q   edgartools       sections
+   12  20-F   edgartools       sections
+    2  20-F   regex_fallback   no sections
+    6  6-K    regex_fallback   no sections
+
+  mean_citation_fidelity = 0.9737
+  mean_citation_checked = 7.1286
+  mean_prompt_tokens = 39365.3
+  mean_untraceable_dollar_figures = 2.1
+  mean_financial_depth = 0.7857
+  mean_redundancy = 0.9293
+  mean_coverage = 1.0
+  mean_aggregate = 1.0
+  mean_latency_seconds = 12.781
+
+## run 37700182145 (2026-10-07T23:14Z; #1122 head 5dd4caa merged with main; report eval_20261007T231445Z.json; use_edgartools_sections=True)
+
+   28  10-K   regex_fallback   no sections
+   22  10-Q   regex_fallback   no sections
+   14  20-F   regex_fallback   no sections
+    6  6-K    regex_fallback   no sections
+
+  mean_citation_fidelity = 0.8413
+  mean_citation_checked = 6.9857
+  mean_prompt_tokens = 56784.8
+  mean_untraceable_dollar_figures = 1.5
+  mean_financial_depth = 0.7857
+  mean_redundancy = 0.9216
+  mean_coverage = 1.0
+  mean_aggregate = 1.0
+  mean_latency_seconds = 13.395
+
+## run 37978755392 (2026-10-09T19:24Z; #1144 head 6184b65 merged with main; report eval_20261009T192408Z.json; use_edgartools_sections=True)
+
+   28  10-K   regex_fallback   no sections
+   22  10-Q   regex_fallback   no sections
+   14  20-F   regex_fallback   no sections
+    6  6-K    regex_fallback   no sections
+
+  mean_citation_fidelity = 0.835
+  mean_citation_checked = 6.9143
+  mean_prompt_tokens = 56784.8
+  mean_untraceable_dollar_figures = 1.3286
+  mean_financial_depth = 0.7714
+  mean_redundancy = 0.9283
+  mean_coverage = 0.9971
+  mean_aggregate = 0.9993
+  mean_latency_seconds = 13.503

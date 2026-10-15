@@ -18,10 +18,11 @@ primary documents, and `edgar.documents.HTMLParser(ParserConfig(form=form)).pars
 accessor for document text: its requests go through edgartools' client, which the deploy pins to
 the same 1 req/s (`EDGAR_RATE_LIMIT_PER_SEC`) but which the app's limiter, breaker and diagnostics
 never see, and they fail wherever the homepage does not resolve. The two sites that predate the
-rule stay as they are: `xbrl_sections.py` (the summary-section path; its production hit rate is
-open item E28) and `insider_service.py` (Form 4 objects, behind `ENABLE_INSIDER_ACTIVITY`). Part
-keys differ by form: a 10-K's Item 1A is Part I, a 10-Q's is Part II; ask for the part first and
-fall back to any part.
+rule stay as they are: `xbrl_sections.py` (the summary-section path, which has returned nothing
+since early October because SEC refuses edgartools 5.58.0's index URL; open item E28) and
+`insider_service.py` (Form 4 objects, behind `ENABLE_INSIDER_ACTIVITY`). Part keys differ by
+form: a 10-K's Item 1A is Part I, a 10-Q's is Part II; ask for the part first and fall back to
+any part.
 
 **Evidence**: `backend/app/services/filing_section_service.py::parse_item_1a` and its tests in
 `backend/tests/unit/test_filing_section_service.py`; the corpus measures in the body of PR #1286.
