@@ -310,6 +310,9 @@ describe('AdminInvitesPage: an email chip stays inside its card', () => {
     expect(group).toHaveClass('flex', 'min-w-0', 'flex-wrap')
     expect(address).toHaveClass('truncate')
     expect(marker.className).toBe('')
+    // The dot is held to "already" by a no-break space, so a wrapped marker never leaves the dot alone at a line's
+    // end. getByText's normalizer reads U+00A0 as a space, so the raw text is what pins it.
+    expect(marker.textContent).toBe('· already invited')
     // The button is the chip's own last child; the chip is capped at the card and rounds as a box once it wraps
     // (a 9999px radius turns a wrapped chip into a capsule whose curve crosses its text).
     expect([...chip.children].at(-1)).toBe(remove)
