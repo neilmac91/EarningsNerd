@@ -43,8 +43,8 @@ Final records-check tail:
 
 ```text
   "markdown_files": 13,
-  "links_checked": 1601,
-  "immutable_source_line_links": 745,
+  "links_checked": 1689,
+  "immutable_source_line_links": 833,
   "json_archives_parsed": 35,
   "jpeg_files": 339,
   "jpeg_bytes": 1596853,
