@@ -5,7 +5,8 @@ From about 2026-10-06, `xbrl_sections._extract_sections_sync` returned nothing f
 - **The summary excerpt** (`summary_generation_service.get_or_cache_excerpt`) and the **eval harness**
   (`backend/evals/runner.py::_get_grounding`) both fell back to the legacy regex extractor.
 - **Every eval-baseline run from 2026-10-07** reports `source=regex_fallback` for 35 of 35 filings, and
-  `mean_citation_fidelity` is 0.818–0.871 against the pinned 0.9648. One example is job
+  `mean_citation_fidelity` fell from the pinned 0.9648: 0.818–0.871 across the eight runs of 7 October
+  (the sweep's decision 3). One example is job
   [116662675807](https://github.com/neilmac91/EarningsNerd/actions/runs/38804779839/job/116662675807)
   on 2026-10-15: 35/35 regex, 0.8258. On 2026-10-03, job 111114994018 had 31 `source=edgartools`.
 
@@ -18,9 +19,10 @@ used no AI calls and made SEC requests only, throttled to 2 req/s.
    `https://www.sec.gov/Archives/edgar/data/<cik>/<accession>-index.html` with 403 "Access Denied". The
    same page inside the accession folder (`…/data/<cik>/<accession, no dashes>/<accession>-index.html`)
    answers 200 ([`sec-responses.txt`](sec-responses.txt)). The block is by path, not by network: the same
-   client gets 200 for the folder URL and the full submission. It reproduced from GitHub's runners
-   (every eval job), from two agent containers (PR #1286 on 2026-10-12 and this one), and very likely
-   from Cloud Run, which this record could not read.
+   client gets 200 for the folder URL and the full submission. The 403 itself was captured from this
+   container. PR #1286's container saw the same AttributeError on 2026-10-12. Every eval job since
+   2026-10-07 shows the symptom (the runners logged nothing more, because the error was swallowed). Cloud
+   Run very likely shares it; this record could not read it.
 2. **The pinned edgartools builds the short URL.** edgartools 5.58.0 (the pin, held under issue #1063)
    builds it in `Filing.homepage_url` (`edgar/_filings.py:2273`).
 3. **Every section read goes through it.** An inline-XBRL primary document starts with an XML prolog. On
@@ -50,7 +52,11 @@ backported instead.
 - **`backend/app/services/edgar/xbrl_sections.py`** keeps the first read error and logs
   `Section parse found nothing for <accession> (<form>): <error>` as a warning when no section parses.
   - The 10-Q/20-F sections property is read in a `try`, so its error is kept.
-  - The duplicated 10-Q/20-F reads become one helper; parse results are unchanged (pinned by tests).
+  - The duplicated 10-Q/20-F reads become one helper. Parse results are unchanged. The tests pin each
+    part key, the 20-F order Item 18, then Item 17, then Item 8, the 200-character minimum, and which
+    error is logged. A differential run of the old and new function over 83,386 synthetic cases (the
+    review's correctness lens) found one intended difference: a non-AttributeError raised by
+    `obj.sections` is now caught and logged. Its caller already caught it and returned None.
   - The file stays within its 96-line size budget.
 
 No new SEC transport and no new `sec.gov` literal: edgartools still makes the requests through its own
@@ -131,8 +137,11 @@ with `git checkout`:
   `precompute_service.py` clears it per filing.
 - **Clearing those rows is a founder decision.** Whether to clear the rows written in that window and
   regenerate those summaries costs provider spend.
-- **Corrected records.** This corrects three records that met the same failure: finding 6 of the
-  5.61.1 hold record ("`app/` has no call to either"), the context of
-  `lessons/sec-parse-app-fetched-html-not-edgartools-filing-objects.md` ("in the build environment"),
-  and E28's premise. The new lesson is
-  `lessons/sec-run-our-entry-point-before-ruling-an-upstream-fix-out.md`.
+- **Corrected records.** This corrects four records that met the same failure:
+  - finding 6 of the 5.61.1 hold record ("`app/` has no call to either");
+  - the context of `lessons/sec-parse-app-fetched-html-not-edgartools-filing-objects.md` ("in the
+    build environment"), and the docstring of its gate `test_edgartools_obj_allowlist.py`;
+  - E28's premise;
+  - decision 3 of `tasks/pr-disposition-2026-10-07.md`, which put the silence in the eval runner.
+
+  The new lesson is `lessons/sec-run-our-entry-point-before-ruling-an-upstream-fix-out.md`.

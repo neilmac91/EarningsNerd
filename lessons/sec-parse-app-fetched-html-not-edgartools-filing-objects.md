@@ -14,8 +14,9 @@ primary documents, and `edgar.documents.HTMLParser(ParserConfig(form=form)).pars
 
 **Root cause, found 2026-10-15**: this was not specific to the build environment. Since about
 2026-10-06, SEC answers the short index URL that edgartools 5.58.0 builds
-(`/Archives/edgar/data/<cik>/<accession>-index.html`) with 403 "Access Denied" from every network
-tried: CI, two agent containers, and very likely production. edgartools 5.61.0 fixed it upstream
+(`/Archives/edgar/data/<cik>/<accession>-index.html`) with 403 "Access Denied". The 403 was
+captured from an agent container, the same AttributeError appeared in PR #1286's, every eval job since
+2026-10-07 shows the symptom, and production very likely shares it. edgartools 5.61.0 fixed it upstream
 (GH #1421). `backend/app/services/edgar/edgartools_compat.py` backports that fix while #1063 holds the
 pin, which restores `xbrl_sections.py` (see
 `tasks/review-evidence/edgartools-homepage-403-2026-10-15/`). The rule below still holds for new code,

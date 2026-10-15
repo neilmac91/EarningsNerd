@@ -32,7 +32,7 @@ class _RaisingSections:
 
 class _RaisingItems:
     def __getitem__(self, label):
-        raise AttributeError("'NoneType' object has no attribute 'download'")
+        raise AttributeError(f"{label}: 'NoneType' object has no attribute 'download'")
 
 
 def _resolve_to(monkeypatch, obj):
@@ -50,6 +50,7 @@ def test_a_10k_whose_item_reads_raise_logs_the_error(monkeypatch, caplog):
         assert xbrl_sections._extract_sections_sync("0000000001", ACCESSION, "10-K") is None
     [message] = _warnings(caplog)
     assert ACCESSION in message and "AttributeError" in message and "(10-K)" in message
+    assert "Item 1A" in message and "Item 7" not in message  # the first error, not the last
 
 
 @pytest.mark.parametrize("form", ["10-Q", "20-F"])
@@ -61,24 +62,36 @@ def test_a_sections_property_that_raises_is_logged_not_hidden(monkeypatch, caplo
     assert ACCESSION in message and "AttributeError" in message and f"({form})" in message
 
 
-def test_part_keyed_sections_parse_as_before(monkeypatch, caplog):
+def test_a_10q_reads_its_part_keyed_sections(monkeypatch, caplog):
     sections = {
         "part_i_item_1": _Section(" fin " + LONG),
-        "part_i_item_2": _Section(LONG),
-        "part_ii_item_1a": _Section("too short"),
+        "part_i_item_2": _Section("m" * 200),  # exactly the minimum, kept
+        "part_ii_item_1a": _Section("risk " + LONG),
+        "part_ii_item_2": _Section("unregistered sales " + LONG),  # Part II Item 2 is not MD&A
     }
     _resolve_to(monkeypatch, SimpleNamespace(sections=sections))
     with caplog.at_level(logging.WARNING):
         out = xbrl_sections._extract_sections_sync("0000000001", ACCESSION, "10-Q")
-    assert out == {"financials": ("fin " + LONG), "mda": LONG}
+    assert out == {"financials": "fin " + LONG, "mda": "m" * 200, "risk": "risk " + LONG}
     assert _warnings(caplog) == []
 
 
-def test_a_20f_takes_the_first_candidate_with_content(monkeypatch):
-    sections = {"part_i_item_3": _Section(LONG), "part_iii_item_18": _Section(""), "part_iii_item_17": _Section(LONG)}
+def test_a_section_one_character_short_of_the_minimum_is_dropped(monkeypatch):
+    _resolve_to(monkeypatch, SimpleNamespace(sections={"part_i_item_1": _Section("f" * 199 + "   ")}))
+    assert xbrl_sections._extract_sections_sync("0000000001", ACCESSION, "10-Q") is None
+
+
+@pytest.mark.parametrize(("present", "expected"), [
+    ({"part_iii_item_18": "eighteen", "part_iii_item_17": "seventeen", "part_i_item_8": "eight"}, "eighteen"),
+    ({"part_iii_item_18": "", "part_iii_item_17": "seventeen", "part_i_item_8": "eight"}, "seventeen"),
+    ({"part_i_item_8": "eight"}, "eight"),
+])
+def test_a_20f_takes_the_first_financials_candidate_with_content(monkeypatch, present, expected):
+    sections = {"part_i_item_3": _Section("risk " + LONG), "part_i_item_5": _Section("mda " + LONG)}
+    sections.update({key: _Section(f"{text} {LONG}" if text else "") for key, text in present.items()})
     _resolve_to(monkeypatch, SimpleNamespace(sections=sections))
     assert xbrl_sections._extract_sections_sync("0000000001", ACCESSION, "20-F") == {
-        "risk": LONG, "financials": LONG,
+        "risk": "risk " + LONG, "mda": "mda " + LONG, "financials": f"{expected} {LONG}",
     }
 
 

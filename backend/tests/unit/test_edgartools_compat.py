@@ -31,7 +31,9 @@ def test_homepage_url_points_inside_the_accession_folder():
     assert filing.url == IN_FOLDER
 
 
-def test_the_backport_is_idempotent():
+def test_the_backport_is_idempotent(monkeypatch):
+    # Restore the class attribute afterwards, so a failure here cannot patch Filing for later tests.
+    monkeypatch.setattr(Filing, "homepage_url", Filing.homepage_url)
     assert backport_homepage_url() is False
     assert _filing().homepage_url == IN_FOLDER
 
@@ -44,9 +46,12 @@ def test_the_pinned_release_still_needs_the_backport():
         )
 
 
-def test_html_of_an_inline_xbrl_filing_reads_the_in_folder_homepage(monkeypatch):
+def test_html_of_an_inline_xbrl_filing_reads_the_in_folder_homepage(monkeypatch, request):
     """The path that broke: an inline-XBRL document starts with an XML prolog, so Filing.html()
     re-reads it through the homepage instead of returning the SGML copy."""
+    # Filing.html is lru_cached per accession process-wide: start and end with it empty.
+    Filing.html.cache_clear()
+    request.addfinalizer(Filing.html.cache_clear)
     ixbrl = "<?xml version='1.0' encoding='ASCII'?>\n<html><body><p>Item 1A. Risk Factors</p></body></html>"
     document = "<html><body><p>Item 1A. Risk Factors</p></body></html>"
     requested: list[str] = []
