@@ -19,7 +19,7 @@ const mockCheckoutStarted = vi.fn()
 const mockPricingViewed = vi.fn()
 const mockPush = vi.fn()
 const mockSearchParams = new URLSearchParams()
-const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false }))
+const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false, ENABLE_ANALYSIS: false, ENABLE_FPI_FILINGS: false }))
 vi.mock('@/lib/featureFlags', () => flags)
 // Test-only capture of the real onClick each card Button was rendered with, keyed by
 // `${variant}:${label}` (Free = secondary, Pro = primary; both cards share a label while the
@@ -114,6 +114,8 @@ describe('PricingPage', () => {
     mockGetRegistrationConfig.mockResolvedValue({ mode: 'public', beta_promo_enabled: false })
     Array.from(mockSearchParams.keys()).forEach((key) => mockSearchParams.delete(key))
     flags.ENABLE_PRO_TRIAL = false
+    flags.ENABLE_ANALYSIS = false
+    flags.ENABLE_FPI_FILINGS = false
     localStorage.clear()
     capturedOnClick.clear()
     mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com' })
@@ -496,5 +498,48 @@ describe('PricingPage', () => {
       expect(screen.queryByText(trialNote)).not.toBeInTheDocument()
     }
     expect(mockPricingViewed.mock.calls).toEqual([[pickMonthly ? 'monthly' : 'yearly']])
+  })
+
+  // Multi-Period Analysis ships behind ENABLE_ANALYSIS (its route 404s while the flag is off), and the
+  // Excel export is its workbook, so the Pro plan lists both only while it ships (audit pub/F06; the
+  // landing half is in analysis-route-hidden.spec.tsx).
+  it.each([false, true])('lists Multi-Period Analysis and Excel on the Pro plan only while the flag ships them (flag %s)', async (on) => {
+    flags.ENABLE_ANALYSIS = on
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+    const { container } = renderPricing()
+    await screen.findByRole('button', { name: /current plan/i })
+    expect(screen.getByText('Ask this Filing, with cited answers')).toBeInTheDocument()
+    if (on) {
+      expect(container).toHaveTextContent('Unlimited Multi-Period Analysis')
+      expect(screen.getByText('PDF, CSV and Excel exports')).toBeInTheDocument()
+    } else {
+      expect(container).not.toHaveTextContent(/Multi-Period|Excel/)
+      expect(screen.getByText('PDF and CSV exports')).toBeInTheDocument()
+    }
+  })
+
+  // The Product JSON-LD (app/pricing/layout.tsx) sells what the Pro lists sell, so its description
+  // names multi-period analysis only while the flag ships the route.
+  it.each([false, true])('names multi-period analysis in the Product JSON-LD only while the flag ships it (flag %s)', (on) => {
+    flags.ENABLE_ANALYSIS = on
+    const layout = render(<PricingLayout><div /></PricingLayout>)
+    const { description } = JSON.parse(layout.container.querySelector('script[type="application/ld+json"]')!.textContent!)
+    // The rest of the description reads either way, so neither case passes on an empty one.
+    expect(description).toContain('filing Q&A, alerts, and exports.')
+    if (on) expect(description).toContain('multi-period analysis')
+    else expect(description).not.toMatch(/multi-period/i)
+  })
+
+  // The Free plan names 20-F only while NEXT_PUBLIC_ENABLE_FPI_FILINGS mirrors the API's ENABLE_FPI_FILINGS
+  // (the deploy sets the API's flag on, its code default is off; tasks/todo.md F39), and never the
+  // "Supported" hedge.
+  it.each([true, false])('names the filing forms on the Free plan without a hedge, 20-F only while the FPI flag ships it (flag %s)', async (on) => {
+    flags.ENABLE_FPI_FILINGS = on
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+    const { container } = renderPricing()
+    await screen.findByRole('button', { name: /current plan/i })
+    expect(screen.getByText(on ? '10-K, 10-Q and 20-F filings from SEC EDGAR' : '10-K and 10-Q filings from SEC EDGAR')).toBeInTheDocument()
+    if (!on) expect(container).not.toHaveTextContent('20-F')
+    expect(container).not.toHaveTextContent(/Supported/i)
   })
 })

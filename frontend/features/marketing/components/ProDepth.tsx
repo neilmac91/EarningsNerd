@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
+import { cx } from '@/components/ui/cx'
 import { ArrowRightIcon, BellIcon, ClockCounterClockwiseIcon, FilePdfIcon, FileXlsIcon } from '@/lib/icons'
 import { ENABLE_ANALYSIS } from '@/lib/featureFlags'
 import { FREE_COPILOT_QUESTIONS, FREE_HISTORY_RETENTION_DAYS } from '@/lib/planLimits'
@@ -10,10 +11,13 @@ import ChangeReportDemo from '@/features/marketing/components/ChangeReportDemo'
 import MarketingCta from '@/features/marketing/components/MarketingCta'
 import SectionImpression from '@/features/marketing/components/SectionImpression'
 
+// The Excel tile exports Multi-Period Analysis, so it ships with the analysis route (ENABLE_ANALYSIS).
+const EXCEL_EXTRA = 'Excel export'
+
 const EXTRAS = [
   {
     icon: FileXlsIcon,
-    title: 'Excel export',
+    title: EXCEL_EXTRA,
     description: 'Multi-Period Analysis as a workbook, with XBRL-backed metrics.',
     tags: ['XLSX'],
   },
@@ -71,12 +75,14 @@ function FeatureRow({
 }
 
 /**
- * "What Pro adds" (design section 6): three feature rows, each pairing its pitch with the REAL
+ * "What Pro adds" (design section 6): the feature rows, each pairing its pitch with the REAL
  * product screen fed static sample data (Ask this Filing, Multi-Period Analysis, Change Report),
- * then the "Also in Pro" grid of the smaller Pro extras. The Multi-Period CTA renders only while
- * the analysis route exists (ENABLE_ANALYSIS); it 404s otherwise.
+ * then the "Also in Pro" grid of the smaller Pro extras. Multi-Period Analysis (its row, its CTA,
+ * the Excel tile and its mention in the lead) renders only while the analysis route exists
+ * (ENABLE_ANALYSIS): the route 404s otherwise, so the page never sells a feature that ships off.
  */
 export default function ProDepth() {
+  const extras = ENABLE_ANALYSIS ? EXTRAS : EXTRAS.filter((extra) => extra.title !== EXCEL_EXTRA)
   return (
     <section
       id="pro"
@@ -90,7 +96,9 @@ export default function ProDepth() {
               More ways to read one filing.
             </h2>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">
-              Ask it a question, read its periods side by side, see what changed since the last one.
+              {ENABLE_ANALYSIS
+                ? 'Ask it a question, read its periods side by side, see what changed since the last one.'
+                : 'Ask it a question, then see what changed since the last one.'}
             </p>
           </div>
 
@@ -102,20 +110,20 @@ export default function ProDepth() {
               <AskFilingDemo />
             </FeatureRow>
 
-            <FeatureRow
-              title="Multi-Period Analysis"
-              description="Up to 10 fiscal years or 12 quarters of one company: charts, a metrics grid, and a streamed trend narrative with citations. Export to Excel."
-              cta={
-                ENABLE_ANALYSIS ? (
+            {ENABLE_ANALYSIS && (
+              <FeatureRow
+                title="Multi-Period Analysis"
+                description="Up to 10 fiscal years or 12 quarters of one company: charts, a metrics grid, and a streamed trend narrative with citations. Export to Excel."
+                cta={
                   <MarketingCta variant="secondary" size="md" href="/analysis?ticker=AAPL" className="mt-4">
                     Try it on Apple
                     <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden="true" />
                   </MarketingCta>
-                ) : null
-              }
-            >
-              <AnalysisDemo />
-            </FeatureRow>
+                }
+              >
+                <AnalysisDemo />
+              </FeatureRow>
+            )}
 
             <FeatureRow
               title="Change Report"
@@ -132,8 +140,8 @@ export default function ProDepth() {
                 Watchlists are unlimited on both plans.
               </span>
             </div>
-            <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {EXTRAS.map((extra) => {
+            <ul className={cx('mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2', ENABLE_ANALYSIS ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
+              {extras.map((extra) => {
                 const Icon = extra.icon
                 return (
                   <Card

@@ -1,18 +1,18 @@
 'use client'
 
 import { queryKeys } from '@/lib/queryKeys'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   EnvelopeSimpleIcon,
   PaperPlaneTiltIcon,
-  UserIcon,
 } from '@/lib/icons'
 import { Button, primaryUnavailableClass } from '@/components/ui/Button'
 import { Input, inputClasses } from '@/components/ui/Input'
-import { Checkbox, GuidanceCard, Skeleton } from '@/components/ui'
+import { Checkbox, Notice, Skeleton } from '@/components/ui'
 import SecondaryHeader from '@/components/SecondaryHeader'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import {
   createInvite,
@@ -74,6 +74,8 @@ export default function AdminInvitesPage() {
   const [sendEmail, setSendEmail] = useState(true)
   const [sending, setSending] = useState(false)
   const [outcomes, setOutcomes] = useState<BulkInviteOutcome[]>([])
+  // Whether "Email invites" was on for the run the summary shows (the box can change after it).
+  const [emailRequested, setEmailRequested] = useState(true)
   const [skipped, setSkipped] = useState<string[]>([])
 
   // Zone B state
@@ -81,16 +83,15 @@ export default function AdminInvitesPage() {
   const [cohortFilter, setCohortFilter] = useState<string>('all')
   const [emailSearch, setEmailSearch] = useState('')
 
-  const {
-    data: invites,
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
+  const invitesQuery = useQuery({
     queryKey: queryKeys.adminInvites(),
     queryFn: listInvites,
     retry: false,
   })
+  const { data: invites } = invitesQuery
+  // Holds the error card, and its focused Retry, through the refetch a Retry starts.
+  const invitesFailure = useRetainedFailure(invitesQuery, queryKeys.adminInvites())
+  const invitesHeadingRef = useRef<HTMLHeadingElement>(null)
 
   // Emails (lowercased) that already have a PENDING invite, so the chips input can flag them.
   const pendingEmails = useMemo(
@@ -131,6 +132,7 @@ export default function AdminInvitesPage() {
     }
     setSending(true)
     setOutcomes([])
+    setEmailRequested(sendEmail)
     setSkipped([...breakdown.invalid, ...breakdown.alreadyInvited])
 
     const cohortValue = cohort.trim() || undefined
@@ -146,7 +148,7 @@ export default function AdminInvitesPage() {
             expiresInHours: expiryHours,
             sendEmail,
           })
-          return { email, ok: true, link: result.invite_link }
+          return { email, ok: true, link: result.invite_link, emailed: result.emailed }
         } catch (err: unknown) {
           return {
             email,
@@ -163,14 +165,23 @@ export default function AdminInvitesPage() {
     await queryClient.invalidateQueries({ queryKey: queryKeys.adminInvites() })
     setSending(false)
 
-    const failedCount = results.filter((r) => !r.ok).length
+    // Say what happened: an invite is created, and emailed only when the box was on and the
+    // backend's best-effort send went through (the API's `emailed`), never "sent" for a link.
+    const created = results.filter((r) => r.ok)
+    const emailedCount = created.filter((r) => r.emailed).length
+    const failedCount = results.length - created.length
     const skippedCount = breakdown.invalid.length + breakdown.alreadyInvited.length
-    if (failedCount === 0 && skippedCount === 0) {
-      toast.success(
-        `${results.length} invite${results.length === 1 ? '' : 's'} sent`,
-      )
-    } else if (failedCount > 0) {
+    const createdLabel = `${created.length} invite${created.length === 1 ? '' : 's'} created`
+    if (failedCount > 0) {
       toast.error(`${failedCount} invite${failedCount === 1 ? '' : 's'} failed`)
+    } else if (sendEmail && emailedCount < created.length) {
+      toast.warning(`${createdLabel} · ${emailedCount} emailed. Copy the rest from the list below.`)
+    } else if (skippedCount === 0) {
+      toast.success(
+        sendEmail
+          ? `${createdLabel} · ${emailedCount} emailed`
+          : `${created.length} invite link${created.length === 1 ? '' : 's'} created`,
+      )
     }
   }
 
@@ -186,12 +197,9 @@ export default function AdminInvitesPage() {
       <main className="mx-auto max-w-7xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
         {/* ── Zone A: Invite people ───────────────────────────────────────────── */}
         <section className="rounded-2xl border border-border-light bg-panel-light p-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
-          <div className="mb-4 flex items-center gap-3">
-            <UserIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-            <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-              Invite people
-            </h2>
-          </div>
+          <h2 className="mb-4 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+            Invite people
+          </h2>
 
           {/* Zone A fields stay natively disabled while sending: only Send's click starts a send
               (no form, so no Enter-submit), so focus is on Send, never on a field, when it flips. */}
@@ -293,13 +301,18 @@ export default function AdminInvitesPage() {
             </Button>
           </div>
 
-          <BulkResultSummary outcomes={outcomes} skipped={skipped} />
+          <BulkResultSummary outcomes={outcomes} skipped={skipped} emailRequested={emailRequested} />
         </section>
 
         {/* ── Zone B: Invites list ────────────────────────────────────────────── */}
         <section className="rounded-2xl border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-light px-6 py-4 dark:border-white/10">
-            <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+            {/* tabIndex -1: where focus goes if the Retry unmounts while it holds focus. */}
+            <h2
+              ref={invitesHeadingRef}
+              tabIndex={-1}
+              className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+            >
               Invites
             </h2>
             {/* min-w-0: the cohort filter is as wide as its longest cohort name, which is data; as a
@@ -351,29 +364,33 @@ export default function AdminInvitesPage() {
             </div>
           </div>
 
-          {isLoading ? (
+          {invitesQuery.isLoading && !invitesFailure.failed ? (
             <div role="status" aria-label="Loading invites" className="space-y-3 p-6">
               {[0, 1, 2, 3, 4].map((i) => (
                 <Skeleton key={i} className="h-12 w-full" />
               ))}
               <span className="sr-only">Loading invites…</span>
             </div>
-          ) : isError ? (
+          ) : invitesFailure.failed ? (
             <div className="p-6">
-              <p className="text-sm text-error-light dark:text-error-dark">
-                {isApiError(error) ? getErrorMessage(error) : 'Failed to load invites.'}
-              </p>
+              <Notice
+                variant="error"
+                title="Could not load the invites."
+                description={isApiError(invitesFailure.error) ? getErrorMessage(invitesFailure.error) : undefined}
+                action={
+                  <RetryButton size="sm" failures={[invitesFailure]} focusTarget={invitesHeadingRef}>
+                    Retry
+                  </RetryButton>
+                }
+              />
             </div>
           ) : filteredInvites.length === 0 ? (
-            <GuidanceCard
-              variant="empty"
-              title="No Invites Found"
-              description={
-                (invites?.length ?? 0) === 0
-                  ? 'No invites yet. Send your first one above.'
-                  : 'No invites match these filters.'
-              }
-            />
+            <p
+              role="status"
+              className="px-6 py-10 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark"
+            >
+              {(invites?.length ?? 0) === 0 ? 'No invites yet. Send your first one above.' : 'No invites match these filters.'}
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-border-light dark:divide-white/10">
