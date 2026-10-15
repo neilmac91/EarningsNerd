@@ -151,6 +151,7 @@ REFUSED_COMMANDS = {
         f"gh api repos/o/r/issues/1339/comments --jq '.[] | select(.body | startswith(\"{MENTION} review\")) | .id'"),
     "the mention split by quotes": "gh pr comment 1 --body 'ping @'codex",
     "the mention split by a backslash": "gh pr comment 1 --body ping\\ @\\codex",
+    "the mention split by quotes inside its own word": 'gh pr comment 1 --body "@code"x',
 }
 # Run in a directory holding body.md and payload.json (both carrying the mention) and clean.md.
 REFUSED_FILE_COMMANDS = {
@@ -183,9 +184,10 @@ REFUSED_FILE_COMMANDS = {
     "an upper-case API host": "curl -X POST https://API.GITHUB.COM/repos/o/r/issues/1/comments -d @payload.json",
     "a write after a line that quotes a here-document's marker": (
         "git commit -m \"fix: drop <<EOF bodies\"\ngh pr create --title x --body-file body.md"),
-    "a write after a shift in a one-line script": "python3 -c \"print(1 << 20)\"\ngh pr comment 1 --body-file body.md",
+    "a write after a shift inside double quotes": "python3 -c \"print(1 << 20)\"\ngh pr comment 1 --body-file body.md",
     "a write after an arithmetic shift": "echo $((1<<20))\ngh pr comment 1 --body-file body.md",
     "cat | gh after a line that ends with )": "SHA=$(git rev-parse HEAD)\ncat body.md | gh pr comment 1 --body-file -",
+    "cat | gh after a subshell's line": "(git status)\ncat body.md | gh pr comment 1 --body-file -",
     "a write after a line that ends with an escaped backslash": "echo C:\\\\\ngh pr comment 1 --body-file body.md",
     "a write after a here-document whose text ends a line with a backslash": (
         "cat > /tmp/r.sh <<'EOF'\npytest \\\nEOF\ngh pr comment 1 --body-file body.md"),
@@ -203,7 +205,29 @@ REFUSED_FILE_COMMANDS = {
     "httpie's key:=@file": "http POST https://api.github.com/repos/o/r/issues/1/comments body:=@payload.json",
     "--body-file /dev/fd/0 with a redirect": "gh pr comment 1 --body-file /dev/fd/0 < body.md",
     "cat | at a line's end, gh on the next": "cat body.md |\ngh pr comment 1 --body-file -",
-    "a write after a word holding #": "echo issue#5 && gh pr comment 1 --body-file body.md",
+    # A quoted file name with a space: a comment read where the shell sees none would split it.
+    "a write after a word holding #": "echo issue#5 && gh pr comment 1 --body-file \"my body.md\"",
+    "a write after a quoted substitution holding quotes and #": 'echo "$(echo " # ")" && gh pr comment 1 --body-file "my body.md"',
+    "a write after backquotes holding #": "echo `echo hi #` && gh pr comment 1 --body-file \"my body.md\"",
+    "a write after an escaped $ before a single quote": "echo \\$'a\\' && echo ' # ' && gh pr comment 1 --body-file \"my body.md\"",
+    "a write after a continuation and a #": "echo a\\\n#b && gh pr comment 1 --body-file \"my body.md\"",
+    "cat|gh after an ANSI-C quote holding an escaped quote": "printf $'it\\'s done\\n' && cat body.md|gh pr comment 1 --body-file -",
+    "a write inside a quoted command substitution": 'URL="$(gh pr create --title x --body-file body.md)"',
+    "a write inside backquotes": "X=`gh pr comment 1 --body-file body.md`",
+    "a write inside backquotes inside double quotes": 'X="`gh pr comment 1 --body-file body.md`"',
+    "a write inside an unquoted command substitution": "X=$(gh pr create --title x --body-file body.md)",
+    "a body file named in an ANSI-C quote with an escaped quote": "gh pr comment 1 --body-file $'it\\'s.md'",
+    "a body file named in double quotes with an escaped quote": 'gh pr comment 1 --body-file "it\\"s.md"',
+    "a write after double quotes holding an escaped quote": 'echo "a \\" b" && gh pr comment 1 --body-file body.md',
+    "a write between a here-string and a line that repeats its word": "cat <<< 'x'\ngh pr comment 1 --body-file body.md\nx",
+    "a write after an arithmetic shift by a name": "echo $(( x << y ))\ngh pr comment 1 --body-file body.md",
+    "a body file named in an ANSI-C quote": "gh pr comment 1 --body-file $'body.md'",
+    "gh split by quotes": 'g"h" pr comment 1 --body-file body.md',
+    "a write after a single-quoted here-document marker and #": "echo '<<EOF # x'\ngh pr comment 1 --body-file body.md",
+    "a commented-out write (a comment's words are read)": "# gh pr comment 1 --body-file body.md",
+    "httpie after sudo": "sudo http POST https://api.github.com/repos/o/r/issues/1/comments < payload.json",
+    "a write after a here-document whose last line never comes (read on)": (
+        "cat > /tmp/x.md <<'EOF'\nnotes\nEOF \ngh pr comment 1 --body-file body.md"),
 }
 ALLOWED = {
     "the review command alone": (COMMENT, {"body": f"{MENTION} review"}),
@@ -254,14 +278,25 @@ ALLOWED_COMMANDS = {
     "a here-document ended by a quoted word with a space": (
         "cat > /tmp/x.md <<'END NOTE'\n| 2 | gh api x --input docs.md |\nEND NOTE"),
     "an indented end word, still here-document text": "cat > /tmp/x.md <<'EOF'\n  EOF\n| 2 | gh api x --input docs.md |\nEOF",
-    "an end word with a trailing space, still here-document text (bash reads on)": (
-        "cat > /tmp/x.md <<'EOF'\nnotes\nEOF \ngh pr comment 1 --body-file body.md"),
     "a command substitution's redirect on one line, a clean stdin write on the next": (
         "X=$(jq . < payload.json)\ngh pr comment 1 --body-file - < clean.md"),
     "an escaped quote inside double quotes, then a here-document holding a gh write": (
         "echo \"say \\\"hi\\\"\" && cat > /tmp/x.md <<'EOF'\n| 2 | gh api x --input docs.md |\nEOF"),
     "an ANSI-C quote holding an escaped quote, then a here-document holding a gh write": (
         "printf $'it\\'s' && cat > /tmp/x.md <<'EOF'\n| 2 | gh api x --input docs.md |\nEOF"),
+    "a commit message from a here-document with an odd quote, then a clean write": (
+        "git commit -m \"$(cat <<'EOF'\nfix: 5\" screens\nEOF\n)\"\ngh pr comment 1 --body-file clean.md"),
+    "a commit message from a here-document holding a gh write line": (
+        "git commit -m \"$(cat <<'EOF'\n| gh api x --input docs.md |\nEOF\n)\""),
+    "a here-document in a quoted substitution, its text an odd quote and a write": (
+        "X=\"$(cat <<'EOF'\nsay \"hi\ngh pr comment 1 --body-file body.md\nEOF\n)\""),
+    "a here-document in an unquoted substitution holding a write": (
+        "X=$(cat <<'EOF'\ngh pr comment 1 --body-file body.md\nEOF\n)"),
+    "an escaped $ before a quoted file name, which names another file": "gh pr comment 1 --body-file \\$'body.md'",
+    "a <<- here-document holding a gh write": "cat > /tmp/x <<-EOF\n\tgh pr comment 1 --body-file body.md\n\tEOF",
+    "two here-documents on one line, the second holding a gh write": (
+        "cat <<A <<B\na\nA\ngh pr comment 1 --body-file body.md\nB"),
+    "a here-document whose word starts with a digit": "cat > /tmp/x <<20\ngh pr comment 1 --body-file body.md\n20",
 }
 # The lesson's stated limits, which pass through: text a command builds as it runs, a program that
 # reads its body from standard input unasked, the body files of a command another shell runs, the
@@ -301,6 +336,9 @@ def bodies(tmp_path_factory: pytest.TempPathFactory) -> Path:
     (tmp_path / "sub").mkdir()
     (tmp_path / "sub" / "notes.md").write_text(f"{MENTION} here\n", encoding="utf-8")
     (tmp_path / "environ.md").symlink_to("/proc/self/environ")
+    (tmp_path / "my body.md").write_text(f"{MENTION} here\n", encoding="utf-8")
+    (tmp_path / "it's.md").write_text(f"{MENTION} here\n", encoding="utf-8")
+    (tmp_path / 'it"s.md').write_text(f"{MENTION} here\n", encoding="utf-8")
     return tmp_path
 
 
