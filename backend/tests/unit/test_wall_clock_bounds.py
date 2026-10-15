@@ -15,15 +15,19 @@ side, or an earlier reading plus an offset as the bound. Lower bounds on elapsed
 (``elapsed >= 0.4``) cannot fail from slowness, so they pass. A value carried through a helper
 function is out of reach unless its name says it is elapsed time: ``elapsed``, ``duration(s)`` or
 ``took`` as a whole name part, bare, numbered or with a unit (``total_elapsed``, ``durations``,
-``elapsed1``, ``duration_ms``, ``durationMs``; not ``duration_days``, ``duration_30`` or a
-``period_duration``/``periodDuration``), as a name, an attribute or a string key. ``min``, ``max``, ``round``, ``sum``, ``int``, ``float``, ``.total_seconds()`` and scaling
-by a constant on either side keep a value's direction; dividing by elapsed time reverses it (a rate
-falls). ``abs`` of a value that can fall (time remaining, or a deviation from a target), and the ratio of
-two moving values, race on both sides of a comparison; ``abs`` of elapsed time stays elapsed time. A value
-stored in a name, or added to a list with ``append``/``extend``/``+=``, keeps its direction, unless it
-is a clock reading or an earlier reading plus an offset, which is a fixed point in time. A site that
-remains must be a guard whose bound is many times the time it measures; ``ALLOWED`` names why, and an
-entry whose site is gone fails too.
+``elapsed1``, ``elapsed_1``, ``duration_ms``, ``durationMs``; not ``duration_days``, nor an XBRL
+``period_duration``/``periodDuration``), as a name, an attribute or a string key. ``min``, ``max``,
+``round``, ``sum``, ``int``, ``float``, ``.total_seconds()`` and scaling by a constant on either side
+keep a value's direction; dividing by elapsed time reverses it (a rate falls). ``abs`` of elapsed time
+itself (a later reading minus an earlier one, or a name or field holding it, scaled or not) stays
+elapsed time. ``abs`` of anything else that moves (time remaining, ``abs(s - time.monotonic())``, or a
+deviation from a target such as ``abs(elapsed - 1.0)``) and the ratio of two moving values race on both
+sides of a comparison. A value stored in a name, or added to a list with ``append``/``extend``/``+=``,
+keeps its direction, unless it is a clock reading or an earlier reading plus an offset, which is a
+fixed point in time. Names are not flow-sensitive: a name used for both a reading and elapsed time
+(``t = perf_counter()``, then ``t = perf_counter() - t``) is read as elapsed time throughout the
+function, and so is a value derived from it. A site that remains must be a guard whose bound is many
+times the time it measures; ``ALLOWED`` names why, and an entry whose site is gone fails too.
 
 Out of reach entirely: a real budget patched short enough to race the setup work it also covers
 (a 0.6 s pipeline deadline that expired during a 0.53 s fetch). The fix is the same, arm or expire
@@ -64,13 +68,13 @@ ALLOWED = {
 _CLOCK_FUNCTIONS = {"monotonic", "monotonic_ns", "perf_counter", "perf_counter_ns"}
 # A name that says it holds elapsed time is read as one, wherever it came from: the flake this gate was
 # written after returned its elapsed time from a nested coroutine, through a task result.
-# A whole name part, bare, numbered or with a unit: total_elapsed, durations, elapsed1, durationMs;
-# not duration_days, duration_30, period_duration (an XBRL period) or overtook.
+# A whole name part, bare, numbered or with a unit: total_elapsed, durations, elapsed1, elapsed_1, durationMs;
+# not duration_days, period_duration (an XBRL period) or overtook.
 _ELAPSED_NAME = re.compile(
-    r"(?:^|_)(?<!period_)(?:elapsed|durations?|took)\d*(?:_(?:s|ms|us|ns|sec|secs|seconds|millis|times?|total))?$"
+    r"(?:^|_)(?:elapsed|took|(?<!period_)durations?)(?:_?\d+)?(?:_(?:s|ms|us|ns|sec|secs|seconds|millis|times?|total))?$"
 )
 _CAMEL_HUMP = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
-# Builtins that keep elapsed time elapsed: min(elapsed), round(...); abs() is read as a deviation.
+# Builtins that keep a value's direction: min(elapsed), round(...); abs() keeps only elapsed time itself rising.
 _PASS_THROUGH = {"min", "max", "abs", "round", "sum", "int", "float"}
 _LOOP_GETTERS = {"get_running_loop", "get_event_loop"}
 _NOT_A_CLOCK = re.compile(r"(?:^|_)(?:at|on|dt|ts|now|when)$|date|stamp|fake|frozen")  # owners of .time()
@@ -114,6 +118,20 @@ def _mentions(node: ast.AST, names: set[str]) -> bool:
     return any(_is_clock_call(n) or (isinstance(n, ast.Name) and n.id in names) for n in ast.walk(node))
 
 
+def _is_span(node: ast.AST, readings: set[str], spans: set[str], remains: set[str]) -> bool:
+    """Elapsed time itself, never negative: a later reading minus an earlier one, or a name, field or
+    call that holds it, scaled or not; not elapsed time offset from a target (elapsed - 1.0)."""
+    if _trend(node, readings, spans, remains) != "up":
+        return False
+    if not isinstance(node, ast.BinOp):
+        return True
+    if isinstance(node.op, ast.Sub):
+        return _mentions(node.left, readings) and _mentions(node.right, readings)
+    if isinstance(node.op, (ast.Mult, ast.Div, ast.FloorDiv)):
+        return any(_is_span(side, readings, spans, remains) for side in (node.left, node.right))
+    return False
+
+
 def _trend(node: ast.AST, readings: set[str], spans: set[str], remains: set[str]) -> str | None:
     """How a value moves when the loop runs late: "up" (a clock read now, or elapsed time), "down" (a
     fixed point minus a clock read now: time remaining), "both" (a deviation or a ratio, which can
@@ -141,9 +159,11 @@ def _trend(node: ast.AST, readings: set[str], spans: set[str], remains: set[str]
         if not (isinstance(func, ast.Name) and func.id in _PASS_THROUGH):
             return None
         trend = _merge(_trend(arg, readings, spans, remains) for arg in node.args)
-        # abs(remaining - 75) < 0.5 breaks as the deviation grows; abs(remaining) > 70 as the value falls.
-        # Elapsed time is never negative, so abs() leaves it rising.
-        return _BOTH if func.id == "abs" and trend in ("down", _BOTH) else trend
+        if func.id != "abs" or not trend:
+            return trend
+        # Elapsed time is never negative, so abs() leaves it rising. Anything else can cross zero:
+        # abs(remaining) > 70 breaks as the value falls, abs(elapsed - 1.0) > 0.5 as it nears its target.
+        return "up" if len(node.args) == 1 and _is_span(node.args[0], readings, spans, remains) else _BOTH
     if not isinstance(node, ast.BinOp):
         return None
     left = _trend(node.left, readings, spans, remains)
@@ -338,6 +358,37 @@ def test_the_detector_finds_each_racing_shape_and_spares_the_safe_ones():
             "def t():\n    with x:\n        s = time.monotonic()\n    e = time.monotonic()\n    span = e - s\n"
             "    secs = span\n    assert secs < 1\n"
         ),
+        # Shapes earlier revisions of this gate dropped, found by its review rounds.
+        "gathered numbered names": "def t():\n    elapsed_1, elapsed_2 = await asyncio.gather(a(), b())\n    assert elapsed_1 < 1.2\n",
+        "a numbered took field": "def t():\n    r = run()\n    assert r.took_2 < 1\n",
+        "a numbered duration key": "def t():\n    r = run()\n    assert r[\"duration_1\"] < 1\n",
+        "a numbered field with a unit": "def t():\n    r = run()\n    assert r.elapsed_1_ms < 1\n",
+        "a period's elapsed time": "def t():\n    r = run()\n    assert r.period_elapsed < 1\n",
+        "a list of elapsed times": "def t():\n    elapsed_times = await gather()\n    assert max(elapsed_times) < 1\n",
+        "a total elapsed field": "def t():\n    r = run()\n    assert r.elapsed_total < 1\n",
+        "a deviation floor from a target": (
+            "def t():\n    s = time.monotonic()\n    elapsed = time.monotonic() - s\n    assert abs(elapsed - 1.0) > 0.5\n"
+        ),
+        "a deviation floor, inline": "def t():\n    s = time.monotonic()\n    assert abs(time.monotonic() - s - 1.0) >= 0.5\n",
+        "a field's deviation floor": "def t():\n    r = run()\n    assert abs(r.elapsed - TIMEOUT) >= 0.5\n",
+        "a stored deviation floor": "def t():\n    s = time.monotonic()\n    dev = abs(time.monotonic() - s - 1.0)\n    assert dev > 0.5\n",
+        "a stored deadline's floor in abs": "def t():\n    deadline = loop.time() + 60\n    assert abs(deadline - loop.time()) > 50\n",
+        "named remaining time's floor in abs": "def t():\n    left = timer.when() - time.monotonic()\n    assert abs(left) > 70\n",
+        "an end built from a duration budget": (
+            "def t():\n    start = time.monotonic()\n    end = start + duration_s\n    left = end - time.monotonic()\n"
+            "    assert left > 0.5\n"
+        ),
+        "a point offset by an elapsed-named budget": (
+            "def t():\n    t0 = time.monotonic()\n    t1 = t0 + elapsed_s\n    assert t1 - time.monotonic() > 0\n"
+        ),
+        "a reused name, scaled": (
+            "def t():\n    t = time.perf_counter()\n    run()\n    t = time.perf_counter() - t\n    ms = t * 1000\n"
+            "    assert ms < 50\n"
+        ),
+        "an elapsed-named span of a block's start": (
+            "def t():\n    with x:\n        s = time.monotonic()\n    e = time.monotonic()\n    took_s = e - s\n"
+            "    secs = took_s\n    assert secs < 1\n"
+        ),
         "a ratio of two spans": (
             "def t():\n    s = time.perf_counter()\n    a = time.perf_counter() - s\n    t = time.perf_counter()\n"
             "    b = time.perf_counter() - t\n    assert a / b > 2\n"
@@ -358,7 +409,8 @@ def test_the_detector_finds_each_racing_shape_and_spares_the_safe_ones():
         "a datetime built in the assert": "def t():\n    assert datetime.now(tz).time() < dtime(16, 0)\n",
         "a date's time of day": "def t():\n    filed_date = fetch()\n    assert filed_date.time() < dtime(16, 0)\n",
         "a lower bound on abs of a span": "def t():\n    s = time.monotonic()\n    assert abs(time.monotonic() - s) >= 0.4\n",
-        "a period's duration": "def t():\n    f = fact()\n    assert f[\"periodDuration\"] <= 92 and f[\"duration_30\"] < 5\n",
+        "a period's duration": "def t():\n    f = fact()\n    assert f[\"periodDuration\"] <= 92 and f.period_duration <= 92\n",
+        "a plan's trial length in days": "def t():\n    assert plan.trial_duration_days < 30\n",
         "a hand-moved fake clock": "def t():\n    fake_clock = FakeClock()\n    fake_clock.advance(5)\n    assert fake_clock.time() <= 5\n",
         "an elapsed field's floor": "def t():\n    events = run()\n    assert events[1][1][\"duration_ms\"] >= 0\n",
         "a stored deadline's cap, offset by a difference": (
