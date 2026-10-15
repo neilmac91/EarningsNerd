@@ -13,18 +13,25 @@ a later reading minus an earlier one, directly or through a name) on the small s
 It also means a value that shrinks (time remaining: a deadline minus a clock read now) on the large
 side, or an earlier reading plus an offset as the bound. Lower bounds on elapsed time
 (``elapsed >= 0.4``) cannot fail from slowness, so they pass. A value carried through a helper
-function is out of reach unless its name says it is elapsed time (``elapsed``, ``duration``,
-``took``), as a name, an attribute or a string key. ``min``, ``max``, ``abs``, ``round``, ``sum``,
-``int``, ``float`` and scaling by a constant keep a value's direction. A site that remains must be a
-guard whose bound is many times the time it measures; ``ALLOWED`` names why, and an entry whose site is
-gone fails too.
+function is out of reach unless its name says it is elapsed time: ``elapsed``, ``duration`` or
+``took`` as a whole name part, bare or with a unit (``total_elapsed``, ``duration_ms``, not
+``duration_days``), as a name, an attribute or a string key. ``min``, ``max``, ``round``, ``sum``,
+``int``, ``float``, ``.total_seconds()`` and scaling by a constant on either side keep a value's
+direction; dividing by elapsed time reverses it (a rate falls), and ``abs`` of any moving value grows
+(a deviation). A value stored in a name, or added to a list with ``append``/``extend``/``+=``, keeps
+its direction, unless it is a plain clock reading, which is a fixed point in time. A site that
+remains must be a guard whose bound is many times the time it measures; ``ALLOWED`` names why, and an
+entry whose site is gone fails too.
 
 Out of reach entirely: a real budget patched short enough to race the setup work it also covers
 (a 0.6 s pipeline deadline that expired during a 0.53 s fetch). The fix is the same, arm or expire
 the deadline once the operation it bounds is under way, but no assert shows the race. Also out of
 reach: datetime clocks (``utcnow()``, ``datetime.now(tz)``), an elapsed value compared with
 ``== pytest.approx(..., abs=...)``, and a bound written as an earlier reading plus an offset when the
-value it bounds was produced before that reading (flagged anyway; list it with its reason).
+value it bounds was produced before that reading (flagged anyway; list it with its reason). A
+``.time()`` call is read as a clock unless its owner is named or built like a datetime (``*_at``,
+``*_on``, ``*date*``, ``dt``, ``ts``, ``*stamp``, ``now``, or a call such as ``datetime.now(tz)``), so a
+datetime whose name says nothing (``filed.time()``) is flagged as well.
 """
 import ast
 import re
@@ -53,14 +60,19 @@ ALLOWED = {
 _CLOCK_FUNCTIONS = {"monotonic", "monotonic_ns", "perf_counter", "perf_counter_ns"}
 # A name that says it holds elapsed time is read as one, wherever it came from: the flake this gate was
 # written after returned its elapsed time from a nested coroutine, through a task result.
-_ELAPSED_NAME = re.compile(r"elapsed|duration|took")
-# Builtins that keep elapsed time elapsed: min(elapsed), abs(now - started), round(...).
+# A whole name part, bare or with a unit: total_elapsed, duration_ms, took; not duration_days or overtook.
+_ELAPSED_NAME = re.compile(r"(?:^|_)(?:elapsed|duration|took)(?:_(?:s|ms|us|ns|sec|secs|seconds|millis|time))?$")
+# Builtins that keep elapsed time elapsed: min(elapsed), round(...); abs() is read as a deviation.
 _PASS_THROUGH = {"min", "max", "abs", "round", "sum", "int", "float"}
 _LOOP_GETTERS = {"get_running_loop", "get_event_loop"}
+_DATETIME_NAME = re.compile(r"(?:^|_)(?:at|on|dt|ts|now|when)$|date|stamp")
+_OPPOSITE = {"up": "down", "down": "up"}
+_LIST_ADDERS = {"append", "extend", "insert", "add"}
 
 
 def _is_clock_call(node: ast.AST) -> bool:
-    """A monotonic/perf_counter read, or time.time() and a loop's .time(); a datetime's .time() is not."""
+    """A monotonic/perf_counter read, or a .time() call (time.time(), loop.time(), lp.time(), an aliased
+    time module) whose owner is not named or built like a datetime (row.accepted_at.time() is not)."""
     if not isinstance(node, ast.Call) or node.args or node.keywords:
         return False
     func = node.func
@@ -73,10 +85,10 @@ def _is_clock_call(node: ast.AST) -> bool:
     if func.attr not in {"time", "time_ns"}:
         return False
     owner = func.value
-    if isinstance(owner, ast.Name):
-        return owner.id == "time" or "loop" in owner.id
-    getter = owner.func if isinstance(owner, ast.Call) else None
-    return getattr(getter, "attr", getattr(getter, "id", None)) in _LOOP_GETTERS
+    if isinstance(owner, ast.Call):  # asyncio.get_running_loop().time(), not datetime.now(tz).time()
+        return getattr(owner.func, "attr", getattr(owner.func, "id", None)) in _LOOP_GETTERS
+    name = owner.id if isinstance(owner, ast.Name) else getattr(owner, "attr", "")
+    return not _DATETIME_NAME.search(name.lower())
 
 
 def _mentions(node: ast.AST, names: set[str]) -> bool:
@@ -93,6 +105,11 @@ def _trend(node: ast.AST, readings: set[str], spans: set[str], remains: set[str]
         if node.id in spans or _ELAPSED_NAME.search(node.id):
             return "up"
         return "down" if node.id in remains else None
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        trends = {_trend(elt, readings, spans, remains) for elt in node.elts} - {None}
+        return trends.pop() if len(trends) == 1 else None
+    if isinstance(node, (ast.ListComp, ast.SetComp, ast.GeneratorExp)):
+        return _trend(node.elt, readings, spans, remains)
     if isinstance(node, ast.Attribute):
         return "up" if _ELAPSED_NAME.search(node.attr) else None  # r.elapsed
     if isinstance(node, ast.Subscript):
@@ -101,9 +118,14 @@ def _trend(node: ast.AST, readings: set[str], spans: set[str], remains: set[str]
             return "up"  # row["duration_ms"]
         return _trend(node.value, readings, spans, remains)
     if isinstance(node, ast.Call):
-        if not (isinstance(node.func, ast.Name) and node.func.id in _PASS_THROUGH):
+        func = node.func
+        if isinstance(func, ast.Attribute) and func.attr == "total_seconds" and not node.args:
+            return _trend(func.value, readings, spans, remains)  # resp.elapsed.total_seconds()
+        if not (isinstance(func, ast.Name) and func.id in _PASS_THROUGH):
             return None
         trends = {_trend(arg, readings, spans, remains) for arg in node.args} - {None}
+        if func.id == "abs" and trends:
+            return "up"  # a deviation grows with lateness, whichever way the value inside moves
         return trends.pop() if len(trends) == 1 else None
     if not isinstance(node, ast.BinOp):
         return None
@@ -117,8 +139,12 @@ def _trend(node: ast.AST, readings: set[str], spans: set[str], remains: set[str]
         return "down" if left == "down" else None
     if isinstance(node.op, ast.Add):
         return left or right
-    if isinstance(node.op, (ast.Mult, ast.Div, ast.FloorDiv)):
-        return left if right is None else None  # (now - started) * 1000 keeps its direction
+    if isinstance(node.op, ast.Mult):
+        return left if right is None else right if left is None else None  # 1000 * span keeps its direction
+    if isinstance(node.op, (ast.Div, ast.FloorDiv)):
+        if right is None:
+            return left  # span / 1e6
+        return _OPPOSITE[right] if left is None else None  # n / span: a rate falls as the span grows
     return None
 
 
@@ -138,6 +164,30 @@ def _is_offset_reading(node: ast.AST, readings: set[str]) -> bool:
         isinstance(side, ast.Name) and side.id in readings for side in (node.left, node.right))
 
 
+def _stored(node: ast.AST) -> tuple[list[str], ast.AST | None]:
+    """The names a statement stores a value in: an assignment, or list.append(v) / list.extend(vs)."""
+    names = _assigned_names(node)
+    if names:
+        return names, getattr(node, "value", None)
+    if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in _LIST_ADDERS
+            and isinstance(node.func.value, ast.Name) and node.args):
+        return [node.func.value.id], node.args[-1]
+    return [], None
+
+
+def _kind(value: ast.AST, readings: set[str], spans: set[str], remains: set[str]) -> set[str] | None:
+    """Which set a stored value belongs in, or None when it carries no clock."""
+    def moving_sub(n: ast.AST) -> bool:
+        return isinstance(n, ast.BinOp) and isinstance(n.op, ast.Sub) and _trend(n, readings, spans, remains) is not None
+    trend = _trend(value, readings, spans, remains)
+    # A stored reading (started = loop.time(), deadline = loop.time() + (a - b)) is a fixed point in time.
+    # A value computed from a difference involving a clock, or from elapsed time already held under a
+    # name, attribute or key (ms = elapsed * 1000), keeps moving with lateness.
+    if any(moving_sub(n) for n in ast.walk(value)) or (trend and not any(_is_clock_call(n) for n in ast.walk(value))):
+        return spans if trend == "up" else remains if trend == "down" else readings
+    return readings if _mentions(value, readings | spans | remains) else None
+
+
 def _races(function: ast.AST) -> list[int]:
     readings: set[str] = set()  # names computed from a clock reading
     spans: set[str] = set()     # ... that grow when the loop runs late (elapsed time)
@@ -146,15 +196,9 @@ def _races(function: ast.AST) -> list[int]:
     while changed:
         changed = False
         for node in ast.walk(function):
-            value = getattr(node, "value", None)
-            if value is None or not _assigned_names(node) or not _mentions(value, readings | spans | remains):
-                continue
-            # A stored reading (started = loop.time(), deadline = loop.time() + 5) is a fixed point in
-            # time; only a value computed from a difference keeps moving with lateness.
-            is_difference = any(isinstance(n, ast.BinOp) and isinstance(n.op, ast.Sub) for n in ast.walk(value))
-            trend = _trend(value, readings, spans, remains) if is_difference else None
-            for name in _assigned_names(node):
-                kind = spans if trend == "up" else remains if trend == "down" else readings
+            names, value = _stored(node)
+            kind = _kind(value, readings, spans, remains) if value is not None else None
+            for name in names if kind is not None else ():
                 if name not in kind:
                     kind.add(name)
                     changed = True
@@ -231,6 +275,30 @@ def test_the_detector_finds_each_racing_shape_and_spares_the_safe_ones():
         "a clock read now below a deadline": "def t():\n    deadline = start()\n    assert loop.time() < deadline\n",
         "remaining time above a floor": "def t():\n    timer = arm()\n    assert 70 < timer.when() - loop.time()\n",
         "named remaining time": "def t():\n    left = timer.when() - time.monotonic()\n    assert left > 70\n",
+        "a constant times a span": "def t():\n    s = time.perf_counter()\n    assert 1000 * (time.perf_counter() - s) < 50\n",
+        "a rate floor": "def t():\n    s = time.perf_counter()\n    rate = n / (time.perf_counter() - s)\n    assert rate > 10_000\n",
+        "abs of remaining time": "def t():\n    timer = arm()\n    assert abs(timer.when() - loop.time() - 75) < 0.5\n",
+        "timings appended": (
+            "def t():\n    timings = []\n    for _ in range(3):\n        started = time.perf_counter()\n        run()\n"
+            "        timings.append(time.perf_counter() - started)\n    assert min(timings) < 0.25\n"
+        ),
+        "timings added with +=": "def t():\n    runs = []\n    runs += [time.perf_counter() - s]\n    assert max(runs) < 1\n",
+        "a task's elapsed, scaled and stored": "def t():\n    first, elapsed = await task\n    ms = elapsed * 1000\n    assert ms < 1200\n",
+        "an elapsed key, stored": "def t():\n    ms = events[0][\"duration_ms\"]\n    assert ms < 50\n",
+        "a response's elapsed time": "def t():\n    resp = get()\n    assert resp.elapsed.total_seconds() < 0.5\n",
+        "an offset holding a difference": (
+            "def t():\n    expected = asyncio.get_running_loop().time() + (budget - margin)\n    cm = await arm()\n"
+            "    assert cm.when() <= expected + 0.1\n"
+        ),
+        "a stored deadline's floor, offset by a difference": (
+            "def t():\n    deadline = loop.time() + (budget - margin)\n    assert deadline - loop.time() > 50\n"
+        ),
+        "a loop attribute's clock": "def t():\n    s = self.loop.time()\n    run()\n    assert self.loop.time() - s < 1\n",
+        "a loop under another name": (
+            "def t():\n    lp = asyncio.get_running_loop()\n    s = lp.time()\n    run()\n    assert lp.time() - s < 1\n"
+        ),
+        "an aliased time module": "def t():\n    s = _time.time()\n    run()\n    assert _time.time() - s < 1\n",
+        "the best span of a generator": "def t():\n    assert min(time.perf_counter() - s for s in starts) < 1\n",
     }
     safe = {
         "lower bound": "def t():\n    started = time.monotonic()\n    run()\n    assert time.monotonic() - started >= 0.4\n",
@@ -243,7 +311,15 @@ def test_the_detector_finds_each_racing_shape_and_spares_the_safe_ones():
         "remaining time under its budget": "def t():\n    timer = arm()\n    assert timer.when() - loop.time() <= 75\n",
         "a stored deadline's cap": "def t():\n    deadline = loop.time() + 60\n    assert deadline - loop.time() <= 60\n",
         "a datetime's time of day": "def t():\n    row = fetch()\n    assert row.accepted_at.time() < dtime(16, 0)\n",
+        "a datetime built in the assert": "def t():\n    assert datetime.now(tz).time() < dtime(16, 0)\n",
+        "a date's time of day": "def t():\n    filed_date = fetch()\n    assert filed_date.time() < dtime(16, 0)\n",
         "an elapsed field's floor": "def t():\n    events = run()\n    assert events[1][1][\"duration_ms\"] >= 0\n",
+        "a stored deadline's cap, offset by a difference": (
+            "def t():\n    deadline = loop.time() + (budget - margin)\n    assert deadline - loop.time() <= budget\n"
+        ),
+        "a period in days": "def t():\n    fact = load()\n    assert fact[\"duration_days\"] <= 92 and fact.duration_days <= 92\n",
+        "a word containing took": "def t():\n    r = race()\n    assert r.overtook < 3\n",
+        "clock readings appended": "def t():\n    stamps = []\n    stamps.append(time.monotonic())\n    assert min(stamps) < deadline\n",
     }
     assert {name: _flags(src) for name, src in racing.items() if not _flags(src)} == {}
     assert {name: _flags(src) for name, src in safe.items() if _flags(src)} == {}
