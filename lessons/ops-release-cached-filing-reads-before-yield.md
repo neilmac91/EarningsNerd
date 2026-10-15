@@ -15,5 +15,9 @@ the sync dependency's thread-pool finalizer, or increase the pool to hide the bl
 dependency finalizer as a final safety net, and retain scalar identities for any later work.
 
 **Evidence**: `backend/app/routers/filings.py` company, specific, recent, content and fundamentals
-read handlers; the shared parameterized full-app eight-request, four-slot regression is `backend/tests/unit/test_cached_filings_pool_lifetime.py`. Local PostgreSQL
+read handlers, and the `backend/app/routers/summaries.py` summary read, progress and what-changed
+handlers (2026-10: the summary read and its polled progress had been missed and answered 4x500 in
+the same burst; each is now one unit in the thread pool); the shared parameterized full-app eight-request, four-slot regression is `backend/tests/unit/test_cached_filings_pool_lifetime.py`,
+which also checks that the dependency's finalizer never finds a transaction still open. It covers
+only the routes it lists, so a new read route of this shape gets a row there. Local PostgreSQL
 measurement is separate from production headroom and safe-cohort evidence.

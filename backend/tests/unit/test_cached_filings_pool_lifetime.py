@@ -2,16 +2,17 @@
 
 import asyncio
 import time
-from datetime import date
+from datetime import date, timedelta
+from typing import Any
 
 import httpx
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import QueuePool
 
 from app import database
-from app.models import Company, Filing, FilingContentCache, FinancialFact, Summary
+from app.models import Company, Filing, FilingContentCache, FinancialFact, Summary, SummaryGenerationProgress
 from app.routers import filings
 from app.services import filing_list_service
 from app.services.filing_amendment_service import expand_amendment_forms
@@ -33,6 +34,11 @@ from main import app
     ("/api/filings/999/fundamentals", "missing"),
     ("/api/summaries/filing/1/what-changed", "what_changed"),
     ("/api/summaries/filing/999/what-changed", "missing"),
+    ("/api/summaries/filing/1", "summary"),
+    ("/api/summaries/filing/999", "no_summary"),
+    ("/api/summaries/filing/1/progress", "progress_completed"),
+    ("/api/summaries/filing/1/progress", "progress_stalled"),
+    ("/api/summaries/filing/999/progress", "progress_pending"),
 ])
 async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     monkeypatch, tmp_path, path, payload_kind
@@ -50,6 +56,7 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     FilingContentCache.__table__.create(engine)
     FinancialFact.__table__.create(engine)
     Summary.__table__.create(engine)
+    SummaryGenerationProgress.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
     accession = "0000000001-26-000001"
     with sessions() as db:
@@ -70,12 +77,32 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
                 period_end=date(2025, 12, 31), fiscal_year=2025, fiscal_period="FY", value=123,
                 form="10-K", accession=accession, reconciled=True,
             ))
+        if payload_kind in ("summary", "progress_completed"):
+            db.add(Summary(filing_id=filing.id, business_overview="## Overview", raw_summary={}))
+        if payload_kind == "progress_stalled":
+            stalled_at = utcnow() - timedelta(hours=1)
+            db.add(SummaryGenerationProgress(filing_id=filing.id, stage="analyzing",
+                                             started_at=stalled_at, updated_at=stalled_at))
         db.commit()
 
     async def unexpected_upstream(*_args, **_kwargs):
         pytest.fail("Cached filing burst must not request SEC data")
 
-    monkeypatch.setattr(database, "SessionLocal", sessions)
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
     monkeypatch.setattr(app, "dependency_overrides", {})
     monkeypatch.setattr(filing_list_service, "_filings_synced_at", {})
     monkeypatch.setattr(filings.sec_edgar_service, "get_filings", unexpected_upstream)
@@ -113,9 +140,27 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
                 # The change report: lookup, report and release in one unit off the event loop.
                 assert payload["has_prior"] is False and payload["prior_filing"] is None
                 assert payload["section_changes"] is None  # ENABLE_SECTION_CHANGES is off
+            elif payload_kind == "summary":
+                # The Trace-to-Source read: lookups, enrichment and release in one unit off the event loop.
+                assert (payload["id"], payload["filing_id"], payload["business_overview"]) == (1, 1, "## Overview")
+            elif payload_kind == "no_summary":
+                assert (payload["id"], payload["filing_id"], payload["raw_summary"]) == (0, 999, None)
+            elif payload_kind == "progress_completed":
+                assert payload == {"stage": "completed", "elapsedSeconds": 0}
+            elif payload_kind == "progress_stalled":
+                # The heartbeat's write (an orphaned row becomes a retryable error) is in the same unit.
+                assert (payload["stage"], payload["error"]) == (
+                    "error", "Generation stalled and was abandoned. Please retry.")
+            elif payload_kind == "progress_pending":
+                assert payload == {"stage": "pending", "elapsedSeconds": 0}
             else:
                 assert payload == {"detail": "Filing not found"}
         assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open.
+        assert [session.open_at_close[-1:] for session in request_sessions] == [[False]] * 8
+        if payload_kind == "progress_stalled":
+            with sessions() as db:
+                assert db.get(SummaryGenerationProgress, 1).stage == "error"
     finally:
         engine.dispose()
 
