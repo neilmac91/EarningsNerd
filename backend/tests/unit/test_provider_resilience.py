@@ -582,8 +582,18 @@ async def test_summary_context_reports_once_and_isolates_concurrent_records(monk
 @pytest.mark.asyncio
 async def test_recovery_semaphore_wait_is_inside_parent_deadline(monkeypatch):
     called = []
+    waiting = asyncio.Event()
+
+    class NoFreeSlot:  # the recovery semaphore, never acquired, saying when the wait starts
+        async def __aenter__(self):
+            waiting.set()
+            await asyncio.Event().wait()
+
+        async def __aexit__(self, *exc):
+            return False
+
     async with service_for(lambda req: called.append(req)) as service:
-        service._recovery_semaphore = asyncio.Semaphore(0)
+        service._recovery_semaphore = NoFreeSlot()
         service._get_section_schema_snippet = lambda key: "{}"
         service._build_section_context = lambda *args: "selected filing excerpt"
 
@@ -598,12 +608,22 @@ async def test_recovery_semaphore_wait_is_inside_parent_deadline(monkeypatch):
             return deadlines[-1]
 
         monkeypatch.setattr(requests, "asyncio", SimpleNamespace(**{**vars(asyncio), "timeout": recorded_timeout}))
-        monkeypatch.setattr(requests, "SUMMARY_SECONDS", 0.02)
-        with pytest.raises(TimeoutError):
-            await asyncio.wait_for(generate(), 10)  # a hang guard; the parent's budget must end the wait
-        # The 20 ms budget, the first timeout bounded_summary enters, is the one that fired. A wall-clock
-        # bound (elapsed < 0.15 s against an outer 0.2 s wait_for) only tells them apart on an idle loop.
-        assert [deadline.expired() for deadline in deadlines] == [True]
+        # A long parent budget, expired by hand once the semaphore wait has started. A real 20 ms budget
+        # with a wall-clock bound (elapsed < 0.15 s against an outer 0.2 s wait_for) told the timeouts
+        # apart only on an idle loop, and covered the setup before the wait too.
+        budget = requests.RequestBudget(asyncio.get_running_loop().time() + 60)
+        token = requests._budget.set(budget)
+        try:
+            task = asyncio.create_task(generate())
+            await asyncio.wait_for(waiting.wait(), 10)  # hang guards only, here and below
+            # The wait runs inside the timeout bounded_summary entered for the parent's budget.
+            assert len(deadlines) == 1 and deadlines[0].when() == pytest.approx(budget.deadline, abs=0.05)
+            deadlines[0].reschedule(asyncio.get_running_loop().time())
+            with pytest.raises(TimeoutError):
+                await asyncio.wait_for(task, 10)
+        finally:
+            requests._budget.reset(token)
+        assert deadlines[0].expired()
     assert called == []
 
 
