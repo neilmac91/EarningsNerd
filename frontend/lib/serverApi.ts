@@ -109,7 +109,7 @@ export const toExcerpt = (markdown: string): string => {
 
 const METRIC_MATCHERS: Array<{ label: string; pattern: RegExp }> = [
   { label: 'Revenue', pattern: /revenue|net sales/i },
-  { label: 'Net Income', pattern: /net income/i },
+  { label: 'Net income', pattern: /net income/i },
   { label: 'Diluted EPS', pattern: /eps|earnings per share/i },
 ]
 

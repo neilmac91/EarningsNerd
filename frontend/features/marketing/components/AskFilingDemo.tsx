@@ -22,12 +22,13 @@ const CITATIONS: CopilotCitation[] = [...SAMPLE_ASK.citations]
 
 /**
  * The "Ask this Filing" product screen for the landing page: one question, one completed answer
- * whose `[F1]` / `[1]` markers are the REAL CitationChip (injected through the same
- * lib/citationMarkers walker CopilotMessage uses), and a footnote row per citation that names the
- * chip kind in plain words ("XBRL figure" / "Passage"). No FilingViewerProvider is mounted, so
- * each chip degrades to its EDGAR anchor, which keeps both reachable. The composer beneath is a
- * static shell, hidden from assistive tech because it accepts nothing. Server-rendered: only
- * CitationChip is a client boundary, and it receives plain citation data.
+ * whose `[1]` `[2]` `[3]` markers (numbered as the server numbers a live answer) are the REAL
+ * CitationChip, injected through the same lib/citationMarkers walker CopilotMessage uses, and a
+ * footnote row per citation that names the chip kind in plain words ("XBRL figure" / "Passage").
+ * No FilingViewerProvider is mounted, so each chip degrades to its EDGAR anchor, which keeps every
+ * chip reachable. The composer beneath is a static shell, hidden from assistive tech because it
+ * accepts nothing. Server-rendered: only CitationChip is a client boundary, and it receives plain
+ * citation data.
  */
 export default function AskFilingDemo() {
   const answer = injectCitationMarkers(SAMPLE_ASK.answer, CITATIONS, (citation, key) => (
