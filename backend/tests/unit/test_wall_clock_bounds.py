@@ -13,13 +13,14 @@ a later reading minus an earlier one, directly or through a name) on the small s
 It also means a value that shrinks (time remaining: a deadline minus a clock read now) on the large
 side, or an earlier reading plus an offset as the bound. Lower bounds on elapsed time
 (``elapsed >= 0.4``) cannot fail from slowness, so they pass. A value carried through a helper
-function is out of reach unless its name says it is elapsed time: ``elapsed``, ``duration`` or
-``took`` as a whole name part, bare or with a unit (``total_elapsed``, ``duration_ms``, not
-``duration_days``), as a name, an attribute or a string key. ``min``, ``max``, ``round``, ``sum``,
-``int``, ``float``, ``.total_seconds()`` and scaling by a constant on either side keep a value's
-direction; dividing by elapsed time reverses it (a rate falls), and ``abs`` of any moving value grows
-(a deviation). A value stored in a name, or added to a list with ``append``/``extend``/``+=``, keeps
-its direction, unless it is a plain clock reading, which is a fixed point in time. A site that
+function is out of reach unless its name says it is elapsed time: ``elapsed``, ``duration(s)`` or
+``took`` as a whole name part, bare, numbered or with a unit (``total_elapsed``, ``durations``,
+``elapsed1``, ``duration_ms``, ``durationMs``; not ``duration_days``), as a name, an attribute or a
+string key. ``min``, ``max``, ``round``, ``sum``, ``int``, ``float``, ``.total_seconds()`` and scaling
+by a constant on either side keep a value's direction; dividing by elapsed time reverses it (a rate
+falls). ``abs`` of a moving value, and the ratio of two, race on both sides of a comparison. A value
+stored in a name, or added to a list with ``append``/``extend``/``+=``, keeps its direction, unless it
+is a clock reading or an earlier reading plus an offset, which is a fixed point in time. A site that
 remains must be a guard whose bound is many times the time it measures; ``ALLOWED`` names why, and an
 entry whose site is gone fails too.
 
@@ -29,9 +30,10 @@ the deadline once the operation it bounds is under way, but no assert shows the 
 reach: datetime clocks (``utcnow()``, ``datetime.now(tz)``), an elapsed value compared with
 ``== pytest.approx(..., abs=...)``, and a bound written as an earlier reading plus an offset when the
 value it bounds was produced before that reading (flagged anyway; list it with its reason). A
-``.time()`` call is read as a clock unless its owner is named or built like a datetime (``*_at``,
-``*_on``, ``*date*``, ``dt``, ``ts``, ``*stamp``, ``now``, or a call such as ``datetime.now(tz)``), so a
-datetime whose name says nothing (``filed.time()``) is flagged as well.
+``.time()`` call is read as a clock unless its owner is named or built like a datetime or a fake
+(``*_at``, ``*_on``, ``*date*``, ``dt``, ``ts``, ``*stamp``, ``now``, ``when``, ``*fake*``, ``*frozen*``,
+or a call such as ``datetime.now(tz)``), so a datetime or a hand-moved clock whose name says neither
+(``filed.time()``, ``clock.time()``) is flagged as well: rename it or list it.
 """
 import ast
 import re
@@ -60,19 +62,24 @@ ALLOWED = {
 _CLOCK_FUNCTIONS = {"monotonic", "monotonic_ns", "perf_counter", "perf_counter_ns"}
 # A name that says it holds elapsed time is read as one, wherever it came from: the flake this gate was
 # written after returned its elapsed time from a nested coroutine, through a task result.
-# A whole name part, bare or with a unit: total_elapsed, duration_ms, took; not duration_days or overtook.
-_ELAPSED_NAME = re.compile(r"(?:^|_)(?:elapsed|duration|took)(?:_(?:s|ms|us|ns|sec|secs|seconds|millis|time))?$")
+# A whole name part, bare, numbered or with a unit: total_elapsed, durations, elapsed1, durationMs;
+# not duration_days or overtook.
+_ELAPSED_NAME = re.compile(
+    r"(?:^|_)(?:elapsed|durations?|took)(?:_?\d+)?(?:_(?:s|ms|us|ns|sec|secs|seconds|millis|times?|total))?$"
+)
+_CAMEL_HUMP = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 # Builtins that keep elapsed time elapsed: min(elapsed), round(...); abs() is read as a deviation.
 _PASS_THROUGH = {"min", "max", "abs", "round", "sum", "int", "float"}
 _LOOP_GETTERS = {"get_running_loop", "get_event_loop"}
-_DATETIME_NAME = re.compile(r"(?:^|_)(?:at|on|dt|ts|now|when)$|date|stamp")
-_OPPOSITE = {"up": "down", "down": "up"}
+_NOT_A_CLOCK = re.compile(r"(?:^|_)(?:at|on|dt|ts|now|when)$|date|stamp|fake|frozen")  # owners of .time()
+_BOTH = "both"  # races on either side of a comparison: a deviation (abs), or the ratio of two moving values
+_OPPOSITE = {"up": "down", "down": "up", _BOTH: _BOTH}
 _LIST_ADDERS = {"append", "extend", "insert", "add"}
 
 
 def _is_clock_call(node: ast.AST) -> bool:
     """A monotonic/perf_counter read, or a .time() call (time.time(), loop.time(), lp.time(), an aliased
-    time module) whose owner is not named or built like a datetime (row.accepted_at.time() is not)."""
+    time module) whose owner is not named or built like a datetime or a fake (row.accepted_at.time())."""
     if not isinstance(node, ast.Call) or node.args or node.keywords:
         return False
     func = node.func
@@ -88,7 +95,17 @@ def _is_clock_call(node: ast.AST) -> bool:
     if isinstance(owner, ast.Call):  # asyncio.get_running_loop().time(), not datetime.now(tz).time()
         return getattr(owner.func, "attr", getattr(owner.func, "id", None)) in _LOOP_GETTERS
     name = owner.id if isinstance(owner, ast.Name) else getattr(owner, "attr", "")
-    return not _DATETIME_NAME.search(name.lower())
+    return not _NOT_A_CLOCK.search(name.lower())
+
+
+def _is_elapsed_name(name: str) -> bool:
+    return bool(_ELAPSED_NAME.search(_CAMEL_HUMP.sub("_", name).lower()))
+
+
+def _merge(trends) -> str | None:
+    """One direction among several values, both when they disagree, None when none moves."""
+    trends = set(trends) - {None}
+    return trends.pop() if len(trends) == 1 else _BOTH if trends else None
 
 
 def _mentions(node: ast.AST, names: set[str]) -> bool:
@@ -97,24 +114,22 @@ def _mentions(node: ast.AST, names: set[str]) -> bool:
 
 def _trend(node: ast.AST, readings: set[str], spans: set[str], remains: set[str]) -> str | None:
     """How a value moves when the loop runs late: "up" (a clock read now, or elapsed time), "down" (a
-    fixed point minus a clock read now: time remaining), or None (no clock, or an earlier reading,
-    which is a fixed point in time)."""
+    fixed point minus a clock read now: time remaining), "both" (a deviation or a ratio, which can
+    break either bound), or None (no clock, or an earlier reading, which is a fixed point in time)."""
     if _is_clock_call(node):
         return "up"
     if isinstance(node, ast.Name):
-        if node.id in spans or _ELAPSED_NAME.search(node.id):
-            return "up"
-        return "down" if node.id in remains else None
+        up, down = node.id in spans or _is_elapsed_name(node.id), node.id in remains
+        return _BOTH if up and down else "up" if up else "down" if down else None
     if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
-        trends = {_trend(elt, readings, spans, remains) for elt in node.elts} - {None}
-        return trends.pop() if len(trends) == 1 else None
+        return _merge(_trend(elt, readings, spans, remains) for elt in node.elts)
     if isinstance(node, (ast.ListComp, ast.SetComp, ast.GeneratorExp)):
         return _trend(node.elt, readings, spans, remains)
     if isinstance(node, ast.Attribute):
-        return "up" if _ELAPSED_NAME.search(node.attr) else None  # r.elapsed
+        return "up" if _is_elapsed_name(node.attr) else None  # r.elapsed
     if isinstance(node, ast.Subscript):
         key = node.slice
-        if isinstance(key, ast.Constant) and isinstance(key.value, str) and _ELAPSED_NAME.search(key.value):
+        if isinstance(key, ast.Constant) and isinstance(key.value, str) and _is_elapsed_name(key.value):
             return "up"  # row["duration_ms"]
         return _trend(node.value, readings, spans, remains)
     if isinstance(node, ast.Call):
@@ -123,14 +138,15 @@ def _trend(node: ast.AST, readings: set[str], spans: set[str], remains: set[str]
             return _trend(func.value, readings, spans, remains)  # resp.elapsed.total_seconds()
         if not (isinstance(func, ast.Name) and func.id in _PASS_THROUGH):
             return None
-        trends = {_trend(arg, readings, spans, remains) for arg in node.args} - {None}
-        if func.id == "abs" and trends:
-            return "up"  # a deviation grows with lateness, whichever way the value inside moves
-        return trends.pop() if len(trends) == 1 else None
+        trend = _merge(_trend(arg, readings, spans, remains) for arg in node.args)
+        # abs(remaining - 75) < 0.5 breaks as the deviation grows; abs(remaining) > 70 as the value falls.
+        return _BOTH if func.id == "abs" and trend else trend
     if not isinstance(node, ast.BinOp):
         return None
     left = _trend(node.left, readings, spans, remains)
     right = _trend(node.right, readings, spans, remains)
+    if _BOTH in (left, right):
+        return _BOTH
     if isinstance(node.op, ast.Sub):
         if right == "up" and left is None:
             return "down"  # deadline - now: a fixed point minus a clock read now
@@ -140,11 +156,12 @@ def _trend(node: ast.AST, readings: set[str], spans: set[str], remains: set[str]
     if isinstance(node.op, ast.Add):
         return left or right
     if isinstance(node.op, ast.Mult):
-        return left if right is None else right if left is None else None  # 1000 * span keeps its direction
+        return left if right is None else right if left is None else _BOTH  # 1000 * span keeps its direction
     if isinstance(node.op, (ast.Div, ast.FloorDiv)):
         if right is None:
             return left  # span / 1e6
-        return _OPPOSITE[right] if left is None else None  # n / span: a rate falls as the span grows
+        # n / span: a rate falls as the span grows; slow / fast, a ratio of two spans, can move either way
+        return _OPPOSITE[right] if left is None else _BOTH
     return None
 
 
@@ -175,17 +192,17 @@ def _stored(node: ast.AST) -> tuple[list[str], ast.AST | None]:
     return [], None
 
 
-def _kind(value: ast.AST, readings: set[str], spans: set[str], remains: set[str]) -> set[str] | None:
-    """Which set a stored value belongs in, or None when it carries no clock."""
+def _kinds(value: ast.AST, readings: set[str], spans: set[str], remains: set[str]) -> list[set[str]]:
+    """The sets a stored value belongs in (a deviation in both spans and remains), or none without a clock."""
     def moving_sub(n: ast.AST) -> bool:
         return isinstance(n, ast.BinOp) and isinstance(n.op, ast.Sub) and _trend(n, readings, spans, remains) is not None
     trend = _trend(value, readings, spans, remains)
-    # A stored reading (started = loop.time(), deadline = loop.time() + (a - b)) is a fixed point in time.
-    # A value computed from a difference involving a clock, or from elapsed time already held under a
-    # name, attribute or key (ms = elapsed * 1000), keeps moving with lateness.
-    if any(moving_sub(n) for n in ast.walk(value)) or (trend and not any(_is_clock_call(n) for n in ast.walk(value))):
-        return spans if trend == "up" else remains if trend == "down" else readings
-    return readings if _mentions(value, readings | spans | remains) else None
+    # A stored reading is a fixed point in time: started = loop.time(), deadline = loop.time() + (a - b),
+    # deadline = start + duration. A value computed from a difference involving a clock, or from elapsed
+    # time already held under a name, attribute or key (ms = elapsed * 1000), keeps moving with lateness.
+    if any(moving_sub(n) for n in ast.walk(value)) or (trend and not _mentions(value, readings)):
+        return {"up": [spans], "down": [remains], _BOTH: [spans, remains]}.get(trend, [readings])
+    return [readings] if _mentions(value, readings | spans | remains) else []
 
 
 def _races(function: ast.AST) -> list[int]:
@@ -197,11 +214,11 @@ def _races(function: ast.AST) -> list[int]:
         changed = False
         for node in ast.walk(function):
             names, value = _stored(node)
-            kind = _kind(value, readings, spans, remains) if value is not None else None
-            for name in names if kind is not None else ():
-                if name not in kind:
-                    kind.add(name)
-                    changed = True
+            for kind in _kinds(value, readings, spans, remains) if value is not None else ():
+                for name in names:
+                    if name not in kind:
+                        kind.add(name)
+                        changed = True
     readings |= spans | remains
     lines = []
     for node in ast.walk(function):
@@ -216,7 +233,8 @@ def _races(function: ast.AST) -> list[int]:
                     small, big = right, left
                 else:
                     continue
-                if (_trend(small, readings, spans, remains) == "up" or _trend(big, readings, spans, remains) == "down"
+                if (_trend(small, readings, spans, remains) in ("up", _BOTH)
+                        or _trend(big, readings, spans, remains) in ("down", _BOTH)
                         or _is_offset_reading(big, readings - spans - remains)):
                     lines.append(node.lineno)
     return lines
@@ -298,6 +316,19 @@ def test_the_detector_finds_each_racing_shape_and_spares_the_safe_ones():
             "def t():\n    lp = asyncio.get_running_loop()\n    s = lp.time()\n    run()\n    assert lp.time() - s < 1\n"
         ),
         "an aliased time module": "def t():\n    s = _time.time()\n    run()\n    assert _time.time() - s < 1\n",
+        "a remaining-time floor in abs": "def t():\n    timer = arm()\n    assert abs(timer.when() - loop.time()) > 70\n",
+        "a stored deviation": "def t():\n    dev = abs(timer.when() - loop.time() - 75)\n    assert dev < 0.5\n",
+        "a reading plus a duration budget": (
+            "def t():\n    start = loop.time()\n    deadline = start + duration\n    run()\n"
+            "    assert deadline - loop.time() > 1\n"
+        ),
+        "gathered durations": "def t():\n    durations = await asyncio.gather(*tasks)\n    assert max(durations) < 1.2\n",
+        "a numbered elapsed name": "def t():\n    elapsed1 = await first\n    assert elapsed1 < 1\n",
+        "a camelCase key": "def t():\n    body = get()\n    assert body[\"durationMs\"] < 50\n",
+        "a ratio of two spans": (
+            "def t():\n    s = time.perf_counter()\n    a = time.perf_counter() - s\n    t = time.perf_counter()\n"
+            "    b = time.perf_counter() - t\n    assert a / b > 2\n"
+        ),
         "the best span of a generator": "def t():\n    assert min(time.perf_counter() - s for s in starts) < 1\n",
     }
     safe = {
@@ -313,6 +344,7 @@ def test_the_detector_finds_each_racing_shape_and_spares_the_safe_ones():
         "a datetime's time of day": "def t():\n    row = fetch()\n    assert row.accepted_at.time() < dtime(16, 0)\n",
         "a datetime built in the assert": "def t():\n    assert datetime.now(tz).time() < dtime(16, 0)\n",
         "a date's time of day": "def t():\n    filed_date = fetch()\n    assert filed_date.time() < dtime(16, 0)\n",
+        "a hand-moved fake clock": "def t():\n    fake_clock = FakeClock()\n    fake_clock.advance(5)\n    assert fake_clock.time() <= 5\n",
         "an elapsed field's floor": "def t():\n    events = run()\n    assert events[1][1][\"duration_ms\"] >= 0\n",
         "a stored deadline's cap, offset by a difference": (
             "def t():\n    deadline = loop.time() + (budget - margin)\n    assert deadline - loop.time() <= budget\n"
