@@ -20,8 +20,9 @@ import { PHOSPHOR, isIconModule } from './iconModules'
  * binding holds counts where the binding is read, never where it is held: an alias, a conditional or logical
  * hold and a held element (`const EvidenceGlyph = QuotesIcon`, `const Icon = ok ? BracketsCurlyIcon :
  * QuotesIcon`, `const mark = <QuotesIcon />`, a chain of them) at each reference; an object's property
- * (`const GLYPH = { passage: QuotesIcon }`) at each read of it by name or literal key, and every glyph the
- * object holds at a read by a key the scan cannot read (`GLYPH[kind]`) or of the object whole; a holder
+ * (`const GLYPH = { passage: QuotesIcon }`, and an object that spreads one, `{ ...GLYPH }`, a later property
+ * overriding the spread's) at each read of it by name or literal key, and every glyph the object holds at a
+ * read by a key the scan cannot read (`GLYPH[kind]`) or of the object whole; a holder
  * nobody reads counts once, as a bare import does. It counts every hand-drawn stand-in (a local component
  * named for one of them that draws its own <svg>), and the ✨ emoji, against two lists:
  *
@@ -33,7 +34,8 @@ import { PHOSPHOR, isIconModule } from './iconModules'
  *
  * Review-checked, out of the scan's reach: a namespace member read by a key it cannot read
  * (`Icons[name]`), a glyph re-exported through a module of the app's own other than lib/icons.ts, a
- * binding assigned a glyph after its declaration, and a glyph drawn inside a local component or function,
+ * binding assigned a glyph after its declaration, an object built by a call (`Object.assign`, a function's
+ * return), and a glyph drawn inside a local component or function,
  * which counts where it is drawn however often the component renders.
  */
 
@@ -254,10 +256,20 @@ export function glyphUses(source: string, fileName: string): Counts {
       if (ts.isObjectLiteralExpression(value)) {
         const props = new Map<string, Set<Root>>()
         for (const p of value.properties) {
+          // A spread of a glyph object copies its properties here, in order, so a later property overrides one.
+          if (ts.isSpreadAssignment(p)) {
+            const from = unwrapHeld(p.expression)
+            if (ts.isIdentifier(from) && from.text !== name && objects.has(from.text)) {
+              leaves.push(from)
+              for (const [key, roots] of objects.get(from.text)!) props.set(key, new Set(roots))
+            }
+            continue
+          }
           if (!(ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p))) continue
           if (!(ts.isIdentifier(p.name) || ts.isStringLiteral(p.name) || ts.isNumericLiteral(p.name))) continue
           const roots = held(ts.isPropertyAssignment(p) ? p.initializer : p.name, leaves)
           if (roots.length) props.set(p.name.text, new Set(roots))
+          else props.delete(p.name.text)
         }
         if (props.size) objects.set(name, props)
       } else {
@@ -403,5 +415,15 @@ describe('reserved glyphs keep their one meaning', () => {
       ')',
     ].join('\n')
     expect(glyphUses(holders, 'features/zzprobe/Holders.tsx')).toEqual({ QuotesIcon: 6, SparkleIcon: 2, BracketsCurlyIcon: 3 })
+    // An object that spreads a glyph object holds its properties: three reads of the copy are three uses, and a
+    // property written after the spread overrides the spread's.
+    const spread = [
+      "import { QuotesIcon, SparkleIcon } from '@/lib/icons'",
+      'const base = { passage: QuotesIcon }',
+      'const copy = { ...base }',
+      'const over = { ...base, passage: SparkleIcon }',
+      'export const E = () => <><copy.passage /><copy.passage /><copy.passage /><over.passage /></>',
+    ].join('\n')
+    expect(glyphUses(spread, 'features/zzprobe/Spread.tsx')).toEqual({ QuotesIcon: 3, SparkleIcon: 1 })
   })
 })
