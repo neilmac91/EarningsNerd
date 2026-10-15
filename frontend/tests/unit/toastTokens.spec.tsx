@@ -17,7 +17,9 @@ import { ThemedToaster } from '@/app/providers'
  * Holds: the Toaster takes the ThemeProvider theme in both themes and never 'system'; richColors is off;
  * every colour, border and shadow class in toastOptions.classNames names a token in tailwind.config.js
  * (no palette step, no hex, no arbitrary value), and the card slot sets the panel surface in both themes
- * and the overlay step of the elevation ladder (e4 in light, no shadow in dark).
+ * and the overlay step of the elevation ladder (e4 in light, no shadow in dark). The close button keeps a
+ * hover in both themes: its forced rest outranks Sonner's own hover, so its hover is forced too (no slot
+ * holds a hover its own rest outranks), and its fills are opaque, since it overhangs the card's corner.
  */
 
 const captured = vi.hoisted(() => [] as ToasterProps[])
@@ -66,6 +68,21 @@ function offToken(cls: string): string | null {
   return 'not a colour, border or shadow utility'
 }
 
+/** A slot's hovers that never show: a hover without `!` on what the slot forces at rest (fill, ink or border). */
+function deadHovers(value: string): string[] {
+  const classes = value.split(/\s+/).filter(Boolean)
+  const forced = new Set(classes.filter((cls) => !cls.includes('hover:')).flatMap((cls) => cls.match(/(?:^|:)!(bg|text|border)-/)?.[1] ?? []))
+  return classes.filter((cls) => forced.has(cls.match(/hover:(bg|text|border)-/)?.[1] ?? ''))
+}
+
+/** The fills that are not opaque: an opacity modifier, or a token whose value is not a hex colour. */
+function translucentFills(classes: string[]): string[] {
+  return classes.filter((cls) => {
+    const fill = cls.slice(cls.lastIndexOf(':') + 1).replace(/^!/, '').match(/^bg-(.+)$/)
+    return fill !== null && (fill[1].includes('/') || !/^#[0-9a-f]{6}$/i.test(tokenColor(fill[1]) ?? ''))
+  })
+}
+
 async function renderToaster(stored: 'light' | 'dark') {
   localStorage.setItem('theme', stored)
   await act(async () => {
@@ -112,5 +129,26 @@ describe('the Toaster on tokens (chrome/F4)', () => {
     expect(offToken('bg-gray-800')).toBe('not a colour token')
     expect(offToken('!shadow-e9')).toBe('not a shadow token')
     expect(offToken('!bg-[#111]')).toBe('an arbitrary value')
+  })
+
+  it('keeps a hover on the close button, forced as its rest is, on opaque fills', async () => {
+    const props = await renderToaster('light')
+    const classNames = (props.toastOptions?.classNames ?? {}) as Record<string, string>
+    const close = classNames.closeButton.split(/\s+/)
+    // The forced rest outranks Sonner's own hover, so the slot states one: the quiet controls' tint and the
+    // primary ink in light; in dark the primary ink over the panel it keeps.
+    expect(close).toEqual(
+      expect.arrayContaining(['hover:!bg-brand-weak', 'hover:!text-text-primary-light', 'dark:hover:!bg-panel-dark', 'dark:hover:!text-text-primary-dark']),
+    )
+    expect(Object.entries(classNames).flatMap(([slot, value]) => deadHovers(value).map((cls) => `${slot}: ${cls}`))).toEqual([])
+    // Sonner translates the button -35% over the card's corner, so a translucent fill (the dark tint
+    // brand-weak-dark among them) would show the page through its overhang: every fill it takes is opaque.
+    expect(translucentFills(close)).toEqual([])
+    // Anti-vacuity: each check refuses what it is for.
+    expect(deadHovers('!bg-panel-light hover:bg-brand-weak hover:!text-text-primary-light')).toEqual(['hover:bg-brand-weak'])
+    expect(translucentFills(['dark:hover:!bg-brand-weak-dark', 'hover:!bg-panel-light/90', 'dark:!bg-panel-dark'])).toEqual([
+      'dark:hover:!bg-brand-weak-dark',
+      'hover:!bg-panel-light/90',
+    ])
   })
 })

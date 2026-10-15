@@ -34,12 +34,16 @@ const TOAST_RING = 'focus-visible:outline-none focus-visible:!shadow-ring-brand 
 // Without richColors a success or error toast keeps the panel ground; its icon carries the status ink.
 // The card floats over the page, so it takes the ladder's overlay step (e4, as the popovers do), and
 // no shadow in dark like every other overlay.
+// The close button's forced rest outranks Sonner's own hover too, so the slot states its hover, forced
+// as well: the quiet controls' tint (brand-weak) and the primary ink in light; in dark the primary ink
+// over the panel it keeps, since the button overhangs the card's corner and a translucent tint there
+// would show the page through it.
 // toastTokens.spec.tsx holds these slots to token classes. Each slot is one literal, written whole,
 // so the ring gate and the token gate read it as it ships.
 const TOAST_CARD =
   '!border-border-light !bg-panel-light !text-text-primary-light !shadow-e4 dark:!border-border-dark dark:!bg-panel-dark dark:!text-text-primary-dark dark:!shadow-none focus-visible:outline-none focus-visible:!shadow-ring-brand dark:focus-visible:!shadow-ring-brand-dark'
 const TOAST_CLOSE =
-  '!border-border-light !bg-panel-light !text-text-secondary-light dark:!border-border-dark dark:!bg-panel-dark dark:!text-text-secondary-dark focus-visible:outline-none focus-visible:!shadow-ring-brand dark:focus-visible:!shadow-ring-brand-dark'
+  '!border-border-light !bg-panel-light !text-text-secondary-light hover:!bg-brand-weak hover:!text-text-primary-light dark:!border-border-dark dark:!bg-panel-dark dark:!text-text-secondary-dark dark:hover:!bg-panel-dark dark:hover:!text-text-primary-dark focus-visible:outline-none focus-visible:!shadow-ring-brand dark:focus-visible:!shadow-ring-brand-dark'
 export const TOAST_OPTIONS = {
   classNames: {
     toast: TOAST_CARD,
