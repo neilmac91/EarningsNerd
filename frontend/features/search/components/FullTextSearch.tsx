@@ -8,6 +8,7 @@ import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { ArrowSquareOutIcon, MagnifyingGlassIcon, WarningIcon } from '@/lib/icons'
 import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
 import { FieldSpinner, inputClasses } from '@/components/ui'
+import { SEARCH_QUERY_MAX, clampCodePoints } from '@/features/search/lib/queryLimit'
 
 // EFTS is a global SEC index (independent of our ENABLE_FPI_FILINGS discovery flag), so the
 // foreign-issuer forms are always searchable. EFTS matches on root_form, which folds amendments
@@ -143,13 +144,13 @@ export default function FullTextSearch() {
         <input
           ref={inputRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          // The backend refuses a longer query (routers/search.py, `q: str = Query(..., max_length=...)`), counted
+          // in code points; the field clamps by code points too, where a native maxLength would count UTF-16 units
+          // (features/search/lib/queryLimit.ts, held to the router by tests/unit/searchQueryLimitParity.spec.tsx).
+          onChange={(e) => setInput(clampCodePoints(e.target.value, SEARCH_QUERY_MAX))}
           placeholder="Search the full text of filings…"
           aria-label="Search the full text of SEC filings"
           aria-busy={isFetching || undefined}
-          // The backend refuses a longer query (routers/search.py, `q: str = Query(..., max_length=...)`);
-          // tests/unit/searchQueryLimitParity.spec.tsx reads that bound and holds this one to it.
-          maxLength={400}
           className={inputClasses({ leadingIcon: true, trailingIcon: true })}
         />
         {/* Inset always reserved, not only while fetching: see CompanySearch. */}
