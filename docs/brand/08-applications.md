@@ -208,11 +208,13 @@ Seven gates added or widened by the copy and signal gates PR (D-031), each with 
 that PR:
 
 - `no-em-dash-copy.spec.ts`: a literal is exempt only when it is exactly the bare missing-value
-  token (a lone em-dash), and a JSX text trimming to it only as the sole child of its element; the
-  summary's quote attribution loses its dash: on the page the cite sits on its own line under the
-  quotation, with the evidence chip (a control, not attribution) beside it when the quote carries
-  evidence, and in the PDF the speaker stands alone, the one device D-031 names for both (the CSV
-  keeps a speaker column).
+  token (a lone em-dash) and stands alone: as a JSX child, written as text or as an expression (a
+  conditional's branch or a fallback included), only as the sole child of its element, and never as
+  an operand of `+`, a template's substitution or a part of a template; a token held in a name and
+  joined elsewhere is review-checked; the summary's quote attribution loses its dash: on the page
+  the cite sits on its own line under the quotation, with the evidence chip (a control, not
+  attribution) beside it when the quote carries evidence, and in the PDF the speaker stands alone,
+  the one device D-031 names for both (the CSV keeps a speaker column).
 - `brandCopyRules.spec.ts`: the public scope is walked from the public routes through the import
   graph (`tests/unit/importWalk.ts`), not listed, so a product component a public page renders
   (SourceTrace, FinancialMetricsTable, CompanySearch) is held to rule 1c, the one rule read on the
