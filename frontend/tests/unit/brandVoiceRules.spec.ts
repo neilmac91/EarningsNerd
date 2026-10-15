@@ -23,7 +23,8 @@ import { isIconModule } from './iconModules'
  *    weaker regex. Its limits: a label passed through a variable of another name (`const heading =
  *    title`), a component's title read from a spread, a label built in a function and returned, and a
  *    className styled through a variable (`const btn = buttonVariants()`) are not followed; those stay
- *    review-checked (lessons/test-gates-must-be-as-wide-as-their-rule.md).
+ *    review-checked (lessons/test-gates-must-be-as-wide-as-their-rule.md). A label joined with `+` is
+ *    read as the joined text.
  *  - exclamation: no exclamation mark in copy.
  *  - emoji: no emoji in copy: a character that presents as an emoji by default, or any pictograph
  *    forced to one with U+FE0F. Typographic glyphs (the ▲ ▼ direction marks, ↗ for an external link,
@@ -208,8 +209,10 @@ export function titleCaseWords(text: string): string[] {
     title): each literal leaf of a conditional, of a logical and/or/nullish expression and of a
     parenthesised one, so `{busy ? 'Sending Message' : 'Send Message'}` is read as both labels, and the
     texts of a JSX element or fragment in such a branch (`{busy ? <span>Sending now</span> : 'Send'}`).
-    The condition of an `&&` renders nothing a reader sees; any other expression reads as `{x}`, and so
-    does an element that is a label of its own (`read`), which is read where it stands. */
+    The condition of an `&&` renders nothing a reader sees. A `+` joins each variant of its left side to
+    each of its right (`{'Send Message' + ' Again Later'}` reads as the label a reader sees); any other
+    expression reads as `{x}`, and so does an element that is a label of its own (`read`), which is read
+    where it stands. */
 function renderedVariants(expr: ts.Expression, read: ReadsLabel): string[] {
   if (ts.isParenthesizedExpression(expr)) return renderedVariants(expr.expression, read)
   if (ts.isConditionalExpression(expr)) return [...renderedVariants(expr.whenTrue, read), ...renderedVariants(expr.whenFalse, read)]
@@ -218,6 +221,10 @@ function renderedVariants(expr: ts.Expression, read: ReadsLabel): string[] {
     if (op === ts.SyntaxKind.AmpersandAmpersandToken) return renderedVariants(expr.right, read)
     if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken)
       return [...renderedVariants(expr.left, read), ...renderedVariants(expr.right, read)]
+    if (op === ts.SyntaxKind.PlusToken) {
+      const right = renderedVariants(expr.right, read)
+      return renderedVariants(expr.left, read).flatMap((left) => right.map((r) => left + r))
+    }
   }
   if (ts.isJsxElement(expr) && read(expr.openingElement)) return ['{x}']
   if (ts.isJsxElement(expr) || ts.isJsxFragment(expr)) return childTexts(expr, read).map((t) => t.replace(/\s+/g, ' '))
@@ -582,6 +589,7 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '      <Button>save changes</Button>',
       '      <h3>START FREE TRIAL</h3>',
       '      <h2>{count} companies · SEC EDGAR · Export CSV</h2>',
+      "      <button>{'Send Message' + ' Again Later'}</button>",
       '    </div>',
       '  )',
       '}',
@@ -635,12 +643,14 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       '39 headingIcon',
       // A buzzword in a copy attribute (its title, lowercase, is not sentence case either) and in a rendered
       // expression, each shaped like a class list; a lowercase first word and an all-caps label; line 45 passes
-      // (a phrase after an expression, two proper nouns, an acronym beside a lowercase word).
+      // (a phrase after an expression, two proper nouns, an acronym beside a lowercase word); line 46 is a label
+      // joined with `+`, read as the text a reader sees.
       '41 sentenceCase',
       '41 buzzword',
       '42 buzzword',
       '43 sentenceCase',
       '44 sentenceCase',
+      '46 sentenceCase',
     ])
     // An attribute is never label text: the icons' className leaves are not read into the label.
     expect(voiceFindings(src, 'features/probe/Probe.tsx').filter((f) => f.line >= 23 && f.clause === 'sentenceCase').map((f) => f.text)).toEqual([
@@ -660,6 +670,7 @@ describe('brand voice rules (docs/brand/07-voice.md)', () => {
       'decision-ready insights',
       'save changes',
       'START FREE TRIAL',
+      'Send Message Again Later',
     ])
     // Past MAX_VARIANTS the scan throws, naming the element and its count, instead of dropping branches.
     const sixConditionals = "export const P = () => <Button>{a ? 'x' : 'y'}{b ? 'x' : 'y'}{c ? 'x' : 'y'}{d ? 'x' : 'y'}{e ? 'x' : 'y'}{f ? 'x' : 'Send Again Later'}</Button>"

@@ -63,7 +63,10 @@ import { isLocal, lazyImport, routeFiles, walkImports } from './importWalk'
  * `<SecondaryHeader actions={…}>` in the app is scanned too, and its controls must be written inline. A
  * page's other controls are held by the page scan instead: every page.tsx under app/ and the feature modules it
  * reaches (PAGE_ROOTS), with the ringless stops found when it widened counted in a shrink-only residue
- * (RING_RESIDUE). This is the rule's one gate (AGENTS.md §4): no e2e walk repeats it.
+ * (RING_RESIDUE). The residue counts stops per file, not their identities: a PR that fixes one stop and
+ * adds another in the same file keeps its count and is review-checked (the new ringless control is in its
+ * diff); a key by line would move on every edit of the file, and one by tag and name would pass a
+ * same-shaped swap and triple the list. This is the rule's one gate (AGENTS.md §4): no e2e walk repeats it.
  */
 const ROOT = path.resolve(__dirname, '../..')
 

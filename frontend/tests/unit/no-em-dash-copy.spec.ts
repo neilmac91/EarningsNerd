@@ -26,13 +26,16 @@ import { describe, expect, it } from 'vitest'
  * or `let` is followed to each reference of the name in its file, one name at
  * a time (a name holding the name is followed too), and each reference is held
  * to the same test, so `const DASH = '—'` rendered as `{DASH} {speaker}` fails
- * at the reference. References are read by name, so a same-named binding in a
- * nested scope reads as the token's. A reference the scan cannot see (an export
- * read in another file) and what a function or an array does with the token
- * afterwards (a formatter's fallback, a `concat`, a `join`) are out of a literal
- * scan's reach and review-checked, as is a token handed to a function or
- * returned, which is read where it is written. The self-check below plants
- * each form.
+ * at the reference, and a token held in an object's property under such a
+ * name (`const BOX = { token: '—' }`) is followed to each `BOX.token` read the
+ * same way. References are read by name, so a same-named binding in a nested
+ * scope reads as the token's. A reference the scan cannot see (an export read
+ * in another file, a destructured read such as `const { token } = BOX`, an
+ * object or array passed on whole), an array's element and what a function or
+ * an array does with the token afterwards (a formatter's fallback, a `concat`,
+ * a `join`) are out of a literal scan's reach and review-checked, as is a token
+ * handed to a function or returned, which is read where it is written. The
+ * self-check below plants each form.
  *
  * If you're writing copy and want a dash: restructure the sentence (split it,
  * use a colon, or a middot separator for compact labels). En-dashes (–) in
@@ -100,9 +103,18 @@ function referencesTo(name: string, declared: ts.Identifier, source: ts.SourceFi
   return refs
 }
 
+/** The `const` or `let` an object literal initializes, through parentheses or `as const`, else null. */
+function holderOf(node: ts.Node): (ts.VariableDeclaration & { name: ts.Identifier }) | null {
+  let value: ts.Node = node
+  while (ts.isParenthesizedExpression(value.parent) || ts.isAsExpression(value.parent) || ts.isSatisfiesExpression(value.parent)) value = value.parent
+  const decl = value.parent
+  return ts.isVariableDeclaration(decl) && decl.initializer === value && ts.isIdentifier(decl.name) ? (decl as ts.VariableDeclaration & { name: ts.Identifier }) : null
+}
+
 /** The nodes where a bare token, or a name holding one, is joined into copy: none when every use stands alone
     (see the header). A `const` or `let` holding the token is followed to each reference of its name in the file,
-    one name at a time. */
+    one name at a time, and a property of an object such a name holds (`const BOX = { token: '—' }`) to each
+    `BOX.token` read. */
 function joinedUses(token: ts.Node, source: ts.SourceFile, seen = new Set<string>()): ts.Node[] {
   const { value, use } = usageOf(token)
   // Joined into copy: an operand of `+`, the right of `+=`, a template's substitution.
@@ -117,6 +129,19 @@ function joinedUses(token: ts.Node, source: ts.SourceFile, seen = new Set<string
   if (ts.isVariableDeclaration(use) && use.initializer === value && ts.isIdentifier(use.name) && !seen.has(use.name.text)) {
     seen.add(use.name.text)
     return referencesTo(use.name.text, use.name, source).flatMap((ref) => joinedUses(ref, source, seen))
+  }
+  // Held in an object's property under a name: each `NAME.prop` read in the file is held to the same test. A
+  // destructured read, an element of an array and an object passed on whole stay review-checked (the header).
+  if (ts.isPropertyAssignment(use) && use.initializer === value && ts.isObjectLiteralExpression(use.parent)) {
+    const holder = holderOf(use.parent)
+    const prop = ts.isIdentifier(use.name) || ts.isStringLiteral(use.name) ? use.name.text : null
+    if (holder && prop !== null && !seen.has(`${holder.name.text}.${prop}`)) {
+      seen.add(`${holder.name.text}.${prop}`)
+      return referencesTo(holder.name.text, holder.name, source)
+        .map((ref) => ref.parent)
+        .filter((read): read is ts.PropertyAccessExpression => ts.isPropertyAccessExpression(read) && read.name.text === prop)
+        .flatMap((read) => joinedUses(read, source, seen))
+    }
   }
   return []
 }
@@ -196,6 +221,9 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
       'export const I = ({ v }: { v?: string }) => <td>{v ?? NONE}</td>',
       'const HELD = NONE',
       'export const J = (x: string) => `${HELD}${x}`',
+      "const BOX = { token: '—' } as const",
+      'export const K = ({ speaker }: { speaker: string }) => <cite>{BOX.token} {speaker}</cite>',
+      'export const L = ({ v }: { v?: string }) => <td>{v ?? BOX.token}</td>',
     ].join('\n')
     // Lines 3 to 7 stand alone (the text, the literal, a fallback, a template beside an empty expression, an
     // attribute's value) and 18 to 19 are read where they are written (a name no line reads, a comparison, a
@@ -203,8 +231,9 @@ describe('no em-dashes in user-facing copy (voice guard)', () => {
     // the right of `||` in parentheses), 14 is a `+` operand, 15 a template's substitution, 16 a template's head
     // and 17 the right of `+=`. A name holding the token is followed to its references: DASH (20) is rendered
     // beside a sibling at 21 and is a `+` operand at 22; NONE (23) stands alone as a fallback at 24, and HELD
-    // (25), which holds NONE, is a template's substitution at 26.
-    expect(violationsIn(src, file)).toEqual([8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26].map((line) => `features/zzprobe/Probe.tsx:${line} —`))
+    // (25), which holds NONE, is a template's substitution at 26. BOX (27) holds the token in a property: its
+    // `BOX.token` read sits beside a sibling at 28 and stands alone as a fallback at 29.
+    expect(violationsIn(src, file)).toEqual([8, 9, 10, 11, 14, 15, 16, 17, 21, 22, 26, 28].map((line) => `features/zzprobe/Probe.tsx:${line} —`))
   })
 
   it('finds no em-dash in any string literal, template literal, or JSX text', () => {
